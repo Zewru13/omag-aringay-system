@@ -91,6 +91,7 @@ class FarmerListSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(read_only=True)
     commodity = serializers.SerializerMethodField()
     is_senior_citizen = serializers.SerializerMethodField()
+    farmers_association_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Farmer
@@ -106,6 +107,8 @@ class FarmerListSerializer(serializers.ModelSerializer):
             'is_active',
             'is_senior_citizen',
             'date_registered',
+            'farmers_association',
+            'farmers_association_name',
         ]
 
     def get_commodity(self, obj):
@@ -120,11 +123,17 @@ class FarmerListSerializer(serializers.ModelSerializer):
         senior_cutoff = today.replace(year=today.year - 60)
         return obj.birthdate <= senior_cutoff
 
+    def get_farmers_association_name(self, obj):
+        if obj.farmers_association:
+            return obj.farmers_association.name
+        return None
+
 
 class FarmerDetailSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(read_only=True)
     farm_parcels = FarmParcelSerializer(many=True, read_only=True)
     is_senior_citizen = serializers.SerializerMethodField()
+    farmers_association_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Farmer
@@ -154,8 +163,10 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
             'date_registered',
             'registered_by',
             'farm_parcels',
+            'farmers_association',
+            'farmers_association_name',
         ]
-        read_only_fields = ['id', 'date_registered', 'registered_by', 'farm_parcels']
+        read_only_fields = ['id', 'date_registered', 'registered_by', 'farm_parcels', 'farmers_association_name']
 
     def get_is_senior_citizen(self, obj):
         from django.utils.timezone import now
@@ -164,6 +175,11 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
         today = now().date()
         senior_cutoff = today.replace(year=today.year - 60)
         return obj.birthdate <= senior_cutoff
+
+    def get_farmers_association_name(self, obj):
+        if obj.farmers_association:
+            return obj.farmers_association.name
+        return None
 
     def validate_birthdate(self, value):
         if value:
@@ -197,6 +213,7 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
 
 class FarmerCreateSerializer(serializers.ModelSerializer):
     rsbsa_number = serializers.CharField(max_length=50)
+    farmers_association_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Farmer
@@ -223,8 +240,15 @@ class FarmerCreateSerializer(serializers.ModelSerializer):
             'is_active',
             'date_registered',
             'registered_by',
+            'farmers_association',
+            'farmers_association_name',
         ]
-        read_only_fields = ['id', 'date_registered', 'registered_by']
+        read_only_fields = ['id', 'date_registered', 'registered_by', 'farmers_association_name']
+
+    def get_farmers_association_name(self, obj):
+        if obj.farmers_association:
+            return obj.farmers_association.name
+        return None
 
     def validate_birthdate(self, value):
         if value:

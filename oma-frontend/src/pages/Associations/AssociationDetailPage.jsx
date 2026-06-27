@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Users } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import api from "../../api/axiosInstance.js";
 import PageLayout from "../../components/Layout/PageLayout.jsx";
@@ -442,15 +442,14 @@ function Field({ label, value }) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-const sectionTabs = [
-  { value: "members", label: "Members" },
-  { value: "equipment", label: "Equipment Inventory" },
-];
-
 function AssociationDetailPage() {
   const { type, id } = useParams();
   const { isAdmin, isEvaluator } = useAuth();
   const { showToast } = useToast();
+
+  const sectionTabs = type === "farmers"
+    ? [{ value: "members", label: "Members" }]
+    : [{ value: "members", label: "Members" }, { value: "equipment", label: "Equipment Inventory" }];
 
   const [association, setAssociation] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -461,6 +460,7 @@ function AssociationDetailPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [confirmRemoveMember, setConfirmRemoveMember] = useState(null);
   const [confirmRemoveEquipment, setConfirmRemoveEquipment] = useState(null);
+  const [members, setMembers] = useState([]);
 
   const typeLabel = type === "farmers" ? "Farmers" : "Fisherfolk";
   const memberIdLabel = type === "farmers" ? "RSBSA Number" : "LGU Number";
@@ -487,6 +487,13 @@ function AssociationDetailPage() {
     return () => {
       cancelled = true;
     };
+  }, [type, id, refreshKey]);
+
+  useEffect(() => {
+    if (type !== "farmers") return;
+    api.get(`/farmers/?farmers_association=${id}`)
+      .then(r => setMembers(r.data.results || r.data))
+      .catch(console.error);
   }, [type, id, refreshKey]);
 
   const handleRemoveMember = async (memberId) => {
@@ -599,7 +606,7 @@ function AssociationDetailPage() {
                   tabs={sectionTabs}
                   onChange={setActiveSection}
                 />
-                {(isAdmin || isEvaluator) &&
+                {(isAdmin || isEvaluator) && type !== "farmers" &&
                   (activeSection === "members" ? (
                     <Button
                       icon={Plus}
@@ -619,8 +626,51 @@ function AssociationDetailPage() {
                   ))}
               </div>
 
-              {/* Members tab */}
-              {activeSection === "members" &&
+              {/* Members tab — farmers (auto-populated from farmer profiles) */}
+              {activeSection === "members" && type === "farmers" && (
+                <div className="bg-white rounded-xl border border-slate-100 p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-900">Association Members</h3>
+                      <p className="text-xs text-slate-400 mt-0.5">Farmers registered under this association</p>
+                    </div>
+                    <span className="text-xs font-medium bg-[#f0f7f0] text-[#1E4620] px-2.5 py-1 rounded-full">
+                      {members.length} members
+                    </span>
+                  </div>
+                  {members.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Users className="w-10 h-10 text-slate-200 mx-auto mb-2" />
+                      <p className="text-sm text-slate-400">No members yet</p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Farmers can be linked to this association through their profile registration or edit.
+                      </p>
+                    </div>
+                  ) : (
+                    <table className="w-full">
+                      <thead>
+                        <tr className="bg-[#1E4620]">
+                          <th className="text-white text-xs font-semibold uppercase tracking-wide px-4 py-3 text-left rounded-l-lg">Name</th>
+                          <th className="text-white text-xs font-semibold uppercase tracking-wide px-4 py-3 text-left">Barangay</th>
+                          <th className="text-white text-xs font-semibold uppercase tracking-wide px-4 py-3 text-left rounded-r-lg">RSBSA No.</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {members.map(m => (
+                          <tr key={m.id} className="border-b border-slate-100 hover:bg-slate-50">
+                            <td className="px-4 py-3 text-sm font-medium text-slate-900">{m.full_name}</td>
+                            <td className="px-4 py-3 text-sm text-slate-600">{m.barangay}</td>
+                            <td className="px-4 py-3 text-sm text-slate-600">{m.rsbsa_number}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              )}
+
+              {/* Members tab — fisherfolk (manual add/remove) */}
+              {activeSection === "members" && type !== "farmers" &&
                 (association.members.length === 0 ? (
                   <p className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
                     No members recorded.
@@ -752,7 +802,7 @@ function AssociationDetailPage() {
         )}
       </div>
 
-      {showAddMember && (
+      {showAddMember && type !== "farmers" && (
         <AddMemberModal
           type={type}
           associationId={id}

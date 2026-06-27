@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { UserCog } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ModalShell from '../../components/UI/ModalShell.jsx'
@@ -39,6 +39,7 @@ const getMaxBirthdate = () => {
 function EditFarmerModal({ farmer, onClose, onSuccess }) {
   const { isAdmin } = useAuth()
   const { showToast } = useToast()
+  const [associations, setAssociations] = useState([])
   const [form, setForm] = useState({
     prefix: farmer.prefix || '',
     first_name: farmer.first_name || '',
@@ -56,11 +57,18 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
     is_4ps_beneficiary: farmer.is_4ps_beneficiary || false,
     is_icc_ip_member: farmer.is_icc_ip_member || false,
     icc_ip_name: farmer.icc_ip_name || '',
+    farmers_association: farmer.farmers_association || null,
   })
   const [birthdateError, setBirthdateError] = useState('')
   const [contactError, setContactError] = useState('')
   const [formError, setFormError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    api.get('/associations/farmers/')
+      .then(r => setAssociations(r.data.results || r.data))
+      .catch(console.error)
+  }, [])
 
   const updateField = (field, value) => {
     if (field === 'contact_number') {
@@ -253,6 +261,27 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
               </select>
             </div>
           )}
+        </div>
+
+        {/* Farmer Association */}
+        <div className="mt-3">
+          <label className={labelCls}>
+            Farmer Association{' '}
+            <span className="text-slate-400 font-normal">(optional)</span>
+          </label>
+          <select
+            className={baseInputClasses}
+            value={form.farmers_association || ''}
+            onChange={e => updateField('farmers_association', e.target.value || null)}
+          >
+            <option value="">— Not a member of any association</option>
+            {associations.map(a => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+          <p className="text-xs text-slate-400 mt-1">
+            Leave blank if the farmer is not part of any association. This can be updated later by editing the farmer profile.
+          </p>
         </div>
 
         {formError && (

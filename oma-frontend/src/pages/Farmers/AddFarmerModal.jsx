@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { UserPlus } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ModalShell from '../../components/UI/ModalShell.jsx'
@@ -25,6 +25,7 @@ const initialForm = {
   is_4ps_beneficiary: false,
   is_icc_ip_member: false,
   icc_ip_name: '',
+  farmers_association: null,
 }
 
 const validateAge = (birthdate) => {
@@ -68,11 +69,18 @@ const getMaxBirthdate = () => {
 
 function AddFarmerModal({ onClose, onSuccess }) {
   const [form, setForm] = useState(initialForm)
+  const [associations, setAssociations] = useState([])
   const [rsbsaError, setRsbsaError] = useState('')
   const [contactError, setContactError] = useState('')
   const [birthdateError, setBirthdateError] = useState('')
   const [formError, setFormError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    api.get('/associations/farmers/')
+      .then(r => setAssociations(r.data.results || r.data))
+      .catch(console.error)
+  }, [])
 
   const updateField = (field, value) => {
     if (field === 'rsbsa_number') {
@@ -260,6 +268,27 @@ function AddFarmerModal({ onClose, onSuccess }) {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Farmer Association */}
+        <div className="mt-3">
+          <label className={labelCls}>
+            Farmer Association{' '}
+            <span className="text-slate-400 font-normal">(optional)</span>
+          </label>
+          <select
+            className={baseInputClasses}
+            value={form.farmers_association || ''}
+            onChange={e => updateField('farmers_association', e.target.value || null)}
+          >
+            <option value="">— Not a member of any association</option>
+            {associations.map(a => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+          <p className="text-xs text-slate-400 mt-1">
+            Leave blank if the farmer is not part of any association. This can be updated later by editing the farmer profile.
+          </p>
         </div>
 
         {formError && (

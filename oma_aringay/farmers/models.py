@@ -57,6 +57,14 @@ class Farmer(models.Model):
         blank=True,
         related_name='registered_farmers',
     )
+    farmers_association = models.ForeignKey(
+        'associations.FarmersAssociation',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='member_farmers',
+        help_text="Association this farmer belongs to (optional)",
+    )
 
     @property
     def full_name(self):
