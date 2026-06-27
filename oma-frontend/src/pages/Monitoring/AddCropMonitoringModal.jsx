@@ -93,6 +93,29 @@ function RecordSection({ rec, index, total, cropTypes, onUpdate, onRemove }) {
             onChange={e => handleDatePlantedChange(e.target.value)} />
         </FormField>
 
+        {rec.crop_type && (() => {
+          const ct = cropTypes.find(c => String(c.id) === String(rec.crop_type))
+          if (!ct) return null
+          return (
+            <div className="sm:col-span-2 bg-slate-50 rounded-xl px-4 py-3 mt-1">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Category</p>
+                  <p className="text-sm font-medium text-slate-900">{ct.category_name || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Subcategory</p>
+                  <p className="text-sm font-medium text-slate-900">{ct.subcategory_name || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Growth Duration</p>
+                  <p className="text-sm font-medium text-slate-900">{ct.days_to_harvest} days</p>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+
         <FormField label="Area Planted (ha)" required>
           <input type="number" step="0.01" min="0" className={baseInputClasses}
             placeholder="0.00"
