@@ -32,11 +32,12 @@ const EMPTY_FORM = { name: '', days_to_harvest: '', yield_per_ha_kg: '', categor
 
 function SuggestionsSection({ cropId }) {
   const { showToast } = useToast()
-  const [stages,      setStages]      = useState([])
-  const [isLoading,   setIsLoading]   = useState(true)
-  const [stageForm,   setStageForm]   = useState({ stage_name: '', priority: 'MEDIUM', recommendation: '' })
-  const [stageError,  setStageError]  = useState('')
-  const [addingStage, setAddingStage] = useState(false)
+  const [stages,          setStages]          = useState([])
+  const [isLoading,       setIsLoading]       = useState(true)
+  const [stageForm,       setStageForm]       = useState({ stage_name: '', priority: 'MEDIUM', recommendation: '' })
+  const [dayAfterPlanting, setDayAfterPlanting] = useState('')
+  const [stageError,      setStageError]      = useState('')
+  const [addingStage,     setAddingStage]     = useState(false)
 
   const fetchStages = useCallback(async () => {
     setIsLoading(true)
@@ -61,10 +62,11 @@ function SuggestionsSection({ cropId }) {
         stage_name:         stageForm.stage_name.trim(),
         priority:           stageForm.priority,
         recommendation:     stageForm.recommendation.trim(),
-        day_after_planting: stages.length,
+        day_after_planting: parseInt(dayAfterPlanting) || 1,
       })
       setStages(prev => [...prev, res.data])
       setStageForm({ stage_name: '', priority: 'MEDIUM', recommendation: '' })
+      setDayAfterPlanting('')
     } catch {
       setStageError('Failed to add suggestion. Please try again.')
     } finally {
@@ -98,6 +100,9 @@ function SuggestionsSection({ cropId }) {
                   {stage.priority}
                 </span>
                 <span className="text-sm text-slate-800 font-medium">{stage.stage_name}</span>
+                <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
+                  Day {stage.day_after_planting}
+                </span>
               </div>
               <button
                 type="button"
@@ -122,6 +127,14 @@ function SuggestionsSection({ cropId }) {
           className={baseInputClasses}
         />
         <div className="grid grid-cols-2 gap-2">
+          <input
+            type="number"
+            min="1"
+            placeholder="Day #"
+            className={`${baseInputClasses} w-24`}
+            value={dayAfterPlanting}
+            onChange={e => setDayAfterPlanting(e.target.value)}
+          />
           <select
             value={stageForm.priority}
             onChange={e => setStageForm(prev => ({ ...prev, priority: e.target.value }))}
@@ -131,14 +144,6 @@ function SuggestionsSection({ cropId }) {
             <option value="MEDIUM">Medium Priority</option>
             <option value="LOW">Low Priority</option>
           </select>
-          <button
-            type="button"
-            onClick={handleAddStage}
-            disabled={addingStage}
-            className="bg-[#1E4620] hover:bg-[#2D6A31] text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 transition-colors"
-          >
-            {addingStage ? 'Adding...' : '+ Add'}
-          </button>
         </div>
         <textarea
           value={stageForm.recommendation}
@@ -147,6 +152,14 @@ function SuggestionsSection({ cropId }) {
           rows={2}
           className={`${baseInputClasses} resize-none`}
         />
+        <button
+          type="button"
+          onClick={handleAddStage}
+          disabled={addingStage}
+          className="w-full bg-[#1E4620] hover:bg-[#2D6A31] text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 transition-colors"
+        >
+          {addingStage ? 'Adding...' : '+ Add'}
+        </button>
         {stageError && (
           <p className="text-xs text-rose-600">{stageError}</p>
         )}

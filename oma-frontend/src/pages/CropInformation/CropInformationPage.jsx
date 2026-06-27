@@ -55,6 +55,117 @@ const COLUMNS = [
 
 const STATUS_FILTER_OPTIONS = ['All Status', 'Planted', 'For Harvest', 'Harvested', 'Damaged', 'Abandoned']
 
+// ─── Crop Detail Modal ────────────────────────────────────────────────────────
+
+function CropDetailModal({ crop, onClose }) {
+  const [activeTab, setActiveTab] = useState('schedule')
+  const [stages, setStages] = useState([])
+  const [loadingStages, setLoadingStages] = useState(false)
+
+  useEffect(() => {
+    if (!crop) return
+    setLoadingStages(true)
+    api.get(`/production/crop-types/${crop.id}/stages/`)
+      .then(r => setStages(r.data.results || r.data))
+      .catch(console.error)
+      .finally(() => setLoadingStages(false))
+  }, [crop])
+
+  if (!crop) return null
+
+  const tabs = [
+    { value: 'schedule', label: 'Schedule' },
+    { value: 'logs', label: 'Activity Logs' },
+    { value: 'remarks', label: 'Remarks' },
+  ]
+
+  return (
+    <ModalShell title={crop.name} onClose={onClose} maxWidth="max-w-lg">
+      <div className="flex gap-4 border-b border-slate-100 mb-4">
+        {tabs.map(t => (
+          <button
+            key={t.value}
+            onClick={() => setActiveTab(t.value)}
+            className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === t.value
+                ? 'border-[#1E4620] text-[#1E4620]'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'schedule' && (
+        <div>
+          {loadingStages ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin w-6 h-6 border-4 border-[#1E4620] border-t-transparent rounded-full" />
+            </div>
+          ) : stages.length === 0 ? (
+            <p className="text-center text-sm text-slate-400 py-8">No activity schedule defined.</p>
+          ) : (
+            <div className="space-y-2">
+              {stages.map(s => (
+                <div key={s.id} className="flex items-start gap-3 p-3 rounded-xl border border-slate-100 hover:bg-slate-50">
+                  <div className="shrink-0 w-14 text-center">
+                    <span className="text-xs font-bold text-[#1E4620] bg-[#f0f7f0] px-2 py-1 rounded-lg block">
+                      Day {s.day_after_planting}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-900">{s.stage_name}</p>
+                    {s.recommendation && (
+                      <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{s.recommendation}</p>
+                    )}
+                  </div>
+                  <span className={`shrink-0 text-xs font-semibold px-2 py-0.5 rounded-full ${
+                    s.priority === 'HIGH' ? 'bg-rose-100 text-rose-700' :
+                    s.priority === 'MEDIUM' ? 'bg-amber-100 text-amber-700' :
+                    'bg-slate-100 text-slate-600'
+                  }`}>
+                    {s.priority}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === 'logs' && (
+        <p className="text-center text-sm text-slate-400 py-8">
+          Activity logs are tracked per monitoring record in the Crop Monitoring page.
+        </p>
+      )}
+
+      {activeTab === 'remarks' && (
+        <div className="space-y-2">
+          <div className="p-3 rounded-xl border border-slate-100 bg-slate-50">
+            <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Category</p>
+            <p className="text-sm font-medium">{crop.category_name || '—'}</p>
+          </div>
+          <div className="p-3 rounded-xl border border-slate-100 bg-slate-50">
+            <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Subcategory</p>
+            <p className="text-sm font-medium">{crop.subcategory_name || '—'}</p>
+          </div>
+          <div className="p-3 rounded-xl border border-slate-100 bg-slate-50">
+            <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Growth Duration</p>
+            <p className="text-sm font-medium">{crop.days_to_harvest ? `${crop.days_to_harvest} days` : '—'}</p>
+          </div>
+          {crop.suggested_activities && (
+            <div className="p-3 rounded-xl border border-slate-100 bg-slate-50">
+              <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Notes</p>
+              <p className="text-sm text-slate-700 leading-relaxed">{crop.suggested_activities}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </ModalShell>
+  )
+}
+
 // ─── Add Remark Modal ─────────────────────────────────────────────────────────
 
 function AddRemarkModal({ record, onClose, onSuccess }) {
@@ -261,6 +372,7 @@ export default function CropInformationPage() {
   const [statusFilter, setStatusFilter] = useState('All Status')
   const [remarksRec,   setRemarksRec]   = useState(null)
   const [showAdd,      setShowAdd]      = useState(false)
+  const [selectedCrop, setSelectedCrop] = useState(null)
 
   const fetchRecords = useCallback(async () => {
     setIsLoading(true); setError('')
@@ -362,7 +474,11 @@ export default function CropInformationPage() {
                 <tr><td colSpan={COLUMNS.length} className="py-10 text-center text-sm text-slate-400">No crop records found.</td></tr>
               ) : (
                 rows.map(row => (
-                  <tr key={row.id} className="border-b border-slate-100 transition-colors hover:bg-slate-50">
+                  <tr
+                    key={row.id}
+                    className="border-b border-slate-100 transition-colors hover:bg-slate-50 cursor-pointer"
+                    onClick={() => setSelectedCrop({ id: row.crop_type, name: row.crop_type_name, suggested_activities: row.crop_suggested_activities })}
+                  >
                     {COLUMNS.map(col => (
                       <td key={col.key} className="whitespace-nowrap px-4 py-3 text-sm text-slate-800">
                         {row[col.key]}
@@ -388,6 +504,10 @@ export default function CropInformationPage() {
           record={remarksRec}
           onClose={() => setRemarksRec(null)}
         />
+      )}
+
+      {selectedCrop && (
+        <CropDetailModal crop={selectedCrop} onClose={() => setSelectedCrop(null)} />
       )}
     </PageLayout>
   )

@@ -76,6 +76,7 @@ class CropActivityStage(models.Model):
     day_after_planting = models.PositiveIntegerField()
     recommendation     = models.TextField(blank=True)
     priority           = models.CharField(max_length=10, choices=Priority.choices, default=Priority.MEDIUM)
+    window_days        = models.IntegerField(default=3)
 
     class Meta:
         ordering = ['crop_type', 'day_after_planting']

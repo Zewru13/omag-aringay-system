@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  AlertTriangle, Bug, Check, CheckCircle2, Eye, FileText, Leaf, Lightbulb, MoreVertical, Sprout, TrendingUp, Wheat,
+  AlertTriangle, Bug, Eye, FileText, Leaf, MoreVertical, TrendingUp, Wheat,
 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
@@ -36,103 +36,104 @@ const fmtDate = (v) => {
 // ── Suggestions Modal ─────────────────────────────────────────────────────────
 
 function SuggestionsModal({ record, onClose, onApply }) {
-  const { showToast } = useToast()
-  const [suggestions, setSuggestions] = useState([])
-  const [isLoading,   setIsLoading]   = useState(true)
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!record) return
+    setLoading(true)
     api.get(`/production/monitoring/${record.id}/suggestions/`)
-      .then(r => setSuggestions(Array.isArray(r.data) ? r.data : []))
-      .catch(() => showToast('Failed to load suggestions.', 'error'))
-      .finally(() => setIsLoading(false))
-  }, [record.id])
+      .then(r => setData(r.data))
+      .catch(console.error)
+      .finally(() => setLoading(false))
+  }, [record])
 
-  const sorted = useMemo(() => {
-    return [...suggestions].sort((a, b) => {
-      if (a.is_completed === b.is_completed) return 0
-      return a.is_completed ? 1 : -1
-    })
-  }, [suggestions])
+  if (!record) return null
 
-  const completed = suggestions.filter(s => s.is_completed).length
-  const total = suggestions.length
+  const groups = {
+    overdue: { label: 'Overdue', color: 'text-rose-700', bg: 'bg-rose-50', border: 'border-rose-200', badge: 'bg-rose-100 text-rose-700' },
+    due_now: { label: 'Due Now', color: 'text-[#1E4620]', bg: 'bg-[#f0f7f0]', border: 'border-[#c5e0c5]', badge: 'bg-[#1E4620] text-white' },
+    upcoming: { label: 'Upcoming', color: 'text-blue-700', bg: 'bg-blue-50', border: 'border-blue-200', badge: 'bg-blue-100 text-blue-700' },
+    done: { label: 'Done', color: 'text-slate-500', bg: 'bg-slate-50', border: 'border-slate-200', badge: 'bg-slate-200 text-slate-600' },
+  }
+
+  const groupOrder = ['overdue', 'due_now', 'upcoming', 'done']
+
+  const suggestions = data?.suggestions || []
+  const daysElapsed = data?.days_elapsed ?? 0
+  const totalDays = data?.total_days ?? 0
+  const progressPct = totalDays > 0 ? Math.min(100, Math.round((daysElapsed / totalDays) * 100)) : 0
 
   return (
-    <ModalShell
-      title={`Activity Suggestions — ${record.crop_type_name?.toUpperCase() ?? 'CROP'}`}
-      icon={Sprout}
-      onClose={onClose}
-      maxWidth="max-w-md"
-    >
-      {isLoading ? (
-        <p className="py-6 text-center text-sm text-slate-400">Loading suggestions…</p>
-      ) : suggestions.length === 0 ? (
-        <div className="text-center py-6">
-          <Lightbulb className="w-10 h-10 text-slate-200 mx-auto mb-2" />
-          <p className="text-sm font-medium text-slate-500">No suggestions available</p>
-          <p className="text-xs text-slate-400 mt-1">Add activity suggestions in Crop Option management.</p>
-          <button type="button" onClick={onClose}
-            className="mt-4 w-full rounded-xl border border-slate-200 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
-            Close
-          </button>
+    <ModalShell title={`Activity Suggestions — ${record.crop_type_name}`} onClose={onClose} maxWidth="max-w-lg">
+      {loading ? (
+        <div className="flex justify-center py-10">
+          <div className="animate-spin w-8 h-8 border-4 border-[#1E4620] border-t-transparent rounded-full" />
         </div>
       ) : (
-        <div>
-          {/* Progress summary */}
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-xs text-slate-500">{completed} of {total} activities completed</p>
-            <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+        <div className="space-y-5">
+          {/* Progress bar */}
+          <div className="bg-slate-50 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-slate-700">Growing Progress</span>
+              <span className="text-sm font-semibold text-[#1E4620]">Day {daysElapsed} of {totalDays} days</span>
+            </div>
+            <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
               <div
-                className="h-full bg-[#4CAF50] rounded-full transition-all"
-                style={{ width: total > 0 ? `${(completed / total) * 100}%` : '0%' }}
+                className="h-full bg-[#1E4620] rounded-full transition-all"
+                style={{ width: `${progressPct}%` }}
               />
             </div>
           </div>
 
-          <div className="space-y-2 mb-3">
-            {sorted.map(s => s.is_completed ? (
-              <div key={s.id}
-                className="border border-slate-100 rounded-xl px-4 py-3 bg-slate-50 opacity-60 cursor-not-allowed">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1">
-                    <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                      <span className="text-xs font-semibold bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full">
-                        {s.priority}
-                      </span>
-                      <span className="text-sm font-medium text-slate-400 line-through">{s.stage_name}</span>
+          {/* Grouped suggestions */}
+          {groupOrder.map(key => {
+            const group = groups[key]
+            const items = suggestions.filter(s => s.status === key)
+            if (items.length === 0) return null
+            return (
+              <div key={key}>
+                <h4 className={`text-xs font-semibold uppercase tracking-wide mb-2 ${group.color}`}>
+                  {group.label} ({items.length})
+                </h4>
+                <div className="space-y-2">
+                  {items.map(s => (
+                    <div
+                      key={s.id}
+                      className={`rounded-xl border p-4 ${group.bg} ${group.border}`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-1">
+                            <span className="text-sm font-medium text-slate-900">{s.activity_name}</span>
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${group.badge}`}>
+                              Day {s.day_after_planting}
+                            </span>
+                            <span className="text-xs text-slate-500 uppercase">{s.priority}</span>
+                          </div>
+                          {s.recommendation && (
+                            <p className="text-xs text-slate-600 leading-relaxed">{s.recommendation}</p>
+                          )}
+                        </div>
+                        {key !== 'done' && (
+                          <button
+                            onClick={() => { onApply(s); onClose(); }}
+                            className="shrink-0 text-xs font-medium bg-[#1E4620] text-white px-3 py-1.5 rounded-lg hover:bg-[#163318] transition"
+                          >
+                            Log
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    {s.completed_on && (
-                      <p className="text-xs text-slate-400">Done on {fmtDate(s.completed_on)}</p>
-                    )}
-                  </div>
-                  <CheckCircle2 className="w-5 h-5 text-[#4CAF50] flex-shrink-0 mt-0.5" />
+                  ))}
                 </div>
               </div>
-            ) : (
-              <div key={s.id}
-                onClick={() => onApply(s)}
-                className="border border-slate-100 rounded-xl px-4 py-3 cursor-pointer hover:bg-slate-50 hover:border-[#1E4620]/30 transition-all">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1">
-                    <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                      <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${PRIORITY_BADGE[s.priority] ?? 'bg-slate-200 text-slate-700'}`}>
-                        {s.priority}
-                      </span>
-                      <span className="text-sm font-semibold text-slate-900">{s.stage_name}</span>
-                    </div>
-                    {s.recommendation && <p className="text-xs text-slate-500">{s.recommendation}</p>}
-                  </div>
-                  <Check className="w-4 h-4 text-[#4CAF50] flex-shrink-0 mt-0.5" />
-                </div>
-              </div>
-            ))}
-          </div>
+            )
+          })}
 
-          <p className="text-center text-xs text-slate-400 mb-3">Click a suggestion to fill the form.</p>
-          <button type="button" onClick={onClose}
-            className="w-full rounded-xl border border-slate-200 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
-            Close
-          </button>
+          {suggestions.length === 0 && (
+            <p className="text-center text-sm text-slate-400 py-8">No activity stages defined for this crop type.</p>
+          )}
         </div>
       )}
     </ModalShell>
@@ -223,7 +224,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
   }
 
   const handleApplySuggestion = (s) => {
-    setActivityType(s.stage_name)
+    setActivityType(s.activity_name)
     setNotes(s.recommendation || '')
     setShowSuggest(false)
     setShowForm(true)
