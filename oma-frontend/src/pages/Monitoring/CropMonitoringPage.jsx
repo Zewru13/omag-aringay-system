@@ -166,6 +166,15 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
   const showFertilizerFields = activityType === 'Fertilizer Application'
   const showPestFields = activityType === 'Pest Control' || activityType === 'Disease Control'
 
+  const PRE_PLANTING_ACTIVITIES = [
+    'Soil Preparation & Leveling',
+    'Seed Bed Preparation',
+    'Seed Planting',
+    'Land Preparation',
+    'Planting',
+  ]
+  const isPrePlanting = PRE_PLANTING_ACTIVITIES.includes(activityType)
+
   const fetchLogs = useCallback(async () => {
     setIsLoading(true)
     try {
@@ -261,7 +270,14 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-700">Activity *</label>
                 <select className={baseInputClasses} value={activityType}
-                  onChange={e => setActivityType(e.target.value)}>
+                  onChange={e => {
+                    const newType = e.target.value
+                    const newIsPre = PRE_PLANTING_ACTIVITIES.includes(newType)
+                    setActivityType(newType)
+                    if (newIsPre) {
+                      setPlantCondition('')
+                    }
+                  }}>
                   <option value="">Select Activity</option>
                   {ACTIVITY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
@@ -340,17 +356,19 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
               </div>
             )}
 
-            {/* Plant Condition — always visible */}
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Plant Condition</label>
-              <select className={baseInputClasses} value={plantCondition}
-                onChange={e => setPlantCondition(e.target.value)}>
-                <option value="">Select condition</option>
-                <option value="Good">Good</option>
-                <option value="Fair">Fair</option>
-                <option value="Poor">Poor</option>
-              </select>
-            </div>
+            {/* Plant Condition — hidden for pre-planting activities */}
+            {!isPrePlanting && (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-700">Plant Condition</label>
+                <select className={baseInputClasses} value={plantCondition}
+                  onChange={e => setPlantCondition(e.target.value)}>
+                  <option value="">Select condition</option>
+                  <option value="Good">Good</option>
+                  <option value="Fair">Fair</option>
+                  <option value="Poor">Poor</option>
+                </select>
+              </div>
+            )}
 
             {/* Recommendations */}
             <div>
