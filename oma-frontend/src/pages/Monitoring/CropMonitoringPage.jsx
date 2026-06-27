@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  AlertTriangle, Bug, Check, Eye, FileText, Leaf, Sprout, TrendingUp, Wheat,
+  AlertTriangle, Bug, Check, CheckCircle2, Eye, FileText, Leaf, Lightbulb, MoreVertical, Sprout, TrendingUp, Wheat,
 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
@@ -47,9 +47,19 @@ function SuggestionsModal({ record, onClose, onApply }) {
       .finally(() => setIsLoading(false))
   }, [record.id])
 
+  const sorted = useMemo(() => {
+    return [...suggestions].sort((a, b) => {
+      if (a.is_completed === b.is_completed) return 0
+      return a.is_completed ? 1 : -1
+    })
+  }, [suggestions])
+
+  const completed = suggestions.filter(s => s.is_completed).length
+  const total = suggestions.length
+
   return (
     <ModalShell
-      title={`🌿 Yield Improvement Suggestions for ${record.crop_type_name?.toUpperCase() ?? 'CROP'}`}
+      title={`Activity Suggestions — ${record.crop_type_name?.toUpperCase() ?? 'CROP'}`}
       icon={Sprout}
       onClose={onClose}
       maxWidth="max-w-md"
@@ -57,21 +67,51 @@ function SuggestionsModal({ record, onClose, onApply }) {
       {isLoading ? (
         <p className="py-6 text-center text-sm text-slate-400">Loading suggestions…</p>
       ) : suggestions.length === 0 ? (
-        <div>
-          <p className="py-4 text-center text-sm text-slate-500">
-            No suggestions available for this crop.
-          </p>
+        <div className="text-center py-6">
+          <Lightbulb className="w-10 h-10 text-slate-200 mx-auto mb-2" />
+          <p className="text-sm font-medium text-slate-500">No suggestions available</p>
+          <p className="text-xs text-slate-400 mt-1">Add activity suggestions in Crop Option management.</p>
           <button type="button" onClick={onClose}
-            className="mt-2 w-full rounded-xl border border-slate-200 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
+            className="mt-4 w-full rounded-xl border border-slate-200 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
             Close
           </button>
         </div>
       ) : (
         <div>
-          <div className="space-y-2">
-            {suggestions.map(s => (
-              <div key={s.id} onClick={() => onApply(s)}
-                className="cursor-pointer rounded-xl border border-slate-100 px-4 py-3 hover:bg-slate-50">
+          {/* Progress summary */}
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs text-slate-500">{completed} of {total} activities completed</p>
+            <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-[#4CAF50] rounded-full transition-all"
+                style={{ width: total > 0 ? `${(completed / total) * 100}%` : '0%' }}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2 mb-3">
+            {sorted.map(s => s.is_completed ? (
+              <div key={s.id}
+                className="border border-slate-100 rounded-xl px-4 py-3 bg-slate-50 opacity-60 cursor-not-allowed">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                      <span className="text-xs font-semibold bg-slate-200 text-slate-500 px-2 py-0.5 rounded-full">
+                        {s.priority}
+                      </span>
+                      <span className="text-sm font-medium text-slate-400 line-through">{s.stage_name}</span>
+                    </div>
+                    {s.completed_on && (
+                      <p className="text-xs text-slate-400">Done on {fmtDate(s.completed_on)}</p>
+                    )}
+                  </div>
+                  <CheckCircle2 className="w-5 h-5 text-[#4CAF50] flex-shrink-0 mt-0.5" />
+                </div>
+              </div>
+            ) : (
+              <div key={s.id}
+                onClick={() => onApply(s)}
+                className="border border-slate-100 rounded-xl px-4 py-3 cursor-pointer hover:bg-slate-50 hover:border-[#1E4620]/30 transition-all">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
                     <div className="mb-1 flex flex-wrap items-center gap-1.5">
@@ -82,14 +122,15 @@ function SuggestionsModal({ record, onClose, onApply }) {
                     </div>
                     {s.recommendation && <p className="text-xs text-slate-500">{s.recommendation}</p>}
                   </div>
-                  <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-[#4CAF50]" />
+                  <Check className="w-4 h-4 text-[#4CAF50] flex-shrink-0 mt-0.5" />
                 </div>
               </div>
             ))}
           </div>
-          <p className="mt-3 text-center text-xs text-slate-400">Click a suggestion to fill the form.</p>
+
+          <p className="text-center text-xs text-slate-400 mb-3">Click a suggestion to fill the form.</p>
           <button type="button" onClick={onClose}
-            className="mt-3 w-full rounded-xl border border-slate-200 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
+            className="w-full rounded-xl border border-slate-200 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
             Close
           </button>
         </div>
@@ -720,6 +761,8 @@ export default function CropMonitoringPage() {
   const [viewLogsRecord,   setViewLogsRecord]   = useState(null)
   const [disasterRecord,   setDisasterRecord]   = useState(null)
   const [harvestRecord,    setHarvestRecord]    = useState(null)
+  const [openDropdownId,   setOpenDropdownId]   = useState(null)
+  const dropdownRefs = useRef({})
 
   const fetchRecords = useCallback(async () => {
     setIsLoading(true); setError('')
@@ -732,6 +775,18 @@ export default function CropMonitoringPage() {
   }, [])
 
   useEffect(() => { fetchRecords() }, [fetchRecords])
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      const clickedOutside = Object.values(dropdownRefs.current)
+        .every(ref => ref && !ref.contains(e.target))
+      if (clickedOutside) setOpenDropdownId(null)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const toggleDropdown = (id) => setOpenDropdownId(prev => prev === id ? null : id)
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
@@ -747,7 +802,7 @@ export default function CropMonitoringPage() {
     association_col: rec.association_name || '—',
     logs_cell: rec.log_count ?? 0,
     actions: (
-      <div className="flex items-center gap-1.5 flex-wrap">
+      <div className="flex items-center gap-1.5">
         <button type="button"
           onClick={() => setViewLogsRecord(rec)}
           className="flex items-center gap-1.5 rounded-lg bg-[#1E4620] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2D6A31] transition-colors">
@@ -755,21 +810,49 @@ export default function CropMonitoringPage() {
           View Logs
         </button>
 
-        {isNearHarvest(rec) && (
+        <div className="relative" ref={el => { dropdownRefs.current[rec.id] = el }}>
           <button type="button"
-            onClick={() => setHarvestRecord(rec)}
-            className="flex items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600 transition-colors">
-            <Wheat className="h-3.5 w-3.5" />
-            Record Harvest
+            onClick={() => toggleDropdown(rec.id)}
+            className="border border-slate-200 text-slate-600 hover:bg-slate-100 text-sm p-1.5 rounded-lg transition-colors">
+            <MoreVertical className="w-4 h-4" />
           </button>
-        )}
 
-        <button type="button"
-          onClick={() => setDisasterRecord(rec)}
-          className="flex items-center gap-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-600 text-xs px-3 py-1.5 transition-colors">
-          <AlertTriangle className="h-3.5 w-3.5" />
-          Report Disaster
-        </button>
+          {openDropdownId === rec.id && (
+            <div className="absolute right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg py-1 min-w-[180px] z-50">
+              <button type="button"
+                onClick={() => { setViewLogsRecord(rec); setOpenDropdownId(null) }}
+                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
+                <Eye className="w-4 h-4 text-slate-500" />
+                View Logs
+              </button>
+
+              <div className="border-t border-slate-100 my-1" />
+
+              <button type="button"
+                onClick={() => { setHarvestRecord(rec); setOpenDropdownId(null) }}
+                className={`flex items-center gap-2.5 w-full px-4 py-2.5 text-sm transition-colors ${
+                  isNearHarvest(rec)
+                    ? 'text-amber-700 hover:bg-amber-50 font-medium'
+                    : 'text-slate-700 hover:bg-slate-50'
+                }`}>
+                <Wheat className={`w-4 h-4 ${isNearHarvest(rec) ? 'text-amber-500' : 'text-slate-400'}`} />
+                <div className="text-left">
+                  <p>Record Harvest</p>
+                  {isNearHarvest(rec) && (
+                    <p className="text-xs text-amber-600 font-normal">Nearing harvest date</p>
+                  )}
+                </div>
+              </button>
+
+              <button type="button"
+                onClick={() => { setDisasterRecord(rec); setOpenDropdownId(null) }}
+                className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-slate-700 hover:bg-rose-50 hover:text-rose-600 transition-colors">
+                <AlertTriangle className="w-4 h-4 text-slate-400" />
+                Report Disaster
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     ),
   }))

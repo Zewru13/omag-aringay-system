@@ -62,7 +62,7 @@ class CropActivityStageSerializer(serializers.ModelSerializer):
     class Meta:
         model = CropActivityStage
         fields = ['id', 'crop_type', 'stage_name', 'day_after_planting', 'recommendation', 'priority']
-        read_only_fields = ['id']
+        read_only_fields = ['id', 'crop_type']
 
 
 class MonitoringRemarkSerializer(serializers.ModelSerializer):

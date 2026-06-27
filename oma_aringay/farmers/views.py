@@ -60,6 +60,14 @@ class FarmerListView(generics.ListCreateAPIView):
             senior_cutoff = today.replace(year=today.year - 60)
             queryset = queryset.filter(birthdate__lte=senior_cutoff)
 
+        is_icc_ip = self.request.query_params.get('is_icc_ip')
+        if is_icc_ip is not None:
+            queryset = queryset.filter(is_icc_ip_member=(is_icc_ip.lower() in ('true', '1')))
+
+        is_pwd = self.request.query_params.get('is_pwd')
+        if is_pwd is not None:
+            queryset = queryset.filter(is_pwd=(is_pwd.lower() in ('true', '1')))
+
         return queryset
 
     def perform_create(self, serializer):

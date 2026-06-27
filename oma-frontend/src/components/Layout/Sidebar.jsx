@@ -25,21 +25,22 @@ function SideNavLink({ to, icon: Icon, children, isCollapsed, insideGroup = fals
   return (
     <NavLink
       to={to}
-      onClick={(e) => {/* let parent handle close */}}
       title={isCollapsed ? label : undefined}
       className={({ isActive }) =>
-        [
-          'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 w-full mb-0.5',
-          insideGroup ? '' : 'border-l-2',
-          isCollapsed ? 'md:justify-center md:px-0 md:border-l-0 md:rounded-lg md:w-10 md:h-10 md:mx-auto' : '',
-          isActive
-            ? insideGroup
-              ? 'bg-[#f0f7f0] text-[#1E4620] font-semibold'
-              : 'border-[#1E4620] bg-[#f0f7f0] text-[#1E4620] font-semibold'
-            : insideGroup
-            ? 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-            : 'border-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900',
-        ].join(' ')
+        insideGroup
+          ? [
+              'flex items-center gap-3 w-full px-3 py-2 rounded-xl text-sm font-medium transition-colors',
+              isActive
+                ? 'text-[#1E4620] bg-[#f0f7f0] font-semibold'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800',
+            ].join(' ')
+          : [
+              'flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium transition-colors mb-0.5 border-l-2',
+              isCollapsed ? 'md:justify-center md:px-0 md:border-l-0 md:rounded-lg md:w-10 md:h-10 md:mx-auto' : '',
+              isActive
+                ? 'text-[#1E4620] bg-[#f0f7f0] border-[#1E4620] font-semibold'
+                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800 border-transparent',
+            ].join(' ')
       }
     >
       <Icon size={16} className="shrink-0" />
@@ -70,28 +71,43 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
           isOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full md:translate-x-0',
         ].join(' ')}
       >
-        {/* Logo area */}
-        <div className={`relative border-b border-slate-100 px-4 py-4 ${isCollapsed ? 'md:hidden' : ''}`}>
-          <div className="flex items-center gap-2.5">
+        {/* Logo area — expanded */}
+        {!isCollapsed ? (
+          <div className="relative flex flex-col items-center px-4 py-6 border-b border-slate-100">
             <img
               src={logo}
               alt="OMAg Aringay"
-              className="h-8 w-8 flex-shrink-0 rounded-full object-contain"
+              className="w-20 h-20 object-contain mb-3 drop-shadow-sm"
             />
-            <div>
-              <p className="text-sm font-bold text-slate-900 leading-none">OMAg Aringay</p>
-              <p className="text-xs text-slate-400 leading-none mt-0.5">Aringay, La Union</p>
+            <div className="text-center">
+              <p className="text-base font-bold text-slate-900 leading-tight">
+                OMAg Aringay
+              </p>
+              <p className="text-xs text-slate-500 mt-0.5">Aringay, La Union</p>
+              <div className="mt-2 border-t border-slate-100 pt-2">
+                <p className="text-xs text-slate-400 leading-snug text-center px-2">
+                  Integrated Agricultural Monitoring and Production Management System
+                </p>
+              </div>
             </div>
+            <button
+              className="absolute right-3 top-3 rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 md:hidden"
+              onClick={onClose}
+              type="button"
+              aria-label="Close menu"
+            >
+              <X size={18} />
+            </button>
           </div>
-          <button
-            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 md:hidden"
-            onClick={onClose}
-            type="button"
-            aria-label="Close menu"
-          >
-            <X size={18} />
-          </button>
-        </div>
+        ) : (
+          <div className="flex flex-col items-center px-2 py-4 border-b border-slate-100 md:flex hidden">
+            <img
+              src={logo}
+              alt="OMAg"
+              className="w-10 h-10 object-contain"
+            />
+          </div>
+        )}
 
         {/* Navigation */}
         <nav
@@ -146,7 +162,7 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
           {isAdmin && (
             <>
               {!isCollapsed && (
-                <p className="text-xs font-medium text-slate-400 uppercase tracking-widest px-3 mt-4 mb-1">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest px-3 mt-5 mb-1">
                   Administration
                 </p>
               )}

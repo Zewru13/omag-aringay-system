@@ -491,37 +491,50 @@ class CropActivitySuggestionsView(APIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
     def get(self, request, monitoring_id):
-        from datetime import date as date_cls
-        try:
-            record = CropMonitoringRecord.objects.select_related('crop_type').get(pk=monitoring_id)
-        except CropMonitoringRecord.DoesNotExist:
-            return Response({'detail': 'Not found.'}, status=404)
+        from django.shortcuts import get_object_or_404
+        record = get_object_or_404(
+            CropMonitoringRecord.objects.select_related('crop_type'),
+            pk=monitoring_id,
+        )
 
-        today = date_cls.today()
-        days_elapsed = (today - record.date_planted).days if record.date_planted else 0
+        if not record.crop_type:
+            return Response([])
 
-        stages = CropActivityStage.objects.filter(crop_type=record.crop_type).order_by('day_after_planting')
+        stages = CropActivityStage.objects.filter(
+            crop_type=record.crop_type,
+        ).order_by('day_after_planting', 'id')
 
-        results = []
+        if not stages.exists():
+            return Response([])
+
+        logged_activities = set(
+            CropActivityLog.objects.filter(monitoring_record=record)
+            .values_list('activity_type', flat=True)
+        )
+
+        result = []
         for stage in stages:
-            diff = stage.day_after_planting - days_elapsed
-            if diff < -7:
-                status = 'Overdue'
-            elif -7 <= diff <= 7:
-                status = 'Due Now'
-            else:
-                status = 'Upcoming'
-            results.append({
-                'id':                 stage.id,
-                'stage_name':         stage.stage_name,
-                'day_after_planting': stage.day_after_planting,
-                'recommendation':     stage.recommendation,
-                'priority':           stage.priority,
-                'status':             status,
-                'days_elapsed':       days_elapsed,
+            is_completed = stage.stage_name in logged_activities
+            completed_on = None
+            if is_completed:
+                log = (
+                    CropActivityLog.objects
+                    .filter(monitoring_record=record, activity_type=stage.stage_name)
+                    .order_by('activity_date')
+                    .first()
+                )
+                if log:
+                    completed_on = str(log.activity_date)
+            result.append({
+                'id':             stage.id,
+                'stage_name':     stage.stage_name,
+                'priority':       stage.priority,
+                'recommendation': stage.recommendation,
+                'is_completed':   is_completed,
+                'completed_on':   completed_on,
             })
 
-        return Response(results)
+        return Response(result)
 
 
 # ─── Module 3: CropActivityLog ───────────────────────────────────────────────

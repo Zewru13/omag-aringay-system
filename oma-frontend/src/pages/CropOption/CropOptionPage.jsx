@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Leaf, Pencil, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Leaf, Pencil, Plus, X } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
@@ -34,9 +34,9 @@ function SuggestionsSection({ cropId }) {
   const { showToast } = useToast()
   const [stages,      setStages]      = useState([])
   const [isLoading,   setIsLoading]   = useState(true)
-  const [showForm,    setShowForm]    = useState(false)
-  const [newActivity, setNewActivity] = useState({ stage_name: '', priority: 'MEDIUM', recommendation: '' })
-  const [isAdding,    setIsAdding]    = useState(false)
+  const [stageForm,   setStageForm]   = useState({ stage_name: '', priority: 'MEDIUM', recommendation: '' })
+  const [stageError,  setStageError]  = useState('')
+  const [addingStage, setAddingStage] = useState(false)
 
   const fetchStages = useCallback(async () => {
     setIsLoading(true)
@@ -49,126 +49,108 @@ function SuggestionsSection({ cropId }) {
 
   useEffect(() => { fetchStages() }, [fetchStages])
 
-  const handleDelete = async (id) => {
+  const handleAddStage = async () => {
+    if (!stageForm.stage_name.trim()) {
+      setStageError('Activity name is required.')
+      return
+    }
+    setAddingStage(true)
+    setStageError('')
+    try {
+      const res = await api.post(`/production/crop-types/${cropId}/stages/`, {
+        stage_name:         stageForm.stage_name.trim(),
+        priority:           stageForm.priority,
+        recommendation:     stageForm.recommendation.trim(),
+        day_after_planting: stages.length,
+      })
+      setStages(prev => [...prev, res.data])
+      setStageForm({ stage_name: '', priority: 'MEDIUM', recommendation: '' })
+    } catch {
+      setStageError('Failed to add suggestion. Please try again.')
+    } finally {
+      setAddingStage(false)
+    }
+  }
+
+  const handleDeleteStage = async (id) => {
     try {
       await api.delete(`/production/stages/${id}/`)
-      showToast('Stage deleted.', 'success')
-      setStages(s => s.filter(x => x.id !== id))
+      setStages(prev => prev.filter(s => s.id !== id))
     } catch { showToast('Failed to delete stage.', 'error') }
   }
 
-  const handleAdd = async () => {
-    if (!newActivity.stage_name.trim()) { showToast('Activity name is required.', 'error'); return }
-    setIsAdding(true)
-    try {
-      const r = await api.post(`/production/crop-types/${cropId}/stages/`, {
-        stage_name:         newActivity.stage_name.trim(),
-        priority:           newActivity.priority,
-        recommendation:     newActivity.recommendation.trim(),
-        day_after_planting: 0,
-      })
-      setStages(s => [...s, r.data])
-      setNewActivity({ stage_name: '', priority: 'MEDIUM', recommendation: '' })
-      setShowForm(false)
-      showToast('Suggestion added.', 'success')
-    } catch { showToast('Failed to add suggestion.', 'error') }
-    finally { setIsAdding(false) }
-  }
-
   return (
-    <div className="border-t border-slate-100 pt-4 mt-2">
-      <p className="text-sm font-semibold text-slate-700 mb-3">Activity Suggestions</p>
+    <div className="border-t border-slate-100 pt-4 mt-4">
+      <p className="text-sm font-semibold text-slate-700 mb-1">Activity Suggestions</p>
+      <p className="text-xs text-slate-400 mb-3">
+        These appear in the Get Suggestions panel when staff monitors this crop.
+      </p>
 
       {isLoading ? (
         <p className="text-xs text-slate-400">Loading…</p>
-      ) : stages.length === 0 && !showForm ? (
-        <p className="text-xs text-slate-400 italic mb-3">No suggestions yet.</p>
-      ) : (
+      ) : stages.length > 0 ? (
         <div className="space-y-2 mb-3">
-          {stages.map(s => (
-            <div key={s.id} className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 px-3 py-2">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold shrink-0 ${PRIORITY_BADGE[s.priority] ?? 'bg-slate-200 text-slate-700'}`}>
-                  {s.priority}
+          {stages.map(stage => (
+            <div key={stage.id}
+              className="flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2">
+              <div className="flex items-center gap-2 flex-1">
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${PRIORITY_BADGE[stage.priority] ?? 'bg-slate-200 text-slate-700'}`}>
+                  {stage.priority}
                 </span>
-                <span className="text-xs text-slate-800 font-medium truncate">{s.stage_name}</span>
-                {s.recommendation && (
-                  <span className="text-xs text-slate-500 truncate hidden sm:inline">— {s.recommendation}</span>
-                )}
+                <span className="text-sm text-slate-800 font-medium">{stage.stage_name}</span>
               </div>
               <button
                 type="button"
-                onClick={() => handleDelete(s.id)}
-                className="text-sm text-rose-500 hover:text-rose-700 shrink-0 font-medium leading-none"
-              >
-                ×
+                onClick={() => handleDeleteStage(stage.id)}
+                className="text-slate-400 hover:text-rose-500 p-1 rounded-lg hover:bg-rose-50 transition-colors flex-shrink-0 ml-2">
+                <X className="w-4 h-4" />
               </button>
             </div>
           ))}
         </div>
+      ) : (
+        <p className="text-xs text-slate-400 italic mb-3">No suggestions yet. Add one below.</p>
       )}
 
-      {!showForm ? (
-        <button
-          type="button"
-          onClick={() => setShowForm(true)}
-          className="text-sm text-[#1E4620] hover:underline font-medium"
-        >
-          + Add Suggestion
-        </button>
-      ) : (
-        <div className="space-y-2 rounded-xl border border-slate-100 bg-slate-50 p-3">
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Activity Name</label>
-            <input
-              className={baseInputClasses}
-              placeholder="e.g. Fertilizer Application"
-              value={newActivity.stage_name}
-              onChange={e => setNewActivity(a => ({ ...a, stage_name: e.target.value }))}
-              autoFocus
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Priority</label>
-            <select
-              className={baseInputClasses}
-              value={newActivity.priority}
-              onChange={e => setNewActivity(a => ({ ...a, priority: e.target.value }))}
-            >
-              <option value="HIGH">High</option>
-              <option value="MEDIUM">Medium</option>
-              <option value="LOW">Low</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Recommendation</label>
-            <textarea
-              rows={2}
-              className={`${baseInputClasses} resize-none`}
-              placeholder="Describe the recommendation..."
-              value={newActivity.recommendation}
-              onChange={e => setNewActivity(a => ({ ...a, recommendation: e.target.value }))}
-            />
-          </div>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={handleAdd}
-              disabled={isAdding}
-              className="rounded-xl bg-[#1E4620] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2D6A31] transition-colors disabled:opacity-60"
-            >
-              {isAdding ? 'Adding…' : 'Add'}
-            </button>
-            <button
-              type="button"
-              onClick={() => { setShowForm(false); setNewActivity({ stage_name: '', priority: 'MEDIUM', recommendation: '' }) }}
-              className="rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
+      {/* Inline add form */}
+      <div className="bg-slate-50 rounded-xl p-3 space-y-2">
+        <input
+          type="text"
+          value={stageForm.stage_name}
+          onChange={e => setStageForm(prev => ({ ...prev, stage_name: e.target.value }))}
+          placeholder="Activity Name (e.g. Apply Basal Fertilizer)"
+          className={baseInputClasses}
+        />
+        <div className="grid grid-cols-2 gap-2">
+          <select
+            value={stageForm.priority}
+            onChange={e => setStageForm(prev => ({ ...prev, priority: e.target.value }))}
+            className={baseInputClasses}
+          >
+            <option value="HIGH">High Priority</option>
+            <option value="MEDIUM">Medium Priority</option>
+            <option value="LOW">Low Priority</option>
+          </select>
+          <button
+            type="button"
+            onClick={handleAddStage}
+            disabled={addingStage}
+            className="bg-[#1E4620] hover:bg-[#2D6A31] text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 transition-colors"
+          >
+            {addingStage ? 'Adding...' : '+ Add'}
+          </button>
         </div>
-      )}
+        <textarea
+          value={stageForm.recommendation}
+          onChange={e => setStageForm(prev => ({ ...prev, recommendation: e.target.value }))}
+          placeholder="Recommendation text (optional)"
+          rows={2}
+          className={`${baseInputClasses} resize-none`}
+        />
+        {stageError && (
+          <p className="text-xs text-rose-600">{stageError}</p>
+        )}
+      </div>
     </div>
   )
 }

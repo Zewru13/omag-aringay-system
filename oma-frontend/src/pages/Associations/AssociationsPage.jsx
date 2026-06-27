@@ -5,16 +5,10 @@ import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import SearchBar from '../../components/UI/SearchBar.jsx'
-import Tabs from '../../components/UI/Tabs.jsx'
 import Button from '../../components/UI/Button.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import CreateAssociationModal from './CreateAssociationModal.jsx'
 import EditAssociationModal from './EditAssociationModal.jsx'
-
-const typeTabs = [
-  { label: 'Farmers Associations', value: 'farmers' },
-  { label: 'Fisherfolk Associations', value: 'fisherfolk' },
-]
 
 const columns = [
   { key: 'name',           label: 'ASSOCIATION NAME' },
@@ -27,7 +21,6 @@ const columns = [
 function AssociationsPage() {
   const navigate = useNavigate()
   const { isAdmin, isEvaluator } = useAuth()
-  const [selectedType, setSelectedType] = useState('farmers')
   const [associations, setAssociations] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -42,7 +35,7 @@ function AssociationsPage() {
       try {
         const params = new URLSearchParams()
         if (searchQuery) params.append('search', searchQuery)
-        const response = await api.get(`/associations/${selectedType}/?${params.toString()}`)
+        const response = await api.get(`/associations/farmers/?${params.toString()}`)
         if (!cancelled) setAssociations(response.data)
       } catch (error) {
         console.error('Error fetching associations:', error)
@@ -52,10 +45,10 @@ function AssociationsPage() {
     }
     load()
     return () => { cancelled = true }
-  }, [selectedType, searchQuery, refreshKey])
+  }, [searchQuery, refreshKey])
 
   const handleRowClick = (row) => {
-    navigate(`/associations/${selectedType}/${row.id}`)
+    navigate(`/associations/farmers/${row.id}`)
   }
 
   const handleCreateSuccess = () => {
@@ -94,14 +87,6 @@ function AssociationsPage() {
           )}
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <Tabs
-            activeTab={selectedType}
-            tabs={typeTabs}
-            onChange={(val) => { setSelectedType(val); setSearchQuery('') }}
-          />
-        </div>
-
         <SearchBar
           placeholder="Search associations by name or address..."
           value={searchQuery}
@@ -118,7 +103,7 @@ function AssociationsPage() {
 
       {showCreateModal && (
         <CreateAssociationModal
-          type={selectedType}
+          type="farmers"
           onClose={() => setShowCreateModal(false)}
           onSuccess={handleCreateSuccess}
         />
@@ -127,7 +112,7 @@ function AssociationsPage() {
       {editAssociation && (
         <EditAssociationModal
           association={editAssociation}
-          type={selectedType}
+          type="farmers"
           onClose={() => setEditAssociation(null)}
           onSuccess={() => { setEditAssociation(null); setRefreshKey((k) => k + 1) }}
         />

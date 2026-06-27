@@ -62,6 +62,8 @@ function FarmersPage() {
   const [status, setStatus] = useState('all')
   const [gender, setGender] = useState('all')
   const [seniorOnly, setSeniorOnly] = useState(false)
+  const [filterICC, setFilterICC] = useState('')
+  const [filterPWD, setFilterPWD] = useState('')
   const [page, setPage] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -91,6 +93,14 @@ function FarmersPage() {
         params.set('is_senior', 'true')
       }
 
+      if (filterICC) {
+        params.set('is_icc_ip', filterICC)
+      }
+
+      if (filterPWD) {
+        params.set('is_pwd', filterPWD)
+      }
+
       const queryString = params.toString()
       const response = await api.get(`/farmers/${queryString ? `?${queryString}` : ''}`)
       setFarmers(normalizeList(response.data))
@@ -104,7 +114,7 @@ function FarmersPage() {
 
   useEffect(() => {
     fetchFarmers()
-  }, [search, status, gender, seniorOnly])
+  }, [search, status, gender, seniorOnly, filterICC, filterPWD])
 
   const tableData = useMemo(() => farmers.map((farmer) => {
     const ageVal = calcAge(farmer.birthdate)
@@ -169,6 +179,24 @@ function FarmersPage() {
               />
               Senior Citizens Only
             </label>
+            <select
+              value={filterICC}
+              onChange={(e) => setFilterICC(e.target.value)}
+              className={`${baseInputClasses} md:w-40`}
+            >
+              <option value="">ICC/IP: All</option>
+              <option value="true">ICC/IP Member</option>
+              <option value="false">Non-ICC/IP</option>
+            </select>
+            <select
+              value={filterPWD}
+              onChange={(e) => setFilterPWD(e.target.value)}
+              className={`${baseInputClasses} md:w-44`}
+            >
+              <option value="">PWD: All</option>
+              <option value="true">With Disability (PWD)</option>
+              <option value="false">Without Disability</option>
+            </select>
           </div>
 
           {(isAdmin || isEvaluator) && (
