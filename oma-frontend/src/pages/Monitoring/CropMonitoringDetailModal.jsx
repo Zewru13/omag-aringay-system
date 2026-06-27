@@ -1,0 +1,292 @@
+import { useEffect, useState } from 'react'
+import { Plus, Sprout, Trash2, X } from 'lucide-react'
+import api from '../../api/axiosInstance.js'
+import Button from '../../components/UI/Button.jsx'
+import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import ModalShell from '../../components/UI/ModalShell.jsx'
+import StatusPill from '../../components/UI/StatusPill.jsx'
+import LoadingSpinner from '../../components/UI/LoadingSpinner.jsx'
+import { useToast } from '../../context/ToastContext.jsx'
+
+const labelCls = 'block text-xs font-medium text-slate-600'
+const STATUS_TONES = { Active: 'green', Harvested: 'blue', Damaged: 'rose', Abandoned: 'slate' }
+
+const CROP_SUGGESTIONS = {
+  'Palay (Rice)': [
+    { activity: 'Land preparation', priority: 'High', description: 'Prepare soil through plowing and harrowing before planting.' },
+    { activity: 'Planting', priority: 'High', description: 'Transplant or direct-seed rice seedlings at optimal spacing.' },
+    { activity: 'Fertilizer application', priority: 'Medium', description: 'Apply basal and top-dress fertilizers at key growth stages.' },
+    { activity: 'Weeding', priority: 'Medium', description: 'Remove weeds to reduce competition for nutrients and water.' },
+    { activity: 'Irrigation check', priority: 'Low', description: 'Monitor water levels and ensure adequate irrigation.' },
+    { activity: 'Pest monitoring', priority: 'High', description: 'Scout for stem borers, leafhoppers, and golden apple snails.' },
+    { activity: 'Harvesting', priority: 'High', description: 'Harvest when 80–85% of grains are straw-colored.' },
+  ],
+  'Corn (Mais)': [
+    { activity: 'Land preparation', priority: 'High', description: 'Till the soil to a fine tilth for good seed-to-soil contact.' },
+    { activity: 'Planting', priority: 'High', description: 'Plant seeds at 75 cm × 25 cm spacing, 2–3 seeds per hill.' },
+    { activity: 'Side-dressing', priority: 'Medium', description: 'Apply nitrogen fertilizer at knee-high stage.' },
+    { activity: 'Weeding', priority: 'Medium', description: 'Control weeds during the first 30–45 days after planting.' },
+    { activity: 'Irrigation check', priority: 'Low', description: 'Ensure adequate moisture especially at tasseling and silking.' },
+    { activity: 'Pest monitoring', priority: 'High', description: 'Check for fall armyworm, corn borer, and downy mildew.' },
+    { activity: 'Harvesting', priority: 'High', description: 'Harvest when husks turn brown and kernels are hard.' },
+  ],
+  'Mango': [
+    { activity: 'Pruning', priority: 'Medium', description: 'Remove dead, diseased, or crossing branches after harvest.' },
+    { activity: 'Flower induction', priority: 'High', description: 'Apply KNO₃ spray to induce flowering off-season.' },
+    { activity: 'Bagging', priority: 'High', description: 'Bag developing fruits at marble stage to prevent pest damage.' },
+    { activity: 'Fertilizer application', priority: 'Medium', description: 'Apply complete fertilizer before and after flowering.' },
+    { activity: 'Pest monitoring', priority: 'High', description: 'Watch for mango tip borer, mealybug, and anthracnose.' },
+    { activity: 'Irrigation check', priority: 'Low', description: 'Reduce irrigation during floral induction period.' },
+    { activity: 'Harvesting', priority: 'High', description: 'Harvest at physiological maturity, 105–110 days after fruit set.' },
+  ],
+  'default': [
+    { activity: 'Land preparation', priority: 'High', description: 'Prepare the field for planting through proper tillage.' },
+    { activity: 'Planting', priority: 'High', description: 'Plant seeds or seedlings at recommended spacing and depth.' },
+    { activity: 'Fertilizer application', priority: 'Medium', description: 'Apply appropriate fertilizers at recommended rates and timing.' },
+    { activity: 'Weeding', priority: 'Medium', description: 'Control weeds to minimize competition for nutrients.' },
+    { activity: 'Irrigation check', priority: 'Low', description: 'Monitor soil moisture and ensure adequate water supply.' },
+    { activity: 'Pest monitoring', priority: 'High', description: 'Scout regularly for pests and diseases; apply control measures.' },
+    { activity: 'Harvesting', priority: 'High', description: 'Harvest at optimum maturity for best yield and quality.' },
+  ],
+}
+
+const PRIORITY_PILL = {
+  High:   'bg-rose-100 text-rose-700',
+  Medium: 'bg-amber-100 text-amber-700',
+  Low:    'bg-green-100 text-[#1E4620]',
+}
+
+function formatDate(v) {
+  if (!v) return '—'
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(v))
+}
+
+function CropMonitoringDetailModal({ record, onClose, onRefresh }) {
+  const { showToast } = useToast()
+  const [logs, setLogs] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [form, setForm] = useState({ activity_type: '', activity_date: '', plant_condition: '', notes: '' })
+  const [isSaving, setIsSaving] = useState(false)
+
+  const suggestions = CROP_SUGGESTIONS[record.crop_type_name] || CROP_SUGGESTIONS['default']
+
+  const fetchLogs = async () => {
+    setIsLoading(true)
+    try {
+      const r = await api.get(`/production/monitoring/${record.id}/logs/`)
+      setLogs(Array.isArray(r.data) ? r.data : (r.data.results || []))
+    } catch { setLogs([]) } finally { setIsLoading(false) }
+  }
+
+  useEffect(() => { fetchLogs() }, [record.id])
+
+  const handleAddLog = async (e) => {
+    e.preventDefault()
+    if (!form.activity_type || !form.activity_date) {
+      showToast('Activity type and date are required.', 'error')
+      return
+    }
+    setIsSaving(true)
+    try {
+      await api.post(`/production/monitoring/${record.id}/logs/`, form)
+      showToast('Log added.', 'success')
+      setShowForm(false)
+      setForm({ activity_type: '', activity_date: '', plant_condition: '', notes: '' })
+      fetchLogs()
+    } catch { showToast('Failed to add log.', 'error') }
+    finally { setIsSaving(false) }
+  }
+
+  const handleDeleteLog = async (id) => {
+    try {
+      await api.delete(`/production/monitoring/logs/${id}/`)
+      showToast('Log deleted.', 'success')
+      fetchLogs()
+    } catch { showToast('Failed to delete.', 'error') }
+  }
+
+  const applySuggestion = (activity) => {
+    setForm(f => ({ ...f, activity_type: activity }))
+    setShowForm(true)
+    setShowSuggestions(false)
+  }
+
+  const modalSubtitle = record.farmer_name
+    ? (record.date_planted
+        ? `${record.farmer_name} — Planted: ${formatDate(record.date_planted)}`
+        : `${record.farmer_name} — ${record.season} ${record.year}`)
+    : (record.date_planted
+        ? `Planted: ${formatDate(record.date_planted)}`
+        : `${record.season} ${record.year}`)
+
+  const conditionColor = { Good: 'text-[#1E4620]', Fair: 'text-amber-600', Poor: 'text-rose-600' }
+
+  return (
+    <ModalShell
+      title={record.crop_type_name || 'Crop Monitoring'}
+      subtitle={modalSubtitle}
+      icon={Sprout}
+      onClose={onClose}
+      maxWidth="max-w-2xl"
+    >
+      {/* Status row */}
+      <div className="mb-4 flex items-center gap-2">
+        <StatusPill tone={STATUS_TONES[record.status] || 'slate'}>{record.status}</StatusPill>
+        <span className="text-xs text-slate-400">{record.farmer_name} · {record.farmer_barangay}</span>
+      </div>
+
+      {/* Action bar */}
+      <div className="mb-4 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => { setShowForm(v => !v); setShowSuggestions(false) }}
+          className="flex items-center gap-1 text-sm font-medium text-[#1E4620] hover:text-[#1E4620]"
+        >
+          <Plus size={16} />
+          Add New Log
+        </button>
+        <button
+          type="button"
+          onClick={() => { setShowSuggestions(v => !v); setShowForm(false) }}
+          className="rounded-lg bg-amber-400 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-500"
+        >
+          Get Suggestions
+        </button>
+      </div>
+
+      {/* Suggestions panel */}
+      {showSuggestions && (
+        <div className="mb-4 rounded-xl border border-amber-100 bg-amber-50 p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-xs font-semibold text-amber-800">
+              Suggested Activities for {record.crop_type_name}
+            </p>
+            <button type="button" onClick={() => setShowSuggestions(false)} className="text-amber-500 hover:text-amber-700">
+              <X size={14} />
+            </button>
+          </div>
+          <div className="space-y-2">
+            {suggestions.map((s) => (
+              <button
+                key={s.activity}
+                type="button"
+                onClick={() => applySuggestion(s.activity)}
+                className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2.5 text-left transition hover:border-amber-400 hover:bg-amber-50"
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${PRIORITY_PILL[s.priority]}`}>
+                    {s.priority}
+                  </span>
+                  <span className="text-sm font-medium text-slate-800">{s.activity}</span>
+                </div>
+                <p className="mt-0.5 pl-[52px] text-xs text-slate-500">{s.description}</p>
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-center text-xs text-amber-600">Click a card to auto-fill the log form</p>
+        </div>
+      )}
+
+      {/* Inline add form */}
+      {showForm && (
+        <form onSubmit={handleAddLog} className="mb-4 rounded-xl border border-green-100 bg-[#f0f7f0] p-4 space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className={labelCls}>Activity *</label>
+              <input
+                className={baseInputClasses}
+                placeholder="e.g. Fertilizer application"
+                value={form.activity_type}
+                onChange={e => setForm(f => ({ ...f, activity_type: e.target.value }))}
+                required
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Date *</label>
+              <input
+                type="date"
+                className={baseInputClasses}
+                value={form.activity_date}
+                onChange={e => setForm(f => ({ ...f, activity_date: e.target.value }))}
+                required
+              />
+            </div>
+          </div>
+          <div>
+            <label className={labelCls}>Recommendations / Notes</label>
+            <textarea
+              rows={2}
+              className={baseInputClasses}
+              placeholder="Observations or recommended follow-up actions…"
+              value={form.notes}
+              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+            />
+          </div>
+          <div className="flex items-end gap-3">
+            <div className="flex-1">
+              <label className={labelCls}>Plant Condition</label>
+              <select className={baseInputClasses} value={form.plant_condition} onChange={e => setForm(f => ({ ...f, plant_condition: e.target.value }))}>
+                <option value="">— Select —</option>
+                <option value="Good">Good</option>
+                <option value="Fair">Fair</option>
+                <option value="Poor">Poor</option>
+              </select>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <Button type="button" size="sm" variant="ghost" onClick={() => setShowForm(false)}>Cancel</Button>
+              <Button type="submit" size="sm" isLoading={isSaving}>Add Log</Button>
+            </div>
+          </div>
+        </form>
+      )}
+
+      {/* Activity logs list */}
+      <div>
+        <p className="mb-2 text-xs font-medium text-slate-500">
+          Activity Logs · {logs.length} {logs.length !== 1 ? 'entries' : 'entry'}
+        </p>
+
+        {isLoading ? (
+          <LoadingSpinner />
+        ) : logs.length === 0 ? (
+          <p className="py-6 text-center text-sm italic text-slate-400">
+            No activity logs yet. Click "+ Add New Log" to get started.
+          </p>
+        ) : (
+          <ul className="divide-y divide-slate-100 rounded-xl border border-slate-100">
+            {logs.map((log) => (
+              <li key={log.id} className="flex items-start justify-between gap-2 px-4 py-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-slate-800">{log.activity_type}</p>
+                    {log.plant_condition && (
+                      <span className={`text-[10px] font-semibold ${conditionColor[log.plant_condition] || 'text-slate-500'}`}>
+                        {log.plant_condition}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {formatDate(log.activity_date)}
+                    {log.notes ? ` — ${log.notes}` : ''}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="text-slate-400 transition-colors hover:text-rose-500"
+                  onClick={() => handleDeleteLog(log.id)}
+                  aria-label="Delete log"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </ModalShell>
+  )
+}
+
+export default CropMonitoringDetailModal

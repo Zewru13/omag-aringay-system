@@ -1,0 +1,161 @@
+from django.db.models import Q
+from rest_framework import generics, status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+from accounts.permissions import IsAdminOrEvaluator
+
+from .models import Farmer, FarmCrop, FarmMachinery, FarmParcel
+from .serializers import (
+    FarmCropSerializer,
+    FarmerCreateSerializer,
+    FarmerDetailSerializer,
+    FarmerListSerializer,
+    FarmMachinerySerializer,
+    FarmParcelSerializer,
+)
+
+
+class FarmerListView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return FarmerCreateSerializer
+
+        return FarmerListSerializer
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsAdminOrEvaluator()]
+
+    def get_queryset(self):
+        from django.utils.timezone import now
+        queryset = Farmer.objects.all().order_by('-date_registered')
+        search = self.request.query_params.get('search')
+        status_filter = self.request.query_params.get('status')
+        gender_filter = self.request.query_params.get('gender')
+        is_senior = self.request.query_params.get('is_senior')
+
+        if search:
+            queryset = queryset.filter(
+                Q(first_name__icontains=search)
+                | Q(last_name__icontains=search)
+                | Q(middle_name__icontains=search)
+                | Q(rsbsa_number__icontains=search)
+                | Q(barangay__icontains=search)
+            )
+
+        if status_filter:
+            status_value = status_filter.lower()
+            if status_value in ['active', 'true', '1']:
+                queryset = queryset.filter(is_active=True)
+            elif status_value in ['inactive', 'false', '0']:
+                queryset = queryset.filter(is_active=False)
+
+        if gender_filter:
+            queryset = queryset.filter(gender__iexact=gender_filter)
+
+        if is_senior and is_senior.lower() == 'true':
+            today = now().date()
+            senior_cutoff = today.replace(year=today.year - 60)
+            queryset = queryset.filter(birthdate__lte=senior_cutoff)
+
+        return queryset
+
+    def perform_create(self, serializer):
+        serializer.save(registered_by=self.request.user)
+
+
+class FarmerCreateView(generics.CreateAPIView):
+    queryset = Farmer.objects.all()
+    serializer_class = FarmerCreateSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def perform_create(self, serializer):
+        serializer.save(registered_by=self.request.user)
+
+
+class FarmerDetailView(generics.RetrieveUpdateAPIView):
+    queryset = Farmer.objects.all()
+    serializer_class = FarmerDetailSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    http_method_names = ['get', 'patch']
+    lookup_field = 'id'
+
+    def update(self, request, *args, **kwargs):
+        if 'is_active' in request.data and request.user.role != 'ADMIN':
+            return Response(
+                {'detail': 'Only an Admin can change a farmer\'s status.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        return super().update(request, *args, **kwargs)
+
+
+class FarmerDeleteView(generics.DestroyAPIView):
+    queryset = Farmer.objects.all()
+    serializer_class = FarmerDetailSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    lookup_field = 'id'
+
+
+class FarmParcelListView(generics.ListCreateAPIView):
+    serializer_class = FarmParcelSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get_queryset(self):
+        return FarmParcel.objects.filter(
+            farmer_id=self.kwargs['farmer_id'],
+        ).order_by('id')
+
+    def perform_create(self, serializer):
+        serializer.save(farmer_id=self.kwargs['farmer_id'])
+
+
+class FarmParcelCreateView(generics.CreateAPIView):
+    serializer_class = FarmParcelSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def perform_create(self, serializer):
+        serializer.save(farmer_id=self.kwargs['farmer_id'])
+
+
+class FarmCropListCreateView(generics.ListCreateAPIView):
+    serializer_class = FarmCropSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get_queryset(self):
+        return FarmCrop.objects.filter(farm_parcel_id=self.kwargs['parcel_id'])
+
+    def perform_create(self, serializer):
+        if serializer.validated_data.get('is_main_crop'):
+            FarmCrop.objects.filter(
+                farm_parcel_id=self.kwargs['parcel_id'],
+                is_main_crop=True,
+            ).update(is_main_crop=False)
+        serializer.save(farm_parcel_id=self.kwargs['parcel_id'])
+
+
+class FarmCropDeleteView(generics.DestroyAPIView):
+    queryset = FarmCrop.objects.all()
+    serializer_class = FarmCropSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    lookup_field = 'id'
+
+
+class FarmMachineryListCreateView(generics.ListCreateAPIView):
+    serializer_class = FarmMachinerySerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get_queryset(self):
+        return FarmMachinery.objects.filter(farm_parcel_id=self.kwargs['parcel_id'])
+
+    def perform_create(self, serializer):
+        serializer.save(farm_parcel_id=self.kwargs['parcel_id'])
+
+
+class FarmMachineryDeleteView(generics.DestroyAPIView):
+    queryset = FarmMachinery.objects.all()
+    serializer_class = FarmMachinerySerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    lookup_field = 'id'

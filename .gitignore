@@ -1,0 +1,12 @@
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+.env
+*.sqlite3
+graphify-out/
+.venv/
+venv/
+dist/
+build/
+*.egg-info/

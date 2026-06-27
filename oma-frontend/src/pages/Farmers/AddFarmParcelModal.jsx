@@ -1,0 +1,486 @@
+import { useState } from 'react'
+import { Plus, Trash2, X } from 'lucide-react'
+import api from '../../api/axiosInstance.js'
+import ModalShell from '../../components/UI/ModalShell.jsx'
+import Button from '../../components/UI/Button.jsx'
+import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
+import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
+
+const CROP_OPTIONS = [
+  'Palay (Rice)', 'Corn (Mais)', 'Onion', 'Garlic', 'Tomato',
+  'Eggplant (Talong)', 'Bitter Gourd (Ampalaya)', 'String Beans (Sitaw)',
+  'Pechay', 'Cabbage', 'Mango', 'Cacao (Kakaw)', 'Banana (Saging)',
+  'Coffee (Kape)', 'Cassava', 'Sweet Potato (Kamote)',
+  'Other Vegetables', 'Other Fruits', 'Other Root Crops', 'Cash Crops', 'Other',
+]
+const MACHINERY_OPTIONS = [
+  'Hand Tractor', 'Four-Wheel Tractor', 'Thresher', 'Water Pump',
+  'Sprayer', 'Harvester', 'Rice Mill', 'Other',
+]
+const OWNERSHIP_OPTIONS = ['Owned', 'Borrowed', 'Rented', 'Association-Owned']
+const PERENNIAL_CROPS = ['Mango', 'Cacao (Kakaw)', 'Banana (Saging)', 'Coffee (Kape)', 'Other Fruits']
+const FARM_TYPE_OPTIONS = ['Irrigated Lowland', 'Rainfed Lowland', 'Upland', 'Highland', 'Other']
+const CROPPING_SCHEDULE_OPTIONS = ['Single Crop', 'Double Crop', 'Year-Round', 'Seasonal']
+const SEED_SOURCE_OPTIONS = ['Certified Seeds', 'Farm Saved Seeds', 'Hybrid Seeds', 'Open Pollinated', 'Other']
+const SEEDS_UNIT_OPTIONS = ['kg', 'g', 'bag', 'pack', 'piece']
+
+const labelCls = 'block text-xs font-medium text-slate-600'
+
+const makeParcel = (n) => ({
+  _id: n,
+  parcel_number: '',
+  area_hectares: '',
+  land_ownership: 'Owner',
+  tax_declaration_number: '',
+  farm_status: 'Active',
+  barangay: '',
+  farm_type: '',
+  is_organic: false,
+  within_ancestral_domain: false,
+  is_agrarian_reform_beneficiary: false,
+  cropping_schedule: '',
+  crops: [],
+  machinery: [],
+  // crop form state
+  _cropName: 'Palay (Rice)',
+  _cropNameOther: '',
+  _cropArea: '',
+  _cropVariety: '',
+  _cropSeedSource: 'Certified Seeds',
+  _cropQtySeeds: '',
+  _cropSeedsUnit: 'kg',
+  _cropIsMain: false,
+  _cropTrees: '',
+  // machinery form state
+  _machineryType: 'Hand Tractor',
+  _machineryTypeOther: '',
+  _machineryQty: '1',
+  _machineryOwnership: 'Owned',
+})
+
+function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
+  const set = (field, value) => onUpdate(parcel._id, field, value)
+
+  const addCrop = () => {
+    if (!parcel._cropArea) return
+    if (parcel._cropName === 'Other' && !parcel._cropNameOther.trim()) return
+    const entry = {
+      _uid: Date.now(),
+      crop_name: parcel._cropName,
+      crop_name_other: parcel._cropName === 'Other' ? parcel._cropNameOther : '',
+      area_hectares: parseFloat(parcel._cropArea),
+      is_main_crop: parcel._cropIsMain,
+      variety_used: parcel._cropVariety || null,
+      seed_source: parcel._cropSeedSource,
+      quantity_of_seeds_used: parcel._cropQtySeeds ? parseFloat(parcel._cropQtySeeds) : null,
+      seeds_unit: parcel._cropSeedsUnit,
+      number_of_trees: PERENNIAL_CROPS.includes(parcel._cropName) && parcel._cropTrees
+        ? parseInt(parcel._cropTrees) : null,
+    }
+    const updatedCrops = parcel._cropIsMain
+      ? [...parcel.crops.map(c => ({ ...c, is_main_crop: false })), entry]
+      : [...parcel.crops, entry]
+    onUpdate(parcel._id, 'crops', updatedCrops)
+    onUpdate(parcel._id, '_cropArea', '')
+    onUpdate(parcel._id, '_cropNameOther', '')
+    onUpdate(parcel._id, '_cropIsMain', false)
+    onUpdate(parcel._id, '_cropVariety', '')
+    onUpdate(parcel._id, '_cropQtySeeds', '')
+    onUpdate(parcel._id, '_cropTrees', '')
+  }
+
+  const removeCrop = (uid) => onUpdate(parcel._id, 'crops', parcel.crops.filter(c => c._uid !== uid))
+
+  const addMachinery = () => {
+    if (parcel._machineryType === 'Other' && !parcel._machineryTypeOther.trim()) return
+    const entry = {
+      _uid: Date.now(),
+      machinery_type: parcel._machineryType,
+      machinery_type_other: parcel._machineryType === 'Other' ? parcel._machineryTypeOther : '',
+      quantity: parseInt(parcel._machineryQty) || 1,
+      ownership: parcel._machineryOwnership,
+    }
+    onUpdate(parcel._id, 'machinery', [...parcel.machinery, entry])
+    onUpdate(parcel._id, '_machineryTypeOther', '')
+    onUpdate(parcel._id, '_machineryQty', '1')
+  }
+
+  const removeMachinery = (uid) => onUpdate(parcel._id, 'machinery', parcel.machinery.filter(m => m._uid !== uid))
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-bold text-slate-800">Parcel {index + 1}</p>
+        {total > 1 && (
+          <button type="button" onClick={() => onRemove(parcel._id)}
+            className="flex items-center gap-1 text-xs font-medium text-rose-500 hover:text-rose-700">
+            <X size={13} /> Remove
+          </button>
+        )}
+      </div>
+
+      {/* Parcel fields */}
+      <div className="grid gap-3 md:grid-cols-2">
+        <div>
+          <label className={labelCls}>Parcel Number *</label>
+          <input className={baseInputClasses} required value={parcel.parcel_number}
+            onChange={e => set('parcel_number', e.target.value)} />
+        </div>
+        <div>
+          <label className={labelCls}>Area (ha) *</label>
+          <input type="number" min="0" step="0.01" className={baseInputClasses} required
+            value={parcel.area_hectares} onChange={e => set('area_hectares', e.target.value)} />
+        </div>
+        <div>
+          <label className={labelCls}>Land Ownership</label>
+          <select className={baseInputClasses} value={parcel.land_ownership}
+            onChange={e => set('land_ownership', e.target.value)}>
+            <option value="Owner">Owner</option>
+            <option value="Tenant">Tenant</option>
+            <option value="Lessee">Lessee</option>
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Tax Dec Number</label>
+          <input className={baseInputClasses} value={parcel.tax_declaration_number}
+            onChange={e => set('tax_declaration_number', e.target.value)} />
+        </div>
+        <div>
+          <label className={labelCls}>Farm Status</label>
+          <select className={baseInputClasses} value={parcel.farm_status}
+            onChange={e => set('farm_status', e.target.value)}>
+            <option value="Active">Active</option>
+            <option value="Inactive">Inactive</option>
+          </select>
+        </div>
+        <BarangaySelect label="Barangay" value={parcel.barangay}
+          onChange={e => set('barangay', e.target.value)} required />
+        <div>
+          <label className={labelCls}>Farm Type</label>
+          <select className={baseInputClasses} value={parcel.farm_type}
+            onChange={e => set('farm_type', e.target.value)}>
+            <option value="">— Select —</option>
+            {FARM_TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className={labelCls}>Cropping Schedule</label>
+          <select className={baseInputClasses} value={parcel.cropping_schedule}
+            onChange={e => set('cropping_schedule', e.target.value)}>
+            <option value="">— Select —</option>
+            {CROPPING_SCHEDULE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* RSBSA Classification */}
+      <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">RSBSA Parcel Classification</p>
+        <div className="flex flex-wrap gap-4">
+          {[
+            ['is_organic', 'Organic Farm'],
+            ['within_ancestral_domain', 'Within Ancestral Domain'],
+            ['is_agrarian_reform_beneficiary', 'Agrarian Reform Beneficiary'],
+          ].map(([field, label]) => (
+            <label key={field} className="flex cursor-pointer items-center gap-2">
+              <input type="checkbox" className="h-4 w-4 accent-green-600"
+                checked={parcel[field]} onChange={e => set(field, e.target.checked)} />
+              <span className="text-sm text-slate-700">{label}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Crops section */}
+      <div>
+        <p className="mb-2 text-xs font-bold text-slate-700">Crops Grown</p>
+        <div className="grid gap-2 md:grid-cols-3">
+          <div>
+            <label className={labelCls}>Crop Name</label>
+            <select className={baseInputClasses} value={parcel._cropName}
+              onChange={e => set('_cropName', e.target.value)}>
+              {CROP_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </div>
+          {parcel._cropName === 'Other' && (
+            <div>
+              <label className={labelCls}>Specify</label>
+              <input className={baseInputClasses} value={parcel._cropNameOther}
+                onChange={e => set('_cropNameOther', e.target.value)} />
+            </div>
+          )}
+          <div>
+            <label className={labelCls}>Area (ha)</label>
+            <input type="number" min="0" step="0.0001" className={baseInputClasses}
+              value={parcel._cropArea} onChange={e => set('_cropArea', e.target.value)} />
+          </div>
+          {PERENNIAL_CROPS.includes(parcel._cropName) && (
+            <div>
+              <label className={labelCls}>No. of Trees</label>
+              <input type="number" min="0" className={baseInputClasses}
+                value={parcel._cropTrees} onChange={e => set('_cropTrees', e.target.value)} />
+            </div>
+          )}
+          <div>
+            <label className={labelCls}>Variety Used</label>
+            <input className={baseInputClasses} value={parcel._cropVariety}
+              onChange={e => set('_cropVariety', e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>Seed Source</label>
+            <select className={baseInputClasses} value={parcel._cropSeedSource}
+              onChange={e => set('_cropSeedSource', e.target.value)}>
+              {SEED_SOURCE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Qty of Seeds</label>
+            <input type="number" min="0" step="0.01" className={baseInputClasses}
+              value={parcel._cropQtySeeds} onChange={e => set('_cropQtySeeds', e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>Seeds Unit</label>
+            <select className={baseInputClasses} value={parcel._cropSeedsUnit}
+              onChange={e => set('_cropSeedsUnit', e.target.value)}>
+              {SEEDS_UNIT_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </div>
+          <div className="flex items-center gap-2 pt-5">
+            <input type="checkbox" className="h-4 w-4 accent-green-600"
+              checked={parcel._cropIsMain} onChange={e => set('_cropIsMain', e.target.checked)} />
+            <label className={labelCls}>Main Crop</label>
+          </div>
+          <div className="flex items-end">
+            <Button size="sm" type="button" onClick={addCrop}>Add Crop</Button>
+          </div>
+        </div>
+
+        {parcel.crops.length > 0 && (
+          <div className="mt-2 overflow-hidden rounded-md border border-green-100">
+            <table className="min-w-full text-sm">
+              <thead className="bg-[#f0f7f0] text-xs font-semibold uppercase tracking-wide text-green-800">
+                <tr>
+                  <th className="px-3 py-2 text-left">Crop</th>
+                  <th className="px-3 py-2 text-left">Variety</th>
+                  <th className="px-3 py-2 text-left">Area</th>
+                  <th className="px-3 py-2 text-left">Main</th>
+                  <th className="px-3 py-2" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-green-50">
+                {parcel.crops.map(c => (
+                  <tr key={c._uid}>
+                    <td className="px-3 py-2">{c.crop_name === 'Other' ? c.crop_name_other : c.crop_name}</td>
+                    <td className="px-3 py-2 text-xs text-slate-500">{c.variety_used || '—'}</td>
+                    <td className="px-3 py-2">{c.area_hectares} ha</td>
+                    <td className="px-3 py-2">
+                      {c.is_main_crop && <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-[#1E4620]">Main</span>}
+                    </td>
+                    <td className="px-3 py-2 text-right">
+                      <button type="button" onClick={() => removeCrop(c._uid)} className="text-rose-400 hover:text-rose-600">
+                        <Trash2 size={13} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Machinery section */}
+      <div>
+        <p className="mb-2 text-xs font-bold text-slate-700">Agricultural Machinery</p>
+        <div className="grid gap-2 md:grid-cols-2">
+          <div>
+            <label className={labelCls}>Machinery Type</label>
+            <select className={baseInputClasses} value={parcel._machineryType}
+              onChange={e => set('_machineryType', e.target.value)}>
+              {MACHINERY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </div>
+          {parcel._machineryType === 'Other' && (
+            <div>
+              <label className={labelCls}>Specify</label>
+              <input className={baseInputClasses} value={parcel._machineryTypeOther}
+                onChange={e => set('_machineryTypeOther', e.target.value)} />
+            </div>
+          )}
+          <div>
+            <label className={labelCls}>Quantity</label>
+            <input type="number" min="1" className={baseInputClasses}
+              value={parcel._machineryQty} onChange={e => set('_machineryQty', e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>Ownership</label>
+            <select className={baseInputClasses} value={parcel._machineryOwnership}
+              onChange={e => set('_machineryOwnership', e.target.value)}>
+              {OWNERSHIP_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </div>
+          <div className="flex items-end">
+            <Button size="sm" type="button" onClick={addMachinery}>Add Machinery</Button>
+          </div>
+        </div>
+
+        {parcel.machinery.length > 0 && (
+          <div className="mt-2 overflow-hidden rounded-md border border-green-100">
+            <table className="min-w-full text-sm">
+              <thead className="bg-[#f0f7f0] text-xs font-semibold uppercase tracking-wide text-green-800">
+                <tr>
+                  <th className="px-3 py-2 text-left">Type</th>
+                  <th className="px-3 py-2 text-left">Qty</th>
+                  <th className="px-3 py-2 text-left">Ownership</th>
+                  <th className="px-3 py-2" />
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-green-50">
+                {parcel.machinery.map(m => (
+                  <tr key={m._uid}>
+                    <td className="px-3 py-2">{m.machinery_type === 'Other' ? m.machinery_type_other : m.machinery_type}</td>
+                    <td className="px-3 py-2">{m.quantity}</td>
+                    <td className="px-3 py-2">{m.ownership}</td>
+                    <td className="px-3 py-2 text-right">
+                      <button type="button" onClick={() => removeMachinery(m._uid)} className="text-rose-400 hover:text-rose-600">
+                        <Trash2 size={13} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Main Modal ───────────────────────────────────────────────────────────────
+
+function AddFarmParcelModal({ farmerId, onClose, onSuccess }) {
+  const [parcels, setParcels] = useState([makeParcel(1)])
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [nextId, setNextId] = useState(2)
+
+  const addParcel = () => {
+    setParcels(p => [...p, makeParcel(nextId)])
+    setNextId(n => n + 1)
+  }
+
+  const removeParcel = (id) => {
+    setParcels(p => p.filter(x => x._id !== id))
+  }
+
+  const updateParcel = (id, field, value) => {
+    setParcels(p => p.map(x => x._id === id ? { ...x, [field]: value } : x))
+  }
+
+  const validate = () => {
+    for (const p of parcels) {
+      if (!p.parcel_number.trim()) { setError(`Parcel ${parcels.indexOf(p) + 1}: Parcel number is required.`); return false }
+      if (!p.area_hectares)        { setError(`Parcel ${parcels.indexOf(p) + 1}: Area is required.`); return false }
+      if (!p.barangay)             { setError(`Parcel ${parcels.indexOf(p) + 1}: Barangay is required.`); return false }
+    }
+    return true
+  }
+
+  const handleSave = async () => {
+    setShowConfirm(false)
+    setIsSaving(true)
+    setError('')
+    try {
+      for (const parcel of parcels) {
+        const { data: created } = await api.post(`/farmers/${farmerId}/parcels/`, {
+          parcel_number: parcel.parcel_number,
+          area_hectares: parseFloat(parcel.area_hectares),
+          land_ownership: parcel.land_ownership,
+          tax_declaration_number: parcel.tax_declaration_number,
+          farm_status: parcel.farm_status,
+          barangay: parcel.barangay,
+          farm_type: parcel.farm_type,
+          is_organic: parcel.is_organic,
+          within_ancestral_domain: parcel.within_ancestral_domain,
+          is_agrarian_reform_beneficiary: parcel.is_agrarian_reform_beneficiary,
+          cropping_schedule: parcel.cropping_schedule,
+        })
+
+        for (const crop of parcel.crops) {
+          const { _uid, ...cropPayload } = crop
+          await api.post(`/farmers/parcels/${created.id}/crops/`, cropPayload)
+        }
+
+        for (const mach of parcel.machinery) {
+          const { _uid, ...machPayload } = mach
+          await api.post(`/farmers/parcels/${created.id}/machinery/`, machPayload)
+        }
+      }
+      onSuccess()
+      onClose()
+    } catch {
+      setError('Failed to save one or more parcels. Please check all fields.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    setError('')
+    if (!validate()) return
+    setShowConfirm(true)
+  }
+
+  return (
+    <>
+      <ModalShell title="Add Farm Parcel(s)" subtitle="Add one or more parcels in a single submission" onClose={onClose} maxWidth="max-w-2xl">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {parcels.map((p, i) => (
+            <ParcelSection
+              key={p._id}
+              parcel={p}
+              index={i}
+              total={parcels.length}
+              onUpdate={updateParcel}
+              onRemove={removeParcel}
+            />
+          ))}
+
+          <button type="button" onClick={addParcel}
+            className="flex w-full items-center justify-center gap-1 rounded-xl border-2 border-dashed border-[#1E4620]/30 py-2.5 text-sm font-medium text-[#1E4620] transition hover:border-[#1E4620]/60">
+            <Plus size={15} />
+            + Add Another Parcel
+          </button>
+
+          {error && (
+            <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">{error}</p>
+          )}
+
+          <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
+            <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+            <Button type="submit" isLoading={isSaving}>
+              Save {parcels.length} Parcel{parcels.length > 1 ? 's' : ''}
+            </Button>
+          </div>
+        </form>
+      </ModalShell>
+
+      {showConfirm && (
+        <ConfirmDialog
+          title="Confirm Save"
+          message={`Save ${parcels.length} parcel${parcels.length > 1 ? 's' : ''} for this farmer?`}
+          confirmLabel="Save"
+          onConfirm={handleSave}
+          onCancel={() => setShowConfirm(false)}
+        />
+      )}
+    </>
+  )
+}
+
+export default AddFarmParcelModal
