@@ -2,13 +2,13 @@ import { Search } from 'lucide-react'
 
 function SearchBar({ placeholder, value, onChange }) {
   return (
-    <div className="relative w-full">
+    <div className="relative flex-1">
       <Search
-        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#A8BCA8]"
         size={16}
       />
       <input
-        className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-base text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-[#1E4620] focus:ring-2 focus:ring-[#1E4620]/20 md:text-sm"
+        className="w-full h-[38px] pl-9 pr-3 border-0 bg-transparent text-[13px] text-[#1A2B1A] placeholder-[#A8BCA8] focus:outline-none"
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         type="search"

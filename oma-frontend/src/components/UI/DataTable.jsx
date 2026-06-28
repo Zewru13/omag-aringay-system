@@ -1,45 +1,57 @@
-function DataTable({ columns, data, isLoading, onRowClick }) {
-  if (isLoading) {
+function DataTable({ columns, data, isLoading, loading, onRowClick, emptyState }) {
+  const showLoading = isLoading || loading
+
+  if (showLoading) {
     return (
-      <div className="flex min-h-56 items-center justify-center rounded-2xl border border-slate-100 bg-white">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-100 border-t-green-600" />
+      <div className="bg-white border border-[#E2E8E2] rounded-xl overflow-hidden flex items-center justify-center min-h-[200px]">
+        <div
+          className="animate-spin rounded-full border-2 border-[#E2E8E2] border-t-[#1B4D2E]"
+          style={{ width: 24, height: 24 }}
+        />
       </div>
     )
   }
 
   if (!data?.length) {
+    if (emptyState) {
+      return (
+        <div className="bg-white border border-[#E2E8E2] rounded-xl overflow-hidden">
+          {emptyState}
+        </div>
+      )
+    }
     return (
-      <div className="flex min-h-40 items-center justify-center rounded-2xl border border-slate-100 bg-white text-sm text-slate-400">
-        No records found.
+      <div className="bg-white border border-[#E2E8E2] rounded-xl overflow-hidden flex items-center justify-center min-h-[160px]">
+        <p className="text-[13px] text-[#7A8E7A]">No records found.</p>
       </div>
     )
   }
 
   return (
     <>
-      {/* Mobile: card view — one card per row */}
+      {/* Mobile: card view */}
       <div className="block space-y-3 md:hidden">
         {data.map((row, rowIndex) => (
           <div
             key={row.id || rowIndex}
             className={[
-              'rounded-xl border border-slate-100 bg-white p-4',
-              onRowClick ? 'cursor-pointer active:bg-slate-50' : '',
+              'rounded-xl border border-[#E2E8E2] bg-white p-4',
+              onRowClick ? 'cursor-pointer hover:bg-[#F9FAF9] transition-colors' : '',
             ].join(' ')}
             onClick={() => onRowClick?.(row)}
           >
             {columns.map((column) => (
               <div key={column.key} className="mt-2 first:mt-0">
-                <p className="text-xs font-medium text-slate-400">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-[#7A8E7A]">
                   {column.label}
                 </p>
-                <p className="mt-0.5 text-sm text-slate-900">
+                <p className="mt-0.5 text-[13px] text-[#1A2B1A]">
                   {row[column.key] ?? '—'}
                 </p>
               </div>
             ))}
             {onRowClick && (
-              <p className="mt-3 border-t border-slate-100 pt-2 text-xs font-medium text-[#1E4620]">
+              <p className="mt-3 border-t border-[#F0F4F0] pt-2 text-[12px] font-medium text-[#1B4D2E]">
                 Tap to view details →
               </p>
             )}
@@ -47,15 +59,15 @@ function DataTable({ columns, data, isLoading, onRowClick }) {
         ))}
       </div>
 
-      {/* Desktop: normal table */}
-      <div className="hidden overflow-hidden rounded-2xl border border-slate-100 bg-white md:block">
+      {/* Desktop: table */}
+      <div className="hidden bg-white border border-[#E2E8E2] rounded-xl overflow-hidden md:block">
         <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
+          <table className="min-w-full text-left">
             <thead>
-              <tr className="bg-[#1E4620]">
+              <tr className="bg-[#1B4D2E]">
                 {columns.map((column) => (
                   <th
-                    className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-white"
+                    className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white"
                     key={column.key}
                   >
                     {column.label}
@@ -63,18 +75,18 @@ function DataTable({ columns, data, isLoading, onRowClick }) {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody>
               {data.map((row, rowIndex) => (
                 <tr
                   className={[
-                    'transition-colors hover:bg-slate-50',
+                    'border-b border-[#F0F4F0] transition-colors hover:bg-[#F9FAF9]',
                     onRowClick ? 'cursor-pointer' : '',
                   ].join(' ')}
                   key={row.id || rowIndex}
                   onClick={() => onRowClick?.(row)}
                 >
                   {columns.map((column) => (
-                    <td className="whitespace-nowrap px-4 py-4 text-sm text-slate-700" key={column.key}>
+                    <td className="px-4 py-[13px] text-[13px] text-[#1A2B1A] align-middle" key={column.key}>
                       {row[column.key] ?? ''}
                     </td>
                   ))}

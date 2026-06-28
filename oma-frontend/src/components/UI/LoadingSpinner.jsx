@@ -1,19 +1,27 @@
-function LoadingSpinner({ size = 'large', message = '' }) {
-  if (size === 'small') {
+function LoadingSpinner({ size = 'large', message = '', className = '' }) {
+  const isSmall = size === 'small'
+  const spinnerPx = typeof size === 'number' ? size : isSmall ? 20 : 32
+
+  const spinner = (
+    <div
+      className="animate-spin rounded-full border-2 border-[#E2E8E2] border-t-[#1B4D2E]"
+      style={{ width: spinnerPx, height: spinnerPx }}
+    />
+  )
+
+  if (isSmall) {
     return (
-      <div className="flex items-center justify-center py-4">
-        <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-100 border-t-green-600" />
-        {message && <p className="ml-2 text-sm text-slate-600">{message}</p>}
+      <div className={`flex items-center justify-center py-4 ${className}`}>
+        {spinner}
+        {message && <p className="ml-2 text-[13px] text-[#7A8E7A]">{message}</p>}
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-100 bg-white py-12">
-      <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-100 border-t-green-600" />
-      {message && (
-        <p className="mt-4 text-sm text-slate-500">{message}</p>
-      )}
+    <div className={`flex flex-col items-center justify-center py-8 ${className}`}>
+      {spinner}
+      {message && <p className="mt-3 text-[13px] text-[#7A8E7A]">{message}</p>}
     </div>
   )
 }

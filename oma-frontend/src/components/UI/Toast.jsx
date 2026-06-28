@@ -1,4 +1,4 @@
-import { AlertCircle, Check, Info, X } from 'lucide-react'
+import { AlertCircle, AlertTriangle, Check, Info, X } from 'lucide-react'
 import { useToast } from '../../context/ToastContext.jsx'
 
 function Toast() {
@@ -8,19 +8,24 @@ function Toast() {
     switch (type) {
       case 'success':
         return {
-          border: 'border-l-green-600',
-          icon: <Check className="h-4 w-4 shrink-0 text-[#1E4620]" />,
+          container: 'bg-[#EBF5EE] border border-[#C8E6D0] text-[#1B4D2E]',
+          icon: <Check className="h-4 w-4 shrink-0" />,
         }
       case 'error':
         return {
-          border: 'border-l-rose-600',
-          icon: <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />,
+          container: 'bg-[#FEE2E2] border border-[#FCA5A5] text-[#991B1B]',
+          icon: <AlertCircle className="h-4 w-4 shrink-0" />,
+        }
+      case 'warning':
+        return {
+          container: 'bg-[#FEF3C7] border border-[#FDE68A] text-[#92400E]',
+          icon: <AlertTriangle className="h-4 w-4 shrink-0" />,
         }
       case 'info':
       default:
         return {
-          border: 'border-l-blue-600',
-          icon: <Info className="h-4 w-4 shrink-0 text-blue-600" />,
+          container: 'bg-slate-100 border border-slate-200 text-slate-700',
+          icon: <Info className="h-4 w-4 shrink-0" />,
         }
     }
   }
@@ -33,13 +38,13 @@ function Toast() {
         return (
           <div
             key={toast.id}
-            className={`flex items-start gap-3 rounded-xl border-l-4 bg-white px-4 py-3 shadow-lg ${styles.border}`}
+            className={`flex items-start gap-3 rounded-xl px-4 py-3 shadow-lg min-w-[280px] max-w-sm ${styles.container}`}
           >
             {styles.icon}
-            <p className="flex-1 text-sm text-slate-900">{toast.message}</p>
+            <p className="flex-1 text-[13px]">{toast.message}</p>
             <button
               onClick={() => removeToast(toast.id)}
-              className="shrink-0 text-slate-400 transition hover:text-slate-600"
+              className="shrink-0 opacity-60 hover:opacity-100 transition-opacity"
               type="button"
             >
               <X size={16} />

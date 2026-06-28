@@ -1,17 +1,17 @@
 import { Loader2 } from 'lucide-react'
 
 const VARIANT = {
-  primary:   'bg-[#1E4620] text-white shadow-sm hover:bg-[#2D6A31] hover:shadow-md active:bg-[#163318] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#1E4620]',
-  secondary: 'bg-blue-900 text-white shadow-sm hover:bg-blue-950 hover:shadow-md active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-900',
-  outline:   'bg-white border border-slate-300 text-slate-700 hover:bg-[#f0f7f0] hover:border-slate-400 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#1E4620]',
-  danger:    'bg-[#D32F2F] text-white shadow-sm hover:bg-[#B71C1C] hover:shadow-md active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#D32F2F]',
-  ghost:     'bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-800 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#1E4620]',
+  primary:   'bg-[#1B4D2E] text-white hover:bg-[#235E38] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#1B4D2E]',
+  secondary: 'border border-[#C8D5C8] text-[#4A5E4A] hover:bg-[#F5F7F5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#1B4D2E]',
+  outline:   'border border-[#C8D5C8] text-[#4A5E4A] hover:bg-[#F5F7F5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#1B4D2E]',
+  danger:    'bg-[#C0392B] text-white hover:bg-[#A93226] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#C0392B]',
+  ghost:     'text-[#1B4D2E] hover:bg-[#EBF5EE] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#1B4D2E]',
 }
 
 const SIZE = {
-  sm: 'px-3 py-1.5 text-xs',
-  md: 'px-4 py-2 text-sm min-h-[2.5rem]',
-  lg: 'px-5 py-2.5 text-sm',
+  sm: 'h-8 px-3 text-[12px]',
+  md: 'h-9 px-4 text-[13px]',
+  lg: 'h-10 px-5 text-[13px]',
 }
 
 function Button({
@@ -24,11 +24,11 @@ function Button({
   disabled,
   ...props
 }) {
-  const base = 'inline-flex items-center justify-center gap-2 rounded-xl font-medium transition-all'
+  const base = 'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors'
 
   return (
     <button
-      className={`${base} ${VARIANT[variant]} ${SIZE[size]} ${className}`}
+      className={`${base} ${VARIANT[variant] || VARIANT.primary} ${SIZE[size] || SIZE.md} ${className}`}
       disabled={disabled || isLoading}
       {...props}
     >
