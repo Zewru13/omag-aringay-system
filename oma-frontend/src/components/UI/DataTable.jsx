@@ -1,13 +1,14 @@
+import LoadingSpinner from './LoadingSpinner'
+
 function DataTable({ columns, data, isLoading, loading, onRowClick, emptyState }) {
   const showLoading = isLoading || loading
 
   if (showLoading) {
     return (
-      <div className="bg-white border border-[#E2E8E2] rounded-xl overflow-hidden flex items-center justify-center min-h-[200px]">
-        <div
-          className="animate-spin rounded-full border-2 border-[#E2E8E2] border-t-[#1B4D2E]"
-          style={{ width: 24, height: 24 }}
-        />
+      <div className="bg-white border border-[#E2E8E2] rounded-xl overflow-hidden">
+        <div className="flex items-center justify-center py-12">
+          <LoadingSpinner size={24} />
+        </div>
       </div>
     )
   }
