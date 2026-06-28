@@ -2,6 +2,7 @@ import {
   BarChart2,
   Building2,
   FileBarChart,
+  HeartHandshake,
   HelpCircle,
   History,
   LayoutDashboard,
@@ -136,7 +137,10 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
           <NavItem to="/forecasting" icon={TrendingUp} isCollapsed={isCollapsed} user={user}>
             Forecasting
           </NavItem>
-          <NavItem to="/reports" icon={FileBarChart} isCollapsed={isCollapsed} user={user}>
+          <NavItem to="/interventions" icon={HeartHandshake} adminOnly isCollapsed={isCollapsed} user={user}>
+            Interventions
+          </NavItem>
+          <NavItem to="/reports" icon={FileBarChart} adminOnly isCollapsed={isCollapsed} user={user}>
             Report Generation
           </NavItem>
 
