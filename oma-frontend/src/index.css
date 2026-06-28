@@ -20,14 +20,6 @@
   --color-text-muted: #7A8E7A;
   --color-text-inverse: #FFFFFF;
 
-  /* Legacy aliases so old code still resolves */
-  --color-forest: #1B4D2E;
-  --color-forest-light: #235E38;
-  --color-forest-dark: #163318;
-  --color-forest-50: #EBF5EE;
-  --color-forest-100: #C8E6D0;
-  --color-milk: #F5F7F5;
-
   /* Status */
   --color-semantic-safe: #2D7A4F;
   --color-semantic-safe-bg: #EBF5EE;
@@ -35,6 +27,15 @@
   --color-semantic-warning-bg: #FEF3C7;
   --color-semantic-critical: #C0392B;
   --color-semantic-critical-bg: #FEE2E2;
+}
+
+:root {
+  --color-forest: #1B4D2E;
+  --color-forest-light: #235E38;
+  --color-forest-dark: #163318;
+  --color-forest-50: #EBF5EE;
+  --color-forest-100: #C8E6D0;
+  --color-milk: #F5F7F5;
 }
 
 * {
