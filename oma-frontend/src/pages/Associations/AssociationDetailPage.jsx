@@ -23,7 +23,7 @@ function formatDate(value) {
   }).format(new Date(value));
 }
 
-const labelCls = "block text-xs font-medium text-slate-600";
+const labelCls = "block text-[13px] font-medium text-[#4A5E4A] mb-1.5";
 
 const POSITIONS = [
   "President",
@@ -189,25 +189,27 @@ function AddMemberModal({ type, associationId, onClose, onSuccess }) {
         </div>
 
         {/* Results */}
-        {isSearching && <p className="text-sm text-slate-500">Searching...</p>}
+        {isSearching && (
+          <p className="text-[13px] text-[#7A8E7A]">Searching...</p>
+        )}
 
         {!isSearching && results.length > 0 && (
-          <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-100">
+          <div className="max-h-48 overflow-y-auto rounded-xl border border-[#E2E8E2]">
             {results.map((item) => (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => setSelected(item)}
-                className={`w-full rounded-lg p-2 text-left text-sm transition ${
+                className={`w-full rounded-lg p-2 text-left text-[13px] transition-colors ${
                   selected?.id === item.id
-                    ? "bg-[#f0f7f0] font-semibold text-green-800"
-                    : "hover:bg-slate-50"
+                    ? "bg-[#EBF5EE] font-semibold text-[#1B4D2E]"
+                    : "hover:bg-[#F9FAF9]"
                 }`}
               >
-                <span className="font-medium text-slate-900">
+                <span className="font-medium text-[#1A2B1A]">
                   {item.full_name}
                 </span>
-                <span className="ml-2 text-slate-500">
+                <span className="ml-2 text-[#7A8E7A]">
                   {idDisplayLabel}: {item[idLabel]}
                 </span>
               </button>
@@ -216,13 +218,13 @@ function AddMemberModal({ type, associationId, onClose, onSuccess }) {
         )}
 
         {!isSearching && results.length === 0 && search && (
-          <p className="text-sm text-slate-500">
+          <p className="text-[13px] text-[#7A8E7A]">
             No results. Try a different name or ID.
           </p>
         )}
 
         {selected && (
-          <p className="rounded-xl bg-[#f0f7f0] px-3 py-2 text-sm font-medium text-green-800">
+          <p className="rounded-lg bg-[#EBF5EE] px-3 py-2 text-[13px] font-medium text-[#1B4D2E]">
             Selected: {selected.full_name} ({selected[idLabel]})
           </p>
         )}
@@ -256,13 +258,13 @@ function AddMemberModal({ type, associationId, onClose, onSuccess }) {
         </div>
 
         {error && (
-          <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">
+          <p className="rounded-lg bg-rose-50 px-3 py-2 text-[13px] font-medium text-rose-700">
             {error}
           </p>
         )}
 
-        <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
-          <Button onClick={onClose} type="button" variant="ghost">
+        <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4">
+          <Button onClick={onClose} type="button" variant="secondary">
             Cancel
           </Button>
           <Button isLoading={isSubmitting} type="submit" variant="primary">
@@ -385,7 +387,7 @@ function AddEquipmentModal({ type, associationId, onClose, onSuccess }) {
           <div>
             <label className={labelCls}>
               Acquisition Date{" "}
-              <span className="font-normal text-slate-400">(optional)</span>
+              <span className="font-normal text-[#7A8E7A] text-[12px]">(optional)</span>
             </label>
             <input
               className={`${baseInputClasses} mt-1`}
@@ -400,10 +402,10 @@ function AddEquipmentModal({ type, associationId, onClose, onSuccess }) {
         <div>
           <label className={labelCls}>
             Remarks{" "}
-            <span className="font-normal text-slate-400">(optional)</span>
+            <span className="font-normal text-[#7A8E7A] text-[12px]">(optional)</span>
           </label>
           <textarea
-            className={`${baseInputClasses} mt-1 resize-none`}
+            className={`${baseInputClasses} mt-1 resize-none h-auto py-2`}
             rows={2}
             value={form.remarks}
             onChange={(e) => updateField("remarks", e.target.value)}
@@ -411,13 +413,13 @@ function AddEquipmentModal({ type, associationId, onClose, onSuccess }) {
         </div>
 
         {error && (
-          <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">
+          <p className="rounded-lg bg-rose-50 px-3 py-2 text-[13px] font-medium text-rose-700">
             {error}
           </p>
         )}
 
-        <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
-          <Button onClick={onClose} type="button" variant="ghost">
+        <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4">
+          <Button onClick={onClose} type="button" variant="secondary">
             Cancel
           </Button>
           <Button isLoading={isSubmitting} type="submit" variant="primary">
@@ -434,8 +436,8 @@ function AddEquipmentModal({ type, associationId, onClose, onSuccess }) {
 function Field({ label, value }) {
   return (
     <div>
-      <p className="text-xs font-medium text-slate-400">{label}</p>
-      <p className="mt-1 text-sm font-medium text-slate-900">{value || "—"}</p>
+      <p className="text-[12px] text-[#7A8E7A] mb-0.5">{label}</p>
+      <p className="text-[14px] font-medium text-[#1A2B1A]">{value || "—"}</p>
     </div>
   );
 }
@@ -528,33 +530,33 @@ function AssociationDetailPage() {
       title={`${typeLabel} Association Details`}
       subtitle="View members, equipment, and association information"
     >
-      <div className="space-y-5">
+      <div className="space-y-4">
         <Link
-          className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700"
+          className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#4A5E4A] hover:text-[#1A2B1A] transition-colors"
           to="/associations"
         >
-          <ArrowLeft size={16} />
+          <ArrowLeft size={15} />
           Back to Associations
         </Link>
 
         {error && (
-          <div className="rounded-xl bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+          <div className="rounded-lg bg-rose-50 px-4 py-3 text-[13px] font-medium text-rose-700">
             {error}
           </div>
         )}
 
         {isLoading && (
-          <div className="flex min-h-56 items-center justify-center rounded-2xl border border-slate-100 bg-white">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-100 border-t-green-600" />
+          <div className="flex min-h-56 items-center justify-center rounded-xl border border-[#E2E8E2] bg-white">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#E2E8E2] border-t-[#1B4D2E]" />
           </div>
         )}
 
         {!isLoading && association && (
           <>
             {/* Association Info */}
-            <section className="rounded-2xl border border-slate-100 bg-white p-6">
-              <div className="mb-5 flex flex-wrap items-center gap-3 border-b border-slate-100 pb-4">
-                <h1 className="text-xl font-semibold text-slate-900">
+            <div className="bg-white border border-[#E2E8E2] rounded-xl p-6">
+              <div className="mb-5 flex flex-wrap items-center gap-3 border-b border-[#F0F4F0] pb-4">
+                <h1 className="text-[18px] font-semibold text-[#1A2B1A]">
                   {association.name}
                 </h1>
                 <StatusPill tone={association.is_active ? "green" : "slate"}>
@@ -596,10 +598,10 @@ function AssociationDetailPage() {
                   />
                 )}
               </div>
-            </section>
+            </div>
 
             {/* Members & Equipment */}
-            <section className="rounded-2xl border border-slate-100 bg-white p-6">
+            <div className="bg-white border border-[#E2E8E2] rounded-xl p-6">
               <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                 <Tabs
                   activeTab={activeSection}
@@ -608,63 +610,65 @@ function AssociationDetailPage() {
                 />
                 {(isAdmin || isEvaluator) && type !== "farmers" &&
                   (activeSection === "members" ? (
-                    <Button
-                      icon={Plus}
+                    <button
+                      className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
                       onClick={() => setShowAddMember(true)}
-                      variant="primary"
                     >
+                      <Plus size={15} />
                       Add Member
-                    </Button>
+                    </button>
                   ) : (
-                    <Button
-                      icon={Plus}
+                    <button
+                      className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
                       onClick={() => setShowAddEquipment(true)}
-                      variant="primary"
                     >
+                      <Plus size={15} />
                       Add Equipment
-                    </Button>
+                    </button>
                   ))}
               </div>
 
               {/* Members tab — farmers (auto-populated from farmer profiles) */}
               {activeSection === "members" && type === "farmers" && (
-                <div className="bg-white rounded-xl border border-slate-100 p-5">
-                  <div className="flex items-center justify-between mb-4">
+                <div className="rounded-xl border border-[#E2E8E2] overflow-hidden">
+                  <div className="flex items-center justify-between px-5 py-4 border-b border-[#F0F4F0]">
                     <div>
-                      <h3 className="text-sm font-semibold text-slate-900">Association Members</h3>
-                      <p className="text-xs text-slate-400 mt-0.5">Farmers registered under this association</p>
+                      <h3 className="text-[14px] font-semibold text-[#1A2B1A]">Association Members</h3>
+                      <p className="text-[12px] text-[#7A8E7A] mt-0.5">Farmers registered under this association</p>
                     </div>
-                    <span className="text-xs font-medium bg-[#f0f7f0] text-[#1E4620] px-2.5 py-1 rounded-full">
+                    <span className="text-[12px] font-medium bg-[#EBF5EE] text-[#1B4D2E] px-2.5 py-1 rounded-full">
                       {members.length} members
                     </span>
                   </div>
                   {members.length === 0 ? (
-                    <div className="text-center py-8">
-                      <Users className="w-10 h-10 text-slate-200 mx-auto mb-2" />
-                      <p className="text-sm text-slate-400">No members yet</p>
-                      <p className="text-xs text-slate-400 mt-1">
+                    <div className="text-center py-10 px-6">
+                      <Users className="w-10 h-10 text-[#C8D5C8] mx-auto mb-2" />
+                      <p className="text-[13px] text-[#7A8E7A]">No members yet</p>
+                      <p className="text-[12px] text-[#7A8E7A] mt-1">
                         Farmers can be linked to this association through their profile registration or edit.
                       </p>
                     </div>
                   ) : (
-                    <table className="w-full">
-                      <thead>
-                        <tr className="bg-[#1E4620]">
-                          <th className="text-white text-xs font-semibold uppercase tracking-wide px-4 py-3 text-left rounded-l-lg">Name</th>
-                          <th className="text-white text-xs font-semibold uppercase tracking-wide px-4 py-3 text-left">Barangay</th>
-                          <th className="text-white text-xs font-semibold uppercase tracking-wide px-4 py-3 text-left rounded-r-lg">RSBSA No.</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {members.map(m => (
-                          <tr key={m.id} className="border-b border-slate-100 hover:bg-slate-50">
-                            <td className="px-4 py-3 text-sm font-medium text-slate-900">{m.full_name}</td>
-                            <td className="px-4 py-3 text-sm text-slate-600">{m.barangay}</td>
-                            <td className="px-4 py-3 text-sm text-slate-600">{m.rsbsa_number}</td>
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="bg-[#1B4D2E]">
+                            <th className="text-white text-[11px] font-semibold uppercase tracking-wider px-4 py-[11px] text-left">Name</th>
+                            <th className="text-white text-[11px] font-semibold uppercase tracking-wider px-4 py-[11px] text-left">Barangay</th>
+                            <th className="text-white text-[11px] font-semibold uppercase tracking-wider px-4 py-[11px] text-left">RSBSA No.</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {members.map(m => (
+                            <tr key={m.id} className="border-b border-[#F0F4F0] hover:bg-[#F9FAF9] transition-colors">
+                              <td className="px-4 py-[13px] text-[13px] font-medium text-[#1A2B1A]">{m.full_name}</td>
+                              <td className="px-4 py-[13px] text-[13px] text-[#4A5E4A]">{m.barangay}</td>
+                              <td className="px-4 py-[13px] text-[13px] text-[#4A5E4A]">{m.rsbsa_number}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </div>
               )}
@@ -672,43 +676,43 @@ function AssociationDetailPage() {
               {/* Members tab — fisherfolk (manual add/remove) */}
               {activeSection === "members" && type !== "farmers" &&
                 (association.members.length === 0 ? (
-                  <p className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                  <p className="rounded-lg bg-[#F5F7F5] px-4 py-3 text-[13px] text-[#7A8E7A]">
                     No members recorded.
                   </p>
                 ) : (
-                  <div className="overflow-hidden rounded-xl border border-slate-100">
+                  <div className="overflow-hidden rounded-xl border border-[#E2E8E2]">
                     <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-slate-100 text-left text-sm">
-                        <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                          <tr>
-                            <th className="px-4 py-3">Full Name</th>
-                            <th className="px-4 py-3">{memberIdLabel}</th>
-                            <th className="px-4 py-3">Position</th>
-                            <th className="px-4 py-3">Date Joined</th>
+                      <table className="min-w-full text-left">
+                        <thead>
+                          <tr className="bg-[#1B4D2E]">
+                            <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Full Name</th>
+                            <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">{memberIdLabel}</th>
+                            <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Position</th>
+                            <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Date Joined</th>
                             {(isAdmin || isEvaluator) && (
-                              <th className="px-4 py-3" />
+                              <th className="px-4 py-[11px]" />
                             )}
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-50">
+                        <tbody>
                           {association.members.map((m) => (
-                            <tr key={m.id} className="hover:bg-slate-50">
-                              <td className="px-4 py-3 font-medium text-slate-900">
+                            <tr key={m.id} className="border-b border-[#F0F4F0] hover:bg-[#F9FAF9] transition-colors">
+                              <td className="px-4 py-[13px] text-[13px] font-medium text-[#1A2B1A]">
                                 {m[memberNameField]}
                               </td>
-                              <td className="px-4 py-3 text-slate-600">
+                              <td className="px-4 py-[13px] text-[13px] text-[#4A5E4A]">
                                 {m[memberIdField]}
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-4 py-[13px]">
                                 <StatusPill tone={positionTone(m.position)}>
                                   {m.position}
                                 </StatusPill>
                               </td>
-                              <td className="px-4 py-3 text-slate-600">
+                              <td className="px-4 py-[13px] text-[13px] text-[#4A5E4A]">
                                 {formatDate(m.date_joined)}
                               </td>
                               {(isAdmin || isEvaluator) && (
-                                <td className="px-4 py-3">
+                                <td className="px-4 py-[13px]">
                                   <Button
                                     className="!text-rose-600"
                                     icon={Trash2}
@@ -732,50 +736,50 @@ function AssociationDetailPage() {
               {/* Equipment tab */}
               {activeSection === "equipment" &&
                 (association.equipment.length === 0 ? (
-                  <p className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                  <p className="rounded-lg bg-[#F5F7F5] px-4 py-3 text-[13px] text-[#7A8E7A]">
                     No equipment recorded.
                   </p>
                 ) : (
-                  <div className="overflow-hidden rounded-xl border border-slate-100">
+                  <div className="overflow-hidden rounded-xl border border-[#E2E8E2]">
                     <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-slate-100 text-left text-sm">
-                        <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                          <tr>
-                            <th className="px-4 py-3">Equipment</th>
-                            <th className="px-4 py-3">Qty</th>
-                            <th className="px-4 py-3">Condition</th>
-                            <th className="px-4 py-3">Acquired</th>
-                            <th className="px-4 py-3">Remarks</th>
+                      <table className="min-w-full text-left">
+                        <thead>
+                          <tr className="bg-[#1B4D2E]">
+                            <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Equipment</th>
+                            <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Qty</th>
+                            <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Condition</th>
+                            <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Acquired</th>
+                            <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Remarks</th>
                             {(isAdmin || isEvaluator) && (
-                              <th className="px-4 py-3" />
+                              <th className="px-4 py-[11px]" />
                             )}
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-50">
+                        <tbody>
                           {association.equipment.map((eq) => (
-                            <tr key={eq.id} className="hover:bg-slate-50">
-                              <td className="px-4 py-3 font-medium text-slate-900">
+                            <tr key={eq.id} className="border-b border-[#F0F4F0] hover:bg-[#F9FAF9] transition-colors">
+                              <td className="px-4 py-[13px] text-[13px] font-medium text-[#1A2B1A]">
                                 {eq.equipment_name === "Other" &&
                                 eq.equipment_name_other
                                   ? `Other — ${eq.equipment_name_other}`
                                   : eq.equipment_name}
                               </td>
-                              <td className="px-4 py-3 text-slate-700">
+                              <td className="px-4 py-[13px] text-[13px] text-[#4A5E4A]">
                                 {eq.quantity}
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-4 py-[13px]">
                                 <StatusPill tone={conditionTone(eq.condition)}>
                                   {eq.condition}
                                 </StatusPill>
                               </td>
-                              <td className="px-4 py-3 text-slate-600">
+                              <td className="px-4 py-[13px] text-[13px] text-[#4A5E4A]">
                                 {formatDate(eq.acquisition_date)}
                               </td>
-                              <td className="px-4 py-3 text-slate-600">
+                              <td className="px-4 py-[13px] text-[13px] text-[#4A5E4A]">
                                 {eq.remarks || "—"}
                               </td>
                               {(isAdmin || isEvaluator) && (
-                                <td className="px-4 py-3">
+                                <td className="px-4 py-[13px]">
                                   <Button
                                     className="!text-rose-600"
                                     icon={Trash2}
@@ -797,7 +801,7 @@ function AssociationDetailPage() {
                     </div>
                   </div>
                 ))}
-            </section>
+            </div>
           </>
         )}
       </div>

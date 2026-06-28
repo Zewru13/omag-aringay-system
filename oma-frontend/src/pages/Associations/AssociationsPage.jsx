@@ -5,7 +5,6 @@ import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import SearchBar from '../../components/UI/SearchBar.jsx'
-import Button from '../../components/UI/Button.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import CreateAssociationModal from './CreateAssociationModal.jsx'
 import EditAssociationModal from './EditAssociationModal.jsx'
@@ -64,7 +63,7 @@ function AssociationsPage() {
         {(isAdmin || isEvaluator) && (
           <button
             type="button"
-            className="rounded-lg p-1.5 text-[#1E4620] hover:bg-[#f0f7f0] transition-colors"
+            className="rounded-lg p-1.5 text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors"
             title="Edit"
             onClick={(e) => { e.stopPropagation(); setEditAssociation(a) }}
           >
@@ -76,30 +75,35 @@ function AssociationsPage() {
   }))
 
   return (
-    <PageLayout title="Farmer Association Management" subtitle="Manage all farmer associations in your area.">
-      <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-2">
-          <div className="flex-1" />
-          {(isAdmin || isEvaluator) && (
-            <Button icon={Plus} onClick={() => setShowCreateModal(true)} variant="primary">
-              Add Association
-            </Button>
-          )}
-        </div>
-
+    <PageLayout
+      title="Farmer Association Management"
+      subtitle="Manage all farmer associations in your area."
+      action={
+        (isAdmin || isEvaluator) && (
+          <button
+            className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
+            onClick={() => setShowCreateModal(true)}
+          >
+            <Plus size={16} />
+            Add Association
+          </button>
+        )
+      }
+    >
+      <div className="bg-white border border-[#E2E8E2] rounded-xl px-4 py-[10px] mb-4 flex items-center gap-2.5">
         <SearchBar
           placeholder="Search associations by name or address..."
           value={searchQuery}
           onChange={setSearchQuery}
         />
-
-        <DataTable
-          columns={columns}
-          data={tableData}
-          isLoading={isLoading}
-          onRowClick={handleRowClick}
-        />
       </div>
+
+      <DataTable
+        columns={columns}
+        data={tableData}
+        isLoading={isLoading}
+        onRowClick={handleRowClick}
+      />
 
       {showCreateModal && (
         <CreateAssociationModal

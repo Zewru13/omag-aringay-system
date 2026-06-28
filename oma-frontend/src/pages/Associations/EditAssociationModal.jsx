@@ -8,7 +8,7 @@ import Button from '../../components/UI/Button.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 
-const labelCls = 'block text-xs font-medium text-slate-600 mb-1'
+const labelCls = 'block text-[13px] font-medium text-[#4A5E4A] mb-1.5'
 
 const validateContact = (value) => {
   if (!value) return ''
@@ -112,7 +112,10 @@ export default function EditAssociationModal({ association, type, onClose, onSuc
         <form className="space-y-4" onSubmit={handleSubmitClick}>
           {/* Association Name */}
           <div>
-            <label className={labelCls}><Building2 size={12} className="inline mr-1 text-slate-500" />Association Name <span className="text-rose-500">*</span></label>
+            <label className={labelCls}>
+              <Building2 size={12} className="inline mr-1 text-[#7A8E7A]" />
+              Association Name <span className="text-rose-500">*</span>
+            </label>
             <input className={baseInputClasses} required value={form.name}
               onChange={e => set('name', e.target.value)} />
           </div>
@@ -127,7 +130,9 @@ export default function EditAssociationModal({ association, type, onClose, onSuc
 
           {/* Street Address */}
           <div>
-            <label className={labelCls}>Street Address <span className="font-normal text-slate-400">(optional)</span></label>
+            <label className={labelCls}>
+              Street Address <span className="font-normal text-[#7A8E7A] text-[12px]">(optional)</span>
+            </label>
             <input className={baseInputClasses} placeholder="e.g. Purok 3, San Antonio St."
               value={form.street_address} onChange={e => set('street_address', e.target.value)} />
           </div>
@@ -148,18 +153,25 @@ export default function EditAssociationModal({ association, type, onClose, onSuc
 
           {/* Contact Number */}
           <div>
-            <label className={labelCls}><Phone size={12} className="inline mr-1 text-slate-500" />Contact Number <span className="text-rose-500">*</span></label>
+            <label className={labelCls}>
+              <Phone size={12} className="inline mr-1 text-[#7A8E7A]" />
+              Contact Number <span className="text-rose-500">*</span>
+            </label>
             <input className={baseInputClasses} required type="tel" inputMode="numeric" maxLength={11}
               placeholder="09XXXXXXXXX"
               onKeyPress={e => { if (!/[0-9]/.test(e.key)) e.preventDefault() }}
               value={form.contact_number} onChange={e => set('contact_number', e.target.value)} />
-            {contactError && <p className="mt-1 text-xs text-rose-600">{contactError}</p>}
+            {contactError && <p className="mt-1 text-[12px] text-rose-600">{contactError}</p>}
           </div>
 
-          {error && <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">{error}</p>}
+          {error && (
+            <p className="rounded-lg bg-rose-50 px-3 py-2 text-[13px] font-medium text-rose-700">
+              {error}
+            </p>
+          )}
 
-          <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
-            <Button onClick={onClose} type="button" variant="ghost">Cancel</Button>
+          <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4">
+            <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
             <Button isLoading={isSubmitting} disabled={isSubmitting || !hasChanges} type="submit">Update Association</Button>
           </div>
         </form>
