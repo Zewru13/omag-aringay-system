@@ -1,52 +1,40 @@
 @import "tailwindcss";
 
 @theme {
-  --color-forest: #1E4620;
-  --color-forest-light: #2D6A31;
+  /* Primary */
+  --color-primary: #1B4D2E;
+  --color-primary-hover: #235E38;
+  --color-primary-light: #EBF5EE;
+  --color-primary-muted: #C8E6D0;
+
+  /* Neutral */
+  --color-bg: #F5F7F5;
+  --color-surface: #FFFFFF;
+  --color-surface-2: #F9FAF9;
+  --color-border: #E2E8E2;
+  --color-border-strong: #C8D5C8;
+
+  /* Text */
+  --color-text-primary: #1A2B1A;
+  --color-text-secondary: #4A5E4A;
+  --color-text-muted: #7A8E7A;
+  --color-text-inverse: #FFFFFF;
+
+  /* Legacy aliases so old code still resolves */
+  --color-forest: #1B4D2E;
+  --color-forest-light: #235E38;
   --color-forest-dark: #163318;
-  --color-forest-50: #f0f7f0;
-  --color-forest-100: #d4e8d5;
-  --color-milk: #F8F9FA;
-  --color-marigold: #E65100;
-  --color-marigold-light: #FF6D00;
-  --color-marigold-50: #fff3e0;
-  --color-marigold-100: #ffe0b2;
-  --color-semantic-safe: #4CAF50;
-  --color-semantic-safe-bg: #F1F8E9;
-  --color-semantic-warning: #FFB300;
-  --color-semantic-warning-bg: #FFFDE7;
-  --color-semantic-critical: #D32F2F;
-  --color-semantic-critical-bg: #FFEBEE;
-}
+  --color-forest-50: #EBF5EE;
+  --color-forest-100: #C8E6D0;
+  --color-milk: #F5F7F5;
 
-:root {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #111827;
-  background: #F8F9FA;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  --color-primary: #1E4620;
-  --color-primary-hover: #2D6A31;
-  --color-primary-active: #163318;
-  --color-primary-light: #d4e8d5;
-  --color-primary-subtle: #f0f7f0;
-
-  --color-base-bg: #F8F9FA;
-  --color-card-bg: #FFFFFF;
-
-  --color-alert: #E65100;
-  --color-alert-hover: #FF6D00;
-  --color-alert-bg: #fff3e0;
-
-  --color-safe: #4CAF50;
-  --color-safe-bg: #F1F8E9;
-  --color-warning: #FFB300;
-  --color-warning-bg: #FFFDE7;
-  --color-critical: #D32F2F;
-  --color-critical-bg: #FFEBEE;
+  /* Status */
+  --color-semantic-safe: #2D7A4F;
+  --color-semantic-safe-bg: #EBF5EE;
+  --color-semantic-warning: #D97706;
+  --color-semantic-warning-bg: #FEF3C7;
+  --color-semantic-critical: #C0392B;
+  --color-semantic-critical-bg: #FEE2E2;
 }
 
 * {
@@ -54,13 +42,35 @@
 }
 
 body {
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  min-width: 320px;
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  color: #1A2B1A;
+  background: #F5F7F5;
   min-height: 100vh;
   margin: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-button,
-input {
+button, input, select, textarea {
   font: inherit;
+}
+
+/* Modal animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.modal-backdrop {
+  animation: fadeIn 180ms ease;
+}
+
+.modal-content {
+  animation: scaleIn 180ms ease;
 }
