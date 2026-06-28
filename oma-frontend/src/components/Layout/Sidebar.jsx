@@ -1,13 +1,11 @@
 import {
   BarChart2,
   Building2,
-  ClipboardList,
   FileBarChart,
-  HeartHandshake,
+  HelpCircle,
+  History,
   LayoutDashboard,
   Leaf,
-  ScrollText,
-  Settings,
   Sprout,
   Tag,
   TrendingUp,
@@ -15,43 +13,57 @@ import {
   Users,
   X,
 } from 'lucide-react'
-import { NavLink } from 'react-router-dom'
+import { useLocation, NavLink } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
-import NavGroup from './NavGroup.jsx'
 import logo from '../../assets/LOGO OMAg.jpg'
 
-function SideNavLink({ to, icon: Icon, children, isCollapsed, insideGroup = false }) {
-  const label = typeof children === 'string' ? children : undefined
+function NavItem({ to, icon: Icon, children, adminOnly, isCollapsed, user }) {
+  if (adminOnly && user?.role !== 'ADMIN') return null
+
+  const location = useLocation()
+  const isActive =
+    location.pathname === to || location.pathname.startsWith(to + '/')
+
+  if (isCollapsed) {
+    return (
+      <NavLink to={to}>
+        <div
+          className={[
+            'relative w-10 h-10 flex items-center justify-center rounded-[10px] mx-auto mb-0.5 transition-colors cursor-pointer group',
+            isActive ? 'bg-[#EBF5EE]' : 'hover:bg-[#F5F7F5]',
+          ].join(' ')}
+        >
+          <Icon className={`w-[18px] h-[18px] ${isActive ? 'text-[#1B4D2E]' : 'text-[#7A8E7A]'}`} />
+          <div className="absolute left-[calc(100%+8px)] top-1/2 -translate-y-1/2 bg-[#1A2B1A] text-white text-[12px] px-2.5 py-1 rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+            {children}
+          </div>
+        </div>
+      </NavLink>
+    )
+  }
+
   return (
-    <NavLink
-      to={to}
-      title={isCollapsed ? label : undefined}
-      className={({ isActive }) =>
-        insideGroup
-          ? [
-              'flex items-center gap-3 w-full px-3 py-2 rounded-xl text-sm font-medium transition-colors',
-              isActive
-                ? 'text-[#1E4620] bg-[#f0f7f0] font-semibold'
-                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800',
-            ].join(' ')
-          : [
-              'flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium transition-colors mb-0.5 border-l-2',
-              isCollapsed ? 'md:justify-center md:px-0 md:border-l-0 md:rounded-lg md:w-10 md:h-10 md:mx-auto' : '',
-              isActive
-                ? 'text-[#1E4620] bg-[#f0f7f0] border-[#1E4620] font-semibold'
-                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800 border-transparent',
-            ].join(' ')
-      }
-    >
-      <Icon size={16} className="shrink-0" />
-      <span className={isCollapsed ? 'md:hidden' : ''}>{children}</span>
+    <NavLink to={to}>
+      <div
+        className={[
+          'relative flex items-center gap-2.5 px-3 py-2 rounded-lg mx-1.5 text-[13px] transition-colors cursor-pointer mb-0.5',
+          isActive
+            ? 'bg-[#EBF5EE] text-[#1B4D2E] font-semibold'
+            : 'text-[#4A5E4A] hover:bg-[#F5F7F5] hover:text-[#1A2B1A]',
+        ].join(' ')}
+      >
+        {isActive && (
+          <span className="absolute left-0 w-[3px] h-5 bg-[#1B4D2E] rounded-r top-1/2 -translate-y-1/2" />
+        )}
+        <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${isActive ? 'text-[#1B4D2E]' : 'text-[#7A8E7A]'}`} />
+        <span className="text-[13px] leading-snug">{children}</span>
+      </div>
     </NavLink>
   )
 }
 
 function Sidebar({ isOpen, onClose, isCollapsed }) {
   const { user } = useAuth()
-  const isAdmin = user?.role === 'ADMIN'
 
   return (
     <>
@@ -65,123 +77,89 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
 
       <aside
         className={[
-          'fixed top-14 bottom-0 left-0 z-20 flex shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-white',
-          'transition-all duration-300 ease-in-out',
-          isCollapsed ? 'w-[220px] md:w-16' : 'w-[220px]',
+          'bg-white border-r border-[#E2E8E2] flex flex-col fixed left-0 top-14 bottom-0 z-20 overflow-y-auto transition-all duration-300',
+          isCollapsed ? 'w-16' : 'w-[220px]',
           isOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full md:translate-x-0',
         ].join(' ')}
       >
-        {/* Logo area — expanded */}
-        {!isCollapsed ? (
-          <div className="relative flex flex-col items-center px-4 py-6 border-b border-slate-100">
-            <img
-              src={logo}
-              alt="OMAg Aringay"
-              className="w-20 h-20 object-contain mb-3 drop-shadow-sm"
-            />
-            <div className="text-center">
-              <p className="text-base font-bold text-slate-900 leading-tight">
-                OMAg Aringay
-              </p>
-              <p className="text-xs text-slate-500 mt-0.5">Aringay, La Union</p>
-              <div className="mt-2 border-t border-slate-100 pt-2">
-                <p className="text-xs text-slate-400 leading-snug text-center px-2">
-                  Integrated Agricultural Monitoring and Production Management System
-                </p>
+        {/* Logo area */}
+        <div className="relative px-4 py-4 border-b border-[#F0F4F0]">
+          {isCollapsed ? (
+            <img src={logo} alt="OMAg" className="w-8 h-8 object-contain mx-auto" />
+          ) : (
+            <div className="flex items-center gap-3">
+              <img src={logo} alt="OMAg" className="w-9 h-9 object-contain rounded-lg flex-shrink-0" />
+              <div>
+                <p className="text-[14px] font-semibold text-[#1A2B1A] leading-tight">OMAg Aringay</p>
+                <p className="text-[11px] text-[#7A8E7A] mt-0.5">Aringay, La Union</p>
               </div>
             </div>
-            <button
-              className="absolute right-3 top-3 rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 md:hidden"
-              onClick={onClose}
-              type="button"
-              aria-label="Close menu"
-            >
-              <X size={18} />
-            </button>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center px-2 py-4 border-b border-slate-100 md:flex hidden">
-            <img
-              src={logo}
-              alt="OMAg"
-              className="w-10 h-10 object-contain"
-            />
-          </div>
-        )}
+          )}
+          <button
+            className="absolute right-3 top-3 rounded-lg p-1.5 text-[#7A8E7A] transition hover:bg-[#F5F7F5] hover:text-[#1A2B1A] md:hidden"
+            onClick={onClose}
+            type="button"
+            aria-label="Close menu"
+          >
+            <X size={18} />
+          </button>
+        </div>
 
         {/* Navigation */}
-        <nav
-          className={[
-            'flex-1 overflow-y-auto py-3',
-            isCollapsed ? 'md:px-1 px-2' : 'px-2',
-          ].join(' ')}
-        >
-          {/* Dashboard — standalone */}
-          <SideNavLink to="/dashboard" icon={LayoutDashboard} isCollapsed={isCollapsed}>
+        <nav className="flex-1 py-3">
+
+          {/* MAIN */}
+          {!isCollapsed && (
+            <p className="px-3 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#A8BCA8]">
+              MAIN
+            </p>
+          )}
+
+          <NavItem to="/dashboard" icon={LayoutDashboard} isCollapsed={isCollapsed} user={user}>
             Dashboard
-          </SideNavLink>
+          </NavItem>
+          <NavItem to="/users" icon={Users} adminOnly isCollapsed={isCollapsed} user={user}>
+            User Management
+          </NavItem>
+          <NavItem to="/farmers" icon={UserCheck} isCollapsed={isCollapsed} user={user}>
+            Farmer Registry
+          </NavItem>
+          <NavItem to="/associations/farmers" icon={Building2} isCollapsed={isCollapsed} user={user}>
+            Farmer Association Management
+          </NavItem>
+          <NavItem to="/crop-information" icon={Sprout} isCollapsed={isCollapsed} user={user}>
+            Crop Information Management
+          </NavItem>
+          <NavItem to="/crop-monitoring" icon={BarChart2} isCollapsed={isCollapsed} user={user}>
+            Monitoring
+          </NavItem>
+          <NavItem to="/forecasting" icon={TrendingUp} isCollapsed={isCollapsed} user={user}>
+            Forecasting
+          </NavItem>
+          <NavItem to="/reports" icon={FileBarChart} isCollapsed={isCollapsed} user={user}>
+            Report Generation
+          </NavItem>
 
-          {/* Farmers group */}
-          <NavGroup label="Farmers" icon={Users} isCollapsed={isCollapsed}>
-            <SideNavLink to="/farmers" icon={UserCheck} isCollapsed={isCollapsed} insideGroup>
-              Farmer Registry
-            </SideNavLink>
-            <SideNavLink to="/associations" icon={Building2} isCollapsed={isCollapsed} insideGroup>
-              Farmer Associations
-            </SideNavLink>
-          </NavGroup>
-
-          {/* Crop Management group */}
-          <NavGroup label="Crop Management" icon={Sprout} isCollapsed={isCollapsed}>
-            <SideNavLink to="/crop-information" icon={ClipboardList} isCollapsed={isCollapsed} insideGroup>
-              Crop Information
-            </SideNavLink>
-            <SideNavLink to="/crop-monitoring" icon={BarChart2} isCollapsed={isCollapsed} insideGroup>
-              Crop Monitoring
-            </SideNavLink>
-            <SideNavLink to="/forecasting" icon={TrendingUp} isCollapsed={isCollapsed} insideGroup>
-              Forecasting
-            </SideNavLink>
-          </NavGroup>
-
-          {/* Interventions — standalone (Admin only) */}
-          {isAdmin && (
-            <SideNavLink to="/interventions" icon={HeartHandshake} isCollapsed={isCollapsed}>
-              Interventions
-            </SideNavLink>
+          {/* UTILITIES */}
+          {!isCollapsed && (
+            <p className="px-3 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#A8BCA8]">
+              UTILITIES
+            </p>
           )}
 
-          {/* Report Generation — standalone (Admin only) */}
-          {isAdmin && (
-            <SideNavLink to="/reports" icon={FileBarChart} isCollapsed={isCollapsed}>
-              Report Generation
-            </SideNavLink>
-          )}
+          <NavItem to="/crop-options" icon={Leaf} adminOnly isCollapsed={isCollapsed} user={user}>
+            Crop Option
+          </NavItem>
+          <NavItem to="/crop-categories" icon={Tag} adminOnly isCollapsed={isCollapsed} user={user}>
+            Crop Category
+          </NavItem>
+          <NavItem to="/audit-log" icon={History} isCollapsed={isCollapsed} user={user}>
+            Activity Log
+          </NavItem>
+          <NavItem to="/help" icon={HelpCircle} isCollapsed={isCollapsed} user={user}>
+            Help
+          </NavItem>
 
-          {/* Administration group — Admin only */}
-          {isAdmin && (
-            <>
-              {!isCollapsed && (
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest px-3 mt-5 mb-1">
-                  Administration
-                </p>
-              )}
-              <NavGroup label="Administration" icon={Settings} isCollapsed={isCollapsed}>
-                <SideNavLink to="/admin/users" icon={Users} isCollapsed={isCollapsed} insideGroup>
-                  User Management
-                </SideNavLink>
-                <SideNavLink to="/crop-options" icon={Leaf} isCollapsed={isCollapsed} insideGroup>
-                  Crop Options
-                </SideNavLink>
-                <SideNavLink to="/crop-categories" icon={Tag} isCollapsed={isCollapsed} insideGroup>
-                  Crop Categories
-                </SideNavLink>
-                <SideNavLink to="/admin/audit-log" icon={ScrollText} isCollapsed={isCollapsed} insideGroup>
-                  Audit Log
-                </SideNavLink>
-              </NavGroup>
-            </>
-          )}
         </nav>
       </aside>
     </>

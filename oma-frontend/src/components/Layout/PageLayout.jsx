@@ -2,7 +2,7 @@ import { useState } from 'react'
 import Navbar from './Navbar.jsx'
 import Sidebar from './Sidebar.jsx'
 
-function PageLayout({ title, subtitle, children }) {
+function PageLayout({ title, subtitle, action, children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -28,7 +28,7 @@ function PageLayout({ title, subtitle, children }) {
   }
 
   return (
-    <div className="h-screen bg-[#F8F9FA]">
+    <div className="min-h-screen bg-[#F5F7F5]">
       <Navbar onToggleSidebar={handleSidebarToggle} isCollapsed={sidebarCollapsed} />
       <Sidebar
         isOpen={sidebarOpen}
@@ -36,24 +36,23 @@ function PageLayout({ title, subtitle, children }) {
         isCollapsed={sidebarCollapsed}
       />
 
-      {/* Content area offset: 56px navbar + sidebar width on md */}
       <div
         className={[
-          'flex flex-col overflow-hidden transition-all duration-300',
-          'mt-14 h-[calc(100vh-3.5rem)]',
-          sidebarCollapsed ? 'md:ml-16' : 'md:ml-[220px]',
+          'min-h-screen bg-[#F5F7F5] pt-14 transition-all duration-300',
+          sidebarCollapsed ? 'md:pl-16' : 'md:pl-[220px]',
         ].join(' ')}
       >
-        <main className="flex-1 overflow-y-auto">
-          {(title || subtitle) && (
-            <div className="px-4 pb-2 pt-6 md:px-6">
-              {title && <h1 className="text-xl font-bold text-slate-900">{title}</h1>}
-              {subtitle && <p className="mt-0.5 text-sm text-slate-500">{subtitle}</p>}
+        <main className="p-6">
+          {(title || action) && (
+            <div className="flex items-start justify-between mb-5">
+              <div>
+                {title && <h1 className="text-[20px] font-semibold text-[#1A2B1A] leading-tight">{title}</h1>}
+                {subtitle && <p className="text-[13px] text-[#7A8E7A] mt-0.5">{subtitle}</p>}
+              </div>
+              {action && <div className="ml-4 flex-shrink-0">{action}</div>}
             </div>
           )}
-          <div className="p-4 md:p-6 md:pt-4">
-            {children}
-          </div>
+          {children}
         </main>
       </div>
     </div>
