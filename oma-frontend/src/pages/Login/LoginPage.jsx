@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { AlertCircle, Eye, EyeOff, Loader2, Lock, Mail } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import logo from '../../assets/LOGO OMAg.jpg'
 
@@ -33,85 +33,134 @@ function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f0fdf4] flex items-center justify-center px-4">
-      <div className="bg-white rounded-2xl shadow-lg p-10 w-full max-w-sm mx-4">
+    <div className="min-h-screen flex">
 
+      {/* LEFT PANEL — 40% width, green bg, hidden on mobile */}
+      <div className="hidden md:flex md:w-2/5 bg-[#1B4D2E] flex-col items-center justify-center relative px-10 py-12">
         {/* Logo */}
-        <img
-          src={logo}
-          alt="OMAg"
-          className="w-20 h-20 object-contain mx-auto mb-2"
-        />
+        <img src={logo} alt="OMAg" className="w-16 h-16 object-contain brightness-0 invert" />
 
         {/* System name */}
-        <p className="text-center font-bold text-slate-900 text-base leading-snug mb-6">
-          Integrated Agricultural Monitoring<br />
-          and Production Management System
-        </p>
+        <h1 className="mt-5 text-center text-[18px] font-semibold text-white leading-relaxed max-w-[280px]">
+          Integrated Agricultural<br />
+          Monitoring and Production<br />
+          Management System
+        </h1>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Email */}
-          <div>
-            <label className="text-sm text-slate-700 block mb-1">Email</label>
-            <input
-              type="email"
-              autoComplete="email"
-              className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm mb-0 focus:outline-none focus:ring-2 focus:ring-[#1E4620] focus:border-[#1E4620] transition-colors"
-              disabled={isLoading}
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
+        {/* Divider */}
+        <div className="w-12 h-px bg-white/20 my-5" />
 
-          {/* Password */}
-          <div>
-            <label className="text-sm text-slate-700 block mb-1">Password</label>
-            <div className="relative">
-              <input
-                autoComplete="current-password"
-                className="w-full border border-slate-300 rounded-lg px-3 py-2.5 text-sm pr-10 focus:outline-none focus:ring-2 focus:ring-[#1E4620] focus:border-[#1E4620] transition-colors"
-                disabled={isLoading}
-                required
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              <button
-                type="button"
-                tabIndex={-1}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                onClick={() => setShowPassword((v) => !v)}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
+        {/* Office name */}
+        <p className="text-[13px] text-white/75 text-center">Office of the Municipal Agriculturist</p>
+        <p className="text-[12px] text-white/55 text-center mt-1.5">Aringay, La Union</p>
 
-          {/* Error */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-sm text-red-600 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              {error}
-            </div>
-          )}
-
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={isLoading || !email.trim() || !password}
-            className="w-full bg-[#1E4620] hover:bg-[#2D6A31] text-white font-semibold py-2.5 rounded-lg text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
-          >
-            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            Log In
-          </button>
-        </form>
-
-        <p className="mt-6 text-center text-xs text-slate-400">
-          © 2026 OMAg Aringay · Aringay, La Union
-        </p>
+        {/* Bottom footer */}
+        <div className="absolute bottom-6 text-center">
+          <p className="text-[11px] text-white/40">Department of Agriculture</p>
+          <p className="text-[11px] text-white/40 mt-0.5">Region I — Ilocos</p>
+        </div>
       </div>
+
+      {/* RIGHT PANEL — 60% width (full width on mobile) */}
+      <div className="flex-1 bg-[#F5F7F5] flex items-center justify-center px-6 py-12">
+        <div className="w-full max-w-[360px]">
+
+          {/* Mobile: logo above form */}
+          <div className="flex flex-col items-center mb-6 md:hidden">
+            <img src={logo} alt="OMAg" className="w-10 h-10 object-contain" />
+            <p className="text-center text-[13px] font-semibold text-[#1A2B1A] leading-snug mt-2 max-w-[240px]">
+              Integrated Agricultural Monitoring and Production Management System
+            </p>
+          </div>
+
+          {/* Welcome text */}
+          <h2 className="text-[22px] font-semibold text-[#1A2B1A]">Welcome back</h2>
+          <p className="text-[13px] text-[#7A8E7A] mt-1 mb-7">Sign in to your account</p>
+
+          {/* Form card */}
+          <div className="bg-white border border-[#E2E8E2] rounded-2xl p-7">
+            <form onSubmit={handleSubmit} className="space-y-4">
+
+              {/* Email field */}
+              <div>
+                <label className="block text-[13px] font-medium text-[#4A5E4A] mb-1.5">
+                  Email address
+                </label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8BCA8] pointer-events-none" size={16} />
+                  <input
+                    type="email"
+                    autoComplete="email"
+                    required
+                    disabled={isLoading}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full h-10 pl-9 pr-3 border border-[#E2E8E2] rounded-lg text-[13px] text-[#1A2B1A] bg-white placeholder-[#A8BCA8] focus:outline-none focus:border-[#1B4D2E] focus:ring-2 focus:ring-[#1B4D2E]/10 transition-colors"
+                    placeholder="you@example.com"
+                  />
+                </div>
+              </div>
+
+              {/* Password field */}
+              <div>
+                <label className="block text-[13px] font-medium text-[#4A5E4A] mb-1.5">
+                  Password
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8BCA8] pointer-events-none" size={16} />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    required
+                    disabled={isLoading}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full h-10 pl-9 pr-10 border border-[#E2E8E2] rounded-lg text-[13px] text-[#1A2B1A] bg-white placeholder-[#A8BCA8] focus:outline-none focus:border-[#1B4D2E] focus:ring-2 focus:ring-[#1B4D2E]/10 transition-colors"
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onClick={() => setShowPassword(v => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A8BCA8] hover:text-[#7A8E7A] transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Error message */}
+              {error && (
+                <div className="flex items-center gap-2 bg-[#FEE2E2] border border-[#FCA5A5] rounded-lg px-3.5 py-2.5">
+                  <AlertCircle className="text-[#991B1B] flex-shrink-0" size={16} />
+                  <p className="text-[13px] text-[#991B1B]">{error}</p>
+                </div>
+              )}
+
+              {/* Submit button */}
+              <button
+                type="submit"
+                disabled={isLoading || !email.trim() || !password}
+                className="w-full h-[42px] bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[14px] font-medium rounded-lg mt-2 flex items-center justify-center gap-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="animate-spin" size={16} />
+                    Signing in...
+                  </>
+                ) : 'Sign In'}
+              </button>
+
+            </form>
+          </div>
+
+          {/* Footer note */}
+          <p className="text-center text-[11px] text-[#A8BCA8] mt-6">
+            Authorized personnel only.
+          </p>
+        </div>
+      </div>
+
     </div>
   )
 }
