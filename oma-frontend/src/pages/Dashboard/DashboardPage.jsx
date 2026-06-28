@@ -5,19 +5,39 @@ import PageLayout from '../../components/Layout/PageLayout.jsx'
 import BARANGAYS from '../../constants/barangays.js'
 import api from '../../api/axiosInstance.js'
 
+// ── Panel wrapper ─────────────────────────────────────────────────────────────
+
+function Panel({ title, headerRight, children }) {
+  return (
+    <div className="bg-white border border-[#E2E8E2] rounded-xl overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#F0F4F0]">
+        <div className="flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-sm bg-[#1B4D2E]" />
+          <h3 className="text-[13px] font-semibold text-[#1A2B1A]">{title}</h3>
+        </div>
+        {headerRight}
+      </div>
+      <div className="p-5">{children}</div>
+    </div>
+  )
+}
+
 // ── Stat Cards ────────────────────────────────────────────────────────────────
 
-function StatCard({ icon: Icon, iconBg, iconColor, label, value, sub }) {
+function StatCard({ icon: Icon, label, value, sub, accentColor }) {
   return (
-    <div className="bg-white rounded-xl border border-slate-100 p-4 flex items-start gap-3 shadow-sm">
-      <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${iconBg}`}>
-        <Icon size={20} className={iconColor} />
+    <div
+      className="bg-white border border-[#E2E8E2] rounded-xl p-[18px_20px] border-l-4"
+      style={{ borderLeftColor: accentColor }}
+    >
+      <div className="flex items-start justify-between mb-3">
+        <div className="w-8 h-8 rounded-lg bg-[#EBF5EE] flex items-center justify-center flex-shrink-0">
+          <Icon size={16} className="text-[#1B4D2E]" />
+        </div>
+        <span className="text-[12px] text-[#7A8E7A]">{label}</span>
       </div>
-      <div>
-        <p className="text-2xl font-bold text-slate-900">{value}</p>
-        <p className="text-xs text-slate-500 mt-0.5">{label}</p>
-        <p className="text-xs text-slate-400">{sub}</p>
-      </div>
+      <p className="text-[28px] font-bold text-[#1A2B1A] leading-none">{value}</p>
+      <p className="text-[12px] text-[#7A8E7A] mt-1.5">{sub}</p>
     </div>
   )
 }
@@ -74,31 +94,22 @@ function HarvestCalendar({ events }) {
   }
 
   return (
-    <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
-      {/* Panel header */}
-      <div className="flex items-center gap-2 mb-3">
-        <span className="w-3 h-3 rounded-sm bg-[#1E4620]" />
-        <div>
-          <p className="text-sm font-semibold text-slate-900">Harvest Calendar</p>
-          <p className="text-xs text-slate-400">Upcoming harvest schedules</p>
-        </div>
-      </div>
-
+    <div>
       {/* Month navigation */}
-      <div className="flex items-center justify-between mb-2">
-        <button type="button" onClick={prevMonth} className="p-1 rounded hover:bg-slate-100">
-          <ChevronLeft size={16} className="text-slate-500" />
+      <div className="flex items-center justify-between mb-3">
+        <button type="button" onClick={prevMonth} className="p-1 rounded hover:bg-[#F0F4F0]">
+          <ChevronLeft size={16} className="text-[#7A8E7A]" />
         </button>
-        <span className="text-sm font-semibold text-slate-900">{monthName} {viewYear}</span>
-        <button type="button" onClick={nextMonth} className="p-1 rounded hover:bg-slate-100">
-          <ChevronRight size={16} className="text-slate-500" />
+        <span className="text-sm font-semibold text-[#1A2B1A]">{monthName} {viewYear}</span>
+        <button type="button" onClick={nextMonth} className="p-1 rounded hover:bg-[#F0F4F0]">
+          <ChevronRight size={16} className="text-[#7A8E7A]" />
         </button>
       </div>
 
       {/* Day headers */}
       <div className="grid grid-cols-7 mb-1">
         {dayLabels.map(d => (
-          <div key={d} className="text-center text-xs text-slate-400 font-medium py-1">{d}</div>
+          <div key={d} className="text-center text-xs text-[#7A8E7A] font-medium py-1">{d}</div>
         ))}
       </div>
 
@@ -110,30 +121,30 @@ function HarvestCalendar({ events }) {
               className={[
                 'text-xs rounded-lg w-7 h-7 flex items-center justify-center',
                 day === null ? '' :
-                isToday(day) ? 'font-bold text-[#1E4620]' :
-                'text-slate-600',
+                isToday(day) ? 'font-bold text-[#1B4D2E]' :
+                'text-[#4A5E4A]',
               ].join(' ')}
             >
               {day}
             </span>
             {day && upcomingDates.has(day) && (
-              <span className="block w-1.5 h-1.5 rounded-full bg-[#4CAF50] mt-0.5" />
+              <span className="block w-1.5 h-1.5 rounded-full bg-[#2D7A4F] mt-0.5" />
             )}
             {day && overdueDates.has(day) && !upcomingDates.has(day) && (
-              <span className="block w-1.5 h-1.5 rounded-full bg-rose-500 mt-0.5" />
+              <span className="block w-1.5 h-1.5 rounded-full bg-[#C0392B] mt-0.5" />
             )}
           </div>
         ))}
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 mt-3 border-t border-slate-100 pt-2">
-        <span className="flex items-center gap-1 text-xs text-slate-500">
-          <span className="w-2 h-2 rounded-full bg-[#4CAF50]" />
+      <div className="flex items-center gap-4 mt-3 border-t border-[#F0F4F0] pt-2">
+        <span className="flex items-center gap-1 text-xs text-[#7A8E7A]">
+          <span className="w-2 h-2 rounded-full bg-[#2D7A4F]" />
           Upcoming Harvest
         </span>
-        <span className="flex items-center gap-1 text-xs text-slate-500">
-          <span className="w-2 h-2 rounded-full bg-rose-500" />
+        <span className="flex items-center gap-1 text-xs text-[#7A8E7A]">
+          <span className="w-2 h-2 rounded-full bg-[#C0392B]" />
           Overdue Harvest
         </span>
       </div>
@@ -143,7 +154,7 @@ function HarvestCalendar({ events }) {
 
 // ── Crop Distribution Analysis ────────────────────────────────────────────────
 
-const selectCls = 'rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#1E4620]/30'
+const selectCls = 'rounded-lg border border-[#E2E8E2] bg-white px-2 py-1 text-xs text-[#4A5E4A] focus:outline-none focus:ring-2 focus:ring-[#1B4D2E]/30'
 
 function CropDistributionAnalysisPanel({ detail }) {
   const crops = useMemo(() => [...new Set(detail.map(d => d.crop))].sort(), [detail])
@@ -170,48 +181,52 @@ function CropDistributionAnalysisPanel({ detail }) {
     ? new Set(detail.filter(d => d.barangay === selBarangay).map(d => d.crop)).size
     : crops.length)
 
-  return (
-    <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
-      {/* Header */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="w-3 h-3 flex-shrink-0 rounded-sm bg-[#1E4620]" />
-          <p className="text-sm font-semibold text-slate-900">Crop Distribution Analysis</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <select value={selBarangay} onChange={e => setSelBarangay(e.target.value)} className={selectCls}>
-            <option value="">Barangay: All</option>
-            {BARANGAYS.map(b => <option key={b} value={b}>{b}</option>)}
-          </select>
-          <select value={selCrop} onChange={e => setSelCrop(e.target.value)} className={selectCls}>
-            <option value="">Crop: All</option>
-            {crops.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </div>
-      </div>
+  const headerRight = (
+    <div className="flex items-center gap-2">
+      <select value={selBarangay} onChange={e => setSelBarangay(e.target.value)} className={selectCls}>
+        <option value="">Barangay: All</option>
+        {BARANGAYS.map(b => <option key={b} value={b}>{b}</option>)}
+      </select>
+      <select value={selCrop} onChange={e => setSelCrop(e.target.value)} className={selectCls}>
+        <option value="">Crop: All</option>
+        {crops.map(c => <option key={c} value={c}>{c}</option>)}
+      </select>
+    </div>
+  )
 
-      {/* Chart */}
+  return (
+    <Panel title="Crop Distribution Analysis" headerRight={headerRight}>
       {chartData.length === 0 ? (
-        <p className="py-10 text-center text-sm text-slate-400">No crop records yet.</p>
+        <p className="py-10 text-center text-sm text-[#7A8E7A]">No crop records yet.</p>
       ) : (
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={chartData} margin={{ top: 4, right: 10, left: -10, bottom: 60 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#757575' }} angle={-30} textAnchor="end" interval={0} />
-            <YAxis tick={{ fontSize: 11, fill: '#757575' }} allowDecimals={false} />
-            <Tooltip formatter={(v) => [v, 'Crop Records']} contentStyle={{ fontSize: 12 }} />
-            <Bar dataKey="count" fill="#1E4620" radius={[4, 4, 0, 0]} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#F0F4F0" />
+            <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#7A8E7A' }} angle={-30} textAnchor="end" interval={0} />
+            <YAxis tick={{ fontSize: 11, fill: '#7A8E7A' }} allowDecimals={false} />
+            <Tooltip
+              formatter={(v) => [v, 'Crop Records']}
+              contentStyle={{
+                fontSize: 13,
+                background: '#fff',
+                border: '1px solid #E2E8E2',
+                borderRadius: 8,
+                padding: '6px 12px',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                color: '#1A2B1A',
+              }}
+            />
+            <Bar dataKey="count" fill="#1B4D2E" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       )}
 
-      {/* Totals */}
-      <p className="text-xs text-slate-500 mt-2">
-        ● Total Barangays: <strong>{totalBarangays}</strong>
+      <p className="text-xs text-[#7A8E7A] mt-2">
+        ● Total Barangays: <strong className="text-[#1A2B1A]">{totalBarangays}</strong>
         &nbsp;&nbsp;
-        ● Total Crops: <strong>{totalCrops}</strong>
+        ● Total Crops: <strong className="text-[#1A2B1A]">{totalCrops}</strong>
       </p>
-    </div>
+    </Panel>
   )
 }
 
@@ -235,49 +250,54 @@ export default function DashboardPage() {
   const harvestDates   = data?.harvest_dates    || data?.harvest_calendar || []
   const distDetail     = data?.crop_distribution_detail || []
 
+  const subtitle = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+
   return (
-    <PageLayout title="Dashboard" subtitle="Overview of agricultural data for Aringay, La Union">
+    <PageLayout title="Dashboard" subtitle={subtitle}>
       <div className="space-y-6">
         {/* 4 stat cards */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
             icon={Users}
-            iconBg="bg-blue-100"
-            iconColor="text-blue-600"
             label="Total Associations"
             value={totalAssoc}
             sub="Active farmer groups"
+            accentColor="#1B4D2E"
           />
           <StatCard
             icon={Sprout}
-            iconBg="bg-green-100"
-            iconColor="text-green-600"
             label="Total Crop Records"
             value={totalCrop}
             sub="Planted crops"
+            accentColor="#2D7A4F"
           />
           <StatCard
             icon={Calendar}
-            iconBg="bg-amber-100"
-            iconColor="text-amber-600"
             label="Nearing Harvest"
             value={nearingHarvest}
             sub="Within 7 days"
+            accentColor="#D97706"
           />
           <StatCard
             icon={TrendingUp}
-            iconBg="bg-blue-100"
-            iconColor="text-blue-600"
             label="Top Performing Barangay"
             value={topBarangay}
             sub="By area planted"
+            accentColor="#4B6EA8"
           />
         </div>
 
         {/* Calendar + Crop Distribution */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-1">
-            <HarvestCalendar events={harvestDates} />
+            <Panel title="Harvest Calendar">
+              <HarvestCalendar events={harvestDates} />
+            </Panel>
           </div>
           <div className="lg:col-span-2">
             <CropDistributionAnalysisPanel detail={distDetail} />

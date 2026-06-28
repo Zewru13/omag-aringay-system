@@ -38,22 +38,22 @@ function SeasonalComparisonCard({ data, isLoading, error, onRetry }) {
           <BarChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="seasonGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#4CAF50" stopOpacity={0.9} />
-                <stop offset="100%" stopColor="#4CAF50" stopOpacity={0.15} />
+                <stop offset="0%" stopColor="#1B4D2E" stopOpacity={0.9} />
+                <stop offset="100%" stopColor="#1B4D2E" stopOpacity={0.15} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-            <XAxis dataKey="season" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#F0F4F0" vertical={false} />
+            <XAxis dataKey="season" tick={{ fontSize: 10, fill: '#7A8E7A' }} axisLine={false} tickLine={false} />
             <YAxis
               tickFormatter={yAxisTick}
-              tick={{ fontSize: 10 }}
+              tick={{ fontSize: 10, fill: '#7A8E7A' }}
               axisLine={false}
               tickLine={false}
               width={40}
             />
             <Tooltip
               content={<ChartTooltip valueFormatter={formatKg} />}
-              cursor={{ fill: '#f1f5f9' }}
+              cursor={{ fill: '#F0F4F0' }}
             />
             <Bar
               dataKey="volume"

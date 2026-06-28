@@ -37,32 +37,32 @@ function ProductionTrendCard({ data, isLoading, error, onRetry }) {
           <AreaChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#4CAF50" stopOpacity={0.35} />
-                <stop offset="100%" stopColor="#4CAF50" stopOpacity={0} />
+                <stop offset="0%" stopColor="#1B4D2E" stopOpacity={0.35} />
+                <stop offset="100%" stopColor="#1B4D2E" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-            <XAxis dataKey="year" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#F0F4F0" vertical={false} />
+            <XAxis dataKey="year" tick={{ fontSize: 10, fill: '#7A8E7A' }} axisLine={false} tickLine={false} />
             <YAxis
               tickFormatter={yAxisTick}
-              tick={{ fontSize: 10 }}
+              tick={{ fontSize: 10, fill: '#7A8E7A' }}
               axisLine={false}
               tickLine={false}
               width={40}
             />
             <Tooltip
               content={<ChartTooltip valueFormatter={formatKg} />}
-              cursor={{ stroke: '#e2e8f0' }}
+              cursor={{ stroke: '#E2E8E2' }}
             />
             <Area
               type="monotone"
               dataKey="total_volume_kg"
               name="Volume"
-              stroke="#4CAF50"
+              stroke="#1B4D2E"
               strokeWidth={2.5}
               fill="url(#trendGradient)"
-              dot={{ r: 4, fill: '#4CAF50', strokeWidth: 0 }}
-              activeDot={{ r: 6, fill: '#4CAF50', strokeWidth: 0 }}
+              dot={{ r: 4, fill: '#1B4D2E', strokeWidth: 0 }}
+              activeDot={{ r: 6, fill: '#1B4D2E', strokeWidth: 0 }}
             />
           </AreaChart>
         </ResponsiveContainer>

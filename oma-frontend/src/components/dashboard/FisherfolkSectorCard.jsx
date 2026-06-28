@@ -3,7 +3,7 @@ import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recha
 import ChartTooltip from './ChartTooltip.jsx'
 import DashboardCard from './DashboardCard.jsx'
 
-const SECTOR_COLORS = ['#4CAF50', '#0d9488', '#64748b']
+const SECTOR_COLORS = ['#1B4D2E', '#2D7A4F', '#4B6EA8']
 
 function FisherfolkSectorCard({ data, isLoading, error, onRetry }) {
   const chartData = [
@@ -42,7 +42,7 @@ function FisherfolkSectorCard({ data, isLoading, error, onRetry }) {
               ))}
             </Pie>
             <Tooltip content={<ChartTooltip />} />
-            <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', color: '#64748b' }} />
+            <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', color: '#7A8E7A' }} />
           </PieChart>
         </ResponsiveContainer>
       </div>
