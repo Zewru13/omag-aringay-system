@@ -25,7 +25,7 @@ const CROPPING_SCHEDULE_OPTIONS = ['Single Crop', 'Double Crop', 'Year-Round', '
 const SEED_SOURCE_OPTIONS = ['Certified Seeds', 'Farm Saved Seeds', 'Hybrid Seeds', 'Open Pollinated', 'Other']
 const SEEDS_UNIT_OPTIONS = ['kg', 'g', 'bag', 'pack', 'piece']
 
-const labelCls = 'block text-xs font-medium text-slate-600'
+const labelCls = 'text-[13px] font-medium text-[#4A5E4A] mb-1.5 block'
 
 const makeParcel = (n) => ({
   _id: n,
@@ -109,13 +109,13 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
   const removeMachinery = (uid) => onUpdate(parcel._id, 'machinery', parcel.machinery.filter(m => m._uid !== uid))
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
+    <div className="rounded-xl border border-[#E2E8E2] bg-white p-5 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <p className="text-sm font-bold text-slate-800">Parcel {index + 1}</p>
+        <p className="text-[13px] font-semibold text-[#1A2B1A]">Parcel {index + 1}</p>
         {total > 1 && (
           <button type="button" onClick={() => onRemove(parcel._id)}
-            className="flex items-center gap-1 text-xs font-medium text-rose-500 hover:text-rose-700">
+            className="flex items-center gap-1 text-[12px] font-medium text-rose-500 hover:text-rose-700">
             <X size={13} /> Remove
           </button>
         )}
@@ -175,9 +175,9 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
         </div>
       </div>
 
-      {/* RSBSA Classification */}
-      <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">RSBSA Parcel Classification</p>
+      {/* RSBSA Parcel Classification */}
+      <div className="rounded-xl border border-[#E2E8E2] bg-[#EBF5EE]/20 p-3">
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[#7A8E7A]">RSBSA Parcel Classification</p>
         <div className="flex flex-wrap gap-4">
           {[
             ['is_organic', 'Organic Farm'],
@@ -185,9 +185,9 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
             ['is_agrarian_reform_beneficiary', 'Agrarian Reform Beneficiary'],
           ].map(([field, label]) => (
             <label key={field} className="flex cursor-pointer items-center gap-2">
-              <input type="checkbox" className="h-4 w-4 accent-green-600"
+              <input type="checkbox" className="h-4 w-4 accent-[#1B4D2E]"
                 checked={parcel[field]} onChange={e => set(field, e.target.checked)} />
-              <span className="text-sm text-slate-700">{label}</span>
+              <span className="text-[13px] text-[#1A2B1A]">{label}</span>
             </label>
           ))}
         </div>
@@ -195,7 +195,7 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
 
       {/* Crops section */}
       <div>
-        <p className="mb-2 text-xs font-bold text-slate-700">Crops Grown</p>
+        <p className="mb-2 text-[12px] font-semibold text-[#1A2B1A]">Crops Grown</p>
         <div className="grid gap-2 md:grid-cols-3">
           <div>
             <label className={labelCls}>Crop Name</label>
@@ -248,7 +248,7 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
             </select>
           </div>
           <div className="flex items-center gap-2 pt-5">
-            <input type="checkbox" className="h-4 w-4 accent-green-600"
+            <input type="checkbox" className="h-4 w-4 accent-[#1B4D2E]"
               checked={parcel._cropIsMain} onChange={e => set('_cropIsMain', e.target.checked)} />
             <label className={labelCls}>Main Crop</label>
           </div>
@@ -258,9 +258,9 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
         </div>
 
         {parcel.crops.length > 0 && (
-          <div className="mt-2 overflow-hidden rounded-md border border-green-100">
+          <div className="mt-2 overflow-hidden rounded-lg border border-[#E2E8E2]">
             <table className="min-w-full text-sm">
-              <thead className="bg-[#f0f7f0] text-xs font-semibold uppercase tracking-wide text-green-800">
+              <thead className="bg-[#1B4D2E] text-xs font-semibold uppercase tracking-wide text-white">
                 <tr>
                   <th className="px-3 py-2 text-left">Crop</th>
                   <th className="px-3 py-2 text-left">Variety</th>
@@ -269,14 +269,14 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
                   <th className="px-3 py-2" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-green-50">
+              <tbody className="divide-y divide-[#F0F4F0]">
                 {parcel.crops.map(c => (
-                  <tr key={c._uid}>
-                    <td className="px-3 py-2">{c.crop_name === 'Other' ? c.crop_name_other : c.crop_name}</td>
-                    <td className="px-3 py-2 text-xs text-slate-500">{c.variety_used || '—'}</td>
-                    <td className="px-3 py-2">{c.area_hectares} ha</td>
+                  <tr key={c._uid} className="bg-white hover:bg-[#F9FAF9]">
+                    <td className="px-3 py-2 text-[13px] text-[#1A2B1A]">{c.crop_name === 'Other' ? c.crop_name_other : c.crop_name}</td>
+                    <td className="px-3 py-2 text-[12px] text-[#7A8E7A]">{c.variety_used || '—'}</td>
+                    <td className="px-3 py-2 text-[13px] text-[#1A2B1A]">{c.area_hectares} ha</td>
                     <td className="px-3 py-2">
-                      {c.is_main_crop && <span className="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-[#1E4620]">Main</span>}
+                      {c.is_main_crop && <span className="rounded-full bg-[#EBF5EE] px-2 py-0.5 text-[10px] font-semibold text-[#1B4D2E]">Main</span>}
                     </td>
                     <td className="px-3 py-2 text-right">
                       <button type="button" onClick={() => removeCrop(c._uid)} className="text-rose-400 hover:text-rose-600">
@@ -293,7 +293,7 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
 
       {/* Machinery section */}
       <div>
-        <p className="mb-2 text-xs font-bold text-slate-700">Agricultural Machinery</p>
+        <p className="mb-2 text-[12px] font-semibold text-[#1A2B1A]">Agricultural Machinery</p>
         <div className="grid gap-2 md:grid-cols-2">
           <div>
             <label className={labelCls}>Machinery Type</label>
@@ -327,9 +327,9 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
         </div>
 
         {parcel.machinery.length > 0 && (
-          <div className="mt-2 overflow-hidden rounded-md border border-green-100">
+          <div className="mt-2 overflow-hidden rounded-lg border border-[#E2E8E2]">
             <table className="min-w-full text-sm">
-              <thead className="bg-[#f0f7f0] text-xs font-semibold uppercase tracking-wide text-green-800">
+              <thead className="bg-[#1B4D2E] text-xs font-semibold uppercase tracking-wide text-white">
                 <tr>
                   <th className="px-3 py-2 text-left">Type</th>
                   <th className="px-3 py-2 text-left">Qty</th>
@@ -337,12 +337,12 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
                   <th className="px-3 py-2" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-green-50">
+              <tbody className="divide-y divide-[#F0F4F0]">
                 {parcel.machinery.map(m => (
-                  <tr key={m._uid}>
-                    <td className="px-3 py-2">{m.machinery_type === 'Other' ? m.machinery_type_other : m.machinery_type}</td>
-                    <td className="px-3 py-2">{m.quantity}</td>
-                    <td className="px-3 py-2">{m.ownership}</td>
+                  <tr key={m._uid} className="bg-white hover:bg-[#F9FAF9]">
+                    <td className="px-3 py-2 text-[13px] text-[#1A2B1A]">{m.machinery_type === 'Other' ? m.machinery_type_other : m.machinery_type}</td>
+                    <td className="px-3 py-2 text-[13px] text-[#1A2B1A]">{m.quantity}</td>
+                    <td className="px-3 py-2 text-[13px] text-[#1A2B1A]">{m.ownership}</td>
                     <td className="px-3 py-2 text-right">
                       <button type="button" onClick={() => removeMachinery(m._uid)} className="text-rose-400 hover:text-rose-600">
                         <Trash2 size={13} />
@@ -452,16 +452,16 @@ function AddFarmParcelModal({ farmerId, onClose, onSuccess }) {
           ))}
 
           <button type="button" onClick={addParcel}
-            className="flex w-full items-center justify-center gap-1 rounded-xl border-2 border-dashed border-[#1E4620]/30 py-2.5 text-sm font-medium text-[#1E4620] transition hover:border-[#1E4620]/60">
+            className="flex w-full items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-[#1B4D2E]/30 py-2.5 text-[13px] font-medium text-[#1B4D2E] transition hover:border-[#1B4D2E]/60 hover:bg-[#EBF5EE]/30">
             <Plus size={15} />
-            + Add Another Parcel
+            Add Another Parcel
           </button>
 
           {error && (
-            <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">{error}</p>
+            <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-medium text-red-700">{error}</p>
           )}
 
-          <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
+          <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4">
             <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
             <Button type="submit" isLoading={isSaving}>
               Save {parcels.length} Parcel{parcels.length > 1 ? 's' : ''}

@@ -5,8 +5,6 @@ import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import SearchBar from '../../components/UI/SearchBar.jsx'
-import Button from '../../components/UI/Button.jsx'
-import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import AddFarmerModal from './AddFarmerModal.jsx'
 
@@ -53,6 +51,9 @@ function formatDate(value) {
     year: 'numeric',
   }).format(new Date(value))
 }
+
+const filterSelectCls =
+  'border border-[#E2E8E2] rounded-lg px-3 py-[7px] text-[13px] bg-[#F9FAF9] text-[#1A2B1A] focus:outline-none focus:border-[#1B4D2E] focus:ring-2 focus:ring-[#1B4D2E]/10 transition-colors'
 
 function FarmersPage() {
   const navigate = useNavigate()
@@ -143,116 +144,114 @@ function FarmersPage() {
   }
 
   return (
-    <PageLayout title="Farmers" subtitle="Registered farmers and their farm parcels">
-      <div className="space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <div className="flex flex-1 flex-col gap-3 md:flex-row md:flex-wrap">
-            <SearchBar
-              onChange={setSearch}
-              placeholder="Search by name, RSBSA, or barangay"
-              value={search}
-            />
-            <select
-              className={`${baseInputClasses} md:w-36`}
-              onChange={(e) => setStatus(e.target.value)}
-              value={status}
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-            <select
-              className={`${baseInputClasses} md:w-36`}
-              onChange={(e) => setGender(e.target.value)}
-              value={gender}
-            >
-              <option value="all">All Gender</option>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-            </select>
-            <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-              <input
-                checked={seniorOnly}
-                className="h-4 w-4 accent-green-600"
-                type="checkbox"
-                onChange={(e) => setSeniorOnly(e.target.checked)}
-              />
-              Senior Citizens Only
-            </label>
-            <select
-              value={filterICC}
-              onChange={(e) => setFilterICC(e.target.value)}
-              className={`${baseInputClasses} md:w-40`}
-            >
-              <option value="">ICC/IP: All</option>
-              <option value="true">ICC/IP Member</option>
-              <option value="false">Non-ICC/IP</option>
-            </select>
-            <select
-              value={filterPWD}
-              onChange={(e) => setFilterPWD(e.target.value)}
-              className={`${baseInputClasses} md:w-44`}
-            >
-              <option value="">PWD: All</option>
-              <option value="true">With Disability (PWD)</option>
-              <option value="false">Without Disability</option>
-            </select>
-          </div>
-
-          {(isAdmin || isEvaluator) && (
-            <Button
-              icon={Plus}
-              onClick={() => setIsAddModalOpen(true)}
-              variant="primary"
-            >
-              Register Farmer
-            </Button>
-          )}
-        </div>
-
-        {successMessage && (
-          <div className="rounded-md border border-green-200 bg-[#f0f7f0] px-4 py-3 text-sm font-medium text-[#1E4620]">
-            {successMessage}
-          </div>
-        )}
-
-        {error && (
-          <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-            {error}
-          </div>
-        )}
-
-        <DataTable
-          columns={columns}
-          data={paginatedData}
-          isLoading={isLoading}
-          onRowClick={(farmer) => navigate(`/farmers/${farmer.id}`)}
+    <PageLayout
+      title="Farmer Registry"
+      subtitle="Registered farmers and their farm parcels"
+      action={(isAdmin || isEvaluator) && (
+        <button
+          className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
+          onClick={() => setIsAddModalOpen(true)}
+          type="button"
+        >
+          <Plus size={16} />
+          Register Farmer
+        </button>
+      )}
+    >
+      {/* Filter bar */}
+      <div className="bg-white border border-[#E2E8E2] rounded-xl px-4 py-[10px] mb-4 flex items-center gap-2.5 flex-wrap">
+        <SearchBar
+          onChange={setSearch}
+          placeholder="Search by name, RSBSA, or barangay"
+          value={search}
         />
+        <select
+          className={filterSelectCls}
+          onChange={(e) => setStatus(e.target.value)}
+          value={status}
+        >
+          <option value="all">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+        <select
+          className={filterSelectCls}
+          onChange={(e) => setGender(e.target.value)}
+          value={gender}
+        >
+          <option value="all">All Gender</option>
+          <option value="Male">Male</option>
+          <option value="Female">Female</option>
+        </select>
+        <label className="flex items-center gap-2 text-[13px] text-[#4A5E4A] cursor-pointer">
+          <input
+            checked={seniorOnly}
+            className="h-4 w-4 accent-[#1B4D2E]"
+            type="checkbox"
+            onChange={(e) => setSeniorOnly(e.target.checked)}
+          />
+          Senior Citizens Only
+        </label>
+        <select
+          value={filterICC}
+          onChange={(e) => setFilterICC(e.target.value)}
+          className={filterSelectCls}
+        >
+          <option value="">ICC/IP: All</option>
+          <option value="true">ICC/IP Member</option>
+          <option value="false">Non-ICC/IP</option>
+        </select>
+        <select
+          value={filterPWD}
+          onChange={(e) => setFilterPWD(e.target.value)}
+          className={filterSelectCls}
+        >
+          <option value="">PWD: All</option>
+          <option value="true">With Disability (PWD)</option>
+          <option value="false">Without Disability</option>
+        </select>
+      </div>
 
-        <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white px-4 py-3 text-sm text-slate-600">
-          <p>
-            Page {page} of {totalPages}
-          </p>
-          <div className="flex gap-2">
-            <Button
-              disabled={page === 1}
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              Previous
-            </Button>
-            <Button
-              disabled={page === totalPages}
-              onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              Next
-            </Button>
-          </div>
+      {successMessage && (
+        <div className="rounded-lg border border-[#C8E6C9] bg-[#EBF5EE] px-4 py-3 text-[13px] font-medium text-[#1B4D2E] mb-4">
+          {successMessage}
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-medium text-red-700 mb-4">
+          {error}
+        </div>
+      )}
+
+      <DataTable
+        columns={columns}
+        data={paginatedData}
+        isLoading={isLoading}
+        onRowClick={(farmer) => navigate(`/farmers/${farmer.id}`)}
+      />
+
+      <div className="flex items-center justify-between bg-white border border-[#E2E8E2] rounded-xl px-4 py-3 text-[13px] text-[#4A5E4A] mt-4">
+        <p>
+          Page {page} of {totalPages}
+        </p>
+        <div className="flex gap-2">
+          <button
+            className="border border-[#C8D5C8] text-[#4A5E4A] px-3 py-1.5 rounded-lg text-[13px] hover:bg-[#F5F7F5] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            disabled={page === 1}
+            onClick={() => setPage((current) => Math.max(1, current - 1))}
+            type="button"
+          >
+            Previous
+          </button>
+          <button
+            className="border border-[#C8D5C8] text-[#4A5E4A] px-3 py-1.5 rounded-lg text-[13px] hover:bg-[#F5F7F5] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            disabled={page === totalPages}
+            onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+            type="button"
+          >
+            Next
+          </button>
         </div>
       </div>
 

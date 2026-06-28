@@ -32,8 +32,8 @@ function formatDate(value) {
 function Field({ label, value }) {
   return (
     <div>
-      <p className="text-xs font-medium text-slate-400">{label}</p>
-      <p className="mt-1 text-sm text-slate-900">{value || '-'}</p>
+      <p className="text-[12px] text-[#7A8E7A] mb-0.5">{label}</p>
+      <p className="text-[14px] font-medium text-[#1A2B1A]">{value || '-'}</p>
     </div>
   )
 }
@@ -65,23 +65,23 @@ function AssistanceHistoryModal({ history, isLoading, error, onClose }) {
 function SubTable({ columns, rows, emptyText }) {
   if (!rows || rows.length === 0) {
     return (
-      <p className="py-2 text-sm italic text-slate-400">{emptyText}</p>
+      <p className="py-2 text-[13px] italic text-[#7A8E7A]">{emptyText}</p>
     )
   }
   return (
     <table className="min-w-full text-sm">
-      <thead className="bg-[#f0f7f0] text-xs font-semibold uppercase tracking-wide text-[#1E4620]">
+      <thead className="bg-[#1B4D2E] text-xs font-semibold uppercase tracking-wide text-white">
         <tr>
           {columns.map((col) => (
             <th key={col.key} className="px-3 py-2 text-left">{col.label}</th>
           ))}
         </tr>
       </thead>
-      <tbody className="divide-y divide-green-50">
+      <tbody className="divide-y divide-[#F0F4F0]">
         {rows.map((row, i) => (
-          <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-[#f0fdf4]'}>
+          <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAF9]'}>
             {columns.map((col) => (
-              <td key={col.key} className="px-3 py-2 text-slate-700">
+              <td key={col.key} className="px-3 py-2 text-[#1A2B1A]">
                 {row[col.key] ?? '-'}
               </td>
             ))}
@@ -109,33 +109,33 @@ function CropMonitoringSubSection({ parcelId }) {
   const fmt = (v) => v ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(v)) : '—'
 
   if (isLoading) return <LoadingSpinner />
-  if (records.length === 0) return <p className="py-1 text-xs italic text-slate-400">No monitoring records for this parcel.</p>
+  if (records.length === 0) return <p className="py-1 text-[12px] italic text-[#7A8E7A]">No monitoring records for this parcel.</p>
 
   return (
     <table className="min-w-full text-xs">
-      <thead className="bg-[#f0f7f0] text-xs font-semibold uppercase tracking-wide text-[#1E4620]">
+      <thead className="bg-[#1B4D2E] text-xs font-semibold uppercase tracking-wide text-white">
         <tr>
           {['Crop', 'Season/Year', 'Date Planted', 'Exp. Harvest', 'Status', 'Est. Yield (kg)', 'Act. Yield (kg)'].map((h) => (
             <th key={h} className="px-3 py-1.5 text-left">{h}</th>
           ))}
         </tr>
       </thead>
-      <tbody className="divide-y divide-green-50">
+      <tbody className="divide-y divide-[#F0F4F0]">
         {records.map((r, i) => (
           <React.Fragment key={r.id}>
-            <tr className={i % 2 === 0 ? 'bg-white' : 'bg-[#f0fdf4]'}>
-              <td className="px-3 py-1.5">{r.crop_type_name}</td>
-              <td className="px-3 py-1.5">{r.season} {r.year}</td>
-              <td className="px-3 py-1.5">{fmt(r.date_planted)}</td>
-              <td className="px-3 py-1.5">{fmt(r.expected_harvest_date)}</td>
+            <tr className={i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAF9]'}>
+              <td className="px-3 py-1.5 text-[#1A2B1A]">{r.crop_type_name}</td>
+              <td className="px-3 py-1.5 text-[#1A2B1A]">{r.season} {r.year}</td>
+              <td className="px-3 py-1.5 text-[#1A2B1A]">{fmt(r.date_planted)}</td>
+              <td className="px-3 py-1.5 text-[#1A2B1A]">{fmt(r.expected_harvest_date)}</td>
               <td className="px-3 py-1.5">
                 <StatusPill tone={MONITORING_STATUS_TONES[r.status] || 'slate'}>{r.status}</StatusPill>
               </td>
-              <td className="px-3 py-1.5">{r.estimated_yield_kg ? parseFloat(r.estimated_yield_kg).toLocaleString() : '—'}</td>
-              <td className="px-3 py-1.5">{r.actual_yield_kg ? parseFloat(r.actual_yield_kg).toLocaleString() : '—'}</td>
+              <td className="px-3 py-1.5 text-[#1A2B1A]">{r.estimated_yield_kg ? parseFloat(r.estimated_yield_kg).toLocaleString() : '—'}</td>
+              <td className="px-3 py-1.5 text-[#1A2B1A]">{r.actual_yield_kg ? parseFloat(r.actual_yield_kg).toLocaleString() : '—'}</td>
             </tr>
-            <tr className={i % 2 === 0 ? 'bg-white' : 'bg-[#f0fdf4]'}>
-              <td colSpan={7} className="px-3 pb-2 pt-0 text-[11px] text-slate-400">
+            <tr className={i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAF9]'}>
+              <td colSpan={7} className="px-3 pb-2 pt-0 text-[11px] text-[#7A8E7A]">
                 {(r.log_count ?? 0)} activity log{(r.log_count ?? 0) !== 1 ? 's' : ''}
                 {' · '}
                 {(r.labor_log_count ?? 0)} operation{(r.labor_log_count ?? 0) !== 1 ? 's' : ''} logged
@@ -167,17 +167,17 @@ function ParcelRow({ parcel }) {
 
   return (
     <>
-      <tr className="border-b border-green-50 bg-white hover:bg-[#f0f7f0]">
-        <td className="px-4 py-3 text-slate-700">{parcel.parcel_number}</td>
-        <td className="px-4 py-3 text-slate-700">{parcel.area_hectares}</td>
-        <td className="px-4 py-3 text-slate-700">{parcel.land_ownership}</td>
-        <td className="px-4 py-3 text-slate-700">{parcel.commodity_name || '-'}</td>
+      <tr className="border-b border-[#F0F4F0] bg-white hover:bg-[#F9FAF9] transition-colors">
+        <td className="px-4 py-3 text-[13px] text-[#1A2B1A]">{parcel.parcel_number}</td>
+        <td className="px-4 py-3 text-[13px] text-[#1A2B1A]">{parcel.area_hectares}</td>
+        <td className="px-4 py-3 text-[13px] text-[#1A2B1A]">{parcel.land_ownership}</td>
+        <td className="px-4 py-3 text-[13px] text-[#1A2B1A]">{parcel.commodity_name || '-'}</td>
         <td className="px-4 py-3">
           <span
-            className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
+            className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${
               parcel.farm_status === 'Active'
-                ? 'bg-green-100 text-[#1E4620]'
-                : 'bg-slate-100 text-slate-500'
+                ? 'bg-[#EBF5EE] text-[#1B4D2E]'
+                : 'bg-[#F0F4F0] text-[#7A8E7A]'
             }`}
           >
             {parcel.farm_status}
@@ -185,7 +185,7 @@ function ParcelRow({ parcel }) {
         </td>
         <td className="px-4 py-3 text-right">
           <button
-            className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-semibold text-[#1E4620] hover:bg-green-100"
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-medium text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors"
             onClick={() => setExpanded((v) => !v)}
             type="button"
           >
@@ -197,13 +197,13 @@ function ParcelRow({ parcel }) {
 
       {expanded && (
         <tr>
-          <td colSpan={6} className="bg-[#f0fdf4] px-6 py-4">
+          <td colSpan={6} className="bg-[#EBF5EE]/20 px-6 py-4">
             <div className="space-y-4">
               <div>
-                <p className="mb-1 text-xs font-bold uppercase tracking-wide text-slate-500">
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#7A8E7A]">
                   Crops Grown
                 </p>
-                <div className="overflow-hidden rounded border border-green-100">
+                <div className="overflow-hidden rounded-lg border border-[#E2E8E2]">
                   <SubTable
                     columns={[
                       { key: 'crop_name', label: 'Crop' },
@@ -217,10 +217,10 @@ function ParcelRow({ parcel }) {
               </div>
 
               <div>
-                <p className="mb-1 text-xs font-bold uppercase tracking-wide text-slate-500">
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#7A8E7A]">
                   Agricultural Machinery
                 </p>
-                <div className="overflow-hidden rounded border border-green-100">
+                <div className="overflow-hidden rounded-lg border border-[#E2E8E2]">
                   <SubTable
                     columns={[
                       { key: 'machinery_type', label: 'Type' },
@@ -234,10 +234,10 @@ function ParcelRow({ parcel }) {
               </div>
 
               <div>
-                <p className="mb-1 text-xs font-bold uppercase tracking-wide text-slate-500">
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#7A8E7A]">
                   Crop Monitoring Records
                 </p>
-                <div className="overflow-hidden rounded border border-green-100">
+                <div className="overflow-hidden rounded-lg border border-[#E2E8E2]">
                   <CropMonitoringSubSection parcelId={parcel.id} />
                 </div>
               </div>
@@ -345,33 +345,35 @@ function FarmerDetailPage() {
 
   return (
     <PageLayout title="Farmer Details" subtitle="View and manage farmer profile and farm parcels">
-      <div className="space-y-5">
+      <div className="space-y-4">
+        {/* Back link */}
         <Link
-          className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700"
+          className="inline-flex items-center gap-1 text-[13px] text-[#1B4D2E] hover:underline"
           to="/farmers"
         >
-          <ArrowLeft size={16} />
-          Back to Farmers List
+          <ArrowLeft size={14} />
+          Back to Farmers
         </Link>
 
         {farmerError && (
-          <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-medium text-red-700">
             {farmerError}
           </div>
         )}
 
         {isLoadingFarmer && (
-          <div className="flex min-h-56 items-center justify-center rounded-2xl border border-slate-100 bg-white">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-green-100 border-t-[#16a34a]" />
+          <div className="flex min-h-56 items-center justify-center bg-white border border-[#E2E8E2] rounded-xl">
+            <LoadingSpinner size={28} />
           </div>
         )}
 
         {!isLoadingFarmer && farmer && (
-          <section className="rounded-2xl border border-slate-100 bg-white p-6">
-            <div className="mb-6 flex flex-col gap-3 border-b border-slate-100 pb-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="bg-white border border-[#E2E8E2] rounded-xl p-6">
+            {/* Farmer header */}
+            <div className="mb-5 flex flex-col gap-3 border-b border-[#E2E8E2] pb-5 lg:flex-row lg:items-start lg:justify-between">
               <div>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-semibold text-slate-900">{farmer.full_name}</h1>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-[20px] font-semibold text-[#1A2B1A]">{farmer.full_name}</h1>
                   <StatusPill tone={farmer.is_active ? 'green' : 'rose'}>
                     {farmer.is_active ? 'Active' : 'Inactive'}
                   </StatusPill>
@@ -379,7 +381,7 @@ function FarmerDetailPage() {
                     <StatusPill tone="amber">Senior Citizen</StatusPill>
                   )}
                 </div>
-                <p className="mt-1 text-sm font-medium text-slate-600">
+                <p className="mt-1 text-[13px] font-medium text-[#4A5E4A]">
                   RSBSA Number: {farmer.rsbsa_number}
                 </p>
               </div>
@@ -410,7 +412,8 @@ function FarmerDetailPage() {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            {/* Info grid */}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {farmer.prefix && <Field label="Prefix" value={farmer.prefix} />}
               <Field label="First Name" value={farmer.first_name} />
               <Field label="Last Name" value={farmer.last_name} />
@@ -431,50 +434,49 @@ function FarmerDetailPage() {
 
             {/* RSBSA Classification badges */}
             {(farmer.is_pwd || farmer.is_4ps_beneficiary || farmer.is_icc_ip_member) && (
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-5 flex flex-wrap gap-2">
                 {farmer.is_pwd && (
-                  <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 ring-1 ring-blue-200">
+                  <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[12px] font-medium text-blue-700 ring-1 ring-blue-200">
                     Person with Disability (PWD)
                   </span>
                 )}
                 {farmer.is_4ps_beneficiary && (
-                  <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-200">
+                  <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-[12px] font-medium text-amber-700 ring-1 ring-amber-200">
                     4Ps Beneficiary
                   </span>
                 )}
                 {farmer.is_icc_ip_member && (
-                  <span className="inline-flex items-center rounded-full bg-purple-50 px-3 py-1 text-xs font-medium text-purple-700 ring-1 ring-purple-200">
+                  <span className="inline-flex items-center rounded-full bg-purple-50 px-3 py-1 text-[12px] font-medium text-purple-700 ring-1 ring-purple-200">
                     ICC/IP Member{farmer.icc_ip_name ? ` — ${farmer.icc_ip_name}` : ''}
                   </span>
                 )}
               </div>
             )}
-          </section>
+          </div>
         )}
 
-        <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-sm font-medium text-slate-400 uppercase tracking-wide">Farm Parcels</h2>
-          </div>
+        {/* Farm Parcels */}
+        <div className="bg-white border border-[#E2E8E2] rounded-xl p-6">
+          <h2 className="text-[14px] font-semibold text-[#1A2B1A] mb-4">Farm Parcels</h2>
 
           {parcelError && (
-            <div className="mb-4 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-medium text-red-700">
               {parcelError}
             </div>
           )}
 
           {isLoadingParcels ? (
             <div className="flex min-h-24 items-center justify-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-green-100 border-t-[#16a34a]" />
+              <LoadingSpinner size={24} />
             </div>
           ) : parcels.length === 0 ? (
-            <p className="rounded-md border border-green-100 bg-[#f0f7f0] px-4 py-3 text-sm font-medium text-slate-600">
+            <p className="rounded-lg border border-[#E2E8E2] bg-[#EBF5EE]/30 px-4 py-3 text-[13px] text-[#4A5E4A]">
               No farm parcels registered.
             </p>
           ) : (
-            <div className="overflow-hidden rounded-lg border border-green-100">
+            <div className="overflow-hidden rounded-lg border border-[#E2E8E2]">
               <table className="min-w-full text-left text-sm">
-                <thead className="bg-[#f0f7f0] text-xs font-semibold uppercase tracking-wide text-green-800">
+                <thead className="bg-[#1B4D2E] text-xs font-semibold uppercase tracking-wide text-white">
                   <tr>
                     <th className="px-4 py-3">Parcel No.</th>
                     <th className="px-4 py-3">Area (ha)</th>
@@ -492,40 +494,42 @@ function FarmerDetailPage() {
               </table>
             </div>
           )}
-        </section>
+        </div>
 
         {/* Visit History */}
-        <section className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-sm font-medium uppercase tracking-wide text-slate-400">Visit History</h2>
+        <div className="bg-white border border-[#E2E8E2] rounded-xl p-6">
+          <h2 className="text-[14px] font-semibold text-[#1A2B1A] mb-4">Visit History</h2>
           {isLoadingVisits ? (
             <LoadingSpinner />
           ) : visitHistory.length === 0 ? (
-            <p className="text-sm italic text-slate-400">No farm visits recorded for this farmer.</p>
+            <p className="text-[13px] italic text-[#7A8E7A]">No farm visits recorded for this farmer.</p>
           ) : (
-            <table className="min-w-full text-sm">
-              <thead className="bg-[#f0f7f0] text-xs font-semibold uppercase tracking-wide text-[#1E4620]">
-                <tr>
-                  {['Visit Date', 'Next Visit', 'Purpose', 'Notes'].map((h) => (
-                    <th key={h} className="px-4 py-2 text-left">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-green-50">
-                {visitHistory.map((v, i) => {
-                  const fmt = (d) => d ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(d)) : '—'
-                  return (
-                    <tr key={v.id} className={i % 2 === 0 ? 'bg-white' : 'bg-[#f0fdf4]'}>
-                      <td className="px-4 py-2 text-slate-700">{fmt(v.visit_date)}</td>
-                      <td className="px-4 py-2 text-slate-700">{fmt(v.next_visit_date)}</td>
-                      <td className="px-4 py-2 text-slate-700">{v.purpose}</td>
-                      <td className="px-4 py-2 text-slate-500">{v.notes || '—'}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+            <div className="overflow-hidden rounded-lg border border-[#E2E8E2]">
+              <table className="min-w-full text-sm">
+                <thead className="bg-[#1B4D2E] text-xs font-semibold uppercase tracking-wide text-white">
+                  <tr>
+                    {['Visit Date', 'Next Visit', 'Purpose', 'Notes'].map((h) => (
+                      <th key={h} className="px-4 py-2.5 text-left">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F0F4F0]">
+                  {visitHistory.map((v, i) => {
+                    const fmt = (d) => d ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(d)) : '—'
+                    return (
+                      <tr key={v.id} className={i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAF9]'}>
+                        <td className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{fmt(v.visit_date)}</td>
+                        <td className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{fmt(v.next_visit_date)}</td>
+                        <td className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{v.purpose}</td>
+                        <td className="px-4 py-2.5 text-[13px] text-[#7A8E7A]">{v.notes || '—'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
-        </section>
+        </div>
       </div>
 
       {isParcelModalOpen && (

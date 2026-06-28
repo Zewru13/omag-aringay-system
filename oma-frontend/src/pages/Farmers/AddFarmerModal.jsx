@@ -6,7 +6,7 @@ import Button from '../../components/UI/Button.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 
-const labelCls = 'block text-xs font-medium text-slate-600'
+const labelCls = 'text-[13px] font-medium text-[#4A5E4A] mb-1.5 block'
 
 const initialForm = {
   prefix: '',
@@ -155,7 +155,7 @@ function AddFarmerModal({ onClose, onSuccess }) {
           <div>
             <label className={labelCls} htmlFor="rsbsa_number">RSBSA Number</label>
             <input className={baseInputClasses} id="rsbsa_number" onChange={(e) => updateField('rsbsa_number', e.target.value)} required value={form.rsbsa_number} />
-            {rsbsaError && <p className="mt-1 text-sm font-medium text-red-600">{rsbsaError}</p>}
+            {rsbsaError && <p className="mt-1 text-[12px] font-medium text-red-600">{rsbsaError}</p>}
           </div>
 
           <div>
@@ -193,7 +193,7 @@ function AddFarmerModal({ onClose, onSuccess }) {
               value={form.birthdate}
             />
             {birthdateError && (
-              <p className="mt-1 text-xs text-rose-600">{birthdateError}</p>
+              <p className="mt-1 text-[12px] text-rose-600">{birthdateError}</p>
             )}
           </div>
 
@@ -210,7 +210,7 @@ function AddFarmerModal({ onClose, onSuccess }) {
               onChange={(e) => updateField('contact_number', e.target.value)}
               value={form.contact_number}
             />
-            {contactError && <p className="mt-1 text-xs text-rose-600">{contactError}</p>}
+            {contactError && <p className="mt-1 text-[12px] text-rose-600">{contactError}</p>}
           </div>
 
           <BarangaySelect
@@ -243,8 +243,8 @@ function AddFarmerModal({ onClose, onSuccess }) {
         </div>
 
         {/* RSBSA Classification */}
-        <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">RSBSA Classification</p>
+        <div className="rounded-xl border border-[#E2E8E2] bg-[#EBF5EE]/30 p-4">
+          <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-[#4A5E4A]">RSBSA Classification</p>
           <div className="grid gap-3 sm:grid-cols-2">
             {[
               ['is_pwd', 'Person with Disability (PWD)'],
@@ -254,11 +254,11 @@ function AddFarmerModal({ onClose, onSuccess }) {
               <label key={field} className="flex cursor-pointer items-center gap-2">
                 <input
                   type="checkbox"
-                  className="h-4 w-4 accent-green-600"
+                  className="h-4 w-4 accent-[#1B4D2E]"
                   checked={form[field]}
                   onChange={(e) => updateField(field, e.target.checked)}
                 />
-                <span className="text-sm text-slate-700">{label}</span>
+                <span className="text-[13px] text-[#1A2B1A]">{label}</span>
               </label>
             ))}
             {form.is_icc_ip_member && (
@@ -271,10 +271,10 @@ function AddFarmerModal({ onClose, onSuccess }) {
         </div>
 
         {/* Farmer Association */}
-        <div className="mt-3">
+        <div>
           <label className={labelCls}>
             Farmer Association{' '}
-            <span className="text-slate-400 font-normal">(optional)</span>
+            <span className="text-[#7A8E7A] font-normal">(optional)</span>
           </label>
           <select
             className={baseInputClasses}
@@ -286,18 +286,18 @@ function AddFarmerModal({ onClose, onSuccess }) {
               <option key={a.id} value={a.id}>{a.name}</option>
             ))}
           </select>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-[12px] text-[#7A8E7A] mt-1">
             Leave blank if the farmer is not part of any association. This can be updated later by editing the farmer profile.
           </p>
         </div>
 
         {formError && (
-          <p className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+          <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-medium text-red-700">
             {formError}
           </p>
         )}
 
-        <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
+        <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4">
           <Button onClick={onClose} type="button" variant="ghost">Cancel</Button>
           <Button isLoading={isSubmitting} type="submit" variant="primary">Save Farmer</Button>
         </div>
