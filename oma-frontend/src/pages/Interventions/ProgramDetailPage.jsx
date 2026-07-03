@@ -6,58 +6,37 @@ import DataTable from "../../components/UI/DataTable.jsx"
 import SearchBar from "../../components/UI/SearchBar.jsx"
 import Button from "../../components/UI/Button.jsx"
 import StatusPill from "../../components/UI/StatusPill.jsx"
-import Tabs from "../../components/UI/Tabs.jsx"
 import api from "../../api/axiosInstance.js"
 import { useAuth } from "../../context/AuthContext.jsx"
 import AddBeneficiaryModal from "./AddBeneficiaryModal.jsx"
-import AddFisherfolkBeneficiaryModal from "./AddFisherfolkBeneficiaryModal.jsx"
 import EditProgramModal from "./EditProgramModal.jsx"
 
-const beneficiaryTabs = [
-  { value: "farmers", label: "Farmer Beneficiaries" },
-  { value: "fisherfolk", label: "Fisherfolk Beneficiaries" },
+const columns = [
+  { key: "number",              label: "No." },
+  { key: "farmer_full_name",    label: "Full Name" },
+  { key: "farmer_rsbsa_number", label: "RSBSA" },
+  { key: "farmer_barangay",     label: "Barangay" },
+  { key: "quantity_unit",       label: "Quantity Given" },
+  { key: "date_given_display",  label: "Date Given" },
 ]
 
 function ProgramDetailPage() {
   const { id } = useParams()
   const { isAdmin, isEvaluator } = useAuth()
-  const [program, setProgram] = useState(null)
-  const [beneficiaries, setBeneficiaries] = useState([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
+  const [program,               setProgram]               = useState(null)
+  const [beneficiaries,         setBeneficiaries]         = useState([])
+  const [isLoading,             setIsLoading]             = useState(false)
+  const [searchQuery,           setSearchQuery]           = useState("")
   const [showAddBeneficiaryModal, setShowAddBeneficiaryModal] = useState(false)
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [fisherfolkBeneficiaries, setFisherfolkBeneficiaries] = useState([])
-  const [isLoadingFisherfolk, setIsLoadingFisherfolk] = useState(false)
-  const [fisherfolkSearchQuery, setFisherfolkSearchQuery] = useState("")
-  const [showAddFisherfolkBeneficiaryModal, setShowAddFisherfolkBeneficiaryModal] = useState(false)
-  const [activeTab, setActiveTab] = useState("farmers")
-  const [isExportingCsv, setIsExportingCsv] = useState(false)
-
-  const columns = [
-    { key: "number", label: "No." },
-    { key: "farmer_full_name", label: "Full Name" },
-    { key: "farmer_rsbsa_number", label: "RSBSA" },
-    { key: "farmer_barangay", label: "Barangay" },
-    { key: "quantity_unit", label: "Quantity Given" },
-    { key: "date_given_display", label: "Date Given" },
-  ]
-
-  const fisherfolkColumns = [
-    { key: "number", label: "No." },
-    { key: "fisherfolk_full_name", label: "Full Name" },
-    { key: "fisherfolk_lgu_registration_number", label: "LGU Reg. No." },
-    { key: "fisherfolk_barangay", label: "Barangay" },
-    { key: "quantity_unit", label: "Quantity Given" },
-    { key: "date_given_display", label: "Date Given" },
-  ]
+  const [isEditModalOpen,       setIsEditModalOpen]       = useState(false)
+  const [isExportingCsv,        setIsExportingCsv]        = useState(false)
 
   const fetchProgram = async () => {
     try {
-      const response = await api.get(`/interventions/programs/${id}/`)
-      setProgram(response.data)
-    } catch (error) {
-      console.error("Error fetching program:", error)
+      const res = await api.get(`/interventions/programs/${id}/`)
+      setProgram(res.data)
+    } catch (err) {
+      console.error("Error fetching program:", err)
     }
   }
 
@@ -66,84 +45,44 @@ function ProgramDetailPage() {
     try {
       const params = new URLSearchParams()
       if (searchQuery) params.append("search", searchQuery)
-      const response = await api.get(
-        `/interventions/programs/${id}/beneficiaries/?${params.toString()}`,
-      )
-      setBeneficiaries(response.data?.results ?? [])
-    } catch (error) {
-      console.error("Error fetching beneficiaries:", error)
+      const res = await api.get(`/interventions/programs/${id}/beneficiaries/?${params.toString()}`)
+      setBeneficiaries(res.data?.results ?? [])
+    } catch (err) {
+      console.error("Error fetching beneficiaries:", err)
     } finally {
       setIsLoading(false)
     }
   }
 
-  const fetchFisherfolkBeneficiaries = async () => {
-    setIsLoadingFisherfolk(true)
-    try {
-      const params = new URLSearchParams()
-      if (fisherfolkSearchQuery) params.append("search", fisherfolkSearchQuery)
-      const response = await api.get(
-        `/interventions/programs/${id}/fisherfolk-beneficiaries/?${params.toString()}`,
-      )
-      setFisherfolkBeneficiaries(response.data?.results ?? [])
-    } catch (error) {
-      console.error("Error fetching fisherfolk beneficiaries:", error)
-    } finally {
-      setIsLoadingFisherfolk(false)
-    }
-  }
-
   useEffect(() => { fetchProgram() }, [id])
   useEffect(() => { fetchBeneficiaries() }, [id, searchQuery])
-  useEffect(() => { fetchFisherfolkBeneficiaries() }, [id, fisherfolkSearchQuery])
 
   const handleAddBeneficiarySuccess = () => {
     setShowAddBeneficiaryModal(false)
     fetchBeneficiaries()
   }
 
-  const handleAddFisherfolkBeneficiarySuccess = () => {
-    setShowAddFisherfolkBeneficiaryModal(false)
-    fetchFisherfolkBeneficiaries()
-  }
+  const formatDate = (d) => d ? new Date(d).toLocaleDateString() : ""
 
-  const formatDate = (dateString) => {
-    if (!dateString) return ""
-    return new Date(dateString).toLocaleDateString()
-  }
-
-  const tableData = beneficiaries.map((b, index) => ({
+  const tableData = beneficiaries.map((b, i) => ({
     ...b,
-    number: index + 1,
-    quantity_unit: `${b.quantity_given} ${b.unit}`,
-    date_given_display: formatDate(b.date_given),
-  }))
-
-  const fisherfolkTableData = fisherfolkBeneficiaries.map((b, index) => ({
-    ...b,
-    number: index + 1,
-    quantity_unit: `${b.quantity_given} ${b.unit}`,
+    number:            i + 1,
+    quantity_unit:     `${b.quantity_given} ${b.unit}`,
     date_given_display: formatDate(b.date_given),
   }))
 
   const handleExportCsv = () => {
     setIsExportingCsv(true)
     try {
-      const isFarmers = activeTab === "farmers"
-      const rows = isFarmers ? tableData : fisherfolkTableData
-      const cols = isFarmers ? columns : fisherfolkColumns
-      const header = cols.map((c) => c.label).join(",")
-      const body = rows
-        .map((r) =>
-          cols.map((c) => `"${String(r[c.key] ?? "").replace(/"/g, '""')}"`).join(","),
-        )
-        .join("\n")
-      const csv = `${header}\n${body}`
-      const blob = new Blob([csv], { type: "text/csv" })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = `${program?.program_name || "beneficiaries"}_${activeTab}.csv`
+      const header = columns.map(c => c.label).join(",")
+      const body   = tableData.map(r =>
+        columns.map(c => `"${String(r[c.key] ?? "").replace(/"/g, '""')}"`).join(","),
+      ).join("\n")
+      const blob = new Blob([`${header}\n${body}`], { type: "text/csv" })
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement("a")
+      a.href     = url
+      a.download = `${program?.program_name || "beneficiaries"}.csv`
       a.click()
       URL.revokeObjectURL(url)
     } finally {
@@ -202,7 +141,7 @@ function ProgramDetailPage() {
                 </div>
                 <div className="h-2 w-full rounded-full bg-slate-100">
                   <div
-                    className="h-2 rounded-full bg-[#f0f7f0]0 transition-all"
+                    className="h-2 rounded-full bg-[#1B4D2E] transition-all"
                     style={{
                       width: `${Math.min(100, Math.round(((program.actual_beneficiaries ?? 0) / program.target_beneficiaries) * 100))}%`,
                     }}
@@ -215,57 +154,27 @@ function ProgramDetailPage() {
 
         <section className="rounded-2xl border border-slate-100 bg-white p-6">
           <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <Tabs
-              activeTab={activeTab}
-              onChange={setActiveTab}
-              tabs={beneficiaryTabs}
-            />
+            <h2 className="text-[15px] font-semibold text-slate-800">Farmer Beneficiaries</h2>
             <div className="flex flex-wrap items-center gap-2">
               <Button icon={Download} isLoading={isExportingCsv} onClick={handleExportCsv} size="sm" variant="secondary">
                 Export CSV
               </Button>
-              {(isAdmin || isEvaluator) && activeTab === "farmers" && (
+              {(isAdmin || isEvaluator) && (
                 <Button icon={Plus} onClick={() => setShowAddBeneficiaryModal(true)} variant="primary">
                   Add Beneficiary
-                </Button>
-              )}
-              {(isAdmin || isEvaluator) && activeTab === "fisherfolk" && (
-                <Button icon={Plus} onClick={() => setShowAddFisherfolkBeneficiaryModal(true)} variant="primary">
-                  Add Fisherfolk Beneficiary
                 </Button>
               )}
             </div>
           </div>
 
-          {activeTab === "farmers" && (
-            <>
-              <div className="mb-4">
-                <SearchBar
-                  placeholder="Search by farmer name or barangay..."
-                  value={searchQuery}
-                  onChange={setSearchQuery}
-                />
-              </div>
-              <DataTable columns={columns} data={tableData} isLoading={isLoading} />
-            </>
-          )}
-
-          {activeTab === "fisherfolk" && (
-            <>
-              <div className="mb-4">
-                <SearchBar
-                  placeholder="Search by fisherfolk name or barangay..."
-                  value={fisherfolkSearchQuery}
-                  onChange={setFisherfolkSearchQuery}
-                />
-              </div>
-              <DataTable
-                columns={fisherfolkColumns}
-                data={fisherfolkTableData}
-                isLoading={isLoadingFisherfolk}
-              />
-            </>
-          )}
+          <div className="mb-4">
+            <SearchBar
+              placeholder="Search by farmer name or barangay..."
+              value={searchQuery}
+              onChange={setSearchQuery}
+            />
+          </div>
+          <DataTable columns={columns} data={tableData} isLoading={isLoading} />
         </section>
       </div>
 
@@ -274,14 +183,6 @@ function ProgramDetailPage() {
           programId={id}
           onClose={() => setShowAddBeneficiaryModal(false)}
           onSuccess={handleAddBeneficiarySuccess}
-        />
-      )}
-
-      {showAddFisherfolkBeneficiaryModal && (
-        <AddFisherfolkBeneficiaryModal
-          programId={id}
-          onClose={() => setShowAddFisherfolkBeneficiaryModal(false)}
-          onSuccess={handleAddFisherfolkBeneficiarySuccess}
         />
       )}
 

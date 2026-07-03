@@ -10,7 +10,7 @@ import api from "../../api/axiosInstance.js"
 import { useAuth } from "../../context/AuthContext.jsx"
 import { useToast } from "../../context/ToastContext.jsx"
 
-const labelCls = "block text-xs font-medium text-slate-600"
+const labelCls = "block text-[12px] font-medium text-[#4A5E4A]"
 
 function ProfilePage() {
   const { updateUser, logout } = useAuth()
@@ -22,6 +22,7 @@ function ProfilePage() {
 
   const [isEditing, setIsEditing] = useState(false)
   const [form, setForm] = useState({ full_name: "", email: "", contact_number: "" })
+  const [original, setOriginal] = useState({ full_name: "", email: "", contact_number: "" })
   const [passwords, setPasswords] = useState({
     current_password: "",
     new_password: "",
@@ -37,11 +38,13 @@ function ProfilePage() {
       try {
         const res = await api.get("/accounts/me/")
         setProfile(res.data)
-        setForm({
-          full_name: res.data.full_name || "",
-          email: res.data.email || "",
+        const snap = {
+          full_name:      res.data.full_name      || "",
+          email:          res.data.email          || "",
           contact_number: res.data.contact_number || "",
-        })
+        }
+        setForm({ ...snap })
+        setOriginal({ ...snap })
       } catch {
         // profile remains null
       } finally {
@@ -104,11 +107,13 @@ function ProfilePage() {
     try {
       const res = await api.patch("/accounts/me/", form)
       setProfile(res.data)
-      setForm({
-        full_name: res.data.full_name || "",
-        email: res.data.email || "",
+      const saved = {
+        full_name:      res.data.full_name      || "",
+        email:          res.data.email          || "",
         contact_number: res.data.contact_number || "",
-      })
+      }
+      setForm({ ...saved })
+      setOriginal({ ...saved })
       updateUser(res.data)
 
       if (isChangingPw) {
@@ -146,6 +151,11 @@ function ProfilePage() {
     }
   }
 
+  const normalize = (v) => (v === null || v === undefined ? "" : String(v).trim())
+  const isDirty = Object.keys(original).some(
+    (k) => normalize(form[k]) !== normalize(original[k])
+  )
+
   const initials = profile?.full_name
     ? profile.full_name
         .trim()
@@ -160,7 +170,7 @@ function ProfilePage() {
     return (
       <PageLayout title="My Profile" subtitle="View and update your account information">
         <div className="flex min-h-64 items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-100 border-t-green-600" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#E2E8E2] border-t-[#1B4D2E]" />
         </div>
       </PageLayout>
     )
@@ -170,18 +180,18 @@ function ProfilePage() {
     <>
     <PageLayout title="My Profile" subtitle="View and update your account information">
       <div className="mx-auto max-w-2xl">
-        <section className="rounded-2xl border border-slate-100 bg-white p-6">
-          {/* Avatar + name + role + edit button */}
-          <div className="mb-6 flex items-start justify-between">
+        <section className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+          {/* Profile header */}
+          <div className="px-6 pt-6 pb-5 border-b border-[#F0F4F0] flex items-start justify-between">
             <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#1E4620] text-lg font-semibold text-white">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#1B4D2E] text-lg font-semibold text-white">
                 {initials}
               </div>
               <div>
-                <p className="text-base font-semibold text-slate-900">
+                <p className="text-[15px] font-semibold text-[#1A2B1A]">
                   {profile?.full_name || "—"}
                 </p>
-                <div className="mt-1">
+                <div className="mt-1.5">
                   <StatusPill tone={profile?.role === "ADMIN" ? "green" : "blue"}>
                     {profile?.role === "ADMIN" ? "Admin" : "Evaluator"}
                   </StatusPill>
@@ -195,14 +205,14 @@ function ProfilePage() {
             )}
           </div>
 
-          <form className="space-y-4" onSubmit={handleSave}>
+          <form className="p-6 space-y-4" onSubmit={handleSave}>
             {/* Profile fields */}
             <div>
               {isEditing ? (
                 <>
                   <label className={labelCls}>Full Name</label>
                   <input
-                    className={`${baseInputClasses} mt-1`}
+                    className={`${baseInputClasses} mt-1.5`}
                     type="text"
                     value={form.full_name}
                     onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))}
@@ -210,8 +220,8 @@ function ProfilePage() {
                 </>
               ) : (
                 <>
-                  <p className="text-xs font-medium text-slate-400">Full Name</p>
-                  <p className="mt-1 text-sm text-slate-900">{profile?.full_name || "—"}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8]">Full Name</p>
+                  <p className="mt-1 text-[13px] text-[#1A2B1A]">{profile?.full_name || "—"}</p>
                 </>
               )}
             </div>
@@ -221,7 +231,7 @@ function ProfilePage() {
                 <>
                   <label className={labelCls}>Email Address</label>
                   <input
-                    className={`${baseInputClasses} mt-1`}
+                    className={`${baseInputClasses} mt-1.5`}
                     required
                     type="email"
                     value={form.email}
@@ -230,8 +240,8 @@ function ProfilePage() {
                 </>
               ) : (
                 <>
-                  <p className="text-xs font-medium text-slate-400">Email Address</p>
-                  <p className="mt-1 text-sm text-slate-900">{profile?.email || "—"}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8]">Email Address</p>
+                  <p className="mt-1 text-[13px] text-[#1A2B1A]">{profile?.email || "—"}</p>
                 </>
               )}
             </div>
@@ -241,7 +251,7 @@ function ProfilePage() {
                 <>
                   <label className={labelCls}>Contact Number</label>
                   <input
-                    className={`${baseInputClasses} mt-1`}
+                    className={`${baseInputClasses} mt-1.5`}
                     type="text"
                     value={form.contact_number}
                     onChange={(e) => setForm((f) => ({ ...f, contact_number: e.target.value }))}
@@ -249,8 +259,8 @@ function ProfilePage() {
                 </>
               ) : (
                 <>
-                  <p className="text-xs font-medium text-slate-400">Contact Number</p>
-                  <p className="mt-1 text-sm text-slate-900">{profile?.contact_number || "—"}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8]">Contact Number</p>
+                  <p className="mt-1 text-[13px] text-[#1A2B1A]">{profile?.contact_number || "—"}</p>
                 </>
               )}
             </div>
@@ -258,11 +268,11 @@ function ProfilePage() {
             {/* Change Password — only shown in edit mode */}
             {isEditing && (
               <>
-                <div className="border-t border-slate-100 pt-5">
-                  <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400">
+                <div className="border-t border-[#F0F4F0] pt-5">
+                  <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8]">
                     Change Password
                   </p>
-                  <p className="mb-4 text-xs text-slate-400">
+                  <p className="mb-4 text-[12px] text-[#7A8E7A]">
                     Leave blank to keep your current password.
                   </p>
 
@@ -273,7 +283,7 @@ function ProfilePage() {
                       </label>
                       <input
                         autoComplete="current-password"
-                        className={`${baseInputClasses} mt-1`}
+                        className={`${baseInputClasses} mt-1.5`}
                         id="cp_current"
                         type="password"
                         value={passwords.current_password}
@@ -290,7 +300,7 @@ function ProfilePage() {
                         </label>
                         <input
                           autoComplete="new-password"
-                          className={`${baseInputClasses} mt-1`}
+                          className={`${baseInputClasses} mt-1.5`}
                           id="cp_new"
                           type="password"
                           value={passwords.new_password}
@@ -306,7 +316,7 @@ function ProfilePage() {
                         </label>
                         <input
                           autoComplete="new-password"
-                          className={`${baseInputClasses} mt-1`}
+                          className={`${baseInputClasses} mt-1.5`}
                           id="cp_confirm"
                           type="password"
                           value={passwords.confirm_new_password}
@@ -320,7 +330,7 @@ function ProfilePage() {
                 </div>
 
                 {passwordError && (
-                  <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">
+                  <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">
                     {passwordError}
                   </p>
                 )}
@@ -328,17 +338,17 @@ function ProfilePage() {
             )}
 
             {profileError && (
-              <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">
+              <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">
                 {profileError}
               </p>
             )}
 
             {isEditing && (
-              <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
+              <div className="flex justify-end gap-3 border-t border-[#F0F4F0] pt-4">
                 <Button onClick={handleCancel} type="button" variant="ghost">
                   Cancel
                 </Button>
-                <Button isLoading={isSaving} type="submit" variant="primary">
+                <Button isLoading={isSaving} disabled={isSaving || !isDirty} type="submit" variant="primary">
                   Save Changes
                 </Button>
               </div>

@@ -9,7 +9,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
 
-const labelCls = 'block text-xs font-medium text-slate-600 mb-1'
+const labelCls = 'block text-[12px] font-medium text-[#4A5E4A] mb-1'
 
 const TABS = [
   { id: 'harvested',    icon: Wheat,     label: 'Harvested Crop Report' },
@@ -35,11 +35,11 @@ function SignatureModal({ purpose, onClose, onGenerate }) {
 
   return (
     <ModalShell title={title} onClose={onClose} maxWidth="max-w-sm">
-      <p className="text-sm text-slate-400 text-center mb-4">
+      <p className="text-[12px] text-[#7A8E7A] text-center mb-4">
         Please provide the names and positions for the signature section of the PDF report.
       </p>
 
-      <p className="text-sm font-semibold text-slate-700 mb-2">* Prepared by</p>
+      <p className="text-[13px] font-semibold text-[#1A2B1A] mb-2">* Prepared by</p>
       <div>
         <label className={labelCls}>Name:</label>
         <input
@@ -48,7 +48,7 @@ function SignatureModal({ purpose, onClose, onGenerate }) {
           onChange={e => setPreparedBy(e.target.value)}
           className={baseInputClasses}
         />
-        <p className="text-xs text-slate-400 italic mt-0.5">Auto-filled with your name (editable)</p>
+        <p className="text-[11px] text-[#A8BCA8] italic mt-0.5">Auto-filled with your name (editable)</p>
       </div>
       <div className="mt-2">
         <label className={labelCls}>Position/Designation:</label>
@@ -61,17 +61,17 @@ function SignatureModal({ purpose, onClose, onGenerate }) {
         />
       </div>
 
-      <div className="border-t border-slate-100 my-3" />
+      <div className="border-t border-[#F0F4F0] my-3" />
 
       <div className="mb-1">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold text-slate-700">
-            * Reviewed by <span className="text-xs text-slate-400 font-normal">(optional)</span>
+          <p className="text-[13px] font-semibold text-[#1A2B1A]">
+            * Reviewed by <span className="text-[11px] text-[#A8BCA8] font-normal">(optional)</span>
           </p>
           <button
             type="button"
             onClick={() => setShowReviewer(v => !v)}
-            className="text-[#1E4620] text-xs hover:underline font-medium"
+            className="text-[12px] font-medium text-[#1B4D2E] hover:underline"
           >
             {showReviewer ? 'Remove' : 'Add'}
           </button>
@@ -87,17 +87,17 @@ function SignatureModal({ purpose, onClose, onGenerate }) {
         )}
       </div>
 
-      <div className="border-t border-slate-100 my-3" />
+      <div className="border-t border-[#F0F4F0] my-3" />
 
       <div className="mb-1">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold text-slate-700">
-            * Noted by <span className="text-xs text-slate-400 font-normal">(optional)</span>
+          <p className="text-[13px] font-semibold text-[#1A2B1A]">
+            * Noted by <span className="text-[11px] text-[#A8BCA8] font-normal">(optional)</span>
           </p>
           <button
             type="button"
             onClick={() => setShowNotedBy(v => !v)}
-            className="text-[#1E4620] text-xs hover:underline font-medium"
+            className="text-[12px] font-medium text-[#1B4D2E] hover:underline"
           >
             {showNotedBy ? 'Remove' : 'Add'}
           </button>
@@ -113,18 +113,18 @@ function SignatureModal({ purpose, onClose, onGenerate }) {
         )}
       </div>
 
-      <div className="flex justify-end gap-2 border-t border-slate-100 pt-4 mt-3">
+      <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4 mt-3">
         <button
           type="button"
           onClick={onClose}
-          className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+          className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors"
         >
           Cancel
         </button>
         <button
           type="button"
           onClick={() => onGenerate({ prepared_by: preparedBy, position, reviewed_by: showReviewer ? reviewerName : '', noted_by: showNotedBy ? notedByName : '' })}
-          className="rounded-xl bg-[#1E4620] px-4 py-2 text-sm font-medium text-white hover:bg-[#2D6A31] transition-colors"
+          className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors"
         >
           {isPdf ? 'Generate PDF' : 'Generate Excel'}
         </button>
@@ -142,7 +142,7 @@ function ActionButtons({ onPdf, onExcel, isDownloading }) {
         type="button"
         onClick={onPdf}
         disabled={isDownloading}
-        className="flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors disabled:opacity-60"
+        className="flex items-center gap-1.5 bg-[#C0392B] hover:bg-[#A93226] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
       >
         <FileText className="w-4 h-4" />
         Preview PDF
@@ -151,7 +151,7 @@ function ActionButtons({ onPdf, onExcel, isDownloading }) {
         type="button"
         onClick={onExcel}
         disabled={isDownloading}
-        className="flex items-center gap-1.5 bg-[#1E4620] hover:bg-[#2D6A31] text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors disabled:opacity-60"
+        className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
       >
         <Download className="w-4 h-4" />
         Download Excel
@@ -164,26 +164,26 @@ function ActionButtons({ onPdf, onExcel, isDownloading }) {
 
 function PreviewTable({ headers, rows, isLoading, emptyText = 'No records found.' }) {
   return (
-    <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
       <table className="min-w-full text-sm">
-        <thead className="bg-[#1E4620] text-white">
+        <thead className="bg-[#1B4D2E] text-white">
           <tr>
             {headers.map((h, i) => (
-              <th key={i} className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide whitespace-nowrap">
+              <th key={i} className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-[0.06em] whitespace-nowrap">
                 {h}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody>
           {isLoading ? (
-            <tr><td colSpan={headers.length} className="py-8 text-center text-sm text-slate-400">Loading…</td></tr>
+            <tr><td colSpan={headers.length} className="py-8 text-center text-[13px] text-[#7A8E7A]">Loading…</td></tr>
           ) : rows.length === 0 ? (
-            <tr><td colSpan={headers.length} className="py-8 text-center text-sm text-slate-400">{emptyText}</td></tr>
+            <tr><td colSpan={headers.length} className="py-8 text-center text-[13px] text-[#7A8E7A]">{emptyText}</td></tr>
           ) : rows.map((row, i) => (
-            <tr key={i} className="hover:bg-slate-50">
+            <tr key={i} className="border-b border-[#F0F4F0] hover:bg-[#F9FAF9]">
               {row.map((cell, j) => (
-                <td key={j} className="px-3 py-2.5 text-xs text-slate-700 whitespace-nowrap">{cell ?? '—'}</td>
+                <td key={j} className="px-4 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{cell ?? '—'}</td>
               ))}
             </tr>
           ))}
@@ -310,8 +310,8 @@ function HarvestedCropTab() {
   return (
     <div className="space-y-5">
       {/* Filters */}
-      <div className="rounded-xl border border-slate-200 bg-white p-5">
-        <p className="text-sm font-semibold text-slate-700 mb-3">Filter Options</p>
+      <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+        <p className="text-[13px] font-semibold text-[#1A2B1A] mb-4">Filter Options</p>
         <div className="flex flex-wrap gap-3">
           <div>
             <label className={labelCls}>Harvest Start Date</label>
@@ -354,26 +354,26 @@ function HarvestedCropTab() {
       {/* Yield Analysis */}
       <div>
         <div className="flex items-center gap-3 mb-3">
-          <p className="text-sm font-semibold text-slate-700">Yield Analysis</p>
+          <p className="text-[13px] font-semibold text-[#1A2B1A]">Yield Analysis</p>
           {filters.yield_performance && (
-            <span className="inline-flex items-center rounded-full bg-[#1E4620] px-2.5 py-0.5 text-xs font-medium text-white">
+            <span className="inline-flex items-center rounded-full bg-[#1B4D2E] px-2.5 py-0.5 text-[11px] font-medium text-white">
               Filtered by: {filters.yield_performance === 'above' ? 'Above Average' : filters.yield_performance === 'average' ? 'Average' : 'Below Average'}
             </span>
           )}
         </div>
-        <div className="grid grid-cols-3 gap-4">
-          <div className="bg-[#f0fdf4] rounded-xl p-4">
-            <p className="text-xs text-slate-500">Barangay with Highest Yield</p>
-            <p className="text-base font-bold text-[#1E4620] mt-1 truncate">{yieldData.top_barangay}</p>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="bg-[#EBF5EE] rounded-xl p-4">
+            <p className="text-[11px] font-medium text-[#4A5E4A]">Barangay with Highest Yield</p>
+            <p className="text-[15px] font-bold text-[#1B4D2E] mt-1 truncate">{yieldData.top_barangay}</p>
           </div>
-          <div className="bg-[#f0fdf4] rounded-xl p-4">
-            <p className="text-xs text-slate-500">Total Estimated Yield</p>
-            <p className="text-xl font-bold text-[#1E4620] mt-1">{yieldData.total_yield} kg</p>
+          <div className="bg-[#EBF5EE] rounded-xl p-4">
+            <p className="text-[11px] font-medium text-[#4A5E4A]">Total Estimated Yield</p>
+            <p className="text-[20px] font-bold text-[#1B4D2E] mt-1">{yieldData.total_yield} kg</p>
           </div>
-          <div className="bg-[#f0fdf4] rounded-xl p-4">
-            <p className="text-xs text-slate-500">Crop Records</p>
-            <p className="text-xl font-bold text-[#1E4620] mt-1">{yieldData.count}</p>
-            <p className="text-xs text-slate-400">total records</p>
+          <div className="bg-[#EBF5EE] rounded-xl p-4">
+            <p className="text-[11px] font-medium text-[#4A5E4A]">Crop Records</p>
+            <p className="text-[20px] font-bold text-[#1B4D2E] mt-1">{yieldData.count}</p>
+            <p className="text-[11px] text-[#7A8E7A]">total records</p>
           </div>
         </div>
       </div>
@@ -387,8 +387,8 @@ function HarvestedCropTab() {
 
       {/* Preview Table */}
       <div>
-        <p className="text-sm font-semibold text-slate-700">Preview: Harvested Crops</p>
-        <p className="text-xs text-slate-400 mb-3">
+        <p className="text-[13px] font-semibold text-[#1A2B1A]">Preview: Harvested Crops</p>
+        <p className="text-[12px] text-[#7A8E7A] mb-3">
           {filters.start_date || filters.end_date
             ? `Period: ${filters.start_date || '—'} to ${filters.end_date || '—'}`
             : 'All harvested records'}
@@ -464,8 +464,8 @@ function AssociationListTab() {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-xl border border-slate-200 bg-white p-5">
-        <p className="text-sm font-semibold text-slate-700 mb-3">Filter Options</p>
+      <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+        <p className="text-[13px] font-semibold text-[#1A2B1A] mb-4">Filter Options</p>
         <div className="flex flex-wrap gap-3">
           <div className="w-44">
             <label className={labelCls}>Barangay</label>
@@ -490,9 +490,9 @@ function AssociationListTab() {
 
       <div>
         <div className="flex items-center gap-2 mb-2">
-          <p className="text-sm font-semibold text-slate-700">Preview: Association List</p>
+          <p className="text-[13px] font-semibold text-[#1A2B1A]">Preview: Association List</p>
           {!isLoading && (
-            <span className="text-xs text-slate-500">Showing {filteredRecords.length} association{filteredRecords.length !== 1 ? 's' : ''}</span>
+            <span className="text-[12px] text-[#7A8E7A]">Showing {filteredRecords.length} association{filteredRecords.length !== 1 ? 's' : ''}</span>
           )}
         </div>
         <PreviewTable headers={HEADERS} rows={previewRows} isLoading={isLoading} emptyText="No association records found." />
@@ -581,8 +581,8 @@ function CropOptionsTab() {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-xl border border-slate-200 bg-white p-5">
-        <p className="text-sm font-semibold text-slate-700 mb-3">Filter Options</p>
+      <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+        <p className="text-[13px] font-semibold text-[#1A2B1A] mb-4">Filter Options</p>
         <div className="flex flex-wrap gap-3">
           <div>
             <label className={labelCls}>Category</label>
@@ -618,9 +618,9 @@ function CropOptionsTab() {
 
       <div>
         <div className="flex items-center gap-2 mb-2">
-          <p className="text-sm font-semibold text-slate-700">Preview: Crop Options</p>
+          <p className="text-[13px] font-semibold text-[#1A2B1A]">Preview: Crop Options</p>
           {!isLoading && (
-            <span className="text-xs text-slate-500">Showing {filteredCrops.length} crop option{filteredCrops.length !== 1 ? 's' : ''}</span>
+            <span className="text-[12px] text-[#7A8E7A]">Showing {filteredCrops.length} crop option{filteredCrops.length !== 1 ? 's' : ''}</span>
           )}
         </div>
         <PreviewTable headers={HEADERS} rows={previewRows} isLoading={isLoading} emptyText="No crop options found." />
@@ -647,13 +647,13 @@ export default function ReportsPage() {
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center gap-1.5 ${
+              className={`px-4 py-2 rounded-lg text-[13px] font-medium transition-colors flex items-center gap-1.5 ${
                 activeTab === tab.id
-                  ? 'bg-[#1E4620] text-white'
-                  : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                  ? 'bg-[#1B4D2E] text-white'
+                  : 'bg-white border border-[#E2E8E2] text-[#4A5E4A] hover:bg-[#F5F7F5]'
               }`}
             >
-              <tab.icon size={15} />
+              <tab.icon size={14} />
               {tab.label}
             </button>
           ))}

@@ -99,10 +99,10 @@ function AuditLogPage() {
     <PageLayout title="Audit Log" subtitle="Track all user actions and system activity">
       <div className="space-y-5">
         {/* Filter bar */}
-        <div className="rounded-2xl border border-slate-100 bg-white p-4">
+        <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
             <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <label className="text-xs font-medium text-slate-600">Model</label>
+              <label className="text-[12px] font-medium text-[#4A5E4A]">Model</label>
               <select
                 className={baseInputClasses}
                 value={modelName}
@@ -115,7 +115,7 @@ function AuditLogPage() {
             </div>
 
             <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <label className="text-xs font-medium text-slate-600">Action</label>
+              <label className="text-[12px] font-medium text-[#4A5E4A]">Action</label>
               <select
                 className={baseInputClasses}
                 value={action}
@@ -128,7 +128,7 @@ function AuditLogPage() {
             </div>
 
             <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <label className="text-xs font-medium text-slate-600">Date From</label>
+              <label className="text-[12px] font-medium text-[#4A5E4A]">Date From</label>
               <input
                 className={baseInputClasses}
                 type="date"
@@ -138,7 +138,7 @@ function AuditLogPage() {
             </div>
 
             <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <label className="text-xs font-medium text-slate-600">Date To</label>
+              <label className="text-[12px] font-medium text-[#4A5E4A]">Date To</label>
               <input
                 className={baseInputClasses}
                 type="date"
@@ -174,22 +174,22 @@ function AuditLogPage() {
               {entries.map((entry) => (
                 <div
                   key={entry.id}
-                  className="rounded-2xl border border-slate-100 bg-white p-4"
+                  className="rounded-xl border border-[#E2E8E2] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <StatusPill tone={ACTION_TONE[entry.action] || 'slate'}>
                       {entry.action}
                     </StatusPill>
-                    <p className="text-xs text-slate-500">{formatTimestamp(entry.timestamp)}</p>
+                    <p className="text-[12px] text-[#7A8E7A]">{formatTimestamp(entry.timestamp)}</p>
                   </div>
-                  <p className="mt-2 text-sm font-semibold text-slate-800">{entry.object_repr}</p>
-                  <div className="mt-2 space-y-0.5 text-xs text-slate-500">
+                  <p className="mt-2 text-[13px] font-semibold text-[#1A2B1A]">{entry.object_repr}</p>
+                  <div className="mt-2 space-y-0.5 text-[12px] text-[#4A5E4A]">
                     <p><span className="font-medium">Model:</span> {entry.model_name}</p>
                     <p>
                       <span className="font-medium">User:</span>{' '}
                       {entry.user
                         ? (entry.user.full_name || entry.user.email)
-                        : <span className="italic text-slate-400">System</span>
+                        : <span className="italic text-[#A8BCA8]">System</span>
                       }
                     </p>
                   </div>
@@ -198,47 +198,47 @@ function AuditLogPage() {
             </div>
 
             {/* Desktop table */}
-            <div className="hidden overflow-hidden rounded-2xl border border-slate-100 bg-white md:block">
+            <div className="hidden overflow-hidden rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] md:block">
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-100 text-left text-sm">
-                  <thead className="bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <table className="min-w-full text-left">
+                  <thead className="bg-[#1B4D2E]">
                     <tr>
-                      <th className="px-4 py-3">Date / Time</th>
-                      <th className="px-4 py-3">User</th>
-                      <th className="px-4 py-3">Action</th>
-                      <th className="px-4 py-3">Model</th>
-                      <th className="px-4 py-3">Description</th>
+                      <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-[0.06em] text-white whitespace-nowrap">Date / Time</th>
+                      <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-[0.06em] text-white">User</th>
+                      <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-[0.06em] text-white">Action</th>
+                      <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-[0.06em] text-white">Model</th>
+                      <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-[0.06em] text-white">Description</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-50">
+                  <tbody>
                     {entries.map((entry) => (
-                      <tr key={entry.id} className="hover:bg-slate-50">
-                        <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-600">
+                      <tr key={entry.id} className="border-b border-[#F0F4F0] hover:bg-[#F9FAF9]">
+                        <td className="whitespace-nowrap px-4 py-[13px] text-[13px] text-[#7A8E7A]">
                           {formatTimestamp(entry.timestamp)}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-[13px]">
                           {entry.user ? (
                             <>
-                              <p className="text-sm font-medium text-slate-700">
+                              <p className="text-[13px] font-medium text-[#1A2B1A]">
                                 {entry.user.full_name}
                               </p>
                               {entry.user.email && (
-                                <p className="text-xs text-slate-500">{entry.user.email}</p>
+                                <p className="text-[12px] text-[#7A8E7A]">{entry.user.email}</p>
                               )}
                             </>
                           ) : (
-                            <p className="text-sm italic text-slate-400">System</p>
+                            <p className="text-[13px] italic text-[#A8BCA8]">System</p>
                           )}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-[13px]">
                           <StatusPill tone={ACTION_TONE[entry.action] || 'slate'}>
                             {entry.action}
                           </StatusPill>
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-sm text-slate-700">
+                        <td className="whitespace-nowrap px-4 py-[13px] text-[13px] text-[#1A2B1A]">
                           {entry.model_name}
                         </td>
-                        <td className="px-4 py-3 text-sm text-slate-700">{entry.object_repr}</td>
+                        <td className="px-4 py-[13px] text-[13px] text-[#4A5E4A]">{entry.object_repr}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -247,11 +247,11 @@ function AuditLogPage() {
             </div>
 
             {/* Pagination */}
-            <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white px-4 py-3 text-sm text-slate-600">
-              <p>
+            <div className="flex items-center justify-between rounded-xl border border-[#E2E8E2] bg-white px-4 py-3">
+              <p className="text-[13px] text-[#4A5E4A]">
                 Page {page} of {totalPages}
                 {totalCount > 0 && (
-                  <span className="ml-2 text-slate-400">({totalCount} entries)</span>
+                  <span className="ml-2 text-[#7A8E7A]">({totalCount} entries)</span>
                 )}
               </p>
               <div className="flex gap-2">
