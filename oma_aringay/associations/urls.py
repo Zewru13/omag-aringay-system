@@ -1,6 +1,8 @@
 from django.urls import path
 
 from .views import (
+    AssociationOfficerDestroyView,
+    AssociationOfficerListCreateView,
     FarmersAssociationDetailView,
     FarmersAssociationEquipmentAddView,
     FarmersAssociationEquipmentRemoveView,
@@ -23,6 +25,8 @@ urlpatterns = [
     path('farmers/members/<int:member_id>/', FarmersAssociationMemberRemoveView.as_view()),
     path('farmers/<int:pk>/equipment/', FarmersAssociationEquipmentAddView.as_view()),
     path('farmers/equipment/<int:equip_id>/', FarmersAssociationEquipmentRemoveView.as_view()),
+    path('farmers/<int:pk>/officers/', AssociationOfficerListCreateView.as_view()),
+    path('farmers/officers/<int:officer_id>/', AssociationOfficerDestroyView.as_view()),
     # ── Fisherfolk associations ─────────────────────────────────────
     path('fisherfolk/', FisherfolkAssociationListCreateView.as_view()),
     path('fisherfolk/<int:pk>/', FisherfolkAssociationDetailView.as_view()),

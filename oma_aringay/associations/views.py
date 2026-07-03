@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from accounts.permissions import IsAdminOrEvaluator
 
 from .models import (
+    AssociationOfficer,
     FarmersAssociation,
     FarmersAssociationEquipment,
     FarmersAssociationMember,
@@ -13,6 +14,7 @@ from .models import (
     FisherfolkAssociationMember,
 )
 from .serializers import (
+    AssociationOfficerSerializer,
     FarmersAssociationDetailSerializer,
     FarmersAssociationEquipmentSerializer,
     FarmersAssociationListSerializer,
@@ -79,6 +81,23 @@ class FarmersAssociationEquipmentRemoveView(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     queryset = FarmersAssociationEquipment.objects.all()
     lookup_url_kwarg = 'equip_id'
+
+
+class AssociationOfficerListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    serializer_class = AssociationOfficerSerializer
+
+    def get_queryset(self):
+        return AssociationOfficer.objects.filter(association_id=self.kwargs['pk'])
+
+    def perform_create(self, serializer):
+        serializer.save(association_id=self.kwargs['pk'])
+
+
+class AssociationOfficerDestroyView(generics.DestroyAPIView):
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    queryset = AssociationOfficer.objects.all()
+    lookup_url_kwarg = 'officer_id'
 
 
 # ─── Fisherfolk Association ───────────────────────────────────────────────────

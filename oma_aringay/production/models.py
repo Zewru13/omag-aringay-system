@@ -7,7 +7,7 @@ from django.conf import settings
 from django.db import models
 
 from core.constants import BARANGAY_CHOICES
-from farmers.models import FarmParcel
+from farmers.models import FarmParcel, Farmer
 
 
 class CropCategory(models.Model):
@@ -74,6 +74,7 @@ class CropActivityStage(models.Model):
     crop_type          = models.ForeignKey(CropType, on_delete=models.CASCADE, related_name='activity_stages')
     stage_name         = models.CharField(max_length=150)
     day_after_planting = models.PositiveIntegerField()
+    application_days   = models.JSONField(default=list, blank=True)
     recommendation     = models.TextField(blank=True)
     priority           = models.CharField(max_length=10, choices=Priority.choices, default=Priority.MEDIUM)
     window_days        = models.IntegerField(default=3)
@@ -152,6 +153,23 @@ class CropMonitoringRecord(models.Model):
     seed_quantity_unit = models.CharField(
         max_length=20, blank=True, default='kg',
         choices=[('kg', 'kg'), ('bags', 'bags'), ('pcs', 'pcs'), ('bundles', 'bundles')],
+    )
+
+    farmer = models.ForeignKey(
+        Farmer,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='crop_monitoring_records',
+    )
+    farm_location_barangay = models.CharField(max_length=100, blank=True)
+    land_status = models.CharField(
+        max_length=20, blank=True,
+        choices=[
+            ('Owner', 'Owner'),
+            ('Lessee', 'Lessee'),
+            ('Tenant', 'Tenant'),
+            ('Other', 'Other'),
+        ],
     )
 
     recorded_by = models.ForeignKey(
@@ -690,3 +708,39 @@ class BarangayCropSummary(models.Model):
 
     def __str__(self):
         return f'{self.barangay} — {self.crop_name} ({self.season} {self.year})'
+
+
+class DisasterResponseRule(models.Model):
+    DISASTER_TYPE_CHOICES = [
+        ('Drought', 'Drought'),
+        ('Flood', 'Flood'),
+        ('Typhoon', 'Typhoon'),
+        ('Strong Winds', 'Strong Winds'),
+        ('Pest Outbreak', 'Pest Outbreak'),
+        ('Other', 'Other'),
+    ]
+
+    PRIORITY_CHOICES = [
+        ('HIGH', 'High'),
+        ('MEDIUM', 'Medium'),
+        ('LOW', 'Low'),
+    ]
+
+    disaster_type = models.CharField(max_length=50, choices=DISASTER_TYPE_CHOICES)
+    crop_type = models.ForeignKey(
+        CropType,
+        on_delete=models.CASCADE,
+        related_name='disaster_response_rules',
+        null=True, blank=True,
+        help_text='If blank, this rule applies to all crops.',
+    )
+    title = models.CharField(max_length=200)
+    action = models.TextField(help_text='Step-by-step response action.')
+    priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='MEDIUM')
+
+    class Meta:
+        ordering = ['disaster_type', '-priority']
+
+    def __str__(self):
+        crop = self.crop_type.name if self.crop_type else 'All Crops'
+        return f'{self.disaster_type} / {crop}: {self.title}'

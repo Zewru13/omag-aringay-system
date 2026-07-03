@@ -23,16 +23,23 @@ class LoginView(APIView):
     authentication_classes = []
 
     def post(self, request):
-        email = request.data.get('email', '').strip().lower()
+        identifier = (
+            request.data.get('email')
+            or request.data.get('username')
+            or ''
+        ).strip()
         password = request.data.get('password')
 
         try:
-            db_user = User.objects.get(email__iexact=email)
+            db_user = User.objects.get(email__iexact=identifier)
         except User.DoesNotExist:
-            return Response(
-                {'detail': 'No account found with that email address.'},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+            try:
+                db_user = User.objects.get(username__iexact=identifier)
+            except User.DoesNotExist:
+                return Response(
+                    {'detail': 'No account found with that email or username.'},
+                    status=status.HTTP_401_UNAUTHORIZED,
+                )
 
         user = authenticate(
             request=request,

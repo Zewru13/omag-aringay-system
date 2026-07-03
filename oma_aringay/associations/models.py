@@ -7,13 +7,23 @@ from core.constants import BARANGAY_CHOICES
 
 
 class FarmersAssociation(models.Model):
+    REGISTRATION_AGENCY_CHOICES = [
+        ('SEC',  'SEC — Securities and Exchange Commission'),
+        ('CDA',  'CDA — Cooperative Development Authority'),
+        ('DOLE', 'DOLE — Department of Labor and Employment'),
+    ]
+
     name = models.CharField(max_length=200)
     barangay = models.CharField(max_length=100, choices=BARANGAY_CHOICES)
     street_address = models.CharField(max_length=200, blank=True, default='')
-    registration_number = models.CharField(max_length=100, blank=True, default='')
+    registration_number = models.CharField(max_length=100, default='')
     dole_registration_number = models.CharField(max_length=100, blank=True, default='')
     bir_number = models.CharField(max_length=100, blank=True, default='')
     date_established = models.DateField(null=True, blank=True)
+    date_organized = models.DateField(null=True, blank=False)
+    date_registered = models.DateField(null=True, blank=False)
+    registration_agency = models.CharField(max_length=10, choices=REGISTRATION_AGENCY_CHOICES)
+    email_address = models.EmailField(default='')
     contact_person = models.CharField(max_length=150)
     contact_number = models.CharField(max_length=20)
     is_active = models.BooleanField(default=True)
@@ -21,6 +31,33 @@ class FarmersAssociation(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class AssociationOfficer(models.Model):
+    POSITION_CHOICES = [
+        ('President',      'President'),
+        ('Vice President', 'Vice President'),
+        ('Secretary',      'Secretary'),
+        ('Treasurer',      'Treasurer'),
+        ('Auditor',        'Auditor'),
+        ('Board Member',   'Board Member'),
+        ('Manager',        'Manager'),
+    ]
+
+    association = models.ForeignKey(
+        FarmersAssociation,
+        on_delete=models.CASCADE,
+        related_name='officers',
+    )
+    position  = models.CharField(max_length=50, choices=POSITION_CHOICES)
+    full_name = models.CharField(max_length=200)
+
+    class Meta:
+        ordering = ['position', 'full_name']
+        unique_together = [['association', 'position']]
+
+    def __str__(self):
+        return f'{self.position}: {self.full_name}'
 
 
 class FarmersAssociationMember(models.Model):

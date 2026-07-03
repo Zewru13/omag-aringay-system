@@ -61,8 +61,28 @@ class CropRemarkSerializer(serializers.ModelSerializer):
 class CropActivityStageSerializer(serializers.ModelSerializer):
     class Meta:
         model = CropActivityStage
-        fields = ['id', 'crop_type', 'stage_name', 'day_after_planting', 'recommendation', 'priority', 'window_days']
-        read_only_fields = ['id', 'crop_type']
+        fields = ['id', 'crop_type', 'stage_name', 'day_after_planting', 'application_days', 'recommendation', 'priority', 'window_days']
+        read_only_fields = ['id', 'crop_type', 'day_after_planting']
+
+    def validate_application_days(self, value):
+        if not isinstance(value, list) or len(value) == 0:
+            raise serializers.ValidationError('At least one day is required.')
+        for d in value:
+            if not isinstance(d, int) or d < 1:
+                raise serializers.ValidationError('Each day must be a positive integer.')
+        return sorted(set(value))
+
+    def create(self, validated_data):
+        days = validated_data.get('application_days', [])
+        if days:
+            validated_data['day_after_planting'] = min(days)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        days = validated_data.get('application_days', instance.application_days)
+        if days:
+            validated_data['day_after_planting'] = min(days)
+        return super().update(instance, validated_data)
 
 
 class MonitoringRemarkSerializer(serializers.ModelSerializer):
@@ -155,21 +175,26 @@ class PestDiseaseReportSerializer(serializers.ModelSerializer):
 
 
 class CropMonitoringRecordSerializer(serializers.ModelSerializer):
-    farmer_name      = serializers.SerializerMethodField()
-    farmer_barangay  = serializers.SerializerMethodField()
-    parcel_number    = serializers.SerializerMethodField()
-    association_name = serializers.SerializerMethodField()
-    crop_type_name   = serializers.CharField(source='crop_type.name', read_only=True)
+    farmer_name            = serializers.SerializerMethodField()
+    farmer_barangay        = serializers.SerializerMethodField()
+    farmer_full_name       = serializers.SerializerMethodField()
+    farmer_association_name= serializers.SerializerMethodField()
+    parcel_number          = serializers.SerializerMethodField()
+    association_name       = serializers.SerializerMethodField()
+    crop_type_name         = serializers.CharField(source='crop_type.name', read_only=True)
     crop_suggested_activities = serializers.CharField(source='crop_type.suggested_activities', read_only=True)
-    is_near_harvest  = serializers.SerializerMethodField()
-    latest_condition = serializers.SerializerMethodField()
-    log_count        = serializers.SerializerMethodField()
-    labor_log_count  = serializers.SerializerMethodField()
+    is_near_harvest        = serializers.SerializerMethodField()
+    latest_condition       = serializers.SerializerMethodField()
+    log_count              = serializers.SerializerMethodField()
+    labor_log_count        = serializers.SerializerMethodField()
+    has_disaster           = serializers.BooleanField(read_only=True, default=False)
 
     class Meta:
         model = CropMonitoringRecord
         fields = [
             'id', 'farm_parcel', 'farmers_association',
+            'farmer', 'farmer_full_name', 'farmer_association_name',
+            'farm_location_barangay', 'land_status',
             'farmer_name', 'farmer_barangay', 'parcel_number', 'association_name',
             'crop_type', 'crop_type_name', 'crop_suggested_activities', 'season', 'year',
             'date_planted', 'area_planted_ha',
@@ -180,22 +205,39 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
             'notes', 'variety_used', 'seed_source', 'quantity_of_seeds', 'seed_quantity_unit',
             'recorded_by', 'date_recorded',
             'is_near_harvest', 'latest_condition', 'log_count', 'labor_log_count',
+            'has_disaster',
         ]
         read_only_fields = [
-            'id', 'farmer_name', 'farmer_barangay', 'parcel_number', 'association_name',
+            'id', 'farmer_name', 'farmer_barangay', 'farmer_full_name', 'farmer_association_name',
+            'parcel_number', 'association_name',
             'crop_type_name', 'crop_suggested_activities',
             'expected_harvest_date', 'estimated_yield_kg',
             'yield_variance_kg', 'yield_variance_pct',
             'recorded_by', 'date_recorded',
             'is_near_harvest', 'latest_condition', 'log_count', 'labor_log_count',
+            'has_disaster',
         ]
 
     def get_farmer_name(self, obj):
+        if obj.farmer:
+            return obj.farmer.full_name
         if obj.farm_parcel and obj.farm_parcel.farmer:
             return obj.farm_parcel.farmer.full_name
         return None
 
+    def get_farmer_full_name(self, obj):
+        if obj.farmer:
+            return obj.farmer.full_name
+        return None
+
+    def get_farmer_association_name(self, obj):
+        if obj.farmer and hasattr(obj.farmer, 'farmers_association') and obj.farmer.farmers_association:
+            return obj.farmer.farmers_association.name
+        return None
+
     def get_farmer_barangay(self, obj):
+        if obj.farm_location_barangay:
+            return obj.farm_location_barangay
         if obj.farm_parcel:
             return obj.farm_parcel.barangay
         if obj.farmers_association:

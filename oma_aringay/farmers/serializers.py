@@ -90,7 +90,6 @@ class FarmParcelSerializer(serializers.ModelSerializer):
 class FarmerListSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(read_only=True)
     commodity = serializers.SerializerMethodField()
-    is_senior_citizen = serializers.SerializerMethodField()
     farmers_association_name = serializers.SerializerMethodField()
 
     class Meta:
@@ -115,14 +114,6 @@ class FarmerListSerializer(serializers.ModelSerializer):
         parcel = obj.farm_parcels.first()
         return parcel.commodity_name if parcel else ''
 
-    def get_is_senior_citizen(self, obj):
-        from django.utils.timezone import now
-        if not obj.birthdate:
-            return False
-        today = now().date()
-        senior_cutoff = today.replace(year=today.year - 60)
-        return obj.birthdate <= senior_cutoff
-
     def get_farmers_association_name(self, obj):
         if obj.farmers_association:
             return obj.farmers_association.name
@@ -132,7 +123,6 @@ class FarmerListSerializer(serializers.ModelSerializer):
 class FarmerDetailSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(read_only=True)
     farm_parcels = FarmParcelSerializer(many=True, read_only=True)
-    is_senior_citizen = serializers.SerializerMethodField()
     farmers_association_name = serializers.SerializerMethodField()
 
     class Meta:
@@ -158,8 +148,8 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
             'is_4ps_beneficiary',
             'is_icc_ip_member',
             'icc_ip_name',
-            'is_active',
             'is_senior_citizen',
+            'is_active',
             'date_registered',
             'registered_by',
             'farm_parcels',
@@ -167,14 +157,6 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
             'farmers_association_name',
         ]
         read_only_fields = ['id', 'date_registered', 'registered_by', 'farm_parcels', 'farmers_association_name']
-
-    def get_is_senior_citizen(self, obj):
-        from django.utils.timezone import now
-        if not obj.birthdate:
-            return False
-        today = now().date()
-        senior_cutoff = today.replace(year=today.year - 60)
-        return obj.birthdate <= senior_cutoff
 
     def get_farmers_association_name(self, obj):
         if obj.farmers_association:
@@ -237,6 +219,7 @@ class FarmerCreateSerializer(serializers.ModelSerializer):
             'is_4ps_beneficiary',
             'is_icc_ip_member',
             'icc_ip_name',
+            'is_senior_citizen',
             'is_active',
             'date_registered',
             'registered_by',

@@ -2,7 +2,7 @@ from collections import defaultdict
 from decimal import Decimal
 from io import BytesIO
 
-from django.db.models import Avg, Case, CharField, Count, IntegerField, Q, Sum, Value, When
+from django.db.models import Avg, Case, CharField, Count, Exists, IntegerField, OuterRef, Q, Sum, Value, When
 from django.utils import timezone
 from rest_framework import generics
 from rest_framework.parsers import MultiPartParser
@@ -19,7 +19,7 @@ from .models import (
     BarangayCropSummary,
     CropActivityLog, CropActivityStage, CropCategory, CropDisasterReport,
     CropMonitoringRecord, CropRemark,
-    CropSubcategory, CropType, DamageReport,
+    CropSubcategory, CropType, DamageReport, DisasterResponseRule,
     FarmInputLog, HarvestRecord, LaborOperationLog, PestDiseaseReport, PlantingRecord,
 )
 from .serializers import (
@@ -138,7 +138,10 @@ class AgriDashboardView(APIView):
         week_later = today + timedelta(days=7)
 
         total_associations = FarmersAssociation.objects.count()
-        total_crop_records = CropMonitoringRecord.objects.count()
+        # total_crop_records = only Active (Planted + For Harvest)
+        total_crop_records = CropMonitoringRecord.objects.filter(
+            status=CropMonitoringRecord.Status.ACTIVE
+        ).count()
 
         nearing_harvest_qs = CropMonitoringRecord.objects.filter(
             expected_harvest_date__gte=today,
@@ -147,15 +150,29 @@ class AgriDashboardView(APIView):
         )
         nearing_harvest = nearing_harvest_qs.count()
 
-        # Top barangay by total area planted (active records)
+        # Top barangay by total area planted — use farm_location_barangay with fallback
         top_barangay_row = (
             CropMonitoringRecord.objects
-            .values('farm_parcel__location')
+            .filter(status=CropMonitoringRecord.Status.ACTIVE)
+            .values('farm_location_barangay')
             .annotate(total_area=Sum('area_planted_ha'))
+            .exclude(farm_location_barangay='')
             .order_by('-total_area')
             .first()
         )
-        top_barangay = top_barangay_row['farm_parcel__location'] if top_barangay_row else '—'
+        if not top_barangay_row:
+            top_barangay_row = (
+                CropMonitoringRecord.objects
+                .filter(status=CropMonitoringRecord.Status.ACTIVE)
+                .values('farm_parcel__barangay')
+                .annotate(total_area=Sum('area_planted_ha'))
+                .exclude(farm_parcel__barangay='')
+                .order_by('-total_area')
+                .first()
+            )
+            top_barangay = top_barangay_row['farm_parcel__barangay'] if top_barangay_row else '—'
+        else:
+            top_barangay = top_barangay_row['farm_location_barangay']
 
         # Harvest dates: upcoming (next 90 days) + overdue (past, still active)
         upcoming_qs = (
@@ -181,20 +198,18 @@ class AgriDashboardView(APIView):
             [{'date': str(d), 'type': 'upcoming'} for d in upcoming_qs]
             + [{'date': str(d), 'type': 'overdue'}  for d in overdue_qs]
         )
-
-        # Legacy harvest_calendar field kept for backwards compat
         harvest_calendar = harvest_dates
 
-        # Crop distribution by barangay (all records, association barangay as fallback)
+        # Crop distribution — use farm_location_barangay, fallback to farm_parcel__barangay
         dist_qs = (
             CropMonitoringRecord.objects
-            .values('farm_parcel__location')
+            .values('farm_location_barangay', 'farm_parcel__barangay')
             .annotate(count=Count('id'), area_ha=Sum('area_planted_ha'))
-            .order_by('farm_parcel__location')
+            .order_by('farm_location_barangay')
         )
         crop_distribution = [
             {
-                'barangay': row['farm_parcel__location'] or 'Unknown',
+                'barangay': (row['farm_location_barangay'] or row['farm_parcel__barangay'] or 'Unknown'),
                 'count': row['count'],
                 'area_ha': float(row['area_ha'] or 0),
             }
@@ -204,13 +219,14 @@ class AgriDashboardView(APIView):
         # Crop distribution detail: barangay + crop grouped
         detail_qs = (
             CropMonitoringRecord.objects
-            .values('farm_parcel__location', 'farmers_association__barangay', 'crop_type__name')
+            .values('farm_location_barangay', 'farm_parcel__barangay', 'farmers_association__barangay', 'crop_type__name')
             .annotate(count=Count('id'))
             .order_by('crop_type__name')
         )
         crop_distribution_detail = [
             {
-                'barangay': (row['farm_parcel__location']
+                'barangay': (row['farm_location_barangay']
+                             or row['farm_parcel__barangay']
                              or row['farmers_association__barangay']
                              or 'Unknown'),
                 'crop': row['crop_type__name'] or 'Unknown',
@@ -454,8 +470,13 @@ class CropMonitoringListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         qs = CropMonitoringRecord.objects.select_related(
-            'farm_parcel', 'farm_parcel__farmer', 'crop_type', 'recorded_by', 'farmers_association',
+            'farm_parcel', 'farm_parcel__farmer', 'farmer', 'crop_type', 'recorded_by', 'farmers_association',
         ).prefetch_related('activity_logs', 'labor_logs').order_by('-date_recorded')
+        qs = qs.annotate(
+            has_disaster=Exists(
+                CropDisasterReport.objects.filter(monitoring_record=OuterRef('pk'))
+            )
+        )
         params = self.request.query_params
         if params.get('year'):
             qs = qs.filter(year=params['year'])
@@ -498,49 +519,87 @@ class CropActivitySuggestionsView(APIView):
             pk=monitoring_id,
         )
 
+        from datetime import timedelta
+
         stages = CropActivityStage.objects.filter(
             crop_type=record.crop_type
         ).order_by('day_after_planting')
 
-        logged = set(
-            CropActivityLog.objects.filter(monitoring_record=record)
-            .values_list('activity_type', flat=True)
+        activity_logs = CropActivityLog.objects.filter(monitoring_record=record).values(
+            'activity_type', 'activity_date'
         )
 
         today = date.today()
         days_elapsed = (today - record.date_planted).days if record.date_planted else 0
         total_days = record.crop_type.days_to_harvest if record.crop_type else 0
+        planted = record.date_planted
 
         suggestions = []
         for stage in stages:
-            days_diff = stage.day_after_planting - days_elapsed
-            is_done = stage.stage_name in logged
+            days_list = stage.application_days if stage.application_days else [stage.day_after_planting]
+            for occurrence_day in days_list:
+                due_date = planted + timedelta(days=occurrence_day) if planted else None
+                days_diff = occurrence_day - days_elapsed
 
-            if is_done:
-                status = 'done'
-            elif days_diff < -stage.window_days:
-                status = 'overdue'
-            elif abs(days_diff) <= stage.window_days:
-                status = 'due_now'
-            else:
-                status = 'upcoming'
+                is_done = False
+                if due_date:
+                    window = stage.window_days
+                    is_done = any(
+                        log['activity_type'] == stage.stage_name and
+                        abs((log['activity_date'] - due_date).days) <= window
+                        for log in activity_logs
+                    )
 
-            suggestions.append({
-                'id': stage.id,
-                'activity_name': stage.stage_name,
-                'day_after_planting': stage.day_after_planting,
-                'recommendation': stage.recommendation,
-                'priority': stage.priority,
-                'window_days': stage.window_days,
-                'status': status,
-                'is_completed': is_done,
-                'days_diff': days_diff,
-            })
+                if is_done:
+                    status = 'done'
+                elif days_diff < -stage.window_days:
+                    status = 'overdue'
+                elif abs(days_diff) <= stage.window_days:
+                    status = 'due_now'
+                else:
+                    status = 'upcoming'
+
+                suggestions.append({
+                    'id': stage.id,
+                    'occurrence_key': f'{stage.id}_{occurrence_day}',
+                    'activity_name': stage.stage_name,
+                    'day_after_planting': occurrence_day,
+                    'recommendation': stage.recommendation,
+                    'priority': stage.priority,
+                    'window_days': stage.window_days,
+                    'status': status,
+                    'is_completed': is_done,
+                    'days_diff': days_diff,
+                })
+
+        suggestions.sort(key=lambda s: s['day_after_planting'])
+
+        # Disaster response rules — look up any disaster reports on this record
+        disaster_types = list(
+            CropDisasterReport.objects.filter(monitoring_record=record)
+            .values_list('disaster_type', flat=True)
+            .distinct()
+        )
+        disaster_response = []
+        if disaster_types:
+            rules_qs = DisasterResponseRule.objects.filter(
+                disaster_type__in=disaster_types
+            ).filter(
+                Q(crop_type=record.crop_type) | Q(crop_type__isnull=True)
+            ).order_by('disaster_type', '-priority')
+            for rule in rules_qs:
+                disaster_response.append({
+                    'disaster_type': rule.disaster_type,
+                    'title': rule.title,
+                    'action': rule.action,
+                    'priority': rule.priority,
+                })
 
         return Response({
             'days_elapsed': days_elapsed,
             'total_days': total_days,
             'suggestions': suggestions,
+            'disaster_response': disaster_response,
         })
 
 

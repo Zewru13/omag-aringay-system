@@ -1,4 +1,8 @@
 from datetime import timedelta
+
+# Fix mysql-connector-python 9.7.0 incompatibility with Django 4.2
+from mysql.connector.django.base import DatabaseWrapper as _MySQLDW
+_MySQLDW.display_name = 'MySQL'
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -64,17 +68,19 @@ WSGI_APPLICATION = 'oma_aringay.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'oma_aringay_db',  # Or whatever the database name is
+        'ENGINE': 'mysql.connector.django',
+        'NAME': 'oma_aringay_db',
         'USER': 'root',
         'PASSWORD': '',
         'HOST': '127.0.0.1',
         'PORT': '3306',
         'OPTIONS': {
-            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+            'ssl_disabled': True,
+            'auth_plugin': 'mysql_native_password',
         },
     }
 }
+
 
 AUTH_PASSWORD_VALIDATORS = [
     {

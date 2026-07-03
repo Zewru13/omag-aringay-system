@@ -48,6 +48,7 @@ class Farmer(models.Model):
     is_4ps_beneficiary = models.BooleanField(default=False)
     is_icc_ip_member = models.BooleanField(default=False)
     icc_ip_name = models.CharField(max_length=150, blank=True)
+    is_senior_citizen = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     date_registered = models.DateTimeField(auto_now_add=True)
     registered_by = models.ForeignKey(
@@ -70,6 +71,27 @@ class Farmer(models.Model):
     def full_name(self):
         names = [self.first_name, self.middle_name, self.last_name]
         return ' '.join(name for name in names if name).strip()
+
+    @property
+    def age(self):
+        if not self.birthdate:
+            return None
+        from datetime import date
+        today = date.today()
+        return today.year - self.birthdate.year - (
+            (today.month, today.day) < (self.birthdate.month, self.birthdate.day)
+        )
+
+    def save(self, *args, **kwargs):
+        if self.birthdate:
+            from datetime import date
+            today = date.today()
+            years = today.year - self.birthdate.year - (
+                (today.month, today.day) < (self.birthdate.month, self.birthdate.day)
+            )
+            if years >= 60:
+                self.is_senior_citizen = True
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f'{self.rsbsa_number} - {self.full_name}'

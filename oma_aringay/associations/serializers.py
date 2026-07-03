@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 from .models import (
+    AssociationOfficer,
     FarmersAssociation,
     FarmersAssociationEquipment,
     FarmersAssociationMember,
@@ -8,6 +9,12 @@ from .models import (
     FisherfolkAssociationEquipment,
     FisherfolkAssociationMember,
 )
+
+
+class AssociationOfficerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = AssociationOfficer
+        fields = ['id', 'position', 'full_name']
 
 
 def _validate_contact(value):
@@ -49,7 +56,11 @@ class FarmersAssociationListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FarmersAssociation
-        fields = ['id', 'name', 'barangay', 'street_address', 'contact_person', 'contact_number', 'is_active', 'member_count', 'equipment_count']
+        fields = [
+            'id', 'name', 'barangay', 'street_address', 'contact_person', 'contact_number',
+            'registration_number', 'registration_agency', 'date_organized', 'date_registered',
+            'email_address', 'is_active', 'member_count', 'equipment_count',
+        ]
 
     def get_member_count(self, obj):
         return obj.members.count()
@@ -59,11 +70,12 @@ class FarmersAssociationListSerializer(serializers.ModelSerializer):
 
 
 class FarmersAssociationDetailSerializer(serializers.ModelSerializer):
-    members = FarmersAssociationMemberSerializer(many=True, read_only=True)
+    members   = FarmersAssociationMemberSerializer(many=True, read_only=True)
     equipment = FarmersAssociationEquipmentSerializer(many=True, read_only=True)
+    officers  = AssociationOfficerSerializer(many=True, read_only=True)
 
     class Meta:
-        model = FarmersAssociation
+        model  = FarmersAssociation
         fields = '__all__'
 
     def validate_contact_number(self, value):
