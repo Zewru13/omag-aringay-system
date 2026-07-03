@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { ArrowLeft, ChevronDown, ChevronRight, ClipboardList, Edit, FileDown, Plus } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, ClipboardList, Edit, Plus } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
@@ -11,7 +11,6 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
-import { downloadFile } from '../../utils/fileDownload.js'
 import AddFarmParcelModal from './AddFarmParcelModal.jsx'
 import EditFarmerModal from './EditFarmerModal.jsx'
 
@@ -267,7 +266,6 @@ function FarmerDetailPage() {
   const [isParcelModalOpen, setIsParcelModalOpen] = useState(false)
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [isDownloadingProfile, setIsDownloadingProfile] = useState(false)
 
   const fetchFarmer = async () => {
     setIsLoadingFarmer(true)
@@ -331,18 +329,6 @@ function FarmerDetailPage() {
     fetchHistory()
   }
 
-  const handlePrintProfile = async () => {
-    setIsDownloadingProfile(true)
-    try {
-      await downloadFile(api, `/reports/farmers/${id}/profile/`, 'farmer_profile.pdf')
-      showToast('Farmer profile PDF downloaded successfully.', 'success')
-    } catch {
-      showToast('Could not download the profile. Please try again.', 'error')
-    } finally {
-      setIsDownloadingProfile(false)
-    }
-  }
-
   return (
     <PageLayout title="Farmer Details" subtitle="View and manage farmer profile and farm parcels">
       <div className="space-y-4">
@@ -390,15 +376,6 @@ function FarmerDetailPage() {
                   View Assistance History
                 </Button>
 
-                <Button
-                  icon={FileDown}
-                  isLoading={isDownloadingProfile}
-                  onClick={handlePrintProfile}
-                  variant="secondary"
-                >
-                  {isDownloadingProfile ? 'Downloading...' : 'Download Profile PDF'}
-                </Button>
-
                 {(isAdmin || isEvaluator) && (
                   <Button icon={Plus} onClick={() => setIsParcelModalOpen(true)} variant="primary">
                     Add Farm Parcel
@@ -433,7 +410,7 @@ function FarmerDetailPage() {
             </div>
 
             {/* RSBSA Classification badges */}
-            {(farmer.is_pwd || farmer.is_4ps_beneficiary || farmer.is_icc_ip_member) && (
+            {(farmer.is_pwd || farmer.is_4ps_beneficiary || farmer.is_icc_ip_member || farmer.is_senior_citizen) && (
               <div className="mt-5 flex flex-wrap gap-2">
                 {farmer.is_pwd && (
                   <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[12px] font-medium text-blue-700 ring-1 ring-blue-200">
@@ -441,13 +418,18 @@ function FarmerDetailPage() {
                   </span>
                 )}
                 {farmer.is_4ps_beneficiary && (
-                  <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-[12px] font-medium text-amber-700 ring-1 ring-amber-200">
+                  <span className="inline-flex items-center rounded-full bg-green-50 px-3 py-1 text-[12px] font-medium text-green-700 ring-1 ring-green-200">
                     4Ps Beneficiary
                   </span>
                 )}
                 {farmer.is_icc_ip_member && (
                   <span className="inline-flex items-center rounded-full bg-purple-50 px-3 py-1 text-[12px] font-medium text-purple-700 ring-1 ring-purple-200">
                     ICC/IP Member{farmer.icc_ip_name ? ` — ${farmer.icc_ip_name}` : ''}
+                  </span>
+                )}
+                {farmer.is_senior_citizen && (
+                  <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-[12px] font-medium text-amber-700 ring-1 ring-amber-200">
+                    Senior Citizen
                   </span>
                 )}
               </div>

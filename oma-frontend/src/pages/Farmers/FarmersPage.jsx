@@ -23,7 +23,6 @@ const columns = [
   { key: 'full_name', label: 'Full Name' },
   { key: 'barangay', label: 'Barangay' },
   { key: 'age', label: 'Age' },
-  { key: 'commodity', label: 'Commodity' },
   { key: 'status', label: 'Status' },
   { key: 'date_registered_display', label: 'Date Registered' },
 ]
@@ -63,8 +62,8 @@ function FarmersPage() {
   const [status, setStatus] = useState('all')
   const [gender, setGender] = useState('all')
   const [seniorOnly, setSeniorOnly] = useState(false)
-  const [filterICC, setFilterICC] = useState('')
-  const [filterPWD, setFilterPWD] = useState('')
+  const [filterICC, setFilterICC] = useState(false)
+  const [filterPWD, setFilterPWD] = useState(false)
   const [page, setPage] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -95,11 +94,11 @@ function FarmersPage() {
       }
 
       if (filterICC) {
-        params.set('is_icc_ip', filterICC)
+        params.set('is_icc_ip', 'true')
       }
 
       if (filterPWD) {
-        params.set('is_pwd', filterPWD)
+        params.set('is_pwd', 'true')
       }
 
       const queryString = params.toString()
@@ -129,7 +128,6 @@ function FarmersPage() {
           )}
         </span>
       ),
-      commodity: farmer.commodity || '',
       status: farmer.is_active ? 'Active' : 'Inactive',
       date_registered_display: formatDate(farmer.date_registered),
     }
@@ -192,24 +190,24 @@ function FarmersPage() {
           />
           Senior Citizens Only
         </label>
-        <select
-          value={filterICC}
-          onChange={(e) => setFilterICC(e.target.value)}
-          className={filterSelectCls}
-        >
-          <option value="">ICC/IP: All</option>
-          <option value="true">ICC/IP Member</option>
-          <option value="false">Non-ICC/IP</option>
-        </select>
-        <select
-          value={filterPWD}
-          onChange={(e) => setFilterPWD(e.target.value)}
-          className={filterSelectCls}
-        >
-          <option value="">PWD: All</option>
-          <option value="true">With Disability (PWD)</option>
-          <option value="false">Without Disability</option>
-        </select>
+        <label className="flex items-center gap-2 cursor-pointer select-none whitespace-nowrap">
+          <input
+            type="checkbox"
+            checked={filterICC}
+            onChange={(e) => { setFilterICC(e.target.checked); setPage(1) }}
+            className="w-4 h-4 rounded accent-[#1B4D2E] cursor-pointer border-slate-300"
+          />
+          <span className="text-[13px] text-[#4A5E4A]">ICC/IP Members Only</span>
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer select-none whitespace-nowrap">
+          <input
+            type="checkbox"
+            checked={filterPWD}
+            onChange={(e) => { setFilterPWD(e.target.checked); setPage(1) }}
+            className="w-4 h-4 rounded accent-[#1B4D2E] cursor-pointer border-slate-300"
+          />
+          <span className="text-[13px] text-[#4A5E4A]">PWD Only</span>
+        </label>
       </div>
 
       {successMessage && (

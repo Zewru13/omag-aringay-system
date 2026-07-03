@@ -22,6 +22,15 @@ const validateAge = (birthdate) => {
   return null
 }
 
+const computeAge = (birthdate) => {
+  if (!birthdate) return null
+  const birth = new Date(birthdate)
+  const today = new Date()
+  const age = today.getFullYear() - birth.getFullYear()
+  const m = today.getMonth() - birth.getMonth()
+  return (m < 0 || (m === 0 && today.getDate() < birth.getDate())) ? age - 1 : age
+}
+
 const validateContact = (value) => {
   if (!value) return ''
   const digits = value.replace(/\D/g, '')
@@ -40,7 +49,8 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
   const { isAdmin } = useAuth()
   const { showToast } = useToast()
   const [associations, setAssociations] = useState([])
-  const [form, setForm] = useState({
+
+  const original = {
     prefix: farmer.prefix || '',
     first_name: farmer.first_name || '',
     last_name: farmer.last_name || '',
@@ -56,13 +66,19 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
     is_pwd: farmer.is_pwd || false,
     is_4ps_beneficiary: farmer.is_4ps_beneficiary || false,
     is_icc_ip_member: farmer.is_icc_ip_member || false,
+    is_senior_citizen: farmer.is_senior_citizen || false,
     icc_ip_name: farmer.icc_ip_name || '',
     farmers_association: farmer.farmers_association || null,
-  })
+  }
+
+  const [form, setForm] = useState(original)
   const [birthdateError, setBirthdateError] = useState('')
   const [contactError, setContactError] = useState('')
   const [formError, setFormError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const normalize = (v) => (v === null || v === undefined ? '' : String(v))
+  const isDirty = Object.keys(original).some(k => normalize(form[k]) !== normalize(original[k]))
 
   useEffect(() => {
     api.get('/associations/farmers/')
@@ -77,7 +93,14 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
       setContactError(validateContact(digits))
       return
     }
-    setForm((current) => ({ ...current, [field]: value }))
+    setForm((current) => {
+      const next = { ...current, [field]: value }
+      if (field === 'birthdate') {
+        const age = computeAge(value)
+        if (age !== null && age >= 60) next.is_senior_citizen = true
+      }
+      return next
+    })
     if (field === 'birthdate') setBirthdateError(validateAge(value) || '')
   }
 
@@ -174,6 +197,14 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
               type="date"
               value={form.birthdate}
             />
+            {form.birthdate && !birthdateError && (
+              <p className="mt-1 text-[12px] text-[#4A5E4A]">
+                Age: <strong>{computeAge(form.birthdate)}</strong> years old
+                {computeAge(form.birthdate) >= 60 && (
+                  <span className="ml-2 text-amber-600 font-medium">(Senior Citizen auto-checked)</span>
+                )}
+              </p>
+            )}
             {birthdateError && (
               <p className="mt-1 text-[12px] text-rose-600">{birthdateError}</p>
             )}
@@ -227,29 +258,31 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
         {/* RSBSA Classification */}
         <div className="rounded-xl border border-[#E2E8E2] bg-[#EBF5EE]/30 p-4">
           <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-[#4A5E4A]">RSBSA Classification</p>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
             {[
-              ['is_pwd', 'Person with Disability (PWD)'],
-              ['is_4ps_beneficiary', '4Ps Beneficiary'],
-              ['is_icc_ip_member', 'ICC/IP Member'],
-            ].map(([field, label]) => (
-              <label key={field} className="flex cursor-pointer items-center gap-2">
+              ['is_pwd', 'Person with Disability (PWD)', false],
+              ['is_4ps_beneficiary', '4Ps Beneficiary', false],
+              ['is_icc_ip_member', 'ICC/IP Member', false],
+              ['is_senior_citizen', 'Senior Citizen', computeAge(form.birthdate) >= 60],
+            ].map(([field, label, autoLocked]) => (
+              <label key={field} className={`flex items-center gap-2 ${autoLocked ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}>
                 <input
                   type="checkbox"
                   className="h-4 w-4 accent-[#1B4D2E]"
                   checked={form[field]}
-                  onChange={(e) => updateField(field, e.target.checked)}
+                  disabled={autoLocked}
+                  onChange={(e) => !autoLocked && updateField(field, e.target.checked)}
                 />
                 <span className="text-[13px] text-[#1A2B1A]">{label}</span>
               </label>
             ))}
-            {form.is_icc_ip_member && (
-              <div className="sm:col-span-2">
-                <label className={labelCls} htmlFor="icc_ip_name">ICC/IP Group Name</label>
-                <input className={baseInputClasses} id="icc_ip_name" value={form.icc_ip_name} onChange={(e) => updateField('icc_ip_name', e.target.value)} />
-              </div>
-            )}
           </div>
+          {form.is_icc_ip_member && (
+            <div className="mt-3">
+              <label className={labelCls} htmlFor="icc_ip_name">ICC/IP Group Name</label>
+              <input className={baseInputClasses} id="icc_ip_name" value={form.icc_ip_name} onChange={(e) => updateField('icc_ip_name', e.target.value)} />
+            </div>
+          )}
         </div>
 
         {/* Status (admin only) */}
@@ -294,7 +327,7 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
 
         <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4">
           <Button onClick={onClose} type="button" variant="ghost">Cancel</Button>
-          <Button isLoading={isSubmitting} type="submit" variant="primary">Save Changes</Button>
+          <Button isLoading={isSubmitting} disabled={isSubmitting || !isDirty} type="submit" variant="primary">Save Changes</Button>
         </div>
       </form>
     </ModalShell>

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Building2, Phone } from 'lucide-react'
+import { Building2, Phone, Users } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
@@ -9,6 +9,9 @@ import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 
 const labelCls = 'block text-[13px] font-medium text-[#4A5E4A] mb-1.5'
+
+const OFFICER_POSITIONS = ['President', 'Vice President', 'Secretary', 'Treasurer', 'Auditor', 'Board Member', 'Manager']
+const initialOfficers   = Object.fromEntries(OFFICER_POSITIONS.map(p => [p, '']))
 
 const validateContact = (value) => {
   if (!value) return ''
@@ -22,6 +25,11 @@ const initialForm = {
   name: '',
   barangay: '',
   street_address: '',
+  date_organized: '',
+  date_registered: '',
+  registration_number: '',
+  registration_agency: '',
+  email_address: '',
   contact_person_last: '',
   contact_person_first: '',
   contact_number: '',
@@ -30,7 +38,9 @@ const initialForm = {
 export default function CreateAssociationModal({ type: assocType = 'farmers', onClose, onSuccess }) {
   const { showToast } = useToast()
   const [form,         setForm]         = useState(initialForm)
+  const [officers,     setOfficers]     = useState(initialOfficers)
   const [error,        setError]        = useState('')
+  const [formErrors,   setFormErrors]   = useState({})
   const [contactError, setContactError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showConfirm,  setShowConfirm]  = useState(false)
@@ -42,20 +52,31 @@ export default function CreateAssociationModal({ type: assocType = 'farmers', on
       const digits = value.replace(/\D/g, '').slice(0, 11)
       setForm(f => ({ ...f, contact_number: digits }))
       setContactError(validateContact(digits))
+      setFormErrors(e => { const n = { ...e }; delete n.contact_number; return n })
       return
     }
     setForm(f => ({ ...f, [field]: value }))
+    setFormErrors(e => { const n = { ...e }; delete n[field]; return n })
   }
 
   const validate = () => {
-    if (!form.name.trim())              { setError('Association name is required.'); return false }
-    if (!form.barangay)                 { setError('Barangay is required.'); return false }
-    if (!form.contact_person_last.trim() && !form.contact_person_first.trim()) {
-      setError('Contact person name is required.'); return false
-    }
-    if (!form.contact_number.trim())    { setError('Contact number is required.'); return false }
+    const errs = {}
+    if (!form.name.trim())   errs.name = 'Required'
+    if (!form.barangay)      errs.barangay = 'Required'
+    if (!form.contact_person_last.trim() && !form.contact_person_first.trim()) errs.contact_person_last = 'Required'
+    if (!form.contact_number.trim()) errs.contact_number = 'Required'
     const contactErr = validateContact(form.contact_number)
-    if (contactErr)                     { setContactError(contactErr); return false }
+    if (contactErr) { setContactError(contactErr) }
+    if (!form.date_organized)             errs.date_organized = 'Required'
+    if (!form.date_registered)            errs.date_registered = 'Required'
+    if (!form.registration_number.trim()) errs.registration_number = 'Required'
+    if (!form.registration_agency)        errs.registration_agency = 'Required'
+    if (!form.email_address.trim())       errs.email_address = 'Required'
+    if (Object.keys(errs).length > 0 || contactErr) {
+      setFormErrors(errs)
+      setError('Please fill in all required fields.')
+      return false
+    }
     return true
   }
 
@@ -72,13 +93,25 @@ export default function CreateAssociationModal({ type: assocType = 'farmers', on
     try {
       const contactPerson = [form.contact_person_last, form.contact_person_first]
         .filter(Boolean).join(', ')
-      await api.post(`/associations/${assocType}/`, {
-        name:           form.name,
-        barangay:       form.barangay,
-        street_address: form.street_address,
-        contact_person: contactPerson,
-        contact_number: form.contact_number,
+      const res = await api.post(`/associations/${assocType}/`, {
+        name:                form.name,
+        barangay:            form.barangay,
+        street_address:      form.street_address,
+        date_organized:      form.date_organized || null,
+        date_registered:     form.date_registered || null,
+        registration_number: form.registration_number,
+        registration_agency: form.registration_agency,
+        email_address:       form.email_address,
+        contact_person:      contactPerson,
+        contact_number:      form.contact_number,
       })
+      // Save officers (any that have names)
+      const created = res.data
+      for (const pos of OFFICER_POSITIONS) {
+        const name = officers[pos].trim()
+        if (name) await api.post(`/associations/farmers/${created.id}/officers/`, { position: pos, full_name: name })
+      }
+
       showToast(`${typeLabel} created successfully.`, 'success')
       onSuccess()
     } catch (err) {
@@ -126,6 +159,62 @@ export default function CreateAssociationModal({ type: assocType = 'farmers', on
               value={form.street_address} onChange={e => set('street_address', e.target.value)} />
           </div>
 
+          {/* Date Organized + Date Registered */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Date Organized <span className="text-rose-500">*</span></label>
+              <input type="date" className={`${baseInputClasses}${formErrors.date_organized ? ' border-rose-400' : ''}`} value={form.date_organized}
+                onChange={e => set('date_organized', e.target.value)} />
+              {formErrors.date_organized && <p className="mt-1 text-[12px] text-rose-600">{formErrors.date_organized}</p>}
+            </div>
+            <div>
+              <label className={labelCls}>Date Registered <span className="text-rose-500">*</span></label>
+              <input type="date" className={`${baseInputClasses}${formErrors.date_registered ? ' border-rose-400' : ''}`} value={form.date_registered}
+                onChange={e => set('date_registered', e.target.value)} />
+              {formErrors.date_registered && <p className="mt-1 text-[12px] text-rose-600">{formErrors.date_registered}</p>}
+            </div>
+          </div>
+
+          {/* Registration Number */}
+          <div>
+            <label className={labelCls}>Registration Number <span className="text-rose-500">*</span></label>
+            <input className={`${baseInputClasses}${formErrors.registration_number ? ' border-rose-400' : ''}`} placeholder="e.g. CN200626622"
+              value={form.registration_number}
+              onChange={e => set('registration_number', e.target.value.toUpperCase())} />
+            {formErrors.registration_number
+              ? <p className="mt-1 text-[12px] text-rose-600">{formErrors.registration_number}</p>
+              : (
+                <div className="mt-1.5 bg-slate-50 rounded-lg px-3 py-2">
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    Format: <span className="font-mono text-slate-700">CN200626622</span>
+                    <span className="text-slate-400 ml-1">— CN = prefix · 2006 = year · 26622 = unique identifier</span>
+                  </p>
+                </div>
+              )
+            }
+          </div>
+
+          {/* Registration Agency */}
+          <div>
+            <label className={labelCls}>Registration Agency <span className="text-rose-500">*</span></label>
+            <select className={`${baseInputClasses}${formErrors.registration_agency ? ' border-rose-400' : ''}`} value={form.registration_agency}
+              onChange={e => set('registration_agency', e.target.value)}>
+              <option value="">Select agency</option>
+              <option value="SEC">SEC — Securities and Exchange Commission</option>
+              <option value="CDA">CDA — Cooperative Development Authority</option>
+              <option value="DOLE">DOLE — Department of Labor and Employment</option>
+            </select>
+            {formErrors.registration_agency && <p className="mt-1 text-[12px] text-rose-600">{formErrors.registration_agency}</p>}
+          </div>
+
+          {/* Email Address */}
+          <div>
+            <label className={labelCls}>Email Address <span className="text-rose-500">*</span></label>
+            <input type="email" className={`${baseInputClasses}${formErrors.email_address ? ' border-rose-400' : ''}`} placeholder="e.g. association@email.com"
+              value={form.email_address} onChange={e => set('email_address', e.target.value)} />
+            {formErrors.email_address && <p className="mt-1 text-[12px] text-rose-600">{formErrors.email_address}</p>}
+          </div>
+
           {/* Contact Person — side by side */}
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -151,6 +240,30 @@ export default function CreateAssociationModal({ type: assocType = 'farmers', on
               onKeyPress={e => { if (!/[0-9]/.test(e.key)) e.preventDefault() }}
               value={form.contact_number} onChange={e => set('contact_number', e.target.value)} />
             {contactError && <p className="mt-1 text-[12px] text-rose-600">{contactError}</p>}
+          </div>
+
+          {/* Officers Section */}
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Users size={14} className="text-[#4A5E4A]" />
+              <p className="text-[12px] font-semibold uppercase tracking-wider text-[#4A5E4A]">
+                Officers <span className="font-normal normal-case tracking-normal text-[#7A8E7A]">(optional)</span>
+              </p>
+            </div>
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              {OFFICER_POSITIONS.map(pos => (
+                <div key={pos}>
+                  <label className="block text-[11px] font-semibold uppercase tracking-wide text-[#7A8E7A] mb-1">{pos}</label>
+                  <input
+                    type="text"
+                    className={baseInputClasses}
+                    placeholder="Full name (optional)"
+                    value={officers[pos]}
+                    onChange={e => setOfficers(o => ({ ...o, [pos]: e.target.value }))}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
 
           {error && (

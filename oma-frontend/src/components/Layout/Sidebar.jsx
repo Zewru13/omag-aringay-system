@@ -84,7 +84,7 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
         ].join(' ')}
       >
         {/* Logo area */}
-        <div className="relative px-4 py-4 border-b border-[#F0F4F0]">
+        <div className="relative px-4 pt-3 pb-4 border-b border-[#F0F4F0]">
           {isCollapsed ? (
             <img src={logo} alt="OMAg" className="w-8 h-8 object-contain mx-auto" />
           ) : (

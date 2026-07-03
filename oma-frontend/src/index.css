@@ -70,6 +70,8 @@ button, input, select, textarea {
 
 .modal-backdrop {
   animation: fadeIn 180ms ease;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 .modal-content {

@@ -802,6 +802,31 @@ function AssociationDetailPage() {
                   </div>
                 ))}
             </div>
+
+            {/* Officers Table (farmers associations only) */}
+            {type === "farmers" && association.officers && association.officers.length > 0 && (
+              <div className="mt-6 bg-white border border-[#E2E8E2] rounded-xl p-6">
+                <h3 className="text-[14px] font-semibold text-[#1A2B1A] mb-4">Association Officers</h3>
+                <div className="rounded-xl border border-[#E2E8E2] overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-[#1B4D2E]">
+                        <th className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white">Position</th>
+                        <th className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white">Name</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {association.officers.map((officer) => (
+                        <tr key={officer.id} className="border-t border-[#F0F4F0] hover:bg-[#F5F7F5]">
+                          <td className="px-4 py-3 text-[12px] font-semibold text-[#4A5E4A]">{officer.position}</td>
+                          <td className="px-4 py-3 text-[13px] text-[#1A2B1A]">{officer.full_name}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>

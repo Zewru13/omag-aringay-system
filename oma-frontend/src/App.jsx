@@ -18,13 +18,13 @@ import CropMonitoringPage from "./pages/Monitoring/CropMonitoringPage.jsx";
 import FisheriesMonitoringPage from "./pages/Monitoring/FisheriesMonitoringPage.jsx";
 import ProductionPage from "./pages/Production/ProductionPage.jsx";
 import ProfilePage from "./pages/Profile/ProfilePage.jsx";
-import PublicLookupPage from "./pages/Public/PublicLookupPage.jsx";
 import ReportsPage from "./pages/Reports/ReportsPage.jsx";
 import ForecastingPage from "./pages/Forecasting/ForecastingPage.jsx";
 import CropOptionPage from "./pages/CropOption/CropOptionPage.jsx";
 import CropCategoryPage from "./pages/CropCategory/CropCategoryPage.jsx";
 import CropInformationPage from "./pages/CropInformation/CropInformationPage.jsx";
 import UserManagementPage from "./pages/Users/UserManagementPage.jsx";
+import HelpPage from "./pages/Help/HelpPage.jsx";
 
 function HomeRedirect() {
   const { isAuthenticated } = useAuth();
@@ -38,7 +38,6 @@ function App() {
         <Routes>
           <Route path="/" element={<HomeRedirect />} />
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/public" element={<PublicLookupPage />} />
           <Route
             path="/dashboard"
             element={
@@ -194,10 +193,42 @@ function App() {
             }
           />
           <Route
+            path="/users"
+            element={
+              <ProtectedRoute allowedRoles={["ADMIN"]}>
+                <UserManagementPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/admin/audit-log"
             element={
               <ProtectedRoute allowedRoles={["ADMIN"]}>
                 <AuditLogPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/audit-log"
+            element={
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
+                <AuditLogPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/associations/farmers"
+            element={
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
+                <AssociationsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/help"
+            element={
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
+                <HelpPage />
               </ProtectedRoute>
             }
           />
