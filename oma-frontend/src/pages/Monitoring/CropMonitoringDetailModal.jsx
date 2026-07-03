@@ -11,49 +11,18 @@ import { useToast } from '../../context/ToastContext.jsx'
 const labelCls = 'block text-xs font-medium text-slate-600'
 const STATUS_TONES = { Active: 'green', Harvested: 'blue', Damaged: 'rose', Abandoned: 'slate' }
 
-const CROP_SUGGESTIONS = {
-  'Palay (Rice)': [
-    { activity: 'Land preparation', priority: 'High', description: 'Prepare soil through plowing and harrowing before planting.' },
-    { activity: 'Planting', priority: 'High', description: 'Transplant or direct-seed rice seedlings at optimal spacing.' },
-    { activity: 'Fertilizer application', priority: 'Medium', description: 'Apply basal and top-dress fertilizers at key growth stages.' },
-    { activity: 'Weeding', priority: 'Medium', description: 'Remove weeds to reduce competition for nutrients and water.' },
-    { activity: 'Irrigation check', priority: 'Low', description: 'Monitor water levels and ensure adequate irrigation.' },
-    { activity: 'Pest monitoring', priority: 'High', description: 'Scout for stem borers, leafhoppers, and golden apple snails.' },
-    { activity: 'Harvesting', priority: 'High', description: 'Harvest when 80–85% of grains are straw-colored.' },
-  ],
-  'Corn (Mais)': [
-    { activity: 'Land preparation', priority: 'High', description: 'Till the soil to a fine tilth for good seed-to-soil contact.' },
-    { activity: 'Planting', priority: 'High', description: 'Plant seeds at 75 cm × 25 cm spacing, 2–3 seeds per hill.' },
-    { activity: 'Side-dressing', priority: 'Medium', description: 'Apply nitrogen fertilizer at knee-high stage.' },
-    { activity: 'Weeding', priority: 'Medium', description: 'Control weeds during the first 30–45 days after planting.' },
-    { activity: 'Irrigation check', priority: 'Low', description: 'Ensure adequate moisture especially at tasseling and silking.' },
-    { activity: 'Pest monitoring', priority: 'High', description: 'Check for fall armyworm, corn borer, and downy mildew.' },
-    { activity: 'Harvesting', priority: 'High', description: 'Harvest when husks turn brown and kernels are hard.' },
-  ],
-  'Mango': [
-    { activity: 'Pruning', priority: 'Medium', description: 'Remove dead, diseased, or crossing branches after harvest.' },
-    { activity: 'Flower induction', priority: 'High', description: 'Apply KNO₃ spray to induce flowering off-season.' },
-    { activity: 'Bagging', priority: 'High', description: 'Bag developing fruits at marble stage to prevent pest damage.' },
-    { activity: 'Fertilizer application', priority: 'Medium', description: 'Apply complete fertilizer before and after flowering.' },
-    { activity: 'Pest monitoring', priority: 'High', description: 'Watch for mango tip borer, mealybug, and anthracnose.' },
-    { activity: 'Irrigation check', priority: 'Low', description: 'Reduce irrigation during floral induction period.' },
-    { activity: 'Harvesting', priority: 'High', description: 'Harvest at physiological maturity, 105–110 days after fruit set.' },
-  ],
-  'default': [
-    { activity: 'Land preparation', priority: 'High', description: 'Prepare the field for planting through proper tillage.' },
-    { activity: 'Planting', priority: 'High', description: 'Plant seeds or seedlings at recommended spacing and depth.' },
-    { activity: 'Fertilizer application', priority: 'Medium', description: 'Apply appropriate fertilizers at recommended rates and timing.' },
-    { activity: 'Weeding', priority: 'Medium', description: 'Control weeds to minimize competition for nutrients.' },
-    { activity: 'Irrigation check', priority: 'Low', description: 'Monitor soil moisture and ensure adequate water supply.' },
-    { activity: 'Pest monitoring', priority: 'High', description: 'Scout regularly for pests and diseases; apply control measures.' },
-    { activity: 'Harvesting', priority: 'High', description: 'Harvest at optimum maturity for best yield and quality.' },
-  ],
-}
 
 const PRIORITY_PILL = {
-  High:   'bg-rose-100 text-rose-700',
-  Medium: 'bg-amber-100 text-amber-700',
-  Low:    'bg-green-100 text-[#1E4620]',
+  HIGH:   'bg-rose-100 text-rose-700',
+  MEDIUM: 'bg-amber-100 text-amber-700',
+  LOW:    'bg-green-100 text-[#1B4D2E]',
+}
+
+const STATUS_LABEL = {
+  due_now:  { label: 'Due Now',  cls: 'bg-amber-500 text-white' },
+  overdue:  { label: 'Overdue',  cls: 'bg-rose-500 text-white' },
+  upcoming: { label: 'Upcoming', cls: 'bg-[#EBF5EE] text-[#1B4D2E]' },
+  done:     { label: 'Done',     cls: 'bg-slate-100 text-slate-500 line-through' },
 }
 
 function formatDate(v) {
@@ -63,14 +32,16 @@ function formatDate(v) {
 
 function CropMonitoringDetailModal({ record, onClose, onRefresh }) {
   const { showToast } = useToast()
-  const [logs, setLogs] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
+  const [logs,            setLogs]            = useState([])
+  const [isLoading,       setIsLoading]       = useState(true)
+  const [showForm,        setShowForm]        = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [suggestions,       setSuggestions]       = useState([])
+  const [disasterResponse,  setDisasterResponse]  = useState([])
+  const [suggestLoading,    setSuggestLoading]    = useState(false)
+  const [daysElapsed,       setDaysElapsed]       = useState(null)
   const [form, setForm] = useState({ activity_type: '', activity_date: '', plant_condition: '', notes: '' })
   const [isSaving, setIsSaving] = useState(false)
-
-  const suggestions = CROP_SUGGESTIONS[record.crop_type_name] || CROP_SUGGESTIONS['default']
 
   const fetchLogs = async () => {
     setIsLoading(true)
@@ -78,6 +49,17 @@ function CropMonitoringDetailModal({ record, onClose, onRefresh }) {
       const r = await api.get(`/production/monitoring/${record.id}/logs/`)
       setLogs(Array.isArray(r.data) ? r.data : (r.data.results || []))
     } catch { setLogs([]) } finally { setIsLoading(false) }
+  }
+
+  const fetchSuggestions = async () => {
+    setSuggestLoading(true)
+    try {
+      const r = await api.get(`/production/monitoring/${record.id}/suggestions/`)
+      setSuggestions(r.data.suggestions || [])
+      setDisasterResponse(r.data.disaster_response || [])
+      setDaysElapsed(r.data.days_elapsed ?? null)
+    } catch { setSuggestions([]) }
+    finally { setSuggestLoading(false) }
   }
 
   useEffect(() => { fetchLogs() }, [record.id])
@@ -107,10 +89,17 @@ function CropMonitoringDetailModal({ record, onClose, onRefresh }) {
     } catch { showToast('Failed to delete.', 'error') }
   }
 
-  const applySuggestion = (activity) => {
-    setForm(f => ({ ...f, activity_type: activity }))
+  const applySuggestion = (activityName) => {
+    setForm(f => ({ ...f, activity_type: activityName }))
     setShowForm(true)
     setShowSuggestions(false)
+  }
+
+  const handleToggleSuggestions = () => {
+    const next = !showSuggestions
+    setShowSuggestions(next)
+    setShowForm(false)
+    if (next && suggestions.length === 0 && !suggestLoading) fetchSuggestions()
   }
 
   const modalSubtitle = record.farmer_name
@@ -121,7 +110,7 @@ function CropMonitoringDetailModal({ record, onClose, onRefresh }) {
         ? `Planted: ${formatDate(record.date_planted)}`
         : `${record.season} ${record.year}`)
 
-  const conditionColor = { Good: 'text-[#1E4620]', Fair: 'text-amber-600', Poor: 'text-rose-600' }
+  const conditionColor = { Good: 'text-[#1B4D2E]', Fair: 'text-amber-600', Poor: 'text-rose-600' }
 
   return (
     <ModalShell
@@ -142,17 +131,17 @@ function CropMonitoringDetailModal({ record, onClose, onRefresh }) {
         <button
           type="button"
           onClick={() => { setShowForm(v => !v); setShowSuggestions(false) }}
-          className="flex items-center gap-1 text-sm font-medium text-[#1E4620] hover:text-[#1E4620]"
+          className="flex items-center gap-1 text-sm font-medium text-[#1B4D2E] hover:text-[#1B4D2E]"
         >
           <Plus size={16} />
           Add New Log
         </button>
         <button
           type="button"
-          onClick={() => { setShowSuggestions(v => !v); setShowForm(false) }}
+          onClick={handleToggleSuggestions}
           className="rounded-lg bg-amber-400 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-500"
         >
-          Get Suggestions
+          {showSuggestions ? 'Hide Suggestions' : 'Get Suggestions'}
         </button>
       </div>
 
@@ -161,37 +150,128 @@ function CropMonitoringDetailModal({ record, onClose, onRefresh }) {
         <div className="mb-4 rounded-xl border border-amber-100 bg-amber-50 p-4">
           <div className="mb-3 flex items-center justify-between">
             <p className="text-xs font-semibold text-amber-800">
-              Suggested Activities for {record.crop_type_name}
+              Activity Schedule — {record.crop_type_name}
+              {daysElapsed !== null && <span className="ml-1 font-normal text-amber-600">(Day {daysElapsed})</span>}
             </p>
             <button type="button" onClick={() => setShowSuggestions(false)} className="text-amber-500 hover:text-amber-700">
               <X size={14} />
             </button>
           </div>
-          <div className="space-y-2">
-            {suggestions.map((s) => (
-              <button
-                key={s.activity}
-                type="button"
-                onClick={() => applySuggestion(s.activity)}
-                className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2.5 text-left transition hover:border-amber-400 hover:bg-amber-50"
-              >
-                <div className="flex items-center gap-2">
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${PRIORITY_PILL[s.priority]}`}>
-                    {s.priority}
-                  </span>
-                  <span className="text-sm font-medium text-slate-800">{s.activity}</span>
+
+          {suggestLoading ? (
+            <p className="text-center text-xs text-amber-600 py-4">Loading suggestions…</p>
+          ) : (
+            <>
+              {/* Disaster Response */}
+              {disasterResponse.length > 0 && (
+                <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 p-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-rose-700 mb-2">
+                    Disaster Response Recommendations
+                  </p>
+                  <div className="space-y-2">
+                    {disasterResponse.map((r, i) => (
+                      <div key={i} className="rounded-lg border border-rose-100 bg-white px-3 py-2">
+                        <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                          <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${PRIORITY_PILL[r.priority] || ''}`}>{r.priority}</span>
+                          <span className="text-[12px] font-medium text-rose-900">{r.title}</span>
+                          <span className="text-[10px] text-rose-400 italic">{r.disaster_type}</span>
+                        </div>
+                        <p className="text-[11px] text-slate-600 pl-1">{r.action}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <p className="mt-0.5 pl-[52px] text-xs text-slate-500">{s.description}</p>
-              </button>
-            ))}
-          </div>
-          <p className="mt-2 text-center text-xs text-amber-600">Click a card to auto-fill the log form</p>
+              )}
+
+              {suggestions.length === 0 ? (
+                <p className="text-center text-xs text-amber-600 py-2">No activity stages defined for this crop yet.</p>
+              ) : (
+              <>
+              {/* Due Now */}
+              {suggestions.filter(s => s.status === 'due_now').length > 0 && (
+                <div className="mb-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700 mb-1.5">Due Now</p>
+                  <div className="space-y-1.5">
+                    {suggestions.filter(s => s.status === 'due_now').map(s => (
+                      <button key={s.occurrence_key || `${s.id}_${s.day_after_planting}`} type="button"
+                        onClick={() => applySuggestion(s.activity_name)}
+                        className="w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-left transition hover:border-amber-400 hover:bg-amber-50">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${PRIORITY_PILL[s.priority] || ''}`}>{s.priority}</span>
+                          <span className="text-[12px] font-medium text-slate-800">{s.activity_name}</span>
+                          <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">Day {s.day_after_planting}</span>
+                        </div>
+                        {s.recommendation && <p className="mt-0.5 text-[11px] text-slate-500 pl-1">{s.recommendation}</p>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Overdue */}
+              {suggestions.filter(s => s.status === 'overdue').length > 0 && (
+                <div className="mb-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-rose-700 mb-1.5">Overdue</p>
+                  <div className="space-y-1.5">
+                    {suggestions.filter(s => s.status === 'overdue').map(s => (
+                      <button key={s.occurrence_key || `${s.id}_${s.day_after_planting}`} type="button"
+                        onClick={() => applySuggestion(s.activity_name)}
+                        className="w-full rounded-lg border border-rose-200 bg-white px-3 py-2 text-left transition hover:border-rose-400 hover:bg-rose-50">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${PRIORITY_PILL[s.priority] || ''}`}>{s.priority}</span>
+                          <span className="text-[12px] font-medium text-slate-800">{s.activity_name}</span>
+                          <span className="text-[10px] bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded-full">Day {s.day_after_planting}</span>
+                        </div>
+                        {s.recommendation && <p className="mt-0.5 text-[11px] text-slate-500 pl-1">{s.recommendation}</p>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Upcoming */}
+              {suggestions.filter(s => s.status === 'upcoming').length > 0 && (
+                <div className="mb-3">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-[#1B4D2E] mb-1.5">Upcoming</p>
+                  <div className="space-y-1.5">
+                    {suggestions.filter(s => s.status === 'upcoming').map(s => (
+                      <div key={s.occurrence_key || `${s.id}_${s.day_after_planting}`}
+                        className="w-full rounded-lg border border-[#E2E8E2] bg-white px-3 py-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${PRIORITY_PILL[s.priority] || ''}`}>{s.priority}</span>
+                          <span className="text-[12px] font-medium text-slate-700">{s.activity_name}</span>
+                          <span className="text-[10px] bg-[#EBF5EE] text-[#1B4D2E] px-1.5 py-0.5 rounded-full">Day {s.day_after_planting}</span>
+                          <span className="text-[10px] text-slate-400">in {s.days_diff} day{s.days_diff !== 1 ? 's' : ''}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {/* Done */}
+              {suggestions.filter(s => s.status === 'done').length > 0 && (
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1.5">Completed</p>
+                  <div className="space-y-1">
+                    {suggestions.filter(s => s.status === 'done').map(s => (
+                      <div key={s.occurrence_key || `${s.id}_${s.day_after_planting}`}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-100">
+                        <span className="text-[12px] line-through text-slate-400">{s.activity_name}</span>
+                        <span className="text-[10px] text-slate-300">Day {s.day_after_planting}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              </>
+              )}
+            </>
+          )}
+          <p className="mt-3 text-center text-xs text-amber-600">Click a Due Now / Overdue card to auto-fill the log form</p>
         </div>
       )}
 
       {/* Inline add form */}
       {showForm && (
-        <form onSubmit={handleAddLog} className="mb-4 rounded-xl border border-green-100 bg-[#f0f7f0] p-4 space-y-3">
+        <form onSubmit={handleAddLog} className="mb-4 rounded-xl border border-[#C8E6D0] bg-[#EBF5EE] p-4 space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className={labelCls}>Activity *</label>

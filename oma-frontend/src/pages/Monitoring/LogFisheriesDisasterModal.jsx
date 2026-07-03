@@ -70,7 +70,7 @@ function LogFisheriesDisasterModal({ onClose, onSuccess }) {
             <ul className="mt-1 max-h-36 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
               {ffResults.map(ff => (
                 <li key={ff.id}>
-                  <button type="button" className="w-full px-4 py-2.5 text-left text-sm hover:bg-[#f0f7f0]"
+                  <button type="button" className="w-full px-4 py-2.5 text-left text-sm hover:bg-[#EBF5EE]"
                     onClick={() => { setSelectedFf(ff); setFfSearch(ff.full_name); setFfResults([]) }}>
                     <span className="font-medium">{ff.full_name}</span>
                     <span className="ml-2 text-slate-400">{ff.fisherfolk_type} · {ff.barangay}</span>
@@ -79,7 +79,7 @@ function LogFisheriesDisasterModal({ onClose, onSuccess }) {
               ))}
             </ul>
           )}
-          {selectedFf && <p className="mt-1 text-xs text-[#1E4620]">Selected: {selectedFf.full_name} ({selectedFf.fisherfolk_type})</p>}
+          {selectedFf && <p className="mt-1 text-xs text-[#1B4D2E]">Selected: {selectedFf.full_name} ({selectedFf.fisherfolk_type})</p>}
         </FormField>
 
         <div className="grid gap-4 sm:grid-cols-2">

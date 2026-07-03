@@ -85,7 +85,7 @@ function SubTabBar({ options, value, onChange }) {
           key={opt.value}
           onClick={() => onChange(opt.value)}
           className={`border-none px-5 py-2 text-sm font-semibold transition-colors cursor-pointer ${
-            value === opt.value ? 'bg-[#1E4620] text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+            value === opt.value ? 'bg-[#1B4D2E] text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
           }`}
         >
           {opt.label}
@@ -191,7 +191,7 @@ export default function FisheriesMonitoringPage() {
         <span className="text-sm">
           {c.top_species}
           {extra > 0 && (
-            <span className="ml-1 rounded-full bg-[#f0f7f0] px-1.5 py-0.5 text-[10px] font-semibold text-[#1E4620]">
+            <span className="ml-1 rounded-full bg-[#EBF5EE] px-1.5 py-0.5 text-[10px] font-semibold text-[#1B4D2E]">
               +{extra} more
             </span>
           )}
@@ -211,7 +211,7 @@ export default function FisheriesMonitoringPage() {
     actions: (
       <button
         type="button"
-        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[#1E4620] hover:bg-[#f0f7f0]"
+        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[#1B4D2E] hover:bg-[#EBF5EE]"
         onClick={() => setDetailCycle(c)}
       >
         <Eye size={13} /> View
@@ -242,7 +242,7 @@ export default function FisheriesMonitoringPage() {
           </div>
           <div>
             <select
-              className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-[#1E4620] focus:outline-none"
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-[#1B4D2E] focus:outline-none"
               value={year}
               onChange={(e) => setYear(e.target.value)}
             >
@@ -313,8 +313,8 @@ export default function FisheriesMonitoringPage() {
                       <span className="w-5 text-right text-[11px] text-slate-400">{i + 1}</span>
                       <div className="flex-1">
                         <div className="text-sm font-medium text-slate-700">{sp.species_name}</div>
-                        <div className="mt-1 h-1.5 rounded-full bg-[#e8f5e9]">
-                          <div className="h-full rounded-full bg-[#4CAF50]" style={{ width: `${sp.pct_of_total_catch}%` }} />
+                        <div className="mt-1 h-1.5 rounded-full bg-[#EBF5EE]">
+                          <div className="h-full rounded-full bg-[#2D7A4F]" style={{ width: `${sp.pct_of_total_catch}%` }} />
                         </div>
                       </div>
                       <span className="text-xs text-slate-600 whitespace-nowrap">
@@ -340,7 +340,7 @@ export default function FisheriesMonitoringPage() {
             {aquaCycles.length > 0 && (
               <div className="flex flex-wrap gap-3">
                 <MetricCard label="Total Cycles" value={aquaCycles.length} />
-                <MetricCard label="Active"    value={aquaCycles.filter((c) => c.status === 'Active').length}    accent="#1E4620" />
+                <MetricCard label="Active"    value={aquaCycles.filter((c) => c.status === 'Active').length}    accent="#1B4D2E" />
                 <MetricCard label="Harvested" value={aquaCycles.filter((c) => c.status === 'Harvested').length} accent="#1565c0" />
               </div>
             )}

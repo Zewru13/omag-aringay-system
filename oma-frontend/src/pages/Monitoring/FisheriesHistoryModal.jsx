@@ -120,9 +120,9 @@ export default function FisheriesHistoryModal({ onClose }) {
               <div style={{ overflowX: 'auto', marginTop: 18 }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
-                    <tr style={{ background: '#f5f5f5' }}>
+                    <tr style={{ background: '#1B4D2E' }}>
                       {['Season', 'Year', 'Total Catch (kg)', 'Trips', 'Active Fisherfolk'].map(h => (
-                        <th key={h} style={{ padding: '8px 10px', textAlign: 'left', color: '#555', fontWeight: 600, borderBottom: '1px solid #e0e0e0', whiteSpace: 'nowrap' }}>
+                        <th key={h} style={{ padding: '8px 10px', textAlign: 'left', color: '#fff', fontWeight: 600, borderBottom: '1px solid rgba(255,255,255,0.15)', whiteSpace: 'nowrap' }}>
                           {h}
                         </th>
                       ))}

@@ -109,7 +109,7 @@ function LogCatchModal({ onClose, onSuccess }) {
                 <li key={ff.id}>
                   <button
                     type="button"
-                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-[#f0f7f0]"
+                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-[#EBF5EE]"
                     onClick={() => handleSelectFf(ff)}
                   >
                     <span className="font-medium">{ff.full_name}</span>
@@ -208,7 +208,7 @@ function LogCatchModal({ onClose, onSuccess }) {
           <button
             type="button"
             onClick={addSpeciesRow}
-            className="mt-2 text-sm text-[#1E4620] hover:text-green-900 font-medium"
+            className="mt-2 text-sm text-[#1B4D2E] hover:text-green-900 font-medium"
           >
             + Add Species
           </button>

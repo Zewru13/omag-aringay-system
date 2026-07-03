@@ -26,7 +26,7 @@ const TABS = [
 ]
 
 const STATUS_TONES = { Active: 'green', Harvested: 'blue', Damaged: 'rose', Abandoned: 'slate' }
-const ALERT_COLORS = { None: '#757575', Low: '#4CAF50', Medium: '#f57c00', High: '#E65100' }
+const ALERT_COLORS = { None: '#757575', Low: '#2D7A4F', Medium: '#f57c00', High: '#E65100' }
 const SUBMISSION_TONES = { Draft: 'slate', Submitted: 'amber', Verified: 'green', 'Not Submitted': 'rose' }
 const CYCLE_STATUS_TONES = { Active: 'green', Harvested: 'blue', Failed: 'rose', Abandoned: 'slate' }
 const DISASTER_STATUS_TONES = { Reported: 'amber', Verified: 'green', Closed: 'slate' }
@@ -120,7 +120,7 @@ function PillToggle({ options, value, onChange }) {
           onClick={() => onChange(opt.value)}
           style={{
             padding: '8px 20px', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer',
-            background: value === opt.value ? '#1E4620' : '#fff',
+            background: value === opt.value ? '#1B4D2E' : '#fff',
             color: value === opt.value ? '#fff' : '#555',
             transition: 'background 0.15s',
           }}
@@ -321,7 +321,7 @@ export default function MonitoringPage() {
     actions: (
       <button
         type="button"
-        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[#1E4620] hover:bg-[#f0f7f0]"
+        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[#1B4D2E] hover:bg-[#EBF5EE]"
         onClick={() => setDetailBarangay(r)}
       >
         <Eye size={13} /> View
@@ -329,7 +329,7 @@ export default function MonitoringPage() {
     ),
   })), [barangaySummaries])
 
-  const COND_COLORS = { Good: '#4CAF50', Fair: '#FFB300', Poor: '#D32F2F' }
+  const COND_COLORS = { Good: '#2D7A4F', Fair: '#FFB300', Poor: '#D32F2F' }
 
   const cropData = useMemo(() => cropRecords.map((r) => ({
     ...r,
@@ -352,14 +352,14 @@ export default function MonitoringPage() {
       </span>
     ) : <span style={{ color: '#bdbdbd' }}>—</span>,
     variance_pct: r.yield_variance_pct != null ? (
-      <span style={{ color: parseFloat(r.yield_variance_pct) >= 0 ? '#4CAF50' : '#D32F2F', fontWeight: 600 }}>
+      <span style={{ color: parseFloat(r.yield_variance_pct) >= 0 ? '#2D7A4F' : '#D32F2F', fontWeight: 600 }}>
         {parseFloat(r.yield_variance_pct).toFixed(1)}%
       </span>
     ) : '—',
     actions: (
       <button
         type="button"
-        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[#1E4620] hover:bg-[#f0f7f0]"
+        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[#1B4D2E] hover:bg-[#EBF5EE]"
         onClick={() => setDetailRecord(r)}
       >
         <Eye size={13} /> View
@@ -380,7 +380,7 @@ export default function MonitoringPage() {
           {c.top_species}
           {extra > 0 && (
             <span style={{
-              marginLeft: 5, background: '#f0f7f0', color: '#1E4620',
+              marginLeft: 5, background: '#EBF5EE', color: '#1B4D2E',
               borderRadius: 10, padding: '1px 6px', fontSize: 10, fontWeight: 600,
             }}>
               +{extra} more
@@ -406,7 +406,7 @@ export default function MonitoringPage() {
     actions: (
       <button
         type="button"
-        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[#1E4620] hover:bg-[#f0f7f0]"
+        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[#1B4D2E] hover:bg-[#EBF5EE]"
         onClick={() => setDetailCycle(c)}
       >
         <Eye size={13} /> View
@@ -436,7 +436,7 @@ export default function MonitoringPage() {
           {tab === 'fisheries' && (
             <div>
               <select
-                className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-[#1E4620] focus:outline-none"
+                className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-[#1B4D2E] focus:outline-none"
                 value={year}
                 onChange={(e) => setYear(e.target.value)}
               >
@@ -498,7 +498,7 @@ export default function MonitoringPage() {
                       label="Barangays Reported"
                       value={`${md.submission_tracker.submitted} / ${md.submission_tracker.total_barangays}`}
                       sub={`${md.submission_tracker.not_submitted} not submitted`}
-                      accent="#1E4620"
+                      accent="#1B4D2E"
                     />
                     <MetricCard
                       label="Total Area Planted"
@@ -558,13 +558,13 @@ export default function MonitoringPage() {
                 {/* Summary cards */}
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                   <MetricCard label="Total Records" value={cropSummaryCards.total} sub="All statuses" />
-                  <MetricCard label="Planted / Active" value={cropSummaryCards.planted} accent="#1E4620" />
+                  <MetricCard label="Planted / Active" value={cropSummaryCards.planted} accent="#1B4D2E" />
                   <MetricCard label="For Harvest (≤14 days)" value={cropSummaryCards.forHarvest} accent="#f57c00" />
                   <MetricCard
                     label="Avg. Yield Variance"
                     value={cropSummaryCards.avgVariance != null ? `${cropSummaryCards.avgVariance}%` : '—'}
                     sub="Harvested records only"
-                    accent={cropSummaryCards.avgVariance < 0 ? '#D32F2F' : '#4CAF50'}
+                    accent={cropSummaryCards.avgVariance < 0 ? '#D32F2F' : '#2D7A4F'}
                   />
                 </div>
 
@@ -577,9 +577,9 @@ export default function MonitoringPage() {
                       style={{
                         padding: '5px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600,
                         border: '1px solid',
-                        borderColor: cropStatusFilter === s ? '#1E4620' : '#e0e0e0',
-                        background: cropStatusFilter === s ? '#f0f7f0' : '#fff',
-                        color: cropStatusFilter === s ? '#1E4620' : '#555',
+                        borderColor: cropStatusFilter === s ? '#1B4D2E' : '#e0e0e0',
+                        background: cropStatusFilter === s ? '#EBF5EE' : '#fff',
+                        color: cropStatusFilter === s ? '#1B4D2E' : '#555',
                         cursor: 'pointer',
                       }}
                     >
@@ -638,8 +638,8 @@ export default function MonitoringPage() {
                           <span style={{ fontSize: 11, color: '#9e9e9e', width: 16, textAlign: 'right' }}>{i + 1}</span>
                           <div style={{ flex: 1 }}>
                             <div style={{ fontSize: 13, fontWeight: 500 }}>{sp.species_name}</div>
-                            <div style={{ height: 5, borderRadius: 3, background: '#e8f5e9', marginTop: 3 }}>
-                              <div style={{ height: '100%', borderRadius: 3, background: '#4CAF50', width: `${sp.pct_of_total_catch}%` }} />
+                            <div style={{ height: 5, borderRadius: 3, background: '#EBF5EE', marginTop: 3 }}>
+                              <div style={{ height: '100%', borderRadius: 3, background: '#2D7A4F', width: `${sp.pct_of_total_catch}%` }} />
                             </div>
                           </div>
                           <span style={{ fontSize: 12, color: '#555', whiteSpace: 'nowrap' }}>
@@ -667,7 +667,7 @@ export default function MonitoringPage() {
                 {aquaCycles.length > 0 && (
                   <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                     <MetricCard label="Total Cycles" value={aquaCycles.length} />
-                    <MetricCard label="Active" value={aquaCycles.filter(c => c.status === 'Active').length} accent="#1E4620" />
+                    <MetricCard label="Active" value={aquaCycles.filter(c => c.status === 'Active').length} accent="#1B4D2E" />
                     <MetricCard label="Harvested" value={aquaCycles.filter(c => c.status === 'Harvested').length} accent="#1565c0" />
                   </div>
                 )}

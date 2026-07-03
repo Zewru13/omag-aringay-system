@@ -67,7 +67,7 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
       <form onSubmit={handleSubmit} className="space-y-4">
         {prefilledFf ? (
           <FormField label="Fisherfolk">
-            <p className="rounded-xl border border-green-200 bg-[#f0f7f0] px-3 py-2 text-sm font-medium text-slate-800">
+            <p className="rounded-xl border border-[#C8E6D0] bg-[#EBF5EE] px-3 py-2 text-sm font-medium text-slate-800">
               {prefilledFf.full_name} <span className="ml-2 text-xs text-slate-400">{prefilledFf.fisherfolk_type}</span>
             </p>
           </FormField>
@@ -78,7 +78,7 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
               <ul className="mt-1 max-h-36 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
                 {ffResults.map(ff => (
                   <li key={ff.id}>
-                    <button type="button" className="w-full px-4 py-2.5 text-left text-sm hover:bg-[#f0f7f0]" onClick={() => { setSelectedFf(ff); setFfSearch(ff.full_name); setFfResults([]) }}>
+                    <button type="button" className="w-full px-4 py-2.5 text-left text-sm hover:bg-[#EBF5EE]" onClick={() => { setSelectedFf(ff); setFfSearch(ff.full_name); setFfResults([]) }}>
                       <span className="font-medium">{ff.full_name}</span>
                       <span className="ml-2 text-slate-400">{ff.barangay}</span>
                     </button>
@@ -86,7 +86,7 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
                 ))}
               </ul>
             )}
-            {selectedFf && <p className="mt-1 text-xs text-[#1E4620]">Selected: {selectedFf.full_name}</p>}
+            {selectedFf && <p className="mt-1 text-xs text-[#1B4D2E]">Selected: {selectedFf.full_name}</p>}
           </FormField>
         )}
 
