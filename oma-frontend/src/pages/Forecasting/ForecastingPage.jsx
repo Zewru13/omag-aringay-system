@@ -17,7 +17,7 @@ const COLUMNS = [
   { key: 'actions',           label: 'DETAILS' },
 ]
 
-const labelCls = 'text-[10px] font-medium uppercase tracking-wide text-slate-400'
+const labelCls = 'text-[10px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8]'
 
 function fmtMDY(v) {
   if (!v) return '—'
@@ -55,45 +55,45 @@ function ForecastDetailModal({ record, onClose, onUpdated }) {
     >
       <div className="space-y-4">
         {/* Two panels side by side */}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-            <p className="mb-3 text-xs font-semibold text-slate-500 flex items-center gap-1"><BarChart2 size={12} />Basic Information</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] p-4">
+            <p className="mb-3 text-[11px] font-semibold text-[#4A5E4A] flex items-center gap-1"><BarChart2 size={12} />Basic Information</p>
             <dl className="space-y-2.5">
               <div>
                 <dt className={labelCls}>Area Planted</dt>
-                <dd className="text-sm font-semibold text-slate-800">
+                <dd className="text-[13px] font-semibold text-[#1A2B1A]">
                   {record.area_planted_ha ? `${record.area_planted_ha} ha` : '—'}
                 </dd>
               </div>
               <div>
                 <dt className={labelCls}>Estimated Harvest</dt>
-                <dd className="text-sm font-semibold text-slate-800">
+                <dd className="text-[13px] font-semibold text-[#1A2B1A]">
                   {fmtMDY(record.expected_harvest_date)}
                 </dd>
               </div>
             </dl>
           </div>
 
-          <div className="rounded-xl border border-slate-100 bg-slate-50 p-4">
-            <p className="mb-3 text-xs font-semibold text-slate-500 flex items-center gap-1"><User size={12} />Farmer & Location</p>
+          <div className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] p-4">
+            <p className="mb-3 text-[11px] font-semibold text-[#4A5E4A] flex items-center gap-1"><User size={12} />Farmer & Location</p>
             <dl className="space-y-2.5">
               <div>
                 <dt className={labelCls}>Association</dt>
-                <dd className="text-sm font-semibold text-slate-800">{record.association_name || '—'}</dd>
+                <dd className="text-[13px] font-semibold text-[#1A2B1A]">{record.association_name || '—'}</dd>
               </div>
               <div>
                 <dt className={labelCls}>Barangay</dt>
-                <dd className="text-sm font-semibold text-slate-800">{record.farmer_barangay || '—'}</dd>
+                <dd className="text-[13px] font-semibold text-[#1A2B1A]">{record.farmer_barangay || '—'}</dd>
               </div>
             </dl>
           </div>
         </div>
 
-        <hr className="border-slate-100" />
+        <div className="border-t border-[#F0F4F0]" />
 
         {/* Remarks & Notes */}
         <div>
-          <label className="mb-1.5 flex items-center gap-1 text-xs font-semibold text-slate-600"><FileText size={12} />Remarks & Notes</label>
+          <label className="mb-1.5 flex items-center gap-1 text-[12px] font-semibold text-[#4A5E4A]"><FileText size={12} />Remarks & Notes</label>
           <textarea
             rows={4}
             className={baseInputClasses}
@@ -106,18 +106,18 @@ function ForecastDetailModal({ record, onClose, onUpdated }) {
               type="button"
               onClick={handleSaveRemarks}
               disabled={isSaving || !hasChanges}
-              className="rounded-xl bg-[#1E4620] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#2D6A31] disabled:opacity-50"
+              className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38] disabled:opacity-50"
             >
               {isSaving ? 'Saving…' : 'Save Remarks'}
             </button>
           </div>
         </div>
 
-        <div className="flex justify-end border-t border-slate-100 pt-3">
+        <div className="flex justify-end border-t border-[#F0F4F0] pt-3">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] transition-colors hover:bg-[#F5F7F5]"
           >
             Close
           </button>
@@ -139,10 +139,10 @@ function ImportErrorsModal({ errors, created, onClose }) {
       maxWidth="max-w-lg"
     >
       {errors.length === 0 ? (
-        <p className="text-sm text-[#1E4620] font-medium py-2">All rows imported successfully.</p>
+        <p className="text-sm text-[#1B4D2E] font-medium py-2">All rows imported successfully.</p>
       ) : (
         <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-          <p className="text-xs text-slate-500 mb-2">{errors.length} row{errors.length !== 1 ? 's' : ''} had errors:</p>
+          <p className="text-[12px] text-[#7A8E7A] mb-2">{errors.length} row{errors.length !== 1 ? 's' : ''} had errors:</p>
           {errors.map((e, i) => (
             <div key={i} className="flex items-start gap-2 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2">
               <span className="text-xs font-semibold text-rose-600 shrink-0">Row {e.row}</span>
@@ -151,11 +151,11 @@ function ImportErrorsModal({ errors, created, onClose }) {
           ))}
         </div>
       )}
-      <div className="flex justify-end pt-4 border-t border-slate-100 mt-4">
+      <div className="flex justify-end pt-4 border-t border-[#F0F4F0] mt-4">
         <button
           type="button"
           onClick={onClose}
-          className="rounded-xl bg-[#1E4620] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#2D6A31]"
+          className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38]"
         >
           Close
         </button>
@@ -228,12 +228,12 @@ export default function ForecastingPage() {
     ...rec,
     harvest_date_cell: fmtMDY(rec.expected_harvest_date),
     yield_cell: rec.estimated_yield_kg
-      ? <span className="font-bold text-[#4CAF50]">{Number(rec.estimated_yield_kg).toLocaleString()} kg</span>
+      ? <span className="font-semibold text-[#1B4D2E]">{Number(rec.estimated_yield_kg).toLocaleString()} kg</span>
       : '—',
     actions: (
       <button
         type="button"
-        className="text-sm text-[#1E4620] hover:underline"
+        className="text-sm text-[#1B4D2E] hover:underline"
         onClick={() => setDetailRecord(rec)}
       >
         View
@@ -247,14 +247,17 @@ export default function ForecastingPage() {
       subtitle="Forecasts are now based on real monitoring activities. Import crop data, then add monitoring activities to improve yield predictions."
     >
       <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 bg-white border border-[#E2E8E2] rounded-lg px-4 py-2.5">
+          <span className="text-[#A8BCA8] flex-shrink-0">
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          </span>
           <input
-            className="min-w-[220px] flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm placeholder-slate-400 focus:border-[#1E4620] focus:outline-none"
+            className="flex-1 border-none bg-transparent text-[13px] text-[#1A2B1A] placeholder-[#A8BCA8] focus:outline-none min-w-[180px]"
             placeholder="Search by crop or association..."
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex items-center gap-2 ml-auto">
             <input
               ref={fileInputRef}
               type="file"
@@ -266,10 +269,10 @@ export default function ForecastingPage() {
               type="button"
               disabled={isImporting}
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
+              className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 py-[5px] text-[12px] font-medium text-white transition-colors hover:bg-[#235E38] disabled:opacity-60"
             >
               {isImporting
-                ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
                 : <Upload className="h-3.5 w-3.5" />
               }
               {isImporting ? 'Importing…' : 'Import Excel'}
@@ -277,10 +280,10 @@ export default function ForecastingPage() {
             <button
               type="button"
               onClick={handleDownloadTemplate}
-              className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+              className="flex items-center gap-1.5 rounded-lg border border-[#C8D5C8] px-3 py-[5px] text-[12px] font-medium text-[#4A5E4A] transition-colors hover:bg-[#F5F7F5]"
             >
               <Download className="h-3.5 w-3.5" />
-              Download Template
+              Template
             </button>
           </div>
         </div>

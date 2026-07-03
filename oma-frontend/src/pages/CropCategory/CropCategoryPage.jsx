@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Leaf, Pencil, Plus, Tag } from 'lucide-react'
+import { Leaf, Pencil, Plus, Tag, Trash2 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
+import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
@@ -154,6 +155,8 @@ export default function CropCategoryPage() {
   const [subcatModal,   setSubcatModal]   = useState(false)
   const [editCat,       setEditCat]       = useState(null)
   const [editSubcat,    setEditSubcat]    = useState(null)
+  const [deletingCat,   setDeletingCat]   = useState(null)
+  const [deletingSubcat,setDeletingSubcat]= useState(null)
 
   const fetchAll = useCallback(async () => {
     setIsLoading(true); setError('')
@@ -176,28 +179,48 @@ export default function CropCategoryPage() {
   const catRows = categories.map(c => ({
     ...c,
     actions: (
-      <button
-        type="button"
-        className="text-[#1E4620] hover:text-[#2D6A31] p-1.5 rounded-lg hover:bg-[#f0f7f0]"
-        onClick={() => { setEditCat(c); setCatModal(true) }}
-        title="Edit"
-      >
-        <Pencil size={14} />
-      </button>
+      <span className="flex items-center gap-1">
+        <button
+          type="button"
+          className="text-[#1B4D2E] p-1.5 rounded-lg hover:bg-[#EBF5EE] transition-colors"
+          onClick={() => { setEditCat(c); setCatModal(true) }}
+          title="Edit"
+        >
+          <Pencil size={14} />
+        </button>
+        <button
+          type="button"
+          className="text-rose-500 p-1.5 rounded-lg hover:bg-rose-50 transition-colors"
+          onClick={() => setDeletingCat(c)}
+          title="Delete"
+        >
+          <Trash2 size={14} />
+        </button>
+      </span>
     ),
   }))
 
   const subcatRows = subcategories.map(s => ({
     ...s,
     actions: (
-      <button
-        type="button"
-        className="text-[#1E4620] hover:text-[#2D6A31] p-1.5 rounded-lg hover:bg-[#f0f7f0]"
-        onClick={() => { setEditSubcat(s); setSubcatModal(true) }}
-        title="Edit"
-      >
-        <Pencil size={14} />
-      </button>
+      <span className="flex items-center gap-1">
+        <button
+          type="button"
+          className="text-[#1B4D2E] p-1.5 rounded-lg hover:bg-[#EBF5EE] transition-colors"
+          onClick={() => { setEditSubcat(s); setSubcatModal(true) }}
+          title="Edit"
+        >
+          <Pencil size={14} />
+        </button>
+        <button
+          type="button"
+          className="text-rose-500 p-1.5 rounded-lg hover:bg-rose-50 transition-colors"
+          onClick={() => setDeletingSubcat(s)}
+          title="Delete"
+        >
+          <Trash2 size={14} />
+        </button>
+      </span>
     ),
   }))
 
@@ -210,36 +233,46 @@ export default function CropCategoryPage() {
         {error && <ErrorMessage message={error} />}
 
         {/* Categories card */}
-        <div className="bg-white rounded-xl border border-slate-100 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-slate-800">Crop Categories</h2>
+        <div className="bg-white rounded-xl border border-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[#F0F4F0]">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-[3px] bg-[#1B4D2E]" />
+              <h2 className="text-[13px] font-semibold text-[#1A2B1A]">Crop Categories</h2>
+            </div>
             <button
               type="button"
               onClick={() => { setEditCat(null); setCatModal(true) }}
-              className="flex items-center gap-1 rounded-xl bg-[#1E4620] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2D6A31] transition-colors"
+              className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 py-1.5 text-[12px] font-medium text-white hover:bg-[#235E38] transition-colors"
             >
               <Plus size={12} />
-              + Add Category
+              Add Category
             </button>
           </div>
-          <DataTable columns={CAT_COLUMNS} data={catRows} isLoading={isLoading} />
+          <div className="p-0">
+            <DataTable columns={CAT_COLUMNS} data={catRows} isLoading={isLoading} />
+          </div>
         </div>
 
         {/* Subcategories card */}
-        <div className="bg-white rounded-xl border border-slate-100 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-slate-800">Crop Subcategories</h2>
+        <div className="bg-white rounded-xl border border-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[#F0F4F0]">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-[3px] bg-[#2D7A4F]" />
+              <h2 className="text-[13px] font-semibold text-[#1A2B1A]">Crop Subcategories</h2>
+            </div>
             <button
               type="button"
               onClick={() => { setEditSubcat(null); setSubcatModal(true) }}
               disabled={categories.length === 0}
-              className="flex items-center gap-1 rounded-xl bg-[#1E4620] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2D6A31] transition-colors disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 py-1.5 text-[12px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50"
             >
               <Plus size={12} />
-              + Add Subcategory
+              Add Subcategory
             </button>
           </div>
-          <DataTable columns={SUBCAT_COLUMNS} data={subcatRows} isLoading={isLoading} />
+          <div className="p-0">
+            <DataTable columns={SUBCAT_COLUMNS} data={subcatRows} isLoading={isLoading} />
+          </div>
         </div>
       </div>
 
@@ -256,6 +289,46 @@ export default function CropCategoryPage() {
           categories={categories}
           onClose={() => { setSubcatModal(false); setEditSubcat(null) }}
           onSaved={fetchAll}
+        />
+      )}
+
+      {deletingCat && (
+        <ConfirmDialog
+          title="Delete Category"
+          message={`Delete "${deletingCat.name}"? This may affect existing crops assigned to this category.`}
+          confirmLabel="Delete"
+          variant="danger"
+          onConfirm={async () => {
+            try {
+              await api.delete(`/production/crop-categories/${deletingCat.id}/`)
+              showToast(`"${deletingCat.name}" deleted.`, 'success')
+              setDeletingCat(null); fetchAll()
+            } catch {
+              showToast('Failed to delete. It may be in use.', 'error')
+              setDeletingCat(null)
+            }
+          }}
+          onCancel={() => setDeletingCat(null)}
+        />
+      )}
+
+      {deletingSubcat && (
+        <ConfirmDialog
+          title="Delete Subcategory"
+          message={`Delete "${deletingSubcat.name}"? This may affect existing crops assigned to this subcategory.`}
+          confirmLabel="Delete"
+          variant="danger"
+          onConfirm={async () => {
+            try {
+              await api.delete(`/production/crop-subcategories/${deletingSubcat.id}/`)
+              showToast(`"${deletingSubcat.name}" deleted.`, 'success')
+              setDeletingSubcat(null); fetchAll()
+            } catch {
+              showToast('Failed to delete. It may be in use.', 'error')
+              setDeletingSubcat(null)
+            }
+          }}
+          onCancel={() => setDeletingSubcat(null)}
         />
       )}
     </PageLayout>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Leaf, Pencil, Plus, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Leaf, Pencil, Plus, Trash2, X } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
@@ -14,7 +14,7 @@ const PAGE_SIZE = 10
 const PRIORITY_BADGE = {
   HIGH:   'bg-rose-500 text-white',
   MEDIUM: 'bg-amber-500 text-white',
-  LOW:    'bg-[#4CAF50] text-white',
+  LOW:    'bg-[#2D7A4F] text-white',
 }
 
 const COLUMNS = [
@@ -30,14 +30,62 @@ const EMPTY_FORM = { name: '', days_to_harvest: '', yield_per_ha_kg: '', categor
 
 // ── Suggestions Section ────────────────────────────────────────────────────────
 
+function DayChipInput({ days, onChange }) {
+  const [input, setInput] = useState('')
+
+  const addDay = () => {
+    const num = parseInt(input.trim())
+    if (!num || num < 1) { setInput(''); return }
+    if (!days.includes(num)) onChange([...days, num].sort((a, b) => a - b))
+    setInput('')
+  }
+
+  const removeDay = (day) => onChange(days.filter(d => d !== day))
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap gap-1.5 min-h-[32px]">
+        {days.map(d => (
+          <span key={d} className="inline-flex items-center gap-1 bg-[#EBF5EE] text-[#1B4D2E] text-[12px] font-medium px-2 py-0.5 rounded-full">
+            Day {d}
+            <button type="button" onClick={() => removeDay(d)} className="hover:text-rose-600 ml-0.5">
+              <X className="w-3 h-3" />
+            </button>
+          </span>
+        ))}
+        {days.length === 0 && <span className="text-[12px] text-[#A8BCA8] italic self-center">No days added yet</span>}
+      </div>
+      <div className="flex gap-2">
+        <input
+          type="number"
+          min="1"
+          placeholder="Day # (e.g. 10)"
+          className={`${baseInputClasses} flex-1`}
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ',' || e.key === 'Tab') { e.preventDefault(); addDay() } }}
+        />
+        <button
+          type="button"
+          onClick={addDay}
+          className="px-3 py-1.5 text-[12px] font-medium bg-[#EBF5EE] text-[#1B4D2E] rounded-lg hover:bg-[#D4EDDA] transition-colors"
+        >
+          Add
+        </button>
+      </div>
+      <p className="text-[11px] text-[#A8BCA8]">Type a day number and press Enter or click Add. At least one day required.</p>
+    </div>
+  )
+}
+
 function SuggestionsSection({ cropId }) {
   const { showToast } = useToast()
-  const [stages,          setStages]          = useState([])
-  const [isLoading,       setIsLoading]       = useState(true)
-  const [stageForm,       setStageForm]       = useState({ stage_name: '', priority: 'MEDIUM', recommendation: '' })
-  const [dayAfterPlanting, setDayAfterPlanting] = useState('')
-  const [stageError,      setStageError]      = useState('')
-  const [addingStage,     setAddingStage]     = useState(false)
+  const [stages,      setStages]      = useState([])
+  const [isLoading,   setIsLoading]   = useState(true)
+  const [stageForm,   setStageForm]   = useState({ stage_name: '', priority: 'MEDIUM', recommendation: '' })
+  const [appDays,     setAppDays]     = useState([])
+  const [stageError,  setStageError]  = useState('')
+  const [addingStage, setAddingStage] = useState(false)
 
   const fetchStages = useCallback(async () => {
     setIsLoading(true)
@@ -51,22 +99,20 @@ function SuggestionsSection({ cropId }) {
   useEffect(() => { fetchStages() }, [fetchStages])
 
   const handleAddStage = async () => {
-    if (!stageForm.stage_name.trim()) {
-      setStageError('Activity name is required.')
-      return
-    }
+    if (!stageForm.stage_name.trim()) { setStageError('Activity name is required.'); return }
+    if (appDays.length === 0)         { setStageError('At least one day is required.'); return }
     setAddingStage(true)
     setStageError('')
     try {
       const res = await api.post(`/production/crop-types/${cropId}/stages/`, {
-        stage_name:         stageForm.stage_name.trim(),
-        priority:           stageForm.priority,
-        recommendation:     stageForm.recommendation.trim(),
-        day_after_planting: parseInt(dayAfterPlanting) || 1,
+        stage_name:      stageForm.stage_name.trim(),
+        priority:        stageForm.priority,
+        recommendation:  stageForm.recommendation.trim(),
+        application_days: appDays,
       })
       setStages(prev => [...prev, res.data])
       setStageForm({ stage_name: '', priority: 'MEDIUM', recommendation: '' })
-      setDayAfterPlanting('')
+      setAppDays([])
     } catch {
       setStageError('Failed to add suggestion. Please try again.')
     } finally {
@@ -82,43 +128,50 @@ function SuggestionsSection({ cropId }) {
   }
 
   return (
-    <div className="border-t border-slate-100 pt-4 mt-4">
-      <p className="text-sm font-semibold text-slate-700 mb-1">Activity Suggestions</p>
-      <p className="text-xs text-slate-400 mb-3">
+    <div className="border-t border-[#F0F4F0] pt-4 mt-4">
+      <p className="text-[13px] font-semibold text-[#1A2B1A] mb-1">Activity Suggestions</p>
+      <p className="text-[12px] text-[#7A8E7A] mb-3">
         These appear in the Get Suggestions panel when staff monitors this crop.
       </p>
 
       {isLoading ? (
-        <p className="text-xs text-slate-400">Loading…</p>
+        <p className="text-[12px] text-[#7A8E7A]">Loading…</p>
       ) : stages.length > 0 ? (
         <div className="space-y-2 mb-3">
-          {stages.map(stage => (
-            <div key={stage.id}
-              className="flex items-center justify-between bg-slate-50 rounded-xl px-3 py-2">
-              <div className="flex items-center gap-2 flex-1">
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${PRIORITY_BADGE[stage.priority] ?? 'bg-slate-200 text-slate-700'}`}>
-                  {stage.priority}
-                </span>
-                <span className="text-sm text-slate-800 font-medium">{stage.stage_name}</span>
-                <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
-                  Day {stage.day_after_planting}
-                </span>
+          {stages.map(stage => {
+            const days = stage.application_days?.length ? stage.application_days : [stage.day_after_planting]
+            return (
+              <div key={stage.id}
+                className="flex items-center justify-between bg-[#F9FAF9] border border-[#E2E8E2] rounded-lg px-3 py-2">
+                <div className="flex items-center flex-wrap gap-2 flex-1">
+                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${PRIORITY_BADGE[stage.priority] ?? 'bg-[#F1F5F9] text-[#4A5E4A]'}`}>
+                    {stage.priority}
+                  </span>
+                  <span className="text-[13px] text-[#1A2B1A] font-medium">{stage.stage_name}</span>
+                  <span className="flex gap-1 flex-wrap">
+                    {days.map(d => (
+                      <span key={d} className="text-[11px] bg-[#EBF5EE] text-[#1B4D2E] px-2 py-0.5 rounded-full">
+                        Day {d}
+                      </span>
+                    ))}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleDeleteStage(stage.id)}
+                  className="text-[#A8BCA8] hover:text-[#C0392B] p-1 rounded-lg hover:bg-[#FEE2E2] transition-colors flex-shrink-0 ml-2">
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => handleDeleteStage(stage.id)}
-                className="text-slate-400 hover:text-rose-500 p-1 rounded-lg hover:bg-rose-50 transition-colors flex-shrink-0 ml-2">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
+            )
+          })}
         </div>
       ) : (
-        <p className="text-xs text-slate-400 italic mb-3">No suggestions yet. Add one below.</p>
+        <p className="text-[12px] text-[#7A8E7A] italic mb-3">No suggestions yet. Add one below.</p>
       )}
 
       {/* Inline add form */}
-      <div className="bg-slate-50 rounded-xl p-3 space-y-2">
+      <div className="bg-[#F9FAF9] border border-[#E2E8E2] rounded-lg p-3 space-y-2">
         <input
           type="text"
           value={stageForm.stage_name}
@@ -126,25 +179,19 @@ function SuggestionsSection({ cropId }) {
           placeholder="Activity Name (e.g. Apply Basal Fertilizer)"
           className={baseInputClasses}
         />
-        <div className="grid grid-cols-2 gap-2">
-          <input
-            type="number"
-            min="1"
-            placeholder="Day #"
-            className={`${baseInputClasses} w-24`}
-            value={dayAfterPlanting}
-            onChange={e => setDayAfterPlanting(e.target.value)}
-          />
-          <select
-            value={stageForm.priority}
-            onChange={e => setStageForm(prev => ({ ...prev, priority: e.target.value }))}
-            className={baseInputClasses}
-          >
-            <option value="HIGH">High Priority</option>
-            <option value="MEDIUM">Medium Priority</option>
-            <option value="LOW">Low Priority</option>
-          </select>
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7A8E7A] mb-1">Application Days</p>
+          <DayChipInput days={appDays} onChange={setAppDays} />
         </div>
+        <select
+          value={stageForm.priority}
+          onChange={e => setStageForm(prev => ({ ...prev, priority: e.target.value }))}
+          className={baseInputClasses}
+        >
+          <option value="HIGH">High Priority</option>
+          <option value="MEDIUM">Medium Priority</option>
+          <option value="LOW">Low Priority</option>
+        </select>
         <textarea
           value={stageForm.recommendation}
           onChange={e => setStageForm(prev => ({ ...prev, recommendation: e.target.value }))}
@@ -156,9 +203,9 @@ function SuggestionsSection({ cropId }) {
           type="button"
           onClick={handleAddStage}
           disabled={addingStage}
-          className="w-full bg-[#1E4620] hover:bg-[#2D6A31] text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 transition-colors"
+          className="w-full bg-[#1B4D2E] hover:bg-[#235E38] text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-50 transition-colors"
         >
-          {addingStage ? 'Adding...' : '+ Add'}
+          {addingStage ? 'Adding...' : '+ Add Stage'}
         </button>
         {stageError && (
           <p className="text-xs text-rose-600">{stageError}</p>
@@ -322,6 +369,7 @@ export default function CropOptionPage() {
   const [search,        setSearch]        = useState('')
   const [showModal,     setShowModal]     = useState(false)
   const [editCrop,      setEditCrop]      = useState(null)
+  const [deletingCrop,  setDeletingCrop]  = useState(null)
   const [sortKey,       setSortKey]       = useState('name')
   const [sortAsc,       setSortAsc]       = useState(true)
   const [page,          setPage]          = useState(1)
@@ -383,48 +431,68 @@ export default function CropOptionPage() {
     subcategory_name: c.subcategory_name || '—',
     yield_display:    c.yield_per_ha_kg  ? `${Number(c.yield_per_ha_kg).toLocaleString()} kg/ha` : '—',
     actions: (
-      <button
-        type="button"
-        className="text-[#1E4620] hover:text-[#2D6A31] p-1.5 rounded-lg hover:bg-[#f0f7f0]"
-        onClick={() => { setEditCrop(c); setShowModal(true) }}
-        title="Edit"
-      >
-        <Pencil size={14} />
-      </button>
+      <span className="flex items-center gap-1">
+        <button
+          type="button"
+          className="text-[#1B4D2E] p-1.5 rounded-lg hover:bg-[#EBF5EE] transition-colors"
+          onClick={() => { setEditCrop(c); setShowModal(true) }}
+          title="Edit"
+        >
+          <Pencil size={14} />
+        </button>
+        <button
+          type="button"
+          className="text-rose-500 p-1.5 rounded-lg hover:bg-rose-50 transition-colors"
+          onClick={() => setDeletingCrop(c)}
+          title="Delete"
+        >
+          <Trash2 size={14} />
+        </button>
+      </span>
     ),
   }))
 
   return (
-    <PageLayout title="Crop Option Management" subtitle="Add, edit, or remove crops and their details used across the system.">
+    <PageLayout
+      title="Crop Option Management"
+      subtitle="Add, edit, or remove crops and their details used across the system."
+      action={
+        <Button size="sm" onClick={() => { setEditCrop(null); setShowModal(true) }}>
+          <Plus size={15} />
+          Add New Crop
+        </Button>
+      }
+    >
       <div className="space-y-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 bg-white border border-[#E2E8E2] rounded-lg px-4 py-2.5">
+          <div className="relative flex-1">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8BCA8]">
+              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            </span>
             <input
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 placeholder-slate-400 shadow-sm outline-none focus:border-green-400 focus:ring-2 focus:ring-green-100 w-72"
+              className="w-full border-none bg-transparent pl-8 pr-2 text-[13px] text-[#1A2B1A] placeholder-[#A8BCA8] focus:outline-none"
               placeholder="Search crops by name, category, or subcategory..."
               value={search}
               onChange={e => { setSearch(e.target.value); setPage(1) }}
             />
-            <p className="text-sm text-slate-500 whitespace-nowrap">
-              {filteredCrops.length} of {crops.length} crop type{crops.length !== 1 ? 's' : ''}
-            </p>
           </div>
-          <Button size="sm" onClick={() => { setEditCrop(null); setShowModal(true) }}>
-            <Plus size={15} className="mr-1" />
-            + Add New Crop
-          </Button>
+          {filteredCrops.length !== crops.length && (
+            <span className="text-[12px] text-[#7A8E7A] whitespace-nowrap">
+              {filteredCrops.length} of {crops.length}
+            </span>
+          )}
         </div>
 
         {error && <ErrorMessage message={error} />}
 
-        <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
           <table className="min-w-full text-sm">
-            <thead className="bg-[#1E4620] text-white">
+            <thead className="bg-[#1B4D2E] text-white">
               <tr>
                 {COLUMNS.map(col => (
                   <th
                     key={col.key}
-                    className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide ${col.sortable ? 'cursor-pointer select-none hover:bg-[#2D6A31]' : ''}`}
+                    className={`px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-[0.06em] ${col.sortable ? 'cursor-pointer select-none hover:bg-[#235E38]' : ''}`}
                     onClick={col.sortable ? () => handleSort(col.key) : undefined}
                   >
                     <span className="inline-flex items-center gap-1">
@@ -437,16 +505,22 @@ export default function CropOptionPage() {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody>
               {isLoading ? (
-                <tr><td colSpan={COLUMNS.length} className="py-10 text-center text-sm text-slate-400">Loading…</td></tr>
+                <tr><td colSpan={COLUMNS.length} className="py-10 text-center text-[13px] text-[#7A8E7A]">Loading…</td></tr>
               ) : rows.length === 0 ? (
-                <tr><td colSpan={COLUMNS.length} className="py-10 text-center text-sm text-slate-400">No crop types found.</td></tr>
+                <tr><td colSpan={COLUMNS.length} className="py-12 text-center">
+                  <div className="flex flex-col items-center gap-2 text-[#C8D5C8]">
+                    <svg width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 4v4m0 4h.01"/></svg>
+                    <p className="text-[14px] font-medium text-[#4A5E4A]">No crop types found</p>
+                    <p className="text-[13px] text-[#7A8E7A]">Add your first crop type to get started</p>
+                  </div>
+                </td></tr>
               ) : (
-                rows.map((row, i) => (
-                  <tr key={row.id} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                rows.map((row) => (
+                  <tr key={row.id} className="border-b border-[#F0F4F0] transition-colors hover:bg-[#F9FAF9]">
                     {COLUMNS.map(col => (
-                      <td key={col.key} className="px-4 py-3 text-slate-700">{row[col.key]}</td>
+                      <td key={col.key} className="px-4 py-[13px] text-[13px] text-[#1A2B1A] align-middle">{row[col.key]}</td>
                     ))}
                   </tr>
                 ))
@@ -457,7 +531,7 @@ export default function CropOptionPage() {
 
         {!isLoading && totalPages > 1 && (
           <div className="flex items-center justify-between">
-            <p className="text-xs text-slate-500">
+            <p className="text-[12px] text-[#7A8E7A]">
               Showing {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, sortedCrops.length)} of {sortedCrops.length}
             </p>
             <div className="flex items-center gap-1">
@@ -465,16 +539,16 @@ export default function CropOptionPage() {
                 type="button"
                 onClick={() => setPage(p => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="rounded-lg border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-50 disabled:opacity-40"
+                className="rounded-lg border border-[#E2E8E2] p-1.5 text-[#4A5E4A] hover:bg-[#F5F7F5] disabled:opacity-40"
               >
                 <ChevronLeft size={16} />
               </button>
-              <span className="px-3 text-sm font-medium text-slate-700">{page} / {totalPages}</span>
+              <span className="px-3 text-[13px] font-medium text-[#1A2B1A]">{page} / {totalPages}</span>
               <button
                 type="button"
                 onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="rounded-lg border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-50 disabled:opacity-40"
+                className="rounded-lg border border-[#E2E8E2] p-1.5 text-[#4A5E4A] hover:bg-[#F5F7F5] disabled:opacity-40"
               >
                 <ChevronRight size={16} />
               </button>
@@ -490,6 +564,27 @@ export default function CropOptionPage() {
           subcategories={subcategories}
           onClose={() => { setShowModal(false); setEditCrop(null) }}
           onSaved={fetchAll}
+        />
+      )}
+
+      {deletingCrop && (
+        <ConfirmDialog
+          title="Delete Crop Option"
+          message={`Are you sure you want to delete "${deletingCrop.name}"? This cannot be undone.`}
+          confirmLabel="Delete"
+          variant="danger"
+          onConfirm={async () => {
+            try {
+              await api.delete(`/production/crop-types/${deletingCrop.id}/`)
+              showToast(`"${deletingCrop.name}" deleted.`, 'success')
+              setDeletingCrop(null)
+              fetchAll()
+            } catch {
+              showToast('Failed to delete crop. It may be in use.', 'error')
+              setDeletingCrop(null)
+            }
+          }}
+          onCancel={() => setDeletingCrop(null)}
         />
       )}
     </PageLayout>
