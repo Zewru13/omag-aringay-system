@@ -2,6 +2,7 @@ from django.db.models import Q
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from accounts.permissions import IsAdminOrEvaluator
 
@@ -114,6 +115,7 @@ class FarmerDeleteView(generics.DestroyAPIView):
 class FarmParcelListView(generics.ListCreateAPIView):
     serializer_class = FarmParcelSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
 
     def get_queryset(self):
         return FarmParcel.objects.filter(
@@ -135,6 +137,7 @@ class FarmParcelCreateView(generics.CreateAPIView):
 class FarmCropListCreateView(generics.ListCreateAPIView):
     serializer_class = FarmCropSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
 
     def get_queryset(self):
         return FarmCrop.objects.filter(farm_parcel_id=self.kwargs['parcel_id'])
@@ -158,6 +161,7 @@ class FarmCropDeleteView(generics.DestroyAPIView):
 class FarmMachineryListCreateView(generics.ListCreateAPIView):
     serializer_class = FarmMachinerySerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
 
     def get_queryset(self):
         return FarmMachinery.objects.filter(farm_parcel_id=self.kwargs['parcel_id'])
@@ -171,3 +175,35 @@ class FarmMachineryDeleteView(generics.DestroyAPIView):
     serializer_class = FarmMachinerySerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     lookup_field = 'id'
+
+
+class FarmerDuplicateCheckView(APIView):
+    """GET /api/farmers/check-duplicate/?first_name=&last_name=&birth_date="""
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request):
+        first_name = request.query_params.get('first_name', '').strip()
+        last_name  = request.query_params.get('last_name',  '').strip()
+        birth_date = request.query_params.get('birth_date', '').strip()
+
+        if not first_name or not last_name:
+            return Response({'duplicates': []})
+
+        qs = Farmer.objects.filter(
+            first_name__iexact=first_name,
+            last_name__iexact=last_name,
+        )
+        if birth_date:
+            qs = qs.filter(birthdate=birth_date)
+
+        duplicates = [
+            {
+                'id': f.id,
+                'full_name': f.full_name,
+                'barangay': f.barangay,
+                'rsbsa_number': f.rsbsa_number,
+                'birth_date': str(f.birthdate) if f.birthdate else None,
+            }
+            for f in qs[:5]
+        ]
+        return Response({'duplicates': duplicates})

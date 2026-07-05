@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AlertTriangle, BarChart2, Download, FileText, TrendingUp, Upload, User } from 'lucide-react'
+import { AlertTriangle, BarChart2, Download, FileText, Plus, TrendingUp, Upload, User } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
+import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
@@ -167,7 +169,10 @@ function ImportErrorsModal({ errors, created, onClose }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function ForecastingPage() {
+  const navigate = useNavigate()
   const [records,       setRecords]       = useState([])
+  const [totalCount,    setTotalCount]    = useState(0)
+  const [page,          setPage]          = useState(1)
   const [isLoading,     setIsLoading]     = useState(true)
   const [error,         setError]         = useState('')
   const [search,        setSearch]        = useState('')
@@ -177,17 +182,18 @@ export default function ForecastingPage() {
   const fileInputRef = useRef(null)
   const { showToast } = useToast()
 
-  const fetchRecords = useCallback(async () => {
+  const fetchRecords = useCallback(async (pageNum = 1) => {
     setIsLoading(true); setError('')
     try {
-      const r = await api.get('/production/monitoring/')
+      const r = await api.get('/production/monitoring/', { params: { status: 'Active', page: pageNum } })
       setRecords(Array.isArray(r.data) ? r.data : (r.data.results || []))
+      setTotalCount(typeof r.data?.count === 'number' ? r.data.count : 0)
     } catch {
       setError('Failed to load forecast records.')
     } finally { setIsLoading(false) }
   }, [])
 
-  useEffect(() => { fetchRecords() }, [fetchRecords])
+  useEffect(() => { fetchRecords(page) }, [fetchRecords, page])
 
   const handleDownloadTemplate = async () => {
     try {
@@ -267,6 +273,14 @@ export default function ForecastingPage() {
             />
             <button
               type="button"
+              onClick={() => navigate('/crop-records?action=add')}
+              className="flex items-center gap-1.5 rounded-lg border border-[#C8D5C8] px-3 py-[5px] text-[12px] font-medium text-[#4A5E4A] transition-colors hover:bg-[#F5F7F5]"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add Crop
+            </button>
+            <button
+              type="button"
               disabled={isImporting}
               onClick={() => fileInputRef.current?.click()}
               className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 py-[5px] text-[12px] font-medium text-white transition-colors hover:bg-[#235E38] disabled:opacity-60"
@@ -291,13 +305,20 @@ export default function ForecastingPage() {
         {error && <ErrorMessage message={error} />}
 
         <DataTable columns={COLUMNS} data={rows} isLoading={isLoading} />
+
+        <PaginationBar
+          page={page}
+          totalCount={totalCount}
+          pageSize={10}
+          onPageChange={setPage}
+        />
       </div>
 
       {detailRecord && (
         <ForecastDetailModal
           record={detailRecord}
           onClose={() => setDetailRecord(null)}
-          onUpdated={fetchRecords}
+          onUpdated={() => fetchRecords(page)}
         />
       )}
 

@@ -1,0 +1,975 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { AlertTriangle, Fish, Pencil, Plus, Search, Trash2, User } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import api from '../../api/axiosInstance.js'
+import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
+import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
+import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
+import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import ModalShell from '../../components/UI/ModalShell.jsx'
+import PageLayout from '../../components/Layout/PageLayout.jsx'
+import PaginationBar from '../../components/UI/PaginationBar.jsx'
+import StatusPill from '../../components/UI/StatusPill.jsx'
+import { useAuth } from '../../context/AuthContext.jsx'
+import { useToast } from '../../context/ToastContext.jsx'
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+function fmtShort(v) {
+  if (!v) return '—'
+  const d = new Date(v + 'T00:00:00')
+  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`
+}
+
+function fmtLong(v) {
+  if (!v) return '—'
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(v + 'T00:00:00'))
+}
+
+function detectSeason(dateStr) {
+  if (!dateStr) return 'Wet'
+  const month = new Date(dateStr).getMonth() + 1
+  return month >= 6 && month <= 11 ? 'Wet' : 'Dry'
+}
+
+function computeHarvestPreview(species, dateStocked, fingerlings, survivalRate, avgWeight) {
+  if (!species || !dateStocked) return null
+  const d = new Date(dateStocked + 'T00:00:00')
+  d.setDate(d.getDate() + species.culture_duration_days)
+  const harvestDate = d
+  let estKg = null
+  if (fingerlings && survivalRate && avgWeight) {
+    estKg = parseFloat(fingerlings) * (parseFloat(survivalRate) / 100) * parseFloat(avgWeight)
+  }
+  return { harvestDate, estKg }
+}
+
+const STATUS_TONES = {
+  Stocked:     'green',
+  'For Harvest': 'amber',
+  Harvested:   'blue',
+}
+
+const COLUMNS = [
+  { key: 'species_name_cell',   label: 'SPECIES' },
+  { key: 'fisherfolk_cell',     label: 'FISHERFOLK' },
+  { key: 'culture_type',        label: 'CULTURE TYPE' },
+  { key: 'date_stocked_fmt',    label: 'DATE STOCKED' },
+  { key: 'expected_harvest_fmt',label: 'EXPECTED HARVEST' },
+  { key: 'est_harvest_kg_fmt',  label: 'EST. HARVEST (KG)' },
+  { key: 'assoc_name',          label: 'ASSOCIATION' },
+  { key: 'pond_location',       label: 'POND LOCATION' },
+  { key: 'status_cell',         label: 'STATUS' },
+  { key: 'actions_cell',        label: 'ACTIONS' },
+]
+
+// ─── Fisherfolk Search Input ──────────────────────────────────────────────────
+
+function FisherfolkSearchInput({ onSelect, selected }) {
+  const [query,     setQuery]     = useState('')
+  const [results,   setResults]   = useState([])
+  const [searching, setSearching] = useState(false)
+  const [showDrop,  setShowDrop]  = useState(false)
+  const debounceRef = useRef(null)
+  const wrapperRef  = useRef(null)
+
+  const doSearch = useCallback(async (q) => {
+    if (!q.trim()) { setResults([]); return }
+    setSearching(true)
+    try {
+      const r = await api.get('/fisheries/fisherfolk/', { params: { search: q } })
+      const list = Array.isArray(r.data) ? r.data : (r.data.results || [])
+      setResults(list.slice(0, 8))
+    } catch { setResults([]) }
+    finally { setSearching(false) }
+  }, [])
+
+  const handleChange = (e) => {
+    const v = e.target.value
+    setQuery(v)
+    setShowDrop(true)
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => doSearch(v), 300)
+  }
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setShowDrop(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const handleSelect = (folk) => {
+    onSelect({
+      id:            folk.id,
+      full_name:     folk.full_name,
+      barangay:      folk.barangay || '',
+      assoc_name:    folk.association_name || '',
+    })
+    setQuery(folk.full_name)
+    setShowDrop(false)
+  }
+
+  const handleClear = () => {
+    setQuery('')
+    onSelect({ id: null, full_name: '', barangay: '', assoc_name: '' })
+    setResults([])
+  }
+
+  const displayValue = selected.id ? selected.full_name : query
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <label className="mb-1.5 block text-[13px] font-medium text-[#4A5E4A]">
+        Fisherfolk <span className="text-rose-500">*</span>
+      </label>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#A8BCA8] pointer-events-none" />
+        <input
+          type="text"
+          placeholder="Search by name or registration number…"
+          value={displayValue}
+          onChange={handleChange}
+          onFocus={() => { if (results.length > 0) setShowDrop(true) }}
+          className={`${baseInputClasses} pl-8 ${selected.id ? 'pr-16' : ''}`}
+        />
+        {selected.id && (
+          <button
+            type="button"
+            onClick={handleClear}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-rose-500 hover:text-rose-700 px-1"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+      {showDrop && (
+        <div className="absolute z-50 mt-1 w-full rounded-xl border border-[#E2E8E2] bg-white shadow-lg max-h-52 overflow-y-auto">
+          {searching ? (
+            <p className="px-4 py-3 text-xs text-[#7A8E7A]">Searching…</p>
+          ) : results.length === 0 ? (
+            <p className="px-4 py-3 text-xs text-[#7A8E7A]">{query.trim() ? 'No fisherfolk found.' : 'Type to search fisherfolk.'}</p>
+          ) : (
+            results.map(f => (
+              <button
+                key={f.id}
+                type="button"
+                onMouseDown={() => handleSelect(f)}
+                className="flex items-start gap-3 w-full px-4 py-2.5 text-left hover:bg-[#F5F7F5] transition-colors"
+              >
+                <User className="w-3.5 h-3.5 mt-0.5 text-[#A8BCA8] shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-[#1A2B1A]">{f.full_name}</p>
+                  <p className="text-[11px] text-[#7A8E7A]">
+                    {f.lgu_registration_number && `${f.lgu_registration_number} · `}{f.barangay || ''}
+                  </p>
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Harvest Preview Box ──────────────────────────────────────────────────────
+
+function HarvestPreviewBox({ species, dateStocked, fingerlings, survivalRate, avgWeight }) {
+  const preview = useMemo(() =>
+    computeHarvestPreview(species, dateStocked, fingerlings, survivalRate, avgWeight),
+    [species, dateStocked, fingerlings, survivalRate, avgWeight]
+  )
+  if (!preview) return null
+  return (
+    <div className="flex items-start gap-2 rounded-xl border border-[#C8E6D0] bg-[#EBF5EE] px-4 py-3">
+      <AlertTriangle size={14} className="mt-0.5 shrink-0 text-[#1B4D2E]" />
+      <div>
+        <p className="text-xs font-semibold text-[#1B4D2E]">
+          Expected Harvest: {fmtLong(preview.harvestDate.toISOString().slice(0, 10))}
+        </p>
+        <p className="text-[11px] text-[#235E38]">
+          {species.culture_duration_days} days culture period
+          {preview.estKg != null
+            ? ` · Est. harvest: ${preview.estKg.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg`
+            : ''}
+        </p>
+        {preview.estKg != null && (
+          <p className="text-[11px] text-[#4A5E4A] mt-0.5">
+            = {fingerlings} fingerlings × {survivalRate}% survival × {avgWeight} kg avg weight
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Add Stocking Modal ───────────────────────────────────────────────────────
+
+function makeRecord(n) {
+  return {
+    _id:                  n,
+    pond_location_barangay: '',
+    land_status:          '',
+    culture_type:         'Pond',
+    species:              '',
+    date_stocked:         '',
+    area_hectares:        '',
+    number_of_fingerlings:'',
+    survival_rate_pct:    '',
+    avg_body_weight_kg:   '',
+    season:               detectSeason(''),
+    _speciesObj:          null,
+  }
+}
+
+function StockingRecordCard({ rec, index, total, speciesList, onUpdate, onRemove }) {
+  const set = (field, value) => onUpdate(rec._id, field, value)
+
+  const handleSpeciesChange = (speciesId) => {
+    const sp = speciesList.find(s => String(s.id) === String(speciesId))
+    onUpdate(rec._id, 'species', speciesId)
+    onUpdate(rec._id, '_speciesObj', sp || null)
+    if (sp) {
+      onUpdate(rec._id, 'survival_rate_pct', String(sp.default_survival_rate_pct || ''))
+      onUpdate(rec._id, 'avg_body_weight_kg', String(sp.default_avg_body_weight_kg || ''))
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">Stocking Record {index + 1}</p>
+        {total > 1 && (
+          <button type="button" onClick={() => onRemove(rec._id)}
+            className="flex items-center gap-1 text-xs font-medium text-rose-500 hover:text-rose-700">
+            <Trash2 size={12} /> Remove
+          </button>
+        )}
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <BarangaySelect
+          id={`pond_loc_${rec._id}`}
+          label="Pond Location (Barangay)"
+          value={rec.pond_location_barangay}
+          onChange={e => set('pond_location_barangay', e.target.value)}
+        />
+        <FormField label="Land Status">
+          <select className={baseInputClasses} value={rec.land_status} onChange={e => set('land_status', e.target.value)}>
+            <option value="">Select…</option>
+            <option value="Owner">Owner</option>
+            <option value="Lessee">Lessee</option>
+            <option value="Tenant">Tenant</option>
+            <option value="Other">Other</option>
+          </select>
+        </FormField>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <FormField label="Culture Type" required>
+          <select className={baseInputClasses} value={rec.culture_type} onChange={e => set('culture_type', e.target.value)}>
+            <option value="Pond">Pond</option>
+            <option value="Cage">Cage</option>
+            <option value="Pen">Pen</option>
+          </select>
+        </FormField>
+        <FormField label="Species" required>
+          <select className={baseInputClasses} value={rec.species} onChange={e => handleSpeciesChange(e.target.value)}>
+            <option value="">Select species…</option>
+            {speciesList.map(s => (
+              <option key={s.id} value={s.id}>{s.species_name} ({s.culture_environment})</option>
+            ))}
+          </select>
+        </FormField>
+      </div>
+
+      {rec._speciesObj && (
+        <div className="sm:col-span-2 bg-slate-50 border border-[#E2E8E2] rounded-xl px-4 py-3">
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Category</p>
+              <p className="text-sm font-medium text-slate-900">{rec._speciesObj.category_name || '—'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Environment</p>
+              <p className="text-sm font-medium text-slate-900">{rec._speciesObj.culture_environment}</p>
+            </div>
+            <div>
+              <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Culture Duration</p>
+              <p className="text-sm font-medium text-slate-900">{rec._speciesObj.culture_duration_days} days</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <FormField label="Date Stocked" required>
+          <input type="date" className={baseInputClasses} value={rec.date_stocked}
+            onChange={e => {
+              set('date_stocked', e.target.value)
+              set('season', detectSeason(e.target.value))
+            }} />
+        </FormField>
+        <FormField label="Area (ha)">
+          <input type="number" step="0.0001" min="0" className={baseInputClasses}
+            placeholder="0.0000" value={rec.area_hectares}
+            onChange={e => set('area_hectares', e.target.value)} />
+        </FormField>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <FormField label="No. of Fingerlings" required>
+          <input type="number" min="1" className={baseInputClasses}
+            placeholder="e.g. 500" value={rec.number_of_fingerlings}
+            onChange={e => set('number_of_fingerlings', e.target.value)} />
+        </FormField>
+        <FormField label="Survival Rate (%)">
+          <input type="number" min="0" max="100" step="0.01" className={baseInputClasses}
+            placeholder="e.g. 80.00" value={rec.survival_rate_pct}
+            onChange={e => set('survival_rate_pct', e.target.value)} />
+        </FormField>
+        <FormField label="Avg Body Weight (kg)">
+          <input type="number" min="0" step="0.001" className={baseInputClasses}
+            placeholder="e.g. 0.250" value={rec.avg_body_weight_kg}
+            onChange={e => set('avg_body_weight_kg', e.target.value)} />
+        </FormField>
+      </div>
+
+      <HarvestPreviewBox
+        species={rec._speciesObj}
+        dateStocked={rec.date_stocked}
+        fingerlings={rec.number_of_fingerlings}
+        survivalRate={rec.survival_rate_pct}
+        avgWeight={rec.avg_body_weight_kg}
+      />
+
+      <FormField label="Season">
+        <select className={baseInputClasses} value={rec.season} onChange={e => set('season', e.target.value)}>
+          <option value="Wet">Wet Season (Jun–Nov)</option>
+          <option value="Dry">Dry Season (Dec–May)</option>
+        </select>
+      </FormField>
+    </div>
+  )
+}
+
+function AddStockingModal({ onClose, onSuccess }) {
+  const { showToast } = useToast()
+  const [speciesList,  setSpeciesList]  = useState([])
+  const [records,      setRecords]      = useState([makeRecord(1)])
+  const [nextId,       setNextId]       = useState(2)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showConfirm,  setShowConfirm]  = useState(false)
+  const [error,        setError]        = useState('')
+  const [fisherfolkInfo, setFisherfolkInfo] = useState({
+    id: null, full_name: '', barangay: '', assoc_name: '',
+  })
+
+  useEffect(() => {
+    api.get('/fisheries/species/')
+      .then(r => setSpeciesList(Array.isArray(r.data) ? r.data : (r.data.results || [])))
+  }, [])
+
+  const addRecord = () => {
+    setRecords(r => [...r, makeRecord(nextId)])
+    setNextId(n => n + 1)
+  }
+
+  const removeRecord = (id) => setRecords(r => r.filter(x => x._id !== id))
+
+  const updateRecord = (id, field, value) => {
+    setRecords(r => r.map(x => x._id === id ? { ...x, [field]: value } : x))
+  }
+
+  const validate = () => {
+    if (!fisherfolkInfo.id) { setError('Please select a fisherfolk.'); return false }
+    for (const rec of records) {
+      const i = records.indexOf(rec) + 1
+      if (!rec.species)              { setError(`Record ${i}: Species is required.`); return false }
+      if (!rec.date_stocked)         { setError(`Record ${i}: Date stocked is required.`); return false }
+      if (!rec.number_of_fingerlings){ setError(`Record ${i}: Number of fingerlings is required.`); return false }
+    }
+    return true
+  }
+
+  const handleSubmit = (e) => {
+    e.preventDefault(); setError('')
+    if (!validate()) return
+    setShowConfirm(true)
+  }
+
+  const handleConfirmed = async () => {
+    setShowConfirm(false); setIsSubmitting(true)
+    try {
+      for (const rec of records) {
+        const year = new Date(rec.date_stocked).getFullYear()
+        await api.post('/fisheries/stocking/', {
+          fisherfolk:               fisherfolkInfo.id,
+          species:                  rec.species,
+          pond_location_barangay:   rec.pond_location_barangay || '',
+          land_status:              rec.land_status || '',
+          culture_type:             rec.culture_type,
+          date_stocked:             rec.date_stocked,
+          area_hectares:            rec.area_hectares ? parseFloat(rec.area_hectares) : null,
+          number_of_fingerlings:    parseInt(rec.number_of_fingerlings),
+          survival_rate_pct:        rec.survival_rate_pct !== '' ? parseFloat(rec.survival_rate_pct) : null,
+          avg_body_weight_kg:       rec.avg_body_weight_kg !== '' ? parseFloat(rec.avg_body_weight_kg) : null,
+          season:                   rec.season,
+          year,
+        })
+      }
+      showToast(`${records.length} stocking record${records.length > 1 ? 's' : ''} added.`, 'success')
+      onSuccess(); onClose()
+    } catch (err) {
+      const data = err?.response?.data
+      if (data && typeof data === 'object') {
+        const msgs = Object.entries(data)
+          .map(([k, v]) => `${k.replace(/_/g, ' ')}: ${Array.isArray(v) ? v[0] : v}`)
+        setError(msgs.join(' · ') || 'Failed to save one or more records.')
+      } else {
+        setError('Failed to save one or more records.')
+      }
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <>
+      <ModalShell title="Add New Stocking Record" subtitle="Enter stocking information below." icon={Fish} onClose={onClose} maxWidth="max-w-2xl">
+        <form onSubmit={handleSubmit}>
+          <div className="overflow-y-auto pr-1 space-y-4 pb-6" style={{ maxHeight: 'calc(85vh - 180px)' }}>
+            {/* Fisherfolk section */}
+            <div className="rounded-xl bg-slate-50 border border-slate-200 p-4">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400 mb-3">
+                Fisherfolk Information
+              </p>
+              <FisherfolkSearchInput onSelect={setFisherfolkInfo} selected={fisherfolkInfo} />
+              {fisherfolkInfo.id && (
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-[#A8BCA8] mb-0.5">Home Barangay</p>
+                    <p className="text-xs font-medium text-[#1A2B1A]">{fisherfolkInfo.barangay || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-[#A8BCA8] mb-0.5">Association</p>
+                    <p className="text-xs font-medium text-[#1A2B1A]">{fisherfolkInfo.assoc_name || 'Non-member'}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Stocking records */}
+            {records.map((rec, i) => (
+              <StockingRecordCard
+                key={rec._id}
+                rec={rec}
+                index={i}
+                total={records.length}
+                speciesList={speciesList}
+                onUpdate={updateRecord}
+                onRemove={removeRecord}
+              />
+            ))}
+
+            <button
+              type="button"
+              onClick={addRecord}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#C8D5C8] py-3 text-sm font-medium text-[#4A5E4A] hover:border-[#1B4D2E] hover:text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors mt-2 mb-2"
+            >
+              <Plus size={14} /> Add Another Stocking Record
+            </button>
+          </div>
+
+          {error && (
+            <p className="mt-3 rounded-xl bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-600">{error}</p>
+          )}
+
+          <div className="flex justify-end gap-3 border-t border-[#F0F4F0] pt-4 mt-4">
+            <button type="button" onClick={onClose}
+              className="rounded-lg border border-[#C8D5C8] px-5 py-2 text-sm font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
+              Cancel
+            </button>
+            <button type="submit" disabled={isSubmitting}
+              className="rounded-lg bg-[#1B4D2E] px-5 py-2 text-sm font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-60">
+              {isSubmitting ? 'Saving…' : `Save ${records.length > 1 ? `${records.length} Records` : 'Record'}`}
+            </button>
+          </div>
+        </form>
+      </ModalShell>
+
+      {showConfirm && (
+        <ConfirmDialog
+          title="Confirm Add Stocking"
+          message={`Add ${records.length} stocking record${records.length > 1 ? 's' : ''} for ${fisherfolkInfo.full_name}?`}
+          confirmLabel="Confirm"
+          onConfirm={handleConfirmed}
+          onCancel={() => setShowConfirm(false)}
+        />
+      )}
+    </>
+  )
+}
+
+// ─── Edit Stocking Modal ──────────────────────────────────────────────────────
+
+const editLabelCls = 'block text-[13px] font-medium text-[#4A5E4A] mb-1.5'
+
+function EditStockingModal({ record, speciesList, onClose, onSaved }) {
+  const { showToast } = useToast()
+
+  const originalData = {
+    pond_location_barangay: record.pond_location_barangay || '',
+    land_status:            record.land_status || '',
+    culture_type:           record.culture_type || 'Pond',
+    date_stocked:           record.date_stocked || '',
+    area_hectares:          record.area_hectares != null ? String(record.area_hectares) : '',
+    number_of_fingerlings:  record.number_of_fingerlings ? String(record.number_of_fingerlings) : '',
+    survival_rate_pct:      record.survival_rate_pct != null ? String(record.survival_rate_pct) : '',
+    avg_body_weight_kg:     record.avg_body_weight_kg != null ? String(record.avg_body_weight_kg) : '',
+    season:                 record.season || '',
+  }
+  const [form, setForm]           = useState(originalData)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError]         = useState('')
+
+  const normalize = (v) => (v === null || v === undefined ? '' : String(v).trim())
+  const isDirty = Object.keys(originalData).some(k => normalize(form[k]) !== normalize(originalData[k]))
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  const speciesObj = speciesList.find(s => String(s.id) === String(record.species))
+
+  const preview = useMemo(() =>
+    computeHarvestPreview(speciesObj, form.date_stocked, form.number_of_fingerlings, form.survival_rate_pct, form.avg_body_weight_kg),
+    [speciesObj, form.date_stocked, form.number_of_fingerlings, form.survival_rate_pct, form.avg_body_weight_kg]
+  )
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!form.date_stocked)          { setError('Date stocked is required.'); return }
+    if (!form.number_of_fingerlings) { setError('Number of fingerlings is required.'); return }
+    setError(''); setIsSubmitting(true)
+    try {
+      await api.patch(`/fisheries/stocking/${record.id}/`, {
+        pond_location_barangay: form.pond_location_barangay,
+        land_status:            form.land_status,
+        culture_type:           form.culture_type,
+        date_stocked:           form.date_stocked,
+        area_hectares:          form.area_hectares !== '' ? parseFloat(form.area_hectares) : null,
+        number_of_fingerlings:  parseInt(form.number_of_fingerlings),
+        survival_rate_pct:      form.survival_rate_pct !== '' ? parseFloat(form.survival_rate_pct) : null,
+        avg_body_weight_kg:     form.avg_body_weight_kg !== '' ? parseFloat(form.avg_body_weight_kg) : null,
+        season:                 form.season,
+      })
+      showToast('Stocking record updated.', 'success')
+      onSaved()
+    } catch {
+      setError('Failed to update stocking record.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <ModalShell
+      title={`Edit — ${record.species_name}`}
+      subtitle="Update stocking record details."
+      icon={Pencil}
+      onClose={onClose}
+      maxWidth="max-w-lg"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Species info — read-only */}
+        <div className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] px-4 py-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8] mb-1">Species (Read-Only)</p>
+          <p className="text-[14px] font-semibold text-[#1A2B1A]">{record.species_name}</p>
+          {speciesObj && (
+            <p className="text-[12px] text-[#7A8E7A] mt-0.5">
+              {speciesObj.culture_environment} · {speciesObj.culture_duration_days} days
+            </p>
+          )}
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <BarangaySelect
+            label="Pond Location (Barangay)"
+            value={form.pond_location_barangay}
+            onChange={(e) => set('pond_location_barangay', e.target.value)}
+          />
+          <div>
+            <label className={editLabelCls}>Area (ha)</label>
+            <input type="number" step="0.0001" min="0" className={baseInputClasses} placeholder="0.0000"
+              value={form.area_hectares} onChange={e => set('area_hectares', e.target.value)} />
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div>
+            <label className={editLabelCls}>Land Status</label>
+            <select className={baseInputClasses} value={form.land_status} onChange={e => set('land_status', e.target.value)}>
+              <option value="">Select…</option>
+              <option value="Owner">Owner</option>
+              <option value="Lessee">Lessee</option>
+              <option value="Tenant">Tenant</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label className={editLabelCls}>Culture Type</label>
+            <select className={baseInputClasses} value={form.culture_type} onChange={e => set('culture_type', e.target.value)}>
+              <option value="Pond">Pond</option>
+              <option value="Cage">Cage</option>
+              <option value="Pen">Pen</option>
+            </select>
+          </div>
+          <div>
+            <label className={editLabelCls}>Date Stocked <span className="text-rose-500">*</span></label>
+            <input type="date" className={baseInputClasses} value={form.date_stocked}
+              onChange={e => { set('date_stocked', e.target.value); if (!form.season) set('season', detectSeason(e.target.value)) }} />
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div>
+            <label className={editLabelCls}>No. of Fingerlings <span className="text-rose-500">*</span></label>
+            <input type="number" min="1" className={baseInputClasses} placeholder="e.g. 500"
+              value={form.number_of_fingerlings} onChange={e => set('number_of_fingerlings', e.target.value)} />
+          </div>
+          <div>
+            <label className={editLabelCls}>Survival Rate (%)</label>
+            <input type="number" min="0" max="100" step="0.01" className={baseInputClasses} placeholder="e.g. 80.00"
+              value={form.survival_rate_pct} onChange={e => set('survival_rate_pct', e.target.value)} />
+          </div>
+          <div>
+            <label className={editLabelCls}>Avg Body Weight (kg)</label>
+            <input type="number" min="0" step="0.001" className={baseInputClasses} placeholder="e.g. 0.250"
+              value={form.avg_body_weight_kg} onChange={e => set('avg_body_weight_kg', e.target.value)} />
+          </div>
+        </div>
+
+        {/* Harvest preview */}
+        {preview && (
+          <div className="rounded-xl border border-[#C8E6D0] bg-[#EBF5EE] px-4 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#1B4D2E] mb-2">Harvest Preview</p>
+            <div className="flex flex-wrap gap-x-6 gap-y-1">
+              <div>
+                <p className="text-[11px] text-[#4A5E4A]">Est. Harvest Date</p>
+                <p className="text-[13px] font-semibold text-[#1A2B1A]">
+                  {fmtLong(preview.harvestDate.toISOString().slice(0, 10))}
+                </p>
+              </div>
+              {preview.estKg != null && (
+                <div>
+                  <p className="text-[11px] text-[#4A5E4A]">Est. Harvest (kg)</p>
+                  <p className="text-[13px] font-semibold text-[#1A2B1A]">
+                    {preview.estKg.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div>
+          <label className={editLabelCls}>Season</label>
+          <select className={baseInputClasses} value={form.season} onChange={e => set('season', e.target.value)}>
+            <option value="Wet">Wet</option>
+            <option value="Dry">Dry</option>
+          </select>
+        </div>
+
+        {error && (
+          <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>
+        )}
+
+        <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-3">
+          <button type="button" onClick={onClose}
+            className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
+            Cancel
+          </button>
+          <button type="submit" disabled={isSubmitting || !isDirty}
+            className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50">
+            {isSubmitting ? 'Saving…' : 'Save Changes'}
+          </button>
+        </div>
+      </form>
+    </ModalShell>
+  )
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
+export default function FisheriesRecordsPage() {
+  const { user } = useAuth()
+  const [searchParams] = useSearchParams()
+  const { showToast } = useToast()
+  const [records,      setRecords]      = useState([])
+  const [totalCount,   setTotalCount]   = useState(0)
+  const [page,         setPage]         = useState(1)
+  const [isLoading,    setIsLoading]    = useState(true)
+  const [error,        setError]        = useState('')
+  const [search,       setSearch]       = useState('')
+  const [statusFilter, setStatusFilter] = useState('All Status')
+  const [seasonFilter, setSeasonFilter] = useState('')
+  const [yearFilter,   setYearFilter]   = useState('')
+  const [showAdd,      setShowAdd]      = useState(false)
+  const [editingRec,   setEditingRec]   = useState(null)
+  const [deletingRec,  setDeletingRec]  = useState(null)
+  const [speciesList,  setSpeciesList]  = useState([])
+
+  // Handle ?action=add from fisheries monitoring "Add Stocking" button
+  useEffect(() => {
+    if (searchParams.get('action') === 'add') setShowAdd(true)
+  }, [])
+
+  useEffect(() => {
+    api.get('/fisheries/species/')
+      .then(r => setSpeciesList(Array.isArray(r.data) ? r.data : (r.data.results || [])))
+      .catch(() => {})
+  }, [])
+
+  const fetchRecords = useCallback(async (pageNum = 1) => {
+    setIsLoading(true); setError('')
+    try {
+      const params = new URLSearchParams({ page: pageNum })
+      if (statusFilter === 'All Status') {
+        params.set('status', 'Stocked,For Harvest,Harvested')
+      } else if (statusFilter !== 'All Status') {
+        params.set('status', statusFilter)
+      }
+      if (seasonFilter) params.set('season', seasonFilter)
+      if (yearFilter)   params.set('year', yearFilter)
+      const r = await api.get(`/fisheries/stocking/?${params.toString()}`)
+      setRecords(Array.isArray(r.data) ? r.data : (r.data.results || []))
+      setTotalCount(typeof r.data?.count === 'number' ? r.data.count : 0)
+    } catch {
+      setError('Failed to load stocking records.')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [statusFilter, seasonFilter, yearFilter])
+
+  useEffect(() => { setPage(1); fetchRecords(1) }, [statusFilter, seasonFilter, yearFilter])
+  useEffect(() => { fetchRecords(page) }, [fetchRecords, page])
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase()
+    return records.filter(rec =>
+      !q
+      || rec.species_name?.toLowerCase().includes(q)
+      || rec.fisherfolk_name?.toLowerCase().includes(q)
+      || rec.pond_location_barangay?.toLowerCase().includes(q)
+    )
+  }, [records, search])
+
+  const rows = filtered.map(rec => ({
+    ...rec,
+    species_name_cell: (
+      <span className="flex items-center gap-1.5">
+        <span className="font-medium">{rec.species_name}</span>
+        {rec.disaster_count > 0 && (
+          <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-full px-1.5 py-0.5 whitespace-nowrap">
+            <AlertTriangle className="w-2.5 h-2.5" /> Disaster
+          </span>
+        )}
+      </span>
+    ),
+    fisherfolk_cell:      rec.fisherfolk_name || '—',
+    date_stocked_fmt:     fmtShort(rec.date_stocked),
+    expected_harvest_fmt: fmtShort(rec.expected_harvest_date),
+    est_harvest_kg_fmt:   rec.status === 'Harvested' && rec.total_harvested_kg
+      ? `${Number(rec.total_harvested_kg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ✓`
+      : rec.estimated_harvest_kg
+        ? Number(rec.estimated_harvest_kg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        : '—',
+    assoc_name:   rec.association_name || '—',
+    pond_location: rec.pond_location_barangay || '—',
+    status_cell: (
+      <StatusPill tone={STATUS_TONES[rec.status] || 'slate'}>{rec.status}</StatusPill>
+    ),
+    actions_cell: (
+      <div className="flex items-center gap-1">
+        {rec.status !== 'Harvested' && (
+          <button
+            type="button"
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors"
+            onClick={(e) => { e.stopPropagation(); setEditingRec(rec) }}
+            title="Edit"
+          >
+            <Pencil size={14} />
+          </button>
+        )}
+        {user?.role === 'ADMIN' && rec.status !== 'Harvested' && (
+          <button
+            type="button"
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-rose-500 hover:bg-rose-50 transition-colors"
+            onClick={(e) => { e.stopPropagation(); setDeletingRec(rec) }}
+            title="Delete"
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
+      </div>
+    ),
+  }))
+
+  const handleDelete = async () => {
+    try {
+      await api.delete(`/fisheries/stocking/${deletingRec.id}/`)
+      showToast('Stocking record deleted.', 'success')
+      setDeletingRec(null)
+      fetchRecords(page)
+    } catch (err) {
+      showToast(err?.response?.data?.detail || 'Failed to delete record.', 'error')
+    }
+  }
+
+  return (
+    <PageLayout
+      title="Fisheries Records"
+      subtitle="Manage stocking records for aquaculture production."
+      action={
+        <button
+          type="button"
+          className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors"
+          onClick={() => setShowAdd(true)}
+        >
+          <Plus size={15} /> Add Stocking Record
+        </button>
+      }
+    >
+      <div className="space-y-4">
+        {/* Filter bar */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center bg-white border border-[#E2E8E2] rounded-lg px-4 py-2.5">
+          <div className="relative flex-1">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8BCA8]">
+              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            </span>
+            <input
+              className="w-full border-none bg-transparent pl-8 pr-2 text-[13px] text-[#1A2B1A] placeholder-[#A8BCA8] focus:outline-none"
+              placeholder="Search by species, fisherfolk, or barangay..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <select
+            className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[5px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none"
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+          >
+            <option value="All Status">All Status</option>
+            <option value="Stocked">Stocked</option>
+            <option value="For Harvest">For Harvest</option>
+            <option value="Harvested">Harvested</option>
+          </select>
+          <select
+            className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[5px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none"
+            value={seasonFilter}
+            onChange={e => setSeasonFilter(e.target.value)}
+          >
+            <option value="">All Seasons</option>
+            <option value="Dry">Dry Season</option>
+            <option value="Wet">Wet Season</option>
+          </select>
+          <select
+            className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[5px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none"
+            value={yearFilter}
+            onChange={e => setYearFilter(e.target.value)}
+          >
+            <option value="">All Years</option>
+            {Array.from({ length: 8 }, (_, i) => new Date().getFullYear() + 1 - i).map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+        </div>
+
+        {error && <ErrorMessage message={error} />}
+
+        {/* Table */}
+        <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <table className="min-w-full text-sm">
+            <thead className="bg-[#1B4D2E] text-white">
+              <tr>
+                {COLUMNS.map(col => (
+                  <th key={col.key} className="whitespace-nowrap px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-[0.06em]">
+                    {col.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="border-b border-[#F0F4F0] animate-pulse">
+                    {COLUMNS.map(col => (
+                      <td key={col.key} className="px-4 py-[13px]">
+                        <div className="h-4 bg-[#E8EEE8] rounded w-3/4" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={COLUMNS.length} className="py-12 text-center">
+                    <div className="flex flex-col items-center gap-2 text-[#C8D5C8]">
+                      <svg width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                      <p className="text-[14px] font-medium text-[#4A5E4A]">No stocking records found</p>
+                      <p className="text-[13px] text-[#7A8E7A]">Try adjusting your filters or add a new stocking record</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                rows.map(row => (
+                  <tr key={row.id} className="border-b border-[#F0F4F0] transition-colors hover:bg-[#F9FAF9]">
+                    {COLUMNS.map(col => (
+                      <td key={col.key} className="whitespace-nowrap px-4 py-[13px] text-[13px] text-[#1A2B1A] align-middle">
+                        {row[col.key]}
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <PaginationBar
+          page={page}
+          totalCount={totalCount}
+          pageSize={10}
+          onPageChange={p => setPage(p)}
+        />
+      </div>
+
+      {showAdd && (
+        <AddStockingModal
+          onClose={() => setShowAdd(false)}
+          onSuccess={() => { setShowAdd(false); setPage(1); fetchRecords(1) }}
+        />
+      )}
+
+      {editingRec && (
+        <EditStockingModal
+          record={editingRec}
+          speciesList={speciesList}
+          onClose={() => setEditingRec(null)}
+          onSaved={() => { setEditingRec(null); fetchRecords(page) }}
+        />
+      )}
+
+      {deletingRec && (
+        <ConfirmDialog
+          title="Delete Stocking Record"
+          message={`Delete stocking record for "${deletingRec.species_name}"? This cannot be undone.`}
+          confirmLabel="Delete"
+          variant="danger"
+          onConfirm={handleDelete}
+          onCancel={() => setDeletingRec(null)}
+        />
+      )}
+    </PageLayout>
+  )
+}

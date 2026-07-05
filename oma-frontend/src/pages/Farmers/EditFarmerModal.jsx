@@ -66,7 +66,6 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
     is_pwd: farmer.is_pwd || false,
     is_4ps_beneficiary: farmer.is_4ps_beneficiary || false,
     is_icc_ip_member: farmer.is_icc_ip_member || false,
-    is_senior_citizen: farmer.is_senior_citizen || false,
     icc_ip_name: farmer.icc_ip_name || '',
     farmers_association: farmer.farmers_association || null,
   }
@@ -95,10 +94,6 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
     }
     setForm((current) => {
       const next = { ...current, [field]: value }
-      if (field === 'birthdate') {
-        const age = computeAge(value)
-        if (age !== null && age >= 60) next.is_senior_citizen = true
-      }
       return next
     })
     if (field === 'birthdate') setBirthdateError(validateAge(value) || '')
@@ -201,7 +196,7 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
               <p className="mt-1 text-[12px] text-[#4A5E4A]">
                 Age: <strong>{computeAge(form.birthdate)}</strong> years old
                 {computeAge(form.birthdate) >= 60 && (
-                  <span className="ml-2 text-amber-600 font-medium">(Senior Citizen auto-checked)</span>
+                  <span className="ml-2 text-amber-600 font-medium">(Senior Citizen auto-detected)</span>
                 )}
               </p>
             )}
@@ -263,7 +258,6 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
               ['is_pwd', 'Person with Disability (PWD)', false],
               ['is_4ps_beneficiary', '4Ps Beneficiary', false],
               ['is_icc_ip_member', 'ICC/IP Member', false],
-              ['is_senior_citizen', 'Senior Citizen', computeAge(form.birthdate) >= 60],
             ].map(([field, label, autoLocked]) => (
               <label key={field} className={`flex items-center gap-2 ${autoLocked ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}>
                 <input

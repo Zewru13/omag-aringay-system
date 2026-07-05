@@ -174,10 +174,37 @@ function FarmerSearchInput({ onSelect, selected }) {
   )
 }
 
+// ── Crop Duplicate Check ──────────────────────────────────────────────────────
+
+function useCropDuplicateCheck(farmerId, cropTypeId) {
+  const [duplicates,  setDuplicates]  = useState([])
+  const [isChecking,  setIsChecking]  = useState(false)
+  const timerRef = useRef(null)
+
+  useEffect(() => {
+    if (!farmerId || !cropTypeId) { setDuplicates([]); return }
+    clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(async () => {
+      setIsChecking(true)
+      try {
+        const r = await api.get('/production/monitoring/check-duplicate/', {
+          params: { farmer: farmerId, crop_type: cropTypeId },
+        })
+        setDuplicates(r.data?.duplicates || [])
+      } catch { setDuplicates([]) }
+      finally { setIsChecking(false) }
+    }, 500)
+    return () => clearTimeout(timerRef.current)
+  }, [farmerId, cropTypeId])
+
+  return { duplicates, isChecking }
+}
+
 // ── Single Crop Record Card ───────────────────────────────────────────────────
 
-function CropRecordCard({ rec, index, total, cropTypes, onUpdate, onRemove }) {
+function CropRecordCard({ rec, index, total, cropTypes, farmerId, onUpdate, onRemove }) {
   const set = (field, value) => onUpdate(rec._id, field, value)
+  const { duplicates, isChecking } = useCropDuplicateCheck(farmerId, rec.crop_type)
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
@@ -279,6 +306,28 @@ function CropRecordCard({ rec, index, total, cropTypes, onUpdate, onRemove }) {
         datePlanted={rec.date_planted}
         areaPha={rec.area_planted_ha}
       />
+
+      {isChecking && (
+        <p className="text-xs text-slate-400 italic">Checking for active duplicates…</p>
+      )}
+
+      {!isChecking && duplicates.length > 0 && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
+          <div className="flex items-center gap-2 mb-1.5">
+            <AlertTriangle size={13} className="text-amber-600 flex-shrink-0" />
+            <p className="text-xs font-semibold text-amber-800">
+              Active record{duplicates.length > 1 ? 's' : ''} already exist for this crop — you may still proceed.
+            </p>
+          </div>
+          <ul className="space-y-0.5">
+            {duplicates.map(d => (
+              <li key={d.id} className="text-xs text-amber-700">
+                Planted: {d.date_planted || '—'} · Area: {d.area_planted_ha} ha
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Optional planting details */}
       <div className="grid gap-3 sm:grid-cols-2">
@@ -449,6 +498,7 @@ function AddCropMonitoringModal({ onClose, onSuccess }) {
                 index={i}
                 total={records.length}
                 cropTypes={cropTypes}
+                farmerId={farmerInfo.farmer_id}
                 onUpdate={updateRecord}
                 onRemove={removeRecord}
               />

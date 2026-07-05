@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { ChevronDown, LogOut, Menu, User } from 'lucide-react'
+import { ChevronDown, HelpCircle, History, LogOut, Menu, User } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import ConfirmDialog from '../UI/ConfirmDialog.jsx'
@@ -100,6 +100,26 @@ function Navbar({ onToggleSidebar, isCollapsed }) {
                 <User size={14} className="text-[#7A8E7A]" />
                 My Profile
               </Link>
+
+              <Link
+                to="/audit-log"
+                className="flex items-center gap-2 px-3 py-2 rounded-md text-[13px] text-[#1A2B1A] hover:bg-[#F5F7F5] transition-colors"
+                onClick={() => setDropdownOpen(false)}
+              >
+                <History size={14} className="text-[#7A8E7A]" />
+                Activity Log
+              </Link>
+
+              <Link
+                to="/help"
+                className="flex items-center gap-2 px-3 py-2 rounded-md text-[13px] text-[#1A2B1A] hover:bg-[#F5F7F5] transition-colors"
+                onClick={() => setDropdownOpen(false)}
+              >
+                <HelpCircle size={14} className="text-[#7A8E7A]" />
+                Help
+              </Link>
+
+              <div className="border-t border-[#F0F4F0] my-1" />
 
               <button
                 type="button"

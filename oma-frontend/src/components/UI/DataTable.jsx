@@ -1,4 +1,14 @@
-import LoadingSpinner from './LoadingSpinner'
+function SkeletonRow({ columnCount }) {
+  return (
+    <tr className="border-b border-[#F0F4F0] animate-pulse">
+      {Array.from({ length: columnCount }).map((_, i) => (
+        <td key={i} className="px-4 py-[13px]">
+          <div className="h-4 bg-[#E8EEE8] rounded w-3/4" />
+        </td>
+      ))}
+    </tr>
+  )
+}
 
 function DataTable({ columns, data, isLoading, loading, onRowClick, emptyState }) {
   const showLoading = isLoading || loading
@@ -6,8 +16,26 @@ function DataTable({ columns, data, isLoading, loading, onRowClick, emptyState }
   if (showLoading) {
     return (
       <div className="bg-white border border-[#E2E8E2] rounded-xl overflow-hidden">
-        <div className="flex items-center justify-center py-12">
-          <LoadingSpinner size={24} />
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-left">
+            <thead>
+              <tr className="bg-[#1B4D2E]">
+                {columns.map((column) => (
+                  <th
+                    className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white"
+                    key={column.key}
+                  >
+                    {column.label}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <SkeletonRow key={i} columnCount={columns.length} />
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     )

@@ -28,6 +28,7 @@ class ProgramListView(generics.ListCreateAPIView):
     queryset = InterventionProgram.objects.all().order_by('-date_created')
     serializer_class = InterventionProgramSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = None
 
     def get_permissions(self):
         return [IsAuthenticated(), IsAdminOrEvaluator()]
@@ -57,7 +58,7 @@ class ProgramDetailView(generics.RetrieveUpdateAPIView):
 
 class BeneficiaryListView(generics.ListCreateAPIView):
     serializer_class = BeneficiaryRecordCreateSerializer
-    pagination_class = BeneficiaryPagination
+    pagination_class = None
 
     def get_permissions(self):
         return [IsAuthenticated(), IsAdminOrEvaluator()]
@@ -172,7 +173,7 @@ class FisherfolkInterventionHistoryView(APIView):
 
 class FisherfolkBeneficiaryListCreateView(generics.ListCreateAPIView):
     serializer_class = FisherfolkBeneficiaryRecordCreateSerializer
-    pagination_class = BeneficiaryPagination
+    pagination_class = None
 
     def get_permissions(self):
         return [IsAuthenticated(), IsAdminOrEvaluator()]

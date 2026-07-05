@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FileText, MessageCircle, Pencil, Plus, Search, User } from "lucide-react";
+import { FileText, MessageCircle, Pencil, Plus, Search, Trash2, User } from "lucide-react";
 import BarangaySelect from "../../components/UI/BarangaySelect.jsx";
 import api from "../../api/axiosInstance.js";
 import PageLayout from "../../components/Layout/PageLayout.jsx";
@@ -7,7 +7,9 @@ import ConfirmDialog from "../../components/UI/ConfirmDialog.jsx";
 import ErrorMessage from "../../components/UI/ErrorMessage.jsx";
 import FormField, { baseInputClasses } from "../../components/UI/FormField.jsx";
 import ModalShell from "../../components/UI/ModalShell.jsx";
+import PaginationBar from "../../components/UI/PaginationBar.jsx";
 import StatusPill from "../../components/UI/StatusPill.jsx";
+import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import AddCropMonitoringModal from "../Monitoring/AddCropMonitoringModal.jsx";
 
@@ -56,7 +58,7 @@ const COLUMNS = [
   { key: "assoc_name", label: "ASSOCIATION" },
   { key: "status_cell", label: "STATUS" },
   { key: "remarks_cell", label: "REMARKS" },
-  { key: "edit_cell", label: "EDIT" },
+  { key: "actions_cell", label: "ACTIONS" },
 ];
 
 const STATUS_FILTER_OPTIONS = [
@@ -738,30 +740,43 @@ function EditCropModal({ record, onClose, onSaved }) {
 
 export default function CropInformationPage() {
   const [records, setRecords] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
+  const [seasonFilter, setSeasonFilter] = useState("");
+  const [yearFilter, setYearFilter] = useState("");
   const [remarksRec, setRemarksRec] = useState(null);
   const [editingRec, setEditingRec] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
 
-  const fetchRecords = useCallback(async () => {
+  const fetchRecords = useCallback(async (pageNum = 1) => {
     setIsLoading(true);
     setError("");
     try {
-      const r = await api.get("/production/monitoring/");
+      const params = new URLSearchParams({ page: pageNum });
+      if (seasonFilter) params.set("season", seasonFilter);
+      if (yearFilter)   params.set("year", yearFilter);
+      const r = await api.get(`/production/monitoring/?${params.toString()}`);
       setRecords(Array.isArray(r.data) ? r.data : r.data.results || []);
+      setTotalCount(typeof r.data?.count === "number" ? r.data.count : 0);
     } catch {
       setError("Failed to load crop records.");
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [seasonFilter, yearFilter]);
 
   useEffect(() => {
-    fetchRecords();
-  }, [fetchRecords]);
+    setPage(1);
+    fetchRecords(1);
+  }, [seasonFilter, yearFilter]);
+
+  useEffect(() => {
+    fetchRecords(page);
+  }, [fetchRecords, page]);
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -875,6 +890,25 @@ export default function CropInformationPage() {
               </option>
             ))}
           </select>
+          <select
+            className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[5px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none"
+            value={seasonFilter}
+            onChange={(e) => setSeasonFilter(e.target.value)}
+          >
+            <option value="">All Seasons</option>
+            <option value="Dry">Dry Season</option>
+            <option value="Wet">Wet Season</option>
+          </select>
+          <select
+            className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[5px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none"
+            value={yearFilter}
+            onChange={(e) => setYearFilter(e.target.value)}
+          >
+            <option value="">All Years</option>
+            {Array.from({ length: 8 }, (_, i) => new Date().getFullYear() + 1 - i).map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
         </div>
 
         {error && <ErrorMessage message={error} />}
@@ -896,14 +930,15 @@ export default function CropInformationPage() {
             </thead>
             <tbody>
               {isLoading ? (
-                <tr>
-                  <td
-                    colSpan={COLUMNS.length}
-                    className="py-10 text-center text-[13px] text-[#7A8E7A]"
-                  >
-                    Loading…
-                  </td>
-                </tr>
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="border-b border-[#F0F4F0] animate-pulse">
+                    {COLUMNS.map((col) => (
+                      <td key={col.key} className="px-4 py-[13px]">
+                        <div className="h-4 bg-[#E8EEE8] rounded w-3/4" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
               ) : rows.length === 0 ? (
                 <tr>
                   <td
@@ -937,6 +972,13 @@ export default function CropInformationPage() {
             </tbody>
           </table>
         </div>
+
+        <PaginationBar
+          page={page}
+          totalCount={totalCount}
+          pageSize={10}
+          onPageChange={(p) => { setPage(p); }}
+        />
       </div>
 
       {showAdd && (
@@ -944,7 +986,8 @@ export default function CropInformationPage() {
           onClose={() => setShowAdd(false)}
           onSuccess={() => {
             setShowAdd(false);
-            fetchRecords();
+            setPage(1);
+            fetchRecords(1);
           }}
         />
       )}

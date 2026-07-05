@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
+import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import SearchBar from '../../components/UI/SearchBar.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import AddFarmerModal from './AddFarmerModal.jsx'
@@ -28,22 +29,13 @@ const columns = [
 ]
 
 function normalizeList(responseData) {
-  if (Array.isArray(responseData)) {
-    return responseData
-  }
-
-  if (Array.isArray(responseData?.results)) {
-    return responseData.results
-  }
-
+  if (Array.isArray(responseData)) return responseData
+  if (Array.isArray(responseData?.results)) return responseData.results
   return []
 }
 
 function formatDate(value) {
-  if (!value) {
-    return ''
-  }
-
+  if (!value) return ''
   return new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
@@ -54,10 +46,11 @@ function formatDate(value) {
 const filterSelectCls =
   'border border-[#E2E8E2] rounded-lg px-3 py-[7px] text-[13px] bg-[#F9FAF9] text-[#1A2B1A] focus:outline-none focus:border-[#1B4D2E] focus:ring-2 focus:ring-[#1B4D2E]/10 transition-colors'
 
-function FarmersPage() {
+function FarmersPage({ asTab = false }) {
   const navigate = useNavigate()
   const { isAdmin, isEvaluator } = useAuth()
   const [farmers, setFarmers] = useState([])
+  const [totalCount, setTotalCount] = useState(0)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('all')
   const [gender, setGender] = useState('all')
@@ -70,41 +63,21 @@ function FarmersPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
 
-  const fetchFarmers = async () => {
+  const fetchFarmers = async (pageNum = page) => {
     setIsLoading(true)
     setError('')
-
     try {
       const params = new URLSearchParams()
-
-      if (search.trim()) {
-        params.set('search', search.trim())
-      }
-
-      if (status !== 'all') {
-        params.set('status', status)
-      }
-
-      if (gender !== 'all') {
-        params.set('gender', gender)
-      }
-
-      if (seniorOnly) {
-        params.set('is_senior', 'true')
-      }
-
-      if (filterICC) {
-        params.set('is_icc_ip', 'true')
-      }
-
-      if (filterPWD) {
-        params.set('is_pwd', 'true')
-      }
-
-      const queryString = params.toString()
-      const response = await api.get(`/farmers/${queryString ? `?${queryString}` : ''}`)
+      if (search.trim())    params.set('search', search.trim())
+      if (status !== 'all') params.set('status', status)
+      if (gender !== 'all') params.set('gender', gender)
+      if (seniorOnly)       params.set('is_senior', 'true')
+      if (filterICC)        params.set('is_icc_ip', 'true')
+      if (filterPWD)        params.set('is_pwd', 'true')
+      params.set('page', pageNum)
+      const response = await api.get(`/farmers/?${params.toString()}`)
       setFarmers(normalizeList(response.data))
-      setPage(1)
+      setTotalCount(typeof response.data?.count === 'number' ? response.data.count : 0)
     } catch {
       setError('Unable to load farmer records.')
     } finally {
@@ -113,8 +86,13 @@ function FarmersPage() {
   }
 
   useEffect(() => {
-    fetchFarmers()
+    setPage(1)
+    fetchFarmers(1)
   }, [search, status, gender, seniorOnly, filterICC, filterPWD])
+
+  useEffect(() => {
+    fetchFarmers(page)
+  }, [page])
 
   const tableData = useMemo(() => farmers.map((farmer) => {
     const ageVal = calcAge(farmer.birthdate)
@@ -133,29 +111,29 @@ function FarmersPage() {
     }
   }), [farmers])
 
-  const totalPages = Math.max(1, Math.ceil(tableData.length / 15))
-  const paginatedData = tableData.slice((page - 1) * 15, page * 15)
-
   const handleFarmerCreated = () => {
     setSuccessMessage('Farmer registered successfully.')
-    fetchFarmers()
+    fetchFarmers(1)
+    setPage(1)
   }
 
-  return (
-    <PageLayout
-      title="Farmer Registry"
-      subtitle="Registered farmers and their farm parcels"
-      action={(isAdmin || isEvaluator) && (
-        <button
-          className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
-          onClick={() => setIsAddModalOpen(true)}
-          type="button"
-        >
-          <Plus size={16} />
-          Register Farmer
-        </button>
-      )}
+  const actionBtn = (isAdmin || isEvaluator) ? (
+    <button
+      className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
+      onClick={() => setIsAddModalOpen(true)}
+      type="button"
     >
+      <Plus size={16} />
+      Register Farmer
+    </button>
+  ) : null
+
+  const innerContent = (
+    <>
+      {asTab && actionBtn && (
+        <div className="flex justify-end mb-3">{actionBtn}</div>
+      )}
+
       {/* Filter bar */}
       <div className="bg-white border border-[#E2E8E2] rounded-xl px-4 py-[10px] mb-4 flex items-center gap-2.5 flex-wrap">
         <SearchBar
@@ -163,20 +141,12 @@ function FarmersPage() {
           placeholder="Search by name, RSBSA, or barangay"
           value={search}
         />
-        <select
-          className={filterSelectCls}
-          onChange={(e) => setStatus(e.target.value)}
-          value={status}
-        >
+        <select className={filterSelectCls} onChange={(e) => setStatus(e.target.value)} value={status}>
           <option value="all">All Status</option>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select>
-        <select
-          className={filterSelectCls}
-          onChange={(e) => setGender(e.target.value)}
-          value={gender}
-        >
+        <select className={filterSelectCls} onChange={(e) => setGender(e.target.value)} value={gender}>
           <option value="all">All Gender</option>
           <option value="Male">Male</option>
           <option value="Female">Female</option>
@@ -211,7 +181,7 @@ function FarmersPage() {
       </div>
 
       {successMessage && (
-        <div className="rounded-lg border border-[#C8E6C9] bg-[#EBF5EE] px-4 py-3 text-[13px] font-medium text-[#1B4D2E] mb-4">
+        <div className="rounded-lg border border-[#C8D5C8] bg-[#EBF5EE] px-4 py-3 text-[13px] font-medium text-[#1B4D2E] mb-4">
           {successMessage}
         </div>
       )}
@@ -224,34 +194,17 @@ function FarmersPage() {
 
       <DataTable
         columns={columns}
-        data={paginatedData}
+        data={tableData}
         isLoading={isLoading}
         onRowClick={(farmer) => navigate(`/farmers/${farmer.id}`)}
       />
 
-      <div className="flex items-center justify-between bg-white border border-[#E2E8E2] rounded-xl px-4 py-3 text-[13px] text-[#4A5E4A] mt-4">
-        <p>
-          Page {page} of {totalPages}
-        </p>
-        <div className="flex gap-2">
-          <button
-            className="border border-[#C8D5C8] text-[#4A5E4A] px-3 py-1.5 rounded-lg text-[13px] hover:bg-[#F5F7F5] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            disabled={page === 1}
-            onClick={() => setPage((current) => Math.max(1, current - 1))}
-            type="button"
-          >
-            Previous
-          </button>
-          <button
-            className="border border-[#C8D5C8] text-[#4A5E4A] px-3 py-1.5 rounded-lg text-[13px] hover:bg-[#F5F7F5] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            disabled={page === totalPages}
-            onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
-            type="button"
-          >
-            Next
-          </button>
-        </div>
-      </div>
+      <PaginationBar
+        page={page}
+        totalCount={totalCount}
+        pageSize={10}
+        onPageChange={setPage}
+      />
 
       {isAddModalOpen && (
         <AddFarmerModal
@@ -259,6 +212,18 @@ function FarmersPage() {
           onSuccess={handleFarmerCreated}
         />
       )}
+    </>
+  )
+
+  if (asTab) return innerContent
+
+  return (
+    <PageLayout
+      title="Farmer Registry"
+      subtitle="Registered farmers and their farm parcels"
+      action={actionBtn}
+    >
+      {innerContent}
     </PageLayout>
   )
 }

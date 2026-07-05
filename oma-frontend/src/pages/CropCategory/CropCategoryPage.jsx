@@ -145,7 +145,7 @@ function SubcategoryModal({ subcategory, categories, onClose, onSaved }) {
   )
 }
 
-export default function CropCategoryPage() {
+export default function CropCategoryPage({ asTab = false }) {
   const { showToast } = useToast()
   const [categories,    setCategories]    = useState([])
   const [subcategories, setSubcategories] = useState([])
@@ -224,55 +224,50 @@ export default function CropCategoryPage() {
     ),
   }))
 
-  return (
-    <PageLayout
-      title="Crop Category Management"
-      subtitle="Manage crop categories and subcategories used across the system."
-    >
-      <div className="space-y-4">
-        {error && <ErrorMessage message={error} />}
+  const innerContent = (
+    <div className="space-y-4">
+      {error && <ErrorMessage message={error} />}
 
-        {/* Categories card */}
-        <div className="bg-white rounded-xl border border-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-[#F0F4F0]">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-[3px] bg-[#1B4D2E]" />
-              <h2 className="text-[13px] font-semibold text-[#1A2B1A]">Crop Categories</h2>
-            </div>
-            <button
-              type="button"
-              onClick={() => { setEditCat(null); setCatModal(true) }}
-              className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 py-1.5 text-[12px] font-medium text-white hover:bg-[#235E38] transition-colors"
-            >
-              <Plus size={12} />
-              Add Category
-            </button>
+      {/* Categories card */}
+      <div className="bg-white rounded-xl border border-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#F0F4F0]">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-[3px] bg-[#1B4D2E]" />
+            <h2 className="text-[13px] font-semibold text-[#1A2B1A]">Crop Categories</h2>
           </div>
-          <div className="p-0">
-            <DataTable columns={CAT_COLUMNS} data={catRows} isLoading={isLoading} />
-          </div>
+          <button
+            type="button"
+            onClick={() => { setEditCat(null); setCatModal(true) }}
+            className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 py-1.5 text-[12px] font-medium text-white hover:bg-[#235E38] transition-colors"
+          >
+            <Plus size={12} />
+            Add Category
+          </button>
         </div>
+        <div className="p-0">
+          <DataTable columns={CAT_COLUMNS} data={catRows} isLoading={isLoading} />
+        </div>
+      </div>
 
-        {/* Subcategories card */}
-        <div className="bg-white rounded-xl border border-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-[#F0F4F0]">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-[3px] bg-[#2D7A4F]" />
-              <h2 className="text-[13px] font-semibold text-[#1A2B1A]">Crop Subcategories</h2>
-            </div>
-            <button
-              type="button"
-              onClick={() => { setEditSubcat(null); setSubcatModal(true) }}
-              disabled={categories.length === 0}
-              className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 py-1.5 text-[12px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50"
-            >
-              <Plus size={12} />
-              Add Subcategory
-            </button>
+      {/* Subcategories card */}
+      <div className="bg-white rounded-xl border border-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#F0F4F0]">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-[3px] bg-[#2D7A4F]" />
+            <h2 className="text-[13px] font-semibold text-[#1A2B1A]">Crop Subcategories</h2>
           </div>
-          <div className="p-0">
-            <DataTable columns={SUBCAT_COLUMNS} data={subcatRows} isLoading={isLoading} />
-          </div>
+          <button
+            type="button"
+            onClick={() => { setEditSubcat(null); setSubcatModal(true) }}
+            disabled={categories.length === 0}
+            className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 py-1.5 text-[12px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50"
+          >
+            <Plus size={12} />
+            Add Subcategory
+          </button>
+        </div>
+        <div className="p-0">
+          <DataTable columns={SUBCAT_COLUMNS} data={subcatRows} isLoading={isLoading} />
         </div>
       </div>
 
@@ -331,6 +326,17 @@ export default function CropCategoryPage() {
           onCancel={() => setDeletingSubcat(null)}
         />
       )}
+    </div>
+  )
+
+  if (asTab) return innerContent
+
+  return (
+    <PageLayout
+      title="Crop Category Management"
+      subtitle="Manage crop categories and subcategories used across the system."
+    >
+      {innerContent}
     </PageLayout>
   )
 }

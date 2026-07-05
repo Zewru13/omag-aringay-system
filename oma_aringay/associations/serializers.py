@@ -8,6 +8,7 @@ from .models import (
     FisherfolkAssociation,
     FisherfolkAssociationEquipment,
     FisherfolkAssociationMember,
+    FisherfolkAssociationOfficer,
 )
 
 
@@ -107,13 +108,23 @@ class FisherfolkAssociationEquipmentSerializer(serializers.ModelSerializer):
         read_only_fields = ['association']
 
 
+class FisherfolkAssociationOfficerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = FisherfolkAssociationOfficer
+        fields = ['id', 'position', 'full_name']
+
+
 class FisherfolkAssociationListSerializer(serializers.ModelSerializer):
-    member_count = serializers.SerializerMethodField()
+    member_count  = serializers.SerializerMethodField()
     equipment_count = serializers.SerializerMethodField()
 
     class Meta:
-        model = FisherfolkAssociation
-        fields = ['id', 'name', 'barangay', 'street_address', 'contact_person', 'contact_number', 'is_active', 'member_count', 'equipment_count']
+        model  = FisherfolkAssociation
+        fields = [
+            'id', 'name', 'barangay', 'street_address', 'contact_person', 'contact_number',
+            'registration_number', 'registration_agency', 'date_organized', 'date_registered',
+            'email_address', 'is_active', 'member_count', 'equipment_count',
+        ]
 
     def get_member_count(self, obj):
         return obj.members.count()
@@ -123,11 +134,12 @@ class FisherfolkAssociationListSerializer(serializers.ModelSerializer):
 
 
 class FisherfolkAssociationDetailSerializer(serializers.ModelSerializer):
-    members = FisherfolkAssociationMemberSerializer(many=True, read_only=True)
+    members   = FisherfolkAssociationMemberSerializer(many=True, read_only=True)
     equipment = FisherfolkAssociationEquipmentSerializer(many=True, read_only=True)
+    officers  = FisherfolkAssociationOfficerSerializer(many=True, read_only=True)
 
     class Meta:
-        model = FisherfolkAssociation
+        model  = FisherfolkAssociation
         fields = '__all__'
 
     def validate_contact_number(self, value):

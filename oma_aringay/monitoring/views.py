@@ -32,6 +32,7 @@ from .serializers import (
 class FarmVisitListCreateView(generics.ListCreateAPIView):
     serializer_class = FarmVisitSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
 
     def get_queryset(self):
         qs = FarmVisit.objects.select_related('farmer', 'conducted_by').order_by('-visit_date')
@@ -57,6 +58,7 @@ class FarmVisitDetailView(generics.RetrieveUpdateDestroyAPIView):
 class FishingTripLogListCreateView(generics.ListCreateAPIView):
     serializer_class = FishingTripLogSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
 
     def get_queryset(self):
         qs = FishingTripLog.objects.select_related(
@@ -305,6 +307,7 @@ class FisheriesBarangaySummaryView(APIView):
 class VesselInspectionListCreateView(generics.ListCreateAPIView):
     serializer_class = VesselInspectionSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
 
     def get_queryset(self):
         qs = VesselInspection.objects.select_related('fisherfolk', 'inspected_by').order_by('-inspection_date')
@@ -342,6 +345,7 @@ class VesselLicenseAlertView(APIView):
 class AquacultureProductionCycleListCreateView(generics.ListCreateAPIView):
     serializer_class = AquacultureProductionCycleSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
 
     def get_queryset(self):
         qs = AquacultureProductionCycle.objects.select_related('fisherfolk').prefetch_related(
@@ -372,6 +376,7 @@ class AquacultureProductionCycleDetailView(generics.RetrieveUpdateDestroyAPIView
 class AquacultureFeedingLogListCreateView(generics.ListCreateAPIView):
     serializer_class = AquacultureFeedingLogSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
 
     def get_queryset(self):
         return AquacultureFeedingLog.objects.filter(
@@ -391,6 +396,7 @@ class AquacultureFeedingLogDeleteView(generics.DestroyAPIView):
 class AquacultureHealthLogListCreateView(generics.ListCreateAPIView):
     serializer_class = AquacultureHealthLogSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
 
     def get_queryset(self):
         return AquacultureHealthLog.objects.filter(
@@ -412,6 +418,7 @@ class AquacultureHealthLogDeleteView(generics.DestroyAPIView):
 class FisheriesDisasterReportListCreateView(generics.ListCreateAPIView):
     serializer_class = FisheriesDisasterReportSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
 
     def get_queryset(self):
         qs = FisheriesDisasterReport.objects.select_related('fisherfolk').order_by('-report_date')
@@ -440,6 +447,7 @@ class FisheriesDisasterReportDetailView(generics.RetrieveUpdateDestroyAPIView):
 class FisheryInputLogListCreateView(generics.ListCreateAPIView):
     serializer_class = FisheryInputLogSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
 
     def get_queryset(self):
         return FisheryInputLog.objects.filter(
@@ -464,6 +472,7 @@ class FisheryInputLogDeleteView(generics.DestroyAPIView):
 class FisheriesAssistanceListCreateView(generics.ListCreateAPIView):
     serializer_class = FisheriesAssistanceSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
 
     def get_queryset(self):
         qs = FisheriesAssistanceRecord.objects.select_related('fisherfolk', 'recorded_by').order_by('-date_received')

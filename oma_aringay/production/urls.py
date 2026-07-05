@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     AgriDashboardView,
     CropActivitySuggestionsView,
+    CropDuplicateCheckView,
     CropActivityStageDeleteView,
     CropActivityStageListCreateView,
     ForecastingImportView,
@@ -63,6 +64,7 @@ urlpatterns = [
     path('stages/<int:pk>/', CropActivityStageDeleteView.as_view(), name='stage-delete'),
     path('forecasting/template/', ForecastingTemplateView.as_view(), name='forecasting-template'),
     path('forecasting/import/', ForecastingImportView.as_view(), name='forecasting-import'),
+    path('monitoring/check-duplicate/', CropDuplicateCheckView.as_view(), name='crop-duplicate-check'),
     path('monitoring/', CropMonitoringListCreateView.as_view(), name='monitoring-list-create'),
     path('monitoring/<int:pk>/', CropMonitoringDetailView.as_view(), name='monitoring-detail'),
     path('monitoring/<int:monitoring_id>/suggestions/', CropActivitySuggestionsView.as_view(), name='monitoring-suggestions'),

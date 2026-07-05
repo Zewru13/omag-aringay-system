@@ -5,12 +5,13 @@ import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
 import AuditLogPage from "./pages/Admin/AuditLogPage.jsx";
 import AssociationDetailPage from "./pages/Associations/AssociationDetailPage.jsx";
-import AssociationsPage from "./pages/Associations/AssociationsPage.jsx";
 import DashboardPage from "./pages/Dashboard/DashboardPage.jsx";
 import FarmerDetailPage from "./pages/Farmers/FarmerDetailPage.jsx";
-import FarmersPage from "./pages/Farmers/FarmersPage.jsx";
-import FisheriesPage from "./pages/Fisheries/FisheriesPage.jsx";
+import FarmersHub from "./pages/Farmers/FarmersHub.jsx";
 import FisherfolkDetailPage from "./pages/Fisheries/FisherfolkDetailPage.jsx";
+import FisherfolkHub from "./pages/Fisherfolk/FisherfolkHub.jsx";
+import FisheriesRecordsPage from "./pages/FisheriesRecords/FisheriesRecordsPage.jsx";
+import FisheriesSettingsHub from "./pages/FisheriesSettings/FisheriesSettingsHub.jsx";
 import InterventionsPage from "./pages/Interventions/InterventionsPage.jsx";
 import ProgramDetailPage from "./pages/Interventions/ProgramDetailPage.jsx";
 import LoginPage from "./pages/Login/LoginPage.jsx";
@@ -20,9 +21,8 @@ import ProductionPage from "./pages/Production/ProductionPage.jsx";
 import ProfilePage from "./pages/Profile/ProfilePage.jsx";
 import ReportsPage from "./pages/Reports/ReportsPage.jsx";
 import ForecastingPage from "./pages/Forecasting/ForecastingPage.jsx";
-import CropOptionPage from "./pages/CropOption/CropOptionPage.jsx";
-import CropCategoryPage from "./pages/CropCategory/CropCategoryPage.jsx";
 import CropInformationPage from "./pages/CropInformation/CropInformationPage.jsx";
+import CropSettingsHub from "./pages/CropSettings/CropSettingsHub.jsx";
 import UserManagementPage from "./pages/Users/UserManagementPage.jsx";
 import HelpPage from "./pages/Help/HelpPage.jsx";
 
@@ -54,11 +54,13 @@ function App() {
               </ProtectedRoute>
             }
           />
+
+          {/* Farmers hub — tabs: Registry + Associations */}
           <Route
             path="/farmers"
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
-                <FarmersPage />
+                <FarmersHub />
               </ProtectedRoute>
             }
           />
@@ -70,14 +72,10 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/associations"
-            element={
-              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
-                <AssociationsPage />
-              </ProtectedRoute>
-            }
-          />
+          {/* Old association routes redirect to Farmers hub */}
+          <Route path="/associations" element={<Navigate to="/farmers?tab=associations" replace />} />
+          <Route path="/associations/farmers" element={<Navigate to="/farmers?tab=associations" replace />} />
+
           <Route
             path="/associations/:type/:id"
             element={
@@ -86,19 +84,37 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/fisheries"
-            element={
-              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
-                <FisheriesPage />
-              </ProtectedRoute>
-            }
-          />
+          {/* Legacy /fisheries redirects to /fisherfolk hub */}
+          <Route path="/fisheries" element={<Navigate to="/fisherfolk" replace />} />
           <Route
             path="/fisheries/:id"
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
                 <FisherfolkDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/fisherfolk"
+            element={
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
+                <FisherfolkHub />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/fisheries-records"
+            element={
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
+                <FisheriesRecordsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/fisheries-settings"
+            element={
+              <ProtectedRoute allowedRoles={["ADMIN"]}>
+                <FisheriesSettingsHub />
               </ProtectedRoute>
             }
           />
@@ -155,35 +171,35 @@ function App() {
           <Route
             path="/reports"
             element={
-              <ProtectedRoute allowedRoles={["ADMIN"]}>
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
                 <ReportsPage />
               </ProtectedRoute>
             }
           />
+
+          {/* Crop records (renamed from /crop-information) */}
           <Route
-            path="/crop-options"
-            element={
-              <ProtectedRoute allowedRoles={["ADMIN"]}>
-                <CropOptionPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/crop-categories"
-            element={
-              <ProtectedRoute allowedRoles={["ADMIN"]}>
-                <CropCategoryPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/crop-information"
+            path="/crop-records"
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
                 <CropInformationPage />
               </ProtectedRoute>
             }
           />
+          <Route path="/crop-information" element={<Navigate to="/crop-records" replace />} />
+
+          {/* Crop settings hub — tabs: Options + Categories (admin only) */}
+          <Route
+            path="/crop-settings"
+            element={
+              <ProtectedRoute allowedRoles={["ADMIN"]}>
+                <CropSettingsHub />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/crop-options" element={<Navigate to="/crop-settings?tab=options" replace />} />
+          <Route path="/crop-categories" element={<Navigate to="/crop-settings?tab=categories" replace />} />
+
           <Route
             path="/admin/users"
             element={
@@ -213,14 +229,6 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
                 <AuditLogPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/associations/farmers"
-            element={
-              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
-                <AssociationsPage />
               </ProtectedRoute>
             }
           />

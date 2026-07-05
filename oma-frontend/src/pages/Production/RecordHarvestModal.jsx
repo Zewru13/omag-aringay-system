@@ -49,7 +49,7 @@ function RecordHarvestModal({ onClose, onSuccess }) {
     setIsSearching(true)
     try {
       const response = await api.get(`/farmers/?search=${encodeURIComponent(query)}`)
-      setFarmers(response.data || [])
+      setFarmers(Array.isArray(response.data) ? response.data : (response.data?.results || []))
     } catch {
       setErrorMessage("Unable to search farmers.")
     } finally {

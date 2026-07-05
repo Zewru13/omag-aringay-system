@@ -186,13 +186,15 @@ class CropMonitoringRecord(models.Model):
                 ct = self.crop_type if hasattr(self, '_crop_type_cache') else CropType.objects.get(pk=self.crop_type_id)
                 self.expected_harvest_date = self.date_planted + timedelta(days=ct.days_to_harvest)
                 if ct.yield_per_ha_kg is not None and self.area_planted_ha is not None:
-                    self.estimated_yield_kg = Decimal(str(ct.yield_per_ha_kg)) * Decimal(str(self.area_planted_ha))
+                    raw = Decimal(str(ct.yield_per_ha_kg)) * Decimal(str(self.area_planted_ha))
+                    self.estimated_yield_kg = raw.quantize(Decimal('0.01'))
             except CropType.DoesNotExist:
                 pass
         if self.actual_yield_kg is not None and self.estimated_yield_kg is not None:
-            self.yield_variance_kg = Decimal(str(self.actual_yield_kg)) - Decimal(str(self.estimated_yield_kg))
+            self.yield_variance_kg = (Decimal(str(self.actual_yield_kg)) - Decimal(str(self.estimated_yield_kg))).quantize(Decimal('0.01'))
             if self.estimated_yield_kg != 0:
-                self.yield_variance_pct = (self.yield_variance_kg / Decimal(str(self.estimated_yield_kg))) * Decimal('100')
+                raw_pct = ((self.yield_variance_kg / Decimal(str(self.estimated_yield_kg))) * Decimal('100')).quantize(Decimal('0.01'))
+                self.yield_variance_pct = max(Decimal('-99999.99'), min(Decimal('99999.99'), raw_pct))
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -241,6 +243,9 @@ class CropActivityLog(models.Model):
         max_length=10, blank=True,
         choices=[('Low', 'Low'), ('Medium', 'Medium'), ('High', 'High')],
     )
+
+    target_day = models.IntegerField(null=True, blank=True, help_text="Day after planting this log was targeted for")
+    is_late = models.BooleanField(default=False, help_text="Logged after the target window")
 
     recorded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

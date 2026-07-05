@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { UserPlus } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { UserPlus, AlertTriangle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import Button from '../../components/UI/Button.jsx'
@@ -24,7 +24,6 @@ const initialForm = {
   is_pwd: false,
   is_4ps_beneficiary: false,
   is_icc_ip_member: false,
-  is_senior_citizen: false,
   icc_ip_name: '',
   farmers_association: null,
 }
@@ -85,12 +84,38 @@ function AddFarmerModal({ onClose, onSuccess }) {
   const [birthdateError, setBirthdateError] = useState('')
   const [formError, setFormError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [duplicates, setDuplicates] = useState([])
+  const [dupChecking, setDupChecking] = useState(false)
+  const dupTimer = useRef(null)
 
   useEffect(() => {
     api.get('/associations/farmers/')
       .then(r => setAssociations(r.data.results || r.data))
       .catch(console.error)
   }, [])
+
+  useEffect(() => {
+    const { first_name, last_name, birthdate } = form
+    if (!first_name.trim() || !last_name.trim() || !birthdate) {
+      setDuplicates([])
+      return
+    }
+    clearTimeout(dupTimer.current)
+    dupTimer.current = setTimeout(async () => {
+      setDupChecking(true)
+      try {
+        const r = await api.get('/farmers/check-duplicate/', {
+          params: { first_name: first_name.trim(), last_name: last_name.trim(), birth_date: birthdate },
+        })
+        setDuplicates(r.data?.duplicates || [])
+      } catch {
+        setDuplicates([])
+      } finally {
+        setDupChecking(false)
+      }
+    }, 500)
+    return () => clearTimeout(dupTimer.current)
+  }, [form.first_name, form.last_name, form.birthdate])
 
   const updateField = (field, value) => {
     if (field === 'rsbsa_number') {
@@ -107,10 +132,6 @@ function AddFarmerModal({ onClose, onSuccess }) {
     }
     setForm((current) => {
       const next = { ...current, [field]: value }
-      if (field === 'birthdate') {
-        const age = computeAge(value)
-        if (age !== null && age >= 60) next.is_senior_citizen = true
-      }
       return next
     })
     if (field === 'birthdate') setBirthdateError(validateAge(value) || '')
@@ -213,7 +234,7 @@ function AddFarmerModal({ onClose, onSuccess }) {
               <p className="mt-1 text-[12px] text-[#4A5E4A]">
                 Age: <strong>{computeAge(form.birthdate)}</strong> years old
                 {computeAge(form.birthdate) >= 60 && (
-                  <span className="ml-2 text-amber-600 font-medium">(Senior Citizen auto-checked)</span>
+                  <span className="ml-2 text-amber-600 font-medium">(Senior Citizen auto-detected)</span>
                 )}
               </p>
             )}
@@ -275,7 +296,6 @@ function AddFarmerModal({ onClose, onSuccess }) {
               ['is_pwd', 'Person with Disability (PWD)', false],
               ['is_4ps_beneficiary', '4Ps Beneficiary', false],
               ['is_icc_ip_member', 'ICC/IP Member', false],
-              ['is_senior_citizen', 'Senior Citizen', computeAge(form.birthdate) >= 60],
             ].map(([field, label, autoLocked]) => (
               <label key={field} className={`flex items-center gap-2 ${autoLocked ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}>
                 <input
@@ -317,6 +337,30 @@ function AddFarmerModal({ onClose, onSuccess }) {
             Leave blank if the farmer is not part of any association. This can be updated later by editing the farmer profile.
           </p>
         </div>
+
+        {dupChecking && (
+          <p className="text-[12px] text-[#7A8E7A] italic">Checking for duplicate entries…</p>
+        )}
+
+        {!dupChecking && duplicates.length > 0 && (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle size={15} className="text-amber-600 flex-shrink-0" />
+              <p className="text-[13px] font-semibold text-amber-800">
+                Possible duplicate{duplicates.length > 1 ? 's' : ''} found — you may still submit
+              </p>
+            </div>
+            <ul className="space-y-1">
+              {duplicates.map((d) => (
+                <li key={d.id} className="text-[12px] text-amber-800">
+                  <span className="font-medium">{d.first_name} {d.last_name}</span>
+                  {d.barangay ? ` — ${d.barangay}` : ''}
+                  {d.rsbsa_number ? ` (RSBSA: ${d.rsbsa_number})` : ''}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {formError && (
           <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-medium text-red-700">

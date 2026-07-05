@@ -1,17 +1,16 @@
 import {
+  Activity,
   BarChart2,
-  Building2,
   FileBarChart,
-  HeartHandshake,
-  HelpCircle,
-  History,
+  Fish,
   LayoutDashboard,
   Leaf,
+  Settings2,
   Sprout,
-  Tag,
   TrendingUp,
-  UserCheck,
+  UserCog,
   Users,
+  Waves,
   X,
 } from 'lucide-react'
 import { useLocation, NavLink } from 'react-router-dom'
@@ -111,7 +110,7 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
 
           {/* MAIN */}
           {!isCollapsed && (
-            <p className="px-3 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#A8BCA8]">
+            <p className="px-3 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#A8BCA8]">
               MAIN
             </p>
           )}
@@ -119,17 +118,11 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
           <NavItem to="/dashboard" icon={LayoutDashboard} isCollapsed={isCollapsed} user={user}>
             Dashboard
           </NavItem>
-          <NavItem to="/users" icon={Users} adminOnly isCollapsed={isCollapsed} user={user}>
-            User Management
+          <NavItem to="/farmers" icon={Users} isCollapsed={isCollapsed} user={user}>
+            Farmers
           </NavItem>
-          <NavItem to="/farmers" icon={UserCheck} isCollapsed={isCollapsed} user={user}>
-            Farmer Registry
-          </NavItem>
-          <NavItem to="/associations/farmers" icon={Building2} isCollapsed={isCollapsed} user={user}>
-            Farmer Association Management
-          </NavItem>
-          <NavItem to="/crop-information" icon={Sprout} isCollapsed={isCollapsed} user={user}>
-            Crop Information Management
+          <NavItem to="/crop-records" icon={Sprout} isCollapsed={isCollapsed} user={user}>
+            Crop Records
           </NavItem>
           <NavItem to="/crop-monitoring" icon={BarChart2} isCollapsed={isCollapsed} user={user}>
             Monitoring
@@ -137,31 +130,37 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
           <NavItem to="/forecasting" icon={TrendingUp} isCollapsed={isCollapsed} user={user}>
             Forecasting
           </NavItem>
-          <NavItem to="/interventions" icon={HeartHandshake} adminOnly isCollapsed={isCollapsed} user={user}>
-            Interventions
+          <NavItem to="/fisherfolk" icon={Fish} isCollapsed={isCollapsed} user={user}>
+            Fisherfolk
           </NavItem>
-          <NavItem to="/reports" icon={FileBarChart} adminOnly isCollapsed={isCollapsed} user={user}>
-            Report Generation
+          <NavItem to="/fisheries-records" icon={Waves} isCollapsed={isCollapsed} user={user}>
+            Fisheries Records
+          </NavItem>
+          <NavItem to="/fisheries-monitoring" icon={Activity} isCollapsed={isCollapsed} user={user}>
+            Fisheries Monitoring
+          </NavItem>
+          <NavItem to="/reports" icon={FileBarChart} isCollapsed={isCollapsed} user={user}>
+            Reports
           </NavItem>
 
-          {/* UTILITIES */}
+          {/* ADMIN */}
           {!isCollapsed && (
             <p className="px-3 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#A8BCA8]">
-              UTILITIES
+              ADMIN
             </p>
           )}
+          {isCollapsed && user?.role === 'ADMIN' && (
+            <div className="mx-auto w-8 border-t border-[#E2E8E2] my-2" />
+          )}
 
-          <NavItem to="/crop-options" icon={Leaf} adminOnly isCollapsed={isCollapsed} user={user}>
-            Crop Option
+          <NavItem to="/crop-settings" icon={Leaf} adminOnly isCollapsed={isCollapsed} user={user}>
+            Crop Settings
           </NavItem>
-          <NavItem to="/crop-categories" icon={Tag} adminOnly isCollapsed={isCollapsed} user={user}>
-            Crop Category
+          <NavItem to="/fisheries-settings" icon={Settings2} adminOnly isCollapsed={isCollapsed} user={user}>
+            Fisheries Settings
           </NavItem>
-          <NavItem to="/audit-log" icon={History} isCollapsed={isCollapsed} user={user}>
-            Activity Log
-          </NavItem>
-          <NavItem to="/help" icon={HelpCircle} isCollapsed={isCollapsed} user={user}>
-            Help
+          <NavItem to="/users" icon={UserCog} adminOnly isCollapsed={isCollapsed} user={user}>
+            Users
           </NavItem>
 
         </nav>

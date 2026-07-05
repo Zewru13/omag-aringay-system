@@ -15,6 +15,8 @@ from .views import (
     FisherfolkAssociationListCreateView,
     FisherfolkAssociationMemberAddView,
     FisherfolkAssociationMemberRemoveView,
+    FisherfolkAssociationOfficerDestroyView,
+    FisherfolkAssociationOfficerListCreateView,
 )
 
 urlpatterns = [
@@ -34,4 +36,6 @@ urlpatterns = [
     path('fisherfolk/members/<int:member_id>/', FisherfolkAssociationMemberRemoveView.as_view()),
     path('fisherfolk/<int:pk>/equipment/', FisherfolkAssociationEquipmentAddView.as_view()),
     path('fisherfolk/equipment/<int:equip_id>/', FisherfolkAssociationEquipmentRemoveView.as_view()),
+    path('fisherfolk/<int:pk>/officers/', FisherfolkAssociationOfficerListCreateView.as_view()),
+    path('fisherfolk/officers/<int:officer_id>/', FisherfolkAssociationOfficerDestroyView.as_view()),
 ]

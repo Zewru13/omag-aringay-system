@@ -57,7 +57,7 @@ function AddPlantingRecordModal({ onClose, onSuccess }) {
     setIsSearching(true)
     try {
       const response = await api.get(`/farmers/?search=${encodeURIComponent(query)}`)
-      setFarmers(response.data || [])
+      setFarmers(Array.isArray(response.data) ? response.data : (response.data?.results || []))
     } catch {
       setError('Unable to search farmers.')
     } finally {

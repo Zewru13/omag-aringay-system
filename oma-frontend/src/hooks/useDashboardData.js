@@ -46,7 +46,9 @@ const fetchExpiringLicenses = () =>
   api.get('/monitoring/vessel-licenses/alerts/').then((r) => normalizeList(r.data).length)
 
 const fetchActiveMonitoring = () =>
-  api.get('/production/monitoring/?status=Active').then((r) => normalizeList(r.data).length)
+  api.get('/production/monitoring/?status=Active').then((r) =>
+    typeof r.data?.count === 'number' ? r.data.count : normalizeList(r.data).length
+  )
 
 const fetchMunicipalityCrops = () =>
   api.get('/production/analytics/municipality-crops/').then((r) => r.data)

@@ -1,0 +1,77 @@
+export const validateRequired = (value) => {
+  if (!value || !value.toString().trim()) {
+    return "This field is required.";
+  }
+  return null;
+};
+
+export const validateRSBSA = (value) => {
+  if (!value) {
+    return "RSBSA number must be 10 to 20 alphanumeric characters.";
+  }
+
+  const rsbsaRegex = /^[a-zA-Z0-9]{10,20}$/;
+  if (!rsbsaRegex.test(value.trim())) {
+    return "RSBSA number must be 10 to 20 alphanumeric characters.";
+  }
+
+  return null;
+};
+
+export const validateLGUNumber = (value) => {
+  if (!value) {
+    return "LGU Registration Number must be 6 to 15 alphanumeric characters.";
+  }
+
+  const lguRegex = /^[a-zA-Z0-9]{6,15}$/;
+  if (!lguRegex.test(value.trim())) {
+    return "LGU Registration Number must be 6 to 15 alphanumeric characters.";
+  }
+
+  return null;
+};
+
+export const validatePhone = (value) => {
+  if (!value) {
+    return null; // phone is optional
+  }
+
+  const phoneRegex = /^09\d{9}$/;
+  if (!phoneRegex.test(value.trim())) {
+    return "Phone number must be in format 09XXXXXXXXX.";
+  }
+
+  return null;
+};
+
+export const validateEmail = (value) => {
+  if (!value) {
+    return null; // Optional field
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(value.trim())) {
+    return "Invalid email address";
+  }
+
+  return null;
+};
+
+export const validatePasswordMatch = (password, confirmPassword) => {
+  if (password !== confirmPassword) {
+    return "Passwords do not match";
+  }
+  return null;
+};
+
+export const validatePasswordStrength = (password) => {
+  if (!password) {
+    return "Password is required";
+  }
+
+  if (password.length < 6) {
+    return "Password must be at least 6 characters";
+  }
+
+  return null;
+};

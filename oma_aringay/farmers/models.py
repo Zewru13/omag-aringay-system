@@ -83,14 +83,7 @@ class Farmer(models.Model):
         )
 
     def save(self, *args, **kwargs):
-        if self.birthdate:
-            from datetime import date
-            today = date.today()
-            years = today.year - self.birthdate.year - (
-                (today.month, today.day) < (self.birthdate.month, self.birthdate.day)
-            )
-            if years >= 60:
-                self.is_senior_citizen = True
+        self.is_senior_citizen = bool(self.birthdate and self.age is not None and self.age >= 60)
         super().save(*args, **kwargs)
 
     def __str__(self):

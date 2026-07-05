@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Building2, Download, FileText, Leaf, Wheat } from 'lucide-react'
+import { Building2, Download, FileText, Fish, Leaf, Wheat } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
@@ -15,6 +15,7 @@ const TABS = [
   { id: 'harvested',    icon: Wheat,     label: 'Harvested Crop Report' },
   { id: 'association',  icon: Building2, label: 'Association List Report' },
   { id: 'crop_options', icon: Leaf,      label: 'Crop Options Report' },
+  { id: 'fisheries',    icon: Fish,      label: 'Fisheries Production Report' },
 ]
 
 // ── Signature Modal ────────────────────────────────────────────────────────────
@@ -633,6 +634,159 @@ function CropOptionsTab() {
   )
 }
 
+// ── Fisheries Production Tab ──────────────────────────────────────────────────
+
+function FisheriesProductionTab() {
+  const { showToast } = useToast()
+  const [associations,  setAssociations]  = useState([])
+  const [speciesList,   setSpeciesList]   = useState([])
+  const [previewRows,   setPreviewRows]   = useState([])
+  const [isLoading,     setIsLoading]     = useState(false)
+  const [isDownloading, setIsDownloading] = useState(false)
+  const [showSig,       setShowSig]       = useState(false)
+  const [sigPurpose,    setSigPurpose]    = useState('pdf')
+  const [filters, setFilters] = useState({
+    start_date: '', end_date: '', barangay: '', association: '', species: '', culture_type: '',
+  })
+  const set = (k, v) => setFilters(f => ({ ...f, [k]: v }))
+
+  useEffect(() => {
+    Promise.all([
+      api.get('/associations/fisherfolk/'),
+      api.get('/fisheries/species/'),
+    ]).then(([aRes, sRes]) => {
+      setAssociations(Array.isArray(aRes.data) ? aRes.data : (aRes.data.results || []))
+      setSpeciesList(Array.isArray(sRes.data) ? sRes.data : (sRes.data.results || []))
+    }).catch(() => {})
+  }, [])
+
+  const loadPreview = async () => {
+    setIsLoading(true)
+    try {
+      const p = new URLSearchParams({ format: 'json' })
+      if (filters.start_date)   p.set('start_date',   filters.start_date)
+      if (filters.end_date)     p.set('end_date',     filters.end_date)
+      if (filters.barangay)     p.set('barangay',     filters.barangay)
+      if (filters.association)  p.set('association',  filters.association)
+      if (filters.species)      p.set('species',      filters.species)
+      if (filters.culture_type) p.set('culture_type', filters.culture_type)
+      const r = await api.get(`/reports/fisheries/production/?${p}`)
+      const records = r.data?.records || []
+      setPreviewRows(records.map(rec => [
+        rec.barangay, rec.fisherfolk, rec.association,
+        rec.species, rec.culture_type,
+        rec.date_stocked, rec.harvest_date,
+        rec.quantity_kg, rec.is_final,
+      ]))
+    } catch {
+      showToast('Failed to load preview.', 'error')
+    } finally { setIsLoading(false) }
+  }
+
+  useEffect(() => { loadPreview() }, [filters])
+
+  const buildUrl = (fmt) => {
+    const p = new URLSearchParams({ format: fmt })
+    if (filters.start_date)   p.set('start_date',   filters.start_date)
+    if (filters.end_date)     p.set('end_date',     filters.end_date)
+    if (filters.barangay)     p.set('barangay',     filters.barangay)
+    if (filters.association)  p.set('association',  filters.association)
+    if (filters.species)      p.set('species',      filters.species)
+    if (filters.culture_type) p.set('culture_type', filters.culture_type)
+    return `/reports/fisheries/production/?${p}`
+  }
+
+  const handleGenerate = async (sigData) => {
+    setShowSig(false)
+    setIsDownloading(true)
+    const fmt  = sigPurpose === 'pdf' ? 'pdf' : 'excel'
+    const file = sigPurpose === 'pdf' ? 'fisheries_production_report.pdf' : 'fisheries_production_report.xlsx'
+    try {
+      let url = buildUrl(fmt)
+      if (sigData.prepared_by) url += `&prepared_by=${encodeURIComponent(sigData.prepared_by)}&prepared_role=${encodeURIComponent(sigData.position)}`
+      if (sigData.reviewed_by) url += `&reviewed_by=${encodeURIComponent(sigData.reviewed_by)}`
+      if (sigData.noted_by)    url += `&noted_by=${encodeURIComponent(sigData.noted_by)}`
+      await downloadFile(api, url, file)
+    } catch {
+      showToast(`Failed to generate ${sigPurpose === 'pdf' ? 'PDF' : 'Excel'}.`, 'error')
+    } finally { setIsDownloading(false) }
+  }
+
+  const HEADERS = [
+    'BARANGAY', 'FISHERFOLK', 'ASSOCIATION',
+    'SPECIES', 'CULTURE TYPE',
+    'DATE STOCKED', 'HARVEST DATE',
+    'QUANTITY (KG)', 'FINAL?',
+  ]
+
+  return (
+    <div className="space-y-5">
+      <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+        <p className="text-[13px] font-semibold text-[#1A2B1A] mb-4">Filter Options</p>
+        <div className="flex flex-wrap gap-3">
+          <div>
+            <label className={labelCls}>Harvest Start Date</label>
+            <input type="date" className={baseInputClasses} value={filters.start_date} onChange={e => set('start_date', e.target.value)} />
+          </div>
+          <div>
+            <label className={labelCls}>Harvest End Date</label>
+            <input type="date" className={baseInputClasses} value={filters.end_date} onChange={e => set('end_date', e.target.value)} />
+          </div>
+          <div className="w-44">
+            <label className={labelCls}>Pond Barangay</label>
+            <BarangaySelect value={filters.barangay} onChange={e => set('barangay', e.target.value)} includeAllOption />
+          </div>
+          <div>
+            <label className={labelCls}>Association</label>
+            <select className={baseInputClasses} value={filters.association} onChange={e => set('association', e.target.value)}>
+              <option value="">All Associations</option>
+              {associations.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Species</label>
+            <select className={baseInputClasses} value={filters.species} onChange={e => set('species', e.target.value)}>
+              <option value="">All Species</option>
+              {speciesList.map(s => <option key={s.id} value={s.id}>{s.species_name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Culture Type</label>
+            <select className={baseInputClasses} value={filters.culture_type} onChange={e => set('culture_type', e.target.value)}>
+              <option value="">All Types</option>
+              <option value="Pond">Pond</option>
+              <option value="Cage">Cage</option>
+              <option value="Pen">Pen</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <ActionButtons
+        onPdf={() => { setSigPurpose('pdf'); setShowSig(true) }}
+        onExcel={() => { setSigPurpose('excel'); setShowSig(true) }}
+        isDownloading={isDownloading}
+      />
+
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <p className="text-[13px] font-semibold text-[#1A2B1A]">Preview: Fisheries Harvest Records</p>
+          {!isLoading && (
+            <span className="text-[12px] text-[#7A8E7A]">
+              Showing {previewRows.length} record{previewRows.length !== 1 ? 's' : ''}
+            </span>
+          )}
+        </div>
+        <PreviewTable headers={HEADERS} rows={previewRows} isLoading={isLoading} emptyText="No harvest records found." />
+      </div>
+
+      {showSig && (
+        <SignatureModal purpose={sigPurpose} onClose={() => setShowSig(false)} onGenerate={handleGenerate} />
+      )}
+    </div>
+  )
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function ReportsPage() {
@@ -662,6 +816,7 @@ export default function ReportsPage() {
         {activeTab === 'harvested'    && <HarvestedCropTab />}
         {activeTab === 'association'  && <AssociationListTab />}
         {activeTab === 'crop_options' && <CropOptionsTab />}
+        {activeTab === 'fisheries'    && <FisheriesProductionTab />}
       </div>
     </PageLayout>
   )

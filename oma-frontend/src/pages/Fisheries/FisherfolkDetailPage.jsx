@@ -1,46 +1,17 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, ClipboardList, Edit, Eye, Trash2 } from 'lucide-react'
+import { ArrowLeft, ClipboardList, Edit } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
-import { baseInputClasses } from '../../components/UI/FormField.jsx'
-import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import LoadingSpinner from '../../components/UI/LoadingSpinner.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
-import Tabs from '../../components/UI/Tabs.jsx'
+import DataTable from '../../components/UI/DataTable.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
-import AquacultureCycleDetailModal from '../Monitoring/AquacultureCycleDetailModal.jsx'
-import StartProductionCycleModal from '../Monitoring/StartProductionCycleModal.jsx'
 import EditFisherfolkModal from './EditFisherfolkModal.jsx'
-
-const labelCls = 'block text-xs font-medium text-slate-600'
-
-function formatDate(value) {
-  if (!value) return ''
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  }).format(new Date(value))
-}
-
-function fmtShort(v) {
-  if (!v) return '—'
-  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(v))
-}
-
-function Field({ label, value }) {
-  return (
-    <div>
-      <p className="text-xs font-medium text-slate-400">{label}</p>
-      <p className="mt-1 text-sm text-slate-900">{value || '-'}</p>
-    </div>
-  )
-}
 
 const HISTORY_COLUMNS = [
   { key: 'program_name', label: 'Program' },
@@ -52,14 +23,50 @@ const HISTORY_COLUMNS = [
   { key: 'date_given', label: 'Date Given' },
 ]
 
+const STOCKING_STATUS_TONES = {
+  Stocked: 'green',
+  'For Harvest': 'amber',
+  Harvested: 'blue',
+}
+
+const STOCKING_COLUMNS = [
+  { key: 'species_name',         label: 'SPECIES' },
+  { key: 'culture_type',         label: 'CULTURE TYPE' },
+  { key: 'date_stocked_fmt',     label: 'DATE STOCKED' },
+  { key: 'expected_harvest_fmt', label: 'EXPECTED HARVEST' },
+  { key: 'est_kg_fmt',           label: 'EST. HARVEST (KG)' },
+  { key: 'harvested_kg_fmt',     label: 'HARVESTED (KG)' },
+  { key: 'pond_location_barangay', label: 'POND BARANGAY' },
+  { key: 'status_cell',          label: 'STATUS' },
+]
+
+function formatDate(value) {
+  if (!value) return ''
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'long', day: 'numeric', year: 'numeric',
+  }).format(new Date(value))
+}
+
+function fmtShort(v) {
+  if (!v) return '—'
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(
+    new Date(v + 'T00:00:00'),
+  )
+}
+
+function Field({ label, value }) {
+  return (
+    <div>
+      <p className="text-xs font-medium text-slate-400">{label}</p>
+      <p className="mt-1 text-sm text-slate-900">{value || '-'}</p>
+    </div>
+  )
+}
+
 function AssistanceHistoryModal({ history, isLoading, error, onClose }) {
   return (
     <ModalShell title="Assistance History" onClose={onClose} maxWidth="max-w-3xl">
-      {isLoading ? (
-        <LoadingSpinner />
-      ) : error ? (
-        <ErrorMessage message={error} />
-      ) : (
+      {isLoading ? <LoadingSpinner /> : error ? <ErrorMessage message={error} /> : (
         <DataTable columns={HISTORY_COLUMNS} data={history} isLoading={false} />
       )}
     </ModalShell>
@@ -106,9 +113,7 @@ function CaptureSection({ record }) {
       <h2 className="mb-4 text-sm font-medium text-slate-400 uppercase tracking-wide">Capture Record</h2>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Vessel Type" value={record.vessel_type} />
-        {record.vessel_type === 'Motorized' && (
-          <Field label="Vessel Material" value={record.vessel_material} />
-        )}
+        {record.vessel_type === 'Motorized' && <Field label="Vessel Material" value={record.vessel_material} />}
         <Field label="Vessel Reg. Number" value={record.vessel_registration_number} />
         <Field label="Fishing Gear Type" value={record.fishing_gear_type} />
         <Field label="Fishing Ground" value={record.fishing_ground} />
@@ -134,197 +139,25 @@ function VendorSection({ record }) {
   )
 }
 
-const LICENSE_TONES = { Valid: 'green', 'Expiring Soon': 'amber', Expired: 'rose' }
-const CYCLE_STATUS_TONES = { Active: 'green', Harvested: 'blue', Failed: 'rose', Abandoned: 'slate' }
-const DISASTER_STATUS_TONES = { Reported: 'amber', Verified: 'green', Closed: 'slate' }
-
-const ASSISTANCE_TYPE_CHOICES = [
-  'Fishing Gear', 'Boat/Vessel', 'Fingerlings/Seeds', 'Feed', 'Equipment', 'Cash Assistance', 'Training', 'Other',
-]
-
-function GovernmentAssistanceTab({ fisherfolkId }) {
-  const { showToast } = useToast()
-  const { isAdmin, isEvaluator } = useAuth()
-  const canRecord = isAdmin || isEvaluator
-
-  const [records, setRecords] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
-  const [form, setForm] = useState({
-    assistance_type: 'Fishing Gear',
-    description: '',
-    quantity: '',
-    date_received: '',
-    source_agency: '',
-    season: '',
-    year: new Date().getFullYear().toString(),
-    remarks: '',
-  })
-
-  const fetchRecords = async () => {
-    setIsLoading(true)
-    try {
-      const r = await api.get(`/monitoring/fisheries-assistance/?fisherfolk=${fisherfolkId}`)
-      setRecords(Array.isArray(r.data) ? r.data : (r.data.results || []))
-    } catch { setRecords([]) }
-    finally { setIsLoading(false) }
-  }
-
-  useEffect(() => { fetchRecords() }, [fisherfolkId])
-
-  const set = (field, value) => setForm(f => ({ ...f, [field]: value }))
-
-  const handleAdd = async (e) => {
-    e.preventDefault()
-    setIsSaving(true)
-    try {
-      await api.post('/monitoring/fisheries-assistance/', {
-        ...form,
-        fisherfolk: fisherfolkId,
-        year: parseInt(form.year),
-      })
-      showToast('Assistance record saved.', 'success')
-      setShowForm(false)
-      setForm({ assistance_type: 'Fishing Gear', description: '', quantity: '', date_received: '', source_agency: '', season: '', year: new Date().getFullYear().toString(), remarks: '' })
-      fetchRecords()
-    } catch { showToast('Failed to save.', 'error') }
-    finally { setIsSaving(false) }
-  }
-
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete this assistance record?')) return
-    try {
-      await api.delete(`/monitoring/fisheries-assistance/${id}/`)
-      showToast('Deleted.', 'success')
-      fetchRecords()
-    } catch { showToast('Failed to delete.', 'error') }
-  }
-
-  const currentYear = new Date().getFullYear()
-  const yearOptions = Array.from({ length: 6 }, (_, i) => (currentYear - i).toString())
-
-  return (
-    <div className="space-y-3">
-      {canRecord && (
-        <div className="flex justify-end">
-          <Button size="sm" onClick={() => setShowForm(v => !v)}>{showForm ? '— Cancel' : '+ Log Assistance'}</Button>
-        </div>
-      )}
-
-      {showForm && (
-        <form onSubmit={handleAdd} className="rounded-xl border border-blue-100 bg-blue-50 p-4 space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className={labelCls}>Type *</label>
-              <select className={baseInputClasses} required value={form.assistance_type} onChange={e => set('assistance_type', e.target.value)}>
-                {ASSISTANCE_TYPE_CHOICES.map(t => <option key={t}>{t}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Description *</label>
-              <input className={baseInputClasses} required value={form.description} onChange={e => set('description', e.target.value)} />
-            </div>
-            <div>
-              <label className={labelCls}>Quantity</label>
-              <input className={baseInputClasses} value={form.quantity} onChange={e => set('quantity', e.target.value)} placeholder="e.g. 1 unit, 10 kg" />
-            </div>
-            <div>
-              <label className={labelCls}>Date Received *</label>
-              <input type="date" className={baseInputClasses} required value={form.date_received} onChange={e => set('date_received', e.target.value)} />
-            </div>
-            <div>
-              <label className={labelCls}>Source Agency *</label>
-              <input className={baseInputClasses} required value={form.source_agency} onChange={e => set('source_agency', e.target.value)} placeholder="e.g. BFAR, LGU" />
-            </div>
-            <div>
-              <label className={labelCls}>Season</label>
-              <select className={baseInputClasses} value={form.season} onChange={e => set('season', e.target.value)}>
-                <option value="">—</option>
-                <option value="Dry">Dry</option>
-                <option value="Wet">Wet</option>
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Year *</label>
-              <select className={baseInputClasses} required value={form.year} onChange={e => set('year', e.target.value)}>
-                {yearOptions.map(y => <option key={y}>{y}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Remarks</label>
-              <input className={baseInputClasses} value={form.remarks} onChange={e => set('remarks', e.target.value)} />
-            </div>
-          </div>
-          <div className="flex gap-2 justify-end">
-            <Button type="button" size="sm" variant="ghost" onClick={() => setShowForm(false)}>Cancel</Button>
-            <Button type="submit" size="sm" isLoading={isSaving}>Save</Button>
-          </div>
-        </form>
-      )}
-
-      {isLoading ? <LoadingSpinner /> : records.length === 0 ? (
-        <p className="py-3 text-sm italic text-slate-400">No government assistance records on file.</p>
-      ) : (
-        <table className="min-w-full text-sm">
-          <thead className="bg-[#f0f7f0] text-xs font-semibold uppercase tracking-wide text-[#1E4620]">
-            <tr>
-              {['Type', 'Description', 'Quantity', 'Date Received', 'Source', 'Season/Year', ''].map((h) => (
-                <th key={h} className="px-4 py-2 text-left">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-green-50">
-            {records.map((r, i) => (
-              <tr key={r.id} className={i % 2 === 0 ? 'bg-white' : 'bg-[#f0fdf4]'}>
-                <td className="px-4 py-2 font-medium">{r.assistance_type}</td>
-                <td className="px-4 py-2">{r.description}</td>
-                <td className="px-4 py-2">{r.quantity || '—'}</td>
-                <td className="px-4 py-2">{fmtShort(r.date_received)}</td>
-                <td className="px-4 py-2">{r.source_agency}</td>
-                <td className="px-4 py-2">{r.season ? `${r.season} ${r.year}` : r.year}</td>
-                <td className="px-4 py-2 text-right">
-                  {canRecord && (
-                    <button type="button" className="text-slate-400 hover:text-rose-500" onClick={() => handleDelete(r.id)}>
-                      <Trash2 size={13} />
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
-  )
-}
-
 function FisherfolkDetailPage() {
   const { id } = useParams()
   const { isAdmin, isEvaluator } = useAuth()
-  const [fisherfolk, setFisherfolk] = useState(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [fisherfolk, setFisherfolk]       = useState(null)
+  const [isLoading, setIsLoading]         = useState(true)
+  const [error, setError]                 = useState('')
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [history, setHistory] = useState([])
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
-  const [historyError, setHistoryError] = useState('')
-  const [activeTab, setActiveTab] = useState(null)
-  const [catchLogs, setCatchLogs] = useState([])
-  const [aquaCycles, setAquaCycles] = useState([])
-  const [disasters, setDisasters] = useState([])
-  const [selectedCycle, setSelectedCycle] = useState(null)
-  const [showStartCycle, setShowStartCycle] = useState(false)
-  const [isLoadingCatch, setIsLoadingCatch] = useState(false)
-  const [isLoadingAqua, setIsLoadingAqua] = useState(false)
-  const [isLoadingDisasters, setIsLoadingDisasters] = useState(false)
+  const [isEditModalOpen, setIsEditModalOpen]       = useState(false)
+  const [history, setHistory]             = useState([])
+  const [isLoadingHistory, setIsLoadingHistory]     = useState(false)
+  const [historyError, setHistoryError]   = useState('')
+  const [stockingRecords, setStockingRecords]       = useState([])
+  const [isLoadingStocking, setIsLoadingStocking]   = useState(false)
 
   const fetchFisherfolk = async () => {
     setIsLoading(true)
     setError('')
     try {
-      const response = await api.get(`/fisheries/${id}/`)
+      const response = await api.get(`/fisheries/fisherfolk/${id}/`)
       setFisherfolk(response.data)
     } catch {
       setError('Unable to load fisherfolk profile.')
@@ -346,50 +179,27 @@ function FisherfolkDetailPage() {
     }
   }
 
-  const fetchCatchLogs = async () => {
-    setIsLoadingCatch(true)
+  const fetchStockingRecords = async () => {
+    setIsLoadingStocking(true)
     try {
-      const r = await api.get(`/monitoring/fishing-trips/?fisherfolk=${id}`)
-      setCatchLogs(Array.isArray(r.data) ? r.data : (r.data.results || []))
-    } catch { setCatchLogs([]) }
-    finally { setIsLoadingCatch(false) }
+      const r = await api.get('/fisheries/stocking/', {
+        params: { fisherfolk: id, status: 'Stocked,For Harvest,Harvested' },
+      })
+      setStockingRecords(Array.isArray(r.data) ? r.data : (r.data.results || []))
+    } catch {
+      setStockingRecords([])
+    } finally {
+      setIsLoadingStocking(false)
+    }
   }
 
-  const fetchAquaCycles = async () => {
-    setIsLoadingAqua(true)
-    try {
-      const r = await api.get(`/monitoring/aquaculture-cycles/?fisherfolk=${id}`)
-      setAquaCycles(Array.isArray(r.data) ? r.data : (r.data.results || []))
-    } catch { setAquaCycles([]) }
-    finally { setIsLoadingAqua(false) }
-  }
-
-  const fetchDisasters = async () => {
-    setIsLoadingDisasters(true)
-    try {
-      const r = await api.get(`/monitoring/disasters/?fisherfolk=${id}`)
-      setDisasters(Array.isArray(r.data) ? r.data : (r.data.results || []))
-    } catch { setDisasters([]) }
-    finally { setIsLoadingDisasters(false) }
-  }
-
-  useEffect(() => {
-    fetchFisherfolk()
-  }, [id])
+  useEffect(() => { fetchFisherfolk() }, [id])
 
   useEffect(() => {
     if (!fisherfolk) return
     const type = fisherfolk.fisherfolk_type
-    if (type === 'Capture' || type === 'Inland') {
-      setActiveTab('catch')
-      fetchCatchLogs()
-      fetchDisasters()
-    } else if (type === 'Aquaculture' || type === 'Mariculture') {
-      setActiveTab('cycles')
-      fetchAquaCycles()
-      fetchDisasters()
-    } else {
-      setActiveTab('assistance')
+    if (type === 'Aquaculture' || type === 'Mariculture') {
+      fetchStockingRecords()
     }
   }, [fisherfolk])
 
@@ -398,15 +208,28 @@ function FisherfolkDetailPage() {
     fetchHistory()
   }
 
+  const stockingData = stockingRecords.map((r) => ({
+    ...r,
+    date_stocked_fmt:     fmtShort(r.date_stocked),
+    expected_harvest_fmt: fmtShort(r.expected_harvest_date),
+    est_kg_fmt:           r.estimated_harvest_kg != null
+      ? `${Number(r.estimated_harvest_kg).toLocaleString()} kg` : '—',
+    harvested_kg_fmt:     r.total_harvested_kg != null && r.total_harvested_kg > 0
+      ? `${Number(r.total_harvested_kg).toLocaleString()} kg` : '—',
+    status_cell: (
+      <StatusPill tone={STOCKING_STATUS_TONES[r.status] || 'slate'}>{r.status}</StatusPill>
+    ),
+  }))
+
   return (
     <PageLayout title="Fisherfolk Details" subtitle="View and manage fisherfolk profile and records">
       <div className="space-y-5">
         <Link
           className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700"
-          to="/fisheries"
+          to="/fisherfolk"
         >
           <ArrowLeft size={16} />
-          Back to Fisheries List
+          Back to Fisherfolk Registry
         </Link>
 
         {error && (
@@ -427,14 +250,12 @@ function FisherfolkDetailPage() {
             <section className="rounded-2xl border border-slate-100 bg-white p-6">
               <div className="mb-6 flex flex-col gap-3 border-b border-slate-100 pb-5 lg:flex-row lg:items-start lg:justify-between">
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <h1 className="text-xl font-semibold text-slate-900">{fisherfolk.full_name}</h1>
                     <StatusPill tone={fisherfolk.is_active ? 'green' : 'rose'}>
                       {fisherfolk.is_active ? 'Active' : 'Inactive'}
                     </StatusPill>
-                    {fisherfolk.is_senior_citizen && (
-                      <StatusPill tone="amber">Senior Citizen</StatusPill>
-                    )}
+                    {fisherfolk.is_senior_citizen && <StatusPill tone="amber">Senior Citizen</StatusPill>}
                     {(fisherfolk.fisherfolk_type === 'Capture' || fisherfolk.fisherfolk_type === 'Mariculture') && (
                       fisherfolk.has_vessel
                         ? <StatusPill tone="green">With Vessel</StatusPill>
@@ -444,9 +265,7 @@ function FisherfolkDetailPage() {
                   <p className="mt-1 text-sm font-medium text-slate-600">
                     LGU Registration Number: {fisherfolk.lgu_registration_number}
                   </p>
-                  <p className="mt-0.5 text-sm text-slate-500">
-                    Type: {fisherfolk.fisherfolk_type}
-                  </p>
+                  <p className="mt-0.5 text-sm text-slate-500">Type: {fisherfolk.fisherfolk_type}</p>
                 </div>
 
                 <div className="flex flex-wrap gap-2">
@@ -481,180 +300,28 @@ function FisherfolkDetailPage() {
               </div>
             </section>
 
-            {/* Type-specific sub-record */}
-            {fisherfolk.aquaculture_record && (
-              <AquacultureSection record={fisherfolk.aquaculture_record} />
-            )}
+            {fisherfolk.aquaculture_record && <AquacultureSection record={fisherfolk.aquaculture_record} />}
             {(fisherfolk.fisherfolk_type === 'Aquaculture' || fisherfolk.fisherfolk_type === 'Mariculture') && (
               <FacilitySection fisherfolk={fisherfolk} />
             )}
-            {fisherfolk.capture_record && (
-              <CaptureSection record={fisherfolk.capture_record} />
+            {fisherfolk.capture_record && <CaptureSection record={fisherfolk.capture_record} />}
+            {fisherfolk.vendor_record   && <VendorSection  record={fisherfolk.vendor_record}   />}
+
+            {/* Stocking Records — aquaculture / mariculture only */}
+            {(fisherfolk.fisherfolk_type === 'Aquaculture' || fisherfolk.fisherfolk_type === 'Mariculture') && (
+              <section className="rounded-2xl border border-slate-100 bg-white p-6">
+                <h2 className="mb-4 text-sm font-medium uppercase tracking-wide text-slate-400">
+                  Stocking Records
+                </h2>
+                {isLoadingStocking ? (
+                  <LoadingSpinner />
+                ) : stockingRecords.length === 0 ? (
+                  <p className="py-3 text-sm italic text-slate-400">No stocking records on file.</p>
+                ) : (
+                  <DataTable columns={STOCKING_COLUMNS} data={stockingData} isLoading={false} />
+                )}
+              </section>
             )}
-            {fisherfolk.vendor_record && (
-              <VendorSection record={fisherfolk.vendor_record} />
-            )}
-
-            {/* Monitoring tabs */}
-            {activeTab && (() => {
-              const type = fisherfolk.fisherfolk_type
-              const isAqua = type === 'Aquaculture' || type === 'Mariculture'
-              const isCapture = type === 'Capture' || type === 'Inland'
-
-              const tabList = isAqua
-                ? [
-                    { label: 'Production Cycles', value: 'cycles' },
-                    { label: 'Disaster Reports', value: 'disasters' },
-                    { label: 'Government Assistance', value: 'assistance' },
-                  ]
-                : isCapture
-                  ? [
-                      { label: 'Catch Logs', value: 'catch' },
-                      { label: 'Disaster Reports', value: 'disasters' },
-                      { label: 'Government Assistance', value: 'assistance' },
-                    ]
-                  : [
-                      { label: 'Government Assistance', value: 'assistance' },
-                    ]
-
-              return (
-                <section className="rounded-2xl border border-slate-100 bg-white p-6">
-                  <h2 className="mb-4 text-sm font-medium uppercase tracking-wide text-slate-400">Monitoring Records</h2>
-                  <Tabs tabs={tabList} activeTab={activeTab} onChange={setActiveTab} />
-                  <div className="mt-4">
-                    {activeTab === 'catch' && (
-                      isLoadingCatch ? <LoadingSpinner /> :
-                      catchLogs.length === 0 ? (
-                        <p className="py-3 text-sm italic text-slate-400">No catch logs recorded.</p>
-                      ) : (
-                        <table className="min-w-full text-sm">
-                          <thead className="bg-[#f0f7f0] text-xs font-semibold uppercase tracking-wide text-[#1E4620]">
-                            <tr>
-                              {['Trip Date', 'Return Date', 'Ground', 'Gear', 'Catch (kg)', 'Top Species', 'Hrs at Sea'].map((h) => (
-                                <th key={h} className="px-4 py-2 text-left">{h}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-green-50">
-                            {catchLogs.map((c, i) => {
-                              const entries = c.species_entries || []
-                              const top = entries.sort((a, b) => b.volume_kg - a.volume_kg)[0]
-                              const extra = entries.length - 1
-                              return (
-                                <tr key={c.id} className={i % 2 === 0 ? 'bg-white' : 'bg-[#f0fdf4]'}>
-                                  <td className="px-4 py-2">{fmtShort(c.trip_date)}</td>
-                                  <td className="px-4 py-2">{fmtShort(c.return_date)}</td>
-                                  <td className="px-4 py-2">{c.fishing_ground}</td>
-                                  <td className="px-4 py-2">{c.gear_used}</td>
-                                  <td className="px-4 py-2">{c.total_catch_kg ? parseFloat(c.total_catch_kg).toLocaleString() : '—'}</td>
-                                  <td className="px-4 py-2 text-slate-700">
-                                    {top ? (
-                                      <span>
-                                        {top.species_name}
-                                        {extra > 0 && (
-                                          <span style={{ marginLeft: 5, background: '#e8f5e9', color: '#2e7d32', borderRadius: 10, padding: '1px 6px', fontSize: 10, fontWeight: 600 }}>
-                                            +{extra}
-                                          </span>
-                                        )}
-                                      </span>
-                                    ) : '—'}
-                                  </td>
-                                  <td className="px-4 py-2 text-slate-500">{c.hours_at_sea ? `${c.hours_at_sea} hrs` : '—'}</td>
-                                </tr>
-                              )
-                            })}
-                          </tbody>
-                        </table>
-                      )
-                    )}
-
-                    {activeTab === 'cycles' && (
-                      isLoadingAqua ? <LoadingSpinner /> : (
-                      <>
-                        {(isAdmin || isEvaluator) && (
-                          <div className="mb-3 flex justify-end">
-                            <Button size="sm" onClick={() => setShowStartCycle(true)}>+ Start New Cycle</Button>
-                          </div>
-                        )}
-                        {aquaCycles.length === 0 ? (
-                        <p className="py-3 text-sm italic text-slate-400">No production cycles recorded.</p>
-                      ) : (
-                        <table className="min-w-full text-sm">
-                          <thead className="bg-[#f0f7f0] text-xs font-semibold uppercase tracking-wide text-[#1E4620]">
-                            <tr>
-                              {['Cycle Name', 'Species', 'System', 'Stocking Date', 'Harvest Vol.', 'Area/Cage', 'Status', ''].map((h) => (
-                                <th key={h} className="px-4 py-2 text-left">{h}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-green-50">
-                            {aquaCycles.map((c, i) => (
-                              <tr key={c.id} className={i % 2 === 0 ? 'bg-white' : 'bg-[#f0fdf4]'}>
-                                <td className="px-4 py-2 font-medium">{c.cycle_name}</td>
-                                <td className="px-4 py-2">{c.species_farmed}</td>
-                                <td className="px-4 py-2">{c.culture_system}</td>
-                                <td className="px-4 py-2">{fmtShort(c.stocking_date)}</td>
-                                <td className="px-4 py-2">{c.harvest_volume_kg ? `${Number(c.harvest_volume_kg).toLocaleString()} kg` : '—'}</td>
-                                <td className="px-4 py-2">{c.area_cage_harvested || '—'}</td>
-                                <td className="px-4 py-2">
-                                  <StatusPill tone={CYCLE_STATUS_TONES[c.status] || 'slate'}>{c.status}</StatusPill>
-                                </td>
-                                <td className="px-4 py-2 text-right">
-                                  <button
-                                    type="button"
-                                    className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[#1E4620] hover:bg-[#f0f7f0]"
-                                    onClick={() => setSelectedCycle(c)}
-                                  >
-                                    <Eye size={13} /> View
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      )
-                    }
-                      </>
-                    )
-                    )}
-
-                    {activeTab === 'disasters' && (
-                      isLoadingDisasters ? <LoadingSpinner /> :
-                      disasters.length === 0 ? (
-                        <p className="py-3 text-sm italic text-slate-400">No disaster reports on file.</p>
-                      ) : (
-                        <table className="min-w-full text-sm">
-                          <thead className="bg-[#f0f7f0] text-xs font-semibold uppercase tracking-wide text-[#1E4620]">
-                            <tr>
-                              {['Date', 'Type', 'Barangay', 'Vol. Lost (kg)', 'Status'].map((h) => (
-                                <th key={h} className="px-4 py-2 text-left">{h}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-green-50">
-                            {disasters.map((d, i) => (
-                              <tr key={d.id} className={i % 2 === 0 ? 'bg-white' : 'bg-[#f0fdf4]'}>
-                                <td className="px-4 py-2">{fmtShort(d.report_date)}</td>
-                                <td className="px-4 py-2">{d.disaster_type}</td>
-                                <td className="px-4 py-2">{d.affected_barangay}</td>
-                                <td className="px-4 py-2">{d.volume_lost_kg ? `${Number(d.volume_lost_kg).toLocaleString()} kg` : '—'}</td>
-                                <td className="px-4 py-2">
-                                  <StatusPill tone={DISASTER_STATUS_TONES[d.status] || 'slate'}>{d.status}</StatusPill>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      )
-                    )}
-
-                    {activeTab === 'assistance' && (
-                      <GovernmentAssistanceTab fisherfolkId={parseInt(id)} />
-                    )}
-                  </div>
-                </section>
-              )
-            })()}
           </>
         )}
       </div>
@@ -673,20 +340,6 @@ function FisherfolkDetailPage() {
           fisherfolk={fisherfolk}
           onClose={() => setIsEditModalOpen(false)}
           onSuccess={fetchFisherfolk}
-        />
-      )}
-      {selectedCycle && (
-        <AquacultureCycleDetailModal
-          cycle={selectedCycle}
-          onClose={() => setSelectedCycle(null)}
-          onRefresh={fetchAquaCycles}
-        />
-      )}
-      {showStartCycle && fisherfolk && (
-        <StartProductionCycleModal
-          fisherfolk={fisherfolk}
-          onClose={() => setShowStartCycle(false)}
-          onSuccess={() => { setShowStartCycle(false); fetchAquaCycles() }}
         />
       )}
     </PageLayout>

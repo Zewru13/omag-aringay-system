@@ -12,6 +12,7 @@ from .models import (
     FisherfolkAssociation,
     FisherfolkAssociationEquipment,
     FisherfolkAssociationMember,
+    FisherfolkAssociationOfficer,
 )
 from .serializers import (
     AssociationOfficerSerializer,
@@ -23,6 +24,7 @@ from .serializers import (
     FisherfolkAssociationEquipmentSerializer,
     FisherfolkAssociationListSerializer,
     FisherfolkAssociationMemberSerializer,
+    FisherfolkAssociationOfficerSerializer,
 )
 
 
@@ -86,6 +88,7 @@ class FarmersAssociationEquipmentRemoveView(generics.DestroyAPIView):
 class AssociationOfficerListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     serializer_class = AssociationOfficerSerializer
+    pagination_class = None
 
     def get_queryset(self):
         return AssociationOfficer.objects.filter(association_id=self.kwargs['pk'])
@@ -155,3 +158,21 @@ class FisherfolkAssociationEquipmentRemoveView(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     queryset = FisherfolkAssociationEquipment.objects.all()
     lookup_url_kwarg = 'equip_id'
+
+
+class FisherfolkAssociationOfficerListCreateView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    serializer_class = FisherfolkAssociationOfficerSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        return FisherfolkAssociationOfficer.objects.filter(association_id=self.kwargs['pk'])
+
+    def perform_create(self, serializer):
+        serializer.save(association_id=self.kwargs['pk'])
+
+
+class FisherfolkAssociationOfficerDestroyView(generics.DestroyAPIView):
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    queryset = FisherfolkAssociationOfficer.objects.all()
+    lookup_url_kwarg = 'officer_id'

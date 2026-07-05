@@ -2005,3 +2005,146 @@ class CropOptionsReport(APIView):
         response['Content-Disposition'] = f'attachment; filename="crop_options_report_{today}.xlsx"'
         return response
 
+
+# ─── Fisheries Production Report ─────────────────────────────────────────────
+
+class FisheriesProductionReport(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request):
+        from django.http import JsonResponse
+        from fisheries.models import FisheriesHarvestRecord
+
+        today        = _today()
+        start_date   = request.query_params.get('start_date', '')
+        end_date     = request.query_params.get('end_date', '')
+        barangay     = request.query_params.get('barangay', '')
+        assoc_id     = request.query_params.get('association', '')
+        species_id   = request.query_params.get('species', '')
+        culture_type = request.query_params.get('culture_type', '')
+        fmt          = request.query_params.get('format', 'excel')
+
+        qs = FisheriesHarvestRecord.objects.select_related(
+            'stocking_record',
+            'stocking_record__fisherfolk',
+            'stocking_record__fisherfolk__fisherfolk_association',
+            'stocking_record__species',
+        ).order_by('-harvest_date')
+
+        if start_date:
+            qs = qs.filter(harvest_date__gte=start_date)
+        if end_date:
+            qs = qs.filter(harvest_date__lte=end_date)
+        if barangay:
+            qs = qs.filter(stocking_record__pond_location_barangay__iexact=barangay)
+        if assoc_id:
+            qs = qs.filter(stocking_record__fisherfolk__fisherfolk_association_id=assoc_id)
+        if species_id:
+            qs = qs.filter(stocking_record__species_id=species_id)
+        if culture_type:
+            qs = qs.filter(stocking_record__culture_type__iexact=culture_type)
+
+        records = list(qs)
+
+        headers = [
+            'BARANGAY', 'FISHERFOLK', 'ASSOCIATION',
+            'SPECIES', 'CULTURE TYPE',
+            'DATE STOCKED', 'HARVEST DATE',
+            'QUANTITY (KG)', 'FINAL?',
+        ]
+
+        def _assoc(rec):
+            assoc = rec.stocking_record.fisherfolk.fisherfolk_association if rec.stocking_record.fisherfolk else None
+            return assoc.name if assoc else '—'
+
+        def row_data(rec):
+            sr  = rec.stocking_record
+            ff  = sr.fisherfolk if sr else None
+            return [
+                fmt_field(sr.pond_location_barangay) if sr else '—',
+                fmt_field(ff.full_name) if ff else '—',
+                _assoc(rec),
+                fmt_field(sr.species.species_name) if (sr and sr.species) else '—',
+                fmt_field(sr.culture_type) if sr else '—',
+                fmt_date(sr.date_stocked) if (sr and sr.date_stocked) else '—',
+                fmt_date(rec.harvest_date) if rec.harvest_date else '—',
+                float(rec.quantity_kg) if rec.quantity_kg else 0,
+                'Yes' if rec.is_final else 'No',
+            ]
+
+        if fmt == 'json':
+            data = []
+            for rec in records:
+                r = row_data(rec)
+                data.append({
+                    'barangay':     r[0], 'fisherfolk':   r[1], 'association': r[2],
+                    'species':      r[3], 'culture_type': r[4],
+                    'date_stocked': r[5], 'harvest_date': r[6],
+                    'quantity_kg':  r[7], 'is_final':     r[8],
+                })
+            return JsonResponse({'count': len(data), 'records': data})
+
+        if fmt == 'pdf':
+            return self._build_pdf(records, headers, row_data, today, _sig_params(request))
+        return self._build_excel(records, headers, row_data, today)
+
+    def _build_pdf(self, records, headers, row_data_fn, today, sig=None):
+        sig = sig or {}
+        buf, doc = _make_doc()
+        story = []
+        story += build_official_header(LOGO_PATH, 'Fisheries Production Report')
+        story.append(build_stats_row([
+            ('Total Harvest Records', len(records)),
+            ('Date Generated', str(today)),
+        ], page_width=PAGE_WIDTH))
+        story.append(Spacer(1, 14))
+        col_widths = [55, 65, 55, 55, 40, 45, 45, 48, 30]
+        rows = [row_data_fn(r) for r in records]
+        story.append(build_ledger_table(headers, rows, col_widths=col_widths))
+        story.append(Spacer(1, 30))
+        story.append(build_signature_block(
+            left_label='Prepared by',
+            left_name=sig.get('prepared_by') or None,
+            left_role=sig.get('position') or 'OMAg Records Officer',
+            reviewed_by=sig.get('reviewed_by') or None,
+            reviewed_role=sig.get('reviewed_role') or None,
+            noted_by=sig.get('noted_by') or None,
+            noted_role=sig.get('noted_role') or None,
+            page_width=PAGE_WIDTH,
+        ))
+        doc.build(story, canvasmaker=NumberedCanvas)
+        return _finish_pdf(buf, f'fisheries_production_report_{today}.pdf')
+
+    def _build_excel(self, records, headers, row_data_fn, today):
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'Fisheries Production'
+
+        hdr_fill = PatternFill('solid', fgColor='1E4620')
+        hdr_font = Font(bold=True, color='FFFFFF', size=10)
+
+        ws.append(['Republic of the Philippines'])
+        ws.append(['Office of the Municipal Agriculturist — Aringay, La Union'])
+        ws.append(['Fisheries Production Report'])
+        ws.append([f'Date Generated: {today}'])
+        ws.append([])
+        ws.append(headers)
+        for cell in ws[6]:
+            cell.fill = hdr_fill
+            cell.font = hdr_font
+            cell.alignment = Alignment(horizontal='center')
+        for rec in records:
+            ws.append(row_data_fn(rec))
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        response = HttpResponse(
+            buf.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        response['Content-Disposition'] = f'attachment; filename="fisheries_production_report_{today}.xlsx"'
+        return response

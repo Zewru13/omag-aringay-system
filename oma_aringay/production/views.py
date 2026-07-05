@@ -4,13 +4,13 @@ from io import BytesIO
 
 from django.db.models import Avg, Case, CharField, Count, Exists, IntegerField, OuterRef, Q, Sum, Value, When
 from django.utils import timezone
-from rest_framework import generics
+from rest_framework import generics, status as drf_status
 from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import IsAdminOrEvaluator
+from accounts.permissions import IsAdmin, IsAdminOrEvaluator
 from core.constants import BARANGAY_CHOICES
 from farmers.models import FarmParcel, Farmer
 from fisheries.models import Fisherfolk
@@ -48,6 +48,7 @@ from .serializers import (
 class HarvestRecordListView(generics.ListAPIView):
     serializer_class = HarvestRecordSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
 
     def get_queryset(self):
         queryset = HarvestRecord.objects.select_related(
@@ -89,7 +90,7 @@ class HarvestRecordCreateView(generics.CreateAPIView):
         serializer.save(recorded_by=self.request.user)
 
 
-class HarvestRecordDetailView(generics.RetrieveUpdateAPIView):
+class HarvestRecordDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = HarvestRecord.objects.select_related(
         'farm_parcel',
         'farm_parcel__farmer',
@@ -97,8 +98,26 @@ class HarvestRecordDetailView(generics.RetrieveUpdateAPIView):
     )
     serializer_class = HarvestRecordSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    http_method_names = ['get', 'patch']
+    http_method_names = ['get', 'patch', 'delete']
     lookup_field = 'id'
+
+    def destroy(self, request, *args, **kwargs):
+        if request.user.role != 'ADMIN':
+            return Response(
+                {'detail': 'Only administrators can delete harvest records.'},
+                status=drf_status.HTTP_403_FORBIDDEN,
+            )
+        harvest = self.get_object()
+        monitoring = harvest.monitoring_record
+        response = super().destroy(request, *args, **kwargs)
+        if monitoring is not None:
+            monitoring.status = CropMonitoringRecord.Status.ACTIVE
+            monitoring.actual_yield_kg = None
+            monitoring.actual_harvest_date = None
+            monitoring.yield_variance_kg = None
+            monitoring.yield_variance_pct = None
+            monitoring.save()
+        return response
 
 
 class ProductionDashboardView(APIView):
@@ -127,33 +146,139 @@ class ProductionDashboardView(APIView):
 
 
 class AgriDashboardView(APIView):
-    """Dashboard stats for the Agri module: associations, crop records, harvest calendar, distribution."""
+    """Dashboard stats for the Agri module: associations, crop records, harvest calendar, distribution.
+    Pass ?domain=fisheries to get fisheries stocking stats instead."""
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
     def get(self, request):
+        domain = request.query_params.get('domain', 'crops').strip().lower()
+        if domain == 'fisheries':
+            return self._get_fisheries(request)
+        return self._get_crops(request)
+
+    def _get_fisheries(self, request):
+        from associations.models import FisherfolkAssociation
+        from fisheries.models import StockingRecord
+        from datetime import date, timedelta
+
+        today      = date.today()
+        two_weeks  = today + timedelta(days=14)
+        year_param = request.query_params.get('year',   '').strip()
+
+        total_assoc = FisherfolkAssociation.objects.count()
+
+        base_active = StockingRecord.objects.filter(
+            status__in=[StockingRecord.Status.STOCKED, StockingRecord.Status.FOR_HARVEST]
+        )
+        if year_param:
+            base_active = base_active.filter(year=year_param)
+
+        total_stocking    = base_active.count()
+        nearing_harvest   = base_active.filter(
+            expected_harvest_date__lte=two_weeks,
+            expected_harvest_date__gte=today,
+        ).count()
+
+        top_barangay_row = (
+            base_active
+            .exclude(pond_location_barangay='')
+            .values('pond_location_barangay')
+            .annotate(total_area=Sum('area_hectares'))
+            .order_by('-total_area')
+            .first()
+        )
+        top_barangay = top_barangay_row['pond_location_barangay'] if top_barangay_row else '—'
+
+        # Harvest calendar from stocking expected_harvest_date
+        upcoming_qs = (
+            base_active
+            .filter(
+                expected_harvest_date__gte=today,
+                expected_harvest_date__lte=today + timedelta(days=90),
+            )
+            .values_list('expected_harvest_date', flat=True)
+            .distinct()
+        )
+        overdue_qs = (
+            base_active
+            .filter(expected_harvest_date__lt=today)
+            .values_list('expected_harvest_date', flat=True)
+            .distinct()
+        )
+        harvest_dates = (
+            [{'date': str(d), 'type': 'upcoming'} for d in upcoming_qs]
+            + [{'date': str(d), 'type': 'overdue'}  for d in overdue_qs]
+        )
+
+        # Distribution by species + barangay
+        all_stocking = StockingRecord.objects.select_related('species')
+        if year_param:
+            all_stocking = all_stocking.filter(year=year_param)
+
+        dist_qs = (
+            all_stocking
+            .values('pond_location_barangay', 'species__species_name')
+            .annotate(count=Count('id'))
+            .order_by('species__species_name')
+        )
+        distribution_detail = [
+            {
+                'barangay': row['pond_location_barangay'] or 'Unknown',
+                'crop':     row['species__species_name']  or 'Unknown',
+                'count':    row['count'],
+            }
+            for row in dist_qs
+        ]
+
+        available_years = sorted(
+            StockingRecord.objects.values_list('year', flat=True).distinct(),
+            reverse=True,
+        )
+
+        return Response({
+            'total_associations': total_assoc,
+            'total_crop_records': total_stocking,
+            'nearing_harvest':    nearing_harvest,
+            'top_barangay':       top_barangay,
+            'harvest_dates':      harvest_dates,
+            'harvest_calendar':   harvest_dates,
+            'crop_distribution':  [],
+            'crop_distribution_detail': distribution_detail,
+            'available_years':    available_years,
+        })
+
+    def _get_crops(self, request):
         from associations.models import FarmersAssociation
         from datetime import date, timedelta
 
         today = date.today()
         week_later = today + timedelta(days=7)
 
-        total_associations = FarmersAssociation.objects.count()
-        # total_crop_records = only Active (Planted + For Harvest)
-        total_crop_records = CropMonitoringRecord.objects.filter(
-            status=CropMonitoringRecord.Status.ACTIVE
-        ).count()
+        season_param = request.query_params.get('season', '').strip()
+        year_param   = request.query_params.get('year',   '').strip()
 
-        nearing_harvest_qs = CropMonitoringRecord.objects.filter(
+        def apply_filters(qs):
+            if season_param:
+                qs = qs.filter(season__iexact=season_param)
+            if year_param:
+                qs = qs.filter(year=year_param)
+            return qs
+
+        total_associations = FarmersAssociation.objects.count()
+
+        base_active = apply_filters(
+            CropMonitoringRecord.objects.filter(status=CropMonitoringRecord.Status.ACTIVE)
+        )
+        total_crop_records = base_active.count()
+
+        nearing_harvest = base_active.filter(
             expected_harvest_date__gte=today,
             expected_harvest_date__lte=week_later,
-            status=CropMonitoringRecord.Status.ACTIVE,
-        )
-        nearing_harvest = nearing_harvest_qs.count()
+        ).count()
 
-        # Top barangay by total area planted — use farm_location_barangay with fallback
+        # Top barangay by total area planted
         top_barangay_row = (
-            CropMonitoringRecord.objects
-            .filter(status=CropMonitoringRecord.Status.ACTIVE)
+            base_active
             .values('farm_location_barangay')
             .annotate(total_area=Sum('area_planted_ha'))
             .exclude(farm_location_barangay='')
@@ -162,8 +287,7 @@ class AgriDashboardView(APIView):
         )
         if not top_barangay_row:
             top_barangay_row = (
-                CropMonitoringRecord.objects
-                .filter(status=CropMonitoringRecord.Status.ACTIVE)
+                base_active
                 .values('farm_parcel__barangay')
                 .annotate(total_area=Sum('area_planted_ha'))
                 .exclude(farm_parcel__barangay='')
@@ -176,21 +300,17 @@ class AgriDashboardView(APIView):
 
         # Harvest dates: upcoming (next 90 days) + overdue (past, still active)
         upcoming_qs = (
-            CropMonitoringRecord.objects
+            base_active
             .filter(
                 expected_harvest_date__gte=today,
                 expected_harvest_date__lte=today + timedelta(days=90),
-                status=CropMonitoringRecord.Status.ACTIVE,
             )
             .values_list('expected_harvest_date', flat=True)
             .distinct()
         )
         overdue_qs = (
-            CropMonitoringRecord.objects
-            .filter(
-                expected_harvest_date__lt=today,
-                status=CropMonitoringRecord.Status.ACTIVE,
-            )
+            base_active
+            .filter(expected_harvest_date__lt=today)
             .values_list('expected_harvest_date', flat=True)
             .distinct()
         )
@@ -200,9 +320,10 @@ class AgriDashboardView(APIView):
         )
         harvest_calendar = harvest_dates
 
-        # Crop distribution — use farm_location_barangay, fallback to farm_parcel__barangay
+        # Crop distribution (all statuses, filtered by season/year)
+        dist_base = apply_filters(CropMonitoringRecord.objects.all())
         dist_qs = (
-            CropMonitoringRecord.objects
+            dist_base
             .values('farm_location_barangay', 'farm_parcel__barangay')
             .annotate(count=Count('id'), area_ha=Sum('area_planted_ha'))
             .order_by('farm_location_barangay')
@@ -218,7 +339,7 @@ class AgriDashboardView(APIView):
 
         # Crop distribution detail: barangay + crop grouped
         detail_qs = (
-            CropMonitoringRecord.objects
+            dist_base
             .values('farm_location_barangay', 'farm_parcel__barangay', 'farmers_association__barangay', 'crop_type__name')
             .annotate(count=Count('id'))
             .order_by('crop_type__name')
@@ -235,6 +356,12 @@ class AgriDashboardView(APIView):
             for row in detail_qs
         ]
 
+        # Available years for the filter dropdowns
+        available_years = sorted(
+            CropMonitoringRecord.objects.values_list('year', flat=True).distinct(),
+            reverse=True,
+        )
+
         return Response({
             'total_associations': total_associations,
             'total_crop_records': total_crop_records,
@@ -244,6 +371,7 @@ class AgriDashboardView(APIView):
             'harvest_calendar': harvest_calendar,
             'crop_distribution': crop_distribution,
             'crop_distribution_detail': crop_distribution_detail,
+            'available_years': available_years,
         })
 
 
@@ -342,6 +470,7 @@ class SeasonalComparisonView(APIView):
 
 class PlantingRecordListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
 
     def get_serializer_class(self):
         if self.request.method == 'POST':
@@ -378,6 +507,7 @@ class PlantingRecordDetailView(generics.RetrieveUpdateDestroyAPIView):
 class DamageReportListCreateView(generics.ListCreateAPIView):
     serializer_class = DamageReportSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
 
     def get_queryset(self):
         queryset = DamageReport.objects.order_by('-calamity_date')
@@ -453,6 +583,7 @@ class DashboardExtendedSummaryView(APIView):
 class CropTypeListView(generics.ListCreateAPIView):
     serializer_class = CropTypeSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
     queryset = CropType.objects.all().order_by('name')
 
 
@@ -471,7 +602,7 @@ class CropMonitoringListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         qs = CropMonitoringRecord.objects.select_related(
             'farm_parcel', 'farm_parcel__farmer', 'farmer', 'crop_type', 'recorded_by', 'farmers_association',
-        ).prefetch_related('activity_logs', 'labor_logs').order_by('-date_recorded')
+        ).prefetch_related('activity_logs', 'labor_logs', 'harvest_records').order_by('-date_recorded')
         qs = qs.annotate(
             has_disaster=Exists(
                 CropDisasterReport.objects.filter(monitoring_record=OuterRef('pk'))
@@ -505,6 +636,42 @@ class CropMonitoringDetailView(generics.RetrieveUpdateDestroyAPIView):
             return CropMonitoringDetailSerializer
         return CropMonitoringRecordSerializer
 
+    def destroy(self, request, *args, **kwargs):
+        if request.user.role != 'ADMIN':
+            return Response(
+                {'detail': 'Only administrators can delete crop records.'},
+                status=drf_status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
+
+
+# ─── Crop Duplicate Check ─────────────────────────────────────────────────────
+
+class CropDuplicateCheckView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request):
+        farmer_id   = request.query_params.get('farmer')
+        crop_type_id = request.query_params.get('crop_type')
+        if not farmer_id or not crop_type_id:
+            return Response({'duplicates': []})
+        qs = CropMonitoringRecord.objects.filter(
+            farmer_id=farmer_id,
+            crop_type_id=crop_type_id,
+            status=CropMonitoringRecord.Status.ACTIVE,
+        ).select_related('crop_type').order_by('-date_planted')[:5]
+        results = [
+            {
+                'id':           r.id,
+                'crop_type':    r.crop_type.name if r.crop_type else '',
+                'date_planted': str(r.date_planted) if r.date_planted else None,
+                'area_planted_ha': str(r.area_planted_ha),
+                'status':       r.status,
+            }
+            for r in qs
+        ]
+        return Response({'duplicates': results})
+
 
 # ─── Module 2b: Crop Activity Suggestions ────────────────────────────────────
 
@@ -526,7 +693,7 @@ class CropActivitySuggestionsView(APIView):
         ).order_by('day_after_planting')
 
         activity_logs = CropActivityLog.objects.filter(monitoring_record=record).values(
-            'activity_type', 'activity_date'
+            'activity_type', 'activity_date', 'target_day'
         )
 
         today = date.today()
@@ -542,13 +709,18 @@ class CropActivitySuggestionsView(APIView):
                 days_diff = occurrence_day - days_elapsed
 
                 is_done = False
+                done_date = None
                 if due_date:
                     window = stage.window_days
-                    is_done = any(
-                        log['activity_type'] == stage.stage_name and
-                        abs((log['activity_date'] - due_date).days) <= window
-                        for log in activity_logs
-                    )
+                    for log in activity_logs:
+                        if log['activity_type'] != stage.stage_name:
+                            continue
+                        target_match = log.get('target_day') is not None and log['target_day'] == occurrence_day
+                        date_match = abs((log['activity_date'] - due_date).days) <= window
+                        if target_match or date_match:
+                            is_done = True
+                            done_date = log['activity_date'].isoformat()
+                            break
 
                 if is_done:
                     status = 'done'
@@ -569,6 +741,7 @@ class CropActivitySuggestionsView(APIView):
                     'window_days': stage.window_days,
                     'status': status,
                     'is_completed': is_done,
+                    'done_date': done_date,
                     'days_diff': days_diff,
                 })
 
@@ -608,6 +781,7 @@ class CropActivitySuggestionsView(APIView):
 class CropActivityLogListCreateView(generics.ListCreateAPIView):
     serializer_class = CropActivityLogSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
 
     def get_queryset(self):
         monitoring_id = self.kwargs.get('monitoring_id')
@@ -634,6 +808,7 @@ class CropActivityLogDeleteView(generics.DestroyAPIView):
 class CropDisasterReportListCreateView(generics.ListCreateAPIView):
     serializer_class = CropDisasterReportSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
 
     def get_queryset(self):
         monitoring_id = self.kwargs.get('monitoring_id')
@@ -654,6 +829,7 @@ class CropDisasterReportListCreateView(generics.ListCreateAPIView):
 class LaborOperationLogListCreateView(generics.ListCreateAPIView):
     serializer_class = LaborOperationLogSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
 
     def get_queryset(self):
         monitoring_id = self.kwargs.get('monitoring_id')
@@ -680,6 +856,7 @@ class LaborOperationLogDeleteView(generics.DestroyAPIView):
 class FarmInputLogListCreateView(generics.ListCreateAPIView):
     serializer_class = FarmInputLogSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
 
     def get_queryset(self):
         monitoring_id = self.kwargs.get('monitoring_id')
@@ -705,6 +882,7 @@ class FarmInputLogDeleteView(generics.DestroyAPIView):
 class PestDiseaseReportListCreateView(generics.ListCreateAPIView):
     serializer_class = PestDiseaseReportSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
 
     def get_queryset(self):
         monitoring_id = self.kwargs.get('monitoring_id')
@@ -778,6 +956,7 @@ class YearOnYearVarianceView(APIView):
 class BarangayCropSummaryListCreateView(generics.ListCreateAPIView):
     serializer_class = BarangayCropSummarySerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
 
     def get_queryset(self):
         qs = BarangayCropSummary.objects.select_related(
@@ -1088,6 +1267,7 @@ class BarangaySubmissionStatusView(APIView):
 class CropCategoryListCreateView(generics.ListCreateAPIView):
     serializer_class = CropCategorySerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
     queryset = CropCategory.objects.order_by('name')
 
     def perform_create(self, serializer):
@@ -1103,6 +1283,7 @@ class CropCategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
 class CropSubcategoryListCreateView(generics.ListCreateAPIView):
     serializer_class = CropSubcategorySerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
 
     def get_queryset(self):
         qs = CropSubcategory.objects.select_related('category').order_by('name')
@@ -1126,6 +1307,7 @@ class CropSubcategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
 class CropRemarkListCreateView(generics.ListCreateAPIView):
     serializer_class = CropRemarkSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
 
     def get_queryset(self):
         qs = CropRemark.objects.select_related('crop_type', 'recorded_by').order_by('-date_recorded')
@@ -1148,6 +1330,7 @@ class CropRemarkDetailView(generics.RetrieveUpdateDestroyAPIView):
 class MonitoringRemarkListCreateView(generics.ListCreateAPIView):
     serializer_class = MonitoringRemarkSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
 
     def get_queryset(self):
         return CropRemark.objects.filter(
@@ -1169,6 +1352,7 @@ class MonitoringRemarkListCreateView(generics.ListCreateAPIView):
 class CropActivityStageListCreateView(generics.ListCreateAPIView):
     serializer_class = CropActivityStageSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
 
     def get_queryset(self):
         return CropActivityStage.objects.filter(

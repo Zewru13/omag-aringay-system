@@ -6,6 +6,7 @@ from .views import (
     FarmerCreateView,
     FarmerDeleteView,
     FarmerDetailView,
+    FarmerDuplicateCheckView,
     FarmerListView,
     FarmMachineryDeleteView,
     FarmMachineryListCreateView,
@@ -16,6 +17,7 @@ from .views import (
 
 urlpatterns = [
     path('', FarmerListView.as_view(), name='farmers-list'),
+    path('check-duplicate/', FarmerDuplicateCheckView.as_view(), name='farmers-check-duplicate'),
     path('create/', FarmerCreateView.as_view(), name='farmers-create'),
     path('<int:id>/', FarmerDetailView.as_view(), name='farmers-detail'),
     path('<int:id>/delete/', FarmerDeleteView.as_view(), name='farmers-delete'),

@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import LoadingSpinner from '../../components/UI/LoadingSpinner.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
@@ -10,6 +10,24 @@ import { useToast } from '../../context/ToastContext.jsx'
 
 const labelCls = 'block text-xs font-medium text-slate-600'
 const CYCLE_STATUS_TONES = { Active: 'green', Harvested: 'blue', Failed: 'rose', Abandoned: 'slate' }
+const FEED_TYPE_OPTIONS = [
+  'Commercial Pellets',
+  'Floating Pellets',
+  'Sinking Pellets',
+  'Starter Feed',
+  'Grower Feed',
+  'Finisher Feed',
+  'Rice Bran (Darak)',
+  'Corn Bran',
+  'Copra Meal',
+  'Azolla',
+  'Duckweed',
+  'Fresh Fish',
+  'Trash Fish',
+  'Homemade Feed',
+  'Mixed Feed',
+  'Other',
+]
 
 function formatDate(v) {
   if (!v) return '—'
@@ -26,7 +44,7 @@ function InnerTabs({ tabs, active, onChange }) {
           onClick={() => onChange(t.value)}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             active === t.value
-              ? 'border-[#1B4D2E] text-[#1B4D2E]'
+              ? 'border-[#1E4620] text-[#1E4620]'
               : 'border-transparent text-slate-500 hover:text-slate-700'
           }`}
         >
@@ -44,6 +62,7 @@ function CycleInfoTab({ cycle, onRefresh }) {
     status: cycle.status,
     actual_harvest_date: cycle.actual_harvest_date || '',
     harvest_volume_kg: cycle.harvest_volume_kg || '',
+    price_per_kg: cycle.price_per_kg || '',
     area_cage_harvested: cycle.area_cage_harvested || '',
     notes: cycle.notes || '',
   })
@@ -63,6 +82,7 @@ function CycleInfoTab({ cycle, onRefresh }) {
       await api.patch(`/monitoring/aquaculture-cycles/${cycle.id}/`, {
         ...form,
         harvest_volume_kg: form.harvest_volume_kg ? parseFloat(form.harvest_volume_kg) : null,
+        price_per_kg: form.price_per_kg ? parseFloat(form.price_per_kg) : null,
         actual_harvest_date: form.actual_harvest_date || null,
         area_cage_harvested: form.area_cage_harvested || '',
       })
@@ -90,6 +110,10 @@ function CycleInfoTab({ cycle, onRefresh }) {
           <div>
             <label className={labelCls}>Harvest Volume (kg)</label>
             <input type="number" step="0.01" className={baseInputClasses} value={form.harvest_volume_kg} onChange={e => setForm(f => ({...f, harvest_volume_kg: e.target.value}))} />
+          </div>
+          <div>
+            <label className={labelCls}>Price per kg (₱)</label>
+            <input type="number" step="0.01" className={baseInputClasses} value={form.price_per_kg} onChange={e => setForm(f => ({...f, price_per_kg: e.target.value}))} />
           </div>
           <div>
             <label className={labelCls}>Area / Cage Harvested</label>
@@ -130,6 +154,7 @@ function CycleInfoTab({ cycle, onRefresh }) {
         <Field label="Target Harvest" value={formatDate(cycle.target_harvest_date)} />
         <Field label="Actual Harvest" value={formatDate(cycle.actual_harvest_date)} />
         <Field label="Harvest Volume" value={cycle.harvest_volume_kg ? `${Number(cycle.harvest_volume_kg).toLocaleString()} kg` : null} />
+        <Field label="Price/kg" value={cycle.price_per_kg ? `₱${Number(cycle.price_per_kg).toLocaleString()}` : null} />
         <Field label="Area/Cage Harvested" value={cycle.area_cage_harvested || null} />
         <div className="sm:col-span-3">
           <Field label="Notes" value={cycle.notes} />
@@ -144,7 +169,7 @@ function FeedingLogTab({ cycleId }) {
   const [logs, setLogs] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ feeding_date: '', feed_type: '', quantity_kg: '', notes: '' })
+  const [form, setForm] = useState({ feeding_date: '', feed_type: '', feed_type_other: '', quantity_kg: '', notes: '' })
   const [isSaving, setIsSaving] = useState(false)
 
   const fetch = async () => {
@@ -159,15 +184,42 @@ function FeedingLogTab({ cycleId }) {
 
   const handleAdd = async (e) => {
     e.preventDefault()
+
+    if (!form.feeding_date) {
+      showToast('Date is required.', 'error')
+      return
+    }
+
+    if (!form.feed_type) {
+      showToast('Feed Type is required.', 'error')
+      return
+    }
+
+    if (form.feed_type === 'Other' && !form.feed_type_other.trim()) {
+      showToast('Specify Feed Type is required.', 'error')
+      return
+    }
+
+    if (!form.quantity_kg || Number(form.quantity_kg) <= 0) {
+      showToast('Quantity (kg) must be greater than 0.', 'error')
+      return
+    }
+
+    const normalizedFeedType = form.feed_type === 'Other'
+      ? form.feed_type_other.trim()
+      : form.feed_type
+
     setIsSaving(true)
     try {
       await api.post(`/monitoring/aquaculture-cycles/${cycleId}/feeding/`, {
-        ...form,
+        feeding_date: form.feeding_date,
+        feed_type: normalizedFeedType,
         quantity_kg: parseFloat(form.quantity_kg),
+        notes: form.notes,
       })
       showToast('Feeding log added.', 'success')
       setShowForm(false)
-      setForm({ feeding_date: '', feed_type: '', quantity_kg: '', notes: '' })
+      setForm({ feeding_date: '', feed_type: '', feed_type_other: '', quantity_kg: '', notes: '' })
       fetch()
     } catch { showToast('Failed to save.', 'error') }
     finally { setIsSaving(false) }
@@ -203,11 +255,35 @@ function FeedingLogTab({ cycleId }) {
             </div>
             <div>
               <label className={labelCls}>Feed Type *</label>
-              <input className={baseInputClasses} required value={form.feed_type} onChange={e => setForm(f => ({...f, feed_type: e.target.value}))} placeholder="e.g. Pellets, Natural" />
+              <select
+                className={baseInputClasses}
+                required
+                value={form.feed_type}
+                onChange={e => {
+                  const value = e.target.value
+                  setForm(f => ({
+                    ...f,
+                    feed_type: value,
+                    feed_type_other: value === 'Other' ? f.feed_type_other : '',
+                  }))
+                }}
+              >
+                <option value="">Select Feed Type</option>
+                {FEED_TYPE_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
+              </select>
+              {form.feed_type === 'Other' && (
+                <input
+                  className={`${baseInputClasses} mt-2`}
+                  required
+                  value={form.feed_type_other}
+                  onChange={e => setForm(f => ({ ...f, feed_type_other: e.target.value }))}
+                  placeholder="Specify Feed Type"
+                />
+              )}
             </div>
             <div>
               <label className={labelCls}>Quantity (kg) *</label>
-              <input type="number" step="0.01" className={baseInputClasses} required value={form.quantity_kg} onChange={e => setForm(f => ({...f, quantity_kg: e.target.value}))} />
+              <input type="number" step="0.01" min="0.01" className={baseInputClasses} required value={form.quantity_kg} onChange={e => setForm(f => ({...f, quantity_kg: e.target.value}))} />
             </div>
             <div>
               <label className={labelCls}>Notes</label>
@@ -244,65 +320,18 @@ function FeedingLogTab({ cycleId }) {
   )
 }
 
-// ─── Health Log observation templates ────────────────────────────────────────
-
-const HEALTH_OBSERVATIONS = [
-  {
-    label: 'Lethargy / Reduced Activity',
-    treatments: ['Increase aeration', 'Check dissolved oxygen levels', 'Reduce stocking density'],
-  },
-  {
-    label: 'Loss of Appetite',
-    treatments: ['Check water quality parameters', 'Reduce feeding rate', 'Check for disease signs', 'Consult veterinarian'],
-  },
-  {
-    label: 'Abnormal Swimming Behavior',
-    treatments: ['Check for parasites', 'Test water quality', 'Add salt treatment (1–3 ppt)', 'Consult veterinarian'],
-  },
-  {
-    label: 'Fin / Tail Rot',
-    treatments: ['Apply antibiotic (Oxytetracycline)', 'Improve water quality', 'Salt treatment', 'Isolate affected fish'],
-  },
-  {
-    label: 'Skin Lesions / Ulcers',
-    treatments: ['Antibiotic treatment', 'Improve biosecurity', 'Reduce stress factors', 'Consult veterinarian'],
-  },
-  {
-    label: 'Gill Discoloration / Swelling',
-    treatments: ['Check ammonia and nitrite levels', 'Formalin bath treatment', 'Increase water flow', 'Consult veterinarian'],
-  },
-  {
-    label: 'Bloating / Dropsy',
-    treatments: ['Isolate affected fish', 'Antibiotic treatment', 'Reduce feeding', 'Consult veterinarian immediately'],
-  },
-  {
-    label: 'Mortality / Fish Deaths',
-    treatments: ['Remove dead fish immediately', 'Test water quality', 'Reduce stocking density', 'Consult veterinarian', 'Submit for necropsy'],
-  },
-  {
-    label: 'Parasites / White Spots (Ich)',
-    treatments: ['Malachite green treatment', 'Salt bath (3–5 ppt for 15 min)', 'Formalin treatment', 'Consult veterinarian'],
-  },
-  {
-    label: 'Cloudy / Discolored Water',
-    treatments: ['Partial water change (20–30%)', 'Check filtration system', 'Reduce feeding', 'Apply probiotic'],
-  },
-  {
-    label: 'Algae Bloom',
-    treatments: ['Reduce nutrient input', 'Increase water exchange', 'Apply algaecide (if approved)', 'Shade pond area'],
-  },
-]
-
 function HealthLogTab({ cycleId }) {
   const { showToast } = useToast()
   const [logs, setLogs] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [checkedObs, setCheckedObs] = useState([])
   const [form, setForm] = useState({
-    log_date: new Date().toISOString().slice(0, 10),
+    log_date: '',
+    observation: '',
+    observation_other: '',
     mortality_count: '0',
     treatment_applied: '',
+    treatment_applied_other: '',
     vet_consulted: false,
     notes: '',
   })
@@ -318,45 +347,60 @@ function HealthLogTab({ cycleId }) {
 
   useEffect(() => { fetch() }, [cycleId])
 
-  const toggleObs = (label) => {
-    setCheckedObs(prev => prev.includes(label) ? prev.filter(x => x !== label) : [...prev, label])
-  }
-
-  const appendTreatment = (t) => {
-    setForm(f => ({
-      ...f,
-      treatment_applied: f.treatment_applied
-        ? `${f.treatment_applied}; ${t}`
-        : t,
-    }))
-  }
-
-  const suggestedTreatments = useMemo(() => {
-    const all = new Set()
-    HEALTH_OBSERVATIONS
-      .filter(o => checkedObs.includes(o.label))
-      .forEach(o => o.treatments.forEach(t => all.add(t)))
-    return Array.from(all)
-  }, [checkedObs])
-
   const handleAdd = async (e) => {
     e.preventDefault()
-    if (checkedObs.length === 0) { showToast('Select at least one observation.', 'error'); return }
-    if (!form.log_date) { showToast('Date is required.', 'error'); return }
+
+    if (!form.observation) {
+      showToast('Observation is required.', 'error')
+      return
+    }
+
+    if (form.observation === 'Other' && !form.observation_other.trim()) {
+      showToast('Specify Observation is required.', 'error')
+      return
+    }
+
+    const needsTreatment = form.observation !== 'Normal / Healthy'
+    if (needsTreatment && !form.treatment_applied) {
+      showToast('Treatment Applied is required for the selected observation.', 'error')
+      return
+    }
+
+    if (form.observation === 'Other' && !form.treatment_applied_other.trim()) {
+      showToast('Specify Treatment Applied is required.', 'error')
+      return
+    }
+
+    const normalizedObservation = form.observation === 'Other'
+      ? form.observation_other.trim()
+      : form.observation
+
+    const normalizedTreatmentApplied = form.observation === 'Other'
+      ? form.treatment_applied_other.trim()
+      : (needsTreatment ? form.treatment_applied : '')
+
     setIsSaving(true)
     try {
       await api.post(`/monitoring/aquaculture-cycles/${cycleId}/health/`, {
         log_date: form.log_date,
-        observation: checkedObs.join('; '),
+        observation: normalizedObservation,
         mortality_count: parseInt(form.mortality_count) || 0,
-        treatment_applied: form.treatment_applied,
+        treatment_applied: normalizedTreatmentApplied,
         vet_consulted: form.vet_consulted,
         notes: form.notes,
       })
       showToast('Health log added.', 'success')
       setShowForm(false)
-      setCheckedObs([])
-      setForm({ log_date: new Date().toISOString().slice(0, 10), mortality_count: '0', treatment_applied: '', vet_consulted: false, notes: '' })
+      setForm({
+        log_date: '',
+        observation: '',
+        observation_other: '',
+        mortality_count: '0',
+        treatment_applied: '',
+        treatment_applied_other: '',
+        vet_consulted: false,
+        notes: '',
+      })
       fetch()
     } catch { showToast('Failed to save.', 'error') }
     finally { setIsSaving(false) }
@@ -384,75 +428,85 @@ function HealthLogTab({ cycleId }) {
       </div>
 
       {showForm && (
-        <form onSubmit={handleAdd} className="rounded-xl border border-orange-100 bg-orange-50 p-4 space-y-4">
-          {/* Date + Mortality */}
+        <form onSubmit={handleAdd} className="rounded-xl border border-orange-100 bg-orange-50 p-4 space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className={labelCls}>Date *</label>
-              <input type="date" className={baseInputClasses} required value={form.log_date}
-                onChange={e => setForm(f => ({ ...f, log_date: e.target.value }))} />
+              <input type="date" className={baseInputClasses} required value={form.log_date} onChange={e => setForm(f => ({...f, log_date: e.target.value}))} />
+            </div>
+            <div>
+              <label className={labelCls}>Observation *</label>
+              <select
+                className={baseInputClasses}
+                required
+                value={form.observation}
+                onChange={e => {
+                  const selectedObservation = e.target.value
+                  const requiresTreatment = selectedObservation !== 'Normal / Healthy'
+                  setForm(f => ({
+                    ...f,
+                    observation: selectedObservation,
+                    observation_other: selectedObservation === 'Other' ? f.observation_other : '',
+                    treatment_applied: requiresTreatment ? '' : '',
+                    treatment_applied_other: selectedObservation === 'Other' ? f.treatment_applied_other : '',
+                  }))
+                }}
+              >
+                <option value="">Select Observation</option>
+                {HEALTH_OBSERVATION_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
+              </select>
+              {form.observation === 'Other' && (
+                <input
+                  className={`${baseInputClasses} mt-2`}
+                  required
+                  value={form.observation_other}
+                  onChange={e => setForm(f => ({ ...f, observation_other: e.target.value }))}
+                  placeholder="Specify Observation"
+                />
+              )}
             </div>
             <div>
               <label className={labelCls}>Mortality Count</label>
-              <input type="number" min="0" className={baseInputClasses} value={form.mortality_count}
-                onChange={e => setForm(f => ({ ...f, mortality_count: e.target.value }))} />
+              <input type="number" min="0" className={baseInputClasses} value={form.mortality_count} onChange={e => setForm(f => ({...f, mortality_count: e.target.value}))} />
             </div>
-          </div>
-
-          {/* Observations checkboxes */}
-          <div>
-            <label className={labelCls + ' mb-2'}>Observations * (check all that apply)</label>
-            <div className="grid gap-1.5 sm:grid-cols-2">
-              {HEALTH_OBSERVATIONS.map(o => (
-                <label key={o.label} className="flex cursor-pointer items-center gap-2 rounded-lg border border-transparent bg-white px-3 py-2 hover:border-orange-200">
-                  <input type="checkbox" className="h-4 w-4 accent-orange-600 shrink-0"
-                    checked={checkedObs.includes(o.label)}
-                    onChange={() => toggleObs(o.label)} />
-                  <span className="text-xs text-slate-700">{o.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {/* Suggested treatments */}
-          {suggestedTreatments.length > 0 && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
-              <p className="mb-2 text-xs font-semibold text-amber-800">Suggested Treatments — click to append:</p>
-              <div className="flex flex-wrap gap-1.5">
-                {suggestedTreatments.map(t => (
-                  <button key={t} type="button" onClick={() => appendTreatment(t)}
-                    className="rounded-full border border-amber-300 bg-white px-2.5 py-1 text-[11px] font-medium text-amber-800 hover:bg-amber-100 transition-colors">
-                    + {t}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Treatment Applied */}
-          <div>
-            <label className={labelCls}>Treatment Applied</label>
-            <textarea className={baseInputClasses} rows={2} value={form.treatment_applied}
-              onChange={e => setForm(f => ({ ...f, treatment_applied: e.target.value }))}
-              placeholder="Click suggestions above or type manually..." />
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className={labelCls}>Notes</label>
-              <input className={baseInputClasses} value={form.notes}
-                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+              <label className={labelCls}>Treatment Applied{form.observation && form.observation !== 'Normal / Healthy' ? ' *' : ''}</label>
+              {form.observation === 'Other' ? (
+                <input
+                  className={baseInputClasses}
+                  required
+                  value={form.treatment_applied_other}
+                  onChange={e => setForm(f => ({ ...f, treatment_applied_other: e.target.value }))}
+                  placeholder="Specify Treatment Applied"
+                />
+              ) : (
+                <select
+                  className={baseInputClasses}
+                  value={form.treatment_applied}
+                  required={Boolean(form.observation && form.observation !== 'Normal / Healthy')}
+                  disabled={!form.observation || form.observation === 'Normal / Healthy'}
+                  onChange={e => setForm(f => ({ ...f, treatment_applied: e.target.value }))}
+                >
+                  <option value="">
+                    {!form.observation
+                      ? 'Select Observation first'
+                      : form.observation === 'Normal / Healthy'
+                        ? 'Not required for Normal / Healthy'
+                        : 'Select Treatment Applied'}
+                  </option>
+                  {(HEALTH_TREATMENT_OPTIONS_BY_OBSERVATION[form.observation] || []).map(option => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              )}
             </div>
-            <div className="flex items-center gap-2 pt-5">
-              <input type="checkbox" id="vet_consulted" className="h-4 w-4 accent-green-600"
-                checked={form.vet_consulted}
-                onChange={e => setForm(f => ({ ...f, vet_consulted: e.target.checked }))} />
-              <label htmlFor="vet_consulted" className={labelCls}>Vet Consulted</label>
+            <div className="flex items-center gap-2 pt-4">
+              <input type="checkbox" id="vet" className="h-4 w-4 accent-green-600" checked={form.vet_consulted} onChange={e => setForm(f => ({...f, vet_consulted: e.target.checked}))} />
+              <label htmlFor="vet" className={labelCls}>Vet Consulted</label>
             </div>
           </div>
-
           <div className="flex gap-2 justify-end">
-            <Button type="button" size="sm" variant="ghost" onClick={() => { setShowForm(false); setCheckedObs([]) }}>Cancel</Button>
+            <Button type="button" size="sm" variant="ghost" onClick={() => setShowForm(false)}>Cancel</Button>
             <Button type="submit" size="sm" isLoading={isSaving}>Save</Button>
           </div>
         </form>
@@ -465,16 +519,14 @@ function HealthLogTab({ cycleId }) {
           {logs.map(l => (
             <li key={l.id} className="flex items-start justify-between gap-2 px-4 py-3">
               <div>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-slate-800">{l.observation}</span>
                   {l.mortality_count > 0 && (
                     <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 10, background: '#ffebee', color: '#c62828', fontWeight: 600 }}>
                       {l.mortality_count} dead
                     </span>
                   )}
-                  {l.vet_consulted && (
-                    <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 10, background: '#e3f2fd', color: '#1565c0', fontWeight: 600 }}>Vet</span>
-                  )}
+                  {l.vet_consulted && <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 10, background: '#e3f2fd', color: '#1565c0', fontWeight: 600 }}>Vet</span>}
                 </div>
                 <p className="text-xs text-slate-500">{formatDate(l.log_date)}{l.treatment_applied && ` · ${l.treatment_applied}`}</p>
               </div>
@@ -489,15 +541,170 @@ function HealthLogTab({ cycleId }) {
   )
 }
 
-const INPUT_TYPES = ['Feed', 'Fingerlings/Seeds', 'Fertilizer', 'Chemicals', 'Equipment', 'Labor', 'Other']
-const INPUT_UNITS = ['kg', 'g', 'L', 'mL', 'pcs', 'bags', 'boxes', 'other']
+const HEALTH_OBSERVATION_OPTIONS = [
+  'Normal / Healthy',
+  'Slow Growth',
+  'Weak Swimming',
+  'Loss of Appetite',
+  'Fish Mortality',
+  'Disease Symptoms',
+  'White Spots',
+  'Red Spots / Wounds',
+  'Fin Rot',
+  'Fungal Infection',
+  'Parasites',
+  'Poor Water Quality',
+  'Low Oxygen',
+  'Algae Bloom',
+  'Stress After Stocking',
+  'Other',
+]
+
+const HEALTH_TREATMENT_OPTIONS_BY_OBSERVATION = {
+  'Normal / Healthy': ['No Treatment Needed', 'Continue Monitoring'],
+  'Slow Growth': ['Adjust Feeding', 'Improve Feed Quality', 'Check Stocking Density', 'Monitor Water Quality'],
+  'Weak Swimming': ['Check Dissolved Oxygen', 'Increase Aeration', 'Change Water', 'Consult Technician'],
+  'Loss of Appetite': ['Reduce Feed Temporarily', 'Check Water Quality', 'Change Feed Type', 'Consult Technician'],
+  'Fish Mortality': ['Remove Dead Fish', 'Check Water Quality', 'Apply Lime', 'Consult Technician / BFAR'],
+  'Disease Symptoms': ['Quarantine Affected Fish', 'Apply Recommended Treatment', 'Consult Veterinarian / BFAR'],
+  'White Spots': ['Salt Treatment', 'Water Exchange', 'Consult Technician'],
+  'Red Spots / Wounds': ['Apply Antibacterial Treatment', 'Improve Water Quality', 'Consult Technician'],
+  'Fin Rot': ['Antibacterial Treatment', 'Water Exchange', 'Improve Water Quality'],
+  'Fungal Infection': ['Antifungal Treatment', 'Salt Bath', 'Remove Infected Fish'],
+  Parasites: ['Salt Treatment', 'Anti-parasite Treatment', 'Water Exchange'],
+  'Poor Water Quality': ['Water Exchange', 'Apply Lime', 'Reduce Feeding', 'Increase Aeration'],
+  'Low Oxygen': ['Increase Aeration', 'Water Exchange', 'Reduce Stocking Density'],
+  'Algae Bloom': ['Partial Water Exchange', 'Reduce Fertilizer/Feed', 'Apply Lime if needed'],
+  'Stress After Stocking': ['Reduce Handling', 'Monitor Daily', 'Add Aeration'],
+  Other: [],
+}
+
+const INPUT_TYPE_OPTIONS = [
+  'Feed',
+  'Fingerlings',
+  'Fertilizer',
+  'Lime',
+  'Salt',
+  'Probiotics',
+  'Vitamins',
+  'Water Treatment',
+  'Medicine',
+  'Disinfectant',
+  'Fuel',
+  'Electricity',
+  'Equipment',
+  'Labor',
+  'Packaging Materials',
+  'Ice',
+  'Other',
+]
+
+const INPUT_ITEM_OPTIONS_BY_TYPE = {
+  Feed: [
+    'Commercial Pellets',
+    'Floating Pellets',
+    'Sinking Pellets',
+    'Starter Feed',
+    'Grower Feed',
+    'Finisher Feed',
+    'Rice Bran (Darak)',
+    'Corn Bran',
+    'Copra Meal',
+    'Azolla',
+    'Duckweed',
+    'Homemade Feed',
+    'Mixed Feed',
+    'Other',
+  ],
+  Fingerlings: [
+    'Tilapia Fingerlings',
+    'Bangus Fry',
+    'Catfish Fingerlings',
+    'Carp Fingerlings',
+    'Shrimp Post Larvae',
+    'Mud Crab Juveniles',
+    'Oyster Spat',
+    'Mussel Seed',
+    'Other',
+  ],
+  Fertilizer: ['Organic Fertilizer', 'Chicken Manure', 'Urea', 'Complete Fertilizer', 'Other'],
+  Lime: ['Agricultural Lime', 'Hydrated Lime', 'Dolomite Lime', 'Other'],
+  Salt: ['Rock Salt', 'Iodized Salt', 'Marine Salt', 'Other'],
+  Probiotics: ['Pond Probiotics', 'Water Probiotics', 'Other'],
+  Vitamins: ['Vitamin C', 'Multivitamins', 'Growth Enhancer', 'Other'],
+  'Water Treatment': ['Zeolite', 'Water Conditioner', 'Chlorine', 'Other'],
+  Medicine: ['Oxytetracycline', 'Amoxicillin', 'Antifungal Treatment', 'Antiparasitic Treatment', 'Other'],
+  Disinfectant: ['Iodine', 'Bleaching Powder', 'Chlorine', 'Other'],
+  Fuel: ['Diesel', 'Gasoline', 'Other'],
+  Electricity: ['Electric Bill', 'Generator Power', 'Other'],
+  Equipment: ['Aerator', 'Water Pump', 'Nets', 'Buckets', 'Hoses', 'Paddle', 'Other'],
+  Labor: ['Pond Preparation', 'Feeding', 'Harvesting', 'Maintenance', 'Other'],
+  'Packaging Materials': ['Plastic Bags', 'Styrofoam Box', 'Carton Box', 'Ice Box', 'Other'],
+  Ice: ['Crushed Ice', 'Ice Block', 'Other'],
+  Other: [],
+}
+
+const INPUT_UNIT_OPTIONS = [
+  'kg',
+  'g',
+  'L',
+  'mL',
+  'sacks',
+  'bags',
+  'packs',
+  'bottles',
+  'boxes',
+  'pieces',
+  'sets',
+  'rolls',
+  'trays',
+  'units',
+  'gallons',
+  'liters',
+  'hours',
+  'days',
+  'Other',
+]
+
+const SUPPLIER_OPTIONS = [
+  'BFAR',
+  'LGU Aringay',
+  'Department of Agriculture (DA)',
+  'Provincial Government of La Union',
+  'Local Agricultural Supply Store',
+  'Local Feed Store',
+  'Aquaculture Supply Store',
+  'Fisheries Cooperative',
+  'Fisherfolk Association',
+  'Private Supplier',
+  'Local Hatchery',
+  'Commercial Hatchery',
+  'Feed Distributor',
+  'Veterinary Supply Store',
+  'Online Supplier',
+  'Self-Produced',
+  'Other',
+]
 
 function InputsTab({ cycleId }) {
   const { showToast } = useToast()
   const [logs, setLogs] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ input_type: 'Feed', item_name: '', quantity: '', unit: 'kg', date_acquired: '', source: '', notes: '' })
+  const [form, setForm] = useState({
+    input_type: '',
+    input_type_other: '',
+    item_name: '',
+    item_name_other: '',
+    quantity: '',
+    unit: '',
+    unit_other: '',
+    date_acquired: '',
+    cost: '',
+    supplier: '',
+    supplier_other: '',
+    remarks: '',
+  })
   const [isSaving, setIsSaving] = useState(false)
 
   const fetch = async () => {
@@ -512,15 +719,87 @@ function InputsTab({ cycleId }) {
 
   const handleAdd = async (e) => {
     e.preventDefault()
+
+    if (!form.input_type) {
+      showToast('Input Type is required.', 'error')
+      return
+    }
+    if (form.input_type === 'Other' && !form.input_type_other.trim()) {
+      showToast('Specify Input Type is required.', 'error')
+      return
+    }
+
+    if (!form.item_name) {
+      showToast('Item Name is required.', 'error')
+      return
+    }
+    if (form.item_name === 'Other' && !form.item_name_other.trim()) {
+      showToast('Specify Item Name is required.', 'error')
+      return
+    }
+
+    if (!form.quantity || Number(form.quantity) <= 0) {
+      showToast('Quantity must be greater than 0.', 'error')
+      return
+    }
+
+    if (!form.unit) {
+      showToast('Unit is required.', 'error')
+      return
+    }
+    if (form.unit === 'Other' && !form.unit_other.trim()) {
+      showToast('Specify Unit is required.', 'error')
+      return
+    }
+
+    if (!form.date_acquired) {
+      showToast('Date Acquired is required.', 'error')
+      return
+    }
+
+    if (form.supplier === 'Other' && !form.supplier_other.trim()) {
+      showToast('Specify Supplier is required.', 'error')
+      return
+    }
+
+    if (form.cost !== '' && Number(form.cost) < 0) {
+      showToast('Cost must not be negative.', 'error')
+      return
+    }
+
+    const normalizedInputType = form.input_type === 'Other' ? form.input_type_other.trim() : form.input_type
+    const normalizedItemName = form.item_name === 'Other' ? form.item_name_other.trim() : form.item_name
+    const normalizedUnit = form.unit === 'Other' ? form.unit_other.trim() : form.unit
+    const normalizedSupplier = form.supplier === 'Other' ? form.supplier_other.trim() : form.supplier
+
     setIsSaving(true)
     try {
       await api.post(`/monitoring/aquaculture-cycles/${cycleId}/inputs/`, {
-        ...form,
+        input_type: normalizedInputType,
+        item_name: normalizedItemName,
         quantity: parseFloat(form.quantity),
+        unit: normalizedUnit,
+        date_acquired: form.date_acquired,
+        cost: form.cost !== '' ? parseFloat(form.cost) : null,
+        supplier: normalizedSupplier,
+        remarks: form.remarks,
       })
       showToast('Input log added.', 'success')
       setShowForm(false)
-      setForm({ input_type: 'Feed', item_name: '', quantity: '', unit: 'kg', date_acquired: '', source: '', notes: '' })
+      setForm({
+        input_type: '',
+        input_type_other: '',
+        item_name: '',
+        item_name_other: '',
+        quantity: '',
+        unit: '',
+        unit_other: '',
+        date_acquired: '',
+        cost: '',
+        supplier: '',
+        supplier_other: '',
+        remarks: '',
+      })
       fetch()
     } catch { showToast('Failed to save.', 'error') }
     finally { setIsSaving(false) }
@@ -535,11 +814,14 @@ function InputsTab({ cycleId }) {
     } catch { showToast('Failed.', 'error') }
   }
 
+  const totalCost = logs.reduce((s, l) => s + (parseFloat(l.cost_php) || 0), 0)
+
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <span className="text-xs text-slate-500">
           {logs.length} input{logs.length !== 1 ? 's' : ''}
+          {totalCost > 0 && ` · Total cost: ₱${totalCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
         </span>
         <Button size="sm" icon={Plus} onClick={() => setShowForm(v => !v)}>Log Input</Button>
       </div>
@@ -549,35 +831,135 @@ function InputsTab({ cycleId }) {
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className={labelCls}>Input Type *</label>
-              <select className={baseInputClasses} required value={form.input_type} onChange={e => setForm(f => ({...f, input_type: e.target.value}))}>
-                {INPUT_TYPES.map(t => <option key={t}>{t}</option>)}
+              <select
+                className={baseInputClasses}
+                required
+                value={form.input_type}
+                onChange={e => {
+                  const nextInputType = e.target.value
+                  setForm(f => ({
+                    ...f,
+                    input_type: nextInputType,
+                    input_type_other: nextInputType === 'Other' ? f.input_type_other : '',
+                    item_name: '',
+                    item_name_other: '',
+                  }))
+                }}
+              >
+                <option value="">Select Input Type</option>
+                {INPUT_TYPE_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
               </select>
+              {form.input_type === 'Other' && (
+                <input
+                  className={`${baseInputClasses} mt-2`}
+                  required
+                  value={form.input_type_other}
+                  onChange={e => setForm(f => ({ ...f, input_type_other: e.target.value }))}
+                  placeholder="Specify Input Type"
+                />
+              )}
             </div>
             <div>
               <label className={labelCls}>Item Name *</label>
-              <input className={baseInputClasses} required value={form.item_name} onChange={e => setForm(f => ({...f, item_name: e.target.value}))} placeholder="e.g. Tilapia feed, Lime" />
+              <select
+                className={baseInputClasses}
+                required
+                value={form.item_name}
+                disabled={!form.input_type}
+                onChange={e => {
+                  const nextItemName = e.target.value
+                  setForm(f => ({
+                    ...f,
+                    item_name: nextItemName,
+                    item_name_other: nextItemName === 'Other' ? f.item_name_other : '',
+                  }))
+                }}
+              >
+                <option value="">{form.input_type ? 'Select Item Name' : 'Select Input Type first'}</option>
+                {(INPUT_ITEM_OPTIONS_BY_TYPE[form.input_type] || []).map(option => (
+                  <option key={option} value={option}>{option}</option>
+                ))}
+              </select>
+              {form.item_name === 'Other' && (
+                <input
+                  className={`${baseInputClasses} mt-2`}
+                  required
+                  value={form.item_name_other}
+                  onChange={e => setForm(f => ({ ...f, item_name_other: e.target.value }))}
+                  placeholder="Specify Item Name"
+                />
+              )}
             </div>
             <div>
               <label className={labelCls}>Quantity *</label>
-              <input type="number" step="0.01" min="0" className={baseInputClasses} required value={form.quantity} onChange={e => setForm(f => ({...f, quantity: e.target.value}))} />
+              <input type="number" step="0.01" min="0.01" className={baseInputClasses} required value={form.quantity} onChange={e => setForm(f => ({...f, quantity: e.target.value}))} />
             </div>
             <div>
               <label className={labelCls}>Unit *</label>
-              <select className={baseInputClasses} required value={form.unit} onChange={e => setForm(f => ({...f, unit: e.target.value}))}>
-                {INPUT_UNITS.map(u => <option key={u}>{u}</option>)}
+              <select
+                className={baseInputClasses}
+                required
+                value={form.unit}
+                onChange={e => {
+                  const nextUnit = e.target.value
+                  setForm(f => ({
+                    ...f,
+                    unit: nextUnit,
+                    unit_other: nextUnit === 'Other' ? f.unit_other : '',
+                  }))
+                }}
+              >
+                <option value="">Select Unit</option>
+                {INPUT_UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
               </select>
+              {form.unit === 'Other' && (
+                <input
+                  className={`${baseInputClasses} mt-2`}
+                  required
+                  value={form.unit_other}
+                  onChange={e => setForm(f => ({ ...f, unit_other: e.target.value }))}
+                  placeholder="Specify Unit"
+                />
+              )}
             </div>
             <div>
               <label className={labelCls}>Date Acquired *</label>
               <input type="date" className={baseInputClasses} required value={form.date_acquired} onChange={e => setForm(f => ({...f, date_acquired: e.target.value}))} />
             </div>
             <div>
-              <label className={labelCls}>Source</label>
-              <input className={baseInputClasses} value={form.source} onChange={e => setForm(f => ({...f, source: e.target.value}))} placeholder="e.g. BFAR, Local supplier" />
+              <label className={labelCls}>Cost (₱)</label>
+              <input type="number" step="0.01" min="0" className={baseInputClasses} value={form.cost} onChange={e => setForm(f => ({...f, cost: e.target.value}))} />
             </div>
             <div>
-              <label className={labelCls}>Notes</label>
-              <input className={baseInputClasses} value={form.notes} onChange={e => setForm(f => ({...f, notes: e.target.value}))} />
+              <label className={labelCls}>Supplier</label>
+              <select
+                className={baseInputClasses}
+                value={form.supplier}
+                onChange={e => {
+                  const value = e.target.value
+                  setForm(f => ({
+                    ...f,
+                    supplier: value,
+                    supplier_other: value === 'Other' ? f.supplier_other : '',
+                  }))
+                }}
+              >
+                <option value="">Select Supplier (Optional)</option>
+                {SUPPLIER_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
+              </select>
+              {form.supplier === 'Other' && (
+                <input
+                  className={`${baseInputClasses} mt-2`}
+                  required
+                  value={form.supplier_other}
+                  onChange={e => setForm(f => ({ ...f, supplier_other: e.target.value }))}
+                  placeholder="Specify Supplier"
+                />
+              )}
+            </div>
+            <div>
+              <label className={labelCls}>Remarks</label>
+              <input className={baseInputClasses} value={form.remarks} onChange={e => setForm(f => ({...f, remarks: e.target.value}))} />
             </div>
           </div>
           <div className="flex gap-2 justify-end">
@@ -600,10 +982,11 @@ function InputsTab({ cycleId }) {
                 </div>
                 <p className="text-xs text-slate-500">
                   {l.quantity} {l.unit}
+                  {(l.cost ?? l.cost_php) != null && (l.cost ?? l.cost_php) !== '' && ` · ₱${Number(l.cost ?? l.cost_php).toLocaleString()}`}
                   {` · ${formatDate(l.date_acquired)}`}
-                  {l.source && ` · ${l.source}`}
+                  {(l.supplier || l.source) && ` · ${l.supplier || l.source}`}
                 </p>
-                {l.notes && <p className="text-xs text-slate-400">{l.notes}</p>}
+                {(l.remarks || l.notes) && <p className="text-xs text-slate-400">{l.remarks || l.notes}</p>}
               </div>
               <button type="button" className="text-slate-400 hover:text-rose-500" onClick={() => handleDelete(l.id)}>
                 <Trash2 size={13} />
@@ -616,24 +999,367 @@ function InputsTab({ cycleId }) {
   )
 }
 
+const SPECIES_SOLD_OPTIONS = [
+  'Tilapia',
+  'Bangus',
+  'Catfish',
+  'Carp',
+  'Shrimp',
+  'Prawn',
+  'Mud Crab',
+  'Oyster',
+  'Mussel',
+  'Seaweed',
+  'Other',
+]
+
+function EconomicsTab({ cycle, onRefresh }) {
+  const { showToast } = useToast()
+  const [inputLogs, setInputLogs] = useState([])
+  const [isLoadingInputs, setIsLoadingInputs] = useState(true)
+  const [isSavingSales, setIsSavingSales] = useState(false)
+  const [salesForm, setSalesForm] = useState({
+    harvest_date: cycle.actual_harvest_date || '',
+    species_sold: cycle.species_farmed || '',
+    species_sold_other: '',
+    quantity_sold_kg: cycle.harvest_volume_kg ? String(cycle.harvest_volume_kg) : '',
+    price_per_kg: cycle.price_per_kg ? String(cycle.price_per_kg) : '',
+  })
+
+  useEffect(() => {
+    setSalesForm({
+      harvest_date: cycle.actual_harvest_date || '',
+      species_sold: cycle.species_farmed || '',
+      species_sold_other: '',
+      quantity_sold_kg: cycle.harvest_volume_kg ? String(cycle.harvest_volume_kg) : '',
+      price_per_kg: cycle.price_per_kg ? String(cycle.price_per_kg) : '',
+    })
+  }, [cycle])
+
+  const fetchInputs = async () => {
+    setIsLoadingInputs(true)
+    try {
+      const r = await api.get(`/monitoring/aquaculture-cycles/${cycle.id}/inputs/`)
+      setInputLogs(Array.isArray(r.data) ? r.data : (r.data.results || []))
+    } catch {
+      setInputLogs([])
+    } finally {
+      setIsLoadingInputs(false)
+    }
+  }
+
+  useEffect(() => { fetchInputs() }, [cycle.id])
+
+  const quantity = parseFloat(salesForm.quantity_sold_kg)
+  const price = parseFloat(salesForm.price_per_kg)
+  const totalRevenueComputed = Number.isFinite(quantity) && Number.isFinite(price)
+    ? quantity * price
+    : 0
+
+  const addCost = (a, b) => a + b
+  const getLogCost = (l) => {
+    const raw = l.cost ?? l.cost_php
+    const n = parseFloat(raw)
+    return Number.isFinite(n) ? n : 0
+  }
+
+  const costByCategory = inputLogs.reduce((acc, log) => {
+    const type = (log.input_type || '').toLowerCase()
+    const cost = getLogCost(log)
+
+    if (type.includes('feed')) acc.feed += cost
+    else if (type.includes('fingerling')) acc.fingerlings += cost
+    else if (type.includes('medicine') || type.includes('medic')) acc.medicine += cost
+    else if (type.includes('fertilizer') || type.includes('lime')) acc.fertilizer_lime += cost
+    else if (type.includes('labor')) acc.labor += cost
+    else if (type.includes('equipment')) acc.equipment += cost
+    else acc.other += cost
+
+    return acc
+  }, {
+    feed: 0,
+    fingerlings: 0,
+    medicine: 0,
+    fertilizer_lime: 0,
+    labor: 0,
+    equipment: 0,
+    other: 0,
+  })
+
+  const totalCost = Object.values(costByCategory).reduce(addCost, 0)
+  const totalRevenue = totalRevenueComputed > 0
+    ? totalRevenueComputed
+    : (cycle.revenue_php != null ? Number(cycle.revenue_php) : 0)
+  const netIncome = totalRevenue - totalCost
+  const roi = totalCost > 0 ? (netIncome / totalCost) * 100 : null
+
+  const costRows = [
+    ['Feed cost', costByCategory.feed],
+    ['Fingerlings cost', costByCategory.fingerlings],
+    ['Medicine cost', costByCategory.medicine],
+    ['Fertilizer/Lime cost', costByCategory.fertilizer_lime],
+    ['Labor cost', costByCategory.labor],
+    ['Equipment cost', costByCategory.equipment],
+    ['Other input costs', costByCategory.other],
+  ]
+
+  const salesRows = (salesForm.harvest_date && salesForm.quantity_sold_kg && salesForm.price_per_kg)
+    ? [{
+        harvest_date: salesForm.harvest_date,
+        species_sold: salesForm.species_sold || cycle.species_farmed || '—',
+        quantity_sold_kg: Number(salesForm.quantity_sold_kg),
+        price_per_kg: Number(salesForm.price_per_kg),
+        total_revenue: totalRevenueComputed,
+      }]
+    : (cycle.actual_harvest_date && cycle.harvest_volume_kg && cycle.price_per_kg)
+      ? [{
+          harvest_date: cycle.actual_harvest_date,
+          species_sold: cycle.species_farmed || '—',
+          quantity_sold_kg: Number(cycle.harvest_volume_kg),
+          price_per_kg: Number(cycle.price_per_kg),
+          total_revenue: Number(cycle.revenue_php || (Number(cycle.harvest_volume_kg) * Number(cycle.price_per_kg))),
+        }]
+      : []
+
+  const handleSaveSales = async (e) => {
+    e.preventDefault()
+
+    if (!salesForm.harvest_date) {
+      showToast('Harvest Date is required.', 'error')
+      return
+    }
+
+    if (!salesForm.species_sold) {
+      showToast('Species Sold is required.', 'error')
+      return
+    }
+
+    if (salesForm.species_sold === 'Other' && !salesForm.species_sold_other.trim()) {
+      showToast('Specify Species Sold is required.', 'error')
+      return
+    }
+
+    if (!salesForm.quantity_sold_kg || Number(salesForm.quantity_sold_kg) <= 0) {
+      showToast('Quantity Sold must be greater than 0.', 'error')
+      return
+    }
+
+    if (!salesForm.price_per_kg || Number(salesForm.price_per_kg) <= 0) {
+      showToast('Price per kg must be greater than 0.', 'error')
+      return
+    }
+
+    const normalizedSpeciesSold = salesForm.species_sold === 'Other'
+      ? salesForm.species_sold_other.trim()
+      : salesForm.species_sold
+
+    setIsSavingSales(true)
+    try {
+      await api.patch(`/monitoring/aquaculture-cycles/${cycle.id}/`, {
+        actual_harvest_date: salesForm.harvest_date,
+        species_sold: normalizedSpeciesSold,
+        harvest_volume_kg: parseFloat(salesForm.quantity_sold_kg),
+        price_per_kg: parseFloat(salesForm.price_per_kg),
+        revenue_php: totalRevenueComputed,
+      })
+      showToast('Economics sales data saved.', 'success')
+      onRefresh()
+    } catch {
+      showToast('Failed to save economics data.', 'error')
+    } finally {
+      setIsSavingSales(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <form onSubmit={handleSaveSales} className="rounded-xl border border-emerald-100 bg-emerald-50 p-4 space-y-3">
+        <p className="text-sm font-semibold text-emerald-800">Revenue / Sales</p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className={labelCls}>Harvest Date *</label>
+            <input
+              type="date"
+              className={baseInputClasses}
+              required
+              value={salesForm.harvest_date}
+              onChange={e => setSalesForm(f => ({ ...f, harvest_date: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Species Sold *</label>
+            <select
+              className={baseInputClasses}
+              required
+              value={salesForm.species_sold}
+              onChange={e => {
+                const value = e.target.value
+                setSalesForm(f => ({
+                  ...f,
+                  species_sold: value,
+                  species_sold_other: value === 'Other' ? f.species_sold_other : '',
+                }))
+              }}
+            >
+              <option value="">Select Species Sold</option>
+              {SPECIES_SOLD_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
+            </select>
+            {salesForm.species_sold === 'Other' && (
+              <input
+                className={`${baseInputClasses} mt-2`}
+                required
+                value={salesForm.species_sold_other}
+                onChange={e => setSalesForm(f => ({ ...f, species_sold_other: e.target.value }))}
+                placeholder="Specify Species Sold"
+              />
+            )}
+          </div>
+          <div>
+            <label className={labelCls}>Quantity Sold (kg) *</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0.01"
+              className={baseInputClasses}
+              required
+              value={salesForm.quantity_sold_kg}
+              onChange={e => setSalesForm(f => ({ ...f, quantity_sold_kg: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className={labelCls}>Price per kg (₱) *</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0.01"
+              className={baseInputClasses}
+              required
+              value={salesForm.price_per_kg}
+              onChange={e => setSalesForm(f => ({ ...f, price_per_kg: e.target.value }))}
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className={labelCls}>Total Revenue (auto-computed)</label>
+            <input
+              className={baseInputClasses}
+              value={totalRevenueComputed > 0 ? `₱${totalRevenueComputed.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : '—'}
+              readOnly
+            />
+          </div>
+        </div>
+        <div className="flex justify-end">
+          <Button type="submit" size="sm" isLoading={isSavingSales}>Save Sales</Button>
+        </div>
+      </form>
+
+      <div className="grid gap-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-2">
+        <div>
+          <p className="text-xs font-medium text-slate-400 mb-2">Total Revenue</p>
+          <p className="text-xl font-bold text-[#1E4620]">
+            {totalRevenue > 0 ? `₱${Number(totalRevenue).toLocaleString()}` : '—'}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs font-medium text-slate-400 mb-2">Total Cost</p>
+          <p className="text-xl font-bold text-slate-800">
+            {totalCost > 0 ? `₱${Number(totalCost).toLocaleString()}` : '—'}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs font-medium text-slate-400 mb-2">Net Income</p>
+          <p className={`text-xl font-bold ${totalRevenue > 0 || totalCost > 0 ? (netIncome >= 0 ? 'text-[#1E4620]' : 'text-rose-600') : 'text-slate-400'}`}>
+            {totalRevenue > 0 || totalCost > 0 ? `₱${Number(netIncome).toLocaleString()}` : '—'}
+          </p>
+        </div>
+        <div>
+          <p className="text-xs font-medium text-slate-400 mb-2">ROI %</p>
+          <p className={`text-xl font-bold ${roi != null ? (roi >= 0 ? 'text-[#1E4620]' : 'text-rose-600') : 'text-slate-400'}`}>
+            {roi != null ? `${roi.toFixed(1)}%` : '—'}
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-slate-100 overflow-hidden">
+        <div className="bg-slate-50 px-4 py-2 text-xs font-semibold uppercase text-slate-500">Cost Breakdown</div>
+        <table className="min-w-full text-sm">
+          <thead className="bg-white text-xs font-semibold uppercase text-slate-500">
+            <tr>
+              <th className="px-4 py-2 text-left">Cost Item</th>
+              <th className="px-4 py-2 text-right">Amount</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {costRows.map(([label, val]) => (
+              <tr key={label}>
+                <td className="px-4 py-2 text-slate-700">{label}</td>
+                <td className="px-4 py-2 text-right text-slate-700">₱{Number(val).toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+              </tr>
+            ))}
+            <tr className="bg-slate-50">
+              <td className="px-4 py-2 font-semibold text-slate-800">Total</td>
+              <td className="px-4 py-2 text-right font-semibold text-slate-800">₱{Number(totalCost).toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div className="rounded-xl border border-slate-100 overflow-hidden">
+        <div className="bg-slate-50 px-4 py-2 text-xs font-semibold uppercase text-slate-500">Sales Table</div>
+        <table className="min-w-full text-sm">
+          <thead className="bg-white text-xs font-semibold uppercase text-slate-500">
+            <tr>
+              <th className="px-4 py-2 text-left">Harvest Date</th>
+              <th className="px-4 py-2 text-left">Species</th>
+              <th className="px-4 py-2 text-right">Quantity Sold</th>
+              <th className="px-4 py-2 text-right">Price per kg</th>
+              <th className="px-4 py-2 text-right">Total Revenue</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-50">
+            {salesRows.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-4 py-4 text-center text-sm italic text-slate-400">No sales records yet.</td>
+              </tr>
+            ) : (
+              salesRows.map((row, idx) => (
+                <tr key={`${row.harvest_date}-${idx}`}>
+                  <td className="px-4 py-2 text-slate-700">{formatDate(row.harvest_date)}</td>
+                  <td className="px-4 py-2 text-slate-700">{row.species_sold}</td>
+                  <td className="px-4 py-2 text-right text-slate-700">{Number(row.quantity_sold_kg).toLocaleString()} kg</td>
+                  <td className="px-4 py-2 text-right text-slate-700">₱{Number(row.price_per_kg).toLocaleString()}</td>
+                  <td className="px-4 py-2 text-right font-medium text-slate-800">₱{Number(row.total_revenue).toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {isLoadingInputs && <LoadingSpinner />}
+    </div>
+  )
+}
+
 function AquacultureCycleDetailModal({ cycle, onClose, onRefresh }) {
   const [innerTab, setInnerTab] = useState('info')
 
   const INNER_TABS = [
-    { label: 'Cycle Info',  value: 'info' },
+    { label: 'Cycle Info', value: 'info' },
     { label: 'Feeding Log', value: 'feeding' },
-    { label: 'Health Log',  value: 'health' },
-    { label: 'Inputs',      value: 'inputs' },
+    { label: 'Health Log', value: 'health' },
+    { label: 'Inputs', value: 'inputs' },
+    { label: 'Economics', value: 'economics' },
   ]
 
   return (
     <ModalShell title={`Cycle: ${cycle.cycle_name}`} onClose={onClose} maxWidth="max-w-3xl">
       <InnerTabs tabs={INNER_TABS} active={innerTab} onChange={setInnerTab} />
 
-      {innerTab === 'info'    && <CycleInfoTab cycle={cycle} onRefresh={onRefresh} />}
+      {innerTab === 'info' && <CycleInfoTab cycle={cycle} onRefresh={onRefresh} />}
       {innerTab === 'feeding' && <FeedingLogTab cycleId={cycle.id} />}
-      {innerTab === 'health'  && <HealthLogTab cycleId={cycle.id} />}
-      {innerTab === 'inputs'  && <InputsTab cycleId={cycle.id} />}
+      {innerTab === 'health' && <HealthLogTab cycleId={cycle.id} />}
+      {innerTab === 'inputs' && <InputsTab cycleId={cycle.id} />}
+      {innerTab === 'economics' && <EconomicsTab cycle={cycle} onRefresh={onRefresh} />}
     </ModalShell>
   )
 }

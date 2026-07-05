@@ -359,7 +359,7 @@ function CropTypeModal({ crop, categories, subcategories, onClose, onSaved }) {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
-export default function CropOptionPage() {
+export default function CropOptionPage({ asTab = false }) {
   const { showToast } = useToast()
   const [crops,         setCrops]         = useState([])
   const [categories,    setCategories]    = useState([])
@@ -452,110 +452,110 @@ export default function CropOptionPage() {
     ),
   }))
 
-  return (
-    <PageLayout
-      title="Crop Option Management"
-      subtitle="Add, edit, or remove crops and their details used across the system."
-      action={
-        <Button size="sm" onClick={() => { setEditCrop(null); setShowModal(true) }}>
-          <Plus size={15} />
-          Add New Crop
-        </Button>
-      }
-    >
-      <div className="space-y-4">
-        <div className="flex items-center gap-3 bg-white border border-[#E2E8E2] rounded-lg px-4 py-2.5">
-          <div className="relative flex-1">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8BCA8]">
-              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            </span>
-            <input
-              className="w-full border-none bg-transparent pl-8 pr-2 text-[13px] text-[#1A2B1A] placeholder-[#A8BCA8] focus:outline-none"
-              placeholder="Search crops by name, category, or subcategory..."
-              value={search}
-              onChange={e => { setSearch(e.target.value); setPage(1) }}
-            />
-          </div>
-          {filteredCrops.length !== crops.length && (
-            <span className="text-[12px] text-[#7A8E7A] whitespace-nowrap">
-              {filteredCrops.length} of {crops.length}
-            </span>
-          )}
+  const actionBtn = (
+    <Button size="sm" onClick={() => { setEditCrop(null); setShowModal(true) }}>
+      <Plus size={15} />
+      Add New Crop
+    </Button>
+  )
+
+  const innerContent = (
+    <div className="space-y-4">
+      {asTab && (
+        <div className="flex justify-end">{actionBtn}</div>
+      )}
+
+      <div className="flex items-center gap-3 bg-white border border-[#E2E8E2] rounded-lg px-4 py-2.5">
+        <div className="relative flex-1">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8BCA8]">
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          </span>
+          <input
+            className="w-full border-none bg-transparent pl-8 pr-2 text-[13px] text-[#1A2B1A] placeholder-[#A8BCA8] focus:outline-none"
+            placeholder="Search crops by name, category, or subcategory..."
+            value={search}
+            onChange={e => { setSearch(e.target.value); setPage(1) }}
+          />
         </div>
-
-        {error && <ErrorMessage message={error} />}
-
-        <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-          <table className="min-w-full text-sm">
-            <thead className="bg-[#1B4D2E] text-white">
-              <tr>
-                {COLUMNS.map(col => (
-                  <th
-                    key={col.key}
-                    className={`px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-[0.06em] ${col.sortable ? 'cursor-pointer select-none hover:bg-[#235E38]' : ''}`}
-                    onClick={col.sortable ? () => handleSort(col.key) : undefined}
-                  >
-                    <span className="inline-flex items-center gap-1">
-                      {col.label}
-                      {col.sortable && sortKey === col.key && (
-                        <span className="text-[10px]">{sortAsc ? '▲' : '▼'}</span>
-                      )}
-                    </span>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                <tr><td colSpan={COLUMNS.length} className="py-10 text-center text-[13px] text-[#7A8E7A]">Loading…</td></tr>
-              ) : rows.length === 0 ? (
-                <tr><td colSpan={COLUMNS.length} className="py-12 text-center">
-                  <div className="flex flex-col items-center gap-2 text-[#C8D5C8]">
-                    <svg width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 4v4m0 4h.01"/></svg>
-                    <p className="text-[14px] font-medium text-[#4A5E4A]">No crop types found</p>
-                    <p className="text-[13px] text-[#7A8E7A]">Add your first crop type to get started</p>
-                  </div>
-                </td></tr>
-              ) : (
-                rows.map((row) => (
-                  <tr key={row.id} className="border-b border-[#F0F4F0] transition-colors hover:bg-[#F9FAF9]">
-                    {COLUMNS.map(col => (
-                      <td key={col.key} className="px-4 py-[13px] text-[13px] text-[#1A2B1A] align-middle">{row[col.key]}</td>
-                    ))}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {!isLoading && totalPages > 1 && (
-          <div className="flex items-center justify-between">
-            <p className="text-[12px] text-[#7A8E7A]">
-              Showing {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, sortedCrops.length)} of {sortedCrops.length}
-            </p>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="rounded-lg border border-[#E2E8E2] p-1.5 text-[#4A5E4A] hover:bg-[#F5F7F5] disabled:opacity-40"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <span className="px-3 text-[13px] font-medium text-[#1A2B1A]">{page} / {totalPages}</span>
-              <button
-                type="button"
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="rounded-lg border border-[#E2E8E2] p-1.5 text-[#4A5E4A] hover:bg-[#F5F7F5] disabled:opacity-40"
-              >
-                <ChevronRight size={16} />
-              </button>
-            </div>
-          </div>
+        {filteredCrops.length !== crops.length && (
+          <span className="text-[12px] text-[#7A8E7A] whitespace-nowrap">
+            {filteredCrops.length} of {crops.length}
+          </span>
         )}
       </div>
+
+      {error && <ErrorMessage message={error} />}
+
+      <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <table className="min-w-full text-sm">
+          <thead className="bg-[#1B4D2E] text-white">
+            <tr>
+              {COLUMNS.map(col => (
+                <th
+                  key={col.key}
+                  className={`px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-[0.06em] ${col.sortable ? 'cursor-pointer select-none hover:bg-[#235E38]' : ''}`}
+                  onClick={col.sortable ? () => handleSort(col.key) : undefined}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    {col.label}
+                    {col.sortable && sortKey === col.key && (
+                      <span className="text-[10px]">{sortAsc ? '▲' : '▼'}</span>
+                    )}
+                  </span>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr><td colSpan={COLUMNS.length} className="py-10 text-center text-[13px] text-[#7A8E7A]">Loading…</td></tr>
+            ) : rows.length === 0 ? (
+              <tr><td colSpan={COLUMNS.length} className="py-12 text-center">
+                <div className="flex flex-col items-center gap-2 text-[#C8D5C8]">
+                  <svg width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 4v4m0 4h.01"/></svg>
+                  <p className="text-[14px] font-medium text-[#4A5E4A]">No crop types found</p>
+                  <p className="text-[13px] text-[#7A8E7A]">Add your first crop type to get started</p>
+                </div>
+              </td></tr>
+            ) : (
+              rows.map((row) => (
+                <tr key={row.id} className="border-b border-[#F0F4F0] transition-colors hover:bg-[#F9FAF9]">
+                  {COLUMNS.map(col => (
+                    <td key={col.key} className="px-4 py-[13px] text-[13px] text-[#1A2B1A] align-middle">{row[col.key]}</td>
+                  ))}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {!isLoading && totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <p className="text-[12px] text-[#7A8E7A]">
+            Showing {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, sortedCrops.length)} of {sortedCrops.length}
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="rounded-lg border border-[#E2E8E2] p-1.5 text-[#4A5E4A] hover:bg-[#F5F7F5] disabled:opacity-40"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <span className="px-3 text-[13px] font-medium text-[#1A2B1A]">{page} / {totalPages}</span>
+            <button
+              type="button"
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+              className="rounded-lg border border-[#E2E8E2] p-1.5 text-[#4A5E4A] hover:bg-[#F5F7F5] disabled:opacity-40"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {showModal && (
         <CropTypeModal
@@ -587,6 +587,18 @@ export default function CropOptionPage() {
           onCancel={() => setDeletingCrop(null)}
         />
       )}
+    </div>
+  )
+
+  if (asTab) return innerContent
+
+  return (
+    <PageLayout
+      title="Crop Option Management"
+      subtitle="Add, edit, or remove crops and their details used across the system."
+      action={actionBtn}
+    >
+      {innerContent}
     </PageLayout>
   )
 }

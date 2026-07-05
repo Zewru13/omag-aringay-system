@@ -18,6 +18,7 @@ const PAGE_SIZE = 10
 
 export default function UserManagementPage() {
   const [users,           setUsers]           = useState([])
+  const [totalCount,      setTotalCount]      = useState(0)
   const [isLoading,       setIsLoading]       = useState(false)
   const [search,          setSearch]          = useState('')
   const [roleFilter,      setRoleFilter]      = useState('All')
@@ -25,19 +26,21 @@ export default function UserManagementPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editUser,        setEditUser]        = useState(null)
 
-  const fetchUsers = useCallback(async () => {
+  const fetchUsers = useCallback(async (pageNum = 1) => {
     setIsLoading(true)
     try {
-      const r = await api.get('/accounts/users/')
-      setUsers(r.data || [])
+      const r = await api.get(`/accounts/users/?page=${pageNum}`)
+      setUsers(Array.isArray(r.data) ? r.data : (r.data?.results || []))
+      setTotalCount(typeof r.data?.count === 'number' ? r.data.count : 0)
     } catch {
       setUsers([])
+      setTotalCount(0)
     } finally {
       setIsLoading(false)
     }
   }, [])
 
-  useEffect(() => { fetchUsers() }, [fetchUsers])
+  useEffect(() => { fetchUsers(page) }, [fetchUsers, page])
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
@@ -50,8 +53,8 @@ export default function UserManagementPage() {
     })
   }, [users, search, roleFilter])
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
-  const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
+  const paginated  = filtered
 
   const rows = paginated.map(u => ({
     ...u,
@@ -167,7 +170,7 @@ export default function UserManagementPage() {
         {!isLoading && totalPages > 1 && (
           <div className="flex items-center justify-between">
             <span className="text-[12px] text-[#7A8E7A]">
-              Showing {Math.min((page - 1) * PAGE_SIZE + 1, filtered.length)}–{Math.min(page * PAGE_SIZE, filtered.length)} of {filtered.length}
+              Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, totalCount)} of {totalCount}
             </span>
             <div className="flex items-center gap-2">
               <button
