@@ -413,11 +413,11 @@ class FisheriesActivitySuggestionsView(APIView):
 
         suggestions.sort(key=lambda s: s['day_after_stocking'])
 
-        disaster_types = list(
+        disaster_reports = list(
             FisheriesDisasterReport.objects.filter(stocking_record=record)
-            .values_list('disaster_type', flat=True)
-            .distinct()
+            .values('disaster_type', 'date_of_occurrence')
         )
+        disaster_types = list({d['disaster_type'] for d in disaster_reports})
         disaster_response = []
         if disaster_types:
             rules_qs = FisheriesDisasterResponseRule.objects.filter(
@@ -426,11 +426,24 @@ class FisheriesActivitySuggestionsView(APIView):
                 Q(species=record.species) | Q(species__isnull=True)
             ).order_by('disaster_type', '-priority')
             for rule in rules_qs:
+                report_date = next(
+                    (d['date_of_occurrence'] for d in disaster_reports if d['disaster_type'] == rule.disaster_type),
+                    None,
+                )
+                is_done = any(
+                    log['activity'] == rule.activity_name and
+                    report_date is not None and
+                    log['date_of_activity'] >= report_date
+                    for log in activity_logs
+                )
                 disaster_response.append({
                     'disaster_type': rule.disaster_type,
                     'title': rule.title,
                     'action': rule.action,
+                    'activity_name': rule.activity_name,
+                    'recommendation': rule.recommendation,
                     'priority': rule.priority,
+                    'is_done': is_done,
                 })
 
         return Response({

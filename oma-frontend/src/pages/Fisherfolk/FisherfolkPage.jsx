@@ -24,10 +24,19 @@ const columns = [
   { key: 'fishr_number',            label: 'FishR No.' },
   { key: 'full_name',               label: 'Full Name' },
   { key: 'fisherfolk_type',         label: 'Type' },
+  { key: 'activity_badges',         label: 'Activities' },
   { key: 'barangay',                label: 'Barangay' },
   { key: 'age',                     label: 'Age' },
   { key: 'status',                  label: 'Status' },
   { key: 'date_registered_disp',    label: 'Date Registered' },
+]
+
+const ACTIVITY_BADGES = [
+  { key: 'is_aquaculture',     label: 'AQ',  tone: 'bg-emerald-100 text-emerald-700' },
+  { key: 'is_capture_fishery', label: 'CF',  tone: 'bg-blue-100 text-blue-700' },
+  { key: 'is_mariculture',     label: 'MC',  tone: 'bg-cyan-100 text-cyan-700' },
+  { key: 'is_inland_fishery',  label: 'IF',  tone: 'bg-indigo-100 text-indigo-700' },
+  { key: 'is_fish_vendor',     label: 'FV',  tone: 'bg-amber-100 text-amber-700' },
 ]
 
 function normalizeList(data) {
@@ -98,6 +107,15 @@ function FisherfolkPage({ asTab = false }) {
     return {
       ...f,
       fishr_number: f.fishr_number || '—',
+      activity_badges: (
+        <span className="inline-flex flex-wrap gap-1">
+          {ACTIVITY_BADGES.map((b) => f[b.key] ? (
+            <span key={b.key} className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${b.tone}`}>
+              {b.label}
+            </span>
+          ) : null)}
+        </span>
+      ),
       age: (
         <span className="inline-flex items-center gap-1">
           {ageVal}

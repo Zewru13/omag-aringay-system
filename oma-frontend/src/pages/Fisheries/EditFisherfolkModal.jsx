@@ -53,6 +53,14 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
     barangay: fisherfolk.barangay || '',
     is_active: fisherfolk.is_active,
     boat_registration_number: fisherfolk.boat_registration_number || '',
+    fishr_number: fisherfolk.fishr_number || '',
+    rsbsa_number: fisherfolk.rsbsa_number || '',
+    boatr_number: fisherfolk.boatr_number || '',
+    is_aquaculture: fisherfolk.is_aquaculture ?? true,
+    is_capture_fishery: fisherfolk.is_capture_fishery ?? false,
+    is_mariculture: fisherfolk.is_mariculture ?? false,
+    is_inland_fishery: fisherfolk.is_inland_fishery ?? false,
+    is_fish_vendor: fisherfolk.is_fish_vendor ?? false,
   })
 
   const [noVessel, setNoVessel] = useState(!fisherfolk.has_vessel)
@@ -212,6 +220,62 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
             onChange={(e) => updateField('barangay', e.target.value)}
             required
           />
+
+          <div>
+            <label className={labelCls}>FishR No. <span className="font-normal text-slate-400">(optional)</span></label>
+            <input
+              className={baseInputClasses}
+              value={form.fishr_number}
+              onChange={(e) => updateField('fishr_number', e.target.value)}
+              placeholder="e.g. BFAR-001-2025"
+            />
+          </div>
+
+          <div>
+            <label className={labelCls}>RSBSA Number <span className="font-normal text-slate-400">(optional)</span></label>
+            <input
+              className={baseInputClasses}
+              value={form.rsbsa_number}
+              onChange={(e) => updateField('rsbsa_number', e.target.value)}
+              placeholder="e.g. RSBSA-123456"
+            />
+          </div>
+
+          <div>
+            <label className={labelCls}>BoatR Number <span className="font-normal text-slate-400">(optional)</span></label>
+            <input
+              className={baseInputClasses}
+              value={form.boatr_number}
+              onChange={(e) => updateField('boatr_number', e.target.value)}
+              placeholder="e.g. 1234567"
+            />
+          </div>
+
+          <div className="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Type of Fishery Activity</p>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+              {[
+                ['is_aquaculture',     'Aquaculture'],
+                ['is_capture_fishery', 'Capture Fishery'],
+                ['is_mariculture',     'Mariculture'],
+                ['is_inland_fishery',  'Inland Fishery'],
+                ['is_fish_vendor',     'Fish Vendor'],
+              ].map(([field, label]) => (
+                <label key={field} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-[#1E4620]"
+                    checked={form[field]}
+                    onChange={(e) => updateField(field, e.target.checked)}
+                  />
+                  <span className="text-[13px] text-slate-700">{label}</span>
+                </label>
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] text-slate-400">
+              Profile classification only; production monitoring covers aquaculture.
+            </p>
+          </div>
 
           {isVesselType && (
             <div className="md:col-span-2">

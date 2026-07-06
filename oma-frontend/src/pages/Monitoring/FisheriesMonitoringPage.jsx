@@ -17,8 +17,14 @@ import { useToast } from '../../context/ToastContext.jsx'
 // ─── constants ────────────────────────────────────────────────────────────────
 
 const DISASTER_TYPES = [
-  'Fish Kill', 'Disease Outbreak', 'Flood', 'Typhoon', 'Drought', 'Predator Attack', 'Other',
+  'Fish Kill', 'Disease Outbreak', 'Flood', 'Typhoon', 'Drought', 'Predator Attack', 'Pollution Incident', 'Other',
 ]
+
+const PRIORITY_PILL = {
+  HIGH:   'bg-rose-100 text-rose-700',
+  MEDIUM: 'bg-amber-100 text-amber-700',
+  LOW:    'bg-green-100 text-[#1B4D2E]',
+}
 
 const STATUS_TONES = {
   Stocked:      'green',
@@ -78,9 +84,20 @@ function LogDisasterModal({ record, onClose, onSuccess }) {
   const [areaError, setAreaError] = useState('')
   const [dateError, setDateError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
+  const [responseRules, setResponseRules] = useState([])
 
   const maxArea     = record.area_hectares ? parseFloat(record.area_hectares) : null
   const dateStocked = record.date_stocked || null
+
+  useEffect(() => {
+    if (!form.disaster_type) { setResponseRules([]); return }
+    api.get(`/fisheries/stocking/${record.id}/suggestions/`)
+      .then(r => {
+        const rules = (r.data?.disaster_response || []).filter(rule => rule.disaster_type === form.disaster_type)
+        setResponseRules(rules)
+      })
+      .catch(() => setResponseRules([]))
+  }, [form.disaster_type, record.id])
 
   const validateArea = (val) => {
     if (!val && val !== 0) return 'Area affected is required.'
@@ -146,6 +163,26 @@ function LogDisasterModal({ record, onClose, onSuccess }) {
           </select>
         </div>
 
+        {responseRules.length > 0 && (
+          <div className="rounded-lg border border-rose-200 bg-rose-50 p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-rose-700 mb-2">Recommended Response</p>
+            <div className="space-y-2">
+              {responseRules.map((r, i) => (
+                <div
+                  key={i}
+                  className="rounded-lg border border-rose-100 bg-white px-3 py-2"
+                >
+                  <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                    <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${PRIORITY_PILL[r.priority] || ''}`}>{r.priority}</span>
+                    <span className="text-[12px] font-medium text-rose-900">{r.title}</span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 pl-1">{r.action}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div>
           <label className="block text-xs font-medium text-slate-600 mb-1">Date of Occurrence *</label>
           <input
@@ -178,10 +215,11 @@ function LogDisasterModal({ record, onClose, onSuccess }) {
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-600 mb-1">Estimated Damage</label>
-          <input
+          <label className="block text-xs font-medium text-slate-600 mb-1">Estimated Damage / Response Notes</label>
+          <textarea
+            rows={3}
             className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-[#1E4620] focus:outline-none"
-            placeholder="e.g. ₱50,000 — describe damage"
+            placeholder="e.g. ₱50,000 — describe damage and response actions"
             value={form.estimated_damage}
             onChange={(e) => set('estimated_damage', e.target.value)}
           />
@@ -214,6 +252,7 @@ function RecordHarvestModal({ record, onClose, onSuccess }) {
     harvest_date: todayISO(),
     quantity_kg: '',
     avg_body_weight_kg: '',
+    area_or_units_harvested: '',
     is_final: false,
     notes: '',
   })
@@ -271,11 +310,12 @@ function RecordHarvestModal({ record, onClose, onSuccess }) {
     setIsSaving(true)
     try {
       await api.post(`/fisheries/stocking/${record.id}/harvests/`, {
-        harvest_date:       form.harvest_date,
-        quantity_kg:        parseFloat(form.quantity_kg),
-        avg_body_weight_kg: form.avg_body_weight_kg ? parseFloat(form.avg_body_weight_kg) : null,
-        is_final:           form.is_final,
-        notes:              form.notes,
+        harvest_date:            form.harvest_date,
+        quantity_kg:             parseFloat(form.quantity_kg),
+        avg_body_weight_kg:      form.avg_body_weight_kg ? parseFloat(form.avg_body_weight_kg) : null,
+        area_or_units_harvested: form.area_or_units_harvested || '',
+        is_final:                form.is_final,
+        notes:                   form.notes,
       })
       showToast('Harvest record saved.', 'success')
       onSuccess()
@@ -357,6 +397,17 @@ function RecordHarvestModal({ record, onClose, onSuccess }) {
           />
         </div>
 
+        <div>
+          <label className="block text-xs font-medium text-slate-600 mb-1">Area/Cage Harvested (optional)</label>
+          <input
+            type="text"
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-[#1E4620] focus:outline-none"
+            placeholder="e.g. Pond 2, 3 cages"
+            value={form.area_or_units_harvested}
+            onChange={(e) => set('area_or_units_harvested', e.target.value)}
+          />
+        </div>
+
         <div className="flex items-center gap-2">
           <input
             id="is_final"
@@ -423,6 +474,35 @@ function StockingDetailModal({ recordId, onClose, onRefresh }) {
   const [deletingHarvestId, setDeletingHarvestId] = useState(null)
   const [confirmDeleteHarvest, setConfirmDeleteHarvest] = useState(null)
 
+  // Suggestions panel state
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [suggestions, setSuggestions] = useState([])
+  const [disasterResponse, setDisasterResponse] = useState([])
+  const [suggestLoading, setSuggestLoading] = useState(false)
+  const [daysElapsed, setDaysElapsed] = useState(null)
+  const [expandedUpcoming, setExpandedUpcoming] = useState(false)
+
+  // Inline log form state
+  const [showLogForm, setShowLogForm] = useState(false)
+  const [isSavingLog, setIsSavingLog] = useState(false)
+  const [logForm, setLogForm] = useState({
+    activity: '',
+    date_of_activity: todayISO(),
+    water_fish_condition: '',
+    feed_type: '',
+    feed_quantity_kg: '',
+    feed_brand: '',
+    observed_issue: '',
+    severity: '',
+    mortality_count: '',
+    treatment_applied: '',
+    outcome: '',
+    recommendations: '',
+    target_day: null,
+    is_late: false,
+  })
+  const [pendingSuggestion, setPendingSuggestion] = useState(null)
+
   const fetchDetail = async () => {
     setIsLoading(true)
     try {
@@ -436,7 +516,140 @@ function StockingDetailModal({ recordId, onClose, onRefresh }) {
     }
   }
 
+  const fetchSuggestions = async () => {
+    setSuggestLoading(true)
+    try {
+      const r = await api.get(`/fisheries/stocking/${recordId}/suggestions/`)
+      setSuggestions(r.data.suggestions || [])
+      setDisasterResponse(r.data.disaster_response || [])
+      setDaysElapsed(r.data.days_elapsed ?? null)
+    } catch {
+      setSuggestions([])
+      setDisasterResponse([])
+    } finally {
+      setSuggestLoading(false)
+    }
+  }
+
   useEffect(() => { fetchDetail() }, [recordId])
+
+  const handleToggleSuggestions = () => {
+    const next = !showSuggestions
+    setShowSuggestions(next)
+    setShowLogForm(false)
+    if (next && suggestions.length === 0 && !suggestLoading) fetchSuggestions()
+  }
+
+  const openLogForm = (partial) => {
+    setLogForm(f => ({
+      ...f,
+      ...partial,
+      date_of_activity: partial.date_of_activity || f.date_of_activity || todayISO(),
+    }))
+    setShowLogForm(true)
+    setShowSuggestions(false)
+  }
+
+  const applySuggestion = (s, statusKey) => {
+    const base = {
+      activity: s.activity_name,
+      recommendations: s.recommendation || '',
+      target_day: s.day_after_stocking ?? null,
+      is_late: false,
+    }
+    if (statusKey === 'overdue') {
+      openLogForm({
+        ...base,
+        recommendations: `${s.recommendation || ''}${s.recommendation ? '\n' : ''}(Late log for scheduled Day ${s.day_after_stocking})`.trim(),
+        is_late: true,
+      })
+    } else if (statusKey === 'upcoming') {
+      setPendingSuggestion(s)
+    } else {
+      openLogForm(base)
+    }
+  }
+
+  const applyDisasterResponseRule = (rule) => {
+    openLogForm({
+      activity: rule.activity_name,
+      recommendations: rule.recommendation || '',
+    })
+  }
+
+  const confirmLogEarly = (confirm) => {
+    const s = pendingSuggestion
+    if (!s) return
+    if (confirm) {
+      openLogForm({
+        activity: s.activity_name,
+        recommendations: `${s.recommendation || ''}${s.recommendation ? '\n' : ''}(Early log for scheduled Day ${s.day_after_stocking})`.trim(),
+        target_day: s.day_after_stocking ?? null,
+      })
+    }
+    setPendingSuggestion(null)
+  }
+
+  const handleAddLog = async (e) => {
+    e.preventDefault()
+    if (!logForm.activity || !logForm.date_of_activity) {
+      showToast('Activity and date are required.', 'error')
+      return
+    }
+    setIsSavingLog(true)
+    const payload = {
+      activity: logForm.activity,
+      date_of_activity: logForm.date_of_activity,
+      recommendations: logForm.recommendations,
+    }
+    if (logForm.water_fish_condition) payload.water_fish_condition = logForm.water_fish_condition
+    if (logForm.feed_type) payload.feed_type = logForm.feed_type
+    if (logForm.feed_quantity_kg !== '') payload.feed_quantity_kg = parseFloat(logForm.feed_quantity_kg)
+    if (logForm.feed_brand) payload.feed_brand = logForm.feed_brand
+    if (logForm.observed_issue) payload.observed_issue = logForm.observed_issue
+    if (logForm.severity) payload.severity = logForm.severity
+    if (logForm.mortality_count !== '') payload.mortality_count = parseInt(logForm.mortality_count)
+    if (logForm.treatment_applied) payload.treatment_applied = logForm.treatment_applied
+    if (logForm.outcome) payload.outcome = logForm.outcome
+    if (logForm.target_day !== null && logForm.target_day !== undefined) payload.target_day = logForm.target_day
+    payload.is_late = !!logForm.is_late
+    try {
+      await api.post(`/fisheries/stocking/${recordId}/logs/`, payload)
+      showToast('Activity log added.', 'success')
+      setShowLogForm(false)
+      setLogForm({
+        activity: '',
+        date_of_activity: todayISO(),
+        water_fish_condition: '',
+        feed_type: '',
+        feed_quantity_kg: '',
+        feed_brand: '',
+        observed_issue: '',
+        severity: '',
+        mortality_count: '',
+        treatment_applied: '',
+        outcome: '',
+        recommendations: '',
+        target_day: null,
+        is_late: false,
+      })
+      fetchDetail()
+    } catch {
+      showToast('Failed to add activity log.', 'error')
+    } finally {
+      setIsSavingLog(false)
+    }
+  }
+
+  const handleDeleteLog = async (id) => {
+    try {
+      await api.delete(`/fisheries/stocking/logs/${id}/`)
+      showToast('Log deleted.', 'success')
+      fetchDetail()
+    } catch {
+      showToast('Failed to delete log.', 'error')
+    }
+  }
 
   const handleDeleteHarvest = async (harvest) => {
     setDeletingHarvestId(harvest.id)
@@ -529,27 +742,358 @@ function StockingDetailModal({ recordId, onClose, onRefresh }) {
               <Fish size={14} className="mr-1" /> Record Harvest
             </Button>
           )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => { setShowLogForm(v => !v); setShowSuggestions(false); setLogForm({ activity: '', date_of_activity: todayISO(), water_fish_condition: '', feed_type: '', feed_quantity_kg: '', feed_brand: '', observed_issue: '', severity: '', mortality_count: '', treatment_applied: '', outcome: '', recommendations: '', target_day: null, is_late: false }) }}
+          >
+            <Plus size={14} className="mr-1" /> {showLogForm ? 'Cancel Log' : 'Add Log'}
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleToggleSuggestions}
+            className="bg-amber-400 hover:bg-amber-500 text-white"
+          >
+            {showSuggestions ? 'Hide Suggestions' : 'Get Suggestions'}
+          </Button>
         </div>
 
+        {/* Suggestions panel */}
+        {showSuggestions && (
+          <div className="rounded-xl border border-amber-100 bg-amber-50 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-xs font-semibold text-amber-800">
+                Activity Schedule — {detail.species_name}
+                {daysElapsed !== null && <span className="ml-1 font-normal text-amber-600">(Day {daysElapsed})</span>}
+              </p>
+              <button type="button" onClick={() => setShowSuggestions(false)} className="text-amber-500 hover:text-amber-700">
+                <X size={14} />
+              </button>
+            </div>
+
+            {suggestLoading ? (
+              <p className="text-center text-xs text-amber-600 py-4">Loading suggestions…</p>
+            ) : (
+              <>
+                {disasterResponse.length > 0 && (
+                  <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 p-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-rose-700 mb-2">Disaster Response Recommendations</p>
+                    <div className="space-y-2">
+                      {disasterResponse.map((r, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => !r.is_done && applyDisasterResponseRule(r)}
+                          disabled={r.is_done}
+                          className={`w-full text-left rounded-lg border px-3 py-2 transition ${
+                            r.is_done
+                              ? 'border-slate-100 bg-slate-50 cursor-default'
+                              : 'border-rose-100 bg-white hover:border-rose-400 hover:bg-rose-100'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                            <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${PRIORITY_PILL[r.priority] || ''}`}>{r.priority}</span>
+                            <span className={`text-[12px] font-medium ${r.is_done ? 'line-through text-slate-400' : 'text-rose-900'}`}>{r.title}</span>
+                            <span className="text-[10px] text-rose-400 italic">{r.disaster_type}</span>
+                            {r.is_done && (
+                              <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-green-100 text-[#1B4D2E]">Done</span>
+                            )}
+                          </div>
+                          <p className={`text-[11px] pl-1 ${r.is_done ? 'text-slate-400 line-through' : 'text-slate-600'}`}>{r.action}</p>
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-center text-[10px] text-rose-600">
+                      {disasterResponse.some(r => !r.is_done)
+                        ? 'Click a pending recommendation to auto-fill the log form'
+                        : 'All disaster response recommendations have been logged'}
+                    </p>
+                  </div>
+                )}
+
+                {suggestions.length === 0 ? (
+                  <p className="text-center text-xs text-amber-600 py-2">No activity stages defined for this species yet.</p>
+                ) : (
+                  <>
+                    {['due_now', 'overdue', 'upcoming', 'done'].map((statusKey) => {
+                      const items = suggestions.filter(s => s.status === statusKey)
+                      if (items.length === 0) return null
+                      const isUpcoming = statusKey === 'upcoming'
+                      const displayItems = isUpcoming && !expandedUpcoming && items.length > 8 ? items.slice(0, 5) : items
+                      const labels = {
+                        due_now: { text: 'Due Now', color: 'text-amber-700' },
+                        overdue: { text: 'Overdue', color: 'text-rose-700' },
+                        upcoming: { text: 'Upcoming', color: 'text-[#1B4D2E]' },
+                        done: { text: 'Completed', color: 'text-slate-400' },
+                      }
+                      return (
+                        <div key={statusKey} className="mb-3">
+                          <p className={`text-[10px] font-semibold uppercase tracking-wide ${labels[statusKey].color} mb-1.5`}>
+                            {labels[statusKey].text} ({items.length})
+                          </p>
+                          <div className="space-y-1.5">
+                            {displayItems.map(s => (
+                              <button
+                                key={s.occurrence_key || `${s.id}_${s.day_after_stocking}`}
+                                type="button"
+                                onClick={() => statusKey !== 'done' && applySuggestion(s, statusKey)}
+                                disabled={statusKey === 'done'}
+                                className={`w-full rounded-lg border px-3 py-2 text-left transition ${
+                                  statusKey === 'due_now' ? 'border-amber-200 bg-white hover:border-amber-400 hover:bg-amber-50' :
+                                  statusKey === 'overdue' ? 'border-rose-200 bg-white hover:border-rose-400 hover:bg-rose-50' :
+                                  statusKey === 'upcoming' ? 'border-[#E2E8E2] bg-white hover:border-[#1B4D2E] hover:bg-[#EBF5EE]' :
+                                  'border-slate-100 bg-slate-50 cursor-default'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${PRIORITY_PILL[s.priority] || ''}`}>{s.priority}</span>
+                                  <span className={`text-[12px] font-medium ${statusKey === 'done' ? 'line-through text-slate-400' : 'text-slate-800'}`}>{s.activity_name}</span>
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                                    statusKey === 'due_now' ? 'bg-amber-100 text-amber-700' :
+                                    statusKey === 'overdue' ? 'bg-rose-100 text-rose-700' :
+                                    statusKey === 'upcoming' ? 'bg-[#EBF5EE] text-[#1B4D2E]' :
+                                    'bg-slate-100 text-slate-400'
+                                  }`}>Day {s.day_after_stocking}</span>
+                                  {statusKey === 'upcoming' && <span className="text-[10px] text-slate-400">in {s.days_diff} day{s.days_diff !== 1 ? 's' : ''}</span>}
+                                </div>
+                                {s.recommendation && statusKey !== 'done' && <p className="mt-0.5 text-[11px] text-slate-500 pl-1">{s.recommendation}</p>}
+                              </button>
+                            ))}
+                          </div>
+                          {isUpcoming && items.length > 8 && (
+                            <button
+                              type="button"
+                              onClick={() => setExpandedUpcoming(v => !v)}
+                              className="mt-2 text-[11px] font-medium text-[#1B4D2E] hover:text-[#235E38]"
+                            >
+                              {expandedUpcoming ? 'Show fewer upcoming' : `Show all ${items.length} upcoming`}
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </>
+                )}
+              </>
+            )}
+            <p className="mt-3 text-center text-xs text-amber-600">Click a Due Now / Overdue / Upcoming card to auto-fill the log form</p>
+          </div>
+        )}
+
+        {/* Inline add log form */}
+        {showLogForm && (
+          <form onSubmit={handleAddLog} className="rounded-xl border border-[#C8E6D0] bg-[#EBF5EE] p-4 space-y-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#1B4D2E]">Add Activity Log</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Activity *</label>
+                <select
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-[#1E4620] focus:outline-none"
+                  value={logForm.activity}
+                  onChange={e => setLogForm(f => ({ ...f, activity: e.target.value }))}
+                >
+                  <option value="">— Select activity —</option>
+                  {['Pond Preparation', 'Stocking', 'Feed Monitoring', 'Water Quality Check', 'Sampling', 'Disease Control', 'Pre-Harvest Inspection', 'Harvesting', 'Other'].map(a => (
+                    <option key={a}>{a}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Date *</label>
+                <input
+                  type="date"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-[#1E4620] focus:outline-none"
+                  value={logForm.date_of_activity}
+                  onChange={e => setLogForm(f => ({ ...f, date_of_activity: e.target.value }))}
+                />
+              </div>
+            </div>
+
+            {(logForm.activity === 'Water Quality Check' || logForm.activity === 'Other') && (
+              <div>
+                <label className="block text-xs font-medium text-slate-600 mb-1">Water/Fish Condition</label>
+                <select
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-[#1E4620] focus:outline-none"
+                  value={logForm.water_fish_condition}
+                  onChange={e => setLogForm(f => ({ ...f, water_fish_condition: e.target.value }))}
+                >
+                  <option value="">— Select —</option>
+                  <option value="Good">Good</option>
+                  <option value="Fair">Fair</option>
+                  <option value="Poor">Poor</option>
+                </select>
+              </div>
+            )}
+
+            {logForm.activity === 'Feed Monitoring' && (
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Feed Type</label>
+                  <input
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-[#1E4620] focus:outline-none"
+                    placeholder="e.g. Pellets"
+                    value={logForm.feed_type}
+                    onChange={e => setLogForm(f => ({ ...f, feed_type: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Feed Quantity (kg)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-[#1E4620] focus:outline-none"
+                    value={logForm.feed_quantity_kg}
+                    onChange={e => setLogForm(f => ({ ...f, feed_quantity_kg: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Feed Brand</label>
+                  <input
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-[#1E4620] focus:outline-none"
+                    placeholder="e.g. Mega Feeds"
+                    value={logForm.feed_brand}
+                    onChange={e => setLogForm(f => ({ ...f, feed_brand: e.target.value }))}
+                  />
+                </div>
+              </div>
+            )}
+
+            {logForm.activity === 'Disease Control' && (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Observed Issue</label>
+                    <input
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-[#1E4620] focus:outline-none"
+                      placeholder="e.g. Red spot disease"
+                      value={logForm.observed_issue}
+                      onChange={e => setLogForm(f => ({ ...f, observed_issue: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Severity</label>
+                    <select
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-[#1E4620] focus:outline-none"
+                      value={logForm.severity}
+                      onChange={e => setLogForm(f => ({ ...f, severity: e.target.value }))}
+                    >
+                      <option value="">— Select —</option>
+                      <option value="Low">Low</option>
+                      <option value="Medium">Medium</option>
+                      <option value="High">High</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Mortality Count</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-[#1E4620] focus:outline-none"
+                      placeholder="pcs"
+                      value={logForm.mortality_count}
+                      onChange={e => setLogForm(f => ({ ...f, mortality_count: e.target.value }))}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-medium text-slate-600 mb-1">Treatment Applied</label>
+                    <input
+                      className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-[#1E4620] focus:outline-none"
+                      placeholder="e.g. Salt bath"
+                      value={logForm.treatment_applied}
+                      onChange={e => setLogForm(f => ({ ...f, treatment_applied: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Outcome</label>
+                  <select
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-[#1E4620] focus:outline-none"
+                    value={logForm.outcome}
+                    onChange={e => setLogForm(f => ({ ...f, outcome: e.target.value }))}
+                  >
+                    <option value="">— Select —</option>
+                    <option value="Recovered">Recovered</option>
+                    <option value="Ongoing">Ongoing</option>
+                    <option value="Losses Incurred">Losses Incurred</option>
+                  </select>
+                </div>
+              </>
+            )}
+
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">Recommendations / Notes</label>
+              <textarea
+                rows={2}
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-[#1E4620] focus:outline-none"
+                value={logForm.recommendations}
+                onChange={e => setLogForm(f => ({ ...f, recommendations: e.target.value }))}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button type="button" size="sm" variant="ghost" onClick={() => setShowLogForm(false)}>Cancel</Button>
+              <Button type="submit" size="sm" isLoading={isSavingLog}>Add Log</Button>
+            </div>
+          </form>
+        )}
+
         {/* Activity Logs */}
-        {detail.logs && detail.logs.length > 0 && (
-          <div>
-            <h3 className="mb-2 text-sm font-semibold text-slate-700">Activity Logs ({detail.logs.length})</h3>
+        <div>
+          <h3 className="mb-2 text-sm font-semibold text-slate-700">Activity Logs ({detail.logs?.length || 0})</h3>
+          {(!detail.logs || detail.logs.length === 0) ? (
+            <p className="text-sm italic text-slate-400">No activity logs yet.</p>
+          ) : (
             <div className="divide-y divide-slate-100 rounded-xl border border-slate-200">
               {detail.logs.map((log) => (
                 <div key={log.id} className="px-4 py-3 text-sm">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-slate-800">{log.activity}</span>
-                    <span className="text-xs text-slate-500">{fmtDate(log.date_of_activity)}</span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-slate-800">{log.activity}</span>
+                      {log.is_late && (
+                        <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-rose-100 text-rose-700">Late</span>
+                      )}
+                      {log.target_day !== null && log.target_day !== undefined && (
+                        <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-blue-100 text-blue-700">Target Day {log.target_day}</span>
+                      )}
+                      {log.severity && (
+                        <span className={`text-[10px] font-semibold rounded-full px-1.5 py-0.5 ${
+                          log.severity === 'High' ? 'bg-rose-100 text-rose-700' :
+                          log.severity === 'Medium' ? 'bg-amber-100 text-amber-700' :
+                          'bg-green-100 text-[#1B4D2E]'
+                        }`}>{log.severity}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-500">{fmtDate(log.date_of_activity)}</span>
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteLog(log.id)}
+                          className="text-slate-400 hover:text-rose-500 transition-colors"
+                          title="Delete log"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                  {log.recommendations && (
-                    <p className="mt-0.5 text-xs text-slate-500">{log.recommendations}</p>
-                  )}
+                  <div className="mt-1 text-xs text-slate-500 space-y-0.5">
+                    {log.feed_type && <p>Feed: {log.feed_type}{log.feed_brand ? ` · Brand: ${log.feed_brand}` : ''}{log.feed_quantity_kg ? ` · ${log.feed_quantity_kg} kg` : ''}</p>}
+                    {log.water_fish_condition && <p>Condition: {log.water_fish_condition}</p>}
+                    {(log.mortality_count !== null && log.mortality_count !== undefined && log.mortality_count > 0) && (
+                      <p>Mortality: {log.mortality_count} pcs{log.treatment_applied ? ` · Treatment: ${log.treatment_applied}` : ''}{log.outcome ? ` · Outcome: ${log.outcome}` : ''}</p>
+                    )}
+                    {log.observed_issue && <p>Issue: {log.observed_issue}</p>}
+                    {log.recommendations && <p>{log.recommendations}</p>}
+                  </div>
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Disaster Reports */}
         <div>
@@ -620,6 +1164,9 @@ function StockingDetailModal({ recordId, onClose, onRefresh }) {
                     {h.avg_body_weight_kg && (
                       <span className="ml-2 text-xs text-slate-500">avg {h.avg_body_weight_kg} kg/fish</span>
                     )}
+                    {h.area_or_units_harvested && (
+                      <span className="ml-2 text-xs text-slate-500">· {h.area_or_units_harvested}</span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     {h.is_final && (
@@ -671,6 +1218,15 @@ function StockingDetailModal({ recordId, onClose, onRefresh }) {
           variant="danger"
           onConfirm={() => handleDeleteHarvest(confirmDeleteHarvest)}
           onCancel={() => setConfirmDeleteHarvest(null)}
+        />
+      )}
+      {pendingSuggestion && (
+        <ConfirmDialog
+          title="Log Early?"
+          message={`"${pendingSuggestion.activity_name}" is scheduled for Day ${pendingSuggestion.day_after_stocking} (in ${pendingSuggestion.days_diff} day${pendingSuggestion.days_diff !== 1 ? 's' : ''}). Do you want to log it now?`}
+          confirmLabel="Log Now"
+          onConfirm={() => confirmLogEarly(true)}
+          onCancel={() => confirmLogEarly(false)}
         />
       )}
     </ModalShell>

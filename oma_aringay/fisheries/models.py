@@ -72,6 +72,16 @@ class Fisherfolk(models.Model):
     icc_ip_name        = models.CharField(max_length=150, blank=True)
     is_senior_citizen  = models.BooleanField(default=False)
     is_active          = models.BooleanField(default=True)
+
+    # OMAg fisheries field-form identifiers and activity profile flags
+    rsbsa_number       = models.CharField(max_length=50, blank=True, default='')
+    boatr_number       = models.CharField(max_length=50, blank=True, default='')
+    is_aquaculture     = models.BooleanField(default=True)
+    is_capture_fishery = models.BooleanField(default=False)
+    is_mariculture     = models.BooleanField(default=False)
+    is_inland_fishery  = models.BooleanField(default=False)
+    is_fish_vendor     = models.BooleanField(default=False)
+
     date_registered    = models.DateTimeField(auto_now_add=True)
     fisherfolk_association = models.ForeignKey(
         'associations.FisherfolkAssociation',
@@ -263,6 +273,19 @@ class StockingRecord(models.Model):
         ('Tenant', 'Tenant'),
         ('Other',  'Other'),
     ]
+    WATER_SOURCE_CHOICES = [
+        ('River',     'River'),
+        ('Spring',    'Spring'),
+        ('Rain-fed',  'Rain-fed'),
+        ('Deep Well', 'Deep Well'),
+        ('Other',     'Other'),
+    ]
+    FINGERLING_SOURCE_CHOICES = [
+        ('BFAR',             'BFAR'),
+        ('Private Hatchery', 'Private Hatchery'),
+        ('Own Production',   'Own Production'),
+        ('Other',            'Other'),
+    ]
 
     fisherfolk              = models.ForeignKey(Fisherfolk, on_delete=models.SET_NULL, null=True, blank=True, related_name='stocking_records')
     pond_location_barangay  = models.CharField(max_length=100, blank=True, default='')
@@ -274,6 +297,14 @@ class StockingRecord(models.Model):
     number_of_fingerlings   = models.IntegerField()
     survival_rate_pct       = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     avg_body_weight_kg      = models.DecimalField(max_digits=8, decimal_places=3, null=True, blank=True)
+
+    # OMAg aquaculture production fields
+    water_source          = models.CharField(max_length=20, choices=WATER_SOURCE_CHOICES, blank=True)
+    number_of_units       = models.IntegerField(null=True, blank=True, help_text='Number of ponds or cages')
+    unit_dimensions       = models.CharField(max_length=100, blank=True, help_text='e.g. 10m x 10m x 2m')
+    fingerling_source     = models.CharField(max_length=20, choices=FINGERLING_SOURCE_CHOICES, blank=True)
+    avg_fingerling_size   = models.CharField(max_length=50, blank=True, help_text='e.g. 2-3 cm')
+
     season                  = models.CharField(max_length=10, choices=[('Wet', 'Wet'), ('Dry', 'Dry')])
     year                    = models.IntegerField()
     status                  = models.CharField(max_length=20, choices=Status.choices, default=Status.STOCKED)
@@ -352,8 +383,16 @@ class FisheriesActivityLog(models.Model):
     water_fish_condition = models.CharField(max_length=10, choices=WATER_CONDITION_CHOICES, blank=True)
     feed_type           = models.CharField(max_length=200, blank=True)
     feed_quantity_kg    = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    feed_brand          = models.CharField(max_length=200, blank=True)
     observed_issue      = models.CharField(max_length=200, blank=True)
     severity            = models.CharField(max_length=10, choices=SEVERITY_CHOICES, blank=True)
+    mortality_count     = models.IntegerField(null=True, blank=True)
+    treatment_applied   = models.CharField(max_length=200, blank=True)
+    outcome             = models.CharField(max_length=50, blank=True, choices=[
+        ('Recovered',        'Recovered'),
+        ('Ongoing',          'Ongoing'),
+        ('Losses Incurred',  'Losses Incurred'),
+    ])
     recommendations     = models.TextField(blank=True)
     target_day          = models.IntegerField(null=True, blank=True, help_text='Day after stocking this log targets')
     is_late             = models.BooleanField(default=False, help_text='Logged after the target window')
@@ -374,13 +413,14 @@ class FisheriesActivityLog(models.Model):
 
 class FisheriesDisasterReport(models.Model):
     DISASTER_TYPE_CHOICES = [
-        ('Fish Kill',        'Fish Kill'),
-        ('Disease Outbreak', 'Disease Outbreak'),
-        ('Flood',            'Flood'),
-        ('Typhoon',          'Typhoon'),
-        ('Drought',          'Drought'),
-        ('Predator Attack',  'Predator Attack'),
-        ('Other',            'Other'),
+        ('Fish Kill',           'Fish Kill'),
+        ('Disease Outbreak',    'Disease Outbreak'),
+        ('Flood',               'Flood'),
+        ('Typhoon',             'Typhoon'),
+        ('Drought',             'Drought'),
+        ('Predator Attack',     'Predator Attack'),
+        ('Pollution Incident',  'Pollution Incident'),
+        ('Other',               'Other'),
     ]
 
     stocking_record     = models.ForeignKey(StockingRecord, on_delete=models.CASCADE, related_name='disaster_reports')
@@ -407,31 +447,46 @@ class FisheriesDisasterReport(models.Model):
 
 class FisheriesDisasterResponseRule(models.Model):
     DISASTER_TYPE_CHOICES = [
-        ('Fish Kill',        'Fish Kill'),
-        ('Disease Outbreak', 'Disease Outbreak'),
-        ('Flood',            'Flood'),
-        ('Typhoon',          'Typhoon'),
-        ('Drought',          'Drought'),
-        ('Predator Attack',  'Predator Attack'),
-        ('Other',            'Other'),
+        ('Fish Kill',           'Fish Kill'),
+        ('Disease Outbreak',    'Disease Outbreak'),
+        ('Flood',               'Flood'),
+        ('Typhoon',             'Typhoon'),
+        ('Drought',             'Drought'),
+        ('Predator Attack',     'Predator Attack'),
+        ('Pollution Incident',  'Pollution Incident'),
+        ('Other',               'Other'),
     ]
     PRIORITY_CHOICES = [
         ('HIGH',   'High'),
         ('MEDIUM', 'Medium'),
         ('LOW',    'Low'),
     ]
+    ACTIVITY_CHOICES = [
+        ('Pond Preparation',      'Pond Preparation'),
+        ('Stocking',              'Stocking'),
+        ('Feed Monitoring',       'Feed Monitoring'),
+        ('Water Quality Check',   'Water Quality Check'),
+        ('Sampling',              'Sampling'),
+        ('Disease Control',       'Disease Control'),
+        ('Pre-Harvest Inspection','Pre-Harvest Inspection'),
+        ('Harvesting',            'Harvesting'),
+        ('Other',                 'Other'),
+    ]
 
-    disaster_type = models.CharField(max_length=50, choices=DISASTER_TYPE_CHOICES)
-    species       = models.ForeignKey(
+    disaster_type  = models.CharField(max_length=50, choices=DISASTER_TYPE_CHOICES)
+    species        = models.ForeignKey(
         SpeciesOption,
         on_delete=models.CASCADE,
         related_name='disaster_response_rules',
         null=True, blank=True,
         help_text='If blank, this rule applies to all species.',
     )
-    title         = models.CharField(max_length=200)
-    action        = models.TextField(help_text='Step-by-step response action.')
-    priority      = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='MEDIUM')
+    title          = models.CharField(max_length=200)
+    action         = models.TextField(help_text='Step-by-step response action.')
+    activity_name  = models.CharField(max_length=150, choices=ACTIVITY_CHOICES, default='Other',
+                                      help_text='Activity log value this rule fills when clicked.')
+    recommendation = models.TextField(blank=True, help_text='Plain text copied into the log Recommendations field.')
+    priority       = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='MEDIUM')
 
     class Meta:
         ordering = ['disaster_type', '-priority']
@@ -444,13 +499,14 @@ class FisheriesDisasterResponseRule(models.Model):
 # ─── Fisheries Harvest Record (partial harvests) ──────────────────────────────
 
 class FisheriesHarvestRecord(models.Model):
-    stocking_record    = models.ForeignKey(StockingRecord, on_delete=models.CASCADE, related_name='harvests')
-    harvest_date       = models.DateField()
-    quantity_kg        = models.DecimalField(max_digits=12, decimal_places=2)
-    avg_body_weight_kg = models.DecimalField(max_digits=8, decimal_places=3, null=True, blank=True)
-    is_final           = models.BooleanField(default=False, help_text='Final harvest — close this cycle')
-    notes              = models.TextField(blank=True)
-    recorded_by        = models.ForeignKey(
+    stocking_record         = models.ForeignKey(StockingRecord, on_delete=models.CASCADE, related_name='harvests')
+    harvest_date            = models.DateField()
+    quantity_kg             = models.DecimalField(max_digits=12, decimal_places=2)
+    avg_body_weight_kg      = models.DecimalField(max_digits=8, decimal_places=3, null=True, blank=True)
+    area_or_units_harvested = models.CharField(max_length=100, blank=True, help_text='e.g. Pond 2, 3 cages')
+    is_final                = models.BooleanField(default=False, help_text='Final harvest — close this cycle')
+    notes                   = models.TextField(blank=True)
+    recorded_by             = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL, null=True, blank=True,
         related_name='fisheries_harvest_records',

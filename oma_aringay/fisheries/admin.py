@@ -85,8 +85,9 @@ class FisheriesDisasterReportAdmin(admin.ModelAdmin):
 
 @admin.register(FisheriesDisasterResponseRule)
 class FisheriesDisasterResponseRuleAdmin(admin.ModelAdmin):
-    list_display = ['disaster_type', 'species', 'title', 'priority']
-    list_filter  = ['disaster_type', 'priority']
+    list_display = ['disaster_type', 'species', 'title', 'activity_name', 'priority']
+    list_filter  = ['disaster_type', 'activity_name', 'priority']
+    fields       = ['disaster_type', 'species', 'title', 'action', 'activity_name', 'recommendation', 'priority']
 
 
 @admin.register(FisheriesHarvestRecord)

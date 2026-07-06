@@ -3,8 +3,7 @@ from datetime import date
 from decimal import Decimal
 
 from django.db import IntegrityError, transaction
-
-from django.db.models import Sum
+from django.db.models import Q, Sum
 from rest_framework import serializers
 
 from .models import (
@@ -82,6 +81,8 @@ class FisherfolkListSerializer(serializers.ModelSerializer):
             'id', 'lgu_registration_number', 'fishr_number', 'prefix', 'full_name',
             'gender', 'birthdate', 'barangay', 'fisherfolk_type',
             'is_active', 'is_senior_citizen', 'date_registered',
+            'rsbsa_number', 'boatr_number',
+            'is_aquaculture', 'is_capture_fishery', 'is_mariculture', 'is_inland_fishery', 'is_fish_vendor',
         ]
 
     def get_is_senior_citizen(self, obj):
@@ -115,6 +116,8 @@ class FisherfolkDetailSerializer(serializers.ModelSerializer):
             'facility_location', 'pond_area_ha', 'number_of_ponds', 'water_source',
             'number_of_cages', 'cage_dimensions', 'fish_registration_number',
             'boat_registration_number', 'has_vessel',
+            'rsbsa_number', 'boatr_number',
+            'is_aquaculture', 'is_capture_fishery', 'is_mariculture', 'is_inland_fishery', 'is_fish_vendor',
         ]
         read_only_fields = ['id', 'date_registered', 'registered_by', 'aquaculture_record', 'capture_record', 'vendor_record']
 
@@ -173,6 +176,15 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
     boat_registration_number = serializers.CharField(required=False, allow_blank=True)
     has_vessel        = serializers.BooleanField(required=False, default=True)
 
+    # OMAg identifiers and activity profile flags
+    rsbsa_number       = serializers.CharField(required=False, allow_blank=True)
+    boatr_number       = serializers.CharField(required=False, allow_blank=True)
+    is_aquaculture     = serializers.BooleanField(required=False, default=True)
+    is_capture_fishery = serializers.BooleanField(required=False, default=False)
+    is_mariculture     = serializers.BooleanField(required=False, default=False)
+    is_inland_fishery  = serializers.BooleanField(required=False, default=False)
+    is_fish_vendor     = serializers.BooleanField(required=False, default=False)
+
     class Meta:
         model  = Fisherfolk
         fields = [
@@ -191,6 +203,8 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
             'facility_location', 'pond_area_ha', 'number_of_ponds', 'water_source',
             'number_of_cages', 'cage_dimensions', 'fish_registration_number',
             'boat_registration_number', 'has_vessel',
+            'rsbsa_number', 'boatr_number',
+            'is_aquaculture', 'is_capture_fishery', 'is_mariculture', 'is_inland_fishery', 'is_fish_vendor',
         ]
         read_only_fields = ['id', 'date_registered', 'registered_by']
 
@@ -361,8 +375,9 @@ class FisheriesActivityLogSerializer(serializers.ModelSerializer):
         model  = FisheriesActivityLog
         fields = [
             'id', 'stocking_record', 'activity', 'date_of_activity',
-            'water_fish_condition', 'feed_type', 'feed_quantity_kg',
-            'observed_issue', 'severity', 'recommendations',
+            'water_fish_condition', 'feed_type', 'feed_quantity_kg', 'feed_brand',
+            'observed_issue', 'severity', 'mortality_count', 'treatment_applied', 'outcome',
+            'recommendations',
             'target_day', 'is_late', 'logged_by', 'logged_by_name',
         ]
         read_only_fields = ['id', 'stocking_record', 'logged_by', 'logged_by_name']
@@ -398,7 +413,7 @@ class FisheriesHarvestRecordSerializer(serializers.ModelSerializer):
         model  = FisheriesHarvestRecord
         fields = [
             'id', 'stocking_record', 'harvest_date', 'quantity_kg',
-            'avg_body_weight_kg', 'is_final', 'notes',
+            'avg_body_weight_kg', 'area_or_units_harvested', 'is_final', 'notes',
             'recorded_by', 'recorded_by_name', 'date_recorded',
         ]
         read_only_fields = ['id', 'stocking_record', 'recorded_by', 'recorded_by_name', 'date_recorded']
@@ -418,6 +433,8 @@ class StockingRecordSerializer(serializers.ModelSerializer):
     disaster_count   = serializers.SerializerMethodField()
     total_harvested_kg = serializers.SerializerMethodField()
     harvest_count    = serializers.SerializerMethodField()
+    stocking_density = serializers.SerializerMethodField()
+    production_cycle_no = serializers.SerializerMethodField()
     pond_location_barangay = serializers.CharField(required=False, allow_blank=True, default='')
     area_hectares          = serializers.DecimalField(max_digits=10, decimal_places=4, required=False, allow_null=True)
     survival_rate_pct      = serializers.DecimalField(max_digits=5, decimal_places=2, required=False, allow_null=True)
@@ -431,11 +448,14 @@ class StockingRecordSerializer(serializers.ModelSerializer):
             'species', 'species_name', 'category_name',
             'date_stocked', 'area_hectares', 'number_of_fingerlings',
             'survival_rate_pct', 'avg_body_weight_kg',
+            'water_source', 'number_of_units', 'unit_dimensions',
+            'fingerling_source', 'avg_fingerling_size',
             'season', 'year', 'status',
             'expected_harvest_date', 'estimated_harvest_kg',
             'notes', 'recorded_by', 'date_recorded',
             'is_near_harvest', 'log_count', 'disaster_count',
             'total_harvested_kg', 'harvest_count',
+            'stocking_density', 'production_cycle_no',
         ]
         read_only_fields = [
             'id', 'fisherfolk_name', 'species_name', 'category_name',
@@ -443,6 +463,7 @@ class StockingRecordSerializer(serializers.ModelSerializer):
             'recorded_by', 'date_recorded',
             'is_near_harvest', 'log_count', 'disaster_count',
             'total_harvested_kg', 'harvest_count',
+            'stocking_density', 'production_cycle_no',
         ]
 
     def get_fisherfolk_name(self, obj):
@@ -466,6 +487,23 @@ class StockingRecordSerializer(serializers.ModelSerializer):
 
     def get_harvest_count(self, obj):
         return obj.harvests.count()
+
+    def get_stocking_density(self, obj):
+        if obj.area_hectares and obj.area_hectares > 0 and obj.number_of_fingerlings is not None:
+            return round(float(obj.number_of_fingerlings) / float(obj.area_hectares), 2)
+        return None
+
+    def get_production_cycle_no(self, obj):
+        if not obj.fisherfolk_id or not obj.species_id or not obj.date_stocked:
+            return 1
+        prior = StockingRecord.objects.filter(
+            fisherfolk_id=obj.fisherfolk_id,
+            species_id=obj.species_id,
+        ).filter(
+            Q(date_stocked__lt=obj.date_stocked)
+            | Q(date_stocked=obj.date_stocked, id__lt=obj.id)
+        ).count()
+        return prior + 1
 
 
 class StockingRecordDetailSerializer(StockingRecordSerializer):

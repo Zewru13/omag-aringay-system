@@ -54,6 +54,7 @@ const COLUMNS = [
   { key: 'species_name_cell',   label: 'SPECIES' },
   { key: 'fisherfolk_cell',     label: 'FISHERFOLK' },
   { key: 'culture_type',        label: 'CULTURE TYPE' },
+  { key: 'cycle_cell',          label: 'CYCLE' },
   { key: 'date_stocked_fmt',    label: 'DATE STOCKED' },
   { key: 'expected_harvest_fmt',label: 'EXPECTED HARVEST' },
   { key: 'est_harvest_kg_fmt',  label: 'EST. HARVEST (KG)' },
@@ -176,29 +177,50 @@ function FisherfolkSearchInput({ onSelect, selected }) {
 
 // ─── Harvest Preview Box ──────────────────────────────────────────────────────
 
-function HarvestPreviewBox({ species, dateStocked, fingerlings, survivalRate, avgWeight }) {
+function HarvestPreviewBox({ species, dateStocked, fingerlings, survivalRate, avgWeight, areaHectares, productionCycleNo }) {
   const preview = useMemo(() =>
     computeHarvestPreview(species, dateStocked, fingerlings, survivalRate, avgWeight),
     [species, dateStocked, fingerlings, survivalRate, avgWeight]
   )
-  if (!preview) return null
+  const density = useMemo(() => {
+    const area = parseFloat(areaHectares)
+    const count = parseInt(fingerlings)
+    if (!isNaN(area) && area > 0 && !isNaN(count) && count > 0) {
+      return (count / area).toLocaleString(undefined, { maximumFractionDigits: 2 })
+    }
+    return null
+  }, [areaHectares, fingerlings])
+
+  if (!preview && density === null && productionCycleNo === null) return null
   return (
     <div className="flex items-start gap-2 rounded-xl border border-[#C8E6D0] bg-[#EBF5EE] px-4 py-3">
       <AlertTriangle size={14} className="mt-0.5 shrink-0 text-[#1B4D2E]" />
-      <div>
-        <p className="text-xs font-semibold text-[#1B4D2E]">
-          Expected Harvest: {fmtLong(preview.harvestDate.toISOString().slice(0, 10))}
-        </p>
-        <p className="text-[11px] text-[#235E38]">
-          {species.culture_duration_days} days culture period
-          {preview.estKg != null
-            ? ` · Est. harvest: ${preview.estKg.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg`
-            : ''}
-        </p>
-        {preview.estKg != null && (
-          <p className="text-[11px] text-[#4A5E4A] mt-0.5">
-            = {fingerlings} fingerlings × {survivalRate}% survival × {avgWeight} kg avg weight
+      <div className="space-y-0.5">
+        {preview && (
+          <p className="text-xs font-semibold text-[#1B4D2E]">
+            Expected Harvest: {fmtLong(preview.harvestDate.toISOString().slice(0, 10))}
           </p>
+        )}
+        {density !== null && (
+          <p className="text-[11px] text-[#235E38]">
+            Stocking Density: <strong>{density}</strong> fingerlings/ha
+          </p>
+        )}
+        {productionCycleNo !== null && productionCycleNo !== undefined && (
+          <p className="text-[11px] text-[#235E38]">
+            Production Cycle <strong>#{productionCycleNo}</strong> for this fisherfolk and species
+          </p>
+        )}
+        {preview && preview.estKg != null && (
+          <>
+            <p className="text-[11px] text-[#235E38]">
+              {species.culture_duration_days} days culture period
+              {` · Est. harvest: ${preview.estKg.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg`}
+            </p>
+            <p className="text-[11px] text-[#4A5E4A]">
+              = {fingerlings} fingerlings × {survivalRate}% survival × {avgWeight} kg avg weight
+            </p>
+          </>
         )}
       </div>
     </div>
@@ -219,6 +241,11 @@ function makeRecord(n) {
     number_of_fingerlings:'',
     survival_rate_pct:    '',
     avg_body_weight_kg:   '',
+    number_of_units:      '',
+    unit_dimensions:      '',
+    water_source:         '',
+    fingerling_source:    '',
+    avg_fingerling_size:  '',
     season:               detectSeason(''),
     _speciesObj:          null,
   }
@@ -305,6 +332,52 @@ function StockingRecordCard({ rec, index, total, speciesList, onUpdate, onRemove
       )}
 
       <div className="grid gap-3 sm:grid-cols-2">
+        <FormField label={rec.culture_type === 'Pond' ? 'Number of Ponds' : rec.culture_type === 'Pen' ? 'Number of Pens' : 'Number of Cages'}>
+          <input type="number" min="0" className={baseInputClasses}
+            placeholder={rec.culture_type === 'Pond' ? 'e.g. 2' : rec.culture_type === 'Pen' ? 'e.g. 3' : 'e.g. 5'}
+            value={rec.number_of_units}
+            onChange={e => set('number_of_units', e.target.value)} />
+        </FormField>
+        {rec.culture_type !== 'Pond' && (
+          <FormField label="Unit Dimensions">
+            <input type="text" className={baseInputClasses}
+              placeholder="e.g. 10m x 10m x 2m" value={rec.unit_dimensions}
+              onChange={e => set('unit_dimensions', e.target.value)} />
+          </FormField>
+        )}
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <FormField label="Water Source">
+          <select className={baseInputClasses} value={rec.water_source} onChange={e => set('water_source', e.target.value)}>
+            <option value="">Select…</option>
+            <option value="River">River</option>
+            <option value="Spring">Spring</option>
+            <option value="Rain-fed">Rain-fed</option>
+            <option value="Deep Well">Deep Well</option>
+            <option value="Other">Other</option>
+          </select>
+        </FormField>
+        <FormField label="Fingerling/Fry Source">
+          <select className={baseInputClasses} value={rec.fingerling_source} onChange={e => set('fingerling_source', e.target.value)}>
+            <option value="">Select…</option>
+            <option value="BFAR">BFAR</option>
+            <option value="Private Hatchery">Private Hatchery</option>
+            <option value="Own Production">Own Production</option>
+            <option value="Other">Other</option>
+          </select>
+        </FormField>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <FormField label="Average Fingerling Size (optional)">
+          <input type="text" className={baseInputClasses}
+            placeholder="e.g. 2-3 cm" value={rec.avg_fingerling_size}
+            onChange={e => set('avg_fingerling_size', e.target.value)} />
+        </FormField>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
         <FormField label="Date Stocked" required>
           <input type="date" className={baseInputClasses} value={rec.date_stocked}
             onChange={e => {
@@ -343,6 +416,8 @@ function StockingRecordCard({ rec, index, total, speciesList, onUpdate, onRemove
         fingerlings={rec.number_of_fingerlings}
         survivalRate={rec.survival_rate_pct}
         avgWeight={rec.avg_body_weight_kg}
+        areaHectares={rec.area_hectares}
+        productionCycleNo={rec._productionCycleNo}
       />
 
       <FormField label="Season">
@@ -366,11 +441,25 @@ function AddStockingModal({ onClose, onSuccess }) {
   const [fisherfolkInfo, setFisherfolkInfo] = useState({
     id: null, full_name: '', barangay: '', assoc_name: '',
   })
+  const [existingCycleCount, setExistingCycleCount] = useState(0)
 
   useEffect(() => {
     api.get('/fisheries/species/')
       .then(r => setSpeciesList(Array.isArray(r.data) ? r.data : (r.data.results || [])))
   }, [])
+
+  useEffect(() => {
+    if (!fisherfolkInfo.id) {
+      setExistingCycleCount(0)
+      return
+    }
+    api.get('/fisheries/stocking/', { params: { fisherfolk: fisherfolkInfo.id, status: 'Stocked,For Harvest,Harvested' } })
+      .then(r => {
+        const list = Array.isArray(r.data) ? r.data : (r.data.results || [])
+        setExistingCycleCount(list.length)
+      })
+      .catch(() => setExistingCycleCount(0))
+  }, [fisherfolkInfo.id])
 
   const addRecord = () => {
     setRecords(r => [...r, makeRecord(nextId)])
@@ -416,6 +505,11 @@ function AddStockingModal({ onClose, onSuccess }) {
           number_of_fingerlings:    parseInt(rec.number_of_fingerlings),
           survival_rate_pct:        rec.survival_rate_pct !== '' ? parseFloat(rec.survival_rate_pct) : null,
           avg_body_weight_kg:       rec.avg_body_weight_kg !== '' ? parseFloat(rec.avg_body_weight_kg) : null,
+          water_source:             rec.water_source || '',
+          number_of_units:          rec.number_of_units !== '' ? parseInt(rec.number_of_units) : null,
+          unit_dimensions:          rec.unit_dimensions || '',
+          fingerling_source:        rec.fingerling_source || '',
+          avg_fingerling_size:      rec.avg_fingerling_size || '',
           season:                   rec.season,
           year,
         })
@@ -462,17 +556,26 @@ function AddStockingModal({ onClose, onSuccess }) {
             </div>
 
             {/* Stocking records */}
-            {records.map((rec, i) => (
-              <StockingRecordCard
-                key={rec._id}
-                rec={rec}
-                index={i}
-                total={records.length}
-                speciesList={speciesList}
-                onUpdate={updateRecord}
-                onRemove={removeRecord}
-              />
-            ))}
+            {(() => {
+              const speciesCounts = {}
+              return records.map((rec, i) => {
+                const key = rec.species || '_none'
+                const before = speciesCounts[key] || 0
+                speciesCounts[key] = before + 1
+                const recWithCycle = { ...rec, _productionCycleNo: rec.species ? existingCycleCount + before + 1 : null }
+                return (
+                  <StockingRecordCard
+                    key={rec._id}
+                    rec={recWithCycle}
+                    index={i}
+                    total={records.length}
+                    speciesList={speciesList}
+                    onUpdate={updateRecord}
+                    onRemove={removeRecord}
+                  />
+                )
+              })
+            })()}
 
             <button
               type="button"
@@ -529,6 +632,11 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
     number_of_fingerlings:  record.number_of_fingerlings ? String(record.number_of_fingerlings) : '',
     survival_rate_pct:      record.survival_rate_pct != null ? String(record.survival_rate_pct) : '',
     avg_body_weight_kg:     record.avg_body_weight_kg != null ? String(record.avg_body_weight_kg) : '',
+    number_of_units:        record.number_of_units != null ? String(record.number_of_units) : '',
+    unit_dimensions:        record.unit_dimensions || '',
+    water_source:           record.water_source || '',
+    fingerling_source:      record.fingerling_source || '',
+    avg_fingerling_size:    record.avg_fingerling_size || '',
     season:                 record.season || '',
   }
   const [form, setForm]           = useState(originalData)
@@ -546,6 +654,14 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
     computeHarvestPreview(speciesObj, form.date_stocked, form.number_of_fingerlings, form.survival_rate_pct, form.avg_body_weight_kg),
     [speciesObj, form.date_stocked, form.number_of_fingerlings, form.survival_rate_pct, form.avg_body_weight_kg]
   )
+  const density = useMemo(() => {
+    const area = parseFloat(form.area_hectares)
+    const count = parseInt(form.number_of_fingerlings)
+    if (!isNaN(area) && area > 0 && !isNaN(count) && count > 0) {
+      return (count / area).toLocaleString(undefined, { maximumFractionDigits: 2 })
+    }
+    return null
+  }, [form.area_hectares, form.number_of_fingerlings])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -562,6 +678,11 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
         number_of_fingerlings:  parseInt(form.number_of_fingerlings),
         survival_rate_pct:      form.survival_rate_pct !== '' ? parseFloat(form.survival_rate_pct) : null,
         avg_body_weight_kg:     form.avg_body_weight_kg !== '' ? parseFloat(form.avg_body_weight_kg) : null,
+        water_source:           form.water_source || '',
+        number_of_units:        form.number_of_units !== '' ? parseInt(form.number_of_units) : null,
+        unit_dimensions:        form.unit_dimensions || '',
+        fingerling_source:      form.fingerling_source || '',
+        avg_fingerling_size:    form.avg_fingerling_size || '',
         season:                 form.season,
       })
       showToast('Stocking record updated.', 'success')
@@ -632,6 +753,56 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
           </div>
         </div>
 
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className={editLabelCls}>{form.culture_type === 'Pond' ? 'Number of Ponds' : form.culture_type === 'Pen' ? 'Number of Pens' : 'Number of Cages'}</label>
+            <input type="number" min="0" className={baseInputClasses}
+              placeholder={form.culture_type === 'Pond' ? 'e.g. 2' : form.culture_type === 'Pen' ? 'e.g. 3' : 'e.g. 5'}
+              value={form.number_of_units} onChange={e => set('number_of_units', e.target.value)} />
+          </div>
+          {form.culture_type !== 'Pond' && (
+            <div>
+              <label className={editLabelCls}>Unit Dimensions</label>
+              <input type="text" className={baseInputClasses}
+                placeholder="e.g. 10m x 10m x 2m"
+                value={form.unit_dimensions} onChange={e => set('unit_dimensions', e.target.value)} />
+            </div>
+          )}
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className={editLabelCls}>Water Source</label>
+            <select className={baseInputClasses} value={form.water_source} onChange={e => set('water_source', e.target.value)}>
+              <option value="">Select…</option>
+              <option value="River">River</option>
+              <option value="Spring">Spring</option>
+              <option value="Rain-fed">Rain-fed</option>
+              <option value="Deep Well">Deep Well</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label className={editLabelCls}>Fingerling/Fry Source</label>
+            <select className={baseInputClasses} value={form.fingerling_source} onChange={e => set('fingerling_source', e.target.value)}>
+              <option value="">Select…</option>
+              <option value="BFAR">BFAR</option>
+              <option value="Private Hatchery">Private Hatchery</option>
+              <option value="Own Production">Own Production</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className={editLabelCls}>Average Fingerling Size (optional)</label>
+            <input type="text" className={baseInputClasses}
+              placeholder="e.g. 2-3 cm"
+              value={form.avg_fingerling_size} onChange={e => set('avg_fingerling_size', e.target.value)} />
+          </div>
+        </div>
+
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
             <label className={editLabelCls}>No. of Fingerlings <span className="text-rose-500">*</span></label>
@@ -651,25 +822,37 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
         </div>
 
         {/* Harvest preview */}
-        {preview && (
-          <div className="rounded-xl border border-[#C8E6D0] bg-[#EBF5EE] px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#1B4D2E] mb-2">Harvest Preview</p>
-            <div className="flex flex-wrap gap-x-6 gap-y-1">
-              <div>
-                <p className="text-[11px] text-[#4A5E4A]">Est. Harvest Date</p>
-                <p className="text-[13px] font-semibold text-[#1A2B1A]">
-                  {fmtLong(preview.harvestDate.toISOString().slice(0, 10))}
-                </p>
-              </div>
-              {preview.estKg != null && (
+        {(preview || density !== null || record.production_cycle_no) && (
+          <div className="rounded-xl border border-[#C8E6D0] bg-[#EBF5EE] px-4 py-3 space-y-1">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#1B4D2E] mb-1">Harvest Preview</p>
+            {density !== null && (
+              <p className="text-[11px] text-[#235E38]">
+                Stocking Density: <strong>{density}</strong> fingerlings/ha
+              </p>
+            )}
+            {record.production_cycle_no && (
+              <p className="text-[11px] text-[#235E38]">
+                Production Cycle <strong>#{record.production_cycle_no}</strong> for this fisherfolk and species
+              </p>
+            )}
+            {preview && (
+              <div className="flex flex-wrap gap-x-6 gap-y-1 pt-1">
                 <div>
-                  <p className="text-[11px] text-[#4A5E4A]">Est. Harvest (kg)</p>
+                  <p className="text-[11px] text-[#4A5E4A]">Est. Harvest Date</p>
                   <p className="text-[13px] font-semibold text-[#1A2B1A]">
-                    {preview.estKg.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg
+                    {fmtLong(preview.harvestDate.toISOString().slice(0, 10))}
                   </p>
                 </div>
-              )}
-            </div>
+                {preview.estKg != null && (
+                  <div>
+                    <p className="text-[11px] text-[#4A5E4A]">Est. Harvest (kg)</p>
+                    <p className="text-[13px] font-semibold text-[#1A2B1A]">
+                      {preview.estKg.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -778,6 +961,7 @@ export default function FisheriesRecordsPage() {
       </span>
     ),
     fisherfolk_cell:      rec.fisherfolk_name || '—',
+    cycle_cell:           rec.production_cycle_no ? `#${rec.production_cycle_no}` : '—',
     date_stocked_fmt:     fmtShort(rec.date_stocked),
     expected_harvest_fmt: fmtShort(rec.expected_harvest_date),
     est_harvest_kg_fmt:   rec.status === 'Harvested' && rec.total_harvested_kg

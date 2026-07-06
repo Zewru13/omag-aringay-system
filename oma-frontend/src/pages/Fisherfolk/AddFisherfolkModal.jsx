@@ -11,6 +11,8 @@ const labelCls = 'text-[13px] font-medium text-[#4A5E4A] mb-1.5 block'
 const initialForm = {
   prefix: '',
   fishr_number: '',
+  rsbsa_number: '',
+  boatr_number: '',
   fish_registration_number: '',
   first_name: '',
   last_name: '',
@@ -25,6 +27,11 @@ const initialForm = {
   is_icc_ip_member: false,
   icc_ip_name: '',
   fisherfolk_association: null,
+  is_aquaculture: true,
+  is_capture_fishery: false,
+  is_mariculture: false,
+  is_inland_fishery: false,
+  is_fish_vendor: false,
 }
 
 const computeAge = (birthdate) => {
@@ -180,6 +187,20 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
             <input className={baseInputClasses} id="fishr_number" value={form.fishr_number} onChange={(e) => updateField('fishr_number', e.target.value)} placeholder="e.g. BFAR-001-2025" />
           </div>
 
+          <div>
+            <label className={labelCls} htmlFor="rsbsa_number">
+              RSBSA Number <span className="text-[#7A8E7A] font-normal">(optional)</span>
+            </label>
+            <input className={baseInputClasses} id="rsbsa_number" value={form.rsbsa_number} onChange={(e) => updateField('rsbsa_number', e.target.value)} placeholder="e.g. RSBSA-123456" />
+          </div>
+
+          <div>
+            <label className={labelCls} htmlFor="boatr_number">
+              BoatR Number <span className="text-[#7A8E7A] font-normal">(optional)</span>
+            </label>
+            <input className={baseInputClasses} id="boatr_number" value={form.boatr_number} onChange={(e) => updateField('boatr_number', e.target.value)} placeholder="e.g. 1234567" />
+          </div>
+
           {form.fisherfolk_type !== 'Vendor' && (
             <div>
               <label className={labelCls} htmlFor="fish_registration_number">
@@ -302,6 +323,33 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
               <input className={baseInputClasses} id="icc_ip_name" value={form.icc_ip_name} onChange={(e) => updateField('icc_ip_name', e.target.value)} />
             </div>
           )}
+        </div>
+
+        {/* Type of Fishery Activity profile flags */}
+        <div className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] p-4">
+          <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-[#4A5E4A]">Type of Fishery Activity</p>
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+            {[
+              ['is_aquaculture',     'Aquaculture'],
+              ['is_capture_fishery', 'Capture Fishery'],
+              ['is_mariculture',     'Mariculture'],
+              ['is_inland_fishery',  'Inland Fishery'],
+              ['is_fish_vendor',     'Fish Vendor'],
+            ].map(([field, label]) => (
+              <label key={field} className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-[#1B4D2E]"
+                  checked={form[field]}
+                  onChange={(e) => updateField(field, e.target.checked)}
+                />
+                <span className="text-[13px] text-[#1A2B1A]">{label}</span>
+              </label>
+            ))}
+          </div>
+          <p className="mt-2 text-[11px] text-[#7A8E7A]">
+            Profile classification only; production monitoring covers aquaculture.
+          </p>
         </div>
 
         {/* Association */}
