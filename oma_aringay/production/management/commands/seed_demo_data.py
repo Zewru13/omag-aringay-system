@@ -41,7 +41,7 @@ ASSOCIATIONS = [
     },
     {
         'name': 'San Juan Sustainable Farming Association' + DEMO_ASSOC_SUFFIX,
-        'barangay': 'San Juan',
+        'barangay': 'San Juan East',
         'contact_person': 'Felicitas Reyes Aguilar',
         'contact_number': '09181234002',
         'email_address': 'sanjuan.sfa.demo@aringay.gov.ph',
@@ -80,32 +80,32 @@ OFFICERS_TEMPLATE = [
 FARMERS_DATA = [
     # first_name, last_name, gender, birth_year, barangay, pwd, icc, fourPs
     ('Jose',       'Santos',      'Male',   1975, 'Basca',              False, False, False),
-    ('Maria',      'Reyes',       'Female', 1982, 'San Juan',           False, False, True),
+    ('Maria',      'Reyes',       'Female', 1982, 'San Juan East',           False, False, True),
     ('Pedro',      'Cruz',        'Male',   1968, 'San Antonio',        False, False, False),
     ('Ana',        'Garcia',      'Female', 1990, 'Poblacion',          False, False, False),
     ('Eduardo',    'Ramos',       'Male',   1965, 'Santa Cecilia',      True,  False, False),
     ('Felicitas',  'Torres',      'Female', 1979, 'Basca',              False, False, False),
-    ('Bernardo',   'Flores',      'Male',   1972, 'San Juan',           False, True,  False),
+    ('Bernardo',   'Flores',      'Male',   1972, 'San Juan East',           False, True,  False),
     ('Maricel',    'Lopez',       'Female', 1988, 'San Antonio',        False, False, True),
     ('Rogelio',    'Hernandez',   'Male',   1960, 'Poblacion',          False, False, False),
     ('Lourdes',    'Villanueva',  'Female', 1995, 'Santa Cecilia',      False, False, False),
     ('Ricardo',    'Bautista',    'Male',   1970, 'Basca',              True,  False, True),
-    ('Concepcion', 'Castillo',    'Female', 1955, 'San Juan',           False, False, False),
+    ('Concepcion', 'Castillo',    'Female', 1955, 'San Juan East',           False, False, False),
     ('Domingo',    'Aguilar',     'Male',   1983, 'San Antonio',        False, False, False),
     ('Rosario',    'Navarro',     'Female', 1976, 'Poblacion',          False, True,  False),
     ('Francisco',  'Espiritu',    'Male',   1948, 'Santa Cecilia',      False, False, False),
     ('Carmen',     'Ocampo',      'Female', 1992, 'Basca',              False, False, False),
-    ('Arturo',     'Pascual',     'Male',   1967, 'San Juan',           False, False, True),
+    ('Arturo',     'Pascual',     'Male',   1967, 'San Juan East',           False, False, True),
     ('Gloria',     'Mendoza',     'Female', 1980, 'San Antonio',        True,  False, False),
     ('Ernesto',    'Jimenez',     'Male',   1973, 'Poblacion',          False, False, False),
     ('Teresita',   'Morales',     'Female', 1986, 'Santa Cecilia',      False, False, False),
     ('Rodrigo',    'Dela Cruz',   'Male',   1952, 'Basca',              False, True,  False),
-    ('Natividad',  'Soriano',     'Female', 1969, 'San Juan',           False, False, True),
+    ('Natividad',  'Soriano',     'Female', 1969, 'San Juan East',           False, False, True),
     ('Maximo',     'Padua',       'Male',   1963, 'San Antonio',        False, False, False),
     ('Perla',      'Buena',       'Female', 1997, 'Poblacion',          False, False, False),
     ('Gregorio',   'Salcedo',     'Male',   1978, 'Santa Cecilia',      False, False, False),
     ('Milagros',   'Aquino',      'Female', 1984, 'Basca',              False, False, True),
-    ('Virgilio',   'Macaraeg',    'Male',   1958, 'San Juan',           True,  False, False),
+    ('Virgilio',   'Macaraeg',    'Male',   1958, 'San Juan East',           True,  False, False),
     ('Caridad',    'Lagman',      'Female', 1991, 'San Antonio',        False, False, False),
     ('Arsenio',    'Sarmiento',   'Male',   1974, 'Poblacion',          False, True,  False),
     ('Resurreccion','Quirino',    'Female', 1962, 'Santa Cecilia',      False, False, False),
@@ -317,8 +317,13 @@ class Command(BaseCommand):
         def make_record(assoc, status, date_planted, growth_stage='', actual_yield=None, actual_harvest=None):
             ct = pick_crop()
             area = Decimal(str(round(random.uniform(0.25, 2.5), 2)))
+            farmer = random.choice(farmers) if farmers else None
+            land_status = random.choice(['Owner', 'Lessee', 'Tenant'])
             rec = CropMonitoringRecord(
                 farmers_association=assoc,
+                farmer=farmer,
+                land_status=land_status,
+                farm_location_barangay=farmer.barangay if farmer else '',
                 crop_type=ct,
                 season=season,
                 year=cur_year,

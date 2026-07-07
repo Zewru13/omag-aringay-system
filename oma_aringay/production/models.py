@@ -361,13 +361,15 @@ class HarvestRecord(models.Model):
 
     def save(self, *args, **kwargs):
         if self.volume_kg is not None:
-            self.volume_bags = Decimal(str(self.volume_kg)) / Decimal('50')
+            self.volume_bags = (
+                Decimal(str(self.volume_kg)) / Decimal('50')
+            ).quantize(Decimal('0.01'))
         if (self.volume_kg is not None and
                 self.area_harvested_hectares is not None and
                 Decimal(str(self.area_harvested_hectares)) > 0):
             self.yield_per_hectare_kg = (
                 Decimal(str(self.volume_kg)) / Decimal(str(self.area_harvested_hectares))
-            )
+            ).quantize(Decimal('0.01'))
         super().save(*args, **kwargs)
         if self.monitoring_record_id:
             try:
