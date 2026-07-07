@@ -3,6 +3,7 @@ from decimal import Decimal
 from io import BytesIO
 
 from django.db.models import Avg, Case, CharField, Count, Exists, IntegerField, OuterRef, Q, Sum, Value, When
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status as drf_status
 from rest_framework.parsers import MultiPartParser
@@ -605,7 +606,9 @@ class CropMonitoringListCreateView(generics.ListCreateAPIView):
         ).prefetch_related('activity_logs', 'labor_logs', 'harvest_records').order_by('-date_recorded')
         qs = qs.annotate(
             has_disaster=Exists(
-                CropDisasterReport.objects.filter(monitoring_record=OuterRef('pk'))
+                CropDisasterReport.objects.filter(
+                    monitoring_record=OuterRef('pk'), status='Active',
+                )
             )
         )
         params = self.request.query_params
@@ -747,26 +750,45 @@ class CropActivitySuggestionsView(APIView):
 
         suggestions.sort(key=lambda s: s['day_after_planting'])
 
-        # Disaster response rules — look up any disaster reports on this record
-        disaster_types = list(
-            CropDisasterReport.objects.filter(monitoring_record=record)
-            .values_list('disaster_type', flat=True)
-            .distinct()
+        # Disaster response rules — only ACTIVE disasters
+        active_disasters = list(
+            CropDisasterReport.objects.filter(
+                monitoring_record=record, status='Active',
+            ).order_by('-date_of_occurrence')
         )
         disaster_response = []
-        if disaster_types:
+        for disaster in active_disasters:
             rules_qs = DisasterResponseRule.objects.filter(
-                disaster_type__in=disaster_types
+                disaster_type=disaster.disaster_type,
             ).filter(
                 Q(crop_type=record.crop_type) | Q(crop_type__isnull=True)
-            ).order_by('disaster_type', '-priority')
+            ).order_by('-priority')
+
+            rules_list = []
             for rule in rules_qs:
-                disaster_response.append({
+                is_done = any(
+                    log['activity_type'] == rule.title and
+                    log['activity_date'] >= disaster.date_of_occurrence
+                    for log in activity_logs
+                )
+                rules_list.append({
                     'disaster_type': rule.disaster_type,
                     'title': rule.title,
                     'action': rule.action,
                     'priority': rule.priority,
+                    'is_done': is_done,
                 })
+
+            all_rules_done = len(rules_list) > 0 and all(r['is_done'] for r in rules_list)
+
+            disaster_response.append({
+                'disaster_id': disaster.id,
+                'disaster_type': disaster.disaster_type,
+                'date_of_occurrence': disaster.date_of_occurrence.isoformat(),
+                'status': disaster.status,
+                'all_rules_done': all_rules_done,
+                'rules': rules_list,
+            })
 
         return Response({
             'days_elapsed': days_elapsed,
@@ -822,6 +844,52 @@ class CropDisasterReportListCreateView(generics.ListCreateAPIView):
             monitoring_record_id=monitoring_id,
             reported_by=self.request.user,
         )
+
+
+class CropDisasterResolveView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def post(self, request, pk):
+        from datetime import date as _date
+        disaster = get_object_or_404(CropDisasterReport, pk=pk)
+        if disaster.status == 'Resolved':
+            return Response({'detail': 'Disaster is already resolved.'}, status=400)
+
+        record = disaster.monitoring_record
+        rules_qs = DisasterResponseRule.objects.filter(
+            disaster_type=disaster.disaster_type,
+        ).filter(
+            Q(crop_type=record.crop_type) | Q(crop_type__isnull=True)
+        )
+        activity_logs = CropActivityLog.objects.filter(
+            monitoring_record=record
+        ).values('activity_type', 'activity_date')
+
+        all_done = True
+        has_rules = False
+        for rule in rules_qs:
+            has_rules = True
+            is_done = any(
+                log['activity_type'] == rule.title and
+                log['activity_date'] >= disaster.date_of_occurrence
+                for log in activity_logs
+            )
+            if not is_done:
+                all_done = False
+                break
+
+        if has_rules and not all_done:
+            return Response(
+                {'detail': 'Cannot resolve: not all recommended response rules have been completed.'},
+                status=400,
+            )
+
+        disaster.status = 'Resolved'
+        disaster.resolved_date = _date.today()
+        disaster.resolved_by = request.user
+        disaster.save(update_fields=['status', 'resolved_date', 'resolved_by'])
+        serializer = CropDisasterReportSerializer(disaster)
+        return Response(serializer.data, status=200)
 
 
 # ─── LaborOperationLog ──────────────────────────────────────────────────────

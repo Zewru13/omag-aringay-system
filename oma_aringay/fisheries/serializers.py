@@ -390,19 +390,30 @@ class FisheriesActivityLogSerializer(serializers.ModelSerializer):
 
 class FisheriesDisasterReportSerializer(serializers.ModelSerializer):
     reported_by_name = serializers.SerializerMethodField()
+    resolved_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model  = FisheriesDisasterReport
         fields = [
             'id', 'stocking_record', 'disaster_type', 'date_of_occurrence',
             'area_affected_ha', 'estimated_damage', 'production_loss',
+            'status', 'resolved_date', 'resolved_by', 'resolved_by_name',
             'reported_by', 'reported_by_name', 'date_reported',
         ]
-        read_only_fields = ['id', 'stocking_record', 'reported_by', 'reported_by_name', 'date_reported']
+        read_only_fields = [
+            'id', 'stocking_record', 'status', 'resolved_date',
+            'resolved_by', 'resolved_by_name',
+            'reported_by', 'reported_by_name', 'date_reported',
+        ]
 
     def get_reported_by_name(self, obj):
         if obj.reported_by:
             return getattr(obj.reported_by, 'full_name', str(obj.reported_by))
+        return None
+
+    def get_resolved_by_name(self, obj):
+        if obj.resolved_by:
+            return getattr(obj.resolved_by, 'full_name', str(obj.resolved_by))
         return None
 
 
@@ -431,6 +442,7 @@ class StockingRecordSerializer(serializers.ModelSerializer):
     is_near_harvest  = serializers.SerializerMethodField()
     log_count        = serializers.SerializerMethodField()
     disaster_count   = serializers.SerializerMethodField()
+    has_resolved_disaster = serializers.SerializerMethodField()
     total_harvested_kg = serializers.SerializerMethodField()
     harvest_count    = serializers.SerializerMethodField()
     stocking_density = serializers.SerializerMethodField()
@@ -454,6 +466,7 @@ class StockingRecordSerializer(serializers.ModelSerializer):
             'expected_harvest_date', 'estimated_harvest_kg',
             'notes', 'recorded_by', 'date_recorded',
             'is_near_harvest', 'log_count', 'disaster_count',
+            'has_resolved_disaster',
             'total_harvested_kg', 'harvest_count',
             'stocking_density', 'production_cycle_no',
         ]
@@ -462,6 +475,7 @@ class StockingRecordSerializer(serializers.ModelSerializer):
             'expected_harvest_date', 'estimated_harvest_kg',
             'recorded_by', 'date_recorded',
             'is_near_harvest', 'log_count', 'disaster_count',
+            'has_resolved_disaster',
             'total_harvested_kg', 'harvest_count',
             'stocking_density', 'production_cycle_no',
         ]
@@ -479,7 +493,10 @@ class StockingRecordSerializer(serializers.ModelSerializer):
         return obj.logs.count()
 
     def get_disaster_count(self, obj):
-        return obj.disaster_reports.count()
+        return obj.disaster_reports.filter(status='Active').count()
+
+    def get_has_resolved_disaster(self, obj):
+        return obj.disaster_reports.filter(status='Resolved').exists()
 
     def get_total_harvested_kg(self, obj):
         result = obj.harvests.aggregate(total=Sum('quantity_kg'))['total']

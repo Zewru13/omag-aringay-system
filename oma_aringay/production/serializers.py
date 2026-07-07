@@ -137,19 +137,30 @@ class CropActivityLogSerializer(serializers.ModelSerializer):
 
 class CropDisasterReportSerializer(serializers.ModelSerializer):
     reported_by_name = serializers.SerializerMethodField()
+    resolved_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model = CropDisasterReport
         fields = [
             'id', 'monitoring_record', 'disaster_type', 'date_of_occurrence',
             'area_affected_ha', 'estimated_damage', 'production_loss',
+            'status', 'resolved_date', 'resolved_by', 'resolved_by_name',
             'reported_by', 'reported_by_name', 'date_reported',
         ]
-        read_only_fields = ['id', 'monitoring_record', 'reported_by', 'reported_by_name', 'date_reported']
+        read_only_fields = [
+            'id', 'monitoring_record', 'status', 'resolved_date',
+            'resolved_by', 'resolved_by_name',
+            'reported_by', 'reported_by_name', 'date_reported',
+        ]
 
     def get_reported_by_name(self, obj):
         if obj.reported_by:
             return getattr(obj.reported_by, 'full_name', str(obj.reported_by))
+        return None
+
+    def get_resolved_by_name(self, obj):
+        if obj.resolved_by:
+            return getattr(obj.resolved_by, 'full_name', str(obj.resolved_by))
         return None
 
 
@@ -189,6 +200,7 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
     labor_log_count        = serializers.SerializerMethodField()
     has_disaster           = serializers.BooleanField(read_only=True, default=False)
     disasters_count        = serializers.SerializerMethodField()
+    has_resolved_disaster  = serializers.SerializerMethodField()
     has_harvest            = serializers.SerializerMethodField()
     harvest_record_id      = serializers.SerializerMethodField()
 
@@ -208,7 +220,8 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
             'notes', 'variety_used', 'seed_source', 'quantity_of_seeds', 'seed_quantity_unit',
             'recorded_by', 'date_recorded',
             'is_near_harvest', 'latest_condition', 'log_count', 'labor_log_count',
-            'has_disaster', 'disasters_count', 'has_harvest', 'harvest_record_id',
+            'has_disaster', 'disasters_count', 'has_resolved_disaster',
+            'has_harvest', 'harvest_record_id',
         ]
         read_only_fields = [
             'id', 'farmer_name', 'farmer_barangay', 'farmer_full_name', 'farmer_association_name',
@@ -218,7 +231,8 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
             'yield_variance_kg', 'yield_variance_pct',
             'recorded_by', 'date_recorded',
             'is_near_harvest', 'latest_condition', 'log_count', 'labor_log_count',
-            'has_disaster', 'disasters_count', 'has_harvest', 'harvest_record_id',
+            'has_disaster', 'disasters_count', 'has_resolved_disaster',
+            'has_harvest', 'harvest_record_id',
         ]
 
     def get_farmer_name(self, obj):
@@ -276,7 +290,10 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
         return obj.labor_logs.count()
 
     def get_disasters_count(self, obj):
-        return obj.disaster_reports.count()
+        return obj.disaster_reports.filter(status='Active').count()
+
+    def get_has_resolved_disaster(self, obj):
+        return obj.disaster_reports.filter(status='Resolved').exists()
 
     def get_has_harvest(self, obj):
         return obj.status == CropMonitoringRecord.Status.HARVESTED

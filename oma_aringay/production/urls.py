@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     AgriDashboardView,
     CropActivitySuggestionsView,
+    CropDisasterResolveView,
     CropDuplicateCheckView,
     CropActivityStageDeleteView,
     CropActivityStageListCreateView,
@@ -70,6 +71,7 @@ urlpatterns = [
     path('monitoring/<int:monitoring_id>/suggestions/', CropActivitySuggestionsView.as_view(), name='monitoring-suggestions'),
     path('monitoring/<int:monitoring_id>/logs/', CropActivityLogListCreateView.as_view(), name='monitoring-logs'),
     path('monitoring/<int:monitoring_id>/disasters/', CropDisasterReportListCreateView.as_view(), name='monitoring-disasters'),
+    path('disasters/<int:pk>/resolve/', CropDisasterResolveView.as_view(), name='crop-disaster-resolve'),
     path('monitoring/<int:monitoring_id>/remarks/', MonitoringRemarkListCreateView.as_view(), name='monitoring-remarks'),
     path('monitoring/logs/<int:pk>/', CropActivityLogDeleteView.as_view(), name='monitoring-log-delete'),
     path('monitoring/<int:monitoring_id>/labor/', LaborOperationLogListCreateView.as_view(), name='monitoring-labor'),

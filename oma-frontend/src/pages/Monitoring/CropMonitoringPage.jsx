@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  AlertTriangle, Bug, CheckCircle, Eye, FileText, Leaf, Lock, MapPin, Pencil, Plus, Trash2, TrendingUp, User, Wheat,
+  AlertTriangle, Bug, CheckCircle, CheckCircle2, Eye, FileText, Leaf, Lock, MapPin, Pencil, Plus, Trash2, TrendingUp, User, Wheat,
 } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
@@ -62,11 +62,14 @@ const DISASTER_ACTIVITY_MAP = {
 // ── Suggestions Modal ─────────────────────────────────────────────────────────
 
 function SuggestionsModal({ record, onClose, onApply }) {
+  const { showToast } = useToast()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [earlyConfirm, setEarlyConfirm] = useState(null)
+  const [dismissedDisasters, setDismissedDisasters] = useState(new Set())
+  const [resolving, setResolving] = useState(null)
 
-  useEffect(() => {
+  const fetchSuggestions = useCallback(() => {
     if (!record) return
     setLoading(true)
     api.get(`/production/monitoring/${record.id}/suggestions/`)
@@ -74,6 +77,8 @@ function SuggestionsModal({ record, onClose, onApply }) {
       .catch(console.error)
       .finally(() => setLoading(false))
   }, [record])
+
+  useEffect(() => { fetchSuggestions() }, [fetchSuggestions])
 
   if (!record) return null
 
@@ -84,6 +89,24 @@ function SuggestionsModal({ record, onClose, onApply }) {
       onApply(s)
       onClose()
     }
+  }
+
+  const handleMarkResolved = async (disasterId) => {
+    setResolving(disasterId)
+    try {
+      await api.post(`/production/disasters/${disasterId}/resolve/`)
+      showToast('Disaster marked as resolved.', 'success')
+      fetchSuggestions()
+    } catch (err) {
+      const msg = err?.response?.data?.detail || 'Failed to resolve disaster.'
+      showToast(msg, 'error')
+    } finally {
+      setResolving(null)
+    }
+  }
+
+  const dismissPrompt = (disasterId) => {
+    setDismissedDisasters(prev => { const next = new Set(prev); next.add(disasterId); return next })
   }
 
   const groups = {
@@ -175,40 +198,95 @@ function SuggestionsModal({ record, onClose, onApply }) {
             )
           })}
 
-          {/* Disaster response rules */}
+          {/* Disaster response — grouped by active disaster */}
           {disasterRules.length > 0 && (
             <div>
               <h4 className="text-xs font-semibold uppercase tracking-wide mb-2 text-rose-700">
                 Disaster Response ({disasterRules.length})
               </h4>
-              <div className="space-y-2">
-                {disasterRules.map((rule, i) => (
-                  <div
-                    key={i}
-                    className="rounded-xl border p-4 bg-rose-50 border-rose-200"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <AlertTriangle className="w-3.5 h-3.5 text-rose-600 flex-shrink-0" />
-                          <span className="text-sm font-medium text-slate-900">{rule.title}</span>
-                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">
-                            {rule.disaster_type}
-                          </span>
+              <div className="space-y-3">
+                {disasterRules.map((disaster) => {
+                  if (disaster.all_rules_done && !dismissedDisasters.has(disaster.disaster_id)) {
+                    return (
+                      <div key={disaster.disaster_id} className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mt-2">
+                        <div className="flex items-start gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-emerald-800">
+                              All recommended responses for this {disaster.disaster_type} have been completed.
+                            </p>
+                            <p className="text-xs text-emerald-600 mt-0.5">
+                              If the crop has recovered, mark this disaster as resolved. You can leave it active if you're still monitoring recovery.
+                            </p>
+                            <div className="flex gap-2 mt-2.5">
+                              <button
+                                onClick={() => handleMarkResolved(disaster.disaster_id)}
+                                disabled={resolving === disaster.disaster_id}
+                                className="bg-[#1B4D2E] text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-[#235E38] disabled:opacity-50"
+                              >
+                                Mark as Resolved
+                              </button>
+                              <button
+                                onClick={() => dismissPrompt(disaster.disaster_id)}
+                                className="text-xs text-slate-500 px-3 py-1.5 hover:text-slate-700"
+                              >
+                                Not Yet — Keep Monitoring
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                        {rule.action && (
-                          <p className="text-xs text-slate-600 leading-relaxed">{rule.action}</p>
-                        )}
                       </div>
-                      <button
-                        onClick={() => { onApply({ activity_name: DISASTER_ACTIVITY_MAP[rule.disaster_type] || 'Other', recommendation: rule.action, status: 'disaster_rule' }); onClose() }}
-                        className="shrink-0 text-xs font-medium bg-rose-600 text-white px-3 py-1.5 rounded-lg hover:bg-rose-700 transition"
-                      >
-                        Log
-                      </button>
+                    )
+                  }
+                  if (disaster.all_rules_done && dismissedDisasters.has(disaster.disaster_id)) {
+                    return (
+                      <div key={disaster.disaster_id} className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700">
+                        <CheckCircle2 className="w-3.5 h-3.5 inline mr-1" />
+                        All responses for {disaster.disaster_type} completed — still monitoring recovery.
+                      </div>
+                    )
+                  }
+                  return (
+                    <div key={disaster.disaster_id} className="rounded-xl border border-rose-200 bg-rose-50 p-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                        <span className="text-sm font-semibold text-rose-800">{disaster.disaster_type}</span>
+                        <span className="text-xs text-rose-400">{fmtDate(disaster.date_of_occurrence)}</span>
+                      </div>
+                      <div className="space-y-2">
+                        {disaster.rules.map((rule, ri) => (
+                          <div
+                            key={ri}
+                            className={`rounded-lg border p-3 ${rule.is_done ? 'border-slate-100 bg-slate-50 cursor-not-allowed' : 'border-rose-100 bg-white'}`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap mb-1">
+                                  <span className={`text-sm font-medium ${rule.is_done ? 'text-slate-400 line-through' : 'text-slate-900'}`}>{rule.title}</span>
+                                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">{rule.priority}</span>
+                                  {rule.is_done && (
+                                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-[#1B4D2E]">Done</span>
+                                  )}
+                                </div>
+                                {rule.action && (
+                                  <p className={`text-xs leading-relaxed ${rule.is_done ? 'text-slate-400' : 'text-slate-600'}`}>{rule.action}</p>
+                                )}
+                              </div>
+                              {!rule.is_done && (
+                                <button
+                                  onClick={() => { onApply({ activity_name: rule.title, recommendation: rule.action, status: 'disaster_rule' }); onClose() }}
+                                  className="shrink-0 text-xs font-medium bg-rose-600 text-white px-3 py-1.5 rounded-lg hover:bg-rose-700 transition"
+                                >
+                                  Log
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}
@@ -587,6 +665,11 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
                       <div className="flex items-start justify-between gap-2">
                         <span className="flex items-center gap-1.5 text-sm font-semibold text-rose-700">
                           <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" /> {event.disaster_type} — Disaster Report
+                          {event.status === 'Resolved' ? (
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Resolved</span>
+                          ) : (
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">Active</span>
+                          )}
                         </span>
                         <div className="flex items-center gap-1.5 shrink-0">
                           <span className="text-xs text-rose-400">{fmtDate(event.date_of_occurrence)}</span>
@@ -603,6 +686,9 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
                     </button>
                     {isExpanded && (
                       <div className="mt-1.5 rounded-lg bg-rose-50 border border-rose-100 px-3 py-2 space-y-1">
+                        {event.status === 'Resolved' && event.resolved_date && (
+                          <p className="text-xs text-emerald-700"><span className="font-medium">Resolved on:</span> {fmtDate(event.resolved_date)}{event.resolved_by_name ? ` by ${event.resolved_by_name}` : ''}</p>
+                        )}
                         {event.area_affected_ha && (
                           <p className="text-xs text-rose-700"><span className="font-medium">Area affected:</span> {event.area_affected_ha} ha</p>
                         )}
@@ -1500,9 +1586,14 @@ export default function CropMonitoringPage() {
     crop_cell: (
       <span className="flex items-center gap-1.5">
         <span className="font-medium">{rec.crop_type_name}</span>
-        {rec.has_disaster && (
+        {rec.disasters_count > 0 && (
           <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-full px-1.5 py-0.5 whitespace-nowrap">
-            <AlertTriangle className="w-2.5 h-2.5" /> Disaster
+            <AlertTriangle className="w-2.5 h-2.5" /> {rec.disasters_count > 1 ? rec.disasters_count : 'Disaster'}
+          </span>
+        )}
+        {rec.disasters_count === 0 && rec.has_resolved_disaster && (
+          <span className="text-xs text-slate-400 border border-slate-200 rounded-full px-2 py-0.5 ml-2">
+            Disaster resolved
           </span>
         )}
         {rec.status === 'Harvested' && (

@@ -267,6 +267,10 @@ class CropDisasterReport(models.Model):
         ('Pest Outbreak', 'Pest Outbreak'),
         ('Other', 'Other'),
     ]
+    STATUS_CHOICES = [
+        ('Active', 'Active'),
+        ('Resolved', 'Resolved'),
+    ]
 
     monitoring_record = models.ForeignKey(
         'CropMonitoringRecord',
@@ -278,6 +282,14 @@ class CropDisasterReport(models.Model):
     area_affected_ha = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
     estimated_damage = models.TextField(blank=True, help_text='Describe the damage')
     production_loss = models.TextField(blank=True, help_text='Estimated production loss')
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Active')
+    resolved_date = models.DateField(null=True, blank=True)
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='+',
+    )
     reported_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

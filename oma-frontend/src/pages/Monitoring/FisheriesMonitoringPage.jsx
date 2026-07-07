@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  AlertTriangle, CheckCircle, ChevronDown, ChevronRight, Fish, Plus, Trash2, X,
+  AlertTriangle, CheckCircle, CheckCircle2, ChevronDown, ChevronRight, Fish, Plus, Trash2, X,
 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
@@ -481,6 +481,8 @@ function StockingDetailModal({ recordId, onClose, onRefresh }) {
   const [suggestLoading, setSuggestLoading] = useState(false)
   const [daysElapsed, setDaysElapsed] = useState(null)
   const [expandedUpcoming, setExpandedUpcoming] = useState(false)
+  const [dismissedDisasters, setDismissedDisasters] = useState(new Set())
+  const [resolvingDisaster, setResolvingDisaster] = useState(null)
 
   // Inline log form state
   const [showLogForm, setShowLogForm] = useState(false)
@@ -575,6 +577,25 @@ function StockingDetailModal({ recordId, onClose, onRefresh }) {
       activity: rule.activity_name,
       recommendations: rule.recommendation || '',
     })
+  }
+
+  const handleMarkResolved = async (disasterId) => {
+    setResolvingDisaster(disasterId)
+    try {
+      await api.post(`/fisheries/disasters/${disasterId}/resolve/`)
+      showToast('Disaster marked as resolved.', 'success')
+      await fetchSuggestions()
+      await fetchDetail()
+    } catch (err) {
+      const msg = err?.response?.data?.detail || 'Failed to resolve disaster.'
+      showToast(msg, 'error')
+    } finally {
+      setResolvingDisaster(null)
+    }
+  }
+
+  const dismissPrompt = (disasterId) => {
+    setDismissedDisasters(prev => { const next = new Set(prev); next.add(disasterId); return next })
   }
 
   const confirmLogEarly = (confirm) => {
@@ -778,36 +799,83 @@ function StockingDetailModal({ recordId, onClose, onRefresh }) {
                 {disasterResponse.length > 0 && (
                   <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 p-3">
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-rose-700 mb-2">Disaster Response Recommendations</p>
-                    <div className="space-y-2">
-                      {disasterResponse.map((r, i) => (
-                        <button
-                          key={i}
-                          type="button"
-                          onClick={() => !r.is_done && applyDisasterResponseRule(r)}
-                          disabled={r.is_done}
-                          className={`w-full text-left rounded-lg border px-3 py-2 transition ${
-                            r.is_done
-                              ? 'border-slate-100 bg-slate-50 cursor-default'
-                              : 'border-rose-100 bg-white hover:border-rose-400 hover:bg-rose-100'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                            <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${PRIORITY_PILL[r.priority] || ''}`}>{r.priority}</span>
-                            <span className={`text-[12px] font-medium ${r.is_done ? 'line-through text-slate-400' : 'text-rose-900'}`}>{r.title}</span>
-                            <span className="text-[10px] text-rose-400 italic">{r.disaster_type}</span>
-                            {r.is_done && (
-                              <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-green-100 text-[#1B4D2E]">Done</span>
-                            )}
+                    <div className="space-y-3">
+                      {disasterResponse.map((disaster) => {
+                        if (disaster.all_rules_done && !dismissedDisasters.has(disaster.disaster_id)) {
+                          return (
+                            <div key={disaster.disaster_id} className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                              <div className="flex items-start gap-2">
+                                <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                                <div className="flex-1">
+                                  <p className="text-sm font-semibold text-emerald-800">
+                                    All recommended responses for this {disaster.disaster_type} have been completed.
+                                  </p>
+                                  <p className="text-xs text-emerald-600 mt-0.5">
+                                    If the stock has recovered, mark this disaster as resolved. You can leave it active if you're still monitoring recovery.
+                                  </p>
+                                  <div className="flex gap-2 mt-2.5">
+                                    <button
+                                      onClick={() => handleMarkResolved(disaster.disaster_id)}
+                                      disabled={resolvingDisaster === disaster.disaster_id}
+                                      className="bg-[#1B4D2E] text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-[#235E38] disabled:opacity-50"
+                                    >
+                                      Mark as Resolved
+                                    </button>
+                                    <button
+                                      onClick={() => dismissPrompt(disaster.disaster_id)}
+                                      className="text-xs text-slate-500 px-3 py-1.5 hover:text-slate-700"
+                                    >
+                                      Not Yet — Keep Monitoring
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        }
+                        if (disaster.all_rules_done && dismissedDisasters.has(disaster.disaster_id)) {
+                          return (
+                            <div key={disaster.disaster_id} className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700">
+                              <CheckCircle2 className="w-3.5 h-3.5 inline mr-1" />
+                              All responses for {disaster.disaster_type} completed — still monitoring recovery.
+                            </div>
+                          )
+                        }
+                        return (
+                          <div key={disaster.disaster_id} className="rounded-lg border border-rose-100 bg-white p-3">
+                            <div className="flex items-center gap-2 mb-2">
+                              <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                              <span className="text-[12px] font-semibold text-rose-900">{disaster.disaster_type}</span>
+                              <span className="text-[10px] text-rose-400">{fmtDate(disaster.date_of_occurrence)}</span>
+                            </div>
+                            <div className="space-y-2">
+                              {disaster.rules.map((r, ri) => (
+                                <button
+                                  key={ri}
+                                  type="button"
+                                  onClick={() => !r.is_done && applyDisasterResponseRule(r)}
+                                  disabled={r.is_done}
+                                  className={`w-full text-left rounded-lg border px-3 py-2 transition ${
+                                    r.is_done
+                                      ? 'border-slate-100 bg-slate-50 cursor-default'
+                                      : 'border-rose-100 bg-white hover:border-rose-400 hover:bg-rose-100'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                                    <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${PRIORITY_PILL[r.priority] || ''}`}>{r.priority}</span>
+                                    <span className={`text-[12px] font-medium ${r.is_done ? 'line-through text-slate-400' : 'text-rose-900'}`}>{r.title}</span>
+                                    {r.is_done && (
+                                      <span className="text-[10px] font-semibold rounded-full px-1.5 py-0.5 bg-green-100 text-[#1B4D2E]">Done</span>
+                                    )}
+                                  </div>
+                                  <p className={`text-[11px] pl-1 ${r.is_done ? 'text-slate-400 line-through' : 'text-slate-600'}`}>{r.action}</p>
+                                </button>
+                              ))}
+                            </div>
                           </div>
-                          <p className={`text-[11px] pl-1 ${r.is_done ? 'text-slate-400 line-through' : 'text-slate-600'}`}>{r.action}</p>
-                        </button>
-                      ))}
+                        )
+                      })}
                     </div>
-                    <p className="mt-2 text-center text-[10px] text-rose-600">
-                      {disasterResponse.some(r => !r.is_done)
-                        ? 'Click a pending recommendation to auto-fill the log form'
-                        : 'All disaster response recommendations have been logged'}
-                    </p>
                   </div>
                 )}
 
@@ -1121,6 +1189,11 @@ function StockingDetailModal({ recordId, onClose, onRefresh }) {
                       <div className="flex items-center gap-3">
                         <AlertTriangle size={14} className="text-rose-500" />
                         <span className="font-medium text-rose-800">{d.disaster_type}</span>
+                        {d.status === 'Resolved' ? (
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Resolved</span>
+                        ) : (
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-rose-100 text-rose-700">Active</span>
+                        )}
                         <span className="text-xs text-rose-600">{fmtDate(d.date_of_occurrence)}</span>
                         {d.area_affected_ha && (
                           <span className="text-xs text-rose-600">{d.area_affected_ha} ha affected</span>
@@ -1128,8 +1201,11 @@ function StockingDetailModal({ recordId, onClose, onRefresh }) {
                       </div>
                       {isExp ? <ChevronDown size={14} className="text-rose-400" /> : <ChevronRight size={14} className="text-rose-400" />}
                     </button>
-                    {isExp && (d.estimated_damage || d.production_loss || d.reported_by_name) && (
+                    {isExp && (d.estimated_damage || d.production_loss || d.reported_by_name || d.status === 'Resolved') && (
                       <div className="border-t border-rose-200 px-4 py-3 text-sm space-y-1">
+                        {d.status === 'Resolved' && d.resolved_date && (
+                          <p className="text-emerald-700"><span className="font-medium">Resolved on:</span> {fmtDate(d.resolved_date)}{d.resolved_by_name ? ` by ${d.resolved_by_name}` : ''}</p>
+                        )}
                         {d.estimated_damage  && <p className="text-rose-700"><span className="font-medium">Damage:</span> {d.estimated_damage}</p>}
                         {d.production_loss   && <p className="text-rose-700"><span className="font-medium">Production loss:</span> {d.production_loss}</p>}
                         {d.reported_by_name  && <p className="text-xs text-rose-500">Reported by: {d.reported_by_name}</p>}
@@ -1288,7 +1364,7 @@ export default function FisheriesMonitoringPage() {
     date_stocked_fmt:     fmtDate(r.date_stocked),
     expected_harvest_fmt: fmtDate(r.expected_harvest_date),
     est_harvest_fmt:      r.estimated_harvest_kg != null
-      ? `${Number(r.estimated_harvest_kg).toLocaleString()} kg` : '—',
+      ? <span className={r.status === 'Harvested' ? 'text-slate-400' : ''}>{Number(r.estimated_harvest_kg).toLocaleString()} kg</span> : '—',
     harvested_fmt:        r.total_harvested_kg > 0
       ? `${Number(r.total_harvested_kg).toLocaleString()} kg` : '—',
     status_cell: (
@@ -1301,7 +1377,12 @@ export default function FisheriesMonitoringPage() {
         )}
         {r.disaster_count > 0 && (
           <span className="inline-flex items-center gap-0.5 rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">
-            <AlertTriangle size={9} /> {r.disaster_count}
+            <AlertTriangle size={9} /> {r.disaster_count > 1 ? r.disaster_count : 'Disaster'}
+          </span>
+        )}
+        {r.disaster_count === 0 && r.has_resolved_disaster && (
+          <span className="text-xs text-slate-400 border border-slate-200 rounded-full px-2 py-0.5">
+            Disaster resolved
           </span>
         )}
       </div>

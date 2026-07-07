@@ -803,16 +803,11 @@ export default function CropInformationPage() {
       expected_harvest_fmt: fmtShort(rec.expected_harvest_date),
       est_yield_fmt:
         rec.status === "Harvested" && rec.actual_yield_kg ? (
-          <span className="flex items-center gap-1.5">
-            <span>
-              {Number(rec.actual_yield_kg).toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}
-            </span>
-            <span className="inline-flex items-center rounded-full bg-[#EEF2FF] px-1.5 py-0.5 text-[10px] font-semibold text-[#3730A3]">
-              Harvested
-            </span>
+          <span className="text-slate-400">
+            {Number(rec.actual_yield_kg).toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
           </span>
         ) : rec.estimated_yield_kg ? (
           Number(rec.estimated_yield_kg).toLocaleString(undefined, {

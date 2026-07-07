@@ -965,7 +965,7 @@ export default function FisheriesRecordsPage() {
     date_stocked_fmt:     fmtShort(rec.date_stocked),
     expected_harvest_fmt: fmtShort(rec.expected_harvest_date),
     est_harvest_kg_fmt:   rec.status === 'Harvested' && rec.total_harvested_kg
-      ? `${Number(rec.total_harvested_kg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ✓`
+      ? <span className="text-slate-400">{Number(rec.total_harvested_kg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
       : rec.estimated_harvest_kg
         ? Number(rec.estimated_harvest_kg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
         : '—',

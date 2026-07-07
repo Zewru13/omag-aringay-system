@@ -303,6 +303,51 @@ class StockingDisasterReportListCreateView(generics.ListCreateAPIView):
         )
 
 
+class FisheriesDisasterResolveView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def post(self, request, pk):
+        disaster = get_object_or_404(FisheriesDisasterReport, pk=pk)
+        if disaster.status == 'Resolved':
+            return Response({'detail': 'Disaster is already resolved.'}, status=400)
+
+        record = disaster.stocking_record
+        rules_qs = FisheriesDisasterResponseRule.objects.filter(
+            disaster_type=disaster.disaster_type,
+        ).filter(
+            Q(species=record.species) | Q(species__isnull=True)
+        )
+        activity_logs = FisheriesActivityLog.objects.filter(
+            stocking_record=record
+        ).values('activity', 'date_of_activity')
+
+        all_done = True
+        has_rules = False
+        for rule in rules_qs:
+            has_rules = True
+            is_done = any(
+                log['activity'] == rule.activity_name and
+                log['date_of_activity'] >= disaster.date_of_occurrence
+                for log in activity_logs
+            )
+            if not is_done:
+                all_done = False
+                break
+
+        if has_rules and not all_done:
+            return Response(
+                {'detail': 'Cannot resolve: not all recommended response rules have been completed.'},
+                status=400,
+            )
+
+        disaster.status = 'Resolved'
+        disaster.resolved_date = date.today()
+        disaster.resolved_by = request.user
+        disaster.save(update_fields=['status', 'resolved_date', 'resolved_by'])
+        serializer = FisheriesDisasterReportSerializer(disaster)
+        return Response(serializer.data, status=200)
+
+
 class StockingHarvestListCreateView(generics.ListCreateAPIView):
     serializer_class = FisheriesHarvestRecordSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
@@ -413,30 +458,27 @@ class FisheriesActivitySuggestionsView(APIView):
 
         suggestions.sort(key=lambda s: s['day_after_stocking'])
 
-        disaster_reports = list(
-            FisheriesDisasterReport.objects.filter(stocking_record=record)
-            .values('disaster_type', 'date_of_occurrence')
+        active_disasters = list(
+            FisheriesDisasterReport.objects.filter(
+                stocking_record=record, status='Active',
+            ).order_by('-date_of_occurrence')
         )
-        disaster_types = list({d['disaster_type'] for d in disaster_reports})
         disaster_response = []
-        if disaster_types:
+        for disaster in active_disasters:
             rules_qs = FisheriesDisasterResponseRule.objects.filter(
-                disaster_type__in=disaster_types
+                disaster_type=disaster.disaster_type,
             ).filter(
                 Q(species=record.species) | Q(species__isnull=True)
-            ).order_by('disaster_type', '-priority')
+            ).order_by('-priority')
+
+            rules_list = []
             for rule in rules_qs:
-                report_date = next(
-                    (d['date_of_occurrence'] for d in disaster_reports if d['disaster_type'] == rule.disaster_type),
-                    None,
-                )
                 is_done = any(
                     log['activity'] == rule.activity_name and
-                    report_date is not None and
-                    log['date_of_activity'] >= report_date
+                    log['date_of_activity'] >= disaster.date_of_occurrence
                     for log in activity_logs
                 )
-                disaster_response.append({
+                rules_list.append({
                     'disaster_type': rule.disaster_type,
                     'title': rule.title,
                     'action': rule.action,
@@ -445,6 +487,17 @@ class FisheriesActivitySuggestionsView(APIView):
                     'priority': rule.priority,
                     'is_done': is_done,
                 })
+
+            all_rules_done = len(rules_list) > 0 and all(r['is_done'] for r in rules_list)
+
+            disaster_response.append({
+                'disaster_id': disaster.id,
+                'disaster_type': disaster.disaster_type,
+                'date_of_occurrence': disaster.date_of_occurrence.isoformat(),
+                'status': disaster.status,
+                'all_rules_done': all_rules_done,
+                'rules': rules_list,
+            })
 
         return Response({
             'days_elapsed': days_elapsed,

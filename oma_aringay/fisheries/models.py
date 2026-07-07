@@ -422,6 +422,10 @@ class FisheriesDisasterReport(models.Model):
         ('Pollution Incident',  'Pollution Incident'),
         ('Other',               'Other'),
     ]
+    STATUS_CHOICES = [
+        ('Active', 'Active'),
+        ('Resolved', 'Resolved'),
+    ]
 
     stocking_record     = models.ForeignKey(StockingRecord, on_delete=models.CASCADE, related_name='disaster_reports')
     disaster_type       = models.CharField(max_length=50, choices=DISASTER_TYPE_CHOICES)
@@ -429,6 +433,13 @@ class FisheriesDisasterReport(models.Model):
     area_affected_ha    = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
     estimated_damage    = models.TextField(blank=True)
     production_loss     = models.TextField(blank=True)
+    status              = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Active')
+    resolved_date       = models.DateField(null=True, blank=True)
+    resolved_by         = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='+',
+    )
     reported_by         = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL, null=True, blank=True,
