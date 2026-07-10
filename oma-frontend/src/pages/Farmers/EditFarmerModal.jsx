@@ -7,6 +7,7 @@ import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
+import { getPrefixOptions, isPrefixValidForGender } from '../../utils/prefixOptions.js'
 
 const labelCls = 'text-[13px] font-medium text-[#4A5E4A] mb-1.5 block'
 
@@ -71,6 +72,7 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
   }
 
   const [form, setForm] = useState(original)
+  const [prefixResetNote, setPrefixResetNote] = useState('')
   const [birthdateError, setBirthdateError] = useState('')
   const [contactError, setContactError] = useState('')
   const [formError, setFormError] = useState('')
@@ -91,6 +93,20 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
       setForm((current) => ({ ...current, contact_number: digits }))
       setContactError(validateContact(digits))
       return
+    }
+    if (field === 'gender') {
+      setForm((current) => {
+        if (current.prefix && !isPrefixValidForGender(current.prefix, value)) {
+          setPrefixResetNote('Prefix reset — please reselect.')
+          return { ...current, gender: value, prefix: '' }
+        }
+        setPrefixResetNote('')
+        return { ...current, gender: value }
+      })
+      return
+    }
+    if (field === 'prefix') {
+      setPrefixResetNote('')
     }
     setForm((current) => {
       const next = { ...current, [field]: value }
@@ -137,14 +153,11 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
           <div>
             <label className={labelCls} htmlFor="prefix">Prefix</label>
             <select className={baseInputClasses} id="prefix" onChange={(e) => updateField('prefix', e.target.value)} value={form.prefix}>
-              <option value="">(None)</option>
-              <option value="Mr.">Mr.</option>
-              <option value="Mrs.">Mrs.</option>
-              <option value="Ms.">Ms.</option>
-              <option value="Engr.">Engr.</option>
-              <option value="Dr.">Dr.</option>
-              <option value="Hon.">Hon.</option>
+              {getPrefixOptions(form.gender).map((p) => (
+                <option key={p || 'none'} value={p}>{p || '(None)'}</option>
+              ))}
             </select>
+            {prefixResetNote && <p className="mt-1 text-[12px] text-amber-600">{prefixResetNote}</p>}
           </div>
 
           <div>

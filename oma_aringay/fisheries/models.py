@@ -31,8 +31,10 @@ class Fisherfolk(models.Model):
         MR   = 'Mr.',   'Mr.'
         MRS  = 'Mrs.',  'Mrs.'
         MS   = 'Ms.',   'Ms.'
+        MISS = 'Miss',  'Miss'
         ENGR = 'Engr.', 'Engr.'
         DR   = 'Dr.',   'Dr.'
+        ATTY = 'Atty.', 'Atty.'
         HON  = 'Hon.',  'Hon.'
 
     ASSOCIATION_POSITION_CHOICES = [

@@ -24,3 +24,18 @@ BARANGAY_CHOICES = [
     ('Santo Rosario East', 'Santo Rosario East'),
     ('Santo Rosario West', 'Santo Rosario West'),
 ]
+
+MALE_ONLY_PREFIXES = ['Mr.']
+FEMALE_ONLY_PREFIXES = ['Mrs.', 'Ms.', 'Miss']
+NEUTRAL_PREFIXES = ['Dr.', 'Engr.', 'Atty.', 'Hon.']
+
+
+def validate_prefix_gender(prefix, gender):
+    """Return an error message if prefix contradicts gender, else None."""
+    if not prefix:
+        return None
+    if prefix in MALE_ONLY_PREFIXES and gender != 'Male':
+        return f'"{prefix}" is a male-only prefix and cannot be used with gender "{gender}".'
+    if prefix in FEMALE_ONLY_PREFIXES and gender != 'Female':
+        return f'"{prefix}" is a female-only prefix and cannot be used with gender "{gender}".'
+    return None

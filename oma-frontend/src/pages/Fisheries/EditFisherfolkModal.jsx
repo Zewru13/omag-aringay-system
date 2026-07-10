@@ -7,6 +7,7 @@ import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
+import { getPrefixOptions, isPrefixValidForGender } from '../../utils/prefixOptions.js'
 
 const labelCls = 'block text-xs font-medium text-slate-600'
 
@@ -64,6 +65,7 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
   })
 
   const [noVessel, setNoVessel] = useState(!fisherfolk.has_vessel)
+  const [prefixResetNote, setPrefixResetNote] = useState('')
   const [birthdateError, setBirthdateError] = useState('')
   const [contactError, setContactError] = useState('')
   const [boatRError, setBoatRError] = useState('')
@@ -81,6 +83,24 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
       const digits = value.replace(/\D/g, '').slice(0, 11)
       setForm((prev) => ({ ...prev, contact_number: digits }))
       setContactError(validateContact(digits))
+      return
+    }
+    if (field === 'gender') {
+      setForm((prev) => {
+        if (prev.prefix && !isPrefixValidForGender(prev.prefix, value)) {
+          setPrefixResetNote('Prefix reset — please reselect.')
+          return { ...prev, gender: value, prefix: '' }
+        }
+        setPrefixResetNote('')
+        return { ...prev, gender: value }
+      })
+      return
+    }
+    if (field === 'prefix') {
+      setPrefixResetNote('')
+    }
+    if (field === 'is_capture_fishery') {
+      setForm((prev) => ({ ...prev, is_capture_fishery: value, boatr_number: value ? prev.boatr_number : '' }))
       return
     }
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -148,14 +168,11 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
           <div>
             <label className={labelCls} htmlFor="edit_prefix">Prefix</label>
             <select className={baseInputClasses} id="edit_prefix" value={form.prefix} onChange={(e) => updateField('prefix', e.target.value)}>
-              <option value="">(None)</option>
-              <option value="Mr.">Mr.</option>
-              <option value="Mrs.">Mrs.</option>
-              <option value="Ms.">Ms.</option>
-              <option value="Engr.">Engr.</option>
-              <option value="Dr.">Dr.</option>
-              <option value="Hon.">Hon.</option>
+              {getPrefixOptions(form.gender).map((p) => (
+                <option key={p || 'none'} value={p}>{p || '(None)'}</option>
+              ))}
             </select>
+            {prefixResetNote && <p className="mt-1 text-xs text-amber-600">{prefixResetNote}</p>}
           </div>
 
           <div>
@@ -222,7 +239,7 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
           />
 
           <div>
-            <label className={labelCls}>FishR No. <span className="font-normal text-slate-400">(optional)</span></label>
+            <label className={labelCls}>FishR Number <span className="font-normal text-slate-400">(optional)</span></label>
             <input
               className={baseInputClasses}
               value={form.fishr_number}
@@ -241,15 +258,17 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
             />
           </div>
 
-          <div>
-            <label className={labelCls}>BoatR Number <span className="font-normal text-slate-400">(optional)</span></label>
-            <input
-              className={baseInputClasses}
-              value={form.boatr_number}
-              onChange={(e) => updateField('boatr_number', e.target.value)}
-              placeholder="e.g. 1234567"
-            />
-          </div>
+          {form.is_capture_fishery && (
+            <div>
+              <label className={labelCls}>BoatR Number <span className="font-normal text-slate-400">(optional)</span></label>
+              <input
+                className={baseInputClasses}
+                value={form.boatr_number}
+                onChange={(e) => updateField('boatr_number', e.target.value)}
+                placeholder="e.g. 1234567"
+              />
+            </div>
+          )}
 
           <div className="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Type of Fishery Activity</p>

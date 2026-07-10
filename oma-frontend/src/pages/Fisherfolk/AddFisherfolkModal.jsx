@@ -5,6 +5,7 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import Button from '../../components/UI/Button.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
+import { getPrefixOptions, isPrefixValidForGender } from '../../utils/prefixOptions.js'
 
 const labelCls = 'text-[13px] font-medium text-[#4A5E4A] mb-1.5 block'
 
@@ -60,6 +61,7 @@ const getMaxBirthdate = () => {
 function AddFisherfolkModal({ onClose, onSuccess }) {
   const [form,          setForm]          = useState(initialForm)
   const [associations,  setAssociations]  = useState([])
+  const [prefixResetNote, setPrefixResetNote] = useState('')
   const [contactError,  setContactError]  = useState('')
   const [fieldErrors,   setFieldErrors]   = useState({})
   const [formError,     setFormError]     = useState('')
@@ -101,6 +103,24 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
       const digits = value.replace(/\D/g, '').slice(0, 11)
       setForm((c) => ({ ...c, contact_number: digits }))
       setContactError(validateContact(digits))
+      return
+    }
+    if (field === 'gender') {
+      setForm((c) => {
+        if (c.prefix && !isPrefixValidForGender(c.prefix, value)) {
+          setPrefixResetNote('Prefix reset — please reselect.')
+          return { ...c, gender: value, prefix: '' }
+        }
+        setPrefixResetNote('')
+        return { ...c, gender: value }
+      })
+      return
+    }
+    if (field === 'prefix') {
+      setPrefixResetNote('')
+    }
+    if (field === 'is_capture_fishery') {
+      setForm((c) => ({ ...c, is_capture_fishery: value, boatr_number: value ? c.boatr_number : '' }))
       return
     }
     setForm((c) => {
@@ -151,14 +171,11 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
           <div>
             <label className={labelCls} htmlFor="prefix">Prefix</label>
             <select className={baseInputClasses} id="prefix" value={form.prefix} onChange={(e) => updateField('prefix', e.target.value)}>
-              <option value="">(None)</option>
-              <option value="Mr.">Mr.</option>
-              <option value="Mrs.">Mrs.</option>
-              <option value="Ms.">Ms.</option>
-              <option value="Engr.">Engr.</option>
-              <option value="Dr.">Dr.</option>
-              <option value="Hon.">Hon.</option>
+              {getPrefixOptions(form.gender).map((p) => (
+                <option key={p || 'none'} value={p}>{p || '(None)'}</option>
+              ))}
             </select>
+            {prefixResetNote && <p className="mt-1 text-[12px] text-amber-600">{prefixResetNote}</p>}
           </div>
 
           <div>
@@ -182,7 +199,7 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
 
           <div>
             <label className={labelCls} htmlFor="fishr_number">
-              FishR No. <span className="text-[#7A8E7A] font-normal">(optional — BFAR)</span>
+              FishR Number <span className="text-[#7A8E7A] font-normal">(optional)</span>
             </label>
             <input className={baseInputClasses} id="fishr_number" value={form.fishr_number} onChange={(e) => updateField('fishr_number', e.target.value)} placeholder="e.g. BFAR-001-2025" />
           </div>
@@ -194,12 +211,14 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
             <input className={baseInputClasses} id="rsbsa_number" value={form.rsbsa_number} onChange={(e) => updateField('rsbsa_number', e.target.value)} placeholder="e.g. RSBSA-123456" />
           </div>
 
-          <div>
-            <label className={labelCls} htmlFor="boatr_number">
-              BoatR Number <span className="text-[#7A8E7A] font-normal">(optional)</span>
-            </label>
-            <input className={baseInputClasses} id="boatr_number" value={form.boatr_number} onChange={(e) => updateField('boatr_number', e.target.value)} placeholder="e.g. 1234567" />
-          </div>
+          {form.is_capture_fishery && (
+            <div>
+              <label className={labelCls} htmlFor="boatr_number">
+                BoatR Number <span className="text-[#7A8E7A] font-normal">(optional)</span>
+              </label>
+              <input className={baseInputClasses} id="boatr_number" value={form.boatr_number} onChange={(e) => updateField('boatr_number', e.target.value)} placeholder="e.g. 1234567" />
+            </div>
+          )}
 
           {form.fisherfolk_type !== 'Vendor' && (
             <div>

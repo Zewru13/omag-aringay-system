@@ -6,6 +6,8 @@ from django.db import IntegrityError, transaction
 from django.db.models import Q, Sum
 from rest_framework import serializers
 
+from core.constants import validate_prefix_gender
+
 from .models import (
     AquacultureRecord,
     CaptureRecord,
@@ -140,6 +142,23 @@ class FisherfolkDetailSerializer(serializers.ModelSerializer):
     def validate_contact_number(self, value):
         return validate_contact_format(value)
 
+    def validate_fishr_number(self, value):
+        if value is not None and not value.strip():
+            return None
+        return value
+
+    def validate(self, data):
+        prefix = data.get('prefix', getattr(self.instance, 'prefix', ''))
+        gender = data.get('gender', getattr(self.instance, 'gender', ''))
+        error = validate_prefix_gender(prefix, gender)
+        if error:
+            raise serializers.ValidationError({'prefix': error})
+
+        is_capture_fishery = data.get('is_capture_fishery', getattr(self.instance, 'is_capture_fishery', False))
+        if not is_capture_fishery:
+            data['boatr_number'] = ''
+        return data
+
 
 class FisherfolkCreateSerializer(serializers.ModelSerializer):
     lgu_registration_number = serializers.CharField(max_length=50, read_only=True)
@@ -219,6 +238,11 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
     def validate_contact_number(self, value):
         return validate_contact_format(value)
 
+    def validate_fishr_number(self, value):
+        if value is not None and not value.strip():
+            return None
+        return value
+
     def validate_fish_registration_number(self, value):
         if value and value.strip():
             digits = value.strip()
@@ -234,6 +258,15 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
+        prefix = data.get('prefix', '')
+        gender = data.get('gender', '')
+        error = validate_prefix_gender(prefix, gender)
+        if error:
+            raise serializers.ValidationError({'prefix': error})
+
+        if not data.get('is_capture_fishery', False):
+            data['boatr_number'] = ''
+
         fisherfolk_type = data.get('fisherfolk_type', '')
         fish_reg = (data.get('fish_registration_number') or '').strip()
         if fisherfolk_type != 'Vendor' and not fish_reg:

@@ -3,6 +3,8 @@ from datetime import date
 
 from rest_framework import serializers
 
+from core.constants import validate_prefix_gender
+
 from .models import Farmer, FarmCrop, FarmMachinery, FarmParcel
 
 RSBSA_PATTERN = re.compile(r'^\d{2}-\d{4}-\d{7}$')
@@ -192,6 +194,14 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
     def validate_contact_number(self, value):
         return validate_contact_format(value)
 
+    def validate(self, data):
+        prefix = data.get('prefix', getattr(self.instance, 'prefix', ''))
+        gender = data.get('gender', getattr(self.instance, 'gender', ''))
+        error = validate_prefix_gender(prefix, gender)
+        if error:
+            raise serializers.ValidationError({'prefix': error})
+        return data
+
 
 class FarmerCreateSerializer(serializers.ModelSerializer):
     rsbsa_number = serializers.CharField(max_length=50)
@@ -255,3 +265,11 @@ class FarmerCreateSerializer(serializers.ModelSerializer):
 
     def validate_contact_number(self, value):
         return validate_contact_format(value)
+
+    def validate(self, data):
+        prefix = data.get('prefix', '')
+        gender = data.get('gender', '')
+        error = validate_prefix_gender(prefix, gender)
+        if error:
+            raise serializers.ValidationError({'prefix': error})
+        return data
