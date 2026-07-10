@@ -329,6 +329,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
   const [isDeletingHarvest, setIsDeletingHarvest] = useState(false)
 
   const isHarvested = record.status === 'Harvested'
+  const isTotalLoss = record.status === 'Total Loss'
 
   // Form state
   const [activityType,    setActivityType]    = useState('')
@@ -450,7 +451,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
         onClose={onClose}
         maxWidth="max-w-sm"
       >
-        {/* Post-harvest read-only banner */}
+        {/* Post-harvest / total-loss read-only banners */}
         {isHarvested ? (
           <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3">
             <div className="flex items-start justify-between gap-2 mb-1">
@@ -485,6 +486,24 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
               </p>
             )}
           </div>
+        ) : isTotalLoss ? (
+          <>
+            <div className="mb-4 rounded-xl bg-rose-50 border border-rose-200 px-4 py-3">
+              <div className="flex items-center gap-2 text-sm font-semibold text-rose-700">
+                <Lock className="w-4 h-4 flex-shrink-0" />
+                Total Loss Recorded
+              </div>
+              <p className="mt-1 text-xs text-rose-600">
+                This crop was recorded as a total loss. Activity logs are read-only.
+              </p>
+            </div>
+            <div className="mb-4 flex items-center justify-end">
+              <button type="button" onClick={() => setShowSuggest(true)}
+                className="rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-600">
+                🌿 Get Suggestions
+              </button>
+            </div>
+          </>
         ) : (
           <div className="mb-4 flex items-center justify-between">
             <button type="button" onClick={() => { setShowForm(v => !v); if (showForm) resetForm() }}
@@ -1629,18 +1648,20 @@ export default function CropMonitoringPage() {
         >
           <Pencil className="w-4 h-4" />
         </button>
-        <button
-          type="button"
-          title="Record Harvest"
-          onClick={() => setHarvestRecord(rec)}
-          className={`p-1.5 rounded-lg transition-colors ${
-            isNearHarvest(rec)
-              ? 'text-amber-600 hover:bg-amber-50'
-              : 'text-slate-500 hover:bg-slate-100 hover:text-amber-600'
-          }`}
-        >
-          <Wheat className="w-4 h-4" />
-        </button>
+        {rec.status !== 'Total Loss' && (
+          <button
+            type="button"
+            title="Record Harvest"
+            onClick={() => setHarvestRecord(rec)}
+            className={`p-1.5 rounded-lg transition-colors ${
+              isNearHarvest(rec)
+                ? 'text-amber-600 hover:bg-amber-50'
+                : 'text-slate-500 hover:bg-slate-100 hover:text-amber-600'
+            }`}
+          >
+            <Wheat className="w-4 h-4" />
+          </button>
+        )}
         <button
           type="button"
           title="Report Disaster"
