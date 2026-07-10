@@ -274,7 +274,7 @@ function SuggestionsModal({ record, onClose, onApply }) {
                               </div>
                               {!rule.is_done && (
                                 <button
-                                  onClick={() => { onApply({ activity_name: rule.title, recommendation: rule.action, status: 'disaster_rule' }); onClose() }}
+                                  onClick={() => { onApply({ activity_name: rule.activity_name || rule.title, recommendation: rule.recommendation || rule.action, status: 'disaster_rule', disaster_report_id: disaster.disaster_id, disaster_rule_id: rule.rule_id }); onClose() }}
                                   className="shrink-0 text-xs font-medium bg-rose-600 text-white px-3 py-1.5 rounded-lg hover:bg-rose-700 transition"
                                 >
                                   Log
@@ -323,6 +323,8 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
   const [showConfirm,       setShowConfirm]       = useState(false)
   const [isSubmitting,      setIsSubmitting]      = useState(false)
   const [pendingSuggestion, setPendingSuggestion] = useState(null)
+  const [pendingDisasterReport, setPendingDisasterReport] = useState(null)
+  const [pendingDisasterRule, setPendingDisasterRule] = useState(null)
   const [expandedDisasters, setExpandedDisasters] = useState(new Set())
   const [showHarvestEdit,   setShowHarvestEdit]   = useState(false)
   const [harvestDeleteConfirm, setHarvestDeleteConfirm] = useState(false)
@@ -371,7 +373,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
   const allEvents = useMemo(() => {
     const logEvents = logs.map(l => ({ ...l, _type: 'log' }))
     const disEvents = disasters.map(d => ({ ...d, _type: 'disaster', _sortDate: d.date_of_occurrence }))
-    return [...logEvents.map(l => ({ ...l, _sortDate: l.activity_date })), ...disEvents]
+    return [...logEvents.map(l => ({ ...l, _sortDate: l.date_of_activity })), ...disEvents]
       .sort((a, b) => new Date(b._sortDate || 0) - new Date(a._sortDate || 0))
   }, [logs, disasters])
 
@@ -380,6 +382,8 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
     setFertilizerType(''); setQuantityApplied(''); setQuantityUnit('kg')
     setPestDiseaseName(''); setAreaAffected(''); setSeverity(''); setNotes('')
     setPendingSuggestion(null)
+    setPendingDisasterReport(null)
+    setPendingDisasterRule(null)
   }
 
   const handleSubmitClick = () => {
@@ -393,7 +397,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
     try {
       await api.post(`/production/monitoring/${record.id}/logs/`, {
         activity_type:     activityType,
-        activity_date:     activityDate,
+        date_of_activity:   activityDate,
         plant_condition:   plantCondition,
         fertilizer_type:   showFertilizerFields ? fertilizerType : '',
         quantity_applied:  showFertilizerFields ? (quantityApplied || null) : null,
@@ -403,7 +407,8 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
         severity:          showPestFields ? severity : '',
         notes,
         target_day: pendingSuggestion?.occurrence_day ?? null,
-        is_late:    pendingSuggestion?.status === 'overdue',
+        disaster_report: pendingDisasterReport,
+        disaster_rule:   pendingDisasterRule,
       })
       showToast('Activity log added.', 'success')
       resetForm(); setShowForm(false)
@@ -416,6 +421,8 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
   const handleApplySuggestion = (s) => {
     setActivityType(s.activity_name || '')
     setNotes(s.recommendation || '')
+    setPendingDisasterReport(s.disaster_report_id || null)
+    setPendingDisasterRule(s.disaster_rule_id || null)
     setShowSuggest(false)
     setShowForm(true)
     if (s.status === 'overdue') {
@@ -430,7 +437,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
     setIsDeletingHarvest(true)
     try {
       await api.delete(`/production/${record.harvest_record_id}/`)
-      showToast('Harvest record deleted. Crop status reverted to Active.', 'success')
+      showToast('Harvest record deleted. Crop status reverted.', 'success')
       onLogAdded()
       onClose()
     } catch (err) {
@@ -730,7 +737,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
                 <div key={`l-${log.id}`} className="py-3">
                   <div className="flex items-start justify-between gap-2">
                     <span className="text-sm font-medium text-slate-900">{log.activity_type}</span>
-                    <span className="shrink-0 text-xs text-slate-400">{fmtDate(log.activity_date)}</span>
+                    <span className="shrink-0 text-xs text-slate-400">{fmtDate(log.date_of_activity)}</span>
                   </div>
                   {log.plant_condition && (
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full mt-1 inline-block ${
@@ -788,7 +795,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
       {harvestDeleteConfirm && (
         <ConfirmDialog
           title="Delete Harvest Record?"
-          message="This will permanently delete the harvest record and revert this crop's status back to Active. This cannot be undone."
+          message="This will permanently delete the harvest record and revert this crop's status. This cannot be undone."
           confirmLabel="Delete Harvest"
           onConfirm={handleDeleteHarvest}
           onCancel={() => setHarvestDeleteConfirm(false)}
@@ -943,6 +950,7 @@ function DisasterReportModal({ record, onClose, onSuccess }) {
   const [areaAffectedHa,    setAreaAffectedHa]    = useState('')
   const [estimatedDamage,   setEstimatedDamage]   = useState('')
   const [productionLoss,    setProductionLoss]    = useState('')
+  const [isTotalLoss,       setIsTotalLoss]       = useState(false)
   const [showConfirm,       setShowConfirm]       = useState(false)
   const [isSubmitting,      setIsSubmitting]      = useState(false)
   const [areaError,         setAreaError]         = useState('')
@@ -984,9 +992,10 @@ function DisasterReportModal({ record, onClose, onSuccess }) {
       await api.post(`/production/monitoring/${record.id}/disasters/`, {
         disaster_type:      disasterType,
         date_of_occurrence: dateOfOccurrence,
-        area_affected_ha:   parseFloat(areaAffectedHa),
+        area_affected_ha:   parseFloat(isTotalLoss && maxArea ? maxArea : areaAffectedHa),
         estimated_damage:   estimatedDamage,
         production_loss:    productionLoss,
+        is_total_loss:      isTotalLoss,
       })
       showToast('Disaster report recorded.', 'success')
       onSuccess()
@@ -1038,12 +1047,13 @@ function DisasterReportModal({ record, onClose, onSuccess }) {
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-700">Area Affected (ha) *</label>
             <input type="number" step="0.0001"
-              className={`${baseInputClasses} ${areaError ? 'border-rose-400' : ''}`}
-              value={areaAffectedHa}
+              className={`${baseInputClasses} ${areaError ? 'border-rose-400' : ''} ${isTotalLoss ? 'bg-slate-100 cursor-not-allowed' : ''}`}
+              value={isTotalLoss && maxArea ? maxArea : areaAffectedHa}
               onChange={e => { setAreaAffectedHa(e.target.value); setAreaError(validateArea(e.target.value)) }}
+              disabled={isTotalLoss}
               placeholder={maxArea ? `0.01 – ${maxArea}` : 'e.g. 2.50'} />
             {areaError && <p className="mt-1 text-xs text-rose-600">{areaError}</p>}
-            {!areaError && maxArea && (
+            {!areaError && maxArea && !isTotalLoss && (
               <p className="mt-1 text-xs text-slate-400">Max: {maxArea} ha (total area planted)</p>
             )}
           </div>
@@ -1061,6 +1071,25 @@ function DisasterReportModal({ record, onClose, onSuccess }) {
               onChange={e => setProductionLoss(e.target.value)}
               placeholder="Describe or estimate production loss" />
           </div>
+
+          <label className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isTotalLoss}
+              onChange={e => {
+                setIsTotalLoss(e.target.checked)
+                if (e.target.checked && maxArea) {
+                  setAreaAffectedHa(String(maxArea))
+                  setAreaError('')
+                }
+              }}
+              className="mt-0.5 h-4 w-4 rounded border-rose-300 text-rose-600 focus:ring-rose-500"
+            />
+            <div>
+              <span className="text-sm font-medium text-rose-800">Total loss — crop completely destroyed</span>
+              <p className="text-xs text-rose-500 mt-0.5">This ends the production cycle. No harvest can be recorded.</p>
+            </div>
+          </label>
 
           <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
             <button type="button" onClick={onClose}
@@ -1554,7 +1583,7 @@ export default function CropMonitoringPage() {
   const [isLoading,        setIsLoading]        = useState(true)
   const [error,            setError]            = useState('')
   const [search,           setSearch]           = useState('')
-  const [statusFilter,     setStatusFilter]     = useState('Active')
+  const [statusFilter,     setStatusFilter]     = useState('Planted,Near Harvest')
   const [seasonFilter,     setSeasonFilter]     = useState('')
   const [yearFilter,       setYearFilter]       = useState('')
   const [barangayFilter,   setBarangayFilter]   = useState(() => searchParams.get('barangay') || '')
@@ -1568,7 +1597,7 @@ export default function CropMonitoringPage() {
   // Handle ?filter=for_harvest from dashboard
   useEffect(() => {
     const filter = searchParams.get('filter')
-    if (filter === 'for_harvest') setStatusFilter('Active')
+    if (filter === 'for_harvest') setStatusFilter('Near Harvest')
     const barangay = searchParams.get('barangay')
     if (barangay) setBarangayFilter(barangay)
   }, [])
@@ -1710,10 +1739,10 @@ export default function CropMonitoringPage() {
             value={statusFilter}
             onChange={e => setStatusFilter(e.target.value)}
           >
-            <option value="Active">Active Crops</option>
+            <option value="Planted,Near Harvest">Active Crops</option>
+            <option value="Near Harvest">Near Harvest</option>
             <option value="Harvested">Harvested</option>
-            <option value="Damaged">Damaged</option>
-            <option value="Abandoned">Abandoned</option>
+            <option value="Total Loss">Total Loss</option>
             <option value="all">All Status</option>
           </select>
           <select
