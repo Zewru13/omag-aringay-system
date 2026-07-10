@@ -1,7 +1,14 @@
+import { useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 
-function ConfirmDialog({ title, message, onConfirm, onCancel, confirmLabel = 'Confirm', cancelLabel = 'Cancel', danger = false, variant = 'danger' }) {
+function ConfirmDialog({
+  title, message, onConfirm, onCancel, confirmLabel = 'Confirm', cancelLabel = 'Cancel',
+  danger = false, variant = 'danger', details = null,
+  requireTypedConfirmation = false, typedConfirmationText = 'DELETE',
+}) {
   const isDanger = danger || variant === 'danger'
+  const [typedValue, setTypedValue] = useState('')
+  const confirmDisabled = requireTypedConfirmation && typedValue !== typedConfirmationText
 
   return (
     <div
@@ -23,6 +30,28 @@ function ConfirmDialog({ title, message, onConfirm, onCancel, confirmLabel = 'Co
           )}
         </div>
 
+        {details && (
+          <div className="mx-6 mt-1 rounded-lg bg-[#FDF2F2] border border-[#F5D5D0] px-3 py-2">
+            <p className="text-[12px] text-[#8A3B32]">{details}</p>
+          </div>
+        )}
+
+        {requireTypedConfirmation && (
+          <div className="px-6 mt-3">
+            <label className="text-[12px] text-[#7A8E7A]">
+              Type <span className="font-semibold text-[#C0392B]">{typedConfirmationText}</span> to confirm
+            </label>
+            <input
+              type="text"
+              autoFocus
+              value={typedValue}
+              onChange={(e) => setTypedValue(e.target.value)}
+              className="mt-1 w-full h-9 px-3 text-[13px] rounded-lg border border-[#C8D5C8] focus:outline-none focus:ring-2 focus:ring-[#C0392B]/30"
+              placeholder={typedConfirmationText}
+            />
+          </div>
+        )}
+
         {/* Buttons */}
         <div className="flex gap-2 px-6 pb-6 mt-5">
           <button
@@ -34,10 +63,13 @@ function ConfirmDialog({ title, message, onConfirm, onCancel, confirmLabel = 'Co
           </button>
           <button
             type="button"
+            disabled={confirmDisabled}
             className={`flex-1 h-9 px-4 text-[13px] font-medium rounded-lg text-white transition-colors ${
-              isDanger
-                ? 'bg-[#C0392B] hover:bg-[#A93226]'
-                : 'bg-[#1B4D2E] hover:bg-[#235E38]'
+              confirmDisabled
+                ? 'bg-[#D8B8B4] cursor-not-allowed'
+                : isDanger
+                  ? 'bg-[#C0392B] hover:bg-[#A93226]'
+                  : 'bg-[#1B4D2E] hover:bg-[#235E38]'
             }`}
             onClick={onConfirm}
           >

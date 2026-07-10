@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Eye,
   FileText,
   MessageCircle,
   Pencil,
@@ -14,6 +15,7 @@ import PageLayout from "../../components/Layout/PageLayout.jsx";
 import ConfirmDialog from "../../components/UI/ConfirmDialog.jsx";
 import DisasterDot from "../../components/UI/DisasterDot.jsx";
 import ErrorMessage from "../../components/UI/ErrorMessage.jsx";
+import HarvestVarianceBadge from "../../components/UI/HarvestVarianceBadge.jsx";
 import FormField, { baseInputClasses } from "../../components/UI/FormField.jsx";
 import ModalShell from "../../components/UI/ModalShell.jsx";
 import PaginationBar from "../../components/UI/PaginationBar.jsx";
@@ -67,7 +69,6 @@ const COLUMNS = [
   { key: "est_yield_fmt", label: "ESTIMATED YIELD (KG)" },
   { key: "assoc_name", label: "ASSOCIATION" },
   { key: "status_cell", label: "STATUS" },
-  { key: "remarks_cell", label: "REMARKS" },
   { key: "actions_cell", label: "ACTIONS" },
 ];
 
@@ -369,6 +370,7 @@ function EditCropModal({ record, onClose, onSaved }) {
   const originalData = {
     farm_location_barangay: record.farm_location_barangay || "",
     land_status: record.land_status || "",
+    land_status_other_specify: record.land_status_other_specify || "",
     date_planted: record.date_planted || "",
     area_planted_ha: record.area_planted_ha
       ? String(record.area_planted_ha)
@@ -376,6 +378,7 @@ function EditCropModal({ record, onClose, onSaved }) {
     season: record.season || "",
     variety_used: record.variety_used || "",
     seed_source: record.seed_source || "",
+    seed_source_other_specify: record.seed_source_other_specify || "",
     quantity_of_seeds: record.quantity_of_seeds
       ? String(record.quantity_of_seeds)
       : "",
@@ -504,11 +507,13 @@ function EditCropModal({ record, onClose, onSaved }) {
         farmers_association: selectedFarmer.farmer_assoc_id || null,
         farm_location_barangay: form.farm_location_barangay,
         land_status: form.land_status,
+        land_status_other_specify: form.land_status === "Other" ? form.land_status_other_specify : "",
         date_planted: form.date_planted,
         area_planted_ha: form.area_planted_ha || null,
         season: form.season,
         variety_used: form.variety_used,
         seed_source: form.seed_source,
+        seed_source_other_specify: form.seed_source === "Other" ? form.seed_source_other_specify : "",
         quantity_of_seeds: form.quantity_of_seeds
           ? parseFloat(form.quantity_of_seeds)
           : null,
@@ -628,7 +633,10 @@ function EditCropModal({ record, onClose, onSaved }) {
             <select
               className={baseInputClasses}
               value={form.land_status}
-              onChange={(e) => set("land_status", e.target.value)}
+              onChange={(e) => {
+                set("land_status", e.target.value);
+                if (e.target.value !== "Other") set("land_status_other_specify", "");
+              }}
             >
               <option value="">Select…</option>
               <option value="Owner">Owner</option>
@@ -636,6 +644,15 @@ function EditCropModal({ record, onClose, onSaved }) {
               <option value="Tenant">Tenant</option>
               <option value="Other">Other</option>
             </select>
+            {form.land_status === "Other" && (
+              <input
+                type="text"
+                className={`${baseInputClasses} mt-2`}
+                placeholder="Please specify land status"
+                value={form.land_status_other_specify}
+                onChange={(e) => set("land_status_other_specify", e.target.value)}
+              />
+            )}
           </div>
         </div>
 
@@ -750,7 +767,10 @@ function EditCropModal({ record, onClose, onSaved }) {
           <select
             className={baseInputClasses}
             value={form.seed_source}
-            onChange={(e) => set("seed_source", e.target.value)}
+            onChange={(e) => {
+              set("seed_source", e.target.value);
+              if (e.target.value !== "Other") set("seed_source_other_specify", "");
+            }}
           >
             <option value="">Select…</option>
             <option value="Own Seeds">Own Seeds</option>
@@ -759,6 +779,15 @@ function EditCropModal({ record, onClose, onSaved }) {
             <option value="Association">Association</option>
             <option value="Other">Other</option>
           </select>
+          {form.seed_source === "Other" && (
+            <input
+              type="text"
+              className={`${baseInputClasses} mt-2`}
+              placeholder="Please specify seed source"
+              value={form.seed_source_other_specify}
+              onChange={(e) => set("seed_source_other_specify", e.target.value)}
+            />
+          )}
         </div>
 
         {/* Quantity + Unit */}
@@ -822,9 +851,140 @@ function EditCropModal({ record, onClose, onSaved }) {
   );
 }
 
+// ─── Detail Modal (Eye) ────────────────────────────────────────────────────────
+
+function CropDetailModal({ record, onClose }) {
+  const displayStatus = getDisplayStatus(record);
+  const fmtNum = (v) =>
+    v == null
+      ? "—"
+      : Number(v).toLocaleString(undefined, {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+  const seedSourceDisplay =
+    record.seed_source === "Other"
+      ? `Other — ${record.seed_source_other_specify || ""}`
+      : record.seed_source || "—";
+  const landStatusDisplay =
+    record.land_status === "Other"
+      ? `Other — ${record.land_status_other_specify || ""}`
+      : record.land_status || "—";
+
+  const rows = [
+    ["Crop Type", record.crop_type_name || "—"],
+    ["Farmer", record.farmer_full_name || record.farmer_name || "—"],
+    ["Association", record.association_name || "—"],
+    ["Farm Location", record.farmer_barangay || record.farm_location_barangay || "—"],
+    ["Land Status", landStatusDisplay],
+    ["Season / Year", `${record.season || "—"} ${record.year || ""}`],
+    ["Date Planted", fmtLong(record.date_planted)],
+    ["Area Planted (ha)", record.area_planted_ha ? Number(record.area_planted_ha).toFixed(2) : "—"],
+    ["Expected Harvest Date", fmtLong(record.expected_harvest_date)],
+    [
+      "Actual Harvest Date",
+      <span className="flex items-center justify-end gap-1.5" key="ahd">
+        {fmtLong(record.actual_harvest_date)}
+        <HarvestVarianceBadge days={record.harvest_variance_days} />
+      </span>,
+    ],
+    ["Status", displayStatus],
+    ["Current Growth Stage", record.current_growth_stage || "—"],
+    ["Estimated Yield (kg)", fmtNum(record.estimated_yield_kg)],
+    ["Actual Yield (kg)", fmtNum(record.actual_yield_kg)],
+    [
+      "Yield Variance",
+      record.yield_variance_pct != null ? `${Number(record.yield_variance_pct).toFixed(1)}%` : "—",
+    ],
+    ["Variety Used", record.variety_used || "—"],
+    ["Seed Source", seedSourceDisplay],
+    [
+      "Quantity of Seeds",
+      record.quantity_of_seeds ? `${record.quantity_of_seeds} ${record.seed_quantity_unit || ""}` : "—",
+    ],
+    ["Notes", record.notes || "—"],
+  ];
+
+  return (
+    <ModalShell
+      title={`Crop Record — ${record.crop_type_name}`}
+      subtitle="Read-only detail view"
+      icon={Eye}
+      onClose={onClose}
+      maxWidth="max-w-2xl"
+    >
+      <div className="space-y-5">
+        <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+          {rows.map(([label, value]) => (
+            <div
+              key={label}
+              className="flex items-start justify-between gap-4 border-b border-[#F0F4F0] pb-2"
+            >
+              <span className="text-[12px] font-medium text-[#7A8E7A]">{label}</span>
+              <span className="text-right text-[13px] font-semibold text-[#1A2B1A]">{value}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] p-3 text-center">
+            <p className="text-[20px] font-bold text-[#1B4D2E]">{record.log_count ?? 0}</p>
+            <p className="text-[11px] text-[#7A8E7A]">Activity Log(s)</p>
+          </div>
+          <div className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] p-3 text-center">
+            <p className="text-[20px] font-bold text-[#1B4D2E]">{record.disaster_report_count ?? 0}</p>
+            <p className="text-[11px] text-[#7A8E7A]">Disaster Report(s)</p>
+          </div>
+          <div className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] p-3 text-center">
+            <p className="text-[20px] font-bold text-[#1B4D2E]">{record.harvest_count ?? 0}</p>
+            <p className="text-[11px] text-[#7A8E7A]">Harvest Record(s)</p>
+          </div>
+        </div>
+      </div>
+    </ModalShell>
+  );
+}
+
+// ─── Delete Modal (Trash, type-DELETE, admin only) ────────────────────────────
+
+function DeleteCropModal({ record, onClose, onDeleted }) {
+  const { showToast } = useToast();
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleConfirm = async () => {
+    setIsDeleting(true);
+    try {
+      await api.delete(`/production/monitoring/${record.id}/`);
+      showToast("Crop record deleted.", "success");
+      onDeleted();
+    } catch (err) {
+      showToast(err?.response?.data?.detail || "Failed to delete crop record.", "error");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const details = `${record.log_count ?? 0} activity log(s), ${record.disaster_report_count ?? 0} disaster report(s), ${record.harvest_count ?? 0} harvest record(s).`;
+
+  return (
+    <ConfirmDialog
+      title={`Delete ${record.crop_type_name}?`}
+      message="This action cannot be undone."
+      details={details}
+      confirmLabel={isDeleting ? "Deleting…" : "Delete Record"}
+      requireTypedConfirmation
+      typedConfirmationText="DELETE"
+      variant="danger"
+      onConfirm={handleConfirm}
+      onCancel={onClose}
+    />
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CropInformationPage() {
+  const { isAdmin } = useAuth();
   const [records, setRecords] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
@@ -836,6 +996,8 @@ export default function CropInformationPage() {
   const [yearFilter, setYearFilter] = useState("");
   const [remarksRec, setRemarksRec] = useState(null);
   const [editingRec, setEditingRec] = useState(null);
+  const [viewingRec, setViewingRec] = useState(null);
+  const [deletingRec, setDeletingRec] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
 
   const fetchRecords = useCallback(
@@ -913,35 +1075,61 @@ export default function CropInformationPage() {
             {displayStatus}
           </StatusPill>
           <DisasterDot activeCount={rec.disasters_count} hasResolved={rec.has_resolved_disaster} />
+          <HarvestVarianceBadge days={rec.harvest_variance_days} />
         </span>
       ),
-      remarks_cell: (
-        <button
-          type="button"
-          className="flex items-center gap-1 rounded-lg px-2 py-1 text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors"
-          onClick={(e) => {
-            e.stopPropagation();
-            setRemarksRec(rec);
-          }}
-          title="View/Add Remarks"
-        >
-          <FileText size={14} />
-        </button>
-      ),
-      edit_cell:
-        rec.status !== "Harvested" ? (
+      actions_cell: (
+        <div className="flex items-center gap-1">
           <button
             type="button"
             className="flex items-center gap-1 rounded-lg px-2 py-1 text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors"
             onClick={(e) => {
               e.stopPropagation();
-              setEditingRec(rec);
+              setViewingRec(rec);
             }}
-            title="Edit record"
+            title="View details"
           >
-            <Pencil size={14} />
+            <Eye size={14} />
           </button>
-        ) : null,
+          {rec.status !== "Harvested" && (
+            <button
+              type="button"
+              className="flex items-center gap-1 rounded-lg px-2 py-1 text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditingRec(rec);
+              }}
+              title="Edit record"
+            >
+              <Pencil size={14} />
+            </button>
+          )}
+          <button
+            type="button"
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              setRemarksRec(rec);
+            }}
+            title="View/Add Remarks"
+          >
+            <FileText size={14} />
+          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              className="flex items-center gap-1 rounded-lg px-2 py-1 text-rose-600 hover:bg-rose-50 transition-colors"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDeletingRec(rec);
+              }}
+              title="Delete record"
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
+        </div>
+      ),
     };
   });
 
@@ -1129,6 +1317,21 @@ export default function CropInformationPage() {
           onSaved={() => {
             setEditingRec(null);
             fetchRecords();
+          }}
+        />
+      )}
+
+      {viewingRec && (
+        <CropDetailModal record={viewingRec} onClose={() => setViewingRec(null)} />
+      )}
+
+      {deletingRec && (
+        <DeleteCropModal
+          record={deletingRec}
+          onClose={() => setDeletingRec(null)}
+          onDeleted={() => {
+            setDeletingRec(null);
+            fetchRecords(page);
           }}
         />
       )}

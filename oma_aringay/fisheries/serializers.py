@@ -374,9 +374,10 @@ class FisheriesActivityLogSerializer(serializers.ModelSerializer):
     class Meta:
         model  = FisheriesActivityLog
         fields = [
-            'id', 'stocking_record', 'activity', 'date_of_activity',
+            'id', 'stocking_record', 'activity', 'activity_other_specify', 'date_of_activity',
             'water_fish_condition', 'feed_type', 'feed_quantity_kg', 'feed_brand',
-            'observed_issue', 'severity', 'mortality_count', 'treatment_applied', 'outcome',
+            'observed_issue', 'severity', 'mortality_count', 'area_affected_ha',
+            'treatment_applied', 'outcome',
             'recommendations',
             'target_day', 'is_late', 'logged_by', 'logged_by_name',
             'date_logged', 'disaster_report', 'disaster_rule',
@@ -406,6 +407,27 @@ class FisheriesActivityLogSerializer(serializers.ModelSerializer):
                     'date_of_activity': 'Date of activity cannot be before the date stocked '
                                         f'({stocking_record.date_stocked}).'
                 })
+
+        activity = data.get('activity', '')
+        if activity == 'Other' and not (data.get('activity_other_specify') or '').strip():
+            raise serializers.ValidationError({
+                'activity_other_specify': 'Please specify the activity.'
+            })
+
+        area_affected_ha = data.get('area_affected_ha')
+        if activity == 'Disease Control' and area_affected_ha is None:
+            raise serializers.ValidationError({
+                'area_affected_ha': 'Area affected is required for Disease Control activities.'
+            })
+        if area_affected_ha is not None:
+            if area_affected_ha <= 0:
+                raise serializers.ValidationError({
+                    'area_affected_ha': 'Area affected must be greater than 0.'
+                })
+            if stocking_record and stocking_record.area_hectares and area_affected_ha > stocking_record.area_hectares:
+                raise serializers.ValidationError({
+                    'area_affected_ha': f'Area affected cannot exceed the {stocking_record.area_hectares} ha stocked.'
+                })
         return data
 
 
@@ -416,7 +438,7 @@ class FisheriesDisasterReportSerializer(serializers.ModelSerializer):
     class Meta:
         model  = FisheriesDisasterReport
         fields = [
-            'id', 'stocking_record', 'disaster_type', 'date_of_occurrence',
+            'id', 'stocking_record', 'disaster_type', 'disaster_type_other_specify', 'date_of_occurrence',
             'area_affected_ha', 'estimated_damage', 'production_loss',
             'is_total_loss',
             'status', 'resolved_date', 'resolved_by', 'resolved_by_name',
@@ -438,6 +460,29 @@ class FisheriesDisasterReportSerializer(serializers.ModelSerializer):
             return getattr(obj.resolved_by, 'full_name', str(obj.resolved_by))
         return None
 
+    def validate(self, data):
+        disaster_type = data.get('disaster_type', '')
+        if disaster_type == 'Other' and not (data.get('disaster_type_other_specify') or '').strip():
+            raise serializers.ValidationError({
+                'disaster_type_other_specify': 'Please specify the disaster type.'
+            })
+
+        area_affected_ha = data.get('area_affected_ha')
+        stocking_record = data.get('stocking_record')
+        if not stocking_record:
+            stocking_id = self.context.get('view').kwargs.get('stocking_id') if self.context.get('view') else None
+            if stocking_id:
+                stocking_record = StockingRecord.objects.filter(pk=stocking_id).first()
+        if area_affected_ha is None:
+            raise serializers.ValidationError({'area_affected_ha': 'Area affected is required.'})
+        if area_affected_ha <= 0:
+            raise serializers.ValidationError({'area_affected_ha': 'Area affected must be greater than 0.'})
+        if stocking_record and stocking_record.area_hectares and area_affected_ha > stocking_record.area_hectares:
+            raise serializers.ValidationError({
+                'area_affected_ha': f'Area affected cannot exceed the {stocking_record.area_hectares} ha stocked.'
+            })
+        return data
+
 
 class FisheriesHarvestRecordSerializer(serializers.ModelSerializer):
     recorded_by_name = serializers.SerializerMethodField()
@@ -446,15 +491,41 @@ class FisheriesHarvestRecordSerializer(serializers.ModelSerializer):
         model  = FisheriesHarvestRecord
         fields = [
             'id', 'stocking_record', 'harvest_date', 'quantity_kg',
-            'avg_body_weight_kg', 'area_or_units_harvested', 'is_final', 'notes',
+            'avg_body_weight_kg', 'area_or_units_harvested', 'is_final',
+            'harvest_variance_days', 'early_late_reason', 'notes',
             'recorded_by', 'recorded_by_name', 'date_recorded',
         ]
-        read_only_fields = ['id', 'stocking_record', 'recorded_by', 'recorded_by_name', 'date_recorded']
+        read_only_fields = ['id', 'stocking_record', 'harvest_variance_days', 'recorded_by', 'recorded_by_name', 'date_recorded']
 
     def get_recorded_by_name(self, obj):
         if obj.recorded_by:
             return getattr(obj.recorded_by, 'full_name', str(obj.recorded_by))
         return None
+
+    def validate(self, data):
+        harvest_date = data.get('harvest_date', getattr(self.instance, 'harvest_date', None))
+        is_final = data.get('is_final', getattr(self.instance, 'is_final', False))
+        stocking_record = data.get('stocking_record', getattr(self.instance, 'stocking_record', None))
+        if not stocking_record:
+            stocking_id = self.context.get('view').kwargs.get('stocking_id') if self.context.get('view') else None
+            if stocking_id:
+                stocking_record = StockingRecord.objects.filter(pk=stocking_id).first()
+
+        if harvest_date:
+            if harvest_date > date.today():
+                raise serializers.ValidationError({'harvest_date': 'Harvest date cannot be in the future.'})
+            if stocking_record and stocking_record.date_stocked and harvest_date < stocking_record.date_stocked:
+                raise serializers.ValidationError({
+                    'harvest_date': f'Harvest date cannot be before the date stocked ({stocking_record.date_stocked}).'
+                })
+            if is_final and stocking_record and stocking_record.expected_harvest_date:
+                variance = (harvest_date - stocking_record.expected_harvest_date).days
+                reason = data.get('early_late_reason', getattr(self.instance, 'early_late_reason', '')) or ''
+                if abs(variance) > 7 and not reason.strip():
+                    raise serializers.ValidationError({
+                        'early_late_reason': 'A reason is required when the harvest date is more than 7 days early or late.'
+                    })
+        return data
 
 
 class StockingRecordSerializer(serializers.ModelSerializer):
@@ -464,7 +535,9 @@ class StockingRecordSerializer(serializers.ModelSerializer):
     is_near_harvest  = serializers.SerializerMethodField()
     log_count        = serializers.SerializerMethodField()
     disaster_count   = serializers.SerializerMethodField()
+    disaster_report_count = serializers.SerializerMethodField()
     has_resolved_disaster = serializers.SerializerMethodField()
+    harvest_variance_days = serializers.SerializerMethodField()
     total_harvested_kg = serializers.SerializerMethodField()
     harvest_count    = serializers.SerializerMethodField()
     stocking_density = serializers.SerializerMethodField()
@@ -478,27 +551,27 @@ class StockingRecordSerializer(serializers.ModelSerializer):
         model  = StockingRecord
         fields = [
             'id', 'fisherfolk', 'fisherfolk_name',
-            'pond_location_barangay', 'land_status', 'culture_type',
+            'pond_location_barangay', 'land_status', 'land_status_other_specify', 'culture_type',
             'species', 'species_name', 'category_name',
             'date_stocked', 'area_hectares', 'number_of_fingerlings',
             'survival_rate_pct', 'avg_body_weight_kg',
-            'water_source', 'number_of_units', 'unit_dimensions',
-            'fingerling_source', 'avg_fingerling_size',
+            'water_source', 'water_source_other_specify', 'number_of_units', 'unit_dimensions',
+            'fingerling_source', 'fingerling_source_other_specify', 'avg_fingerling_size',
             'season', 'year', 'status',
             'expected_harvest_date', 'estimated_harvest_kg',
             'notes', 'recorded_by', 'date_recorded',
-            'is_near_harvest', 'log_count', 'disaster_count',
+            'is_near_harvest', 'log_count', 'disaster_count', 'disaster_report_count',
             'has_resolved_disaster',
-            'total_harvested_kg', 'harvest_count',
+            'total_harvested_kg', 'harvest_count', 'harvest_variance_days',
             'stocking_density', 'production_cycle_no',
         ]
         read_only_fields = [
             'id', 'fisherfolk_name', 'species_name', 'category_name',
             'expected_harvest_date', 'estimated_harvest_kg',
             'recorded_by', 'date_recorded',
-            'is_near_harvest', 'log_count', 'disaster_count',
+            'is_near_harvest', 'log_count', 'disaster_count', 'disaster_report_count',
             'has_resolved_disaster',
-            'total_harvested_kg', 'harvest_count',
+            'total_harvested_kg', 'harvest_count', 'harvest_variance_days',
             'stocking_density', 'production_cycle_no',
         ]
 
@@ -516,6 +589,13 @@ class StockingRecordSerializer(serializers.ModelSerializer):
 
     def get_disaster_count(self, obj):
         return obj.disaster_reports.filter(status='Active').count()
+
+    def get_disaster_report_count(self, obj):
+        return obj.disaster_reports.count()
+
+    def get_harvest_variance_days(self, obj):
+        final = obj.harvests.filter(is_final=True).first()
+        return final.harvest_variance_days if final else None
 
     def get_has_resolved_disaster(self, obj):
         return obj.disaster_reports.filter(status='Resolved').exists()
@@ -543,6 +623,18 @@ class StockingRecordSerializer(serializers.ModelSerializer):
             | Q(date_stocked=obj.date_stocked, id__lt=obj.id)
         ).count()
         return prior + 1
+
+    def validate(self, data):
+        for field_name, specify_name, label in [
+            ('land_status', 'land_status_other_specify', 'land status'),
+            ('water_source', 'water_source_other_specify', 'water source'),
+            ('fingerling_source', 'fingerling_source_other_specify', 'fingerling source'),
+        ]:
+            value = data.get(field_name, getattr(self.instance, field_name, ''))
+            specify = data.get(specify_name, getattr(self.instance, specify_name, ''))
+            if value == 'Other' and not (specify or '').strip():
+                raise serializers.ValidationError({specify_name: f'Please specify the {label}.'})
+        return data
 
 
 class StockingRecordDetailSerializer(StockingRecordSerializer):

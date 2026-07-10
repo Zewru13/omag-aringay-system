@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle, Bug, CheckCircle, CheckCircle2, Eye, FileText, Leaf, Lock, MapPin, Pencil, Plus, Trash2, TrendingUp, User, Wheat,
 } from 'lucide-react'
@@ -7,6 +7,7 @@ import api from '../../api/axiosInstance.js'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DisasterDot from '../../components/UI/DisasterDot.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
+import GrowthProgressBar from '../../components/UI/GrowthProgressBar.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
@@ -16,11 +17,13 @@ import { useToast } from '../../context/ToastContext.jsx'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
+const otherLabel = (value, specify) => (value === 'Other' && specify ? `Other — ${specify}` : value)
+
 const ACTIVITY_OPTIONS = [
   'Land Preparation', 'Planting', 'Fertilizer Application',
   'Irrigation / Watering', 'Weeding', 'Pest Control',
   'Disease Control', 'Field Monitoring', 'Pre-Harvest Inspection',
-  'Harvesting', 'Other',
+  'Harvesting', 'Disaster Remedy', 'Other',
 ]
 
 const PRIORITY_BADGE = {
@@ -338,6 +341,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
 
   // Form state
   const [activityType,    setActivityType]    = useState('')
+  const [activityTypeOtherSpecify, setActivityTypeOtherSpecify] = useState('')
   const [activityDate,    setActivityDate]    = useState(todayISO())
   const [plantCondition,  setPlantCondition]  = useState('')
   const [fertilizerType,  setFertilizerType]  = useState('')
@@ -345,11 +349,27 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
   const [quantityUnit,    setQuantityUnit]    = useState('kg')
   const [pestDiseaseName, setPestDiseaseName] = useState('')
   const [areaAffected,    setAreaAffected]    = useState('')
+  const [areaAffectedError, setAreaAffectedError] = useState('')
   const [severity,        setSeverity]        = useState('')
   const [notes,           setNotes]           = useState('')
 
+  const [remedyDisasterId, setRemedyDisasterId] = useState('')
+
   const showFertilizerFields = activityType === 'Fertilizer Application'
   const showPestFields = activityType === 'Pest Control' || activityType === 'Disease Control'
+  const showRemedyFields = activityType === 'Disaster Remedy'
+  const activeDisasters = disasters.filter(d => d.status === 'Active')
+  const plantedArea = record.area_planted_ha ? Number(record.area_planted_ha) : null
+
+  const validateAreaAffected = (value) => {
+    if (!value || value === '') return 'Area affected is required.'
+    const n = parseFloat(value)
+    if (isNaN(n) || n <= 0) return 'Area affected must be greater than 0.'
+    if (plantedArea != null && n > plantedArea) {
+      return `Area affected cannot exceed the ${plantedArea} ha planted.`
+    }
+    return ''
+  }
 
   const PRE_PLANTING_ACTIVITIES = [
     'Soil Preparation & Leveling', 'Seed Bed Preparation',
@@ -383,7 +403,9 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
   const resetForm = () => {
     setActivityType(''); setActivityDate(todayISO()); setPlantCondition('')
     setFertilizerType(''); setQuantityApplied(''); setQuantityUnit('kg')
-    setPestDiseaseName(''); setAreaAffected(''); setSeverity(''); setNotes('')
+    setActivityTypeOtherSpecify('')
+    setRemedyDisasterId('')
+    setPestDiseaseName(''); setAreaAffected(''); setAreaAffectedError(''); setSeverity(''); setNotes('')
     setPendingSuggestion(null)
     setPendingDisasterReport(null)
     setPendingDisasterRule(null)
@@ -391,7 +413,16 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
 
   const handleSubmitClick = () => {
     if (!activityType) { showToast('Please select an activity.', 'error'); return }
+    if (activityType === 'Other' && !activityTypeOtherSpecify.trim()) { showToast('Please specify the activity.', 'error'); return }
     if (!activityDate) { showToast('Activity date is required.', 'error'); return }
+    if (showPestFields) {
+      const err = validateAreaAffected(areaAffected)
+      if (err) { setAreaAffectedError(err); showToast(err, 'error'); return }
+    }
+    if (showRemedyFields) {
+      if (!remedyDisasterId) { showToast('Please select the related disaster.', 'error'); return }
+      if (!notes.trim()) { showToast('Please describe the remedy performed.', 'error'); return }
+    }
     setShowConfirm(true)
   }
 
@@ -400,6 +431,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
     try {
       await api.post(`/production/monitoring/${record.id}/logs/`, {
         activity_type:     activityType,
+        activity_type_other_specify: activityType === 'Other' ? activityTypeOtherSpecify.trim() : '',
         date_of_activity:   activityDate,
         plant_condition:   plantCondition,
         fertilizer_type:   showFertilizerFields ? fertilizerType : '',
@@ -410,8 +442,8 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
         severity:          showPestFields ? severity : '',
         notes,
         target_day: pendingSuggestion?.occurrence_day ?? null,
-        disaster_report: pendingDisasterReport,
-        disaster_rule:   pendingDisasterRule,
+        disaster_report: showRemedyFields ? parseInt(remedyDisasterId, 10) : pendingDisasterReport,
+        disaster_rule:   showRemedyFields ? null : pendingDisasterRule,
       })
       showToast('Activity log added.', 'success')
       resetForm(); setShowForm(false)
@@ -554,12 +586,19 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
                   onChange={e => {
                     const newType = e.target.value
                     setActivityType(newType)
+                    if (newType !== 'Other') setActivityTypeOtherSpecify('')
                     if (PRE_PLANTING_ACTIVITIES.includes(newType)) setPlantCondition('')
                     setPendingSuggestion(null)
                   }}>
                   <option value="">Select Activity</option>
                   {ACTIVITY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
+                {activityType === 'Other' && (
+                  <input type="text" className={`${baseInputClasses} mt-2`}
+                    placeholder="Please specify the activity"
+                    value={activityTypeOtherSpecify}
+                    onChange={e => setActivityTypeOtherSpecify(e.target.value)} />
+                )}
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-700">Date of Activity *</label>
@@ -612,9 +651,19 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-xs font-medium text-slate-700 mb-1 block">Area Affected (ha)</label>
+                    <label className="text-xs font-medium text-slate-700 mb-1 block">Area Affected (ha) *</label>
                     <input type="number" step="0.0001" value={areaAffected}
-                      onChange={e => setAreaAffected(e.target.value)} placeholder="e.g. 1.50" className={baseInputClasses} />
+                      onChange={e => {
+                        setAreaAffected(e.target.value)
+                        setAreaAffectedError(validateAreaAffected(e.target.value))
+                      }}
+                      placeholder="e.g. 1.50"
+                      className={`${baseInputClasses} ${areaAffectedError ? 'border-rose-400' : ''}`} />
+                    {areaAffectedError ? (
+                      <p className="mt-1 text-[11px] font-medium text-rose-600">{areaAffectedError}</p>
+                    ) : plantedArea != null ? (
+                      <p className="mt-1 text-[11px] text-slate-500">Planted area: {plantedArea} ha</p>
+                    ) : null}
                   </div>
                   <div>
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Severity</label>
@@ -626,6 +675,33 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
                     </select>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {/* Disaster Remedy fields */}
+            {showRemedyFields && (
+              <div className="bg-rose-50 border border-rose-100 rounded-xl p-3">
+                <p className="text-xs font-semibold text-rose-800 mb-2 flex items-center gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5" /> Disaster Remedy Details
+                </p>
+                <div className="mb-2">
+                  <label className="text-xs font-medium text-slate-700 mb-1 block">Related Disaster *</label>
+                  <select className={baseInputClasses} value={remedyDisasterId}
+                    onChange={e => setRemedyDisasterId(e.target.value)}>
+                    <option value="">Select disaster</option>
+                    {activeDisasters.map(d => (
+                      <option key={d.id} value={d.id}>
+                        {otherLabel(d.disaster_type, d.disaster_type_other_specify)} — reported {fmtDate(d.date_of_occurrence)}
+                      </option>
+                    ))}
+                  </select>
+                  {activeDisasters.length === 0 && (
+                    <p className="mt-1 text-[11px] text-rose-600">No active disaster reports on this record.</p>
+                  )}
+                </div>
+                <p className="text-[11px] text-rose-500">
+                  This remedy will not automatically satisfy any recommended response rule — describe it in the Notes field below.
+                </p>
               </div>
             )}
 
@@ -644,9 +720,11 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
             )}
 
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Recommendations</label>
+              <label className="mb-1 block text-xs font-medium text-slate-700">
+                {showRemedyFields ? 'Remedy Performed *' : 'Recommendations'}
+              </label>
               <textarea rows={3} className={`${baseInputClasses} resize-none`}
-                placeholder="Recommendations (optional)"
+                placeholder={showRemedyFields ? 'Describe the remedy performed' : 'Recommendations (optional)'}
                 value={notes} onChange={e => setNotes(e.target.value)} />
             </div>
 
@@ -679,6 +757,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
               if (event._type === 'disaster') {
                 const isExpanded = expandedDisasters.has(event.id)
                 const hasDetails = event.area_affected_ha || event.estimated_damage || event.production_loss
+                const isResolved = event.status === 'Resolved'
                 return (
                   <div key={`d-${event.id}`} className="py-3">
                     <button
@@ -692,43 +771,50 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
                       })}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <span className="flex items-center gap-1.5 text-sm font-semibold text-rose-700">
-                          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" /> {event.disaster_type} — Disaster Report
-                          {event.status === 'Resolved' ? (
+                        <span className={`flex items-center gap-1.5 text-sm font-semibold ${isResolved ? 'text-emerald-700' : 'text-rose-700'}`}>
+                          <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" /> {otherLabel(event.disaster_type, event.disaster_type_other_specify)} — Disaster Report
+                          {isResolved ? (
                             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Resolved</span>
                           ) : (
                             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">Active</span>
                           )}
                         </span>
                         <div className="flex items-center gap-1.5 shrink-0">
-                          <span className="text-xs text-rose-400">{fmtDate(event.date_of_occurrence)}</span>
+                          <span className={`text-xs ${isResolved ? 'text-emerald-500' : 'text-rose-400'}`}>{fmtDate(event.date_of_occurrence)}</span>
                           {hasDetails && (
-                            <span className="text-xs text-rose-300">
+                            <span className={`text-xs ${isResolved ? 'text-emerald-400' : 'text-rose-300'}`}>
                               {isExpanded ? '▲' : '▼'}
                             </span>
                           )}
                         </div>
                       </div>
+                      {isResolved && event.resolved_date && (
+                        <p className="text-xs text-emerald-600 mt-0.5">
+                          Resolved on {fmtDate(event.resolved_date)}{event.resolved_by_name ? ` by ${event.resolved_by_name}` : ''}
+                        </p>
+                      )}
                       {!isExpanded && event.area_affected_ha && (
-                        <p className="text-xs text-rose-500 mt-0.5">Area: {event.area_affected_ha} ha</p>
+                        <p className={`text-xs mt-0.5 ${isResolved ? 'text-emerald-500' : 'text-rose-500'}`}>Area: {event.area_affected_ha} ha</p>
                       )}
                     </button>
                     {isExpanded && (
-                      <div className="mt-1.5 rounded-lg bg-rose-50 border border-rose-100 px-3 py-2 space-y-1">
-                        {event.status === 'Resolved' && event.resolved_date && (
+                      <div className={`mt-1.5 rounded-lg border px-3 py-2 space-y-1 ${
+                        isResolved ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-100'
+                      }`}>
+                        {isResolved && event.resolved_date && (
                           <p className="text-xs text-emerald-700"><span className="font-medium">Resolved on:</span> {fmtDate(event.resolved_date)}{event.resolved_by_name ? ` by ${event.resolved_by_name}` : ''}</p>
                         )}
                         {event.area_affected_ha && (
-                          <p className="text-xs text-rose-700"><span className="font-medium">Area affected:</span> {event.area_affected_ha} ha</p>
+                          <p className={`text-xs ${isResolved ? 'text-emerald-700' : 'text-rose-700'}`}><span className="font-medium">Area affected:</span> {event.area_affected_ha} ha</p>
                         )}
                         {event.estimated_damage && (
-                          <p className="text-xs text-rose-700"><span className="font-medium">Damage:</span> {event.estimated_damage}</p>
+                          <p className={`text-xs ${isResolved ? 'text-emerald-700' : 'text-rose-700'}`}><span className="font-medium">Damage:</span> {event.estimated_damage}</p>
                         )}
                         {event.production_loss && (
-                          <p className="text-xs text-rose-700"><span className="font-medium">Production loss:</span> {event.production_loss}</p>
+                          <p className={`text-xs ${isResolved ? 'text-emerald-700' : 'text-rose-700'}`}><span className="font-medium">Production loss:</span> {event.production_loss}</p>
                         )}
                         {!hasDetails && (
-                          <p className="text-xs text-rose-400 italic">No additional details recorded.</p>
+                          <p className={`text-xs italic ${isResolved ? 'text-emerald-400' : 'text-rose-400'}`}>No additional details recorded.</p>
                         )}
                       </div>
                     )}
@@ -736,12 +822,20 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
                 )
               }
               const log = event
+              const remedyDisaster = log.activity_type === 'Disaster Remedy' && log.disaster_report
+                ? disasters.find(d => d.id === log.disaster_report)
+                : null
               return (
-                <div key={`l-${log.id}`} className="py-3">
+                <div key={`l-${log.id}`} className={`py-3 ${remedyDisaster ? 'border-l-2 border-rose-300 pl-3 -ml-px' : ''}`}>
                   <div className="flex items-start justify-between gap-2">
-                    <span className="text-sm font-medium text-slate-900">{log.activity_type}</span>
+                    <span className="text-sm font-medium text-slate-900">{otherLabel(log.activity_type, log.activity_type_other_specify)}</span>
                     <span className="shrink-0 text-xs text-slate-400">{fmtDate(log.date_of_activity)}</span>
                   </div>
+                  {remedyDisaster && (
+                    <p className="text-xs text-rose-600 mt-0.5">
+                      Remedy for: {otherLabel(remedyDisaster.disaster_type, remedyDisaster.disaster_type_other_specify)} reported {fmtDate(remedyDisaster.date_of_occurrence)}
+                    </p>
+                  )}
                   {log.plant_condition && (
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full mt-1 inline-block ${
                       log.plant_condition === 'Good' ? 'bg-green-100 text-green-700'
@@ -949,6 +1043,7 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
 function DisasterReportModal({ record, onClose, onSuccess }) {
   const { showToast } = useToast()
   const [disasterType,      setDisasterType]      = useState('')
+  const [disasterTypeOtherSpecify, setDisasterTypeOtherSpecify] = useState('')
   const [dateOfOccurrence,  setDateOfOccurrence]  = useState(todayISO())
   const [areaAffectedHa,    setAreaAffectedHa]    = useState('')
   const [estimatedDamage,   setEstimatedDamage]   = useState('')
@@ -980,6 +1075,7 @@ function DisasterReportModal({ record, onClose, onSuccess }) {
 
   const handleSubmitClick = () => {
     if (!disasterType) { showToast('Please select a disaster type.', 'error'); return }
+    if (disasterType === 'Other' && !disasterTypeOtherSpecify.trim()) { showToast('Please specify the disaster type.', 'error'); return }
     const aErr = validateArea(areaAffectedHa)
     const dErr = validateDate(dateOfOccurrence)
     setAreaError(aErr)
@@ -994,6 +1090,7 @@ function DisasterReportModal({ record, onClose, onSuccess }) {
     try {
       await api.post(`/production/monitoring/${record.id}/disasters/`, {
         disaster_type:      disasterType,
+        disaster_type_other_specify: disasterType === 'Other' ? disasterTypeOtherSpecify.trim() : '',
         date_of_occurrence: dateOfOccurrence,
         area_affected_ha:   parseFloat(isTotalLoss && maxArea ? maxArea : areaAffectedHa),
         estimated_damage:   estimatedDamage,
@@ -1020,10 +1117,18 @@ function DisasterReportModal({ record, onClose, onSuccess }) {
         maxWidth="max-w-md"
       >
         <div className="space-y-3">
+          <GrowthProgressBar
+            startLabel="Planted"
+            startDate={record.date_planted}
+            expectedHarvestDate={record.expected_harvest_date}
+          />
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-700">Disaster Type *</label>
             <select className={baseInputClasses} value={disasterType}
-              onChange={e => setDisasterType(e.target.value)}>
+              onChange={e => {
+                setDisasterType(e.target.value)
+                if (e.target.value !== 'Other') setDisasterTypeOtherSpecify('')
+              }}>
               <option value="">Select type</option>
               <option value="Drought">Drought</option>
               <option value="Flood">Flood</option>
@@ -1032,6 +1137,12 @@ function DisasterReportModal({ record, onClose, onSuccess }) {
               <option value="Pest Outbreak">Pest Outbreak</option>
               <option value="Other">Other</option>
             </select>
+            {disasterType === 'Other' && (
+              <input type="text" className={`${baseInputClasses} mt-2`}
+                placeholder="Please specify the disaster type"
+                value={disasterTypeOtherSpecify}
+                onChange={e => setDisasterTypeOtherSpecify(e.target.value)} />
+            )}
           </div>
 
           <div>
@@ -1130,12 +1241,40 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
   const [unitOfMeasure,     setUnitOfMeasure]     = useState('kg')
   const [quantityHarvested, setQuantityHarvested] = useState('')
   const [harvestNotes,      setHarvestNotes]      = useState('')
+  const [earlyLateReason,   setEarlyLateReason]   = useState('')
   const [showConfirm,       setShowConfirm]       = useState(false)
   const [showSoftConfirm,   setShowSoftConfirm]   = useState(false)
   const [isSubmitting,      setIsSubmitting]      = useState(false)
   const [dateError,         setDateError]         = useState('')
   const [areaError,         setAreaError]         = useState('')
   const [quantityError,     setQuantityError]     = useState('')
+  const [resolvableDisasters, setResolvableDisasters] = useState([])
+  const [dismissedDisasterIds, setDismissedDisasterIds] = useState(new Set())
+  const [resolvingId,       setResolvingId]       = useState(null)
+
+  useEffect(() => {
+    api.get(`/production/monitoring/${record.id}/suggestions/`)
+      .then(r => {
+        const ready = (r.data.disaster_response || []).filter(d => d.status !== 'Resolved' && d.all_rules_done)
+        setResolvableDisasters(ready)
+      })
+      .catch(() => {})
+  }, [record.id])
+
+  const handleMarkResolved = async (disasterId) => {
+    setResolvingId(disasterId)
+    try {
+      await api.post(`/production/disasters/${disasterId}/resolve/`)
+      showToast('Disaster marked as resolved.', 'success')
+      setResolvableDisasters(prev => prev.filter(d => d.disaster_id !== disasterId))
+    } catch (err) {
+      showToast(err?.response?.data?.detail || 'Failed to resolve disaster.', 'error')
+    } finally {
+      setResolvingId(null)
+    }
+  }
+
+  const visibleResolvableDisasters = resolvableDisasters.filter(d => !dismissedDisasterIds.has(d.disaster_id))
 
   const cropName     = record.crop_type_name || 'this crop'
   const maxArea      = record.area_planted_ha ? parseFloat(record.area_planted_ha) : null
@@ -1143,6 +1282,19 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
   const softLow      = estYield ? +(estYield * 0.70).toFixed(2) : null
   const softHigh     = estYield ? +(estYield * 1.30).toFixed(2) : null
   const hardMax      = estYield ? +(estYield * 2).toFixed(2) : null
+
+  const expectedHarvestDate = record.expected_harvest_date || null
+  const daysFromNowToExpected = expectedHarvestDate
+    ? Math.round((new Date(expectedHarvestDate + 'T00:00:00') - new Date(new Date().toDateString())) / 86400000)
+    : null
+  const harvestVarianceDays = (expectedHarvestDate && harvestStartDate)
+    ? Math.round((new Date(harvestStartDate + 'T00:00:00') - new Date(expectedHarvestDate + 'T00:00:00')) / 86400000)
+    : null
+  const isEarly = harvestVarianceDays !== null && harvestVarianceDays < -7
+  const isLate = harvestVarianceDays !== null && harvestVarianceDays > 7
+  const reasonRequired = isEarly || isLate
+  const EARLY_REASONS = ['Emergency harvest — disaster damage', 'Buyer demand', 'Crop matured early', 'Other']
+  const LATE_REASONS = ['Delayed field visit', 'Weather', 'Labor unavailable', 'Other']
 
   const yieldPerHa = areaHarvested > 0 && quantityHarvested > 0
     ? (parseFloat(quantityHarvested) / parseFloat(areaHarvested)).toFixed(2)
@@ -1180,6 +1332,10 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
     setAreaError(aErr)
     setQuantityError(qErr)
     if (aErr || qErr || dateError) return
+    if (reasonRequired && !earlyLateReason.trim()) {
+      showToast(`A reason is required — this harvest is ${Math.abs(harvestVarianceDays)} days ${isEarly ? 'early' : 'late'}.`, 'error')
+      return
+    }
 
     const qty = parseFloat(quantityHarvested)
     const isSoftOutOfRange = softLow !== null && softHigh !== null && (qty < softLow || qty > softHigh)
@@ -1210,6 +1366,7 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
         volume_kg:               parseFloat(quantityHarvested),
         unit_of_measure:         unitOfMeasure,
         yield_per_hectare_kg:    yieldPerHa ? parseFloat(yieldPerHa) : null,
+        early_late_reason:       reasonRequired ? earlyLateReason.trim() : '',
         remarks:                 harvestNotes,
       })
 
@@ -1233,6 +1390,35 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
         maxWidth="max-w-md"
       >
         <div className="space-y-3">
+          {visibleResolvableDisasters.map(d => (
+            <div key={d.disaster_id} className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+              <p className="text-xs text-emerald-800 mb-2">
+                This crop has an unresolved <span className="font-semibold">{d.disaster_type}</span> with all recommended responses completed. Resolve it now?
+              </p>
+              <div className="flex gap-2">
+                <button type="button" disabled={resolvingId === d.disaster_id}
+                  onClick={() => handleMarkResolved(d.disaster_id)}
+                  className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-60">
+                  {resolvingId === d.disaster_id ? 'Resolving…' : 'Mark Resolved'}
+                </button>
+                <button type="button"
+                  onClick={() => setDismissedDisasterIds(prev => new Set(prev).add(d.disaster_id))}
+                  className="rounded-lg border border-emerald-300 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100">
+                  Keep Active
+                </button>
+              </div>
+            </div>
+          ))}
+
+          {expectedHarvestDate && (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+              Expected harvest: <span className="font-medium text-slate-800">{expectedHarvestDate}</span>{' '}
+              ({daysFromNowToExpected >= 0
+                ? `${daysFromNowToExpected} day${daysFromNowToExpected !== 1 ? 's' : ''} from now`
+                : `${Math.abs(daysFromNowToExpected)} day${Math.abs(daysFromNowToExpected) !== 1 ? 's' : ''} ago`})
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700">Harvest Start Date *</label>
@@ -1254,6 +1440,28 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
             </div>
           </div>
           {dateError && <p className="text-xs font-medium text-rose-600">{dateError}</p>}
+
+          {reasonRequired && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+              <p className="text-xs font-medium text-amber-800 mb-2">
+                This is {Math.abs(harvestVarianceDays)} days {isEarly ? 'earlier' : 'later'} than the expected harvest date.
+              </p>
+              <label className="mb-1 block text-xs font-medium text-slate-700">
+                Reason for {isEarly ? 'early' : 'late'} harvest *
+              </label>
+              <input
+                type="text"
+                list="harvest-reason-options"
+                className={baseInputClasses}
+                value={earlyLateReason}
+                onChange={e => setEarlyLateReason(e.target.value)}
+                placeholder="Select or type a reason"
+              />
+              <datalist id="harvest-reason-options">
+                {(isEarly ? EARLY_REASONS : LATE_REASONS).map(r => <option key={r} value={r} />)}
+              </datalist>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -1330,7 +1538,8 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
               className="rounded-xl px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-100 transition-colors">
               Cancel
             </button>
-            <button type="button" onClick={handleSubmitClick} disabled={isSubmitting}
+            <button type="button" onClick={handleSubmitClick}
+              disabled={isSubmitting || (reasonRequired && !earlyLateReason.trim())}
               className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-60 transition-colors">
               {isSubmitting ? 'Saving…' : 'Save Harvest Record'}
             </button>
@@ -1361,197 +1570,6 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
   )
 }
 
-// ── Delete Crop Record Modal ──────────────────────────────────────────────────
-
-function DeleteCropRecordModal({ record, onClose, onDeleted }) {
-  const { showToast } = useToast()
-  const [confirmText, setConfirmText] = useState('')
-  const [isDeleting,  setIsDeleting]  = useState(false)
-
-  const hasChildren = (record.log_count > 0) || (record.disasters_count > 0)
-
-  const handleDelete = async () => {
-    setIsDeleting(true)
-    try {
-      await api.delete(`/production/monitoring/${record.id}/`)
-      showToast('Crop record deleted.', 'success')
-      onDeleted()
-    } catch (err) {
-      showToast(err?.response?.data?.detail || 'Failed to delete record.', 'error')
-      setIsDeleting(false)
-    }
-  }
-
-  if (!hasChildren) {
-    return (
-      <ConfirmDialog
-        title="Delete Crop Record"
-        message={`Are you sure you want to delete "${record.crop_type_name}"? This cannot be undone.`}
-        confirmLabel="Delete"
-        variant="danger"
-        onConfirm={handleDelete}
-        onCancel={onClose}
-      />
-    )
-  }
-
-  return (
-    <ModalShell title="Delete Crop Record" onClose={onClose} maxWidth="max-w-sm">
-      <div className="space-y-3">
-        <p className="text-[13px] text-[#4A5E4A]">
-          This record has{' '}
-          {record.log_count > 0 && `${record.log_count} activity log${record.log_count !== 1 ? 's' : ''}`}
-          {record.log_count > 0 && record.disasters_count > 0 && ' and '}
-          {record.disasters_count > 0 && `${record.disasters_count} disaster report${record.disasters_count !== 1 ? 's' : ''}`}.
-          {' '}All will be permanently deleted.
-        </p>
-        <p className="text-[13px] font-medium text-[#1A2B1A]">
-          Type <span className="font-mono font-bold">DELETE</span> to confirm:
-        </p>
-        <input
-          className={baseInputClasses}
-          value={confirmText}
-          onChange={e => setConfirmText(e.target.value)}
-          placeholder="Type DELETE"
-          autoFocus
-        />
-        <div className="flex justify-end gap-2 pt-2 border-t border-[#F0F4F0]">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5]"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            disabled={confirmText !== 'DELETE' || isDeleting}
-            onClick={handleDelete}
-            className="rounded-lg bg-rose-600 px-4 py-2 text-[13px] font-medium text-white hover:bg-rose-700 disabled:opacity-50"
-          >
-            {isDeleting ? 'Deleting…' : 'Delete Permanently'}
-          </button>
-        </div>
-      </div>
-    </ModalShell>
-  )
-}
-
-// ── Edit Crop Monitoring Record Modal ────────────────────────────────────────
-
-function EditCropMonitoringModal({ record, onClose, onSaved }) {
-  const { showToast } = useToast()
-  const [form, setForm] = useState({
-    date_planted:       record.date_planted       || '',
-    area_planted_ha:    record.area_planted_ha     ? String(record.area_planted_ha) : '',
-    season:             record.season              || 'Wet',
-    current_growth_stage: record.current_growth_stage || '',
-    variety_used:       record.variety_used        || '',
-    land_status:        record.land_status         || '',
-    notes:              record.notes               || '',
-  })
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  const GROWTH_STAGES = ['Land Preparation','Planted','Vegetative','Flowering','Fruiting','Maturity','Near Harvest','Harvested']
-  const LAND_STATUSES = ['Owner','Lessee','Tenant','Other']
-
-  const handleSave = async () => {
-    if (!form.date_planted) { showToast('Date planted is required.', 'error'); return }
-    if (!form.area_planted_ha || parseFloat(form.area_planted_ha) <= 0) { showToast('Area planted must be greater than 0.', 'error'); return }
-    setIsSubmitting(true)
-    try {
-      await api.patch(`/production/monitoring/${record.id}/`, {
-        date_planted:          form.date_planted,
-        area_planted_ha:       parseFloat(form.area_planted_ha),
-        season:                form.season,
-        current_growth_stage:  form.current_growth_stage,
-        variety_used:          form.variety_used,
-        land_status:           form.land_status,
-        notes:                 form.notes,
-      })
-      showToast('Crop record updated.', 'success')
-      onSaved()
-    } catch (err) {
-      showToast(err?.response?.data?.detail || 'Failed to update record.', 'error')
-    } finally { setIsSubmitting(false) }
-  }
-
-  const cropName = record.crop_type_name || 'Crop Record'
-
-  return (
-    <ModalShell
-      title={`Edit — ${cropName}`}
-      subtitle="Update crop monitoring record details"
-      icon={Pencil}
-      onClose={onClose}
-      maxWidth="max-w-md"
-    >
-      <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">Date Planted *</label>
-            <input type="date" className={baseInputClasses} value={form.date_planted}
-              onChange={e => setForm(f => ({ ...f, date_planted: e.target.value }))} />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">Season</label>
-            <select className={baseInputClasses} value={form.season}
-              onChange={e => setForm(f => ({ ...f, season: e.target.value }))}>
-              <option value="Wet">Wet</option>
-              <option value="Dry">Dry</option>
-            </select>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">Area Planted (ha) *</label>
-            <input type="number" step="0.0001" className={baseInputClasses} value={form.area_planted_ha}
-              onChange={e => setForm(f => ({ ...f, area_planted_ha: e.target.value }))}
-              placeholder="e.g. 2.50" />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">Land Status</label>
-            <select className={baseInputClasses} value={form.land_status}
-              onChange={e => setForm(f => ({ ...f, land_status: e.target.value }))}>
-              <option value="">— Select —</option>
-              {LAND_STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-700">Current Growth Stage</label>
-          <select className={baseInputClasses} value={form.current_growth_stage}
-            onChange={e => setForm(f => ({ ...f, current_growth_stage: e.target.value }))}>
-            <option value="">— Select —</option>
-            {GROWTH_STAGES.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-700">Variety Used</label>
-          <input type="text" className={baseInputClasses} value={form.variety_used}
-            onChange={e => setForm(f => ({ ...f, variety_used: e.target.value }))}
-            placeholder="e.g. NSIC Rc 222" />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs font-medium text-slate-700">Notes</label>
-          <textarea rows={2} className={`${baseInputClasses} resize-none`} value={form.notes}
-            onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
-        </div>
-        <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
-          <button type="button" onClick={onClose}
-            className="rounded-xl px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-100 transition-colors">
-            Cancel
-          </button>
-          <button type="button" onClick={handleSave} disabled={isSubmitting}
-            className="bg-[#1B4D2E] hover:bg-[#235E38] text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-60 transition-colors">
-            {isSubmitting ? 'Saving…' : 'Save Changes'}
-          </button>
-        </div>
-      </div>
-    </ModalShell>
-  )
-}
-
 // ── Helper ────────────────────────────────────────────────────────────────────
 
 function isNearHarvest(row) {
@@ -1576,7 +1594,6 @@ const COLUMNS = [
 ]
 
 export default function CropMonitoringPage() {
-  const { user }   = useAuth()
   const navigate   = useNavigate()
   const [searchParams] = useSearchParams()
 
@@ -1591,11 +1608,8 @@ export default function CropMonitoringPage() {
   const [yearFilter,       setYearFilter]       = useState('')
   const [barangayFilter,   setBarangayFilter]   = useState(() => searchParams.get('barangay') || '')
   const [viewLogsRecord,   setViewLogsRecord]   = useState(null)
-  const [editRecord,       setEditRecord]       = useState(null)
   const [disasterRecord,   setDisasterRecord]   = useState(null)
   const [harvestRecord,    setHarvestRecord]    = useState(null)
-  const [deleteRecord,     setDeleteRecord]     = useState(null)
-  const dropdownRef = useRef(null)
 
   // Handle ?filter=for_harvest from dashboard
   useEffect(() => {
@@ -1673,15 +1687,7 @@ export default function CropMonitoringPage() {
         >
           <Eye className="w-4 h-4" />
         </button>
-        <button
-          type="button"
-          title="Edit Record"
-          onClick={() => setEditRecord(rec)}
-          className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-[#1B4D2E] transition-colors"
-        >
-          <Pencil className="w-4 h-4" />
-        </button>
-        {rec.status !== 'Total Loss' && (
+        {rec.status !== 'Total Loss' && rec.status !== 'Harvested' && (
           <button
             type="button"
             title="Record Harvest"
@@ -1703,16 +1709,6 @@ export default function CropMonitoringPage() {
         >
           <AlertTriangle className="w-4 h-4" />
         </button>
-        {user?.role === 'ADMIN' && (
-          <button
-            type="button"
-            title="Delete Record"
-            onClick={() => setDeleteRecord(rec)}
-            className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-colors"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        )}
       </div>
     ),
   }))
@@ -1860,21 +1856,6 @@ export default function CropMonitoringPage() {
         />
       )}
 
-      {deleteRecord && (
-        <DeleteCropRecordModal
-          record={deleteRecord}
-          onClose={() => setDeleteRecord(null)}
-          onDeleted={() => { setDeleteRecord(null); fetchRecords(page) }}
-        />
-      )}
-
-      {editRecord && (
-        <EditCropMonitoringModal
-          record={editRecord}
-          onClose={() => setEditRecord(null)}
-          onSaved={() => { setEditRecord(null); fetchRecords(page) }}
-        />
-      )}
     </PageLayout>
   )
 }

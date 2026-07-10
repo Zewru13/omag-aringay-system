@@ -12,7 +12,7 @@ from accounts.permissions import IsAdminOrEvaluator
 
 from .models import (
     AquacultureFeedingLog, AquacultureHealthLog, AquacultureProductionCycle,
-    FarmVisit, FisheriesAssistanceRecord, FisheriesDisasterReport,
+    FarmVisit, FisheriesAssistanceRecord, FisherfolkDisasterReport,
     FisheryInputLog, FishingTripLog, TripSpeciesEntry, VesselInspection,
 )
 from .serializers import (
@@ -21,7 +21,7 @@ from .serializers import (
     AquacultureProductionCycleSerializer,
     FarmVisitSerializer,
     FisheriesAssistanceSerializer,
-    FisheriesDisasterReportSerializer,
+    FisherfolkDisasterReportSerializer,
     FisheryInputLogSerializer,
     FishingTripLogSerializer,
     TripSpeciesEntrySerializer,
@@ -413,15 +413,15 @@ class AquacultureHealthLogDeleteView(generics.DestroyAPIView):
     queryset = AquacultureHealthLog.objects.all()
 
 
-# ─── Fisheries Disaster Reports ──────────────────────────────────────────────
+# ─── Fisherfolk Disaster Reports ─────────────────────────────────────────────
 
-class FisheriesDisasterReportListCreateView(generics.ListCreateAPIView):
-    serializer_class = FisheriesDisasterReportSerializer
+class FisherfolkDisasterReportListCreateView(generics.ListCreateAPIView):
+    serializer_class = FisherfolkDisasterReportSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     pagination_class = None
 
     def get_queryset(self):
-        qs = FisheriesDisasterReport.objects.select_related('fisherfolk').order_by('-report_date')
+        qs = FisherfolkDisasterReport.objects.select_related('fisherfolk').order_by('-report_date')
         params = self.request.query_params
         if params.get('fisherfolk'):
             qs = qs.filter(fisherfolk_id=params['fisherfolk'])
@@ -435,10 +435,10 @@ class FisheriesDisasterReportListCreateView(generics.ListCreateAPIView):
         serializer.save(recorded_by=self.request.user)
 
 
-class FisheriesDisasterReportDetailView(generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = FisheriesDisasterReportSerializer
+class FisherfolkDisasterReportDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = FisherfolkDisasterReportSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    queryset = FisheriesDisasterReport.objects.select_related('fisherfolk')
+    queryset = FisherfolkDisasterReport.objects.select_related('fisherfolk')
     http_method_names = ['get', 'patch', 'delete']
 
 

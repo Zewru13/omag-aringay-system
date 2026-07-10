@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Eye, Fish, Pencil, Plus, Search, Trash2, User, Wheat } from 'lucide-react'
+import { AlertTriangle, Eye, Fish, MoreVertical, Pencil, Plus, Search, Trash2, User, Wheat } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DisasterDot from '../../components/UI/DisasterDot.jsx'
+import HarvestVarianceBadge from '../../components/UI/HarvestVarianceBadge.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
@@ -241,6 +242,7 @@ function makeRecord(n) {
     _id:                  n,
     pond_location_barangay: '',
     land_status:          '',
+    land_status_other_specify: '',
     culture_type:         'Pond',
     species:              '',
     date_stocked:         '',
@@ -251,7 +253,9 @@ function makeRecord(n) {
     number_of_units:      '',
     unit_dimensions:      '',
     water_source:         '',
+    water_source_other_specify: '',
     fingerling_source:    '',
+    fingerling_source_other_specify: '',
     avg_fingerling_size:  '',
     season:               detectSeason(''),
     _speciesObj:          null,
@@ -291,13 +295,23 @@ function StockingRecordCard({ rec, index, total, speciesList, onUpdate, onRemove
           onChange={e => set('pond_location_barangay', e.target.value)}
         />
         <FormField label="Land Status">
-          <select className={baseInputClasses} value={rec.land_status} onChange={e => set('land_status', e.target.value)}>
+          <select className={baseInputClasses} value={rec.land_status}
+            onChange={e => {
+              set('land_status', e.target.value)
+              if (e.target.value !== 'Other') set('land_status_other_specify', '')
+            }}>
             <option value="">Select…</option>
             <option value="Owner">Owner</option>
             <option value="Lessee">Lessee</option>
             <option value="Tenant">Tenant</option>
             <option value="Other">Other</option>
           </select>
+          {rec.land_status === 'Other' && (
+            <input type="text" className={`${baseInputClasses} mt-2`}
+              placeholder="Please specify land status"
+              value={rec.land_status_other_specify}
+              onChange={e => set('land_status_other_specify', e.target.value)} />
+          )}
         </FormField>
       </div>
 
@@ -356,7 +370,11 @@ function StockingRecordCard({ rec, index, total, speciesList, onUpdate, onRemove
 
       <div className="grid gap-3 sm:grid-cols-2">
         <FormField label="Water Source">
-          <select className={baseInputClasses} value={rec.water_source} onChange={e => set('water_source', e.target.value)}>
+          <select className={baseInputClasses} value={rec.water_source}
+            onChange={e => {
+              set('water_source', e.target.value)
+              if (e.target.value !== 'Other') set('water_source_other_specify', '')
+            }}>
             <option value="">Select…</option>
             <option value="River">River</option>
             <option value="Spring">Spring</option>
@@ -364,15 +382,31 @@ function StockingRecordCard({ rec, index, total, speciesList, onUpdate, onRemove
             <option value="Deep Well">Deep Well</option>
             <option value="Other">Other</option>
           </select>
+          {rec.water_source === 'Other' && (
+            <input type="text" className={`${baseInputClasses} mt-2`}
+              placeholder="Please specify water source"
+              value={rec.water_source_other_specify}
+              onChange={e => set('water_source_other_specify', e.target.value)} />
+          )}
         </FormField>
         <FormField label="Fingerling/Fry Source">
-          <select className={baseInputClasses} value={rec.fingerling_source} onChange={e => set('fingerling_source', e.target.value)}>
+          <select className={baseInputClasses} value={rec.fingerling_source}
+            onChange={e => {
+              set('fingerling_source', e.target.value)
+              if (e.target.value !== 'Other') set('fingerling_source_other_specify', '')
+            }}>
             <option value="">Select…</option>
             <option value="BFAR">BFAR</option>
             <option value="Private Hatchery">Private Hatchery</option>
             <option value="Own Production">Own Production</option>
             <option value="Other">Other</option>
           </select>
+          {rec.fingerling_source === 'Other' && (
+            <input type="text" className={`${baseInputClasses} mt-2`}
+              placeholder="Please specify fingerling source"
+              value={rec.fingerling_source_other_specify}
+              onChange={e => set('fingerling_source_other_specify', e.target.value)} />
+          )}
         </FormField>
       </div>
 
@@ -506,6 +540,7 @@ function AddStockingModal({ onClose, onSuccess }) {
           species:                  rec.species,
           pond_location_barangay:   rec.pond_location_barangay || '',
           land_status:              rec.land_status || '',
+          land_status_other_specify: rec.land_status === 'Other' ? (rec.land_status_other_specify || '') : '',
           culture_type:             rec.culture_type,
           date_stocked:             rec.date_stocked,
           area_hectares:            rec.area_hectares ? parseFloat(rec.area_hectares) : null,
@@ -513,9 +548,11 @@ function AddStockingModal({ onClose, onSuccess }) {
           survival_rate_pct:        rec.survival_rate_pct !== '' ? parseFloat(rec.survival_rate_pct) : null,
           avg_body_weight_kg:       rec.avg_body_weight_kg !== '' ? parseFloat(rec.avg_body_weight_kg) : null,
           water_source:             rec.water_source || '',
+          water_source_other_specify: rec.water_source === 'Other' ? (rec.water_source_other_specify || '') : '',
           number_of_units:          rec.number_of_units !== '' ? parseInt(rec.number_of_units) : null,
           unit_dimensions:          rec.unit_dimensions || '',
           fingerling_source:        rec.fingerling_source || '',
+          fingerling_source_other_specify: rec.fingerling_source === 'Other' ? (rec.fingerling_source_other_specify || '') : '',
           avg_fingerling_size:      rec.avg_fingerling_size || '',
           season:                   rec.season,
           year,
@@ -633,6 +670,7 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
   const originalData = {
     pond_location_barangay: record.pond_location_barangay || '',
     land_status:            record.land_status || '',
+    land_status_other_specify: record.land_status_other_specify || '',
     culture_type:           record.culture_type || 'Pond',
     date_stocked:           record.date_stocked || '',
     area_hectares:          record.area_hectares != null ? String(record.area_hectares) : '',
@@ -642,7 +680,9 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
     number_of_units:        record.number_of_units != null ? String(record.number_of_units) : '',
     unit_dimensions:        record.unit_dimensions || '',
     water_source:           record.water_source || '',
+    water_source_other_specify: record.water_source_other_specify || '',
     fingerling_source:      record.fingerling_source || '',
+    fingerling_source_other_specify: record.fingerling_source_other_specify || '',
     avg_fingerling_size:    record.avg_fingerling_size || '',
     season:                 record.season || '',
   }
@@ -679,6 +719,7 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
       await api.patch(`/fisheries/stocking/${record.id}/`, {
         pond_location_barangay: form.pond_location_barangay,
         land_status:            form.land_status,
+        land_status_other_specify: form.land_status === 'Other' ? form.land_status_other_specify : '',
         culture_type:           form.culture_type,
         date_stocked:           form.date_stocked,
         area_hectares:          form.area_hectares !== '' ? parseFloat(form.area_hectares) : null,
@@ -686,9 +727,11 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
         survival_rate_pct:      form.survival_rate_pct !== '' ? parseFloat(form.survival_rate_pct) : null,
         avg_body_weight_kg:     form.avg_body_weight_kg !== '' ? parseFloat(form.avg_body_weight_kg) : null,
         water_source:           form.water_source || '',
+        water_source_other_specify: form.water_source === 'Other' ? form.water_source_other_specify : '',
         number_of_units:        form.number_of_units !== '' ? parseInt(form.number_of_units) : null,
         unit_dimensions:        form.unit_dimensions || '',
         fingerling_source:      form.fingerling_source || '',
+        fingerling_source_other_specify: form.fingerling_source === 'Other' ? form.fingerling_source_other_specify : '',
         avg_fingerling_size:    form.avg_fingerling_size || '',
         season:                 form.season,
       })
@@ -737,13 +780,23 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
             <label className={editLabelCls}>Land Status</label>
-            <select className={baseInputClasses} value={form.land_status} onChange={e => set('land_status', e.target.value)}>
+            <select className={baseInputClasses} value={form.land_status}
+              onChange={e => {
+                set('land_status', e.target.value)
+                if (e.target.value !== 'Other') set('land_status_other_specify', '')
+              }}>
               <option value="">Select…</option>
               <option value="Owner">Owner</option>
               <option value="Lessee">Lessee</option>
               <option value="Tenant">Tenant</option>
               <option value="Other">Other</option>
             </select>
+            {form.land_status === 'Other' && (
+              <input type="text" className={`${baseInputClasses} mt-2`}
+                placeholder="Please specify land status"
+                value={form.land_status_other_specify}
+                onChange={e => set('land_status_other_specify', e.target.value)} />
+            )}
           </div>
           <div>
             <label className={editLabelCls}>Culture Type</label>
@@ -780,7 +833,11 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <label className={editLabelCls}>Water Source</label>
-            <select className={baseInputClasses} value={form.water_source} onChange={e => set('water_source', e.target.value)}>
+            <select className={baseInputClasses} value={form.water_source}
+              onChange={e => {
+                set('water_source', e.target.value)
+                if (e.target.value !== 'Other') set('water_source_other_specify', '')
+              }}>
               <option value="">Select…</option>
               <option value="River">River</option>
               <option value="Spring">Spring</option>
@@ -788,16 +845,32 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
               <option value="Deep Well">Deep Well</option>
               <option value="Other">Other</option>
             </select>
+            {form.water_source === 'Other' && (
+              <input type="text" className={`${baseInputClasses} mt-2`}
+                placeholder="Please specify water source"
+                value={form.water_source_other_specify}
+                onChange={e => set('water_source_other_specify', e.target.value)} />
+            )}
           </div>
           <div>
             <label className={editLabelCls}>Fingerling/Fry Source</label>
-            <select className={baseInputClasses} value={form.fingerling_source} onChange={e => set('fingerling_source', e.target.value)}>
+            <select className={baseInputClasses} value={form.fingerling_source}
+              onChange={e => {
+                set('fingerling_source', e.target.value)
+                if (e.target.value !== 'Other') set('fingerling_source_other_specify', '')
+              }}>
               <option value="">Select…</option>
               <option value="BFAR">BFAR</option>
               <option value="Private Hatchery">Private Hatchery</option>
               <option value="Own Production">Own Production</option>
               <option value="Other">Other</option>
             </select>
+            {form.fingerling_source === 'Other' && (
+              <input type="text" className={`${baseInputClasses} mt-2`}
+                placeholder="Please specify fingerling source"
+                value={form.fingerling_source_other_specify}
+                onChange={e => set('fingerling_source_other_specify', e.target.value)} />
+            )}
           </div>
         </div>
 
@@ -890,6 +963,145 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
   )
 }
 
+// ─── Detail Modal (Eye) ────────────────────────────────────────────────────────
+
+function StockingDetailModal({ record, onClose }) {
+  const landStatusDisplay =
+    record.land_status === 'Other' ? `Other — ${record.land_status_other_specify || ''}` : record.land_status || '—'
+  const waterSourceDisplay =
+    record.water_source === 'Other' ? `Other — ${record.water_source_other_specify || ''}` : record.water_source || '—'
+  const fingerlingSourceDisplay =
+    record.fingerling_source === 'Other' ? `Other — ${record.fingerling_source_other_specify || ''}` : record.fingerling_source || '—'
+  const fmtNum = (v) => (v == null ? '—' : Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+
+  const rows = [
+    ['Species', record.species_name || '—'],
+    ['Category', record.category_name || '—'],
+    ['Fisherfolk', record.fisherfolk_name || '—'],
+    ['Pond Location', record.pond_location_barangay || '—'],
+    ['Land Status', landStatusDisplay],
+    ['Culture Type', record.culture_type || '—'],
+    ['Season / Year', `${record.season || '—'} ${record.year || ''}`],
+    ['Date Stocked', fmtLong(record.date_stocked)],
+    ['Area (ha)', record.area_hectares ? Number(record.area_hectares).toFixed(4) : '—'],
+    ['Number of Fingerlings', record.number_of_fingerlings ?? '—'],
+    ['Survival Rate (%)', record.survival_rate_pct ?? '—'],
+    ['Avg Body Weight (kg)', record.avg_body_weight_kg ?? '—'],
+    ['Water Source', waterSourceDisplay],
+    ['Number of Units', record.number_of_units ?? '—'],
+    ['Unit Dimensions', record.unit_dimensions || '—'],
+    ['Fingerling Source', fingerlingSourceDisplay],
+    ['Avg Fingerling Size', record.avg_fingerling_size || '—'],
+    ['Expected Harvest Date', fmtLong(record.expected_harvest_date)],
+    [
+      'Total Harvested (kg)',
+      <span className="flex items-center justify-end gap-1.5" key="thk">
+        {fmtNum(record.total_harvested_kg)}
+        <HarvestVarianceBadge days={record.harvest_variance_days} />
+      </span>,
+    ],
+    ['Estimated Harvest (kg)', fmtNum(record.estimated_harvest_kg)],
+    ['Stocking Density (fingerlings/ha)', record.stocking_density ?? '—'],
+    ['Production Cycle', record.production_cycle_no ? `#${record.production_cycle_no}` : '—'],
+    ['Status', record.status || '—'],
+    ['Notes', record.notes || '—'],
+  ]
+
+  return (
+    <ModalShell
+      title={`Stocking Record — ${record.species_name}`}
+      subtitle="Read-only detail view"
+      icon={Eye}
+      onClose={onClose}
+      maxWidth="max-w-2xl"
+    >
+      <div className="space-y-5">
+        <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+          {rows.map(([label, value]) => (
+            <div key={label} className="flex items-start justify-between gap-4 border-b border-[#F0F4F0] pb-2">
+              <span className="text-[12px] font-medium text-[#7A8E7A]">{label}</span>
+              <span className="text-right text-[13px] font-semibold text-[#1A2B1A]">{value}</span>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] p-3 text-center">
+            <p className="text-[20px] font-bold text-[#1B4D2E]">{record.log_count ?? 0}</p>
+            <p className="text-[11px] text-[#7A8E7A]">Activity Log(s)</p>
+          </div>
+          <div className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] p-3 text-center">
+            <p className="text-[20px] font-bold text-[#1B4D2E]">{record.disaster_report_count ?? 0}</p>
+            <p className="text-[11px] text-[#7A8E7A]">Disaster Report(s)</p>
+          </div>
+          <div className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] p-3 text-center">
+            <p className="text-[20px] font-bold text-[#1B4D2E]">{record.harvest_count ?? 0}</p>
+            <p className="text-[11px] text-[#7A8E7A]">Harvest Record(s)</p>
+          </div>
+        </div>
+      </div>
+    </ModalShell>
+  )
+}
+
+// ─── Lifecycle Menu (⋮): View Logs / Record Harvest / Report Disaster ─────────
+
+function LifecycleMenu({ rec, onViewLogs, onRecordHarvest, onReportDisaster }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const canHarvest = rec.status !== 'Total Loss' && rec.status !== 'Harvested'
+  const isNearHarvest = rec.status === 'Near Harvest'
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}
+        className="flex items-center justify-center rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 transition-colors"
+        title="Lifecycle actions"
+      >
+        <MoreVertical size={14} />
+      </button>
+      {open && (
+        <div className="absolute right-0 z-20 mt-1 w-48 rounded-lg border border-[#E2E8E2] bg-white py-1 shadow-lg">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setOpen(false); onViewLogs() }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-[13px] text-[#1A2B1A] hover:bg-[#F5F7F5] transition-colors"
+          >
+            <Eye size={13} /> View Logs
+          </button>
+          {canHarvest && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setOpen(false); onRecordHarvest() }}
+              className={`flex w-full items-center gap-2 px-3 py-2 text-[13px] transition-colors hover:bg-amber-50 ${
+                isNearHarvest ? 'font-semibold text-amber-600' : 'text-[#1A2B1A]'
+              }`}
+            >
+              <Wheat size={13} /> Record Harvest
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setOpen(false); onReportDisaster() }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-[13px] text-[#1A2B1A] hover:bg-rose-50 hover:text-rose-600 transition-colors"
+          >
+            <AlertTriangle size={13} /> Report Disaster
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function FisheriesRecordsPage() {
@@ -908,6 +1120,7 @@ export default function FisheriesRecordsPage() {
   const [showAdd,      setShowAdd]      = useState(false)
   const [editingRec,   setEditingRec]   = useState(null)
   const [deletingRec,  setDeletingRec]  = useState(null)
+  const [viewingRec,   setViewingRec]   = useState(null)
   const [speciesList,  setSpeciesList]  = useState([])
   const [viewLogsRec,  setViewLogsRec]  = useState(null)
   const [disasterRec,  setDisasterRec]  = useState(null)
@@ -985,6 +1198,7 @@ export default function FisheriesRecordsPage() {
       <span className="flex items-center gap-1.5">
         <StatusPill tone={STATUS_TONES[rec.status] || 'slate'}>{rec.status}</StatusPill>
         <DisasterDot activeCount={rec.disaster_count} hasResolved={rec.has_resolved_disaster} />
+        <HarvestVarianceBadge days={rec.harvest_variance_days} />
       </span>
     ),
     actions_cell: (
@@ -992,28 +1206,10 @@ export default function FisheriesRecordsPage() {
         <button
           type="button"
           className="flex items-center gap-1 rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100 hover:text-[#1B4D2E] transition-colors"
-          onClick={(e) => { e.stopPropagation(); setViewLogsRec(rec) }}
-          title="View Logs"
+          onClick={(e) => { e.stopPropagation(); setViewingRec(rec) }}
+          title="View details"
         >
           <Eye size={14} />
-        </button>
-        {rec.status !== 'Total Loss' && rec.status !== 'Harvested' && (
-          <button
-            type="button"
-            className="flex items-center gap-1 rounded-lg px-2 py-1 text-slate-500 hover:bg-amber-50 hover:text-amber-600 transition-colors"
-            onClick={(e) => { e.stopPropagation(); setHarvestRec(rec) }}
-            title="Record Harvest"
-          >
-            <Wheat size={14} />
-          </button>
-        )}
-        <button
-          type="button"
-          className="flex items-center gap-1 rounded-lg px-2 py-1 text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-colors"
-          onClick={(e) => { e.stopPropagation(); setDisasterRec(rec) }}
-          title="Report Disaster"
-        >
-          <AlertTriangle size={14} />
         </button>
         {rec.status !== 'Harvested' && (
           <button
@@ -1035,6 +1231,12 @@ export default function FisheriesRecordsPage() {
             <Trash2 size={14} />
           </button>
         )}
+        <LifecycleMenu
+          rec={rec}
+          onViewLogs={() => setViewLogsRec(rec)}
+          onRecordHarvest={() => setHarvestRec(rec)}
+          onReportDisaster={() => setDisasterRec(rec)}
+        />
       </div>
     ),
   }))
@@ -1186,13 +1388,20 @@ export default function FisheriesRecordsPage() {
 
       {deletingRec && (
         <ConfirmDialog
-          title="Delete Stocking Record"
-          message={`Delete stocking record for "${deletingRec.species_name}"? This cannot be undone.`}
-          confirmLabel="Delete"
+          title={`Delete ${deletingRec.species_name}?`}
+          message="This action cannot be undone."
+          details={`${deletingRec.log_count ?? 0} activity log(s), ${deletingRec.disaster_report_count ?? 0} disaster report(s), ${deletingRec.harvest_count ?? 0} harvest record(s).`}
+          confirmLabel="Delete Record"
+          requireTypedConfirmation
+          typedConfirmationText="DELETE"
           variant="danger"
           onConfirm={handleDelete}
           onCancel={() => setDeletingRec(null)}
         />
+      )}
+
+      {viewingRec && (
+        <StockingDetailModal record={viewingRec} onClose={() => setViewingRec(null)} />
       )}
 
       {viewLogsRec && (

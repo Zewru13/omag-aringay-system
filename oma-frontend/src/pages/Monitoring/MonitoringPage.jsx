@@ -254,7 +254,7 @@ export default function MonitoringPage() {
     try {
       const params = new URLSearchParams()
       if (barangay) params.set('barangay', barangay)
-      const r = await api.get(`/monitoring/disasters/?${params}`)
+      const r = await api.get(`/monitoring/fisherfolk-disasters/?${params}`)
       setDisasters(Array.isArray(r.data) ? r.data : (r.data.results || []))
     } catch { setErrorDisasters('Failed to load disaster reports.') }
     finally { setIsLoadingDisasters(false) }

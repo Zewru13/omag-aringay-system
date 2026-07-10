@@ -291,6 +291,7 @@ class StockingRecord(models.Model):
     fisherfolk              = models.ForeignKey(Fisherfolk, on_delete=models.SET_NULL, null=True, blank=True, related_name='stocking_records')
     pond_location_barangay  = models.CharField(max_length=100, blank=True, default='')
     land_status             = models.CharField(max_length=20, choices=LAND_STATUS_CHOICES, blank=True)
+    land_status_other_specify = models.CharField(max_length=150, blank=True)
     culture_type            = models.CharField(max_length=10, choices=CULTURE_TYPE_CHOICES)
     species                 = models.ForeignKey(SpeciesOption, on_delete=models.PROTECT, related_name='stocking_records')
     date_stocked            = models.DateField()
@@ -301,9 +302,11 @@ class StockingRecord(models.Model):
 
     # OMAg aquaculture production fields
     water_source          = models.CharField(max_length=20, choices=WATER_SOURCE_CHOICES, blank=True)
+    water_source_other_specify = models.CharField(max_length=150, blank=True)
     number_of_units       = models.IntegerField(null=True, blank=True, help_text='Number of ponds or cages')
     unit_dimensions       = models.CharField(max_length=100, blank=True, help_text='e.g. 10m x 10m x 2m')
     fingerling_source     = models.CharField(max_length=20, choices=FINGERLING_SOURCE_CHOICES, blank=True)
+    fingerling_source_other_specify = models.CharField(max_length=150, blank=True)
     avg_fingerling_size   = models.CharField(max_length=50, blank=True, help_text='e.g. 2-3 cm')
 
     season                  = models.CharField(max_length=10, choices=[('Wet', 'Wet'), ('Dry', 'Dry')])
@@ -390,6 +393,7 @@ class FisheriesActivityLog(models.Model):
 
     stocking_record     = models.ForeignKey(StockingRecord, on_delete=models.CASCADE, related_name='logs')
     activity            = models.CharField(max_length=150)
+    activity_other_specify = models.CharField(max_length=150, blank=True)
     date_of_activity    = models.DateField()
     water_fish_condition = models.CharField(max_length=10, choices=WATER_CONDITION_CHOICES, blank=True)
     feed_type           = models.CharField(max_length=200, blank=True)
@@ -398,6 +402,7 @@ class FisheriesActivityLog(models.Model):
     observed_issue      = models.CharField(max_length=200, blank=True)
     severity            = models.CharField(max_length=10, choices=SEVERITY_CHOICES, blank=True)
     mortality_count     = models.IntegerField(null=True, blank=True)
+    area_affected_ha    = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True, help_text='Area affected in hectares (Disease Control activity)')
     treatment_applied   = models.CharField(max_length=200, blank=True)
     outcome             = models.CharField(max_length=50, blank=True, choices=[
         ('Recovered',        'Recovered'),
@@ -455,6 +460,7 @@ class FisheriesDisasterReport(models.Model):
 
     stocking_record     = models.ForeignKey(StockingRecord, on_delete=models.CASCADE, related_name='disaster_reports')
     disaster_type       = models.CharField(max_length=50, choices=DISASTER_TYPE_CHOICES)
+    disaster_type_other_specify = models.CharField(max_length=150, blank=True)
     date_of_occurrence  = models.DateField()
     area_affected_ha    = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
     estimated_damage    = models.TextField(blank=True)
@@ -566,6 +572,11 @@ class FisheriesHarvestRecord(models.Model):
     avg_body_weight_kg      = models.DecimalField(max_digits=8, decimal_places=3, null=True, blank=True)
     area_or_units_harvested = models.CharField(max_length=100, blank=True, help_text='e.g. Pond 2, 3 cages')
     is_final                = models.BooleanField(default=False, help_text='Final harvest — close this cycle')
+    harvest_variance_days   = models.IntegerField(
+        null=True, blank=True,
+        help_text='Days early (negative) or late (positive) vs. expected harvest date — final harvest only',
+    )
+    early_late_reason       = models.CharField(max_length=255, blank=True)
     notes                   = models.TextField(blank=True)
     recorded_by             = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -578,15 +589,21 @@ class FisheriesHarvestRecord(models.Model):
         ordering = ['-harvest_date']
 
     def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        if self.is_final and self.stocking_record_id:
+        sr = None
+        if self.stocking_record_id:
             try:
                 sr = StockingRecord.objects.get(pk=self.stocking_record_id)
-                if sr.status != StockingRecord.Status.HARVESTED:
-                    sr.status = StockingRecord.Status.HARVESTED
-                    sr.save(update_fields=['status'])
             except StockingRecord.DoesNotExist:
-                pass
+                sr = None
+
+        if self.is_final and sr and sr.expected_harvest_date and self.harvest_date:
+            self.harvest_variance_days = (self.harvest_date - sr.expected_harvest_date).days
+
+        super().save(*args, **kwargs)
+
+        if self.is_final and sr and sr.status != StockingRecord.Status.HARVESTED:
+            sr.status = StockingRecord.Status.HARVESTED
+            sr.save(update_fields=['status'])
 
     def __str__(self):
         return f'Harvest {self.quantity_kg}kg on {self.harvest_date}'

@@ -17,12 +17,14 @@ const makeRecord = (n) => ({
   _id: n,
   farm_location_barangay: '',
   land_status: '',
+  land_status_other_specify: '',
   crop_type: '',
   date_planted: '',
   area_planted_ha: '',
   season: detectSeason(''),
   variety_used: '',
   seed_source: '',
+  seed_source_other_specify: '',
   quantity_of_seeds: '',
   seed_quantity_unit: 'kg',
 })
@@ -229,13 +231,22 @@ function CropRecordCard({ rec, index, total, cropTypes, farmerId, onUpdate, onRe
 
         <FormField label="Land Status">
           <select className={baseInputClasses} value={rec.land_status}
-            onChange={e => set('land_status', e.target.value)}>
+            onChange={e => {
+              set('land_status', e.target.value)
+              if (e.target.value !== 'Other') set('land_status_other_specify', '')
+            }}>
             <option value="">Select…</option>
             <option value="Owner">Owner</option>
             <option value="Lessee">Lessee</option>
             <option value="Tenant">Tenant</option>
             <option value="Other">Other</option>
           </select>
+          {rec.land_status === 'Other' && (
+            <input type="text" className={`${baseInputClasses} mt-2`}
+              placeholder="Please specify land status"
+              value={rec.land_status_other_specify}
+              onChange={e => set('land_status_other_specify', e.target.value)} />
+          )}
         </FormField>
       </div>
 
@@ -340,7 +351,10 @@ function CropRecordCard({ rec, index, total, cropTypes, farmerId, onUpdate, onRe
 
         <FormField label="Seed Source (optional)">
           <select className={baseInputClasses} value={rec.seed_source}
-            onChange={e => set('seed_source', e.target.value)}>
+            onChange={e => {
+              set('seed_source', e.target.value)
+              if (e.target.value !== 'Other') set('seed_source_other_specify', '')
+            }}>
             <option value="">Select source</option>
             <option value="Own Seeds">Own Seeds</option>
             <option value="DA/LGU Provided">DA / LGU Provided</option>
@@ -348,6 +362,12 @@ function CropRecordCard({ rec, index, total, cropTypes, farmerId, onUpdate, onRe
             <option value="Association">Association</option>
             <option value="Other">Other</option>
           </select>
+          {rec.seed_source === 'Other' && (
+            <input type="text" className={`${baseInputClasses} mt-2`}
+              placeholder="Please specify seed source"
+              value={rec.seed_source_other_specify}
+              onChange={e => set('seed_source_other_specify', e.target.value)} />
+          )}
         </FormField>
 
         <FormField label="Quantity of Seeds (optional)">
@@ -435,6 +455,7 @@ function AddCropMonitoringModal({ onClose, onSuccess }) {
           farmers_association:    farmerInfo.farmer_assoc_id || null,
           farm_location_barangay: rec.farm_location_barangay || '',
           land_status:            rec.land_status || '',
+          land_status_other_specify: rec.land_status === 'Other' ? (rec.land_status_other_specify || '') : '',
           crop_type:              rec.crop_type,
           season:                 rec.season,
           year,
@@ -442,6 +463,7 @@ function AddCropMonitoringModal({ onClose, onSuccess }) {
           area_planted_ha:        rec.area_planted_ha,
           variety_used:           rec.variety_used || '',
           seed_source:            rec.seed_source || '',
+          seed_source_other_specify: rec.seed_source === 'Other' ? (rec.seed_source_other_specify || '') : '',
           quantity_of_seeds:      rec.quantity_of_seeds ? parseFloat(rec.quantity_of_seeds) : null,
           seed_quantity_unit:     rec.seed_quantity_unit || 'kg',
         })

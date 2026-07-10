@@ -168,7 +168,7 @@ export default function FisheriesMonitoringPage() {
       const params = new URLSearchParams()
       if (barangay) params.set('barangay', barangay)
       if (year) params.set('year', year)
-      const r = await api.get(`/monitoring/disasters/?${params}`)
+      const r = await api.get(`/monitoring/fisherfolk-disasters/?${params}`)
       setDisasters(Array.isArray(r.data) ? r.data : (r.data.results || []))
     } catch { setErrorDisasters('Failed to load disaster reports.') }
     finally { setIsLoadingDisasters(false) }

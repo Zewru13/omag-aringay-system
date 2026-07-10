@@ -790,11 +790,8 @@ class CropActivitySuggestionsView(APIView):
             rules_list = []
             for rule in rules_qs:
                 is_done = any(
-                    (log.get('disaster_report_id') == disaster.id and
-                     log.get('disaster_rule_id') == rule.id)
-                    or
-                    (log['activity_type'] == rule.activity_name and
-                     log['date_of_activity'] >= disaster.date_of_occurrence)
+                    log.get('disaster_report_id') == disaster.id and
+                    log.get('disaster_rule_id') == rule.id
                     for log in activity_logs
                 )
                 rules_list.append({
@@ -915,11 +912,8 @@ class CropDisasterResolveView(APIView):
         for rule in rules_qs:
             has_rules = True
             is_done = any(
-                (log.get('disaster_report_id') == disaster.id and
-                 log.get('disaster_rule_id') == rule.id)
-                or
-                (log['activity_type'] == rule.activity_name and
-                 log['date_of_activity'] >= disaster.date_of_occurrence)
+                log.get('disaster_report_id') == disaster.id and
+                log.get('disaster_rule_id') == rule.id
                 for log in activity_logs
             )
             if not is_done:

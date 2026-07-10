@@ -149,6 +149,7 @@ class CropMonitoringRecord(models.Model):
             ('Other', 'Other'),
         ],
     )
+    seed_source_other_specify = models.CharField(max_length=150, blank=True)
     quantity_of_seeds = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     seed_quantity_unit = models.CharField(
         max_length=20, blank=True, default='kg',
@@ -171,6 +172,7 @@ class CropMonitoringRecord(models.Model):
             ('Other', 'Other'),
         ],
     )
+    land_status_other_specify = models.CharField(max_length=150, blank=True)
 
     recorded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -238,6 +240,7 @@ class CropActivityLog(models.Model):
         related_name='activity_logs',
     )
     activity_type = models.CharField(max_length=100)
+    activity_type_other_specify = models.CharField(max_length=150, blank=True)
     date_of_activity = models.DateField(help_text="When the activity was actually performed in the field")
     plant_condition = models.CharField(max_length=10, choices=PLANT_CONDITION_CHOICES, blank=True)
     status_at_log = models.CharField(max_length=20, choices=CROP_STAGE_CHOICES, blank=True)
@@ -308,6 +311,7 @@ class CropDisasterReport(models.Model):
         related_name='disaster_reports',
     )
     disaster_type = models.CharField(max_length=50, choices=DISASTER_TYPE_CHOICES)
+    disaster_type_other_specify = models.CharField(max_length=150, blank=True)
     date_of_occurrence = models.DateField()
     area_affected_ha = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
     estimated_damage = models.TextField(blank=True, help_text='Describe the damage')
@@ -408,6 +412,11 @@ class HarvestRecord(models.Model):
         null=True, blank=True,
         related_name='harvest_records',
     )
+    harvest_variance_days = models.IntegerField(
+        null=True, blank=True,
+        help_text='Days early (negative) or late (positive) vs. expected harvest date',
+    )
+    early_late_reason = models.CharField(max_length=255, blank=True)
     recorded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -436,16 +445,24 @@ class HarvestRecord(models.Model):
             self.yield_per_hectare_kg = (
                 Decimal(str(self.volume_kg)) / Decimal(str(self.area_harvested_hectares))
             ).quantize(Decimal('0.01'))
-        super().save(*args, **kwargs)
+
+        mr = None
         if self.monitoring_record_id:
             try:
                 mr = CropMonitoringRecord.objects.get(pk=self.monitoring_record_id)
-                mr.actual_yield_kg = self.volume_kg
-                mr.actual_harvest_date = self.date_recorded.date() if self.date_recorded else None
-                mr.status = CropMonitoringRecord.Status.HARVESTED
-                mr.save()
             except CropMonitoringRecord.DoesNotExist:
-                pass
+                mr = None
+
+        if self.harvest_start_date and mr and mr.expected_harvest_date:
+            self.harvest_variance_days = (self.harvest_start_date - mr.expected_harvest_date).days
+
+        super().save(*args, **kwargs)
+
+        if mr:
+            mr.actual_yield_kg = self.volume_kg
+            mr.actual_harvest_date = self.date_recorded.date() if self.date_recorded else None
+            mr.status = CropMonitoringRecord.Status.HARVESTED
+            mr.save()
 
     def __str__(self):
         return f'{self.crop_name} - {self.season} {self.year}'

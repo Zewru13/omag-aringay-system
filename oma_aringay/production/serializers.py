@@ -121,7 +121,7 @@ class CropActivityLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = CropActivityLog
         fields = [
-            'id', 'monitoring_record', 'activity_type', 'date_of_activity',
+            'id', 'monitoring_record', 'activity_type', 'activity_type_other_specify', 'date_of_activity',
             'plant_condition', 'status_at_log', 'notes',
             'fertilizer_type', 'quantity_applied', 'quantity_unit',
             'pest_disease_name', 'area_affected_ha', 'severity',
@@ -154,6 +154,27 @@ class CropActivityLogSerializer(serializers.ModelSerializer):
                     'date_of_activity': 'Date of activity cannot be before the date planted '
                                         f'({monitoring_record.date_planted}).'
                 })
+
+        activity_type = data.get('activity_type', '')
+        if activity_type == 'Other' and not (data.get('activity_type_other_specify') or '').strip():
+            raise serializers.ValidationError({
+                'activity_type_other_specify': 'Please specify the activity.'
+            })
+
+        area_affected_ha = data.get('area_affected_ha')
+        if activity_type in ('Pest Control', 'Disease Control') and area_affected_ha is None:
+            raise serializers.ValidationError({
+                'area_affected_ha': 'Area affected is required for Pest Control / Disease Control activities.'
+            })
+        if area_affected_ha is not None:
+            if area_affected_ha <= 0:
+                raise serializers.ValidationError({
+                    'area_affected_ha': 'Area affected must be greater than 0.'
+                })
+            if monitoring_record and monitoring_record.area_planted_ha and area_affected_ha > monitoring_record.area_planted_ha:
+                raise serializers.ValidationError({
+                    'area_affected_ha': f'Area affected cannot exceed the {monitoring_record.area_planted_ha} ha planted.'
+                })
         return data
 
 
@@ -164,7 +185,7 @@ class CropDisasterReportSerializer(serializers.ModelSerializer):
     class Meta:
         model = CropDisasterReport
         fields = [
-            'id', 'monitoring_record', 'disaster_type', 'date_of_occurrence',
+            'id', 'monitoring_record', 'disaster_type', 'disaster_type_other_specify', 'date_of_occurrence',
             'area_affected_ha', 'estimated_damage', 'production_loss',
             'is_total_loss',
             'status', 'resolved_date', 'resolved_by', 'resolved_by_name',
@@ -185,6 +206,29 @@ class CropDisasterReportSerializer(serializers.ModelSerializer):
         if obj.resolved_by:
             return getattr(obj.resolved_by, 'full_name', str(obj.resolved_by))
         return None
+
+    def validate(self, data):
+        disaster_type = data.get('disaster_type', '')
+        if disaster_type == 'Other' and not (data.get('disaster_type_other_specify') or '').strip():
+            raise serializers.ValidationError({
+                'disaster_type_other_specify': 'Please specify the disaster type.'
+            })
+
+        area_affected_ha = data.get('area_affected_ha')
+        monitoring_record = data.get('monitoring_record')
+        if not monitoring_record:
+            monitoring_id = self.context.get('view').kwargs.get('monitoring_id') if self.context.get('view') else None
+            if monitoring_id:
+                monitoring_record = CropMonitoringRecord.objects.filter(pk=monitoring_id).first()
+        if area_affected_ha is None:
+            raise serializers.ValidationError({'area_affected_ha': 'Area affected is required.'})
+        if area_affected_ha <= 0:
+            raise serializers.ValidationError({'area_affected_ha': 'Area affected must be greater than 0.'})
+        if monitoring_record and monitoring_record.area_planted_ha and area_affected_ha > monitoring_record.area_planted_ha:
+            raise serializers.ValidationError({
+                'area_affected_ha': f'Area affected cannot exceed the {monitoring_record.area_planted_ha} ha planted.'
+            })
+        return data
 
 
 class FarmInputLogSerializer(serializers.ModelSerializer):
@@ -226,13 +270,16 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
     has_resolved_disaster  = serializers.SerializerMethodField()
     has_harvest            = serializers.SerializerMethodField()
     harvest_record_id      = serializers.SerializerMethodField()
+    harvest_count          = serializers.SerializerMethodField()
+    disaster_report_count  = serializers.SerializerMethodField()
+    harvest_variance_days  = serializers.SerializerMethodField()
 
     class Meta:
         model = CropMonitoringRecord
         fields = [
             'id', 'farm_parcel', 'farmers_association',
             'farmer', 'farmer_full_name', 'farmer_association_name',
-            'farm_location_barangay', 'land_status',
+            'farm_location_barangay', 'land_status', 'land_status_other_specify',
             'farmer_name', 'farmer_barangay', 'parcel_number', 'association_name',
             'crop_type', 'crop_type_name', 'crop_suggested_activities', 'season', 'year',
             'date_planted', 'area_planted_ha',
@@ -240,11 +287,13 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
             'status', 'current_growth_stage',
             'estimated_yield_kg', 'actual_yield_kg',
             'yield_variance_kg', 'yield_variance_pct',
-            'notes', 'variety_used', 'seed_source', 'quantity_of_seeds', 'seed_quantity_unit',
+            'notes', 'variety_used', 'seed_source', 'seed_source_other_specify',
+            'quantity_of_seeds', 'seed_quantity_unit',
             'recorded_by', 'date_recorded',
             'is_near_harvest', 'latest_condition', 'log_count', 'labor_log_count',
             'has_disaster', 'disasters_count', 'has_resolved_disaster',
-            'has_harvest', 'harvest_record_id',
+            'has_harvest', 'harvest_record_id', 'harvest_count', 'disaster_report_count',
+            'harvest_variance_days',
         ]
         read_only_fields = [
             'id', 'farmer_name', 'farmer_barangay', 'farmer_full_name', 'farmer_association_name',
@@ -255,7 +304,8 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
             'recorded_by', 'date_recorded',
             'is_near_harvest', 'latest_condition', 'log_count', 'labor_log_count',
             'has_disaster', 'disasters_count', 'has_resolved_disaster',
-            'has_harvest', 'harvest_record_id',
+            'has_harvest', 'harvest_record_id', 'harvest_count', 'disaster_report_count',
+            'harvest_variance_days',
         ]
 
     def get_farmer_name(self, obj):
@@ -325,6 +375,28 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
         hr = obj.harvest_records.first()
         return hr.id if hr else None
 
+    def get_harvest_count(self, obj):
+        return obj.harvest_records.count()
+
+    def get_disaster_report_count(self, obj):
+        return obj.disaster_reports.count()
+
+    def get_harvest_variance_days(self, obj):
+        hr = obj.harvest_records.first()
+        return hr.harvest_variance_days if hr else None
+
+    def validate(self, data):
+        seed_source = data.get('seed_source', getattr(self.instance, 'seed_source', ''))
+        seed_source_other = data.get('seed_source_other_specify', getattr(self.instance, 'seed_source_other_specify', ''))
+        if seed_source == 'Other' and not (seed_source_other or '').strip():
+            raise serializers.ValidationError({'seed_source_other_specify': 'Please specify the seed source.'})
+
+        land_status = data.get('land_status', getattr(self.instance, 'land_status', ''))
+        land_status_other = data.get('land_status_other_specify', getattr(self.instance, 'land_status_other_specify', ''))
+        if land_status == 'Other' and not (land_status_other or '').strip():
+            raise serializers.ValidationError({'land_status_other_specify': 'Please specify the land status.'})
+        return data
+
 
 class CropMonitoringDetailSerializer(CropMonitoringRecordSerializer):
     activity_logs = CropActivityLogSerializer(many=True, read_only=True)
@@ -365,6 +437,8 @@ class HarvestRecordSerializer(serializers.ModelSerializer):
             'volume_bags',
             'unit_of_measure',
             'yield_per_hectare_kg',
+            'harvest_variance_days',
+            'early_late_reason',
             'recorded_by',
             'date_recorded',
             'remarks',
@@ -376,6 +450,7 @@ class HarvestRecordSerializer(serializers.ModelSerializer):
             'barangay',
             'volume_bags',
             'yield_per_hectare_kg',
+            'harvest_variance_days',
             'recorded_by',
             'date_recorded',
         ]
@@ -396,13 +471,41 @@ class HarvestRecordSerializer(serializers.ModelSerializer):
         return None
 
     def validate(self, data):
-        start = data.get('harvest_start_date')
-        end = data.get('harvest_end_date')
-        if start and end and end < start:
+        return _validate_harvest_record(data, self.instance)
+
+
+def _validate_harvest_record(data, instance):
+    start = data.get('harvest_start_date', getattr(instance, 'harvest_start_date', None))
+    end = data.get('harvest_end_date', getattr(instance, 'harvest_end_date', None))
+    if start and end and end < start:
+        raise serializers.ValidationError({
+            'harvest_end_date': 'Harvest end date must be on or after the harvest start date.',
+        })
+
+    monitoring_record = data.get('monitoring_record', getattr(instance, 'monitoring_record', None))
+    area_harvested = data.get('area_harvested_hectares', getattr(instance, 'area_harvested_hectares', None))
+
+    if start:
+        if start > date.today():
+            raise serializers.ValidationError({'harvest_start_date': 'Harvest date cannot be in the future.'})
+        if monitoring_record and monitoring_record.date_planted and start < monitoring_record.date_planted:
             raise serializers.ValidationError({
-                'harvest_end_date': 'Harvest end date must be on or after the harvest start date.',
+                'harvest_start_date': f'Harvest date cannot be before the date planted ({monitoring_record.date_planted}).'
             })
-        return data
+        if monitoring_record and monitoring_record.expected_harvest_date:
+            variance = (start - monitoring_record.expected_harvest_date).days
+            reason = data.get('early_late_reason', getattr(instance, 'early_late_reason', '')) or ''
+            if abs(variance) > 7 and not reason.strip():
+                raise serializers.ValidationError({
+                    'early_late_reason': 'A reason is required when the harvest date is more than 7 days early or late.'
+                })
+
+    if area_harvested is not None and monitoring_record and monitoring_record.area_planted_ha:
+        if area_harvested > monitoring_record.area_planted_ha:
+            raise serializers.ValidationError({
+                'area_harvested_hectares': f'Area harvested cannot exceed the {monitoring_record.area_planted_ha} ha planted.'
+            })
+    return data
 
 
 class HarvestRecordCreateSerializer(serializers.ModelSerializer):
@@ -426,18 +529,14 @@ class HarvestRecordCreateSerializer(serializers.ModelSerializer):
             'volume_kg',
             'unit_of_measure',
             'yield_per_hectare_kg',
+            'harvest_variance_days',
+            'early_late_reason',
             'remarks',
         ]
-        read_only_fields = ['id', 'yield_per_hectare_kg']
+        read_only_fields = ['id', 'yield_per_hectare_kg', 'harvest_variance_days']
 
     def validate(self, data):
-        start = data.get('harvest_start_date')
-        end = data.get('harvest_end_date')
-        if start and end and end < start:
-            raise serializers.ValidationError({
-                'harvest_end_date': 'Harvest end date must be on or after the harvest start date.',
-            })
-        return data
+        return _validate_harvest_record(data, self.instance)
 
 
 class PlantingRecordSerializer(serializers.ModelSerializer):

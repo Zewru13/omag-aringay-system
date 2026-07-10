@@ -4,7 +4,7 @@ from rest_framework import serializers
 
 from .models import (
     AquacultureFeedingLog, AquacultureHealthLog, AquacultureProductionCycle,
-    FarmVisit, FisheriesAssistanceRecord, FisheriesDisasterReport,
+    FarmVisit, FisheriesAssistanceRecord, FisherfolkDisasterReport,
     FisheryInputLog, FishingTripLog, TripSpeciesEntry, VesselInspection,
 )
 
@@ -166,11 +166,11 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
         ]
 
 
-class FisheriesDisasterReportSerializer(serializers.ModelSerializer):
+class FisherfolkDisasterReportSerializer(serializers.ModelSerializer):
     fisherfolk_name = serializers.CharField(source='fisherfolk.full_name', read_only=True)
 
     class Meta:
-        model = FisheriesDisasterReport
+        model = FisherfolkDisasterReport
         fields = [
             'id', 'fisherfolk', 'fisherfolk_name', 'report_date', 'disaster_type',
             'affected_barangay', 'description', 'estimated_loss_php', 'volume_lost_kg',

@@ -232,7 +232,7 @@ class AquacultureHealthLog(models.Model):
         return f'Health log {self.log_date} — {self.observation}'
 
 
-class FisheriesDisasterReport(models.Model):
+class FisherfolkDisasterReport(models.Model):
     DISASTER_TYPE_CHOICES = [
         ('Typhoon', 'Typhoon'),
         ('Flooding', 'Flooding'),

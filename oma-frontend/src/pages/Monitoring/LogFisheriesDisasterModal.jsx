@@ -88,7 +88,7 @@ function LogFisheriesDisasterModal({ onClose, onSuccess }) {
 
     setIsSubmitting(true)
     try {
-      await api.post('/monitoring/disasters/', {
+      await api.post('/monitoring/fisherfolk-disasters/', {
         fisherfolk: selectedFf.id,
         report_date: form.report_date,
         disaster_type: form.disaster_type,
