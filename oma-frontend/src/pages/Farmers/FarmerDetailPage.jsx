@@ -14,7 +14,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import AddFarmParcelModal from './AddFarmParcelModal.jsx'
 import EditFarmerModal from './EditFarmerModal.jsx'
 
-const MONITORING_STATUS_TONES = { Active: 'green', Harvested: 'blue', Damaged: 'rose', Abandoned: 'slate' }
+const MONITORING_STATUS_TONES = { Planted: 'green', 'Near Harvest': 'amber', Harvested: 'blue', 'Total Loss': 'rose' }
 
 function formatDate(value) {
   if (!value) {

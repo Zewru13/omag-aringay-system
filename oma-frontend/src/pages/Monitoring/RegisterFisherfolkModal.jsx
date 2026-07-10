@@ -5,9 +5,35 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import Button from '../../components/UI/Button.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
-import ARINGAY_BARANGAYS from '../../constants/barangays.js'
 
 const labelCls = 'block text-xs font-medium text-slate-600'
+
+const ARINGAY_BARANGAYS = [
+  'Alaska',
+  'Basca',
+  'Dulao',
+  'Gallano',
+  'Macabato',
+  'Manga',
+  'Pangao-aoan East',
+  'Pangao-aoan West',
+  'Poblacion',
+  'Samara',
+  'San Antonio',
+  'San Benito Norte',
+  'San Benito Sur',
+  'San Eugenio',
+  'San Juan East',
+  'San Juan West',
+  'San Simon East',
+  'San Simon West',
+  'Santa Cecilia',
+  'Santa Lucia',
+  'Santa Rita East',
+  'Santa Rita West',
+  'Santo Rosario East',
+  'Santo Rosario West',
+]
 
 const TYPE_DESCRIPTIONS = {
   Aquaculture: 'Freshwater pond/cage/pen farming of fish, shrimp, or other aquatic species.',

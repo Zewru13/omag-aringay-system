@@ -87,6 +87,20 @@ class HarvestRecordCreateView(generics.CreateAPIView):
     serializer_class = HarvestRecordCreateSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
+    def create(self, request, *args, **kwargs):
+        monitoring_id = request.data.get('monitoring_record')
+        if monitoring_id:
+            try:
+                record = CropMonitoringRecord.objects.get(pk=monitoring_id)
+                if record.status == CropMonitoringRecord.Status.TOTAL_LOSS:
+                    return Response(
+                        {'detail': 'Cannot record harvest for a Total Loss record — the crop was completely destroyed.'},
+                        status=drf_status.HTTP_400_BAD_REQUEST,
+                    )
+            except CropMonitoringRecord.DoesNotExist:
+                pass
+        return super().create(request, *args, **kwargs)
+
     def perform_create(self, serializer):
         serializer.save(recorded_by=self.request.user)
 
@@ -112,7 +126,7 @@ class HarvestRecordDetailView(generics.RetrieveUpdateDestroyAPIView):
         monitoring = harvest.monitoring_record
         response = super().destroy(request, *args, **kwargs)
         if monitoring is not None:
-            monitoring.status = CropMonitoringRecord.Status.ACTIVE
+            monitoring.status = monitoring.determine_status()
             monitoring.actual_yield_kg = None
             monitoring.actual_harvest_date = None
             monitoring.yield_variance_kg = None
@@ -163,20 +177,20 @@ class AgriDashboardView(APIView):
         from datetime import date, timedelta
 
         today      = date.today()
-        two_weeks  = today + timedelta(days=14)
+        week_later = today + timedelta(days=7)
         year_param = request.query_params.get('year',   '').strip()
 
         total_assoc = FisherfolkAssociation.objects.count()
 
         base_active = StockingRecord.objects.filter(
-            status__in=[StockingRecord.Status.STOCKED, StockingRecord.Status.FOR_HARVEST]
+            status__in=[StockingRecord.Status.STOCKED, StockingRecord.Status.NEAR_HARVEST]
         )
         if year_param:
             base_active = base_active.filter(year=year_param)
 
         total_stocking    = base_active.count()
         nearing_harvest   = base_active.filter(
-            expected_harvest_date__lte=two_weeks,
+            expected_harvest_date__lte=week_later,
             expected_harvest_date__gte=today,
         ).count()
 
@@ -212,7 +226,9 @@ class AgriDashboardView(APIView):
         )
 
         # Distribution by species + barangay
-        all_stocking = StockingRecord.objects.select_related('species')
+        all_stocking = StockingRecord.objects.select_related('species').exclude(
+            status=StockingRecord.Status.TOTAL_LOSS
+        )
         if year_param:
             all_stocking = all_stocking.filter(year=year_param)
 
@@ -268,7 +284,9 @@ class AgriDashboardView(APIView):
         total_associations = FarmersAssociation.objects.count()
 
         base_active = apply_filters(
-            CropMonitoringRecord.objects.filter(status=CropMonitoringRecord.Status.ACTIVE)
+            CropMonitoringRecord.objects.exclude(
+                status__in=[CropMonitoringRecord.Status.HARVESTED, CropMonitoringRecord.Status.TOTAL_LOSS]
+            )
         )
         total_crop_records = base_active.count()
 
@@ -322,7 +340,9 @@ class AgriDashboardView(APIView):
         harvest_calendar = harvest_dates
 
         # Crop distribution (all statuses, filtered by season/year)
-        dist_base = apply_filters(CropMonitoringRecord.objects.all())
+        dist_base = apply_filters(
+            CropMonitoringRecord.objects.exclude(status=CropMonitoringRecord.Status.TOTAL_LOSS)
+        )
         dist_qs = (
             dist_base
             .values('farm_location_barangay', 'farm_parcel__barangay')
@@ -620,6 +640,8 @@ class CropMonitoringListCreateView(generics.ListCreateAPIView):
             qs = qs.filter(farm_parcel__barangay=params['barangay'])
         if params.get('status'):
             qs = qs.filter(status=params['status'])
+        else:
+            qs = qs.exclude(status=CropMonitoringRecord.Status.TOTAL_LOSS)
         if params.get('farm_parcel'):
             qs = qs.filter(farm_parcel_id=params['farm_parcel'])
         return qs
@@ -661,7 +683,7 @@ class CropDuplicateCheckView(APIView):
         qs = CropMonitoringRecord.objects.filter(
             farmer_id=farmer_id,
             crop_type_id=crop_type_id,
-            status=CropMonitoringRecord.Status.ACTIVE,
+            status=CropMonitoringRecord.Status.PLANTED,
         ).select_related('crop_type').order_by('-date_planted')[:5]
         results = [
             {
@@ -682,75 +704,76 @@ class CropActivitySuggestionsView(APIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
     def get(self, request, monitoring_id):
-        from datetime import date
-        from django.shortcuts import get_object_or_404
+        from datetime import date, timedelta
         record = get_object_or_404(
             CropMonitoringRecord.objects.select_related('crop_type'),
             pk=monitoring_id,
         )
 
-        from datetime import timedelta
-
         stages = CropActivityStage.objects.filter(
             crop_type=record.crop_type
         ).order_by('day_after_planting')
 
-        activity_logs = CropActivityLog.objects.filter(monitoring_record=record).values(
-            'activity_type', 'activity_date', 'target_day'
+        activity_logs = list(
+            CropActivityLog.objects.filter(monitoring_record=record).values(
+                'id', 'activity_type', 'date_of_activity', 'target_day',
+                'disaster_report_id', 'disaster_rule_id',
+            )
         )
 
         today = date.today()
         days_elapsed = (today - record.date_planted).days if record.date_planted else 0
         total_days = record.crop_type.days_to_harvest if record.crop_type else 0
         planted = record.date_planted
+        is_total_loss = record.status == CropMonitoringRecord.Status.TOTAL_LOSS
 
         suggestions = []
-        for stage in stages:
-            days_list = stage.application_days if stage.application_days else [stage.day_after_planting]
-            for occurrence_day in days_list:
-                due_date = planted + timedelta(days=occurrence_day) if planted else None
-                days_diff = occurrence_day - days_elapsed
+        if not is_total_loss:
+            for stage in stages:
+                days_list = stage.application_days if stage.application_days else [stage.day_after_planting]
+                for occurrence_day in days_list:
+                    due_date = planted + timedelta(days=occurrence_day) if planted else None
+                    days_diff = occurrence_day - days_elapsed
 
-                is_done = False
-                done_date = None
-                if due_date:
-                    window = stage.window_days
-                    for log in activity_logs:
-                        if log['activity_type'] != stage.stage_name:
-                            continue
-                        target_match = log.get('target_day') is not None and log['target_day'] == occurrence_day
-                        date_match = abs((log['activity_date'] - due_date).days) <= window
-                        if target_match or date_match:
-                            is_done = True
-                            done_date = log['activity_date'].isoformat()
-                            break
+                    is_done = False
+                    done_date = None
+                    if due_date:
+                        window = stage.window_days
+                        for log in activity_logs:
+                            if log['activity_type'] != stage.stage_name:
+                                continue
+                            target_match = log.get('target_day') is not None and log['target_day'] == occurrence_day
+                            date_match = abs((log['date_of_activity'] - due_date).days) <= window
+                            if target_match or date_match:
+                                is_done = True
+                                done_date = log['date_of_activity'].isoformat()
+                                break
 
-                if is_done:
-                    status = 'done'
-                elif days_diff < -stage.window_days:
-                    status = 'overdue'
-                elif abs(days_diff) <= stage.window_days:
-                    status = 'due_now'
-                else:
-                    status = 'upcoming'
+                    if is_done:
+                        status = 'done'
+                    elif days_diff < -stage.window_days:
+                        status = 'overdue'
+                    elif abs(days_diff) <= stage.window_days:
+                        status = 'due_now'
+                    else:
+                        status = 'upcoming'
 
-                suggestions.append({
-                    'id': stage.id,
-                    'occurrence_key': f'{stage.id}_{occurrence_day}',
-                    'activity_name': stage.stage_name,
-                    'day_after_planting': occurrence_day,
-                    'recommendation': stage.recommendation,
-                    'priority': stage.priority,
-                    'window_days': stage.window_days,
-                    'status': status,
-                    'is_completed': is_done,
-                    'done_date': done_date,
-                    'days_diff': days_diff,
-                })
+                    suggestions.append({
+                        'id': stage.id,
+                        'occurrence_key': f'{stage.id}_{occurrence_day}',
+                        'activity_name': stage.stage_name,
+                        'day_after_planting': occurrence_day,
+                        'recommendation': stage.recommendation,
+                        'priority': stage.priority,
+                        'window_days': stage.window_days,
+                        'status': status,
+                        'is_completed': is_done,
+                        'done_date': done_date,
+                        'days_diff': days_diff,
+                    })
 
-        suggestions.sort(key=lambda s: s['day_after_planting'])
+            suggestions.sort(key=lambda s: s['day_after_planting'])
 
-        # Disaster response rules — only ACTIVE disasters
         active_disasters = list(
             CropDisasterReport.objects.filter(
                 monitoring_record=record, status='Active',
@@ -767,14 +790,20 @@ class CropActivitySuggestionsView(APIView):
             rules_list = []
             for rule in rules_qs:
                 is_done = any(
-                    log['activity_type'] == rule.title and
-                    log['activity_date'] >= disaster.date_of_occurrence
+                    (log.get('disaster_report_id') == disaster.id and
+                     log.get('disaster_rule_id') == rule.id)
+                    or
+                    (log['activity_type'] == rule.activity_name and
+                     log['date_of_activity'] >= disaster.date_of_occurrence)
                     for log in activity_logs
                 )
                 rules_list.append({
+                    'rule_id': rule.id,
                     'disaster_type': rule.disaster_type,
                     'title': rule.title,
                     'action': rule.action,
+                    'activity_name': rule.activity_name,
+                    'recommendation': rule.recommendation,
                     'priority': rule.priority,
                     'is_done': is_done,
                 })
@@ -786,6 +815,7 @@ class CropActivitySuggestionsView(APIView):
                 'disaster_type': disaster.disaster_type,
                 'date_of_occurrence': disaster.date_of_occurrence.isoformat(),
                 'status': disaster.status,
+                'is_total_loss': disaster.is_total_loss,
                 'all_rules_done': all_rules_done,
                 'rules': rules_list,
             })
@@ -793,6 +823,7 @@ class CropActivitySuggestionsView(APIView):
         return Response({
             'days_elapsed': days_elapsed,
             'total_days': total_days,
+            'is_total_loss': is_total_loss,
             'suggestions': suggestions,
             'disaster_response': disaster_response,
         })
@@ -809,13 +840,27 @@ class CropActivityLogListCreateView(generics.ListCreateAPIView):
         monitoring_id = self.kwargs.get('monitoring_id')
         return CropActivityLog.objects.filter(
             monitoring_record_id=monitoring_id,
-        ).order_by('-activity_date')
+        ).order_by('-date_of_activity')
 
     def perform_create(self, serializer):
         monitoring_id = self.kwargs.get('monitoring_id')
+        monitoring = CropMonitoringRecord.objects.get(pk=monitoring_id)
+        target_day = serializer.validated_data.get('target_day')
+        date_of_activity = serializer.validated_data.get('date_of_activity')
+        is_late = False
+        if target_day is not None and date_of_activity and monitoring.date_planted:
+            from datetime import timedelta
+            stage = CropActivityStage.objects.filter(
+                crop_type=monitoring.crop_type,
+                day_after_planting=target_day,
+            ).first()
+            window = stage.window_days if stage else 3
+            deadline = monitoring.date_planted + timedelta(days=target_day + window)
+            is_late = date_of_activity > deadline
         serializer.save(
             monitoring_record_id=monitoring_id,
             recorded_by=self.request.user,
+            is_late=is_late,
         )
 
 
@@ -863,15 +908,18 @@ class CropDisasterResolveView(APIView):
         )
         activity_logs = CropActivityLog.objects.filter(
             monitoring_record=record
-        ).values('activity_type', 'activity_date')
+        ).values('activity_type', 'date_of_activity', 'disaster_report_id', 'disaster_rule_id')
 
         all_done = True
         has_rules = False
         for rule in rules_qs:
             has_rules = True
             is_done = any(
-                log['activity_type'] == rule.title and
-                log['activity_date'] >= disaster.date_of_occurrence
+                (log.get('disaster_report_id') == disaster.id and
+                 log.get('disaster_rule_id') == rule.id)
+                or
+                (log['activity_type'] == rule.activity_name and
+                 log['date_of_activity'] >= disaster.date_of_occurrence)
                 for log in activity_logs
             )
             if not is_done:
@@ -890,6 +938,19 @@ class CropDisasterResolveView(APIView):
         disaster.save(update_fields=['status', 'resolved_date', 'resolved_by'])
         serializer = CropDisasterReportSerializer(disaster)
         return Response(serializer.data, status=200)
+
+
+class CropDisasterReportDeleteView(generics.DestroyAPIView):
+    queryset = CropDisasterReport.objects.all()
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def destroy(self, request, *args, **kwargs):
+        if request.user.role != 'ADMIN':
+            return Response(
+                {'detail': 'Only administrators can delete disaster reports.'},
+                status=drf_status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
 
 
 # ─── LaborOperationLog ──────────────────────────────────────────────────────

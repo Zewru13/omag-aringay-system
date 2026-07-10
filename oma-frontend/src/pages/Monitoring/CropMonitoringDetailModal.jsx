@@ -9,7 +9,7 @@ import LoadingSpinner from '../../components/UI/LoadingSpinner.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 
 const labelCls = 'block text-xs font-medium text-slate-600'
-const STATUS_TONES = { Active: 'green', Harvested: 'blue', Damaged: 'rose', Abandoned: 'slate' }
+const STATUS_TONES = { Planted: 'green', 'Near Harvest': 'amber', Harvested: 'blue', 'Total Loss': 'rose' }
 
 
 const PRIORITY_PILL = {
@@ -40,7 +40,7 @@ function CropMonitoringDetailModal({ record, onClose, onRefresh }) {
   const [disasterResponse,  setDisasterResponse]  = useState([])
   const [suggestLoading,    setSuggestLoading]    = useState(false)
   const [daysElapsed,       setDaysElapsed]       = useState(null)
-  const [form, setForm] = useState({ activity_type: '', activity_date: '', plant_condition: '', notes: '' })
+  const [form, setForm] = useState({ activity_type: '', date_of_activity: '', plant_condition: '', notes: '' })
   const [isSaving, setIsSaving] = useState(false)
 
   const fetchLogs = async () => {
@@ -66,7 +66,7 @@ function CropMonitoringDetailModal({ record, onClose, onRefresh }) {
 
   const handleAddLog = async (e) => {
     e.preventDefault()
-    if (!form.activity_type || !form.activity_date) {
+    if (!form.activity_type || !form.date_of_activity) {
       showToast('Activity type and date are required.', 'error')
       return
     }
@@ -75,7 +75,7 @@ function CropMonitoringDetailModal({ record, onClose, onRefresh }) {
       await api.post(`/production/monitoring/${record.id}/logs/`, form)
       showToast('Log added.', 'success')
       setShowForm(false)
-      setForm({ activity_type: '', activity_date: '', plant_condition: '', notes: '' })
+      setForm({ activity_type: '', date_of_activity: '', plant_condition: '', notes: '' })
       fetchLogs()
     } catch { showToast('Failed to add log.', 'error') }
     finally { setIsSaving(false) }
@@ -288,8 +288,8 @@ function CropMonitoringDetailModal({ record, onClose, onRefresh }) {
               <input
                 type="date"
                 className={baseInputClasses}
-                value={form.activity_date}
-                onChange={e => setForm(f => ({ ...f, activity_date: e.target.value }))}
+                value={form.date_of_activity}
+                onChange={e => setForm(f => ({ ...f, date_of_activity: e.target.value }))}
                 required
               />
             </div>
@@ -348,7 +348,7 @@ function CropMonitoringDetailModal({ record, onClose, onRefresh }) {
                     )}
                   </div>
                   <p className="mt-0.5 text-xs text-slate-500">
-                    {formatDate(log.activity_date)}
+                    {formatDate(log.date_of_activity)}
                     {log.notes ? ` — ${log.notes}` : ''}
                   </p>
                 </div>

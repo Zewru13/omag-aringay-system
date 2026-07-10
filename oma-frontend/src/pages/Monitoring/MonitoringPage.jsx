@@ -25,7 +25,7 @@ const TABS = [
   { label: 'Fisheries Monitoring', value: 'fisheries' },
 ]
 
-const STATUS_TONES = { Active: 'green', Harvested: 'blue', Damaged: 'rose', Abandoned: 'slate' }
+const STATUS_TONES = { Planted: 'green', 'Near Harvest': 'amber', Harvested: 'blue', 'Total Loss': 'rose' }
 const ALERT_COLORS = { None: '#757575', Low: '#2D7A4F', Medium: '#f57c00', High: '#E65100' }
 const SUBMISSION_TONES = { Draft: 'slate', Submitted: 'amber', Verified: 'green', 'Not Submitted': 'rose' }
 const CYCLE_STATUS_TONES = { Active: 'green', Harvested: 'blue', Failed: 'rose', Abandoned: 'slate' }
@@ -285,7 +285,7 @@ export default function MonitoringPage() {
 
   // ── Summary cards computed from individual crop records ──────────────────────
   const cropSummaryCards = useMemo(() => {
-    const planted = cropRecords.filter(r => r.status === 'Active').length
+    const planted = cropRecords.filter(r => r.status === 'Planted').length
     const forHarvest = cropRecords.filter(r => r.is_near_harvest).length
     const variances = cropRecords
       .filter(r => r.yield_variance_pct != null)
@@ -559,7 +559,7 @@ export default function MonitoringPage() {
                 <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                   <MetricCard label="Total Records" value={cropSummaryCards.total} sub="All statuses" />
                   <MetricCard label="Planted / Active" value={cropSummaryCards.planted} accent="#1B4D2E" />
-                  <MetricCard label="For Harvest (≤14 days)" value={cropSummaryCards.forHarvest} accent="#f57c00" />
+                  <MetricCard label="Near Harvest (≤7 days)" value={cropSummaryCards.forHarvest} accent="#f57c00" />
                   <MetricCard
                     label="Avg. Yield Variance"
                     value={cropSummaryCards.avgVariance != null ? `${cropSummaryCards.avgVariance}%` : '—'}
@@ -570,7 +570,7 @@ export default function MonitoringPage() {
 
                 {/* Status filter pills */}
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {['All', 'Active', 'Harvested', 'Damaged', 'Abandoned'].map(s => (
+                  {['All', 'Planted', 'Near Harvest', 'Harvested', 'Total Loss'].map(s => (
                     <button
                       key={s}
                       onClick={() => setCropStatusFilter(s)}

@@ -25,8 +25,9 @@ const HISTORY_COLUMNS = [
 
 const STOCKING_STATUS_TONES = {
   Stocked: 'green',
-  'For Harvest': 'amber',
+  'Near Harvest': 'amber',
   Harvested: 'blue',
+  'Total Loss': 'rose',
 }
 
 const STOCKING_COLUMNS = [
@@ -183,7 +184,7 @@ function FisherfolkDetailPage() {
     setIsLoadingStocking(true)
     try {
       const r = await api.get('/fisheries/stocking/', {
-        params: { fisherfolk: id, status: 'Stocked,For Harvest,Harvested' },
+        params: { fisherfolk: id, status: 'Stocked,Near Harvest,Harvested' },
       })
       setStockingRecords(Array.isArray(r.data) ? r.data : (r.data.results || []))
     } catch {

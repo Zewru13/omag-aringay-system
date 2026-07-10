@@ -379,13 +379,34 @@ class FisheriesActivityLogSerializer(serializers.ModelSerializer):
             'observed_issue', 'severity', 'mortality_count', 'treatment_applied', 'outcome',
             'recommendations',
             'target_day', 'is_late', 'logged_by', 'logged_by_name',
+            'date_logged', 'disaster_report', 'disaster_rule',
         ]
-        read_only_fields = ['id', 'stocking_record', 'logged_by', 'logged_by_name']
+        read_only_fields = ['id', 'stocking_record', 'logged_by', 'logged_by_name', 'is_late', 'date_logged']
 
     def get_logged_by_name(self, obj):
         if obj.logged_by:
             return getattr(obj.logged_by, 'full_name', str(obj.logged_by))
         return None
+
+    def validate_date_of_activity(self, value):
+        if value > date.today():
+            raise serializers.ValidationError('Date of activity cannot be in the future.')
+        return value
+
+    def validate(self, data):
+        date_of_activity = data.get('date_of_activity')
+        stocking_record = data.get('stocking_record')
+        if not stocking_record:
+            stocking_id = self.context.get('view').kwargs.get('stocking_id') if self.context.get('view') else None
+            if stocking_id:
+                stocking_record = StockingRecord.objects.filter(pk=stocking_id).first()
+        if date_of_activity and stocking_record and stocking_record.date_stocked:
+            if date_of_activity < stocking_record.date_stocked:
+                raise serializers.ValidationError({
+                    'date_of_activity': 'Date of activity cannot be before the date stocked '
+                                        f'({stocking_record.date_stocked}).'
+                })
+        return data
 
 
 class FisheriesDisasterReportSerializer(serializers.ModelSerializer):
@@ -397,6 +418,7 @@ class FisheriesDisasterReportSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'stocking_record', 'disaster_type', 'date_of_occurrence',
             'area_affected_ha', 'estimated_damage', 'production_loss',
+            'is_total_loss',
             'status', 'resolved_date', 'resolved_by', 'resolved_by_name',
             'reported_by', 'reported_by_name', 'date_reported',
         ]
@@ -484,9 +506,9 @@ class StockingRecordSerializer(serializers.ModelSerializer):
         return obj.fisherfolk.full_name if obj.fisherfolk else None
 
     def get_is_near_harvest(self, obj):
-        if obj.expected_harvest_date and obj.status in (StockingRecord.Status.STOCKED, StockingRecord.Status.FOR_HARVEST):
+        if obj.expected_harvest_date and obj.status in (StockingRecord.Status.STOCKED, StockingRecord.Status.NEAR_HARVEST):
             delta = (obj.expected_harvest_date - date.today()).days
-            return 0 <= delta <= 14
+            return 0 <= delta <= 7
         return False
 
     def get_log_count(self, obj):

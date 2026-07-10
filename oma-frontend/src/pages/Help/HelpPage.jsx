@@ -70,8 +70,8 @@ const FAQS = [
     a: 'Estimated Yield is computed by multiplying the Area Planted (ha) by the Yield Per Hectare (kg) set in Crop Option Management.',
   },
   {
-    q: 'What does the Status "For Harvest" mean?',
-    a: '"For Harvest" appears when the expected harvest date is within 14 days. This signals that staff should prepare for harvest recording.',
+    q: 'What does the Status "Near Harvest" mean?',
+    a: '"Near Harvest" appears when the expected harvest date is within 7 days. This signals that staff should prepare for harvest recording.',
   },
   {
     q: 'How do Activity Suggestions work?',

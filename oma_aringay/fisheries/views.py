@@ -211,7 +211,10 @@ class StockingListCreateView(generics.ListCreateAPIView):
             statuses = [s.strip() for s in raw_status.split(',') if s.strip()]
             qs = qs.filter(status__in=statuses)
         else:
-            qs = qs.filter(status__in=[StockingRecord.Status.STOCKED, StockingRecord.Status.FOR_HARVEST])
+            qs = qs.exclude(status__in=[
+                StockingRecord.Status.TOTAL_LOSS,
+                StockingRecord.Status.HARVESTED,
+            ])
 
         if params.get('season'):
             qs = qs.filter(season__iexact=params['season'])
@@ -274,9 +277,24 @@ class StockingActivityLogListCreateView(generics.ListCreateAPIView):
         ).order_by('-date_of_activity')
 
     def perform_create(self, serializer):
+        stocking_id = self.kwargs.get('stocking_id')
+        stocking = StockingRecord.objects.get(pk=stocking_id)
+        target_day = serializer.validated_data.get('target_day')
+        date_of_activity = serializer.validated_data.get('date_of_activity')
+        is_late = False
+        if target_day is not None and date_of_activity and stocking.date_stocked:
+            from datetime import timedelta
+            stage = SpeciesActivityStage.objects.filter(
+                species_option=stocking.species,
+                day_after_stocking=target_day,
+            ).first()
+            window = stage.window_days if stage else 3
+            deadline = stocking.date_stocked + timedelta(days=target_day + window)
+            is_late = date_of_activity > deadline
         serializer.save(
-            stocking_record_id=self.kwargs['stocking_id'],
+            stocking_record_id=stocking_id,
             logged_by=self.request.user,
+            is_late=is_late,
         )
 
 
@@ -319,15 +337,18 @@ class FisheriesDisasterResolveView(APIView):
         )
         activity_logs = FisheriesActivityLog.objects.filter(
             stocking_record=record
-        ).values('activity', 'date_of_activity')
+        ).values('activity', 'date_of_activity', 'disaster_report_id', 'disaster_rule_id')
 
         all_done = True
         has_rules = False
         for rule in rules_qs:
             has_rules = True
             is_done = any(
-                log['activity'] == rule.activity_name and
-                log['date_of_activity'] >= disaster.date_of_occurrence
+                (log.get('disaster_report_id') == disaster.id and
+                 log.get('disaster_rule_id') == rule.id)
+                or
+                (log['activity'] == rule.activity_name and
+                 log['date_of_activity'] >= disaster.date_of_occurrence)
                 for log in activity_logs
             )
             if not is_done:
@@ -348,6 +369,19 @@ class FisheriesDisasterResolveView(APIView):
         return Response(serializer.data, status=200)
 
 
+class StockingDisasterReportDeleteView(generics.DestroyAPIView):
+    queryset = FisheriesDisasterReport.objects.all()
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def destroy(self, request, *args, **kwargs):
+        if request.user.role != 'ADMIN':
+            return Response(
+                {'detail': 'Only administrators can delete disaster reports.'},
+                status=drf_status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
+
+
 class StockingHarvestListCreateView(generics.ListCreateAPIView):
     serializer_class = FisheriesHarvestRecordSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
@@ -357,6 +391,19 @@ class StockingHarvestListCreateView(generics.ListCreateAPIView):
         return FisheriesHarvestRecord.objects.filter(
             stocking_record_id=self.kwargs['stocking_id']
         ).order_by('-harvest_date')
+
+    def create(self, request, *args, **kwargs):
+        stocking_id = kwargs.get('stocking_id')
+        try:
+            record = StockingRecord.objects.get(pk=stocking_id)
+            if record.status == StockingRecord.Status.TOTAL_LOSS:
+                return Response(
+                    {'detail': 'Cannot record harvest for a Total Loss record — the stock was completely destroyed.'},
+                    status=drf_status.HTTP_400_BAD_REQUEST,
+                )
+        except StockingRecord.DoesNotExist:
+            pass
+        return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         harvest = serializer.save(
@@ -384,7 +431,7 @@ class StockingHarvestDeleteView(generics.DestroyAPIView):
                 stocking_record=stocking, is_final=True
             ).exists()
             if not still_final:
-                stocking.status = StockingRecord.Status.FOR_HARVEST
+                stocking.status = stocking.determine_status()
                 stocking.save(update_fields=['status'])
 
 
@@ -403,60 +450,65 @@ class FisheriesActivitySuggestionsView(APIView):
             species_option=record.species
         ).order_by('day_after_stocking')
 
-        activity_logs = FisheriesActivityLog.objects.filter(
-            stocking_record=record
-        ).values('activity', 'date_of_activity', 'target_day')
+        activity_logs = list(
+            FisheriesActivityLog.objects.filter(
+                stocking_record=record
+            ).values('id', 'activity', 'date_of_activity', 'target_day',
+                      'disaster_report_id', 'disaster_rule_id')
+        )
 
         today = date.today()
         days_elapsed = (today - record.date_stocked).days if record.date_stocked else 0
         total_days = record.species.culture_duration_days if record.species else 0
         stocked = record.date_stocked
+        is_total_loss = record.status == StockingRecord.Status.TOTAL_LOSS
 
         suggestions = []
-        for stage in stages:
-            days_list = stage.application_days if stage.application_days else [stage.day_after_stocking]
-            for occurrence_day in days_list:
-                due_date = stocked + timedelta(days=occurrence_day) if stocked else None
-                days_diff = occurrence_day - days_elapsed
+        if not is_total_loss:
+            for stage in stages:
+                days_list = stage.application_days if stage.application_days else [stage.day_after_stocking]
+                for occurrence_day in days_list:
+                    due_date = stocked + timedelta(days=occurrence_day) if stocked else None
+                    days_diff = occurrence_day - days_elapsed
 
-                is_done = False
-                done_date = None
-                if due_date:
-                    window = stage.window_days
-                    for log in activity_logs:
-                        if log['activity'] != stage.activity_name:
-                            continue
-                        target_match = log.get('target_day') is not None and log['target_day'] == occurrence_day
-                        date_match = abs((log['date_of_activity'] - due_date).days) <= window
-                        if target_match or date_match:
-                            is_done = True
-                            done_date = log['date_of_activity'].isoformat()
-                            break
+                    is_done = False
+                    done_date = None
+                    if due_date:
+                        window = stage.window_days
+                        for log in activity_logs:
+                            if log['activity'] != stage.activity_name:
+                                continue
+                            target_match = log.get('target_day') is not None and log['target_day'] == occurrence_day
+                            date_match = abs((log['date_of_activity'] - due_date).days) <= window
+                            if target_match or date_match:
+                                is_done = True
+                                done_date = log['date_of_activity'].isoformat()
+                                break
 
-                if is_done:
-                    item_status = 'done'
-                elif days_diff < -stage.window_days:
-                    item_status = 'overdue'
-                elif abs(days_diff) <= stage.window_days:
-                    item_status = 'due_now'
-                else:
-                    item_status = 'upcoming'
+                    if is_done:
+                        item_status = 'done'
+                    elif days_diff < -stage.window_days:
+                        item_status = 'overdue'
+                    elif abs(days_diff) <= stage.window_days:
+                        item_status = 'due_now'
+                    else:
+                        item_status = 'upcoming'
 
-                suggestions.append({
-                    'id': stage.id,
-                    'occurrence_key': f'{stage.id}_{occurrence_day}',
-                    'activity_name': stage.activity_name,
-                    'day_after_stocking': occurrence_day,
-                    'recommendation': stage.recommendation,
-                    'priority': stage.priority,
-                    'window_days': stage.window_days,
-                    'status': item_status,
-                    'is_completed': is_done,
-                    'done_date': done_date,
-                    'days_diff': days_diff,
-                })
+                    suggestions.append({
+                        'id': stage.id,
+                        'occurrence_key': f'{stage.id}_{occurrence_day}',
+                        'activity_name': stage.activity_name,
+                        'day_after_stocking': occurrence_day,
+                        'recommendation': stage.recommendation,
+                        'priority': stage.priority,
+                        'window_days': stage.window_days,
+                        'status': item_status,
+                        'is_completed': is_done,
+                        'done_date': done_date,
+                        'days_diff': days_diff,
+                    })
 
-        suggestions.sort(key=lambda s: s['day_after_stocking'])
+            suggestions.sort(key=lambda s: s['day_after_stocking'])
 
         active_disasters = list(
             FisheriesDisasterReport.objects.filter(
@@ -474,11 +526,15 @@ class FisheriesActivitySuggestionsView(APIView):
             rules_list = []
             for rule in rules_qs:
                 is_done = any(
-                    log['activity'] == rule.activity_name and
-                    log['date_of_activity'] >= disaster.date_of_occurrence
+                    (log.get('disaster_report_id') == disaster.id and
+                     log.get('disaster_rule_id') == rule.id)
+                    or
+                    (log['activity'] == rule.activity_name and
+                     log['date_of_activity'] >= disaster.date_of_occurrence)
                     for log in activity_logs
                 )
                 rules_list.append({
+                    'rule_id': rule.id,
                     'disaster_type': rule.disaster_type,
                     'title': rule.title,
                     'action': rule.action,
@@ -495,6 +551,7 @@ class FisheriesActivitySuggestionsView(APIView):
                 'disaster_type': disaster.disaster_type,
                 'date_of_occurrence': disaster.date_of_occurrence.isoformat(),
                 'status': disaster.status,
+                'is_total_loss': disaster.is_total_loss,
                 'all_rules_done': all_rules_done,
                 'rules': rules_list,
             })
@@ -502,6 +559,7 @@ class FisheriesActivitySuggestionsView(APIView):
         return Response({
             'days_elapsed': days_elapsed,
             'total_days': total_days,
+            'is_total_loss': is_total_loss,
             'suggestions': suggestions,
             'disaster_response': disaster_response,
         })

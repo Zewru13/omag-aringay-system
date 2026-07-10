@@ -121,18 +121,40 @@ class CropActivityLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = CropActivityLog
         fields = [
-            'id', 'monitoring_record', 'activity_type', 'activity_date',
+            'id', 'monitoring_record', 'activity_type', 'date_of_activity',
             'plant_condition', 'status_at_log', 'notes',
             'fertilizer_type', 'quantity_applied', 'quantity_unit',
             'pest_disease_name', 'area_affected_ha', 'severity',
             'recorded_by', 'logged_by_name', 'target_day', 'is_late',
+            'date_logged', 'disaster_report', 'disaster_rule',
         ]
-        read_only_fields = ['id', 'monitoring_record', 'recorded_by']
+        read_only_fields = ['id', 'monitoring_record', 'recorded_by', 'is_late', 'date_logged']
 
     def get_logged_by_name(self, obj):
         if obj.recorded_by:
             return getattr(obj.recorded_by, 'full_name', str(obj.recorded_by))
         return None
+
+    def validate_date_of_activity(self, value):
+        if value > date.today():
+            raise serializers.ValidationError('Date of activity cannot be in the future.')
+        return value
+
+    def validate(self, data):
+        date_of_activity = data.get('date_of_activity')
+        monitoring_record = data.get('monitoring_record')
+        if not monitoring_record:
+            monitoring_id = self.context.get('view').kwargs.get('monitoring_id') if self.context.get('view') else None
+            if monitoring_id:
+                from .models import CropMonitoringRecord
+                monitoring_record = CropMonitoringRecord.objects.filter(pk=monitoring_id).first()
+        if date_of_activity and monitoring_record and monitoring_record.date_planted:
+            if date_of_activity < monitoring_record.date_planted:
+                raise serializers.ValidationError({
+                    'date_of_activity': 'Date of activity cannot be before the date planted '
+                                        f'({monitoring_record.date_planted}).'
+                })
+        return data
 
 
 class CropDisasterReportSerializer(serializers.ModelSerializer):
@@ -144,6 +166,7 @@ class CropDisasterReportSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'monitoring_record', 'disaster_type', 'date_of_occurrence',
             'area_affected_ha', 'estimated_damage', 'production_loss',
+            'is_total_loss',
             'status', 'resolved_date', 'resolved_by', 'resolved_by_name',
             'reported_by', 'reported_by_name', 'date_reported',
         ]
@@ -272,13 +295,13 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
         return None
 
     def get_is_near_harvest(self, obj):
-        if obj.expected_harvest_date and obj.status == CropMonitoringRecord.Status.ACTIVE:
+        if obj.expected_harvest_date and obj.status == CropMonitoringRecord.Status.PLANTED:
             delta = (obj.expected_harvest_date - date.today()).days
-            return 0 <= delta <= 14
+            return 0 <= delta <= 7
         return False
 
     def get_latest_condition(self, obj):
-        log = obj.activity_logs.order_by('-activity_date').first()
+        log = obj.activity_logs.order_by('-date_of_activity').first()
         if log and log.plant_condition:
             return log.plant_condition
         return None

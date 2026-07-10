@@ -185,7 +185,7 @@ export default function ForecastingPage() {
   const fetchRecords = useCallback(async (pageNum = 1) => {
     setIsLoading(true); setError('')
     try {
-      const r = await api.get('/production/monitoring/', { params: { status: 'Active', page: pageNum } })
+      const r = await api.get('/production/monitoring/', { params: { status: 'Planted,Near Harvest', page: pageNum } })
       setRecords(Array.isArray(r.data) ? r.data : (r.data.results || []))
       setTotalCount(typeof r.data?.count === 'number' ? r.data.count : 0)
     } catch {

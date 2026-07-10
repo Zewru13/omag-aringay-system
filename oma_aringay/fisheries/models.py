@@ -258,9 +258,10 @@ class SpeciesActivityStage(models.Model):
 
 class StockingRecord(models.Model):
     class Status(models.TextChoices):
-        STOCKED     = 'Stocked',     'Stocked'
-        FOR_HARVEST = 'For Harvest', 'For Harvest'
-        HARVESTED   = 'Harvested',   'Harvested'
+        STOCKED      = 'Stocked',      'Stocked'
+        NEAR_HARVEST = 'Near Harvest', 'Near Harvest'
+        HARVESTED    = 'Harvested',    'Harvested'
+        TOTAL_LOSS   = 'Total Loss',   'Total Loss'
 
     CULTURE_TYPE_CHOICES = [
         ('Pond', 'Pond'),
@@ -350,17 +351,27 @@ class StockingRecord(models.Model):
                 * Decimal(str(self.avg_body_weight_kg))
             ).quantize(Decimal('0.01'))
 
-        # Auto-transition: Stocked → For Harvest when within 14 days of expected harvest
+        # Auto-transition: Stocked → Near Harvest when within 7 days of expected harvest
         if self.expected_harvest_date and self.status == self.Status.STOCKED:
             days_remaining = (self.expected_harvest_date - date.today()).days
-            if days_remaining <= 14:
-                self.status = self.Status.FOR_HARVEST
+            if days_remaining <= 7:
+                self.status = self.Status.NEAR_HARVEST
 
         super().save(*args, **kwargs)
 
     def __str__(self):
         fisherfolk_str = self.fisherfolk.full_name if self.fisherfolk else 'Unknown'
         return f'{self.species.species_name} — {fisherfolk_str} ({self.season} {self.year})'
+
+    def determine_status(self):
+        """Pick the correct status for this record after total-loss reversal."""
+        if self.harvests.exists():
+            return self.Status.HARVESTED
+        if self.expected_harvest_date:
+            days_remaining = (self.expected_harvest_date - date.today()).days
+            if days_remaining <= 7:
+                return self.Status.NEAR_HARVEST
+        return self.Status.STOCKED
 
 
 # ─── Fisheries Activity Log ────────────────────────────────────────────────────
@@ -396,6 +407,21 @@ class FisheriesActivityLog(models.Model):
     recommendations     = models.TextField(blank=True)
     target_day          = models.IntegerField(null=True, blank=True, help_text='Day after stocking this log targets')
     is_late             = models.BooleanField(default=False, help_text='Logged after the target window')
+    date_logged         = models.DateTimeField(auto_now_add=True, null=True, blank=True, help_text='When OMAg staff encoded this log')
+    disaster_report     = models.ForeignKey(
+        'FisheriesDisasterReport',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='+',
+        help_text='Set when this log was created from a disaster response rule card',
+    )
+    disaster_rule       = models.ForeignKey(
+        'FisheriesDisasterResponseRule',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='+',
+        help_text='The specific disaster response rule this log satisfies',
+    )
     logged_by           = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL, null=True, blank=True,
@@ -433,6 +459,7 @@ class FisheriesDisasterReport(models.Model):
     area_affected_ha    = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
     estimated_damage    = models.TextField(blank=True)
     production_loss     = models.TextField(blank=True)
+    is_total_loss       = models.BooleanField(default=False, help_text='Stock completely destroyed — ends the production cycle')
     status              = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Active')
     resolved_date       = models.DateField(null=True, blank=True)
     resolved_by         = models.ForeignKey(
@@ -449,6 +476,29 @@ class FisheriesDisasterReport(models.Model):
 
     class Meta:
         ordering = ['-date_of_occurrence']
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if self.is_total_loss and self.stocking_record_id:
+            try:
+                rec = StockingRecord.objects.get(pk=self.stocking_record_id)
+                if rec.status != StockingRecord.Status.TOTAL_LOSS:
+                    rec.status = StockingRecord.Status.TOTAL_LOSS
+                    rec.save(update_fields=['status'])
+            except StockingRecord.DoesNotExist:
+                pass
+
+    def delete(self, *args, **kwargs):
+        stocking_record_id = self.stocking_record_id
+        was_total_loss = self.is_total_loss
+        super().delete(*args, **kwargs)
+        if was_total_loss and stocking_record_id:
+            try:
+                rec = StockingRecord.objects.get(pk=stocking_record_id)
+                rec.status = rec.determine_status()
+                rec.save(update_fields=['status'])
+            except StockingRecord.DoesNotExist:
+                pass
 
     def __str__(self):
         return f'{self.disaster_type} - {self.date_of_occurrence}'

@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Fish, Pencil, Plus, Search, Trash2, User } from 'lucide-react'
+import { AlertTriangle, Eye, Fish, Pencil, Plus, Search, Trash2, User, Wheat } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
+import DisasterDot from '../../components/UI/DisasterDot.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
@@ -12,6 +13,11 @@ import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import {
+  RecordStockingHarvestModal,
+  StockingDisasterReportModal,
+  ViewStockingLogsModal,
+} from './StockingMonitoringModals.jsx'
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -45,9 +51,10 @@ function computeHarvestPreview(species, dateStocked, fingerlings, survivalRate, 
 }
 
 const STATUS_TONES = {
-  Stocked:     'green',
-  'For Harvest': 'amber',
-  Harvested:   'blue',
+  Stocked:         'green',
+  'Near Harvest':  'amber',
+  Harvested:       'blue',
+  'Total Loss':    'rose',
 }
 
 const COLUMNS = [
@@ -453,7 +460,7 @@ function AddStockingModal({ onClose, onSuccess }) {
       setExistingCycleCount(0)
       return
     }
-    api.get('/fisheries/stocking/', { params: { fisherfolk: fisherfolkInfo.id, status: 'Stocked,For Harvest,Harvested' } })
+    api.get('/fisheries/stocking/', { params: { fisherfolk: fisherfolkInfo.id, status: 'Stocked,Near Harvest,Harvested' } })
       .then(r => {
         const list = Array.isArray(r.data) ? r.data : (r.data.results || [])
         setExistingCycleCount(list.length)
@@ -902,6 +909,9 @@ export default function FisheriesRecordsPage() {
   const [editingRec,   setEditingRec]   = useState(null)
   const [deletingRec,  setDeletingRec]  = useState(null)
   const [speciesList,  setSpeciesList]  = useState([])
+  const [viewLogsRec,  setViewLogsRec]  = useState(null)
+  const [disasterRec,  setDisasterRec]  = useState(null)
+  const [harvestRec,   setHarvestRec]   = useState(null)
 
   // Handle ?action=add from fisheries monitoring "Add Stocking" button
   useEffect(() => {
@@ -919,7 +929,7 @@ export default function FisheriesRecordsPage() {
     try {
       const params = new URLSearchParams({ page: pageNum })
       if (statusFilter === 'All Status') {
-        params.set('status', 'Stocked,For Harvest,Harvested')
+        params.set('status', 'Stocked,Near Harvest,Harvested')
       } else if (statusFilter !== 'All Status') {
         params.set('status', statusFilter)
       }
@@ -972,10 +982,39 @@ export default function FisheriesRecordsPage() {
     assoc_name:   rec.association_name || '—',
     pond_location: rec.pond_location_barangay || '—',
     status_cell: (
-      <StatusPill tone={STATUS_TONES[rec.status] || 'slate'}>{rec.status}</StatusPill>
+      <span className="flex items-center gap-1.5">
+        <StatusPill tone={STATUS_TONES[rec.status] || 'slate'}>{rec.status}</StatusPill>
+        <DisasterDot activeCount={rec.disaster_count} hasResolved={rec.has_resolved_disaster} />
+      </span>
     ),
     actions_cell: (
       <div className="flex items-center gap-1">
+        <button
+          type="button"
+          className="flex items-center gap-1 rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100 hover:text-[#1B4D2E] transition-colors"
+          onClick={(e) => { e.stopPropagation(); setViewLogsRec(rec) }}
+          title="View Logs"
+        >
+          <Eye size={14} />
+        </button>
+        {rec.status !== 'Total Loss' && rec.status !== 'Harvested' && (
+          <button
+            type="button"
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-slate-500 hover:bg-amber-50 hover:text-amber-600 transition-colors"
+            onClick={(e) => { e.stopPropagation(); setHarvestRec(rec) }}
+            title="Record Harvest"
+          >
+            <Wheat size={14} />
+          </button>
+        )}
+        <button
+          type="button"
+          className="flex items-center gap-1 rounded-lg px-2 py-1 text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+          onClick={(e) => { e.stopPropagation(); setDisasterRec(rec) }}
+          title="Report Disaster"
+        >
+          <AlertTriangle size={14} />
+        </button>
         {rec.status !== 'Harvested' && (
           <button
             type="button"
@@ -1046,8 +1085,9 @@ export default function FisheriesRecordsPage() {
           >
             <option value="All Status">All Status</option>
             <option value="Stocked">Stocked</option>
-            <option value="For Harvest">For Harvest</option>
+            <option value="Near Harvest">Near Harvest</option>
             <option value="Harvested">Harvested</option>
+            <option value="Total Loss">Total Loss</option>
           </select>
           <select
             className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[5px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none"
@@ -1152,6 +1192,30 @@ export default function FisheriesRecordsPage() {
           variant="danger"
           onConfirm={handleDelete}
           onCancel={() => setDeletingRec(null)}
+        />
+      )}
+
+      {viewLogsRec && (
+        <ViewStockingLogsModal
+          record={viewLogsRec}
+          onClose={() => setViewLogsRec(null)}
+          onLogAdded={() => fetchRecords(page)}
+        />
+      )}
+
+      {disasterRec && (
+        <StockingDisasterReportModal
+          record={disasterRec}
+          onClose={() => setDisasterRec(null)}
+          onSuccess={() => fetchRecords(page)}
+        />
+      )}
+
+      {harvestRec && (
+        <RecordStockingHarvestModal
+          record={harvestRec}
+          onClose={() => setHarvestRec(null)}
+          onSuccess={() => { setHarvestRec(null); fetchRecords(page) }}
         />
       )}
     </PageLayout>

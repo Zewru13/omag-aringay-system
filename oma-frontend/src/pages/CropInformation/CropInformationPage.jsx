@@ -1,9 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FileText, MessageCircle, Pencil, Plus, Search, Trash2, User } from "lucide-react";
+import {
+  FileText,
+  MessageCircle,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  User,
+} from "lucide-react";
 import BarangaySelect from "../../components/UI/BarangaySelect.jsx";
 import api from "../../api/axiosInstance.js";
 import PageLayout from "../../components/Layout/PageLayout.jsx";
 import ConfirmDialog from "../../components/UI/ConfirmDialog.jsx";
+import DisasterDot from "../../components/UI/DisasterDot.jsx";
 import ErrorMessage from "../../components/UI/ErrorMessage.jsx";
 import FormField, { baseInputClasses } from "../../components/UI/FormField.jsx";
 import ModalShell from "../../components/UI/ModalShell.jsx";
@@ -31,22 +40,23 @@ function fmtLong(v) {
 }
 
 function getDisplayStatus(rec) {
-  if (rec.status !== "Active") return rec.status;
+  if (rec.status === "Total Loss") return "Total Loss";
+  if (rec.status === "Harvested") return "Harvested";
+  if (rec.status === "Near Harvest") return "Near Harvest";
   if (rec.expected_harvest_date) {
     const today = new Date();
     const harvest = new Date(rec.expected_harvest_date + "T00:00:00");
     const daysLeft = Math.ceil((harvest - today) / (1000 * 60 * 60 * 24));
-    if (daysLeft <= 14) return "For Harvest";
+    if (daysLeft <= 7) return "Near Harvest";
   }
   return "Planted";
 }
 
 const STATUS_TONES = {
   Planted: "green",
-  "For Harvest": "amber",
+  "Near Harvest": "amber",
   Harvested: "blue",
-  Damaged: "rose",
-  Abandoned: "slate",
+  "Total Loss": "rose",
 };
 
 const COLUMNS = [
@@ -64,10 +74,9 @@ const COLUMNS = [
 const STATUS_FILTER_OPTIONS = [
   "All Status",
   "Planted",
-  "For Harvest",
+  "Near Harvest",
   "Harvested",
-  "Damaged",
-  "Abandoned",
+  "Total Loss",
 ];
 
 // ─── Add Remark Modal ─────────────────────────────────────────────────────────
@@ -274,7 +283,9 @@ function RemarksModal({ record, onClose }) {
             ) : remarks.length === 0 ? (
               <div className="flex flex-col items-center gap-2 py-10 text-[#7A8E7A]">
                 <MessageCircle size={32} className="opacity-40" />
-                <p className="text-[13px]">No remarks yet for this crop record.</p>
+                <p className="text-[13px]">
+                  No remarks yet for this crop record.
+                </p>
               </div>
             ) : (
               <ul className="max-h-72 space-y-2 overflow-y-auto pr-1">
@@ -337,18 +348,18 @@ function EditCropModal({ record, onClose, onSaved }) {
   const { showToast } = useToast();
 
   // Farmer search
-  const [farmerQuery,    setFarmerQuery]    = useState(record.farmer_name || "");
-  const [farmerResults,  setFarmerResults]  = useState([]);
+  const [farmerQuery, setFarmerQuery] = useState(record.farmer_name || "");
+  const [farmerResults, setFarmerResults] = useState([]);
   const [searchingFarmer, setSearchingFarmer] = useState(false);
   const [showFarmerDrop, setShowFarmerDrop] = useState(false);
   const [selectedFarmer, setSelectedFarmer] = useState({
-    farmer_id:            record.farmer || null,
-    farmer_full_name:     record.farmer_name || "",
+    farmer_id: record.farmer || null,
+    farmer_full_name: record.farmer_name || "",
     farmer_home_barangay: "",
-    farmer_assoc_id:      record.farmers_association || null,
-    farmer_assoc_name:    record.association_name || "",
+    farmer_assoc_id: record.farmers_association || null,
+    farmer_assoc_name: record.association_name || "",
   });
-  const farmerWrapperRef  = useRef(null);
+  const farmerWrapperRef = useRef(null);
   const farmerDebounceRef = useRef(null);
 
   // Crop types (for harvest preview)
@@ -357,34 +368,46 @@ function EditCropModal({ record, onClose, onSaved }) {
   // Form
   const originalData = {
     farm_location_barangay: record.farm_location_barangay || "",
-    land_status:            record.land_status || "",
-    date_planted:           record.date_planted || "",
-    area_planted_ha:        record.area_planted_ha ? String(record.area_planted_ha) : "",
-    season:                 record.season || "",
-    variety_used:           record.variety_used || "",
-    seed_source:            record.seed_source || "",
-    quantity_of_seeds:      record.quantity_of_seeds ? String(record.quantity_of_seeds) : "",
-    seed_quantity_unit:     record.seed_quantity_unit || "kg",
+    land_status: record.land_status || "",
+    date_planted: record.date_planted || "",
+    area_planted_ha: record.area_planted_ha
+      ? String(record.area_planted_ha)
+      : "",
+    season: record.season || "",
+    variety_used: record.variety_used || "",
+    seed_source: record.seed_source || "",
+    quantity_of_seeds: record.quantity_of_seeds
+      ? String(record.quantity_of_seeds)
+      : "",
+    seed_quantity_unit: record.seed_quantity_unit || "kg",
   };
-  const [form, setForm]           = useState(originalData);
+  const [form, setForm] = useState(originalData);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError]         = useState("");
+  const [error, setError] = useState("");
 
-  const normalize = (v) => (v === null || v === undefined ? "" : String(v).trim());
-  const isDirty = Object.keys(originalData).some(
-    (k) => normalize(form[k]) !== normalize(originalData[k])
-  ) || selectedFarmer.farmer_id !== (record.farmer || null);
+  const normalize = (v) =>
+    v === null || v === undefined ? "" : String(v).trim();
+  const isDirty =
+    Object.keys(originalData).some(
+      (k) => normalize(form[k]) !== normalize(originalData[k]),
+    ) || selectedFarmer.farmer_id !== (record.farmer || null);
 
   useEffect(() => {
-    api.get("/production/crop-types/").then((r) => {
-      setCropTypes(Array.isArray(r.data) ? r.data : r.data.results || []);
-    }).catch(() => {});
+    api
+      .get("/production/crop-types/")
+      .then((r) => {
+        setCropTypes(Array.isArray(r.data) ? r.data : r.data.results || []);
+      })
+      .catch(() => {});
   }, []);
 
   // Close farmer dropdown on outside click
   useEffect(() => {
     const handler = (e) => {
-      if (farmerWrapperRef.current && !farmerWrapperRef.current.contains(e.target)) {
+      if (
+        farmerWrapperRef.current &&
+        !farmerWrapperRef.current.contains(e.target)
+      ) {
         setShowFarmerDrop(false);
       }
     };
@@ -395,7 +418,9 @@ function EditCropModal({ record, onClose, onSaved }) {
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   // Harvest preview
-  const cropType = cropTypes.find((c) => String(c.id) === String(record.crop_type));
+  const cropType = cropTypes.find(
+    (c) => String(c.id) === String(record.crop_type),
+  );
   const harvestDate = useMemo(() => {
     if (!form.date_planted || !cropType?.days_to_harvest) return null;
     const d = new Date(form.date_planted + "T00:00:00");
@@ -404,7 +429,9 @@ function EditCropModal({ record, onClose, onSaved }) {
   }, [form.date_planted, cropType]);
   const estimatedYield = useMemo(() => {
     if (!form.area_planted_ha || !cropType?.yield_per_ha_kg) return null;
-    return parseFloat(form.area_planted_ha) * parseFloat(cropType.yield_per_ha_kg);
+    return (
+      parseFloat(form.area_planted_ha) * parseFloat(cropType.yield_per_ha_kg)
+    );
   }, [form.area_planted_ha, cropType]);
 
   // Farmer search handlers
@@ -413,26 +440,33 @@ function EditCropModal({ record, onClose, onSaved }) {
     setFarmerQuery(q);
     setSelectedFarmer((f) => ({ ...f, farmer_id: null, farmer_full_name: "" }));
     clearTimeout(farmerDebounceRef.current);
-    if (!q.trim()) { setFarmerResults([]); setShowFarmerDrop(false); return; }
+    if (!q.trim()) {
+      setFarmerResults([]);
+      setShowFarmerDrop(false);
+      return;
+    }
     farmerDebounceRef.current = setTimeout(async () => {
       setSearchingFarmer(true);
       try {
         const r = await api.get("/farmers/", { params: { search: q } });
-        const list = Array.isArray(r.data) ? r.data : (r.data.results || []);
+        const list = Array.isArray(r.data) ? r.data : r.data.results || [];
         setFarmerResults(list.slice(0, 8));
         setShowFarmerDrop(true);
-      } catch { setFarmerResults([]); }
-      finally { setSearchingFarmer(false); }
+      } catch {
+        setFarmerResults([]);
+      } finally {
+        setSearchingFarmer(false);
+      }
     }, 300);
   };
 
   const handleFarmerSelect = (farmer) => {
     setSelectedFarmer({
-      farmer_id:            farmer.id,
-      farmer_full_name:     farmer.full_name,
+      farmer_id: farmer.id,
+      farmer_full_name: farmer.full_name,
       farmer_home_barangay: farmer.barangay || "",
-      farmer_assoc_id:      farmer.association_id || null,
-      farmer_assoc_name:    farmer.association_name || "",
+      farmer_assoc_id: farmer.association_id || null,
+      farmer_assoc_name: farmer.association_name || "",
     });
     setFarmerQuery(farmer.full_name);
     setFarmerResults([]);
@@ -450,24 +484,35 @@ function EditCropModal({ record, onClose, onSaved }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedFarmer.farmer_id) { setError("Please select a farmer."); return; }
-    if (!form.date_planted)        { setError("Date planted is required."); return; }
-    if (!form.area_planted_ha)     { setError("Area planted (ha) is required."); return; }
+    if (!selectedFarmer.farmer_id) {
+      setError("Please select a farmer.");
+      return;
+    }
+    if (!form.date_planted) {
+      setError("Date planted is required.");
+      return;
+    }
+    if (!form.area_planted_ha) {
+      setError("Area planted (ha) is required.");
+      return;
+    }
     setError("");
     setIsSubmitting(true);
     try {
       await api.patch(`/production/monitoring/${record.id}/`, {
-        farmer:                 selectedFarmer.farmer_id,
-        farmers_association:    selectedFarmer.farmer_assoc_id || null,
+        farmer: selectedFarmer.farmer_id,
+        farmers_association: selectedFarmer.farmer_assoc_id || null,
         farm_location_barangay: form.farm_location_barangay,
-        land_status:            form.land_status,
-        date_planted:           form.date_planted,
-        area_planted_ha:        form.area_planted_ha || null,
-        season:                 form.season,
-        variety_used:           form.variety_used,
-        seed_source:            form.seed_source,
-        quantity_of_seeds:      form.quantity_of_seeds ? parseFloat(form.quantity_of_seeds) : null,
-        seed_quantity_unit:     form.seed_quantity_unit,
+        land_status: form.land_status,
+        date_planted: form.date_planted,
+        area_planted_ha: form.area_planted_ha || null,
+        season: form.season,
+        variety_used: form.variety_used,
+        seed_source: form.seed_source,
+        quantity_of_seeds: form.quantity_of_seeds
+          ? parseFloat(form.quantity_of_seeds)
+          : null,
+        seed_quantity_unit: form.seed_quantity_unit,
       });
       showToast("Crop record updated successfully.", "success");
       onSaved();
@@ -487,21 +532,25 @@ function EditCropModal({ record, onClose, onSaved }) {
       maxWidth="max-w-lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-
         {/* Farmer Search */}
         <div ref={farmerWrapperRef} className="relative">
           <label className={editLabelCls}>
             Farmer <span className="text-rose-500">*</span>
           </label>
           <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8BCA8] pointer-events-none" />
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8BCA8] pointer-events-none"
+            />
             <input
               type="text"
               className={`${baseInputClasses} pl-8`}
               placeholder="Search farmer name or RSBSA..."
               value={farmerQuery}
               onChange={handleFarmerQueryChange}
-              onFocus={() => { if (farmerResults.length > 0) setShowFarmerDrop(true); }}
+              onFocus={() => {
+                if (farmerResults.length > 0) setShowFarmerDrop(true);
+              }}
             />
             {searchingFarmer && (
               <span className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin rounded-full border-2 border-[#1B4D2E] border-t-transparent" />
@@ -511,9 +560,13 @@ function EditCropModal({ record, onClose, onSaved }) {
             <div className="mt-1.5 rounded-lg bg-[#EBF5EE] border border-[#C8E6D0] px-3 py-2 flex items-center gap-2">
               <User size={13} className="text-[#1B4D2E] flex-shrink-0" />
               <div>
-                <p className="text-[12px] font-semibold text-[#1B4D2E]">{selectedFarmer.farmer_full_name}</p>
+                <p className="text-[12px] font-semibold text-[#1B4D2E]">
+                  {selectedFarmer.farmer_full_name}
+                </p>
                 {selectedFarmer.farmer_home_barangay && (
-                  <p className="text-[11px] text-[#4A5E4A]">{selectedFarmer.farmer_home_barangay}</p>
+                  <p className="text-[11px] text-[#4A5E4A]">
+                    {selectedFarmer.farmer_home_barangay}
+                  </p>
                 )}
               </div>
             </div>
@@ -530,8 +583,12 @@ function EditCropModal({ record, onClose, onSaved }) {
                 >
                   <User size={13} className="text-[#7A8E7A] flex-shrink-0" />
                   <div>
-                    <p className="text-[13px] font-medium text-[#1A2B1A]">{f.full_name}</p>
-                    <p className="text-[11px] text-[#7A8E7A]">{f.rsbsa_number || ""} · {f.barangay || ""}</p>
+                    <p className="text-[13px] font-medium text-[#1A2B1A]">
+                      {f.full_name}
+                    </p>
+                    <p className="text-[11px] text-[#7A8E7A]">
+                      {f.rsbsa_number || ""} · {f.barangay || ""}
+                    </p>
                   </div>
                 </button>
               ))}
@@ -541,12 +598,20 @@ function EditCropModal({ record, onClose, onSaved }) {
 
         {/* Crop Type — read-only */}
         <div className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] px-4 py-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8] mb-1">Crop Type (Read-Only)</p>
-          <p className="text-[14px] font-semibold text-[#1A2B1A]">{record.crop_type_name}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8] mb-1">
+            Crop Type (Read-Only)
+          </p>
+          <p className="text-[14px] font-semibold text-[#1A2B1A]">
+            {record.crop_type_name}
+          </p>
           {cropType && (
             <p className="text-[12px] text-[#7A8E7A] mt-0.5">
-              {cropType.days_to_harvest ? `${cropType.days_to_harvest} days to harvest` : ""}
-              {cropType.yield_per_ha_kg ? ` · ${Number(cropType.yield_per_ha_kg).toLocaleString()} kg/ha yield` : ""}
+              {cropType.days_to_harvest
+                ? `${cropType.days_to_harvest} days to harvest`
+                : ""}
+              {cropType.yield_per_ha_kg
+                ? ` · ${Number(cropType.yield_per_ha_kg).toLocaleString()} kg/ha yield`
+                : ""}
             </p>
           )}
         </div>
@@ -609,13 +674,21 @@ function EditCropModal({ record, onClose, onSaved }) {
         {/* Harvest Preview */}
         {(harvestDate || estimatedYield != null) && (
           <div className="rounded-xl border border-[#C8E6D0] bg-[#EBF5EE] px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#1B4D2E] mb-2">Harvest Preview</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#1B4D2E] mb-2">
+              Harvest Preview
+            </p>
             <div className="flex flex-wrap gap-x-6 gap-y-1">
               {harvestDate && (
                 <div>
-                  <p className="text-[11px] text-[#4A5E4A]">Est. Harvest Date</p>
+                  <p className="text-[11px] text-[#4A5E4A]">
+                    Est. Harvest Date
+                  </p>
                   <p className="text-[13px] font-semibold text-[#1A2B1A]">
-                    {harvestDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    {harvestDate.toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
                   </p>
                 </div>
               )}
@@ -623,7 +696,11 @@ function EditCropModal({ record, onClose, onSaved }) {
                 <div>
                   <p className="text-[11px] text-[#4A5E4A]">Est. Yield</p>
                   <p className="text-[13px] font-semibold text-[#1A2B1A]">
-                    {estimatedYield.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg
+                    {estimatedYield.toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}{" "}
+                    kg
                   </p>
                 </div>
               )}
@@ -648,7 +725,10 @@ function EditCropModal({ record, onClose, onSaved }) {
         {/* Variety Used */}
         <div>
           <label className={editLabelCls}>
-            Variety Used <span className="text-[12px] font-normal text-[#7A8E7A]">(optional)</span>
+            Variety Used{" "}
+            <span className="text-[12px] font-normal text-[#7A8E7A]">
+              (optional)
+            </span>
           </label>
           <input
             type="text"
@@ -662,7 +742,10 @@ function EditCropModal({ record, onClose, onSaved }) {
         {/* Seed Source */}
         <div>
           <label className={editLabelCls}>
-            Seed Source <span className="text-[12px] font-normal text-[#7A8E7A]">(optional)</span>
+            Seed Source{" "}
+            <span className="text-[12px] font-normal text-[#7A8E7A]">
+              (optional)
+            </span>
           </label>
           <select
             className={baseInputClasses}
@@ -682,7 +765,10 @@ function EditCropModal({ record, onClose, onSaved }) {
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <label className={editLabelCls}>
-              Quantity of Seeds <span className="text-[12px] font-normal text-[#7A8E7A]">(optional)</span>
+              Quantity of Seeds{" "}
+              <span className="text-[12px] font-normal text-[#7A8E7A]">
+                (optional)
+              </span>
             </label>
             <input
               type="number"
@@ -752,22 +838,25 @@ export default function CropInformationPage() {
   const [editingRec, setEditingRec] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
 
-  const fetchRecords = useCallback(async (pageNum = 1) => {
-    setIsLoading(true);
-    setError("");
-    try {
-      const params = new URLSearchParams({ page: pageNum });
-      if (seasonFilter) params.set("season", seasonFilter);
-      if (yearFilter)   params.set("year", yearFilter);
-      const r = await api.get(`/production/monitoring/?${params.toString()}`);
-      setRecords(Array.isArray(r.data) ? r.data : r.data.results || []);
-      setTotalCount(typeof r.data?.count === "number" ? r.data.count : 0);
-    } catch {
-      setError("Failed to load crop records.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [seasonFilter, yearFilter]);
+  const fetchRecords = useCallback(
+    async (pageNum = 1) => {
+      setIsLoading(true);
+      setError("");
+      try {
+        const params = new URLSearchParams({ page: pageNum });
+        if (seasonFilter) params.set("season", seasonFilter);
+        if (yearFilter) params.set("year", yearFilter);
+        const r = await api.get(`/production/monitoring/?${params.toString()}`);
+        setRecords(Array.isArray(r.data) ? r.data : r.data.results || []);
+        setTotalCount(typeof r.data?.count === "number" ? r.data.count : 0);
+      } catch {
+        setError("Failed to load crop records.");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [seasonFilter, yearFilter],
+  );
 
   useEffect(() => {
     setPage(1);
@@ -819,30 +908,40 @@ export default function CropInformationPage() {
         ),
       assoc_name: rec.association_name || "—",
       status_cell: (
-        <StatusPill tone={STATUS_TONES[displayStatus] || "slate"}>
-          {displayStatus}
-        </StatusPill>
+        <span className="flex items-center gap-1.5">
+          <StatusPill tone={STATUS_TONES[displayStatus] || "slate"}>
+            {displayStatus}
+          </StatusPill>
+          <DisasterDot activeCount={rec.disasters_count} hasResolved={rec.has_resolved_disaster} />
+        </span>
       ),
       remarks_cell: (
         <button
           type="button"
           className="flex items-center gap-1 rounded-lg px-2 py-1 text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors"
-          onClick={(e) => { e.stopPropagation(); setRemarksRec(rec); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            setRemarksRec(rec);
+          }}
           title="View/Add Remarks"
         >
           <FileText size={14} />
         </button>
       ),
-      edit_cell: rec.status !== "Harvested" ? (
-        <button
-          type="button"
-          className="flex items-center gap-1 rounded-lg px-2 py-1 text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors"
-          onClick={(e) => { e.stopPropagation(); setEditingRec(rec); }}
-          title="Edit record"
-        >
-          <Pencil size={14} />
-        </button>
-      ) : null,
+      edit_cell:
+        rec.status !== "Harvested" ? (
+          <button
+            type="button"
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              setEditingRec(rec);
+            }}
+            title="Edit record"
+          >
+            <Pencil size={14} />
+          </button>
+        ) : null,
     };
   });
 
@@ -865,7 +964,17 @@ export default function CropInformationPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center bg-white border border-[#E2E8E2] rounded-lg px-4 py-2.5">
           <div className="relative flex-1">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8BCA8]">
-              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <svg
+                width="14"
+                height="14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.35-4.35" />
+              </svg>
             </span>
             <input
               className="w-full border-none bg-transparent pl-8 pr-2 text-[13px] text-[#1A2B1A] placeholder-[#A8BCA8] focus:outline-none"
@@ -900,8 +1009,13 @@ export default function CropInformationPage() {
             onChange={(e) => setYearFilter(e.target.value)}
           >
             <option value="">All Years</option>
-            {Array.from({ length: 8 }, (_, i) => new Date().getFullYear() + 1 - i).map((y) => (
-              <option key={y} value={y}>{y}</option>
+            {Array.from(
+              { length: 8 },
+              (_, i) => new Date().getFullYear() + 1 - i,
+            ).map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
             ))}
           </select>
         </div>
@@ -926,7 +1040,10 @@ export default function CropInformationPage() {
             <tbody>
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i} className="border-b border-[#F0F4F0] animate-pulse">
+                  <tr
+                    key={i}
+                    className="border-b border-[#F0F4F0] animate-pulse"
+                  >
                     {COLUMNS.map((col) => (
                       <td key={col.key} className="px-4 py-[13px]">
                         <div className="h-4 bg-[#E8EEE8] rounded w-3/4" />
@@ -936,14 +1053,26 @@ export default function CropInformationPage() {
                 ))
               ) : rows.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={COLUMNS.length}
-                    className="py-12 text-center"
-                  >
+                  <td colSpan={COLUMNS.length} className="py-12 text-center">
                     <div className="flex flex-col items-center gap-2 text-[#C8D5C8]">
-                      <svg width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-                      <p className="text-[14px] font-medium text-[#4A5E4A]">No crop records found</p>
-                      <p className="text-[13px] text-[#7A8E7A]">Try adjusting your search or filters</p>
+                      <svg
+                        width="48"
+                        height="48"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M9 17H7A5 5 0 0 1 7 7h2" />
+                        <path d="M15 7h2a5 5 0 0 1 0 10h-2" />
+                        <line x1="8" y1="12" x2="16" y2="12" />
+                      </svg>
+                      <p className="text-[14px] font-medium text-[#4A5E4A]">
+                        No crop records found
+                      </p>
+                      <p className="text-[13px] text-[#7A8E7A]">
+                        Try adjusting your search or filters
+                      </p>
                     </div>
                   </td>
                 </tr>
@@ -972,7 +1101,9 @@ export default function CropInformationPage() {
           page={page}
           totalCount={totalCount}
           pageSize={10}
-          onPageChange={(p) => { setPage(p); }}
+          onPageChange={(p) => {
+            setPage(p);
+          }}
         />
       </div>
 
@@ -995,7 +1126,10 @@ export default function CropInformationPage() {
         <EditCropModal
           record={editingRec}
           onClose={() => setEditingRec(null)}
-          onSaved={() => { setEditingRec(null); fetchRecords(); }}
+          onSaved={() => {
+            setEditingRec(null);
+            fetchRecords();
+          }}
         />
       )}
     </PageLayout>

@@ -5,6 +5,7 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
+import DisasterDot from '../../components/UI/DisasterDot.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
@@ -126,6 +127,7 @@ function SuggestionsModal({ record, onClose, onApply }) {
 
   return (
     <ModalShell title={`Activity Suggestions — ${record.crop_type_name}`} onClose={onClose} maxWidth="max-w-lg">
+      <div className={loading ? 'pointer-events-none opacity-50' : ''}>
       {loading ? (
         <div className="flex justify-center py-10">
           <div className="animate-spin w-8 h-8 border-4 border-[#1B4D2E] border-t-transparent rounded-full" />
@@ -296,6 +298,7 @@ function SuggestionsModal({ record, onClose, onApply }) {
           )}
         </div>
       )}
+      </div>
 
       {earlyConfirm && (
         <ConfirmDialog
@@ -1634,6 +1637,7 @@ export default function CropMonitoringPage() {
     crop_cell: (
       <span className="flex items-center gap-1.5">
         <span className="font-medium">{rec.crop_type_name}</span>
+        <DisasterDot activeCount={rec.disasters_count} hasResolved={rec.has_resolved_disaster} />
         {rec.disasters_count > 0 && (
           <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-full px-1.5 py-0.5 whitespace-nowrap">
             <AlertTriangle className="w-2.5 h-2.5" /> {rec.disasters_count > 1 ? rec.disasters_count : 'Disaster'}

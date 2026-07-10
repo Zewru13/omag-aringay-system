@@ -21,7 +21,7 @@ function AddActivityLogModal({ monitoringId, onClose, onSuccess }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [form, setForm] = useState({
     activity_type: 'Field Inspection',
-    activity_date: '',
+    date_of_activity: '',
     notes: '',
   })
 
@@ -29,7 +29,7 @@ function AddActivityLogModal({ monitoringId, onClose, onSuccess }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!form.activity_date) { showToast('Activity date is required.', 'error'); return }
+    if (!form.date_of_activity) { showToast('Date of activity is required.', 'error'); return }
     setIsSubmitting(true)
     try {
       await api.post(`/production/monitoring/${monitoringId}/logs/`, form)
@@ -56,15 +56,25 @@ function AddActivityLogModal({ monitoringId, onClose, onSuccess }) {
               {ACTIVITY_TYPES.map((t) => <option key={t}>{t}</option>)}
             </select>
           </FormField>
-          <FormField label="Activity Date" required>
+          <FormField label="Date of Activity" required hint="When the activity was actually performed in the field.">
             <input
               type="date"
+              max={new Date().toISOString().split('T')[0]}
               className={baseInputClasses}
-              value={form.activity_date}
-              onChange={(e) => set('activity_date', e.target.value)}
+              value={form.date_of_activity}
+              onChange={(e) => set('date_of_activity', e.target.value)}
             />
           </FormField>
         </div>
+        <FormField label="Date Logged" hint="Automatically recorded when you save.">
+          <input
+            type="text"
+            disabled
+            className={`${baseInputClasses} bg-slate-100 text-slate-400 cursor-not-allowed`}
+            value={new Date().toLocaleDateString()}
+            readOnly
+          />
+        </FormField>
         <FormField label="Notes">
           <textarea
             className={baseInputClasses}

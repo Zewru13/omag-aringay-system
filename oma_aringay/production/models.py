@@ -1,5 +1,5 @@
 from decimal import Decimal
-from datetime import timedelta
+from datetime import date, timedelta
 
 from django.core.exceptions import ValidationError
 
@@ -88,10 +88,10 @@ class CropActivityStage(models.Model):
 
 class CropMonitoringRecord(models.Model):
     class Status(models.TextChoices):
-        ACTIVE = 'Active', 'Active'
+        PLANTED = 'Planted', 'Planted'
+        NEAR_HARVEST = 'Near Harvest', 'Near Harvest'
         HARVESTED = 'Harvested', 'Harvested'
-        DAMAGED = 'Damaged', 'Damaged'
-        ABANDONED = 'Abandoned', 'Abandoned'
+        TOTAL_LOSS = 'Total Loss', 'Total Loss'
 
     GROWTH_STAGE_CHOICES = [
         ('Land Preparation', 'Land Preparation'),
@@ -127,7 +127,7 @@ class CropMonitoringRecord(models.Model):
     area_planted_ha = models.DecimalField(max_digits=10, decimal_places=2)
     expected_harvest_date = models.DateField(null=True, blank=True)
     actual_harvest_date = models.DateField(null=True, blank=True)
-    status = models.CharField(max_length=20, choices=Status.choices, default=Status.ACTIVE)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PLANTED)
     estimated_yield_kg = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     actual_yield_kg = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     yield_variance_kg = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
@@ -195,11 +195,26 @@ class CropMonitoringRecord(models.Model):
             if self.estimated_yield_kg != 0:
                 raw_pct = ((self.yield_variance_kg / Decimal(str(self.estimated_yield_kg))) * Decimal('100')).quantize(Decimal('0.01'))
                 self.yield_variance_pct = max(Decimal('-99999.99'), min(Decimal('99999.99'), raw_pct))
+        # Auto-transition: Planted → Near Harvest when within 7 days of expected harvest
+        if self.expected_harvest_date and self.status == self.Status.PLANTED:
+            days_remaining = (self.expected_harvest_date - date.today()).days
+            if days_remaining <= 7:
+                self.status = self.Status.NEAR_HARVEST
         super().save(*args, **kwargs)
 
     def __str__(self):
         loc = f'Parcel {self.farm_parcel_id}' if self.farm_parcel_id else (self.farmers_association.name if self.farmers_association_id else 'Unknown')
         return f'{self.crop_type} - {loc} ({self.season} {self.year})'
+
+    def determine_status(self):
+        """Pick the correct status for this record after total-loss reversal."""
+        if self.harvest_records.exists():
+            return self.Status.HARVESTED
+        if self.expected_harvest_date:
+            days_remaining = (self.expected_harvest_date - date.today()).days
+            if days_remaining <= 7:
+                return self.Status.NEAR_HARVEST
+        return self.Status.PLANTED
 
 
 class CropActivityLog(models.Model):
@@ -223,7 +238,7 @@ class CropActivityLog(models.Model):
         related_name='activity_logs',
     )
     activity_type = models.CharField(max_length=100)
-    activity_date = models.DateField()
+    date_of_activity = models.DateField(help_text="When the activity was actually performed in the field")
     plant_condition = models.CharField(max_length=10, choices=PLANT_CONDITION_CHOICES, blank=True)
     status_at_log = models.CharField(max_length=20, choices=CROP_STAGE_CHOICES, blank=True)
     notes = models.TextField(blank=True)
@@ -246,6 +261,21 @@ class CropActivityLog(models.Model):
 
     target_day = models.IntegerField(null=True, blank=True, help_text="Day after planting this log was targeted for")
     is_late = models.BooleanField(default=False, help_text="Logged after the target window")
+    date_logged = models.DateTimeField(auto_now_add=True, null=True, blank=True, help_text="When OMAg staff encoded this log")
+    disaster_report = models.ForeignKey(
+        'CropDisasterReport',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='+',
+        help_text='Set when this log was created from a disaster response rule card',
+    )
+    disaster_rule = models.ForeignKey(
+        'DisasterResponseRule',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='+',
+        help_text='The specific disaster response rule this log satisfies',
+    )
 
     recorded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -255,7 +285,7 @@ class CropActivityLog(models.Model):
     )
 
     def __str__(self):
-        return f'{self.activity_type} on {self.activity_date}'
+        return f'{self.activity_type} on {self.date_of_activity}'
 
 
 class CropDisasterReport(models.Model):
@@ -282,6 +312,7 @@ class CropDisasterReport(models.Model):
     area_affected_ha = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
     estimated_damage = models.TextField(blank=True, help_text='Describe the damage')
     production_loss = models.TextField(blank=True, help_text='Estimated production loss')
+    is_total_loss = models.BooleanField(default=False, help_text='Crop completely destroyed — ends the production cycle')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Active')
     resolved_date = models.DateField(null=True, blank=True)
     resolved_by = models.ForeignKey(
@@ -299,6 +330,29 @@ class CropDisasterReport(models.Model):
 
     class Meta:
         ordering = ['-date_of_occurrence']
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if self.is_total_loss and self.monitoring_record_id:
+            try:
+                rec = CropMonitoringRecord.objects.get(pk=self.monitoring_record_id)
+                if rec.status != CropMonitoringRecord.Status.TOTAL_LOSS:
+                    rec.status = CropMonitoringRecord.Status.TOTAL_LOSS
+                    rec.save(update_fields=['status'])
+            except CropMonitoringRecord.DoesNotExist:
+                pass
+
+    def delete(self, *args, **kwargs):
+        monitoring_record_id = self.monitoring_record_id
+        was_total_loss = self.is_total_loss
+        super().delete(*args, **kwargs)
+        if was_total_loss and monitoring_record_id:
+            try:
+                rec = CropMonitoringRecord.objects.get(pk=monitoring_record_id)
+                rec.status = rec.determine_status()
+                rec.save(update_fields=['status'])
+            except CropMonitoringRecord.DoesNotExist:
+                pass
 
     def __str__(self):
         return f'{self.disaster_type} - {self.date_of_occurrence}'
@@ -755,6 +809,11 @@ class DisasterResponseRule(models.Model):
     )
     title = models.CharField(max_length=200)
     action = models.TextField(help_text='Step-by-step response action.')
+    activity_name = models.CharField(
+        max_length=150, default='Other',
+        help_text='Activity log value this rule fills when clicked.',
+    )
+    recommendation = models.TextField(blank=True, help_text='Plain text copied into the log Notes field.')
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default='MEDIUM')
 
     class Meta:
