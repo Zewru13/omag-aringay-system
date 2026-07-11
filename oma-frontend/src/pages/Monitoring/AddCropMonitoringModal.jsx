@@ -302,7 +302,7 @@ function CropRecordCard({ rec, index, total, cropTypes, farmerId, onUpdate, onRe
             onChange={e => set('area_planted_ha', e.target.value)} />
         </FormField>
 
-        <FormField label="Cropping Season">
+        <FormField label="Cropping Season" required>
           <select className={baseInputClasses} value={rec.season}
             onChange={e => set('season', e.target.value)}>
             <option value="Wet">Wet Season (Jun–Nov)</option>

@@ -4,6 +4,7 @@ from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
 from core.constants import BARANGAY_CHOICES
+from core.validators import validate_philsys, validate_rsbsa
 
 
 class Farmer(models.Model):
@@ -33,7 +34,7 @@ class Farmer(models.Model):
         blank=True,
         default='',
     )
-    rsbsa_number = models.CharField(max_length=50, unique=True)
+    rsbsa_number = models.CharField(max_length=50, unique=True, validators=[validate_rsbsa])
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     middle_name = models.CharField(max_length=100, blank=True)
@@ -45,7 +46,7 @@ class Farmer(models.Model):
     province = models.CharField(max_length=100, default='La Union')
     civil_status = models.CharField(max_length=20, choices=CivilStatus.choices)
     highest_education = models.CharField(max_length=150, blank=True)
-    philsys_number = models.CharField(max_length=50, blank=True)
+    philsys_number = models.CharField(max_length=50, blank=True, validators=[validate_philsys])
     is_pwd = models.BooleanField(default=False)
     is_4ps_beneficiary = models.BooleanField(default=False)
     is_icc_ip_member = models.BooleanField(default=False)

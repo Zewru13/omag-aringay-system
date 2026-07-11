@@ -114,16 +114,6 @@ function StepDetails({ role, formData, onChange, onBack, onNext, onCancel }) {
             value={formData.email} onChange={e => set('email', e.target.value)} />
         </div>
 
-        {/* Contact */}
-        <div>
-          <label className={labelCls}>Contact Number <span className="text-[#A8BCA8] font-normal">(optional)</span></label>
-          <input type="tel" inputMode="numeric" maxLength={11} className={baseInputClasses}
-            placeholder="09XXXXXXXXX"
-            onKeyPress={e => { if (!/[0-9]/.test(e.key)) e.preventDefault() }}
-            value={formData.contact_number}
-            onChange={e => set('contact_number', e.target.value.replace(/\D/g, '').slice(0, 11))} />
-        </div>
-
         <div className="rounded-lg bg-[#F9FAF9] border border-[#E2E8E2] px-4 py-3 text-[12px] text-[#7A8E7A]">
           A secure random password will be generated and sent to the user's email. The user will be required to change it on first login.
         </div>
@@ -165,12 +155,11 @@ function StepReview({ role, formData, onBack, onCancel, onSuccess }) {
     setIsSubmitting(true)
     try {
       await api.post('/accounts/users/create/', {
-        full_name:      fullName,
-        suffix:         formData.suffix,
-        email:          formData.email,
-        password:       generatePassword(),
+        full_name: fullName,
+        suffix:    formData.suffix,
+        email:     formData.email,
+        password:  generatePassword(),
         role,
-        contact_number: formData.contact_number,
       })
       onSuccess()
     } catch (err) {
@@ -194,7 +183,6 @@ function StepReview({ role, formData, onBack, onCancel, onSuccess }) {
 
       <div className="space-y-2">
         <Row label="Email"          value={formData.email} />
-        <Row label="Contact Number" value={formData.contact_number || '—'} />
         <Row label="Name"           value={fullName} />
         <Row label="Role"           value={role} />
         <div className="rounded-lg bg-[#F9FAF9] border border-[#E2E8E2] px-4 py-3 text-[12px] text-[#7A8E7A]">
@@ -241,7 +229,7 @@ export default function CreateUserModal({ onClose, onSuccess }) {
   const [step,     setStep]     = useState(1)
   const [role,     setRole]     = useState('')
   const [formData, setFormData] = useState({
-    lastName: '', firstName: '', suffix: '', email: '', contact_number: '',
+    lastName: '', firstName: '', suffix: '', email: '',
   })
 
   const handleSuccess = () => { onSuccess?.(); onClose() }

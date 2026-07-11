@@ -3,16 +3,20 @@ import { AlertTriangle, Fish } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import Button from '../../components/UI/Button.jsx'
-import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { baseInputClasses, FormLabel } from '../../components/UI/FormField.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
+import SegmentedIdInput from '../../components/UI/SegmentedIdInput.jsx'
+import { BARANGAY_RSBSA_CODES } from '../../constants/barangays.js'
 import { getPrefixOptions, isPrefixValidForGender } from '../../utils/prefixOptions.js'
 
 const labelCls = 'text-[13px] font-medium text-[#4A5E4A] mb-1.5 block'
+const currentYear = String(new Date().getFullYear())
 
 const initialForm = {
   prefix: '',
   fishr_number: '',
   rsbsa_number: '',
+  lgu_registration_number: '',
   boatr_number: '',
   fish_registration_number: '',
   first_name: '',
@@ -62,6 +66,7 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
   const [form,          setForm]          = useState(initialForm)
   const [associations,  setAssociations]  = useState([])
   const [prefixResetNote, setPrefixResetNote] = useState('')
+  const [idTouched,     setIdTouched]     = useState({ fishr: false, rsbsa: false, lgu: false })
   const [contactError,  setContactError]  = useState('')
   const [fieldErrors,   setFieldErrors]   = useState({})
   const [formError,     setFormError]     = useState('')
@@ -133,6 +138,7 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
     e.preventDefault()
     setFormError('')
     setFieldErrors({})
+    setIdTouched({ fishr: true, rsbsa: true, lgu: true })
     const contactErr = validateContact(form.contact_number)
     if (contactErr) { setContactError(contactErr); return }
     setIsSubmitting(true)
@@ -163,13 +169,32 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
   }
 
   const age = computeAge(form.birthdate)
+  const isSenior = age !== null && age >= 60
+  const barangayCode = BARANGAY_RSBSA_CODES[form.barangay] || '000'
+
+  const fishrParts = [
+    { type: 'text', value: '01-33-02-' },
+    { type: 'input', key: 'year', length: 4, placeholder: currentYear },
+    { type: 'text', value: '-' },
+    { type: 'input', key: 'seq', length: 4, placeholder: '0000' },
+  ]
+  const rsbsaParts = [
+    { type: 'text', value: '01-33-02-' },
+    { type: 'text', value: `${barangayCode}-` },
+    { type: 'input', key: 'seq', length: 6, placeholder: '000000' },
+  ]
+  const lguParts = [
+    { type: 'input', key: 'year', length: 4, placeholder: currentYear },
+    { type: 'text', value: '-03302-' },
+    { type: 'input', key: 'seq', length: 4, placeholder: '0000' },
+  ]
 
   return (
     <ModalShell title="Register Fisherfolk" subtitle="Fill in the fisherfolk's details below" icon={Fish} onClose={onClose} maxWidth="max-w-3xl">
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <label className={labelCls} htmlFor="prefix">Prefix</label>
+            <FormLabel>Prefix</FormLabel>
             <select className={baseInputClasses} id="prefix" value={form.prefix} onChange={(e) => updateField('prefix', e.target.value)}>
               {getPrefixOptions(form.gender).map((p) => (
                 <option key={p || 'none'} value={p}>{p || '(None)'}</option>
@@ -179,9 +204,7 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
           </div>
 
           <div>
-            <label className={labelCls} htmlFor="fisherfolk_type">
-              Fisherfolk Type <span className="text-rose-500">*</span>
-            </label>
+            <FormLabel required>Fisherfolk Type</FormLabel>
             <select className={baseInputClasses} id="fisherfolk_type" required value={form.fisherfolk_type} onChange={(e) => updateField('fisherfolk_type', e.target.value)}>
               <option value="Aquaculture">Aquaculture</option>
               <option value="Capture">Capture</option>
@@ -189,42 +212,60 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
             </select>
           </div>
 
+          <div className="md:col-span-2">
+            <FormLabel>LGU Registration No.</FormLabel>
+            <SegmentedIdInput
+              parts={lguParts}
+              value={form.lgu_registration_number}
+              onChange={(v) => setForm((c) => ({ ...c, lgu_registration_number: v }))}
+            />
+            {idTouched.lgu && form.lgu_registration_number === '' && (
+              <p className="mt-1 text-[12px] text-[#7A8E7A]">Leave blank if not yet assigned, or fill in completely.</p>
+            )}
+            {fieldErrors.lgu_registration_number && (
+              <p className="mt-1 text-[12px] text-rose-600">{fieldErrors.lgu_registration_number}</p>
+            )}
+          </div>
+
           <div>
-            <label className={labelCls}>LGU Registration No.</label>
-            <p className="text-[13px] text-[#7A8E7A] h-[38px] flex items-center">
-              Auto-assigned on save&nbsp;
-              <span className="font-mono text-[12px] text-[#4A5E4A]">LU-ARINGAY-{form.barangay ? '{code}' : '??'}-{new Date().getFullYear()}-XXXX</span>
+            <FormLabel>FishR Number</FormLabel>
+            <SegmentedIdInput
+              parts={fishrParts}
+              value={form.fishr_number}
+              onChange={(v) => setForm((c) => ({ ...c, fishr_number: v }))}
+            />
+            {fieldErrors.fishr_number && (
+              <p className="mt-1 text-[12px] text-rose-600">{fieldErrors.fishr_number}</p>
+            )}
+          </div>
+
+          <div>
+            <FormLabel>RSBSA Number</FormLabel>
+            <SegmentedIdInput
+              parts={rsbsaParts}
+              value={form.rsbsa_number}
+              onChange={(v) => setForm((c) => ({ ...c, rsbsa_number: v }))}
+            />
+            <p className="mt-1 text-[11px] text-[#7A8E7A]">
+              {form.barangay
+                ? `Barangay code ${barangayCode} auto-filled from ${form.barangay}.`
+                : 'Select a barangay below to auto-fill the barangay code.'}
             </p>
-          </div>
-
-          <div>
-            <label className={labelCls} htmlFor="fishr_number">
-              FishR Number <span className="text-[#7A8E7A] font-normal">(optional)</span>
-            </label>
-            <input className={baseInputClasses} id="fishr_number" value={form.fishr_number} onChange={(e) => updateField('fishr_number', e.target.value)} placeholder="e.g. BFAR-001-2025" />
-          </div>
-
-          <div>
-            <label className={labelCls} htmlFor="rsbsa_number">
-              RSBSA Number <span className="text-[#7A8E7A] font-normal">(optional)</span>
-            </label>
-            <input className={baseInputClasses} id="rsbsa_number" value={form.rsbsa_number} onChange={(e) => updateField('rsbsa_number', e.target.value)} placeholder="e.g. RSBSA-123456" />
+            {fieldErrors.rsbsa_number && (
+              <p className="mt-1 text-[12px] text-rose-600">{fieldErrors.rsbsa_number}</p>
+            )}
           </div>
 
           {form.is_capture_fishery && (
             <div>
-              <label className={labelCls} htmlFor="boatr_number">
-                BoatR Number <span className="text-[#7A8E7A] font-normal">(optional)</span>
-              </label>
+              <FormLabel>BoatR Number</FormLabel>
               <input className={baseInputClasses} id="boatr_number" value={form.boatr_number} onChange={(e) => updateField('boatr_number', e.target.value)} placeholder="e.g. 1234567" />
             </div>
           )}
 
           {form.fisherfolk_type !== 'Vendor' && (
             <div>
-              <label className={labelCls} htmlFor="fish_registration_number">
-                Fish Registration No. <span className="text-rose-500">*</span>
-              </label>
+              <FormLabel required>Fish Registration No.</FormLabel>
               <input
                 className={`${baseInputClasses} ${fieldErrors.fish_registration_number ? 'border-rose-400' : ''}`}
                 id="fish_registration_number"
@@ -241,26 +282,22 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
           )}
 
           <div>
-            <label className={labelCls} htmlFor="first_name">
-              First Name <span className="text-rose-500">*</span>
-            </label>
+            <FormLabel required>First Name</FormLabel>
             <input className={baseInputClasses} id="first_name" required value={form.first_name} onChange={(e) => updateField('first_name', e.target.value)} />
           </div>
 
           <div>
-            <label className={labelCls} htmlFor="last_name">
-              Last Name <span className="text-rose-500">*</span>
-            </label>
+            <FormLabel required>Last Name</FormLabel>
             <input className={baseInputClasses} id="last_name" required value={form.last_name} onChange={(e) => updateField('last_name', e.target.value)} />
           </div>
 
           <div>
-            <label className={labelCls} htmlFor="middle_name">Middle Name</label>
+            <FormLabel>Middle Name</FormLabel>
             <input className={baseInputClasses} id="middle_name" value={form.middle_name} onChange={(e) => updateField('middle_name', e.target.value)} />
           </div>
 
           <div>
-            <label className={labelCls} htmlFor="gender">Sex</label>
+            <FormLabel required>Sex</FormLabel>
             <select className={baseInputClasses} id="gender" value={form.gender} onChange={(e) => updateField('gender', e.target.value)}>
               <option value="Male">Male</option>
               <option value="Female">Female</option>
@@ -268,9 +305,7 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
           </div>
 
           <div>
-            <label className={labelCls} htmlFor="birthdate">
-              Birthdate <span className="text-rose-500">*</span>
-            </label>
+            <FormLabel required>Birthdate</FormLabel>
             <input
               className={baseInputClasses}
               id="birthdate"
@@ -283,7 +318,7 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
             {form.birthdate && age !== null && (
               <p className="mt-1 text-[12px] text-[#4A5E4A]">
                 Age: <strong>{age}</strong> years old
-                {age >= 60 && (
+                {isSenior && (
                   <span className="ml-2 text-amber-600 font-medium">(Senior Citizen auto-detected)</span>
                 )}
               </p>
@@ -291,7 +326,7 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
           </div>
 
           <div>
-            <label className={labelCls} htmlFor="contact_number">Contact Number</label>
+            <FormLabel>Contact Number</FormLabel>
             <input
               className={baseInputClasses}
               id="contact_number"
@@ -335,10 +370,23 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
                 <span className="text-[13px] text-[#1A2B1A]">{label}</span>
               </label>
             ))}
+            <label
+              className="flex items-center gap-2 cursor-not-allowed opacity-70"
+              title={isSenior ? 'Automatically set — age is 60 or above.' : 'Automatically determined from birthdate.'}
+            >
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-[#1B4D2E]"
+                checked={isSenior}
+                disabled
+                readOnly
+              />
+              <span className="text-[13px] text-[#1A2B1A]">Senior Citizen</span>
+            </label>
           </div>
           {form.is_icc_ip_member && (
             <div className="mt-3">
-              <label className={labelCls} htmlFor="icc_ip_name">ICC/IP Group Name</label>
+              <FormLabel>ICC/IP Group Name</FormLabel>
               <input className={baseInputClasses} id="icc_ip_name" value={form.icc_ip_name} onChange={(e) => updateField('icc_ip_name', e.target.value)} />
             </div>
           )}
@@ -373,9 +421,7 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
 
         {/* Association */}
         <div>
-          <label className={labelCls}>
-            Fisherfolk Association <span className="text-[#7A8E7A] font-normal">(optional)</span>
-          </label>
+          <FormLabel>Fisherfolk Association</FormLabel>
           <select
             className={baseInputClasses}
             value={form.fisherfolk_association || ''}

@@ -25,6 +25,14 @@ BARANGAY_CHOICES = [
     ('Santo Rosario West', 'Santo Rosario West'),
 ]
 
+# PROVISIONAL mapping — barangay -> 3-digit RSBSA barangay code, assigned 001-024
+# in the same alphabetical order as BARANGAY_CHOICES above. This has NOT been
+# verified against the real BFAR/DA RSBSA barangay code registry and must be
+# confirmed by the client before relying on it for official filings.
+BARANGAY_RSBSA_CODES = {
+    name: f'{i:03d}' for i, (name, _label) in enumerate(BARANGAY_CHOICES, start=1)
+}
+
 MALE_ONLY_PREFIXES = ['Mr.']
 FEMALE_ONLY_PREFIXES = ['Mrs.', 'Ms.', 'Miss']
 NEUTRAL_PREFIXES = ['Dr.', 'Engr.', 'Atty.', 'Hon.']

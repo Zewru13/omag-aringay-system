@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.permissions import IsAdmin, IsAdminOrEvaluator
+from core.utils import day_range_bounds
 
 from .models import (
     FisheriesActivityLog,
@@ -78,6 +79,14 @@ class FisherfolkListView(generics.ListCreateAPIView):
             qs = qs.filter(is_4ps_beneficiary=(params['is_4ps'].lower() in ('true', '1')))
         if params.get('association') is not None:
             qs = qs.filter(fisherfolk_association_id=params['association'])
+        if params.get('registered_from'):
+            bound = day_range_bounds(params['registered_from'])
+            if bound:
+                qs = qs.filter(date_registered__gte=bound)
+        if params.get('registered_to'):
+            bound = day_range_bounds(params['registered_to'], end_of_day=True)
+            if bound:
+                qs = qs.filter(date_registered__lte=bound)
         return qs
 
     def perform_create(self, serializer):

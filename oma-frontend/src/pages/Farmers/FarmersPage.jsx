@@ -57,6 +57,8 @@ function FarmersPage({ asTab = false }) {
   const [seniorOnly, setSeniorOnly] = useState(false)
   const [filterICC, setFilterICC] = useState(false)
   const [filterPWD, setFilterPWD] = useState(false)
+  const [registeredFrom, setRegisteredFrom] = useState('')
+  const [registeredTo, setRegisteredTo] = useState('')
   const [page, setPage] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -74,6 +76,8 @@ function FarmersPage({ asTab = false }) {
       if (seniorOnly)       params.set('is_senior', 'true')
       if (filterICC)        params.set('is_icc_ip', 'true')
       if (filterPWD)        params.set('is_pwd', 'true')
+      if (registeredFrom)   params.set('registered_from', registeredFrom)
+      if (registeredTo)     params.set('registered_to', registeredTo)
       params.set('page', pageNum)
       const response = await api.get(`/farmers/?${params.toString()}`)
       setFarmers(normalizeList(response.data))
@@ -88,7 +92,7 @@ function FarmersPage({ asTab = false }) {
   useEffect(() => {
     setPage(1)
     fetchFarmers(1)
-  }, [search, status, gender, seniorOnly, filterICC, filterPWD])
+  }, [search, status, gender, seniorOnly, filterICC, filterPWD, registeredFrom, registeredTo])
 
   useEffect(() => {
     fetchFarmers(page)
@@ -177,6 +181,24 @@ function FarmersPage({ asTab = false }) {
             className="w-4 h-4 rounded accent-[#1B4D2E] cursor-pointer border-slate-300"
           />
           <span className="text-[13px] text-[#4A5E4A]">PWD Only</span>
+        </label>
+        <label className="flex items-center gap-1.5 text-[13px] text-[#4A5E4A]">
+          Registered From
+          <input
+            type="date"
+            className={filterSelectCls}
+            value={registeredFrom}
+            onChange={(e) => setRegisteredFrom(e.target.value)}
+          />
+        </label>
+        <label className="flex items-center gap-1.5 text-[13px] text-[#4A5E4A]">
+          Registered To
+          <input
+            type="date"
+            className={filterSelectCls}
+            value={registeredTo}
+            onChange={(e) => setRegisteredTo(e.target.value)}
+          />
         </label>
       </div>
 

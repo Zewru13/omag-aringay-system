@@ -135,7 +135,7 @@ class ChangePasswordView(APIView):
 
 
 class UserListView(generics.ListAPIView):
-    queryset = User.objects.all().order_by('id')
+    queryset = User.objects.all().order_by('-date_joined')
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated, IsAdmin]
 

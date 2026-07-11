@@ -71,6 +71,8 @@ function FisherfolkPage({ asTab = false }) {
   const [seniorOnly,  setSeniorOnly]  = useState(false)
   const [filterPWD,   setFilterPWD]   = useState(false)
   const [filter4Ps,   setFilter4Ps]   = useState(false)
+  const [registeredFrom, setRegisteredFrom] = useState('')
+  const [registeredTo,   setRegisteredTo]   = useState('')
   const [page,        setPage]        = useState(1)
   const [isLoading,   setIsLoading]   = useState(true)
   const [error,       setError]       = useState('')
@@ -88,6 +90,8 @@ function FisherfolkPage({ asTab = false }) {
       if (seniorOnly)       params.set('is_senior', 'true')
       if (filterPWD)        params.set('is_pwd', 'true')
       if (filter4Ps)        params.set('is_4ps', 'true')
+      if (registeredFrom)   params.set('registered_from', registeredFrom)
+      if (registeredTo)     params.set('registered_to', registeredTo)
       params.set('page', pageNum)
       const r = await api.get(`/fisheries/fisherfolk/?${params.toString()}`)
       setFisherfolk(normalizeList(r.data))
@@ -102,7 +106,7 @@ function FisherfolkPage({ asTab = false }) {
   useEffect(() => {
     setPage(1)
     fetchFisherfolk(1)
-  }, [search, status, gender, typeFilter, seniorOnly, filterPWD, filter4Ps])
+  }, [search, status, gender, typeFilter, seniorOnly, filterPWD, filter4Ps, registeredFrom, registeredTo])
 
   useEffect(() => { fetchFisherfolk(page) }, [page])
 
@@ -210,6 +214,24 @@ function FisherfolkPage({ asTab = false }) {
             className="w-4 h-4 rounded accent-[#1B4D2E] cursor-pointer border-slate-300"
           />
           <span className="text-[13px] text-[#4A5E4A]">4Ps Only</span>
+        </label>
+        <label className="flex items-center gap-1.5 text-[13px] text-[#4A5E4A]">
+          Registered From
+          <input
+            type="date"
+            className={filterSelectCls}
+            value={registeredFrom}
+            onChange={(e) => setRegisteredFrom(e.target.value)}
+          />
+        </label>
+        <label className="flex items-center gap-1.5 text-[13px] text-[#4A5E4A]">
+          Registered To
+          <input
+            type="date"
+            className={filterSelectCls}
+            value={registeredTo}
+            onChange={(e) => setRegisteredTo(e.target.value)}
+          />
         </label>
       </div>
 

@@ -2,7 +2,6 @@ import re
 from datetime import date
 from decimal import Decimal
 
-from django.db import IntegrityError, transaction
 from django.db.models import Q, Sum
 from rest_framework import serializers
 
@@ -147,6 +146,16 @@ class FisherfolkDetailSerializer(serializers.ModelSerializer):
             return None
         return value
 
+    def validate_rsbsa_number(self, value):
+        if value is not None and not value.strip():
+            return None
+        return value
+
+    def validate_lgu_registration_number(self, value):
+        if value is not None and not value.strip():
+            return None
+        return value
+
     def validate(self, data):
         prefix = data.get('prefix', getattr(self.instance, 'prefix', ''))
         gender = data.get('gender', getattr(self.instance, 'gender', ''))
@@ -161,8 +170,6 @@ class FisherfolkDetailSerializer(serializers.ModelSerializer):
 
 
 class FisherfolkCreateSerializer(serializers.ModelSerializer):
-    lgu_registration_number = serializers.CharField(max_length=50, read_only=True)
-
     # Aquaculture fields
     culture_type         = serializers.CharField(required=False, allow_blank=True, write_only=True)
     species_cultured     = serializers.CharField(required=False, allow_blank=True, write_only=True)
@@ -196,7 +203,6 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
     has_vessel        = serializers.BooleanField(required=False, default=True)
 
     # OMAg identifiers and activity profile flags
-    rsbsa_number       = serializers.CharField(required=False, allow_blank=True)
     boatr_number       = serializers.CharField(required=False, allow_blank=True)
     is_aquaculture     = serializers.BooleanField(required=False, default=True)
     is_capture_fishery = serializers.BooleanField(required=False, default=False)
@@ -284,20 +290,15 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError({'stall_location': 'Stall location is required for this location type.'})
         return data
 
-    def _generate_lgu_number(self, barangay, year):
-        from .constants import barangay_code
-        bb = barangay_code(barangay)
-        prefix = f'LU-ARINGAY-{bb}-{year}-'
-        last = (
-            Fisherfolk.objects
-            .select_for_update()
-            .filter(lgu_registration_number__startswith=prefix)
-            .order_by('-lgu_registration_number')
-            .values_list('lgu_registration_number', flat=True)
-            .first()
-        )
-        seq = (int(last.split('-')[-1]) + 1) if last else 1
-        return f'{prefix}{seq:04d}'
+    def validate_rsbsa_number(self, value):
+        if value is not None and not value.strip():
+            return None
+        return value
+
+    def validate_lgu_registration_number(self, value):
+        if value is not None and not value.strip():
+            return None
+        return value
 
     def create(self, validated_data):
         aquaculture_data = {
@@ -322,27 +323,14 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
             'source_of_fish':        validated_data.pop('source_of_fish', ''),
         }
 
-        year = date.today().year
-        barangay = validated_data.get('barangay', '')
-
-        for _ in range(5):
-            try:
-                with transaction.atomic():
-                    validated_data['lgu_registration_number'] = self._generate_lgu_number(barangay, year)
-                    fisherfolk = Fisherfolk.objects.create(**validated_data)
-                    if fisherfolk.fisherfolk_type in ('Aquaculture', 'Mariculture'):
-                        AquacultureRecord.objects.create(fisherfolk=fisherfolk, **aquaculture_data)
-                    elif fisherfolk.fisherfolk_type in ('Capture', 'Inland'):
-                        CaptureRecord.objects.create(fisherfolk=fisherfolk, **capture_data)
-                    elif fisherfolk.fisherfolk_type == 'Vendor':
-                        VendorRecord.objects.create(fisherfolk=fisherfolk, **vendor_data)
-                    return fisherfolk
-            except IntegrityError:
-                continue
-
-        raise serializers.ValidationError(
-            {'lgu_registration_number': 'Could not generate a unique LGU number. Please try again.'}
-        )
+        fisherfolk = Fisherfolk.objects.create(**validated_data)
+        if fisherfolk.fisherfolk_type in ('Aquaculture', 'Mariculture'):
+            AquacultureRecord.objects.create(fisherfolk=fisherfolk, **aquaculture_data)
+        elif fisherfolk.fisherfolk_type in ('Capture', 'Inland'):
+            CaptureRecord.objects.create(fisherfolk=fisherfolk, **capture_data)
+        elif fisherfolk.fisherfolk_type == 'Vendor':
+            VendorRecord.objects.create(fisherfolk=fisherfolk, **vendor_data)
+        return fisherfolk
 
 
 # ─── Species ──────────────────────────────────────────────────────────────────

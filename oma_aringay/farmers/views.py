@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.permissions import IsAdminOrEvaluator
+from core.utils import day_range_bounds
 
 from .models import Farmer, FarmCrop, FarmMachinery, FarmParcel
 from .serializers import (
@@ -72,6 +73,18 @@ class FarmerListView(generics.ListCreateAPIView):
         association_filter = self.request.query_params.get('farmers_association')
         if association_filter is not None:
             queryset = queryset.filter(farmers_association_id=association_filter)
+
+        registered_from = self.request.query_params.get('registered_from')
+        if registered_from:
+            bound = day_range_bounds(registered_from)
+            if bound:
+                queryset = queryset.filter(date_registered__gte=bound)
+
+        registered_to = self.request.query_params.get('registered_to')
+        if registered_to:
+            bound = day_range_bounds(registered_to, end_of_day=True)
+            if bound:
+                queryset = queryset.filter(date_registered__lte=bound)
 
         return queryset
 

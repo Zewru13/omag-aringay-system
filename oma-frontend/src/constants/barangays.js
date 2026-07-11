@@ -25,4 +25,14 @@ export const ARINGAY_BARANGAYS = [
   'Santo Rosario West',
 ]
 
+// PROVISIONAL mapping — barangay -> 3-digit RSBSA barangay code, assigned
+// 001-024 in the same alphabetical order as ARINGAY_BARANGAYS above. This has
+// NOT been verified against the real BFAR/DA RSBSA barangay code registry
+// and must be confirmed by the client before relying on it for official use.
+// Mirrors core/constants.py BARANGAY_RSBSA_CODES on the backend.
+export const BARANGAY_RSBSA_CODES = ARINGAY_BARANGAYS.reduce((acc, name, i) => {
+  acc[name] = String(i + 1).padStart(3, '0')
+  return acc
+}, {})
+
 export default ARINGAY_BARANGAYS

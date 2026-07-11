@@ -1,4 +1,3 @@
-import re
 from datetime import date
 
 from rest_framework import serializers
@@ -6,16 +5,6 @@ from rest_framework import serializers
 from core.constants import validate_prefix_gender
 
 from .models import Farmer, FarmCrop, FarmMachinery, FarmParcel
-
-RSBSA_PATTERN = re.compile(r'^\d{2}-\d{4}-\d{7}$')
-
-
-def validate_rsbsa_format(value):
-    if value and not RSBSA_PATTERN.match(value):
-        raise serializers.ValidationError(
-            'RSBSA number must follow the format DD-DDDD-DDDDDDD (e.g. 01-0301-0000001).'
-        )
-    return value
 
 
 def validate_contact_format(value):
@@ -178,7 +167,6 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
         return value
 
     def validate_rsbsa_number(self, value):
-        value = validate_rsbsa_format(value)
         queryset = Farmer.objects.filter(rsbsa_number=value)
 
         if self.instance:
@@ -204,7 +192,6 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
 
 
 class FarmerCreateSerializer(serializers.ModelSerializer):
-    rsbsa_number = serializers.CharField(max_length=50)
     farmers_association_name = serializers.SerializerMethodField()
 
     class Meta:
@@ -256,7 +243,6 @@ class FarmerCreateSerializer(serializers.ModelSerializer):
         return value
 
     def validate_rsbsa_number(self, value):
-        value = validate_rsbsa_format(value)
         if Farmer.objects.filter(rsbsa_number=value).exists():
             raise serializers.ValidationError(
                 'A farmer with this RSBSA number is already registered in the system.'

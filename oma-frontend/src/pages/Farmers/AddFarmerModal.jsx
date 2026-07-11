@@ -3,8 +3,10 @@ import { UserPlus, AlertTriangle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import Button from '../../components/UI/Button.jsx'
-import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { baseInputClasses, FormLabel } from '../../components/UI/FormField.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
+import SegmentedIdInput from '../../components/UI/SegmentedIdInput.jsx'
+import { BARANGAY_RSBSA_CODES } from '../../constants/barangays.js'
 import { getPrefixOptions, isPrefixValidForGender } from '../../utils/prefixOptions.js'
 
 const labelCls = 'text-[13px] font-medium text-[#4A5E4A] mb-1.5 block'
@@ -12,6 +14,7 @@ const labelCls = 'text-[13px] font-medium text-[#4A5E4A] mb-1.5 block'
 const initialForm = {
   prefix: '',
   rsbsa_number: '',
+  philsys_number: '',
   first_name: '',
   last_name: '',
   middle_name: '',
@@ -21,7 +24,6 @@ const initialForm = {
   barangay: '',
   civil_status: 'Single',
   highest_education: '',
-  philsys_number: '',
   is_pwd: false,
   is_4ps_beneficiary: false,
   is_icc_ip_member: false,
@@ -50,16 +52,14 @@ const validateAge = (birthdate) => {
   return null
 }
 
-const formatRsbsa = (raw) => {
-  const digits = raw.replace(/\D/g, '').slice(0, 13)
-  if (digits.length <= 2) return digits
-  if (digits.length <= 6) return `${digits.slice(0, 2)}-${digits.slice(2)}`
-  return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6)}`
+const formatPhilsys = (raw) => {
+  const digits = raw.replace(/\D/g, '').slice(0, 16)
+  return digits.match(/.{1,4}/g)?.join('-') || digits
 }
 
-const validateRsbsa = (value) => {
+const validatePhilsys = (value) => {
   if (!value) return ''
-  if (!/^\d{2}-\d{4}-\d{7}$/.test(value)) return 'Format must be DD-DDDD-DDDDDDD (e.g. 01-0301-0000001).'
+  if (!/^\d{4}-\d{4}-\d{4}-\d{4}$/.test(value)) return 'Format must be NNNN-NNNN-NNNN-NNNN (e.g. 8419-5032-7741-3096).'
   return ''
 }
 
@@ -81,7 +81,8 @@ function AddFarmerModal({ onClose, onSuccess }) {
   const [form, setForm] = useState(initialForm)
   const [associations, setAssociations] = useState([])
   const [prefixResetNote, setPrefixResetNote] = useState('')
-  const [rsbsaError, setRsbsaError] = useState('')
+  const [rsbsaTouched, setRsbsaTouched] = useState(false)
+  const [philsysError, setPhilsysError] = useState('')
   const [contactError, setContactError] = useState('')
   const [birthdateError, setBirthdateError] = useState('')
   const [formError, setFormError] = useState('')
@@ -120,10 +121,10 @@ function AddFarmerModal({ onClose, onSuccess }) {
   }, [form.first_name, form.last_name, form.birthdate])
 
   const updateField = (field, value) => {
-    if (field === 'rsbsa_number') {
-      const formatted = formatRsbsa(value)
-      setForm((current) => ({ ...current, rsbsa_number: formatted }))
-      setRsbsaError(validateRsbsa(formatted))
+    if (field === 'philsys_number') {
+      const formatted = formatPhilsys(value)
+      setForm((current) => ({ ...current, philsys_number: formatted }))
+      setPhilsysError(validatePhilsys(formatted))
       return
     }
     if (field === 'contact_number') {
@@ -153,17 +154,28 @@ function AddFarmerModal({ onClose, onSuccess }) {
     if (field === 'birthdate') setBirthdateError(validateAge(value) || '')
   }
 
+  const age = computeAge(form.birthdate)
+  const isSenior = age !== null && age >= 60
+  const barangayCode = BARANGAY_RSBSA_CODES[form.barangay] || '000'
+  const rsbsaParts = [
+    { type: 'text', value: '01-33-02-' },
+    { type: 'text', value: `${barangayCode}-` },
+    { type: 'input', key: 'seq', length: 6, placeholder: '000000' },
+  ]
+
   const handleSubmit = async (event) => {
     event.preventDefault()
-    setRsbsaError('')
     setContactError('')
     setFormError('')
+    setRsbsaTouched(true)
 
     const ageError = validateAge(form.birthdate)
     if (ageError) { setBirthdateError(ageError); return }
 
-    const rsbsaErr = validateRsbsa(form.rsbsa_number)
-    if (rsbsaErr) { setRsbsaError(rsbsaErr); return }
+    if (!form.rsbsa_number) { setFormError('RSBSA number is required and must be complete.'); return }
+
+    const philsysErr = validatePhilsys(form.philsys_number)
+    if (philsysErr) { setPhilsysError(philsysErr); return }
 
     const contactErr = validateContact(form.contact_number)
     if (contactErr) { setContactError(contactErr); return }
@@ -171,18 +183,20 @@ function AddFarmerModal({ onClose, onSuccess }) {
     setIsSubmitting(true)
 
     try {
-      await api.post('/farmers/', form)
+      await api.post('/farmers/', { ...form, is_senior_citizen: isSenior })
       onSuccess()
       onClose()
     } catch (error) {
       const data = error.response?.data
       const rsbsaMessage = data?.rsbsa_number?.[0] || data?.non_field_errors?.[0]
       if (rsbsaMessage) {
-        setRsbsaError(rsbsaMessage)
+        setFormError(rsbsaMessage)
       } else if (data?.birthdate?.[0]) {
         setBirthdateError(data.birthdate[0])
+      } else if (data?.philsys_number?.[0]) {
+        setPhilsysError(data.philsys_number[0])
       } else {
-        setFormError('Unable to register farmer. Please check the form and try again.')
+        setFormError(data?.detail || 'Unable to register farmer. Please check the form and try again.')
       }
     } finally {
       setIsSubmitting(false)
@@ -194,7 +208,7 @@ function AddFarmerModal({ onClose, onSuccess }) {
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <label className={labelCls} htmlFor="prefix">Prefix</label>
+            <FormLabel>Prefix</FormLabel>
             <select className={baseInputClasses} id="prefix" onChange={(e) => updateField('prefix', e.target.value)} value={form.prefix}>
               {getPrefixOptions(form.gender).map((p) => (
                 <option key={p || 'none'} value={p}>{p || '(None)'}</option>
@@ -204,28 +218,46 @@ function AddFarmerModal({ onClose, onSuccess }) {
           </div>
 
           <div>
-            <label className={labelCls} htmlFor="rsbsa_number">RSBSA Number</label>
-            <input className={baseInputClasses} id="rsbsa_number" onChange={(e) => updateField('rsbsa_number', e.target.value)} required value={form.rsbsa_number} />
-            {rsbsaError && <p className="mt-1 text-[12px] font-medium text-red-600">{rsbsaError}</p>}
+            <FormLabel required>RSBSA Number</FormLabel>
+            <SegmentedIdInput
+              parts={rsbsaParts}
+              value={form.rsbsa_number}
+              onChange={(v) => setForm((c) => ({ ...c, rsbsa_number: v }))}
+            />
+            <p className="mt-1 text-[11px] text-[#7A8E7A]">
+              {form.barangay
+                ? `Barangay code ${barangayCode} auto-filled from ${form.barangay}.`
+                : 'Select a barangay below to auto-fill the barangay code.'}
+            </p>
+            {rsbsaTouched && !form.rsbsa_number && (
+              <p className="mt-1 text-[12px] font-medium text-red-600">RSBSA number is required and must be complete.</p>
+            )}
           </div>
 
           <div>
-            <label className={labelCls} htmlFor="first_name">First Name</label>
+            <FormLabel>PhilSys / National ID No.</FormLabel>
+            <input className={baseInputClasses} id="philsys_number" onChange={(e) => updateField('philsys_number', e.target.value)}
+              value={form.philsys_number} placeholder="8419-5032-7741-3096" />
+            {philsysError && <p className="mt-1 text-[12px] font-medium text-red-600">{philsysError}</p>}
+          </div>
+
+          <div>
+            <FormLabel required>First Name</FormLabel>
             <input className={baseInputClasses} id="first_name" onChange={(e) => updateField('first_name', e.target.value)} required value={form.first_name} />
           </div>
 
           <div>
-            <label className={labelCls} htmlFor="last_name">Last Name</label>
+            <FormLabel required>Last Name</FormLabel>
             <input className={baseInputClasses} id="last_name" onChange={(e) => updateField('last_name', e.target.value)} required value={form.last_name} />
           </div>
 
           <div>
-            <label className={labelCls} htmlFor="middle_name">Middle Name</label>
+            <FormLabel>Middle Name</FormLabel>
             <input className={baseInputClasses} id="middle_name" onChange={(e) => updateField('middle_name', e.target.value)} value={form.middle_name} />
           </div>
 
           <div>
-            <label className={labelCls} htmlFor="gender">Sex</label>
+            <FormLabel required>Sex</FormLabel>
             <select className={baseInputClasses} id="gender" onChange={(e) => updateField('gender', e.target.value)} value={form.gender}>
               <option value="Male">Male</option>
               <option value="Female">Female</option>
@@ -233,7 +265,7 @@ function AddFarmerModal({ onClose, onSuccess }) {
           </div>
 
           <div>
-            <label className={labelCls} htmlFor="birthdate">Birthdate</label>
+            <FormLabel required>Birthdate</FormLabel>
             <input
               className={baseInputClasses}
               id="birthdate"
@@ -246,7 +278,7 @@ function AddFarmerModal({ onClose, onSuccess }) {
             {form.birthdate && !birthdateError && (
               <p className="mt-1 text-[12px] text-[#4A5E4A]">
                 Age: <strong>{computeAge(form.birthdate)}</strong> years old
-                {computeAge(form.birthdate) >= 60 && (
+                {isSenior && (
                   <span className="ml-2 text-amber-600 font-medium">(Senior Citizen auto-detected)</span>
                 )}
               </p>
@@ -257,7 +289,7 @@ function AddFarmerModal({ onClose, onSuccess }) {
           </div>
 
           <div>
-            <label className={labelCls} htmlFor="contact_number">Contact Number</label>
+            <FormLabel>Contact Number</FormLabel>
             <input
               className={baseInputClasses}
               id="contact_number"
@@ -281,7 +313,7 @@ function AddFarmerModal({ onClose, onSuccess }) {
           />
 
           <div>
-            <label className={labelCls} htmlFor="civil_status">Civil Status</label>
+            <FormLabel required>Civil Status</FormLabel>
             <select className={baseInputClasses} id="civil_status" onChange={(e) => updateField('civil_status', e.target.value)} value={form.civil_status}>
               <option value="Single">Single</option>
               <option value="Married">Married</option>
@@ -291,13 +323,8 @@ function AddFarmerModal({ onClose, onSuccess }) {
           </div>
 
           <div>
-            <label className={labelCls} htmlFor="highest_education">Highest Education</label>
+            <FormLabel>Highest Education</FormLabel>
             <input className={baseInputClasses} id="highest_education" onChange={(e) => updateField('highest_education', e.target.value)} value={form.highest_education} />
-          </div>
-
-          <div>
-            <label className={labelCls} htmlFor="philsys_number">PhilSys / National ID No.</label>
-            <input className={baseInputClasses} id="philsys_number" onChange={(e) => updateField('philsys_number', e.target.value)} value={form.philsys_number} />
           </div>
         </div>
 
@@ -321,10 +348,23 @@ function AddFarmerModal({ onClose, onSuccess }) {
                 <span className="text-[13px] text-[#1A2B1A]">{label}</span>
               </label>
             ))}
+            <label
+              className="flex items-center gap-2 cursor-not-allowed opacity-70"
+              title={isSenior ? 'Automatically set — age is 60 or above.' : 'Automatically determined from birthdate.'}
+            >
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-[#1B4D2E]"
+                checked={isSenior}
+                disabled
+                readOnly
+              />
+              <span className="text-[13px] text-[#1A2B1A]">Senior Citizen</span>
+            </label>
           </div>
           {form.is_icc_ip_member && (
             <div className="mt-3">
-              <label className={labelCls} htmlFor="icc_ip_name">ICC/IP Group Name</label>
+              <FormLabel>ICC/IP Group Name</FormLabel>
               <input className={baseInputClasses} id="icc_ip_name" value={form.icc_ip_name} onChange={(e) => updateField('icc_ip_name', e.target.value)} />
             </div>
           )}
@@ -332,10 +372,7 @@ function AddFarmerModal({ onClose, onSuccess }) {
 
         {/* Farmer Association */}
         <div>
-          <label className={labelCls}>
-            Farmer Association{' '}
-            <span className="text-[#7A8E7A] font-normal">(optional)</span>
-          </label>
+          <FormLabel>Farmer Association</FormLabel>
           <select
             className={baseInputClasses}
             value={form.farmers_association || ''}

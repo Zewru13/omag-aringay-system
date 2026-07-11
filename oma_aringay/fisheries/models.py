@@ -5,6 +5,7 @@ from django.conf import settings
 from django.db import models
 
 from core.constants import BARANGAY_CHOICES
+from core.validators import validate_fishr, validate_lgu_reg, validate_rsbsa
 
 
 # ─── Fisherfolk ───────────────────────────────────────────────────────────────
@@ -51,9 +52,14 @@ class Fisherfolk(models.Model):
     ]
 
     prefix = models.CharField(max_length=10, choices=Prefix.choices, blank=True, default='')
-    lgu_registration_number = models.CharField(max_length=50, unique=True, blank=True, default='')
+    lgu_registration_number = models.CharField(
+        max_length=50, unique=True, null=True, blank=True,
+        validators=[validate_lgu_reg],
+        help_text='Manually entered — format YYYY-03302-NNNN',
+    )
     fishr_number = models.CharField(
         max_length=50, unique=True, null=True, blank=True,
+        validators=[validate_fishr],
         help_text='National FishR registry number (BFAR)',
     )
     first_name    = models.CharField(max_length=100)
@@ -76,7 +82,10 @@ class Fisherfolk(models.Model):
     is_active          = models.BooleanField(default=True)
 
     # OMAg fisheries field-form identifiers and activity profile flags
-    rsbsa_number       = models.CharField(max_length=50, blank=True, default='')
+    rsbsa_number       = models.CharField(
+        max_length=50, unique=True, null=True, blank=True,
+        validators=[validate_rsbsa],
+    )
     boatr_number       = models.CharField(max_length=50, blank=True, default='')
     is_aquaculture     = models.BooleanField(default=True)
     is_capture_fishery = models.BooleanField(default=False)

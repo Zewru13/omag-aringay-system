@@ -638,8 +638,10 @@ class CropMonitoringListCreateView(generics.ListCreateAPIView):
             qs = qs.filter(season__iexact=params['season'])
         if params.get('barangay'):
             qs = qs.filter(farm_parcel__barangay=params['barangay'])
-        if params.get('status'):
-            qs = qs.filter(status=params['status'])
+        raw_status = params.get('status', '')
+        if raw_status:
+            statuses = [s.strip() for s in raw_status.split(',') if s.strip()]
+            qs = qs.filter(status__in=statuses)
         else:
             qs = qs.exclude(status=CropMonitoringRecord.Status.TOTAL_LOSS)
         if params.get('farm_parcel'):

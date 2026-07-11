@@ -3,7 +3,7 @@ import { UserCog } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import Button from '../../components/UI/Button.jsx'
-import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { baseInputClasses, FormLabel } from '../../components/UI/FormField.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
@@ -30,6 +30,17 @@ const computeAge = (birthdate) => {
   const age = today.getFullYear() - birth.getFullYear()
   const m = today.getMonth() - birth.getMonth()
   return (m < 0 || (m === 0 && today.getDate() < birth.getDate())) ? age - 1 : age
+}
+
+const formatPhilsys = (raw) => {
+  const digits = raw.replace(/\D/g, '').slice(0, 16)
+  return digits.match(/.{1,4}/g)?.join('-') || digits
+}
+
+const validatePhilsys = (value) => {
+  if (!value) return ''
+  if (!/^\d{4}-\d{4}-\d{4}-\d{4}$/.test(value)) return 'Format must be NNNN-NNNN-NNNN-NNNN (e.g. 8419-5032-7741-3096).'
+  return ''
 }
 
 const validateContact = (value) => {
@@ -62,8 +73,8 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
     barangay: farmer.barangay || '',
     civil_status: farmer.civil_status || 'Single',
     highest_education: farmer.highest_education || '',
-    is_active: farmer.is_active,
     philsys_number: farmer.philsys_number || '',
+    is_active: farmer.is_active,
     is_pwd: farmer.is_pwd || false,
     is_4ps_beneficiary: farmer.is_4ps_beneficiary || false,
     is_icc_ip_member: farmer.is_icc_ip_member || false,
@@ -74,6 +85,7 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
   const [form, setForm] = useState(original)
   const [prefixResetNote, setPrefixResetNote] = useState('')
   const [birthdateError, setBirthdateError] = useState('')
+  const [philsysError, setPhilsysError] = useState('')
   const [contactError, setContactError] = useState('')
   const [formError, setFormError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -88,6 +100,12 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
   }, [])
 
   const updateField = (field, value) => {
+    if (field === 'philsys_number') {
+      const formatted = formatPhilsys(value)
+      setForm((current) => ({ ...current, philsys_number: formatted }))
+      setPhilsysError(validatePhilsys(formatted))
+      return
+    }
     if (field === 'contact_number') {
       const digits = value.replace(/\D/g, '').slice(0, 11)
       setForm((current) => ({ ...current, contact_number: digits }))
@@ -115,6 +133,9 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
     if (field === 'birthdate') setBirthdateError(validateAge(value) || '')
   }
 
+  const age = computeAge(form.birthdate)
+  const isSenior = age !== null && age >= 60
+
   const handleSubmit = async (event) => {
     event.preventDefault()
     setFormError('')
@@ -122,13 +143,16 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
     const ageError = validateAge(form.birthdate)
     if (ageError) { setBirthdateError(ageError); return }
 
+    const philsysErr = validatePhilsys(form.philsys_number)
+    if (philsysErr) { setPhilsysError(philsysErr); return }
+
     const contactErr = validateContact(form.contact_number)
     if (contactErr) { setContactError(contactErr); return }
 
     setIsSubmitting(true)
 
     try {
-      await api.patch(`/farmers/${farmer.id}/`, form)
+      await api.patch(`/farmers/${farmer.id}/`, { ...form, is_senior_citizen: isSenior })
       showToast('Farmer profile updated successfully.', 'success')
       onSuccess()
       onClose()
@@ -136,6 +160,8 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
       const data = error.response?.data
       if (data?.birthdate?.[0]) {
         setBirthdateError(data.birthdate[0])
+      } else if (data?.philsys_number?.[0]) {
+        setPhilsysError(data.philsys_number[0])
       } else {
         setFormError(
           data?.detail || data?.non_field_errors?.[0] || 'Unable to update farmer. Please check the form and try again.',
@@ -151,7 +177,7 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <label className={labelCls} htmlFor="prefix">Prefix</label>
+            <FormLabel>Prefix</FormLabel>
             <select className={baseInputClasses} id="prefix" onChange={(e) => updateField('prefix', e.target.value)} value={form.prefix}>
               {getPrefixOptions(form.gender).map((p) => (
                 <option key={p || 'none'} value={p}>{p || '(None)'}</option>
@@ -161,7 +187,7 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
           </div>
 
           <div>
-            <label className={labelCls} htmlFor="rsbsa_number">RSBSA Number</label>
+            <FormLabel hideIndicator>RSBSA Number</FormLabel>
             <input
               className="w-full h-[38px] px-3 border border-[#E2E8E2] rounded-lg text-[13px] text-[#7A8E7A] bg-[#F5F7F5] cursor-not-allowed"
               disabled
@@ -172,22 +198,29 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
           </div>
 
           <div>
-            <label className={labelCls} htmlFor="first_name">First Name</label>
+            <FormLabel>PhilSys / National ID No.</FormLabel>
+            <input className={baseInputClasses} id="philsys_number" onChange={(e) => updateField('philsys_number', e.target.value)}
+              value={form.philsys_number} placeholder="8419-5032-7741-3096" />
+            {philsysError && <p className="mt-1 text-[12px] font-medium text-red-600">{philsysError}</p>}
+          </div>
+
+          <div>
+            <FormLabel required>First Name</FormLabel>
             <input className={baseInputClasses} id="first_name" onChange={(e) => updateField('first_name', e.target.value)} required value={form.first_name} />
           </div>
 
           <div>
-            <label className={labelCls} htmlFor="last_name">Last Name</label>
+            <FormLabel required>Last Name</FormLabel>
             <input className={baseInputClasses} id="last_name" onChange={(e) => updateField('last_name', e.target.value)} required value={form.last_name} />
           </div>
 
           <div>
-            <label className={labelCls} htmlFor="middle_name">Middle Name</label>
+            <FormLabel>Middle Name</FormLabel>
             <input className={baseInputClasses} id="middle_name" onChange={(e) => updateField('middle_name', e.target.value)} value={form.middle_name} />
           </div>
 
           <div>
-            <label className={labelCls} htmlFor="gender">Sex</label>
+            <FormLabel required>Sex</FormLabel>
             <select className={baseInputClasses} id="gender" onChange={(e) => updateField('gender', e.target.value)} value={form.gender}>
               <option value="Male">Male</option>
               <option value="Female">Female</option>
@@ -195,7 +228,7 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
           </div>
 
           <div>
-            <label className={labelCls} htmlFor="birthdate">Birthdate</label>
+            <FormLabel required>Birthdate</FormLabel>
             <input
               className={baseInputClasses}
               id="birthdate"
@@ -208,7 +241,7 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
             {form.birthdate && !birthdateError && (
               <p className="mt-1 text-[12px] text-[#4A5E4A]">
                 Age: <strong>{computeAge(form.birthdate)}</strong> years old
-                {computeAge(form.birthdate) >= 60 && (
+                {isSenior && (
                   <span className="ml-2 text-amber-600 font-medium">(Senior Citizen auto-detected)</span>
                 )}
               </p>
@@ -219,7 +252,7 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
           </div>
 
           <div>
-            <label className={labelCls} htmlFor="contact_number">Contact Number</label>
+            <FormLabel>Contact Number</FormLabel>
             <input
               className={baseInputClasses}
               id="contact_number"
@@ -243,7 +276,7 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
           />
 
           <div>
-            <label className={labelCls} htmlFor="civil_status">Civil Status</label>
+            <FormLabel required>Civil Status</FormLabel>
             <select className={baseInputClasses} id="civil_status" onChange={(e) => updateField('civil_status', e.target.value)} value={form.civil_status}>
               <option value="Single">Single</option>
               <option value="Married">Married</option>
@@ -253,13 +286,8 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
           </div>
 
           <div>
-            <label className={labelCls} htmlFor="highest_education">Highest Education</label>
+            <FormLabel>Highest Education</FormLabel>
             <input className={baseInputClasses} id="highest_education" onChange={(e) => updateField('highest_education', e.target.value)} value={form.highest_education} />
-          </div>
-
-          <div>
-            <label className={labelCls} htmlFor="philsys_number">PhilSys / National ID No.</label>
-            <input className={baseInputClasses} id="philsys_number" onChange={(e) => updateField('philsys_number', e.target.value)} value={form.philsys_number} />
           </div>
         </div>
 
@@ -283,10 +311,23 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
                 <span className="text-[13px] text-[#1A2B1A]">{label}</span>
               </label>
             ))}
+            <label
+              className="flex items-center gap-2 cursor-not-allowed opacity-70"
+              title={isSenior ? 'Automatically set — age is 60 or above.' : 'Automatically determined from birthdate.'}
+            >
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-[#1B4D2E]"
+                checked={isSenior}
+                disabled
+                readOnly
+              />
+              <span className="text-[13px] text-[#1A2B1A]">Senior Citizen</span>
+            </label>
           </div>
           {form.is_icc_ip_member && (
             <div className="mt-3">
-              <label className={labelCls} htmlFor="icc_ip_name">ICC/IP Group Name</label>
+              <FormLabel>ICC/IP Group Name</FormLabel>
               <input className={baseInputClasses} id="icc_ip_name" value={form.icc_ip_name} onChange={(e) => updateField('icc_ip_name', e.target.value)} />
             </div>
           )}
@@ -296,7 +337,7 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
         <div className="grid gap-4 md:grid-cols-2">
           {isAdmin && (
             <div>
-              <label className={labelCls} htmlFor="is_active">Status</label>
+              <FormLabel hideIndicator>Status</FormLabel>
               <select className={baseInputClasses} id="is_active" onChange={(e) => updateField('is_active', e.target.value === 'true')} value={form.is_active ? 'true' : 'false'}>
                 <option value="true">Active</option>
                 <option value="false">Inactive</option>
@@ -307,10 +348,7 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
 
         {/* Farmer Association */}
         <div>
-          <label className={labelCls}>
-            Farmer Association{' '}
-            <span className="text-[#7A8E7A] font-normal">(optional)</span>
-          </label>
+          <FormLabel>Farmer Association</FormLabel>
           <select
             className={baseInputClasses}
             value={form.farmers_association || ''}
