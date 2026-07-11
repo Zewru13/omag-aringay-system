@@ -8,6 +8,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.permissions import IsAdmin, IsAdminOrEvaluator
+from core.locking import assert_not_locked_by_other
+from core.notifications import notify_all_except
 from core.utils import day_range_bounds
 
 from .models import (
@@ -275,6 +277,14 @@ class StockingDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 # ─── Nested sub-resources ─────────────────────────────────────────────────────
 
+def _stocking_record_label(stocking):
+    species_name = stocking.species.species_name if stocking.species_id else 'Stock'
+    who = stocking.fisherfolk.full_name if stocking.fisherfolk_id else 'Unknown fisherfolk'
+    barangay = stocking.pond_location_barangay or ''
+    location = f'{who}, {barangay}' if barangay else who
+    return f'{species_name} — {location}'
+
+
 class StockingActivityLogListCreateView(generics.ListCreateAPIView):
     serializer_class = FisheriesActivityLogSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
@@ -288,6 +298,7 @@ class StockingActivityLogListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         stocking_id = self.kwargs.get('stocking_id')
         stocking = StockingRecord.objects.get(pk=stocking_id)
+        assert_not_locked_by_other(self.request.user, 'stocking', stocking_id)
         target_day = serializer.validated_data.get('target_day')
         date_of_activity = serializer.validated_data.get('date_of_activity')
         is_late = False
@@ -300,10 +311,18 @@ class StockingActivityLogListCreateView(generics.ListCreateAPIView):
             window = stage.window_days if stage else 3
             deadline = stocking.date_stocked + timedelta(days=target_day + window)
             is_late = date_of_activity > deadline
-        serializer.save(
+        log = serializer.save(
             stocking_record_id=stocking_id,
             logged_by=self.request.user,
             is_late=is_late,
+        )
+        notify_all_except(
+            actor=self.request.user,
+            verb='logged an activity on',
+            record_type='stocking',
+            record_id=stocking_id,
+            record_label=_stocking_record_label(stocking),
+            detail=f'{log.activity} on {log.date_of_activity}',
         )
 
 
@@ -324,9 +343,20 @@ class StockingDisasterReportListCreateView(generics.ListCreateAPIView):
         ).order_by('-date_of_occurrence')
 
     def perform_create(self, serializer):
-        serializer.save(
-            stocking_record_id=self.kwargs['stocking_id'],
+        stocking_id = self.kwargs['stocking_id']
+        stocking = StockingRecord.objects.get(pk=stocking_id)
+        assert_not_locked_by_other(self.request.user, 'stocking', stocking_id)
+        disaster = serializer.save(
+            stocking_record_id=stocking_id,
             reported_by=self.request.user,
+        )
+        notify_all_except(
+            actor=self.request.user,
+            verb='reported a disaster on',
+            record_type='stocking',
+            record_id=stocking_id,
+            record_label=_stocking_record_label(stocking),
+            detail=disaster.disaster_type,
         )
 
 
@@ -409,17 +439,28 @@ class StockingHarvestListCreateView(generics.ListCreateAPIView):
                 )
         except StockingRecord.DoesNotExist:
             pass
+        assert_not_locked_by_other(request.user, 'stocking', stocking_id)
         return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
+        stocking_id = self.kwargs['stocking_id']
         harvest = serializer.save(
-            stocking_record_id=self.kwargs['stocking_id'],
+            stocking_record_id=stocking_id,
             recorded_by=self.request.user,
         )
         if harvest.is_final:
-            StockingRecord.objects.filter(pk=self.kwargs['stocking_id']).update(
+            StockingRecord.objects.filter(pk=stocking_id).update(
                 status=StockingRecord.Status.HARVESTED
             )
+        stocking = StockingRecord.objects.get(pk=stocking_id)
+        notify_all_except(
+            actor=self.request.user,
+            verb='recorded a harvest for',
+            record_type='stocking',
+            record_id=stocking_id,
+            record_label=_stocking_record_label(stocking),
+            detail=f'{harvest.quantity_kg} kg',
+        )
 
 
 class StockingHarvestDeleteView(generics.DestroyAPIView):

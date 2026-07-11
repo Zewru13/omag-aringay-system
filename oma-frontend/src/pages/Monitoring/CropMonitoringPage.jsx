@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  AlertTriangle, Bug, CheckCircle, CheckCircle2, Eye, FileText, Leaf, Lock, MapPin, Pencil, Plus, Trash2, User, Wheat,
+  AlertTriangle, Bug, CheckCircle, CheckCircle2, Eye, FileText, Leaf, Lock, MapPin, Pencil, Plus, Trash2, Unlock, User, Wheat,
 } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
@@ -13,10 +13,18 @@ import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import useRecordLock from '../../hooks/useRecordLock.js'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
 const otherLabel = (value, specify) => (value === 'Other' && specify ? `Other — ${specify}` : value)
+
+function formatMMSS(totalSeconds) {
+  const s = Math.max(0, totalSeconds || 0)
+  const m = Math.floor(s / 60)
+  const r = s % 60
+  return `${m}:${String(r).padStart(2, '0')}`
+}
 
 const ACTIVITY_OPTIONS = [
   'Land Preparation', 'Planting', 'Fertilizer Application',
@@ -324,6 +332,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
   const [isLoading,         setIsLoading]         = useState(true)
   const { isAdmin } = useAuth()
   const [showForm,          setShowForm]          = useState(false)
+  const recordLock = useRecordLock('crop', record.id, showForm)
   const [showSuggest,       setShowSuggest]       = useState(false)
   const [showConfirm,       setShowConfirm]       = useState(false)
   const [isSubmitting,      setIsSubmitting]      = useState(false)
@@ -593,6 +602,16 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
         {/* Inline form — hidden for harvested crops */}
         {showForm && !isHarvested && (
           <div className="mb-4 space-y-3">
+            {recordLock.lockedByOther && (
+              <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-start gap-2">
+                <Lock className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-800">
+                  🔒 <strong>{recordLock.lockedByOther.name}</strong> is currently logging this record.
+                  You&apos;ll be able to log once they finish (auto-unlocks in ~{formatMMSS(recordLock.secondsRemaining)}).
+                </p>
+              </div>
+            )}
+            {!recordLock.lockedByOther && <>
             {/* Growth stage context label */}
             {growthInfo && (
               <div className="flex items-center gap-1.5 rounded-lg bg-[#EBF5EE] border border-[#C8E6D0] px-3 py-2 text-xs text-[#1B4D2E]">
@@ -776,6 +795,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
               className="w-full rounded-xl bg-[#1B4D2E] py-2.5 text-sm font-medium text-white hover:bg-[#235E38] disabled:opacity-60">
               {isSubmitting ? 'Saving…' : 'Add Log'}
             </button>
+            </>}
           </div>
         )}
 
@@ -1622,6 +1642,31 @@ export default function CropMonitoringPage() {
   useEffect(() => { setPage(1) }, [statusFilter, seasonFilter, yearFilter, barangayFilter])
   useEffect(() => { fetchRecords(page) }, [fetchRecords, page])
 
+  // Lock indicators for the currently-visible page only — bounded to page
+  // size, not a full-table N+1 poll.
+  const [lockStatuses, setLockStatuses] = useState({})
+  const { isAdmin } = useAuth()
+
+  const refreshLockStatuses = useCallback(async (recs) => {
+    if (!recs.length) { setLockStatuses({}); return }
+    const entries = await Promise.all(recs.map(async rec => {
+      try {
+        const r = await api.get('/locks/status/', { params: { record_type: 'crop', record_id: rec.id } })
+        return [rec.id, r.data.locked ? r.data : null]
+      } catch { return [rec.id, null] }
+    }))
+    setLockStatuses(Object.fromEntries(entries.filter(([, v]) => v)))
+  }, [])
+
+  useEffect(() => { refreshLockStatuses(records) }, [records, refreshLockStatuses])
+
+  const handleForceUnlock = async (recordId) => {
+    try {
+      await api.post('/locks/release/', { record_type: 'crop', record_id: recordId })
+      refreshLockStatuses(records)
+    } catch { /* ignore */ }
+  }
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
     return records.filter(rec =>
@@ -1649,6 +1694,14 @@ export default function CropMonitoringPage() {
         {rec.status === 'Harvested' && (
           <span className="inline-flex text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-1.5 py-0.5 whitespace-nowrap">
             Harvested
+          </span>
+        )}
+        {lockStatuses[rec.id] && (
+          <span
+            className="inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5 whitespace-nowrap"
+            title={`Locked by ${lockStatuses[rec.id].locked_by?.name || 'another user'}`}
+          >
+            <Lock className="w-2.5 h-2.5" /> {lockStatuses[rec.id].locked_by?.name}
           </span>
         )}
       </span>
@@ -1693,6 +1746,16 @@ export default function CropMonitoringPage() {
         >
           <AlertTriangle className="w-4 h-4" />
         </button>
+        {isAdmin && lockStatuses[rec.id] && (
+          <button
+            type="button"
+            title={`Force unlock (held by ${lockStatuses[rec.id].locked_by?.name || 'another user'})`}
+            onClick={() => handleForceUnlock(rec.id)}
+            className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 transition-colors"
+          >
+            <Unlock className="w-4 h-4" />
+          </button>
+        )}
       </div>
     ),
   }))

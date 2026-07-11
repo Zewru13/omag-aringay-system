@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, CheckCircle2, Eye, Fish, MoreVertical, Pencil, Plus, Search, Trash2, User, Wheat } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Eye, Fish, Lock, MoreVertical, Pencil, Plus, Search, Trash2, Unlock, User, Wheat } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
@@ -1160,6 +1160,29 @@ export default function FisheriesRecordsPage() {
   useEffect(() => { setPage(1); fetchRecords(1) }, [statusFilter, seasonFilter, yearFilter])
   useEffect(() => { fetchRecords(page) }, [fetchRecords, page])
 
+  // Lock indicators for the currently-visible page only.
+  const [lockStatuses, setLockStatuses] = useState({})
+
+  const refreshLockStatuses = useCallback(async (recs) => {
+    if (!recs.length) { setLockStatuses({}); return }
+    const entries = await Promise.all(recs.map(async rec => {
+      try {
+        const r = await api.get('/locks/status/', { params: { record_type: 'stocking', record_id: rec.id } })
+        return [rec.id, r.data.locked ? r.data : null]
+      } catch { return [rec.id, null] }
+    }))
+    setLockStatuses(Object.fromEntries(entries.filter(([, v]) => v)))
+  }, [])
+
+  useEffect(() => { refreshLockStatuses(records) }, [records, refreshLockStatuses])
+
+  const handleForceUnlock = async (recordId) => {
+    try {
+      await api.post('/locks/release/', { record_type: 'stocking', record_id: recordId })
+      refreshLockStatuses(records)
+    } catch { /* ignore */ }
+  }
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
     return records.filter(rec =>
@@ -1183,6 +1206,14 @@ export default function FisheriesRecordsPage() {
         {rec.disaster_count === 0 && rec.has_resolved_disaster && (
           <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-slate-500 bg-slate-100 border border-slate-200 rounded-full px-1.5 py-0.5 whitespace-nowrap">
             <CheckCircle2 className="w-2.5 h-2.5" /> Resolved
+          </span>
+        )}
+        {lockStatuses[rec.id] && (
+          <span
+            className="inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5 whitespace-nowrap"
+            title={`Locked by ${lockStatuses[rec.id].locked_by?.name || 'another user'}`}
+          >
+            <Lock className="w-2.5 h-2.5" /> {lockStatuses[rec.id].locked_by?.name}
           </span>
         )}
       </span>
@@ -1240,6 +1271,16 @@ export default function FisheriesRecordsPage() {
           onRecordHarvest={() => setHarvestRec(rec)}
           onReportDisaster={() => setDisasterRec(rec)}
         />
+        {user?.role === 'ADMIN' && lockStatuses[rec.id] && (
+          <button
+            type="button"
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-amber-600 hover:bg-amber-50 transition-colors"
+            onClick={(e) => { e.stopPropagation(); handleForceUnlock(rec.id) }}
+            title={`Force unlock (held by ${lockStatuses[rec.id].locked_by?.name || 'another user'})`}
+          >
+            <Unlock size={14} />
+          </button>
+        )}
       </div>
     ),
   }))

@@ -3,6 +3,7 @@ import { ChevronDown, HelpCircle, History, LogOut, Menu, User } from 'lucide-rea
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import ConfirmDialog from '../UI/ConfirmDialog.jsx'
+import NotificationBell from './NotificationBell.jsx'
 
 function formatDate(d) {
   return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -55,8 +56,10 @@ function Navbar({ onToggleSidebar, isCollapsed }) {
           </span>
         </div>
 
-        {/* Right: user dropdown */}
-        <div className="relative" ref={dropdownRef}>
+        {/* Right: notifications + user dropdown */}
+        <div className="flex items-center gap-1">
+          <NotificationBell />
+          <div className="relative" ref={dropdownRef}>
           <button
             type="button"
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors"
@@ -131,6 +134,7 @@ function Navbar({ onToggleSidebar, isCollapsed }) {
               </button>
             </div>
           )}
+        </div>
         </div>
       </header>
 

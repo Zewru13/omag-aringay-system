@@ -13,6 +13,8 @@ from rest_framework.views import APIView
 
 from accounts.permissions import IsAdmin, IsAdminOrEvaluator
 from core.constants import BARANGAY_CHOICES
+from core.locking import assert_not_locked_by_other
+from core.notifications import notify_all_except
 from farmers.models import FarmParcel, Farmer
 from fisheries.models import Fisherfolk
 
@@ -102,10 +104,25 @@ class HarvestRecordCreateView(generics.CreateAPIView):
                     )
             except CropMonitoringRecord.DoesNotExist:
                 pass
+            assert_not_locked_by_other(request.user, 'crop', monitoring_id)
         return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
-        serializer.save(recorded_by=self.request.user)
+        harvest = serializer.save(recorded_by=self.request.user)
+        monitoring_id = self.request.data.get('monitoring_record')
+        if monitoring_id:
+            try:
+                monitoring = CropMonitoringRecord.objects.get(pk=monitoring_id)
+            except CropMonitoringRecord.DoesNotExist:
+                return
+            notify_all_except(
+                actor=self.request.user,
+                verb='recorded a harvest for',
+                record_type='crop',
+                record_id=monitoring_id,
+                record_label=_crop_record_label(monitoring),
+                detail=f'{harvest.volume_kg} {harvest.unit_of_measure or "kg"}',
+            )
 
 
 class HarvestRecordDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -1046,6 +1063,19 @@ class YieldAnalysisSummaryView(APIView):
 
 # ─── Module 3: CropActivityLog ───────────────────────────────────────────────
 
+def _crop_record_label(monitoring):
+    crop_name = monitoring.crop_type.name if monitoring.crop_type_id else 'Crop'
+    if monitoring.farmer_id:
+        who = monitoring.farmer.full_name
+    elif monitoring.farmers_association_id:
+        who = monitoring.farmers_association.name
+    else:
+        who = 'Unknown farmer'
+    barangay = monitoring.farm_location_barangay or (monitoring.farmer.barangay if monitoring.farmer_id else '')
+    location = f'{who}, {barangay}' if barangay else who
+    return f'{crop_name} — {location}'
+
+
 class CropActivityLogListCreateView(generics.ListCreateAPIView):
     serializer_class = CropActivityLogSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
@@ -1060,6 +1090,7 @@ class CropActivityLogListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         monitoring_id = self.kwargs.get('monitoring_id')
         monitoring = CropMonitoringRecord.objects.get(pk=monitoring_id)
+        assert_not_locked_by_other(self.request.user, 'crop', monitoring_id)
         target_day = serializer.validated_data.get('target_day')
         date_of_activity = serializer.validated_data.get('date_of_activity')
         is_late = False
@@ -1072,10 +1103,18 @@ class CropActivityLogListCreateView(generics.ListCreateAPIView):
             window = stage.window_days if stage else 3
             deadline = monitoring.date_planted + timedelta(days=target_day + window)
             is_late = date_of_activity > deadline
-        serializer.save(
+        log = serializer.save(
             monitoring_record_id=monitoring_id,
             recorded_by=self.request.user,
             is_late=is_late,
+        )
+        notify_all_except(
+            actor=self.request.user,
+            verb='logged an activity on',
+            record_type='crop',
+            record_id=monitoring_id,
+            record_label=_crop_record_label(monitoring),
+            detail=f'{log.activity_type} on {log.date_of_activity}',
         )
 
 
@@ -1100,9 +1139,19 @@ class CropDisasterReportListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         monitoring_id = self.kwargs.get('monitoring_id')
-        serializer.save(
+        monitoring = CropMonitoringRecord.objects.get(pk=monitoring_id)
+        assert_not_locked_by_other(self.request.user, 'crop', monitoring_id)
+        disaster = serializer.save(
             monitoring_record_id=monitoring_id,
             reported_by=self.request.user,
+        )
+        notify_all_except(
+            actor=self.request.user,
+            verb='reported a disaster on',
+            record_type='crop',
+            record_id=monitoring_id,
+            record_label=_crop_record_label(monitoring),
+            detail=disaster.disaster_type,
         )
 
 

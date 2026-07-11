@@ -16,6 +16,7 @@ def api_root(request):
 
 api_urlpatterns = [
     path('', api_root, name='api-root'),
+    path('', include('core.urls')),
     path('accounts/', include('accounts.urls')),
 path('farmers/', include('farmers.urls')),
     path('fisheries/', include('fisheries.urls')),

@@ -9,8 +9,16 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import useRecordLock from '../../hooks/useRecordLock.js'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
+
+function formatMMSS(totalSeconds) {
+  const s = Math.max(0, totalSeconds || 0)
+  const m = Math.floor(s / 60)
+  const r = s % 60
+  return `${m}:${String(r).padStart(2, '0')}`
+}
 
 const otherLabel = (value, specify) => (value === 'Other' && specify ? `Other — ${specify}` : value)
 
@@ -287,6 +295,7 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
   const [isLoading,         setIsLoading]         = useState(true)
   const { isAdmin } = useAuth()
   const [showForm,          setShowForm]          = useState(false)
+  const recordLock = useRecordLock('stocking', record.id, showForm)
   const [showSuggest,       setShowSuggest]       = useState(false)
   const [showConfirm,       setShowConfirm]       = useState(false)
   const [isSubmitting,      setIsSubmitting]      = useState(false)
@@ -523,6 +532,16 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
         {/* Inline form — hidden for harvested stock */}
         {showForm && !isHarvested && (
           <div className="mb-4 space-y-3">
+            {recordLock.lockedByOther && (
+              <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-start gap-2">
+                <Lock className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-800">
+                  🔒 <strong>{recordLock.lockedByOther.name}</strong> is currently logging this record.
+                  You&apos;ll be able to log once they finish (auto-unlocks in ~{formatMMSS(recordLock.secondsRemaining)}).
+                </p>
+              </div>
+            )}
+            {!recordLock.lockedByOther && <>
             {/* Late log note */}
             {pendingSuggestion?.status === 'overdue' && (
               <div className="flex items-center gap-1.5 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700">
@@ -717,6 +736,7 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
               className="w-full rounded-xl bg-[#1B4D2E] py-2.5 text-sm font-medium text-white hover:bg-[#235E38] disabled:opacity-60">
               {isSubmitting ? 'Saving…' : 'Add Log'}
             </button>
+            </>}
           </div>
         )}
 
