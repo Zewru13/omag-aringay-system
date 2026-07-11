@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  AlertTriangle,
+  CheckCircle2,
   Eye,
   FileText,
   MessageCircle,
@@ -13,7 +15,6 @@ import BarangaySelect from "../../components/UI/BarangaySelect.jsx";
 import api from "../../api/axiosInstance.js";
 import PageLayout from "../../components/Layout/PageLayout.jsx";
 import ConfirmDialog from "../../components/UI/ConfirmDialog.jsx";
-import DisasterDot from "../../components/UI/DisasterDot.jsx";
 import ErrorMessage from "../../components/UI/ErrorMessage.jsx";
 import HarvestVarianceBadge from "../../components/UI/HarvestVarianceBadge.jsx";
 import FormField, { baseInputClasses } from "../../components/UI/FormField.jsx";
@@ -1074,7 +1075,16 @@ export default function CropInformationPage() {
           <StatusPill tone={STATUS_TONES[displayStatus] || "slate"}>
             {displayStatus}
           </StatusPill>
-          <DisasterDot activeCount={rec.disasters_count} hasResolved={rec.has_resolved_disaster} />
+          {rec.disasters_count > 0 && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-full px-1.5 py-0.5 whitespace-nowrap">
+              <AlertTriangle className="w-2.5 h-2.5" /> {rec.disasters_count > 1 ? rec.disasters_count : "Disaster"}
+            </span>
+          )}
+          {rec.disasters_count === 0 && rec.has_resolved_disaster && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-slate-500 bg-slate-100 border border-slate-200 rounded-full px-1.5 py-0.5 whitespace-nowrap">
+              <CheckCircle2 className="w-2.5 h-2.5" /> Resolved
+            </span>
+          )}
           <HarvestVarianceBadge days={rec.harvest_variance_days} />
         </span>
       ),

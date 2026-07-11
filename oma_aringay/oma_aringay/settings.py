@@ -130,6 +130,12 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,
+    # The reports app uses its own ?format=pdf|excel|json query param convention.
+    # DRF's built-in format-suffix content negotiation also binds to "format" by
+    # default and 404s before the view even runs when the value isn't a registered
+    # renderer format (only "json"/"api" are). Disabling it here restores every
+    # report endpoint's PDF/Excel export, which was silently 404ing app-wide.
+    'URL_FORMAT_OVERRIDE': None,
 }
 
 SIMPLE_JWT = {

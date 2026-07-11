@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Building2, Download, FileText, Fish, Leaf, Wheat } from 'lucide-react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Building2, ChevronDown, ChevronRight, Download, FileText, Fish, History, Leaf, Search, User, Wheat } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
@@ -12,10 +12,11 @@ import { downloadFile } from '../../utils/fileDownload.js'
 const labelCls = 'block text-[12px] font-medium text-[#4A5E4A] mb-1'
 
 const TABS = [
-  { id: 'harvested',    icon: Wheat,     label: 'Harvested Crop Report' },
-  { id: 'association',  icon: Building2, label: 'Association List Report' },
-  { id: 'crop_options', icon: Leaf,      label: 'Crop Options Report' },
-  { id: 'fisheries',    icon: Fish,      label: 'Fisheries Production Report' },
+  { id: 'harvested',           icon: Wheat,     label: 'Harvested Crop Report' },
+  { id: 'association',         icon: Building2, label: 'Association List Report' },
+  { id: 'crop_options',        icon: Leaf,      label: 'Crop Options Report' },
+  { id: 'fisheries',           icon: Fish,      label: 'Fisheries Production Report' },
+  { id: 'farmer_crop_history', icon: History,   label: 'Farmer Crop History' },
 ]
 
 // ── Signature Modal ────────────────────────────────────────────────────────────
@@ -787,6 +788,345 @@ function FisheriesProductionTab() {
   )
 }
 
+// ── Farmer Crop History Tab ────────────────────────────────────────────────────
+
+function FarmerFilterSearch({ selected, onSelect }) {
+  const [query,     setQuery]     = useState('')
+  const [results,   setResults]   = useState([])
+  const [searching, setSearching] = useState(false)
+  const [showDrop,  setShowDrop]  = useState(false)
+  const debounceRef = useRef(null)
+  const wrapperRef  = useRef(null)
+
+  const doSearch = useCallback(async (q) => {
+    if (!q.trim()) { setResults([]); return }
+    setSearching(true)
+    try {
+      const r = await api.get('/farmers/', { params: { search: q } })
+      const list = Array.isArray(r.data) ? r.data : (r.data.results || [])
+      setResults(list.slice(0, 8))
+    } catch { setResults([]) }
+    finally { setSearching(false) }
+  }, [])
+
+  const handleChange = (e) => {
+    const v = e.target.value
+    setQuery(v)
+    setShowDrop(true)
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => doSearch(v), 300)
+  }
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setShowDrop(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const handleSelect = (farmer) => {
+    onSelect({ id: farmer.id, name: farmer.full_name })
+    setQuery(farmer.full_name)
+    setShowDrop(false)
+  }
+
+  const handleClear = () => {
+    setQuery('')
+    onSelect({ id: null, name: '' })
+    setResults([])
+  }
+
+  const displayValue = selected.id ? selected.name : query
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <label className={labelCls}>Farmer</label>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#A8BCA8] pointer-events-none" />
+        <input
+          type="text"
+          placeholder="Search by name…"
+          value={displayValue}
+          onChange={handleChange}
+          onFocus={() => { if (results.length > 0) setShowDrop(true) }}
+          className={`${baseInputClasses} pl-8 ${selected.id ? 'pr-16' : ''}`}
+        />
+        {selected.id && (
+          <button
+            type="button"
+            onClick={handleClear}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-rose-500 hover:text-rose-700 px-1"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+      {showDrop && (
+        <div className="absolute z-50 mt-1 w-full rounded-xl border border-[#E2E8E2] bg-white shadow-lg max-h-52 overflow-y-auto">
+          {searching ? (
+            <p className="px-4 py-3 text-xs text-[#7A8E7A]">Searching…</p>
+          ) : results.length === 0 ? (
+            <p className="px-4 py-3 text-xs text-[#7A8E7A]">{query.trim() ? 'No farmers found.' : 'Type to search farmers.'}</p>
+          ) : (
+            results.map(f => (
+              <button
+                key={f.id}
+                type="button"
+                onMouseDown={() => handleSelect(f)}
+                className="flex items-start gap-3 w-full px-4 py-2.5 text-left hover:bg-[#F5F7F5] transition-colors"
+              >
+                <User className="w-3.5 h-3.5 mt-0.5 text-[#A8BCA8] shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-[#1A2B1A]">{f.full_name}</p>
+                  <p className="text-[11px] text-[#7A8E7A]">{f.barangay || ''}</p>
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FarmerCropHistoryTab() {
+  const { showToast } = useToast()
+  const [cropTypes,     setCropTypes]     = useState([])
+  const [records,       setRecords]       = useState([])
+  const [summary,       setSummary]       = useState({ total_crops: 0, total_harvests: 0 })
+  const [isLoading,     setIsLoading]     = useState(true)
+  const [isDownloading, setIsDownloading] = useState(false)
+  const [showSig,       setShowSig]       = useState(false)
+  const [sigPurpose,    setSigPurpose]    = useState('pdf')
+  const [expanded,      setExpanded]      = useState(() => new Set())
+  const [farmer, setFarmer] = useState({ id: null, name: '' })
+  const [filters, setFilters] = useState({ crop_type: '', barangay: '', season: '', year: '' })
+  const set = (k, v) => setFilters(f => ({ ...f, [k]: v }))
+
+  useEffect(() => {
+    api.get('/production/crop-types/').then(r => {
+      setCropTypes(Array.isArray(r.data) ? r.data : (r.data.results || []))
+    }).catch(() => {})
+  }, [])
+
+  const buildParams = () => {
+    const p = {}
+    if (farmer.id)          p.farmer    = farmer.id
+    if (filters.crop_type)  p.crop_type = filters.crop_type
+    if (filters.barangay)   p.barangay  = filters.barangay
+    if (filters.season)     p.season    = filters.season
+    if (filters.year)       p.year      = filters.year
+    return p
+  }
+
+  useEffect(() => {
+    setIsLoading(true)
+    api.get('/reports/farmer-crop-history/', { params: { ...buildParams(), format: 'json' } })
+      .then(r => {
+        setRecords(r.data.records || [])
+        setSummary(r.data.summary || { total_crops: 0, total_harvests: 0 })
+      })
+      .catch(() => showToast('Failed to load preview data.', 'error'))
+      .finally(() => setIsLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [farmer.id, filters.crop_type, filters.barangay, filters.season, filters.year])
+
+  const toggleExpand = (id) => {
+    setExpanded(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  const totalHarvested = (rec) => (rec.harvests || []).reduce((sum, h) => sum + (parseFloat(h.volume_kg) || 0), 0)
+
+  const buildUrl = (fmt) => {
+    const p = new URLSearchParams({ ...buildParams(), format: fmt })
+    return `/reports/farmer-crop-history/?${p}`
+  }
+
+  const handleGenerate = async (sigData) => {
+    setShowSig(false)
+    setIsDownloading(true)
+    const fmt  = sigPurpose === 'pdf' ? 'pdf' : 'excel'
+    const file = sigPurpose === 'pdf' ? 'farmer_crop_history_report.pdf' : 'farmer_crop_history_report.xlsx'
+    try {
+      let url = buildUrl(fmt)
+      if (sigData.prepared_by) url += `&prepared_by=${encodeURIComponent(sigData.prepared_by)}&prepared_role=${encodeURIComponent(sigData.position)}`
+      if (sigData.reviewed_by) url += `&reviewed_by=${encodeURIComponent(sigData.reviewed_by)}`
+      if (sigData.noted_by)    url += `&noted_by=${encodeURIComponent(sigData.noted_by)}`
+      await downloadFile(api, url, file)
+    } catch {
+      showToast(`Failed to generate ${sigPurpose === 'pdf' ? 'PDF' : 'Excel'}.`, 'error')
+    } finally { setIsDownloading(false) }
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Filters */}
+      <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+        <p className="text-[13px] font-semibold text-[#1A2B1A] mb-4">Filter Options</p>
+        <div className="flex flex-wrap gap-3">
+          <div className="w-56">
+            <FarmerFilterSearch selected={farmer} onSelect={setFarmer} />
+          </div>
+          <div className="w-44">
+            <label className={labelCls}>Crop Type</label>
+            <select className={baseInputClasses} value={filters.crop_type} onChange={e => set('crop_type', e.target.value)}>
+              <option value="">All Crops</option>
+              {cropTypes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div className="w-44">
+            <label className={labelCls}>Barangay</label>
+            <BarangaySelect value={filters.barangay} onChange={e => set('barangay', e.target.value)} includeAllOption />
+          </div>
+          <div className="w-32">
+            <label className={labelCls}>Season</label>
+            <select className={baseInputClasses} value={filters.season} onChange={e => set('season', e.target.value)}>
+              <option value="">All Seasons</option>
+              <option value="Dry">Dry</option>
+              <option value="Wet">Wet</option>
+            </select>
+          </div>
+          <div className="w-28">
+            <label className={labelCls}>Year</label>
+            <input
+              type="number"
+              placeholder="e.g. 2026"
+              className={baseInputClasses}
+              value={filters.year}
+              onChange={e => set('year', e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Summary */}
+      <div>
+        <p className="text-[13px] font-semibold text-[#1A2B1A] mb-3">Summary</p>
+        <div className={`grid gap-3 ${farmer.id ? 'grid-cols-4' : 'grid-cols-2'}`}>
+          <div className="bg-[#EBF5EE] rounded-xl p-4">
+            <p className="text-[11px] font-medium text-[#4A5E4A]">Crop Records in Scope</p>
+            <p className="text-[20px] font-bold text-[#1B4D2E] mt-1">{summary.total_crops}</p>
+          </div>
+          <div className="bg-[#EBF5EE] rounded-xl p-4">
+            <p className="text-[11px] font-medium text-[#4A5E4A]">Total Harvests</p>
+            <p className="text-[20px] font-bold text-[#1B4D2E] mt-1">{summary.total_harvests}</p>
+          </div>
+          {farmer.id && (
+            <>
+              <div className="bg-[#EBF5EE] rounded-xl p-4">
+                <p className="text-[11px] font-medium text-[#4A5E4A]">{farmer.name}'s Total Activities</p>
+                <p className="text-[20px] font-bold text-[#1B4D2E] mt-1">{summary.farmer_total_activities ?? 0}</p>
+              </div>
+              <div className="bg-[#EBF5EE] rounded-xl p-4">
+                <p className="text-[11px] font-medium text-[#4A5E4A]">Crops Harvested</p>
+                <p className="text-[20px] font-bold text-[#1B4D2E] mt-1">{summary.farmer_crops_harvested ?? 0}</p>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Action Buttons */}
+      <ActionButtons
+        onPdf={() => { setSigPurpose('pdf'); setShowSig(true) }}
+        onExcel={() => { setSigPurpose('excel'); setShowSig(true) }}
+        isDownloading={isDownloading}
+      />
+
+      {/* Preview Table */}
+      <div>
+        <p className="text-[13px] font-semibold text-[#1A2B1A]">Preview: Farmer Crop History</p>
+        <p className="text-[12px] text-[#7A8E7A] mb-3">Click a row to see the full activity timeline and harvest detail.</p>
+        <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <table className="min-w-full text-sm">
+            <thead className="bg-[#1B4D2E] text-white">
+              <tr>
+                {['', 'FARMER', 'BARANGAY', 'CROP', 'VARIETY', 'DATE PLANTED', 'STATUS', '# ACT', 'FIRST ACT', 'LAST ACT', '# HARVESTS', 'TOTAL HARVESTED (KG)'].map((h, i) => (
+                  <th key={i} className="px-3 py-[11px] text-left text-[11px] font-semibold uppercase tracking-[0.06em] whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr><td colSpan={12} className="py-8 text-center text-[13px] text-[#7A8E7A]">Loading…</td></tr>
+              ) : records.length === 0 ? (
+                <tr><td colSpan={12} className="py-8 text-center text-[13px] text-[#7A8E7A]">No crop records found.</td></tr>
+              ) : records.map(rec => (
+                <Fragment key={rec.id}>
+                  <tr
+                    onClick={() => toggleExpand(rec.id)}
+                    className="border-b border-[#F0F4F0] hover:bg-[#F9FAF9] cursor-pointer"
+                  >
+                    <td className="px-3 py-[11px] text-[#7A8E7A]">
+                      {expanded.has(rec.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    </td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.farmer}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.barangay}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.crop_type}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.variety}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.date_planted}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.status}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.activity_count}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.first_activity_date || '—'}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.last_activity_date || '—'}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.harvest_count}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{totalHarvested(rec).toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+                  </tr>
+                  {expanded.has(rec.id) && (
+                    <tr key={`${rec.id}-detail`} className="border-b border-[#F0F4F0] bg-[#F9FAF9]">
+                      <td colSpan={12} className="px-6 py-4">
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <p className="text-[12px] font-semibold text-[#1A2B1A] mb-2">Activity Timeline</p>
+                            {rec.activities.length === 0 ? (
+                              <p className="text-[12px] text-[#7A8E7A]">No activity logs recorded.</p>
+                            ) : (
+                              <ol className="space-y-1">
+                                {rec.activities.map(a => (
+                                  <li key={a.label} className="text-[12px] text-[#4A5E4A]">
+                                    <span className="font-medium text-[#1A2B1A]">{a.label}:</span> {a.activity_type} — {a.date}
+                                  </li>
+                                ))}
+                              </ol>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-[12px] font-semibold text-[#1A2B1A] mb-2">Harvest Records</p>
+                            {rec.harvests.length === 0 ? (
+                              <p className="text-[12px] text-[#7A8E7A]">No harvests recorded.</p>
+                            ) : (
+                              <ol className="space-y-1">
+                                {rec.harvests.map((h, i) => (
+                                  <li key={i} className="text-[12px] text-[#4A5E4A]">
+                                    {h.harvest_start_date}{h.harvest_end_date && h.harvest_end_date !== h.harvest_start_date ? ` to ${h.harvest_end_date}` : ''} — {h.volume_kg} {h.unit_of_measure}
+                                  </li>
+                                ))}
+                              </ol>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {showSig && (
+        <SignatureModal purpose={sigPurpose} onClose={() => setShowSig(false)} onGenerate={handleGenerate} />
+      )}
+    </div>
+  )
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function ReportsPage() {
@@ -813,10 +1153,11 @@ export default function ReportsPage() {
           ))}
         </div>
 
-        {activeTab === 'harvested'    && <HarvestedCropTab />}
-        {activeTab === 'association'  && <AssociationListTab />}
-        {activeTab === 'crop_options' && <CropOptionsTab />}
-        {activeTab === 'fisheries'    && <FisheriesProductionTab />}
+        {activeTab === 'harvested'           && <HarvestedCropTab />}
+        {activeTab === 'association'         && <AssociationListTab />}
+        {activeTab === 'crop_options'        && <CropOptionsTab />}
+        {activeTab === 'fisheries'           && <FisheriesProductionTab />}
+        {activeTab === 'farmer_crop_history' && <FarmerCropHistoryTab />}
       </div>
     </PageLayout>
   )

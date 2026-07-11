@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Eye, Fish, MoreVertical, Pencil, Plus, Search, Trash2, User, Wheat } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Eye, Fish, MoreVertical, Pencil, Plus, Search, Trash2, User, Wheat } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
-import DisasterDot from '../../components/UI/DisasterDot.jsx'
 import HarvestVarianceBadge from '../../components/UI/HarvestVarianceBadge.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
@@ -1178,7 +1177,12 @@ export default function FisheriesRecordsPage() {
         <span className="font-medium">{rec.species_name}</span>
         {rec.disaster_count > 0 && (
           <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-full px-1.5 py-0.5 whitespace-nowrap">
-            <AlertTriangle className="w-2.5 h-2.5" /> Disaster
+            <AlertTriangle className="w-2.5 h-2.5" /> {rec.disaster_count > 1 ? rec.disaster_count : 'Disaster'}
+          </span>
+        )}
+        {rec.disaster_count === 0 && rec.has_resolved_disaster && (
+          <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-slate-500 bg-slate-100 border border-slate-200 rounded-full px-1.5 py-0.5 whitespace-nowrap">
+            <CheckCircle2 className="w-2.5 h-2.5" /> Resolved
           </span>
         )}
       </span>
@@ -1197,7 +1201,6 @@ export default function FisheriesRecordsPage() {
     status_cell: (
       <span className="flex items-center gap-1.5">
         <StatusPill tone={STATUS_TONES[rec.status] || 'slate'}>{rec.status}</StatusPill>
-        <DisasterDot activeCount={rec.disaster_count} hasResolved={rec.has_resolved_disaster} />
         <HarvestVarianceBadge days={rec.harvest_variance_days} />
       </span>
     ),

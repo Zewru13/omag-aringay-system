@@ -5,7 +5,6 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
-import DisasterDot from '../../components/UI/DisasterDot.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import GrowthProgressBar from '../../components/UI/GrowthProgressBar.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
@@ -377,6 +376,38 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
   ]
   const isPrePlanting = PRE_PLANTING_ACTIVITIES.includes(activityType)
 
+  // ── Change 1: soft "Suggested now" ordering for the Activity dropdown ──────
+  const [activityStages, setActivityStages] = useState([])
+
+  useEffect(() => {
+    if (!record.crop_type) return
+    api.get(`/production/crop-types/${record.crop_type}/stages/`)
+      .then(r => setActivityStages(Array.isArray(r.data) ? r.data : (r.data.results || [])))
+      .catch(() => setActivityStages([]))
+  }, [record.crop_type])
+
+  const suggestedNowActivities = useMemo(() => {
+    if (!record.date_planted || activityStages.length === 0) return new Set()
+    const loggedTypes = new Set(logs.map(l => l.activity_type))
+    const planted = new Date(record.date_planted + 'T00:00:00')
+    const referenceDate = activityDate || todayISO()
+    const current = new Date(referenceDate + 'T00:00:00')
+    const currentDay = Math.floor((current - planted) / (1000 * 60 * 60 * 24))
+    const applicable = new Set()
+    activityStages.forEach(stage => {
+      const days = (stage.application_days && stage.application_days.length)
+        ? stage.application_days
+        : [stage.day_after_planting]
+      const dueNow = days.some(d => Math.abs(d - currentDay) <= 7)
+      const overdueUnlogged = days.some(d => (currentDay - d) > 7) && !loggedTypes.has(stage.stage_name)
+      if (dueNow || overdueUnlogged) applicable.add(stage.stage_name)
+    })
+    return applicable
+  }, [activityStages, activityDate, record.date_planted, logs])
+
+  const suggestedActivityOptions = ACTIVITY_OPTIONS.filter(o => suggestedNowActivities.has(o))
+  const otherActivityOptions = ACTIVITY_OPTIONS.filter(o => !suggestedNowActivities.has(o))
+
   const fetchLogs = useCallback(async () => {
     setIsLoading(true)
     try {
@@ -591,7 +622,20 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
                     setPendingSuggestion(null)
                   }}>
                   <option value="">Select Activity</option>
-                  {ACTIVITY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                  {activityStages.length > 0 ? (
+                    <>
+                      {suggestedActivityOptions.length > 0 && (
+                        <optgroup label="Suggested now">
+                          {suggestedActivityOptions.map(o => <option key={o} value={o}>{o} · due</option>)}
+                        </optgroup>
+                      )}
+                      <optgroup label="Other activities">
+                        {otherActivityOptions.map(o => <option key={o} value={o}>{o}</option>)}
+                      </optgroup>
+                    </>
+                  ) : (
+                    ACTIVITY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)
+                  )}
                 </select>
                 {activityType === 'Other' && (
                   <input type="text" className={`${baseInputClasses} mt-2`}
@@ -1592,15 +1636,14 @@ export default function CropMonitoringPage() {
     crop_cell: (
       <span className="flex items-center gap-1.5">
         <span className="font-medium">{rec.crop_type_name}</span>
-        <DisasterDot activeCount={rec.disasters_count} hasResolved={rec.has_resolved_disaster} />
         {rec.disasters_count > 0 && (
           <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-full px-1.5 py-0.5 whitespace-nowrap">
             <AlertTriangle className="w-2.5 h-2.5" /> {rec.disasters_count > 1 ? rec.disasters_count : 'Disaster'}
           </span>
         )}
         {rec.disasters_count === 0 && rec.has_resolved_disaster && (
-          <span className="text-xs text-slate-400 border border-slate-200 rounded-full px-2 py-0.5 ml-2">
-            Disaster resolved
+          <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-slate-500 bg-slate-100 border border-slate-200 rounded-full px-1.5 py-0.5 whitespace-nowrap">
+            <CheckCircle2 className="w-2.5 h-2.5" /> Resolved
           </span>
         )}
         {rec.status === 'Harvested' && (

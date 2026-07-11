@@ -2161,3 +2161,216 @@ class FisheriesProductionReport(APIView):
         )
         response['Content-Disposition'] = f'attachment; filename="fisheries_production_report_{today}.xlsx"'
         return response
+
+
+# ─── Farmer Crop History Report ──────────────────────────────────────────────
+
+class FarmerCropHistoryReport(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request):
+        from django.http import JsonResponse
+        from production.models import CropMonitoringRecord
+
+        today = _today()
+
+        farmer_id = request.query_params.get('farmer', '')
+        crop_type = request.query_params.get('crop_type', '')
+        barangay  = request.query_params.get('barangay', '')
+        season    = request.query_params.get('season', '')
+        year      = request.query_params.get('year', '')
+        fmt       = request.query_params.get('format', 'excel')
+
+        qs = CropMonitoringRecord.objects.select_related(
+            'farmer', 'crop_type',
+        ).prefetch_related('activity_logs', 'harvest_records').order_by('-date_planted')
+
+        if farmer_id:
+            qs = qs.filter(farmer_id=farmer_id)
+        if crop_type:
+            qs = qs.filter(crop_type_id=crop_type)
+        if barangay:
+            qs = qs.filter(farm_location_barangay__iexact=barangay)
+        if season:
+            qs = qs.filter(season=season)
+        if year:
+            qs = qs.filter(year=year)
+
+        records = list(qs)
+
+        def _farmer_name(rec):
+            return fmt_field(rec.farmer.full_name) if rec.farmer else '—'
+
+        def _barangay(rec):
+            if rec.farm_location_barangay:
+                return fmt_field(rec.farm_location_barangay)
+            return fmt_field(rec.farmer.barangay) if rec.farmer else '—'
+
+        def _activities(rec):
+            return sorted(rec.activity_logs.all(), key=lambda l: l.date_of_activity)
+
+        def _harvests(rec):
+            return sorted(
+                rec.harvest_records.all(),
+                key=lambda h: h.harvest_start_date or h.date_recorded.date(),
+            )
+
+        def _timeline_text(rec):
+            logs = _activities(rec)
+            if not logs:
+                return '—'
+            return '; '.join(
+                f'Act {i + 1}: {l.activity_type} ({fmt_date(l.date_of_activity)})'
+                for i, l in enumerate(logs)
+            )
+
+        def _harvest_text(rec):
+            harvests = _harvests(rec)
+            if not harvests:
+                return '—'
+            parts = []
+            for h in harvests:
+                d = fmt_date(h.harvest_start_date) if h.harvest_start_date else '—'
+                if h.harvest_end_date and h.harvest_end_date != h.harvest_start_date:
+                    d += f' to {fmt_date(h.harvest_end_date)}'
+                parts.append(f'{d}: {fmt_field(h.volume_kg)} {h.unit_of_measure or "kg"}')
+            return '; '.join(parts)
+
+        def row_data(rec):
+            logs     = _activities(rec)
+            harvests = _harvests(rec)
+            return [
+                _farmer_name(rec),
+                _barangay(rec),
+                fmt_field(rec.crop_type.name),
+                fmt_field(rec.variety_used) if rec.variety_used else '—',
+                fmt_date(rec.date_planted),
+                rec.status,
+                len(logs),
+                fmt_date(logs[0].date_of_activity) if logs else '—',
+                fmt_date(logs[-1].date_of_activity) if logs else '—',
+                len(harvests),
+            ]
+
+        headers = [
+            'Farmer', 'Barangay', 'Crop', 'Variety', 'Date Planted', 'Status',
+            '# Act', 'First Activity', 'Last Activity', '# Harvests',
+        ]
+
+        if fmt == 'json':
+            data = []
+            for rec in records:
+                logs     = _activities(rec)
+                harvests = _harvests(rec)
+                data.append({
+                    'id': rec.id,
+                    'farmer': _farmer_name(rec),
+                    'barangay': _barangay(rec),
+                    'crop_type': fmt_field(rec.crop_type.name),
+                    'variety': rec.variety_used or '—',
+                    'date_planted': str(rec.date_planted),
+                    'expected_harvest_date': str(rec.expected_harvest_date) if rec.expected_harvest_date else None,
+                    'status': rec.status,
+                    'activities': [
+                        {
+                            'label': f'Act {i + 1}',
+                            'activity_type': l.activity_type,
+                            'date': str(l.date_of_activity),
+                        }
+                        for i, l in enumerate(logs)
+                    ],
+                    'activity_count': len(logs),
+                    'first_activity_date': str(logs[0].date_of_activity) if logs else None,
+                    'last_activity_date': str(logs[-1].date_of_activity) if logs else None,
+                    'harvests': [
+                        {
+                            'harvest_start_date': str(h.harvest_start_date) if h.harvest_start_date else None,
+                            'harvest_end_date': str(h.harvest_end_date) if h.harvest_end_date else None,
+                            'volume_kg': str(h.volume_kg),
+                            'unit_of_measure': h.unit_of_measure,
+                        }
+                        for h in harvests
+                    ],
+                    'harvest_count': len(harvests),
+                })
+
+            summary = {
+                'total_crops': len(records),
+                'total_harvests': sum(len(_harvests(r)) for r in records),
+            }
+            if farmer_id and records:
+                summary['farmer_total_activities']  = sum(len(_activities(r)) for r in records)
+                summary['farmer_crops_harvested']   = len([r for r in records if r.status == 'Harvested'])
+
+            return JsonResponse({'count': len(data), 'records': data, 'summary': summary})
+
+        if fmt == 'pdf':
+            return self._build_pdf(records, headers, row_data, today, _sig_params(request))
+        return self._build_excel(records, headers, row_data, today, _timeline_text, _harvest_text)
+
+    def _build_pdf(self, records, headers, row_data_fn, today, sig=None):
+        sig = sig or {}
+        buf, doc = _make_doc()
+        story = []
+        story += build_official_header(LOGO_PATH, 'Farmer Crop History Report')
+        story.append(build_stats_row([
+            ('Total Crop Records', len(records)),
+            ('Date Generated', str(today)),
+        ], page_width=PAGE_WIDTH))
+        story.append(Spacer(1, 14))
+        col_widths = [65, 50, 55, 45, 45, 45, 28, 45, 45, 45]
+        rows = [row_data_fn(r) for r in records]
+        story.append(build_ledger_table(headers, rows, col_widths=col_widths))
+        story.append(Spacer(1, 30))
+        story.append(build_signature_block(
+            left_label='Prepared by',
+            left_name=sig.get('prepared_by') or None,
+            left_role=sig.get('position') or 'OMAg Records Officer',
+            reviewed_by=sig.get('reviewed_by') or None,
+            reviewed_role=sig.get('reviewed_role') or None,
+            noted_by=sig.get('noted_by') or None,
+            noted_role=sig.get('noted_role') or None,
+            page_width=PAGE_WIDTH,
+        ))
+        doc.build(story, canvasmaker=NumberedCanvas)
+        return _finish_pdf(buf, f'farmer_crop_history_report_{today}.pdf')
+
+    def _build_excel(self, records, headers, row_data_fn, today, timeline_fn, harvest_fn):
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'Farmer Crop History'
+
+        hdr_fill = PatternFill('solid', fgColor='1E4620')
+        hdr_font = Font(bold=True, color='FFFFFF', size=10)
+
+        ws.append(['Republic of the Philippines'])
+        ws.append(['Office of the Municipal Agriculturist — Aringay, La Union'])
+        ws.append(['Farmer Crop History Report'])
+        ws.append([f'Date Generated: {today}'])
+        ws.append([])
+
+        full_headers = headers + ['Activity Timeline', 'Harvest Details']
+        ws.append(full_headers)
+        for cell in ws[6]:
+            cell.fill = hdr_fill
+            cell.font = hdr_font
+            cell.alignment = Alignment(horizontal='center')
+
+        for rec in records:
+            ws.append(row_data_fn(rec) + [timeline_fn(rec), harvest_fn(rec)])
+
+        for col_letter in ('K', 'L'):
+            ws.column_dimensions[col_letter].width = 60
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        response = HttpResponse(
+            buf.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        response['Content-Disposition'] = f'attachment; filename="farmer_crop_history_report_{today}.xlsx"'
+        return response

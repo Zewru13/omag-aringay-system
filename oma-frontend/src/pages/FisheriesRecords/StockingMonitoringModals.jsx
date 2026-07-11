@@ -333,6 +333,38 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
     return ''
   }
 
+  // ── Change 1: soft "Suggested now" ordering for the Activity dropdown ──────
+  const [activityStages, setActivityStages] = useState([])
+
+  useEffect(() => {
+    if (!record.species) return
+    api.get(`/fisheries/species/${record.species}/stages/`)
+      .then(r => setActivityStages(Array.isArray(r.data) ? r.data : (r.data.results || [])))
+      .catch(() => setActivityStages([]))
+  }, [record.species])
+
+  const suggestedNowActivities = useMemo(() => {
+    if (!record.date_stocked || activityStages.length === 0) return new Set()
+    const loggedTypes = new Set(logs.map(l => l.activity))
+    const stocked = new Date(record.date_stocked + 'T00:00:00')
+    const referenceDate = activityDate || todayISO()
+    const current = new Date(referenceDate + 'T00:00:00')
+    const currentDay = Math.floor((current - stocked) / (1000 * 60 * 60 * 24))
+    const applicable = new Set()
+    activityStages.forEach(stage => {
+      const days = (stage.application_days && stage.application_days.length)
+        ? stage.application_days
+        : [stage.day_after_stocking]
+      const dueNow = days.some(d => Math.abs(d - currentDay) <= 7)
+      const overdueUnlogged = days.some(d => (currentDay - d) > 7) && !loggedTypes.has(stage.activity_name)
+      if (dueNow || overdueUnlogged) applicable.add(stage.activity_name)
+    })
+    return applicable
+  }, [activityStages, activityDate, record.date_stocked, logs])
+
+  const suggestedActivityOptions = ACTIVITY_OPTIONS.filter(o => suggestedNowActivities.has(o))
+  const otherActivityOptions = ACTIVITY_OPTIONS.filter(o => !suggestedNowActivities.has(o))
+
   const fetchLogs = useCallback(async () => {
     setIsLoading(true)
     try {
@@ -510,7 +542,20 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
                     setPendingSuggestion(null)
                   }}>
                   <option value="">Select Activity</option>
-                  {ACTIVITY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                  {activityStages.length > 0 ? (
+                    <>
+                      {suggestedActivityOptions.length > 0 && (
+                        <optgroup label="Suggested now">
+                          {suggestedActivityOptions.map(o => <option key={o} value={o}>{o} · due</option>)}
+                        </optgroup>
+                      )}
+                      <optgroup label="Other activities">
+                        {otherActivityOptions.map(o => <option key={o} value={o}>{o}</option>)}
+                      </optgroup>
+                    </>
+                  ) : (
+                    ACTIVITY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)
+                  )}
                 </select>
                 {activityType === 'Other' && (
                   <input type="text" className={`${baseInputClasses} mt-2`}
