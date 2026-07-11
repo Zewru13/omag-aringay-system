@@ -18,6 +18,10 @@ class User(AbstractUser):
     full_name = models.CharField(max_length=150, blank=True, default='')
     suffix = models.CharField(max_length=10, blank=True, default='')
     contact_number = models.CharField(max_length=20, blank=True)
+    must_change_password = models.BooleanField(
+        default=False,
+        help_text='Forces the user to a change-password screen on next login.',
+    )
 
     def __str__(self):
         return self.email

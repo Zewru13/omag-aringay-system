@@ -82,15 +82,27 @@ DATABASES = {
 }
 
 
+# Passphrase-friendly policy: length + denylist, no forced composition rules
+# (no mandatory symbol/number/uppercase) and no periodic/expiry logic anywhere
+# in this project — both are deliberate, per NIST 800-63B guidance.
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        'OPTIONS': {'user_attributes': ('username', 'email', 'full_name')},
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {'min_length': 15},
+    },
+    {
+        'NAME': 'accounts.validators.MaximumLengthValidator',
+        'OPTIONS': {'max_length': 128},
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+    },
+    {
+        'NAME': 'accounts.validators.LocalDenylistPasswordValidator',
     },
     {
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
@@ -141,7 +153,28 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    # When a user's password changes, every access token issued before that
+    # change (not just refresh tokens) stops passing authentication on its
+    # very next request — SimpleJWT embeds a hash of the password at token
+    # issuance and compares it against the current one on each request.
+    'CHECK_REVOKE_TOKEN': True,
 }
+
+# ── Email ────────────────────────────────────────────────────────────────
+# Dev default: prints outgoing mail to the console instead of sending it.
+# Production needs a real SMTP backend configured via environment variables
+# (.env) — never hardcode SMTP credentials in this file.
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+DEFAULT_FROM_EMAIL = 'OMA Aringay System <noreply@omaaringay.local>'
+
+# Production SMTP example (uncomment and fill in via os.environ / .env):
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = os.environ.get('EMAIL_HOST')
+# EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+# EMAIL_USE_TLS = True
+# EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+# EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+# DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
 # ==========================================================
 # PYTHON 3.14 COMPATIBILITY PATCH FOR DJANGO 4.2 ADMIN PANELS
 # ==========================================================

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom"
 import PageLayout from "../../components/Layout/PageLayout.jsx"
 import Button from "../../components/UI/Button.jsx"
 import ConfirmDialog from "../../components/UI/ConfirmDialog.jsx"
+import PasswordRequirementChecklist from "../../components/UI/PasswordRequirementChecklist.jsx"
 import StatusPill from "../../components/UI/StatusPill.jsx"
 import { baseInputClasses } from "../../components/UI/FormField.jsx"
 import api from "../../api/axiosInstance.js"
@@ -89,8 +90,8 @@ function ProfilePage() {
         setPasswordError("New passwords do not match.")
         return
       }
-      if (passwords.new_password.length < 8) {
-        setPasswordError("New password must be at least 8 characters.")
+      if (passwords.new_password.length < 15) {
+        setPasswordError("New password must be at least 15 characters.")
         return
       }
       // Show confirm dialog before proceeding with password change
@@ -124,6 +125,7 @@ function ProfilePage() {
         } catch (err) {
           const data = err.response?.data
           setPasswordError(
+            data?.new_password?.[0] ||
             data?.non_field_errors?.[0] ||
             data?.detail ||
             "Profile saved, but unable to update password."
@@ -327,6 +329,10 @@ function ProfilePage() {
                         />
                       </div>
                     </div>
+
+                    {passwords.new_password && (
+                      <PasswordRequirementChecklist password={passwords.new_password} />
+                    )}
                   </div>
                 </div>
 

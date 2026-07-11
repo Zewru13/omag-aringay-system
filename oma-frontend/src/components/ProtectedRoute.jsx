@@ -1,8 +1,9 @@
-import { Navigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 
 function ProtectedRoute({ allowedRoles, children }) {
   const { user, isLoading, isAuthenticated } = useAuth()
+  const location = useLocation()
 
   if (isLoading) {
     return (
@@ -14,6 +15,13 @@ function ProtectedRoute({ allowedRoles, children }) {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />
+  }
+
+  // Forced first-login password change: block every other route until the
+  // user sets a new password. The /change-password route itself is exempt
+  // so it can actually render.
+  if (user.must_change_password && location.pathname !== '/change-password') {
+    return <Navigate to="/change-password" replace />
   }
 
   if (allowedRoles?.length && !allowedRoles.includes(user.role)) {

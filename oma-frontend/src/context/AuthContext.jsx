@@ -54,10 +54,16 @@ export function AuthProvider({ children }) {
 
     try {
       if (refreshToken) {
+        // Best-effort: the token may already be dead server-side (e.g. this
+        // account was just deactivated or its password just changed), in
+        // which case blacklisting fails harmlessly — we clear local state
+        // and redirect either way.
         await api.post('/accounts/logout/', {
           refresh: refreshToken,
         })
       }
+    } catch {
+      // ignore — local logout still proceeds below
     } finally {
       localStorage.clear()
       setUser(null)

@@ -20,6 +20,7 @@ from .views import (
     SeasonalCatchReport,
     SeasonalVarianceReport,
     VesselLicenseStatusReport,
+    YieldAnalysisReport,
 )
 
 
@@ -32,6 +33,7 @@ urlpatterns = [
     path('production/barangay-crop-summary/', BarangayCropSummaryReport.as_view(), name='report-barangay-crop-summary'),
     path('production/crop-history/', CropHistoricalReport.as_view(), name='report-crop-history'),
     path('farmer-crop-history/', FarmerCropHistoryReport.as_view(), name='report-farmer-crop-history'),
+    path('yield-analysis/', YieldAnalysisReport.as_view(), name='report-yield-analysis'),
     path(
         'interventions/<int:program_id>/masterlist/',
         BeneficiaryMasterlistReport.as_view(),

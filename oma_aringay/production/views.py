@@ -831,6 +831,219 @@ class CropActivitySuggestionsView(APIView):
         })
 
 
+# ─── Module 2c: Yield / Harvest Performance Analysis (descriptive only) ──────
+#
+# Baseline is each crop's OWN planting-time estimate (estimated_yield_kg =
+# area x yield-per-hectare, computed at planting). There is no historical
+# dataset to compare against. Missed activities are surfaced as *possible*
+# contributing factors — this module never claims causation.
+
+YIELD_ANALYSIS_DISCLAIMER = (
+    'This analysis is descriptive. Yield is affected by many factors including '
+    'weather, pests, and soil; missed activities are shown as possible '
+    'contributing factors, not proven causes.'
+)
+
+
+def _yield_analysis_queryset(request):
+    qs = CropMonitoringRecord.objects.filter(
+        status=CropMonitoringRecord.Status.HARVESTED,
+    ).select_related('farmer', 'crop_type').prefetch_related(
+        'activity_logs', 'harvest_records',
+    )
+    barangay  = request.query_params.get('barangay', '')
+    crop_type = request.query_params.get('crop_type', '')
+    season    = request.query_params.get('season', '')
+    year      = request.query_params.get('year', '')
+    farmer    = request.query_params.get('farmer', '')
+    if barangay:
+        qs = qs.filter(farm_location_barangay__iexact=barangay)
+    if crop_type:
+        qs = qs.filter(crop_type_id=crop_type)
+    if season:
+        qs = qs.filter(season=season)
+    if year:
+        qs = qs.filter(year=year)
+    if farmer:
+        qs = qs.filter(farmer_id=farmer)
+    return qs.order_by('-date_planted')
+
+
+def _activity_completion(rec):
+    """
+    Expand this crop's CropActivityStage occurrences (application_days, same
+    expansion the suggestions engine uses) and match each one against the
+    crop's logged activities using the same rule CropActivitySuggestionsView
+    uses: same activity name, and either the log's target_day matches the
+    occurrence or its date falls within the stage's window_days of the
+    scheduled due date.
+    """
+    from datetime import timedelta
+
+    stages = CropActivityStage.objects.filter(crop_type_id=rec.crop_type_id)
+    logs = list(rec.activity_logs.all())
+    planted = rec.date_planted
+
+    total = 0
+    completed = 0
+    missed_high = []
+    breakdown = []
+
+    for stage in stages:
+        days_list = stage.application_days if stage.application_days else [stage.day_after_planting]
+        for occurrence_day in days_list:
+            total += 1
+            due_date = planted + timedelta(days=occurrence_day) if planted else None
+            is_done = False
+            if due_date:
+                window = stage.window_days
+                for log in logs:
+                    if log.activity_type != stage.stage_name:
+                        continue
+                    target_match = log.target_day is not None and log.target_day == occurrence_day
+                    date_match = log.date_of_activity is not None and abs((log.date_of_activity - due_date).days) <= window
+                    if target_match or date_match:
+                        is_done = True
+                        break
+            if is_done:
+                completed += 1
+            elif stage.priority == CropActivityStage.Priority.HIGH:
+                missed_high.append({'activity': stage.stage_name, 'scheduled_day': occurrence_day})
+            breakdown.append({
+                'activity': stage.stage_name,
+                'scheduled_day': occurrence_day,
+                'priority': stage.priority,
+                'completed': is_done,
+            })
+
+    return total, completed, missed_high, breakdown
+
+
+def _analyze_crop(rec):
+    harvests = list(rec.harvest_records.all())
+    actual_total_kg = sum((h.volume_kg for h in harvests if h.volume_kg is not None), Decimal('0'))
+    estimated_kg = rec.estimated_yield_kg
+
+    if estimated_kg is None:
+        variance_kg = None
+        variance_pct = None
+    else:
+        variance_kg = actual_total_kg - estimated_kg
+        variance_pct = None if estimated_kg == 0 else float((variance_kg / estimated_kg) * Decimal('100'))
+
+    total, completed, missed_high, breakdown = _activity_completion(rec)
+
+    harvest_dates = sorted({
+        (h.harvest_start_date or h.date_recorded.date()).isoformat()
+        for h in harvests
+    })
+
+    if rec.farm_location_barangay:
+        barangay = rec.farm_location_barangay
+    elif rec.farmer:
+        barangay = rec.farmer.barangay
+    else:
+        barangay = '—'
+
+    return {
+        'id': rec.id,
+        'farmer': rec.farmer.full_name if rec.farmer else '—',
+        'barangay': barangay or '—',
+        'crop_type': rec.crop_type.name if rec.crop_type else '—',
+        'variety': rec.variety_used or '—',
+        'date_planted': rec.date_planted.isoformat() if rec.date_planted else None,
+        'harvest_dates': harvest_dates,
+        'estimated_kg': float(estimated_kg) if estimated_kg is not None else None,
+        'actual_total_kg': float(actual_total_kg),
+        'variance_kg': float(variance_kg) if variance_kg is not None else None,
+        'variance_pct': round(variance_pct, 2) if variance_pct is not None else None,
+        'activities_completed_count': completed,
+        'activities_total_count': total,
+        'missed_high_priority': missed_high,
+        'activity_breakdown': breakdown,
+    }
+
+
+class YieldAnalysisView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request):
+        records = _yield_analysis_queryset(request)
+        data = [_analyze_crop(rec) for rec in records]
+        return Response({
+            'count': len(data),
+            'records': data,
+            'disclaimer': YIELD_ANALYSIS_DISCLAIMER,
+        })
+
+
+class YieldAnalysisSummaryView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request):
+        group_by = request.query_params.get('group_by', 'barangay')
+        if group_by not in ('barangay', 'crop_type'):
+            group_by = 'barangay'
+
+        records = list(_yield_analysis_queryset(request))
+        analyzed = [_analyze_crop(rec) for rec in records]
+
+        groups = {}
+        for rec, a in zip(records, analyzed):
+            key = (rec.crop_type.name if rec.crop_type else '—') if group_by == 'crop_type' else a['barangay']
+            g = groups.setdefault(key, {
+                'count': 0,
+                'estimated_sum': Decimal('0'), 'estimated_n': 0,
+                'actual_sum': Decimal('0'),
+                'variance_pct_sum': 0.0, 'variance_pct_n': 0,
+                'completion_pct_sum': 0.0, 'completion_pct_n': 0,
+            })
+            g['count'] += 1
+            if a['estimated_kg'] is not None:
+                g['estimated_sum'] += Decimal(str(a['estimated_kg']))
+                g['estimated_n'] += 1
+            g['actual_sum'] += Decimal(str(a['actual_total_kg']))
+            if a['variance_pct'] is not None:
+                g['variance_pct_sum'] += a['variance_pct']
+                g['variance_pct_n'] += 1
+            if a['activities_total_count'] > 0:
+                g['completion_pct_sum'] += (a['activities_completed_count'] / a['activities_total_count']) * 100
+                g['completion_pct_n'] += 1
+
+        group_results = []
+        for key in sorted(groups.keys()):
+            g = groups[key]
+            group_results.append({
+                'group': key,
+                'harvested_crop_count': g['count'],
+                'avg_estimated_kg': round(float(g['estimated_sum'] / g['estimated_n']), 2) if g['estimated_n'] else None,
+                'avg_actual_kg': round(float(g['actual_sum'] / g['count']), 2) if g['count'] else None,
+                'avg_variance_pct': round(g['variance_pct_sum'] / g['variance_pct_n'], 2) if g['variance_pct_n'] else None,
+                'avg_activity_completion_pct': round(g['completion_pct_sum'] / g['completion_pct_n'], 2) if g['completion_pct_n'] else None,
+            })
+
+        overall_estimated  = [a['estimated_kg'] for a in analyzed if a['estimated_kg'] is not None]
+        overall_variance   = [a['variance_pct'] for a in analyzed if a['variance_pct'] is not None]
+        overall_completion = [
+            (a['activities_completed_count'] / a['activities_total_count']) * 100
+            for a in analyzed if a['activities_total_count'] > 0
+        ]
+        overall = {
+            'harvested_crop_count': len(analyzed),
+            'avg_estimated_kg': round(sum(overall_estimated) / len(overall_estimated), 2) if overall_estimated else None,
+            'avg_actual_kg': round(sum(a['actual_total_kg'] for a in analyzed) / len(analyzed), 2) if analyzed else None,
+            'avg_variance_pct': round(sum(overall_variance) / len(overall_variance), 2) if overall_variance else None,
+            'avg_activity_completion_pct': round(sum(overall_completion) / len(overall_completion), 2) if overall_completion else None,
+        }
+
+        return Response({
+            'group_by': group_by,
+            'groups': group_results,
+            'overall': overall,
+            'disclaimer': YIELD_ANALYSIS_DISCLAIMER,
+        })
+
+
 # ─── Module 3: CropActivityLog ───────────────────────────────────────────────
 
 class CropActivityLogListCreateView(generics.ListCreateAPIView):
