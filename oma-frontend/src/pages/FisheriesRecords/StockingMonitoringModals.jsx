@@ -1068,7 +1068,6 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
   const visibleResolvableDisasters = resolvableDisasters.filter(d => !dismissedDisasterIds.has(d.disaster_id))
 
   const speciesName = record.species_name || 'this stock'
-  const estYield     = record.estimated_harvest_kg ? parseFloat(record.estimated_harvest_kg) : null
 
   const expectedHarvestDate = record.expected_harvest_date || null
   const daysFromNowToExpected = expectedHarvestDate
@@ -1200,13 +1199,7 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
               value={quantityKg}
               onChange={e => { setQuantityKg(e.target.value); setQuantityError(validateQuantity(e.target.value)) }}
               placeholder="e.g. 500" />
-            {quantityError
-              ? <p className="mt-1 text-xs text-rose-600">{quantityError}</p>
-              : estYield && (
-                <p className="mt-1 text-xs text-slate-400">
-                  Estimated harvest: {Number(estYield).toLocaleString()} kg
-                </p>
-              )}
+            {quantityError && <p className="mt-1 text-xs text-rose-600">{quantityError}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-3">

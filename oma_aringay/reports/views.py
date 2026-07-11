@@ -1665,7 +1665,7 @@ class HarvestedCropReport(APIView):
         ).select_related(
             'crop_type', 'farmers_association',
             'farm_parcel', 'farm_parcel__farmer',
-        ).order_by('crop_type__name')
+        ).prefetch_related('harvest_records').order_by('crop_type__name')
 
         if start_date:
             qs = qs.filter(actual_harvest_date__gte=start_date)
@@ -1700,7 +1700,8 @@ class HarvestedCropReport(APIView):
         headers = [
             'Barangay', 'Farmer', 'Association',
             'Crop', 'Area Planted (ha)', 'Area Harvested (ha)',
-            'Est. Harvest Date', 'Actual Harvest Date', 'Estimated Yield (kg)',
+            'Est. Harvest Date', 'Actual Harvest Date',
+            'Quantity Harvested', 'Unit of Measure',
         ]
 
         def _barangay(rec):
@@ -1720,32 +1721,44 @@ class HarvestedCropReport(APIView):
         def _assoc(rec):
             return fmt_field(rec.farmers_association.name) if rec.farmers_association else '—'
 
+        def _latest_harvest(rec):
+            harvests = sorted(
+                rec.harvest_records.all(),
+                key=lambda h: h.date_recorded,
+                reverse=True,
+            )
+            return harvests[0] if harvests else None
+
         def row_data(rec):
+            harvest = _latest_harvest(rec)
             return [
                 _barangay(rec),
                 _farmer(rec),
                 _assoc(rec),
                 fmt_field(rec.crop_type.name),
                 fmt_field(rec.area_planted_ha),
-                fmt_field(rec.area_planted_ha),
+                fmt_field(harvest.area_harvested_hectares) if harvest else '—',
                 fmt_date(rec.expected_harvest_date) if rec.expected_harvest_date else '—',
                 fmt_date(rec.actual_harvest_date) if rec.actual_harvest_date else '—',
-                fmt_field(rec.estimated_yield_kg),
+                fmt_field(harvest.volume_kg) if harvest else '—',
+                fmt_field(harvest.unit_of_measure) if harvest else '—',
             ]
 
         if fmt == 'json':
             data = []
             for rec in records:
+                harvest = _latest_harvest(rec)
                 data.append({
                     'barangay': _barangay(rec),
                     'farmer': _farmer(rec),
                     'association': _assoc(rec),
                     'crop': fmt_field(rec.crop_type.name),
                     'area_planted_ha': str(rec.area_planted_ha) if rec.area_planted_ha else '—',
-                    'area_harvested_ha': str(rec.area_planted_ha) if rec.area_planted_ha else '—',
+                    'area_harvested_ha': str(harvest.area_harvested_hectares) if harvest else '—',
                     'expected_harvest_date': str(rec.expected_harvest_date) if rec.expected_harvest_date else '—',
                     'actual_harvest_date': str(rec.actual_harvest_date) if rec.actual_harvest_date else '—',
-                    'estimated_yield_kg': str(rec.estimated_yield_kg) if rec.estimated_yield_kg else '—',
+                    'quantity_harvested': str(harvest.volume_kg) if harvest else '—',
+                    'unit_of_measure': harvest.unit_of_measure if harvest else '—',
                 })
             return JsonResponse({'count': len(data), 'records': data})
 
@@ -1763,7 +1776,7 @@ class HarvestedCropReport(APIView):
             ('Date Generated', str(today)),
         ], page_width=PAGE_WIDTH))
         story.append(Spacer(1, 14))
-        col_widths = [55, 70, 65, 55, 40, 40, 45, 45, 48]
+        col_widths = [50, 65, 60, 50, 38, 38, 42, 42, 42, 40]
         rows = [row_data_fn(r) for r in records]
         story.append(build_ledger_table(headers, rows, col_widths=col_widths))
         story.append(Spacer(1, 30))

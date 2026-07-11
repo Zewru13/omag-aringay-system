@@ -23,6 +23,7 @@ const makeRecord = (n) => ({
   area_planted_ha: '',
   season: detectSeason(''),
   variety_used: '',
+  variety_used_is_other: false,
   seed_source: '',
   seed_source_other_specify: '',
   quantity_of_seeds: '',
@@ -204,9 +205,13 @@ function useCropDuplicateCheck(farmerId, cropTypeId) {
 
 // ── Single Crop Record Card ───────────────────────────────────────────────────
 
-function CropRecordCard({ rec, index, total, cropTypes, farmerId, onUpdate, onRemove }) {
+function CropRecordCard({ rec, index, total, cropTypes, seedSources, varieties, farmerId, onUpdate, onRemove }) {
   const set = (field, value) => onUpdate(rec._id, field, value)
   const { duplicates, isChecking } = useCropDuplicateCheck(farmerId, rec.crop_type)
+
+  const relevantVarieties = varieties.filter(
+    v => v.is_active && (!v.crop_type || String(v.crop_type) === String(rec.crop_type))
+  )
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
@@ -343,10 +348,36 @@ function CropRecordCard({ rec, index, total, cropTypes, farmerId, onUpdate, onRe
       {/* Optional planting details */}
       <div className="grid gap-3 sm:grid-cols-2">
         <FormField label="Variety Used (optional)">
-          <input type="text" className={baseInputClasses}
-            placeholder="e.g. NSIC Rc222, F1 Hybrid"
-            value={rec.variety_used}
-            onChange={e => set('variety_used', e.target.value)} />
+          {rec.variety_used_is_other ? (
+            <div className="flex gap-2">
+              <input type="text" className={baseInputClasses}
+                placeholder="Please specify variety"
+                value={rec.variety_used}
+                onChange={e => set('variety_used', e.target.value)}
+                autoFocus />
+              <button type="button"
+                className="shrink-0 text-xs font-medium text-[#4A5E4A] hover:text-[#1B4D2E] px-2"
+                onClick={() => { set('variety_used_is_other', false); set('variety_used', '') }}>
+                Back to list
+              </button>
+            </div>
+          ) : (
+            <select className={baseInputClasses} value={rec.variety_used}
+              onChange={e => {
+                if (e.target.value === '__other__') {
+                  set('variety_used_is_other', true)
+                  set('variety_used', '')
+                } else {
+                  set('variety_used', e.target.value)
+                }
+              }}>
+              <option value="">Select variety</option>
+              {relevantVarieties.map(v => (
+                <option key={v.id} value={v.name}>{v.name}</option>
+              ))}
+              <option value="__other__">Other</option>
+            </select>
+          )}
         </FormField>
 
         <FormField label="Seed Source (optional)">
@@ -356,10 +387,9 @@ function CropRecordCard({ rec, index, total, cropTypes, farmerId, onUpdate, onRe
               if (e.target.value !== 'Other') set('seed_source_other_specify', '')
             }}>
             <option value="">Select source</option>
-            <option value="Own Seeds">Own Seeds</option>
-            <option value="DA/LGU Provided">DA / LGU Provided</option>
-            <option value="Commercial">Commercial</option>
-            <option value="Association">Association</option>
+            {seedSources.filter(s => s.is_active).map(s => (
+              <option key={s.id} value={s.name}>{s.name}</option>
+            ))}
             <option value="Other">Other</option>
           </select>
           {rec.seed_source === 'Other' && (
@@ -396,6 +426,8 @@ function CropRecordCard({ rec, index, total, cropTypes, farmerId, onUpdate, onRe
 function AddCropMonitoringModal({ onClose, onSuccess }) {
   const { showToast } = useToast()
   const [cropTypes,    setCropTypes]    = useState([])
+  const [seedSources,  setSeedSources]  = useState([])
+  const [varieties,    setVarieties]    = useState([])
   const [records,      setRecords]      = useState([makeRecord(1)])
   const [nextId,       setNextId]       = useState(2)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -413,6 +445,8 @@ function AddCropMonitoringModal({ onClose, onSuccess }) {
 
   useEffect(() => {
     api.get('/production/crop-types/').then(r => setCropTypes(Array.isArray(r.data) ? r.data : (r.data.results || [])))
+    api.get('/production/seed-sources/').then(r => setSeedSources(Array.isArray(r.data) ? r.data : (r.data.results || [])))
+    api.get('/production/varieties/').then(r => setVarieties(Array.isArray(r.data) ? r.data : (r.data.results || [])))
   }, [])
 
   const addRecord = () => {
@@ -520,6 +554,8 @@ function AddCropMonitoringModal({ onClose, onSuccess }) {
                 index={i}
                 total={records.length}
                 cropTypes={cropTypes}
+                seedSources={seedSources}
+                varieties={varieties}
                 farmerId={farmerInfo.farmer_id}
                 onUpdate={updateRecord}
                 onRemove={removeRecord}

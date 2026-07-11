@@ -7,8 +7,25 @@ from farmers.models import FarmParcel
 from .models import (
     BarangayCropSummary, CropActivityLog, CropActivityStage, CropCategory,
     CropDisasterReport, CropMonitoringRecord, CropRemark, CropSubcategory, CropType,
-    DamageReport, FarmInputLog, HarvestRecord, LaborOperationLog, PestDiseaseReport, PlantingRecord,
+    CropVariety, DamageReport, FarmInputLog, HarvestRecord, LaborOperationLog,
+    PestDiseaseReport, PlantingRecord, SeedSource,
 )
+
+
+class SeedSourceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SeedSource
+        fields = ['id', 'name', 'is_active']
+        read_only_fields = ['id']
+
+
+class CropVarietySerializer(serializers.ModelSerializer):
+    crop_type_name = serializers.CharField(source='crop_type.name', read_only=True)
+
+    class Meta:
+        model = CropVariety
+        fields = ['id', 'name', 'crop_type', 'crop_type_name', 'is_active']
+        read_only_fields = ['id', 'crop_type_name']
 
 
 class CropCategorySerializer(serializers.ModelSerializer):
@@ -37,7 +54,7 @@ class CropTypeSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'days_to_harvest', 'yield_per_ha_kg',
             'category', 'category_name', 'subcategory', 'subcategory_name',
-            'suggested_activities', 'remarks',
+            'suggested_activities', 'allowed_units', 'remarks',
         ]
 
     def get_remarks(self, obj):
@@ -261,6 +278,7 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
     association_name       = serializers.SerializerMethodField()
     crop_type_name         = serializers.CharField(source='crop_type.name', read_only=True)
     crop_suggested_activities = serializers.CharField(source='crop_type.suggested_activities', read_only=True)
+    crop_allowed_units     = serializers.SerializerMethodField()
     is_near_harvest        = serializers.SerializerMethodField()
     latest_condition       = serializers.SerializerMethodField()
     log_count              = serializers.SerializerMethodField()
@@ -281,7 +299,7 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
             'farmer', 'farmer_full_name', 'farmer_association_name',
             'farm_location_barangay', 'land_status', 'land_status_other_specify',
             'farmer_name', 'farmer_barangay', 'parcel_number', 'association_name',
-            'crop_type', 'crop_type_name', 'crop_suggested_activities', 'season', 'year',
+            'crop_type', 'crop_type_name', 'crop_suggested_activities', 'crop_allowed_units', 'season', 'year',
             'date_planted', 'area_planted_ha',
             'expected_harvest_date', 'actual_harvest_date',
             'status', 'current_growth_stage',
@@ -298,7 +316,7 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
         read_only_fields = [
             'id', 'farmer_name', 'farmer_barangay', 'farmer_full_name', 'farmer_association_name',
             'parcel_number', 'association_name',
-            'crop_type_name', 'crop_suggested_activities',
+            'crop_type_name', 'crop_suggested_activities', 'crop_allowed_units',
             'expected_harvest_date', 'estimated_yield_kg',
             'yield_variance_kg', 'yield_variance_pct',
             'recorded_by', 'date_recorded',
@@ -307,6 +325,11 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
             'has_harvest', 'harvest_record_id', 'harvest_count', 'disaster_report_count',
             'harvest_variance_days',
         ]
+
+    def get_crop_allowed_units(self, obj):
+        if obj.crop_type and obj.crop_type.allowed_units:
+            return obj.crop_type.allowed_units
+        return ['kg']
 
     def get_farmer_name(self, obj):
         if obj.farmer:
@@ -483,7 +506,6 @@ def _validate_harvest_record(data, instance):
         })
 
     monitoring_record = data.get('monitoring_record', getattr(instance, 'monitoring_record', None))
-    area_harvested = data.get('area_harvested_hectares', getattr(instance, 'area_harvested_hectares', None))
 
     if start:
         if start > date.today():
@@ -500,11 +522,6 @@ def _validate_harvest_record(data, instance):
                     'early_late_reason': 'A reason is required when the harvest date is more than 7 days early or late.'
                 })
 
-    if area_harvested is not None and monitoring_record and monitoring_record.area_planted_ha:
-        if area_harvested > monitoring_record.area_planted_ha:
-            raise serializers.ValidationError({
-                'area_harvested_hectares': f'Area harvested cannot exceed the {monitoring_record.area_planted_ha} ha planted.'
-            })
     return data
 
 

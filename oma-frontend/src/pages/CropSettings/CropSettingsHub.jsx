@@ -2,10 +2,14 @@ import { useSearchParams } from 'react-router-dom'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import CropOptionPage from '../CropOption/CropOptionPage.jsx'
 import CropCategoryPage from '../CropCategory/CropCategoryPage.jsx'
+import SeedSourcePage from '../SeedSource/SeedSourcePage.jsx'
+import CropVarietyPage from '../CropVariety/CropVarietyPage.jsx'
 
 const TABS = [
-  { value: 'options',    label: 'Crop Options' },
-  { value: 'categories', label: 'Categories' },
+  { value: 'options',     label: 'Crop Options' },
+  { value: 'categories',  label: 'Categories' },
+  { value: 'seedsources', label: 'Seed Sources' },
+  { value: 'varieties',   label: 'Varieties' },
 ]
 
 function CropSettingsHub() {
@@ -37,8 +41,10 @@ function CropSettingsHub() {
         ))}
       </div>
 
-      {activeTab === 'options'    && <CropOptionPage   asTab />}
-      {activeTab === 'categories' && <CropCategoryPage  asTab />}
+      {activeTab === 'options'     && <CropOptionPage    asTab />}
+      {activeTab === 'categories'  && <CropCategoryPage  asTab />}
+      {activeTab === 'seedsources' && <SeedSourcePage    asTab />}
+      {activeTab === 'varieties'   && <CropVarietyPage   asTab />}
     </PageLayout>
   )
 }

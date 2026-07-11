@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  AlertTriangle, Bug, CheckCircle, CheckCircle2, Eye, FileText, Leaf, Lock, MapPin, Pencil, Plus, Trash2, TrendingUp, User, Wheat,
+  AlertTriangle, Bug, CheckCircle, CheckCircle2, Eye, FileText, Leaf, Lock, MapPin, Pencil, Plus, Trash2, User, Wheat,
 } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
@@ -1238,12 +1238,13 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
   const [harvestStartDate,  setHarvestStartDate]  = useState(todayISO())
   const [harvestEndDate,    setHarvestEndDate]    = useState('')
   const [areaHarvested,     setAreaHarvested]     = useState(record.area_planted_ha ? String(record.area_planted_ha) : '')
-  const [unitOfMeasure,     setUnitOfMeasure]     = useState('kg')
+  const [unitOfMeasure,     setUnitOfMeasure]     = useState(
+    (record.crop_allowed_units && record.crop_allowed_units.length > 0) ? record.crop_allowed_units[0] : 'kg'
+  )
   const [quantityHarvested, setQuantityHarvested] = useState('')
   const [harvestNotes,      setHarvestNotes]      = useState('')
   const [earlyLateReason,   setEarlyLateReason]   = useState('')
   const [showConfirm,       setShowConfirm]       = useState(false)
-  const [showSoftConfirm,   setShowSoftConfirm]   = useState(false)
   const [isSubmitting,      setIsSubmitting]      = useState(false)
   const [dateError,         setDateError]         = useState('')
   const [areaError,         setAreaError]         = useState('')
@@ -1277,11 +1278,9 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
   const visibleResolvableDisasters = resolvableDisasters.filter(d => !dismissedDisasterIds.has(d.disaster_id))
 
   const cropName     = record.crop_type_name || 'this crop'
-  const maxArea      = record.area_planted_ha ? parseFloat(record.area_planted_ha) : null
-  const estYield     = record.estimated_yield_kg ? parseFloat(record.estimated_yield_kg) : null
-  const softLow      = estYield ? +(estYield * 0.70).toFixed(2) : null
-  const softHigh     = estYield ? +(estYield * 1.30).toFixed(2) : null
-  const hardMax      = estYield ? +(estYield * 2).toFixed(2) : null
+  const unitOptions  = (record.crop_allowed_units && record.crop_allowed_units.length > 0)
+    ? record.crop_allowed_units
+    : ['kg']
 
   const expectedHarvestDate = record.expected_harvest_date || null
   const daysFromNowToExpected = expectedHarvestDate
@@ -1296,10 +1295,6 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
   const EARLY_REASONS = ['Emergency harvest — disaster damage', 'Buyer demand', 'Crop matured early', 'Other']
   const LATE_REASONS = ['Delayed field visit', 'Weather', 'Labor unavailable', 'Other']
 
-  const yieldPerHa = areaHarvested > 0 && quantityHarvested > 0
-    ? (parseFloat(quantityHarvested) / parseFloat(areaHarvested)).toFixed(2)
-    : null
-
   const handleEndDateChange = (v) => {
     setHarvestEndDate(v)
     if (harvestStartDate && v && v < harvestStartDate) {
@@ -1313,7 +1308,6 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
     if (!val) return 'Area harvested is required.'
     const n = parseFloat(val)
     if (isNaN(n) || n <= 0) return 'Area must be greater than 0.'
-    if (maxArea !== null && n > maxArea) return `Cannot exceed area planted (${maxArea} ha).`
     return ''
   }
 
@@ -1321,7 +1315,6 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
     if (!val) return 'Quantity harvested is required.'
     const n = parseFloat(val)
     if (isNaN(n) || n <= 0) return 'Quantity must be greater than 0.'
-    if (hardMax !== null && n > hardMax) return `Quantity (${n} kg) exceeds 2× the estimated yield (${hardMax} kg). Please verify.`
     return ''
   }
 
@@ -1334,13 +1327,6 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
     if (aErr || qErr || dateError) return
     if (reasonRequired && !earlyLateReason.trim()) {
       showToast(`A reason is required — this harvest is ${Math.abs(harvestVarianceDays)} days ${isEarly ? 'early' : 'late'}.`, 'error')
-      return
-    }
-
-    const qty = parseFloat(quantityHarvested)
-    const isSoftOutOfRange = softLow !== null && softHigh !== null && (qty < softLow || qty > softHigh)
-    if (isSoftOutOfRange) {
-      setShowSoftConfirm(true)
       return
     }
     setShowConfirm(true)
@@ -1365,7 +1351,6 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
         area_harvested_hectares: parseFloat(areaHarvested),
         volume_kg:               parseFloat(quantityHarvested),
         unit_of_measure:         unitOfMeasure,
-        yield_per_hectare_kg:    yieldPerHa ? parseFloat(yieldPerHa) : null,
         early_late_reason:       reasonRequired ? earlyLateReason.trim() : '',
         remarks:                 harvestNotes,
       })
@@ -1471,21 +1456,13 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
                 value={areaHarvested}
                 onChange={e => { setAreaHarvested(e.target.value); setAreaError(validateArea(e.target.value)) }}
                 placeholder="e.g. 2.50" />
-              {areaError
-                ? <p className="mt-1 text-xs text-rose-600">{areaError}</p>
-                : maxArea && <p className="mt-1 text-xs text-slate-400">Max: {maxArea} ha</p>}
+              {areaError && <p className="mt-1 text-xs text-rose-600">{areaError}</p>}
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700">Unit of Measure *</label>
               <select className={baseInputClasses} value={unitOfMeasure}
                 onChange={e => setUnitOfMeasure(e.target.value)}>
-                <option value="kg">kg</option>
-                <option value="bags">bags</option>
-                <option value="cavan">cavan</option>
-                <option value="sacks">sacks</option>
-                <option value="pieces">pieces</option>
-                <option value="bundles">bundles</option>
-                <option value="boxes">boxes</option>
+                {unitOptions.map(u => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
           </div>
@@ -1497,34 +1474,8 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
               value={quantityHarvested}
               onChange={e => { setQuantityHarvested(e.target.value); setQuantityError(validateQuantity(e.target.value)) }}
               placeholder="e.g. 500" />
-            {quantityError
-              ? <p className="mt-1 text-xs text-rose-600">{quantityError}</p>
-              : estYield && softLow !== null && softHigh !== null && (
-                <p className="mt-1 text-xs text-slate-400">
-                  Expected range: {softLow.toLocaleString()} – {softHigh.toLocaleString()} kg
-                  &nbsp;(based on estimated yield of {estYield.toLocaleString()} kg ±30%)
-                </p>
-              )}
-            {!quantityError && quantityHarvested && estYield && softLow !== null && softHigh !== null &&
-              parseFloat(quantityHarvested) > 0 &&
-              (parseFloat(quantityHarvested) < softLow || parseFloat(quantityHarvested) > softHigh) && (
-              <p className="mt-1 text-xs font-medium text-amber-600">
-                ⚠ Quantity is outside the expected range — you will be asked to confirm.
-              </p>
-            )}
+            {quantityError && <p className="mt-1 text-xs text-rose-600">{quantityError}</p>}
           </div>
-
-          {yieldPerHa && (
-            <div className="bg-[#EBF5EE] border border-[#C8E6D0] rounded-xl px-4 py-3 flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-[#1B4D2E] flex-shrink-0" />
-              <div>
-                <p className="text-[13px] font-medium text-[#1B4D2E]">
-                  Yield per Hectare: {Number(yieldPerHa).toLocaleString()} {unitOfMeasure}/ha
-                </p>
-                <p className="text-[12px] text-[#4A5E4A]">Auto-computed from quantity ÷ area harvested</p>
-              </div>
-            </div>
-          )}
 
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-700">Notes (optional)</label>
@@ -1546,16 +1497,6 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
           </div>
         </div>
       </ModalShell>
-
-      {showSoftConfirm && (
-        <ConfirmDialog
-          title="Quantity Outside Expected Range"
-          message={`The quantity entered (${parseFloat(quantityHarvested).toLocaleString()} kg) is outside the expected range of ${softLow?.toLocaleString()} – ${softHigh?.toLocaleString()} kg. This may indicate a data entry error. Do you want to proceed anyway?`}
-          confirmLabel="Yes, Proceed"
-          onConfirm={() => { setShowSoftConfirm(false); setShowConfirm(true) }}
-          onCancel={() => setShowSoftConfirm(false)}
-        />
-      )}
 
       {showConfirm && (
         <ConfirmDialog

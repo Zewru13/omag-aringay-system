@@ -152,7 +152,8 @@ function ProfilePage() {
   }
 
   const normalize = (v) => (v === null || v === undefined ? "" : String(v).trim())
-  const isDirty = Object.keys(original).some(
+  const isChangingPassword = passwords.new_password.trim() !== ""
+  const isDirty = isChangingPassword || Object.keys(original).some(
     (k) => normalize(form[k]) !== normalize(original[k])
   )
 

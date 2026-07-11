@@ -60,6 +60,38 @@ class CropType(models.Model):
         blank=True,
         help_text='Comma-separated list of suggested activities for this crop.',
     )
+    allowed_units = models.JSONField(
+        default=list, blank=True,
+        help_text='Valid Unit of Measure options for this crop on the Record Harvest form.',
+    )
+
+    def __str__(self):
+        return self.name
+
+
+class SeedSource(models.Model):
+    name = models.CharField(max_length=150, unique=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['-id']
+
+    def __str__(self):
+        return self.name
+
+
+class CropVariety(models.Model):
+    name = models.CharField(max_length=150, unique=True)
+    crop_type = models.ForeignKey(
+        CropType, on_delete=models.CASCADE, null=True, blank=True,
+        related_name='varieties',
+        help_text='Leave blank for a general variety not tied to a specific crop.',
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name_plural = 'Crop Varieties'
+        ordering = ['-id']
 
     def __str__(self):
         return self.name
@@ -141,13 +173,7 @@ class CropMonitoringRecord(models.Model):
     variety_used = models.CharField(max_length=100, blank=True)
     seed_source = models.CharField(
         max_length=100, blank=True,
-        choices=[
-            ('Own Seeds', 'Own Seeds'),
-            ('DA/LGU Provided', 'DA / LGU Provided'),
-            ('Commercial', 'Commercial'),
-            ('Association', 'Association'),
-            ('Other', 'Other'),
-        ],
+        help_text='Name of a SeedSource record, or free text when "Other" is selected on the form.',
     )
     seed_source_other_specify = models.CharField(max_length=150, blank=True)
     quantity_of_seeds = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -397,7 +423,7 @@ class HarvestRecord(models.Model):
     )
     yield_per_hectare_kg = models.DecimalField(
         max_digits=10, decimal_places=2, null=True, blank=True,
-        help_text='Auto-computed on save',
+        help_text='No longer computed — retained for historical records only.',
     )
     causal_factor = models.CharField(max_length=150, blank=True)
     causal_damage_report = models.ForeignKey(
@@ -438,12 +464,6 @@ class HarvestRecord(models.Model):
         if self.volume_kg is not None:
             self.volume_bags = (
                 Decimal(str(self.volume_kg)) / Decimal('50')
-            ).quantize(Decimal('0.01'))
-        if (self.volume_kg is not None and
-                self.area_harvested_hectares is not None and
-                Decimal(str(self.area_harvested_hectares)) > 0):
-            self.yield_per_hectare_kg = (
-                Decimal(str(self.volume_kg)) / Decimal(str(self.area_harvested_hectares))
             ).quantize(Decimal('0.01'))
 
         mr = None

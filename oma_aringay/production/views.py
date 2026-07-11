@@ -20,8 +20,9 @@ from .models import (
     BarangayCropSummary,
     CropActivityLog, CropActivityStage, CropCategory, CropDisasterReport,
     CropMonitoringRecord, CropRemark,
-    CropSubcategory, CropType, DamageReport, DisasterResponseRule,
+    CropSubcategory, CropType, CropVariety, DamageReport, DisasterResponseRule,
     FarmInputLog, HarvestRecord, LaborOperationLog, PestDiseaseReport, PlantingRecord,
+    SeedSource,
 )
 from .serializers import (
     BarangayCropSummarySerializer,
@@ -35,6 +36,7 @@ from .serializers import (
     MonitoringRemarkSerializer,
     CropSubcategorySerializer,
     CropTypeSerializer,
+    CropVarietySerializer,
     DamageReportSerializer,
     FarmInputLogSerializer,
     HarvestRecordCreateSerializer,
@@ -43,6 +45,7 @@ from .serializers import (
     PestDiseaseReportSerializer,
     PlantingRecordCreateSerializer,
     PlantingRecordSerializer,
+    SeedSourceSerializer,
 )
 
 
@@ -1425,6 +1428,42 @@ class CropSubcategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = CropSubcategorySerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     queryset = CropSubcategory.objects.select_related('category').all()
+
+
+# ─── Seed Source ──────────────────────────────────────────────────────────────
+
+class SeedSourceListCreateView(generics.ListCreateAPIView):
+    serializer_class = SeedSourceSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
+    queryset = SeedSource.objects.order_by('-id')
+
+
+class SeedSourceDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = SeedSourceSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    queryset = SeedSource.objects.all()
+
+
+# ─── Crop Variety ─────────────────────────────────────────────────────────────
+
+class CropVarietyListCreateView(generics.ListCreateAPIView):
+    serializer_class = CropVarietySerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
+
+    def get_queryset(self):
+        qs = CropVariety.objects.select_related('crop_type').order_by('-id')
+        crop_type_id = self.request.query_params.get('crop_type')
+        if crop_type_id:
+            qs = qs.filter(Q(crop_type_id=crop_type_id) | Q(crop_type__isnull=True))
+        return qs
+
+
+class CropVarietyDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = CropVarietySerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    queryset = CropVariety.objects.select_related('crop_type').all()
 
 
 # ─── CropRemark ──────────────────────────────────────────────────────────────

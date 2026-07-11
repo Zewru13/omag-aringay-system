@@ -26,7 +26,56 @@ const COLUMNS = [
   { key: 'actions',          label: 'ACTIONS',                sortable: false },
 ]
 
-const EMPTY_FORM = { name: '', days_to_harvest: '', yield_per_ha_kg: '', category: '', subcategory: '' }
+const EMPTY_FORM = { name: '', days_to_harvest: '', yield_per_ha_kg: '', category: '', subcategory: '', allowed_units: [] }
+
+// ── Unit Chip Input ────────────────────────────────────────────────────────────
+
+function UnitChipInput({ units, onChange }) {
+  const [input, setInput] = useState('')
+
+  const addUnit = () => {
+    const value = input.trim()
+    if (!value) return
+    if (!units.includes(value)) onChange([...units, value])
+    setInput('')
+  }
+
+  const removeUnit = (unit) => onChange(units.filter(u => u !== unit))
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap gap-1.5 min-h-[32px]">
+        {units.map(u => (
+          <span key={u} className="inline-flex items-center gap-1 bg-[#EBF5EE] text-[#1B4D2E] text-[12px] font-medium px-2 py-0.5 rounded-full">
+            {u}
+            <button type="button" onClick={() => removeUnit(u)} className="hover:text-rose-600 ml-0.5">
+              <X className="w-3 h-3" />
+            </button>
+          </span>
+        ))}
+        {units.length === 0 && <span className="text-[12px] text-[#A8BCA8] italic self-center">No units added yet — will default to kg</span>}
+      </div>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          placeholder="Unit (e.g. Cavan (50kg))"
+          className={`${baseInputClasses} flex-1`}
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ',' || e.key === 'Tab') { e.preventDefault(); addUnit() } }}
+        />
+        <button
+          type="button"
+          onClick={addUnit}
+          className="px-3 py-1.5 text-[12px] font-medium bg-[#EBF5EE] text-[#1B4D2E] rounded-lg hover:bg-[#D4EDDA] transition-colors"
+        >
+          Add
+        </button>
+      </div>
+      <p className="text-[11px] text-[#A8BCA8]">Type a unit and press Enter or click Add. These populate the Unit of Measure dropdown on Record Harvest for this crop.</p>
+    </div>
+  )
+}
 
 // ── Suggestions Section ────────────────────────────────────────────────────────
 
@@ -227,6 +276,7 @@ function CropTypeModal({ crop, categories, subcategories, onClose, onSaved }) {
         yield_per_ha_kg: crop.yield_per_ha_kg || '',
         category:        crop.category        || '',
         subcategory:     crop.subcategory     || '',
+        allowed_units:   crop.allowed_units    || [],
       }
     : EMPTY_FORM
   const [form, setForm] = useState(originalForm)
@@ -249,6 +299,7 @@ function CropTypeModal({ crop, categories, subcategories, onClose, onSaved }) {
       category:        form.category        || null,
       subcategory:     form.subcategory     || null,
       yield_per_ha_kg: form.yield_per_ha_kg || null,
+      allowed_units:   form.allowed_units,
     })
   }
 
@@ -331,6 +382,9 @@ function CropTypeModal({ crop, categories, subcategories, onClose, onSaved }) {
               value={form.yield_per_ha_kg}
               onChange={e => set('yield_per_ha_kg', e.target.value)}
             />
+          </FormField>
+          <FormField label="Allowed Units of Measure">
+            <UnitChipInput units={form.allowed_units} onChange={units => set('allowed_units', units)} />
           </FormField>
 
           <div className="flex justify-end gap-2 pt-1">
