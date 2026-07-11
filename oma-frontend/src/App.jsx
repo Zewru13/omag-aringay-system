@@ -16,6 +16,7 @@ import InterventionsPage from "./pages/Interventions/InterventionsPage.jsx";
 import ProgramDetailPage from "./pages/Interventions/ProgramDetailPage.jsx";
 import LoginPage from "./pages/Login/LoginPage.jsx";
 import ForceChangePasswordPage from "./pages/Auth/ForceChangePasswordPage.jsx";
+import VerifyEmailPage from "./pages/Auth/VerifyEmailPage.jsx";
 import CropMonitoringPage from "./pages/Monitoring/CropMonitoringPage.jsx";
 import FisheriesMonitoringPage from "./pages/Monitoring/FisheriesMonitoringPage.jsx";
 import ProductionPage from "./pages/Production/ProductionPage.jsx";
@@ -39,6 +40,7 @@ function App() {
         <Routes>
           <Route path="/" element={<HomeRedirect />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route
             path="/change-password"
             element={

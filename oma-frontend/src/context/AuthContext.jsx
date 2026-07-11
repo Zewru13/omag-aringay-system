@@ -45,7 +45,11 @@ export function AuthProvider({ children }) {
       return response.data.user
     } catch (error) {
       const message = error.response?.data?.detail || 'Invalid email or password.'
-      throw new Error(message)
+      const wrapped = new Error(message)
+      // Lets LoginPage distinguish "email not verified" (with a resend
+      // action) from a plain wrong-password/no-account error.
+      wrapped.code = error.response?.data?.code
+      throw wrapped
     }
   }
 

@@ -22,7 +22,7 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'email', 'full_name', 'suffix', 'contact_number', 'role',
-            'is_active', 'must_change_password', 'date_joined',
+            'is_active', 'must_change_password', 'is_email_verified', 'date_joined',
         ]
 
 
@@ -135,3 +135,11 @@ class ChangePasswordSerializer(serializers.Serializer):
         except DjangoValidationError as exc:
             raise serializers.ValidationError({'new_password': list(exc.messages)})
         return attrs
+
+
+class VerifyEmailSerializer(serializers.Serializer):
+    token = serializers.CharField()
+
+
+class ResendVerificationSerializer(serializers.Serializer):
+    email = serializers.EmailField()

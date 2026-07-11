@@ -5,6 +5,7 @@ import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
+import { useToast } from '../../context/ToastContext.jsx'
 
 const labelCls = 'block text-[12px] font-medium text-[#4A5E4A] mb-1'
 
@@ -108,10 +109,14 @@ function StepDetails({ role, formData, onChange, onBack, onNext, onCancel }) {
           <label className={labelCls}>Email Address <span className="text-rose-500">*</span></label>
           <input type="email" className={baseInputClasses} placeholder="e.g. juan@example.com"
             value={formData.email} onChange={e => set('email', e.target.value)} />
+          <p className="mt-1 text-[11px] text-[#A8BCA8]">
+            Double-check this — it's not pre-verified. A mistyped or fake address just means the account
+            never gets activated (the link is never received/clicked), which is intentional, not a bug.
+          </p>
         </div>
 
         <div className="rounded-lg bg-[#F9FAF9] border border-[#E2E8E2] px-4 py-3 text-[12px] text-[#7A8E7A]">
-          A secure random password will be generated and sent to the user's email. The user will be required to change it on first login.
+          A verification link and a secure random password will be sent to the user's email. The account stays inactive until they verify, then they'll be required to change the password on first login.
         </div>
       </div>
 
@@ -140,13 +145,14 @@ function StepDetails({ role, formData, onChange, onBack, onNext, onCancel }) {
 // ── Step 3: Review ────────────────────────────────────────────────────────────
 
 function StepReview({ role, formData, onBack, onCancel, onSuccess }) {
+  const { showToast } = useToast()
   const [isSubmitting,   setIsSubmitting]   = useState(false)
   const [error,          setError]          = useState('')
   const [showConfirm,    setShowConfirm]    = useState(false)
   const [currentAdmin,   setCurrentAdmin]   = useState(null)
   const [loadingAdmin,   setLoadingAdmin]   = useState(false)
   const [result,         setResult]         = useState(null)
-  const [copied,         setCopied]         = useState(false)
+  const [copiedField,    setCopiedField]    = useState('')
 
   const fullName = `${formData.lastName}, ${formData.firstName}${formData.suffix ? ' ' + formData.suffix : ''}`
 
@@ -177,9 +183,15 @@ function StepReview({ role, formData, onBack, onCancel, onSuccess }) {
         role,
       })
       if (r.data.email_sent) {
+        // Verification email delivered — never show the password in the UI.
+        showToast(`Verification email sent to ${formData.email}.`, 'success')
         onSuccess()
       } else {
-        // Email failed — show the generated password once so the admin can relay it.
+        // Email failed (or SMTP isn't configured) — show the password and
+        // verification link once so the admin can relay them manually. A
+        // genuinely fake/mistyped address behaves identically: the link
+        // never gets clicked and the account just stays inactive — that's
+        // the intended safeguard, not something this UI needs to detect.
         setResult(r.data)
       }
     } catch (err) {
@@ -190,12 +202,12 @@ function StepReview({ role, formData, onBack, onCancel, onSuccess }) {
     }
   }
 
-  const handleCopyPassword = async () => {
+  const handleCopy = async (field, value) => {
     try {
-      await navigator.clipboard.writeText(result.default_password)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    } catch { /* clipboard unavailable — password is still visible to copy manually */ }
+      await navigator.clipboard.writeText(value)
+      setCopiedField(field)
+      setTimeout(() => setCopiedField(''), 1500)
+    } catch { /* clipboard unavailable — value is still visible to copy manually */ }
   }
 
   const Row = ({ label, value }) => (
@@ -205,13 +217,13 @@ function StepReview({ role, formData, onBack, onCancel, onSuccess }) {
     </div>
   )
 
-  // ── Result: email failed, show the one-time password ──
+  // ── Result: verification email failed, show the one-time details ──
   if (result) {
     return (
       <div className="space-y-4">
         <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#7A8E7A]">User Created</p>
         <div className="rounded-lg bg-[#FEF3C7] border border-[#FDE68A] px-4 py-3 text-[12px] text-[#92400E]">
-          {result.warning}
+          The verification email could not be sent{result.reason ? ` (${result.reason})` : ''}. Give the user these details directly:
         </div>
         <div>
           <label className={labelCls}>Temporary Password (shown once)</label>
@@ -221,15 +233,35 @@ function StepReview({ role, formData, onBack, onCancel, onSuccess }) {
             </code>
             <button
               type="button"
-              onClick={handleCopyPassword}
+              onClick={() => handleCopy('password', result.default_password)}
               className="shrink-0 rounded-lg border border-[#C8D5C8] p-2 text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors"
               title="Copy password"
             >
-              {copied ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
+              {copiedField === 'password' ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
             </button>
           </div>
-          <p className="text-[11px] text-[#A8BCA8] mt-1">Relay this to {formData.email} directly — it will not be shown again.</p>
         </div>
+        <div>
+          <label className={labelCls}>Verification Link (shown once)</label>
+          <div className="flex items-center gap-2">
+            <code className="flex-1 rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-2 text-[11px] font-mono text-[#1A2B1A] break-all">
+              {result.verification_link}
+            </code>
+            <button
+              type="button"
+              onClick={() => handleCopy('link', result.verification_link)}
+              className="shrink-0 rounded-lg border border-[#C8D5C8] p-2 text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors"
+              title="Copy verification link"
+            >
+              {copiedField === 'link' ? <Check size={16} className="text-emerald-600" /> : <Copy size={16} />}
+            </button>
+          </div>
+          <p className="text-[11px] text-[#A8BCA8] mt-1">
+            The user must open this link — on an office/LAN machine if working offline — to activate their account.
+            Then they log in with the password above and set their own. The account stays inactive until the link is opened.
+          </p>
+        </div>
+        <p className="text-[11px] text-[#A8BCA8]">Relay both to {formData.email} directly — they will not be shown again.</p>
         <div className="flex justify-end border-t border-[#F0F4F0] pt-4">
           <button type="button" onClick={onSuccess}
             className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38]">
@@ -257,7 +289,7 @@ function StepReview({ role, formData, onBack, onCancel, onSuccess }) {
         <Row label="Name"           value={fullName} />
         <Row label="Role"           value={role} />
         <div className="rounded-lg bg-[#F9FAF9] border border-[#E2E8E2] px-4 py-3 text-[12px] text-[#7A8E7A]">
-          A secure random password will be generated and sent to the user's email.
+          A verification link and a secure random password will be sent to the user's email. The account stays inactive until they click the link.
         </div>
       </div>
 

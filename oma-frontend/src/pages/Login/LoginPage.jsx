@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Eye, EyeOff, Loader2, MailWarning } from 'lucide-react'
+import api from '../../api/axiosInstance.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import logo from '../../assets/LOGO OMAg.jpg'
 
@@ -14,19 +15,36 @@ function LoginPage() {
   const [show,     setShow]     = useState(false)
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState('')
+  const [needsVerification, setNeedsVerification] = useState(false)
+  const [resendState, setResendState] = useState('idle') // idle | sending | sent | error
 
   const from = location.state?.from?.pathname || '/dashboard'
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!email.trim() || !password) return
-    setError(''); setLoading(true)
+    setError(''); setNeedsVerification(false); setResendState('idle'); setLoading(true)
     try {
       await login(email.trim(), password)
       navigate(from, { replace: true })
-    } catch {
-      setError('Invalid email, username, or password. Please try again.')
+    } catch (err) {
+      if (err.code === 'email_not_verified') {
+        setNeedsVerification(true)
+        setError(err.message)
+      } else {
+        setError('Invalid email, username, or password. Please try again.')
+      }
     } finally { setLoading(false) }
+  }
+
+  const handleResend = async () => {
+    setResendState('sending')
+    try {
+      await api.post('/accounts/resend-verification/', { email: email.trim() })
+      setResendState('sent')
+    } catch {
+      setResendState('error')
+    }
   }
 
   return (
@@ -78,10 +96,36 @@ function LoginPage() {
             </button>
           </div>
 
-          {error && (
+          {error && !needsVerification && (
             <div className="bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-sm text-red-600 mb-4 flex items-center gap-2">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               {error}
+            </div>
+          )}
+
+          {needsVerification && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-3 text-sm text-amber-800 mb-4">
+              <div className="flex items-start gap-2">
+                <MailWarning className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </div>
+              {resendState === 'sent' ? (
+                <p className="mt-2 flex items-center gap-1.5 text-emerald-700 text-xs font-medium">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Verification email sent — check your inbox.
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleResend}
+                  disabled={resendState === 'sending'}
+                  className="mt-2 text-xs font-semibold text-amber-900 underline hover:no-underline disabled:opacity-60"
+                >
+                  {resendState === 'sending' ? 'Resending…' : 'Resend verification email'}
+                </button>
+              )}
+              {resendState === 'error' && (
+                <p className="mt-1 text-xs text-red-600">Could not resend. Please try again shortly.</p>
+              )}
             </div>
           )}
 

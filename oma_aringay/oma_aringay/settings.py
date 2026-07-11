@@ -1,3 +1,4 @@
+import os
 from datetime import timedelta
 
 # Fix mysql-connector-python 9.7.0 incompatibility with Django 4.2
@@ -5,7 +6,15 @@ from mysql.connector.django.base import DatabaseWrapper as _MySQLDW
 _MySQLDW.display_name = 'MySQL'
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Loads oma_aringay/.env if present (gitignored — never commit real
+# credentials). Safe to call even when the file doesn't exist yet: every
+# setting below has a working default, so a missing .env just means "SMTP
+# not configured", not a crash.
+load_dotenv(BASE_DIR / '.env')
 
 SECRET_KEY = 'django-insecure-4-+29wh_&-=7i%8549bzd*5j2d(mvjvjfk6@-4-49v%63)8-0l'
 
@@ -161,20 +170,47 @@ SIMPLE_JWT = {
 }
 
 # ── Email ────────────────────────────────────────────────────────────────
-# Dev default: prints outgoing mail to the console instead of sending it.
-# Production needs a real SMTP backend configured via environment variables
-# (.env) — never hardcode SMTP credentials in this file.
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-DEFAULT_FROM_EMAIL = 'OMA Aringay System <noreply@omaaringay.local>'
+# Real SMTP settings come from .env (never committed — see .env.example).
+# Hybrid fallback: if EMAIL_HOST_USER/EMAIL_HOST_PASSWORD are blank (SMTP
+# not configured yet), we deliberately fall back to the console backend
+# instead of pointing an unconfigured SMTP backend at a real server and
+# crashing on every send. accounts/utils.py additionally treats ANY send
+# failure (auth error, connection refused, rejected recipient, console
+# backend or real SMTP alike) as non-fatal — user creation always succeeds,
+# and the admin-relay fallback (default password + verification link shown
+# in the UI) takes over. See accounts/utils.py:send_welcome_email.
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL') or (
+    f'OMA Aringay System <{EMAIL_HOST_USER}>' if EMAIL_HOST_USER
+    else 'OMA Aringay System <noreply@omaaringay.local>'
+)
 
-# Production SMTP example (uncomment and fill in via os.environ / .env):
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_HOST = os.environ.get('EMAIL_HOST')
-# EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
-# EMAIL_USE_TLS = True
-# EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
-# EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
-# DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
+SMTP_CONFIGURED = bool(EMAIL_HOST_USER and EMAIL_HOST_PASSWORD)
+EMAIL_BACKEND = (
+    'django.core.mail.backends.smtp.EmailBackend' if SMTP_CONFIGURED
+    else 'django.core.mail.backends.console.EmailBackend'
+)
+
+# Base URL of the frontend app, used to build verification links
+# (http://<host>/verify-email?token=...) embedded in outgoing emails.
+#
+# Deliberately empty by default, NOT a hardcoded public domain or
+# "localhost" — on a LAN deployment there is no public domain, and the link
+# has to resolve to whatever address the office actually reaches this
+# server at (e.g. http://192.168.1.50). When unset, accounts.utils
+# derives the base URL from the incoming request's own host/scheme instead
+# (see accounts/utils.py:resolve_frontend_base_url), so the link always
+# matches whatever machine the admin is using right now. Set this
+# explicitly only when the frontend is served from a different
+# host/port than the API (e.g. local dev: http://localhost:5173).
+FRONTEND_BASE_URL = os.environ.get('FRONTEND_BASE_URL', '').rstrip('/')
+
+# How long an email-verification token stays valid.
+EMAIL_VERIFICATION_TOKEN_HOURS = int(os.environ.get('EMAIL_VERIFICATION_TOKEN_HOURS', '72'))
 # ==========================================================
 # PYTHON 3.14 COMPATIBILITY PATCH FOR DJANGO 4.2 ADMIN PANELS
 # ==========================================================

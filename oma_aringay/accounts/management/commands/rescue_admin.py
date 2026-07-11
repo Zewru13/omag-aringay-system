@@ -41,7 +41,12 @@ class Command(BaseCommand):
 
             user.role = User.Roles.ADMIN
             user.is_active = True
-            user.save(update_fields=['role', 'is_active'])
+            # Terminal/host access is a stronger trust signal than clicking
+            # an email link — a rescue shouldn't then get stuck behind the
+            # online email-verification gate too.
+            user.is_email_verified = True
+            user.email_verification_token = None
+            user.save(update_fields=['role', 'is_active', 'is_email_verified', 'email_verification_token'])
 
         self.stdout.write(self.style.SUCCESS(f'"{user.email}" is now the sole active ADMIN.'))
         if deactivated_emails:

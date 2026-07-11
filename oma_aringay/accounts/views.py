@@ -1,7 +1,11 @@
+from datetime import timedelta
+
+from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -10,11 +14,19 @@ from .permissions import IsAdmin
 from .serializers import (
     ChangePasswordSerializer,
     MeUpdateSerializer,
+    ResendVerificationSerializer,
     UserCreateSerializer,
     UserSerializer,
     UserUpdateSerializer,
+    VerifyEmailSerializer,
 )
-from .utils import generate_default_password, send_welcome_email
+from .utils import (
+    build_verification_link,
+    generate_default_password,
+    generate_verification_token,
+    send_verification_email,
+    send_welcome_email,
+)
 
 
 User = get_user_model()
@@ -69,22 +81,43 @@ class LoginView(APIView):
                     status=status.HTTP_401_UNAUTHORIZED,
                 )
 
-        user = authenticate(
-            request=request,
-            username=db_user.username,
-            password=password,
-        )
-
-        if user is None:
+        # Check the password directly, BEFORE calling authenticate(). Django's
+        # ModelBackend.authenticate() silently returns None for any
+        # is_active=False user even with the correct password (it calls
+        # user_can_authenticate() internally) — which would collapse
+        # "unverified account" into the same generic "Incorrect password"
+        # response as a genuinely wrong password. Checking the password
+        # ourselves first lets us tell the two apart.
+        if not db_user.check_password(password):
             return Response(
                 {'detail': 'Incorrect password.'},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        if not user.is_active:
+        if not db_user.is_email_verified:
+            return Response(
+                {
+                    'detail': 'Please verify your email first. Check your inbox for the verification link.',
+                    'code': 'email_not_verified',
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if not db_user.is_active:
             return Response(
                 {'detail': 'This account is inactive.'},
                 status=status.HTTP_403_FORBIDDEN,
+            )
+
+        user = authenticate(
+            request=request,
+            username=db_user.username,
+            password=password,
+        )
+        if user is None:
+            return Response(
+                {'detail': 'Incorrect password.'},
+                status=status.HTTP_401_UNAUTHORIZED,
             )
 
         refresh = RefreshToken.for_user(user)
@@ -194,6 +227,7 @@ class UserCreateView(APIView):
         serializer.is_valid(raise_exception=True)
         role = serializer.validated_data.get('role') or User.Roles.EVALUATOR
         default_password = generate_default_password()
+        verification_token = generate_verification_token()
 
         with transaction.atomic():
             if role == User.Roles.ADMIN:
@@ -201,19 +235,33 @@ class UserCreateView(APIView):
             user = serializer.save()
             user.set_password(default_password)
             user.must_change_password = True
+            # Inactive + unverified until the user clicks the link in their
+            # email. A genuinely fake/mistyped address means that link never
+            # gets clicked and the account simply stays inactive forever —
+            # that's the intended safeguard, not a bug. We deliberately don't
+            # pre-check deliverability (unreliable); clicking the link IS the
+            # proof the address is real and reachable by its owner.
+            user.is_active = False
+            user.is_email_verified = False
+            user.email_verification_token = verification_token
+            user.email_verification_sent_at = timezone.now()
             user.save()
 
-        email_sent = send_welcome_email(user, default_password)
+        verification_link = build_verification_link(verification_token, request)
+        email_sent, reason = send_welcome_email(user, default_password, verification_link)
 
         response_data = {
             'user': UserSerializer(user).data,
             'email_sent': email_sent,
         }
         if not email_sent:
+            response_data['reason'] = reason
             response_data['default_password'] = default_password
+            response_data['verification_link'] = verification_link
+            response_data['verification_token'] = verification_token
             response_data['warning'] = (
-                'User created, but the notification email could not be sent. '
-                'Share this temporary password with the user directly.'
+                'User created, but the verification email could not be sent. '
+                'Share the temporary password and verification link with the user directly.'
             )
         return Response(response_data, status=status.HTTP_201_CREATED)
 
@@ -224,3 +272,85 @@ class UserUpdateView(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated, IsAdmin]
     http_method_names = ['patch']
     lookup_field = 'id'
+
+
+class VerifyEmailView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        serializer = VerifyEmailSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        token = serializer.validated_data['token']
+
+        try:
+            # A cleared token (None) never matches a non-empty `token` string,
+            # which is what makes this single-use: a replayed token 400s here
+            # exactly like one that never existed.
+            user = User.objects.get(email_verification_token=token)
+        except User.DoesNotExist:
+            return Response(
+                {'detail': 'This verification link is invalid or has already been used.', 'code': 'invalid_token'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        expiry_cutoff = user.email_verification_sent_at + timedelta(hours=settings.EMAIL_VERIFICATION_TOKEN_HOURS)
+        if timezone.now() > expiry_cutoff:
+            return Response(
+                {
+                    'detail': 'This verification link has expired. Request a new one below.',
+                    'code': 'expired_token',
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user.is_email_verified = True
+        user.is_active = True
+        user.email_verification_token = None
+        user.save(update_fields=['is_email_verified', 'is_active', 'email_verification_token'])
+
+        return Response({
+            'detail': 'Email verified successfully. You can now log in with the temporary password from your email.',
+        })
+
+
+class ResendVerificationView(APIView):
+    """
+    Regenerates and resends the verification link. Callable both by the
+    (not-yet-logged-in) user themselves from the login page, and by an admin
+    from User Management — neither requires auth, since an unverified user
+    has no valid session yet.
+    """
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        serializer = ResendVerificationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email'].strip()
+
+        try:
+            user = User.objects.get(email__iexact=email)
+        except User.DoesNotExist:
+            return Response(
+                {'detail': 'No account found with that email address.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if user.is_email_verified:
+            return Response({'detail': 'This account is already verified. Please log in.', 'already_verified': True})
+
+        token = generate_verification_token()
+        user.email_verification_token = token
+        user.email_verification_sent_at = timezone.now()
+        user.save(update_fields=['email_verification_token', 'email_verification_sent_at'])
+
+        verification_link = build_verification_link(token, request)
+        email_sent, reason = send_verification_email(user, verification_link)
+
+        response_data = {'email_sent': email_sent}
+        if not email_sent:
+            response_data['reason'] = reason
+            response_data['verification_link'] = verification_link
+            response_data['verification_token'] = token
+        return Response(response_data)

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Pencil } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MailWarning, Pencil } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
+import { useToast } from '../../context/ToastContext.jsx'
 import CreateUserModal from './CreateUserModal.jsx'
 import EditUserModal from './EditUserModal.jsx'
 
@@ -17,6 +18,7 @@ const COLUMNS = [
 const PAGE_SIZE = 10
 
 export default function UserManagementPage() {
+  const { showToast } = useToast()
   const [users,           setUsers]           = useState([])
   const [totalCount,      setTotalCount]      = useState(0)
   const [isLoading,       setIsLoading]       = useState(false)
@@ -25,6 +27,24 @@ export default function UserManagementPage() {
   const [page,            setPage]            = useState(1)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editUser,        setEditUser]        = useState(null)
+  const [resendingId,     setResendingId]     = useState(null)
+
+  const handleResendVerification = async (u) => {
+    setResendingId(u.id)
+    try {
+      const r = await api.post('/accounts/resend-verification/', { email: u.email })
+      showToast(
+        r.data.email_sent
+          ? `Verification email resent to ${u.email}.`
+          : `Could not email ${u.email} (${r.data.reason || 'unknown reason'}) — share the verification link from the server console/logs directly.`,
+        r.data.email_sent ? 'success' : 'error',
+      )
+    } catch {
+      showToast('Failed to resend verification email.', 'error')
+    } finally {
+      setResendingId(null)
+    }
+  }
 
   const fetchUsers = useCallback(async (pageNum = 1) => {
     setIsLoading(true)
@@ -69,19 +89,42 @@ export default function UserManagementPage() {
       </StatusPill>
     ),
     status_pill: (
-      <StatusPill tone={u.is_active ? 'green' : 'rose'}>
-        {u.is_active ? 'Active' : 'Inactive'}
-      </StatusPill>
+      <span className="flex items-center gap-1.5">
+        <StatusPill tone={u.is_active ? 'green' : 'rose'}>
+          {u.is_active ? 'Active' : 'Inactive'}
+        </StatusPill>
+        {!u.is_email_verified && (
+          <span
+            className="inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5 whitespace-nowrap"
+            title="This user hasn't clicked their verification link yet."
+          >
+            <MailWarning className="w-2.5 h-2.5" /> Unverified
+          </span>
+        )}
+      </span>
     ),
     actions: (
-      <button
-        type="button"
-        className="rounded-lg p-1.5 text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors"
-        onClick={() => setEditUser(u)}
-        title="Edit user"
-      >
-        <Pencil size={14} />
-      </button>
+      <div className="flex items-center gap-0.5">
+        <button
+          type="button"
+          className="rounded-lg p-1.5 text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors"
+          onClick={() => setEditUser(u)}
+          title="Edit user"
+        >
+          <Pencil size={14} />
+        </button>
+        {!u.is_email_verified && (
+          <button
+            type="button"
+            className="rounded-lg p-1.5 text-amber-600 hover:bg-amber-50 transition-colors disabled:opacity-50"
+            onClick={() => handleResendVerification(u)}
+            disabled={resendingId === u.id}
+            title="Resend verification email"
+          >
+            <MailWarning size={14} />
+          </button>
+        )}
+      </div>
     ),
   }))
 
