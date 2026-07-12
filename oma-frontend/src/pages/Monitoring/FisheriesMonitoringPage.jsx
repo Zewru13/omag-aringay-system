@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Anchor, Eye, History, Plus } from 'lucide-react'
+import { Anchor, History, Plus } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
@@ -7,15 +7,12 @@ import Button from '../../components/UI/Button.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
-import AquacultureCycleDetailModal from './AquacultureCycleDetailModal.jsx'
 import FisheriesHistoryModal from './FisheriesHistoryModal.jsx'
 import LogCatchModal from './LogCatchModal.jsx'
 import LogFisheriesDisasterModal from './LogFisheriesDisasterModal.jsx'
 import LogGovernmentAssistanceModal from './LogGovernmentAssistanceModal.jsx'
 import LogVesselInspectionModal from './LogVesselInspectionModal.jsx'
-import StartProductionCycleModal from './StartProductionCycleModal.jsx'
 
-const CYCLE_STATUS_TONES   = { Active: 'green', Harvested: 'blue', Failed: 'rose', Abandoned: 'slate' }
 const DISASTER_STATUS_TONES = { Reported: 'amber', Verified: 'green', Closed: 'slate' }
 const VESSEL_STATUS_TONES  = { Valid: 'green', 'Expiring Soon': 'amber', Expired: 'rose' }
 const CURRENT_YEAR = new Date().getFullYear()
@@ -41,19 +38,6 @@ const VESSEL_COLUMNS = [
   { key: 'vessel_condition',       label: 'Condition' },
   { key: 'license_status_pill',    label: 'License Status' },
   { key: 'remarks',                label: 'Remarks' },
-]
-
-const CYCLE_COLUMNS = [
-  { key: 'fisherfolk_name',       label: 'Fisherfolk' },
-  { key: 'fisherfolk_barangay',   label: 'Barangay' },
-  { key: 'species_farmed',        label: 'Species' },
-  { key: 'stocking_date_fmt',     label: 'Date Stocked' },
-  { key: 'target_harvest_fmt',    label: 'Expected Harvest' },
-  { key: 'harvest_volume_cell',   label: 'Harvested (kg)' },
-  { key: 'area_cage_harvested',   label: 'Area/Cage' },
-  { key: 'net_income_cell',       label: 'Net Income (₱)' },
-  { key: 'status_pill',           label: 'Status' },
-  { key: 'actions',               label: '' },
 ]
 
 const ASSISTANCE_COLUMNS = [
@@ -125,10 +109,6 @@ export default function FisheriesMonitoringPage() {
   const [isLoadingVessel, setIsLoadingVessel]         = useState(false)
   const [errorVessel, setErrorVessel]                 = useState('')
 
-  const [aquaCycles, setAquaCycles]       = useState([])
-  const [isLoadingAqua, setIsLoadingAqua] = useState(false)
-  const [errorAqua, setErrorAqua]         = useState('')
-
   const [disasters, setDisasters]             = useState([])
   const [isLoadingDisasters, setIsLoadingDisasters] = useState(false)
   const [errorDisasters, setErrorDisasters]   = useState('')
@@ -144,10 +124,8 @@ export default function FisheriesMonitoringPage() {
   const [showAddCatch, setShowAddCatch]         = useState(false)
   const [showFisheriesHistory, setShowFisheriesHistory] = useState(false)
   const [showLogVessel, setShowLogVessel]       = useState(false)
-  const [showStartCycle, setShowStartCycle]     = useState(false)
   const [showLogDisaster, setShowLogDisaster]   = useState(false)
   const [showLogAssistance, setShowLogAssistance] = useState(false)
-  const [detailCycle, setDetailCycle]           = useState(null)
 
   const fetchCatch = useCallback(async () => {
     setIsLoadingCatch(true); setErrorCatch('')
@@ -175,18 +153,6 @@ export default function FisheriesMonitoringPage() {
     } catch { setErrorVessel('Failed to load vessel inspections.') }
     finally { setIsLoadingVessel(false) }
   }, [barangay])
-
-  const fetchAquaCycles = useCallback(async () => {
-    setIsLoadingAqua(true); setErrorAqua('')
-    try {
-      const params = new URLSearchParams()
-      if (barangay) params.set('barangay', barangay)
-      if (year) params.set('year', year)
-      const r = await api.get(`/monitoring/aquaculture-cycles/?${params}`)
-      setAquaCycles(Array.isArray(r.data) ? r.data : (r.data.results || []))
-    } catch { setErrorAqua('Failed to load aquaculture cycles.') }
-    finally { setIsLoadingAqua(false) }
-  }, [barangay, year])
 
   const fetchDisasters = useCallback(async () => {
     setIsLoadingDisasters(true); setErrorDisasters('')
@@ -217,7 +183,6 @@ export default function FisheriesMonitoringPage() {
 
   useEffect(() => { if (subTab === 'capture') fetchCatch() }, [subTab, fetchCatch])
   useEffect(() => { if (subTab === 'capture') fetchVesselInspections() }, [subTab, fetchVesselInspections])
-  useEffect(() => { if (subTab === 'aquaculture') fetchAquaCycles() }, [subTab, fetchAquaCycles])
   useEffect(() => { if (subTab === 'disasters') fetchDisasters() }, [subTab, fetchDisasters])
   useEffect(() => { if (subTab === 'assistance') fetchAssistance() }, [subTab, fetchAssistance])
 
@@ -251,27 +216,6 @@ export default function FisheriesMonitoringPage() {
       <StatusPill tone={VESSEL_STATUS_TONES[v.license_status] || 'slate'}>{v.license_status}</StatusPill>
     ),
   })), [vesselInspections])
-
-  const aquaData = useMemo(() => aquaCycles.map((c) => ({
-    ...c,
-    stocking_date_fmt:   formatDate(c.stocking_date),
-    target_harvest_fmt:  c.target_harvest_date ? formatDate(c.target_harvest_date) : '—',
-    harvest_volume_cell: c.harvest_volume_kg ? `${Number(c.harvest_volume_kg).toLocaleString()} kg` : '—',
-    net_income_cell:     c.net_income_php != null
-      ? `₱${Number(c.net_income_php).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-      : '—',
-    status_pill: <StatusPill tone={CYCLE_STATUS_TONES[c.status] || 'slate'}>{c.status}</StatusPill>,
-    actions: (
-      <button
-        type="button"
-        title="View Aquaculture Cycle"
-        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[#1E4620] hover:bg-[#f0f7f0]"
-        onClick={() => setDetailCycle(c)}
-      >
-        <Eye size={13} /> View Cycle
-      </button>
-    ),
-  })), [aquaCycles])
 
   const assistanceData = useMemo(() => assistance.map((a) => ({
     ...a,
@@ -311,7 +255,7 @@ export default function FisheriesMonitoringPage() {
   })), [disasters])
 
   return (
-    <PageLayout title="Fisheries Monitoring" subtitle="Monitor capture fishing, aquaculture cycles, and disaster reports">
+    <PageLayout title="Fisheries Monitoring" subtitle="Monitor capture fishing, vessel inspections, and disaster reports">
       <div className="space-y-5">
         {/* Filters + Actions */}
         <div className="flex flex-wrap items-end gap-3">
@@ -342,11 +286,6 @@ export default function FisheriesMonitoringPage() {
                 </Button>
               </>
             )}
-            {subTab === 'aquaculture' && (
-              <Button onClick={() => setShowStartCycle(true)}>
-                <Plus size={15} className="mr-1" /> Start Cycle
-              </Button>
-            )}
             {subTab === 'disasters' && (
               <Button onClick={() => setShowLogDisaster(true)}>
                 <Plus size={15} className="mr-1" /> Log Disaster
@@ -363,7 +302,6 @@ export default function FisheriesMonitoringPage() {
         <SubTabBar
           options={[
             { value: 'capture',    label: 'Capture Fishing' },
-            { value: 'aquaculture', label: 'Aquaculture' },
             { value: 'disasters',  label: 'Disasters' },
             { value: 'assistance', label: 'Assistance' },
           ]}
@@ -430,23 +368,6 @@ export default function FisheriesMonitoringPage() {
                 : <DataTable columns={VESSEL_COLUMNS} data={vesselData} isLoading={isLoadingVessel} />
               }
             </div>
-          </div>
-        )}
-
-        {/* Aquaculture */}
-        {subTab === 'aquaculture' && (
-          <div className="space-y-4">
-            {aquaCycles.length > 0 && (
-              <div className="flex flex-wrap gap-3">
-                <MetricCard label="Total Cycles" value={aquaCycles.length} />
-                <MetricCard label="Active"    value={aquaCycles.filter((c) => c.status === 'Active').length}    accent="#1E4620" />
-                <MetricCard label="Harvested" value={aquaCycles.filter((c) => c.status === 'Harvested').length} accent="#1565c0" />
-              </div>
-            )}
-            {errorAqua
-              ? <ErrorMessage message={errorAqua} />
-              : <DataTable columns={CYCLE_COLUMNS} data={aquaData} isLoading={isLoadingAqua} />
-            }
           </div>
         )}
 
@@ -558,17 +479,11 @@ export default function FisheriesMonitoringPage() {
       {showLogVessel && (
         <LogVesselInspectionModal onClose={() => setShowLogVessel(false)} onSuccess={fetchVesselInspections} />
       )}
-      {showStartCycle && (
-        <StartProductionCycleModal onClose={() => setShowStartCycle(false)} onSuccess={fetchAquaCycles} />
-      )}
       {showLogDisaster && (
         <LogFisheriesDisasterModal onClose={() => setShowLogDisaster(false)} onSuccess={fetchDisasters} />
       )}
       {showLogAssistance && (
         <LogGovernmentAssistanceModal onClose={() => setShowLogAssistance(false)} onSuccess={fetchAssistance} />
-      )}
-      {detailCycle && (
-        <AquacultureCycleDetailModal cycle={detailCycle} onClose={() => setDetailCycle(null)} onRefresh={fetchAquaCycles} />
       )}
     </PageLayout>
   )
