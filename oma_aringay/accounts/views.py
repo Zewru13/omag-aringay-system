@@ -3,6 +3,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
 from django.db import transaction
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -272,6 +273,41 @@ class UserUpdateView(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated, IsAdmin]
     http_method_names = ['patch']
     lookup_field = 'id'
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if not instance.is_active:
+            return Response(
+                {'detail': 'This account is deactivated and cannot be edited.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().update(request, *args, **kwargs)
+
+
+class UserReactivateView(APIView):
+    """
+    Dedicated reactivation action, deliberately separate from UserUpdateView
+    (which now rejects every edit to a deactivated user). This is the only
+    UI-reachable way to flip a deactivated user's is_active back on, short
+    of the rescue_admin / reset_admin_password terminal commands.
+    """
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def post(self, request, id):
+        user = get_object_or_404(User, pk=id)
+        if user.is_active:
+            return Response(
+                {'detail': 'This account is already active.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        with transaction.atomic():
+            # Reactivating an admin must not create a second simultaneously
+            # active admin — same single-admin invariant UserCreateView enforces.
+            if user.role == User.Roles.ADMIN:
+                _deactivate_other_admins(exclude_user_id=user.id)
+            user.is_active = True
+            user.save(update_fields=['is_active'])
+        return Response(UserSerializer(user).data)
 
 
 class VerifyEmailView(APIView):

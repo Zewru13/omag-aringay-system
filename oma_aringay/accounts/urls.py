@@ -9,6 +9,7 @@ from .views import (
     ResendVerificationView,
     UserCreateView,
     UserListView,
+    UserReactivateView,
     UserUpdateView,
     VerifyEmailView,
 )
@@ -25,4 +26,5 @@ urlpatterns = [
     path('users/', UserListView.as_view(), name='accounts-users'),
     path('users/create/', UserCreateView.as_view(), name='accounts-users-create'),
     path('users/<int:id>/', UserUpdateView.as_view(), name='accounts-users-update'),
+    path('users/<int:id>/reactivate/', UserReactivateView.as_view(), name='accounts-users-reactivate'),
 ]

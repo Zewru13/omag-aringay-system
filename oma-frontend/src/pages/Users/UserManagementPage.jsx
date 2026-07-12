@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, MailWarning, Pencil } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MailWarning, Pencil, RotateCcw } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
@@ -28,6 +28,7 @@ export default function UserManagementPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editUser,        setEditUser]        = useState(null)
   const [resendingId,     setResendingId]     = useState(null)
+  const [reactivatingId,  setReactivatingId]  = useState(null)
 
   const handleResendVerification = async (u) => {
     setResendingId(u.id)
@@ -43,6 +44,19 @@ export default function UserManagementPage() {
       showToast('Failed to resend verification email.', 'error')
     } finally {
       setResendingId(null)
+    }
+  }
+
+  const handleReactivate = async (u) => {
+    setReactivatingId(u.id)
+    try {
+      await api.post(`/accounts/users/${u.id}/reactivate/`)
+      showToast(`${u.full_name} reactivated.`, 'success')
+      fetchUsers(page)
+    } catch (err) {
+      showToast(err.response?.data?.detail || 'Failed to reactivate user.', 'error')
+    } finally {
+      setReactivatingId(null)
     }
   }
 
@@ -90,10 +104,14 @@ export default function UserManagementPage() {
     ),
     status_pill: (
       <span className="flex items-center gap-1.5">
-        <StatusPill tone={u.is_active ? 'green' : 'rose'}>
-          {u.is_active ? 'Active' : 'Inactive'}
+        <StatusPill tone={u.is_active ? 'green' : (!u.is_email_verified ? 'amber' : 'rose')}>
+          {u.is_active ? 'Active' : (!u.is_email_verified ? 'Unverified' : 'Deactivated')}
         </StatusPill>
-        {!u.is_email_verified && (
+        {/* Edge case: active but somehow never verified (shouldn't happen via
+            normal flows — is_active/is_email_verified move together — but
+            keep the signal rather than hide it). When inactive, the pill
+            itself already says "Unverified", so this badge would be redundant. */}
+        {u.is_active && !u.is_email_verified && (
           <span
             className="inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5 whitespace-nowrap"
             title="This user hasn't clicked their verification link yet."
@@ -105,14 +123,36 @@ export default function UserManagementPage() {
     ),
     actions: (
       <div className="flex items-center gap-0.5">
-        <button
-          type="button"
-          className="rounded-lg p-1.5 text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors"
-          onClick={() => setEditUser(u)}
-          title="Edit user"
-        >
-          <Pencil size={14} />
-        </button>
+        {u.is_active ? (
+          <button
+            type="button"
+            className="rounded-lg p-1.5 text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors"
+            onClick={() => setEditUser(u)}
+            title="Edit user"
+          >
+            <Pencil size={14} />
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="rounded-lg p-1.5 text-[#C8D5C8] cursor-not-allowed"
+            disabled
+            title="Deactivated accounts can't be edited"
+          >
+            <Pencil size={14} />
+          </button>
+        )}
+        {!u.is_active && (
+          <button
+            type="button"
+            className="rounded-lg p-1.5 text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors disabled:opacity-50"
+            onClick={() => handleReactivate(u)}
+            disabled={reactivatingId === u.id}
+            title="Reactivate account"
+          >
+            <RotateCcw size={14} />
+          </button>
+        )}
         {!u.is_email_verified && (
           <button
             type="button"
