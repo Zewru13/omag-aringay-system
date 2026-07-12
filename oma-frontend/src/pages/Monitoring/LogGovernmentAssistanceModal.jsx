@@ -274,6 +274,7 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
               type="date"
               className={baseInputClasses}
               value={form.date_received}
+              max={new Date().toISOString().split('T')[0]}
               onChange={(e) => set('date_received', e.target.value)}
             />
           </FormField>

@@ -253,6 +253,7 @@ function AddMemberModal({ type, associationId, onClose, onSuccess }) {
             required
             type="date"
             value={dateJoined}
+            max={new Date().toISOString().split('T')[0]}
             onChange={(e) => setDateJoined(e.target.value)}
           />
         </div>
@@ -393,6 +394,7 @@ function AddEquipmentModal({ type, associationId, onClose, onSuccess }) {
               className={`${baseInputClasses} mt-1`}
               type="date"
               value={form.acquisition_date}
+              max={new Date().toISOString().split("T")[0]}
               onChange={(e) => updateField("acquisition_date", e.target.value)}
             />
           </div>

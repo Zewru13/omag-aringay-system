@@ -2,6 +2,7 @@ from decimal import Decimal
 from rest_framework import serializers
 from datetime import date
 
+from core.validators import validate_not_future_date
 from farmers.models import FarmParcel
 
 from .models import (
@@ -224,6 +225,10 @@ class CropDisasterReportSerializer(serializers.ModelSerializer):
             return getattr(obj.resolved_by, 'full_name', str(obj.resolved_by))
         return None
 
+    def validate_date_of_occurrence(self, value):
+        validate_not_future_date(value, 'Date of occurrence')
+        return value
+
     def validate(self, data):
         disaster_type = data.get('disaster_type', '')
         if disaster_type == 'Other' and not (data.get('disaster_type_other_specify') or '').strip():
@@ -412,6 +417,12 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
         hr = obj.harvest_records.first()
         return hr.harvest_variance_days if hr else None
 
+    def validate_date_planted(self, value):
+        validate_not_future_date(value, 'Date planted')
+        return value
+    # expected_harvest_date deliberately NOT capped — it's server-computed
+    # (date_planted + crop_type.days_to_harvest) and always forward-looking.
+
     def validate(self, data):
         seed_source = data.get('seed_source', getattr(self.instance, 'seed_source', ''))
         seed_source_other = data.get('seed_source_other_specify', getattr(self.instance, 'seed_source_other_specify', ''))
@@ -588,6 +599,10 @@ class PlantingRecordSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'farmer_name', 'farmer_rsbsa_number', 'farmer_barangay', 'recorded_by', 'date_recorded']
 
+    def validate_date_planted(self, value):
+        validate_not_future_date(value, 'Date planted')
+        return value
+
 
 class PlantingRecordCreateSerializer(serializers.ModelSerializer):
     class Meta:
@@ -607,6 +622,10 @@ class PlantingRecordCreateSerializer(serializers.ModelSerializer):
             'remarks',
         ]
         read_only_fields = ['id']
+
+    def validate_date_planted(self, value):
+        validate_not_future_date(value, 'Date planted')
+        return value
 
 
 class BarangayCropSummarySerializer(serializers.ModelSerializer):
@@ -681,3 +700,7 @@ class DamageReportSerializer(serializers.ModelSerializer):
             'date_recorded',
         ]
         read_only_fields = ['id', 'recorded_by', 'date_recorded']
+
+    def validate_calamity_date(self, value):
+        validate_not_future_date(value, 'Calamity date')
+        return value

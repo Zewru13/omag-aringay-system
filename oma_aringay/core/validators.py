@@ -1,4 +1,5 @@
 import re
+from datetime import date
 
 from django.core.exceptions import ValidationError
 
@@ -46,3 +47,16 @@ def validate_fishr(value):
             'Invalid FishR number. Expected format: 01-33-02-YYYY-NNNN '
             '(e.g. 01-33-02-2026-0415).'
         )
+
+
+def validate_not_future_date(value, label='Date'):
+    """
+    Shared DRF validate_<field> helper for event/record dates that already
+    happened (date planted, date stocked, harvest date, etc). Not for
+    forward-looking dates (expected_harvest_date, next_visit_date, license
+    expiry) — those must stay uncapped and should not call this.
+    Raises django.core.exceptions.ValidationError, which DRF's
+    Serializer.to_internal_value() catches the same as serializers.ValidationError.
+    """
+    if value and value > date.today():
+        raise ValidationError(f'{label} cannot be in the future.')

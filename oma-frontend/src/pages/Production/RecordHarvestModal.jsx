@@ -255,6 +255,7 @@ function RecordHarvestModal({ onClose, onSuccess }) {
               required
               type="date"
               value={harvestStartDate}
+              max={new Date().toISOString().split('T')[0]}
               onChange={(e) => {
                 setHarvestStartDate(e.target.value)
                 if (harvestEndDate && e.target.value && harvestEndDate < e.target.value) {
@@ -271,6 +272,7 @@ function RecordHarvestModal({ onClose, onSuccess }) {
               className={`${baseInputClasses} mt-1`}
               type="date"
               min={harvestStartDate || undefined}
+              max={new Date().toISOString().split('T')[0]}
               value={harvestEndDate}
               onChange={(e) => handleEndDateChange(e.target.value)}
             />

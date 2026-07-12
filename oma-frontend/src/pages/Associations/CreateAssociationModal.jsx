@@ -164,12 +164,14 @@ export default function CreateAssociationModal({ type: assocType = 'farmers', on
             <div>
               <label className={labelCls}>Date Organized <span className="text-rose-500">*</span></label>
               <input type="date" className={`${baseInputClasses}${formErrors.date_organized ? ' border-rose-400' : ''}`} value={form.date_organized}
+                max={new Date().toISOString().split('T')[0]}
                 onChange={e => set('date_organized', e.target.value)} />
               {formErrors.date_organized && <p className="mt-1 text-[12px] text-rose-600">{formErrors.date_organized}</p>}
             </div>
             <div>
               <label className={labelCls}>Date Registered <span className="text-rose-500">*</span></label>
               <input type="date" className={`${baseInputClasses}${formErrors.date_registered ? ' border-rose-400' : ''}`} value={form.date_registered}
+                max={new Date().toISOString().split('T')[0]}
                 onChange={e => set('date_registered', e.target.value)} />
               {formErrors.date_registered && <p className="mt-1 text-[12px] text-rose-600">{formErrors.date_registered}</p>}
             </div>

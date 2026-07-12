@@ -689,6 +689,7 @@ function EditCropModal({ record, onClose, onSaved }) {
               type="date"
               className={baseInputClasses}
               value={form.date_planted}
+              max={new Date().toISOString().split("T")[0]}
               onChange={(e) => {
                 set("date_planted", e.target.value);
                 if (!form.season) set("season", detectSeason(e.target.value));

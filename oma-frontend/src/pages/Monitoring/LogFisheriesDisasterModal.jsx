@@ -135,7 +135,9 @@ function LogFisheriesDisasterModal({ onClose, onSuccess }) {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField label="Report Date" required>
-            <input type="date" className={baseInputClasses} required value={form.report_date} onChange={e => set('report_date', e.target.value)} />
+            <input type="date" className={baseInputClasses} required value={form.report_date}
+              max={new Date().toISOString().split('T')[0]}
+              onChange={e => set('report_date', e.target.value)} />
           </FormField>
           <FormField label="Disaster Type" required>
             <select className={baseInputClasses} value={form.disaster_type} onChange={e => set('disaster_type', e.target.value)}>

@@ -270,6 +270,7 @@ function LogCatchModal({ onClose, onSuccess }) {
               type="date"
               className={baseInputClasses}
               value={form.trip_date}
+              max={new Date().toISOString().split('T')[0]}
               onChange={(e) => set('trip_date', e.target.value)}
             />
           </FormField>
@@ -278,6 +279,7 @@ function LogCatchModal({ onClose, onSuccess }) {
               type="date"
               className={baseInputClasses}
               value={form.return_date}
+              max={new Date().toISOString().split('T')[0]}
               onChange={(e) => set('return_date', e.target.value)}
             />
           </FormField>

@@ -239,6 +239,7 @@ function AddPlantingRecordModal({ onClose, onSuccess }) {
               className={baseInputClasses}
               type="date"
               value={form.date_planted}
+              max={new Date().toISOString().split('T')[0]}
               onChange={(e) => update('date_planted', e.target.value)}
             />
           </FormField>

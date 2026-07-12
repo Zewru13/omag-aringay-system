@@ -273,6 +273,7 @@ function CropRecordCard({ rec, index, total, cropTypes, seedSources, varieties, 
 
         <FormField label="Date Planted" required>
           <input type="date" className={baseInputClasses} value={rec.date_planted}
+            max={new Date().toISOString().split('T')[0]}
             onChange={e => {
               set('date_planted', e.target.value)
               set('season', detectSeason(e.target.value))

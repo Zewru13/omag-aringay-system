@@ -16,9 +16,7 @@ const initialForm = {
   prefix: '',
   fishr_number: '',
   rsbsa_number: '',
-  lgu_registration_number: '',
   boatr_number: '',
-  fish_registration_number: '',
   first_name: '',
   last_name: '',
   middle_name: '',
@@ -66,7 +64,7 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
   const [form,          setForm]          = useState(initialForm)
   const [associations,  setAssociations]  = useState([])
   const [prefixResetNote, setPrefixResetNote] = useState('')
-  const [idTouched,     setIdTouched]     = useState({ fishr: false, rsbsa: false, lgu: false })
+  const [idTouched,     setIdTouched]     = useState({ fishr: false, rsbsa: false })
   const [contactError,  setContactError]  = useState('')
   const [fieldErrors,   setFieldErrors]   = useState({})
   const [formError,     setFormError]     = useState('')
@@ -138,7 +136,7 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
     e.preventDefault()
     setFormError('')
     setFieldErrors({})
-    setIdTouched({ fishr: true, rsbsa: true, lgu: true })
+    setIdTouched({ fishr: true, rsbsa: true })
     const contactErr = validateContact(form.contact_number)
     if (contactErr) { setContactError(contactErr); return }
     setIsSubmitting(true)
@@ -183,11 +181,6 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
     { type: 'text', value: `${barangayCode}-` },
     { type: 'input', key: 'seq', length: 6, placeholder: '000000' },
   ]
-  const lguParts = [
-    { type: 'input', key: 'year', length: 4, placeholder: currentYear },
-    { type: 'text', value: '-03302-' },
-    { type: 'input', key: 'seq', length: 4, placeholder: '0000' },
-  ]
 
   return (
     <ModalShell title="Register Fisherfolk" subtitle="Fill in the fisherfolk's details below" icon={Fish} onClose={onClose} maxWidth="max-w-3xl">
@@ -210,21 +203,6 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
               <option value="Capture">Capture</option>
               <option value="Vendor">Vendor</option>
             </select>
-          </div>
-
-          <div className="md:col-span-2">
-            <FormLabel>LGU Registration No.</FormLabel>
-            <SegmentedIdInput
-              parts={lguParts}
-              value={form.lgu_registration_number}
-              onChange={(v) => setForm((c) => ({ ...c, lgu_registration_number: v }))}
-            />
-            {idTouched.lgu && form.lgu_registration_number === '' && (
-              <p className="mt-1 text-[12px] text-[#7A8E7A]">Leave blank if not yet assigned, or fill in completely.</p>
-            )}
-            {fieldErrors.lgu_registration_number && (
-              <p className="mt-1 text-[12px] text-rose-600">{fieldErrors.lgu_registration_number}</p>
-            )}
           </div>
 
           <div>
@@ -260,24 +238,6 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
             <div>
               <FormLabel>BoatR Number</FormLabel>
               <input className={baseInputClasses} id="boatr_number" value={form.boatr_number} onChange={(e) => updateField('boatr_number', e.target.value)} placeholder="e.g. 1234567" />
-            </div>
-          )}
-
-          {form.fisherfolk_type !== 'Vendor' && (
-            <div>
-              <FormLabel required>Fish Registration No.</FormLabel>
-              <input
-                className={`${baseInputClasses} ${fieldErrors.fish_registration_number ? 'border-rose-400' : ''}`}
-                id="fish_registration_number"
-                required
-                value={form.fish_registration_number}
-                onChange={(e) => updateField('fish_registration_number', e.target.value)}
-                placeholder="14–16 digit number"
-                maxLength={16}
-              />
-              {fieldErrors.fish_registration_number && (
-                <p className="mt-1 text-[12px] text-rose-600">{fieldErrors.fish_registration_number}</p>
-              )}
             </div>
           )}
 

@@ -4,6 +4,7 @@ from django.db.models import Q, Sum
 from rest_framework import serializers
 
 from core.constants import validate_prefix_gender
+from core.validators import validate_not_future_date
 
 from .models import (
     AquacultureRecord,
@@ -199,7 +200,6 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
     water_source      = serializers.CharField(required=False, allow_blank=True)
     number_of_cages   = serializers.IntegerField(required=False, allow_null=True)
     cage_dimensions   = serializers.CharField(required=False, allow_blank=True)
-    fish_registration_number = serializers.CharField(required=False, allow_blank=True)
     boat_registration_number = serializers.CharField(required=False, allow_blank=True)
     has_vessel        = serializers.BooleanField(required=False, default=True)
 
@@ -214,7 +214,7 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model  = Fisherfolk
         fields = [
-            'id', 'lgu_registration_number', 'fishr_number',
+            'id', 'fishr_number',
             'prefix', 'first_name', 'last_name', 'middle_name',
             'gender', 'birthdate', 'contact_number', 'barangay', 'municipality',
             'civil_status', 'highest_education', 'philsys_number',
@@ -227,7 +227,7 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
             'fishing_gear_type', 'fishing_ground', 'average_catch_per_trip_kg',
             'location_type', 'stall_location', 'type_of_products_sold', 'source_of_fish',
             'facility_location', 'pond_area_ha', 'number_of_ponds', 'water_source',
-            'number_of_cages', 'cage_dimensions', 'fish_registration_number',
+            'number_of_cages', 'cage_dimensions',
             'boat_registration_number', 'has_vessel',
             'rsbsa_number', 'boatr_number',
             'is_aquaculture', 'is_capture_fishery', 'is_mariculture', 'is_inland_fishery', 'is_fish_vendor',
@@ -250,13 +250,6 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
             return None
         return value
 
-    def validate_fish_registration_number(self, value):
-        if value and value.strip():
-            digits = value.strip()
-            if not digits.isdigit() or not (14 <= len(digits) <= 16):
-                raise serializers.ValidationError('Fish Registration Number must be 14 to 16 digits.')
-        return value
-
     def validate_boat_registration_number(self, value):
         if value and value.strip():
             digits = value.strip()
@@ -275,9 +268,6 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
             data['boatr_number'] = ''
 
         fisherfolk_type = data.get('fisherfolk_type', '')
-        fish_reg = (data.get('fish_registration_number') or '').strip()
-        if fisherfolk_type != 'Vendor' and not fish_reg:
-            raise serializers.ValidationError({'fish_registration_number': 'Fish Registration Number is required.'})
         if not data.get('has_vessel', True):
             data['boat_registration_number'] = ''
         if fisherfolk_type in ('Capture', 'Inland'):
@@ -292,11 +282,6 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
         return data
 
     def validate_rsbsa_number(self, value):
-        if value is not None and not value.strip():
-            return None
-        return value
-
-    def validate_lgu_registration_number(self, value):
         if value is not None and not value.strip():
             return None
         return value
@@ -482,6 +467,10 @@ class FisheriesDisasterReportSerializer(serializers.ModelSerializer):
             return getattr(obj.resolved_by, 'full_name', str(obj.resolved_by))
         return None
 
+    def validate_date_of_occurrence(self, value):
+        validate_not_future_date(value, 'Date of occurrence')
+        return value
+
     def validate(self, data):
         disaster_type = data.get('disaster_type', '')
         if disaster_type == 'Other' and not (data.get('disaster_type_other_specify') or '').strip():
@@ -646,6 +635,10 @@ class StockingRecordSerializer(serializers.ModelSerializer):
         ).count()
         return prior + 1
 
+    def validate_date_stocked(self, value):
+        validate_not_future_date(value, 'Date stocked')
+        return value
+
     def validate(self, data):
         for field_name, specify_name, label in [
             ('land_status', 'land_status_other_specify', 'land status'),
@@ -709,6 +702,14 @@ class FishingTripLogSerializer(serializers.ModelSerializer):
     def get_species_count(self, obj):
         return obj.species_entries.values('species_name').distinct().count()
 
+    def validate_trip_date(self, value):
+        validate_not_future_date(value, 'Trip date')
+        return value
+
+    def validate_return_date(self, value):
+        validate_not_future_date(value, 'Return date')
+        return value
+
 
 class VesselInspectionSerializer(serializers.ModelSerializer):
     fisherfolk_name = serializers.CharField(source='fisherfolk.full_name', read_only=True)
@@ -739,6 +740,11 @@ class VesselInspectionSerializer(serializers.ModelSerializer):
             return 'Expiring Soon'
         return 'Valid'
 
+    def validate_inspection_date(self, value):
+        validate_not_future_date(value, 'Inspection date')
+        return value
+    # license_expiry_date deliberately NOT capped — it's forward-looking by definition.
+
 
 class FisheriesAssistanceSerializer(serializers.ModelSerializer):
     fisherfolk_name = serializers.CharField(source='fisherfolk.full_name', read_only=True)
@@ -757,3 +763,7 @@ class FisheriesAssistanceSerializer(serializers.ModelSerializer):
 
     def get_recorded_by_name(self, obj):
         return obj.recorded_by.full_name if obj.recorded_by else None
+
+    def validate_date_received(self, value):
+        validate_not_future_date(value, 'Date received')
+        return value

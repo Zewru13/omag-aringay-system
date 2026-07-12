@@ -263,6 +263,7 @@ function makeRecord(n) {
 
 function StockingRecordCard({ rec, index, total, speciesList, onUpdate, onRemove }) {
   const set = (field, value) => onUpdate(rec._id, field, value)
+  const isShellfish = Boolean(rec._speciesObj && rec._speciesObj.category_name && rec._speciesObj.category_name !== 'Finfish')
 
   const handleSpeciesChange = (speciesId) => {
     const sp = speciesList.find(s => String(s.id) === String(speciesId))
@@ -271,6 +272,13 @@ function StockingRecordCard({ rec, index, total, speciesList, onUpdate, onRemove
     if (sp) {
       onUpdate(rec._id, 'survival_rate_pct', String(sp.default_survival_rate_pct || ''))
       onUpdate(rec._id, 'avg_body_weight_kg', String(sp.default_avg_body_weight_kg || ''))
+      // Fingerlings are a finfish concept — clear any stale fingerling-source
+      // data when switching to a shellfish species so it doesn't get submitted.
+      if (sp.category_name && sp.category_name !== 'Finfish') {
+        onUpdate(rec._id, 'fingerling_source', '')
+        onUpdate(rec._id, 'fingerling_source_other_specify', '')
+        onUpdate(rec._id, 'avg_fingerling_size', '')
+      }
     }
   }
 
@@ -388,38 +396,43 @@ function StockingRecordCard({ rec, index, total, speciesList, onUpdate, onRemove
               onChange={e => set('water_source_other_specify', e.target.value)} />
           )}
         </FormField>
-        <FormField label="Fingerling/Fry Source">
-          <select className={baseInputClasses} value={rec.fingerling_source}
-            onChange={e => {
-              set('fingerling_source', e.target.value)
-              if (e.target.value !== 'Other') set('fingerling_source_other_specify', '')
-            }}>
-            <option value="">Select…</option>
-            <option value="BFAR">BFAR</option>
-            <option value="Private Hatchery">Private Hatchery</option>
-            <option value="Own Production">Own Production</option>
-            <option value="Other">Other</option>
-          </select>
-          {rec.fingerling_source === 'Other' && (
-            <input type="text" className={`${baseInputClasses} mt-2`}
-              placeholder="Please specify fingerling source"
-              value={rec.fingerling_source_other_specify}
-              onChange={e => set('fingerling_source_other_specify', e.target.value)} />
-          )}
-        </FormField>
+        {!isShellfish && (
+          <FormField label="Fingerling/Fry Source">
+            <select className={baseInputClasses} value={rec.fingerling_source}
+              onChange={e => {
+                set('fingerling_source', e.target.value)
+                if (e.target.value !== 'Other') set('fingerling_source_other_specify', '')
+              }}>
+              <option value="">Select…</option>
+              <option value="BFAR">BFAR</option>
+              <option value="Private Hatchery">Private Hatchery</option>
+              <option value="Own Production">Own Production</option>
+              <option value="Other">Other</option>
+            </select>
+            {rec.fingerling_source === 'Other' && (
+              <input type="text" className={`${baseInputClasses} mt-2`}
+                placeholder="Please specify fingerling source"
+                value={rec.fingerling_source_other_specify}
+                onChange={e => set('fingerling_source_other_specify', e.target.value)} />
+            )}
+          </FormField>
+        )}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <FormField label="Average Fingerling Size (optional)">
-          <input type="text" className={baseInputClasses}
-            placeholder="e.g. 2-3 cm" value={rec.avg_fingerling_size}
-            onChange={e => set('avg_fingerling_size', e.target.value)} />
-        </FormField>
-      </div>
+      {!isShellfish && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <FormField label="Average Fingerling Size (optional)">
+            <input type="text" className={baseInputClasses}
+              placeholder="e.g. 2-3 cm" value={rec.avg_fingerling_size}
+              onChange={e => set('avg_fingerling_size', e.target.value)} />
+          </FormField>
+        </div>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2">
         <FormField label="Date Stocked" required>
           <input type="date" className={baseInputClasses} value={rec.date_stocked}
+            max={new Date().toISOString().split('T')[0]}
             onChange={e => {
               set('date_stocked', e.target.value)
               set('season', detectSeason(e.target.value))
@@ -433,7 +446,7 @@ function StockingRecordCard({ rec, index, total, speciesList, onUpdate, onRemove
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <FormField label="No. of Fingerlings" required>
+        <FormField label={isShellfish ? 'No. of Spat / Pieces' : 'No. of Fingerlings'} required>
           <input type="number" min="1" className={baseInputClasses}
             placeholder="e.g. 500" value={rec.number_of_fingerlings}
             onChange={e => set('number_of_fingerlings', e.target.value)} />
@@ -695,6 +708,7 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   const speciesObj = speciesList.find(s => String(s.id) === String(record.species))
+  const isShellfish = Boolean(speciesObj && speciesObj.category_name && speciesObj.category_name !== 'Finfish')
 
   const preview = useMemo(() =>
     computeHarvestPreview(speciesObj, form.date_stocked, form.number_of_fingerlings, form.survival_rate_pct, form.avg_body_weight_kg),
@@ -808,6 +822,7 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
           <div>
             <label className={editLabelCls}>Date Stocked <span className="text-rose-500">*</span></label>
             <input type="date" className={baseInputClasses} value={form.date_stocked}
+              max={new Date().toISOString().split('T')[0]}
               onChange={e => { set('date_stocked', e.target.value); if (!form.season) set('season', detectSeason(e.target.value)) }} />
           </div>
         </div>
@@ -851,40 +866,46 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
                 onChange={e => set('water_source_other_specify', e.target.value)} />
             )}
           </div>
-          <div>
-            <label className={editLabelCls}>Fingerling/Fry Source</label>
-            <select className={baseInputClasses} value={form.fingerling_source}
-              onChange={e => {
-                set('fingerling_source', e.target.value)
-                if (e.target.value !== 'Other') set('fingerling_source_other_specify', '')
-              }}>
-              <option value="">Select…</option>
-              <option value="BFAR">BFAR</option>
-              <option value="Private Hatchery">Private Hatchery</option>
-              <option value="Own Production">Own Production</option>
-              <option value="Other">Other</option>
-            </select>
-            {form.fingerling_source === 'Other' && (
-              <input type="text" className={`${baseInputClasses} mt-2`}
-                placeholder="Please specify fingerling source"
-                value={form.fingerling_source_other_specify}
-                onChange={e => set('fingerling_source_other_specify', e.target.value)} />
-            )}
-          </div>
+          {!isShellfish && (
+            <div>
+              <label className={editLabelCls}>Fingerling/Fry Source</label>
+              <select className={baseInputClasses} value={form.fingerling_source}
+                onChange={e => {
+                  set('fingerling_source', e.target.value)
+                  if (e.target.value !== 'Other') set('fingerling_source_other_specify', '')
+                }}>
+                <option value="">Select…</option>
+                <option value="BFAR">BFAR</option>
+                <option value="Private Hatchery">Private Hatchery</option>
+                <option value="Own Production">Own Production</option>
+                <option value="Other">Other</option>
+              </select>
+              {form.fingerling_source === 'Other' && (
+                <input type="text" className={`${baseInputClasses} mt-2`}
+                  placeholder="Please specify fingerling source"
+                  value={form.fingerling_source_other_specify}
+                  onChange={e => set('fingerling_source_other_specify', e.target.value)} />
+              )}
+            </div>
+          )}
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <label className={editLabelCls}>Average Fingerling Size (optional)</label>
-            <input type="text" className={baseInputClasses}
-              placeholder="e.g. 2-3 cm"
-              value={form.avg_fingerling_size} onChange={e => set('avg_fingerling_size', e.target.value)} />
+        {!isShellfish && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className={editLabelCls}>Average Fingerling Size (optional)</label>
+              <input type="text" className={baseInputClasses}
+                placeholder="e.g. 2-3 cm"
+                value={form.avg_fingerling_size} onChange={e => set('avg_fingerling_size', e.target.value)} />
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
-            <label className={editLabelCls}>No. of Fingerlings <span className="text-rose-500">*</span></label>
+            <label className={editLabelCls}>
+              {isShellfish ? 'No. of Spat / Pieces' : 'No. of Fingerlings'} <span className="text-rose-500">*</span>
+            </label>
             <input type="number" min="1" className={baseInputClasses} placeholder="e.g. 500"
               value={form.number_of_fingerlings} onChange={e => set('number_of_fingerlings', e.target.value)} />
           </div>

@@ -666,6 +666,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-700">Date of Activity *</label>
                 <input type="date" className={baseInputClasses} value={activityDate}
+                  max={todayISO()}
                   onChange={e => setActivityDate(e.target.value)} />
               </div>
             </div>
@@ -1036,12 +1037,14 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700">Harvest Start Date *</label>
               <input type="date" className={baseInputClasses} value={form.harvest_start_date}
+                max={todayISO()}
                 onChange={e => { handleChange('harvest_start_date', e.target.value); setDateError('') }} />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700">Harvest End Date</label>
               <input type="date" className={baseInputClasses} value={form.harvest_end_date}
                 min={form.harvest_start_date || undefined}
+                max={todayISO()}
                 onChange={e => { handleChange('harvest_end_date', e.target.value); setDateError('') }} />
             </div>
           </div>
@@ -1472,6 +1475,7 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700">Harvest Start Date *</label>
               <input type="date" className={baseInputClasses} value={harvestStartDate}
+                max={todayISO()}
                 onChange={e => {
                   setHarvestStartDate(e.target.value)
                   if (harvestEndDate && harvestEndDate < e.target.value) {
@@ -1485,6 +1489,7 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
               </label>
               <input type="date" className={baseInputClasses} value={harvestEndDate}
                 min={harvestStartDate || undefined}
+                max={todayISO()}
                 onChange={e => handleEndDateChange(e.target.value)} />
             </div>
           </div>

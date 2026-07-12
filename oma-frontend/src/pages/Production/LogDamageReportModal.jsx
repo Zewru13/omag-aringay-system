@@ -92,6 +92,7 @@ function LogDamageReportModal({ onClose, onSuccess }) {
               className={baseInputClasses}
               type="date"
               value={form.calamity_date}
+              max={new Date().toISOString().split('T')[0]}
               onChange={(e) => update('calamity_date', e.target.value)}
             />
           </FormField>

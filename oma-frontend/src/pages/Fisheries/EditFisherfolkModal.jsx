@@ -44,8 +44,6 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
   const { isAdmin } = useAuth()
   const { showToast } = useToast()
 
-  const isVesselType = fisherfolk.fisherfolk_type === 'Capture' || fisherfolk.fisherfolk_type === 'Mariculture'
-
   const [form, setForm] = useState({
     prefix: fisherfolk.prefix || '',
     first_name: fisherfolk.first_name || '',
@@ -56,10 +54,8 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
     contact_number: fisherfolk.contact_number || '',
     barangay: fisherfolk.barangay || '',
     is_active: fisherfolk.is_active,
-    boat_registration_number: fisherfolk.boat_registration_number || '',
     fishr_number: fisherfolk.fishr_number || '',
     rsbsa_number: fisherfolk.rsbsa_number || '',
-    lgu_registration_number: fisherfolk.lgu_registration_number || '',
     boatr_number: fisherfolk.boatr_number || '',
     is_aquaculture: fisherfolk.is_aquaculture ?? true,
     is_capture_fishery: fisherfolk.is_capture_fishery ?? false,
@@ -68,20 +64,12 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
     is_fish_vendor: fisherfolk.is_fish_vendor ?? false,
   })
 
-  const [noVessel, setNoVessel] = useState(!fisherfolk.has_vessel)
   const [prefixResetNote, setPrefixResetNote] = useState('')
   const [birthdateError, setBirthdateError] = useState('')
   const [contactError, setContactError] = useState('')
-  const [boatRError, setBoatRError] = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-
-  const validateBoatR = (value) => {
-    if (!value.trim()) return ''
-    if (!/^\d{7}$/.test(value.trim())) return 'Boat Registration Number must be exactly 7 digits.'
-    return ''
-  }
 
   const updateField = (field, value) => {
     if (field === 'contact_number') {
@@ -110,15 +98,6 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
     }
     setForm((prev) => ({ ...prev, [field]: value }))
     if (field === 'birthdate') setBirthdateError(validateAge(value) || '')
-    if (field === 'boat_registration_number') setBoatRError('')
-  }
-
-  const handleNoVesselChange = (checked) => {
-    setNoVessel(checked)
-    if (checked) {
-      setForm((prev) => ({ ...prev, boat_registration_number: '' }))
-      setBoatRError('')
-    }
   }
 
   const age = (() => {
@@ -143,11 +122,6 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
     { type: 'text', value: `${barangayCode}-` },
     { type: 'input', key: 'seq', length: 6, placeholder: '000000' },
   ]
-  const lguParts = [
-    { type: 'input', key: 'year', length: 4, placeholder: currentYear },
-    { type: 'text', value: '-03302-' },
-    { type: 'input', key: 'seq', length: 4, placeholder: '0000' },
-  ]
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -163,20 +137,10 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
     const contactErr = validateContact(form.contact_number)
     if (contactErr) { setContactError(contactErr); return }
 
-    if (!noVessel && isVesselType) {
-      const boatErr = validateBoatR(form.boat_registration_number)
-      if (boatErr) { setBoatRError(boatErr); return }
-    }
-
     setIsSubmitting(true)
 
     try {
-      const payload = {
-        ...form,
-        boat_registration_number: noVessel ? '' : form.boat_registration_number,
-        has_vessel: !noVessel,
-      }
-      await api.patch(`/fisheries/${fisherfolk.id}/`, payload)
+      await api.patch(`/fisheries/${fisherfolk.id}/`, form)
       showToast('Fisherfolk profile updated successfully.', 'success')
       onSuccess()
       onClose()
@@ -184,8 +148,6 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
       const data = err.response?.data
       if (data?.birthdate?.[0]) {
         setBirthdateError(data.birthdate[0])
-      } else if (data?.boat_registration_number) {
-        setBoatRError(data.boat_registration_number[0])
       } else if (data && typeof data === 'object' && !data.detail) {
         const fieldErrs = {}
         Object.entries(data).forEach(([k, v]) => { fieldErrs[k] = Array.isArray(v) ? v[0] : v })
@@ -278,16 +240,6 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
               required
             />
 
-            <div className="md:col-span-2">
-              <FormLabel className={labelCls}>LGU Registration No.</FormLabel>
-              <SegmentedIdInput
-                parts={lguParts}
-                value={form.lgu_registration_number}
-                onChange={(v) => setForm((c) => ({ ...c, lgu_registration_number: v }))}
-              />
-              {fieldErrors.lgu_registration_number && <p className="mt-1 text-xs text-rose-600">{fieldErrors.lgu_registration_number}</p>}
-            </div>
-
             <div>
               <FormLabel className={labelCls}>FishR Number</FormLabel>
               <SegmentedIdInput
@@ -352,39 +304,6 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
                 Profile classification only; production monitoring covers aquaculture.
               </p>
             </div>
-
-            {isVesselType && (
-              <div className="md:col-span-2">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="edit_no_vessel"
-                    checked={noVessel}
-                    onChange={(e) => handleNoVesselChange(e.target.checked)}
-                    className="h-4 w-4 rounded border-slate-300 text-[#1E4620] focus:ring-[#1E4620]"
-                  />
-                  <label htmlFor="edit_no_vessel" className="cursor-pointer text-sm text-slate-700">
-                    No Vessel — this fisherfolk does not own or operate a fishing vessel
-                  </label>
-                </div>
-              </div>
-            )}
-
-            {isVesselType && !noVessel && (
-              <div className="md:col-span-2">
-                <FormLabel className={labelCls}>Boat Registration No. (Boat-R)</FormLabel>
-                <input
-                  className={baseInputClasses}
-                  placeholder="Exactly 7 digits"
-                  maxLength={7}
-                  value={form.boat_registration_number}
-                  onChange={(e) => updateField('boat_registration_number', e.target.value)}
-                  onBlur={(e) => setBoatRError(validateBoatR(e.target.value))}
-                />
-                <p className="mt-1 text-xs text-slate-400">7-digit Boat-R number</p>
-                {boatRError && <p className="mt-1 text-xs text-rose-600">{boatRError}</p>}
-              </div>
-            )}
 
             {isAdmin && (
               <div className="md:col-span-2">

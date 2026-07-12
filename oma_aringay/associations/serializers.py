@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from core.validators import validate_not_future_date
+
 from .models import (
     AssociationOfficer,
     FarmersAssociation,
@@ -40,6 +42,10 @@ class FarmersAssociationMemberSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['association']
 
+    def validate_date_joined(self, value):
+        validate_not_future_date(value, 'Date joined')
+        return value
+
 
 class FarmersAssociationEquipmentSerializer(serializers.ModelSerializer):
     class Meta:
@@ -49,6 +55,10 @@ class FarmersAssociationEquipmentSerializer(serializers.ModelSerializer):
             'quantity', 'condition', 'acquisition_date', 'remarks',
         ]
         read_only_fields = ['association']
+
+    def validate_acquisition_date(self, value):
+        validate_not_future_date(value, 'Acquisition date')
+        return value
 
 
 class FarmersAssociationListSerializer(serializers.ModelSerializer):
@@ -82,6 +92,14 @@ class FarmersAssociationDetailSerializer(serializers.ModelSerializer):
     def validate_contact_number(self, value):
         return _validate_contact(value)
 
+    def validate_date_organized(self, value):
+        validate_not_future_date(value, 'Date organized')
+        return value
+
+    def validate_date_registered(self, value):
+        validate_not_future_date(value, 'Date registered')
+        return value
+
 
 # ─── Fisherfolk ──────────────────────────────────────────────────────────────
 
@@ -97,6 +115,10 @@ class FisherfolkAssociationMemberSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['association']
 
+    def validate_date_joined(self, value):
+        validate_not_future_date(value, 'Date joined')
+        return value
+
 
 class FisherfolkAssociationEquipmentSerializer(serializers.ModelSerializer):
     class Meta:
@@ -106,6 +128,10 @@ class FisherfolkAssociationEquipmentSerializer(serializers.ModelSerializer):
             'quantity', 'condition', 'acquisition_date', 'remarks',
         ]
         read_only_fields = ['association']
+
+    def validate_acquisition_date(self, value):
+        validate_not_future_date(value, 'Acquisition date')
+        return value
 
 
 class FisherfolkAssociationOfficerSerializer(serializers.ModelSerializer):
@@ -144,3 +170,11 @@ class FisherfolkAssociationDetailSerializer(serializers.ModelSerializer):
 
     def validate_contact_number(self, value):
         return _validate_contact(value)
+
+    def validate_date_organized(self, value):
+        validate_not_future_date(value, 'Date organized')
+        return value
+
+    def validate_date_registered(self, value):
+        validate_not_future_date(value, 'Date registered')
+        return value

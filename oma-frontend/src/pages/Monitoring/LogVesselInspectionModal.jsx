@@ -145,6 +145,7 @@ function LogVesselInspectionModal({ onClose, onSuccess }) {
               type="date"
               className={baseInputClasses}
               value={form.inspection_date}
+              max={new Date().toISOString().split('T')[0]}
               onChange={(e) => set('inspection_date', e.target.value)}
             />
           </FormField>

@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from core.validators import validate_not_future_date
+
 from .models import FarmVisit, FisherfolkDisasterReport
 
 
@@ -16,6 +18,11 @@ class FarmVisitSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'farmer_name', 'farmer_barangay', 'conducted_by', 'date_recorded']
 
+    def validate_visit_date(self, value):
+        validate_not_future_date(value, 'Visit date')
+        return value
+    # next_visit_date deliberately NOT capped — it's a planned future visit.
+
 
 class FisherfolkDisasterReportSerializer(serializers.ModelSerializer):
     fisherfolk_name = serializers.CharField(source='fisherfolk.full_name', read_only=True)
@@ -28,3 +35,7 @@ class FisherfolkDisasterReportSerializer(serializers.ModelSerializer):
             'equipment_damaged', 'status', 'recorded_by', 'date_recorded',
         ]
         read_only_fields = ['id', 'fisherfolk_name', 'recorded_by', 'date_recorded']
+
+    def validate_report_date(self, value):
+        validate_not_future_date(value, 'Report date')
+        return value
