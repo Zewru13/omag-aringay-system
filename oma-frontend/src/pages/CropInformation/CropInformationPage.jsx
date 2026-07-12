@@ -5,6 +5,7 @@ import {
   Eye,
   FileText,
   MessageCircle,
+  MoreVertical,
   Pencil,
   Plus,
   Search,
@@ -388,6 +389,7 @@ function EditCropModal({ record, onClose, onSaved }) {
   const [form, setForm] = useState(originalData);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
 
   const normalize = (v) =>
     v === null || v === undefined ? "" : String(v).trim();
@@ -500,6 +502,19 @@ function EditCropModal({ record, onClose, onSaved }) {
       setError("Area planted (ha) is required.");
       return;
     }
+    const nextFieldErrors = {};
+    if (!form.farm_location_barangay) {
+      nextFieldErrors.farm_location_barangay = "Farm location (barangay) is required.";
+    }
+    if (!form.land_status) {
+      nextFieldErrors.land_status = "Land status is required.";
+    }
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setFieldErrors(nextFieldErrors);
+      setError("Please fix the highlighted fields.");
+      return;
+    }
+    setFieldErrors({});
     setError("");
     setIsSubmitting(true);
     try {
@@ -626,11 +641,15 @@ function EditCropModal({ record, onClose, onSaved }) {
         <div className="grid gap-3 sm:grid-cols-2">
           <BarangaySelect
             label="Farm Location (Barangay)"
+            required
             value={form.farm_location_barangay}
             onChange={(e) => set("farm_location_barangay", e.target.value)}
+            error={fieldErrors.farm_location_barangay}
           />
           <div>
-            <label className={editLabelCls}>Land Status</label>
+            <label className={editLabelCls}>
+              Land Status <span className="text-rose-500">*</span>
+            </label>
             <select
               className={baseInputClasses}
               value={form.land_status}
@@ -653,6 +672,9 @@ function EditCropModal({ record, onClose, onSaved }) {
                 value={form.land_status_other_specify}
                 onChange={(e) => set("land_status_other_specify", e.target.value)}
               />
+            )}
+            {fieldErrors.land_status && (
+              <p className="text-[12px] text-[#C0392B] mt-1">{fieldErrors.land_status}</p>
             )}
           </div>
         </div>
@@ -982,6 +1004,91 @@ function DeleteCropModal({ record, onClose, onDeleted }) {
   );
 }
 
+// ─── Row Actions Menu (⋮): View Details / Edit / Remarks / Delete ─────────────
+
+function CropRowActionsMenu({ rec, isAdmin, onViewDetails, onEdit, onRemarks, onDelete }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const canEdit = rec.status !== "Harvested";
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
+        className="flex items-center justify-center rounded-lg p-1.5 text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors"
+        title="Actions"
+      >
+        <MoreVertical size={14} />
+      </button>
+      {open && (
+        <div className="absolute right-0 z-20 mt-1 w-48 rounded-lg border border-[#E2E8E2] bg-white py-1 shadow-lg">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(false);
+              onViewDetails();
+            }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-[13px] text-[#1A2B1A] hover:bg-[#F5F7F5] transition-colors"
+          >
+            <Eye size={13} /> View Details
+          </button>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen(false);
+                onEdit();
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-[13px] text-[#1A2B1A] hover:bg-[#F5F7F5] transition-colors"
+            >
+              <Pencil size={13} /> Edit
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setOpen(false);
+              onRemarks();
+            }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-[13px] text-[#1A2B1A] hover:bg-[#F5F7F5] transition-colors"
+          >
+            <FileText size={13} /> View/Add Remarks
+          </button>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen(false);
+                onDelete();
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-[13px] text-rose-600 hover:bg-rose-50 transition-colors"
+            >
+              <Trash2 size={13} /> Delete
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CropInformationPage() {
@@ -1089,56 +1196,14 @@ export default function CropInformationPage() {
         </span>
       ),
       actions_cell: (
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors"
-            onClick={(e) => {
-              e.stopPropagation();
-              setViewingRec(rec);
-            }}
-            title="View details"
-          >
-            <Eye size={14} />
-          </button>
-          {rec.status !== "Harvested" && (
-            <button
-              type="button"
-              className="flex items-center gap-1 rounded-lg px-2 py-1 text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors"
-              onClick={(e) => {
-                e.stopPropagation();
-                setEditingRec(rec);
-              }}
-              title="Edit record"
-            >
-              <Pencil size={14} />
-            </button>
-          )}
-          <button
-            type="button"
-            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors"
-            onClick={(e) => {
-              e.stopPropagation();
-              setRemarksRec(rec);
-            }}
-            title="View/Add Remarks"
-          >
-            <FileText size={14} />
-          </button>
-          {isAdmin && (
-            <button
-              type="button"
-              className="flex items-center gap-1 rounded-lg px-2 py-1 text-rose-600 hover:bg-rose-50 transition-colors"
-              onClick={(e) => {
-                e.stopPropagation();
-                setDeletingRec(rec);
-              }}
-              title="Delete record"
-            >
-              <Trash2 size={14} />
-            </button>
-          )}
-        </div>
+        <CropRowActionsMenu
+          rec={rec}
+          isAdmin={isAdmin}
+          onViewDetails={() => setViewingRec(rec)}
+          onEdit={() => setEditingRec(rec)}
+          onRemarks={() => setRemarksRec(rec)}
+          onDelete={() => setDeletingRec(rec)}
+        />
       ),
     };
   });

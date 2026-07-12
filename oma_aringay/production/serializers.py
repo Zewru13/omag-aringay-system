@@ -325,6 +325,10 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
             'has_harvest', 'harvest_record_id', 'harvest_count', 'disaster_report_count',
             'harvest_variance_days',
         ]
+        extra_kwargs = {
+            'farm_location_barangay': {'required': True, 'allow_blank': False},
+            'land_status': {'required': True, 'allow_blank': False},
+        }
 
     def get_crop_allowed_units(self, obj):
         if obj.crop_type and obj.crop_type.allowed_units:

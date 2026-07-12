@@ -205,7 +205,7 @@ function useCropDuplicateCheck(farmerId, cropTypeId) {
 
 // ── Single Crop Record Card ───────────────────────────────────────────────────
 
-function CropRecordCard({ rec, index, total, cropTypes, seedSources, varieties, farmerId, onUpdate, onRemove }) {
+function CropRecordCard({ rec, index, total, cropTypes, seedSources, varieties, farmerId, errors, onUpdate, onRemove }) {
   const set = (field, value) => onUpdate(rec._id, field, value)
   const { duplicates, isChecking } = useCropDuplicateCheck(farmerId, rec.crop_type)
 
@@ -230,11 +230,13 @@ function CropRecordCard({ rec, index, total, cropTypes, seedSources, varieties, 
         <BarangaySelect
           id={`farm_loc_${rec._id}`}
           label="Farm Location (Barangay)"
+          required
           value={rec.farm_location_barangay}
           onChange={e => set('farm_location_barangay', e.target.value)}
+          error={errors.farm_location_barangay}
         />
 
-        <FormField label="Land Status">
+        <FormField label="Land Status" required error={errors.land_status}>
           <select className={baseInputClasses} value={rec.land_status}
             onChange={e => {
               set('land_status', e.target.value)
@@ -433,6 +435,7 @@ function AddCropMonitoringModal({ onClose, onSuccess }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showConfirm,  setShowConfirm]  = useState(false)
   const [error,        setError]        = useState('')
+  const [fieldErrors,  setFieldErrors]  = useState({})
 
   // Shared farmer state — applies to ALL crop records in this session
   const [farmerInfo, setFarmerInfo] = useState({
@@ -468,6 +471,19 @@ function AddCropMonitoringModal({ onClose, onSuccess }) {
       if (!rec.date_planted)    { setError(`Record ${i}: Date planted is required.`); return false }
       if (!rec.area_planted_ha) { setError(`Record ${i}: Area planted is required.`); return false }
     }
+    const nextFieldErrors = {}
+    for (const rec of records) {
+      const recErrors = {}
+      if (!rec.farm_location_barangay) recErrors.farm_location_barangay = 'Farm location (barangay) is required.'
+      if (!rec.land_status) recErrors.land_status = 'Land status is required.'
+      if (Object.keys(recErrors).length > 0) nextFieldErrors[rec._id] = recErrors
+    }
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setFieldErrors(nextFieldErrors)
+      setError('Please fix the highlighted fields.')
+      return false
+    }
+    setFieldErrors({})
     return true
   }
 
@@ -557,6 +573,7 @@ function AddCropMonitoringModal({ onClose, onSuccess }) {
                 seedSources={seedSources}
                 varieties={varieties}
                 farmerId={farmerInfo.farmer_id}
+                errors={fieldErrors[rec._id] || {}}
                 onUpdate={updateRecord}
                 onRemove={removeRecord}
               />

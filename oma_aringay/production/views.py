@@ -1719,6 +1719,7 @@ class CropVarietyListCreateView(generics.ListCreateAPIView):
         crop_type_id = self.request.query_params.get('crop_type')
         if crop_type_id:
             qs = qs.filter(Q(crop_type_id=crop_type_id) | Q(crop_type__isnull=True))
+            qs = qs.filter(is_active=True)
         return qs
 
 
