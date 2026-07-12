@@ -25,7 +25,7 @@ export default function FisheriesHistoryModal({ onClose }) {
       const params = {};
       if (barangay) params.barangay = barangay;
       if (fisherfolkType) params.fisherfolk_type = fisherfolkType;
-      const res = await axiosInstance.get('/monitoring/fishing-trips/history/', { params });
+      const res = await axiosInstance.get('/fisheries/fishing-trips/history/', { params });
       setData(res.data);
     } catch {
       setError('Failed to load historical data.');

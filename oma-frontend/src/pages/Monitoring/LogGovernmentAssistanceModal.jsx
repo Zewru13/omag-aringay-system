@@ -5,22 +5,17 @@ import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 
+// Must match fisheries.models.FisheriesAssistanceRecord.ASSISTANCE_TYPE_CHOICES exactly —
+// this is a model CharField with choices, so the backend 400s on anything else.
 const ASSISTANCE_TYPE_OPTIONS = [
-  'Cash Assistance',
-  'Fuel Subsidy',
   'Fishing Gear',
-  'Fishing Nets',
-  'Boat',
-  'Boat Repair',
-  'Fish Cage',
-  'Fingerlings',
-  'Feeds',
-  'Livelihood Assistance',
-  'Training / Seminar',
-  'Insurance Assistance',
-  'Financial Assistance',
+  'Boat/Vessel',
+  'Fingerlings/Seeds',
+  'Feed',
+  'Cash Assistance',
   'Equipment',
-  'Others',
+  'Training',
+  'Other',
 ]
 
 const SOURCE_OPTIONS = [
@@ -115,7 +110,7 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
     })
   }, [ffResults, searchTerm])
 
-  const isCashType = form.assistance_type === 'Cash Assistance' || form.assistance_type === 'Financial Assistance'
+  const isCashType = form.assistance_type === 'Cash Assistance'
 
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }))
 
@@ -152,7 +147,7 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
       return
     }
 
-    if (form.assistance_type === 'Others' && !form.assistance_type_other.trim()) {
+    if (form.assistance_type === 'Other' && !form.assistance_type_other.trim()) {
       showToast('Specify Assistance Type.', 'error')
       return
     }
@@ -167,28 +162,32 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
       return
     }
 
-    const assistanceType = form.assistance_type === 'Others' ? form.assistance_type_other.trim() : form.assistance_type
+    const assistanceType = form.assistance_type === 'Other' ? form.assistance_type_other.trim() : form.assistance_type
     const source = form.source_of_assistance === 'Others' ? form.source_of_assistance_other.trim() : form.source_of_assistance
     const unit = isCashType ? 'PHP' : (form.unit === 'Others' ? form.unit_other.trim() : form.unit)
 
     const selectedYear = new Date(form.date_received).getFullYear()
 
+    // fisheries.models.FisheriesAssistanceRecord has no `unit`/`status` fields — folded
+    // into remarks below so the info the clerk entered isn't silently discarded.
+    const unitNote = !isCashType && unit ? `Unit: ${unit}` : ''
+    const statusNote = form.status ? `Status: ${form.status}` : ''
+    const combinedRemarks = [statusNote, unitNote, form.remarks].filter(Boolean).join(' | ')
+
     const payload = {
       fisherfolk: selectedFisherfolk.id,
       assistance_type: assistanceType,
-      source_of_assistance: source,
+      source_agency: source,
       date_received: form.date_received,
       year: selectedYear,
       quantity: form.quantity,
-      unit,
-      status: form.status,
       description: form.description || '',
-      remarks: form.remarks || '',
+      remarks: combinedRemarks,
     }
 
     setIsSubmitting(true)
     try {
-      await api.post('/monitoring/fisheries-assistance/', payload)
+      await api.post('/fisheries/fisheries-assistance/', payload)
       showToast('Government assistance logged successfully.')
       onSuccess?.()
       onClose?.()
@@ -286,13 +285,13 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
               onChange={(e) => {
                 const value = e.target.value
                 set('assistance_type', value)
-                if (value !== 'Others') set('assistance_type_other', '')
+                if (value !== 'Other') set('assistance_type_other', '')
               }}
             >
               <option value="">Select Assistance Type</option>
               {ASSISTANCE_TYPE_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
             </select>
-            {form.assistance_type === 'Others' && (
+            {form.assistance_type === 'Other' && (
               <input
                 type="text"
                 className={`${baseInputClasses} mt-2`}

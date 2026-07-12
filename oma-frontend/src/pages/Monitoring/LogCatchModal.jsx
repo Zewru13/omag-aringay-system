@@ -192,7 +192,7 @@ function LogCatchModal({ onClose, onSuccess }) {
     }
     setIsSubmitting(true)
     try {
-      const tripRes = await api.post('/monitoring/fishing-trips/', {
+      const tripRes = await api.post('/fisheries/fishing-trips/', {
         fisherfolk: selectedFf.id,
         trip_date: form.trip_date,
         return_date: form.return_date || null,
@@ -212,7 +212,7 @@ function LogCatchModal({ onClose, onSuccess }) {
             ? row.species_name_other.trim()
             : row.species_name.trim()
 
-          return api.post(`/monitoring/fishing-trips/${tripId}/species/`, {
+          return api.post(`/fisheries/fishing-trips/${tripId}/species/`, {
             species_name: speciesName,
             volume_kg: row.volume_kg,
             estimated_value_php: row.estimated_value_php || null,

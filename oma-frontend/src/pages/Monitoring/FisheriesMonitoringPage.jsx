@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Eye, History, Plus } from 'lucide-react'
+import { Anchor, Eye, History, Plus } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
@@ -12,10 +12,12 @@ import FisheriesHistoryModal from './FisheriesHistoryModal.jsx'
 import LogCatchModal from './LogCatchModal.jsx'
 import LogFisheriesDisasterModal from './LogFisheriesDisasterModal.jsx'
 import LogGovernmentAssistanceModal from './LogGovernmentAssistanceModal.jsx'
+import LogVesselInspectionModal from './LogVesselInspectionModal.jsx'
 import StartProductionCycleModal from './StartProductionCycleModal.jsx'
 
 const CYCLE_STATUS_TONES   = { Active: 'green', Harvested: 'blue', Failed: 'rose', Abandoned: 'slate' }
 const DISASTER_STATUS_TONES = { Reported: 'amber', Verified: 'green', Closed: 'slate' }
+const VESSEL_STATUS_TONES  = { Valid: 'green', 'Expiring Soon': 'amber', Expired: 'rose' }
 const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - i)
 
@@ -29,6 +31,16 @@ const CATCH_COLUMNS = [
   { key: 'top_species_cell',  label: 'Top Species' },
   { key: 'hours_at_sea_fmt',  label: 'Hrs at Sea' },
   { key: 'fuel_liters_fmt',   label: 'Fuel (L)' },
+]
+
+const VESSEL_COLUMNS = [
+  { key: 'fisherfolk_name',        label: 'Fisherfolk' },
+  { key: 'license_number',         label: 'License No.' },
+  { key: 'inspection_date_fmt',    label: 'Inspection Date' },
+  { key: 'license_expiry_date_fmt', label: 'License Expiry' },
+  { key: 'vessel_condition',       label: 'Condition' },
+  { key: 'license_status_pill',    label: 'License Status' },
+  { key: 'remarks',                label: 'Remarks' },
 ]
 
 const CYCLE_COLUMNS = [
@@ -50,10 +62,8 @@ const ASSISTANCE_COLUMNS = [
   { key: 'fisherfolk_lgu_registration_number', label: 'LGU Reg. No.' },
   { key: 'fisherfolk_barangay',               label: 'Barangay' },
   { key: 'assistance_type',                   label: 'Assistance Type' },
-  { key: 'source_of_assistance',              label: 'Source of Assistance' },
+  { key: 'source_agency',                     label: 'Source of Assistance' },
   { key: 'quantity',                          label: 'Quantity / Amount' },
-  { key: 'unit',                              label: 'Unit' },
-  { key: 'status_pill',                       label: 'Status' },
   { key: 'remarks',                           label: 'Remarks' },
   { key: 'recorded_by_name',                  label: 'Recorded By' },
   { key: 'date_recorded_fmt',                 label: 'Date Recorded' },
@@ -111,6 +121,10 @@ export default function FisheriesMonitoringPage() {
   const [isLoadingCatch, setIsLoadingCatch] = useState(false)
   const [errorCatch, setErrorCatch]     = useState('')
 
+  const [vesselInspections, setVesselInspections]     = useState([])
+  const [isLoadingVessel, setIsLoadingVessel]         = useState(false)
+  const [errorVessel, setErrorVessel]                 = useState('')
+
   const [aquaCycles, setAquaCycles]       = useState([])
   const [isLoadingAqua, setIsLoadingAqua] = useState(false)
   const [errorAqua, setErrorAqua]         = useState('')
@@ -129,6 +143,7 @@ export default function FisheriesMonitoringPage() {
 
   const [showAddCatch, setShowAddCatch]         = useState(false)
   const [showFisheriesHistory, setShowFisheriesHistory] = useState(false)
+  const [showLogVessel, setShowLogVessel]       = useState(false)
   const [showStartCycle, setShowStartCycle]     = useState(false)
   const [showLogDisaster, setShowLogDisaster]   = useState(false)
   const [showLogAssistance, setShowLogAssistance] = useState(false)
@@ -141,14 +156,25 @@ export default function FisheriesMonitoringPage() {
       if (barangay) params.set('barangay', barangay)
       if (year) params.set('year', year)
       const [logsRes, summaryRes] = await Promise.all([
-        api.get(`/monitoring/fishing-trips/?${params}`),
-        api.get(`/monitoring/fishing-trips/summary/?${params}`),
+        api.get(`/fisheries/fishing-trips/?${params}`),
+        api.get(`/fisheries/fishing-trips/summary/?${params}`),
       ])
       setCatchLogs(Array.isArray(logsRes.data) ? logsRes.data : (logsRes.data.results || []))
       setCatchSummary(summaryRes.data)
     } catch { setErrorCatch('Failed to load catch logs.') }
     finally { setIsLoadingCatch(false) }
   }, [barangay, year])
+
+  const fetchVesselInspections = useCallback(async () => {
+    setIsLoadingVessel(true); setErrorVessel('')
+    try {
+      const params = new URLSearchParams()
+      if (barangay) params.set('barangay', barangay)
+      const r = await api.get(`/fisheries/vessel-inspections/?${params}`)
+      setVesselInspections(Array.isArray(r.data) ? r.data : (r.data.results || []))
+    } catch { setErrorVessel('Failed to load vessel inspections.') }
+    finally { setIsLoadingVessel(false) }
+  }, [barangay])
 
   const fetchAquaCycles = useCallback(async () => {
     setIsLoadingAqua(true); setErrorAqua('')
@@ -183,13 +209,14 @@ export default function FisheriesMonitoringPage() {
       if (assistanceSearch) params.set('search', assistanceSearch)
       if (assistanceSource) params.set('source_of_assistance', assistanceSource)
       if (assistanceType) params.set('assistance_type', assistanceType)
-      const r = await api.get(`/monitoring/fisheries-assistance/?${params}`)
+      const r = await api.get(`/fisheries/fisheries-assistance/?${params}`)
       setAssistance(Array.isArray(r.data) ? r.data : (r.data.results || []))
     } catch { setErrorAssistance('Failed to load assistance records.') }
     finally { setIsLoadingAssistance(false) }
   }, [year, assistanceBarangay, assistanceSearch, assistanceSource, assistanceType])
 
   useEffect(() => { if (subTab === 'capture') fetchCatch() }, [subTab, fetchCatch])
+  useEffect(() => { if (subTab === 'capture') fetchVesselInspections() }, [subTab, fetchVesselInspections])
   useEffect(() => { if (subTab === 'aquaculture') fetchAquaCycles() }, [subTab, fetchAquaCycles])
   useEffect(() => { if (subTab === 'disasters') fetchDisasters() }, [subTab, fetchDisasters])
   useEffect(() => { if (subTab === 'assistance') fetchAssistance() }, [subTab, fetchAssistance])
@@ -215,6 +242,15 @@ export default function FisheriesMonitoringPage() {
       fuel_liters_fmt: c.fuel_consumption_liters != null ? `${Number(c.fuel_consumption_liters).toFixed(1)} L` : '—',
     }
   }), [catchLogs])
+
+  const vesselData = useMemo(() => vesselInspections.map((v) => ({
+    ...v,
+    inspection_date_fmt: formatDate(v.inspection_date),
+    license_expiry_date_fmt: formatDate(v.license_expiry_date),
+    license_status_pill: (
+      <StatusPill tone={VESSEL_STATUS_TONES[v.license_status] || 'slate'}>{v.license_status}</StatusPill>
+    ),
+  })), [vesselInspections])
 
   const aquaData = useMemo(() => aquaCycles.map((c) => ({
     ...c,
@@ -242,7 +278,6 @@ export default function FisheriesMonitoringPage() {
     quantity: a.quantity != null ? Number(a.quantity).toLocaleString() : '—',
     date_received_fmt: formatDate(a.date_received),
     date_recorded_fmt: formatDate(a.date_recorded),
-    status_pill: <StatusPill tone={a.status === 'Completed' ? 'green' : a.status === 'Pending' ? 'amber' : 'blue'}>{a.status}</StatusPill>,
   })), [assistance])
 
   const assistanceByType = useMemo(() => {
@@ -298,6 +333,9 @@ export default function FisheriesMonitoringPage() {
               <>
                 <Button variant="outline" onClick={() => setShowFisheriesHistory(true)}>
                   <History size={15} className="mr-1" /> Historical
+                </Button>
+                <Button variant="outline" onClick={() => setShowLogVessel(true)}>
+                  <Anchor size={15} className="mr-1" /> Log Vessel Inspection
                 </Button>
                 <Button onClick={() => setShowAddCatch(true)}>
                   <Plus size={15} className="mr-1" /> Log Catch
@@ -384,6 +422,14 @@ export default function FisheriesMonitoringPage() {
               ? <ErrorMessage message={errorCatch} />
               : <DataTable columns={CATCH_COLUMNS} data={catchData} isLoading={isLoadingCatch} />
             }
+
+            <div>
+              <p className="text-sm font-semibold text-slate-700 mb-2">Vessel Inspections</p>
+              {errorVessel
+                ? <ErrorMessage message={errorVessel} />
+                : <DataTable columns={VESSEL_COLUMNS} data={vesselData} isLoading={isLoadingVessel} />
+              }
+            </div>
           </div>
         )}
 
@@ -508,6 +554,9 @@ export default function FisheriesMonitoringPage() {
       )}
       {showFisheriesHistory && (
         <FisheriesHistoryModal onClose={() => setShowFisheriesHistory(false)} />
+      )}
+      {showLogVessel && (
+        <LogVesselInspectionModal onClose={() => setShowLogVessel(false)} onSuccess={fetchVesselInspections} />
       )}
       {showStartCycle && (
         <StartProductionCycleModal onClose={() => setShowStartCycle(false)} onSuccess={fetchAquaCycles} />
