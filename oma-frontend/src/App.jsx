@@ -10,7 +10,6 @@ import FarmerDetailPage from "./pages/Farmers/FarmerDetailPage.jsx";
 import FarmersHub from "./pages/Farmers/FarmersHub.jsx";
 import FisherfolkDetailPage from "./pages/Fisheries/FisherfolkDetailPage.jsx";
 import FisherfolkHub from "./pages/Fisherfolk/FisherfolkHub.jsx";
-import FisheriesRecordsPage from "./pages/FisheriesRecords/FisheriesRecordsPage.jsx";
 import FisheriesSettingsHub from "./pages/FisheriesSettings/FisheriesSettingsHub.jsx";
 import InterventionsPage from "./pages/Interventions/InterventionsPage.jsx";
 import ProgramDetailPage from "./pages/Interventions/ProgramDetailPage.jsx";
@@ -113,14 +112,8 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/fisheries-records"
-            element={
-              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
-                <FisheriesRecordsPage />
-              </ProtectedRoute>
-            }
-          />
+          {/* Fisheries Records was consolidated into the unified Fisheries Monitoring page */}
+          <Route path="/fisheries-records" element={<Navigate to="/fisheries-monitoring?tab=stocking" replace />} />
           <Route
             path="/fisheries-settings"
             element={

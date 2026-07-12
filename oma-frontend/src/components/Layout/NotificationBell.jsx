@@ -8,7 +8,7 @@ import api from '../../api/axiosInstance.js'
 // broker) wouldn't pay for itself here.
 const POLL_INTERVAL_MS = 45 * 1000
 
-const RECORD_TYPE_ROUTES = { crop: '/crop-monitoring', stocking: '/fisheries-records' }
+const RECORD_TYPE_ROUTES = { crop: '/crop-monitoring', stocking: '/fisheries-monitoring?tab=stocking' }
 
 function timeAgo(iso) {
   const diffSec = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)

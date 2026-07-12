@@ -1103,7 +1103,7 @@ function LifecycleMenu({ rec, onViewLogs, onRecordHarvest, onReportDisaster }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-export default function FisheriesRecordsPage() {
+export default function FisheriesRecordsPage({ asTab = false }) {
   const { user } = useAuth()
   const [searchParams] = useSearchParams()
   const { showToast } = useToast()
@@ -1296,11 +1296,9 @@ export default function FisheriesRecordsPage() {
     }
   }
 
-  return (
-    <PageLayout
-      title="Fisheries Records"
-      subtitle="Manage stocking records for aquaculture production."
-      action={
+  const innerContent = (
+    <div className="space-y-4">
+      <div className="flex justify-end">
         <button
           type="button"
           className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors"
@@ -1308,8 +1306,8 @@ export default function FisheriesRecordsPage() {
         >
           <Plus size={15} /> Add Stocking Record
         </button>
-      }
-    >
+      </div>
+
       <div className="space-y-4">
         {/* Filter bar */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center bg-white border border-[#E2E8E2] rounded-lg px-4 py-2.5">
@@ -1471,6 +1469,17 @@ export default function FisheriesRecordsPage() {
           onSuccess={() => { setHarvestRec(null); fetchRecords(page) }}
         />
       )}
+    </div>
+  )
+
+  if (asTab) return innerContent
+
+  return (
+    <PageLayout
+      title="Fisheries Records"
+      subtitle="Manage stocking records for aquaculture production."
+    >
+      {innerContent}
     </PageLayout>
   )
 }

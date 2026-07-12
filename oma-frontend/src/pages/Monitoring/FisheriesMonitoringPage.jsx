@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Anchor, History, Plus } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
@@ -7,6 +8,7 @@ import Button from '../../components/UI/Button.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
+import FisheriesRecordsPage from '../FisheriesRecords/FisheriesRecordsPage.jsx'
 import FisheriesHistoryModal from './FisheriesHistoryModal.jsx'
 import LogCatchModal from './LogCatchModal.jsx'
 import LogFisheriesDisasterModal from './LogFisheriesDisasterModal.jsx'
@@ -96,7 +98,10 @@ function SubTabBar({ options, value, onChange }) {
 }
 
 export default function FisheriesMonitoringPage() {
-  const [subTab, setSubTab] = useState('capture')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const subTab = searchParams.get('tab') || 'stocking'
+  const setSubTab = (tab) => setSearchParams({ tab }, { replace: true })
+
   const [barangay, setBarangay] = useState('')
   const [year, setYear]     = useState('')
 
@@ -255,59 +260,68 @@ export default function FisheriesMonitoringPage() {
   })), [disasters])
 
   return (
-    <PageLayout title="Fisheries Monitoring" subtitle="Monitor capture fishing, vessel inspections, and disaster reports">
+    <PageLayout
+      title="Fisheries Monitoring"
+      subtitle="Stocking & culture, capture fishing, vessel inspections, assistance, and disaster reports"
+    >
       <div className="space-y-5">
-        {/* Filters + Actions */}
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="w-48">
-            <BarangaySelect value={barangay} onChange={(e) => setBarangay(e.target.value)} includeAllOption />
-          </div>
-          <div>
-            <select
-              className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-[#1E4620] focus:outline-none"
-              value={year}
-              onChange={(e) => setYear(e.target.value)}
-            >
-              <option value="">All Years</option>
-              {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-            </select>
-          </div>
-          <div className="ml-auto flex gap-2">
-            {subTab === 'capture' && (
-              <>
-                <Button variant="outline" onClick={() => setShowFisheriesHistory(true)}>
-                  <History size={15} className="mr-1" /> Historical
+        {/* Filters + Actions — not applicable to Stocking & Culture, which has its own filter bar */}
+        {subTab !== 'stocking' && (
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="w-48">
+              <BarangaySelect value={barangay} onChange={(e) => setBarangay(e.target.value)} includeAllOption />
+            </div>
+            <div>
+              <select
+                className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-[#1E4620] focus:outline-none"
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
+              >
+                <option value="">All Years</option>
+                {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+            <div className="ml-auto flex gap-2">
+              {subTab === 'capture' && (
+                <>
+                  <Button variant="outline" onClick={() => setShowFisheriesHistory(true)}>
+                    <History size={15} className="mr-1" /> Historical
+                  </Button>
+                  <Button variant="outline" onClick={() => setShowLogVessel(true)}>
+                    <Anchor size={15} className="mr-1" /> Log Vessel Inspection
+                  </Button>
+                  <Button onClick={() => setShowAddCatch(true)}>
+                    <Plus size={15} className="mr-1" /> Log Catch
+                  </Button>
+                </>
+              )}
+              {subTab === 'disasters' && (
+                <Button onClick={() => setShowLogDisaster(true)}>
+                  <Plus size={15} className="mr-1" /> Log Disaster
                 </Button>
-                <Button variant="outline" onClick={() => setShowLogVessel(true)}>
-                  <Anchor size={15} className="mr-1" /> Log Vessel Inspection
+              )}
+              {subTab === 'assistance' && (
+                <Button onClick={() => setShowLogAssistance(true)}>
+                  <Plus size={15} className="mr-1" /> Log Government Assistance
                 </Button>
-                <Button onClick={() => setShowAddCatch(true)}>
-                  <Plus size={15} className="mr-1" /> Log Catch
-                </Button>
-              </>
-            )}
-            {subTab === 'disasters' && (
-              <Button onClick={() => setShowLogDisaster(true)}>
-                <Plus size={15} className="mr-1" /> Log Disaster
-              </Button>
-            )}
-            {subTab === 'assistance' && (
-              <Button onClick={() => setShowLogAssistance(true)}>
-                <Plus size={15} className="mr-1" /> Log Government Assistance
-              </Button>
-            )}
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         <SubTabBar
           options={[
-            { value: 'capture',    label: 'Capture Fishing' },
-            { value: 'disasters',  label: 'Disasters' },
+            { value: 'stocking',   label: 'Stocking & Culture' },
+            { value: 'capture',    label: 'Capture & Vessels' },
             { value: 'assistance', label: 'Assistance' },
+            { value: 'disasters',  label: 'Fisherfolk Disasters' },
           ]}
           value={subTab}
           onChange={setSubTab}
         />
+
+        {/* Stocking & Culture — the existing FisheriesRecordsPage, mounted as-is */}
+        {subTab === 'stocking' && <FisheriesRecordsPage asTab />}
 
         {/* Capture Fishing */}
         {subTab === 'capture' && (

@@ -10,7 +10,6 @@ import {
   TrendingUp,
   UserCog,
   Users,
-  Waves,
   X,
 } from "lucide-react";
 import { useLocation, NavLink } from "react-router-dom";
@@ -181,14 +180,6 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
             user={user}
           >
             Fisherfolk
-          </NavItem>
-          <NavItem
-            to="/fisheries-records"
-            icon={Waves}
-            isCollapsed={isCollapsed}
-            user={user}
-          >
-            Fisheries Records
           </NavItem>
           <NavItem
             to="/fisheries-monitoring"
