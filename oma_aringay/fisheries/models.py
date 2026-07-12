@@ -2,6 +2,7 @@ from decimal import Decimal
 from datetime import timedelta, date
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 
 from core.constants import BARANGAY_CHOICES
@@ -618,3 +619,166 @@ class FisheriesHarvestRecord(models.Model):
 
     def __str__(self):
         return f'Harvest {self.quantity_kg}kg on {self.harvest_date}'
+
+
+# ─── Legacy Capture Fishing / Vessel / Assistance records ─────────────────────
+# Relocated from monitoring app (Phase 3 of the fisheries merge) — these
+# already FK'd to Fisherfolk, they just lived in the wrong app.
+
+class FishingTripLog(models.Model):
+    fisherfolk = models.ForeignKey(
+        Fisherfolk,
+        on_delete=models.CASCADE,
+        related_name='fishing_trips',
+    )
+    trip_date = models.DateField()
+    return_date = models.DateField(null=True, blank=True)
+    fishing_ground = models.CharField(max_length=150)
+    gear_used = models.CharField(max_length=150)
+    total_catch_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    hours_at_sea = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    fuel_consumption_liters = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    remarks = models.TextField(blank=True)
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='recorded_fishing_trips',
+    )
+    date_recorded = models.DateTimeField(auto_now_add=True)
+
+    def clean(self):
+        if self.fisherfolk_id:
+            try:
+                ff = Fisherfolk.objects.get(pk=self.fisherfolk_id)
+                if ff.fisherfolk_type not in (
+                    Fisherfolk.FisherfolkType.CAPTURE,
+                    Fisherfolk.FisherfolkType.INLAND,
+                ):
+                    raise ValidationError(
+                        'Fishing trip logs can only be created for Capture or Inland Fishery fisherfolk.'
+                    )
+            except Fisherfolk.DoesNotExist:
+                pass
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
+
+    @property
+    def total_species_count(self):
+        return self.species_entries.values('species_name').distinct().count()
+
+    def __str__(self):
+        return f'Trip by {self.fisherfolk} on {self.trip_date}'
+
+
+class VesselInspection(models.Model):
+    class VesselCondition(models.TextChoices):
+        GOOD = 'Good', 'Good'
+        FAIR = 'Fair', 'Fair'
+        POOR = 'Poor', 'Poor'
+        FOR_REPAIR = 'For Repair', 'For Repair'
+
+    fisherfolk = models.ForeignKey(
+        Fisherfolk,
+        on_delete=models.CASCADE,
+        related_name='vessel_inspections',
+    )
+    inspection_date = models.DateField()
+    license_number = models.CharField(max_length=100)
+    license_expiry_date = models.DateField()
+    vessel_condition = models.CharField(max_length=20, choices=VesselCondition.choices)
+    remarks = models.TextField(blank=True)
+    inspected_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='conducted_vessel_inspections',
+    )
+    date_recorded = models.DateTimeField(auto_now_add=True)
+
+    def clean(self):
+        if self.fisherfolk_id:
+            try:
+                ff = Fisherfolk.objects.get(pk=self.fisherfolk_id)
+                if ff.fisherfolk_type != Fisherfolk.FisherfolkType.CAPTURE:
+                    raise ValidationError('Vessel inspections can only be created for Capture fisherfolk.')
+            except Fisherfolk.DoesNotExist:
+                pass
+
+    def save(self, *args, **kwargs):
+        self.clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'Inspection of {self.fisherfolk} on {self.inspection_date}'
+
+
+class TripSpeciesEntry(models.Model):
+    fishing_trip = models.ForeignKey(
+        FishingTripLog,
+        on_delete=models.CASCADE,
+        related_name='species_entries',
+    )
+    species_name = models.CharField(max_length=100)
+    volume_kg = models.DecimalField(max_digits=10, decimal_places=2)
+    notes = models.CharField(max_length=200, blank=True)
+
+    def _recompute_parent(self):
+        from django.db.models import Sum
+        entries = TripSpeciesEntry.objects.filter(fishing_trip_id=self.fishing_trip_id)
+        total_kg = entries.aggregate(Sum('volume_kg'))['volume_kg__sum'] or Decimal('0')
+        FishingTripLog.objects.filter(pk=self.fishing_trip_id).update(total_catch_kg=total_kg)
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self._recompute_parent()
+
+    def delete(self, *args, **kwargs):
+        trip_id = self.fishing_trip_id
+        super().delete(*args, **kwargs)
+        from django.db.models import Sum
+        entries = TripSpeciesEntry.objects.filter(fishing_trip_id=trip_id)
+        total_kg = entries.aggregate(Sum('volume_kg'))['volume_kg__sum']
+        FishingTripLog.objects.filter(pk=trip_id).update(total_catch_kg=total_kg)
+
+    def __str__(self):
+        return f'{self.species_name} — {self.volume_kg} kg (Trip {self.fishing_trip_id})'
+
+
+class FisheriesAssistanceRecord(models.Model):
+    ASSISTANCE_TYPE_CHOICES = [
+        ('Fishing Gear', 'Fishing Gear'),
+        ('Boat/Vessel', 'Boat/Vessel'),
+        ('Fingerlings/Seeds', 'Fingerlings/Seeds'),
+        ('Feed', 'Feed'),
+        ('Equipment', 'Equipment'),
+        ('Cash Assistance', 'Cash Assistance'),
+        ('Training', 'Training'),
+        ('Other', 'Other'),
+    ]
+
+    fisherfolk = models.ForeignKey(
+        Fisherfolk,
+        on_delete=models.CASCADE,
+        related_name='assistance_records',
+    )
+    assistance_type = models.CharField(max_length=30, choices=ASSISTANCE_TYPE_CHOICES)
+    description = models.CharField(max_length=300)
+    quantity = models.CharField(max_length=100, blank=True)
+    date_received = models.DateField()
+    source_agency = models.CharField(max_length=150)
+    season = models.CharField(max_length=20, blank=True)
+    year = models.PositiveIntegerField()
+    remarks = models.TextField(blank=True)
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='recorded_fisheries_assistance',
+    )
+    date_recorded = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'{self.assistance_type} — {self.fisherfolk} ({self.date_received})'

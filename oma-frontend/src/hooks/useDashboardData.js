@@ -43,7 +43,7 @@ const fetchUpcomingVisits = () =>
   })
 
 const fetchExpiringLicenses = () =>
-  api.get('/monitoring/vessel-licenses/alerts/').then((r) => normalizeList(r.data).length)
+  api.get('/fisheries/vessel-licenses/alerts/').then((r) => normalizeList(r.data).length)
 
 const fetchActiveMonitoring = () =>
   api.get('/production/monitoring/').then((r) =>

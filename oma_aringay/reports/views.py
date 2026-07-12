@@ -21,13 +21,12 @@ from rest_framework.views import APIView
 
 from accounts.permissions import IsAdminOrEvaluator
 from farmers.models import Farmer
-from fisheries.models import Fisherfolk
+from fisheries.models import Fisherfolk, FishingTripLog, TripSpeciesEntry
 from interventions.models import (
     BeneficiaryRecord,
     FisherfolkBeneficiaryRecord,
     InterventionProgram,
 )
-from monitoring.models import FishingTripLog, TripSpeciesEntry
 from production.models import BarangayCropSummary, DamageReport, HarvestRecord, PlantingRecord
 
 from .pdf_utils import (
@@ -1139,7 +1138,6 @@ class SeasonalCatchReport(APIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
     def get(self, request):
-        from monitoring.models import FishingTripLog
         today = _today()
         year = request.query_params.get('year', '')
         barangay = request.query_params.get('barangay', '')
@@ -1213,7 +1211,7 @@ class VesselLicenseStatusReport(APIView):
 
     def get(self, request):
         from datetime import date as date_type, timedelta
-        from monitoring.models import VesselInspection
+        from fisheries.models import VesselInspection
         today = _today()
         barangay = request.query_params.get('barangay', '')
 
