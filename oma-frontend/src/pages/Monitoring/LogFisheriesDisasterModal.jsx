@@ -50,7 +50,7 @@ function LogFisheriesDisasterModal({ onClose, onSuccess }) {
     setFfSearch(q)
     if (!q) { setFfResults([]); return }
     try {
-      const r = await api.get(`/fisheries/?search=${encodeURIComponent(q)}`)
+      const r = await api.get(`/fisheries/fisherfolk/?search=${encodeURIComponent(q)}`)
       setFfResults(Array.isArray(r.data) ? r.data : (r.data.results || []))
     } catch { setFfResults([]) }
   }

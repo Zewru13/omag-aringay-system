@@ -94,10 +94,10 @@ function LogCatchModal({ onClose, onSuccess }) {
     let mounted = true
     const loadFisherfolk = async () => {
       try {
-        const r = await api.get('/fisheries/?type=Capture,Inland')
+        const r = await api.get('/fisheries/fisherfolk/')
         const rows = Array.isArray(r.data) ? r.data : (r.data.results || [])
         if (mounted) {
-          setFfResults(rows)
+          setFfResults(rows.filter((ff) => ff.fisherfolk_type === 'Capture' || ff.fisherfolk_type === 'Inland'))
         }
       } catch {
         if (mounted) {
@@ -137,11 +137,11 @@ function LogCatchModal({ onClose, onSuccess }) {
     const normalized = q.trim()
     try {
       const endpoint = normalized
-        ? `/fisheries/?search=${encodeURIComponent(normalized)}&type=Capture,Inland`
-        : '/fisheries/?type=Capture,Inland'
+        ? `/fisheries/fisherfolk/?search=${encodeURIComponent(normalized)}`
+        : '/fisheries/fisherfolk/'
       const r = await api.get(endpoint)
       const rows = Array.isArray(r.data) ? r.data : (r.data.results || [])
-      setFfResults(rows)
+      setFfResults(rows.filter((ff) => ff.fisherfolk_type === 'Capture' || ff.fisherfolk_type === 'Inland'))
     } catch {
       setFfResults([])
     }

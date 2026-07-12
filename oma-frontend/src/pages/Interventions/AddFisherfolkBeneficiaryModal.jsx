@@ -24,8 +24,9 @@ function AddFisherfolkBeneficiaryModal({ programId, onClose, onSuccess }) {
     if (!query.trim()) { setFisherfolkList([]); return }
     setIsSearching(true)
     try {
-      const response = await api.get(`/fisheries/?search=${encodeURIComponent(query)}`)
-      setFisherfolkList(response.data || [])
+      const response = await api.get(`/fisheries/fisherfolk/?search=${encodeURIComponent(query)}`)
+      const rows = Array.isArray(response.data) ? response.data : (response.data.results || [])
+      setFisherfolkList(rows)
     } catch {
       setErrorMessage("Unable to search fisherfolk.")
     } finally {
