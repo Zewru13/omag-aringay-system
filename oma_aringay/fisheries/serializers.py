@@ -1,6 +1,4 @@
-import re
 from datetime import date
-from decimal import Decimal
 
 from django.db.models import Q, Sum
 from rest_framework import serializers
@@ -14,7 +12,6 @@ from .models import (
     FisheriesActivityLog,
     FisheriesAssistanceRecord,
     FisheriesDisasterReport,
-    FisheriesDisasterResponseRule,
     FisheriesHarvestRecord,
     FishingTripLog,
     SpeciesActivityStage,
