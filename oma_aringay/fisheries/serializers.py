@@ -624,16 +624,7 @@ class StockingRecordSerializer(serializers.ModelSerializer):
         return None
 
     def get_production_cycle_no(self, obj):
-        if not obj.fisherfolk_id or not obj.species_id or not obj.date_stocked:
-            return 1
-        prior = StockingRecord.objects.filter(
-            fisherfolk_id=obj.fisherfolk_id,
-            species_id=obj.species_id,
-        ).filter(
-            Q(date_stocked__lt=obj.date_stocked)
-            | Q(date_stocked=obj.date_stocked, id__lt=obj.id)
-        ).count()
-        return prior + 1
+        return obj.compute_production_cycle_no()
 
     def validate_date_stocked(self, value):
         validate_not_future_date(value, 'Date stocked')

@@ -4,6 +4,7 @@ from datetime import timedelta, date
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models import Q
 
 from core.constants import BARANGAY_CHOICES
 from core.validators import validate_fishr, validate_lgu_reg, validate_rsbsa
@@ -377,6 +378,24 @@ class StockingRecord(models.Model):
     def __str__(self):
         fisherfolk_str = self.fisherfolk.full_name if self.fisherfolk else 'Unknown'
         return f'{self.species.species_name} — {fisherfolk_str} ({self.season} {self.year})'
+
+    def compute_production_cycle_no(self):
+        """
+        Which repeat cycle this is for this fisherfolk+species (1 = first
+        ever, 2 = second, ...), counting by stocking date then id as a
+        tiebreaker. Shared by StockingRecordSerializer and the yield-analysis
+        module so both agree on cycle numbering.
+        """
+        if not self.fisherfolk_id or not self.species_id or not self.date_stocked:
+            return 1
+        prior = StockingRecord.objects.filter(
+            fisherfolk_id=self.fisherfolk_id,
+            species_id=self.species_id,
+        ).filter(
+            Q(date_stocked__lt=self.date_stocked)
+            | Q(date_stocked=self.date_stocked, id__lt=self.id)
+        ).count()
+        return prior + 1
 
     def determine_status(self):
         """Pick the correct status for this record after total-loss reversal."""

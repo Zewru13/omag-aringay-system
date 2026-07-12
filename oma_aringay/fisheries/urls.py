@@ -5,11 +5,13 @@ from .views import (
     FisherfolkDetailView,
     FisherfolkDuplicateCheckView,
     FisheriesActivitySuggestionsView,
-    FisheriesAssistanceDeleteView,
+    FisheriesAssistanceDetailView,
     FisheriesAssistanceListCreateView,
     FisheriesBarangaySummaryView,
     FisheriesDisasterResolveView,
     FisheriesHistoricalTimelineView,
+    FisheriesYieldAnalysisView,
+    FisheriesYieldAnalysisSummaryView,
     FishingTripLogDetailView,
     FishingTripLogListCreateView,
     FishingTripSummaryView,
@@ -77,5 +79,9 @@ urlpatterns = [
     path('vessel-inspections/<int:pk>/', VesselInspectionDetailView.as_view(), name='vessel-inspection-detail'),
     path('vessel-licenses/alerts/', VesselLicenseAlertView.as_view(), name='vessel-license-alerts'),
     path('fisheries-assistance/', FisheriesAssistanceListCreateView.as_view(), name='fisheries-assistance-list'),
-    path('fisheries-assistance/<int:pk>/', FisheriesAssistanceDeleteView.as_view(), name='fisheries-assistance-delete'),
+    path('fisheries-assistance/<int:pk>/', FisheriesAssistanceDetailView.as_view(), name='fisheries-assistance-detail'),
+
+    # ── Yield Analysis (descriptive, mirrors production/yield-analysis) ──────
+    path('yield-analysis/', FisheriesYieldAnalysisView.as_view(), name='fisheries-yield-analysis'),
+    path('yield-analysis/summary/', FisheriesYieldAnalysisSummaryView.as_view(), name='fisheries-yield-analysis-summary'),
 ]

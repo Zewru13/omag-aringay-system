@@ -1,19 +1,25 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Anchor, History, Plus } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Anchor, Eye, History, MoreVertical, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import Button from '../../components/UI/Button.jsx'
+import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
+import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import ModalShell from '../../components/UI/ModalShell.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
+import { useAuth } from '../../context/AuthContext.jsx'
+import { useToast } from '../../context/ToastContext.jsx'
 import FisheriesRecordsPage from '../FisheriesRecords/FisheriesRecordsPage.jsx'
 import FisheriesHistoryModal from './FisheriesHistoryModal.jsx'
 import LogCatchModal from './LogCatchModal.jsx'
 import LogFisheriesDisasterModal from './LogFisheriesDisasterModal.jsx'
 import LogGovernmentAssistanceModal from './LogGovernmentAssistanceModal.jsx'
 import LogVesselInspectionModal from './LogVesselInspectionModal.jsx'
+import ForecastingTab from './FisheriesForecastingTab.jsx'
 
 const DISASTER_STATUS_TONES = { Reported: 'amber', Verified: 'green', Closed: 'slate' }
 const VESSEL_STATUS_TONES  = { Valid: 'green', 'Expiring Soon': 'amber', Expired: 'rose' }
@@ -30,6 +36,7 @@ const CATCH_COLUMNS = [
   { key: 'top_species_cell',  label: 'Top Species' },
   { key: 'hours_at_sea_fmt',  label: 'Hrs at Sea' },
   { key: 'fuel_liters_fmt',   label: 'Fuel (L)' },
+  { key: 'actions_cell',      label: 'Actions' },
 ]
 
 const VESSEL_COLUMNS = [
@@ -40,6 +47,7 @@ const VESSEL_COLUMNS = [
   { key: 'vessel_condition',       label: 'Condition' },
   { key: 'license_status_pill',    label: 'License Status' },
   { key: 'remarks',                label: 'Remarks' },
+  { key: 'actions_cell',           label: 'Actions' },
 ]
 
 const ASSISTANCE_COLUMNS = [
@@ -53,6 +61,7 @@ const ASSISTANCE_COLUMNS = [
   { key: 'remarks',                           label: 'Remarks' },
   { key: 'recorded_by_name',                  label: 'Recorded By' },
   { key: 'date_recorded_fmt',                 label: 'Date Recorded' },
+  { key: 'actions_cell',                      label: 'Actions' },
 ]
 
 const DISASTER_COLUMNS = [
@@ -62,6 +71,7 @@ const DISASTER_COLUMNS = [
   { key: 'affected_barangay',    label: 'Barangay' },
   { key: 'estimated_loss_php',   label: 'Est. Loss (₱)' },
   { key: 'status_pill',          label: 'Status' },
+  { key: 'actions_cell',         label: 'Actions' },
 ]
 
 function formatDate(v) {
@@ -94,6 +104,630 @@ function SubTabBar({ options, value, onChange }) {
         </button>
       ))}
     </div>
+  )
+}
+
+// ─── Table Actions Menu (⋮): View Details / Edit ───────────────────────────────
+// Delete lives inside each Edit modal now, not as a standalone icon — Batch 5.
+
+function TableActionsMenu({ onViewDetails, onEdit }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}
+        className="flex items-center justify-center rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 transition-colors"
+        title="Actions"
+      >
+        <MoreVertical size={14} />
+      </button>
+      {open && (
+        <div className="absolute right-0 z-20 mt-1 w-40 rounded-lg border border-[#E2E8E2] bg-white py-1 shadow-lg">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setOpen(false); onViewDetails() }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-[13px] text-[#1A2B1A] hover:bg-[#F5F7F5] transition-colors"
+          >
+            <Eye size={13} /> View Details
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setOpen(false); onEdit() }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-[13px] text-[#1A2B1A] hover:bg-[#F5F7F5] transition-colors"
+          >
+            <Pencil size={13} /> Edit
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Generic read-only Detail Modal (View Details) ─────────────────────────────
+
+function DetailModal({ title, subtitle, rows, onClose }) {
+  return (
+    <ModalShell title={title} subtitle={subtitle} icon={Eye} onClose={onClose} maxWidth="max-w-lg">
+      <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex items-start justify-between gap-4 border-b border-[#F0F4F0] pb-2">
+            <span className="text-[12px] font-medium text-[#7A8E7A]">{label}</span>
+            <span className="text-right text-[13px] font-semibold text-[#1A2B1A]">{value ?? '—'}</span>
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-end pt-4 mt-2 border-t border-[#F0F4F0]">
+        <button type="button" onClick={onClose}
+          className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
+          Close
+        </button>
+      </div>
+    </ModalShell>
+  )
+}
+
+// ─── Danger Zone (shared bottom-of-Edit-modal delete section) ─────────────────
+
+function DangerZone({ isAdmin, description, onDeleteClick }) {
+  if (!isAdmin) return null
+  return (
+    <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+      <p className="text-[12px] font-semibold text-rose-700 mb-1">Danger Zone</p>
+      <p className="text-[11px] text-rose-600 mb-2">{description}</p>
+      <button
+        type="button"
+        onClick={onDeleteClick}
+        className="flex items-center gap-1.5 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-[12px] font-medium text-rose-600 hover:bg-rose-100 transition-colors"
+      >
+        <Trash2 size={13} /> Delete this record
+      </button>
+    </div>
+  )
+}
+
+// ─── Edit Catch Log Modal ──────────────────────────────────────────────────────
+
+function EditCatchModal({ record, onClose, onSaved }) {
+  const { isAdmin } = useAuth()
+  const { showToast } = useToast()
+  const originalData = {
+    trip_date: record.trip_date || '',
+    return_date: record.return_date || '',
+    fishing_ground: record.fishing_ground || '',
+    gear_used: record.gear_used || '',
+    total_catch_kg: record.total_catch_kg != null ? String(record.total_catch_kg) : '',
+    hours_at_sea: record.hours_at_sea != null ? String(record.hours_at_sea) : '',
+    fuel_consumption_liters: record.fuel_consumption_liters != null ? String(record.fuel_consumption_liters) : '',
+    remarks: record.remarks || '',
+  }
+  const [form, setForm] = useState(originalData)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+  const isDirty = JSON.stringify(form) !== JSON.stringify(originalData)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setError(''); setIsSubmitting(true)
+    try {
+      await api.patch(`/fisheries/fishing-trips/${record.id}/`, {
+        trip_date: form.trip_date,
+        return_date: form.return_date || null,
+        fishing_ground: form.fishing_ground,
+        gear_used: form.gear_used,
+        total_catch_kg: form.total_catch_kg !== '' ? parseFloat(form.total_catch_kg) : null,
+        hours_at_sea: form.hours_at_sea !== '' ? parseFloat(form.hours_at_sea) : null,
+        fuel_consumption_liters: form.fuel_consumption_liters !== '' ? parseFloat(form.fuel_consumption_liters) : null,
+        remarks: form.remarks,
+      })
+      showToast('Catch log updated.', 'success')
+      onSaved()
+    } catch (err) {
+      setError(err?.response?.data?.detail || 'Failed to update catch log.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleDeleteConfirmed = async () => {
+    setIsDeleting(true)
+    try {
+      await api.delete(`/fisheries/fishing-trips/${record.id}/`)
+      showToast('Catch log deleted.', 'success')
+      onSaved()
+      onClose()
+    } catch (err) {
+      showToast(err?.response?.data?.detail || 'Failed to delete catch log.', 'error')
+      setShowDeleteConfirm(false)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  return (
+    <>
+      <ModalShell title="Edit Catch Log" subtitle={record.fisherfolk_name} icon={Pencil} onClose={onClose} maxWidth="max-w-xl">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <FormField label="Trip Date" required>
+              <input type="date" className={baseInputClasses} value={form.trip_date}
+                max={new Date().toISOString().split('T')[0]}
+                onChange={(e) => set('trip_date', e.target.value)} />
+            </FormField>
+            <FormField label="Return Date">
+              <input type="date" className={baseInputClasses} value={form.return_date}
+                max={new Date().toISOString().split('T')[0]}
+                onChange={(e) => set('return_date', e.target.value)} />
+            </FormField>
+            <FormField label="Fishing Ground">
+              <input type="text" className={baseInputClasses} value={form.fishing_ground}
+                onChange={(e) => set('fishing_ground', e.target.value)} />
+            </FormField>
+            <FormField label="Gear Used">
+              <input type="text" className={baseInputClasses} value={form.gear_used}
+                onChange={(e) => set('gear_used', e.target.value)} />
+            </FormField>
+            <FormField label="Total Catch (kg)">
+              <input type="number" step="0.01" min="0" className={baseInputClasses} value={form.total_catch_kg}
+                onChange={(e) => set('total_catch_kg', e.target.value)} />
+            </FormField>
+            <FormField label="Hours at Sea">
+              <input type="number" step="0.1" min="0" className={baseInputClasses} value={form.hours_at_sea}
+                onChange={(e) => set('hours_at_sea', e.target.value)} />
+            </FormField>
+            <FormField label="Fuel Consumption (L)">
+              <input type="number" step="0.1" min="0" className={baseInputClasses} value={form.fuel_consumption_liters}
+                onChange={(e) => set('fuel_consumption_liters', e.target.value)} />
+            </FormField>
+          </div>
+          <FormField label="Remarks">
+            <textarea className={baseInputClasses} rows={2} value={form.remarks}
+              onChange={(e) => set('remarks', e.target.value)} />
+          </FormField>
+
+          {error && (
+            <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>
+          )}
+
+          <DangerZone
+            isAdmin={isAdmin}
+            description="Permanently delete this catch log and its species entries."
+            onDeleteClick={() => setShowDeleteConfirm(true)}
+          />
+
+          <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-3">
+            <button type="button" onClick={onClose}
+              className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
+              Cancel
+            </button>
+            <button type="submit" disabled={isSubmitting || !isDirty}
+              className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50">
+              {isSubmitting ? 'Saving…' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </ModalShell>
+
+      {showDeleteConfirm && (
+        <ConfirmDialog
+          title="Delete Catch Log?"
+          message="This action cannot be undone."
+          confirmLabel={isDeleting ? 'Deleting…' : 'Delete Record'}
+          requireTypedConfirmation
+          typedConfirmationText="DELETE"
+          variant="danger"
+          onConfirm={handleDeleteConfirmed}
+          onCancel={() => setShowDeleteConfirm(false)}
+        />
+      )}
+    </>
+  )
+}
+
+// ─── Edit Vessel Inspection Modal ──────────────────────────────────────────────
+
+function EditVesselInspectionModal({ record, onClose, onSaved }) {
+  const { isAdmin } = useAuth()
+  const { showToast } = useToast()
+  const originalData = {
+    inspection_date: record.inspection_date || '',
+    license_number: record.license_number || '',
+    license_expiry_date: record.license_expiry_date || '',
+    vessel_condition: record.vessel_condition || '',
+    remarks: record.remarks || '',
+  }
+  const [form, setForm] = useState(originalData)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+  const isDirty = JSON.stringify(form) !== JSON.stringify(originalData)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setError(''); setIsSubmitting(true)
+    try {
+      await api.patch(`/fisheries/vessel-inspections/${record.id}/`, form)
+      showToast('Vessel inspection updated.', 'success')
+      onSaved()
+    } catch (err) {
+      setError(err?.response?.data?.detail || 'Failed to update vessel inspection.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleDeleteConfirmed = async () => {
+    setIsDeleting(true)
+    try {
+      await api.delete(`/fisheries/vessel-inspections/${record.id}/`)
+      showToast('Vessel inspection deleted.', 'success')
+      onSaved()
+      onClose()
+    } catch (err) {
+      showToast(err?.response?.data?.detail || 'Failed to delete vessel inspection.', 'error')
+      setShowDeleteConfirm(false)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  return (
+    <>
+      <ModalShell title="Edit Vessel Inspection" subtitle={record.fisherfolk_name} icon={Pencil} onClose={onClose} maxWidth="max-w-xl">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <FormField label="Inspection Date" required>
+              <input type="date" className={baseInputClasses} value={form.inspection_date}
+                max={new Date().toISOString().split('T')[0]}
+                onChange={(e) => set('inspection_date', e.target.value)} />
+            </FormField>
+            <FormField label="License Number" required>
+              <input type="text" className={baseInputClasses} value={form.license_number}
+                onChange={(e) => set('license_number', e.target.value)} />
+            </FormField>
+            <FormField label="License Expiry Date" required>
+              <input type="date" className={baseInputClasses} value={form.license_expiry_date}
+                onChange={(e) => set('license_expiry_date', e.target.value)} />
+            </FormField>
+            <FormField label="Vessel Condition" required>
+              <select className={baseInputClasses} value={form.vessel_condition}
+                onChange={(e) => set('vessel_condition', e.target.value)}>
+                <option value="">Select Condition</option>
+                {['Good', 'Fair', 'Poor', 'For Repair'].map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </FormField>
+          </div>
+          <FormField label="Remarks">
+            <textarea className={baseInputClasses} rows={2} value={form.remarks}
+              onChange={(e) => set('remarks', e.target.value)} />
+          </FormField>
+
+          {error && (
+            <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>
+          )}
+
+          <DangerZone
+            isAdmin={isAdmin}
+            description="Permanently delete this vessel inspection record."
+            onDeleteClick={() => setShowDeleteConfirm(true)}
+          />
+
+          <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-3">
+            <button type="button" onClick={onClose}
+              className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
+              Cancel
+            </button>
+            <button type="submit" disabled={isSubmitting || !isDirty}
+              className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50">
+              {isSubmitting ? 'Saving…' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </ModalShell>
+
+      {showDeleteConfirm && (
+        <ConfirmDialog
+          title="Delete Vessel Inspection?"
+          message="This action cannot be undone."
+          confirmLabel={isDeleting ? 'Deleting…' : 'Delete Record'}
+          requireTypedConfirmation
+          typedConfirmationText="DELETE"
+          variant="danger"
+          onConfirm={handleDeleteConfirmed}
+          onCancel={() => setShowDeleteConfirm(false)}
+        />
+      )}
+    </>
+  )
+}
+
+// ─── Edit Assistance Modal ──────────────────────────────────────────────────────
+
+const ASSISTANCE_TYPE_OPTIONS = ['Fishing Gear', 'Boat/Vessel', 'Fingerlings/Seeds', 'Feed', 'Cash Assistance', 'Equipment', 'Training', 'Other']
+const SOURCE_OPTIONS = ['LGU', 'MAO', 'BFAR', 'DA', 'NGO', 'Private Donor', 'Others']
+
+function EditAssistanceModal({ record, onClose, onSaved }) {
+  const { isAdmin } = useAuth()
+  const { showToast } = useToast()
+  const originalData = {
+    assistance_type: record.assistance_type || '',
+    source_agency: record.source_agency || '',
+    date_received: record.date_received || '',
+    quantity: record.quantity != null ? String(record.quantity) : '',
+    description: record.description || '',
+    remarks: record.remarks || '',
+  }
+  const [form, setForm] = useState(originalData)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+  const isDirty = JSON.stringify(form) !== JSON.stringify(originalData)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setError(''); setIsSubmitting(true)
+    try {
+      await api.patch(`/fisheries/fisheries-assistance/${record.id}/`, {
+        ...form,
+        quantity: form.quantity !== '' ? parseFloat(form.quantity) : null,
+      })
+      showToast('Assistance record updated.', 'success')
+      onSaved()
+    } catch (err) {
+      setError(err?.response?.data?.detail || 'Failed to update assistance record.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleDeleteConfirmed = async () => {
+    setIsDeleting(true)
+    try {
+      await api.delete(`/fisheries/fisheries-assistance/${record.id}/`)
+      showToast('Assistance record deleted.', 'success')
+      onSaved()
+      onClose()
+    } catch (err) {
+      showToast(err?.response?.data?.detail || 'Failed to delete assistance record.', 'error')
+      setShowDeleteConfirm(false)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  return (
+    <>
+      <ModalShell title="Edit Assistance Record" subtitle={record.fisherfolk_name} icon={Pencil} onClose={onClose} maxWidth="max-w-xl">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <FormField label="Date Received" required>
+              <input type="date" className={baseInputClasses} value={form.date_received}
+                max={new Date().toISOString().split('T')[0]}
+                onChange={(e) => set('date_received', e.target.value)} />
+            </FormField>
+            <FormField label="Assistance Type" required>
+              <select className={baseInputClasses} value={form.assistance_type}
+                onChange={(e) => set('assistance_type', e.target.value)}>
+                <option value="">Select Assistance Type</option>
+                {ASSISTANCE_TYPE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </FormField>
+            <FormField label="Source of Assistance" required>
+              <select className={baseInputClasses} value={form.source_agency}
+                onChange={(e) => set('source_agency', e.target.value)}>
+                <option value="">Select Source</option>
+                {SOURCE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </FormField>
+            <FormField label="Quantity / Amount" required>
+              <input type="number" step="0.01" min="0" className={baseInputClasses} value={form.quantity}
+                onChange={(e) => set('quantity', e.target.value)} />
+            </FormField>
+          </div>
+          <FormField label="Description">
+            <textarea className={baseInputClasses} rows={2} value={form.description}
+              onChange={(e) => set('description', e.target.value)} />
+          </FormField>
+          <FormField label="Remarks">
+            <textarea className={baseInputClasses} rows={2} value={form.remarks}
+              onChange={(e) => set('remarks', e.target.value)} />
+          </FormField>
+
+          {error && (
+            <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>
+          )}
+
+          <DangerZone
+            isAdmin={isAdmin}
+            description="Permanently delete this assistance record."
+            onDeleteClick={() => setShowDeleteConfirm(true)}
+          />
+
+          <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-3">
+            <button type="button" onClick={onClose}
+              className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
+              Cancel
+            </button>
+            <button type="submit" disabled={isSubmitting || !isDirty}
+              className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50">
+              {isSubmitting ? 'Saving…' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </ModalShell>
+
+      {showDeleteConfirm && (
+        <ConfirmDialog
+          title="Delete Assistance Record?"
+          message="This action cannot be undone."
+          confirmLabel={isDeleting ? 'Deleting…' : 'Delete Record'}
+          requireTypedConfirmation
+          typedConfirmationText="DELETE"
+          variant="danger"
+          onConfirm={handleDeleteConfirmed}
+          onCancel={() => setShowDeleteConfirm(false)}
+        />
+      )}
+    </>
+  )
+}
+
+// ─── Edit Disaster Report Modal ─────────────────────────────────────────────────
+
+const DISASTER_TYPES = ['Typhoon', 'Flooding', 'Storm Surge', 'El Nino Drought', 'Red Tide', 'Disease Outbreak', 'Other']
+const DISASTER_STATUS_OPTIONS = ['Reported', 'Verified', 'Closed']
+
+function EditDisasterModal({ record, onClose, onSaved }) {
+  const { isAdmin } = useAuth()
+  const { showToast } = useToast()
+  const originalData = {
+    report_date: record.report_date || '',
+    disaster_type: record.disaster_type || '',
+    affected_barangay: record.affected_barangay || '',
+    description: record.description || '',
+    estimated_loss_php: record.estimated_loss_php != null ? String(record.estimated_loss_php) : '',
+    volume_lost_kg: record.volume_lost_kg != null ? String(record.volume_lost_kg) : '',
+    equipment_damaged: record.equipment_damaged || '',
+    status: record.status || 'Reported',
+  }
+  const [form, setForm] = useState(originalData)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+  const isDirty = JSON.stringify(form) !== JSON.stringify(originalData)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setError(''); setIsSubmitting(true)
+    try {
+      await api.patch(`/monitoring/fisherfolk-disasters/${record.id}/`, {
+        ...form,
+        estimated_loss_php: form.estimated_loss_php !== '' ? parseFloat(form.estimated_loss_php) : null,
+        volume_lost_kg: form.volume_lost_kg !== '' ? parseFloat(form.volume_lost_kg) : null,
+      })
+      showToast('Disaster report updated.', 'success')
+      onSaved()
+    } catch (err) {
+      setError(err?.response?.data?.detail || 'Failed to update disaster report.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleDeleteConfirmed = async () => {
+    setIsDeleting(true)
+    try {
+      await api.delete(`/monitoring/fisherfolk-disasters/${record.id}/`)
+      showToast('Disaster report deleted.', 'success')
+      onSaved()
+      onClose()
+    } catch (err) {
+      showToast(err?.response?.data?.detail || 'Failed to delete disaster report.', 'error')
+      setShowDeleteConfirm(false)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  return (
+    <>
+      <ModalShell title="Edit Disaster Report" subtitle={record.fisherfolk_name} icon={Pencil} onClose={onClose} maxWidth="max-w-xl">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <FormField label="Report Date" required>
+              <input type="date" className={baseInputClasses} value={form.report_date}
+                max={new Date().toISOString().split('T')[0]}
+                onChange={(e) => set('report_date', e.target.value)} />
+            </FormField>
+            <FormField label="Disaster Type" required>
+              <select className={baseInputClasses} value={form.disaster_type}
+                onChange={(e) => set('disaster_type', e.target.value)}>
+                {DISASTER_TYPES.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </FormField>
+            <BarangaySelect label="Affected Barangay" value={form.affected_barangay}
+              onChange={(e) => set('affected_barangay', e.target.value)} required />
+            <FormField label="Status" required>
+              <select className={baseInputClasses} value={form.status}
+                onChange={(e) => set('status', e.target.value)}>
+                {DISASTER_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </FormField>
+            <FormField label="Est. Loss (₱)">
+              <input type="number" step="0.01" min="0" className={baseInputClasses} value={form.estimated_loss_php}
+                onChange={(e) => set('estimated_loss_php', e.target.value)} />
+            </FormField>
+            <FormField label="Volume Lost (kg)">
+              <input type="number" step="0.01" min="0" className={baseInputClasses} value={form.volume_lost_kg}
+                onChange={(e) => set('volume_lost_kg', e.target.value)} />
+            </FormField>
+          </div>
+          <FormField label="Equipment Damaged">
+            <input type="text" className={baseInputClasses} value={form.equipment_damaged}
+              onChange={(e) => set('equipment_damaged', e.target.value)} />
+          </FormField>
+          <FormField label="Description" required>
+            <textarea className={baseInputClasses} rows={3} value={form.description}
+              onChange={(e) => set('description', e.target.value)} />
+          </FormField>
+
+          {error && (
+            <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>
+          )}
+
+          <DangerZone
+            isAdmin={isAdmin}
+            description="Permanently delete this disaster report."
+            onDeleteClick={() => setShowDeleteConfirm(true)}
+          />
+
+          <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-3">
+            <button type="button" onClick={onClose}
+              className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
+              Cancel
+            </button>
+            <button type="submit" disabled={isSubmitting || !isDirty}
+              className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50">
+              {isSubmitting ? 'Saving…' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </ModalShell>
+
+      {showDeleteConfirm && (
+        <ConfirmDialog
+          title="Delete Disaster Report?"
+          message="This action cannot be undone."
+          confirmLabel={isDeleting ? 'Deleting…' : 'Delete Record'}
+          requireTypedConfirmation
+          typedConfirmationText="DELETE"
+          variant="danger"
+          onConfirm={handleDeleteConfirmed}
+          onCancel={() => setShowDeleteConfirm(false)}
+        />
+      )}
+    </>
   )
 }
 
@@ -131,6 +765,13 @@ export default function FisheriesMonitoringPage() {
   const [showLogVessel, setShowLogVessel]       = useState(false)
   const [showLogDisaster, setShowLogDisaster]   = useState(false)
   const [showLogAssistance, setShowLogAssistance] = useState(false)
+
+  // View Details / Edit — Batch 5 action-icon reorganization
+  const [viewingDetail, setViewingDetail] = useState(null) // { title, subtitle, rows }
+  const [editingCatch, setEditingCatch]         = useState(null)
+  const [editingVessel, setEditingVessel]       = useState(null)
+  const [editingAssistance, setEditingAssistance] = useState(null)
+  const [editingDisaster, setEditingDisaster]   = useState(null)
 
   const fetchCatch = useCallback(async () => {
     setIsLoadingCatch(true); setErrorCatch('')
@@ -210,6 +851,23 @@ export default function FisheriesMonitoringPage() {
       ) : '—',
       hours_at_sea_fmt: c.hours_at_sea != null ? `${Number(c.hours_at_sea).toFixed(1)} h` : '—',
       fuel_liters_fmt: c.fuel_consumption_liters != null ? `${Number(c.fuel_consumption_liters).toFixed(1)} L` : '—',
+      actions_cell: (
+        <TableActionsMenu
+          onViewDetails={() => setViewingDetail({
+            title: 'Catch Log Details',
+            subtitle: c.fisherfolk_name,
+            rows: [
+              ['Fisherfolk', c.fisherfolk_name], ['Type', c.fisherfolk_type],
+              ['Trip Date', formatDate(c.trip_date)], ['Return Date', formatDate(c.return_date)],
+              ['Fishing Ground', c.fishing_ground], ['Gear Used', c.gear_used],
+              ['Total Catch (kg)', c.total_catch_kg], ['Species Logged', c.species_count],
+              ['Hours at Sea', c.hours_at_sea], ['Fuel (L)', c.fuel_consumption_liters],
+              ['Remarks', c.remarks || '—'],
+            ],
+          })}
+          onEdit={() => setEditingCatch(c)}
+        />
+      ),
     }
   }), [catchLogs])
 
@@ -220,6 +878,21 @@ export default function FisheriesMonitoringPage() {
     license_status_pill: (
       <StatusPill tone={VESSEL_STATUS_TONES[v.license_status] || 'slate'}>{v.license_status}</StatusPill>
     ),
+    actions_cell: (
+      <TableActionsMenu
+        onViewDetails={() => setViewingDetail({
+          title: 'Vessel Inspection Details',
+          subtitle: v.fisherfolk_name,
+          rows: [
+            ['Fisherfolk', v.fisherfolk_name], ['License Number', v.license_number],
+            ['Inspection Date', formatDate(v.inspection_date)], ['License Expiry', formatDate(v.license_expiry_date)],
+            ['Vessel Condition', v.vessel_condition], ['License Status', v.license_status],
+            ['Days Until Expiry', v.days_until_expiry], ['Remarks', v.remarks || '—'],
+          ],
+        })}
+        onEdit={() => setEditingVessel(v)}
+      />
+    ),
   })), [vesselInspections])
 
   const assistanceData = useMemo(() => assistance.map((a) => ({
@@ -227,6 +900,22 @@ export default function FisheriesMonitoringPage() {
     quantity: a.quantity != null ? Number(a.quantity).toLocaleString() : '—',
     date_received_fmt: formatDate(a.date_received),
     date_recorded_fmt: formatDate(a.date_recorded),
+    actions_cell: (
+      <TableActionsMenu
+        onViewDetails={() => setViewingDetail({
+          title: 'Assistance Record Details',
+          subtitle: a.fisherfolk_name,
+          rows: [
+            ['Fisherfolk', a.fisherfolk_name], ['Barangay', a.fisherfolk_barangay],
+            ['Date Received', formatDate(a.date_received)], ['Assistance Type', a.assistance_type],
+            ['Source of Assistance', a.source_agency], ['Quantity / Amount', a.quantity],
+            ['Description', a.description || '—'], ['Remarks', a.remarks || '—'],
+            ['Recorded By', a.recorded_by_name], ['Date Recorded', formatDate(a.date_recorded)],
+          ],
+        })}
+        onEdit={() => setEditingAssistance(a)}
+      />
+    ),
   })), [assistance])
 
   const assistanceByType = useMemo(() => {
@@ -257,6 +946,22 @@ export default function FisheriesMonitoringPage() {
     report_date_fmt:    formatDate(d.report_date),
     estimated_loss_php: d.estimated_loss_php ? `₱${Number(d.estimated_loss_php).toLocaleString()}` : '—',
     status_pill: <StatusPill tone={DISASTER_STATUS_TONES[d.status] || 'slate'}>{d.status}</StatusPill>,
+    actions_cell: (
+      <TableActionsMenu
+        onViewDetails={() => setViewingDetail({
+          title: 'Disaster Report Details',
+          subtitle: d.fisherfolk_name,
+          rows: [
+            ['Fisherfolk', d.fisherfolk_name], ['Report Date', formatDate(d.report_date)],
+            ['Disaster Type', d.disaster_type], ['Affected Barangay', d.affected_barangay],
+            ['Status', d.status], ['Est. Loss (₱)', d.estimated_loss_php ? `₱${Number(d.estimated_loss_php).toLocaleString()}` : '—'],
+            ['Volume Lost (kg)', d.volume_lost_kg ?? '—'], ['Equipment Damaged', d.equipment_damaged || '—'],
+            ['Description', d.description || '—'],
+          ],
+        })}
+        onEdit={() => setEditingDisaster(d)}
+      />
+    ),
   })), [disasters])
 
   return (
@@ -265,8 +970,8 @@ export default function FisheriesMonitoringPage() {
       subtitle="Stocking & culture, capture fishing, vessel inspections, assistance, and disaster reports"
     >
       <div className="space-y-5">
-        {/* Filters + Actions — not applicable to Stocking & Culture, which has its own filter bar */}
-        {subTab !== 'stocking' && (
+        {/* Filters + Actions — not applicable to Stocking & Culture or Forecasting, which have their own filter bars */}
+        {subTab !== 'stocking' && subTab !== 'forecasting' && (
           <div className="flex flex-wrap items-end gap-3">
             <div className="w-48">
               <BarangaySelect value={barangay} onChange={(e) => setBarangay(e.target.value)} includeAllOption />
@@ -315,6 +1020,7 @@ export default function FisheriesMonitoringPage() {
             { value: 'capture',    label: 'Capture & Vessels' },
             { value: 'assistance', label: 'Assistance' },
             { value: 'disasters',  label: 'Fisherfolk Disasters' },
+            { value: 'forecasting', label: 'Forecasting' },
           ]}
           value={subTab}
           onChange={setSubTab}
@@ -322,6 +1028,9 @@ export default function FisheriesMonitoringPage() {
 
         {/* Stocking & Culture — the existing FisheriesRecordsPage, mounted as-is */}
         {subTab === 'stocking' && <FisheriesRecordsPage asTab />}
+
+        {/* Forecasting — descriptive yield analysis, mirrors crop Yield Analysis */}
+        {subTab === 'forecasting' && <ForecastingTab />}
 
         {/* Capture Fishing */}
         {subTab === 'capture' && (
@@ -498,6 +1207,43 @@ export default function FisheriesMonitoringPage() {
       )}
       {showLogAssistance && (
         <LogGovernmentAssistanceModal onClose={() => setShowLogAssistance(false)} onSuccess={fetchAssistance} />
+      )}
+
+      {viewingDetail && (
+        <DetailModal
+          title={viewingDetail.title}
+          subtitle={viewingDetail.subtitle}
+          rows={viewingDetail.rows}
+          onClose={() => setViewingDetail(null)}
+        />
+      )}
+      {editingCatch && (
+        <EditCatchModal
+          record={editingCatch}
+          onClose={() => setEditingCatch(null)}
+          onSaved={() => { setEditingCatch(null); fetchCatch() }}
+        />
+      )}
+      {editingVessel && (
+        <EditVesselInspectionModal
+          record={editingVessel}
+          onClose={() => setEditingVessel(null)}
+          onSaved={() => { setEditingVessel(null); fetchVesselInspections() }}
+        />
+      )}
+      {editingAssistance && (
+        <EditAssistanceModal
+          record={editingAssistance}
+          onClose={() => setEditingAssistance(null)}
+          onSaved={() => { setEditingAssistance(null); fetchAssistance() }}
+        />
+      )}
+      {editingDisaster && (
+        <EditDisasterModal
+          record={editingDisaster}
+          onClose={() => setEditingDisaster(null)}
+          onSaved={() => { setEditingDisaster(null); fetchDisasters() }}
+        />
       )}
     </PageLayout>
   )

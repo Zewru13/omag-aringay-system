@@ -1,5 +1,6 @@
-from rest_framework import generics
+from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
 from accounts.permissions import IsAdminOrEvaluator
 
@@ -60,3 +61,11 @@ class FisherfolkDisasterReportDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     queryset = FisherfolkDisasterReport.objects.select_related('fisherfolk')
     http_method_names = ['get', 'patch', 'delete']
+
+    def destroy(self, request, *args, **kwargs):
+        if request.user.role != 'ADMIN':
+            return Response(
+                {'detail': 'Only administrators can delete disaster reports.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)

@@ -2600,3 +2600,250 @@ class YieldAnalysisReport(APIView):
         )
         response['Content-Disposition'] = f'attachment; filename="yield_analysis_report_{today}.xlsx"'
         return response
+
+
+class FisheriesYieldAnalysisReport(APIView):
+    """Mirrors YieldAnalysisReport above, sourced from fisheries.views'
+    stocking-record yield analysis instead of crop monitoring records."""
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request):
+        from django.http import JsonResponse
+        from fisheries.views import (
+            FISHERIES_YIELD_ANALYSIS_DISCLAIMER,
+            _analyze_stocking,
+            _cycle_trend_note,
+            _fisheries_yield_analysis_queryset,
+        )
+
+        today = _today()
+        fmt = request.query_params.get('format', 'excel')
+        group_by = request.query_params.get('group_by', 'barangay')
+        if group_by not in ('barangay', 'species'):
+            group_by = 'barangay'
+
+        records = list(_fisheries_yield_analysis_queryset(request))
+        analyzed = [_analyze_stocking(rec) for rec in records]
+
+        groups = {}
+        for a in analyzed:
+            key = a['species'] if group_by == 'species' else a['barangay']
+            g = groups.setdefault(key, {
+                'count': 0,
+                'estimated_sum': Decimal('0'), 'estimated_n': 0,
+                'actual_sum': Decimal('0'),
+                'variance_pct_sum': 0.0, 'variance_pct_n': 0,
+                'completion_pct_sum': 0.0, 'completion_pct_n': 0,
+            })
+            g['count'] += 1
+            if a['estimated_kg'] is not None:
+                g['estimated_sum'] += Decimal(str(a['estimated_kg']))
+                g['estimated_n'] += 1
+            g['actual_sum'] += Decimal(str(a['actual_total_kg']))
+            if a['variance_pct'] is not None:
+                g['variance_pct_sum'] += a['variance_pct']
+                g['variance_pct_n'] += 1
+            if a['activities_total_count'] > 0:
+                g['completion_pct_sum'] += (a['activities_completed_count'] / a['activities_total_count']) * 100
+                g['completion_pct_n'] += 1
+
+        agg_headers = [group_by.upper(), 'STOCKINGS', 'AVG EST. (KG)', 'AVG ACTUAL (KG)', 'AVG VARIANCE %', 'AVG COMPLETION %']
+        agg_rows = []
+        for key in sorted(groups.keys()):
+            g = groups[key]
+            agg_rows.append([
+                key,
+                g['count'],
+                round(float(g['estimated_sum'] / g['estimated_n']), 2) if g['estimated_n'] else '—',
+                round(float(g['actual_sum'] / g['count']), 2) if g['count'] else '—',
+                round(g['variance_pct_sum'] / g['variance_pct_n'], 2) if g['variance_pct_n'] else '—',
+                round(g['completion_pct_sum'] / g['completion_pct_n'], 2) if g['completion_pct_n'] else '—',
+            ])
+
+        detail_headers = [
+            'Species', 'Fisherfolk', 'Barangay', 'Culture Type', 'Cycle #',
+            'Est. (kg)', 'Actual (kg)', 'Variance %', 'Activities', 'Possible Factors',
+        ]
+
+        def _possible_factors(a):
+            if a['activities_total_count'] == 0:
+                return 'No activity schedule defined for this species.'
+            if not a['missed_high_priority']:
+                return 'All key activities completed'
+            parts = [f"{m['activity']} (Day {m['scheduled_day']})" for m in a['missed_high_priority']]
+            return 'Missed: ' + ', '.join(parts)
+
+        def detail_row(a):
+            return [
+                a['species'],
+                a['fisherfolk'],
+                a['barangay'],
+                a['culture_type'],
+                a['production_cycle_no'],
+                a['estimated_kg'] if a['estimated_kg'] is not None else '—',
+                a['actual_total_kg'],
+                f"{a['variance_pct']:+.2f}%" if a['variance_pct'] is not None else '—',
+                f"{a['activities_completed_count']}/{a['activities_total_count']}",
+                _possible_factors(a),
+            ]
+
+        overall_variance   = [a['variance_pct'] for a in analyzed if a['variance_pct'] is not None]
+        overall_completion = [
+            (a['activities_completed_count'] / a['activities_total_count']) * 100
+            for a in analyzed if a['activities_total_count'] > 0
+        ]
+        avg_variance_pct   = round(sum(overall_variance) / len(overall_variance), 2) if overall_variance else None
+        avg_completion_pct = round(sum(overall_completion) / len(overall_completion), 2) if overall_completion else None
+        cycle_trend = _cycle_trend_note(analyzed)
+
+        if fmt == 'json':
+            return JsonResponse({
+                'count': len(analyzed),
+                'records': analyzed,
+                'groups': [
+                    {
+                        'group': row[0], 'stocking_count': row[1],
+                        'avg_estimated_kg': row[2], 'avg_actual_kg': row[3],
+                        'avg_variance_pct': row[4], 'avg_activity_completion_pct': row[5],
+                    }
+                    for row in agg_rows
+                ],
+                'overall': {
+                    'stocking_count': len(analyzed),
+                    'avg_variance_pct': avg_variance_pct,
+                    'avg_activity_completion_pct': avg_completion_pct,
+                },
+                'cycle_trend': cycle_trend,
+                'disclaimer': FISHERIES_YIELD_ANALYSIS_DISCLAIMER,
+            })
+
+        if fmt == 'pdf':
+            return self._build_pdf(
+                analyzed, agg_headers, agg_rows, detail_headers, detail_row,
+                avg_variance_pct, avg_completion_pct, cycle_trend, today, _sig_params(request),
+            )
+        return self._build_excel(
+            analyzed, agg_headers, agg_rows, detail_headers, detail_row,
+            avg_variance_pct, avg_completion_pct, cycle_trend, today,
+        )
+
+    def _build_pdf(self, analyzed, agg_headers, agg_rows, detail_headers, detail_row_fn,
+                    avg_variance_pct, avg_completion_pct, cycle_trend, today, sig=None):
+        from fisheries.views import FISHERIES_YIELD_ANALYSIS_DISCLAIMER
+
+        sig = sig or {}
+        buf, doc = _make_doc()
+        story = []
+        story += build_official_header(LOGO_PATH, 'Fisheries Yield Analysis Report', 'Descriptive Harvest-Performance Analysis')
+        story.append(_empty_state(FISHERIES_YIELD_ANALYSIS_DISCLAIMER))
+        story.append(Spacer(1, 10))
+        story.append(build_stats_row([
+            ('Stockings', len(analyzed)),
+            ('Avg Variance', f'{avg_variance_pct:+.2f}%' if avg_variance_pct is not None else 'N/A'),
+            ('Avg Activity Completion', f'{avg_completion_pct:.2f}%' if avg_completion_pct is not None else 'N/A'),
+            ('Date Generated', str(today)),
+        ], page_width=PAGE_WIDTH))
+
+        story += build_section_heading('I', 'Aggregate Summary')
+        agg_col_widths = [120, 50, 80, 80, 68, 70]
+        story.append(build_ledger_table(agg_headers, agg_rows, col_widths=agg_col_widths))
+
+        if cycle_trend:
+            story += build_section_heading('II', 'Cycle Trend (Repeat Stockings)')
+            cycle_rows = [[c['cycle'], c['stocking_count'], f"{c['avg_variance_pct']:+.2f}%"] for c in cycle_trend]
+            story.append(build_ledger_table(['CYCLE #', 'STOCKINGS', 'AVG VARIANCE %'], cycle_rows, col_widths=[150, 150, 168]))
+            section_no = 'III'
+        else:
+            section_no = 'II'
+
+        story += build_section_heading(section_no, 'Per-Stocking Detail')
+        detail_col_widths = [50, 55, 45, 45, 35, 45, 45, 40, 40, 68]
+        detail_rows = [detail_row_fn(a) for a in analyzed]
+        story.append(build_ledger_table(detail_headers, detail_rows, col_widths=detail_col_widths))
+
+        story.append(Spacer(1, 30))
+        story.append(build_signature_block(
+            left_label='Prepared by',
+            left_name=sig.get('prepared_by') or None,
+            left_role=sig.get('position') or 'OMAg Records Officer',
+            reviewed_by=sig.get('reviewed_by') or None,
+            reviewed_role=sig.get('reviewed_role') or None,
+            noted_by=sig.get('noted_by') or None,
+            noted_role=sig.get('noted_role') or None,
+            page_width=PAGE_WIDTH,
+        ))
+        doc.build(story, canvasmaker=NumberedCanvas)
+        return _finish_pdf(buf, f'fisheries_yield_analysis_report_{today}.pdf')
+
+    def _build_excel(self, analyzed, agg_headers, agg_rows, detail_headers, detail_row_fn,
+                      avg_variance_pct, avg_completion_pct, cycle_trend, today):
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment
+        from fisheries.views import FISHERIES_YIELD_ANALYSIS_DISCLAIMER
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'Fisheries Yield Analysis'
+
+        hdr_fill = PatternFill('solid', fgColor='1E4620')
+        hdr_font = Font(bold=True, color='FFFFFF', size=10)
+        disclaimer_font = Font(italic=True, color='475569', size=9)
+
+        ws.append(['Republic of the Philippines'])
+        ws.append(['Office of the Municipal Agriculturist — Aringay, La Union'])
+        ws.append(['Fisheries Yield Analysis Report (Descriptive Harvest-Performance Analysis)'])
+        ws.append([f'Date Generated: {today}'])
+        ws.append([FISHERIES_YIELD_ANALYSIS_DISCLAIMER])
+        ws['A5'].font = disclaimer_font
+        ws.merge_cells('A5:J5')
+        ws.append([])
+        ws.append([
+            f'Stockings: {len(analyzed)}',
+            f"Avg Variance: {f'{avg_variance_pct:+.2f}%' if avg_variance_pct is not None else 'N/A'}",
+            f"Avg Activity Completion: {f'{avg_completion_pct:.2f}%' if avg_completion_pct is not None else 'N/A'}",
+        ])
+        ws.append([])
+
+        ws.append(['Aggregate Summary'])
+        ws.append(agg_headers)
+        hdr_row = ws.max_row
+        for cell in ws[hdr_row]:
+            cell.fill = hdr_fill
+            cell.font = hdr_font
+            cell.alignment = Alignment(horizontal='center')
+        for row in agg_rows:
+            ws.append(row)
+        ws.append([])
+
+        if cycle_trend:
+            ws.append(['Cycle Trend (Repeat Stockings)'])
+            ws.append(['CYCLE #', 'STOCKINGS', 'AVG VARIANCE %'])
+            hdr_row = ws.max_row
+            for cell in ws[hdr_row]:
+                cell.fill = hdr_fill
+                cell.font = hdr_font
+                cell.alignment = Alignment(horizontal='center')
+            for c in cycle_trend:
+                ws.append([c['cycle'], c['stocking_count'], f"{c['avg_variance_pct']:+.2f}%"])
+            ws.append([])
+
+        ws.append(['Per-Stocking Detail'])
+        ws.append(detail_headers)
+        hdr_row = ws.max_row
+        for cell in ws[hdr_row]:
+            cell.fill = hdr_fill
+            cell.font = hdr_font
+            cell.alignment = Alignment(horizontal='center')
+        for a in analyzed:
+            ws.append(detail_row_fn(a))
+        ws.column_dimensions['J'].width = 60
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        response = HttpResponse(
+            buf.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        response['Content-Disposition'] = f'attachment; filename="fisheries_yield_analysis_report_{today}.xlsx"'
+        return response

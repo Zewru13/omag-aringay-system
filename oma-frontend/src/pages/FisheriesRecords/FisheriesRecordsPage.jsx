@@ -677,7 +677,26 @@ function AddStockingModal({ onClose, onSuccess }) {
 const editLabelCls = 'block text-[13px] font-medium text-[#4A5E4A] mb-1.5'
 
 function EditStockingModal({ record, speciesList, onClose, onSaved }) {
+  const { user } = useAuth()
   const { showToast } = useToast()
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const handleDeleteConfirmed = async () => {
+    setIsDeleting(true)
+    try {
+      await api.delete(`/fisheries/stocking/${record.id}/`)
+      showToast('Stocking record deleted.', 'success')
+      setShowDeleteConfirm(false)
+      onSaved()
+      onClose()
+    } catch (err) {
+      showToast(err?.response?.data?.detail || 'Failed to delete record.', 'error')
+      setShowDeleteConfirm(false)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   const originalData = {
     pond_location_barangay: record.pond_location_barangay || '',
@@ -968,6 +987,22 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
           <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>
         )}
 
+        {user?.role === 'ADMIN' && record.status !== 'Harvested' && (
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+            <p className="text-[12px] font-semibold text-rose-700 mb-1">Danger Zone</p>
+            <p className="text-[11px] text-rose-600 mb-2">
+              Permanently delete this stocking record and all its logs, disaster reports, and harvest records.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-[12px] font-medium text-rose-600 hover:bg-rose-100 transition-colors"
+            >
+              <Trash2 size={13} /> Delete this record
+            </button>
+          </div>
+        )}
+
         <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-3">
           <button type="button" onClick={onClose}
             className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
@@ -979,6 +1014,20 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
           </button>
         </div>
       </form>
+
+      {showDeleteConfirm && (
+        <ConfirmDialog
+          title={`Delete ${record.species_name}?`}
+          message="This action cannot be undone."
+          details={`${record.log_count ?? 0} activity log(s), ${record.disaster_report_count ?? 0} disaster report(s), ${record.harvest_count ?? 0} harvest record(s).`}
+          confirmLabel={isDeleting ? 'Deleting…' : 'Delete Record'}
+          requireTypedConfirmation
+          typedConfirmationText="DELETE"
+          variant="danger"
+          onConfirm={handleDeleteConfirmed}
+          onCancel={() => setShowDeleteConfirm(false)}
+        />
+      )}
     </ModalShell>
   )
 }
@@ -1064,6 +1113,56 @@ function StockingDetailModal({ record, onClose }) {
   )
 }
 
+// ─── Record Actions Menu (⋮): View Details / Edit ─────────────────────────────
+// Delete lives inside EditStockingModal now, not here — see Batch 5.
+// Deliberately separate from LifecycleMenu below (untouched, its own ⋮).
+
+function RecordActionsMenu({ rec, onViewDetails, onEdit }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const canEdit = rec.status !== 'Harvested'
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}
+        className="flex items-center justify-center rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 transition-colors"
+        title="Actions"
+      >
+        <MoreVertical size={14} />
+      </button>
+      {open && (
+        <div className="absolute right-0 z-20 mt-1 w-40 rounded-lg border border-[#E2E8E2] bg-white py-1 shadow-lg">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setOpen(false); onViewDetails() }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-[13px] text-[#1A2B1A] hover:bg-[#F5F7F5] transition-colors"
+          >
+            <Eye size={13} /> View Details
+          </button>
+          {canEdit && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setOpen(false); onEdit() }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-[13px] text-[#1A2B1A] hover:bg-[#F5F7F5] transition-colors"
+            >
+              <Pencil size={13} /> Edit
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Lifecycle Menu (⋮): View Logs / Record Harvest / Report Disaster ─────────
 
 function LifecycleMenu({ rec, onViewLogs, onRecordHarvest, onReportDisaster }) {
@@ -1139,7 +1238,6 @@ export default function FisheriesRecordsPage({ asTab = false }) {
   const [yearFilter,   setYearFilter]   = useState('')
   const [showAdd,      setShowAdd]      = useState(false)
   const [editingRec,   setEditingRec]   = useState(null)
-  const [deletingRec,  setDeletingRec]  = useState(null)
   const [viewingRec,   setViewingRec]   = useState(null)
   const [speciesList,  setSpeciesList]  = useState([])
   const [viewLogsRec,  setViewLogsRec]  = useState(null)
@@ -1258,34 +1356,11 @@ export default function FisheriesRecordsPage({ asTab = false }) {
     ),
     actions_cell: (
       <div className="flex items-center gap-1">
-        <button
-          type="button"
-          className="flex items-center gap-1 rounded-lg px-2 py-1 text-slate-500 hover:bg-slate-100 hover:text-[#1B4D2E] transition-colors"
-          onClick={(e) => { e.stopPropagation(); setViewingRec(rec) }}
-          title="View details"
-        >
-          <Eye size={14} />
-        </button>
-        {rec.status !== 'Harvested' && (
-          <button
-            type="button"
-            className="flex items-center gap-1 rounded-lg px-2 py-1 text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors"
-            onClick={(e) => { e.stopPropagation(); setEditingRec(rec) }}
-            title="Edit"
-          >
-            <Pencil size={14} />
-          </button>
-        )}
-        {user?.role === 'ADMIN' && rec.status !== 'Harvested' && (
-          <button
-            type="button"
-            className="flex items-center gap-1 rounded-lg px-2 py-1 text-rose-500 hover:bg-rose-50 transition-colors"
-            onClick={(e) => { e.stopPropagation(); setDeletingRec(rec) }}
-            title="Delete"
-          >
-            <Trash2 size={14} />
-          </button>
-        )}
+        <RecordActionsMenu
+          rec={rec}
+          onViewDetails={() => setViewingRec(rec)}
+          onEdit={() => setEditingRec(rec)}
+        />
         <LifecycleMenu
           rec={rec}
           onViewLogs={() => setViewLogsRec(rec)}
@@ -1305,17 +1380,6 @@ export default function FisheriesRecordsPage({ asTab = false }) {
       </div>
     ),
   }))
-
-  const handleDelete = async () => {
-    try {
-      await api.delete(`/fisheries/stocking/${deletingRec.id}/`)
-      showToast('Stocking record deleted.', 'success')
-      setDeletingRec(null)
-      fetchRecords(page)
-    } catch (err) {
-      showToast(err?.response?.data?.detail || 'Failed to delete record.', 'error')
-    }
-  }
 
   const innerContent = (
     <div className="space-y-4">
@@ -1449,19 +1513,6 @@ export default function FisheriesRecordsPage({ asTab = false }) {
         />
       )}
 
-      {deletingRec && (
-        <ConfirmDialog
-          title={`Delete ${deletingRec.species_name}?`}
-          message="This action cannot be undone."
-          details={`${deletingRec.log_count ?? 0} activity log(s), ${deletingRec.disaster_report_count ?? 0} disaster report(s), ${deletingRec.harvest_count ?? 0} harvest record(s).`}
-          confirmLabel="Delete Record"
-          requireTypedConfirmation
-          typedConfirmationText="DELETE"
-          variant="danger"
-          onConfirm={handleDelete}
-          onCancel={() => setDeletingRec(null)}
-        />
-      )}
 
       {viewingRec && (
         <StockingDetailModal record={viewingRec} onClose={() => setViewingRec(null)} />

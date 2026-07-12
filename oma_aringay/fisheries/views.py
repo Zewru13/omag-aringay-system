@@ -649,6 +649,14 @@ class FishingTripLogDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     queryset = FishingTripLog.objects.select_related('fisherfolk').prefetch_related('species_entries')
 
+    def destroy(self, request, *args, **kwargs):
+        if request.user.role != 'ADMIN':
+            return Response(
+                {'detail': 'Only administrators can delete catch logs.'},
+                status=drf_status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
+
 
 class TripSpeciesEntryListCreateView(APIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
@@ -890,6 +898,14 @@ class VesselInspectionDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     queryset = VesselInspection.objects.select_related('fisherfolk')
 
+    def destroy(self, request, *args, **kwargs):
+        if request.user.role != 'ADMIN':
+            return Response(
+                {'detail': 'Only administrators can delete vessel inspections.'},
+                status=drf_status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
+
 
 class VesselLicenseAlertView(APIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
@@ -925,7 +941,258 @@ class FisheriesAssistanceListCreateView(generics.ListCreateAPIView):
         serializer.save(recorded_by=self.request.user)
 
 
-class FisheriesAssistanceDeleteView(generics.DestroyAPIView):
+class FisheriesAssistanceDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = FisheriesAssistanceSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    queryset = FisheriesAssistanceRecord.objects.all()
+    queryset = FisheriesAssistanceRecord.objects.select_related('fisherfolk')
+    http_method_names = ['get', 'patch', 'delete']
+
+    def destroy(self, request, *args, **kwargs):
+        if request.user.role != 'ADMIN':
+            return Response(
+                {'detail': 'Only administrators can delete assistance records.'},
+                status=drf_status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
+
+
+# ─── Yield Analysis (descriptive) ──────────────────────────────────────────────
+# Mirrors production/views.py's crop Yield Analysis module exactly: compares
+# actual harvest against the STOCKING'S OWN planting-time estimate (no
+# historical-average dataset exists to compare against). Missed activities
+# are surfaced as *possible* contributing factors — this module never claims
+# causation.
+
+FISHERIES_YIELD_ANALYSIS_DISCLAIMER = (
+    'This analysis is descriptive. Harvest yield is affected by many factors '
+    'including water quality, disease, and weather; missed activities are '
+    'shown as possible contributing factors, not proven causes.'
+)
+
+
+def _fisheries_yield_analysis_queryset(request):
+    qs = StockingRecord.objects.filter(
+        status__in=[StockingRecord.Status.HARVESTED, StockingRecord.Status.TOTAL_LOSS],
+    ).select_related('fisherfolk', 'species', 'species__category').prefetch_related(
+        'logs', 'harvests',
+    )
+    barangay   = request.query_params.get('barangay', '')
+    species    = request.query_params.get('species', '')
+    year       = request.query_params.get('year', '')
+    fisherfolk = request.query_params.get('fisherfolk', '')
+    if barangay:
+        qs = qs.filter(pond_location_barangay__iexact=barangay)
+    if species:
+        qs = qs.filter(species_id=species)
+    if year:
+        qs = qs.filter(year=year)
+    if fisherfolk:
+        qs = qs.filter(fisherfolk_id=fisherfolk)
+    return qs.order_by('-date_stocked')
+
+
+def _stocking_activity_completion(rec):
+    """
+    Expand this stocking's SpeciesActivityStage occurrences (application_days),
+    the same expansion FisheriesActivitySuggestionsView uses, and match each
+    one against the stocking's logged activities using the same rule: same
+    activity name, and either the log's target_day matches the occurrence or
+    its date falls within the stage's window_days of the scheduled due date.
+    """
+    stages = SpeciesActivityStage.objects.filter(species_option_id=rec.species_id)
+    logs = list(rec.logs.all())
+    stocked = rec.date_stocked
+
+    total = 0
+    completed = 0
+    missed_high = []
+    breakdown = []
+
+    for stage in stages:
+        days_list = stage.application_days if stage.application_days else [stage.day_after_stocking]
+        for occurrence_day in days_list:
+            total += 1
+            due_date = stocked + timedelta(days=occurrence_day) if stocked else None
+            is_done = False
+            if due_date:
+                window = stage.window_days
+                for log in logs:
+                    if log.activity != stage.activity_name:
+                        continue
+                    target_match = log.target_day is not None and log.target_day == occurrence_day
+                    date_match = log.date_of_activity is not None and abs((log.date_of_activity - due_date).days) <= window
+                    if target_match or date_match:
+                        is_done = True
+                        break
+            if is_done:
+                completed += 1
+            elif stage.priority == SpeciesActivityStage.Priority.HIGH:
+                missed_high.append({'activity': stage.activity_name, 'scheduled_day': occurrence_day})
+            breakdown.append({
+                'activity': stage.activity_name,
+                'scheduled_day': occurrence_day,
+                'priority': stage.priority,
+                'completed': is_done,
+            })
+
+    return total, completed, missed_high, breakdown
+
+
+def _analyze_stocking(rec):
+    harvests = list(rec.harvests.all())
+    actual_total_kg = sum((h.quantity_kg for h in harvests if h.quantity_kg is not None), Decimal('0'))
+    estimated_kg = rec.estimated_harvest_kg
+
+    if estimated_kg is None:
+        variance_kg = None
+        variance_pct = None
+    else:
+        variance_kg = actual_total_kg - estimated_kg
+        variance_pct = None if estimated_kg == 0 else float((variance_kg / estimated_kg) * Decimal('100'))
+
+    total, completed, missed_high, breakdown = _stocking_activity_completion(rec)
+
+    harvest_dates = sorted({
+        (h.harvest_date or h.date_recorded.date()).isoformat()
+        for h in harvests
+    })
+
+    if rec.pond_location_barangay:
+        barangay = rec.pond_location_barangay
+    elif rec.fisherfolk:
+        barangay = rec.fisherfolk.barangay
+    else:
+        barangay = '—'
+
+    return {
+        'id': rec.id,
+        'fisherfolk': rec.fisherfolk.full_name if rec.fisherfolk else '—',
+        'fisherfolk_id': rec.fisherfolk_id,
+        'barangay': barangay or '—',
+        'species': rec.species.species_name if rec.species else '—',
+        'culture_type': rec.culture_type,
+        'is_total_loss': rec.status == StockingRecord.Status.TOTAL_LOSS,
+        'date_stocked': rec.date_stocked.isoformat() if rec.date_stocked else None,
+        'harvest_dates': harvest_dates,
+        'estimated_kg': float(estimated_kg) if estimated_kg is not None else None,
+        'actual_total_kg': float(actual_total_kg),
+        'variance_kg': float(variance_kg) if variance_kg is not None else None,
+        'variance_pct': round(variance_pct, 2) if variance_pct is not None else None,
+        'production_cycle_no': rec.compute_production_cycle_no(),
+        'activities_completed_count': completed,
+        'activities_total_count': total,
+        'missed_high_priority': missed_high,
+        'activity_breakdown': breakdown,
+    }
+
+
+def _cycle_trend_note(analyzed):
+    """
+    Average variance % by production cycle number (1 / 2 / 3+), purely
+    descriptive — never a claim about *why* later cycles differ. None when
+    there isn't enough data to say anything meaningful (fewer than 2
+    distinct cycle numbers represented, or fewer than 3 stockings total).
+    """
+    buckets = {}
+    for a in analyzed:
+        if a['variance_pct'] is None:
+            continue
+        cycle = a['production_cycle_no']
+        key = str(cycle) if cycle < 3 else '3+'
+        b = buckets.setdefault(key, {'sum': 0.0, 'n': 0})
+        b['sum'] += a['variance_pct']
+        b['n'] += 1
+
+    total_n = sum(b['n'] for b in buckets.values())
+    if len(buckets) < 2 or total_n < 3:
+        return None
+
+    order = {'1': 0, '2': 1, '3+': 2}
+    return sorted(
+        [
+            {'cycle': key, 'avg_variance_pct': round(b['sum'] / b['n'], 2), 'stocking_count': b['n']}
+            for key, b in buckets.items()
+        ],
+        key=lambda x: order.get(x['cycle'], 99),
+    )
+
+
+class FisheriesYieldAnalysisView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request):
+        records = _fisheries_yield_analysis_queryset(request)
+        data = [_analyze_stocking(rec) for rec in records]
+        return Response({
+            'count': len(data),
+            'records': data,
+            'disclaimer': FISHERIES_YIELD_ANALYSIS_DISCLAIMER,
+        })
+
+
+class FisheriesYieldAnalysisSummaryView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request):
+        group_by = request.query_params.get('group_by', 'barangay')
+        if group_by not in ('barangay', 'species'):
+            group_by = 'barangay'
+
+        records = list(_fisheries_yield_analysis_queryset(request))
+        analyzed = [_analyze_stocking(rec) for rec in records]
+
+        groups = {}
+        for rec, a in zip(records, analyzed):
+            key = (rec.species.species_name if rec.species else '—') if group_by == 'species' else a['barangay']
+            g = groups.setdefault(key, {
+                'count': 0,
+                'estimated_sum': Decimal('0'), 'estimated_n': 0,
+                'actual_sum': Decimal('0'),
+                'variance_pct_sum': 0.0, 'variance_pct_n': 0,
+                'completion_pct_sum': 0.0, 'completion_pct_n': 0,
+            })
+            g['count'] += 1
+            if a['estimated_kg'] is not None:
+                g['estimated_sum'] += Decimal(str(a['estimated_kg']))
+                g['estimated_n'] += 1
+            g['actual_sum'] += Decimal(str(a['actual_total_kg']))
+            if a['variance_pct'] is not None:
+                g['variance_pct_sum'] += a['variance_pct']
+                g['variance_pct_n'] += 1
+            if a['activities_total_count'] > 0:
+                g['completion_pct_sum'] += (a['activities_completed_count'] / a['activities_total_count']) * 100
+                g['completion_pct_n'] += 1
+
+        group_results = []
+        for key in sorted(groups.keys()):
+            g = groups[key]
+            group_results.append({
+                'group': key,
+                'stocking_count': g['count'],
+                'avg_estimated_kg': round(float(g['estimated_sum'] / g['estimated_n']), 2) if g['estimated_n'] else None,
+                'avg_actual_kg': round(float(g['actual_sum'] / g['count']), 2) if g['count'] else None,
+                'avg_variance_pct': round(g['variance_pct_sum'] / g['variance_pct_n'], 2) if g['variance_pct_n'] else None,
+                'avg_activity_completion_pct': round(g['completion_pct_sum'] / g['completion_pct_n'], 2) if g['completion_pct_n'] else None,
+            })
+
+        overall_estimated  = [a['estimated_kg'] for a in analyzed if a['estimated_kg'] is not None]
+        overall_variance   = [a['variance_pct'] for a in analyzed if a['variance_pct'] is not None]
+        overall_completion = [
+            (a['activities_completed_count'] / a['activities_total_count']) * 100
+            for a in analyzed if a['activities_total_count'] > 0
+        ]
+        overall = {
+            'stocking_count': len(analyzed),
+            'avg_estimated_kg': round(sum(overall_estimated) / len(overall_estimated), 2) if overall_estimated else None,
+            'avg_actual_kg': round(sum(a['actual_total_kg'] for a in analyzed) / len(analyzed), 2) if analyzed else None,
+            'avg_variance_pct': round(sum(overall_variance) / len(overall_variance), 2) if overall_variance else None,
+            'avg_activity_completion_pct': round(sum(overall_completion) / len(overall_completion), 2) if overall_completion else None,
+        }
+
+        return Response({
+            'group_by': group_by,
+            'groups': group_results,
+            'overall': overall,
+            'cycle_trend': _cycle_trend_note(analyzed),
+            'disclaimer': FISHERIES_YIELD_ANALYSIS_DISCLAIMER,
+        })
