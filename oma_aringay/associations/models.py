@@ -49,6 +49,18 @@ class AssociationOfficer(models.Model):
         on_delete=models.CASCADE,
         related_name='officers',
     )
+    # Farmers Associations track membership via Farmer.farmers_association
+    # directly (not a join table — see FarmersAssociationMember docstring
+    # below), so the officer's real link is straight to Farmer. SET_NULL
+    # (not CASCADE) so a hard Farmer deletion doesn't silently wipe the
+    # historical officer record — full_name survives as a display cache.
+    # Null only for pre-Batch-4 legacy rows entered as free text.
+    farmer = models.ForeignKey(
+        Farmer,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='officer_positions',
+    )
     position  = models.CharField(max_length=50, choices=POSITION_CHOICES)
     full_name = models.CharField(max_length=200)
 
@@ -61,6 +73,15 @@ class AssociationOfficer(models.Model):
 
 
 class FarmersAssociationMember(models.Model):
+    """
+    NOTE (Batch 4): live Farmers Association membership is actually tracked
+    via Farmer.farmers_association (a direct FK, set from the farmer's own
+    profile) — that's what AssociationDetailPage's Members tab and the
+    officer-assignment search both read from. This join table exists but is
+    currently unused by the frontend (0 real rows); left in place/dormant
+    rather than removed, matching this project's convention of not deleting
+    infrastructure that might be wired up later.
+    """
     class Position(models.TextChoices):
         PRESIDENT = 'President', 'President'
         CHAIRPERSON = 'Chairperson', 'Chairperson'
@@ -163,6 +184,17 @@ class FisherfolkAssociationOfficer(models.Model):
         FisherfolkAssociation,
         on_delete=models.CASCADE,
         related_name='officers',
+    )
+    # Fisherfolk Associations DO use FisherfolkAssociationMember as the real
+    # membership join table, so the officer links straight to that row (not
+    # to Fisherfolk directly). CASCADE is deliberate: removing someone's
+    # membership should automatically clear any officer position they held
+    # — this is the auto-clear behavior Batch 4 chose for member removal.
+    member = models.ForeignKey(
+        'FisherfolkAssociationMember',
+        on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name='officer_position',
     )
     position  = models.CharField(max_length=50, choices=POSITION_CHOICES)
     full_name = models.CharField(max_length=200)

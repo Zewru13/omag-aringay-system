@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { ArrowLeft, Plus, Trash2, Users } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ArrowLeft, Plus, Search, Trash2, UserCog, Users } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import api from "../../api/axiosInstance.js";
 import PageLayout from "../../components/Layout/PageLayout.jsx";
@@ -81,6 +81,11 @@ const FISHERFOLK_EQUIPMENT = [
 ];
 
 const CONDITIONS = ["Good", "Needs Repair", "Not Operational"];
+
+// Matches AssociationOfficer.POSITION_CHOICES / FisherfolkAssociationOfficer.POSITION_CHOICES
+// on the backend — narrower than the Member-position list above (no "Chairperson" /
+// "Vice Chairperson" / "Member").
+const OFFICER_POSITIONS = ["President", "Vice President", "Secretary", "Treasurer", "Auditor", "Board Member", "Manager"];
 
 function positionTone(pos) {
   if (pos === "President") return "navy";
@@ -277,6 +282,207 @@ function AddMemberModal({ type, associationId, onClose, onSuccess }) {
   );
 }
 
+// ─── Member Search Input (officer assignment — this association's members only) ──
+
+function MemberSearchInput({ type, associationId, onSelect, selected }) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [showDrop, setShowDrop] = useState(false);
+  const debounceRef = useRef(null);
+  const wrapperRef = useRef(null);
+
+  const getId = (item) => (type === "farmers" ? item.id : item.fisherfolk);
+  const getName = (item) => (type === "farmers" ? item.full_name : item.fisherfolk_full_name);
+  const getBarangay = (item) => (type === "farmers" ? item.barangay : item.fisherfolk_barangay);
+
+  const doSearch = useCallback(
+    async (q) => {
+      if (!q.trim()) {
+        setResults([]);
+        return;
+      }
+      setSearching(true);
+      try {
+        const r = await api.get(`/associations/${type}/${associationId}/members/`, {
+          params: { search: q },
+        });
+        const list = Array.isArray(r.data) ? r.data : r.data.results || [];
+        setResults(list.slice(0, 8));
+      } catch {
+        setResults([]);
+      } finally {
+        setSearching(false);
+      }
+    },
+    [type, associationId],
+  );
+
+  const handleChange = (e) => {
+    const v = e.target.value;
+    setQuery(v);
+    setShowDrop(true);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => doSearch(v), 300);
+  };
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setShowDrop(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleSelect = (item) => {
+    onSelect({ id: getId(item), full_name: getName(item), barangay: getBarangay(item) });
+    setQuery(getName(item));
+    setShowDrop(false);
+  };
+
+  const displayValue = selected?.id ? selected.full_name : query;
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#A8BCA8] pointer-events-none" />
+        <input
+          className={`${baseInputClasses} pl-8`}
+          placeholder="Search this association's members…"
+          value={displayValue}
+          onChange={handleChange}
+          onFocus={() => {
+            if (results.length > 0) setShowDrop(true);
+          }}
+        />
+      </div>
+      {showDrop && (
+        <div className="absolute z-50 mt-1 w-full rounded-xl border border-[#E2E8E2] bg-white shadow-lg max-h-52 overflow-y-auto">
+          {searching ? (
+            <p className="px-4 py-3 text-xs text-[#7A8E7A]">Searching…</p>
+          ) : results.length === 0 ? (
+            <p className="px-4 py-3 text-xs text-[#7A8E7A]">
+              {query.trim() ? "No matching members in this association." : "Type to search members."}
+            </p>
+          ) : (
+            results.map((item) => (
+              <button
+                key={getId(item)}
+                type="button"
+                onMouseDown={() => handleSelect(item)}
+                className="flex w-full flex-col items-start px-4 py-2.5 text-left hover:bg-[#F5F7F5] transition-colors"
+              >
+                <span className="text-xs font-semibold text-[#1A2B1A]">{getName(item)}</span>
+                <span className="text-[11px] text-[#7A8E7A]">{getBarangay(item)}</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Assign Officer Modal ──────────────────────────────────────────────────────
+
+function AssignOfficerModal({ type, associationId, existingOfficers, onClose, onSuccess }) {
+  const [position, setPosition] = useState(OFFICER_POSITIONS[0]);
+  const [selected, setSelected] = useState(null);
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const memberKey = type === "farmers" ? "farmer" : "fisherfolk";
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!selected) {
+      setError("Please search for and select a member first.");
+      return;
+    }
+    setError("");
+    setIsSubmitting(true);
+    try {
+      const existing = existingOfficers.find((o) => o.position === position);
+      if (existing) {
+        await api.delete(`/associations/${type}/officers/${existing.id}/`);
+      }
+      await api.post(`/associations/${type}/${associationId}/officers/`, {
+        position,
+        [memberKey]: selected.id,
+      });
+      onSuccess();
+      onClose();
+    } catch (err) {
+      const data = err.response?.data;
+      setError(data?.[memberKey]?.[0] || data?.detail || "Unable to assign officer.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <ModalShell title="Assign Officer" onClose={onClose}>
+      <form className="space-y-5" onSubmit={handleSubmit}>
+        <div>
+          <label className={labelCls}>Position</label>
+          <select
+            className={`${baseInputClasses} mt-1`}
+            value={position}
+            onChange={(e) => setPosition(e.target.value)}
+          >
+            {OFFICER_POSITIONS.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+          {existingOfficers.some((o) => o.position === position) && (
+            <p className="mt-1 text-[11px] text-amber-600">
+              This position already has an officer — assigning a new one will replace them.
+            </p>
+          )}
+        </div>
+
+        <div>
+          <label className={labelCls}>Member</label>
+          <div className="mt-1">
+            <MemberSearchInput
+              type={type}
+              associationId={associationId}
+              onSelect={setSelected}
+              selected={selected}
+            />
+          </div>
+          <p className="mt-1 text-[11px] text-[#7A8E7A]">
+            Only people already a member of this association can be assigned as an officer.
+          </p>
+        </div>
+
+        {selected && (
+          <p className="rounded-lg bg-[#EBF5EE] px-3 py-2 text-[13px] font-medium text-[#1B4D2E]">
+            Selected: {selected.full_name}
+          </p>
+        )}
+
+        {error && (
+          <p className="rounded-lg bg-rose-50 px-3 py-2 text-[13px] font-medium text-rose-700">
+            {error}
+          </p>
+        )}
+
+        <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4">
+          <Button onClick={onClose} type="button" variant="secondary">
+            Cancel
+          </Button>
+          <Button isLoading={isSubmitting} type="submit" variant="primary">
+            Assign Officer
+          </Button>
+        </div>
+      </form>
+    </ModalShell>
+  );
+}
+
 // ─── Add Equipment Modal ──────────────────────────────────────────────────────
 
 function AddEquipmentModal({ type, associationId, onClose, onSuccess }) {
@@ -464,6 +670,8 @@ function AssociationDetailPage() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [confirmRemoveMember, setConfirmRemoveMember] = useState(null);
   const [confirmRemoveEquipment, setConfirmRemoveEquipment] = useState(null);
+  const [confirmRemoveOfficer, setConfirmRemoveOfficer] = useState(null);
+  const [showAssignOfficer, setShowAssignOfficer] = useState(false);
   const [members, setMembers] = useState([]);
 
   const typeLabel = type === "farmers" ? "Farmers" : "Fisherfolk";
@@ -500,13 +708,20 @@ function AssociationDetailPage() {
       .catch(console.error);
   }, [type, id, refreshKey]);
 
-  const handleRemoveMember = async (memberId) => {
+  const handleRemoveMember = async () => {
+    if (!confirmRemoveMember) return;
     try {
-      await api.delete(`/associations/${type}/members/${memberId}/`);
+      if (type === "farmers") {
+        // Farmers Association membership is Farmer.farmers_association directly
+        // (no join row) — removal clears that field, it does not delete anything.
+        await api.delete(`/associations/farmers/${id}/members/${confirmRemoveMember.id}/`);
+      } else {
+        await api.delete(`/associations/${type}/members/${confirmRemoveMember.id}/`);
+      }
       showToast("Member removed.", "success");
       setRefreshKey((k) => k + 1);
-    } catch {
-      showToast("Unable to remove member.", "error");
+    } catch (err) {
+      showToast(err.response?.data?.detail || "Unable to remove member.", "error");
     } finally {
       setConfirmRemoveMember(null);
     }
@@ -524,8 +739,22 @@ function AssociationDetailPage() {
     }
   };
 
+  const handleRemoveOfficer = async () => {
+    if (!confirmRemoveOfficer) return;
+    try {
+      await api.delete(`/associations/${type}/officers/${confirmRemoveOfficer.id}/`);
+      showToast("Officer removed.", "success");
+      setRefreshKey((k) => k + 1);
+    } catch {
+      showToast("Unable to remove officer.", "error");
+    } finally {
+      setConfirmRemoveOfficer(null);
+    }
+  };
+
   const handleMemberAdded = () => setRefreshKey((k) => k + 1);
   const handleEquipmentAdded = () => setRefreshKey((k) => k + 1);
+  const handleOfficerAssigned = () => setRefreshKey((k) => k + 1);
 
   return (
     <PageLayout
@@ -658,6 +887,9 @@ function AssociationDetailPage() {
                             <th className="text-white text-[11px] font-semibold uppercase tracking-wider px-4 py-[11px] text-left">Name</th>
                             <th className="text-white text-[11px] font-semibold uppercase tracking-wider px-4 py-[11px] text-left">Barangay</th>
                             <th className="text-white text-[11px] font-semibold uppercase tracking-wider px-4 py-[11px] text-left">RSBSA No.</th>
+                            {(isAdmin || isEvaluator) && (
+                              <th className="px-4 py-[11px]" />
+                            )}
                           </tr>
                         </thead>
                         <tbody>
@@ -666,6 +898,20 @@ function AssociationDetailPage() {
                               <td className="px-4 py-[13px] text-[13px] font-medium text-[#1A2B1A]">{m.full_name}</td>
                               <td className="px-4 py-[13px] text-[13px] text-[#4A5E4A]">{m.barangay}</td>
                               <td className="px-4 py-[13px] text-[13px] text-[#4A5E4A]">{m.rsbsa_number}</td>
+                              {(isAdmin || isEvaluator) && (
+                                <td className="px-4 py-[13px]">
+                                  <Button
+                                    className="!text-rose-600"
+                                    icon={Trash2}
+                                    onClick={() => setConfirmRemoveMember({ id: m.id, name: m.full_name })}
+                                    size="sm"
+                                    type="button"
+                                    variant="ghost"
+                                  >
+                                    Remove
+                                  </Button>
+                                </td>
+                              )}
                             </tr>
                           ))}
                         </tbody>
@@ -718,7 +964,7 @@ function AssociationDetailPage() {
                                   <Button
                                     className="!text-rose-600"
                                     icon={Trash2}
-                                    onClick={() => setConfirmRemoveMember(m.id)}
+                                    onClick={() => setConfirmRemoveMember({ id: m.id, name: m[memberNameField] })}
                                     size="sm"
                                     type="button"
                                     variant="ghost"
@@ -805,28 +1051,62 @@ function AssociationDetailPage() {
                 ))}
             </div>
 
-            {/* Officers Table (farmers associations only) */}
-            {type === "farmers" && association.officers && association.officers.length > 0 && (
+            {/* Officers Table (both association types) */}
+            {association.officers && (
               <div className="mt-6 bg-white border border-[#E2E8E2] rounded-xl p-6">
-                <h3 className="text-[14px] font-semibold text-[#1A2B1A] mb-4">Association Officers</h3>
-                <div className="rounded-xl border border-[#E2E8E2] overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-[#1B4D2E]">
-                        <th className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white">Position</th>
-                        <th className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white">Name</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {association.officers.map((officer) => (
-                        <tr key={officer.id} className="border-t border-[#F0F4F0] hover:bg-[#F5F7F5]">
-                          <td className="px-4 py-3 text-[12px] font-semibold text-[#4A5E4A]">{officer.position}</td>
-                          <td className="px-4 py-3 text-[13px] text-[#1A2B1A]">{officer.full_name}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="text-[14px] font-semibold text-[#1A2B1A]">Association Officers</h3>
+                  {(isAdmin || isEvaluator) && (
+                    <button
+                      className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
+                      onClick={() => setShowAssignOfficer(true)}
+                    >
+                      <UserCog size={15} />
+                      Assign Officer
+                    </button>
+                  )}
                 </div>
+                {association.officers.length === 0 ? (
+                  <p className="rounded-lg bg-[#F5F7F5] px-4 py-3 text-[13px] text-[#7A8E7A]">
+                    No officers assigned yet.
+                  </p>
+                ) : (
+                  <div className="rounded-xl border border-[#E2E8E2] overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-[#1B4D2E]">
+                          <th className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white">Position</th>
+                          <th className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white">Name</th>
+                          {(isAdmin || isEvaluator) && (
+                            <th className="px-4 py-[11px]" />
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {association.officers.map((officer) => (
+                          <tr key={officer.id} className="border-t border-[#F0F4F0] hover:bg-[#F5F7F5]">
+                            <td className="px-4 py-3 text-[12px] font-semibold text-[#4A5E4A]">{officer.position}</td>
+                            <td className="px-4 py-3 text-[13px] text-[#1A2B1A]">{officer.full_name}</td>
+                            {(isAdmin || isEvaluator) && (
+                              <td className="px-4 py-3">
+                                <Button
+                                  className="!text-rose-600"
+                                  icon={Trash2}
+                                  onClick={() => setConfirmRemoveOfficer({ id: officer.id, position: officer.position, name: officer.full_name })}
+                                  size="sm"
+                                  type="button"
+                                  variant="ghost"
+                                >
+                                  Remove
+                                </Button>
+                              </td>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
           </>
@@ -851,13 +1131,23 @@ function AssociationDetailPage() {
         />
       )}
 
-      {confirmRemoveMember && (
+      {showAssignOfficer && association && (
+        <AssignOfficerModal
+          type={type}
+          associationId={id}
+          existingOfficers={association.officers || []}
+          onClose={() => setShowAssignOfficer(false)}
+          onSuccess={handleOfficerAssigned}
+        />
+      )}
+
+      {confirmRemoveMember && association && (
         <ConfirmDialog
           title="Remove Member"
-          message="Are you sure you want to remove this member from the association?"
+          message={`Remove ${confirmRemoveMember.name} from ${association.name}? This does not delete their ${type === "farmers" ? "farmer" : "fisherfolk"} profile — only their membership in this association.`}
           confirmLabel="Remove"
           danger
-          onConfirm={() => handleRemoveMember(confirmRemoveMember)}
+          onConfirm={handleRemoveMember}
           onCancel={() => setConfirmRemoveMember(null)}
         />
       )}
@@ -870,6 +1160,17 @@ function AssociationDetailPage() {
           danger
           onConfirm={() => handleRemoveEquipment(confirmRemoveEquipment)}
           onCancel={() => setConfirmRemoveEquipment(null)}
+        />
+      )}
+
+      {confirmRemoveOfficer && association && (
+        <ConfirmDialog
+          title="Remove Officer"
+          message={`Remove ${confirmRemoveOfficer.name} as ${confirmRemoveOfficer.position} of ${association.name}? This does not remove their association membership.`}
+          confirmLabel="Remove"
+          danger
+          onConfirm={handleRemoveOfficer}
+          onCancel={() => setConfirmRemoveOfficer(null)}
         />
       )}
     </PageLayout>

@@ -1,8 +1,12 @@
 from django.db.models import Q
-from rest_framework import generics, serializers
+from django.shortcuts import get_object_or_404
+from rest_framework import generics, serializers, status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from accounts.permissions import IsAdminOrEvaluator
+from farmers.models import Farmer
 
 from .models import (
     AssociationOfficer,
@@ -16,6 +20,7 @@ from .models import (
 )
 from .serializers import (
     AssociationOfficerSerializer,
+    FarmerAssociationMemberSearchSerializer,
     FarmersAssociationDetailSerializer,
     FarmersAssociationEquipmentSerializer,
     FarmersAssociationListSerializer,
@@ -51,9 +56,37 @@ class FarmersAssociationDetailView(generics.RetrieveUpdateAPIView):
     queryset = FarmersAssociation.objects.all()
 
 
-class FarmersAssociationMemberAddView(generics.CreateAPIView):
+class FarmersAssociationMemberAddView(generics.ListCreateAPIView):
+    """
+    GET: search THIS association's own members — used by the officer
+    assignment search-select. Sourced from Farmer.farmers_association (the
+    real membership link for Farmers Associations; see
+    FarmersAssociationMember's docstring), not the join table.
+    POST: unchanged join-table "add member" capability — kept for parity
+    with the fisherfolk side, though nothing in the current UI calls it for
+    farmers (see model docstring).
+    """
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    serializer_class = FarmersAssociationMemberSerializer
+    pagination_class = None
+
+    def get_serializer_class(self):
+        if self.request.method == 'GET':
+            return FarmerAssociationMemberSearchSerializer
+        return FarmersAssociationMemberSerializer
+
+    def get_queryset(self):
+        association_id = self.kwargs['pk']
+        if self.request.method == 'GET':
+            qs = Farmer.objects.filter(farmers_association_id=association_id)
+            search = self.request.query_params.get('search', '').strip()
+            if search:
+                qs = qs.filter(
+                    Q(first_name__icontains=search)
+                    | Q(last_name__icontains=search)
+                    | Q(middle_name__icontains=search)
+                )
+            return qs.order_by('last_name', 'first_name')
+        return FarmersAssociationMember.objects.filter(association_id=association_id)
 
     def perform_create(self, serializer):
         association_id = self.kwargs['pk']
@@ -69,6 +102,26 @@ class FarmersAssociationMemberRemoveView(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     queryset = FarmersAssociationMember.objects.all()
     lookup_url_kwarg = 'member_id'
+
+
+class FarmersAssociationMemberDirectRemoveView(APIView):
+    """
+    The actual "remove member" action for Farmers Associations: clears
+    Farmer.farmers_association (the real membership link) rather than
+    deleting a join-table row. Does NOT touch the Farmer profile otherwise.
+    Auto-clears any officer position this farmer holds in this association
+    first (Batch 4's chosen behavior — see AssociationOfficer.farmer's
+    SET_NULL, which can't auto-cascade here since we're nulling a field,
+    not deleting a row, so this has to be done explicitly).
+    """
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def delete(self, request, pk, farmer_id):
+        farmer = get_object_or_404(Farmer, pk=farmer_id, farmers_association_id=pk)
+        AssociationOfficer.objects.filter(association_id=pk, farmer_id=farmer_id).delete()
+        farmer.farmers_association = None
+        farmer.save(update_fields=['farmers_association'])
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class FarmersAssociationEquipmentAddView(generics.CreateAPIView):
@@ -126,9 +179,28 @@ class FisherfolkAssociationDetailView(generics.RetrieveUpdateAPIView):
     queryset = FisherfolkAssociation.objects.all()
 
 
-class FisherfolkAssociationMemberAddView(generics.CreateAPIView):
+class FisherfolkAssociationMemberAddView(generics.ListCreateAPIView):
+    """
+    GET: search THIS association's own members — used by the officer
+    assignment search-select.
+    POST: unchanged "add member" (join-table row).
+    """
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     serializer_class = FisherfolkAssociationMemberSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        qs = FisherfolkAssociationMember.objects.filter(
+            association_id=self.kwargs['pk'],
+        ).select_related('fisherfolk')
+        search = self.request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(
+                Q(fisherfolk__first_name__icontains=search)
+                | Q(fisherfolk__last_name__icontains=search)
+                | Q(fisherfolk__middle_name__icontains=search)
+            )
+        return qs
 
     def perform_create(self, serializer):
         association_id = self.kwargs['pk']

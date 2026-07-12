@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Building2, Phone, Users } from 'lucide-react'
+import { Building2, Phone } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
@@ -9,9 +9,6 @@ import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 
 const labelCls = 'block text-[13px] font-medium text-[#4A5E4A] mb-1.5'
-
-const OFFICER_POSITIONS = ['President', 'Vice President', 'Secretary', 'Treasurer', 'Auditor', 'Board Member', 'Manager']
-const initialOfficers   = Object.fromEntries(OFFICER_POSITIONS.map(p => [p, '']))
 
 const validateContact = (value) => {
   if (!value) return ''
@@ -38,7 +35,6 @@ const initialForm = {
 export default function CreateAssociationModal({ type: assocType = 'farmers', onClose, onSuccess }) {
   const { showToast } = useToast()
   const [form,         setForm]         = useState(initialForm)
-  const [officers,     setOfficers]     = useState(initialOfficers)
   const [error,        setError]        = useState('')
   const [formErrors,   setFormErrors]   = useState({})
   const [contactError, setContactError] = useState('')
@@ -93,7 +89,7 @@ export default function CreateAssociationModal({ type: assocType = 'farmers', on
     try {
       const contactPerson = [form.contact_person_last, form.contact_person_first]
         .filter(Boolean).join(', ')
-      const res = await api.post(`/associations/${assocType}/`, {
+      await api.post(`/associations/${assocType}/`, {
         name:                form.name,
         barangay:            form.barangay,
         street_address:      form.street_address,
@@ -105,13 +101,6 @@ export default function CreateAssociationModal({ type: assocType = 'farmers', on
         contact_person:      contactPerson,
         contact_number:      form.contact_number,
       })
-      // Save officers (any that have names)
-      const created = res.data
-      for (const pos of OFFICER_POSITIONS) {
-        const name = officers[pos].trim()
-        if (name) await api.post(`/associations/farmers/${created.id}/officers/`, { position: pos, full_name: name })
-      }
-
       showToast(`${typeLabel} created successfully.`, 'success')
       onSuccess()
     } catch (err) {
@@ -244,29 +233,10 @@ export default function CreateAssociationModal({ type: assocType = 'farmers', on
             {contactError && <p className="mt-1 text-[12px] text-rose-600">{contactError}</p>}
           </div>
 
-          {/* Officers Section */}
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Users size={14} className="text-[#4A5E4A]" />
-              <p className="text-[12px] font-semibold uppercase tracking-wider text-[#4A5E4A]">
-                Officers <span className="font-normal normal-case tracking-normal text-[#7A8E7A]">(optional)</span>
-              </p>
-            </div>
-            <div className="grid gap-2.5 sm:grid-cols-2">
-              {OFFICER_POSITIONS.map(pos => (
-                <div key={pos}>
-                  <label className="block text-[11px] font-semibold uppercase tracking-wide text-[#7A8E7A] mb-1">{pos}</label>
-                  <input
-                    type="text"
-                    className={baseInputClasses}
-                    placeholder="Full name (optional)"
-                    value={officers[pos]}
-                    onChange={e => setOfficers(o => ({ ...o, [pos]: e.target.value }))}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
+          <p className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5 text-[12px] text-[#7A8E7A]">
+            Officers can be assigned after this association is created and has members —
+            from the association's detail page.
+          </p>
 
           {error && (
             <p className="rounded-lg bg-rose-50 px-3 py-2 text-[13px] font-medium text-rose-700">
