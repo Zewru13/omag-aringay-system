@@ -10,3 +10,6 @@ venv/
 dist/
 build/
 *.egg-info/
+
+# Claude Code local tooling: personal settings, lock files, vendored skills
+.claude/
