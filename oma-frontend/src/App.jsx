@@ -18,6 +18,7 @@ import ForceChangePasswordPage from "./pages/Auth/ForceChangePasswordPage.jsx";
 import VerifyEmailPage from "./pages/Auth/VerifyEmailPage.jsx";
 import CropMonitoringPage from "./pages/Monitoring/CropMonitoringPage.jsx";
 import FisheriesMonitoringPage from "./pages/Monitoring/FisheriesMonitoringPage.jsx";
+import FisheriesForecastingTab from "./pages/Monitoring/FisheriesForecastingTab.jsx";
 import ProductionPage from "./pages/Production/ProductionPage.jsx";
 import ProfilePage from "./pages/Profile/ProfilePage.jsx";
 import ReportsPage from "./pages/Reports/ReportsPage.jsx";
@@ -161,6 +162,16 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
                 <ForecastingPage />
+              </ProtectedRoute>
+            }
+          />
+          {/* Fisheries Forecasting — moved out of the /fisheries-monitoring tab bar
+              (Batch C) into its own destination, same component, mounted standalone. */}
+          <Route
+            path="/fisheries-forecasting"
+            element={
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
+                <FisheriesForecastingTab />
               </ProtectedRoute>
             }
           />

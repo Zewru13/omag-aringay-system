@@ -20,7 +20,6 @@ import LogCatchModal from './LogCatchModal.jsx'
 import LogFisheriesDisasterModal from './LogFisheriesDisasterModal.jsx'
 import LogGovernmentAssistanceModal from './LogGovernmentAssistanceModal.jsx'
 import LogVesselInspectionModal from './LogVesselInspectionModal.jsx'
-import ForecastingTab from './FisheriesForecastingTab.jsx'
 
 const DISASTER_STATUS_TONES = { Reported: 'amber', Verified: 'green', Closed: 'slate' }
 const VESSEL_STATUS_TONES  = { Valid: 'green', 'Expiring Soon': 'amber', Expired: 'rose' }
@@ -705,7 +704,11 @@ function EditDisasterModal({ record, onClose, onSaved }) {
 
 export default function FisheriesMonitoringPage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const subTab = searchParams.get('tab') || 'stocking'
+  const rawTab = searchParams.get('tab') || 'stocking'
+  // Forecasting moved out to its own /fisheries-forecasting route (Batch C) —
+  // an old ?tab=forecasting link/bookmark falls back to the default tab
+  // instead of rendering nothing.
+  const subTab = rawTab === 'forecasting' ? 'stocking' : rawTab
   const setSubTab = (tab) => setSearchParams({ tab }, { replace: true })
 
   const [barangay, setBarangay] = useState('')
@@ -927,8 +930,8 @@ export default function FisheriesMonitoringPage() {
       subtitle="Stocking & culture, capture fishing, vessel inspections, assistance, and disaster reports"
     >
       <div className="space-y-5">
-        {/* Filters + Actions — not applicable to Stocking & Culture or Forecasting, which have their own filter bars */}
-        {subTab !== 'stocking' && subTab !== 'forecasting' && (
+        {/* Filters + Actions — not applicable to Stocking & Culture, which has its own filter bar */}
+        {subTab !== 'stocking' && (
           <div className="flex flex-wrap items-end gap-3">
             <div className="w-48">
               <BarangaySelect value={barangay} onChange={(e) => setBarangay(e.target.value)} includeAllOption />
@@ -977,7 +980,6 @@ export default function FisheriesMonitoringPage() {
             { value: 'capture',    label: 'Capture & Vessels' },
             { value: 'assistance', label: 'Assistance' },
             { value: 'disasters',  label: 'Fisherfolk Disasters' },
-            { value: 'forecasting', label: 'Forecasting' },
           ]}
           value={subTab}
           onChange={setSubTab}
@@ -985,9 +987,6 @@ export default function FisheriesMonitoringPage() {
 
         {/* Stocking & Culture — the existing FisheriesRecordsPage, mounted as-is */}
         {subTab === 'stocking' && <FisheriesRecordsPage asTab />}
-
-        {/* Forecasting — descriptive yield analysis, mirrors crop Yield Analysis */}
-        {subTab === 'forecasting' && <ForecastingTab />}
 
         {/* Capture Fishing */}
         {subTab === 'capture' && (

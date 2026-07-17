@@ -4,6 +4,7 @@ import api from '../../api/axiosInstance.js'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import PageLayout from '../../components/Layout/PageLayout.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
@@ -330,7 +331,7 @@ function AggregatePanel({ groupBy, setGroupBy, groups, overall, cycleTrend, isLo
 
 // ── Forecasting Tab (fisheries yield analysis) ───────────────────────────────
 
-export default function ForecastingTab() {
+export default function ForecastingTab({ asTab = false }) {
   const { showToast } = useToast()
   const [speciesList, setSpeciesList] = useState([])
   const [records, setRecords] = useState([])
@@ -414,7 +415,7 @@ export default function ForecastingTab() {
     } finally { setIsDownloading(false) }
   }
 
-  return (
+  const innerContent = (
     <div className="space-y-5">
       <DisclaimerBanner />
 
@@ -528,5 +529,16 @@ export default function ForecastingTab() {
         <YASignatureModal purpose={sigPurpose} onClose={() => setShowSig(false)} onGenerate={handleGenerate} />
       )}
     </div>
+  )
+
+  if (asTab) return innerContent
+
+  return (
+    <PageLayout
+      title="Fisheries Forecasting"
+      subtitle="Descriptive yield analysis based on recorded harvests versus planting-time estimates."
+    >
+      {innerContent}
+    </PageLayout>
   )
 }
