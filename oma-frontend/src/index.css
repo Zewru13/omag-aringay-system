@@ -1,32 +1,64 @@
 @import "tailwindcss";
 
+/* ─── Cultivated Ground token system ──────────────────────────────────────
+   Single source of truth for color, elevation, radius and motion. Every
+   component should consume these via Tailwind utilities (bg-primary,
+   text-secondary, shadow-md, …) rather than hardcoding hex. */
+
 @theme {
-  /* Primary */
+  --font-display: 'Fraunces', ui-serif, Georgia, serif;
+  --font-sans: 'Public Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Brand */
   --color-primary: #1B4D2E;
   --color-primary-hover: #235E38;
+  --color-primary-deep: #163318;
   --color-primary-light: #EBF5EE;
   --color-primary-muted: #C8E6D0;
 
-  /* Neutral */
-  --color-bg: #F5F7F5;
-  --color-surface: #FFFFFF;
-  --color-surface-2: #F9FAF9;
-  --color-border: #E2E8E2;
-  --color-border-strong: #C8D5C8;
+  /* Accent — harvest gold. Reserved for CTAs/highlights, never status. */
+  --color-accent: #B45309;
+  --color-accent-hover: #96420A;
+  --color-accent-light: #FBEED6;
 
-  /* Text */
-  --color-text-primary: #1A2B1A;
-  --color-text-secondary: #4A5E4A;
-  --color-text-muted: #7A8E7A;
+  /* Neutral surfaces — warm parchment, not cold grey */
+  --color-bg: #F6F5F1;
+  --color-surface: #FFFFFF;
+  --color-surface-2: #FAFAF7;
+  --color-border: #E7E5DE;
+  --color-border-strong: #D8D5CC;
+
+  /* Text — warm ink */
+  --color-text-primary: #1C2A1E;
+  --color-text-secondary: #4A5A4C;
+  --color-text-muted: #6B7669;
   --color-text-inverse: #FFFFFF;
 
-  /* Status */
+  /* Semantic status — always paired with icon/dot, never color-alone */
   --color-semantic-safe: #2D7A4F;
-  --color-semantic-safe-bg: #EBF5EE;
-  --color-semantic-warning: #D97706;
-  --color-semantic-warning-bg: #FEF3C7;
-  --color-semantic-critical: #C0392B;
-  --color-semantic-critical-bg: #FEE2E2;
+  --color-semantic-safe-bg: #E7F5EC;
+  --color-semantic-warning: #C2740A;
+  --color-semantic-warning-bg: #FBEED6;
+  --color-semantic-critical: #B4271B;
+  --color-semantic-critical-bg: #FBE3E0;
+  --color-semantic-info: #275E63;
+  --color-semantic-info-bg: #DCEEF0;
+
+  /* Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  /* Elevation — forest-tinted shadows for cohesion (not neutral black) */
+  --shadow-xs: 0 1px 2px rgba(22, 51, 24, 0.06);
+  --shadow-sm: 0 1px 3px rgba(22, 51, 24, 0.08), 0 1px 2px rgba(22, 51, 24, 0.05);
+  --shadow-md: 0 4px 12px rgba(22, 51, 24, 0.07), 0 2px 4px rgba(22, 51, 24, 0.05);
+  --shadow-lg: 0 12px 28px rgba(22, 51, 24, 0.10), 0 4px 10px rgba(22, 51, 24, 0.06);
+  --shadow-modal: 0 24px 60px rgba(22, 51, 24, 0.16);
+
+  /* Motion */
+  --ease-out-fluid: cubic-bezier(.22, .61, .36, 1);
+  --ease-spring: cubic-bezier(.34, 1.4, .64, 1);
 }
 
 :root {
@@ -35,7 +67,7 @@
   --color-forest-dark: #163318;
   --color-forest-50: #EBF5EE;
   --color-forest-100: #C8E6D0;
-  --color-milk: #F5F7F5;
+  --color-milk: #F6F5F1;
 }
 
 * {
@@ -43,10 +75,10 @@
 }
 
 body {
-  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: var(--font-sans);
   font-size: 14px;
-  color: #1A2B1A;
-  background: #F5F7F5;
+  color: var(--color-text-primary);
+  background: var(--color-bg);
   min-height: 100vh;
   margin: 0;
   -webkit-font-smoothing: antialiased;
@@ -57,15 +89,21 @@ button, input, select, textarea {
   font: inherit;
 }
 
-/* Modal animations */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* ─── Modal motion ─────────────────────────────────────────────────────── */
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to   { opacity: 1; }
 }
 
-@keyframes scaleIn {
-  from { opacity: 0; transform: scale(0.97); }
-  to   { opacity: 1; transform: scale(1); }
+@keyframes springIn {
+  from { opacity: 0; transform: scale(0.94) translateY(6px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 .modal-backdrop {
@@ -75,5 +113,51 @@ button, input, select, textarea {
 }
 
 .modal-content {
-  animation: scaleIn 180ms ease;
+  animation: springIn 260ms var(--ease-spring);
+}
+
+/* ─── Staggered entrance (cards, table rows, list items) ──────────────── */
+
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.stagger-item {
+  animation: riseIn var(--dur-base, 220ms) var(--ease-out-fluid) both;
+  animation-delay: calc(var(--stagger-index, 0) * 40ms);
+}
+
+/* ─── Skeleton shimmer ─────────────────────────────────────────────────── */
+
+@keyframes shimmer {
+  from { background-position: -200px 0; }
+  to   { background-position: calc(200px + 100%) 0; }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, var(--color-border) 25%, var(--color-surface-2) 50%, var(--color-border) 75%);
+  background-size: 400px 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+/* ─── Press feedback ───────────────────────────────────────────────────── */
+
+.press-scale {
+  transition: transform 120ms var(--ease-out-fluid);
+}
+
+.press-scale:active {
+  transform: scale(0.98);
+}
+
+/* ─── Accessibility: respect reduced motion ────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }

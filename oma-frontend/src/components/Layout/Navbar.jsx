@@ -38,20 +38,20 @@ function Navbar({ onToggleSidebar, isCollapsed }) {
   return (
     <>
       <header
-        className={`h-14 bg-[#1B4D2E] fixed top-0 right-0 z-30 flex items-center justify-between px-4 left-0 ${isCollapsed ? 'md:left-16' : 'md:left-[220px]'}`}
+        className={`h-14 bg-[color:var(--color-primary-deep)] shadow-sm fixed top-0 right-0 z-30 flex items-center justify-between px-4 left-0 ${isCollapsed ? 'md:left-16' : 'md:left-[220px]'}`}
         style={{ transition: 'left 300ms ease-in-out' }}
       >
         {/* Left: hamburger + system name */}
         <div className="flex items-center gap-3">
           <button
-            className="w-9 h-9 flex items-center justify-center rounded-lg text-white hover:bg-white/10 transition-colors"
+            className="press-scale w-9 h-9 flex items-center justify-center rounded-lg text-white hover:bg-white/10 transition-colors"
             onClick={onToggleSidebar}
             type="button"
             aria-label="Toggle sidebar"
           >
-            <Menu size={20} />
+            <Menu size={20} aria-hidden="true" />
           </button>
-          <span className="hidden md:block text-[13px] font-medium text-white/85">
+          <span className="hidden md:block font-display text-[14px] font-medium text-white/90 tracking-tight">
             Integrated Agricultural Monitoring System
           </span>
         </div>
@@ -81,57 +81,57 @@ function Navbar({ onToggleSidebar, isCollapsed }) {
           </button>
 
           {dropdownOpen && (
-            <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-[#E2E8E2] rounded-xl shadow-[0_8px_24px_rgba(0,0,0,0.08)] p-1 min-w-[180px]">
+            <div className="stagger-item absolute right-0 top-full mt-1.5 z-50 bg-surface border border-border rounded-[var(--radius-md)] shadow-[var(--shadow-lg)] p-1 min-w-[190px]">
               {/* Profile header */}
-              <div className="flex items-center gap-2.5 px-3 py-2.5 mb-1 border-b border-[#F0F4F0]">
-                <div className="w-7 h-7 rounded-full bg-[#EBF5EE] flex items-center justify-center flex-shrink-0">
-                  <span className="text-[12px] font-semibold text-[#1B4D2E]">
+              <div className="flex items-center gap-2.5 px-3 py-2.5 mb-1 border-b border-border">
+                <div className="w-8 h-8 rounded-full bg-primary-light flex items-center justify-center flex-shrink-0">
+                  <span className="text-[12px] font-semibold text-primary">
                     {userInitial}
                   </span>
                 </div>
-                <div>
-                  <p className="text-[13px] font-medium text-[#1A2B1A] leading-tight">{user?.full_name || user?.email}</p>
-                  <p className="text-[11px] text-[#7A8E7A] leading-tight capitalize">{user?.role?.toLowerCase()}</p>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-medium text-text-primary leading-tight truncate">{user?.full_name || user?.email}</p>
+                  <p className="text-[11px] text-text-muted leading-tight capitalize">{user?.role?.toLowerCase()}</p>
                 </div>
               </div>
 
               <Link
                 to="/profile"
-                className="flex items-center gap-2 px-3 py-2 rounded-md text-[13px] text-[#1A2B1A] hover:bg-[#F5F7F5] transition-colors"
+                className="flex items-center gap-2 px-3 py-2 rounded-[var(--radius-sm)] text-[13px] text-text-primary hover:bg-surface-2 transition-colors"
                 onClick={() => setDropdownOpen(false)}
               >
-                <User size={14} className="text-[#7A8E7A]" />
+                <User size={14} className="text-text-muted" aria-hidden="true" />
                 My Profile
               </Link>
 
               {user?.role === 'ADMIN' && (
                 <Link
                   to="/audit-log"
-                  className="flex items-center gap-2 px-3 py-2 rounded-md text-[13px] text-[#1A2B1A] hover:bg-[#F5F7F5] transition-colors"
+                  className="flex items-center gap-2 px-3 py-2 rounded-[var(--radius-sm)] text-[13px] text-text-primary hover:bg-surface-2 transition-colors"
                   onClick={() => setDropdownOpen(false)}
                 >
-                  <History size={14} className="text-[#7A8E7A]" />
+                  <History size={14} className="text-text-muted" aria-hidden="true" />
                   Activity Log
                 </Link>
               )}
 
               <Link
                 to="/help"
-                className="flex items-center gap-2 px-3 py-2 rounded-md text-[13px] text-[#1A2B1A] hover:bg-[#F5F7F5] transition-colors"
+                className="flex items-center gap-2 px-3 py-2 rounded-[var(--radius-sm)] text-[13px] text-text-primary hover:bg-surface-2 transition-colors"
                 onClick={() => setDropdownOpen(false)}
               >
-                <HelpCircle size={14} className="text-[#7A8E7A]" />
+                <HelpCircle size={14} className="text-text-muted" aria-hidden="true" />
                 Help
               </Link>
 
-              <div className="border-t border-[#F0F4F0] my-1" />
+              <div className="border-t border-border my-1" />
 
               <button
                 type="button"
-                className="flex w-full items-center gap-2 px-3 py-2 rounded-md text-[13px] text-[#C0392B] hover:bg-[#FEE2E2] transition-colors"
+                className="flex w-full items-center gap-2 px-3 py-2 rounded-[var(--radius-sm)] text-[13px] text-[color:var(--color-semantic-critical)] hover:bg-[color:var(--color-semantic-critical-bg)] transition-colors"
                 onClick={() => { setDropdownOpen(false); setShowLogoutConfirm(true) }}
               >
-                <LogOut size={14} />
+                <LogOut size={14} aria-hidden="true" />
                 Logout
               </button>
             </div>

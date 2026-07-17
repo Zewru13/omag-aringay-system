@@ -1,53 +1,47 @@
 const TONE = {
-  green:    { bg: 'bg-[#EBF5EE]', text: 'text-[#1B4D2E]', dot: 'bg-[#1B4D2E]' },
-  amber:    { bg: 'bg-[#FEF3C7]', text: 'text-[#92400E]', dot: 'bg-[#92400E]' },
-  rose:     { bg: 'bg-[#FEE2E2]', text: 'text-[#991B1B]', dot: 'bg-[#991B1B]' },
-  blue:     { bg: 'bg-[#EEF2FF]', text: 'text-[#3730A3]', dot: 'bg-[#3730A3]' },
-  slate:    { bg: 'bg-[#F5F7F5]', text: 'text-[#4A5E4A]', dot: 'bg-[#4A5E4A]' },
-  navy:     { bg: 'bg-[#EEF2FF]', text: 'text-[#3730A3]', dot: 'bg-[#3730A3]' },
-  marigold: { bg: 'bg-[#FEF3C7]', text: 'text-[#92400E]', dot: 'bg-[#92400E]' },
+  green:    { bg: '#E7F5EC', text: '#1E5637' },
+  amber:    { bg: '#FBEED6', text: '#8A5207' },
+  rose:     { bg: '#FBE3E0', text: '#8A1F16' },
+  teal:     { bg: '#DCEEF0', text: '#1E4A4F' },
+  slate:    { bg: '#F6F5F1', text: '#4A5A4C' },
+  // legacy aliases kept for existing call sites during rollout
+  blue:     { bg: '#DCEEF0', text: '#1E4A4F' },
+  navy:     { bg: '#DCEEF0', text: '#1E4A4F' },
+  marigold: { bg: '#FBEED6', text: '#8A5207' },
 }
 
 const STATUS_MAP = {
-  PLANTED:     { bg: '#EBF5EE', text: '#1B4D2E' },
-  ACTIVE:      { bg: '#EBF5EE', text: '#1B4D2E' },
-  active:      { bg: '#EBF5EE', text: '#1B4D2E' },
-  planted:     { bg: '#EBF5EE', text: '#1B4D2E' },
-  FOR_HARVEST: { bg: '#FEF3C7', text: '#92400E' },
-  UPCOMING:    { bg: '#FEF3C7', text: '#92400E' },
-  for_harvest: { bg: '#FEF3C7', text: '#92400E' },
-  upcoming:    { bg: '#FEF3C7', text: '#92400E' },
-  HARVESTED:   { bg: '#EEF2FF', text: '#3730A3' },
-  COMPLETED:   { bg: '#EEF2FF', text: '#3730A3' },
-  harvested:   { bg: '#EEF2FF', text: '#3730A3' },
-  completed:   { bg: '#EEF2FF', text: '#3730A3' },
-  OVERDUE:     { bg: '#FEE2E2', text: '#991B1B' },
-  overdue:     { bg: '#FEE2E2', text: '#991B1B' },
+  PLANTED:     TONE.green,
+  ACTIVE:      TONE.green,
+  active:      TONE.green,
+  planted:     TONE.green,
+  FOR_HARVEST: TONE.amber,
+  UPCOMING:    TONE.amber,
+  for_harvest: TONE.amber,
+  upcoming:    TONE.amber,
+  HARVESTED:   TONE.teal,
+  COMPLETED:   TONE.teal,
+  harvested:   TONE.teal,
+  completed:   TONE.teal,
+  OVERDUE:     TONE.rose,
+  overdue:     TONE.rose,
 }
 
-const STATUS_DEFAULT = { bg: '#F5F7F5', text: '#4A5E4A' }
+const STATUS_DEFAULT = TONE.slate
 
 function StatusPill({ tone = 'slate', status, children }) {
-  if (status !== undefined) {
-    const s = STATUS_MAP[status] || STATUS_DEFAULT
-    return (
-      <span
-        className="inline-flex items-center gap-[5px] px-[10px] py-[3px] rounded-full text-[11px] font-semibold"
-        style={{ backgroundColor: s.bg, color: s.text }}
-      >
-        <span
-          className="w-[5px] h-[5px] rounded-full flex-shrink-0"
-          style={{ backgroundColor: s.text }}
-        />
-        {children}
-      </span>
-    )
-  }
+  const colors = status !== undefined ? (STATUS_MAP[status] || STATUS_DEFAULT) : (TONE[tone] || TONE.slate)
 
-  const colors = TONE[tone] || TONE.slate
   return (
-    <span className={`inline-flex items-center gap-[5px] px-[10px] py-[3px] rounded-full text-[11px] font-semibold ${colors.bg} ${colors.text}`}>
-      <span className={`w-[5px] h-[5px] rounded-full flex-shrink-0 ${colors.dot}`} />
+    <span
+      className="inline-flex items-center gap-[6px] px-[10px] py-[4px] rounded-full text-[11px] font-semibold"
+      style={{ backgroundColor: colors.bg, color: colors.text }}
+    >
+      <span
+        className="w-[6px] h-[6px] rounded-full flex-shrink-0"
+        style={{ backgroundColor: colors.text }}
+        aria-hidden="true"
+      />
       {children}
     </span>
   )

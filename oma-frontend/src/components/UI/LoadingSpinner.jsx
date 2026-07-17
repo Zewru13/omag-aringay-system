@@ -4,8 +4,10 @@ function LoadingSpinner({ size = 'large', message = '', className = '' }) {
 
   const spinner = (
     <div
-      className="animate-spin rounded-full border-2 border-[#E2E8E2] border-t-[#1B4D2E]"
+      className="animate-spin rounded-full border-2 border-border border-t-primary"
       style={{ width: spinnerPx, height: spinnerPx }}
+      role="status"
+      aria-label={message || 'Loading'}
     />
   )
 
@@ -13,7 +15,7 @@ function LoadingSpinner({ size = 'large', message = '', className = '' }) {
     return (
       <div className={`flex items-center justify-center py-4 ${className}`}>
         {spinner}
-        {message && <p className="ml-2 text-[13px] text-[#7A8E7A]">{message}</p>}
+        {message && <p className="ml-2 text-[13px] text-text-muted">{message}</p>}
       </div>
     )
   }
@@ -21,7 +23,7 @@ function LoadingSpinner({ size = 'large', message = '', className = '' }) {
   return (
     <div className={`flex flex-col items-center justify-center py-8 ${className}`}>
       {spinner}
-      {message && <p className="mt-3 text-[13px] text-[#7A8E7A]">{message}</p>}
+      {message && <p className="mt-3 text-[13px] text-text-muted">{message}</p>}
     </div>
   )
 }

@@ -28,7 +28,7 @@ function PageLayout({ title, subtitle, action, children }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F7F5]">
+    <div className="min-h-screen bg-bg">
       <Navbar onToggleSidebar={handleSidebarToggle} isCollapsed={sidebarCollapsed} />
       <Sidebar
         isOpen={sidebarOpen}
@@ -38,18 +38,18 @@ function PageLayout({ title, subtitle, action, children }) {
 
       <div
         className={[
-          'min-h-screen bg-[#F5F7F5] pt-14 transition-all duration-300',
+          'min-h-screen bg-bg pt-14 transition-all duration-300',
           sidebarCollapsed ? 'md:pl-16' : 'md:pl-[220px]',
         ].join(' ')}
       >
-        <main className="p-6">
+        <main className="p-4 sm:p-6">
           {(title || action) && (
-            <div className="flex items-start justify-between mb-5">
+            <div className="flex items-start justify-between mb-5 gap-4 flex-wrap">
               <div>
-                {title && <h1 className="text-[20px] font-semibold text-[#1A2B1A] leading-tight">{title}</h1>}
-                {subtitle && <p className="text-[13px] text-[#7A8E7A] mt-0.5">{subtitle}</p>}
+                {title && <h1 className="font-display text-[22px] font-semibold text-text-primary leading-tight tracking-tight">{title}</h1>}
+                {subtitle && <p className="text-[13px] text-text-secondary mt-0.5">{subtitle}</p>}
               </div>
-              {action && <div className="ml-4 flex-shrink-0">{action}</div>}
+              {action && <div className="ml-auto flex-shrink-0">{action}</div>}
             </div>
           )}
           {children}

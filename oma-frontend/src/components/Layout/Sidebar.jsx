@@ -135,12 +135,13 @@ function LeafItem({ to, icon: Icon, label, isCollapsed, depth = 0 }) {
       <NavLink to={to}>
         <div
           className={[
-            "relative w-10 h-10 flex items-center justify-center rounded-[10px] mx-auto mb-0.5 transition-colors cursor-pointer group",
-            isActive ? "bg-[#EBF5EE]" : "hover:bg-[#F5F7F5]",
+            "relative w-10 h-10 flex items-center justify-center rounded-[10px] mx-auto mb-0.5 cursor-pointer group",
+            "transition-[background-color,box-shadow,transform] duration-200 ease-in-out will-change-transform hover:translate-x-0.5",
+            isActive ? "bg-primary-light shadow-[0_1px_3px_rgba(27,77,46,0.16)]" : "hover:bg-surface-2",
           ].join(" ")}
         >
-          <Icon className={`w-[18px] h-[18px] ${isActive ? "text-[#1B4D2E]" : "text-[#7A8E7A]"}`} />
-          <div className="absolute left-[calc(100%+8px)] top-1/2 -translate-y-1/2 bg-[#1A2B1A] text-white text-[12px] px-2.5 py-1 rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+          <Icon className={`w-[18px] h-[18px] ${isActive ? "text-primary" : "text-text-muted"}`} aria-hidden="true" />
+          <div className="absolute left-[calc(100%+8px)] top-1/2 -translate-y-1/2 bg-[color:var(--color-primary-deep)] text-white text-[12px] px-2.5 py-1 rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 shadow-md">
             {label}
           </div>
         </div>
@@ -152,20 +153,26 @@ function LeafItem({ to, icon: Icon, label, isCollapsed, depth = 0 }) {
     <NavLink to={to}>
       <div
         className={[
-          "relative flex items-center gap-2.5 rounded-lg text-[13px] transition-colors cursor-pointer mb-0.5",
-          depth > 0 ? "py-[7px] pl-9 pr-3 mx-1.5" : "px-3 py-2 mx-1.5",
+          "relative flex items-center gap-2.5 rounded-[10px] text-[13px] cursor-pointer mb-0.5",
+          "transition-[background-color,color,box-shadow,transform] duration-200 ease-in-out will-change-transform hover:translate-x-0.5",
+          depth > 0 ? "py-[7px] pl-9 pr-3 mx-1.5" : "px-3 py-2.5 mx-1.5",
           isActive
-            ? "bg-[#EBF5EE] text-[#1B4D2E] font-semibold"
-            : "text-[#4A5E4A] hover:bg-[#F5F7F5] hover:text-[#1A2B1A]",
+            ? "bg-primary-light text-primary font-semibold shadow-[0_1px_3px_rgba(27,77,46,0.16)]"
+            : "text-text-secondary hover:bg-surface-2 hover:text-text-primary",
         ].join(" ")}
       >
-        {isActive && (
-          <span className="absolute left-0 w-[3px] h-5 bg-[#1B4D2E] rounded-r top-1/2 -translate-y-1/2" />
-        )}
+        <span
+          className={[
+            "absolute left-0 w-[3px] rounded-r bg-primary top-1/2 -translate-y-1/2",
+            "transition-[height,opacity] duration-200 ease-in-out",
+            isActive ? "h-5 opacity-100" : "h-2 opacity-0",
+          ].join(" ")}
+          aria-hidden="true"
+        />
         {depth > 0 ? (
-          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${isActive ? "bg-[#1B4D2E]" : "bg-[#C8D5C8]"}`} />
+          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-colors duration-200 ${isActive ? "bg-primary" : "bg-border-strong"}`} aria-hidden="true" />
         ) : (
-          <Icon className={`w-[18px] h-[18px] flex-shrink-0 ${isActive ? "text-[#1B4D2E]" : "text-[#7A8E7A]"}`} />
+          <Icon className={`w-[18px] h-[18px] flex-shrink-0 transition-colors duration-200 ${isActive ? "text-primary" : "text-text-muted"}`} aria-hidden="true" />
         )}
         <span className="text-[13px] leading-snug">{label}</span>
       </div>
@@ -204,22 +211,31 @@ function NavGroup({ group, isCollapsed, depth = 0 }) {
   }
 
   return (
-    <div className={depth === 0 ? "mb-1" : "mt-0.5 mb-1"}>
+    <div className={depth === 0 ? "mt-4" : "mt-1 mb-1"}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={[
-          "flex w-full items-center justify-between text-left transition-colors",
+          "flex w-full items-center justify-between text-left rounded-[var(--radius-sm)] transition-colors duration-200 ease-in-out cursor-pointer",
           depth === 0
-            ? "px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#A8BCA8] hover:text-[#4A5E4A]"
-            : "px-3 py-1.5 pl-9 text-[11px] font-medium text-[#7A8E7A] hover:text-[#4A5E4A]",
+            ? "px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-text-muted hover:text-text-secondary"
+            : "px-3 py-2 pl-9 text-[11px] font-medium text-text-muted hover:text-text-secondary",
         ].join(" ")}
       >
         <span>{group.label}</span>
-        <ChevronDown size={depth === 0 ? 12 : 11} className={`transition-transform ${open ? "" : "-rotate-90"} ${depth === 0 ? "mr-1.5" : "mr-3"}`} />
+        <ChevronDown
+          size={depth === 0 ? 12 : 11}
+          className={`transition-transform duration-200 ease-in-out flex-shrink-0 ${open ? "" : "-rotate-90"}`}
+          aria-hidden="true"
+        />
       </button>
-      {open && (
-        <div>
+      <div
+        className={[
+          "grid transition-[grid-template-rows] duration-[250ms] ease-in-out",
+          open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+        ].join(" ")}
+      >
+        <div className="overflow-hidden min-h-0">
           {group.items.map((item) =>
             item.items ? (
               <NavGroup key={item.key || item.label} group={item} isCollapsed={isCollapsed} depth={depth + 1} />
@@ -228,7 +244,7 @@ function NavGroup({ group, isCollapsed, depth = 0 }) {
             ),
           )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -251,45 +267,45 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
 
       <aside
         className={[
-          "bg-white border-r border-[#E2E8E2] flex flex-col fixed left-0 top-14 bottom-0 z-20 overflow-y-auto transition-all duration-300",
+          "bg-surface border-r border-border flex flex-col fixed left-0 top-14 bottom-0 z-20 overflow-y-auto transition-all duration-300",
           isCollapsed ? "w-16" : "w-[220px]",
           isOpen
             ? "translate-x-0 shadow-xl"
             : "-translate-x-full md:translate-x-0",
         ].join(" ")}
       >
-        {/* Logo area */}
-        <div className="relative px-4 pt-3 pb-4 border-b border-[#F0F4F0]">
+        {/* Logo area — h-14 matches the navbar exactly, flush top boundary */}
+        <div className="h-14 flex items-center px-4 border-b border-border flex-shrink-0">
           {isCollapsed ? (
             <img
               src={logo}
               alt="OMAg"
-              className="w-8 h-8 object-contain mx-auto"
+              className="w-8 h-8 object-contain mx-auto rounded-md ring-1 ring-border-strong/60"
             />
           ) : (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               <img
                 src={logo}
                 alt="OMAg"
-                className="w-9 h-9 object-contain rounded-lg flex-shrink-0"
+                className="w-8 h-8 object-contain rounded-md ring-1 ring-border-strong/60 flex-shrink-0"
               />
-              <div>
-                <p className="text-[14px] font-semibold text-[#1A2B1A] leading-tight">
+              <div className="min-w-0">
+                <p className="font-display text-[15px] font-semibold text-text-primary leading-tight truncate">
                   OMAg Aringay
                 </p>
-                <p className="text-[11px] text-[#7A8E7A] mt-0.5">
+                <p className="text-[10px] font-medium text-text-muted uppercase tracking-[0.08em] mt-0.5">
                   Aringay, La Union
                 </p>
               </div>
             </div>
           )}
           <button
-            className="absolute right-3 top-3 rounded-lg p-1.5 text-[#7A8E7A] transition hover:bg-[#F5F7F5] hover:text-[#1A2B1A] md:hidden"
+            className="press-scale ml-auto rounded-lg p-1.5 text-text-muted transition-colors duration-200 hover:bg-surface-2 hover:text-text-primary md:hidden"
             onClick={onClose}
             type="button"
             aria-label="Close menu"
           >
-            <X size={18} />
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
 
@@ -297,7 +313,7 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
         <nav className="flex-1 py-3">
           <LeafItem {...DASHBOARD_ITEM} isCollapsed={isCollapsed} />
 
-          {isCollapsed && <div className="mx-auto w-8 border-t border-[#E2E8E2] my-2" />}
+          {isCollapsed && <div className="mx-auto w-8 border-t border-border my-2" />}
 
           {GROUPS.map((group) => (
             <NavGroup key={group.key} group={group} isCollapsed={isCollapsed} />
@@ -307,7 +323,7 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
 
           {isAdmin && (
             <>
-              {isCollapsed && <div className="mx-auto w-8 border-t border-[#E2E8E2] my-2" />}
+              {isCollapsed && <div className="mx-auto w-8 border-t border-border my-2" />}
               <NavGroup group={ADMIN_GROUP} isCollapsed={isCollapsed} />
             </>
           )}
