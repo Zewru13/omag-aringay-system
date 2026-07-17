@@ -231,7 +231,7 @@ function App() {
           <Route
             path="/audit-log"
             element={
-              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
+              <ProtectedRoute allowedRoles={["ADMIN"]}>
                 <AuditLogPage />
               </ProtectedRoute>
             }

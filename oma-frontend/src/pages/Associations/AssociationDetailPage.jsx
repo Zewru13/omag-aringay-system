@@ -113,7 +113,7 @@ function AddMemberModal({ type, associationId, onClose, onSuccess }) {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const searchEndpoint = type === "farmers" ? "/farmers/" : "/fisheries/";
+  const searchEndpoint = type === "farmers" ? "/farmers/" : "/fisheries/fisherfolk/";
   const memberKey = type === "farmers" ? "farmer" : "fisherfolk";
   const idLabel =
     type === "farmers" ? "rsbsa_number" : "lgu_registration_number";
@@ -128,7 +128,7 @@ function AddMemberModal({ type, associationId, onClose, onSuccess }) {
       const response = await api.get(
         `${searchEndpoint}?search=${encodeURIComponent(search)}`,
       );
-      setResults(Array.isArray(response.data) ? response.data : []);
+      setResults(Array.isArray(response.data) ? response.data : (response.data.results || []));
     } catch {
       setResults([]);
     } finally {

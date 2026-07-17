@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
+import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
-import SearchBar from '../../components/UI/SearchBar.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import AddFisherfolkModal from './AddFisherfolkModal.jsx'
 
@@ -110,6 +110,17 @@ function FisherfolkPage({ asTab = false }) {
 
   useEffect(() => { fetchFisherfolk(page) }, [page])
 
+  const activeFilterCount = [
+    status !== 'all',
+    gender !== 'all',
+    typeFilter !== 'all',
+    seniorOnly,
+    filterPWD,
+    filter4Ps,
+    Boolean(registeredFrom),
+    Boolean(registeredTo),
+  ].filter(Boolean).length
+
   const tableData = useMemo(() => fisherfolk.map((f) => {
     const ageVal = calcAge(f.birthdate)
     return {
@@ -165,13 +176,13 @@ function FisherfolkPage({ asTab = false }) {
         <div className="flex justify-end mb-3">{actionBtn}</div>
       )}
 
-      {/* Filter bar */}
-      <div className="bg-white border border-[#E2E8E2] rounded-xl px-4 py-[10px] mb-4 flex items-center gap-2.5 flex-wrap">
-        <SearchBar
-          onChange={setSearch}
-          placeholder="Search by name, LGU Reg. No., FishR No., or barangay"
-          value={search}
-        />
+      {/* Search + filters */}
+      <FilterPanel
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search by name, LGU Reg. No., FishR No., or barangay"
+        activeCount={activeFilterCount}
+      >
         <select className={filterSelectCls} value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="all">All Status</option>
           <option value="active">Active</option>
@@ -233,7 +244,7 @@ function FisherfolkPage({ asTab = false }) {
             onChange={(e) => setRegisteredTo(e.target.value)}
           />
         </label>
-      </div>
+      </FilterPanel>
 
       {successMsg && (
         <div className="rounded-lg border border-[#C8D5C8] bg-[#EBF5EE] px-4 py-3 text-[13px] font-medium text-[#1B4D2E] mb-4">

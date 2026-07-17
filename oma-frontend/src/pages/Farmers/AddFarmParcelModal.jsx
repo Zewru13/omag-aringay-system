@@ -22,8 +22,10 @@ const OWNERSHIP_OPTIONS = ['Owned', 'Borrowed', 'Rented', 'Association-Owned']
 const PERENNIAL_CROPS = ['Mango', 'Cacao (Kakaw)', 'Banana (Saging)', 'Coffee (Kape)', 'Other Fruits']
 const FARM_TYPE_OPTIONS = ['Irrigated Lowland', 'Rainfed Lowland', 'Upland', 'Highland', 'Other']
 const CROPPING_SCHEDULE_OPTIONS = ['Single Crop', 'Double Crop', 'Year-Round', 'Seasonal']
-const SEED_SOURCE_OPTIONS = ['Certified Seeds', 'Farm Saved Seeds', 'Hybrid Seeds', 'Open Pollinated', 'Other']
-const SEEDS_UNIT_OPTIONS = ['kg', 'g', 'bag', 'pack', 'piece']
+// Values must match FarmCrop.SEED_SOURCE_CHOICES / SEEDS_UNIT_CHOICES on the backend exactly —
+// these are sent as the raw choice value, not just a display label.
+const SEED_SOURCE_OPTIONS = ['Certified Seed', 'Farmer-saved Seed', 'Hybrid Seed', 'OPV Seed', 'Other']
+const SEEDS_UNIT_OPTIONS = ['kg', 'bag', 'piece']
 
 const labelCls = 'text-[13px] font-medium text-[#4A5E4A] mb-1.5 block'
 
@@ -47,7 +49,7 @@ const makeParcel = (n) => ({
   _cropNameOther: '',
   _cropArea: '',
   _cropVariety: '',
-  _cropSeedSource: 'Certified Seeds',
+  _cropSeedSource: 'Certified Seed',
   _cropQtySeeds: '',
   _cropSeedsUnit: 'kg',
   _cropIsMain: false,
@@ -71,7 +73,7 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
       crop_name_other: parcel._cropName === 'Other' ? parcel._cropNameOther : '',
       area_hectares: parseFloat(parcel._cropArea),
       is_main_crop: parcel._cropIsMain,
-      variety_used: parcel._cropVariety || null,
+      variety_used: parcel._cropVariety || '',
       seed_source: parcel._cropSeedSource,
       quantity_of_seeds_used: parcel._cropQtySeeds ? parseFloat(parcel._cropQtySeeds) : null,
       seeds_unit: parcel._cropSeedsUnit,
@@ -212,7 +214,7 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
             </div>
           )}
           <div>
-            <label className={labelCls}>Area (ha)</label>
+            <label className={labelCls}>Crop Area (ha)</label>
             <input type="number" min="0" step="0.0001" className={baseInputClasses}
               value={parcel._cropArea} onChange={e => set('_cropArea', e.target.value)} />
           </div>

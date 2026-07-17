@@ -104,14 +104,16 @@ function Navbar({ onToggleSidebar, isCollapsed }) {
                 My Profile
               </Link>
 
-              <Link
-                to="/audit-log"
-                className="flex items-center gap-2 px-3 py-2 rounded-md text-[13px] text-[#1A2B1A] hover:bg-[#F5F7F5] transition-colors"
-                onClick={() => setDropdownOpen(false)}
-              >
-                <History size={14} className="text-[#7A8E7A]" />
-                Activity Log
-              </Link>
+              {user?.role === 'ADMIN' && (
+                <Link
+                  to="/audit-log"
+                  className="flex items-center gap-2 px-3 py-2 rounded-md text-[13px] text-[#1A2B1A] hover:bg-[#F5F7F5] transition-colors"
+                  onClick={() => setDropdownOpen(false)}
+                >
+                  <History size={14} className="text-[#7A8E7A]" />
+                  Activity Log
+                </Link>
+              )}
 
               <Link
                 to="/help"

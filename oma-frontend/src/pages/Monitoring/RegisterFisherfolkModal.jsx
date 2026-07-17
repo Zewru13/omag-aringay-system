@@ -364,7 +364,7 @@ function RegisterFisherfolkModal({ onClose, onSuccess }) {
     const payload = buildPayload()
     console.log("Submitted payload:", payload)
     try {
-      await api.post('/fisheries/', payload)
+      await api.post('/fisheries/fisherfolk/', payload)
       onSuccess()
       onClose()
     } catch (error) {

@@ -187,7 +187,7 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
             isCollapsed={isCollapsed}
             user={user}
           >
-            Fisheries Monitoring
+            Fisheries Management
           </NavItem>
           <NavItem
             to="/reports"

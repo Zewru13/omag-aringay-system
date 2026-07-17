@@ -140,7 +140,11 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
     setIsSubmitting(true)
 
     try {
-      await api.patch(`/fisheries/${fisherfolk.id}/`, form)
+      // is_active is admin-only server-side; omit it entirely for evaluators
+      // so their save isn't rejected just for carrying an unchanged field.
+      const { is_active, ...rest } = form
+      const payload = isAdmin ? form : rest
+      await api.patch(`/fisheries/fisherfolk/${fisherfolk.id}/`, payload)
       showToast('Fisherfolk profile updated successfully.', 'success')
       onSuccess()
       onClose()

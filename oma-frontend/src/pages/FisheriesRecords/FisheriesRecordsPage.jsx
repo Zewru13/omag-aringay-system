@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, CheckCircle2, Eye, Fish, Lock, MoreVertical, Pencil, Plus, Search, Trash2, Unlock, User, Wheat } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Eye, Fish, Lock, Pencil, Plus, Search, Trash2, Unlock, User, Wheat } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
+import RowActions from '../../components/UI/RowActions.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import HarvestVarianceBadge from '../../components/UI/HarvestVarianceBadge.jsx'
@@ -1113,112 +1114,37 @@ function StockingDetailModal({ record, onClose }) {
   )
 }
 
-// ─── Record Actions Menu (⋮): View Details / Edit ─────────────────────────────
-// Delete lives inside EditStockingModal now, not here — see Batch 5.
-// Deliberately separate from LifecycleMenu below (untouched, its own ⋮).
+// ─── Row Actions Menu (⋮): CRUD group (View Details / Edit) + lifecycle group ──
+// (View Logs / Record Harvest / Report Disaster / Force Unlock), one merged
+// menu — Batch B. Previously two separate ⋮ menus plus a standalone Force
+// Unlock icon; RowActions collapses them into one dropdown with a divider
+// between the groups since a row always offers 3+ applicable actions here.
+// Delete lives inside EditStockingModal's Danger Zone, not in this menu.
 
-function RecordActionsMenu({ rec, onViewDetails, onEdit }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
-
-  useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
+function StockingRowActions({
+  rec, isAdmin, isLocked, lockedByName,
+  onViewDetails, onEdit, onViewLogs, onRecordHarvest, onReportDisaster, onForceUnlock,
+}) {
   const canEdit = rec.status !== 'Harvested'
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}
-        className="flex items-center justify-center rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 transition-colors"
-        title="Actions"
-      >
-        <MoreVertical size={14} />
-      </button>
-      {open && (
-        <div className="absolute right-0 z-20 mt-1 w-40 rounded-lg border border-[#E2E8E2] bg-white py-1 shadow-lg">
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setOpen(false); onViewDetails() }}
-            className="flex w-full items-center gap-2 px-3 py-2 text-[13px] text-[#1A2B1A] hover:bg-[#F5F7F5] transition-colors"
-          >
-            <Eye size={13} /> View Details
-          </button>
-          {canEdit && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setOpen(false); onEdit() }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-[13px] text-[#1A2B1A] hover:bg-[#F5F7F5] transition-colors"
-            >
-              <Pencil size={13} /> Edit
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ─── Lifecycle Menu (⋮): View Logs / Record Harvest / Report Disaster ─────────
-
-function LifecycleMenu({ rec, onViewLogs, onRecordHarvest, onReportDisaster }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
-
-  useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
   const canHarvest = rec.status !== 'Total Loss' && rec.status !== 'Harvested'
   const isNearHarvest = rec.status === 'Near Harvest'
 
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}
-        className="flex items-center justify-center rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 transition-colors"
-        title="Lifecycle actions"
-      >
-        <MoreVertical size={14} />
-      </button>
-      {open && (
-        <div className="absolute right-0 z-20 mt-1 w-48 rounded-lg border border-[#E2E8E2] bg-white py-1 shadow-lg">
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setOpen(false); onViewLogs() }}
-            className="flex w-full items-center gap-2 px-3 py-2 text-[13px] text-[#1A2B1A] hover:bg-[#F5F7F5] transition-colors"
-          >
-            <Eye size={13} /> View Logs
-          </button>
-          {canHarvest && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); setOpen(false); onRecordHarvest() }}
-              className={`flex w-full items-center gap-2 px-3 py-2 text-[13px] transition-colors hover:bg-amber-50 ${
-                isNearHarvest ? 'font-semibold text-amber-600' : 'text-[#1A2B1A]'
-              }`}
-            >
-              <Wheat size={13} /> Record Harvest
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setOpen(false); onReportDisaster() }}
-            className="flex w-full items-center gap-2 px-3 py-2 text-[13px] text-[#1A2B1A] hover:bg-rose-50 hover:text-rose-600 transition-colors"
-          >
-            <AlertTriangle size={13} /> Report Disaster
-          </button>
-        </div>
-      )}
-    </div>
-  )
+  const actions = [
+    { key: 'view', label: 'View Details', icon: Eye, onClick: onViewDetails, group: 'crud' },
+    canEdit && { key: 'edit', label: 'Edit', icon: Pencil, onClick: onEdit, group: 'crud' },
+    { key: 'logs', label: 'View Logs', icon: Eye, onClick: onViewLogs, group: 'lifecycle' },
+    canHarvest && {
+      key: 'harvest', label: 'Record Harvest', icon: Wheat, onClick: onRecordHarvest,
+      tone: isNearHarvest ? 'amber' : 'default', group: 'lifecycle',
+    },
+    { key: 'disaster', label: 'Report Disaster', icon: AlertTriangle, onClick: onReportDisaster, tone: 'rose', group: 'lifecycle' },
+    isAdmin && isLocked && {
+      key: 'unlock', label: `Force Unlock (${lockedByName || 'locked'})`, icon: Unlock, onClick: onForceUnlock,
+      tone: 'amber', group: 'lifecycle',
+    },
+  ]
+
+  return <RowActions actions={actions} menuTitle="Actions" menuWidthClassName="w-52" />
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -1355,29 +1281,18 @@ export default function FisheriesRecordsPage({ asTab = false }) {
       </span>
     ),
     actions_cell: (
-      <div className="flex items-center gap-1">
-        <RecordActionsMenu
-          rec={rec}
-          onViewDetails={() => setViewingRec(rec)}
-          onEdit={() => setEditingRec(rec)}
-        />
-        <LifecycleMenu
-          rec={rec}
-          onViewLogs={() => setViewLogsRec(rec)}
-          onRecordHarvest={() => setHarvestRec(rec)}
-          onReportDisaster={() => setDisasterRec(rec)}
-        />
-        {user?.role === 'ADMIN' && lockStatuses[rec.id] && (
-          <button
-            type="button"
-            className="flex items-center gap-1 rounded-lg px-2 py-1 text-amber-600 hover:bg-amber-50 transition-colors"
-            onClick={(e) => { e.stopPropagation(); handleForceUnlock(rec.id) }}
-            title={`Force unlock (held by ${lockStatuses[rec.id].locked_by?.name || 'another user'})`}
-          >
-            <Unlock size={14} />
-          </button>
-        )}
-      </div>
+      <StockingRowActions
+        rec={rec}
+        isAdmin={user?.role === 'ADMIN'}
+        isLocked={Boolean(lockStatuses[rec.id])}
+        lockedByName={lockStatuses[rec.id]?.locked_by?.name}
+        onViewDetails={() => setViewingRec(rec)}
+        onEdit={() => setEditingRec(rec)}
+        onViewLogs={() => setViewLogsRec(rec)}
+        onRecordHarvest={() => setHarvestRec(rec)}
+        onReportDisaster={() => setDisasterRec(rec)}
+        onForceUnlock={() => handleForceUnlock(rec.id)}
+      />
     ),
   }))
 

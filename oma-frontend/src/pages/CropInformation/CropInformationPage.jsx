@@ -5,7 +5,6 @@ import {
   Eye,
   FileText,
   MessageCircle,
-  MoreVertical,
   Pencil,
   Plus,
   Search,
@@ -15,6 +14,7 @@ import {
 import BarangaySelect from "../../components/UI/BarangaySelect.jsx";
 import api from "../../api/axiosInstance.js";
 import PageLayout from "../../components/Layout/PageLayout.jsx";
+import RowActions from "../../components/UI/RowActions.jsx";
 import ConfirmDialog from "../../components/UI/ConfirmDialog.jsx";
 import ErrorMessage from "../../components/UI/ErrorMessage.jsx";
 import HarvestVarianceBadge from "../../components/UI/HarvestVarianceBadge.jsx";
@@ -1005,89 +1005,22 @@ function DeleteCropModal({ record, onClose, onDeleted }) {
   );
 }
 
-// ─── Row Actions Menu (⋮): View Details / Edit / Remarks / Delete ─────────────
+// ─── Row Actions: View Details / Edit / Remarks / Delete ──────────────────────
+// Action-count rule (Batch B): Admin sees up to 4 (always ⋮); Evaluator sees
+// up to 3, but only 2 (View Details + Remarks) once the record is Harvested —
+// RowActions renders plain icons for that case instead of a pointless ⋮.
 
 function CropRowActionsMenu({ rec, isAdmin, onViewDetails, onEdit, onRemarks, onDelete }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    const handler = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
   const canEdit = rec.status !== "Harvested";
 
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen((o) => !o);
-        }}
-        className="flex items-center justify-center rounded-lg p-1.5 text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors"
-        title="Actions"
-      >
-        <MoreVertical size={14} />
-      </button>
-      {open && (
-        <div className="absolute right-0 z-20 mt-1 w-48 rounded-lg border border-[#E2E8E2] bg-white py-1 shadow-lg">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setOpen(false);
-              onViewDetails();
-            }}
-            className="flex w-full items-center gap-2 px-3 py-2 text-[13px] text-[#1A2B1A] hover:bg-[#F5F7F5] transition-colors"
-          >
-            <Eye size={13} /> View Details
-          </button>
-          {canEdit && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setOpen(false);
-                onEdit();
-              }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-[13px] text-[#1A2B1A] hover:bg-[#F5F7F5] transition-colors"
-            >
-              <Pencil size={13} /> Edit
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setOpen(false);
-              onRemarks();
-            }}
-            className="flex w-full items-center gap-2 px-3 py-2 text-[13px] text-[#1A2B1A] hover:bg-[#F5F7F5] transition-colors"
-          >
-            <FileText size={13} /> View/Add Remarks
-          </button>
-          {isAdmin && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setOpen(false);
-                onDelete();
-              }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-[13px] text-rose-600 hover:bg-rose-50 transition-colors"
-            >
-              <Trash2 size={13} /> Delete
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
+  const actions = [
+    { key: 'view', label: 'View Details', icon: Eye, onClick: onViewDetails },
+    canEdit && { key: 'edit', label: 'Edit', icon: Pencil, onClick: onEdit },
+    { key: 'remarks', label: 'View/Add Remarks', icon: FileText, onClick: onRemarks },
+    isAdmin && { key: 'delete', label: 'Delete', icon: Trash2, onClick: onDelete, tone: 'rose' },
+  ];
+
+  return <RowActions actions={actions} menuWidthClassName="w-48" />;
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────

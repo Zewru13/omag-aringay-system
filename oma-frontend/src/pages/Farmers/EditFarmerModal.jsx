@@ -152,7 +152,11 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
     setIsSubmitting(true)
 
     try {
-      await api.patch(`/farmers/${farmer.id}/`, { ...form, is_senior_citizen: isSenior })
+      // is_active is admin-only server-side; omit it entirely for evaluators
+      // so their save isn't rejected just for carrying an unchanged field.
+      const { is_active, ...rest } = form
+      const payload = isAdmin ? { ...form, is_senior_citizen: isSenior } : { ...rest, is_senior_citizen: isSenior }
+      await api.patch(`/farmers/${farmer.id}/`, payload)
       showToast('Farmer profile updated successfully.', 'success')
       onSuccess()
       onClose()

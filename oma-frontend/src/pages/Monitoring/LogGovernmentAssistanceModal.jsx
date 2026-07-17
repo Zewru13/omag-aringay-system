@@ -74,7 +74,7 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
     let mounted = true
     const loadFisherfolk = async () => {
       try {
-        const r = await api.get('/fisheries/')
+        const r = await api.get('/fisheries/fisherfolk/')
         const rows = Array.isArray(r.data) ? r.data : (r.data.results || [])
         const activeRows = rows.filter((ff) => ff?.is_active !== false)
         if (mounted) setFfResults(activeRows)

@@ -10,6 +10,7 @@ import GrowthProgressBar from '../../components/UI/GrowthProgressBar.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
+import RowActions from '../../components/UI/RowActions.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -1719,49 +1720,26 @@ export default function CropMonitoringPage() {
       ? <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-[#7A8E7A] flex-shrink-0" />{rec.farm_location_barangay || rec.farmer_barangay}</span>
       : <span className="text-[#A8BCA8]">—</span>,
     logs_cell: rec.log_count ?? 0,
+    // Action-count rule (Batch B): most rows offer 3 (View Logs, Record
+    // Harvest, Report Disaster) -> RowActions collapses to a ⋮. Once
+    // Harvested/Total Loss, Record Harvest drops out and it's back to 2
+    // plain icons (View Logs, Report Disaster), same per-row logic as
+    // CropInformationPage's row menu.
     actions: (
-      <div className="flex items-center gap-0.5">
-        <button
-          type="button"
-          title="View Logs"
-          onClick={() => setViewLogsRecord(rec)}
-          className="p-1.5 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-[#1B4D2E] transition-colors"
-        >
-          <Eye className="w-4 h-4" />
-        </button>
-        {rec.status !== 'Total Loss' && rec.status !== 'Harvested' && (
-          <button
-            type="button"
-            title="Record Harvest"
-            onClick={() => setHarvestRecord(rec)}
-            className={`p-1.5 rounded-lg transition-colors ${
-              isNearHarvest(rec)
-                ? 'text-amber-600 hover:bg-amber-50'
-                : 'text-slate-500 hover:bg-slate-100 hover:text-amber-600'
-            }`}
-          >
-            <Wheat className="w-4 h-4" />
-          </button>
-        )}
-        <button
-          type="button"
-          title="Report Disaster"
-          onClick={() => setDisasterRecord(rec)}
-          className="p-1.5 rounded-lg text-slate-500 hover:bg-rose-50 hover:text-rose-600 transition-colors"
-        >
-          <AlertTriangle className="w-4 h-4" />
-        </button>
-        {isAdmin && lockStatuses[rec.id] && (
-          <button
-            type="button"
-            title={`Force unlock (held by ${lockStatuses[rec.id].locked_by?.name || 'another user'})`}
-            onClick={() => handleForceUnlock(rec.id)}
-            className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 transition-colors"
-          >
-            <Unlock className="w-4 h-4" />
-          </button>
-        )}
-      </div>
+      <RowActions
+        actions={[
+          { key: 'logs', label: 'View Logs', icon: Eye, onClick: () => setViewLogsRecord(rec) },
+          rec.status !== 'Total Loss' && rec.status !== 'Harvested' && {
+            key: 'harvest', label: 'Record Harvest', icon: Wheat, onClick: () => setHarvestRecord(rec),
+            tone: isNearHarvest(rec) ? 'amber' : 'default',
+          },
+          { key: 'disaster', label: 'Report Disaster', icon: AlertTriangle, onClick: () => setDisasterRecord(rec), tone: 'rose' },
+          isAdmin && lockStatuses[rec.id] && {
+            key: 'unlock', label: `Force Unlock (${lockStatuses[rec.id].locked_by?.name || 'locked'})`, icon: Unlock,
+            onClick: () => handleForceUnlock(rec.id), tone: 'amber',
+          },
+        ]}
+      />
     ),
   }))
 

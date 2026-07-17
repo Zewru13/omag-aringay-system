@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Anchor, Eye, History, MoreVertical, Pencil, Plus, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Anchor, Eye, History, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
+import RowActions from '../../components/UI/RowActions.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import Button from '../../components/UI/Button.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
@@ -107,49 +108,20 @@ function SubTabBar({ options, value, onChange }) {
   )
 }
 
-// ─── Table Actions Menu (⋮): View Details / Edit ───────────────────────────────
+// ─── Table Row Actions: View Details / Edit ────────────────────────────────────
 // Delete lives inside each Edit modal now, not as a standalone icon — Batch 5.
+// onViewDetails is optional — Vessel Inspections and Assistance Records had
+// their View Details dropped (Batch B: the modal was near-redundant with the
+// table row), leaving just Edit for those two tables. At most 2 actions
+// either way, both roles, always — the action-count rule (Batch B) means
+// this stays plain icons, never a ⋮ (RowActions makes that call automatically).
 
 function TableActionsMenu({ onViewDetails, onEdit }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef(null)
-
-  useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); setOpen((o) => !o) }}
-        className="flex items-center justify-center rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 transition-colors"
-        title="Actions"
-      >
-        <MoreVertical size={14} />
-      </button>
-      {open && (
-        <div className="absolute right-0 z-20 mt-1 w-40 rounded-lg border border-[#E2E8E2] bg-white py-1 shadow-lg">
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setOpen(false); onViewDetails() }}
-            className="flex w-full items-center gap-2 px-3 py-2 text-[13px] text-[#1A2B1A] hover:bg-[#F5F7F5] transition-colors"
-          >
-            <Eye size={13} /> View Details
-          </button>
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setOpen(false); onEdit() }}
-            className="flex w-full items-center gap-2 px-3 py-2 text-[13px] text-[#1A2B1A] hover:bg-[#F5F7F5] transition-colors"
-          >
-            <Pencil size={13} /> Edit
-          </button>
-        </div>
-      )}
-    </div>
-  )
+  const actions = [
+    onViewDetails && { key: 'view', label: 'View Details', icon: Eye, onClick: onViewDetails },
+    { key: 'edit', label: 'Edit', icon: Pencil, onClick: onEdit },
+  ]
+  return <RowActions actions={actions} />
 }
 
 // ─── Generic read-only Detail Modal (View Details) ─────────────────────────────
@@ -878,18 +850,11 @@ export default function FisheriesMonitoringPage() {
     license_status_pill: (
       <StatusPill tone={VESSEL_STATUS_TONES[v.license_status] || 'slate'}>{v.license_status}</StatusPill>
     ),
+    // View Details dropped (Batch B) — every field it showed (condition,
+    // license status/expiry, remarks) is already a column in this table;
+    // the only addition, Days Until Expiry, is derivable from License Expiry.
     actions_cell: (
       <TableActionsMenu
-        onViewDetails={() => setViewingDetail({
-          title: 'Vessel Inspection Details',
-          subtitle: v.fisherfolk_name,
-          rows: [
-            ['Fisherfolk', v.fisherfolk_name], ['License Number', v.license_number],
-            ['Inspection Date', formatDate(v.inspection_date)], ['License Expiry', formatDate(v.license_expiry_date)],
-            ['Vessel Condition', v.vessel_condition], ['License Status', v.license_status],
-            ['Days Until Expiry', v.days_until_expiry], ['Remarks', v.remarks || '—'],
-          ],
-        })}
         onEdit={() => setEditingVessel(v)}
       />
     ),
@@ -900,19 +865,11 @@ export default function FisheriesMonitoringPage() {
     quantity: a.quantity != null ? Number(a.quantity).toLocaleString() : '—',
     date_received_fmt: formatDate(a.date_received),
     date_recorded_fmt: formatDate(a.date_recorded),
+    // View Details dropped (Batch B) — the table already shows every field
+    // it displayed except Description; it was even missing LGU Reg. No.,
+    // which the table does show.
     actions_cell: (
       <TableActionsMenu
-        onViewDetails={() => setViewingDetail({
-          title: 'Assistance Record Details',
-          subtitle: a.fisherfolk_name,
-          rows: [
-            ['Fisherfolk', a.fisherfolk_name], ['Barangay', a.fisherfolk_barangay],
-            ['Date Received', formatDate(a.date_received)], ['Assistance Type', a.assistance_type],
-            ['Source of Assistance', a.source_agency], ['Quantity / Amount', a.quantity],
-            ['Description', a.description || '—'], ['Remarks', a.remarks || '—'],
-            ['Recorded By', a.recorded_by_name], ['Date Recorded', formatDate(a.date_recorded)],
-          ],
-        })}
         onEdit={() => setEditingAssistance(a)}
       />
     ),

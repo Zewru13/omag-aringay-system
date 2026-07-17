@@ -218,7 +218,7 @@ function RegisterFisherfolkModal({ onClose, onSuccess }) {
 
     setIsSubmitting(true)
     try {
-      await api.post('/fisheries/', buildPayload())
+      await api.post('/fisheries/fisherfolk/', buildPayload())
       onSuccess()
       onClose()
     } catch (error) {
