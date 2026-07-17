@@ -1248,9 +1248,9 @@ export default function FisheriesRecordsPage({ asTab = false }) {
             <AlertTriangle className="w-2.5 h-2.5" /> {rec.disaster_count > 1 ? rec.disaster_count : 'Disaster'}
           </span>
         )}
-        {rec.disaster_count === 0 && rec.has_resolved_disaster && (
+        {rec.disaster_count === 0 && rec.has_recovered_disaster && (
           <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-slate-500 bg-slate-100 border border-slate-200 rounded-full px-1.5 py-0.5 whitespace-nowrap">
-            <CheckCircle2 className="w-2.5 h-2.5" /> Resolved
+            <CheckCircle2 className="w-2.5 h-2.5" /> Recovered
           </span>
         )}
         {lockStatuses[rec.id] && (

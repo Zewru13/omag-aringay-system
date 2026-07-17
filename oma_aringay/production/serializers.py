@@ -79,7 +79,7 @@ class CropRemarkSerializer(serializers.ModelSerializer):
 class CropActivityStageSerializer(serializers.ModelSerializer):
     class Meta:
         model = CropActivityStage
-        fields = ['id', 'crop_type', 'stage_name', 'day_after_planting', 'application_days', 'recommendation', 'priority', 'window_days']
+        fields = ['id', 'crop_type', 'stage_name', 'day_after_planting', 'application_days', 'recommendation', 'priority', 'window_days', 'allows_pre_planting']
         read_only_fields = ['id', 'crop_type', 'day_after_planting']
 
     def validate_application_days(self, value):
@@ -166,14 +166,20 @@ class CropActivityLogSerializer(serializers.ModelSerializer):
             if monitoring_id:
                 from .models import CropMonitoringRecord
                 monitoring_record = CropMonitoringRecord.objects.filter(pk=monitoring_id).first()
+        activity_type = data.get('activity_type', '')
         if date_of_activity and monitoring_record and monitoring_record.date_planted:
             if date_of_activity < monitoring_record.date_planted:
-                raise serializers.ValidationError({
-                    'date_of_activity': 'Date of activity cannot be before the date planted '
-                                        f'({monitoring_record.date_planted}).'
-                })
+                allows_pre_planting = CropActivityStage.objects.filter(
+                    crop_type_id=monitoring_record.crop_type_id,
+                    stage_name=activity_type,
+                    allows_pre_planting=True,
+                ).exists()
+                if not allows_pre_planting:
+                    raise serializers.ValidationError({
+                        'date_of_activity': 'Activity date cannot be before the planting date '
+                                            f'({monitoring_record.date_planted}).'
+                    })
 
-        activity_type = data.get('activity_type', '')
         if activity_type == 'Other' and not (data.get('activity_type_other_specify') or '').strip():
             raise serializers.ValidationError({
                 'activity_type_other_specify': 'Please specify the activity.'
@@ -198,7 +204,7 @@ class CropActivityLogSerializer(serializers.ModelSerializer):
 
 class CropDisasterReportSerializer(serializers.ModelSerializer):
     reported_by_name = serializers.SerializerMethodField()
-    resolved_by_name = serializers.SerializerMethodField()
+    recovered_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model = CropDisasterReport
@@ -206,12 +212,12 @@ class CropDisasterReportSerializer(serializers.ModelSerializer):
             'id', 'monitoring_record', 'disaster_type', 'disaster_type_other_specify', 'date_of_occurrence',
             'area_affected_ha', 'estimated_damage', 'production_loss',
             'is_total_loss',
-            'status', 'resolved_date', 'resolved_by', 'resolved_by_name',
+            'status', 'recovered_date', 'recovered_by', 'recovered_by_name', 'recovery_note',
             'reported_by', 'reported_by_name', 'date_reported',
         ]
         read_only_fields = [
-            'id', 'monitoring_record', 'status', 'resolved_date',
-            'resolved_by', 'resolved_by_name',
+            'id', 'monitoring_record', 'status', 'recovered_date',
+            'recovered_by', 'recovered_by_name', 'recovery_note',
             'reported_by', 'reported_by_name', 'date_reported',
         ]
 
@@ -220,9 +226,9 @@ class CropDisasterReportSerializer(serializers.ModelSerializer):
             return getattr(obj.reported_by, 'full_name', str(obj.reported_by))
         return None
 
-    def get_resolved_by_name(self, obj):
-        if obj.resolved_by:
-            return getattr(obj.resolved_by, 'full_name', str(obj.resolved_by))
+    def get_recovered_by_name(self, obj):
+        if obj.recovered_by:
+            return getattr(obj.recovered_by, 'full_name', str(obj.recovered_by))
         return None
 
     def validate_date_of_occurrence(self, value):
@@ -290,7 +296,7 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
     labor_log_count        = serializers.SerializerMethodField()
     has_disaster           = serializers.BooleanField(read_only=True, default=False)
     disasters_count        = serializers.SerializerMethodField()
-    has_resolved_disaster  = serializers.SerializerMethodField()
+    has_recovered_disaster = serializers.SerializerMethodField()
     has_harvest            = serializers.SerializerMethodField()
     harvest_record_id      = serializers.SerializerMethodField()
     harvest_count          = serializers.SerializerMethodField()
@@ -314,7 +320,7 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
             'quantity_of_seeds', 'seed_quantity_unit',
             'recorded_by', 'date_recorded',
             'is_near_harvest', 'latest_condition', 'log_count', 'labor_log_count',
-            'has_disaster', 'disasters_count', 'has_resolved_disaster',
+            'has_disaster', 'disasters_count', 'has_recovered_disaster',
             'has_harvest', 'harvest_record_id', 'harvest_count', 'disaster_report_count',
             'harvest_variance_days',
         ]
@@ -326,7 +332,7 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
             'yield_variance_kg', 'yield_variance_pct',
             'recorded_by', 'date_recorded',
             'is_near_harvest', 'latest_condition', 'log_count', 'labor_log_count',
-            'has_disaster', 'disasters_count', 'has_resolved_disaster',
+            'has_disaster', 'disasters_count', 'has_recovered_disaster',
             'has_harvest', 'harvest_record_id', 'harvest_count', 'disaster_report_count',
             'harvest_variance_days',
         ]
@@ -397,8 +403,8 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
     def get_disasters_count(self, obj):
         return obj.disaster_reports.filter(status='Active').count()
 
-    def get_has_resolved_disaster(self, obj):
-        return obj.disaster_reports.filter(status='Resolved').exists()
+    def get_has_recovered_disaster(self, obj):
+        return obj.disaster_reports.filter(status='Recovered').exists()
 
     def get_has_harvest(self, obj):
         return obj.status == CropMonitoringRecord.Status.HARVESTED

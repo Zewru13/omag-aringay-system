@@ -334,6 +334,7 @@ class SpeciesActivityStageSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'species_option', 'activity_name', 'day_after_stocking',
             'application_days', 'recommendation', 'priority', 'window_days', 'order',
+            'allows_pre_planting',
         ]
         read_only_fields = ['id', 'species_option', 'day_after_stocking']
 
@@ -408,14 +409,20 @@ class FisheriesActivityLogSerializer(serializers.ModelSerializer):
             stocking_id = self.context.get('view').kwargs.get('stocking_id') if self.context.get('view') else None
             if stocking_id:
                 stocking_record = StockingRecord.objects.filter(pk=stocking_id).first()
+        activity = data.get('activity', '')
         if date_of_activity and stocking_record and stocking_record.date_stocked:
             if date_of_activity < stocking_record.date_stocked:
-                raise serializers.ValidationError({
-                    'date_of_activity': 'Date of activity cannot be before the date stocked '
-                                        f'({stocking_record.date_stocked}).'
-                })
+                allows_pre_planting = SpeciesActivityStage.objects.filter(
+                    species_option_id=stocking_record.species_id,
+                    activity_name=activity,
+                    allows_pre_planting=True,
+                ).exists()
+                if not allows_pre_planting:
+                    raise serializers.ValidationError({
+                        'date_of_activity': 'Activity date cannot be before the stocking date '
+                                            f'({stocking_record.date_stocked}).'
+                    })
 
-        activity = data.get('activity', '')
         if activity == 'Other' and not (data.get('activity_other_specify') or '').strip():
             raise serializers.ValidationError({
                 'activity_other_specify': 'Please specify the activity.'
@@ -440,7 +447,7 @@ class FisheriesActivityLogSerializer(serializers.ModelSerializer):
 
 class FisheriesDisasterReportSerializer(serializers.ModelSerializer):
     reported_by_name = serializers.SerializerMethodField()
-    resolved_by_name = serializers.SerializerMethodField()
+    recovered_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model  = FisheriesDisasterReport
@@ -448,12 +455,12 @@ class FisheriesDisasterReportSerializer(serializers.ModelSerializer):
             'id', 'stocking_record', 'disaster_type', 'disaster_type_other_specify', 'date_of_occurrence',
             'area_affected_ha', 'estimated_damage', 'production_loss',
             'is_total_loss',
-            'status', 'resolved_date', 'resolved_by', 'resolved_by_name',
+            'status', 'recovered_date', 'recovered_by', 'recovered_by_name', 'recovery_note',
             'reported_by', 'reported_by_name', 'date_reported',
         ]
         read_only_fields = [
-            'id', 'stocking_record', 'status', 'resolved_date',
-            'resolved_by', 'resolved_by_name',
+            'id', 'stocking_record', 'status', 'recovered_date',
+            'recovered_by', 'recovered_by_name', 'recovery_note',
             'reported_by', 'reported_by_name', 'date_reported',
         ]
 
@@ -462,9 +469,9 @@ class FisheriesDisasterReportSerializer(serializers.ModelSerializer):
             return getattr(obj.reported_by, 'full_name', str(obj.reported_by))
         return None
 
-    def get_resolved_by_name(self, obj):
-        if obj.resolved_by:
-            return getattr(obj.resolved_by, 'full_name', str(obj.resolved_by))
+    def get_recovered_by_name(self, obj):
+        if obj.recovered_by:
+            return getattr(obj.recovered_by, 'full_name', str(obj.recovered_by))
         return None
 
     def validate_date_of_occurrence(self, value):
@@ -547,7 +554,7 @@ class StockingRecordSerializer(serializers.ModelSerializer):
     log_count        = serializers.SerializerMethodField()
     disaster_count   = serializers.SerializerMethodField()
     disaster_report_count = serializers.SerializerMethodField()
-    has_resolved_disaster = serializers.SerializerMethodField()
+    has_recovered_disaster = serializers.SerializerMethodField()
     harvest_variance_days = serializers.SerializerMethodField()
     total_harvested_kg = serializers.SerializerMethodField()
     harvest_count    = serializers.SerializerMethodField()
@@ -572,7 +579,7 @@ class StockingRecordSerializer(serializers.ModelSerializer):
             'expected_harvest_date', 'estimated_harvest_kg',
             'notes', 'recorded_by', 'date_recorded',
             'is_near_harvest', 'log_count', 'disaster_count', 'disaster_report_count',
-            'has_resolved_disaster',
+            'has_recovered_disaster',
             'total_harvested_kg', 'harvest_count', 'harvest_variance_days',
             'stocking_density', 'production_cycle_no',
         ]
@@ -581,7 +588,7 @@ class StockingRecordSerializer(serializers.ModelSerializer):
             'expected_harvest_date', 'estimated_harvest_kg',
             'recorded_by', 'date_recorded',
             'is_near_harvest', 'log_count', 'disaster_count', 'disaster_report_count',
-            'has_resolved_disaster',
+            'has_recovered_disaster',
             'total_harvested_kg', 'harvest_count', 'harvest_variance_days',
             'stocking_density', 'production_cycle_no',
         ]
@@ -608,8 +615,8 @@ class StockingRecordSerializer(serializers.ModelSerializer):
         final = obj.harvests.filter(is_final=True).first()
         return final.harvest_variance_days if final else None
 
-    def get_has_resolved_disaster(self, obj):
-        return obj.disaster_reports.filter(status='Resolved').exists()
+    def get_has_recovered_disaster(self, obj):
+        return obj.disaster_reports.filter(status='Recovered').exists()
 
     def get_total_harvested_kg(self, obj):
         result = obj.harvests.aggregate(total=Sum('quantity_kg'))['total']

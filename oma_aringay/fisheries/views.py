@@ -371,12 +371,24 @@ class StockingDisasterReportListCreateView(generics.ListCreateAPIView):
 
 
 class FisheriesDisasterResolveView(APIView):
+    """
+    Mark a disaster Recovered. Two paths:
+      - All recommended response rules logged -> the usual nudge, no note required.
+      - Anything else (incomplete, or zero rules — e.g. the stock recovered
+        on its own with no intervention) -> a recovery_note is required so
+        the gap is documented rather than silently closed. This used to
+        hard-block recovery until every rule was logged, which left
+        disasters stuck Active forever whenever nothing was actually done.
+        Total Loss is terminal and can never be marked Recovered.
+    """
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
     def post(self, request, pk):
         disaster = get_object_or_404(FisheriesDisasterReport, pk=pk)
-        if disaster.status == 'Resolved':
-            return Response({'detail': 'Disaster is already resolved.'}, status=400)
+        if disaster.status == 'Recovered':
+            return Response({'detail': 'Disaster is already marked as recovered.'}, status=400)
+        if disaster.is_total_loss:
+            return Response({'detail': 'A Total Loss record cannot be marked as recovered.'}, status=400)
 
         record = disaster.stocking_record
         rules_qs = FisheriesDisasterResponseRule.objects.filter(
@@ -401,16 +413,19 @@ class FisheriesDisasterResolveView(APIView):
                 all_done = False
                 break
 
-        if has_rules and not all_done:
+        rules_complete = has_rules and all_done
+        recovery_note = (request.data.get('recovery_note') or '').strip()
+        if not rules_complete and not recovery_note:
             return Response(
-                {'detail': 'Cannot resolve: not all recommended response rules have been completed.'},
+                {'detail': 'A recovery note is required when not all recommended response rules have been completed.'},
                 status=400,
             )
 
-        disaster.status = 'Resolved'
-        disaster.resolved_date = date.today()
-        disaster.resolved_by = request.user
-        disaster.save(update_fields=['status', 'resolved_date', 'resolved_by'])
+        disaster.status = 'Recovered'
+        disaster.recovered_date = date.today()
+        disaster.recovered_by = request.user
+        disaster.recovery_note = recovery_note
+        disaster.save(update_fields=['status', 'recovered_date', 'recovered_by', 'recovery_note'])
         serializer = FisheriesDisasterReportSerializer(disaster)
         return Response(serializer.data, status=200)
 

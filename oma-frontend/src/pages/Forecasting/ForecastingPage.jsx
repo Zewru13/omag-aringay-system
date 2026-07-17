@@ -611,7 +611,12 @@ function YieldAnalysisTab() {
                     <td className="px-3 py-[11px] text-[#7A8E7A]">
                       {expanded.has(rec.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     </td>
-                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.crop_type}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">
+                      {rec.crop_type}
+                      {rec.is_total_loss && (
+                        <span className="ml-1.5 rounded-full bg-rose-50 border border-rose-200 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">Total Loss</span>
+                      )}
+                    </td>
                     <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.farmer}</td>
                     <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.barangay}</td>
                     <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.estimated_kg != null ? rec.estimated_kg.toLocaleString() : 'N/A'}</td>

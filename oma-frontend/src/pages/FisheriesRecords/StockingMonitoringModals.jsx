@@ -41,7 +41,9 @@ export function StockingSuggestionsModal({ record, onClose, onApply }) {
   const [loading, setLoading] = useState(true)
   const [earlyConfirm, setEarlyConfirm] = useState(null)
   const [dismissedDisasters, setDismissedDisasters] = useState(new Set())
-  const [resolving, setResolving] = useState(null)
+  const [recovering, setRecovering] = useState(null)
+  const [manualNotes, setManualNotes] = useState({})
+  const [showManualRecover, setShowManualRecover] = useState({})
 
   const fetchSuggestions = useCallback(() => {
     if (!record) return
@@ -65,17 +67,17 @@ export function StockingSuggestionsModal({ record, onClose, onApply }) {
     }
   }
 
-  const handleMarkResolved = async (disasterId) => {
-    setResolving(disasterId)
+  const handleMarkRecovered = async (disasterId, note) => {
+    setRecovering(disasterId)
     try {
-      await api.post(`/fisheries/disasters/${disasterId}/resolve/`)
-      showToast('Disaster marked as resolved.', 'success')
+      await api.post(`/fisheries/disasters/${disasterId}/resolve/`, note ? { recovery_note: note } : {})
+      showToast('Disaster marked as recovered.', 'success')
       fetchSuggestions()
     } catch (err) {
-      const msg = err?.response?.data?.detail || 'Failed to resolve disaster.'
+      const msg = err?.response?.data?.detail || 'Failed to mark disaster as recovered.'
       showToast(msg, 'error')
     } finally {
-      setResolving(null)
+      setRecovering(null)
     }
   }
 
@@ -191,15 +193,15 @@ export function StockingSuggestionsModal({ record, onClose, onApply }) {
                               All recommended responses for this {disaster.disaster_type} have been completed.
                             </p>
                             <p className="text-xs text-emerald-600 mt-0.5">
-                              If the stock has recovered, mark this disaster as resolved. You can leave it active if you're still monitoring recovery.
+                              If the stock has recovered, mark this disaster as recovered. You can leave it active if you're still monitoring recovery.
                             </p>
                             <div className="flex gap-2 mt-2.5">
                               <button
-                                onClick={() => handleMarkResolved(disaster.disaster_id)}
-                                disabled={resolving === disaster.disaster_id}
+                                onClick={() => handleMarkRecovered(disaster.disaster_id)}
+                                disabled={recovering === disaster.disaster_id}
                                 className="bg-[#1B4D2E] text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-[#235E38] disabled:opacity-50"
                               >
-                                Mark as Resolved
+                                Mark as Recovered
                               </button>
                               <button
                                 onClick={() => dismissPrompt(disaster.disaster_id)}
@@ -258,6 +260,43 @@ export function StockingSuggestionsModal({ record, onClose, onApply }) {
                             </div>
                           </div>
                         ))}
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-rose-100">
+                        {disaster.is_total_loss ? (
+                          <p className="text-xs text-slate-500 italic">Total Loss — this record is terminal and cannot be marked as recovered.</p>
+                        ) : !showManualRecover[disaster.disaster_id] ? (
+                          <button
+                            onClick={() => setShowManualRecover(prev => ({ ...prev, [disaster.disaster_id]: true }))}
+                            className="text-xs font-medium text-slate-600 hover:text-slate-800 underline"
+                          >
+                            Mark as Recovered anyway
+                          </button>
+                        ) : (
+                          <div className="space-y-2">
+                            <textarea
+                              value={manualNotes[disaster.disaster_id] || ''}
+                              onChange={(e) => setManualNotes(prev => ({ ...prev, [disaster.disaster_id]: e.target.value }))}
+                              placeholder="Explain how/why it recovered without completing all recommended responses (required)…"
+                              rows={2}
+                              className={`${baseInputClasses} text-xs`}
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleMarkRecovered(disaster.disaster_id, manualNotes[disaster.disaster_id])}
+                                disabled={recovering === disaster.disaster_id || !(manualNotes[disaster.disaster_id] || '').trim()}
+                                className="bg-[#1B4D2E] text-white text-xs font-medium px-3 py-1.5 rounded-lg hover:bg-[#235E38] disabled:opacity-50"
+                              >
+                                {recovering === disaster.disaster_id ? 'Marking…' : 'Confirm Recovery'}
+                              </button>
+                              <button
+                                onClick={() => setShowManualRecover(prev => ({ ...prev, [disaster.disaster_id]: false }))}
+                                className="text-xs text-slate-500 px-3 py-1.5 hover:text-slate-700"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   )
@@ -373,6 +412,12 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
 
   const suggestedActivityOptions = ACTIVITY_OPTIONS.filter(o => suggestedNowActivities.has(o))
   const otherActivityOptions = ACTIVITY_OPTIONS.filter(o => !suggestedNowActivities.has(o))
+
+  // Land/pond-prep-style activities may be logged before date_stocked; everything else may not.
+  const selectedStageAllowsPrePlanting = useMemo(() => {
+    const stage = activityStages.find(s => s.activity_name === activityType)
+    return !!stage?.allows_pre_planting
+  }, [activityStages, activityType])
 
   const fetchLogs = useCallback(async () => {
     setIsLoading(true)
@@ -586,7 +631,7 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-700">Date of Activity *</label>
                 <input type="date" className={baseInputClasses} value={activityDate}
-                  max={todayISO()} min={record.date_stocked || undefined}
+                  max={todayISO()} min={selectedStageAllowsPrePlanting ? undefined : (record.date_stocked || undefined)}
                   onChange={e => setActivityDate(e.target.value)} />
               </div>
             </div>
@@ -762,7 +807,7 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
               if (event._type === 'disaster') {
                 const isExpanded = expandedDisasters.has(event.id)
                 const hasDetails = event.area_affected_ha || event.estimated_damage || event.production_loss
-                const isResolved = event.status === 'Resolved'
+                const isRecovered = event.status === 'Recovered'
                 return (
                   <div key={`d-${event.id}`} className="py-3">
                     <button
@@ -776,50 +821,53 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
                       })}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <span className={`flex items-center gap-1.5 text-sm font-semibold ${isResolved ? 'text-emerald-700' : 'text-rose-700'}`}>
+                        <span className={`flex items-center gap-1.5 text-sm font-semibold ${isRecovered ? 'text-emerald-700' : 'text-rose-700'}`}>
                           <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" /> {otherLabel(event.disaster_type, event.disaster_type_other_specify)} — Disaster Report
-                          {isResolved ? (
-                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Resolved</span>
+                          {isRecovered ? (
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Recovered</span>
                           ) : (
                             <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">Active</span>
                           )}
                         </span>
                         <div className="flex items-center gap-1.5 shrink-0">
-                          <span className={`text-xs ${isResolved ? 'text-emerald-500' : 'text-rose-400'}`}>{fmtDate(event.date_of_occurrence)}</span>
+                          <span className={`text-xs ${isRecovered ? 'text-emerald-500' : 'text-rose-400'}`}>{fmtDate(event.date_of_occurrence)}</span>
                           {hasDetails && (
-                            <span className={`text-xs ${isResolved ? 'text-emerald-400' : 'text-rose-300'}`}>
+                            <span className={`text-xs ${isRecovered ? 'text-emerald-400' : 'text-rose-300'}`}>
                               {isExpanded ? '▲' : '▼'}
                             </span>
                           )}
                         </div>
                       </div>
-                      {isResolved && event.resolved_date && (
+                      {isRecovered && event.recovered_date && (
                         <p className="text-xs text-emerald-600 mt-0.5">
-                          Resolved on {fmtDate(event.resolved_date)}{event.resolved_by_name ? ` by ${event.resolved_by_name}` : ''}
+                          Recovered on {fmtDate(event.recovered_date)}{event.recovered_by_name ? ` by ${event.recovered_by_name}` : ''}
                         </p>
                       )}
                       {!isExpanded && event.area_affected_ha && (
-                        <p className={`text-xs mt-0.5 ${isResolved ? 'text-emerald-500' : 'text-rose-500'}`}>Area: {event.area_affected_ha} ha</p>
+                        <p className={`text-xs mt-0.5 ${isRecovered ? 'text-emerald-500' : 'text-rose-500'}`}>Area: {event.area_affected_ha} ha</p>
                       )}
                     </button>
                     {isExpanded && (
                       <div className={`mt-1.5 rounded-lg border px-3 py-2 space-y-1 ${
-                        isResolved ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-100'
+                        isRecovered ? 'bg-emerald-50 border-emerald-200' : 'bg-rose-50 border-rose-100'
                       }`}>
-                        {isResolved && event.resolved_date && (
-                          <p className="text-xs text-emerald-700"><span className="font-medium">Resolved on:</span> {fmtDate(event.resolved_date)}{event.resolved_by_name ? ` by ${event.resolved_by_name}` : ''}</p>
+                        {isRecovered && event.recovered_date && (
+                          <p className="text-xs text-emerald-700"><span className="font-medium">Recovered on:</span> {fmtDate(event.recovered_date)}{event.recovered_by_name ? ` by ${event.recovered_by_name}` : ''}</p>
+                        )}
+                        {isRecovered && event.recovery_note && (
+                          <p className="text-xs text-emerald-700"><span className="font-medium">Recovery note:</span> {event.recovery_note}</p>
                         )}
                         {event.area_affected_ha && (
-                          <p className={`text-xs ${isResolved ? 'text-emerald-700' : 'text-rose-700'}`}><span className="font-medium">Area affected:</span> {event.area_affected_ha} ha</p>
+                          <p className={`text-xs ${isRecovered ? 'text-emerald-700' : 'text-rose-700'}`}><span className="font-medium">Area affected:</span> {event.area_affected_ha} ha</p>
                         )}
                         {event.estimated_damage && (
-                          <p className={`text-xs ${isResolved ? 'text-emerald-700' : 'text-rose-700'}`}><span className="font-medium">Damage:</span> {event.estimated_damage}</p>
+                          <p className={`text-xs ${isRecovered ? 'text-emerald-700' : 'text-rose-700'}`}><span className="font-medium">Damage:</span> {event.estimated_damage}</p>
                         )}
                         {event.production_loss && (
-                          <p className={`text-xs ${isResolved ? 'text-emerald-700' : 'text-rose-700'}`}><span className="font-medium">Production loss:</span> {event.production_loss}</p>
+                          <p className={`text-xs ${isRecovered ? 'text-emerald-700' : 'text-rose-700'}`}><span className="font-medium">Production loss:</span> {event.production_loss}</p>
                         )}
                         {!hasDetails && (
-                          <p className={`text-xs italic ${isResolved ? 'text-emerald-400' : 'text-rose-400'}`}>No additional details recorded.</p>
+                          <p className={`text-xs italic ${isRecovered ? 'text-emerald-400' : 'text-rose-400'}`}>No additional details recorded.</p>
                         )}
                       </div>
                     )}
@@ -1106,27 +1154,27 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
   const [quantityError,     setQuantityError]     = useState('')
   const [resolvableDisasters, setResolvableDisasters] = useState([])
   const [dismissedDisasterIds, setDismissedDisasterIds] = useState(new Set())
-  const [resolvingId,       setResolvingId]       = useState(null)
+  const [recoveringId,      setRecoveringId]      = useState(null)
 
   useEffect(() => {
     api.get(`/fisheries/stocking/${record.id}/suggestions/`)
       .then(r => {
-        const ready = (r.data.disaster_response || []).filter(d => d.status !== 'Resolved' && d.all_rules_done)
+        const ready = (r.data.disaster_response || []).filter(d => d.status !== 'Recovered' && d.all_rules_done)
         setResolvableDisasters(ready)
       })
       .catch(() => {})
   }, [record.id])
 
-  const handleMarkResolved = async (disasterId) => {
-    setResolvingId(disasterId)
+  const handleMarkRecovered = async (disasterId) => {
+    setRecoveringId(disasterId)
     try {
       await api.post(`/fisheries/disasters/${disasterId}/resolve/`)
-      showToast('Disaster marked as resolved.', 'success')
+      showToast('Disaster marked as recovered.', 'success')
       setResolvableDisasters(prev => prev.filter(d => d.disaster_id !== disasterId))
     } catch (err) {
-      showToast(err?.response?.data?.detail || 'Failed to resolve disaster.', 'error')
+      showToast(err?.response?.data?.detail || 'Failed to mark disaster as recovered.', 'error')
     } finally {
-      setResolvingId(null)
+      setRecoveringId(null)
     }
   }
 
@@ -1202,13 +1250,13 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
           {visibleResolvableDisasters.map(d => (
             <div key={d.disaster_id} className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
               <p className="text-xs text-emerald-800 mb-2">
-                This stock has an unresolved <span className="font-semibold">{d.disaster_type}</span> with all recommended responses completed. Resolve it now?
+                This stock has an active <span className="font-semibold">{d.disaster_type}</span> with all recommended responses completed. Mark it recovered now?
               </p>
               <div className="flex gap-2">
-                <button type="button" disabled={resolvingId === d.disaster_id}
-                  onClick={() => handleMarkResolved(d.disaster_id)}
+                <button type="button" disabled={recoveringId === d.disaster_id}
+                  onClick={() => handleMarkRecovered(d.disaster_id)}
                   className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-60">
-                  {resolvingId === d.disaster_id ? 'Resolving…' : 'Mark Resolved'}
+                  {recoveringId === d.disaster_id ? 'Marking…' : 'Mark Recovered'}
                 </button>
                 <button type="button"
                   onClick={() => setDismissedDisasterIds(prev => new Set(prev).add(d.disaster_id))}

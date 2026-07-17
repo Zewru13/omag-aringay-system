@@ -259,6 +259,11 @@ class SpeciesActivityStage(models.Model):
     priority         = models.CharField(max_length=10, choices=Priority.choices, default=Priority.MEDIUM)
     window_days      = models.IntegerField(default=3)
     order            = models.PositiveIntegerField(default=0)
+    allows_pre_planting = models.BooleanField(
+        default=False,
+        help_text='If set, this activity may be logged with a date earlier than date_stocked '
+                   '(e.g. Pond Preparation). Everything else must be logged on/after date_stocked.',
+    )
 
     class Meta:
         ordering = ['species_option', 'order', 'day_after_stocking']
@@ -486,7 +491,7 @@ class FisheriesDisasterReport(models.Model):
     ]
     STATUS_CHOICES = [
         ('Active', 'Active'),
-        ('Resolved', 'Resolved'),
+        ('Recovered', 'Recovered'),
     ]
 
     stocking_record     = models.ForeignKey(StockingRecord, on_delete=models.CASCADE, related_name='disaster_reports')
@@ -498,11 +503,17 @@ class FisheriesDisasterReport(models.Model):
     production_loss     = models.TextField(blank=True)
     is_total_loss       = models.BooleanField(default=False, help_text='Stock completely destroyed — ends the production cycle')
     status              = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Active')
-    resolved_date       = models.DateField(null=True, blank=True)
-    resolved_by         = models.ForeignKey(
+    recovered_date      = models.DateField(null=True, blank=True)
+    recovered_by        = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL, null=True, blank=True,
         related_name='+',
+    )
+    recovery_note       = models.TextField(
+        blank=True,
+        help_text='Required when marked Recovered without all recommended response rules logged — '
+                   'documents why/how it recovered without them (e.g. natural recovery, fisherfolk '
+                   'used their own method).',
     )
     reported_by         = models.ForeignKey(
         settings.AUTH_USER_MODEL,

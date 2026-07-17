@@ -139,9 +139,11 @@ DISASTER_PLAN = [
     dict(stocking_key='dolores_stocked', disaster_type='Fish Kill', days_ago=15,
          status='Active', rules_done='all'),
     dict(stocking_key='dolores_harvested', disaster_type='Flood', days_ago=200,
-         status='Resolved', resolved_days_ago=185, rules_done='all'),
+         status='Recovered', recovered_days_ago=185, rules_done='all'),
+    # Total Loss is terminal — it cannot be marked Recovered (Batch D), so this
+    # one stays Active even though its response rules are fully logged.
     dict(stocking_key='remedios_totalloss', disaster_type='Predator Attack', days_ago=40,
-         status='Resolved', resolved_days_ago=20, is_total_loss=True, rules_done='all'),
+         status='Active', is_total_loss=True, rules_done='all'),
 ]
 
 TRIP_GEAR = ['Gill Net', 'Hook and Line', 'Fish Trap (Bubo)', 'Cast Net', 'Bottom Set Longline']
@@ -481,8 +483,9 @@ class Command(BaseCommand):
                 production_loss='Estimated partial production loss; under monitoring.',
                 is_total_loss=spec.get('is_total_loss', False),
                 status=spec['status'],
-                resolved_date=(today - timedelta(days=spec.get('resolved_days_ago', 0))) if spec['status'] == 'Resolved' else None,
-                resolved_by=admin_user if spec['status'] == 'Resolved' else None,
+                recovered_date=(today - timedelta(days=spec.get('recovered_days_ago', 0))) if spec['status'] == 'Recovered' else None,
+                recovered_by=admin_user if spec['status'] == 'Recovered' else None,
+                recovery_note='Seeded recovery — response rules fully logged.' if spec['status'] == 'Recovered' else '',
                 reported_by=admin_user,
             )
             count += 1

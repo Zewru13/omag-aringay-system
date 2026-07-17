@@ -1050,6 +1050,12 @@ export default function CropInformationPage() {
         const params = new URLSearchParams({ page: pageNum });
         if (seasonFilter) params.set("season", seasonFilter);
         if (yearFilter) params.set("year", yearFilter);
+        // "Near Harvest" is partly client-derived (see getDisplayStatus) from
+        // records still stored as "Planted" whose expected_harvest_date has
+        // crept close — don't filter it server-side or those go missing.
+        if (statusFilter && statusFilter !== "All Status" && statusFilter !== "Near Harvest") {
+          params.set("status", statusFilter);
+        }
         const r = await api.get(`/production/monitoring/?${params.toString()}`);
         setRecords(Array.isArray(r.data) ? r.data : r.data.results || []);
         setTotalCount(typeof r.data?.count === "number" ? r.data.count : 0);
@@ -1059,13 +1065,13 @@ export default function CropInformationPage() {
         setIsLoading(false);
       }
     },
-    [seasonFilter, yearFilter],
+    [seasonFilter, yearFilter, statusFilter],
   );
 
   useEffect(() => {
     setPage(1);
     fetchRecords(1);
-  }, [seasonFilter, yearFilter]);
+  }, [seasonFilter, yearFilter, statusFilter]);
 
   useEffect(() => {
     fetchRecords(page);
@@ -1121,9 +1127,9 @@ export default function CropInformationPage() {
               <AlertTriangle className="w-2.5 h-2.5" /> {rec.disasters_count > 1 ? rec.disasters_count : "Disaster"}
             </span>
           )}
-          {rec.disasters_count === 0 && rec.has_resolved_disaster && (
+          {rec.disasters_count === 0 && rec.has_recovered_disaster && (
             <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-slate-500 bg-slate-100 border border-slate-200 rounded-full px-1.5 py-0.5 whitespace-nowrap">
-              <CheckCircle2 className="w-2.5 h-2.5" /> Resolved
+              <CheckCircle2 className="w-2.5 h-2.5" /> Recovered
             </span>
           )}
           <HarvestVarianceBadge days={rec.harvest_variance_days} />

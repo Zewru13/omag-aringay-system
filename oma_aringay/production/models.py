@@ -110,6 +110,11 @@ class CropActivityStage(models.Model):
     recommendation     = models.TextField(blank=True)
     priority           = models.CharField(max_length=10, choices=Priority.choices, default=Priority.MEDIUM)
     window_days        = models.IntegerField(default=3)
+    allows_pre_planting = models.BooleanField(
+        default=False,
+        help_text='If set, this activity may be logged with a date earlier than date_planted '
+                   '(e.g. Land Preparation). Everything else must be logged on/after date_planted.',
+    )
 
     class Meta:
         ordering = ['crop_type', 'day_after_planting']
@@ -328,7 +333,7 @@ class CropDisasterReport(models.Model):
     ]
     STATUS_CHOICES = [
         ('Active', 'Active'),
-        ('Resolved', 'Resolved'),
+        ('Recovered', 'Recovered'),
     ]
 
     monitoring_record = models.ForeignKey(
@@ -344,12 +349,18 @@ class CropDisasterReport(models.Model):
     production_loss = models.TextField(blank=True, help_text='Estimated production loss')
     is_total_loss = models.BooleanField(default=False, help_text='Crop completely destroyed — ends the production cycle')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Active')
-    resolved_date = models.DateField(null=True, blank=True)
-    resolved_by = models.ForeignKey(
+    recovered_date = models.DateField(null=True, blank=True)
+    recovered_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True, blank=True,
         related_name='+',
+    )
+    recovery_note = models.TextField(
+        blank=True,
+        help_text='Required when marked Recovered without all recommended response rules logged — '
+                   'documents why/how it recovered without them (e.g. natural recovery, farmer '
+                   'used their own method).',
     )
     reported_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
