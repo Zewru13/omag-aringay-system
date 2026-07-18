@@ -1,13 +1,26 @@
 """
 Management command: python manage.py seed_demo_data [--flush]
 
-Creates demo data for showcasing the system:
+Creates a small, defense-friendly demo dataset for the crop domain (Batch F
+reduction — mirrors fisheries/management/commands/seed_fisheries_demo_data.py's
+conventions exactly):
   - 5 farmer associations (suffix: " (Demo)")
-  - 30 farmers (prefix: "DEMO-" on RSBSA number)
-  - 50 crop monitoring records with varied statuses
-  - Activity logs and disaster reports
+  - 10 farmers (prefix: "DEMO-" on RSBSA number), 2 per barangay
+  - 15 crop monitoring records, composed deliberately:
+      - 5 under active monitoring (Planted/Near Harvest, no disaster) —
+        mid-cycle, realistic done/overdue/upcoming activity-log mix driven
+        by each crop's real CropActivityStage template
+      - 5 Harvested (mix of above/below-estimate variance — driven by an
+        explicit variance_factor per record, same technique as fisheries)
+      - 3 with a disaster: 2 genuinely ACTIVE, 1 marked TOTAL LOSS (terminal
+        — CropDisasterReport.is_total_loss=True auto-flips the monitoring
+        record's status)
+      - 2 with a disaster marked RECOVERED (Batch D terminology)
 
 --flush  deletes all previously-created demo data before seeding.
+
+Safe to re-run: skipped (not duplicated) if demo monitoring records already
+exist. Use --flush to reset and reseed from scratch.
 """
 import random
 from datetime import date, timedelta
@@ -15,21 +28,24 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
+from django.db.models import Q
 
 from associations.models import AssociationOfficer, FarmersAssociation
 from farmers.models import Farmer
 from production.models import (
     CropActivityLog,
-    CropCategory,
+    CropActivityStage,
     CropDisasterReport,
     CropMonitoringRecord,
     CropType,
+    DisasterResponseRule,
 )
 
 User = get_user_model()
 
 DEMO_ASSOC_SUFFIX = ' (Demo)'
 DEMO_RSBSA_PREFIX = 'DEMO-'
+SEED_TAG = 'Created by seed_demo_data command.'
 
 ASSOCIATIONS = [
     {
@@ -77,73 +93,98 @@ OFFICERS_TEMPLATE = [
     ('Auditor',        ['Rita Ocampo',    'Leo Navarro',  'Mely Buena',   'Jun Soriano',     'Cely Padua']),
 ]
 
+# 10 farmers (Batch F reduction from 30) — 2 per barangay, one association
+# each, matched to their own barangay's association for realism.
+# first_name, last_name, gender, birth_year, barangay, pwd, icc, fourPs
 FARMERS_DATA = [
-    # first_name, last_name, gender, birth_year, barangay, pwd, icc, fourPs
-    ('Jose',       'Santos',      'Male',   1975, 'Basca',              False, False, False),
-    ('Maria',      'Reyes',       'Female', 1982, 'San Juan East',           False, False, True),
-    ('Pedro',      'Cruz',        'Male',   1968, 'San Antonio',        False, False, False),
-    ('Ana',        'Garcia',      'Female', 1990, 'Poblacion',          False, False, False),
-    ('Eduardo',    'Ramos',       'Male',   1965, 'Santa Cecilia',      True,  False, False),
-    ('Felicitas',  'Torres',      'Female', 1979, 'Basca',              False, False, False),
-    ('Bernardo',   'Flores',      'Male',   1972, 'San Juan East',           False, True,  False),
-    ('Maricel',    'Lopez',       'Female', 1988, 'San Antonio',        False, False, True),
-    ('Rogelio',    'Hernandez',   'Male',   1960, 'Poblacion',          False, False, False),
-    ('Lourdes',    'Villanueva',  'Female', 1995, 'Santa Cecilia',      False, False, False),
-    ('Ricardo',    'Bautista',    'Male',   1970, 'Basca',              True,  False, True),
-    ('Concepcion', 'Castillo',    'Female', 1955, 'San Juan East',           False, False, False),
-    ('Domingo',    'Aguilar',     'Male',   1983, 'San Antonio',        False, False, False),
-    ('Rosario',    'Navarro',     'Female', 1976, 'Poblacion',          False, True,  False),
-    ('Francisco',  'Espiritu',    'Male',   1948, 'Santa Cecilia',      False, False, False),
-    ('Carmen',     'Ocampo',      'Female', 1992, 'Basca',              False, False, False),
-    ('Arturo',     'Pascual',     'Male',   1967, 'San Juan East',           False, False, True),
-    ('Gloria',     'Mendoza',     'Female', 1980, 'San Antonio',        True,  False, False),
-    ('Ernesto',    'Jimenez',     'Male',   1973, 'Poblacion',          False, False, False),
-    ('Teresita',   'Morales',     'Female', 1986, 'Santa Cecilia',      False, False, False),
-    ('Rodrigo',    'Dela Cruz',   'Male',   1952, 'Basca',              False, True,  False),
-    ('Natividad',  'Soriano',     'Female', 1969, 'San Juan East',           False, False, True),
-    ('Maximo',     'Padua',       'Male',   1963, 'San Antonio',        False, False, False),
-    ('Perla',      'Buena',       'Female', 1997, 'Poblacion',          False, False, False),
-    ('Gregorio',   'Salcedo',     'Male',   1978, 'Santa Cecilia',      False, False, False),
-    ('Milagros',   'Aquino',      'Female', 1984, 'Basca',              False, False, True),
-    ('Virgilio',   'Macaraeg',    'Male',   1958, 'San Juan East',           True,  False, False),
-    ('Caridad',    'Lagman',      'Female', 1991, 'San Antonio',        False, False, False),
-    ('Arsenio',    'Sarmiento',   'Male',   1974, 'Poblacion',          False, True,  False),
-    ('Resurreccion','Quirino',    'Female', 1962, 'Santa Cecilia',      False, False, False),
+    ('Jose',      'Santos',     'Male',   1975, 'Basca',         False, False, False),
+    ('Maria',     'Reyes',      'Female', 1982, 'San Juan East', False, False, True),
+    ('Pedro',     'Cruz',       'Male',   1968, 'San Antonio',   False, False, False),
+    ('Ana',       'Garcia',     'Female', 1990, 'Poblacion',     False, False, False),
+    ('Eduardo',   'Ramos',      'Male',   1965, 'Santa Cecilia', True,  False, False),
+    ('Felicitas', 'Torres',     'Female', 1979, 'Basca',         False, False, False),
+    ('Bernardo',  'Flores',     'Male',   1972, 'San Juan East', False, True,  False),
+    ('Maricel',   'Lopez',      'Female', 1988, 'San Antonio',   False, False, True),
+    ('Rogelio',   'Hernandez',  'Male',   1960, 'Poblacion',     False, False, False),
+    ('Lourdes',   'Villanueva', 'Female', 1995, 'Santa Cecilia', False, False, False),
 ]
 
-CROP_NAMES_FALLBACK = [
-    ('Rice', 120, 3500),
-    ('Corn', 90,  2800),
-    ('Eggplant', 70, 15000),
-    ('Tomato', 75, 20000),
-    ('Sitao', 60, 4000),
+# farmer_idx refers to a 0-based position into FARMERS_DATA / the created
+# farmers list. 15 records total (Batch F). Farmers 0-4 each carry 2 records
+# (one under-monitoring/harvested pair per crop) — deliberately, so the
+# grouped-by-farmer forecasting view (Batch E, item 2) has at least a few
+# farmers with real multi-record history to expand. Farmers 5-9 carry 1 each.
+#
+# Harvested entries carry a `variance_factor` — actual_yield_kg = the
+# model's own auto-computed estimated_yield_kg * factor — so above/below-
+# estimate outcomes are guaranteed. Only crop types with yield_per_ha_kg set
+# (Palay, Corn, Onion, Tomato, Pechay) are used for harvested entries, since
+# estimated_yield_kg is only computed when the crop type has a yield figure.
+CROP_PLAN = [
+    # ── 5 under active monitoring (mid-cycle, no disaster) ──
+    dict(key='stk1', farmer_idx=0, crop='Palay (Rice)',       days_ago=55, completion=0.50, harvest=None),
+    dict(key='stk2', farmer_idx=1, crop='Corn (Mais)',        days_ago=40, completion=0.40, harvest=None),
+    dict(key='stk3', farmer_idx=2, crop='Ampalaya',           days_ago=30, completion=0.55, harvest=None),
+    dict(key='stk4', farmer_idx=3, crop='Eggplant (Talong)',  days_ago=70, completion=0.90, harvest=None),  # -> auto Near Harvest
+    dict(key='stk5', farmer_idx=4, crop='Sitaw',               days_ago=57, completion=0.85, harvest=None),  # -> auto Near Harvest
+
+    # ── 5 Harvested (mixed variance — 3 above estimate, 2 below) ──
+    dict(key='hrv1', farmer_idx=0, crop='Palay (Rice)', days_ago=150, completion=1.0,
+         harvest=dict(variance_factor=1.12, harvest_offset_days=3)),
+    dict(key='hrv2', farmer_idx=1, crop='Corn (Mais)', days_ago=130, completion=0.9,
+         harvest=dict(variance_factor=0.85, harvest_offset_days=-4,
+                       reason='Harvested below estimate after a dry mid-season spell.')),
+    dict(key='hrv3', farmer_idx=2, crop='Onion', days_ago=140, completion=1.0,
+         harvest=dict(variance_factor=1.08, harvest_offset_days=2)),
+    dict(key='hrv4', farmer_idx=3, crop='Tomato', days_ago=100, completion=0.9,
+         harvest=dict(variance_factor=0.80, harvest_offset_days=-5,
+                       reason='Harvested below estimate — pest pressure late in the cycle.')),
+    dict(key='hrv5', farmer_idx=4, crop='Pechay', days_ago=60, completion=1.0,
+         harvest=dict(variance_factor=1.15, harvest_offset_days=1)),
+
+    # ── 3 with a disaster: 2 genuinely ACTIVE, 1 TOTAL LOSS ──
+    dict(key='dis_active1', farmer_idx=5, crop='Garlic',  days_ago=50, completion=0.5, harvest=None),
+    dict(key='dis_active2', farmer_idx=6, crop='Cabbage', days_ago=45, completion=0.5, harvest=None),
+    dict(key='dis_total_loss', farmer_idx=7, crop='Kamote', days_ago=40, completion=0.3, harvest=None),
+
+    # ── 2 with a RECOVERED disaster ──
+    dict(key='dis_recovered1', farmer_idx=8, crop='Cassava', days_ago=100, completion=0.45, harvest=None),
+    dict(key='dis_recovered2', farmer_idx=9, crop='Ginger',  days_ago=90,  completion=0.45, harvest=None),
 ]
 
-ACTIVITY_TYPES = [
-    'Land Preparation',
-    'Planting',
-    'Fertilizer Application',
-    'Irrigation',
-    'Weeding',
-    'Pest Control',
-    'Disease Control',
-    'Harvesting',
+# Attach a CropDisasterReport to a specific CROP_PLAN key. 2 Active + 1 Total
+# Loss + 2 Recovered (Batch D terminology). is_total_loss=True on the Total
+# Loss entry is what flips the monitoring record's status to 'Total Loss'
+# (CropDisasterReport.save() override) — not set directly on CROP_PLAN.
+DISASTER_PLAN = [
+    dict(plan_key='dis_active1', disaster_type='Pest Outbreak', days_ago=20,
+         status='Active', rules_done='partial'),
+    dict(plan_key='dis_active2', disaster_type='Strong Winds', days_ago=12,
+         status='Active', rules_done='partial'),
+    dict(plan_key='dis_total_loss', disaster_type='Flood', days_ago=15,
+         status='Active', is_total_loss=True, rules_done='all'),
+    dict(plan_key='dis_recovered1', disaster_type='Typhoon', days_ago=70,
+         status='Recovered', recovered_days_ago=55, rules_done='all'),
+    dict(plan_key='dis_recovered2', disaster_type='Drought', days_ago=60,
+         status='Recovered', recovered_days_ago=40, rules_done='all'),
 ]
 
 
 class Command(BaseCommand):
-    help = 'Seed the database with demo data for showcasing.'
+    help = 'Seed the database with crop demo data for showcasing.'
 
     def add_arguments(self, parser):
         parser.add_argument(
             '--flush',
             action='store_true',
-            help='Delete all demo data before seeding.',
+            help='Delete all previously-created demo data before seeding.',
         )
 
     def handle(self, *args, **options):
         if options['flush']:
             self._flush()
+
+        random.seed(20260713)
 
         admin_user = User.objects.filter(is_superuser=True).first() or User.objects.first()
         if admin_user is None:
@@ -152,34 +193,32 @@ class Command(BaseCommand):
             ))
             return
 
-        crop_types = self._ensure_crop_types()
+        crop_types = self._load_crop_types()
+        if crop_types is None:
+            return
+
         associations = self._create_associations()
         farmers = self._create_farmers(associations)
-        records = self._create_monitoring_records(associations, farmers, crop_types, admin_user)
-        self._create_activity_logs(records, admin_user)
-        self._create_disaster_reports(records, admin_user)
+        plan_by_key, records_created = self._create_monitoring_domain(farmers, crop_types, admin_user)
+        disaster_count = self._create_crop_disasters(plan_by_key, admin_user) if records_created else \
+            CropDisasterReport.objects.filter(monitoring_record__farmer__in=farmers).count()
 
         # ── Summary ───────────────────────────────────────────────────────────
         self.stdout.write('')
         self.stdout.write(self.style.SUCCESS('======================================'))
-        self.stdout.write(self.style.SUCCESS('  DEMO DATA SEEDER - SUMMARY'))
+        self.stdout.write(self.style.SUCCESS('  CROP DEMO DATA SEEDER - SUMMARY'))
         self.stdout.write(self.style.SUCCESS('======================================'))
         self.stdout.write(f'  Associations : {len(associations):>3}')
         self.stdout.write(f'  Farmers      : {len(farmers):>3}')
-        self.stdout.write(f'  Crop Records : {len(records):>3}')
+        all_records = CropMonitoringRecord.objects.filter(farmer__in=farmers)
+        self.stdout.write(f'  Crop Records : {all_records.count():>3}')
         status_counts = {}
-        for r in records:
-            status_counts[r.status] = status_counts.get(r.status, 0) + 1
+        for st in all_records.values_list('status', flat=True):
+            status_counts[st] = status_counts.get(st, 0) + 1
         for st, cnt in sorted(status_counts.items()):
             self.stdout.write(f'    {st:<12}: {cnt:>3}')
-        disaster_count = CropDisasterReport.objects.filter(
-            monitoring_record__in=records
-        ).count()
         self.stdout.write(f'  Disaster rpts: {disaster_count:>3}')
-        activity_count = CropActivityLog.objects.filter(
-            monitoring_record__in=records
-        ).count()
-        self.stdout.write(f'  Activity logs: {activity_count:>3}')
+        self.stdout.write(f'  Activity logs: {CropActivityLog.objects.filter(monitoring_record__farmer__in=farmers).count():>3}')
         self.stdout.write(self.style.SUCCESS('======================================'))
         self.stdout.write(self.style.SUCCESS('  Done! Run --flush to reset.'))
         self.stdout.write('')
@@ -187,41 +226,46 @@ class Command(BaseCommand):
     # ── Flush ─────────────────────────────────────────────────────────────────
 
     def _flush(self):
-        farmers_deleted, _ = Farmer.objects.filter(
+        demo_farmer_ids = list(Farmer.objects.filter(
             rsbsa_number__startswith=DEMO_RSBSA_PREFIX
-        ).delete()
+        ).values_list('id', flat=True))
+
+        # CropMonitoringRecord.farmer is SET_NULL, not CASCADE — delete
+        # explicitly first so demo records don't get orphaned onto real data
+        # (mirrors the fix already applied to the fisheries seeder).
+        records_deleted, _ = CropMonitoringRecord.objects.filter(farmer_id__in=demo_farmer_ids).delete()
+
+        farmers_deleted, _ = Farmer.objects.filter(id__in=demo_farmer_ids).delete()
         assoc_deleted, _ = FarmersAssociation.objects.filter(
             name__endswith=DEMO_ASSOC_SUFFIX
         ).delete()
         self.stdout.write(self.style.WARNING(
-            f'Flushed: {farmers_deleted} demo farmers, {assoc_deleted} demo associations (cascades included).'
+            f'Flushed: {farmers_deleted} demo farmers, {assoc_deleted} demo associations, '
+            f'{records_deleted} demo crop records deleted explicitly (cascades included).'
         ))
 
-    # ── Crop Types ────────────────────────────────────────────────────────────
+    # ── Crop types (read-only lookup, do not create — reference data seeded
+    #    via migrations, same convention as fisheries' SpeciesOption lookup) ──
 
-    def _ensure_crop_types(self):
-        existing = list(CropType.objects.all()[:10])
-        if existing:
-            return existing
-        self.stdout.write(self.style.WARNING(
-            'No crop types found — creating minimal set for seeder.'
-        ))
-        category, _ = CropCategory.objects.get_or_create(
-            name='Demo Crops',
-            defaults={'description': 'Auto-created by seed_demo_data'},
-        )
-        types = []
-        for name, days, yield_kg in CROP_NAMES_FALLBACK:
-            ct, _ = CropType.objects.get_or_create(
-                name=name,
-                defaults={
-                    'days_to_harvest': days,
-                    'yield_per_ha_kg': Decimal(yield_kg),
-                    'category': category,
-                },
-            )
-            types.append(ct)
-        return types
+    def _load_crop_types(self):
+        names = [
+            'Palay (Rice)', 'Corn (Mais)', 'Ampalaya', 'Eggplant (Talong)', 'Sitaw',
+            'Onion', 'Tomato', 'Pechay', 'Garlic', 'Cabbage', 'Kamote', 'Cassava', 'Ginger',
+        ]
+        crop_types = {}
+        missing = []
+        for name in names:
+            try:
+                crop_types[name] = CropType.objects.get(name=name)
+            except CropType.DoesNotExist:
+                missing.append(name)
+        if missing:
+            self.stderr.write(self.style.ERROR(
+                f'Missing CropType rows: {", ".join(missing)}. '
+                'Run migrations to seed crop reference data before running this command.'
+            ))
+            return None
+        return crop_types
 
     # ── Associations ──────────────────────────────────────────────────────────
 
@@ -264,7 +308,7 @@ class Command(BaseCommand):
 
     def _create_farmers(self, associations):
         created = []
-        assoc_pool = associations  # cycle through associations for ~70% membership
+        assoc_by_barangay = {a.barangay: a for a in associations}
         today = date.today()
 
         for idx, (first, last, gender, birth_year, barangay, pwd, icc, fourps) in enumerate(FARMERS_DATA):
@@ -274,9 +318,6 @@ class Command(BaseCommand):
             birthdate = date(birth_year, birth_month, birth_day)
             age = today.year - birth_year
             is_senior = age >= 60
-
-            # ~70% get an association
-            assoc = associations[idx % len(associations)] if idx % 10 < 7 else None
 
             civil_choices = ['Single', 'Married', 'Married', 'Married', 'Widowed']
             civil_status = civil_choices[idx % len(civil_choices)]
@@ -294,7 +335,7 @@ class Command(BaseCommand):
                     'is_icc_ip_member':    icc,
                     'is_4ps_beneficiary':  fourps,
                     'is_senior_citizen':   is_senior,
-                    'farmers_association': assoc,
+                    'farmers_association': assoc_by_barangay.get(barangay),
                     'is_active':           True,
                 },
             )
@@ -303,135 +344,170 @@ class Command(BaseCommand):
                 self.stdout.write(f'  Created farmer: {farmer.full_name}')
         return created
 
-    # ── Crop Monitoring Records ───────────────────────────────────────────────
+    # ── Crop Monitoring domain (records + activity logs) ────────────────────
 
-    def _create_monitoring_records(self, associations, farmers, crop_types, admin_user):
-        created = []
+    def _create_monitoring_domain(self, farmers, crop_types, admin_user):
+        if CropMonitoringRecord.objects.filter(farmer__in=farmers).exists():
+            self.stdout.write('  Crop monitoring domain already seeded — skipping (use --flush to reset).')
+            return {}, False
+
         today = date.today()
-        cur_year = today.year
-        season = 'Wet' if today.month >= 6 else 'Dry'
+        plan_by_key = {}
 
-        def pick_crop():
-            return random.choice(crop_types)
-
-        def make_record(assoc, status, date_planted, growth_stage='', actual_yield=None, actual_harvest=None):
-            ct = pick_crop()
+        for spec in CROP_PLAN:
+            farmer = farmers[spec['farmer_idx']]
+            ct = crop_types[spec['crop']]
+            date_planted = today - timedelta(days=spec['days_ago'])
             area = Decimal(str(round(random.uniform(0.25, 2.5), 2)))
-            farmer = random.choice(farmers) if farmers else None
             land_status = random.choice(['Owner', 'Lessee', 'Tenant'])
+            season = 'Wet' if date_planted.month in (6, 7, 8, 9, 10, 11) else 'Dry'
+
             rec = CropMonitoringRecord(
-                farmers_association=assoc,
                 farmer=farmer,
+                farmers_association=farmer.farmers_association,
+                farm_location_barangay=farmer.barangay,
                 land_status=land_status,
-                farm_location_barangay=farmer.barangay if farmer else '',
                 crop_type=ct,
                 season=season,
-                year=cur_year,
+                year=date_planted.year,
                 date_planted=date_planted,
                 area_planted_ha=area,
-                status=status,
-                current_growth_stage=growth_stage,
-                variety_used='NSIC Rc222' if ct.name == 'Rice' else '',
+                variety_used='',
                 seed_source='Own Seeds',
-                notes='Created by seed_demo_data command.',
+                notes=SEED_TAG,
                 recorded_by=admin_user,
             )
-            if actual_yield is not None:
-                rec.actual_yield_kg = actual_yield
-                rec.actual_harvest_date = actual_harvest
-            rec.save()
-            return rec
 
-        # 15 Planted (planted 10-30 days ago, harvest far off)
-        for i in range(15):
-            assoc = associations[i % len(associations)]
-            days_ago = random.randint(10, 30)
-            dp = today - timedelta(days=days_ago)
-            r = make_record(assoc, 'Planted', dp, 'Planted')
-            created.append(r)
+            if spec['harvest']:
+                rec.status = CropMonitoringRecord.Status.HARVESTED
+                rec.save()  # first save computes estimated_yield_kg from crop_type + area
+                h = spec['harvest']
+                base = rec.estimated_yield_kg or (ct.yield_per_ha_kg or Decimal('1500')) * area
+                actual = (base * Decimal(str(h['variance_factor']))).quantize(Decimal('0.01'))
+                harvest_date = rec.expected_harvest_date + timedelta(days=h.get('harvest_offset_days', 0))
+                if harvest_date > today:
+                    harvest_date = today
+                rec.actual_yield_kg = actual
+                rec.actual_harvest_date = harvest_date
+                rec.notes = f"{SEED_TAG} {h.get('reason', '')}".strip()
+                rec.save()  # second save computes yield_variance_kg/pct from actual vs. estimated
+            else:
+                rec.status = CropMonitoringRecord.Status.PLANTED
+                rec.save()  # auto-transitions to Near Harvest if within 7 days, per model save()
 
-        # 10 Near Harvest (harvest date within next 7 days)
-        for i in range(10):
-            assoc = associations[i % len(associations)]
-            ct = pick_crop()
-            days_to_harvest = ct.days_to_harvest
-            plant_offset = days_to_harvest - random.randint(1, 7)
-            dp = today - timedelta(days=plant_offset)
-            r = make_record(assoc, 'Planted', dp, 'Near Harvest')
-            created.append(r)
+            plan_by_key[spec['key']] = rec
+            self._seed_activity_logs(rec, admin_user, spec['completion'], harvested=bool(spec['harvest']))
 
-        # 5 Overdue (harvest date 1-30 days past)
-        for i in range(5):
-            assoc = associations[i % len(associations)]
-            ct = pick_crop()
-            overdue_by = random.randint(1, 30)
-            dp = today - timedelta(days=ct.days_to_harvest + overdue_by)
-            r = make_record(assoc, 'Planted', dp, 'Maturity')
-            created.append(r)
+        self.stdout.write(f'  Created {len(plan_by_key)} crop monitoring records.')
+        return plan_by_key, True
 
-        # 15 Harvested
-        for i in range(15):
-            assoc = associations[i % len(associations)]
-            harvest_days_ago = random.randint(10, 90)
-            ah = today - timedelta(days=harvest_days_ago)
-            ct = pick_crop()
-            dp = ah - timedelta(days=ct.days_to_harvest)
-            area = Decimal(str(round(random.uniform(0.25, 2.5), 2)))
-            actual_yield = (ct.yield_per_ha_kg * area * Decimal(str(round(random.uniform(0.75, 1.10), 2)))).quantize(Decimal('0.01')) if ct.yield_per_ha_kg else Decimal('1500.00')
-            r = make_record(assoc, 'Harvested', dp, 'Harvested', actual_yield=actual_yield, actual_harvest=ah)
-            created.append(r)
+    def _seed_activity_logs(self, rec, admin_user, completion_fraction, harvested):
+        stages = list(CropActivityStage.objects.filter(crop_type_id=rec.crop_type_id).order_by('day_after_planting'))
+        occurrences = []
+        for stage in stages:
+            days_list = stage.application_days or [stage.day_after_planting]
+            for day in days_list:
+                occurrences.append((day, stage))
+        occurrences.sort(key=lambda x: x[0])
+        if not occurrences:
+            return 0
 
-        # 5 with disaster reports (status stays Planted; damage is derived from active disasters)
-        for i in range(5):
-            assoc = associations[i % len(associations)]
-            days_ago = random.randint(20, 60)
-            dp = today - timedelta(days=days_ago)
-            r = make_record(assoc, 'Planted', dp, 'Vegetative')
-            created.append(r)
+        today = date.today()
+        n = len(occurrences)
+        always_idx = {0, 1}
+        if harvested:
+            always_idx.add(n - 1)
 
-        self.stdout.write(f'  Created {len(created)} monitoring records.')
-        return created
+        # Only occurrences that have actually come due can be logged (future
+        # ones stay unlogged and read as "upcoming"). Sample done ones
+        # RANDOMLY among the due middle occurrences — not the first N
+        # chronologically — so an in-progress record shows a genuine mix of
+        # done and overdue/due_now items instead of "everything logged up to
+        # some day, nothing after" (which never leaves an overdue gap).
+        due_middle_idx = [
+            i for i, (day, stage) in enumerate(occurrences)
+            if i not in always_idx and (rec.date_planted + timedelta(days=day)) <= today
+        ]
+        n_middle_done = round(len(due_middle_idx) * completion_fraction)
+        done_middle = set(random.sample(due_middle_idx, n_middle_done)) if due_middle_idx else set()
 
-    # ── Activity Logs ─────────────────────────────────────────────────────────
-
-    def _create_activity_logs(self, records, admin_user):
-        disaster_recs = set(records[-5:])
         count = 0
-        for rec in records:
-            if rec in disaster_recs:
-                continue  # disasters only
-            num_logs = random.randint(1, 3)
-            for j in range(num_logs):
-                days_offset = random.randint(1, max(1, (date.today() - rec.date_planted).days - 1))
-                date_of_activity = rec.date_planted + timedelta(days=days_offset)
-                CropActivityLog.objects.create(
-                    monitoring_record=rec,
-                    activity_type=random.choice(ACTIVITY_TYPES[:6]),
-                    date_of_activity=date_of_activity,
-                    plant_condition=random.choice(['Good', 'Fair', 'Good', 'Good']),
-                    status_at_log=random.choice(['Vegetative', 'Flowering', 'Vegetative']),
-                    notes='Auto-generated by seed_demo_data.',
-                    recorded_by=admin_user,
-                )
-                count += 1
-        self.stdout.write(f'  Created {count} activity logs.')
+        for i, (day, stage) in enumerate(occurrences):
+            due_date = rec.date_planted + timedelta(days=day)
+            if due_date > today:
+                continue
+            if i not in always_idx and i not in done_middle:
+                continue
+
+            log_date = due_date + timedelta(days=random.choice([-1, 0, 0, 1]))
+            if log_date > today:
+                log_date = today
+            if log_date < rec.date_planted and not stage.allows_pre_planting:
+                log_date = rec.date_planted
+            window = stage.window_days
+            is_late = (log_date - due_date).days > window
+
+            CropActivityLog.objects.create(
+                monitoring_record=rec,
+                activity_type=stage.stage_name,
+                date_of_activity=log_date,
+                plant_condition=random.choice(['Good', 'Good', 'Fair']),
+                notes=stage.recommendation,
+                target_day=day,
+                is_late=is_late,
+                recorded_by=admin_user,
+            )
+            count += 1
+        return count
 
     # ── Disaster Reports ──────────────────────────────────────────────────────
 
-    def _create_disaster_reports(self, records, admin_user):
-        disaster_recs = records[-5:]
-        disaster_types = ['Typhoon', 'Flood', 'Drought', 'Pest Outbreak', 'Strong Winds']
+    def _create_crop_disasters(self, plan_by_key, admin_user):
+        today = date.today()
         count = 0
-        for i, rec in enumerate(disaster_recs):
-            days_ago = random.randint(5, 20)
-            CropDisasterReport.objects.create(
+        for spec in DISASTER_PLAN:
+            rec = plan_by_key.get(spec['plan_key'])
+            if rec is None:
+                continue
+            occurrence_date = today - timedelta(days=spec['days_ago'])
+            is_total_loss = spec.get('is_total_loss', False)
+            disaster = CropDisasterReport.objects.create(
                 monitoring_record=rec,
-                disaster_type=disaster_types[i % len(disaster_types)],
-                date_of_occurrence=date.today() - timedelta(days=days_ago),
-                area_affected_ha=rec.area_planted_ha * Decimal('0.75'),
-                estimated_damage='Significant crop damage to leaves and stems.',
-                production_loss='Estimated 60-80% production loss.',
+                disaster_type=spec['disaster_type'],
+                date_of_occurrence=occurrence_date,
+                area_affected_ha=(rec.area_planted_ha * Decimal('0.6')).quantize(Decimal('0.0001')),
+                estimated_damage='Noticeable crop stress and damage observed following the event.',
+                production_loss=(
+                    'Total crop loss — production cycle ended.' if is_total_loss
+                    else 'Estimated partial production loss; under monitoring.'
+                ),
+                is_total_loss=is_total_loss,
+                status=spec['status'],
+                recovered_date=(today - timedelta(days=spec.get('recovered_days_ago', 0))) if spec['status'] == 'Recovered' else None,
+                recovered_by=admin_user if spec['status'] == 'Recovered' else None,
+                recovery_note='Seeded recovery — response rules fully logged.' if spec['status'] == 'Recovered' else '',
                 reported_by=admin_user,
             )
             count += 1
-        self.stdout.write(f'  Created {count} disaster reports.')
+
+            rules_done = spec.get('rules_done')
+            if rules_done:
+                rules = list(DisasterResponseRule.objects.filter(
+                    disaster_type=spec['disaster_type'],
+                ).filter(Q(crop_type=rec.crop_type) | Q(crop_type__isnull=True)))
+                to_mark = rules if rules_done == 'all' else rules[:max(1, len(rules) // 2)]
+                for rule in to_mark:
+                    log_date = occurrence_date + timedelta(days=random.randint(1, 3))
+                    if log_date > today:
+                        log_date = today
+                    CropActivityLog.objects.create(
+                        monitoring_record=rec,
+                        activity_type=rule.activity_name,
+                        date_of_activity=log_date,
+                        notes=f'Response to {spec["disaster_type"]}: {rule.title}. {SEED_TAG}',
+                        disaster_report=disaster,
+                        disaster_rule=rule,
+                        recorded_by=admin_user,
+                    )
+        self.stdout.write(f'  Created {count} crop disaster reports.')
+        return count

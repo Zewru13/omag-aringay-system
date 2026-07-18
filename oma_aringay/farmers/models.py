@@ -4,7 +4,12 @@ from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
 from core.constants import BARANGAY_CHOICES
-from core.validators import validate_philsys, validate_rsbsa
+from core.validators import (
+    validate_parcel_number,
+    validate_philsys,
+    validate_rsbsa,
+    validate_tax_declaration_number,
+)
 
 
 class Farmer(models.Model):
@@ -115,13 +120,21 @@ class FarmParcel(models.Model):
         on_delete=models.CASCADE,
         related_name='farm_parcels',
     )
-    parcel_number = models.CharField(max_length=50)
+    parcel_number = models.CharField(
+        max_length=50, blank=True,
+        validators=[validate_parcel_number],
+        help_text='Format: RR-PP-MM-BBB-SSS-LL-NNN, e.g. 01-33-02-005-001-02-003. Optional — not every parcel has one yet.',
+    )
     area_hectares = models.DecimalField(max_digits=10, decimal_places=2)
     land_ownership = models.CharField(
         max_length=20,
         choices=LandOwnership.choices,
     )
-    tax_declaration_number = models.CharField(max_length=100, blank=True)
+    tax_declaration_number = models.CharField(
+        max_length=100, blank=True,
+        validators=[validate_tax_declaration_number],
+        help_text='Format: RR-MMM-BBBBB-YYYY-NNNN, e.g. 01-002-00005-2023-0142. Optional — not every parcel has one yet.',
+    )
     commodity_type = models.CharField(max_length=50, blank=True)
     commodity_name = models.CharField(max_length=100, blank=True)
     farm_status = models.CharField(

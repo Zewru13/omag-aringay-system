@@ -7,6 +7,8 @@ RSBSA_RE = re.compile(r'^01-33-02-\d{3}-\d{6}$')
 PHILSYS_RE = re.compile(r'^\d{4}-\d{4}-\d{4}-\d{4}$')
 LGU_REG_RE = re.compile(r'^\d{4}-03302-\d{4}$')
 FISHR_RE = re.compile(r'^01-33-02-\d{4}-\d{4}$')
+PARCEL_NUMBER_RE = re.compile(r'^\d{2}-\d{2}-\d{2}-\d{3}-\d{3}-\d{2}-\d{3}$')
+TAX_DECLARATION_RE = re.compile(r'^\d{2}-\d{3}-\d{5}-\d{4}-\d{4}$')
 
 
 def validate_rsbsa(value):
@@ -46,6 +48,28 @@ def validate_fishr(value):
         raise ValidationError(
             'Invalid FishR number. Expected format: 01-33-02-YYYY-NNNN '
             '(e.g. 01-33-02-2026-0415).'
+        )
+
+
+def validate_parcel_number(value):
+    if not value:
+        return
+    if not PARCEL_NUMBER_RE.match(value):
+        raise ValidationError(
+            'Invalid parcel number. Expected format: RR-PP-MM-BBB-SSS-LL-NNN '
+            '(Region-Province-Municipality-Barangay-Section-Block-Lot), '
+            'e.g. 01-33-02-005-001-02-003.'
+        )
+
+
+def validate_tax_declaration_number(value):
+    if not value:
+        return
+    if not TAX_DECLARATION_RE.match(value):
+        raise ValidationError(
+            'Invalid tax declaration number. Expected format: RR-MMM-BBBBB-YYYY-NNNN '
+            '(Region-Municipality-Barangay-RevisionYear-PropertySequence), '
+            'e.g. 01-002-00005-2023-0142.'
         )
 
 

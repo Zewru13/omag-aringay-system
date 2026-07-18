@@ -28,6 +28,7 @@ const makeRecord = (n) => ({
   seed_source_other_specify: '',
   quantity_of_seeds: '',
   seed_quantity_unit: 'kg',
+  farm_parcel: '',
 })
 
 // ── Harvest Preview ───────────────────────────────────────────────────────────
@@ -205,7 +206,7 @@ function useCropDuplicateCheck(farmerId, cropTypeId) {
 
 // ── Single Crop Record Card ───────────────────────────────────────────────────
 
-function CropRecordCard({ rec, index, total, cropTypes, seedSources, varieties, farmerId, errors, onUpdate, onRemove }) {
+function CropRecordCard({ rec, index, total, cropTypes, seedSources, varieties, farmerId, farmerParcels, errors, onUpdate, onRemove }) {
   const set = (field, value) => onUpdate(rec._id, field, value)
   const { duplicates, isChecking } = useCropDuplicateCheck(farmerId, rec.crop_type)
 
@@ -255,6 +256,20 @@ function CropRecordCard({ rec, index, total, cropTypes, seedSources, varieties, 
               onChange={e => set('land_status_other_specify', e.target.value)} />
           )}
         </FormField>
+
+        {farmerParcels.length > 0 && (
+          <FormField label="Link to Farm Parcel (optional)">
+            <select className={baseInputClasses} value={rec.farm_parcel}
+              onChange={e => set('farm_parcel', e.target.value)}>
+              <option value="">Not linked to a specific parcel</option>
+              {farmerParcels.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.parcel_number ? `Parcel ${p.parcel_number}` : `Parcel #${p.id}`} — {p.barangay}
+                </option>
+              ))}
+            </select>
+          </FormField>
+        )}
       </div>
 
       <div className="border-t border-[#F0F4F0]" />
@@ -446,12 +461,25 @@ function AddCropMonitoringModal({ onClose, onSuccess }) {
     farmer_assoc_id: null,
     farmer_assoc_name: '',
   })
+  // That farmer's existing parcels — optional traceability link (Batch F
+  // stretch goal) between this production record and the land registry.
+  const [farmerParcels, setFarmerParcels] = useState([])
 
   useEffect(() => {
     api.get('/production/crop-types/').then(r => setCropTypes(Array.isArray(r.data) ? r.data : (r.data.results || [])))
     api.get('/production/seed-sources/').then(r => setSeedSources(Array.isArray(r.data) ? r.data : (r.data.results || [])))
     api.get('/production/varieties/').then(r => setVarieties(Array.isArray(r.data) ? r.data : (r.data.results || [])))
   }, [])
+
+  useEffect(() => {
+    // Clear any parcel link picked for a previous farmer — a stale parcel id
+    // must never be submitted against a newly-selected farmer.
+    setRecords(r => r.map(x => ({ ...x, farm_parcel: '' })))
+    if (!farmerInfo.farmer_id) { setFarmerParcels([]); return }
+    api.get(`/farmers/${farmerInfo.farmer_id}/parcels/`)
+      .then(r => setFarmerParcels(Array.isArray(r.data) ? r.data : (r.data.results || [])))
+      .catch(() => setFarmerParcels([]))
+  }, [farmerInfo.farmer_id])
 
   const addRecord = () => {
     setRecords(r => [...r, makeRecord(nextId)])
@@ -517,6 +545,7 @@ function AddCropMonitoringModal({ onClose, onSuccess }) {
           seed_source_other_specify: rec.seed_source === 'Other' ? (rec.seed_source_other_specify || '') : '',
           quantity_of_seeds:      rec.quantity_of_seeds ? parseFloat(rec.quantity_of_seeds) : null,
           seed_quantity_unit:     rec.seed_quantity_unit || 'kg',
+          farm_parcel:            rec.farm_parcel || null,
         })
       }
       showToast(`${records.length} crop monitoring record${records.length > 1 ? 's' : ''} added.`, 'success')
@@ -574,6 +603,7 @@ function AddCropMonitoringModal({ onClose, onSuccess }) {
                 seedSources={seedSources}
                 varieties={varieties}
                 farmerId={farmerInfo.farmer_id}
+                farmerParcels={farmerParcels}
                 errors={fieldErrors[rec._id] || {}}
                 onUpdate={updateRecord}
                 onRemove={removeRecord}

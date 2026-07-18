@@ -9,7 +9,9 @@ Stocking records — 15 total (Batch E reduction), composed deliberately:
     upcoming activity-log mix so the suggestion engine looks real)
   - 5 "Harvested" (harvest records producing a MIX of above/below-estimate
     variance — driven by an explicit variance_factor per record)
-  - 3 with an ACTIVE stocking-level disaster (not yet recovered)
+  - 3 with a stocking-level disaster: 2 genuinely ACTIVE (not yet recovered)
+    and 1 marked TOTAL LOSS (Batch F fix — the original Batch E plan had
+    0 Total Loss records, leaving nothing to demonstrate that status)
   - 2 with a RECOVERED stocking-level disaster (Batch D terminology)
 
 Plus, kept intentionally sparse so those tabs aren't empty:
@@ -106,7 +108,9 @@ STOCKING_PLAN = [
     dict(key='hrv5', ff_idx=7, species='Bangus', culture_type='Pond', fingerlings=3500, days_ago=210,
          completion=0.9, harvest=dict(pattern='single', variance_factor=1.06, harvest_offset_days=4)),
 
-    # ── 3 with an ACTIVE stocking-level disaster (base status stays Stocked/Near Harvest) ──
+    # ── 3 with a stocking-level disaster: dis_active1/2 stay genuinely ──
+    # ── active (base status stays Stocked/Near Harvest); dis_active3 is    ──
+    # ── flipped to TOTAL LOSS via DISASTER_PLAN's is_total_loss (Batch F). ──
     dict(key='dis_active1', ff_idx=5, species='Oyster', culture_type='Cage', fingerlings=2500, days_ago=90,
          completion=0.3, harvest=None),
     dict(key='dis_active2', ff_idx=6, species='Tilapia', culture_type='Cage', fingerlings=3000, days_ago=110,
@@ -122,15 +126,18 @@ STOCKING_PLAN = [
 ]
 
 # Attach a stocking-level FisheriesDisasterReport to a specific STOCKING_PLAN key.
-# 3 Active + 2 Recovered (Batch D terminology). None are Total Loss, so the
-# parent stocking records keep their Stocked/Near-Harvest status.
+# 2 genuinely Active + 1 TOTAL LOSS + 2 Recovered (Batch D terminology; Batch F
+# fix — the original Batch E plan had 3 Active/0 Total Loss, leaving no Total
+# Loss stocking record to demonstrate). is_total_loss=True on dis_active3 is
+# what flips the parent stocking record's status to 'Total Loss'
+# (FisheriesDisasterReport.save() override) — not set directly on STOCKING_PLAN.
 DISASTER_PLAN = [
     dict(stocking_key='dis_active1', disaster_type='Predator Attack', days_ago=40,
          status='Active', rules_done='partial'),
     dict(stocking_key='dis_active2', disaster_type='Disease Outbreak', days_ago=25,
          status='Active', rules_done='partial'),
     dict(stocking_key='dis_active3', disaster_type='Fish Kill', days_ago=15,
-         status='Active', rules_done='all'),
+         status='Active', is_total_loss=True, rules_done='all'),
     dict(stocking_key='dis_recovered1', disaster_type='Flood', days_ago=130,
          status='Recovered', recovered_days_ago=115, rules_done='all'),
     dict(stocking_key='dis_recovered2', disaster_type='Typhoon', days_ago=100,

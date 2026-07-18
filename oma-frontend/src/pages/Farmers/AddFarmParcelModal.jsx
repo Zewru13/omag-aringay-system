@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Plus, Trash2, X } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ModalShell from '../../components/UI/ModalShell.jsx'
@@ -6,6 +6,29 @@ import Button from '../../components/UI/Button.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
+import SegmentedIdInput from '../../components/UI/SegmentedIdInput.jsx'
+
+// Region-Province-Municipality is fixed for every parcel in this LGU-only
+// system (01-33-02 = Region I / La Union / Aringay) — same fixed prefix
+// already used for RSBSA and FishR numbers elsewhere in the app. Barangay-
+// Section-Block-Lot are the only parts that vary per parcel.
+const PARCEL_NUMBER_PARTS = [
+  { type: 'text', value: '01-33-02-' },
+  { type: 'input', key: 'barangay', length: 3, placeholder: '000' },
+  { type: 'text', value: '-' },
+  { type: 'input', key: 'section', length: 3, placeholder: '000' },
+  { type: 'text', value: '-' },
+  { type: 'input', key: 'block', length: 2, placeholder: '00' },
+  { type: 'text', value: '-' },
+  { type: 'input', key: 'lot', length: 3, placeholder: '000' },
+]
+// Tax Declaration Number uses a different numbering authority (the
+// Provincial/Municipal Assessor, not the RSBSA/FishR registry) with a
+// different barangay-code digit count (5 vs. Parcel Number's 3) — a real,
+// confirmed mismatch between the two formats, not a bug to reconcile. Since
+// only the format (not a confirmed fixed prefix) is known, this stays a
+// plain validated text field rather than a segmented input.
+const TAX_DECLARATION_RE = /^\d{2}-\d{3}-\d{5}-\d{4}-\d{4}$/
 
 const CROP_OPTIONS = [
   'Palay (Rice)', 'Corn (Mais)', 'Onion', 'Garlic', 'Tomato',
@@ -19,9 +42,18 @@ const MACHINERY_OPTIONS = [
   'Sprayer', 'Harvester', 'Rice Mill', 'Other',
 ]
 const OWNERSHIP_OPTIONS = ['Owned', 'Borrowed', 'Rented', 'Association-Owned']
+// PROVISIONAL agronomic classification, pending OMAg confirmation — same
+// caveat status as the crop variety data. Tree/perennial crops (no "times
+// per year" cropping cycle) vs. seasonal/annual crops (where Single/Double/
+// Triple Cropping genuinely applies). Also drives the Cropping Schedule
+// field's smart-filtering below (Batch F) — was already used here for the
+// "No. of Trees" field.
 const PERENNIAL_CROPS = ['Mango', 'Cacao (Kakaw)', 'Banana (Saging)', 'Coffee (Kape)', 'Other Fruits']
 const FARM_TYPE_OPTIONS = ['Irrigated Lowland', 'Rainfed Lowland', 'Upland', 'Highland', 'Other']
-const CROPPING_SCHEDULE_OPTIONS = ['Single Crop', 'Double Crop', 'Year-Round', 'Seasonal']
+// Must match FarmParcel.CROPPING_SCHEDULE_CHOICES on the backend exactly —
+// the previous list ('Single Crop' / 'Double Crop' / 'Year-Round' /
+// 'Seasonal') didn't match any real model choice and silently failed to save.
+const CROPPING_SCHEDULE_OPTIONS = ['Single Cropping', 'Double Cropping', 'Triple Cropping']
 // Values must match FarmCrop.SEED_SOURCE_CHOICES / SEEDS_UNIT_CHOICES on the backend exactly —
 // these are sent as the raw choice value, not just a display label.
 const SEED_SOURCE_OPTIONS = ['Certified Seed', 'Farmer-saved Seed', 'Hybrid Seed', 'OPV Seed', 'Other']
@@ -63,6 +95,18 @@ const makeParcel = (n) => ({
 
 function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
   const set = (field, value) => onUpdate(parcel._id, field, value)
+
+  // Smart-filtering (Batch F, Part B): the parcel's main crop — if perennial,
+  // "times per year" cropping schedule doesn't apply. No main crop set yet ->
+  // treated as seasonal (don't block the form on crop-entry order).
+  const mainCrop = parcel.crops.find(c => c.is_main_crop)
+  const mainCropLabel = mainCrop ? (mainCrop.crop_name === 'Other' ? mainCrop.crop_name_other : mainCrop.crop_name) : ''
+  const isPerennialMain = Boolean(mainCrop && PERENNIAL_CROPS.includes(mainCrop.crop_name))
+
+  useEffect(() => {
+    if (isPerennialMain && parcel.cropping_schedule) set('cropping_schedule', '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPerennialMain])
 
   const addCrop = () => {
     if (!parcel._cropArea) return
@@ -126,9 +170,13 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
       {/* Parcel fields */}
       <div className="grid gap-3 md:grid-cols-2">
         <div>
-          <label className={labelCls}>Parcel Number *</label>
-          <input className={baseInputClasses} required value={parcel.parcel_number}
-            onChange={e => set('parcel_number', e.target.value)} />
+          <label className={labelCls}>Parcel Number</label>
+          <SegmentedIdInput
+            parts={PARCEL_NUMBER_PARTS}
+            value={parcel.parcel_number}
+            onChange={value => set('parcel_number', value)}
+          />
+          <p className="mt-1 text-[11px] text-[#A8BCA8]">Optional — leave blank if not yet documented.</p>
         </div>
         <div>
           <label className={labelCls}>Area (ha) *</label>
@@ -147,7 +195,13 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
         <div>
           <label className={labelCls}>Tax Dec Number</label>
           <input className={baseInputClasses} value={parcel.tax_declaration_number}
+            placeholder="01-002-00005-2023-0142"
             onChange={e => set('tax_declaration_number', e.target.value)} />
+          {parcel.tax_declaration_number && !TAX_DECLARATION_RE.test(parcel.tax_declaration_number) ? (
+            <p className="mt-1 text-[11px] text-rose-500">Format: RR-MMM-BBBBB-YYYY-NNNN, e.g. 01-002-00005-2023-0142.</p>
+          ) : (
+            <p className="mt-1 text-[11px] text-[#A8BCA8]">Optional — leave blank if not yet documented.</p>
+          )}
         </div>
         <div>
           <label className={labelCls}>Farm Status</label>
@@ -169,11 +223,15 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
         </div>
         <div>
           <label className={labelCls}>Cropping Schedule</label>
-          <select className={baseInputClasses} value={parcel.cropping_schedule}
+          <select className={`${baseInputClasses} ${isPerennialMain ? 'cursor-not-allowed bg-slate-50 text-slate-400' : ''}`}
+            value={parcel.cropping_schedule} disabled={isPerennialMain}
             onChange={e => set('cropping_schedule', e.target.value)}>
             <option value="">— Select —</option>
             {CROPPING_SCHEDULE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
           </select>
+          {isPerennialMain && (
+            <p className="mt-1 text-[11px] text-[#A8BCA8]">Not applicable — {mainCropLabel} is a perennial crop.</p>
+          )}
         </div>
       </div>
 
@@ -197,7 +255,10 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
 
       {/* Crops section */}
       <div>
-        <p className="mb-2 text-[12px] font-semibold text-[#1A2B1A]">Crops Grown</p>
+        <p className="mb-1 text-[12px] font-semibold text-[#1A2B1A]">Crops Grown</p>
+        <p className="mb-2 text-[11px] text-[#7A8E7A]">
+          This records what grows on this land. To track a season's planting, activities, and harvest, use Crop Monitoring.
+        </p>
         <div className="grid gap-2 md:grid-cols-3">
           <div>
             <label className={labelCls}>Crop Name</label>
@@ -255,7 +316,7 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
             <label className={labelCls}>Main Crop</label>
           </div>
           <div className="flex items-end">
-            <Button size="sm" type="button" onClick={addCrop}>Add Crop</Button>
+            <Button size="sm" type="button" onClick={addCrop}>Add Crop to This Parcel</Button>
           </div>
         </div>
 
@@ -385,9 +446,12 @@ function AddFarmParcelModal({ farmerId, onClose, onSuccess }) {
 
   const validate = () => {
     for (const p of parcels) {
-      if (!p.parcel_number.trim()) { setError(`Parcel ${parcels.indexOf(p) + 1}: Parcel number is required.`); return false }
-      if (!p.area_hectares)        { setError(`Parcel ${parcels.indexOf(p) + 1}: Area is required.`); return false }
-      if (!p.barangay)             { setError(`Parcel ${parcels.indexOf(p) + 1}: Barangay is required.`); return false }
+      if (!p.area_hectares) { setError(`Parcel ${parcels.indexOf(p) + 1}: Area is required.`); return false }
+      if (!p.barangay)      { setError(`Parcel ${parcels.indexOf(p) + 1}: Barangay is required.`); return false }
+      if (p.tax_declaration_number && !TAX_DECLARATION_RE.test(p.tax_declaration_number)) {
+        setError(`Parcel ${parcels.indexOf(p) + 1}: Tax declaration number format is invalid.`)
+        return false
+      }
     }
     return true
   }
