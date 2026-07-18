@@ -77,6 +77,22 @@ class FarmParcelSerializer(serializers.ModelSerializer):
             'farmer': {'required': False},
         }
 
+    def validate(self, data):
+        # Cross-field rule: Parcel Number becomes required only once a Tax
+        # Declaration Number is provided (not every parcel has a Tax Dec yet,
+        # but if one is on file, the parcel it belongs to should be
+        # identifiable). No reverse rule — Tax Dec stays optional regardless
+        # of Parcel Number. Falls back to the existing instance for fields
+        # not present in the payload, so a partial update is checked against
+        # the resulting combined state, not just the patched fields.
+        parcel_number = data.get('parcel_number', getattr(self.instance, 'parcel_number', ''))
+        tax_declaration_number = data.get('tax_declaration_number', getattr(self.instance, 'tax_declaration_number', ''))
+        if (tax_declaration_number or '').strip() and not (parcel_number or '').strip():
+            raise serializers.ValidationError({
+                'parcel_number': 'Parcel Number is required when a Tax Declaration Number is provided.'
+            })
+        return data
+
 
 class FarmerListSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(read_only=True)

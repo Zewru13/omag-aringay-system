@@ -103,6 +103,13 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
   const mainCropLabel = mainCrop ? (mainCrop.crop_name === 'Other' ? mainCrop.crop_name_other : mainCrop.crop_name) : ''
   const isPerennialMain = Boolean(mainCrop && PERENNIAL_CROPS.includes(mainCrop.crop_name))
 
+  // Cross-field rule (this batch): Parcel Number becomes required the moment
+  // a Tax Declaration Number is on the form — reactive to every keystroke,
+  // not just checked at submit. No reverse rule (Tax Dec stays optional
+  // regardless of Parcel Number).
+  const taxDecFilled = Boolean(parcel.tax_declaration_number && parcel.tax_declaration_number.trim())
+  const parcelNumberMissing = taxDecFilled && !parcel.parcel_number
+
   useEffect(() => {
     if (isPerennialMain && parcel.cropping_schedule) set('cropping_schedule', '')
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -170,13 +177,19 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
       {/* Parcel fields */}
       <div className="grid gap-3 md:grid-cols-2">
         <div>
-          <label className={labelCls}>Parcel Number</label>
+          <label className={labelCls}>Parcel Number{taxDecFilled && <span className="text-rose-500"> *</span>}</label>
           <SegmentedIdInput
             parts={PARCEL_NUMBER_PARTS}
             value={parcel.parcel_number}
             onChange={value => set('parcel_number', value)}
           />
-          <p className="mt-1 text-[11px] text-[#A8BCA8]">Optional — leave blank if not yet documented.</p>
+          {parcelNumberMissing ? (
+            <p className="mt-1 text-[11px] text-rose-500">Required when a Tax Declaration Number is provided.</p>
+          ) : (
+            <p className="mt-1 text-[11px] text-[#A8BCA8]">
+              {taxDecFilled ? 'Required — a Tax Declaration Number is on file.' : 'Optional — leave blank if not yet documented.'}
+            </p>
+          )}
         </div>
         <div>
           <label className={labelCls}>Area (ha) *</label>
@@ -200,7 +213,7 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
           {parcel.tax_declaration_number && !TAX_DECLARATION_RE.test(parcel.tax_declaration_number) ? (
             <p className="mt-1 text-[11px] text-rose-500">Format: RR-MMM-BBBBB-YYYY-NNNN, e.g. 01-002-00005-2023-0142.</p>
           ) : (
-            <p className="mt-1 text-[11px] text-[#A8BCA8]">Optional — leave blank if not yet documented.</p>
+            <p className="mt-1 text-[11px] text-[#A8BCA8]">Optional — but Parcel Number is required if you provide this.</p>
           )}
         </div>
         <div>
@@ -450,6 +463,12 @@ function AddFarmParcelModal({ farmerId, onClose, onSuccess }) {
       if (!p.barangay)      { setError(`Parcel ${parcels.indexOf(p) + 1}: Barangay is required.`); return false }
       if (p.tax_declaration_number && !TAX_DECLARATION_RE.test(p.tax_declaration_number)) {
         setError(`Parcel ${parcels.indexOf(p) + 1}: Tax declaration number format is invalid.`)
+        return false
+      }
+      // Cross-field rule: Parcel Number required once Tax Declaration Number
+      // is provided (no reverse rule) — same check the backend enforces.
+      if (p.tax_declaration_number.trim() && !p.parcel_number) {
+        setError(`Parcel ${parcels.indexOf(p) + 1}: Parcel Number is required when a Tax Declaration Number is provided.`)
         return false
       }
     }
