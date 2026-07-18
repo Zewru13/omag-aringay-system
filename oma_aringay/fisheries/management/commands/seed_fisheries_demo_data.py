@@ -1,18 +1,21 @@
 """
 Management command: python manage.py seed_fisheries_demo_data [--flush]
 
-Creates demo data for showcasing the fisheries domain (mirrors
-production/management/commands/seed_demo_data.py's conventions):
+Creates a small, defense-friendly demo dataset for the fisheries domain
+(mirrors production/management/commands/seed_demo_data.py's conventions).
+
+Stocking records — 15 total (Batch E reduction), composed deliberately:
+  - 5 "Stocked" / under-monitoring (mid-cycle, realistic done/overdue/
+    upcoming activity-log mix so the suggestion engine looks real)
+  - 5 "Harvested" (harvest records producing a MIX of above/below-estimate
+    variance — driven by an explicit variance_factor per record)
+  - 3 with an ACTIVE stocking-level disaster (not yet recovered)
+  - 2 with a RECOVERED stocking-level disaster (Batch D terminology)
+
+Plus, kept intentionally sparse so those tabs aren't empty:
   - 15 demo fisherfolk (marker: lgu_registration_number starting '2099-')
-  - 20 stocking records across all 6 species (incl. Oyster), with 3
-    fisherfolk+species pairs repeated across 3 cycles each (feeds the
-    Forecasting tab's cycle-trend panel)
-  - Activity logs with a realistic done/overdue/upcoming mix
-  - Harvest records (single-final and multi-partial patterns) with a mix
-    of positive and negative variance outcomes
-  - Stocking-level disaster reports (active/partial, active/all-done,
-    resolved, total-loss)
-  - Capture & Vessels: FishingTripLog + TripSpeciesEntry, VesselInspection
+  - Capture & Vessels: a few FishingTripLog + TripSpeciesEntry (at least one
+    multi-species trip), VesselInspection
   - Assistance records
   - Fisherfolk-level disaster reports (monitoring app)
 
@@ -70,80 +73,68 @@ FISHERFOLK_DATA = [
 ]
 
 # ff_idx refers to a 0-based position into FISHERFOLK_DATA / the created fisherfolk list.
+#
+# 15 records total (Batch E). Harvested records carry a `variance_factor` —
+# actual harvest = estimated_harvest_kg * factor — so above/below-estimate
+# outcomes are guaranteed regardless of species survival/weight defaults.
+# `days_ago` on the mid-cycle records is kept well short of each species'
+# culture duration so they stay "Stocked" (not auto-flipped to Near Harvest).
 STOCKING_PLAN = [
-    # ── Repeat-cycle group A: Marcelo + Tilapia + Pond (3 sequential cycles) ──
-    dict(key='a1', ff_idx=0, species='Tilapia', culture_type='Cage', fingerlings=5000, days_ago=400,
-         completion=1.0, harvest=dict(pattern='single', actual_kg=1120, harvest_offset_days=5)),
-    dict(key='a2', ff_idx=0, species='Tilapia', culture_type='Cage', fingerlings=5000, days_ago=250,
-         completion=0.35, harvest=dict(pattern='multi', partials=[400, 420], harvest_offset_days=8,
-                                        reason='Delayed second batch due to feed shortage.')),
-    dict(key='a3', ff_idx=0, species='Tilapia', culture_type='Cage', fingerlings=5000, days_ago=140,
-         completion=0.9, harvest=dict(pattern='single', actual_kg=1030, harvest_offset_days=2)),
-
-    # ── Repeat-cycle group B: Herminia + Bangus + Pen (3 sequential cycles) ──
-    dict(key='b1', ff_idx=1, species='Bangus', culture_type='Pen', fingerlings=4000, days_ago=430,
-         completion=1.0, harvest=dict(pattern='single', actual_kg=1297, harvest_offset_days=3)),
-    dict(key='b2', ff_idx=1, species='Bangus', culture_type='Pen', fingerlings=4000, days_ago=270,
-         completion=0.35, harvest=dict(pattern='multi', partials=[300, 300, 328], harvest_offset_days=10,
-                                        reason='Harvest staggered — fish kill scare prompted early partial pull.')),
-    dict(key='b3', ff_idx=1, species='Bangus', culture_type='Pen', fingerlings=4000, days_ago=165,
-         completion=0.9, harvest=dict(pattern='single', actual_kg=1130, harvest_offset_days=-3)),
-
-    # ── Repeat-cycle group C: Teodoro + Hito + Pond (3 sequential cycles) ──
-    dict(key='c1', ff_idx=2, species='Hito', culture_type='Pond', fingerlings=6000, days_ago=300,
-         completion=1.0, harvest=dict(pattern='single', actual_kg=1552, harvest_offset_days=4)),
-    dict(key='c2', ff_idx=2, species='Hito', culture_type='Pond', fingerlings=6000, days_ago=190,
-         completion=0.35, harvest=dict(pattern='multi', partials=[600, 615], harvest_offset_days=6,
-                                        reason='Partial harvest split across two pond compartments.')),
-    dict(key='c3', ff_idx=2, species='Hito', culture_type='Pond', fingerlings=6000, days_ago=95,
-         completion=0.9, harvest=dict(pattern='single', actual_kg=1377, harvest_offset_days=1)),
-
-    # ── Consuelo: Dalag, Pond — three states (Stocked/Near Harvest/Harvested) ──
-    dict(key='consuelo_harvested', ff_idx=3, species='Dalag', culture_type='Pond', fingerlings=4500, days_ago=200,
-         completion=0.85, harvest=dict(pattern='single', actual_kg=1336, harvest_offset_days=6)),
-    dict(key='consuelo_nh', ff_idx=3, species='Dalag', culture_type='Pond', fingerlings=4000, days_ago=143,
+    # ── 5 STOCKED / under monitoring (mid-cycle, no disaster) ──
+    dict(key='stk1', ff_idx=0, species='Tilapia', culture_type='Cage', fingerlings=5000, days_ago=55,
          completion=0.5, harvest=None),
-    dict(key='consuelo_stocked', ff_idx=3, species='Dalag', culture_type='Pond', fingerlings=4200, days_ago=60,
-         completion=0.45, harvest=None),
-
-    # ── Pablo: Shrimp, Pond — Near Harvest + Harvested (multi-partial, negative variance) ──
-    dict(key='pablo_nh', ff_idx=4, species='Shrimp', culture_type='Pond', fingerlings=9000, days_ago=115,
-         completion=0.55, harvest=None),
-    dict(key='pablo_harvested', ff_idx=4, species='Shrimp', culture_type='Pond', fingerlings=8000, days_ago=260,
-         completion=0.4, harvest=dict(pattern='multi', partials=[60, 62.4], harvest_offset_days=9,
-                                       reason='Shrimp harvested below target after a mid-cycle disease scare.')),
-
-    # ── Remedios: Oyster, Cage — early Stocked + Total Loss (disaster-driven) ──
-    dict(key='remedios_stocked', ff_idx=5, species='Oyster', culture_type='Cage', fingerlings=2000, days_ago=15,
-         completion=0.2, harvest=None),
-    dict(key='remedios_totalloss', ff_idx=5, species='Oyster', culture_type='Cage', fingerlings=2500, days_ago=90,
-         completion=0.3, harvest=None),
-
-    # ── Anselmo: Tilapia, Cage — Near Harvest (active/partial disaster) + Stocked ──
-    dict(key='anselmo_nh', ff_idx=6, species='Tilapia', culture_type='Cage', fingerlings=3000, days_ago=118,
-         completion=0.5, harvest=None),
-    dict(key='anselmo_stocked', ff_idx=6, species='Tilapia', culture_type='Cage', fingerlings=3200, days_ago=30,
+    dict(key='stk2', ff_idx=1, species='Bangus', culture_type='Pen', fingerlings=4000, days_ago=45,
          completion=0.4, harvest=None),
-
-    # ── Dolores: Bangus, Pond — Stocked (active/all-done disaster) + Harvested (resolved disaster) ──
-    dict(key='dolores_stocked', ff_idx=7, species='Bangus', culture_type='Pond', fingerlings=3500, days_ago=45,
+    dict(key='stk3', ff_idx=2, species='Hito', culture_type='Pond', fingerlings=6000, days_ago=60,
+         completion=0.6, harvest=None),
+    dict(key='stk4', ff_idx=3, species='Dalag', culture_type='Pond', fingerlings=4500, days_ago=50,
+         completion=0.5, harvest=None),
+    dict(key='stk5', ff_idx=6, species='Tilapia', culture_type='Cage', fingerlings=3200, days_ago=35,
          completion=0.45, harvest=None),
-    dict(key='dolores_harvested', ff_idx=7, species='Bangus', culture_type='Pond', fingerlings=3500, days_ago=220,
-         completion=0.8, harvest=dict(pattern='single', actual_kg=1083, harvest_offset_days=4)),
+
+    # ── 5 HARVESTED (mixed variance — 3 above estimate, 2 below) ──
+    dict(key='hrv1', ff_idx=0, species='Tilapia', culture_type='Cage', fingerlings=5000, days_ago=200,
+         completion=1.0, harvest=dict(pattern='single', variance_factor=1.15, harvest_offset_days=5)),
+    dict(key='hrv2', ff_idx=1, species='Bangus', culture_type='Pen', fingerlings=4000, days_ago=220,
+         completion=0.9, harvest=dict(pattern='single', variance_factor=0.82, harvest_offset_days=-3,
+                                       reason='Harvested below estimate after slow late-cycle growth.')),
+    dict(key='hrv3', ff_idx=2, species='Hito', culture_type='Pond', fingerlings=6000, days_ago=180,
+         completion=1.0, harvest=dict(pattern='single', variance_factor=1.08, harvest_offset_days=2)),
+    dict(key='hrv4', ff_idx=4, species='Shrimp', culture_type='Pond', fingerlings=8000, days_ago=160,
+         completion=0.9, harvest=dict(pattern='multi', n_partials=2, variance_factor=0.78, harvest_offset_days=9,
+                                       reason='Shrimp harvested below target after a mid-cycle disease scare.')),
+    dict(key='hrv5', ff_idx=7, species='Bangus', culture_type='Pond', fingerlings=3500, days_ago=210,
+         completion=0.9, harvest=dict(pattern='single', variance_factor=1.06, harvest_offset_days=4)),
+
+    # ── 3 with an ACTIVE stocking-level disaster (base status stays Stocked/Near Harvest) ──
+    dict(key='dis_active1', ff_idx=5, species='Oyster', culture_type='Cage', fingerlings=2500, days_ago=90,
+         completion=0.3, harvest=None),
+    dict(key='dis_active2', ff_idx=6, species='Tilapia', culture_type='Cage', fingerlings=3000, days_ago=110,
+         completion=0.5, harvest=None),
+    dict(key='dis_active3', ff_idx=7, species='Bangus', culture_type='Pond', fingerlings=3500, days_ago=45,
+         completion=0.45, harvest=None),
+
+    # ── 2 with a RECOVERED stocking-level disaster ──
+    dict(key='dis_recovered1', ff_idx=3, species='Dalag', culture_type='Pond', fingerlings=4000, days_ago=140,
+         completion=0.5, harvest=None),
+    dict(key='dis_recovered2', ff_idx=4, species='Shrimp', culture_type='Pond', fingerlings=9000, days_ago=115,
+         completion=0.55, harvest=None),
 ]
 
 # Attach a stocking-level FisheriesDisasterReport to a specific STOCKING_PLAN key.
+# 3 Active + 2 Recovered (Batch D terminology). None are Total Loss, so the
+# parent stocking records keep their Stocked/Near-Harvest status.
 DISASTER_PLAN = [
-    dict(stocking_key='anselmo_nh', disaster_type='Disease Outbreak', days_ago=25,
+    dict(stocking_key='dis_active1', disaster_type='Predator Attack', days_ago=40,
          status='Active', rules_done='partial'),
-    dict(stocking_key='dolores_stocked', disaster_type='Fish Kill', days_ago=15,
+    dict(stocking_key='dis_active2', disaster_type='Disease Outbreak', days_ago=25,
+         status='Active', rules_done='partial'),
+    dict(stocking_key='dis_active3', disaster_type='Fish Kill', days_ago=15,
          status='Active', rules_done='all'),
-    dict(stocking_key='dolores_harvested', disaster_type='Flood', days_ago=200,
-         status='Recovered', recovered_days_ago=185, rules_done='all'),
-    # Total Loss is terminal — it cannot be marked Recovered (Batch D), so this
-    # one stays Active even though its response rules are fully logged.
-    dict(stocking_key='remedios_totalloss', disaster_type='Predator Attack', days_ago=40,
-         status='Active', is_total_loss=True, rules_done='all'),
+    dict(stocking_key='dis_recovered1', disaster_type='Flood', days_ago=130,
+         status='Recovered', recovered_days_ago=115, rules_done='all'),
+    dict(stocking_key='dis_recovered2', disaster_type='Typhoon', days_ago=100,
+         status='Recovered', recovered_days_ago=85, rules_done='all'),
 ]
 
 TRIP_GEAR = ['Gill Net', 'Hook and Line', 'Fish Trap (Bubo)', 'Cast Net', 'Bottom Set Longline']
@@ -429,11 +420,19 @@ class Command(BaseCommand):
 
         area_label = 'Whole pond' if rec.culture_type == 'Pond' else f'{rec.culture_type} unit'
 
+        # Actual harvest is derived from the record's own estimate so the
+        # variance sign is deterministic: factor > 1 harvests above estimate,
+        # < 1 below. Falls back to a rough estimate if the model couldn't
+        # compute one (e.g. missing survival/weight defaults).
+        base = rec.estimated_harvest_kg or (Decimal(str(rec.number_of_fingerlings)) * Decimal('0.2'))
+        factor = Decimal(str(harvest_spec.get('variance_factor', 1.0)))
+        actual_total = (base * factor).quantize(Decimal('0.01'))
+
         if harvest_spec['pattern'] == 'single':
             FisheriesHarvestRecord.objects.create(
                 stocking_record=rec,
                 harvest_date=final_date,
-                quantity_kg=Decimal(str(harvest_spec['actual_kg'])),
+                quantity_kg=actual_total,
                 avg_body_weight_kg=rec.avg_body_weight_kg,
                 area_or_units_harvested=area_label,
                 is_final=True,
@@ -442,8 +441,10 @@ class Command(BaseCommand):
                 recorded_by=admin_user,
             )
         else:
-            partials = harvest_spec['partials']
-            n = len(partials)
+            n = harvest_spec.get('n_partials', 2)
+            part = (actual_total / n).quantize(Decimal('0.01'))
+            partials = [part] * (n - 1)
+            partials.append((actual_total - part * (n - 1)).quantize(Decimal('0.01')))
             for i, qty in enumerate(partials):
                 is_last = (i == n - 1)
                 if is_last:
@@ -455,7 +456,7 @@ class Command(BaseCommand):
                 FisheriesHarvestRecord.objects.create(
                     stocking_record=rec,
                     harvest_date=hd,
-                    quantity_kg=Decimal(str(qty)),
+                    quantity_kg=qty,
                     avg_body_weight_kg=rec.avg_body_weight_kg,
                     area_or_units_harvested=f'Partial batch {i + 1}',
                     is_final=is_last,
@@ -523,14 +524,12 @@ class Command(BaseCommand):
         trips_created = 0
         entries_created = 0
 
-        # 6 trips spread across the 5 Capture + 2 Inland fisherfolk
+        # A few trips (kept sparse — Batch E). At least one multi-species trip
+        # so the catch table's "+N more" species-breakdown affordance has data.
         trip_specs = [
-            dict(ff_idx=8, days_ago=5, n_species=2),
-            dict(ff_idx=9, days_ago=12, n_species=1),
             dict(ff_idx=10, days_ago=20, n_species=3),
-            dict(ff_idx=11, days_ago=8, n_species=2),
-            dict(ff_idx=12, days_ago=30, n_species=1),
-            dict(ff_idx=13, days_ago=15, n_species=2),
+            dict(ff_idx=8,  days_ago=5,  n_species=2),
+            dict(ff_idx=13, days_ago=15, n_species=1),
         ]
         for i, spec in enumerate(trip_specs):
             ff = capture_and_inland_ff[spec['ff_idx'] - 8]
@@ -569,9 +568,7 @@ class Command(BaseCommand):
         today = date.today()
         specs = [
             dict(ff_idx=0, inspected_days_ago=60, expiry_days_from_now=20, condition='Good'),
-            dict(ff_idx=1, inspected_days_ago=90, expiry_days_from_now=200, condition='Fair'),
             dict(ff_idx=2, inspected_days_ago=30, expiry_days_from_now=-15, condition='For Repair'),
-            dict(ff_idx=3, inspected_days_ago=120, expiry_days_from_now=10, condition='Good'),
         ]
         count = 0
         for i, spec in enumerate(specs):
@@ -599,11 +596,8 @@ class Command(BaseCommand):
         today = date.today()
         specs = [
             dict(ff_idx=0, atype='Fingerlings/Seeds', days_ago=200),
-            dict(ff_idx=2, atype='Feed', days_ago=150),
-            dict(ff_idx=5, atype='Boat/Vessel', days_ago=400),
             dict(ff_idx=9, atype='Fishing Gear', days_ago=60),
             dict(ff_idx=11, atype='Cash Assistance', days_ago=90),
-            dict(ff_idx=13, atype='Training', days_ago=30),
         ]
         count = 0
         for i, spec in enumerate(specs):
@@ -635,20 +629,20 @@ class Command(BaseCommand):
         today = date.today()
         specs = [
             dict(ff_idx=1, dtype='Typhoon', status='Reported', days_ago=10),
-            dict(ff_idx=6, dtype='Storm Surge', status='Verified', days_ago=45),
             dict(ff_idx=9, dtype='Flooding', status='Closed', days_ago=180),
             dict(ff_idx=12, dtype='Red Tide', status='Verified', days_ago=70),
         ]
         count = 0
         for spec in specs:
             ff = fisherfolk[spec['ff_idx']]
+            # estimated_loss_php intentionally not set (Batch E) — no longer
+            # collected for fisherfolk-level disasters.
             FisherfolkDisasterReport.objects.create(
                 fisherfolk=ff,
                 report_date=today - timedelta(days=spec['days_ago']),
                 disaster_type=spec['dtype'],
                 affected_barangay=ff.barangay,
                 description=f'{spec["dtype"]} affected {ff.full_name}\'s fishing operations in {ff.barangay}.',
-                estimated_loss_php=Decimal(str(random.randint(5000, 60000))),
                 volume_lost_kg=Decimal(str(random.randint(20, 500))),
                 status=spec['status'],
                 recorded_by=admin_user,

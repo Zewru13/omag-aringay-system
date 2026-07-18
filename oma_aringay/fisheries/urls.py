@@ -22,6 +22,7 @@ from .views import (
     SpeciesActivityStageListCreateView,
     SpeciesActivityStageDeleteView,
     StockingListCreateView,
+    StockingHistoryView,
     StockingDetailView,
     StockingActivityLogListCreateView,
     StockingActivityLogDeleteView,
@@ -55,6 +56,7 @@ urlpatterns = [
 
     # ── Stocking records ────────────────────────────────────────────────────
     path('stocking/', StockingListCreateView.as_view(), name='stocking-list'),
+    path('stocking/history/', StockingHistoryView.as_view(), name='stocking-history'),
     path('stocking/<int:pk>/', StockingDetailView.as_view(), name='stocking-detail'),
 
     # ── Nested stocking sub-resources ───────────────────────────────────────

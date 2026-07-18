@@ -53,6 +53,9 @@ class FisherfolkDisasterReport(models.Model):
     disaster_type = models.CharField(max_length=30, choices=DISASTER_TYPE_CHOICES)
     affected_barangay = models.CharField(max_length=100, choices=BARANGAY_CHOICES)
     description = models.TextField()
+    # Dormant (Batch E): estimated peso loss is no longer collected for
+    # fisherfolk-level disasters — dropped from the form, serializer and table
+    # UI. Column retained (not migrated away) so existing rows keep their data.
     estimated_loss_php = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
     volume_lost_kg = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     equipment_damaged = models.TextField(blank=True)

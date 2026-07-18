@@ -12,6 +12,7 @@ import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import GroupedForecast from './GroupedForecast.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
@@ -676,8 +677,33 @@ export default function ForecastingPage() {
   const [detailRecord,  setDetailRecord]  = useState(null)
   const [isImporting,   setIsImporting]   = useState(false)
   const [importResults, setImportResults] = useState(null)
+  const [forecastView,  setForecastView]  = useState('flat') // 'flat' | 'grouped'
+  const [grouped,       setGrouped]       = useState([])
+  const [isLoadingGrouped, setIsLoadingGrouped] = useState(false)
   const fileInputRef = useRef(null)
   const { showToast } = useToast()
+
+  // Grouped-by-farmer view reuses the Farmer Crop History report's JSON query
+  // (all statuses, not just harvested), normalized to GroupedForecast's shape.
+  useEffect(() => {
+    if (forecastView !== 'grouped') return
+    setIsLoadingGrouped(true)
+    api.get('/reports/farmer-crop-history/', { params: { format: 'json' } })
+      .then(r => setGrouped((r.data.records || []).map(rec => ({
+        id: rec.id,
+        person: rec.farmer,
+        commodity: rec.crop_type,
+        landStatus: rec.land_status,
+        dateField: rec.date_planted,
+        status: rec.status,
+        harvestDate: rec.actual_harvest_date,
+        variancePct: rec.variance_pct,
+        isTotalLoss: rec.is_total_loss,
+      }))))
+      .catch(() => showToast('Failed to load grouped view.', 'error'))
+      .finally(() => setIsLoadingGrouped(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forecastView])
 
   const fetchRecords = useCallback(async (pageNum = 1) => {
     setIsLoading(true); setError('')
@@ -824,14 +850,44 @@ export default function ForecastingPage() {
 
             {error && <ErrorMessage message={error} />}
 
-            <DataTable columns={COLUMNS} data={rows} isLoading={isLoading} />
+            {/* View toggle: existing flat per-record table vs grouped by farmer */}
+            <div className="flex items-center gap-1 w-fit rounded-lg border border-[#E2E8E2] p-0.5">
+              {[
+                { id: 'flat',    label: 'Flat' },
+                { id: 'grouped', label: 'Group by farmer' },
+              ].map(v => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => setForecastView(v.id)}
+                  className={`px-3 py-1 rounded-md text-[12px] font-medium transition-colors ${
+                    forecastView === v.id ? 'bg-[#1B4D2E] text-white' : 'text-[#4A5E4A] hover:bg-[#F5F7F5]'
+                  }`}
+                >
+                  {v.label}
+                </button>
+              ))}
+            </div>
 
-            <PaginationBar
-              page={page}
-              totalCount={totalCount}
-              pageSize={10}
-              onPageChange={setPage}
-            />
+            {forecastView === 'flat' ? (
+              <>
+                <DataTable columns={COLUMNS} data={rows} isLoading={isLoading} />
+                <PaginationBar
+                  page={page}
+                  totalCount={totalCount}
+                  pageSize={10}
+                  onPageChange={setPage}
+                />
+              </>
+            ) : (
+              <GroupedForecast
+                records={grouped}
+                isLoading={isLoadingGrouped}
+                personLabel="Farmer"
+                commodityLabel="Crop"
+                dateLabel="Date Planted"
+              />
+            )}
           </div>
         )}
 

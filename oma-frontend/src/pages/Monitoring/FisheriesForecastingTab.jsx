@@ -5,6 +5,7 @@ import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
+import GroupedForecast from '../Forecasting/GroupedForecast.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
@@ -347,6 +348,9 @@ export default function ForecastingTab({ asTab = false }) {
   const [expanded, setExpanded] = useState(() => new Set())
   const [filters, setFilters] = useState({ species: '', barangay: '', year: '' })
   const [fisherfolkFilter, setFisherfolkFilter] = useState(null)
+  const [viewMode, setViewMode] = useState('analysis') // 'analysis' | 'grouped'
+  const [grouped, setGrouped] = useState([])
+  const [isLoadingGrouped, setIsLoadingGrouped] = useState(false)
   const set = (k, v) => setFilters(f => ({ ...f, [k]: v }))
 
   useEffect(() => {
@@ -386,6 +390,40 @@ export default function ForecastingTab({ asTab = false }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters.species, filters.barangay, filters.year, fisherfolkFilter, groupBy])
 
+  // Grouped-by-fisherfolk view — reuses StockingRecordSerializer via the
+  // unpaginated /fisheries/stocking/history/ endpoint (all statuses), computing
+  // per-record variance client-side (harvested only) against each record's own
+  // estimate. Same filters as the analysis view.
+  useEffect(() => {
+    if (viewMode !== 'grouped') return
+    setIsLoadingGrouped(true)
+    api.get('/fisheries/stocking/history/', { params: buildParams() })
+      .then(r => {
+        const list = Array.isArray(r.data) ? r.data : (r.data.results || [])
+        setGrouped(list.map(rec => {
+          const est = Number(rec.estimated_harvest_kg)
+          const actual = Number(rec.total_harvested_kg)
+          const variancePct = (rec.status === 'Harvested' && est > 0)
+            ? ((actual - est) / est) * 100
+            : null
+          return {
+            id: rec.id,
+            person: rec.fisherfolk_name,
+            commodity: rec.species_name,
+            landStatus: rec.land_status,
+            dateField: rec.date_stocked,
+            status: rec.status,
+            harvestDate: rec.final_harvest_date,
+            variancePct,
+            isTotalLoss: rec.status === 'Total Loss',
+          }
+        }))
+      })
+      .catch(() => showToast('Failed to load grouped view.', 'error'))
+      .finally(() => setIsLoadingGrouped(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, filters.species, filters.barangay, filters.year, fisherfolkFilter])
+
   const toggleExpand = (id) => {
     setExpanded(prev => {
       const next = new Set(prev)
@@ -417,7 +455,21 @@ export default function ForecastingTab({ asTab = false }) {
 
   const innerContent = (
     <div className="space-y-5">
-      <DisclaimerBanner />
+      {/* View toggle: existing analysis vs grouped by fisherfolk */}
+      <div className="flex items-center gap-1 w-fit rounded-lg border border-[#E2E8E2] p-0.5">
+        {[{ id: 'analysis', label: 'Analysis' }, { id: 'grouped', label: 'Group by fisherfolk' }].map(v => (
+          <button
+            key={v.id}
+            type="button"
+            onClick={() => setViewMode(v.id)}
+            className={`px-3 py-1 rounded-md text-[12px] font-medium transition-colors ${viewMode === v.id ? 'bg-[#1B4D2E] text-white' : 'text-[#4A5E4A] hover:bg-[#F5F7F5]'}`}
+          >
+            {v.label}
+          </button>
+        ))}
+      </div>
+
+      {viewMode === 'analysis' && <DisclaimerBanner />}
 
       {/* Filters */}
       <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
@@ -445,6 +497,15 @@ export default function ForecastingTab({ asTab = false }) {
         </div>
       </div>
 
+      {viewMode === 'grouped' ? (
+        <GroupedForecast
+          records={grouped}
+          isLoading={isLoadingGrouped}
+          personLabel="Fisherfolk"
+          commodityLabel="Species"
+          dateLabel="Date Stocked"
+        />
+      ) : (<>
       <AggregatePanel groupBy={groupBy} setGroupBy={setGroupBy} groups={groups} overall={overall} cycleTrend={cycleTrend} isLoading={isLoadingSummary} />
 
       <YAActionButtons
@@ -524,6 +585,7 @@ export default function ForecastingTab({ asTab = false }) {
           </table>
         </div>
       </div>
+      </>)}
 
       {showSig && (
         <YASignatureModal purpose={sigPurpose} onClose={() => setShowSig(false)} onGenerate={handleGenerate} />

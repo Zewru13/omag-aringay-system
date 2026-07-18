@@ -40,7 +40,6 @@ function LogFisheriesDisasterModal({ onClose, onSuccess }) {
     disaster_type: 'Typhoon',
     affected_barangay: '',
     description: '',
-    estimated_loss_php: '',
     volume_lost_kg: '',
     equipment_damaged: [],
     equipment_damaged_other: '',
@@ -94,7 +93,6 @@ function LogFisheriesDisasterModal({ onClose, onSuccess }) {
         disaster_type: form.disaster_type,
         affected_barangay: form.affected_barangay,
         description: form.description,
-        estimated_loss_php: form.estimated_loss_php ? parseFloat(form.estimated_loss_php) : null,
         volume_lost_kg: form.volume_lost_kg ? parseFloat(form.volume_lost_kg) : null,
         equipment_damaged: normalizedEquipmentDamaged,
       })
@@ -154,9 +152,6 @@ function LogFisheriesDisasterModal({ onClose, onSuccess }) {
             ) : (
               <BarangaySelect value={form.affected_barangay} onChange={e => set('affected_barangay', e.target.value)} />
             )}
-          </FormField>
-          <FormField label="Est. Loss (₱)">
-            <input type="number" step="0.01" className={baseInputClasses} min="0" value={form.estimated_loss_php} onChange={e => set('estimated_loss_php', e.target.value)} />
           </FormField>
           <FormField label="Volume Lost (kg)">
             <input type="number" step="0.01" className={baseInputClasses} min="0" value={form.volume_lost_kg} onChange={e => set('volume_lost_kg', e.target.value)} />

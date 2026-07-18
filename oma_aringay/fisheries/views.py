@@ -259,6 +259,34 @@ class StockingListCreateView(generics.ListCreateAPIView):
         serializer.save(recorded_by=self.request.user)
 
 
+class StockingHistoryView(generics.ListAPIView):
+    """All stocking records (every status) for the grouped-by-fisherfolk
+    forecasting view. Reuses StockingRecordSerializer — which already exposes
+    status, land_status, date_stocked, estimated_harvest_kg, total_harvested_kg
+    and harvest_variance_days — and is unpaginated so the client can group
+    across the full set. Filters mirror the stocking list / yield-analysis."""
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    serializer_class = StockingRecordSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        qs = StockingRecord.objects.select_related(
+            'fisherfolk', 'species', 'species__category',
+        ).prefetch_related('logs', 'disaster_reports', 'harvests').order_by(
+            'fisherfolk__last_name', 'fisherfolk__first_name', '-date_stocked',
+        )
+        params = self.request.query_params
+        if params.get('species'):
+            qs = qs.filter(species_id=params['species'])
+        if params.get('barangay'):
+            qs = qs.filter(pond_location_barangay__iexact=params['barangay'])
+        if params.get('year'):
+            qs = qs.filter(year=params['year'])
+        if params.get('fisherfolk'):
+            qs = qs.filter(fisherfolk_id=params['fisherfolk'])
+        return qs
+
+
 class StockingDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     queryset = StockingRecord.objects.select_related(

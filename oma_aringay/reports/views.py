@@ -2266,9 +2266,17 @@ class FarmerCropHistoryReport(APIView):
                     'barangay': _barangay(rec),
                     'crop_type': fmt_field(rec.crop_type.name),
                     'variety': rec.variety_used or '—',
+                    'land_status': rec.land_status or '—',
                     'date_planted': str(rec.date_planted),
                     'expected_harvest_date': str(rec.expected_harvest_date) if rec.expected_harvest_date else None,
+                    'actual_harvest_date': str(rec.actual_harvest_date) if rec.actual_harvest_date else None,
                     'status': rec.status,
+                    'is_total_loss': rec.status == 'Total Loss',
+                    # Variance vs. the crop's own planting-time estimate — only
+                    # meaningful once harvested. Reuses the model's stored
+                    # yield_variance_pct (computed on save); the grouped
+                    # forecasting view shows "In progress"/"Total Loss" when null.
+                    'variance_pct': float(rec.yield_variance_pct) if rec.yield_variance_pct is not None else None,
                     'activities': [
                         {
                             'label': f'Act {i + 1}',

@@ -556,6 +556,7 @@ class StockingRecordSerializer(serializers.ModelSerializer):
     disaster_report_count = serializers.SerializerMethodField()
     has_recovered_disaster = serializers.SerializerMethodField()
     harvest_variance_days = serializers.SerializerMethodField()
+    final_harvest_date = serializers.SerializerMethodField()
     total_harvested_kg = serializers.SerializerMethodField()
     harvest_count    = serializers.SerializerMethodField()
     stocking_density = serializers.SerializerMethodField()
@@ -581,6 +582,7 @@ class StockingRecordSerializer(serializers.ModelSerializer):
             'is_near_harvest', 'log_count', 'disaster_count', 'disaster_report_count',
             'has_recovered_disaster',
             'total_harvested_kg', 'harvest_count', 'harvest_variance_days',
+            'final_harvest_date',
             'stocking_density', 'production_cycle_no',
         ]
         read_only_fields = [
@@ -614,6 +616,10 @@ class StockingRecordSerializer(serializers.ModelSerializer):
     def get_harvest_variance_days(self, obj):
         final = obj.harvests.filter(is_final=True).first()
         return final.harvest_variance_days if final else None
+
+    def get_final_harvest_date(self, obj):
+        final = obj.harvests.filter(is_final=True).first()
+        return str(final.harvest_date) if final else None
 
     def get_has_recovered_disaster(self, obj):
         return obj.disaster_reports.filter(status='Recovered').exists()

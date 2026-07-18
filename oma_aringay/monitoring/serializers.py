@@ -29,9 +29,12 @@ class FisherfolkDisasterReportSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FisherfolkDisasterReport
+        # estimated_loss_php intentionally omitted (Batch E) — the office does not
+        # collect estimated peso loss for fisherfolk-level disasters. The model
+        # column is retained (dormant) to preserve existing rows' data.
         fields = [
             'id', 'fisherfolk', 'fisherfolk_name', 'report_date', 'disaster_type',
-            'affected_barangay', 'description', 'estimated_loss_php', 'volume_lost_kg',
+            'affected_barangay', 'description', 'volume_lost_kg',
             'equipment_damaged', 'status', 'recorded_by', 'date_recorded',
         ]
         read_only_fields = ['id', 'fisherfolk_name', 'recorded_by', 'date_recorded']

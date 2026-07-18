@@ -69,7 +69,6 @@ const DISASTER_COLUMNS = [
   { key: 'report_date_fmt',      label: 'Report Date' },
   { key: 'disaster_type',        label: 'Type' },
   { key: 'affected_barangay',    label: 'Barangay' },
-  { key: 'estimated_loss_php',   label: 'Est. Loss (₱)' },
   { key: 'status_pill',          label: 'Status' },
   { key: 'actions_cell',         label: 'Actions' },
 ]
@@ -141,6 +140,57 @@ function DetailModal({ title, subtitle, rows, onClose }) {
           className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
           Close
         </button>
+      </div>
+    </ModalShell>
+  )
+}
+
+// ─── Species Breakdown Modal (reveals the "+N more" collapsed species) ─────────
+// The catch table only has room for the single top species; the "+N more"
+// badge is the affordance to open this full per-trip breakdown. Rendered as a
+// modal (not a hover tooltip) because the table sits inside an overflow-x-auto
+// wrapper that would clip an in-cell popover.
+
+function SpeciesBreakdownModal({ record, onClose }) {
+  const entries = [...(record.species_entries || [])].sort(
+    (a, b) => (Number(b.volume_kg) || 0) - (Number(a.volume_kg) || 0),
+  )
+  const total = entries.reduce((s, e) => s + (Number(e.volume_kg) || 0), 0)
+
+  return (
+    <ModalShell
+      title="Species breakdown"
+      subtitle={`${record.fisherfolk_name} · ${formatDate(record.trip_date)}`}
+      icon={Eye}
+      onClose={onClose}
+      maxWidth="max-w-md"
+    >
+      <div className="space-y-2">
+        {entries.map((e, i) => {
+          const kg = Number(e.volume_kg) || 0
+          const pct = total > 0 ? Math.round((kg / total) * 100) : 0
+          return (
+            <div key={e.id ?? i} className="flex items-center gap-3">
+              <span className="w-5 text-right text-[11px] text-[#7A8E7A]">{i + 1}</span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="truncate text-[13px] font-medium text-[#1A2B1A]">{e.species_name}</span>
+                  <span className="whitespace-nowrap text-[12px] text-[#4A5E4A]">
+                    {kg.toLocaleString()} kg
+                    <span className="ml-1.5 text-[11px] text-[#7A8E7A]">{pct}%</span>
+                  </span>
+                </div>
+                <div className="mt-1 h-1.5 rounded-full bg-[#e8f5e9]">
+                  <div className="h-full rounded-full bg-[#4CAF50]" style={{ width: `${pct}%` }} />
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      <div className="mt-4 flex items-center justify-between border-t border-[#F0F4F0] pt-3">
+        <span className="text-[12px] font-medium text-[#7A8E7A]">Total catch</span>
+        <span className="text-[13px] font-semibold text-[#1A2B1A]">{total.toLocaleString()} kg</span>
       </div>
     </ModalShell>
   )
@@ -574,7 +624,6 @@ function EditDisasterModal({ record, onClose, onSaved }) {
     disaster_type: record.disaster_type || '',
     affected_barangay: record.affected_barangay || '',
     description: record.description || '',
-    estimated_loss_php: record.estimated_loss_php != null ? String(record.estimated_loss_php) : '',
     volume_lost_kg: record.volume_lost_kg != null ? String(record.volume_lost_kg) : '',
     equipment_damaged: record.equipment_damaged || '',
     status: record.status || 'Reported',
@@ -594,7 +643,6 @@ function EditDisasterModal({ record, onClose, onSaved }) {
     try {
       await api.patch(`/monitoring/fisherfolk-disasters/${record.id}/`, {
         ...form,
-        estimated_loss_php: form.estimated_loss_php !== '' ? parseFloat(form.estimated_loss_php) : null,
         volume_lost_kg: form.volume_lost_kg !== '' ? parseFloat(form.volume_lost_kg) : null,
       })
       showToast('Disaster report updated.', 'success')
@@ -644,10 +692,6 @@ function EditDisasterModal({ record, onClose, onSaved }) {
                 onChange={(e) => set('status', e.target.value)}>
                 {DISASTER_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
               </select>
-            </FormField>
-            <FormField label="Est. Loss (₱)">
-              <input type="number" step="0.01" min="0" className={baseInputClasses} value={form.estimated_loss_php}
-                onChange={(e) => set('estimated_loss_php', e.target.value)} />
             </FormField>
             <FormField label="Volume Lost (kg)">
               <input type="number" step="0.01" min="0" className={baseInputClasses} value={form.volume_lost_kg}
@@ -743,6 +787,7 @@ export default function FisheriesMonitoringPage() {
 
   // View Details / Edit — Batch 5 action-icon reorganization
   const [viewingDetail, setViewingDetail] = useState(null) // { title, subtitle, rows }
+  const [speciesBreakdown, setSpeciesBreakdown] = useState(null) // a catch record
   const [editingCatch, setEditingCatch]         = useState(null)
   const [editingVessel, setEditingVessel]       = useState(null)
   const [editingAssistance, setEditingAssistance] = useState(null)
@@ -818,9 +863,15 @@ export default function FisheriesMonitoringPage() {
         <span className="text-sm">
           {c.top_species}
           {extra > 0 && (
-            <span className="ml-1 rounded-full bg-[#f0f7f0] px-1.5 py-0.5 text-[10px] font-semibold text-[#1E4620]">
+            <button
+              type="button"
+              onClick={() => setSpeciesBreakdown(c)}
+              title="View full species breakdown"
+              aria-label={`View all ${entries.length} species for this trip`}
+              className="ml-1 cursor-pointer rounded-full bg-[#f0f7f0] px-1.5 py-0.5 text-[10px] font-semibold text-[#1E4620] transition-colors hover:bg-[#dceadd] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#1E4620]"
+            >
               +{extra} more
-            </span>
+            </button>
           )}
         </span>
       ) : '—',
@@ -904,7 +955,6 @@ export default function FisheriesMonitoringPage() {
   const disasterData = useMemo(() => disasters.map((d) => ({
     ...d,
     report_date_fmt:    formatDate(d.report_date),
-    estimated_loss_php: d.estimated_loss_php ? `₱${Number(d.estimated_loss_php).toLocaleString()}` : '—',
     status_pill: <StatusPill tone={DISASTER_STATUS_TONES[d.status] || 'slate'}>{d.status}</StatusPill>,
     actions_cell: (
       <TableActionsMenu
@@ -914,7 +964,7 @@ export default function FisheriesMonitoringPage() {
           rows: [
             ['Fisherfolk', d.fisherfolk_name], ['Report Date', formatDate(d.report_date)],
             ['Disaster Type', d.disaster_type], ['Affected Barangay', d.affected_barangay],
-            ['Status', d.status], ['Est. Loss (₱)', d.estimated_loss_php ? `₱${Number(d.estimated_loss_php).toLocaleString()}` : '—'],
+            ['Status', d.status],
             ['Volume Lost (kg)', d.volume_lost_kg ?? '—'], ['Equipment Damaged', d.equipment_damaged || '—'],
             ['Description', d.description || '—'],
           ],
@@ -1057,10 +1107,6 @@ export default function FisheriesMonitoringPage() {
               <div className="flex flex-wrap gap-3">
                 <MetricCard label="Total Reports" value={disasters.length} />
                 <MetricCard label="Reported" value={disasters.filter((d) => d.status === 'Reported').length} accent="#f57c00" />
-                <MetricCard
-                  label="Est. Total Loss"
-                  value={`₱${Number(disasters.reduce((s, d) => s + (parseFloat(d.estimated_loss_php) || 0), 0)).toLocaleString()}`}
-                />
               </div>
             )}
             {errorDisasters
@@ -1171,6 +1217,12 @@ export default function FisheriesMonitoringPage() {
           subtitle={viewingDetail.subtitle}
           rows={viewingDetail.rows}
           onClose={() => setViewingDetail(null)}
+        />
+      )}
+      {speciesBreakdown && (
+        <SpeciesBreakdownModal
+          record={speciesBreakdown}
+          onClose={() => setSpeciesBreakdown(null)}
         />
       )}
       {editingCatch && (
