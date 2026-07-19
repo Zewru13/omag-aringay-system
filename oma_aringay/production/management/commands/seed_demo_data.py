@@ -39,6 +39,7 @@ from production.models import (
     CropMonitoringRecord,
     CropType,
     DisasterResponseRule,
+    HarvestRecord,
 )
 
 User = get_user_model()
@@ -391,6 +392,30 @@ class Command(BaseCommand):
                 rec.actual_harvest_date = harvest_date
                 rec.notes = f"{SEED_TAG} {h.get('reason', '')}".strip()
                 rec.save()  # second save computes yield_variance_kg/pct from actual vs. estimated
+
+                # Yield Analysis reads actual volume from HarvestRecord rows
+                # (rec.harvest_records), not from the flat actual_yield_kg
+                # field above — without this, Yield Analysis shows 0 kg /
+                # -100% variance for every harvested record regardless of
+                # the flat field. Mirrors the fisheries seeder's
+                # _seed_harvests(). Note: HarvestRecord.save() re-derives
+                # the parent's actual_harvest_date from date_recorded
+                # (auto_now_add = today), overwriting the back-dated
+                # harvest_date set above — harvest_start_date below is the
+                # field of record for the historical date.
+                HarvestRecord.objects.create(
+                    monitoring_record=rec,
+                    season=rec.season,
+                    year=rec.year,
+                    crop_name=ct.name,
+                    area_harvested_hectares=area,
+                    harvest_start_date=harvest_date,
+                    harvest_end_date=harvest_date,
+                    volume_kg=actual,
+                    early_late_reason=h.get('reason', ''),
+                    remarks=SEED_TAG,
+                    recorded_by=admin_user,
+                )
             else:
                 rec.status = CropMonitoringRecord.Status.PLANTED
                 rec.save()  # auto-transitions to Near Harvest if within 7 days, per model save()
