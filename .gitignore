@@ -13,3 +13,6 @@ build/
 
 # Claude Code local tooling: personal settings, lock files, vendored skills
 .claude/
+
+# Local pre-migration DB dumps (mysqldump backups, not source)
+db_backups/

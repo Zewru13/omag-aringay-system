@@ -305,6 +305,14 @@ class StockingRecord(models.Model):
         ('Own Production',   'Own Production'),
         ('Other',            'Other'),
     ]
+    CULTURE_PHASE_CHOICES = [
+        ('Nursery Phase',      'Nursery Phase'),
+        ('Stocking Phase',     'Stocking Phase'),
+        ('Grow-out Phase',     'Grow-out Phase'),
+        ('Harvest Phase',      'Harvest Phase'),
+        ('Post-Harvest Phase', 'Post-Harvest Phase'),
+        ('Other',              'Other'),
+    ]
 
     fisherfolk              = models.ForeignKey(Fisherfolk, on_delete=models.SET_NULL, null=True, blank=True, related_name='stocking_records')
     pond_location_barangay  = models.CharField(max_length=100, blank=True, default='')
@@ -326,6 +334,9 @@ class StockingRecord(models.Model):
     fingerling_source     = models.CharField(max_length=20, choices=FINGERLING_SOURCE_CHOICES, blank=True)
     fingerling_source_other_specify = models.CharField(max_length=150, blank=True)
     avg_fingerling_size   = models.CharField(max_length=50, blank=True, help_text='e.g. 2-3 cm')
+    culture_phase          = models.CharField(max_length=20, choices=CULTURE_PHASE_CHOICES, blank=True)
+    culture_phase_other_specify = models.CharField(max_length=150, blank=True)
+    seed_cost_php          = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True, help_text='Cost of seed/fingerlings/spat in PHP')
 
     season                  = models.CharField(max_length=10, choices=[('Wet', 'Wet'), ('Dry', 'Dry')])
     year                    = models.IntegerField()

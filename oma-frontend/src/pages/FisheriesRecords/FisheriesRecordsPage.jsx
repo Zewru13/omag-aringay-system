@@ -257,6 +257,9 @@ function makeRecord(n) {
     fingerling_source:    '',
     fingerling_source_other_specify: '',
     avg_fingerling_size:  '',
+    culture_phase:        '',
+    culture_phase_other_specify: '',
+    seed_cost_php:        '',
     season:               detectSeason(''),
     _speciesObj:          null,
   }
@@ -340,6 +343,28 @@ function StockingRecordCard({ rec, index, total, speciesList, onUpdate, onRemove
           </select>
         </FormField>
       </div>
+
+      <FormField label="Culture Phase (optional)">
+        <select className={baseInputClasses} value={rec.culture_phase}
+          onChange={e => {
+            set('culture_phase', e.target.value)
+            if (e.target.value !== 'Other') set('culture_phase_other_specify', '')
+          }}>
+          <option value="">Select…</option>
+          <option value="Nursery Phase">Nursery Phase</option>
+          <option value="Stocking Phase">Stocking Phase</option>
+          <option value="Grow-out Phase">Grow-out Phase</option>
+          <option value="Harvest Phase">Harvest Phase</option>
+          <option value="Post-Harvest Phase">Post-Harvest Phase</option>
+          <option value="Other">Other</option>
+        </select>
+        {rec.culture_phase === 'Other' && (
+          <input type="text" className={`${baseInputClasses} mt-2`}
+            placeholder="Please specify culture phase"
+            value={rec.culture_phase_other_specify}
+            onChange={e => set('culture_phase_other_specify', e.target.value)} />
+        )}
+      </FormField>
 
       {rec._speciesObj && (
         <div className="sm:col-span-2 bg-slate-50 border border-[#E2E8E2] rounded-xl px-4 py-3">
@@ -464,6 +489,12 @@ function StockingRecordCard({ rec, index, total, speciesList, onUpdate, onRemove
         </FormField>
       </div>
 
+      <FormField label="Seed/Fingerling Cost (₱, optional)">
+        <input type="number" min="0" step="0.01" className={baseInputClasses}
+          placeholder="e.g. 1500.00" value={rec.seed_cost_php}
+          onChange={e => set('seed_cost_php', e.target.value)} />
+      </FormField>
+
       <HarvestPreviewBox
         species={rec._speciesObj}
         dateStocked={rec.date_stocked}
@@ -567,6 +598,9 @@ function AddStockingModal({ onClose, onSuccess }) {
           fingerling_source:        rec.fingerling_source || '',
           fingerling_source_other_specify: rec.fingerling_source === 'Other' ? (rec.fingerling_source_other_specify || '') : '',
           avg_fingerling_size:      rec.avg_fingerling_size || '',
+          culture_phase:            rec.culture_phase || '',
+          culture_phase_other_specify: rec.culture_phase === 'Other' ? (rec.culture_phase_other_specify || '') : '',
+          seed_cost_php:            rec.seed_cost_php !== '' ? parseFloat(rec.seed_cost_php) : null,
           season:                   rec.season,
           year,
         })
@@ -716,6 +750,9 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
     fingerling_source:      record.fingerling_source || '',
     fingerling_source_other_specify: record.fingerling_source_other_specify || '',
     avg_fingerling_size:    record.avg_fingerling_size || '',
+    culture_phase:          record.culture_phase || '',
+    culture_phase_other_specify: record.culture_phase_other_specify || '',
+    seed_cost_php:          record.seed_cost_php != null ? String(record.seed_cost_php) : '',
     season:                 record.season || '',
   }
   const [form, setForm]           = useState(originalData)
@@ -766,6 +803,9 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
         fingerling_source:      form.fingerling_source || '',
         fingerling_source_other_specify: form.fingerling_source === 'Other' ? form.fingerling_source_other_specify : '',
         avg_fingerling_size:    form.avg_fingerling_size || '',
+        culture_phase:          form.culture_phase || '',
+        culture_phase_other_specify: form.culture_phase === 'Other' ? (form.culture_phase_other_specify || '') : '',
+        seed_cost_php:          form.seed_cost_php !== '' ? parseFloat(form.seed_cost_php) : null,
         season:                 form.season,
       })
       showToast('Stocking record updated.', 'success')
@@ -838,6 +878,28 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
               <option value="Cage">Cage</option>
               <option value="Pen">Pen</option>
             </select>
+          </div>
+          <div>
+            <label className={editLabelCls}>Culture Phase (optional)</label>
+            <select className={baseInputClasses} value={form.culture_phase}
+              onChange={e => {
+                set('culture_phase', e.target.value)
+                if (e.target.value !== 'Other') set('culture_phase_other_specify', '')
+              }}>
+              <option value="">Select…</option>
+              <option value="Nursery Phase">Nursery Phase</option>
+              <option value="Stocking Phase">Stocking Phase</option>
+              <option value="Grow-out Phase">Grow-out Phase</option>
+              <option value="Harvest Phase">Harvest Phase</option>
+              <option value="Post-Harvest Phase">Post-Harvest Phase</option>
+              <option value="Other">Other</option>
+            </select>
+            {form.culture_phase === 'Other' && (
+              <input type="text" className={`${baseInputClasses} mt-2`}
+                placeholder="Please specify culture phase"
+                value={form.culture_phase_other_specify}
+                onChange={e => set('culture_phase_other_specify', e.target.value)} />
+            )}
           </div>
           <div>
             <label className={editLabelCls}>Date Stocked <span className="text-rose-500">*</span></label>
@@ -941,6 +1003,12 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
           </div>
         </div>
 
+        <div>
+          <label className={editLabelCls}>Seed/Fingerling Cost (₱, optional)</label>
+          <input type="number" min="0" step="0.01" className={baseInputClasses} placeholder="e.g. 1500.00"
+            value={form.seed_cost_php} onChange={e => set('seed_cost_php', e.target.value)} />
+        </div>
+
         {/* Harvest preview */}
         {(preview || density !== null || record.production_cycle_no) && (
           <div className="rounded-xl border border-[#C8E6D0] bg-[#EBF5EE] px-4 py-3 space-y-1">
@@ -1042,7 +1110,10 @@ function StockingDetailModal({ record, onClose }) {
     record.water_source === 'Other' ? `Other — ${record.water_source_other_specify || ''}` : record.water_source || '—'
   const fingerlingSourceDisplay =
     record.fingerling_source === 'Other' ? `Other — ${record.fingerling_source_other_specify || ''}` : record.fingerling_source || '—'
+  const culturePhaseDisplay =
+    record.culture_phase === 'Other' ? `Other — ${record.culture_phase_other_specify || ''}` : record.culture_phase || '—'
   const fmtNum = (v) => (v == null ? '—' : Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
+  const fmtPhp = (v) => (v == null ? '—' : `₱${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)
 
   const rows = [
     ['Species', record.species_name || '—'],
@@ -1051,12 +1122,14 @@ function StockingDetailModal({ record, onClose }) {
     ['Pond Location', record.pond_location_barangay || '—'],
     ['Land Status', landStatusDisplay],
     ['Culture Type', record.culture_type || '—'],
+    ['Culture Phase', culturePhaseDisplay],
     ['Season / Year', `${record.season || '—'} ${record.year || ''}`],
     ['Date Stocked', fmtLong(record.date_stocked)],
     ['Area (ha)', record.area_hectares ? Number(record.area_hectares).toFixed(4) : '—'],
     ['Number of Fingerlings', record.number_of_fingerlings ?? '—'],
     ['Survival Rate (%)', record.survival_rate_pct ?? '—'],
     ['Avg Body Weight (kg)', record.avg_body_weight_kg ?? '—'],
+    ['Seed/Fingerling Cost', fmtPhp(record.seed_cost_php)],
     ['Water Source', waterSourceDisplay],
     ['Number of Units', record.number_of_units ?? '—'],
     ['Unit Dimensions', record.unit_dimensions || '—'],

@@ -576,6 +576,7 @@ class StockingRecordSerializer(serializers.ModelSerializer):
             'survival_rate_pct', 'avg_body_weight_kg',
             'water_source', 'water_source_other_specify', 'number_of_units', 'unit_dimensions',
             'fingerling_source', 'fingerling_source_other_specify', 'avg_fingerling_size',
+            'culture_phase', 'culture_phase_other_specify', 'seed_cost_php',
             'season', 'year', 'status',
             'expected_harvest_date', 'estimated_harvest_kg',
             'notes', 'recorded_by', 'date_recorded',
