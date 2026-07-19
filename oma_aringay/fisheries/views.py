@@ -12,7 +12,7 @@ from rest_framework.views import APIView
 from accounts.permissions import IsAdmin, IsAdminOrEvaluator
 from core.locking import assert_not_locked_by_other
 from core.notifications import notify_all_except
-from core.utils import day_range_bounds
+from core.utils import accumulate_yield_group, day_range_bounds, new_yield_group
 
 from .models import (
     FisheriesActivityLog,
@@ -1138,7 +1138,7 @@ def _cycle_trend_note(analyzed):
     """
     buckets = {}
     for a in analyzed:
-        if a['variance_pct'] is None:
+        if a['variance_pct'] is None or a['is_total_loss']:
             continue
         cycle = a['production_cycle_no']
         key = str(cycle) if cycle < 3 else '3+'
@@ -1187,24 +1187,8 @@ class FisheriesYieldAnalysisSummaryView(APIView):
         groups = {}
         for rec, a in zip(records, analyzed):
             key = (rec.species.species_name if rec.species else '—') if group_by == 'species' else a['barangay']
-            g = groups.setdefault(key, {
-                'count': 0,
-                'estimated_sum': Decimal('0'), 'estimated_n': 0,
-                'actual_sum': Decimal('0'),
-                'variance_pct_sum': 0.0, 'variance_pct_n': 0,
-                'completion_pct_sum': 0.0, 'completion_pct_n': 0,
-            })
-            g['count'] += 1
-            if a['estimated_kg'] is not None:
-                g['estimated_sum'] += Decimal(str(a['estimated_kg']))
-                g['estimated_n'] += 1
-            g['actual_sum'] += Decimal(str(a['actual_total_kg']))
-            if a['variance_pct'] is not None:
-                g['variance_pct_sum'] += a['variance_pct']
-                g['variance_pct_n'] += 1
-            if a['activities_total_count'] > 0:
-                g['completion_pct_sum'] += (a['activities_completed_count'] / a['activities_total_count']) * 100
-                g['completion_pct_n'] += 1
+            g = groups.setdefault(key, new_yield_group())
+            accumulate_yield_group(g, a)
 
         group_results = []
         for key in sorted(groups.keys()):
@@ -1212,6 +1196,7 @@ class FisheriesYieldAnalysisSummaryView(APIView):
             group_results.append({
                 'group': key,
                 'stocking_count': g['count'],
+                'total_loss_count': g['total_loss_count'],
                 'avg_estimated_kg': round(float(g['estimated_sum'] / g['estimated_n']), 2) if g['estimated_n'] else None,
                 'avg_actual_kg': round(float(g['actual_sum'] / g['count']), 2) if g['count'] else None,
                 'avg_variance_pct': round(g['variance_pct_sum'] / g['variance_pct_n'], 2) if g['variance_pct_n'] else None,
@@ -1219,13 +1204,14 @@ class FisheriesYieldAnalysisSummaryView(APIView):
             })
 
         overall_estimated  = [a['estimated_kg'] for a in analyzed if a['estimated_kg'] is not None]
-        overall_variance   = [a['variance_pct'] for a in analyzed if a['variance_pct'] is not None]
+        overall_variance   = [a['variance_pct'] for a in analyzed if a['variance_pct'] is not None and not a['is_total_loss']]
         overall_completion = [
             (a['activities_completed_count'] / a['activities_total_count']) * 100
             for a in analyzed if a['activities_total_count'] > 0
         ]
         overall = {
             'stocking_count': len(analyzed),
+            'total_loss_count': sum(1 for a in analyzed if a['is_total_loss']),
             'avg_estimated_kg': round(sum(overall_estimated) / len(overall_estimated), 2) if overall_estimated else None,
             'avg_actual_kg': round(sum(a['actual_total_kg'] for a in analyzed) / len(analyzed), 2) if analyzed else None,
             'avg_variance_pct': round(sum(overall_variance) / len(overall_variance), 2) if overall_variance else None,

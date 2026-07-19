@@ -20,6 +20,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from accounts.permissions import IsAdminOrEvaluator
+from core.utils import accumulate_yield_group, new_yield_group, possible_factors_text
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk, FishingTripLog, TripSpeciesEntry
 from interventions.models import (
@@ -2413,32 +2414,20 @@ class YieldAnalysisReport(APIView):
         groups = {}
         for a in analyzed:
             key = a['crop_type'] if group_by == 'crop_type' else a['barangay']
-            g = groups.setdefault(key, {
-                'count': 0,
-                'estimated_sum': Decimal('0'), 'estimated_n': 0,
-                'actual_sum': Decimal('0'),
-                'variance_pct_sum': 0.0, 'variance_pct_n': 0,
-                'completion_pct_sum': 0.0, 'completion_pct_n': 0,
-            })
-            g['count'] += 1
-            if a['estimated_kg'] is not None:
-                g['estimated_sum'] += Decimal(str(a['estimated_kg']))
-                g['estimated_n'] += 1
-            g['actual_sum'] += Decimal(str(a['actual_total_kg']))
-            if a['variance_pct'] is not None:
-                g['variance_pct_sum'] += a['variance_pct']
-                g['variance_pct_n'] += 1
-            if a['activities_total_count'] > 0:
-                g['completion_pct_sum'] += (a['activities_completed_count'] / a['activities_total_count']) * 100
-                g['completion_pct_n'] += 1
+            g = groups.setdefault(key, new_yield_group())
+            accumulate_yield_group(g, a)
 
-        agg_headers = [group_by.replace('_', ' ').upper(), 'CROPS', 'AVG EST. (KG)', 'AVG ACTUAL (KG)', 'AVG VARIANCE %', 'AVG COMPLETION %']
+        agg_headers = [
+            group_by.replace('_', ' ').upper(), 'CROPS', 'TOTAL LOSS',
+            'AVG EST. (KG)', 'AVG ACTUAL (KG)', 'AVG VARIANCE %', 'AVG COMPLETION %',
+        ]
         agg_rows = []
         for key in sorted(groups.keys()):
             g = groups[key]
             agg_rows.append([
                 key,
                 g['count'],
+                g['total_loss_count'],
                 round(float(g['estimated_sum'] / g['estimated_n']), 2) if g['estimated_n'] else '—',
                 round(float(g['actual_sum'] / g['count']), 2) if g['count'] else '—',
                 round(g['variance_pct_sum'] / g['variance_pct_n'], 2) if g['variance_pct_n'] else '—',
@@ -2450,14 +2439,6 @@ class YieldAnalysisReport(APIView):
             'Variance %', 'Activities', 'Possible Factors',
         ]
 
-        def _possible_factors(a):
-            if a['activities_total_count'] == 0:
-                return 'No activity schedule defined for this crop.'
-            if not a['missed_high_priority']:
-                return 'All key activities completed'
-            parts = [f"{m['activity']} (Day {m['scheduled_day']})" for m in a['missed_high_priority']]
-            return 'Missed: ' + ', '.join(parts)
-
         def detail_row(a):
             return [
                 a['crop_type'],
@@ -2467,16 +2448,21 @@ class YieldAnalysisReport(APIView):
                 a['actual_total_kg'],
                 f"{a['variance_pct']:+.2f}%" if a['variance_pct'] is not None else '—',
                 f"{a['activities_completed_count']}/{a['activities_total_count']}",
-                _possible_factors(a),
+                possible_factors_text(
+                    a['variance_pct'], a['missed_high_priority'],
+                    a['activities_completed_count'], a['activities_total_count'],
+                    domain='crop',
+                ),
             ]
 
-        overall_variance   = [a['variance_pct'] for a in analyzed if a['variance_pct'] is not None]
+        overall_variance   = [a['variance_pct'] for a in analyzed if a['variance_pct'] is not None and not a['is_total_loss']]
         overall_completion = [
             (a['activities_completed_count'] / a['activities_total_count']) * 100
             for a in analyzed if a['activities_total_count'] > 0
         ]
         avg_variance_pct   = round(sum(overall_variance) / len(overall_variance), 2) if overall_variance else None
         avg_completion_pct = round(sum(overall_completion) / len(overall_completion), 2) if overall_completion else None
+        overall_total_loss_count = sum(1 for a in analyzed if a['is_total_loss'])
 
         if fmt == 'json':
             return JsonResponse({
@@ -2484,14 +2470,15 @@ class YieldAnalysisReport(APIView):
                 'records': analyzed,
                 'groups': [
                     {
-                        'group': row[0], 'harvested_crop_count': row[1],
-                        'avg_estimated_kg': row[2], 'avg_actual_kg': row[3],
-                        'avg_variance_pct': row[4], 'avg_activity_completion_pct': row[5],
+                        'group': row[0], 'harvested_crop_count': row[1], 'total_loss_count': row[2],
+                        'avg_estimated_kg': row[3], 'avg_actual_kg': row[4],
+                        'avg_variance_pct': row[5], 'avg_activity_completion_pct': row[6],
                     }
                     for row in agg_rows
                 ],
                 'overall': {
                     'harvested_crop_count': len(analyzed),
+                    'total_loss_count': overall_total_loss_count,
                     'avg_variance_pct': avg_variance_pct,
                     'avg_activity_completion_pct': avg_completion_pct,
                 },
@@ -2501,15 +2488,15 @@ class YieldAnalysisReport(APIView):
         if fmt == 'pdf':
             return self._build_pdf(
                 analyzed, agg_headers, agg_rows, detail_headers, detail_row,
-                avg_variance_pct, avg_completion_pct, today, _sig_params(request),
+                avg_variance_pct, avg_completion_pct, overall_total_loss_count, today, _sig_params(request),
             )
         return self._build_excel(
             analyzed, agg_headers, agg_rows, detail_headers, detail_row,
-            avg_variance_pct, avg_completion_pct, today,
+            avg_variance_pct, avg_completion_pct, overall_total_loss_count, today,
         )
 
     def _build_pdf(self, analyzed, agg_headers, agg_rows, detail_headers, detail_row_fn,
-                    avg_variance_pct, avg_completion_pct, today, sig=None):
+                    avg_variance_pct, avg_completion_pct, total_loss_count, today, sig=None):
         from production.views import YIELD_ANALYSIS_DISCLAIMER
 
         sig = sig or {}
@@ -2518,15 +2505,18 @@ class YieldAnalysisReport(APIView):
         story += build_official_header(LOGO_PATH, 'Yield Analysis Report', 'Descriptive Harvest-Performance Analysis')
         story.append(_empty_state(YIELD_ANALYSIS_DISCLAIMER))
         story.append(Spacer(1, 10))
+        avg_variance_label = f'{avg_variance_pct:+.2f}%' if avg_variance_pct is not None else 'N/A'
+        if total_loss_count:
+            avg_variance_label += f' (excl. {total_loss_count} total loss)'
         story.append(build_stats_row([
             ('Harvested Crops', len(analyzed)),
-            ('Avg Variance', f'{avg_variance_pct:+.2f}%' if avg_variance_pct is not None else 'N/A'),
+            ('Avg Variance', avg_variance_label),
             ('Avg Activity Completion', f'{avg_completion_pct:.2f}%' if avg_completion_pct is not None else 'N/A'),
             ('Date Generated', str(today)),
         ], page_width=PAGE_WIDTH))
 
         story += build_section_heading('I', 'Aggregate Summary')
-        agg_col_widths = [120, 50, 80, 80, 68, 70]
+        agg_col_widths = [100, 42, 50, 74, 74, 64, 64]
         story.append(build_ledger_table(agg_headers, agg_rows, col_widths=agg_col_widths))
 
         story += build_section_heading('II', 'Per-Crop Detail')
@@ -2549,7 +2539,7 @@ class YieldAnalysisReport(APIView):
         return _finish_pdf(buf, f'yield_analysis_report_{today}.pdf')
 
     def _build_excel(self, analyzed, agg_headers, agg_rows, detail_headers, detail_row_fn,
-                      avg_variance_pct, avg_completion_pct, today):
+                      avg_variance_pct, avg_completion_pct, total_loss_count, today):
         import openpyxl
         from openpyxl.styles import Font, PatternFill, Alignment
         from production.views import YIELD_ANALYSIS_DISCLAIMER
@@ -2562,6 +2552,10 @@ class YieldAnalysisReport(APIView):
         hdr_font = Font(bold=True, color='FFFFFF', size=10)
         disclaimer_font = Font(italic=True, color='475569', size=9)
 
+        avg_variance_label = f'{avg_variance_pct:+.2f}%' if avg_variance_pct is not None else 'N/A'
+        if total_loss_count:
+            avg_variance_label += f' (excl. {total_loss_count} total loss)'
+
         ws.append(['Republic of the Philippines'])
         ws.append(['Office of the Municipal Agriculturist — Aringay, La Union'])
         ws.append(['Yield Analysis Report (Descriptive Harvest-Performance Analysis)'])
@@ -2572,7 +2566,7 @@ class YieldAnalysisReport(APIView):
         ws.append([])
         ws.append([
             f'Harvested Crops: {len(analyzed)}',
-            f"Avg Variance: {f'{avg_variance_pct:+.2f}%' if avg_variance_pct is not None else 'N/A'}",
+            f'Avg Variance: {avg_variance_label}',
             f"Avg Activity Completion: {f'{avg_completion_pct:.2f}%' if avg_completion_pct is not None else 'N/A'}",
         ])
         ws.append([])
@@ -2636,32 +2630,20 @@ class FisheriesYieldAnalysisReport(APIView):
         groups = {}
         for a in analyzed:
             key = a['species'] if group_by == 'species' else a['barangay']
-            g = groups.setdefault(key, {
-                'count': 0,
-                'estimated_sum': Decimal('0'), 'estimated_n': 0,
-                'actual_sum': Decimal('0'),
-                'variance_pct_sum': 0.0, 'variance_pct_n': 0,
-                'completion_pct_sum': 0.0, 'completion_pct_n': 0,
-            })
-            g['count'] += 1
-            if a['estimated_kg'] is not None:
-                g['estimated_sum'] += Decimal(str(a['estimated_kg']))
-                g['estimated_n'] += 1
-            g['actual_sum'] += Decimal(str(a['actual_total_kg']))
-            if a['variance_pct'] is not None:
-                g['variance_pct_sum'] += a['variance_pct']
-                g['variance_pct_n'] += 1
-            if a['activities_total_count'] > 0:
-                g['completion_pct_sum'] += (a['activities_completed_count'] / a['activities_total_count']) * 100
-                g['completion_pct_n'] += 1
+            g = groups.setdefault(key, new_yield_group())
+            accumulate_yield_group(g, a)
 
-        agg_headers = [group_by.upper(), 'STOCKINGS', 'AVG EST. (KG)', 'AVG ACTUAL (KG)', 'AVG VARIANCE %', 'AVG COMPLETION %']
+        agg_headers = [
+            group_by.upper(), 'STOCKINGS', 'TOTAL LOSS',
+            'AVG EST. (KG)', 'AVG ACTUAL (KG)', 'AVG VARIANCE %', 'AVG COMPLETION %',
+        ]
         agg_rows = []
         for key in sorted(groups.keys()):
             g = groups[key]
             agg_rows.append([
                 key,
                 g['count'],
+                g['total_loss_count'],
                 round(float(g['estimated_sum'] / g['estimated_n']), 2) if g['estimated_n'] else '—',
                 round(float(g['actual_sum'] / g['count']), 2) if g['count'] else '—',
                 round(g['variance_pct_sum'] / g['variance_pct_n'], 2) if g['variance_pct_n'] else '—',
@@ -2672,14 +2654,6 @@ class FisheriesYieldAnalysisReport(APIView):
             'Species', 'Fisherfolk', 'Barangay', 'Culture Type', 'Cycle #',
             'Est. (kg)', 'Actual (kg)', 'Variance %', 'Activities', 'Possible Factors',
         ]
-
-        def _possible_factors(a):
-            if a['activities_total_count'] == 0:
-                return 'No activity schedule defined for this species.'
-            if not a['missed_high_priority']:
-                return 'All key activities completed'
-            parts = [f"{m['activity']} (Day {m['scheduled_day']})" for m in a['missed_high_priority']]
-            return 'Missed: ' + ', '.join(parts)
 
         def detail_row(a):
             return [
@@ -2692,10 +2666,14 @@ class FisheriesYieldAnalysisReport(APIView):
                 a['actual_total_kg'],
                 f"{a['variance_pct']:+.2f}%" if a['variance_pct'] is not None else '—',
                 f"{a['activities_completed_count']}/{a['activities_total_count']}",
-                _possible_factors(a),
+                possible_factors_text(
+                    a['variance_pct'], a['missed_high_priority'],
+                    a['activities_completed_count'], a['activities_total_count'],
+                    domain='fisheries',
+                ),
             ]
 
-        overall_variance   = [a['variance_pct'] for a in analyzed if a['variance_pct'] is not None]
+        overall_variance   = [a['variance_pct'] for a in analyzed if a['variance_pct'] is not None and not a['is_total_loss']]
         overall_completion = [
             (a['activities_completed_count'] / a['activities_total_count']) * 100
             for a in analyzed if a['activities_total_count'] > 0
@@ -2703,6 +2681,7 @@ class FisheriesYieldAnalysisReport(APIView):
         avg_variance_pct   = round(sum(overall_variance) / len(overall_variance), 2) if overall_variance else None
         avg_completion_pct = round(sum(overall_completion) / len(overall_completion), 2) if overall_completion else None
         cycle_trend = _cycle_trend_note(analyzed)
+        overall_total_loss_count = sum(1 for a in analyzed if a['is_total_loss'])
 
         if fmt == 'json':
             return JsonResponse({
@@ -2710,14 +2689,15 @@ class FisheriesYieldAnalysisReport(APIView):
                 'records': analyzed,
                 'groups': [
                     {
-                        'group': row[0], 'stocking_count': row[1],
-                        'avg_estimated_kg': row[2], 'avg_actual_kg': row[3],
-                        'avg_variance_pct': row[4], 'avg_activity_completion_pct': row[5],
+                        'group': row[0], 'stocking_count': row[1], 'total_loss_count': row[2],
+                        'avg_estimated_kg': row[3], 'avg_actual_kg': row[4],
+                        'avg_variance_pct': row[5], 'avg_activity_completion_pct': row[6],
                     }
                     for row in agg_rows
                 ],
                 'overall': {
                     'stocking_count': len(analyzed),
+                    'total_loss_count': overall_total_loss_count,
                     'avg_variance_pct': avg_variance_pct,
                     'avg_activity_completion_pct': avg_completion_pct,
                 },
@@ -2728,15 +2708,15 @@ class FisheriesYieldAnalysisReport(APIView):
         if fmt == 'pdf':
             return self._build_pdf(
                 analyzed, agg_headers, agg_rows, detail_headers, detail_row,
-                avg_variance_pct, avg_completion_pct, cycle_trend, today, _sig_params(request),
+                avg_variance_pct, avg_completion_pct, overall_total_loss_count, cycle_trend, today, _sig_params(request),
             )
         return self._build_excel(
             analyzed, agg_headers, agg_rows, detail_headers, detail_row,
-            avg_variance_pct, avg_completion_pct, cycle_trend, today,
+            avg_variance_pct, avg_completion_pct, overall_total_loss_count, cycle_trend, today,
         )
 
     def _build_pdf(self, analyzed, agg_headers, agg_rows, detail_headers, detail_row_fn,
-                    avg_variance_pct, avg_completion_pct, cycle_trend, today, sig=None):
+                    avg_variance_pct, avg_completion_pct, total_loss_count, cycle_trend, today, sig=None):
         from fisheries.views import FISHERIES_YIELD_ANALYSIS_DISCLAIMER
 
         sig = sig or {}
@@ -2745,15 +2725,18 @@ class FisheriesYieldAnalysisReport(APIView):
         story += build_official_header(LOGO_PATH, 'Fisheries Yield Analysis Report', 'Descriptive Harvest-Performance Analysis')
         story.append(_empty_state(FISHERIES_YIELD_ANALYSIS_DISCLAIMER))
         story.append(Spacer(1, 10))
+        avg_variance_label = f'{avg_variance_pct:+.2f}%' if avg_variance_pct is not None else 'N/A'
+        if total_loss_count:
+            avg_variance_label += f' (excl. {total_loss_count} total loss)'
         story.append(build_stats_row([
             ('Stockings', len(analyzed)),
-            ('Avg Variance', f'{avg_variance_pct:+.2f}%' if avg_variance_pct is not None else 'N/A'),
+            ('Avg Variance', avg_variance_label),
             ('Avg Activity Completion', f'{avg_completion_pct:.2f}%' if avg_completion_pct is not None else 'N/A'),
             ('Date Generated', str(today)),
         ], page_width=PAGE_WIDTH))
 
         story += build_section_heading('I', 'Aggregate Summary')
-        agg_col_widths = [120, 50, 80, 80, 68, 70]
+        agg_col_widths = [100, 42, 50, 74, 74, 64, 64]
         story.append(build_ledger_table(agg_headers, agg_rows, col_widths=agg_col_widths))
 
         if cycle_trend:
@@ -2784,7 +2767,7 @@ class FisheriesYieldAnalysisReport(APIView):
         return _finish_pdf(buf, f'fisheries_yield_analysis_report_{today}.pdf')
 
     def _build_excel(self, analyzed, agg_headers, agg_rows, detail_headers, detail_row_fn,
-                      avg_variance_pct, avg_completion_pct, cycle_trend, today):
+                      avg_variance_pct, avg_completion_pct, total_loss_count, cycle_trend, today):
         import openpyxl
         from openpyxl.styles import Font, PatternFill, Alignment
         from fisheries.views import FISHERIES_YIELD_ANALYSIS_DISCLAIMER
@@ -2797,6 +2780,10 @@ class FisheriesYieldAnalysisReport(APIView):
         hdr_font = Font(bold=True, color='FFFFFF', size=10)
         disclaimer_font = Font(italic=True, color='475569', size=9)
 
+        avg_variance_label = f'{avg_variance_pct:+.2f}%' if avg_variance_pct is not None else 'N/A'
+        if total_loss_count:
+            avg_variance_label += f' (excl. {total_loss_count} total loss)'
+
         ws.append(['Republic of the Philippines'])
         ws.append(['Office of the Municipal Agriculturist — Aringay, La Union'])
         ws.append(['Fisheries Yield Analysis Report (Descriptive Harvest-Performance Analysis)'])
@@ -2807,7 +2794,7 @@ class FisheriesYieldAnalysisReport(APIView):
         ws.append([])
         ws.append([
             f'Stockings: {len(analyzed)}',
-            f"Avg Variance: {f'{avg_variance_pct:+.2f}%' if avg_variance_pct is not None else 'N/A'}",
+            f'Avg Variance: {avg_variance_label}',
             f"Avg Activity Completion: {f'{avg_completion_pct:.2f}%' if avg_completion_pct is not None else 'N/A'}",
         ])
         ws.append([])

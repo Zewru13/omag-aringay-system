@@ -9,6 +9,7 @@ import GroupedForecast from '../Forecasting/GroupedForecast.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
+import { possibleFactorsText } from '../../utils/yieldAnalysis.js'
 
 const filterLabelCls = 'block text-[12px] font-medium text-[#4A5E4A] mb-1'
 
@@ -209,12 +210,6 @@ function VarianceBadge({ pct }) {
   )
 }
 
-function possibleFactorsText(rec) {
-  if (rec.activities_total_count === 0) return 'No activity schedule defined for this species.'
-  if (!rec.missed_high_priority || rec.missed_high_priority.length === 0) return 'All key activities completed'
-  return 'Missed: ' + rec.missed_high_priority.map(m => `${m.activity} (Day ${m.scheduled_day})`).join(', ')
-}
-
 // ── Aggregate Panel (barangay/species toggle + cycle-trend note) ────────────────
 
 function AggregatePanel({ groupBy, setGroupBy, groups, overall, cycleTrend, isLoading }) {
@@ -252,6 +247,9 @@ function AggregatePanel({ groupBy, setGroupBy, groups, overall, cycleTrend, isLo
         <div className="bg-[#EBF5EE] rounded-xl p-3">
           <p className="text-[11px] font-medium text-[#4A5E4A]">Avg Variance</p>
           <p className="text-[18px] font-bold text-[#1B4D2E] mt-0.5">{overall.avg_variance_pct != null ? `${overall.avg_variance_pct >= 0 ? '+' : ''}${overall.avg_variance_pct.toFixed(1)}%` : 'N/A'}</p>
+          {overall.total_loss_count > 0 && (
+            <p className="text-[10px] text-[#7A8E7A] mt-0.5">excl. {overall.total_loss_count} total loss</p>
+          )}
         </div>
         <div className="bg-[#EBF5EE] rounded-xl p-3">
           <p className="text-[11px] font-medium text-[#4A5E4A]">Avg Activity Completion</p>
@@ -267,7 +265,10 @@ function AggregatePanel({ groupBy, setGroupBy, groups, overall, cycleTrend, isLo
         ) : groups.map(g => (
           <div key={g.group} className="flex items-center gap-3 text-[12px]">
             <span className="w-32 shrink-0 truncate text-[#4A5E4A] font-medium" title={g.group}>{g.group}</span>
-            <span className="w-16 shrink-0 text-[#7A8E7A]">{g.stocking_count} stocking{g.stocking_count !== 1 ? 's' : ''}</span>
+            <span className="w-16 shrink-0 text-[#7A8E7A]" title={g.total_loss_count > 0 ? `Avg variance excludes ${g.total_loss_count} total-loss record${g.total_loss_count !== 1 ? 's' : ''}` : undefined}>
+              {g.stocking_count} stocking{g.stocking_count !== 1 ? 's' : ''}
+              {g.total_loss_count > 0 && <span className="text-rose-500"> ({g.total_loss_count} loss)</span>}
+            </span>
             <div className="flex-1 flex items-center gap-1.5">
               <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
                 {g.avg_variance_pct != null && (
@@ -554,7 +555,7 @@ export default function ForecastingTab({ asTab = false }) {
                     <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.actual_total_kg.toLocaleString()}</td>
                     <td className="px-3 py-[11px] whitespace-nowrap"><VarianceBadge pct={rec.variance_pct} /></td>
                     <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.activities_completed_count}/{rec.activities_total_count}</td>
-                    <td className="px-3 py-[11px] text-[12px] text-[#4A5E4A] max-w-xs">{possibleFactorsText(rec)}</td>
+                    <td className="px-3 py-[11px] text-[12px] text-[#4A5E4A] max-w-xs">{possibleFactorsText(rec, 'fisheries')}</td>
                   </tr>
                   {expanded.has(rec.id) && (
                     <tr className="border-b border-[#F0F4F0] bg-[#F9FAF9]">
