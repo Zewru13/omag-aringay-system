@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import {
   AlertTriangle, BarChart2, ChevronDown, ChevronRight, Download, FileText,
-  Info, Plus, TrendingUp, Upload, User,
+  Info, Plus, Search, TrendingUp, Upload, User,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
@@ -455,6 +455,75 @@ function AggregatePanel({ groupBy, setGroupBy, groups, overall, isLoading }) {
   )
 }
 
+// ── Farmer filter (autocomplete search-select) ──────────────────────────────
+// Mirrors FisheriesForecastingTab.jsx's FisherfolkFilterInput exactly, swapped
+// to the farmers endpoint, so "Group by farmer" behaves identically to
+// fisheries' "Group by fisherfolk".
+
+function FarmerFilterInput({ selected, onSelect }) {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState([])
+  const [showDrop, setShowDrop] = useState(false)
+  const debounceRef = useRef(null)
+  const wrapperRef = useRef(null)
+
+  const doSearch = useCallback(async (q) => {
+    if (!q.trim()) { setResults([]); return }
+    try {
+      const r = await api.get('/farmers/', { params: { search: q } })
+      const list = Array.isArray(r.data) ? r.data : (r.data.results || [])
+      setResults(list.slice(0, 8))
+    } catch { setResults([]) }
+  }, [])
+
+  const handleChange = (e) => {
+    const v = e.target.value
+    setQuery(v)
+    setShowDrop(true)
+    if (!v.trim()) onSelect(null)
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => doSearch(v), 300)
+  }
+
+  useEffect(() => {
+    const handler = (e) => { if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setShowDrop(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const displayValue = selected ? selected.full_name : query
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#A8BCA8] pointer-events-none" />
+        <input
+          className={`${baseInputClasses} pl-7`}
+          placeholder="All Farmers"
+          value={displayValue}
+          onChange={handleChange}
+          onFocus={() => { if (results.length > 0) setShowDrop(true) }}
+        />
+      </div>
+      {showDrop && results.length > 0 && (
+        <div className="absolute z-50 mt-1 w-full rounded-xl border border-[#E2E8E2] bg-white shadow-lg max-h-52 overflow-y-auto">
+          {results.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              onMouseDown={() => { onSelect(f); setQuery(''); setShowDrop(false) }}
+              className="flex flex-col w-full px-3 py-2 text-left hover:bg-[#F5F7F5] transition-colors"
+            >
+              <span className="text-xs font-semibold text-[#1A2B1A]">{f.full_name}</span>
+              <span className="text-[11px] text-[#7A8E7A]">{f.barangay}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Yield Analysis Tab ───────────────────────────────────────────────────────
 
 function YieldAnalysisTab() {
@@ -471,6 +540,10 @@ function YieldAnalysisTab() {
   const [sigPurpose, setSigPurpose] = useState('pdf')
   const [expanded, setExpanded] = useState(() => new Set())
   const [filters, setFilters] = useState({ crop_type: '', barangay: '', season: '', year: '' })
+  const [farmerFilter, setFarmerFilter] = useState(null)
+  const [viewMode, setViewMode] = useState('analysis') // 'analysis' | 'grouped'
+  const [grouped, setGrouped] = useState([])
+  const [isLoadingGrouped, setIsLoadingGrouped] = useState(false)
   const set = (k, v) => setFilters(f => ({ ...f, [k]: v }))
 
   useEffect(() => {
@@ -485,6 +558,7 @@ function YieldAnalysisTab() {
     if (filters.barangay)  p.barangay  = filters.barangay
     if (filters.season)    p.season    = filters.season
     if (filters.year)      p.year      = filters.year
+    if (farmerFilter)      p.farmer    = farmerFilter.id
     return p
   }
 
@@ -495,7 +569,7 @@ function YieldAnalysisTab() {
       .catch(() => showToast('Failed to load yield analysis.', 'error'))
       .finally(() => setIsLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.crop_type, filters.barangay, filters.season, filters.year])
+  }, [filters.crop_type, filters.barangay, filters.season, filters.year, farmerFilter])
 
   useEffect(() => {
     setIsLoadingSummary(true)
@@ -507,7 +581,31 @@ function YieldAnalysisTab() {
       .catch(() => showToast('Failed to load aggregate summary.', 'error'))
       .finally(() => setIsLoadingSummary(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.crop_type, filters.barangay, filters.season, filters.year, groupBy])
+  }, [filters.crop_type, filters.barangay, filters.season, filters.year, farmerFilter, groupBy])
+
+  // Grouped-by-farmer view — reuses the Farmer Crop History report's JSON
+  // query (all statuses, not just harvested), normalized to GroupedForecast's
+  // shape. Same filters as the analysis view, mirroring FisheriesForecastingTab's
+  // "Group by fisherfolk" grouped-view fetch.
+  useEffect(() => {
+    if (viewMode !== 'grouped') return
+    setIsLoadingGrouped(true)
+    api.get('/reports/farmer-crop-history/', { params: { ...buildParams(), format: 'json' } })
+      .then(r => setGrouped((r.data.records || []).map(rec => ({
+        id: rec.id,
+        person: rec.farmer,
+        commodity: rec.crop_type,
+        landStatus: rec.land_status,
+        dateField: rec.date_planted,
+        status: rec.status,
+        harvestDate: rec.actual_harvest_date,
+        variancePct: rec.variance_pct,
+        isTotalLoss: rec.is_total_loss,
+      }))))
+      .catch(() => showToast('Failed to load grouped view.', 'error'))
+      .finally(() => setIsLoadingGrouped(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewMode, filters.crop_type, filters.barangay, filters.season, filters.year, farmerFilter])
 
   const toggleExpand = (id) => {
     setExpanded(prev => {
@@ -540,7 +638,21 @@ function YieldAnalysisTab() {
 
   return (
     <div className="space-y-5">
-      <DisclaimerBanner />
+      {/* View toggle: existing analysis vs grouped by farmer */}
+      <div className="flex items-center gap-1 w-fit rounded-lg border border-[#E2E8E2] p-0.5">
+        {[{ id: 'analysis', label: 'Analysis' }, { id: 'grouped', label: 'Group by farmer' }].map(v => (
+          <button
+            key={v.id}
+            type="button"
+            onClick={() => setViewMode(v.id)}
+            className={`px-3 py-1 rounded-md text-[12px] font-medium transition-colors ${viewMode === v.id ? 'bg-[#1B4D2E] text-white' : 'text-[#4A5E4A] hover:bg-[#F5F7F5]'}`}
+          >
+            {v.label}
+          </button>
+        ))}
+      </div>
+
+      {viewMode === 'analysis' && <DisclaimerBanner />}
 
       {/* Filters */}
       <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
@@ -575,9 +687,22 @@ function YieldAnalysisTab() {
               onChange={e => set('year', e.target.value)}
             />
           </div>
+          <div className="w-56">
+            <label className={filterLabelCls}>Farmer</label>
+            <FarmerFilterInput selected={farmerFilter} onSelect={setFarmerFilter} />
+          </div>
         </div>
       </div>
 
+      {viewMode === 'grouped' ? (
+        <GroupedForecast
+          records={grouped}
+          isLoading={isLoadingGrouped}
+          personLabel="Farmer"
+          commodityLabel="Crop"
+          dateLabel="Date Planted"
+        />
+      ) : (<>
       <AggregatePanel groupBy={groupBy} setGroupBy={setGroupBy} groups={groups} overall={overall} isLoading={isLoadingSummary} />
 
       <YAActionButtons
@@ -656,6 +781,7 @@ function YieldAnalysisTab() {
           </table>
         </div>
       </div>
+      </>)}
 
       {showSig && (
         <YASignatureModal purpose={sigPurpose} onClose={() => setShowSig(false)} onGenerate={handleGenerate} />
