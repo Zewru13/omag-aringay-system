@@ -2,16 +2,22 @@ import { useEffect, useState } from "react";
 import {
   Activity,
   BarChart2,
+  Building2,
   ChevronDown,
+  ClipboardList,
   FileBarChart,
   Fish,
   LayoutDashboard,
   Leaf,
+  LineChart,
   Settings2,
+  ShieldCheck,
   Sprout,
   TrendingUp,
   UserCog,
   Users,
+  Waves,
+  Wheat,
   X,
 } from "lucide-react";
 import { useLocation, NavLink } from "react-router-dom";
@@ -21,9 +27,10 @@ import logo from "../../assets/LOGO OMAg.jpg";
 // ─── Nav structure ──────────────────────────────────────────────────────────
 // Leaf items carry `to`, which may include a `?tab=` query — the same
 // convention FarmersHub/FisherfolkHub already use for their Registry/
-// Associations tabs. Groups are plain { key, label, items } and may nest
-// one level (Associations under Registration); items themselves may be a
-// nested group (an entry with its own `items`) instead of a leaf.
+// Associations tabs. Groups are plain { key, label, icon, items }; an item
+// may itself be a nested group (an entry with its own `items`) instead of a
+// leaf — NavGroup renders those one level deeper — though no group currently
+// nests another (Associations was split out to its own top-level group).
 
 const DASHBOARD_ITEM = { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" };
 const REPORTS_ITEM = { to: "/reports", icon: FileBarChart, label: "Reports" };
@@ -37,23 +44,26 @@ const DEFAULT_TAB_BY_PATH = { "/farmers": "registry", "/fisherfolk": "registry" 
 const GROUPS = [
   {
     key: "registration",
-    label: "Registration",
+    label: "Registration Management",
+    icon: ClipboardList,
     items: [
       { to: "/farmers?tab=registry", icon: Users, label: "Farmers" },
       { to: "/fisherfolk?tab=registry", icon: Fish, label: "Fisherfolk" },
-      {
-        key: "associations",
-        label: "Associations",
-        items: [
-          { to: "/farmers?tab=associations", icon: Users, label: "Farmers Associations" },
-          { to: "/fisherfolk?tab=associations", icon: Fish, label: "Fisherfolk Associations" },
-        ],
-      },
+    ],
+  },
+  {
+    key: "association-management",
+    label: "Association Management",
+    icon: Building2,
+    items: [
+      { to: "/farmers?tab=associations", icon: Users, label: "Farmers Associations" },
+      { to: "/fisherfolk?tab=associations", icon: Fish, label: "Fisherfolk Associations" },
     ],
   },
   {
     key: "crop-management",
     label: "Crop Management",
+    icon: Wheat,
     items: [
       { to: "/crop-records", icon: Sprout, label: "Crop Records" },
       { to: "/crop-monitoring", icon: BarChart2, label: "Crop Monitoring" },
@@ -62,6 +72,7 @@ const GROUPS = [
   {
     key: "fisheries-management",
     label: "Fisheries Management",
+    icon: Waves,
     items: [
       { to: "/fisheries-monitoring", icon: Activity, label: "Fisheries Monitoring" },
     ],
@@ -69,6 +80,7 @@ const GROUPS = [
   {
     key: "forecasting",
     label: "Forecasting",
+    icon: LineChart,
     items: [
       { to: "/forecasting", icon: TrendingUp, label: "Crop Forecasting" },
       { to: "/fisheries-forecasting", icon: TrendingUp, label: "Fisheries Forecasting" },
@@ -79,6 +91,7 @@ const GROUPS = [
 const ADMIN_GROUP = {
   key: "admin",
   label: "Admin",
+  icon: ShieldCheck,
   adminOnly: true,
   items: [
     { to: "/crop-settings", icon: Leaf, label: "Crop Settings" },
@@ -180,9 +193,13 @@ function LeafItem({ to, icon: Icon, label, isCollapsed, depth = 0 }) {
   );
 }
 
-// ─── Collapsible group (also used for the nested Associations sub-group) ──────
+// ─── Collapsible group ──────────────────────────────────────────────────────
+// Renders a top-level nav section (Registration Management, Association
+// Management, etc.). Also handles a nested sub-group one level deeper, should
+// an item ever carry its own `items` again — none currently do.
 
 function NavGroup({ group, isCollapsed, depth = 0 }) {
+  const GroupIcon = group.icon;
   const location = useLocation();
   const [open, setOpen] = useState(() => groupContainsPath(group, location));
 
@@ -212,17 +229,34 @@ function NavGroup({ group, isCollapsed, depth = 0 }) {
 
   return (
     <div className={depth === 0 ? "mt-4" : "mt-1 mb-1"}>
+      {/* Font-size/weight are set on the inner <span>, not this <button> —
+          index.css's `button, input, select, textarea { font: inherit }`
+          is unlayered CSS, which beats Tailwind's layered utilities on the
+          button element itself regardless of specificity (CSS Cascade
+          Layers: unlayered always wins). `color` isn't part of the `font`
+          shorthand, so it's unaffected and stays here; children inherit it
+          normally. */}
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={[
-          "flex w-full items-center justify-between text-left rounded-[var(--radius-sm)] transition-colors duration-200 ease-in-out cursor-pointer",
-          depth === 0
-            ? "px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-text-muted hover:text-text-secondary"
-            : "px-3 py-2 pl-9 text-[11px] font-medium text-text-muted hover:text-text-secondary",
+          "flex w-full items-center justify-between text-left rounded-[var(--radius-sm)] transition-colors duration-200 ease-in-out cursor-pointer text-text-muted hover:text-text-secondary",
+          depth === 0 ? "px-3 py-2" : "px-3 py-2 pl-9",
         ].join(" ")}
       >
-        <span>{group.label}</span>
+        <span
+          className={[
+            "flex items-center gap-2 min-w-0",
+            depth === 0
+              ? "text-[10px] font-semibold uppercase tracking-[0.03em]"
+              : "text-[11px] font-medium",
+          ].join(" ")}
+        >
+          {depth === 0 && GroupIcon && (
+            <GroupIcon className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+          )}
+          <span className="truncate">{group.label}</span>
+        </span>
         <ChevronDown
           size={depth === 0 ? 12 : 11}
           className={`transition-transform duration-200 ease-in-out flex-shrink-0 ${open ? "" : "-rotate-90"}`}
