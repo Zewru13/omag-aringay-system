@@ -5,8 +5,9 @@ import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 
-// Must match fisheries.models.FisheriesAssistanceRecord.ASSISTANCE_TYPE_CHOICES exactly —
-// this is a model CharField with choices, so the backend 400s on anything else.
+// Must match interventions.models.FisherfolkBeneficiaryRecord.AssistanceType exactly
+// (Batch 6: absorbed from fisheries.models.FisheriesAssistanceRecord) — this is a
+// model CharField with choices, so the backend 400s on anything else.
 const ASSISTANCE_TYPE_OPTIONS = [
   'Fishing Gear',
   'Boat/Vessel',
@@ -168,8 +169,9 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
 
     const selectedYear = new Date(form.date_received).getFullYear()
 
-    // fisheries.models.FisheriesAssistanceRecord has no `unit`/`status` fields — folded
-    // into remarks below so the info the clerk entered isn't silently discarded.
+    // This ad-hoc log (program=null) doesn't use quantity_given/unit/status — those
+    // belong to the program-based beneficiary flow. Folded into remarks below so the
+    // info the clerk entered isn't silently discarded (Batch 6: was fisheries.FisheriesAssistanceRecord).
     const unitNote = !isCashType && unit ? `Unit: ${unit}` : ''
     const statusNote = form.status ? `Status: ${form.status}` : ''
     const combinedRemarks = [statusNote, unitNote, form.remarks].filter(Boolean).join(' | ')
@@ -178,7 +180,7 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
       fisherfolk: selectedFisherfolk.id,
       assistance_type: assistanceType,
       source_agency: source,
-      date_received: form.date_received,
+      date_given: form.date_received,
       year: selectedYear,
       quantity: form.quantity,
       description: form.description || '',
@@ -187,7 +189,7 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
 
     setIsSubmitting(true)
     try {
-      await api.post('/fisheries/fisheries-assistance/', payload)
+      await api.post('/interventions/fisherfolk-beneficiaries/adhoc/', payload)
       showToast('Government assistance logged successfully.')
       onSuccess?.()
       onClose?.()

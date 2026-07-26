@@ -14,7 +14,6 @@ from .models import (
     FeedType,
     Fisherfolk,
     FisheriesActivityLog,
-    FisheriesAssistanceRecord,
     FisheriesDisasterReport,
     FisheriesHarvestRecord,
     FishingTripLog,
@@ -797,27 +796,4 @@ class FishingTripLogSerializer(serializers.ModelSerializer):
 
     def validate_return_date(self, value):
         validate_not_future_date(value, 'Return date')
-        return value
-
-
-class FisheriesAssistanceSerializer(serializers.ModelSerializer):
-    fisherfolk_name = serializers.CharField(source='fisherfolk.full_name', read_only=True)
-    fisherfolk_type = serializers.CharField(source='fisherfolk.fisherfolk_type', read_only=True)
-    recorded_by_name = serializers.SerializerMethodField()
-
-    class Meta:
-        model = FisheriesAssistanceRecord
-        fields = [
-            'id', 'fisherfolk', 'fisherfolk_name', 'fisherfolk_type',
-            'assistance_type', 'description', 'quantity', 'date_received',
-            'source_agency', 'season', 'year', 'remarks',
-            'recorded_by', 'recorded_by_name', 'date_recorded',
-        ]
-        read_only_fields = ['id', 'fisherfolk_name', 'fisherfolk_type', 'recorded_by', 'recorded_by_name', 'date_recorded']
-
-    def get_recorded_by_name(self, obj):
-        return obj.recorded_by.full_name if obj.recorded_by else None
-
-    def validate_date_received(self, value):
-        validate_not_future_date(value, 'Date received')
         return value

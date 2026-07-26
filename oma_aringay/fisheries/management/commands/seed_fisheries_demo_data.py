@@ -34,10 +34,10 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.db.models import Q
 
+from interventions.models import FisherfolkBeneficiaryRecord
 from fisheries.models import (
     Fisherfolk,
     FisheriesActivityLog,
-    FisheriesAssistanceRecord,
     FisheriesDisasterReport,
     FisheriesDisasterResponseRule,
     FisheriesHarvestRecord,
@@ -218,7 +218,7 @@ class Command(BaseCommand):
         self.stdout.write(f'  Stocking disasters    : {disaster_count:>3}')
         self.stdout.write(f'  Fishing trips         : {FishingTripLog.objects.filter(fisherfolk__in=capture_and_inland_ff).count():>3}')
         self.stdout.write(f'  Trip species entries  : {TripSpeciesEntry.objects.filter(fishing_trip__fisherfolk__in=capture_and_inland_ff).count():>3}')
-        self.stdout.write(f'  Assistance records    : {FisheriesAssistanceRecord.objects.filter(fisherfolk__in=fisherfolk).count():>3}')
+        self.stdout.write(f'  Assistance records    : {FisherfolkBeneficiaryRecord.objects.filter(program__isnull=True, fisherfolk__in=fisherfolk).count():>3}')
         self.stdout.write(f'  Fisherfolk disasters  : {FisherfolkDisasterReport.objects.filter(fisherfolk__in=fisherfolk).count():>3}')
         self.stdout.write(self.style.SUCCESS('================================================'))
         self.stdout.write(self.style.SUCCESS('  Done! Run --flush to reset.'))
@@ -235,7 +235,7 @@ class Command(BaseCommand):
         # first so demo stocking records don't get orphaned onto real data.
         stocking_deleted, _ = StockingRecord.objects.filter(fisherfolk_id__in=demo_ff_ids).delete()
 
-        # FishingTripLog / FisheriesAssistanceRecord / FisherfolkDisasterReport
+        # FishingTripLog / FisherfolkBeneficiaryRecord / FisherfolkDisasterReport
         # are all CASCADE on fisherfolk — deleting the fisherfolk cleans those
         # up automatically.
         ff_deleted, _ = Fisherfolk.objects.filter(id__in=demo_ff_ids).delete()
@@ -565,7 +565,10 @@ class Command(BaseCommand):
     # ── Assistance ───────────────────────────────────────────────────────────
 
     def _create_assistance(self, fisherfolk, admin_user):
-        if FisheriesAssistanceRecord.objects.filter(fisherfolk__in=fisherfolk).exists():
+        # Batch 6: assistance records now live in interventions.FisherfolkBeneficiaryRecord
+        # (program=null — this seed command was never program-aware, so ad-hoc is the
+        # correct equivalent of the retired FisheriesAssistanceRecord it used to create).
+        if FisherfolkBeneficiaryRecord.objects.filter(program__isnull=True, fisherfolk__in=fisherfolk).exists():
             self.stdout.write('  Assistance records already seeded — skipping (use --flush to reset).')
             return 0
 
@@ -579,12 +582,13 @@ class Command(BaseCommand):
         for i, spec in enumerate(specs):
             ff = fisherfolk[spec['ff_idx']]
             date_received = today - timedelta(days=spec['days_ago'])
-            FisheriesAssistanceRecord.objects.create(
+            FisherfolkBeneficiaryRecord.objects.create(
+                program=None,
                 fisherfolk=ff,
                 assistance_type=spec['atype'],
                 description=f'{spec["atype"]} support provided under the LGU fisheries assistance program.',
                 quantity=random.choice(['1 set', '2 sacks', '50 kg', '1 unit']),
-                date_received=date_received,
+                date_given=date_received,
                 source_agency=ASSISTANCE_SOURCES[i % len(ASSISTANCE_SOURCES)],
                 season=_season_for(date_received),
                 year=date_received.year,

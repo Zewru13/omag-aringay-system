@@ -5,6 +5,7 @@ from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import generics
+from rest_framework import status as drf_status
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -123,6 +124,50 @@ class BeneficiaryDeleteView(generics.DestroyAPIView):
     lookup_field = 'id'
 
 
+# ─── Ad-hoc (program=null) beneficiary records (Batch 6) ───────────────────
+# Absorbs production.CropAssistanceRecord's list/create/detail contract.
+# Scoped to program__isnull=True so this endpoint can never touch a
+# program-based row — that stays exclusively reachable through the
+# programs/<id>/beneficiaries/ endpoints above.
+
+class BeneficiaryAdHocListCreateView(generics.ListCreateAPIView):
+    serializer_class = BeneficiaryRecordCreateSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
+
+    def get_queryset(self):
+        qs = BeneficiaryRecord.objects.filter(
+            program__isnull=True,
+        ).select_related('farmer', 'recorded_by').order_by('-date_given', '-id')
+        params = self.request.query_params
+        if params.get('farmer'):
+            qs = qs.filter(farmer_id=params['farmer'])
+        if params.get('year'):
+            qs = qs.filter(year=params['year'])
+        if params.get('barangay'):
+            qs = qs.filter(farmer__barangay=params['barangay'])
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(program=None, recorded_by=self.request.user)
+
+
+class BeneficiaryAdHocDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = BeneficiaryRecordCreateSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    queryset = BeneficiaryRecord.objects.filter(program__isnull=True).select_related('farmer')
+    lookup_field = 'id'
+    http_method_names = ['get', 'patch', 'delete']
+
+    def destroy(self, request, *args, **kwargs):
+        if request.user.role != 'ADMIN':
+            return Response(
+                {'detail': 'Only administrators can delete assistance records.'},
+                status=drf_status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
+
+
 class FarmerInterventionHistoryView(APIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
@@ -218,6 +263,47 @@ class FisherfolkBeneficiaryDeleteView(generics.DestroyAPIView):
     serializer_class = FisherfolkBeneficiaryRecordCreateSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     lookup_field = 'id'
+
+
+# ─── Ad-hoc (program=null) fisherfolk beneficiary records (Batch 6) ────────
+# Absorbs fisheries.FisheriesAssistanceRecord's list/create/detail contract.
+
+class FisherfolkBeneficiaryAdHocListCreateView(generics.ListCreateAPIView):
+    serializer_class = FisherfolkBeneficiaryRecordCreateSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
+
+    def get_queryset(self):
+        qs = FisherfolkBeneficiaryRecord.objects.filter(
+            program__isnull=True,
+        ).select_related('fisherfolk', 'recorded_by').order_by('-date_given', '-id')
+        params = self.request.query_params
+        if params.get('fisherfolk'):
+            qs = qs.filter(fisherfolk_id=params['fisherfolk'])
+        if params.get('year'):
+            qs = qs.filter(year=params['year'])
+        if params.get('barangay'):
+            qs = qs.filter(fisherfolk__barangay=params['barangay'])
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(program=None, recorded_by=self.request.user)
+
+
+class FisherfolkBeneficiaryAdHocDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = FisherfolkBeneficiaryRecordCreateSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    queryset = FisherfolkBeneficiaryRecord.objects.filter(program__isnull=True).select_related('fisherfolk')
+    lookup_field = 'id'
+    http_method_names = ['get', 'patch', 'delete']
+
+    def destroy(self, request, *args, **kwargs):
+        if request.user.role != 'ADMIN':
+            return Response(
+                {'detail': 'Only administrators can delete assistance records.'},
+                status=drf_status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
 
 
 class BeneficiaryExportView(APIView):

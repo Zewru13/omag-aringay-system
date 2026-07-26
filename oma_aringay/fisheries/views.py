@@ -19,7 +19,6 @@ from .models import (
     DiseaseType,
     FeedType,
     FisheriesActivityLog,
-    FisheriesAssistanceRecord,
     FisheriesDisasterReport,
     FisheriesDisasterResponseRule,
     FisheriesHarvestRecord,
@@ -40,7 +39,6 @@ from .serializers import (
     FisherfolkDetailSerializer,
     FisherfolkListSerializer,
     FisheriesActivityLogSerializer,
-    FisheriesAssistanceSerializer,
     FisheriesDisasterReportSerializer,
     FisheriesHarvestRecordSerializer,
     FishingTripLogSerializer,
@@ -1033,39 +1031,9 @@ class FisheriesBarangaySummaryView(APIView):
 
 # ─── Fisheries Assistance Records ────────────────────────────────────────────
 
-class FisheriesAssistanceListCreateView(generics.ListCreateAPIView):
-    serializer_class = FisheriesAssistanceSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    pagination_class = None
-
-    def get_queryset(self):
-        qs = FisheriesAssistanceRecord.objects.select_related('fisherfolk', 'recorded_by').order_by('-date_received')
-        params = self.request.query_params
-        if params.get('fisherfolk'):
-            qs = qs.filter(fisherfolk_id=params['fisherfolk'])
-        if params.get('year'):
-            qs = qs.filter(year=params['year'])
-        if params.get('barangay'):
-            qs = qs.filter(fisherfolk__barangay=params['barangay'])
-        return qs
-
-    def perform_create(self, serializer):
-        serializer.save(recorded_by=self.request.user)
-
-
-class FisheriesAssistanceDetailView(generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = FisheriesAssistanceSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    queryset = FisheriesAssistanceRecord.objects.select_related('fisherfolk')
-    http_method_names = ['get', 'patch', 'delete']
-
-    def destroy(self, request, *args, **kwargs):
-        if request.user.role != 'ADMIN':
-            return Response(
-                {'detail': 'Only administrators can delete assistance records.'},
-                status=drf_status.HTTP_403_FORBIDDEN,
-            )
-        return super().destroy(request, *args, **kwargs)
+# FisheriesAssistanceListCreateView / FisheriesAssistanceDetailView retired
+# (Batch 6) — absorbed into interventions.FisherfolkBeneficiaryRecord
+# (program=null), reachable at /interventions/fisherfolk-beneficiaries/adhoc/.
 
 
 # ─── Yield Analysis (descriptive) ──────────────────────────────────────────────

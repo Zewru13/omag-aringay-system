@@ -11,8 +11,6 @@ from .views import (
     FisherfolkDetailView,
     FisherfolkDuplicateCheckView,
     FisheriesActivitySuggestionsView,
-    FisheriesAssistanceDetailView,
-    FisheriesAssistanceListCreateView,
     FisheriesBarangaySummaryView,
     FisheriesDisasterResolveView,
     FisheriesHistoricalTimelineView,
@@ -98,8 +96,8 @@ urlpatterns = [
     path('fishing-trips/<int:pk>/', FishingTripLogDetailView.as_view(), name='fishing-trip-detail'),
     path('fishing-trips/<int:trip_id>/species/', TripSpeciesEntryListCreateView.as_view(), name='trip-species-list-create'),
     path('fishing-trips/species/<int:pk>/', TripSpeciesEntryDeleteView.as_view(), name='trip-species-delete'),
-    path('fisheries-assistance/', FisheriesAssistanceListCreateView.as_view(), name='fisheries-assistance-list'),
-    path('fisheries-assistance/<int:pk>/', FisheriesAssistanceDetailView.as_view(), name='fisheries-assistance-detail'),
+    # fisheries-assistance/ retired (Batch 6) — absorbed into
+    # /interventions/fisherfolk-beneficiaries/adhoc/ (FisheriesAssistanceRecord -> FisherfolkBeneficiaryRecord).
 
     # ── Yield Analysis (descriptive, mirrors production/yield-analysis) ──────
     path('yield-analysis/', FisheriesYieldAnalysisView.as_view(), name='fisheries-yield-analysis'),

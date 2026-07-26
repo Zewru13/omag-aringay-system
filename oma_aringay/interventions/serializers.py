@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from core.validators import validate_not_future_date
+
 from .models import BeneficiaryRecord, FisherfolkBeneficiaryRecord, InterventionProgram
 
 
@@ -44,6 +46,7 @@ class BeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
     farmer_full_name = serializers.CharField(source='farmer.full_name', read_only=True)
     farmer_rsbsa_number = serializers.CharField(source='farmer.rsbsa_number', read_only=True)
     farmer_barangay = serializers.CharField(source='farmer.barangay', read_only=True)
+    recorded_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model = BeneficiaryRecord
@@ -59,6 +62,13 @@ class BeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
             'date_given',
             'remarks',
             'recorded_by',
+            'recorded_by_name',
+            # Ad-hoc-only fields (Batch 6) — blank on program-based records.
+            'assistance_type',
+            'source_agency',
+            'quantity',
+            'season',
+            'year',
         ]
         read_only_fields = [
             'id',
@@ -66,15 +76,23 @@ class BeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
             'farmer_rsbsa_number',
             'farmer_barangay',
             'recorded_by',
+            'recorded_by_name',
         ]
         extra_kwargs = {
             'program': {'required': False},
         }
         validators = []
 
+    def get_recorded_by_name(self, obj):
+        return obj.recorded_by.full_name if obj.recorded_by else None
+
+    def validate_date_given(self, value):
+        validate_not_future_date(value, 'Date received')
+        return value
+
     def validate(self, attrs):
         program = attrs.get('program')
-        farmer = attrs.get('farmer')
+        farmer = attrs.get('farmer') or getattr(self.instance, 'farmer', None)
 
         if program is None:
             program = self.context.get('program')
@@ -85,7 +103,7 @@ class BeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
             and BeneficiaryRecord.objects.filter(
                 program=program,
                 farmer=farmer,
-            ).exists()
+            ).exclude(pk=getattr(self.instance, 'pk', None)).exists()
         ):
             raise serializers.ValidationError(
                 'This farmer has already received assistance under this program. '
@@ -101,6 +119,8 @@ class FisherfolkBeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
         source='fisherfolk.lgu_registration_number', read_only=True,
     )
     fisherfolk_barangay = serializers.CharField(source='fisherfolk.barangay', read_only=True)
+    fisherfolk_type = serializers.CharField(source='fisherfolk.fisherfolk_type', read_only=True)
+    recorded_by_name = serializers.SerializerMethodField()
 
     class Meta:
         model = FisherfolkBeneficiaryRecord
@@ -111,27 +131,45 @@ class FisherfolkBeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
             'fisherfolk_full_name',
             'fisherfolk_lgu_registration_number',
             'fisherfolk_barangay',
+            'fisherfolk_type',
             'quantity_given',
             'unit',
             'date_given',
             'remarks',
             'recorded_by',
+            'recorded_by_name',
+            # Ad-hoc-only fields (Batch 6) — blank on program-based records.
+            'assistance_type',
+            'source_agency',
+            'quantity',
+            'description',
+            'season',
+            'year',
         ]
         read_only_fields = [
             'id',
             'fisherfolk_full_name',
             'fisherfolk_lgu_registration_number',
             'fisherfolk_barangay',
+            'fisherfolk_type',
             'recorded_by',
+            'recorded_by_name',
         ]
         extra_kwargs = {
             'program': {'required': False},
         }
         validators = []
 
+    def get_recorded_by_name(self, obj):
+        return obj.recorded_by.full_name if obj.recorded_by else None
+
+    def validate_date_given(self, value):
+        validate_not_future_date(value, 'Date received')
+        return value
+
     def validate(self, attrs):
         program = attrs.get('program')
-        fisherfolk = attrs.get('fisherfolk')
+        fisherfolk = attrs.get('fisherfolk') or getattr(self.instance, 'fisherfolk', None)
 
         if program is None:
             program = self.context.get('program')
@@ -142,7 +180,7 @@ class FisherfolkBeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
             and FisherfolkBeneficiaryRecord.objects.filter(
                 program=program,
                 fisherfolk=fisherfolk,
-            ).exists()
+            ).exclude(pk=getattr(self.instance, 'pk', None)).exists()
         ):
             raise serializers.ValidationError(
                 'This fisherfolk has already received assistance under this program. '

@@ -879,50 +879,7 @@ class DisasterResponseRule(models.Model):
         return f'{self.disaster_type} / {crop}: {self.title}'
 
 
-# ─── Crop Assistance (Batch 5) ─────────────────────────────────────────────
-# Mirrors fisheries.models.FisheriesAssistanceRecord field-for-field. Its
-# assistance_type turned out to be a constrained choice list, not free text
-# as first assumed — matched here on MECHANISM (a curated choice list, not
-# free CharField), but with crop-appropriate values (fisheries' own list is
-# boat/gear-specific and doesn't apply here), aligned with the crop-domain
-# values already established by InterventionProgram.ProgramType.
-# season/year follow this app's own convention (Season TextChoices +
-# PositiveIntegerField, as used by PlantingRecord/HarvestRecord/
-# DamageReport) rather than fisheries' plain blank CharField.
-
-class CropAssistanceRecord(models.Model):
-    class Season(models.TextChoices):
-        DRY = 'Dry', 'Dry'
-        WET = 'Wet', 'Wet'
-
-    ASSISTANCE_TYPE_CHOICES = [
-        ('Fertilizer', 'Fertilizer'),
-        ('Seeds', 'Seeds'),
-        ('Equipment', 'Equipment'),
-        ('Cash Assistance', 'Cash Assistance'),
-        ('Training', 'Training'),
-        ('Other', 'Other'),
-    ]
-
-    farmer = models.ForeignKey(
-        Farmer,
-        on_delete=models.CASCADE,
-        related_name='assistance_records',
-    )
-    assistance_type = models.CharField(max_length=30, choices=ASSISTANCE_TYPE_CHOICES)
-    description = models.TextField(blank=True)
-    quantity = models.CharField(max_length=100, blank=True)
-    date_received = models.DateField()
-    source_agency = models.CharField(max_length=150)
-    season = models.CharField(max_length=10, choices=Season.choices, blank=True)
-    year = models.PositiveIntegerField()
-    logged_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True, blank=True,
-        related_name='logged_crop_assistance',
-    )
-    date_created = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f'{self.assistance_type} — {self.farmer} ({self.date_received})'
+# CropAssistanceRecord (Batch 5) retired in Batch 6 — its data was migrated
+# into interventions.BeneficiaryRecord (program=null) and the model dropped.
+# See interventions/migrations/0006_migrate_assistance_records.py and
+# 0007_retire_source_assistance_tables.py.

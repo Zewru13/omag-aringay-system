@@ -13,7 +13,8 @@ import RowActions from '../../components/UI/RowActions.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 
-// Must match production.models.CropAssistanceRecord.ASSISTANCE_TYPE_CHOICES exactly.
+// Must match interventions.models.BeneficiaryRecord.AssistanceType exactly
+// (Batch 6: absorbed from production.models.CropAssistanceRecord).
 const ASSISTANCE_TYPE_OPTIONS = ['Fertilizer', 'Seeds', 'Equipment', 'Cash Assistance', 'Training', 'Other']
 const SEASON_OPTIONS = ['Dry', 'Wet']
 const CURRENT_YEAR = new Date().getFullYear()
@@ -21,12 +22,12 @@ const YEARS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - i)
 
 const COLUMNS = [
   { key: 'date_received_fmt', label: 'Date Received' },
-  { key: 'farmer_name',       label: 'Farmer' },
+  { key: 'farmer_full_name',  label: 'Farmer' },
   { key: 'assistance_type',   label: 'Assistance Type' },
   { key: 'source_agency',     label: 'Source Agency' },
   { key: 'quantity',          label: 'Quantity' },
   { key: 'season_year_cell',  label: 'Season / Year' },
-  { key: 'logged_by_name',    label: 'Logged By' },
+  { key: 'recorded_by_name',  label: 'Logged By' },
   { key: 'actions_cell',      label: 'Actions' },
 ]
 
@@ -154,7 +155,10 @@ function AddAssistanceModal({ onClose, onSuccess }) {
     }
     setError(''); setIsSubmitting(true)
     try {
-      await api.post('/production/crop-assistance/', { ...form, farmer: farmer.id })
+      const { description, date_received, ...rest } = form
+      await api.post('/interventions/beneficiaries/adhoc/', {
+        ...rest, remarks: description, date_given: date_received, farmer: farmer.id,
+      })
       showToast('Crop assistance record added.', 'success')
       onSuccess(); onClose()
     } catch (err) {
@@ -228,9 +232,9 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
   const { showToast } = useToast()
   const originalData = {
     assistance_type: record.assistance_type || '',
-    description: record.description || '',
+    description: record.remarks || '',
     quantity: record.quantity || '',
-    date_received: record.date_received || '',
+    date_received: record.date_given || '',
     source_agency: record.source_agency || '',
     season: record.season || '',
     year: record.year,
@@ -248,7 +252,10 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
     e.preventDefault()
     setError(''); setIsSubmitting(true)
     try {
-      await api.patch(`/production/crop-assistance/${record.id}/`, form)
+      const { description, date_received, ...rest } = form
+      await api.patch(`/interventions/beneficiaries/adhoc/${record.id}/`, {
+        ...rest, remarks: description, date_given: date_received,
+      })
       showToast('Assistance record updated.', 'success')
       onSaved()
     } catch (err) {
@@ -261,7 +268,7 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
   const handleDeleteConfirmed = async () => {
     setIsDeleting(true)
     try {
-      await api.delete(`/production/crop-assistance/${record.id}/`)
+      await api.delete(`/interventions/beneficiaries/adhoc/${record.id}/`)
       showToast('Assistance record deleted.', 'success')
       onSaved(); onClose()
     } catch (err) {
@@ -274,7 +281,7 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
 
   return (
     <>
-      <ModalShell title="Edit Assistance Record" subtitle={record.farmer_name} icon={Pencil} onClose={onClose} maxWidth="max-w-xl">
+      <ModalShell title="Edit Assistance Record" subtitle={record.farmer_full_name} icon={Pencil} onClose={onClose} maxWidth="max-w-xl">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <FormField label="Assistance Type" required>
@@ -369,7 +376,7 @@ export default function CropAssistancePage({ asTab = false }) {
       const params = new URLSearchParams()
       if (barangay) params.set('barangay', barangay)
       if (year) params.set('year', year)
-      const r = await api.get(`/production/crop-assistance/?${params}`)
+      const r = await api.get(`/interventions/beneficiaries/adhoc/?${params}`)
       setRecords(Array.isArray(r.data) ? r.data : (r.data.results || []))
     } catch {
       setError('Failed to load crop assistance records.')
@@ -382,7 +389,7 @@ export default function CropAssistancePage({ asTab = false }) {
 
   const rows = useMemo(() => records.map((r) => ({
     ...r,
-    date_received_fmt: formatDate(r.date_received),
+    date_received_fmt: formatDate(r.date_given),
     season_year_cell: [r.season, r.year].filter(Boolean).join(' '),
     actions_cell: (
       <RowActions actions={[

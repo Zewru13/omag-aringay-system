@@ -51,19 +51,48 @@ class InterventionProgram(models.Model):
         return f'{self.program_name} - {self.season} {self.year}'
 
 
+# Batch 6: BeneficiaryRecord now serves two modes:
+#   - Program-based (original): program set, quantity_given/unit set, the six
+#     ad-hoc-only fields below left blank. Created via
+#     /interventions/programs/<id>/beneficiaries/ (AddBeneficiaryModal), tied
+#     to a formal InterventionProgram campaign.
+#   - Ad-hoc (absorbed from production.CropAssistanceRecord): program=null,
+#     assistance_type/source_agency/quantity/season/year set, quantity_given/
+#     unit left blank. This is a standalone assistance log entry with no
+#     campaign — what CropAssistancePage.jsx represents.
+# unique_together=[['program','farmer']] still holds: SQL/MySQL treats every
+# NULL as distinct for uniqueness purposes, so multiple program=null rows for
+# the same farmer are correctly allowed (ad-hoc assistance isn't one-time-
+# ever), while duplicate (program, farmer) pairs for a real program still
+# correctly reject.
 class BeneficiaryRecord(models.Model):
+    class AssistanceType(models.TextChoices):
+        # Mirrors production.models.CropAssistanceRecord.ASSISTANCE_TYPE_CHOICES exactly.
+        FERTILIZER = 'Fertilizer', 'Fertilizer'
+        SEEDS = 'Seeds', 'Seeds'
+        EQUIPMENT = 'Equipment', 'Equipment'
+        CASH_ASSISTANCE = 'Cash Assistance', 'Cash Assistance'
+        TRAINING = 'Training', 'Training'
+        OTHER = 'Other', 'Other'
+
+    class Season(models.TextChoices):
+        DRY = 'Dry', 'Dry'
+        WET = 'Wet', 'Wet'
+
     program = models.ForeignKey(
         InterventionProgram,
         on_delete=models.CASCADE,
         related_name='beneficiary_records',
+        null=True,
+        blank=True,
     )
     farmer = models.ForeignKey(
         Farmer,
         on_delete=models.CASCADE,
         related_name='beneficiary_records',
     )
-    quantity_given = models.DecimalField(max_digits=12, decimal_places=2)
-    unit = models.CharField(max_length=50)
+    quantity_given = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    unit = models.CharField(max_length=50, blank=True)
     date_given = models.DateField()
     remarks = models.TextField(blank=True)
     recorded_by = models.ForeignKey(
@@ -74,26 +103,54 @@ class BeneficiaryRecord(models.Model):
         related_name='recorded_beneficiary_records',
     )
 
+    # Ad-hoc-only fields (blank when program is set) — absorbed from
+    # production.models.CropAssistanceRecord (Batch 6).
+    assistance_type = models.CharField(max_length=30, choices=AssistanceType.choices, blank=True)
+    source_agency = models.CharField(max_length=150, blank=True)
+    quantity = models.CharField(max_length=100, blank=True)
+    season = models.CharField(max_length=10, choices=Season.choices, blank=True)
+    year = models.PositiveIntegerField(null=True, blank=True)
+
     class Meta:
         unique_together = [['program', 'farmer']]
 
     def __str__(self):
-        return f'{self.program.program_name} - {self.farmer.full_name}'
+        label = self.program.program_name if self.program else (self.assistance_type or 'Ad-hoc')
+        return f'{label} - {self.farmer.full_name}'
 
 
+# Batch 6: same program-based / ad-hoc duality as BeneficiaryRecord above.
+# Ad-hoc rows (program=null) absorb fisheries.models.FisheriesAssistanceRecord
+# — which is why this model additionally carries `description` as a field
+# distinct from `remarks` (the retiring model had both, holding genuinely
+# different data — description was a required summary, remarks was a free
+# optional note — so both are preserved rather than collapsed into one).
 class FisherfolkBeneficiaryRecord(models.Model):
+    class AssistanceType(models.TextChoices):
+        # Mirrors fisheries.models.FisheriesAssistanceRecord.ASSISTANCE_TYPE_CHOICES exactly.
+        FISHING_GEAR = 'Fishing Gear', 'Fishing Gear'
+        BOAT_VESSEL = 'Boat/Vessel', 'Boat/Vessel'
+        FINGERLINGS_SEEDS = 'Fingerlings/Seeds', 'Fingerlings/Seeds'
+        FEED = 'Feed', 'Feed'
+        EQUIPMENT = 'Equipment', 'Equipment'
+        CASH_ASSISTANCE = 'Cash Assistance', 'Cash Assistance'
+        TRAINING = 'Training', 'Training'
+        OTHER = 'Other', 'Other'
+
     program = models.ForeignKey(
         InterventionProgram,
         on_delete=models.CASCADE,
         related_name='fisherfolk_beneficiary_records',
+        null=True,
+        blank=True,
     )
     fisherfolk = models.ForeignKey(
         Fisherfolk,
         on_delete=models.CASCADE,
         related_name='beneficiary_records',
     )
-    quantity_given = models.DecimalField(max_digits=12, decimal_places=2)
-    unit = models.CharField(max_length=50)
+    quantity_given = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    unit = models.CharField(max_length=50, blank=True)
     date_given = models.DateField()
     remarks = models.TextField(blank=True)
     recorded_by = models.ForeignKey(
@@ -104,8 +161,18 @@ class FisherfolkBeneficiaryRecord(models.Model):
         related_name='recorded_fisherfolk_beneficiary_records',
     )
 
+    # Ad-hoc-only fields (blank when program is set) — absorbed from
+    # fisheries.models.FisheriesAssistanceRecord (Batch 6).
+    assistance_type = models.CharField(max_length=30, choices=AssistanceType.choices, blank=True)
+    source_agency = models.CharField(max_length=150, blank=True)
+    quantity = models.CharField(max_length=100, blank=True)
+    description = models.CharField(max_length=300, blank=True)
+    season = models.CharField(max_length=20, blank=True)
+    year = models.PositiveIntegerField(null=True, blank=True)
+
     class Meta:
         unique_together = [['program', 'fisherfolk']]
 
     def __str__(self):
-        return f'{self.program.program_name} - {self.fisherfolk.full_name}'
+        label = self.program.program_name if self.program else (self.assistance_type or 'Ad-hoc')
+        return f'{label} - {self.fisherfolk.full_name}'

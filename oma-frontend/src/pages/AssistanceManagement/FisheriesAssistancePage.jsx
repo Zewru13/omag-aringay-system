@@ -14,7 +14,8 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import LogGovernmentAssistanceModal from './LogGovernmentAssistanceModal.jsx'
 
-// Must match fisheries.models.FisheriesAssistanceRecord.ASSISTANCE_TYPE_CHOICES exactly.
+// Must match interventions.models.FisherfolkBeneficiaryRecord.AssistanceType exactly
+// (Batch 6: absorbed from fisheries.models.FisheriesAssistanceRecord).
 const ASSISTANCE_TYPE_OPTIONS = ['Fishing Gear', 'Boat/Vessel', 'Fingerlings/Seeds', 'Feed', 'Cash Assistance', 'Equipment', 'Training', 'Other']
 const SOURCE_OPTIONS = ['LGU', 'MAO', 'BFAR', 'DA', 'NGO', 'Private Donor', 'Others']
 const CURRENT_YEAR = new Date().getFullYear()
@@ -22,7 +23,7 @@ const YEARS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - i)
 
 const COLUMNS = [
   { key: 'date_received_fmt',                 label: 'Date Received' },
-  { key: 'fisherfolk_name',                   label: 'Fisherfolk Name' },
+  { key: 'fisherfolk_full_name',               label: 'Fisherfolk Name' },
   { key: 'fisherfolk_type',                   label: 'Type' },
   { key: 'assistance_type',                   label: 'Assistance Type' },
   { key: 'source_agency',                     label: 'Source of Assistance' },
@@ -59,7 +60,7 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
   const originalData = {
     assistance_type: record.assistance_type || '',
     source_agency: record.source_agency || '',
-    date_received: record.date_received || '',
+    date_received: record.date_given || '',
     quantity: record.quantity != null ? String(record.quantity) : '',
     description: record.description || '',
     remarks: record.remarks || '',
@@ -77,8 +78,10 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
     e.preventDefault()
     setError(''); setIsSubmitting(true)
     try {
-      await api.patch(`/fisheries/fisheries-assistance/${record.id}/`, {
-        ...form,
+      const { date_received, ...rest } = form
+      await api.patch(`/interventions/fisherfolk-beneficiaries/adhoc/${record.id}/`, {
+        ...rest,
+        date_given: date_received,
         quantity: form.quantity !== '' ? parseFloat(form.quantity) : null,
       })
       showToast('Assistance record updated.', 'success')
@@ -93,7 +96,7 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
   const handleDeleteConfirmed = async () => {
     setIsDeleting(true)
     try {
-      await api.delete(`/fisheries/fisheries-assistance/${record.id}/`)
+      await api.delete(`/interventions/fisherfolk-beneficiaries/adhoc/${record.id}/`)
       showToast('Assistance record deleted.', 'success')
       onSaved(); onClose()
     } catch (err) {
@@ -106,7 +109,7 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
 
   return (
     <>
-      <ModalShell title="Edit Assistance Record" subtitle={record.fisherfolk_name} icon={Pencil} onClose={onClose} maxWidth="max-w-xl">
+      <ModalShell title="Edit Assistance Record" subtitle={record.fisherfolk_full_name} icon={Pencil} onClose={onClose} maxWidth="max-w-xl">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <FormField label="Date Received" required>
@@ -183,8 +186,9 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
 
 // ── Main Page ────────────────────────────────────────────────────────────────
 // Relocated from FisheriesMonitoringPage.jsx's "Assistance" tab (Batch 5).
-// Same endpoint (/fisheries/fisheries-assistance/), same data — only the UI
-// location changed.
+// Batch 6: repointed to interventions.FisherfolkBeneficiaryRecord (program=null)
+// at /interventions/fisherfolk-beneficiaries/adhoc/ — fisheries.FisheriesAssistanceRecord
+// and its endpoint were retired; this page's data was migrated, not lost.
 
 export default function FisheriesAssistancePage({ asTab = false }) {
   const [assistance, setAssistance] = useState([])
@@ -207,7 +211,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
       if (search) params.set('search', search)
       if (source) params.set('source_of_assistance', source)
       if (type) params.set('assistance_type', type)
-      const r = await api.get(`/fisheries/fisheries-assistance/?${params}`)
+      const r = await api.get(`/interventions/fisherfolk-beneficiaries/adhoc/?${params}`)
       setAssistance(Array.isArray(r.data) ? r.data : (r.data.results || []))
     } catch { setError('Failed to load assistance records.') }
     finally { setIsLoading(false) }
@@ -218,7 +222,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
   const rows = useMemo(() => assistance.map((a) => ({
     ...a,
     quantity: a.quantity || '—',
-    date_received_fmt: formatDate(a.date_received),
+    date_received_fmt: formatDate(a.date_given),
     actions_cell: (
       <RowActions actions={[
         { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditing(a) },

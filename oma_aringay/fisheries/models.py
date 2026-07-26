@@ -882,38 +882,7 @@ class TripSpeciesEntry(models.Model):
         return f'{self.species_name} — {self.volume_kg} kg (Trip {self.fishing_trip_id})'
 
 
-class FisheriesAssistanceRecord(models.Model):
-    ASSISTANCE_TYPE_CHOICES = [
-        ('Fishing Gear', 'Fishing Gear'),
-        ('Boat/Vessel', 'Boat/Vessel'),
-        ('Fingerlings/Seeds', 'Fingerlings/Seeds'),
-        ('Feed', 'Feed'),
-        ('Equipment', 'Equipment'),
-        ('Cash Assistance', 'Cash Assistance'),
-        ('Training', 'Training'),
-        ('Other', 'Other'),
-    ]
-
-    fisherfolk = models.ForeignKey(
-        Fisherfolk,
-        on_delete=models.CASCADE,
-        related_name='assistance_records',
-    )
-    assistance_type = models.CharField(max_length=30, choices=ASSISTANCE_TYPE_CHOICES)
-    description = models.CharField(max_length=300)
-    quantity = models.CharField(max_length=100, blank=True)
-    date_received = models.DateField()
-    source_agency = models.CharField(max_length=150)
-    season = models.CharField(max_length=20, blank=True)
-    year = models.PositiveIntegerField()
-    remarks = models.TextField(blank=True)
-    recorded_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True, blank=True,
-        related_name='recorded_fisheries_assistance',
-    )
-    date_recorded = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f'{self.assistance_type} — {self.fisherfolk} ({self.date_received})'
+# FisheriesAssistanceRecord retired in Batch 6 — its data was migrated into
+# interventions.FisherfolkBeneficiaryRecord (program=null) and the model
+# dropped. See interventions/migrations/0006_migrate_assistance_records.py
+# and 0007_retire_source_assistance_tables.py.

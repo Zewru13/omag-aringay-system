@@ -32,8 +32,6 @@ from .views import (
     CropHistoricalTimelineView,
     CropMonitoringDetailView,
     CropMonitoringListCreateView,
-    CropAssistanceDetailView,
-    CropAssistanceListCreateView,
     CropSubcategoryDetailView,
     CropSubcategoryListCreateView,
     CropTypeListView,
@@ -68,8 +66,8 @@ urlpatterns = [
     path('planting/<int:pk>/', PlantingRecordDetailView.as_view(), name='planting-records-detail'),
     path('damage-reports/', DamageReportListCreateView.as_view(), name='damage-reports'),
     path('damage-reports/<int:pk>/', DamageReportDetailView.as_view(), name='damage-reports-detail'),
-    path('crop-assistance/', CropAssistanceListCreateView.as_view(), name='crop-assistance-list'),
-    path('crop-assistance/<int:pk>/', CropAssistanceDetailView.as_view(), name='crop-assistance-detail'),
+    # crop-assistance/ retired (Batch 6) — absorbed into
+    # /interventions/beneficiaries/adhoc/ (CropAssistanceRecord -> BeneficiaryRecord).
     path('crop-types/', CropTypeListView.as_view(), name='crop-types'),
     path('crop-types/<int:pk>/', CropTypeDetailView.as_view(), name='crop-type-detail'),
     path('crop-types/<int:crop_type_id>/stages/', CropActivityStageListCreateView.as_view(), name='crop-type-stages'),

@@ -1,11 +1,15 @@
 from django.urls import path
 
 from .views import (
+    BeneficiaryAdHocDetailView,
+    BeneficiaryAdHocListCreateView,
     BeneficiaryExportView,
     BeneficiaryCreateView,
     BeneficiaryDeleteView,
     BeneficiaryListView,
     FarmerInterventionHistoryView,
+    FisherfolkBeneficiaryAdHocDetailView,
+    FisherfolkBeneficiaryAdHocListCreateView,
     FisherfolkBeneficiaryDeleteView,
     FisherfolkBeneficiaryListCreateView,
     FisherfolkInterventionHistoryView,
@@ -69,5 +73,28 @@ urlpatterns = [
         'fisherfolk-beneficiaries/<int:id>/',
         FisherfolkBeneficiaryDeleteView.as_view(),
         name='fisherfolk-beneficiaries-delete',
+    ),
+    # ─── Ad-hoc (program=null) beneficiary records (Batch 6) ────────────────
+    # Absorbs production.CropAssistanceRecord / fisheries.FisheriesAssistanceRecord.
+    # "adhoc" segment keeps these collision-free from the bare int-id routes above.
+    path(
+        'beneficiaries/adhoc/',
+        BeneficiaryAdHocListCreateView.as_view(),
+        name='beneficiaries-adhoc-list-create',
+    ),
+    path(
+        'beneficiaries/adhoc/<int:id>/',
+        BeneficiaryAdHocDetailView.as_view(),
+        name='beneficiaries-adhoc-detail',
+    ),
+    path(
+        'fisherfolk-beneficiaries/adhoc/',
+        FisherfolkBeneficiaryAdHocListCreateView.as_view(),
+        name='fisherfolk-beneficiaries-adhoc-list-create',
+    ),
+    path(
+        'fisherfolk-beneficiaries/adhoc/<int:id>/',
+        FisherfolkBeneficiaryAdHocDetailView.as_view(),
+        name='fisherfolk-beneficiaries-adhoc-detail',
     ),
 ]
