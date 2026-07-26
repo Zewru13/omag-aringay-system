@@ -22,15 +22,16 @@ const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - i)
 
 const COLUMNS = [
-  { key: 'date_received_fmt',                 label: 'Date Received' },
-  { key: 'fisherfolk_full_name',               label: 'Fisherfolk Name' },
-  { key: 'fisherfolk_type',                   label: 'Type' },
-  { key: 'assistance_type',                   label: 'Assistance Type' },
-  { key: 'source_agency',                     label: 'Source of Assistance' },
-  { key: 'quantity',                          label: 'Quantity / Amount' },
-  { key: 'remarks',                           label: 'Remarks' },
-  { key: 'recorded_by_name',                  label: 'Recorded By' },
-  { key: 'actions_cell',                      label: 'Actions' },
+  { key: 'date_received_fmt',                          label: 'Date Received' },
+  { key: 'fisherfolk_full_name',                       label: 'Fisherfolk Name' },
+  { key: 'fisherfolk_type',                            label: 'Type' },
+  { key: 'attributed_fisherfolk_organization_name',    label: 'Organization' },
+  { key: 'assistance_type',                            label: 'Assistance Type' },
+  { key: 'source_agency',                              label: 'Source of Assistance' },
+  { key: 'quantity',                                   label: 'Quantity / Amount' },
+  { key: 'remarks',                                    label: 'Remarks' },
+  { key: 'recorded_by_name',                           label: 'Recorded By' },
+  { key: 'actions_cell',                               label: 'Actions' },
 ]
 
 function formatDate(v) {

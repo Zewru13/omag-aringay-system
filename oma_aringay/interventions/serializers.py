@@ -47,6 +47,8 @@ class BeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
     farmer_rsbsa_number = serializers.CharField(source='farmer.rsbsa_number', read_only=True)
     farmer_barangay = serializers.CharField(source='farmer.barangay', read_only=True)
     recorded_by_name = serializers.SerializerMethodField()
+    # Batch 7: computed by BeneficiaryRecord.save() — read-only, never accepted on write.
+    attributed_organization_name = serializers.CharField(source='attributed_organization.name', read_only=True, default=None)
 
     class Meta:
         model = BeneficiaryRecord
@@ -69,6 +71,7 @@ class BeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
             'quantity',
             'season',
             'year',
+            'attributed_organization_name',
         ]
         read_only_fields = [
             'id',
@@ -77,6 +80,7 @@ class BeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
             'farmer_barangay',
             'recorded_by',
             'recorded_by_name',
+            'attributed_organization_name',
         ]
         extra_kwargs = {
             'program': {'required': False},
@@ -121,6 +125,10 @@ class FisherfolkBeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
     fisherfolk_barangay = serializers.CharField(source='fisherfolk.barangay', read_only=True)
     fisherfolk_type = serializers.CharField(source='fisherfolk.fisherfolk_type', read_only=True)
     recorded_by_name = serializers.SerializerMethodField()
+    # Batch 7: computed by FisherfolkBeneficiaryRecord.save() — read-only, never accepted on write.
+    attributed_fisherfolk_organization_name = serializers.CharField(
+        source='attributed_fisherfolk_organization.name', read_only=True, default=None,
+    )
 
     class Meta:
         model = FisherfolkBeneficiaryRecord
@@ -145,6 +153,7 @@ class FisherfolkBeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
             'description',
             'season',
             'year',
+            'attributed_fisherfolk_organization_name',
         ]
         read_only_fields = [
             'id',
@@ -154,6 +163,7 @@ class FisherfolkBeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
             'fisherfolk_type',
             'recorded_by',
             'recorded_by_name',
+            'attributed_fisherfolk_organization_name',
         ]
         extra_kwargs = {
             'program': {'required': False},

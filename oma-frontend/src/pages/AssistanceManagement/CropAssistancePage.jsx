@@ -21,14 +21,15 @@ const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - i)
 
 const COLUMNS = [
-  { key: 'date_received_fmt', label: 'Date Received' },
-  { key: 'farmer_full_name',  label: 'Farmer' },
-  { key: 'assistance_type',   label: 'Assistance Type' },
-  { key: 'source_agency',     label: 'Source Agency' },
-  { key: 'quantity',          label: 'Quantity' },
-  { key: 'season_year_cell',  label: 'Season / Year' },
-  { key: 'recorded_by_name',  label: 'Logged By' },
-  { key: 'actions_cell',      label: 'Actions' },
+  { key: 'date_received_fmt',             label: 'Date Received' },
+  { key: 'farmer_full_name',              label: 'Farmer' },
+  { key: 'attributed_organization_name',  label: 'Organization' },
+  { key: 'assistance_type',               label: 'Assistance Type' },
+  { key: 'source_agency',                 label: 'Source Agency' },
+  { key: 'quantity',                      label: 'Quantity' },
+  { key: 'season_year_cell',              label: 'Season / Year' },
+  { key: 'recorded_by_name',              label: 'Logged By' },
+  { key: 'actions_cell',                  label: 'Actions' },
 ]
 
 function formatDate(v) {

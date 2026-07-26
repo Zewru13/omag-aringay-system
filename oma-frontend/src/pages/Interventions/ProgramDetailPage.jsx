@@ -12,12 +12,13 @@ import AddBeneficiaryModal from "./AddBeneficiaryModal.jsx"
 import EditProgramModal from "./EditProgramModal.jsx"
 
 const columns = [
-  { key: "number",              label: "No." },
-  { key: "farmer_full_name",    label: "Full Name" },
-  { key: "farmer_rsbsa_number", label: "RSBSA" },
-  { key: "farmer_barangay",     label: "Barangay" },
-  { key: "quantity_unit",       label: "Quantity Given" },
-  { key: "date_given_display",  label: "Date Given" },
+  { key: "number",                          label: "No." },
+  { key: "farmer_full_name",                label: "Full Name" },
+  { key: "farmer_rsbsa_number",             label: "RSBSA" },
+  { key: "farmer_barangay",                 label: "Barangay" },
+  { key: "attributed_organization_name",    label: "Organization" },
+  { key: "quantity_unit",                   label: "Quantity Given" },
+  { key: "date_given_display",              label: "Date Given" },
 ]
 
 function ProgramDetailPage() {
@@ -46,7 +47,8 @@ function ProgramDetailPage() {
       const params = new URLSearchParams()
       if (searchQuery) params.append("search", searchQuery)
       const res = await api.get(`/interventions/programs/${id}/beneficiaries/?${params.toString()}`)
-      setBeneficiaries(res.data?.results ?? [])
+      // BeneficiaryListView has pagination_class = None -> plain array, not {results: [...]}.
+      setBeneficiaries(Array.isArray(res.data) ? res.data : (res.data?.results ?? []))
     } catch (err) {
       console.error("Error fetching beneficiaries:", err)
     } finally {
