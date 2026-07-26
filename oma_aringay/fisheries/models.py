@@ -40,7 +40,7 @@ class Fisherfolk(models.Model):
         ATTY = 'Atty.', 'Atty.'
         HON  = 'Hon.',  'Hon.'
 
-    ASSOCIATION_POSITION_CHOICES = [
+    ORGANIZATION_POSITION_CHOICES = [
         ('President',        'President'),
         ('Chairperson',      'Chairperson'),
         ('Vice President',   'Vice President'),
@@ -96,16 +96,16 @@ class Fisherfolk(models.Model):
     is_fish_vendor     = models.BooleanField(default=False)
 
     date_registered    = models.DateTimeField(auto_now_add=True)
-    fisherfolk_association = models.ForeignKey(
-        'associations.FisherfolkAssociation',
+    fisherfolk_organization = models.ForeignKey(
+        'associations.FisherfolkOrganization',
         on_delete=models.SET_NULL,
         null=True, blank=True,
         related_name='direct_members',
-        help_text='Association this fisherfolk belongs to (optional)',
+        help_text='Organization this fisherfolk belongs to (optional)',
     )
-    association_position = models.CharField(
+    organization_position = models.CharField(
         max_length=20,
-        choices=ASSOCIATION_POSITION_CHOICES,
+        choices=ORGANIZATION_POSITION_CHOICES,
         blank=True, default='',
     )
     registered_by = models.ForeignKey(

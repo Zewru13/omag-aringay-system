@@ -66,7 +66,7 @@ const COLUMNS = [
   { key: 'date_stocked_fmt',    label: 'DATE STOCKED' },
   { key: 'expected_harvest_fmt',label: 'EXPECTED HARVEST' },
   { key: 'est_harvest_kg_fmt',  label: 'EST. HARVEST (KG)' },
-  { key: 'assoc_name',          label: 'ASSOCIATION' },
+  { key: 'assoc_name',          label: 'ORGANIZATION' },
   { key: 'pond_location',       label: 'POND LOCATION' },
   { key: 'status_cell',         label: 'STATUS' },
   { key: 'actions_cell',        label: 'ACTIONS' },
@@ -114,7 +114,7 @@ function FisherfolkSearchInput({ onSelect, selected }) {
       id:            folk.id,
       full_name:     folk.full_name,
       barangay:      folk.barangay || '',
-      assoc_name:    folk.association_name || '',
+      assoc_name:    folk.organization_name || '',
     })
     setQuery(folk.full_name)
     setShowDrop(false)
@@ -639,7 +639,7 @@ function AddStockingModal({ onClose, onSuccess }) {
                     <p className="text-xs font-medium text-[#1A2B1A]">{fisherfolkInfo.barangay || '—'}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-[#A8BCA8] mb-0.5">Association</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-[#A8BCA8] mb-0.5">Organization</p>
                     <p className="text-xs font-medium text-[#1A2B1A]">{fisherfolkInfo.assoc_name || 'Non-member'}</p>
                   </div>
                 </div>
@@ -1345,7 +1345,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
       : rec.estimated_harvest_kg
         ? Number(rec.estimated_harvest_kg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
         : '—',
-    assoc_name:   rec.association_name || '—',
+    assoc_name:   rec.organization_name || '—',
     pond_location: rec.pond_location_barangay || '—',
     status_cell: (
       <span className="flex items-center gap-1.5">

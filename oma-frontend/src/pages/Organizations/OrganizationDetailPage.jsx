@@ -82,7 +82,7 @@ const FISHERFOLK_EQUIPMENT = [
 
 const CONDITIONS = ["Good", "Needs Repair", "Not Operational"];
 
-// Matches AssociationOfficer.POSITION_CHOICES / FisherfolkAssociationOfficer.POSITION_CHOICES
+// Matches OrganizationOfficer.POSITION_CHOICES / FisherfolkOrganizationOfficer.POSITION_CHOICES
 // on the backend — narrower than the Member-position list above (no "Chairperson" /
 // "Vice Chairperson" / "Member").
 const OFFICER_POSITIONS = ["President", "Vice President", "Secretary", "Treasurer", "Auditor", "Board Member", "Manager"];
@@ -103,7 +103,7 @@ function conditionTone(cond) {
 
 // ─── Add Member Modal ─────────────────────────────────────────────────────────
 
-function AddMemberModal({ type, associationId, onClose, onSuccess }) {
+function AddMemberModal({ type, organizationId, onClose, onSuccess }) {
   const [search, setSearch] = useState("");
   const [results, setResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -149,7 +149,7 @@ function AddMemberModal({ type, associationId, onClose, onSuccess }) {
     setError("");
     setIsSubmitting(true);
     try {
-      await api.post(`/associations/${type}/${associationId}/members/`, {
+      await api.post(`/organizations/${type}/${organizationId}/members/`, {
         [memberKey]: selected.id,
         position,
         date_joined: dateJoined,
@@ -282,9 +282,9 @@ function AddMemberModal({ type, associationId, onClose, onSuccess }) {
   );
 }
 
-// ─── Member Search Input (officer assignment — this association's members only) ──
+// ─── Member Search Input (officer assignment — this organization's members only) ──
 
-function MemberSearchInput({ type, associationId, onSelect, selected }) {
+function MemberSearchInput({ type, organizationId, onSelect, selected }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -304,7 +304,7 @@ function MemberSearchInput({ type, associationId, onSelect, selected }) {
       }
       setSearching(true);
       try {
-        const r = await api.get(`/associations/${type}/${associationId}/members/`, {
+        const r = await api.get(`/organizations/${type}/${organizationId}/members/`, {
           params: { search: q },
         });
         const list = Array.isArray(r.data) ? r.data : r.data.results || [];
@@ -315,7 +315,7 @@ function MemberSearchInput({ type, associationId, onSelect, selected }) {
         setSearching(false);
       }
     },
-    [type, associationId],
+    [type, organizationId],
   );
 
   const handleChange = (e) => {
@@ -348,7 +348,7 @@ function MemberSearchInput({ type, associationId, onSelect, selected }) {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#A8BCA8] pointer-events-none" />
         <input
           className={`${baseInputClasses} pl-8`}
-          placeholder="Search this association's members…"
+          placeholder="Search this organization's members…"
           value={displayValue}
           onChange={handleChange}
           onFocus={() => {
@@ -362,7 +362,7 @@ function MemberSearchInput({ type, associationId, onSelect, selected }) {
             <p className="px-4 py-3 text-xs text-[#7A8E7A]">Searching…</p>
           ) : results.length === 0 ? (
             <p className="px-4 py-3 text-xs text-[#7A8E7A]">
-              {query.trim() ? "No matching members in this association." : "Type to search members."}
+              {query.trim() ? "No matching members in this organization." : "Type to search members."}
             </p>
           ) : (
             results.map((item) => (
@@ -385,7 +385,7 @@ function MemberSearchInput({ type, associationId, onSelect, selected }) {
 
 // ─── Assign Officer Modal ──────────────────────────────────────────────────────
 
-function AssignOfficerModal({ type, associationId, existingOfficers, onClose, onSuccess }) {
+function AssignOfficerModal({ type, organizationId, existingOfficers, onClose, onSuccess }) {
   const [position, setPosition] = useState(OFFICER_POSITIONS[0]);
   const [selected, setSelected] = useState(null);
   const [error, setError] = useState("");
@@ -404,9 +404,9 @@ function AssignOfficerModal({ type, associationId, existingOfficers, onClose, on
     try {
       const existing = existingOfficers.find((o) => o.position === position);
       if (existing) {
-        await api.delete(`/associations/${type}/officers/${existing.id}/`);
+        await api.delete(`/organizations/${type}/officers/${existing.id}/`);
       }
-      await api.post(`/associations/${type}/${associationId}/officers/`, {
+      await api.post(`/organizations/${type}/${organizationId}/officers/`, {
         position,
         [memberKey]: selected.id,
       });
@@ -448,13 +448,13 @@ function AssignOfficerModal({ type, associationId, existingOfficers, onClose, on
           <div className="mt-1">
             <MemberSearchInput
               type={type}
-              associationId={associationId}
+              organizationId={organizationId}
               onSelect={setSelected}
               selected={selected}
             />
           </div>
           <p className="mt-1 text-[11px] text-[#7A8E7A]">
-            Only people already a member of this association can be assigned as an officer.
+            Only people already a member of this organization can be assigned as an officer.
           </p>
         </div>
 
@@ -485,7 +485,7 @@ function AssignOfficerModal({ type, associationId, existingOfficers, onClose, on
 
 // ─── Add Equipment Modal ──────────────────────────────────────────────────────
 
-function AddEquipmentModal({ type, associationId, onClose, onSuccess }) {
+function AddEquipmentModal({ type, organizationId, onClose, onSuccess }) {
   const equipmentChoices =
     type === "farmers" ? FARMERS_EQUIPMENT : FISHERFOLK_EQUIPMENT;
 
@@ -513,7 +513,7 @@ function AddEquipmentModal({ type, associationId, onClose, onSuccess }) {
       if (payload.equipment_name !== "Other")
         delete payload.equipment_name_other;
       await api.post(
-        `/associations/${type}/${associationId}/equipment/`,
+        `/organizations/${type}/${organizationId}/equipment/`,
         payload,
       );
       onSuccess();
@@ -652,7 +652,7 @@ function Field({ label, value }) {
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-function AssociationDetailPage() {
+function OrganizationDetailPage() {
   const { type, id } = useParams();
   const { isAdmin, isEvaluator } = useAuth();
   const { showToast } = useToast();
@@ -661,7 +661,7 @@ function AssociationDetailPage() {
     ? [{ value: "members", label: "Members" }]
     : [{ value: "members", label: "Members" }, { value: "equipment", label: "Equipment Inventory" }];
 
-  const [association, setAssociation] = useState(null);
+  const [organization, setOrganization] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeSection, setActiveSection] = useState("members");
@@ -687,10 +687,10 @@ function AssociationDetailPage() {
       setIsLoading(true);
       setError("");
       try {
-        const response = await api.get(`/associations/${type}/${id}/`);
-        if (!cancelled) setAssociation(response.data);
+        const response = await api.get(`/organizations/${type}/${id}/`);
+        if (!cancelled) setOrganization(response.data);
       } catch {
-        if (!cancelled) setError("Unable to load association details.");
+        if (!cancelled) setError("Unable to load organization details.");
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -703,7 +703,7 @@ function AssociationDetailPage() {
 
   useEffect(() => {
     if (type !== "farmers") return;
-    api.get(`/farmers/?farmers_association=${id}`)
+    api.get(`/farmers/?farmers_organization=${id}`)
       .then(r => setMembers(r.data.results || r.data))
       .catch(console.error);
   }, [type, id, refreshKey]);
@@ -712,11 +712,11 @@ function AssociationDetailPage() {
     if (!confirmRemoveMember) return;
     try {
       if (type === "farmers") {
-        // Farmers Association membership is Farmer.farmers_association directly
+        // Farmers Organization membership is Farmer.farmers_organization directly
         // (no join row) — removal clears that field, it does not delete anything.
-        await api.delete(`/associations/farmers/${id}/members/${confirmRemoveMember.id}/`);
+        await api.delete(`/organizations/farmers/${id}/members/${confirmRemoveMember.id}/`);
       } else {
-        await api.delete(`/associations/${type}/members/${confirmRemoveMember.id}/`);
+        await api.delete(`/organizations/${type}/members/${confirmRemoveMember.id}/`);
       }
       showToast("Member removed.", "success");
       setRefreshKey((k) => k + 1);
@@ -729,7 +729,7 @@ function AssociationDetailPage() {
 
   const handleRemoveEquipment = async (equipId) => {
     try {
-      await api.delete(`/associations/${type}/equipment/${equipId}/`);
+      await api.delete(`/organizations/${type}/equipment/${equipId}/`);
       showToast("Equipment removed.", "success");
       setRefreshKey((k) => k + 1);
     } catch {
@@ -742,7 +742,7 @@ function AssociationDetailPage() {
   const handleRemoveOfficer = async () => {
     if (!confirmRemoveOfficer) return;
     try {
-      await api.delete(`/associations/${type}/officers/${confirmRemoveOfficer.id}/`);
+      await api.delete(`/organizations/${type}/officers/${confirmRemoveOfficer.id}/`);
       showToast("Officer removed.", "success");
       setRefreshKey((k) => k + 1);
     } catch {
@@ -758,16 +758,16 @@ function AssociationDetailPage() {
 
   return (
     <PageLayout
-      title={`${typeLabel} Association Details`}
-      subtitle="View members, equipment, and association information"
+      title={`${typeLabel} Organization Details`}
+      subtitle="View members, equipment, and organization information"
     >
       <div className="space-y-4">
         <Link
           className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#4A5E4A] hover:text-[#1A2B1A] transition-colors"
-          to="/associations"
+          to="/organizations"
         >
           <ArrowLeft size={15} />
-          Back to Associations
+          Back to Organizations
         </Link>
 
         {error && (
@@ -782,50 +782,50 @@ function AssociationDetailPage() {
           </div>
         )}
 
-        {!isLoading && association && (
+        {!isLoading && organization && (
           <>
-            {/* Association Info */}
+            {/* Organization Info */}
             <div className="bg-white border border-[#E2E8E2] rounded-xl p-6">
               <div className="mb-5 flex flex-wrap items-center gap-3 border-b border-[#F0F4F0] pb-4">
                 <h1 className="text-[18px] font-semibold text-[#1A2B1A]">
-                  {association.name}
+                  {organization.name}
                 </h1>
-                <StatusPill tone={association.is_active ? "green" : "slate"}>
-                  {association.is_active ? "Active" : "Inactive"}
+                <StatusPill tone={organization.is_active ? "green" : "slate"}>
+                  {organization.is_active ? "Active" : "Inactive"}
                 </StatusPill>
               </div>
               <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-                <Field label="Barangay" value={association.barangay} />
+                <Field label="Barangay" value={organization.barangay} />
                 <Field
                   label="Registration Number"
-                  value={association.registration_number}
+                  value={organization.registration_number}
                 />
                 <Field
                   label="Date Established"
-                  value={formatDate(association.date_established)}
+                  value={formatDate(organization.date_established)}
                 />
                 <Field
                   label="Contact Person"
-                  value={association.contact_person}
+                  value={organization.contact_person}
                 />
                 <Field
                   label="Contact Number"
-                  value={association.contact_number}
+                  value={organization.contact_number}
                 />
                 <Field
                   label="Date Created"
-                  value={formatDate(association.date_created)}
+                  value={formatDate(organization.date_created)}
                 />
-                {association.dole_registration_number != null && (
+                {organization.dole_registration_number != null && (
                   <Field
                     label="DOLE Registration No."
-                    value={association.dole_registration_number || "—"}
+                    value={organization.dole_registration_number || "—"}
                   />
                 )}
-                {association.bir_number != null && (
+                {organization.bir_number != null && (
                   <Field
                     label="BIR Number"
-                    value={association.bir_number || "—"}
+                    value={organization.bir_number || "—"}
                   />
                 )}
               </div>
@@ -864,8 +864,8 @@ function AssociationDetailPage() {
                 <div className="rounded-xl border border-[#E2E8E2] overflow-hidden">
                   <div className="flex items-center justify-between px-5 py-4 border-b border-[#F0F4F0]">
                     <div>
-                      <h3 className="text-[14px] font-semibold text-[#1A2B1A]">Association Members</h3>
-                      <p className="text-[12px] text-[#7A8E7A] mt-0.5">Farmers registered under this association</p>
+                      <h3 className="text-[14px] font-semibold text-[#1A2B1A]">Organization Members</h3>
+                      <p className="text-[12px] text-[#7A8E7A] mt-0.5">Farmers registered under this organization</p>
                     </div>
                     <span className="text-[12px] font-medium bg-[#EBF5EE] text-[#1B4D2E] px-2.5 py-1 rounded-full">
                       {members.length} members
@@ -876,7 +876,7 @@ function AssociationDetailPage() {
                       <Users className="w-10 h-10 text-[#C8D5C8] mx-auto mb-2" />
                       <p className="text-[13px] text-[#7A8E7A]">No members yet</p>
                       <p className="text-[12px] text-[#7A8E7A] mt-1">
-                        Farmers can be linked to this association through their profile registration or edit.
+                        Farmers can be linked to this organization through their profile registration or edit.
                       </p>
                     </div>
                   ) : (
@@ -923,7 +923,7 @@ function AssociationDetailPage() {
 
               {/* Members tab — fisherfolk (manual add/remove) */}
               {activeSection === "members" && type !== "farmers" &&
-                (association.members.length === 0 ? (
+                (organization.members.length === 0 ? (
                   <p className="rounded-lg bg-[#F5F7F5] px-4 py-3 text-[13px] text-[#7A8E7A]">
                     No members recorded.
                   </p>
@@ -943,7 +943,7 @@ function AssociationDetailPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {association.members.map((m) => (
+                          {organization.members.map((m) => (
                             <tr key={m.id} className="border-b border-[#F0F4F0] hover:bg-[#F9FAF9] transition-colors">
                               <td className="px-4 py-[13px] text-[13px] font-medium text-[#1A2B1A]">
                                 {m[memberNameField]}
@@ -983,7 +983,7 @@ function AssociationDetailPage() {
 
               {/* Equipment tab */}
               {activeSection === "equipment" &&
-                (association.equipment.length === 0 ? (
+                (organization.equipment.length === 0 ? (
                   <p className="rounded-lg bg-[#F5F7F5] px-4 py-3 text-[13px] text-[#7A8E7A]">
                     No equipment recorded.
                   </p>
@@ -1004,7 +1004,7 @@ function AssociationDetailPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {association.equipment.map((eq) => (
+                          {organization.equipment.map((eq) => (
                             <tr key={eq.id} className="border-b border-[#F0F4F0] hover:bg-[#F9FAF9] transition-colors">
                               <td className="px-4 py-[13px] text-[13px] font-medium text-[#1A2B1A]">
                                 {eq.equipment_name === "Other" &&
@@ -1051,11 +1051,11 @@ function AssociationDetailPage() {
                 ))}
             </div>
 
-            {/* Officers Table (both association types) */}
-            {association.officers && (
+            {/* Officers Table (both organization types) */}
+            {organization.officers && (
               <div className="mt-6 bg-white border border-[#E2E8E2] rounded-xl p-6">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                  <h3 className="text-[14px] font-semibold text-[#1A2B1A]">Association Officers</h3>
+                  <h3 className="text-[14px] font-semibold text-[#1A2B1A]">Organization Officers</h3>
                   {(isAdmin || isEvaluator) && (
                     <button
                       className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
@@ -1066,7 +1066,7 @@ function AssociationDetailPage() {
                     </button>
                   )}
                 </div>
-                {association.officers.length === 0 ? (
+                {organization.officers.length === 0 ? (
                   <p className="rounded-lg bg-[#F5F7F5] px-4 py-3 text-[13px] text-[#7A8E7A]">
                     No officers assigned yet.
                   </p>
@@ -1083,7 +1083,7 @@ function AssociationDetailPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {association.officers.map((officer) => (
+                        {organization.officers.map((officer) => (
                           <tr key={officer.id} className="border-t border-[#F0F4F0] hover:bg-[#F5F7F5]">
                             <td className="px-4 py-3 text-[12px] font-semibold text-[#4A5E4A]">{officer.position}</td>
                             <td className="px-4 py-3 text-[13px] text-[#1A2B1A]">{officer.full_name}</td>
@@ -1116,7 +1116,7 @@ function AssociationDetailPage() {
       {showAddMember && type !== "farmers" && (
         <AddMemberModal
           type={type}
-          associationId={id}
+          organizationId={id}
           onClose={() => setShowAddMember(false)}
           onSuccess={handleMemberAdded}
         />
@@ -1125,26 +1125,26 @@ function AssociationDetailPage() {
       {showAddEquipment && (
         <AddEquipmentModal
           type={type}
-          associationId={id}
+          organizationId={id}
           onClose={() => setShowAddEquipment(false)}
           onSuccess={handleEquipmentAdded}
         />
       )}
 
-      {showAssignOfficer && association && (
+      {showAssignOfficer && organization && (
         <AssignOfficerModal
           type={type}
-          associationId={id}
-          existingOfficers={association.officers || []}
+          organizationId={id}
+          existingOfficers={organization.officers || []}
           onClose={() => setShowAssignOfficer(false)}
           onSuccess={handleOfficerAssigned}
         />
       )}
 
-      {confirmRemoveMember && association && (
+      {confirmRemoveMember && organization && (
         <ConfirmDialog
           title="Remove Member"
-          message={`Remove ${confirmRemoveMember.name} from ${association.name}? This does not delete their ${type === "farmers" ? "farmer" : "fisherfolk"} profile — only their membership in this association.`}
+          message={`Remove ${confirmRemoveMember.name} from ${organization.name}? This does not delete their ${type === "farmers" ? "farmer" : "fisherfolk"} profile — only their membership in this organization.`}
           confirmLabel="Remove"
           danger
           onConfirm={handleRemoveMember}
@@ -1163,10 +1163,10 @@ function AssociationDetailPage() {
         />
       )}
 
-      {confirmRemoveOfficer && association && (
+      {confirmRemoveOfficer && organization && (
         <ConfirmDialog
           title="Remove Officer"
-          message={`Remove ${confirmRemoveOfficer.name} as ${confirmRemoveOfficer.position} of ${association.name}? This does not remove their association membership.`}
+          message={`Remove ${confirmRemoveOfficer.name} as ${confirmRemoveOfficer.position} of ${organization.name}? This does not remove their organization membership.`}
           confirmLabel="Remove"
           danger
           onConfirm={handleRemoveOfficer}
@@ -1177,4 +1177,4 @@ function AssociationDetailPage() {
   );
 }
 
-export default AssociationDetailPage;
+export default OrganizationDetailPage;

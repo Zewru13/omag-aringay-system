@@ -8,7 +8,7 @@ import SearchBar from '../../components/UI/SearchBar.jsx'
 
 const labelCls = 'block text-xs font-medium text-slate-600'
 
-const SEED_SOURCE_OPTIONS = ['Own Seeds', 'DA/LGU Provided', 'Commercial', 'Association', 'Other']
+const SEED_SOURCE_OPTIONS = ['Own Seeds', 'DA/LGU Provided', 'Commercial', 'Organization', 'Other']
 const SEEDS_UNIT_OPTIONS = ['kg', 'bags', 'pcs', 'bundles']
 
 const CROP_OPTIONS = [

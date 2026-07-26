@@ -28,7 +28,7 @@ const initialForm = {
   is_4ps_beneficiary: false,
   is_icc_ip_member: false,
   icc_ip_name: '',
-  farmers_association: null,
+  farmers_organization: null,
 }
 
 const computeAge = (birthdate) => {
@@ -79,7 +79,7 @@ const getMaxBirthdate = () => {
 
 function AddFarmerModal({ onClose, onSuccess }) {
   const [form, setForm] = useState(initialForm)
-  const [associations, setAssociations] = useState([])
+  const [organizations, setOrganizations] = useState([])
   const [prefixResetNote, setPrefixResetNote] = useState('')
   const [rsbsaTouched, setRsbsaTouched] = useState(false)
   const [philsysError, setPhilsysError] = useState('')
@@ -92,8 +92,8 @@ function AddFarmerModal({ onClose, onSuccess }) {
   const dupTimer = useRef(null)
 
   useEffect(() => {
-    api.get('/associations/farmers/')
-      .then(r => setAssociations(r.data.results || r.data))
+    api.get('/organizations/farmers/')
+      .then(r => setOrganizations(r.data.results || r.data))
       .catch(console.error)
   }, [])
 
@@ -370,21 +370,21 @@ function AddFarmerModal({ onClose, onSuccess }) {
           )}
         </div>
 
-        {/* Farmer Association */}
+        {/* Farmer Organization */}
         <div>
-          <FormLabel>Farmer Association</FormLabel>
+          <FormLabel>Farmer Organization</FormLabel>
           <select
             className={baseInputClasses}
-            value={form.farmers_association || ''}
-            onChange={e => updateField('farmers_association', e.target.value || null)}
+            value={form.farmers_organization || ''}
+            onChange={e => updateField('farmers_organization', e.target.value || null)}
           >
-            <option value="">— Not a member of any association</option>
-            {associations.map(a => (
+            <option value="">— Not a member of any organization</option>
+            {organizations.map(a => (
               <option key={a.id} value={a.id}>{a.name}</option>
             ))}
           </select>
           <p className="text-[12px] text-[#7A8E7A] mt-1">
-            Leave blank if the farmer is not part of any association. This can be updated later by editing the farmer profile.
+            Leave blank if the farmer is not part of any organization. This can be updated later by editing the farmer profile.
           </p>
         </div>
 

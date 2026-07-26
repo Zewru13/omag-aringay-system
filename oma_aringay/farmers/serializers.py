@@ -97,7 +97,7 @@ class FarmParcelSerializer(serializers.ModelSerializer):
 class FarmerListSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(read_only=True)
     commodity = serializers.SerializerMethodField()
-    farmers_association_name = serializers.SerializerMethodField()
+    farmers_organization_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Farmer
@@ -113,24 +113,24 @@ class FarmerListSerializer(serializers.ModelSerializer):
             'is_active',
             'is_senior_citizen',
             'date_registered',
-            'farmers_association',
-            'farmers_association_name',
+            'farmers_organization',
+            'farmers_organization_name',
         ]
 
     def get_commodity(self, obj):
         parcel = obj.farm_parcels.first()
         return parcel.commodity_name if parcel else ''
 
-    def get_farmers_association_name(self, obj):
-        if obj.farmers_association:
-            return obj.farmers_association.name
+    def get_farmers_organization_name(self, obj):
+        if obj.farmers_organization:
+            return obj.farmers_organization.name
         return None
 
 
 class FarmerDetailSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(read_only=True)
     farm_parcels = FarmParcelSerializer(many=True, read_only=True)
-    farmers_association_name = serializers.SerializerMethodField()
+    farmers_organization_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Farmer
@@ -160,14 +160,14 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
             'date_registered',
             'registered_by',
             'farm_parcels',
-            'farmers_association',
-            'farmers_association_name',
+            'farmers_organization',
+            'farmers_organization_name',
         ]
-        read_only_fields = ['id', 'date_registered', 'registered_by', 'farm_parcels', 'farmers_association_name']
+        read_only_fields = ['id', 'date_registered', 'registered_by', 'farm_parcels', 'farmers_organization_name']
 
-    def get_farmers_association_name(self, obj):
-        if obj.farmers_association:
-            return obj.farmers_association.name
+    def get_farmers_organization_name(self, obj):
+        if obj.farmers_organization:
+            return obj.farmers_organization.name
         return None
 
     def validate_birthdate(self, value):
@@ -208,7 +208,7 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
 
 
 class FarmerCreateSerializer(serializers.ModelSerializer):
-    farmers_association_name = serializers.SerializerMethodField()
+    farmers_organization_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Farmer
@@ -236,14 +236,14 @@ class FarmerCreateSerializer(serializers.ModelSerializer):
             'is_active',
             'date_registered',
             'registered_by',
-            'farmers_association',
-            'farmers_association_name',
+            'farmers_organization',
+            'farmers_organization_name',
         ]
-        read_only_fields = ['id', 'date_registered', 'registered_by', 'farmers_association_name']
+        read_only_fields = ['id', 'date_registered', 'registered_by', 'farmers_organization_name']
 
-    def get_farmers_association_name(self, obj):
-        if obj.farmers_association:
-            return obj.farmers_association.name
+    def get_farmers_organization_name(self, obj):
+        if obj.farmers_organization:
+            return obj.farmers_organization.name
         return None
 
     def validate_birthdate(self, value):

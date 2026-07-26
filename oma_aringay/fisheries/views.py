@@ -89,8 +89,8 @@ class FisherfolkListView(generics.ListCreateAPIView):
             qs = qs.filter(is_pwd=(params['is_pwd'].lower() in ('true', '1')))
         if params.get('is_4ps') is not None:
             qs = qs.filter(is_4ps_beneficiary=(params['is_4ps'].lower() in ('true', '1')))
-        if params.get('association') is not None:
-            qs = qs.filter(fisherfolk_association_id=params['association'])
+        if params.get('organization') is not None:
+            qs = qs.filter(fisherfolk_organization_id=params['organization'])
         if params.get('registered_from'):
             bound = day_range_bounds(params['registered_from'])
             if bound:

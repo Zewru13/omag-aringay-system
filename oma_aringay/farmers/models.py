@@ -66,13 +66,13 @@ class Farmer(models.Model):
         blank=True,
         related_name='registered_farmers',
     )
-    farmers_association = models.ForeignKey(
-        'associations.FarmersAssociation',
+    farmers_organization = models.ForeignKey(
+        'associations.FarmersOrganization',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name='member_farmers',
-        help_text="Association this farmer belongs to (optional)",
+        help_text="Organization this farmer belongs to (optional)",
     )
 
     @property
@@ -252,7 +252,7 @@ class FarmMachinery(models.Model):
         OWNED = 'Owned', 'Owned'
         BORROWED = 'Borrowed', 'Borrowed'
         RENTED = 'Rented', 'Rented'
-        ASSOCIATION = 'Association-Owned', 'Association-Owned'
+        ORGANIZATION = 'Organization-Owned', 'Organization-Owned'
 
     farm_parcel = models.ForeignKey(
         FarmParcel,

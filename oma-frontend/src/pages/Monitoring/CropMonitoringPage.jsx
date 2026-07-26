@@ -567,7 +567,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
     }
   }
 
-  const assocLabel = record.association_name || record.farmer_name || '—'
+  const assocLabel = record.organization_name || record.farmer_name || '—'
   const growthInfo = getGrowthStageLabel(record.date_planted)
 
   return (
@@ -1645,7 +1645,7 @@ function isNearHarvest(row) {
 const COLUMNS = [
   { key: 'crop_cell',       label: 'CROP' },
   { key: 'farmer_col',      label: 'FARMER' },
-  { key: 'association_col', label: 'ASSOCIATION' },
+  { key: 'organization_col', label: 'ORGANIZATION' },
   { key: 'location_col',    label: 'BARANGAY' },
   { key: 'date_planted',    label: 'DATE PLANTED' },
   { key: 'logs_cell',       label: 'LOGS', center: true },
@@ -1726,7 +1726,7 @@ export default function CropMonitoringPage() {
     return records.filter(rec =>
       !q
       || rec.crop_type_name?.toLowerCase().includes(q)
-      || rec.association_name?.toLowerCase().includes(q)
+      || rec.organization_name?.toLowerCase().includes(q)
     )
   }, [records, search])
 
@@ -1763,7 +1763,7 @@ export default function CropMonitoringPage() {
     farmer_col: rec.farmer_name || rec.farmer_full_name
       ? <span className="flex items-center gap-1 text-[#1A2B1A]"><User className="w-3 h-3 text-[#7A8E7A] flex-shrink-0" />{rec.farmer_name || rec.farmer_full_name}</span>
       : <span className="text-[#A8BCA8]">—</span>,
-    association_col: rec.association_name || '—',
+    organization_col: rec.organization_name || '—',
     location_col: (rec.farm_location_barangay || rec.farmer_barangay)
       ? <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-[#7A8E7A] flex-shrink-0" />{rec.farm_location_barangay || rec.farmer_barangay}</span>
       : <span className="text-[#A8BCA8]">—</span>,
@@ -1800,7 +1800,7 @@ export default function CropMonitoringPage() {
           </span>
           <input
             className="flex-1 min-w-[180px] border-none bg-transparent text-[13px] text-[#1A2B1A] placeholder-[#A8BCA8] focus:outline-none"
-            placeholder="Search by crop or association..."
+            placeholder="Search by crop or organization..."
             value={search}
             onChange={e => setSearch(e.target.value)}
           />

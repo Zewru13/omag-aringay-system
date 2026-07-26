@@ -182,7 +182,7 @@ class ProductionDashboardView(APIView):
 
 
 class AgriDashboardView(APIView):
-    """Dashboard stats for the Agri module: associations, crop records, harvest calendar, distribution.
+    """Dashboard stats for the Agri module: organizations, crop records, harvest calendar, distribution.
     Pass ?domain=fisheries to get fisheries stocking stats instead."""
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
@@ -193,7 +193,7 @@ class AgriDashboardView(APIView):
         return self._get_crops(request)
 
     def _get_fisheries(self, request):
-        from associations.models import FisherfolkAssociation
+        from associations.models import FisherfolkOrganization
         from fisheries.models import StockingRecord
         from datetime import date, timedelta
 
@@ -201,7 +201,7 @@ class AgriDashboardView(APIView):
         week_later = today + timedelta(days=7)
         year_param = request.query_params.get('year',   '').strip()
 
-        total_assoc = FisherfolkAssociation.objects.count()
+        total_assoc = FisherfolkOrganization.objects.count()
 
         base_active = StockingRecord.objects.filter(
             status__in=[StockingRecord.Status.STOCKED, StockingRecord.Status.NEAR_HARVEST]
@@ -274,7 +274,7 @@ class AgriDashboardView(APIView):
         )
 
         return Response({
-            'total_associations': total_assoc,
+            'total_organizations': total_assoc,
             'total_crop_records': total_stocking,
             'nearing_harvest':    nearing_harvest,
             'top_barangay':       top_barangay,
@@ -286,7 +286,7 @@ class AgriDashboardView(APIView):
         })
 
     def _get_crops(self, request):
-        from associations.models import FarmersAssociation
+        from associations.models import FarmersOrganization
         from datetime import date, timedelta
 
         today = date.today()
@@ -302,7 +302,7 @@ class AgriDashboardView(APIView):
                 qs = qs.filter(year=year_param)
             return qs
 
-        total_associations = FarmersAssociation.objects.count()
+        total_organizations = FarmersOrganization.objects.count()
 
         base_active = apply_filters(
             CropMonitoringRecord.objects.exclude(
@@ -382,7 +382,7 @@ class AgriDashboardView(APIView):
         # Crop distribution detail: barangay + crop grouped
         detail_qs = (
             dist_base
-            .values('farm_location_barangay', 'farm_parcel__barangay', 'farmers_association__barangay', 'crop_type__name')
+            .values('farm_location_barangay', 'farm_parcel__barangay', 'farmers_organization__barangay', 'crop_type__name')
             .annotate(count=Count('id'))
             .order_by('crop_type__name')
         )
@@ -390,7 +390,7 @@ class AgriDashboardView(APIView):
             {
                 'barangay': (row['farm_location_barangay']
                              or row['farm_parcel__barangay']
-                             or row['farmers_association__barangay']
+                             or row['farmers_organization__barangay']
                              or 'Unknown'),
                 'crop': row['crop_type__name'] or 'Unknown',
                 'count': row['count'],
@@ -405,7 +405,7 @@ class AgriDashboardView(APIView):
         )
 
         return Response({
-            'total_associations': total_associations,
+            'total_organizations': total_organizations,
             'total_crop_records': total_crop_records,
             'nearing_harvest': nearing_harvest,
             'top_barangay': top_barangay,
@@ -643,7 +643,7 @@ class CropMonitoringListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         qs = CropMonitoringRecord.objects.select_related(
-            'farm_parcel', 'farm_parcel__farmer', 'farmer', 'crop_type', 'recorded_by', 'farmers_association',
+            'farm_parcel', 'farm_parcel__farmer', 'farmer', 'crop_type', 'recorded_by', 'farmers_organization',
         ).prefetch_related('activity_logs', 'labor_logs', 'harvest_records').order_by('-date_recorded')
         qs = qs.annotate(
             has_disaster=Exists(
@@ -1055,8 +1055,8 @@ def _crop_record_label(monitoring):
     crop_name = monitoring.crop_type.name if monitoring.crop_type_id else 'Crop'
     if monitoring.farmer_id:
         who = monitoring.farmer.full_name
-    elif monitoring.farmers_association_id:
-        who = monitoring.farmers_association.name
+    elif monitoring.farmers_organization_id:
+        who = monitoring.farmers_organization.name
     else:
         who = 'Unknown farmer'
     barangay = monitoring.farm_location_barangay or (monitoring.farmer.barangay if monitoring.farmer_id else '')
@@ -1813,7 +1813,7 @@ class ForecastingTemplateView(APIView):
         ws = wb.active
         ws.title = 'Forecasting Import'
 
-        headers = ['Association Name', 'Crop Name', 'Date Planted (YYYY-MM-DD)', 'Area Planted (ha)']
+        headers = ['Organization Name', 'Crop Name', 'Date Planted (YYYY-MM-DD)', 'Area Planted (ha)']
         green_fill = PatternFill(start_color='1E4620', end_color='1E4620', fill_type='solid')
         white_font = Font(color='FFFFFF', bold=True)
 
@@ -1824,7 +1824,7 @@ class ForecastingTemplateView(APIView):
             cell.font = white_font
             ws.column_dimensions[cell.column_letter].width = width
 
-        ws.cell(row=2, column=1, value='Aringay Farmers Association')
+        ws.cell(row=2, column=1, value='Aringay Farmers Organization')
         ws.cell(row=2, column=2, value='Palay (Rice)')
         ws.cell(row=2, column=3, value='2025-01-15')
         ws.cell(row=2, column=4, value=1.50)
@@ -1850,7 +1850,7 @@ class ForecastingImportView(APIView):
 
         from openpyxl import load_workbook
 
-        from associations.models import FarmersAssociation
+        from associations.models import FarmersOrganization
 
         file = request.FILES.get('file')
         if not file:
@@ -1875,13 +1875,13 @@ class ForecastingImportView(APIView):
             area_str   = str(row[3]).strip() if row[3] is not None else ''
 
             if not assoc_name or not crop_name or not date_str:
-                errors.append({'row': row_num, 'error': 'Association Name, Crop Name, and Date Planted are required.'})
+                errors.append({'row': row_num, 'error': 'Organization Name, Crop Name, and Date Planted are required.'})
                 continue
 
             try:
-                assoc = FarmersAssociation.objects.filter(name__iexact=assoc_name).first()
+                assoc = FarmersOrganization.objects.filter(name__iexact=assoc_name).first()
                 if not assoc:
-                    errors.append({'row': row_num, 'error': f'Association "{assoc_name}" not found.'})
+                    errors.append({'row': row_num, 'error': f'Organization "{assoc_name}" not found.'})
                     continue
             except Exception as exc:
                 errors.append({'row': row_num, 'error': str(exc)})
@@ -1912,7 +1912,7 @@ class ForecastingImportView(APIView):
                 month = date_planted.month
                 season = 'Wet' if 5 <= month <= 10 else 'Dry'
                 CropMonitoringRecord.objects.create(
-                    farmers_association=assoc,
+                    farmers_organization=assoc,
                     crop_type=crop_type,
                     date_planted=date_planted,
                     area_planted_ha=area,

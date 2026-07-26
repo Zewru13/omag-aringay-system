@@ -1,21 +1,25 @@
 import { useSearchParams } from 'react-router-dom'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import FarmersPage from './FarmersPage.jsx'
-import AssociationsPage from '../Associations/AssociationsPage.jsx'
+import OrganizationsPage from '../Organizations/OrganizationsPage.jsx'
 
 const TABS = [
   { value: 'registry',      label: 'Registry' },
-  { value: 'associations',  label: 'Associations' },
+  { value: 'organizations', label: 'Organizations' },
 ]
 
 function FarmersHub() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const activeTab = searchParams.get('tab') || 'registry'
+  // 'associations' is the pre-rename tab value — old bookmarks/links still
+  // using it land on the Organizations tab instead of silently falling
+  // through to the registry default.
+  const rawTab = searchParams.get('tab') || 'registry'
+  const activeTab = rawTab === 'associations' ? 'organizations' : rawTab
 
   const setTab = (tab) => setSearchParams({ tab }, { replace: true })
 
   return (
-    <PageLayout title="Farmers" subtitle="Manage farmer registry and associations">
+    <PageLayout title="Farmers" subtitle="Manage farmer registry and organizations">
       <div className="flex gap-2 mb-5">
         {TABS.map((tab) => (
           <button
@@ -34,8 +38,8 @@ function FarmersHub() {
         ))}
       </div>
 
-      {activeTab === 'registry'     && <FarmersPage      asTab />}
-      {activeTab === 'associations' && <AssociationsPage  asTab />}
+      {activeTab === 'registry'      && <FarmersPage       asTab />}
+      {activeTab === 'organizations' && <OrganizationsPage asTab />}
     </PageLayout>
   )
 }

@@ -60,7 +60,7 @@ const getMaxBirthdate = () => {
 function EditFarmerModal({ farmer, onClose, onSuccess }) {
   const { isAdmin } = useAuth()
   const { showToast } = useToast()
-  const [associations, setAssociations] = useState([])
+  const [organizations, setOrganizations] = useState([])
 
   const original = {
     prefix: farmer.prefix || '',
@@ -79,7 +79,7 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
     is_4ps_beneficiary: farmer.is_4ps_beneficiary || false,
     is_icc_ip_member: farmer.is_icc_ip_member || false,
     icc_ip_name: farmer.icc_ip_name || '',
-    farmers_association: farmer.farmers_association || null,
+    farmers_organization: farmer.farmers_organization || null,
   }
 
   const [form, setForm] = useState(original)
@@ -94,8 +94,8 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
   const isDirty = Object.keys(original).some(k => normalize(form[k]) !== normalize(original[k]))
 
   useEffect(() => {
-    api.get('/associations/farmers/')
-      .then(r => setAssociations(r.data.results || r.data))
+    api.get('/organizations/farmers/')
+      .then(r => setOrganizations(r.data.results || r.data))
       .catch(console.error)
   }, [])
 
@@ -350,21 +350,21 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
           )}
         </div>
 
-        {/* Farmer Association */}
+        {/* Farmer Organization */}
         <div>
-          <FormLabel>Farmer Association</FormLabel>
+          <FormLabel>Farmer Organization</FormLabel>
           <select
             className={baseInputClasses}
-            value={form.farmers_association || ''}
-            onChange={e => updateField('farmers_association', e.target.value || null)}
+            value={form.farmers_organization || ''}
+            onChange={e => updateField('farmers_organization', e.target.value || null)}
           >
-            <option value="">— Not a member of any association</option>
-            {associations.map(a => (
+            <option value="">— Not a member of any organization</option>
+            {organizations.map(a => (
               <option key={a.id} value={a.id}>{a.name}</option>
             ))}
           </select>
           <p className="text-[12px] text-[#7A8E7A] mt-1">
-            Leave blank if the farmer is not part of any association. This can be updated later by editing the farmer profile.
+            Leave blank if the farmer is not part of any organization. This can be updated later by editing the farmer profile.
           </p>
         </div>
 

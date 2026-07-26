@@ -113,7 +113,7 @@ class FisherfolkDetailSerializer(serializers.ModelSerializer):
             'civil_status', 'highest_education', 'philsys_number',
             'fisherfolk_type',
             'is_pwd', 'is_4ps_beneficiary', 'is_icc_ip_member', 'icc_ip_name', 'is_senior_citizen',
-            'fisherfolk_association', 'association_position',
+            'fisherfolk_organization', 'organization_position',
             'is_active', 'date_registered', 'registered_by',
             'aquaculture_record', 'capture_record', 'vendor_record',
             'facility_location', 'pond_area_ha', 'number_of_ponds', 'water_source',
@@ -220,7 +220,7 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
             'civil_status', 'highest_education', 'philsys_number',
             'fisherfolk_type',
             'is_pwd', 'is_4ps_beneficiary', 'is_icc_ip_member', 'icc_ip_name', 'is_senior_citizen',
-            'fisherfolk_association', 'association_position',
+            'fisherfolk_organization', 'organization_position',
             'is_active', 'date_registered', 'registered_by',
             'culture_type', 'species_cultured', 'area_hectares', 'fingerlings_stocked', 'production_volume_kg',
             'vessel_type', 'vessel_material', 'vessel_registration_number',
@@ -372,6 +372,21 @@ class SpeciesOptionSerializer(serializers.ModelSerializer):
             'stages',
         ]
         read_only_fields = ['id', 'category_name', 'stages']
+        # DRF auto-adds a UniqueValidator to `species_name` from the model's
+        # unique=True — it fires before validate_species_name() below ever
+        # runs, masking our friendlier message behind DRF's generic one.
+        # Disabling it and doing the check ourselves is what actually
+        # surfaces our message.
+        extra_kwargs = {'species_name': {'validators': []}}
+
+    def validate_species_name(self, value):
+        name = value.strip()
+        qs = SpeciesOption.objects.filter(species_name__iexact=name)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError(f"A species named '{name}' already exists.")
+        return name
 
 
 # ─── Stocking Record ──────────────────────────────────────────────────────────

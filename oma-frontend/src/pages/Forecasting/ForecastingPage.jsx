@@ -59,7 +59,7 @@ function ForecastDetailModal({ record, onClose, onUpdated }) {
   return (
     <ModalShell
       title={`${record.crop_type_name ?? '—'} Forecast Details`}
-      subtitle={`${record.association_name || '—'} — Planted: ${record.date_planted || '—'}`}
+      subtitle={`${record.organization_name || '—'} — Planted: ${record.date_planted || '—'}`}
       icon={TrendingUp}
       onClose={onClose}
       maxWidth="max-w-md"
@@ -89,8 +89,8 @@ function ForecastDetailModal({ record, onClose, onUpdated }) {
             <p className="mb-3 text-[11px] font-semibold text-[#4A5E4A] flex items-center gap-1"><User size={12} />Farmer & Location</p>
             <dl className="space-y-2.5">
               <div>
-                <dt className={labelCls}>Association</dt>
-                <dd className="text-[13px] font-semibold text-[#1A2B1A]">{record.association_name || '—'}</dd>
+                <dt className={labelCls}>Organization</dt>
+                <dd className="text-[13px] font-semibold text-[#1A2B1A]">{record.organization_name || '—'}</dd>
               </div>
               <div>
                 <dt className={labelCls}>Barangay</dt>
@@ -877,7 +877,7 @@ export default function ForecastingPage() {
   const filtered = records.filter(rec =>
     !q
     || rec.crop_type_name?.toLowerCase().includes(q)
-    || rec.association_name?.toLowerCase().includes(q)
+    || rec.organization_name?.toLowerCase().includes(q)
   )
 
   const rows = filtered.map(rec => ({
@@ -932,7 +932,7 @@ export default function ForecastingPage() {
               </span>
               <input
                 className="flex-1 border-none bg-transparent text-[13px] text-[#1A2B1A] placeholder-[#A8BCA8] focus:outline-none min-w-[180px]"
-                placeholder="Search by crop or association..."
+                placeholder="Search by crop or organization..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
               />

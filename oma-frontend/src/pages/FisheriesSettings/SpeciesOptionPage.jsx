@@ -241,9 +241,13 @@ function SpeciesModal({ species, categories, onClose, onSaved }) {
   const [form,         setForm]         = useState(originalForm)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [pendingPayload, setPendingPayload] = useState(null)
+  const [nameError,    setNameError]    = useState('')
   const hasChanges = !isEdit || JSON.stringify(form) !== JSON.stringify(originalForm)
 
-  const set = (field, value) => setForm(f => ({ ...f, [field]: value }))
+  const set = (field, value) => {
+    setForm(f => ({ ...f, [field]: value }))
+    if (field === 'species_name') setNameError('')
+  }
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -268,7 +272,12 @@ function SpeciesModal({ species, categories, onClose, onSaved }) {
       showToast(`Species ${isEdit ? 'updated' : 'added'}.`, 'success')
       onSaved(); onClose()
     } catch (err) {
-      showToast(err?.response?.data?.detail || 'Failed to save species.', 'error')
+      const nameErr = err?.response?.data?.species_name?.[0]
+      if (nameErr) {
+        setNameError(nameErr)
+      } else {
+        showToast(err?.response?.data?.detail || 'Failed to save species.', 'error')
+      }
     } finally {
       setIsSubmitting(false)
       setPendingPayload(null)
@@ -285,7 +294,7 @@ function SpeciesModal({ species, categories, onClose, onSaved }) {
         maxWidth="max-w-md"
       >
         <form onSubmit={handleSubmit} className="space-y-3">
-          <FormField label="Species Name" required>
+          <FormField label="Species Name" required error={nameError}>
             <input
               className={baseInputClasses}
               placeholder="e.g. Tilapia"

@@ -5,28 +5,28 @@ from farmers.models import Farmer
 from fisheries.models import Fisherfolk
 
 from .models import (
-    AssociationOfficer,
-    FarmersAssociation,
-    FarmersAssociationEquipment,
-    FarmersAssociationMember,
-    FisherfolkAssociation,
-    FisherfolkAssociationEquipment,
-    FisherfolkAssociationMember,
-    FisherfolkAssociationOfficer,
+    FarmersOrganization,
+    FarmersOrganizationEquipment,
+    FarmersOrganizationMember,
+    FisherfolkOrganization,
+    FisherfolkOrganizationEquipment,
+    FisherfolkOrganizationMember,
+    FisherfolkOrganizationOfficer,
+    OrganizationOfficer,
 )
 
 
-class FarmerAssociationMemberSearchSerializer(serializers.ModelSerializer):
+class FarmerOrganizationMemberSearchSerializer(serializers.ModelSerializer):
     """Read-only shape for the officer-assignment search-select: this
-    association's own Farmer members only (see FarmersAssociationMember's
-    docstring — membership here is Farmer.farmers_association, not a join
+    organization's own Farmer members only (see FarmersOrganizationMember's
+    docstring — membership here is Farmer.farmers_organization, not a join
     table)."""
     class Meta:
         model = Farmer
         fields = ['id', 'full_name', 'barangay', 'rsbsa_number']
 
 
-class AssociationOfficerSerializer(serializers.ModelSerializer):
+class OrganizationOfficerSerializer(serializers.ModelSerializer):
     farmer = serializers.PrimaryKeyRelatedField(
         queryset=Farmer.objects.all(), write_only=True, required=True,
     )
@@ -34,15 +34,15 @@ class AssociationOfficerSerializer(serializers.ModelSerializer):
     farmer_barangay = serializers.CharField(source='farmer.barangay', read_only=True)
 
     class Meta:
-        model  = AssociationOfficer
+        model  = OrganizationOfficer
         fields = ['id', 'position', 'full_name', 'farmer', 'farmer_id', 'farmer_barangay']
         read_only_fields = ['id', 'full_name', 'farmer_id', 'farmer_barangay']
 
     def validate_farmer(self, value):
-        association_id = self.context['view'].kwargs.get('pk')
-        if str(value.farmers_association_id) != str(association_id):
+        organization_id = self.context['view'].kwargs.get('pk')
+        if str(value.farmers_organization_id) != str(organization_id):
             raise serializers.ValidationError(
-                'This farmer is not a member of this association.'
+                'This farmer is not a member of this organization.'
             )
         return value
 
@@ -67,44 +67,44 @@ def _validate_contact(value):
     return value
 
 
-class FarmersAssociationMemberSerializer(serializers.ModelSerializer):
+class FarmersOrganizationMemberSerializer(serializers.ModelSerializer):
     farmer_full_name = serializers.CharField(source='farmer.full_name', read_only=True)
     farmer_rsbsa_number = serializers.CharField(source='farmer.rsbsa_number', read_only=True)
     farmer_barangay = serializers.CharField(source='farmer.barangay', read_only=True)
 
     class Meta:
-        model = FarmersAssociationMember
+        model = FarmersOrganizationMember
         fields = [
-            'id', 'association', 'farmer', 'farmer_full_name',
+            'id', 'organization', 'farmer', 'farmer_full_name',
             'farmer_rsbsa_number', 'farmer_barangay', 'position', 'date_joined',
         ]
-        read_only_fields = ['association']
+        read_only_fields = ['organization']
 
     def validate_date_joined(self, value):
         validate_not_future_date(value, 'Date joined')
         return value
 
 
-class FarmersAssociationEquipmentSerializer(serializers.ModelSerializer):
+class FarmersOrganizationEquipmentSerializer(serializers.ModelSerializer):
     class Meta:
-        model = FarmersAssociationEquipment
+        model = FarmersOrganizationEquipment
         fields = [
-            'id', 'association', 'equipment_name', 'equipment_name_other',
+            'id', 'organization', 'equipment_name', 'equipment_name_other',
             'quantity', 'condition', 'acquisition_date', 'remarks',
         ]
-        read_only_fields = ['association']
+        read_only_fields = ['organization']
 
     def validate_acquisition_date(self, value):
         validate_not_future_date(value, 'Acquisition date')
         return value
 
 
-class FarmersAssociationListSerializer(serializers.ModelSerializer):
+class FarmersOrganizationListSerializer(serializers.ModelSerializer):
     member_count = serializers.SerializerMethodField()
     equipment_count = serializers.SerializerMethodField()
 
     class Meta:
-        model = FarmersAssociation
+        model = FarmersOrganization
         fields = [
             'id', 'name', 'barangay', 'street_address', 'contact_person', 'contact_number',
             'registration_number', 'registration_agency', 'date_organized', 'date_registered',
@@ -118,13 +118,13 @@ class FarmersAssociationListSerializer(serializers.ModelSerializer):
         return obj.equipment.count()
 
 
-class FarmersAssociationDetailSerializer(serializers.ModelSerializer):
-    members   = FarmersAssociationMemberSerializer(many=True, read_only=True)
-    equipment = FarmersAssociationEquipmentSerializer(many=True, read_only=True)
-    officers  = AssociationOfficerSerializer(many=True, read_only=True)
+class FarmersOrganizationDetailSerializer(serializers.ModelSerializer):
+    members   = FarmersOrganizationMemberSerializer(many=True, read_only=True)
+    equipment = FarmersOrganizationEquipmentSerializer(many=True, read_only=True)
+    officers  = OrganizationOfficerSerializer(many=True, read_only=True)
 
     class Meta:
-        model  = FarmersAssociation
+        model  = FarmersOrganization
         fields = '__all__'
 
     def validate_contact_number(self, value):
@@ -141,39 +141,39 @@ class FarmersAssociationDetailSerializer(serializers.ModelSerializer):
 
 # ─── Fisherfolk ──────────────────────────────────────────────────────────────
 
-class FisherfolkAssociationMemberSerializer(serializers.ModelSerializer):
+class FisherfolkOrganizationMemberSerializer(serializers.ModelSerializer):
     fisherfolk_full_name = serializers.CharField(source='fisherfolk.full_name', read_only=True)
     fisherfolk_lgu_number = serializers.CharField(source='fisherfolk.lgu_registration_number', read_only=True)
     fisherfolk_barangay = serializers.CharField(source='fisherfolk.barangay', read_only=True)
 
     class Meta:
-        model = FisherfolkAssociationMember
+        model = FisherfolkOrganizationMember
         fields = [
-            'id', 'association', 'fisherfolk', 'fisherfolk_full_name',
+            'id', 'organization', 'fisherfolk', 'fisherfolk_full_name',
             'fisherfolk_lgu_number', 'fisherfolk_barangay', 'position', 'date_joined',
         ]
-        read_only_fields = ['association']
+        read_only_fields = ['organization']
 
     def validate_date_joined(self, value):
         validate_not_future_date(value, 'Date joined')
         return value
 
 
-class FisherfolkAssociationEquipmentSerializer(serializers.ModelSerializer):
+class FisherfolkOrganizationEquipmentSerializer(serializers.ModelSerializer):
     class Meta:
-        model = FisherfolkAssociationEquipment
+        model = FisherfolkOrganizationEquipment
         fields = [
-            'id', 'association', 'equipment_name', 'equipment_name_other',
+            'id', 'organization', 'equipment_name', 'equipment_name_other',
             'quantity', 'condition', 'acquisition_date', 'remarks',
         ]
-        read_only_fields = ['association']
+        read_only_fields = ['organization']
 
     def validate_acquisition_date(self, value):
         validate_not_future_date(value, 'Acquisition date')
         return value
 
 
-class FisherfolkAssociationOfficerSerializer(serializers.ModelSerializer):
+class FisherfolkOrganizationOfficerSerializer(serializers.ModelSerializer):
     fisherfolk = serializers.PrimaryKeyRelatedField(
         queryset=Fisherfolk.objects.all(), write_only=True, required=True,
     )
@@ -181,7 +181,7 @@ class FisherfolkAssociationOfficerSerializer(serializers.ModelSerializer):
     fisherfolk_barangay = serializers.SerializerMethodField()
 
     class Meta:
-        model  = FisherfolkAssociationOfficer
+        model  = FisherfolkOrganizationOfficer
         fields = ['id', 'position', 'full_name', 'fisherfolk', 'fisherfolk_id', 'fisherfolk_barangay']
         read_only_fields = ['id', 'full_name', 'fisherfolk_id', 'fisherfolk_barangay']
 
@@ -194,25 +194,25 @@ class FisherfolkAssociationOfficerSerializer(serializers.ModelSerializer):
     def validate(self, data):
         fisherfolk = data.pop('fisherfolk', None)
         if fisherfolk is not None:
-            association_id = self.context['view'].kwargs.get('pk')
-            member = FisherfolkAssociationMember.objects.filter(
-                association_id=association_id, fisherfolk=fisherfolk,
+            organization_id = self.context['view'].kwargs.get('pk')
+            member = FisherfolkOrganizationMember.objects.filter(
+                organization_id=organization_id, fisherfolk=fisherfolk,
             ).first()
             if not member:
                 raise serializers.ValidationError(
-                    {'fisherfolk': 'This fisherfolk is not a member of this association.'}
+                    {'fisherfolk': 'This fisherfolk is not a member of this organization.'}
                 )
             data['member'] = member
             data['full_name'] = fisherfolk.full_name
         return data
 
 
-class FisherfolkAssociationListSerializer(serializers.ModelSerializer):
+class FisherfolkOrganizationListSerializer(serializers.ModelSerializer):
     member_count  = serializers.SerializerMethodField()
     equipment_count = serializers.SerializerMethodField()
 
     class Meta:
-        model  = FisherfolkAssociation
+        model  = FisherfolkOrganization
         fields = [
             'id', 'name', 'barangay', 'street_address', 'contact_person', 'contact_number',
             'registration_number', 'registration_agency', 'date_organized', 'date_registered',
@@ -226,13 +226,13 @@ class FisherfolkAssociationListSerializer(serializers.ModelSerializer):
         return obj.equipment.count()
 
 
-class FisherfolkAssociationDetailSerializer(serializers.ModelSerializer):
-    members   = FisherfolkAssociationMemberSerializer(many=True, read_only=True)
-    equipment = FisherfolkAssociationEquipmentSerializer(many=True, read_only=True)
-    officers  = FisherfolkAssociationOfficerSerializer(many=True, read_only=True)
+class FisherfolkOrganizationDetailSerializer(serializers.ModelSerializer):
+    members   = FisherfolkOrganizationMemberSerializer(many=True, read_only=True)
+    equipment = FisherfolkOrganizationEquipmentSerializer(many=True, read_only=True)
+    officers  = FisherfolkOrganizationOfficerSerializer(many=True, read_only=True)
 
     class Meta:
-        model  = FisherfolkAssociation
+        model  = FisherfolkOrganization
         fields = '__all__'
 
     def validate_contact_number(self, value):

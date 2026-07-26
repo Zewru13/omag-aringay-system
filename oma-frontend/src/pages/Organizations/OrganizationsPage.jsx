@@ -7,27 +7,27 @@ import DataTable from '../../components/UI/DataTable.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import SearchBar from '../../components/UI/SearchBar.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
-import CreateAssociationModal from './CreateAssociationModal.jsx'
-import EditAssociationModal from './EditAssociationModal.jsx'
+import CreateOrganizationModal from './CreateOrganizationModal.jsx'
+import EditOrganizationModal from './EditOrganizationModal.jsx'
 
 const columns = [
-  { key: 'name',           label: 'ASSOCIATION NAME' },
+  { key: 'name',           label: 'ORGANIZATION NAME' },
   { key: 'address_cell',   label: 'ADDRESS' },
   { key: 'contact_person', label: 'CONTACT PERSON' },
   { key: 'contact_number', label: 'CONTACT NUMBER' },
   { key: 'actions_cell',   label: 'ACTIONS' },
 ]
 
-function AssociationsPage({ asTab = false }) {
+function OrganizationsPage({ asTab = false }) {
   const navigate = useNavigate()
   const { isAdmin, isEvaluator } = useAuth()
-  const [associations, setAssociations] = useState([])
+  const [organizations, setOrganizations] = useState([])
   const [totalCount, setTotalCount] = useState(0)
   const [page, setPage] = useState(1)
   const [isLoading, setIsLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [editAssociation, setEditAssociation] = useState(null)
+  const [editOrganization, setEditOrganization] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
@@ -42,13 +42,13 @@ function AssociationsPage({ asTab = false }) {
         const params = new URLSearchParams()
         if (searchQuery) params.append('search', searchQuery)
         params.set('page', page)
-        const response = await api.get(`/associations/farmers/?${params.toString()}`)
+        const response = await api.get(`/organizations/farmers/?${params.toString()}`)
         if (!cancelled) {
-          setAssociations(Array.isArray(response.data) ? response.data : (response.data?.results || []))
+          setOrganizations(Array.isArray(response.data) ? response.data : (response.data?.results || []))
           setTotalCount(typeof response.data?.count === 'number' ? response.data.count : 0)
         }
       } catch (error) {
-        console.error('Error fetching associations:', error)
+        console.error('Error fetching organizations:', error)
       } finally {
         if (!cancelled) setIsLoading(false)
       }
@@ -58,7 +58,7 @@ function AssociationsPage({ asTab = false }) {
   }, [searchQuery, page, refreshKey])
 
   const handleRowClick = (row) => {
-    navigate(`/associations/farmers/${row.id}`)
+    navigate(`/organizations/farmers/${row.id}`)
   }
 
   const handleCreateSuccess = () => {
@@ -66,7 +66,7 @@ function AssociationsPage({ asTab = false }) {
     setRefreshKey((k) => k + 1)
   }
 
-  const tableData = associations.map((a) => ({
+  const tableData = organizations.map((a) => ({
     ...a,
     address_cell: [a.street_address, a.barangay].filter(Boolean).join(', ') || '—',
     actions_cell: (
@@ -76,7 +76,7 @@ function AssociationsPage({ asTab = false }) {
             type="button"
             className="rounded-lg p-1.5 text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors"
             title="Edit"
-            onClick={(e) => { e.stopPropagation(); setEditAssociation(a) }}
+            onClick={(e) => { e.stopPropagation(); setEditOrganization(a) }}
           >
             <Pencil size={14} />
           </button>
@@ -91,7 +91,7 @@ function AssociationsPage({ asTab = false }) {
       onClick={() => setShowCreateModal(true)}
     >
       <Plus size={16} />
-      Add Association
+      Add Organization
     </button>
   ) : null
 
@@ -103,7 +103,7 @@ function AssociationsPage({ asTab = false }) {
 
       <div className="bg-white border border-[#E2E8E2] rounded-xl px-4 py-[10px] mb-4 flex items-center gap-2.5">
         <SearchBar
-          placeholder="Search associations by name or address..."
+          placeholder="Search organizations by name or address..."
           value={searchQuery}
           onChange={setSearchQuery}
         />
@@ -124,19 +124,19 @@ function AssociationsPage({ asTab = false }) {
       />
 
       {showCreateModal && (
-        <CreateAssociationModal
+        <CreateOrganizationModal
           type="farmers"
           onClose={() => setShowCreateModal(false)}
           onSuccess={handleCreateSuccess}
         />
       )}
 
-      {editAssociation && (
-        <EditAssociationModal
-          association={editAssociation}
+      {editOrganization && (
+        <EditOrganizationModal
+          organization={editOrganization}
           type="farmers"
-          onClose={() => setEditAssociation(null)}
-          onSuccess={() => { setEditAssociation(null); setRefreshKey((k) => k + 1) }}
+          onClose={() => setEditOrganization(null)}
+          onSuccess={() => { setEditOrganization(null); setRefreshKey((k) => k + 1) }}
         />
       )}
     </>
@@ -146,8 +146,8 @@ function AssociationsPage({ asTab = false }) {
 
   return (
     <PageLayout
-      title="Farmer Association Management"
-      subtitle="Manage all farmer associations in your area."
+      title="Farmer Organization Management"
+      subtitle="Manage all farmer organizations in your area."
       action={actionBtn}
     >
       {innerContent}
@@ -155,4 +155,4 @@ function AssociationsPage({ asTab = false }) {
   )
 }
 
-export default AssociationsPage
+export default OrganizationsPage

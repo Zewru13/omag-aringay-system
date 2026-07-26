@@ -29,7 +29,7 @@ const initialForm = {
   is_4ps_beneficiary: false,
   is_icc_ip_member: false,
   icc_ip_name: '',
-  fisherfolk_association: null,
+  fisherfolk_organization: null,
   is_aquaculture: true,
   is_capture_fishery: false,
   is_mariculture: false,
@@ -62,7 +62,7 @@ const getMaxBirthdate = () => {
 
 function AddFisherfolkModal({ onClose, onSuccess }) {
   const [form,          setForm]          = useState(initialForm)
-  const [associations,  setAssociations]  = useState([])
+  const [organizations,  setOrganizations]  = useState([])
   const [prefixResetNote, setPrefixResetNote] = useState('')
   const [idTouched,     setIdTouched]     = useState({ fishr: false, rsbsa: false })
   const [contactError,  setContactError]  = useState('')
@@ -74,8 +74,8 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
   const dupTimer = useRef(null)
 
   useEffect(() => {
-    api.get('/associations/fisherfolk/')
-      .then(r => setAssociations(r.data.results || r.data))
+    api.get('/organizations/fisherfolk/')
+      .then(r => setOrganizations(r.data.results || r.data))
       .catch(console.error)
   }, [])
 
@@ -379,21 +379,21 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
           </p>
         </div>
 
-        {/* Association */}
+        {/* Organization */}
         <div>
-          <FormLabel>Fisherfolk Association</FormLabel>
+          <FormLabel>Fisherfolk Organization</FormLabel>
           <select
             className={baseInputClasses}
-            value={form.fisherfolk_association || ''}
-            onChange={e => updateField('fisherfolk_association', e.target.value || null)}
+            value={form.fisherfolk_organization || ''}
+            onChange={e => updateField('fisherfolk_organization', e.target.value || null)}
           >
-            <option value="">— Not a member of any association</option>
-            {associations.map(a => (
+            <option value="">— Not a member of any organization</option>
+            {organizations.map(a => (
               <option key={a.id} value={a.id}>{a.name}</option>
             ))}
           </select>
           <p className="text-[12px] text-[#7A8E7A] mt-1">
-            Leave blank if the fisherfolk is not part of any association.
+            Leave blank if the fisherfolk is not part of any organization.
           </p>
         </div>
 

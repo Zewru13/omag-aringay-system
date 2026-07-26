@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Building2, Phone } from 'lucide-react'
+import { Building2, Pencil, Phone } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
@@ -18,30 +18,41 @@ const validateContact = (value) => {
   return ''
 }
 
-const initialForm = {
-  name: '',
-  barangay: '',
-  street_address: '',
-  date_organized: '',
-  date_registered: '',
-  registration_number: '',
-  registration_agency: '',
-  email_address: '',
-  contact_person_last: '',
-  contact_person_first: '',
-  contact_number: '',
+function splitContactPerson(contactPerson) {
+  if (!contactPerson) return { last: '', first: '' }
+  const parts = contactPerson.split(', ')
+  return { last: parts[0] || '', first: parts[1] || '' }
 }
 
-export default function CreateAssociationModal({ type: assocType = 'farmers', onClose, onSuccess }) {
+export default function EditOrganizationModal({ organization, type, onClose, onSuccess }) {
   const { showToast } = useToast()
-  const [form,         setForm]         = useState(initialForm)
+  const { last, first } = splitContactPerson(organization.contact_person)
+
+  const originalForm = {
+    name:                 organization.name || '',
+    barangay:             organization.barangay || '',
+    street_address:       organization.street_address || '',
+    date_organized:       organization.date_organized || '',
+    date_registered:      organization.date_registered || '',
+    registration_number:  organization.registration_number || '',
+    registration_agency:  organization.registration_agency || '',
+    email_address:        organization.email_address || '',
+    contact_person_last:  last,
+    contact_person_first: first,
+    contact_number:       organization.contact_number || '',
+  }
+
+  const [form, setForm] = useState(originalForm)
+
   const [error,        setError]        = useState('')
   const [formErrors,   setFormErrors]   = useState({})
   const [contactError, setContactError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showConfirm,  setShowConfirm]  = useState(false)
 
-  const typeLabel = assocType === 'farmers' ? "Farmers' Association" : 'Fisherfolk Association'
+  const hasChanges = JSON.stringify(form) !== JSON.stringify(originalForm)
+
+  const typeLabel = type === 'farmers' ? "Farmers' Organization" : 'Fisherfolk Organization'
 
   const set = (field, value) => {
     if (field === 'contact_number') {
@@ -89,7 +100,7 @@ export default function CreateAssociationModal({ type: assocType = 'farmers', on
     try {
       const contactPerson = [form.contact_person_last, form.contact_person_first]
         .filter(Boolean).join(', ')
-      await api.post(`/associations/${assocType}/`, {
+      await api.patch(`/organizations/${type}/${organization.id}/`, {
         name:                form.name,
         barangay:            form.barangay,
         street_address:      form.street_address,
@@ -101,11 +112,11 @@ export default function CreateAssociationModal({ type: assocType = 'farmers', on
         contact_person:      contactPerson,
         contact_number:      form.contact_number,
       })
-      showToast(`${typeLabel} created successfully.`, 'success')
+      showToast(`${typeLabel} updated successfully.`, 'success')
       onSuccess()
     } catch (err) {
       const data = err.response?.data
-      setError(data?.detail || data?.name?.[0] || 'Unable to create association.')
+      setError(data?.detail || data?.name?.[0] || 'Unable to update organization.')
     } finally {
       setIsSubmitting(false)
     }
@@ -114,18 +125,18 @@ export default function CreateAssociationModal({ type: assocType = 'farmers', on
   return (
     <>
       <ModalShell
-        title="Add New Association"
-        subtitle="Create a new farmer association in Aringay."
-        icon={Building2}
+        title="Edit Organization"
+        subtitle={organization.name}
+        icon={Pencil}
         onClose={onClose}
         maxWidth="max-w-lg"
       >
         <form className="space-y-4" onSubmit={handleSubmitClick}>
-          {/* Association Name */}
+          {/* Organization Name */}
           <div>
             <label className={labelCls}>
               <Building2 size={12} className="inline mr-1 text-[#7A8E7A]" />
-              Association Name <span className="text-rose-500">*</span>
+              Organization Name <span className="text-rose-500">*</span>
             </label>
             <input className={baseInputClasses} required value={form.name}
               onChange={e => set('name', e.target.value)} />
@@ -201,12 +212,12 @@ export default function CreateAssociationModal({ type: assocType = 'farmers', on
           {/* Email Address */}
           <div>
             <label className={labelCls}>Email Address <span className="text-rose-500">*</span></label>
-            <input type="email" className={`${baseInputClasses}${formErrors.email_address ? ' border-rose-400' : ''}`} placeholder="e.g. association@email.com"
+            <input type="email" className={`${baseInputClasses}${formErrors.email_address ? ' border-rose-400' : ''}`} placeholder="e.g. organization@email.com"
               value={form.email_address} onChange={e => set('email_address', e.target.value)} />
             {formErrors.email_address && <p className="mt-1 text-[12px] text-rose-600">{formErrors.email_address}</p>}
           </div>
 
-          {/* Contact Person — side by side */}
+          {/* Contact Person */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={labelCls}>Contact Person — Last Name <span className="text-rose-500">*</span></label>
@@ -234,8 +245,7 @@ export default function CreateAssociationModal({ type: assocType = 'farmers', on
           </div>
 
           <p className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5 text-[12px] text-[#7A8E7A]">
-            Officers can be assigned after this association is created and has members —
-            from the association's detail page.
+            Officers are managed from the organization's detail page, not here.
           </p>
 
           {error && (
@@ -246,7 +256,7 @@ export default function CreateAssociationModal({ type: assocType = 'farmers', on
 
           <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4">
             <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
-            <Button isLoading={isSubmitting} type="submit">+ Add Association</Button>
+            <Button isLoading={isSubmitting} disabled={isSubmitting || !hasChanges} type="submit">Update Organization</Button>
           </div>
         </form>
       </ModalShell>
@@ -254,7 +264,7 @@ export default function CreateAssociationModal({ type: assocType = 'farmers', on
       {showConfirm && (
         <ConfirmDialog
           title="Confirm Action"
-          message={`Add new ${typeLabel} "${form.name}"?`}
+          message={`Save changes to "${form.name}"?`}
           confirmLabel="Confirm"
           onConfirm={handleConfirmed}
           onCancel={() => setShowConfirm(false)}

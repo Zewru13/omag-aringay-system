@@ -81,7 +81,7 @@ class SeedSource(models.Model):
 
 
 class CropVariety(models.Model):
-    name = models.CharField(max_length=150, unique=True)
+    name = models.CharField(max_length=150)
     crop_type = models.ForeignKey(
         CropType, on_delete=models.CASCADE, null=True, blank=True,
         related_name='varieties',
@@ -92,6 +92,13 @@ class CropVariety(models.Model):
     class Meta:
         verbose_name_plural = 'Crop Varieties'
         ordering = ['-id']
+        # Scoped to crop_type, not global — "Fancy" can legitimately exist as
+        # a variety name under two different crops. Case-insensitive
+        # duplicate detection is enforced separately in CropVarietySerializer
+        # (DB collation already makes this unique_together effectively
+        # case-insensitive too, but the serializer gives a clear message
+        # instead of a raw IntegrityError).
+        unique_together = [['crop_type', 'name']]
 
     def __str__(self):
         return self.name
@@ -147,8 +154,8 @@ class CropMonitoringRecord(models.Model):
         null=True, blank=True,
         related_name='monitoring_records',
     )
-    farmers_association = models.ForeignKey(
-        'associations.FarmersAssociation',
+    farmers_organization = models.ForeignKey(
+        'associations.FarmersOrganization',
         on_delete=models.SET_NULL,
         null=True, blank=True,
         related_name='monitoring_records',
@@ -236,7 +243,7 @@ class CropMonitoringRecord(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        loc = f'Parcel {self.farm_parcel_id}' if self.farm_parcel_id else (self.farmers_association.name if self.farmers_association_id else 'Unknown')
+        loc = f'Parcel {self.farm_parcel_id}' if self.farm_parcel_id else (self.farmers_organization.name if self.farmers_organization_id else 'Unknown')
         return f'{self.crop_type} - {loc} ({self.season} {self.year})'
 
     def determine_status(self):

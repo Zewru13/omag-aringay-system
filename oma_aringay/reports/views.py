@@ -1655,14 +1655,14 @@ class HarvestedCropReport(APIView):
         end_date          = request.query_params.get('end_date', '')
         barangay          = request.query_params.get('barangay', '')
         crop_name         = request.query_params.get('crop_name', '')
-        association       = request.query_params.get('association', '')
+        organization       = request.query_params.get('organization', '')
         yield_performance = request.query_params.get('yield_performance', '')
         fmt               = request.query_params.get('format', 'excel')
 
         qs = CropMonitoringRecord.objects.filter(
             status='Harvested',
         ).select_related(
-            'crop_type', 'farmers_association',
+            'crop_type', 'farmers_organization',
             'farm_parcel', 'farm_parcel__farmer',
         ).prefetch_related('harvest_records').order_by('crop_type__name')
 
@@ -1673,12 +1673,12 @@ class HarvestedCropReport(APIView):
         if barangay:
             qs = qs.filter(
                 Q(farm_parcel__barangay__iexact=barangay) |
-                Q(farmers_association__barangay__iexact=barangay)
+                Q(farmers_organization__barangay__iexact=barangay)
             )
         if crop_name:
             qs = qs.filter(crop_type__name__icontains=crop_name)
-        if association:
-            qs = qs.filter(farmers_association_id=association)
+        if organization:
+            qs = qs.filter(farmers_organization_id=organization)
 
         records = list(qs)
 
@@ -1697,7 +1697,7 @@ class HarvestedCropReport(APIView):
             elif yield_performance == 'below':
                 records = [r for r in records if (_ratio(r) is not None) and _ratio(r) < D('0.90')]
         headers = [
-            'Barangay', 'Farmer', 'Association',
+            'Barangay', 'Farmer', 'Organization',
             'Crop', 'Area Planted (ha)', 'Area Harvested (ha)',
             'Est. Harvest Date', 'Actual Harvest Date',
             'Quantity Harvested', 'Unit of Measure',
@@ -1706,19 +1706,19 @@ class HarvestedCropReport(APIView):
         def _barangay(rec):
             if rec.farm_parcel and rec.farm_parcel.barangay:
                 return fmt_field(rec.farm_parcel.barangay)
-            if rec.farmers_association:
-                return fmt_field(rec.farmers_association.barangay)
+            if rec.farmers_organization:
+                return fmt_field(rec.farmers_organization.barangay)
             return '—'
 
         def _farmer(rec):
             if rec.farm_parcel and rec.farm_parcel.farmer:
                 return fmt_field(rec.farm_parcel.farmer.full_name)
-            if rec.farmers_association:
-                return fmt_field(rec.farmers_association.name)
+            if rec.farmers_organization:
+                return fmt_field(rec.farmers_organization.name)
             return '—'
 
         def _assoc(rec):
-            return fmt_field(rec.farmers_association.name) if rec.farmers_association else '—'
+            return fmt_field(rec.farmers_organization.name) if rec.farmers_organization else '—'
 
         def _latest_harvest(rec):
             harvests = sorted(
@@ -1750,7 +1750,7 @@ class HarvestedCropReport(APIView):
                 data.append({
                     'barangay': _barangay(rec),
                     'farmer': _farmer(rec),
-                    'association': _assoc(rec),
+                    'organization': _assoc(rec),
                     'crop': fmt_field(rec.crop_type.name),
                     'area_planted_ha': str(rec.area_planted_ha) if rec.area_planted_ha else '—',
                     'area_harvested_ha': str(harvest.area_harvested_hectares) if harvest else '—',
@@ -1829,29 +1829,29 @@ class HarvestedCropReport(APIView):
         return response
 
 
-# â”€â”€â”€ Association List Report â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â”€â”€â”€ Organization List Report â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-class AssociationListReport(APIView):
+class OrganizationListReport(APIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
     def get(self, request):
-        from associations.models import FarmersAssociation, FisherfolkAssociation
+        from associations.models import FarmersOrganization, FisherfolkOrganization
         today    = _today()
         barangay = request.query_params.get('barangay', '')
         assoc_type = request.query_params.get('type', 'all')
         fmt      = request.query_params.get('format', 'excel')
 
-        headers = ['Association Name', 'Province', 'Municipality', 'Barangay', 'Contact Person', 'Contact Number']
+        headers = ['Organization Name', 'Province', 'Municipality', 'Barangay', 'Contact Person', 'Contact Number']
 
         records = []
         if assoc_type in ('all', 'farmers'):
-            qs = FarmersAssociation.objects.order_by('barangay', 'name')
+            qs = FarmersOrganization.objects.order_by('barangay', 'name')
             if barangay:
                 qs = qs.filter(barangay__iexact=barangay)
             for a in qs:
                 records.append([a.name, 'La Union', 'Aringay', a.barangay, a.contact_person, a.contact_number])
         if assoc_type in ('all', 'fisherfolk'):
-            qs = FisherfolkAssociation.objects.order_by('barangay', 'name')
+            qs = FisherfolkOrganization.objects.order_by('barangay', 'name')
             if barangay:
                 qs = qs.filter(barangay__iexact=barangay)
             for a in qs:
@@ -1865,9 +1865,9 @@ class AssociationListReport(APIView):
         sig = sig or {}
         buf, doc = _make_doc()
         story = []
-        story += build_official_header(LOGO_PATH, 'Association List Report')
+        story += build_official_header(LOGO_PATH, 'Organization List Report')
         story.append(build_stats_row([
-            ('Total Associations', len(records)),
+            ('Total Organizations', len(records)),
             ('Date Generated', str(today)),
         ], page_width=PAGE_WIDTH))
         story.append(Spacer(1, 14))
@@ -1885,7 +1885,7 @@ class AssociationListReport(APIView):
             page_width=PAGE_WIDTH,
         ))
         doc.build(story, canvasmaker=NumberedCanvas)
-        return _finish_pdf(buf, f'association_list_report_{today}.pdf')
+        return _finish_pdf(buf, f'organization_list_report_{today}.pdf')
 
     def _build_excel(self, records, headers, today):
         import openpyxl
@@ -1893,14 +1893,14 @@ class AssociationListReport(APIView):
 
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = 'Association List'
+        ws.title = 'Organization List'
 
         hdr_fill = PatternFill('solid', fgColor='1E4620')
         hdr_font = Font(bold=True, color='FFFFFF', size=10)
 
         ws.append(['Republic of the Philippines'])
         ws.append(['Office of the Municipal Agriculturist â€” Aringay, La Union'])
-        ws.append(['Association List Report'])
+        ws.append(['Organization List Report'])
         ws.append([f'Date Generated: {today}'])
         ws.append([])
         ws.append(headers)
@@ -1918,7 +1918,7 @@ class AssociationListReport(APIView):
             buf.read(),
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         )
-        response['Content-Disposition'] = f'attachment; filename="association_list_report_{today}.xlsx"'
+        response['Content-Disposition'] = f'attachment; filename="organization_list_report_{today}.xlsx"'
         return response
 
 
@@ -2031,7 +2031,7 @@ class FisheriesProductionReport(APIView):
         start_date   = request.query_params.get('start_date', '')
         end_date     = request.query_params.get('end_date', '')
         barangay     = request.query_params.get('barangay', '')
-        assoc_id     = request.query_params.get('association', '')
+        assoc_id     = request.query_params.get('organization', '')
         species_id   = request.query_params.get('species', '')
         culture_type = request.query_params.get('culture_type', '')
         fmt          = request.query_params.get('format', 'excel')
@@ -2039,7 +2039,7 @@ class FisheriesProductionReport(APIView):
         qs = FisheriesHarvestRecord.objects.select_related(
             'stocking_record',
             'stocking_record__fisherfolk',
-            'stocking_record__fisherfolk__fisherfolk_association',
+            'stocking_record__fisherfolk__fisherfolk_organization',
             'stocking_record__species',
         ).order_by('-harvest_date')
 
@@ -2050,7 +2050,7 @@ class FisheriesProductionReport(APIView):
         if barangay:
             qs = qs.filter(stocking_record__pond_location_barangay__iexact=barangay)
         if assoc_id:
-            qs = qs.filter(stocking_record__fisherfolk__fisherfolk_association_id=assoc_id)
+            qs = qs.filter(stocking_record__fisherfolk__fisherfolk_organization_id=assoc_id)
         if species_id:
             qs = qs.filter(stocking_record__species_id=species_id)
         if culture_type:
@@ -2059,14 +2059,14 @@ class FisheriesProductionReport(APIView):
         records = list(qs)
 
         headers = [
-            'BARANGAY', 'FISHERFOLK', 'ASSOCIATION',
+            'BARANGAY', 'FISHERFOLK', 'ORGANIZATION',
             'SPECIES', 'CULTURE TYPE',
             'DATE STOCKED', 'HARVEST DATE',
             'QUANTITY (KG)', 'FINAL?',
         ]
 
         def _assoc(rec):
-            assoc = rec.stocking_record.fisherfolk.fisherfolk_association if rec.stocking_record.fisherfolk else None
+            assoc = rec.stocking_record.fisherfolk.fisherfolk_organization if rec.stocking_record.fisherfolk else None
             return assoc.name if assoc else '—'
 
         def row_data(rec):
@@ -2089,7 +2089,7 @@ class FisheriesProductionReport(APIView):
             for rec in records:
                 r = row_data(rec)
                 data.append({
-                    'barangay':     r[0], 'fisherfolk':   r[1], 'association': r[2],
+                    'barangay':     r[0], 'fisherfolk':   r[1], 'organization': r[2],
                     'species':      r[3], 'culture_type': r[4],
                     'date_stocked': r[5], 'harvest_date': r[6],
                     'quantity_kg':  r[7], 'is_final':     r[8],

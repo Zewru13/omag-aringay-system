@@ -29,9 +29,13 @@ function CropVarietyModal({ variety, cropTypes, onClose, onSaved }) {
   }
   const [form, setForm] = useState(original)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [nameError, setNameError] = useState('')
   const hasChanges = !isEdit || JSON.stringify(form) !== JSON.stringify(original)
 
-  const set = (field, value) => setForm(f => ({ ...f, [field]: value }))
+  const set = (field, value) => {
+    setForm(f => ({ ...f, [field]: value }))
+    if (field === 'name' || field === 'crop_type') setNameError('')
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -47,7 +51,12 @@ function CropVarietyModal({ variety, cropTypes, onClose, onSaved }) {
       showToast(`Variety ${isEdit ? 'updated' : 'added'}.`, 'success')
       onSaved(); onClose()
     } catch (err) {
-      showToast(err?.response?.data?.name?.[0] || 'Failed to save.', 'error')
+      const nameErr = err?.response?.data?.name?.[0]
+      if (nameErr) {
+        setNameError(nameErr)
+      } else {
+        showToast('Failed to save.', 'error')
+      }
     } finally {
       setIsSubmitting(false)
     }
@@ -62,7 +71,7 @@ function CropVarietyModal({ variety, cropTypes, onClose, onSaved }) {
       maxWidth="max-w-sm"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        <FormField label="Variety Name" required>
+        <FormField label="Variety Name" required error={nameError}>
           <input
             className={baseInputClasses}
             value={form.name}

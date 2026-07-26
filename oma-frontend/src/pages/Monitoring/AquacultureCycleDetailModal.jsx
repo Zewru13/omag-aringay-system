@@ -684,7 +684,7 @@ const SUPPLIER_OPTIONS = [
   'Local Feed Store',
   'Aquaculture Supply Store',
   'Fisheries Cooperative',
-  'Fisherfolk Association',
+  'Fisherfolk Organization',
   'Private Supplier',
   'Local Hatchery',
   'Commercial Hatchery',

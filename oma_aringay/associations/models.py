@@ -6,7 +6,7 @@ from fisheries.models import Fisherfolk
 from core.constants import BARANGAY_CHOICES
 
 
-class FarmersAssociation(models.Model):
+class FarmersOrganization(models.Model):
     REGISTRATION_AGENCY_CHOICES = [
         ('SEC',  'SEC — Securities and Exchange Commission'),
         ('CDA',  'CDA — Cooperative Development Authority'),
@@ -33,7 +33,7 @@ class FarmersAssociation(models.Model):
         return self.name
 
 
-class AssociationOfficer(models.Model):
+class OrganizationOfficer(models.Model):
     POSITION_CHOICES = [
         ('President',      'President'),
         ('Vice President', 'Vice President'),
@@ -44,13 +44,13 @@ class AssociationOfficer(models.Model):
         ('Manager',        'Manager'),
     ]
 
-    association = models.ForeignKey(
-        FarmersAssociation,
+    organization = models.ForeignKey(
+        FarmersOrganization,
         on_delete=models.CASCADE,
         related_name='officers',
     )
-    # Farmers Associations track membership via Farmer.farmers_association
-    # directly (not a join table — see FarmersAssociationMember docstring
+    # Farmers Organizations track membership via Farmer.farmers_organization
+    # directly (not a join table — see FarmersOrganizationMember's docstring
     # below), so the officer's real link is straight to Farmer. SET_NULL
     # (not CASCADE) so a hard Farmer deletion doesn't silently wipe the
     # historical officer record — full_name survives as a display cache.
@@ -66,17 +66,17 @@ class AssociationOfficer(models.Model):
 
     class Meta:
         ordering = ['position', 'full_name']
-        unique_together = [['association', 'position']]
+        unique_together = [['organization', 'position']]
 
     def __str__(self):
         return f'{self.position}: {self.full_name}'
 
 
-class FarmersAssociationMember(models.Model):
+class FarmersOrganizationMember(models.Model):
     """
-    NOTE (Batch 4): live Farmers Association membership is actually tracked
-    via Farmer.farmers_association (a direct FK, set from the farmer's own
-    profile) — that's what AssociationDetailPage's Members tab and the
+    NOTE (Batch 4): live Farmers Organization membership is actually tracked
+    via Farmer.farmers_organization (a direct FK, set from the farmer's own
+    profile) — that's what OrganizationDetailPage's Members tab and the
     officer-assignment search both read from. This join table exists but is
     currently unused by the frontend (0 real rows); left in place/dormant
     rather than removed, matching this project's convention of not deleting
@@ -94,19 +94,19 @@ class FarmersAssociationMember(models.Model):
         MANAGER = 'Manager', 'Manager'
         MEMBER = 'Member', 'Member'
 
-    association = models.ForeignKey(FarmersAssociation, on_delete=models.CASCADE, related_name='members')
-    farmer = models.ForeignKey(Farmer, on_delete=models.CASCADE, related_name='farmer_associations')
+    organization = models.ForeignKey(FarmersOrganization, on_delete=models.CASCADE, related_name='members')
+    farmer = models.ForeignKey(Farmer, on_delete=models.CASCADE, related_name='farmer_organizations')
     position = models.CharField(max_length=20, choices=Position.choices, default=Position.MEMBER)
     date_joined = models.DateField()
 
     class Meta:
-        unique_together = [['association', 'farmer']]
+        unique_together = [['organization', 'farmer']]
 
     def __str__(self):
-        return f'{self.farmer.full_name} — {self.association.name}'
+        return f'{self.farmer.full_name} — {self.organization.name}'
 
 
-class FarmersAssociationEquipment(models.Model):
+class FarmersOrganizationEquipment(models.Model):
     class EquipmentName(models.TextChoices):
         HAND_TRACTOR = 'Hand Tractor', 'Hand Tractor'
         FOUR_WHEEL_TRACTOR = 'Four-Wheel Tractor', 'Four-Wheel Tractor'
@@ -131,7 +131,7 @@ class FarmersAssociationEquipment(models.Model):
         NEEDS_REPAIR = 'Needs Repair', 'Needs Repair'
         NOT_OPERATIONAL = 'Not Operational', 'Not Operational'
 
-    association = models.ForeignKey(FarmersAssociation, on_delete=models.CASCADE, related_name='equipment')
+    organization = models.ForeignKey(FarmersOrganization, on_delete=models.CASCADE, related_name='equipment')
     equipment_name = models.CharField(max_length=50, choices=EquipmentName.choices)
     equipment_name_other = models.CharField(max_length=100, blank=True, default='')
     quantity = models.PositiveIntegerField()
@@ -140,10 +140,10 @@ class FarmersAssociationEquipment(models.Model):
     remarks = models.TextField(blank=True, default='')
 
     def __str__(self):
-        return f'{self.equipment_name} — {self.association.name}'
+        return f'{self.equipment_name} — {self.organization.name}'
 
 
-class FisherfolkAssociation(models.Model):
+class FisherfolkOrganization(models.Model):
     REGISTRATION_AGENCY_CHOICES = [
         ('SEC',  'SEC — Securities and Exchange Commission'),
         ('CDA',  'CDA — Cooperative Development Authority'),
@@ -169,7 +169,7 @@ class FisherfolkAssociation(models.Model):
         return self.name
 
 
-class FisherfolkAssociationOfficer(models.Model):
+class FisherfolkOrganizationOfficer(models.Model):
     POSITION_CHOICES = [
         ('President',      'President'),
         ('Vice President', 'Vice President'),
@@ -180,18 +180,18 @@ class FisherfolkAssociationOfficer(models.Model):
         ('Manager',        'Manager'),
     ]
 
-    association = models.ForeignKey(
-        FisherfolkAssociation,
+    organization = models.ForeignKey(
+        FisherfolkOrganization,
         on_delete=models.CASCADE,
         related_name='officers',
     )
-    # Fisherfolk Associations DO use FisherfolkAssociationMember as the real
+    # Fisherfolk Organizations DO use FisherfolkOrganizationMember as the real
     # membership join table, so the officer links straight to that row (not
     # to Fisherfolk directly). CASCADE is deliberate: removing someone's
     # membership should automatically clear any officer position they held
     # — this is the auto-clear behavior Batch 4 chose for member removal.
     member = models.ForeignKey(
-        'FisherfolkAssociationMember',
+        'FisherfolkOrganizationMember',
         on_delete=models.CASCADE,
         null=True, blank=True,
         related_name='officer_position',
@@ -201,13 +201,13 @@ class FisherfolkAssociationOfficer(models.Model):
 
     class Meta:
         ordering = ['position', 'full_name']
-        unique_together = [['association', 'position']]
+        unique_together = [['organization', 'position']]
 
     def __str__(self):
         return f'{self.position}: {self.full_name}'
 
 
-class FisherfolkAssociationMember(models.Model):
+class FisherfolkOrganizationMember(models.Model):
     class Position(models.TextChoices):
         PRESIDENT = 'President', 'President'
         CHAIRPERSON = 'Chairperson', 'Chairperson'
@@ -220,19 +220,19 @@ class FisherfolkAssociationMember(models.Model):
         MANAGER = 'Manager', 'Manager'
         MEMBER = 'Member', 'Member'
 
-    association = models.ForeignKey(FisherfolkAssociation, on_delete=models.CASCADE, related_name='members')
-    fisherfolk = models.ForeignKey(Fisherfolk, on_delete=models.CASCADE, related_name='fisherfolk_associations')
+    organization = models.ForeignKey(FisherfolkOrganization, on_delete=models.CASCADE, related_name='members')
+    fisherfolk = models.ForeignKey(Fisherfolk, on_delete=models.CASCADE, related_name='fisherfolk_organizations')
     position = models.CharField(max_length=20, choices=Position.choices, default=Position.MEMBER)
     date_joined = models.DateField()
 
     class Meta:
-        unique_together = [['association', 'fisherfolk']]
+        unique_together = [['organization', 'fisherfolk']]
 
     def __str__(self):
-        return f'{self.fisherfolk.full_name} — {self.association.name}'
+        return f'{self.fisherfolk.full_name} — {self.organization.name}'
 
 
-class FisherfolkAssociationEquipment(models.Model):
+class FisherfolkOrganizationEquipment(models.Model):
     class EquipmentName(models.TextChoices):
         FISHING_BOAT = 'Fishing Boat/Banca', 'Fishing Boat/Banca'
         MOTORIZED_BANCA = 'Motorized Banca', 'Motorized Banca'
@@ -259,7 +259,7 @@ class FisherfolkAssociationEquipment(models.Model):
         NEEDS_REPAIR = 'Needs Repair', 'Needs Repair'
         NOT_OPERATIONAL = 'Not Operational', 'Not Operational'
 
-    association = models.ForeignKey(FisherfolkAssociation, on_delete=models.CASCADE, related_name='equipment')
+    organization = models.ForeignKey(FisherfolkOrganization, on_delete=models.CASCADE, related_name='equipment')
     equipment_name = models.CharField(max_length=50, choices=EquipmentName.choices)
     equipment_name_other = models.CharField(max_length=100, blank=True, default='')
     quantity = models.PositiveIntegerField()
@@ -268,4 +268,4 @@ class FisherfolkAssociationEquipment(models.Model):
     remarks = models.TextField(blank=True, default='')
 
     def __str__(self):
-        return f'{self.equipment_name} — {self.association.name}'
+        return f'{self.equipment_name} — {self.organization.name}'

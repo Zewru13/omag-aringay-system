@@ -1,10 +1,10 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 import Toast from "./components/UI/Toast.jsx";
 import InactivityMonitor from "./components/InactivityMonitor.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
 import AuditLogPage from "./pages/Admin/AuditLogPage.jsx";
-import AssociationDetailPage from "./pages/Associations/AssociationDetailPage.jsx";
+import OrganizationDetailPage from "./pages/Organizations/OrganizationDetailPage.jsx";
 import DashboardPage from "./pages/Dashboard/DashboardPage.jsx";
 import FarmerDetailPage from "./pages/Farmers/FarmerDetailPage.jsx";
 import FarmersHub from "./pages/Farmers/FarmersHub.jsx";
@@ -31,6 +31,13 @@ import HelpPage from "./pages/Help/HelpPage.jsx";
 function HomeRedirect() {
   const { isAuthenticated } = useAuth();
   return <Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />;
+}
+
+// Preserves :type/:id when redirecting the old /associations/:type/:id path
+// (Batch 1's Association -> Organization rename) to its new location.
+function LegacyOrganizationDetailRedirect() {
+  const { type, id } = useParams();
+  return <Navigate to={`/organizations/${type}/${id}`} replace />;
 }
 
 function App() {
@@ -66,7 +73,7 @@ function App() {
             }
           />
 
-          {/* Farmers hub — tabs: Registry + Associations */}
+          {/* Farmers hub — tabs: Registry + Organizations */}
           <Route
             path="/farmers"
             element={
@@ -83,15 +90,18 @@ function App() {
               </ProtectedRoute>
             }
           />
-          {/* Old association routes redirect to Farmers hub */}
-          <Route path="/associations" element={<Navigate to="/farmers?tab=associations" replace />} />
-          <Route path="/associations/farmers" element={<Navigate to="/farmers?tab=associations" replace />} />
+          {/* Old association routes redirect to Farmers hub (pre-existing legacy) */}
+          <Route path="/associations" element={<Navigate to="/farmers?tab=organizations" replace />} />
+          <Route path="/associations/farmers" element={<Navigate to="/farmers?tab=organizations" replace />} />
+          {/* Batch 1: Association -> Organization rename. /associations/:type/:id
+              preserves params instead of dropping them. */}
+          <Route path="/associations/:type/:id" element={<LegacyOrganizationDetailRedirect />} />
 
           <Route
-            path="/associations/:type/:id"
+            path="/organizations/:type/:id"
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
-                <AssociationDetailPage />
+                <OrganizationDetailPage />
               </ProtectedRoute>
             }
           />

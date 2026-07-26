@@ -107,8 +107,8 @@ function FarmerSearchInput({ onSelect, selected }) {
       farmer_id: farmer.id,
       farmer_full_name: farmer.full_name,
       farmer_home_barangay: farmer.barangay || '',
-      farmer_assoc_id: farmer.farmers_association || null,
-      farmer_assoc_name: farmer.farmers_association_name || '',
+      farmer_assoc_id: farmer.farmers_organization || null,
+      farmer_assoc_name: farmer.farmers_organization_name || '',
     })
     setQuery(farmer.full_name)
     setShowDrop(false)
@@ -531,7 +531,7 @@ function AddCropMonitoringModal({ onClose, onSuccess }) {
         const year = new Date(rec.date_planted).getFullYear()
         await api.post('/production/monitoring/', {
           farmer:                 farmerInfo.farmer_id,
-          farmers_association:    farmerInfo.farmer_assoc_id || null,
+          farmers_organization:    farmerInfo.farmer_assoc_id || null,
           farm_location_barangay: rec.farm_location_barangay || '',
           land_status:            rec.land_status || '',
           land_status_other_specify: rec.land_status === 'Other' ? (rec.land_status_other_specify || '') : '',
@@ -585,8 +585,8 @@ function AddCropMonitoringModal({ onClose, onSuccess }) {
                     <p className="text-xs font-medium text-[#1A2B1A]">{farmerInfo.farmer_home_barangay || '—'}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-[#A8BCA8] mb-0.5">Association</p>
-                    <p className="text-xs font-medium text-[#1A2B1A]">{farmerInfo.farmer_assoc_name || 'Non-association'}</p>
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-[#A8BCA8] mb-0.5">Organization</p>
+                    <p className="text-xs font-medium text-[#1A2B1A]">{farmerInfo.farmer_assoc_name || 'Non-organization'}</p>
                   </div>
                 </div>
               )}

@@ -27,6 +27,28 @@ class CropVarietySerializer(serializers.ModelSerializer):
         model = CropVariety
         fields = ['id', 'name', 'crop_type', 'crop_type_name', 'is_active']
         read_only_fields = ['id', 'crop_type_name']
+        # DRF auto-adds a UniqueTogetherValidator from the model's
+        # unique_together=[['crop_type', 'name']] — it runs before our own
+        # validate() below and raises its own generic non-field_errors
+        # message first, so the case-insensitive check here would never be
+        # reached. Disabling it and doing the whole check ourselves in
+        # validate() is what actually gives the friendly, field-level message.
+        validators = []
+
+    def validate(self, data):
+        name = (data.get('name', self.instance.name if self.instance else '') or '').strip()
+        crop_type = data['crop_type'] if 'crop_type' in data else (self.instance.crop_type if self.instance else None)
+        if name:
+            qs = CropVariety.objects.filter(name__iexact=name, crop_type=crop_type)
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                crop_label = crop_type.name if crop_type else 'crops with no crop type set'
+                raise serializers.ValidationError({
+                    'name': f"A variety named '{name}' already exists for {crop_label}.",
+                })
+            data['name'] = name
+        return data
 
 
 class CropCategorySerializer(serializers.ModelSerializer):
@@ -57,6 +79,22 @@ class CropTypeSerializer(serializers.ModelSerializer):
             'category', 'category_name', 'subcategory', 'subcategory_name',
             'suggested_activities', 'allowed_units', 'remarks',
         ]
+        # DRF auto-adds a UniqueValidator to `name` from the model's
+        # unique=True — it's case-sensitive-looking but MySQL's default
+        # collation makes the underlying query case-insensitive anyway, so
+        # it fires before validate_name() below ever runs, masking our
+        # friendlier message behind DRF's generic one. Disabling it here and
+        # doing the check ourselves is what actually surfaces our message.
+        extra_kwargs = {'name': {'validators': []}}
+
+    def validate_name(self, value):
+        name = value.strip()
+        qs = CropType.objects.filter(name__iexact=name)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError(f"A crop type named '{name}' already exists.")
+        return name
 
     def get_remarks(self, obj):
         return CropRemarkSerializer(obj.remarks.order_by('-date_recorded'), many=True).data
@@ -284,9 +322,9 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
     farmer_name            = serializers.SerializerMethodField()
     farmer_barangay        = serializers.SerializerMethodField()
     farmer_full_name       = serializers.SerializerMethodField()
-    farmer_association_name= serializers.SerializerMethodField()
+    farmer_organization_name= serializers.SerializerMethodField()
     parcel_number          = serializers.SerializerMethodField()
-    association_name       = serializers.SerializerMethodField()
+    organization_name       = serializers.SerializerMethodField()
     crop_type_name         = serializers.CharField(source='crop_type.name', read_only=True)
     crop_suggested_activities = serializers.CharField(source='crop_type.suggested_activities', read_only=True)
     crop_allowed_units     = serializers.SerializerMethodField()
@@ -306,10 +344,10 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
     class Meta:
         model = CropMonitoringRecord
         fields = [
-            'id', 'farm_parcel', 'farmers_association',
-            'farmer', 'farmer_full_name', 'farmer_association_name',
+            'id', 'farm_parcel', 'farmers_organization',
+            'farmer', 'farmer_full_name', 'farmer_organization_name',
             'farm_location_barangay', 'land_status', 'land_status_other_specify',
-            'farmer_name', 'farmer_barangay', 'parcel_number', 'association_name',
+            'farmer_name', 'farmer_barangay', 'parcel_number', 'organization_name',
             'crop_type', 'crop_type_name', 'crop_suggested_activities', 'crop_allowed_units', 'season', 'year',
             'date_planted', 'area_planted_ha',
             'expected_harvest_date', 'actual_harvest_date',
@@ -325,8 +363,8 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
             'harvest_variance_days',
         ]
         read_only_fields = [
-            'id', 'farmer_name', 'farmer_barangay', 'farmer_full_name', 'farmer_association_name',
-            'parcel_number', 'association_name',
+            'id', 'farmer_name', 'farmer_barangay', 'farmer_full_name', 'farmer_organization_name',
+            'parcel_number', 'organization_name',
             'crop_type_name', 'crop_suggested_activities', 'crop_allowed_units',
             'expected_harvest_date', 'estimated_yield_kg',
             'yield_variance_kg', 'yield_variance_pct',
@@ -358,9 +396,9 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
             return obj.farmer.full_name
         return None
 
-    def get_farmer_association_name(self, obj):
-        if obj.farmer and hasattr(obj.farmer, 'farmers_association') and obj.farmer.farmers_association:
-            return obj.farmer.farmers_association.name
+    def get_farmer_organization_name(self, obj):
+        if obj.farmer and hasattr(obj.farmer, 'farmers_organization') and obj.farmer.farmers_organization:
+            return obj.farmer.farmers_organization.name
         return None
 
     def get_farmer_barangay(self, obj):
@@ -368,8 +406,8 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
             return obj.farm_location_barangay
         if obj.farm_parcel:
             return obj.farm_parcel.barangay
-        if obj.farmers_association:
-            return obj.farmers_association.barangay
+        if obj.farmers_organization:
+            return obj.farmers_organization.barangay
         return None
 
     def get_parcel_number(self, obj):
@@ -377,9 +415,9 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
             return obj.farm_parcel.parcel_number
         return None
 
-    def get_association_name(self, obj):
-        if obj.farmers_association:
-            return obj.farmers_association.name
+    def get_organization_name(self, obj):
+        if obj.farmers_organization:
+            return obj.farmers_organization.name
         return None
 
     def get_is_near_harvest(self, obj):

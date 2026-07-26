@@ -273,7 +273,7 @@ export default function DashboardPage() {
       .finally(() => setLoading(false))
   }, [domain, season, year])
 
-  const totalAssoc     = loading ? '—' : (data?.total_associations  ?? 0)
+  const totalAssoc     = loading ? '—' : (data?.total_organizations  ?? 0)
   const totalCrop      = loading ? '—' : (data?.total_crop_records  ?? 0)
   const nearingHarvest = loading ? '—' : (data?.nearing_harvest     ?? 0)
   const topBarangay    = loading ? '—' : (data?.top_barangay        || '—')
@@ -340,11 +340,11 @@ export default function DashboardPage() {
             <StatCard
               index={0}
               icon={Users}
-              label="Fisherfolk Associations"
+              label="Fisherfolk Organizations"
               value={totalAssoc}
               sub="Active fisherfolk groups · Click to view"
               tone="primary"
-              onClick={() => navigate('/fisherfolk?tab=associations')}
+              onClick={() => navigate('/fisherfolk?tab=organizations')}
             />
             <StatCard
               index={1}
@@ -379,11 +379,11 @@ export default function DashboardPage() {
             <StatCard
               index={0}
               icon={Users}
-              label="Total Associations"
+              label="Total Organizations"
               value={totalAssoc}
               sub="Active farmer groups · Click to view"
               tone="primary"
-              onClick={() => navigate('/farmers?tab=associations')}
+              onClick={() => navigate('/farmers?tab=organizations')}
             />
             <StatCard
               index={1}

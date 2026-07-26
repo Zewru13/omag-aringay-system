@@ -70,9 +70,9 @@ class FarmerListView(generics.ListCreateAPIView):
         if is_pwd is not None:
             queryset = queryset.filter(is_pwd=(is_pwd.lower() in ('true', '1')))
 
-        association_filter = self.request.query_params.get('farmers_association')
-        if association_filter is not None:
-            queryset = queryset.filter(farmers_association_id=association_filter)
+        organization_filter = self.request.query_params.get('farmers_organization')
+        if organization_filter is not None:
+            queryset = queryset.filter(farmers_organization_id=organization_filter)
 
         registered_from = self.request.query_params.get('registered_from')
         if registered_from:

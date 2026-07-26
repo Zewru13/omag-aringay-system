@@ -9,59 +9,59 @@ from accounts.permissions import IsAdminOrEvaluator
 from farmers.models import Farmer
 
 from .models import (
-    AssociationOfficer,
-    FarmersAssociation,
-    FarmersAssociationEquipment,
-    FarmersAssociationMember,
-    FisherfolkAssociation,
-    FisherfolkAssociationEquipment,
-    FisherfolkAssociationMember,
-    FisherfolkAssociationOfficer,
+    FarmersOrganization,
+    FarmersOrganizationEquipment,
+    FarmersOrganizationMember,
+    FisherfolkOrganization,
+    FisherfolkOrganizationEquipment,
+    FisherfolkOrganizationMember,
+    FisherfolkOrganizationOfficer,
+    OrganizationOfficer,
 )
 from .serializers import (
-    AssociationOfficerSerializer,
-    FarmerAssociationMemberSearchSerializer,
-    FarmersAssociationDetailSerializer,
-    FarmersAssociationEquipmentSerializer,
-    FarmersAssociationListSerializer,
-    FarmersAssociationMemberSerializer,
-    FisherfolkAssociationDetailSerializer,
-    FisherfolkAssociationEquipmentSerializer,
-    FisherfolkAssociationListSerializer,
-    FisherfolkAssociationMemberSerializer,
-    FisherfolkAssociationOfficerSerializer,
+    FarmerOrganizationMemberSearchSerializer,
+    FarmersOrganizationDetailSerializer,
+    FarmersOrganizationEquipmentSerializer,
+    FarmersOrganizationListSerializer,
+    FarmersOrganizationMemberSerializer,
+    FisherfolkOrganizationDetailSerializer,
+    FisherfolkOrganizationEquipmentSerializer,
+    FisherfolkOrganizationListSerializer,
+    FisherfolkOrganizationMemberSerializer,
+    FisherfolkOrganizationOfficerSerializer,
+    OrganizationOfficerSerializer,
 )
 
 
-# ─── Farmers Association ──────────────────────────────────────────────────────
+# ─── Farmers Organization ──────────────────────────────────────────────────────
 
-class FarmersAssociationListCreateView(generics.ListCreateAPIView):
+class FarmersOrganizationListCreateView(generics.ListCreateAPIView):
     def get_permissions(self):
         return [IsAuthenticated(), IsAdminOrEvaluator()]
 
     def get_serializer_class(self):
-        return FarmersAssociationDetailSerializer if self.request.method == 'POST' else FarmersAssociationListSerializer
+        return FarmersOrganizationDetailSerializer if self.request.method == 'POST' else FarmersOrganizationListSerializer
 
     def get_queryset(self):
-        qs = FarmersAssociation.objects.all().order_by('-date_created')
+        qs = FarmersOrganization.objects.all().order_by('-date_created')
         search = self.request.query_params.get('search', '').strip()
         if search:
             qs = qs.filter(Q(name__icontains=search) | Q(barangay__icontains=search))
         return qs
 
 
-class FarmersAssociationDetailView(generics.RetrieveUpdateAPIView):
+class FarmersOrganizationDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    serializer_class = FarmersAssociationDetailSerializer
-    queryset = FarmersAssociation.objects.all()
+    serializer_class = FarmersOrganizationDetailSerializer
+    queryset = FarmersOrganization.objects.all()
 
 
-class FarmersAssociationMemberAddView(generics.ListCreateAPIView):
+class FarmersOrganizationMemberAddView(generics.ListCreateAPIView):
     """
-    GET: search THIS association's own members — used by the officer
-    assignment search-select. Sourced from Farmer.farmers_association (the
-    real membership link for Farmers Associations; see
-    FarmersAssociationMember's docstring), not the join table.
+    GET: search THIS organization's own members — used by the officer
+    assignment search-select. Sourced from Farmer.farmers_organization (the
+    real membership link for Farmers Organizations; see
+    FarmersOrganizationMember's docstring), not the join table.
     POST: unchanged join-table "add member" capability — kept for parity
     with the fisherfolk side, though nothing in the current UI calls it for
     farmers (see model docstring).
@@ -71,13 +71,13 @@ class FarmersAssociationMemberAddView(generics.ListCreateAPIView):
 
     def get_serializer_class(self):
         if self.request.method == 'GET':
-            return FarmerAssociationMemberSearchSerializer
-        return FarmersAssociationMemberSerializer
+            return FarmerOrganizationMemberSearchSerializer
+        return FarmersOrganizationMemberSerializer
 
     def get_queryset(self):
-        association_id = self.kwargs['pk']
+        organization_id = self.kwargs['pk']
         if self.request.method == 'GET':
-            qs = Farmer.objects.filter(farmers_association_id=association_id)
+            qs = Farmer.objects.filter(farmers_organization_id=organization_id)
             search = self.request.query_params.get('search', '').strip()
             if search:
                 qs = qs.filter(
@@ -86,112 +86,112 @@ class FarmersAssociationMemberAddView(generics.ListCreateAPIView):
                     | Q(middle_name__icontains=search)
                 )
             return qs.order_by('last_name', 'first_name')
-        return FarmersAssociationMember.objects.filter(association_id=association_id)
+        return FarmersOrganizationMember.objects.filter(organization_id=organization_id)
 
     def perform_create(self, serializer):
-        association_id = self.kwargs['pk']
+        organization_id = self.kwargs['pk']
         farmer = serializer.validated_data['farmer']
-        if FarmersAssociationMember.objects.filter(association_id=association_id, farmer=farmer).exists():
+        if FarmersOrganizationMember.objects.filter(organization_id=organization_id, farmer=farmer).exists():
             raise serializers.ValidationError(
-                {'detail': 'This farmer is already a member of this association.'}
+                {'detail': 'This farmer is already a member of this organization.'}
             )
-        serializer.save(association_id=association_id)
+        serializer.save(organization_id=organization_id)
 
 
-class FarmersAssociationMemberRemoveView(generics.DestroyAPIView):
+class FarmersOrganizationMemberRemoveView(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    queryset = FarmersAssociationMember.objects.all()
+    queryset = FarmersOrganizationMember.objects.all()
     lookup_url_kwarg = 'member_id'
 
 
-class FarmersAssociationMemberDirectRemoveView(APIView):
+class FarmersOrganizationMemberDirectRemoveView(APIView):
     """
-    The actual "remove member" action for Farmers Associations: clears
-    Farmer.farmers_association (the real membership link) rather than
+    The actual "remove member" action for Farmers Organizations: clears
+    Farmer.farmers_organization (the real membership link) rather than
     deleting a join-table row. Does NOT touch the Farmer profile otherwise.
-    Auto-clears any officer position this farmer holds in this association
-    first (Batch 4's chosen behavior — see AssociationOfficer.farmer's
+    Auto-clears any officer position this farmer holds in this organization
+    first (Batch 4's chosen behavior — see OrganizationOfficer.farmer's
     SET_NULL, which can't auto-cascade here since we're nulling a field,
     not deleting a row, so this has to be done explicitly).
     """
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
     def delete(self, request, pk, farmer_id):
-        farmer = get_object_or_404(Farmer, pk=farmer_id, farmers_association_id=pk)
-        AssociationOfficer.objects.filter(association_id=pk, farmer_id=farmer_id).delete()
-        farmer.farmers_association = None
-        farmer.save(update_fields=['farmers_association'])
+        farmer = get_object_or_404(Farmer, pk=farmer_id, farmers_organization_id=pk)
+        OrganizationOfficer.objects.filter(organization_id=pk, farmer_id=farmer_id).delete()
+        farmer.farmers_organization = None
+        farmer.save(update_fields=['farmers_organization'])
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class FarmersAssociationEquipmentAddView(generics.CreateAPIView):
+class FarmersOrganizationEquipmentAddView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    serializer_class = FarmersAssociationEquipmentSerializer
+    serializer_class = FarmersOrganizationEquipmentSerializer
 
     def perform_create(self, serializer):
-        serializer.save(association_id=self.kwargs['pk'])
+        serializer.save(organization_id=self.kwargs['pk'])
 
 
-class FarmersAssociationEquipmentRemoveView(generics.DestroyAPIView):
+class FarmersOrganizationEquipmentRemoveView(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    queryset = FarmersAssociationEquipment.objects.all()
+    queryset = FarmersOrganizationEquipment.objects.all()
     lookup_url_kwarg = 'equip_id'
 
 
-class AssociationOfficerListCreateView(generics.ListCreateAPIView):
+class OrganizationOfficerListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    serializer_class = AssociationOfficerSerializer
+    serializer_class = OrganizationOfficerSerializer
     pagination_class = None
 
     def get_queryset(self):
-        return AssociationOfficer.objects.filter(association_id=self.kwargs['pk'])
+        return OrganizationOfficer.objects.filter(organization_id=self.kwargs['pk'])
 
     def perform_create(self, serializer):
-        serializer.save(association_id=self.kwargs['pk'])
+        serializer.save(organization_id=self.kwargs['pk'])
 
 
-class AssociationOfficerDestroyView(generics.DestroyAPIView):
+class OrganizationOfficerDestroyView(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    queryset = AssociationOfficer.objects.all()
+    queryset = OrganizationOfficer.objects.all()
     lookup_url_kwarg = 'officer_id'
 
 
-# ─── Fisherfolk Association ───────────────────────────────────────────────────
+# ─── Fisherfolk Organization ───────────────────────────────────────────────────
 
-class FisherfolkAssociationListCreateView(generics.ListCreateAPIView):
+class FisherfolkOrganizationListCreateView(generics.ListCreateAPIView):
     def get_permissions(self):
         return [IsAuthenticated(), IsAdminOrEvaluator()]
 
     def get_serializer_class(self):
-        return FisherfolkAssociationDetailSerializer if self.request.method == 'POST' else FisherfolkAssociationListSerializer
+        return FisherfolkOrganizationDetailSerializer if self.request.method == 'POST' else FisherfolkOrganizationListSerializer
 
     def get_queryset(self):
-        qs = FisherfolkAssociation.objects.all().order_by('-date_created')
+        qs = FisherfolkOrganization.objects.all().order_by('-date_created')
         search = self.request.query_params.get('search', '').strip()
         if search:
             qs = qs.filter(Q(name__icontains=search) | Q(barangay__icontains=search))
         return qs
 
 
-class FisherfolkAssociationDetailView(generics.RetrieveUpdateAPIView):
+class FisherfolkOrganizationDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    serializer_class = FisherfolkAssociationDetailSerializer
-    queryset = FisherfolkAssociation.objects.all()
+    serializer_class = FisherfolkOrganizationDetailSerializer
+    queryset = FisherfolkOrganization.objects.all()
 
 
-class FisherfolkAssociationMemberAddView(generics.ListCreateAPIView):
+class FisherfolkOrganizationMemberAddView(generics.ListCreateAPIView):
     """
-    GET: search THIS association's own members — used by the officer
+    GET: search THIS organization's own members — used by the officer
     assignment search-select.
     POST: unchanged "add member" (join-table row).
     """
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    serializer_class = FisherfolkAssociationMemberSerializer
+    serializer_class = FisherfolkOrganizationMemberSerializer
     pagination_class = None
 
     def get_queryset(self):
-        qs = FisherfolkAssociationMember.objects.filter(
-            association_id=self.kwargs['pk'],
+        qs = FisherfolkOrganizationMember.objects.filter(
+            organization_id=self.kwargs['pk'],
         ).select_related('fisherfolk')
         search = self.request.query_params.get('search', '').strip()
         if search:
@@ -203,48 +203,48 @@ class FisherfolkAssociationMemberAddView(generics.ListCreateAPIView):
         return qs
 
     def perform_create(self, serializer):
-        association_id = self.kwargs['pk']
+        organization_id = self.kwargs['pk']
         fisherfolk = serializer.validated_data['fisherfolk']
-        if FisherfolkAssociationMember.objects.filter(association_id=association_id, fisherfolk=fisherfolk).exists():
+        if FisherfolkOrganizationMember.objects.filter(organization_id=organization_id, fisherfolk=fisherfolk).exists():
             raise serializers.ValidationError(
-                {'detail': 'This fisherfolk is already a member of this association.'}
+                {'detail': 'This fisherfolk is already a member of this organization.'}
             )
-        serializer.save(association_id=association_id)
+        serializer.save(organization_id=organization_id)
 
 
-class FisherfolkAssociationMemberRemoveView(generics.DestroyAPIView):
+class FisherfolkOrganizationMemberRemoveView(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    queryset = FisherfolkAssociationMember.objects.all()
+    queryset = FisherfolkOrganizationMember.objects.all()
     lookup_url_kwarg = 'member_id'
 
 
-class FisherfolkAssociationEquipmentAddView(generics.CreateAPIView):
+class FisherfolkOrganizationEquipmentAddView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    serializer_class = FisherfolkAssociationEquipmentSerializer
+    serializer_class = FisherfolkOrganizationEquipmentSerializer
 
     def perform_create(self, serializer):
-        serializer.save(association_id=self.kwargs['pk'])
+        serializer.save(organization_id=self.kwargs['pk'])
 
 
-class FisherfolkAssociationEquipmentRemoveView(generics.DestroyAPIView):
+class FisherfolkOrganizationEquipmentRemoveView(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    queryset = FisherfolkAssociationEquipment.objects.all()
+    queryset = FisherfolkOrganizationEquipment.objects.all()
     lookup_url_kwarg = 'equip_id'
 
 
-class FisherfolkAssociationOfficerListCreateView(generics.ListCreateAPIView):
+class FisherfolkOrganizationOfficerListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    serializer_class = FisherfolkAssociationOfficerSerializer
+    serializer_class = FisherfolkOrganizationOfficerSerializer
     pagination_class = None
 
     def get_queryset(self):
-        return FisherfolkAssociationOfficer.objects.filter(association_id=self.kwargs['pk'])
+        return FisherfolkOrganizationOfficer.objects.filter(organization_id=self.kwargs['pk'])
 
     def perform_create(self, serializer):
-        serializer.save(association_id=self.kwargs['pk'])
+        serializer.save(organization_id=self.kwargs['pk'])
 
 
-class FisherfolkAssociationOfficerDestroyView(generics.DestroyAPIView):
+class FisherfolkOrganizationOfficerDestroyView(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    queryset = FisherfolkAssociationOfficer.objects.all()
+    queryset = FisherfolkOrganizationOfficer.objects.all()
     lookup_url_kwarg = 'officer_id'

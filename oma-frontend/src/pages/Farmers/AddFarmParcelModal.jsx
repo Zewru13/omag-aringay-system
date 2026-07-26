@@ -41,7 +41,7 @@ const MACHINERY_OPTIONS = [
   'Hand Tractor', 'Four-Wheel Tractor', 'Thresher', 'Water Pump',
   'Sprayer', 'Harvester', 'Rice Mill', 'Other',
 ]
-const OWNERSHIP_OPTIONS = ['Owned', 'Borrowed', 'Rented', 'Association-Owned']
+const OWNERSHIP_OPTIONS = ['Owned', 'Borrowed', 'Rented', 'Organization-Owned']
 // PROVISIONAL agronomic classification, pending OMAg confirmation — same
 // caveat status as the crop variety data. Tree/perennial crops (no "times
 // per year" cropping cycle) vs. seasonal/annual crops (where Single/Double/

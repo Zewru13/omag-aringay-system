@@ -13,7 +13,7 @@ const labelCls = 'block text-[12px] font-medium text-[#4A5E4A] mb-1'
 
 const TABS = [
   { id: 'harvested',           icon: Wheat,     label: 'Harvested Crop Report' },
-  { id: 'association',         icon: Building2, label: 'Association List Report' },
+  { id: 'organization',         icon: Building2, label: 'Organization List Report' },
   { id: 'crop_options',        icon: Leaf,      label: 'Crop Options Report' },
   { id: 'fisheries',           icon: Fish,      label: 'Fisheries Production Report' },
   { id: 'farmer_crop_history', icon: History,   label: 'Farmer Crop History' },
@@ -199,7 +199,7 @@ function PreviewTable({ headers, rows, isLoading, emptyText = 'No records found.
 
 function HarvestedCropTab() {
   const { showToast } = useToast()
-  const [associations,  setAssociations]  = useState([])
+  const [organizations,  setOrganizations]  = useState([])
   const [cropTypes,     setCropTypes]     = useState([])
   const [allRecords,    setAllRecords]    = useState([])
   const [isLoading,     setIsLoading]     = useState(true)
@@ -207,17 +207,17 @@ function HarvestedCropTab() {
   const [showSig,       setShowSig]       = useState(false)
   const [sigPurpose,    setSigPurpose]    = useState('pdf')
   const [filters, setFilters] = useState({
-    start_date: '', end_date: '', barangay: '', association: '', crop_name: '', yield_performance: '',
+    start_date: '', end_date: '', barangay: '', organization: '', crop_name: '', yield_performance: '',
   })
   const set = (k, v) => setFilters(f => ({ ...f, [k]: v }))
 
   useEffect(() => {
     Promise.all([
-      api.get('/associations/farmers/'),
+      api.get('/organizations/farmers/'),
       api.get('/production/crop-types/'),
       api.get('/production/monitoring/'),
     ]).then(([aRes, cRes, mRes]) => {
-      setAssociations(Array.isArray(aRes.data) ? aRes.data : (aRes.data.results || []))
+      setOrganizations(Array.isArray(aRes.data) ? aRes.data : (aRes.data.results || []))
       setCropTypes(Array.isArray(cRes.data) ? cRes.data : (cRes.data.results || []))
       const all = Array.isArray(mRes.data) ? mRes.data : (mRes.data.results || [])
       setAllRecords(all.filter(r => r.status === 'Harvested'))
@@ -228,7 +228,7 @@ function HarvestedCropTab() {
   const filteredRecords = useMemo(() => {
     return allRecords.filter(rec => {
       if (filters.barangay    && rec.farmer_barangay !== filters.barangay) return false
-      if (filters.association && String(rec.farmers_association) !== String(filters.association)) return false
+      if (filters.organization && String(rec.farmers_organization) !== String(filters.organization)) return false
       if (filters.crop_name   && !rec.crop_type_name?.toLowerCase().includes(filters.crop_name.toLowerCase())) return false
       if (filters.start_date  && rec.actual_harvest_date && rec.actual_harvest_date < filters.start_date) return false
       if (filters.end_date    && rec.actual_harvest_date && rec.actual_harvest_date > filters.end_date)   return false
@@ -266,8 +266,8 @@ function HarvestedCropTab() {
 
   const previewRows = filteredRecords.map(rec => [
     rec.farmer_barangay,
-    rec.association_name,
-    rec.association_name,
+    rec.organization_name,
+    rec.organization_name,
     rec.crop_type_name,
     rec.area_planted_ha,
     rec.area_planted_ha,
@@ -282,7 +282,7 @@ function HarvestedCropTab() {
     if (filters.end_date)          p.set('end_date',          filters.end_date)
     if (filters.barangay)          p.set('barangay',          filters.barangay)
     if (filters.crop_name)         p.set('crop_name',         filters.crop_name)
-    if (filters.association)       p.set('association',       filters.association)
+    if (filters.organization)       p.set('organization',       filters.organization)
     if (filters.yield_performance) p.set('yield_performance', filters.yield_performance)
     return `/reports/production/harvested-crop/?${p}`
   }
@@ -304,7 +304,7 @@ function HarvestedCropTab() {
   }
 
   const HEADERS = [
-    'BARANGAY', 'FARMER', 'ASSOCIATION', 'CROP',
+    'BARANGAY', 'FARMER', 'ORGANIZATION', 'CROP',
     'AREA PLANTED (HA)', 'AREA HARVESTED (HA)',
     'ESTIMATED HARVEST DATE', 'ACTUAL HARVEST DATE', 'ESTIMATED YIELD (KG)',
   ]
@@ -328,10 +328,10 @@ function HarvestedCropTab() {
             <BarangaySelect value={filters.barangay} onChange={e => set('barangay', e.target.value)} includeAllOption />
           </div>
           <div>
-            <label className={labelCls}>Association</label>
-            <select className={baseInputClasses} value={filters.association} onChange={e => set('association', e.target.value)}>
-              <option value="">All Associations</option>
-              {associations.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+            <label className={labelCls}>Organization</label>
+            <select className={baseInputClasses} value={filters.organization} onChange={e => set('organization', e.target.value)}>
+              <option value="">All Organizations</option>
+              {organizations.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
           </div>
           <div>
@@ -405,9 +405,9 @@ function HarvestedCropTab() {
   )
 }
 
-// ── Association List Tab ───────────────────────────────────────────────────────
+// ── Organization List Tab ───────────────────────────────────────────────────────
 
-function AssociationListTab() {
+function OrganizationListTab() {
   const { showToast } = useToast()
   const [allRecords,    setAllRecords]    = useState([])
   const [isLoading,     setIsLoading]     = useState(true)
@@ -419,14 +419,14 @@ function AssociationListTab() {
 
   useEffect(() => {
     Promise.all([
-      api.get('/associations/farmers/'),
-      api.get('/associations/fisherfolk/'),
+      api.get('/organizations/farmers/'),
+      api.get('/organizations/fisherfolk/'),
     ]).then(([fRes, ffRes]) => {
       const farmers    = (Array.isArray(fRes.data)  ? fRes.data  : (fRes.data.results  || [])).map(a => ({ ...a, _type: 'farmers' }))
       const fisherfolk = (Array.isArray(ffRes.data) ? ffRes.data : (ffRes.data.results || [])).map(a => ({ ...a, _type: 'fisherfolk' }))
       const all = [...farmers, ...fisherfolk].sort((a, b) => (a.name || '').localeCompare(b.name || ''))
       setAllRecords(all)
-    }).catch(() => showToast('Failed to load association data.', 'error'))
+    }).catch(() => showToast('Failed to load organization data.', 'error'))
       .finally(() => setIsLoading(false))
   }, [])
 
@@ -443,14 +443,14 @@ function AssociationListTab() {
   const buildUrl = (fmt) => {
     const p = new URLSearchParams({ format: fmt, type: filters.type })
     if (filters.barangay) p.set('barangay', filters.barangay)
-    return `/reports/associations/list/?${p}`
+    return `/reports/organizations/list/?${p}`
   }
 
   const handleGenerate = async (sigData) => {
     setShowSig(false)
     setIsDownloading(true)
     const fmt  = sigPurpose === 'pdf' ? 'pdf' : 'excel'
-    const file = sigPurpose === 'pdf' ? 'association_list.pdf' : 'association_list.xlsx'
+    const file = sigPurpose === 'pdf' ? 'organization_list.pdf' : 'organization_list.xlsx'
     try {
       let url = buildUrl(fmt)
       if (sigData.prepared_by) url += `&prepared_by=${encodeURIComponent(sigData.prepared_by)}&prepared_role=${encodeURIComponent(sigData.position)}`
@@ -462,7 +462,7 @@ function AssociationListTab() {
     } finally { setIsDownloading(false) }
   }
 
-  const HEADERS = ['ASSOCIATION NAME', 'BARANGAY', 'CONTACT PERSON', 'CONTACT NUMBER']
+  const HEADERS = ['ORGANIZATION NAME', 'BARANGAY', 'CONTACT PERSON', 'CONTACT NUMBER']
 
   return (
     <div className="space-y-5">
@@ -476,7 +476,7 @@ function AssociationListTab() {
           <div>
             <label className={labelCls}>Type</label>
             <select className={baseInputClasses} value={filters.type} onChange={e => set('type', e.target.value)}>
-              <option value="all">All Associations</option>
+              <option value="all">All Organizations</option>
               <option value="farmers">Farmers Only</option>
               <option value="fisherfolk">Fisherfolk Only</option>
             </select>
@@ -492,12 +492,12 @@ function AssociationListTab() {
 
       <div>
         <div className="flex items-center gap-2 mb-2">
-          <p className="text-[13px] font-semibold text-[#1A2B1A]">Preview: Association List</p>
+          <p className="text-[13px] font-semibold text-[#1A2B1A]">Preview: Organization List</p>
           {!isLoading && (
-            <span className="text-[12px] text-[#7A8E7A]">Showing {filteredRecords.length} association{filteredRecords.length !== 1 ? 's' : ''}</span>
+            <span className="text-[12px] text-[#7A8E7A]">Showing {filteredRecords.length} organization{filteredRecords.length !== 1 ? 's' : ''}</span>
           )}
         </div>
-        <PreviewTable headers={HEADERS} rows={previewRows} isLoading={isLoading} emptyText="No association records found." />
+        <PreviewTable headers={HEADERS} rows={previewRows} isLoading={isLoading} emptyText="No organization records found." />
       </div>
 
       {showSig && (
@@ -639,7 +639,7 @@ function CropOptionsTab() {
 
 function FisheriesProductionTab() {
   const { showToast } = useToast()
-  const [associations,  setAssociations]  = useState([])
+  const [organizations,  setOrganizations]  = useState([])
   const [speciesList,   setSpeciesList]   = useState([])
   const [previewRows,   setPreviewRows]   = useState([])
   const [isLoading,     setIsLoading]     = useState(false)
@@ -647,16 +647,16 @@ function FisheriesProductionTab() {
   const [showSig,       setShowSig]       = useState(false)
   const [sigPurpose,    setSigPurpose]    = useState('pdf')
   const [filters, setFilters] = useState({
-    start_date: '', end_date: '', barangay: '', association: '', species: '', culture_type: '',
+    start_date: '', end_date: '', barangay: '', organization: '', species: '', culture_type: '',
   })
   const set = (k, v) => setFilters(f => ({ ...f, [k]: v }))
 
   useEffect(() => {
     Promise.all([
-      api.get('/associations/fisherfolk/'),
+      api.get('/organizations/fisherfolk/'),
       api.get('/fisheries/species/'),
     ]).then(([aRes, sRes]) => {
-      setAssociations(Array.isArray(aRes.data) ? aRes.data : (aRes.data.results || []))
+      setOrganizations(Array.isArray(aRes.data) ? aRes.data : (aRes.data.results || []))
       setSpeciesList(Array.isArray(sRes.data) ? sRes.data : (sRes.data.results || []))
     }).catch(() => {})
   }, [])
@@ -668,13 +668,13 @@ function FisheriesProductionTab() {
       if (filters.start_date)   p.set('start_date',   filters.start_date)
       if (filters.end_date)     p.set('end_date',     filters.end_date)
       if (filters.barangay)     p.set('barangay',     filters.barangay)
-      if (filters.association)  p.set('association',  filters.association)
+      if (filters.organization)  p.set('organization',  filters.organization)
       if (filters.species)      p.set('species',      filters.species)
       if (filters.culture_type) p.set('culture_type', filters.culture_type)
       const r = await api.get(`/reports/fisheries/production/?${p}`)
       const records = r.data?.records || []
       setPreviewRows(records.map(rec => [
-        rec.barangay, rec.fisherfolk, rec.association,
+        rec.barangay, rec.fisherfolk, rec.organization,
         rec.species, rec.culture_type,
         rec.date_stocked, rec.harvest_date,
         rec.quantity_kg, rec.is_final,
@@ -691,7 +691,7 @@ function FisheriesProductionTab() {
     if (filters.start_date)   p.set('start_date',   filters.start_date)
     if (filters.end_date)     p.set('end_date',     filters.end_date)
     if (filters.barangay)     p.set('barangay',     filters.barangay)
-    if (filters.association)  p.set('association',  filters.association)
+    if (filters.organization)  p.set('organization',  filters.organization)
     if (filters.species)      p.set('species',      filters.species)
     if (filters.culture_type) p.set('culture_type', filters.culture_type)
     return `/reports/fisheries/production/?${p}`
@@ -714,7 +714,7 @@ function FisheriesProductionTab() {
   }
 
   const HEADERS = [
-    'BARANGAY', 'FISHERFOLK', 'ASSOCIATION',
+    'BARANGAY', 'FISHERFOLK', 'ORGANIZATION',
     'SPECIES', 'CULTURE TYPE',
     'DATE STOCKED', 'HARVEST DATE',
     'QUANTITY (KG)', 'FINAL?',
@@ -738,10 +738,10 @@ function FisheriesProductionTab() {
             <BarangaySelect value={filters.barangay} onChange={e => set('barangay', e.target.value)} includeAllOption />
           </div>
           <div>
-            <label className={labelCls}>Association</label>
-            <select className={baseInputClasses} value={filters.association} onChange={e => set('association', e.target.value)}>
-              <option value="">All Associations</option>
-              {associations.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+            <label className={labelCls}>Organization</label>
+            <select className={baseInputClasses} value={filters.organization} onChange={e => set('organization', e.target.value)}>
+              <option value="">All Organizations</option>
+              {organizations.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
           </div>
           <div>
@@ -1154,7 +1154,7 @@ export default function ReportsPage() {
         </div>
 
         {activeTab === 'harvested'           && <HarvestedCropTab />}
-        {activeTab === 'association'         && <AssociationListTab />}
+        {activeTab === 'organization'         && <OrganizationListTab />}
         {activeTab === 'crop_options'        && <CropOptionsTab />}
         {activeTab === 'fisheries'           && <FisheriesProductionTab />}
         {activeTab === 'farmer_crop_history' && <FarmerCropHistoryTab />}

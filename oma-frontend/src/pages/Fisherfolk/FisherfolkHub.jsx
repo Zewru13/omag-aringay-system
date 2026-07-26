@@ -1,21 +1,25 @@
 import { useSearchParams } from 'react-router-dom'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import FisherfolkPage from './FisherfolkPage.jsx'
-import FisherfolkAssociationsPage from './FisherfolkAssociationsPage.jsx'
+import FisherfolkOrganizationsPage from './FisherfolkOrganizationsPage.jsx'
 
 const TABS = [
-  { value: 'registry',     label: 'Registry' },
-  { value: 'associations', label: 'Associations' },
+  { value: 'registry',      label: 'Registry' },
+  { value: 'organizations', label: 'Organizations' },
 ]
 
 function FisherfolkHub() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const activeTab = searchParams.get('tab') || 'registry'
+  // 'associations' is the pre-rename tab value — old bookmarks/links still
+  // using it land on the Organizations tab instead of silently falling
+  // through to the registry default.
+  const rawTab = searchParams.get('tab') || 'registry'
+  const activeTab = rawTab === 'associations' ? 'organizations' : rawTab
 
   const setTab = (tab) => setSearchParams({ tab }, { replace: true })
 
   return (
-    <PageLayout title="Fisherfolk" subtitle="Manage fisherfolk registry and associations">
+    <PageLayout title="Fisherfolk" subtitle="Manage fisherfolk registry and organizations">
       <div className="flex gap-2 mb-5">
         {TABS.map((tab) => (
           <button
@@ -34,8 +38,8 @@ function FisherfolkHub() {
         ))}
       </div>
 
-      {activeTab === 'registry'     && <FisherfolkPage            asTab />}
-      {activeTab === 'associations' && <FisherfolkAssociationsPage asTab />}
+      {activeTab === 'registry'      && <FisherfolkPage             asTab />}
+      {activeTab === 'organizations' && <FisherfolkOrganizationsPage asTab />}
     </PageLayout>
   )
 }

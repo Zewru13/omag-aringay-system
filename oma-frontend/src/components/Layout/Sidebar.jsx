@@ -27,10 +27,10 @@ import logo from "../../assets/LOGO OMAg.jpg";
 // ─── Nav structure ──────────────────────────────────────────────────────────
 // Leaf items carry `to`, which may include a `?tab=` query — the same
 // convention FarmersHub/FisherfolkHub already use for their Registry/
-// Associations tabs. Groups are plain { key, label, icon, items }; an item
+// Organizations tabs. Groups are plain { key, label, icon, items }; an item
 // may itself be a nested group (an entry with its own `items`) instead of a
 // leaf — NavGroup renders those one level deeper — though no group currently
-// nests another (Associations was split out to its own top-level group).
+// nests another (Organizations was split out to its own top-level group).
 
 const DASHBOARD_ITEM = { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" };
 const REPORTS_ITEM = { to: "/reports", icon: FileBarChart, label: "Reports" };
@@ -52,12 +52,12 @@ const GROUPS = [
     ],
   },
   {
-    key: "association-management",
-    label: "Association Management",
+    key: "organization-management",
+    label: "Organization Management",
     icon: Building2,
     items: [
-      { to: "/farmers?tab=associations", icon: Users, label: "Farmers Associations" },
-      { to: "/fisherfolk?tab=associations", icon: Fish, label: "Fisherfolk Associations" },
+      { to: "/farmers?tab=organizations", icon: Users, label: "Farmers Organizations" },
+      { to: "/fisherfolk?tab=organizations", icon: Fish, label: "Fisherfolk Organizations" },
     ],
   },
   {
@@ -111,8 +111,8 @@ function splitTo(to) {
 // whether a group/sub-group should auto-expand. Pathname must match; if the
 // link specifies a ?tab=, the current tab must agree too (falling back to
 // DEFAULT_TAB_BY_PATH when the URL carries no tab at all) — this is what
-// keeps "Farmers" and "Farmers Associations" (same pathname, different tab)
-// from both lighting up, and what stops the Associations sub-group from
+// keeps "Farmers" and "Farmers Organizations" (same pathname, different tab)
+// from both lighting up, and what stops the Organizations sub-group from
 // auto-expanding while merely viewing the plain Farmers registry.
 function isItemActive(to, location) {
   const { path, tab } = splitTo(to);
@@ -194,7 +194,7 @@ function LeafItem({ to, icon: Icon, label, isCollapsed, depth = 0 }) {
 }
 
 // ─── Collapsible group ──────────────────────────────────────────────────────
-// Renders a top-level nav section (Registration Management, Association
+// Renders a top-level nav section (Registration Management, Organization
 // Management, etc.). Also handles a nested sub-group one level deeper, should
 // an item ever carry its own `items` again — none currently do.
 

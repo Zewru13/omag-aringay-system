@@ -69,7 +69,7 @@ const COLUMNS = [
   { key: "date_planted_fmt", label: "DATE PLANTED" },
   { key: "expected_harvest_fmt", label: "ESTIMATED HARVEST DATE" },
   { key: "est_yield_fmt", label: "ESTIMATED YIELD (KG)" },
-  { key: "assoc_name", label: "ASSOCIATION" },
+  { key: "assoc_name", label: "ORGANIZATION" },
   { key: "status_cell", label: "STATUS" },
   { key: "actions_cell", label: "ACTIONS" },
 ];
@@ -233,8 +233,8 @@ function RemarksModal({ record, onClose }) {
               {[
                 { label: "Crop Type", value: record.crop_type_name },
                 {
-                  label: "Farmer Association",
-                  value: record.association_name || "—",
+                  label: "Farmer Organization",
+                  value: record.organization_name || "—",
                 },
                 {
                   label: "Area Planted (ha)",
@@ -359,8 +359,8 @@ function EditCropModal({ record, onClose, onSaved }) {
     farmer_id: record.farmer || null,
     farmer_full_name: record.farmer_name || "",
     farmer_home_barangay: "",
-    farmer_assoc_id: record.farmers_association || null,
-    farmer_assoc_name: record.association_name || "",
+    farmer_assoc_id: record.farmers_organization || null,
+    farmer_assoc_name: record.organization_name || "",
   });
   const farmerWrapperRef = useRef(null);
   const farmerDebounceRef = useRef(null);
@@ -471,8 +471,8 @@ function EditCropModal({ record, onClose, onSaved }) {
       farmer_id: farmer.id,
       farmer_full_name: farmer.full_name,
       farmer_home_barangay: farmer.barangay || "",
-      farmer_assoc_id: farmer.association_id || null,
-      farmer_assoc_name: farmer.association_name || "",
+      farmer_assoc_id: farmer.organization_id || null,
+      farmer_assoc_name: farmer.organization_name || "",
     });
     setFarmerQuery(farmer.full_name);
     setFarmerResults([]);
@@ -520,7 +520,7 @@ function EditCropModal({ record, onClose, onSaved }) {
     try {
       await api.patch(`/production/monitoring/${record.id}/`, {
         farmer: selectedFarmer.farmer_id,
-        farmers_association: selectedFarmer.farmer_assoc_id || null,
+        farmers_organization: selectedFarmer.farmer_assoc_id || null,
         farm_location_barangay: form.farm_location_barangay,
         land_status: form.land_status,
         land_status_other_specify: form.land_status === "Other" ? form.land_status_other_specify : "",
@@ -800,7 +800,7 @@ function EditCropModal({ record, onClose, onSaved }) {
             <option value="Own Seeds">Own Seeds</option>
             <option value="DA/LGU Provided">DA/LGU Provided</option>
             <option value="Commercial">Commercial</option>
-            <option value="Association">Association</option>
+            <option value="Organization">Organization</option>
             <option value="Other">Other</option>
           </select>
           {form.seed_source === "Other" && (
@@ -898,7 +898,7 @@ function CropDetailModal({ record, onClose }) {
   const rows = [
     ["Crop Type", record.crop_type_name || "—"],
     ["Farmer", record.farmer_full_name || record.farmer_name || "—"],
-    ["Association", record.association_name || "—"],
+    ["Organization", record.organization_name || "—"],
     ["Farm Location", record.farmer_barangay || record.farm_location_barangay || "—"],
     ["Land Status", landStatusDisplay],
     ["Season / Year", `${record.season || "—"} ${record.year || ""}`],
@@ -1083,7 +1083,7 @@ export default function CropInformationPage() {
       const matchSearch =
         !q ||
         rec.crop_type_name?.toLowerCase().includes(q) ||
-        rec.association_name?.toLowerCase().includes(q);
+        rec.organization_name?.toLowerCase().includes(q);
       const displayStatus = getDisplayStatus(rec);
       const matchStatus =
         statusFilter === "All Status" || displayStatus === statusFilter;
@@ -1116,7 +1116,7 @@ export default function CropInformationPage() {
         ) : (
           "—"
         ),
-      assoc_name: rec.association_name || "—",
+      assoc_name: rec.organization_name || "—",
       status_cell: (
         <span className="flex items-center gap-1.5">
           <StatusPill tone={STATUS_TONES[displayStatus] || "slate"}>
@@ -1181,7 +1181,7 @@ export default function CropInformationPage() {
             </span>
             <input
               className="w-full border-none bg-transparent pl-8 pr-2 text-[13px] text-[#1A2B1A] placeholder-[#A8BCA8] focus:outline-none"
-              placeholder="Search by crop, association..."
+              placeholder="Search by crop, organization..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />

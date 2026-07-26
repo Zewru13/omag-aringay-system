@@ -37,13 +37,13 @@ const STEPS = [
   },
   {
     step: "2",
-    title: "Register Farmer Associations",
-    desc: "Go to Farmer Association Management to register all farmer cooperatives and associations in Aringay.",
+    title: "Register Farmer Organizations",
+    desc: "Go to Farmer Organization Management to register all farmer cooperatives and organizations in Aringay.",
   },
   {
     step: "3",
     title: "Add Crop Records",
-    desc: "Go to Crop Information Management to record what crops have been planted, by which association, and when. The system will auto-compute the expected harvest date and estimated yield.",
+    desc: "Go to Crop Information Management to record what crops have been planted, by which organization, and when. The system will auto-compute the expected harvest date and estimated yield.",
   },
   {
     step: "4",
@@ -58,7 +58,7 @@ const STEPS = [
   {
     step: "6",
     title: "Generate Reports",
-    desc: "Go to Report Generation to download PDF or Excel reports for harvested crops, associations, or crop options.",
+    desc: "Go to Report Generation to download PDF or Excel reports for harvested crops, organizations, or crop options.",
   },
 ];
 

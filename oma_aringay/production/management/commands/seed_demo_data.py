@@ -4,7 +4,7 @@ Management command: python manage.py seed_demo_data [--flush]
 Creates a small, defense-friendly demo dataset for the crop domain (Batch F
 reduction — mirrors fisheries/management/commands/seed_fisheries_demo_data.py's
 conventions exactly):
-  - 5 farmer associations (suffix: " (Demo)")
+  - 5 farmer organizations (suffix: " (Demo)")
   - 10 farmers (prefix: "DEMO-" on RSBSA number), 2 per barangay
   - 15 crop monitoring records, composed deliberately:
       - 5 under active monitoring (Planted/Near Harvest, no disaster) —
@@ -30,7 +30,7 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.db.models import Q
 
-from associations.models import AssociationOfficer, FarmersAssociation
+from associations.models import OrganizationOfficer, FarmersOrganization
 from farmers.models import Farmer
 from production.models import (
     CropActivityLog,
@@ -48,7 +48,7 @@ DEMO_ASSOC_SUFFIX = ' (Demo)'
 DEMO_RSBSA_PREFIX = 'DEMO-'
 SEED_TAG = 'Created by seed_demo_data command.'
 
-ASSOCIATIONS = [
+ORGANIZATIONS = [
     {
         'name': 'Basca Integrated Farmers Cooperative' + DEMO_ASSOC_SUFFIX,
         'barangay': 'Basca',
@@ -57,7 +57,7 @@ ASSOCIATIONS = [
         'email_address': 'basca.ifc.demo@aringay.gov.ph',
     },
     {
-        'name': 'San Juan Sustainable Farming Association' + DEMO_ASSOC_SUFFIX,
+        'name': 'San Juan Sustainable Farming Organization' + DEMO_ASSOC_SUFFIX,
         'barangay': 'San Juan East',
         'contact_person': 'Felicitas Reyes Aguilar',
         'contact_number': '09181234002',
@@ -94,8 +94,8 @@ OFFICERS_TEMPLATE = [
     ('Auditor',        ['Rita Ocampo',    'Leo Navarro',  'Mely Buena',   'Jun Soriano',     'Cely Padua']),
 ]
 
-# 10 farmers (Batch F reduction from 30) — 2 per barangay, one association
-# each, matched to their own barangay's association for realism.
+# 10 farmers (Batch F reduction from 30) — 2 per barangay, one organization
+# each, matched to their own barangay's organization for realism.
 # first_name, last_name, gender, birth_year, barangay, pwd, icc, fourPs
 FARMERS_DATA = [
     ('Jose',      'Santos',     'Male',   1975, 'Basca',         False, False, False),
@@ -198,8 +198,8 @@ class Command(BaseCommand):
         if crop_types is None:
             return
 
-        associations = self._create_associations()
-        farmers = self._create_farmers(associations)
+        organizations = self._create_organizations()
+        farmers = self._create_farmers(organizations)
         plan_by_key, records_created = self._create_monitoring_domain(farmers, crop_types, admin_user)
         disaster_count = self._create_crop_disasters(plan_by_key, admin_user) if records_created else \
             CropDisasterReport.objects.filter(monitoring_record__farmer__in=farmers).count()
@@ -209,7 +209,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS('======================================'))
         self.stdout.write(self.style.SUCCESS('  CROP DEMO DATA SEEDER - SUMMARY'))
         self.stdout.write(self.style.SUCCESS('======================================'))
-        self.stdout.write(f'  Associations : {len(associations):>3}')
+        self.stdout.write(f'  Organizations : {len(organizations):>3}')
         self.stdout.write(f'  Farmers      : {len(farmers):>3}')
         all_records = CropMonitoringRecord.objects.filter(farmer__in=farmers)
         self.stdout.write(f'  Crop Records : {all_records.count():>3}')
@@ -237,11 +237,11 @@ class Command(BaseCommand):
         records_deleted, _ = CropMonitoringRecord.objects.filter(farmer_id__in=demo_farmer_ids).delete()
 
         farmers_deleted, _ = Farmer.objects.filter(id__in=demo_farmer_ids).delete()
-        assoc_deleted, _ = FarmersAssociation.objects.filter(
+        assoc_deleted, _ = FarmersOrganization.objects.filter(
             name__endswith=DEMO_ASSOC_SUFFIX
         ).delete()
         self.stdout.write(self.style.WARNING(
-            f'Flushed: {farmers_deleted} demo farmers, {assoc_deleted} demo associations, '
+            f'Flushed: {farmers_deleted} demo farmers, {assoc_deleted} demo organizations, '
             f'{records_deleted} demo crop records deleted explicitly (cascades included).'
         ))
 
@@ -268,13 +268,13 @@ class Command(BaseCommand):
             return None
         return crop_types
 
-    # ── Associations ──────────────────────────────────────────────────────────
+    # ── Organizations ──────────────────────────────────────────────────────────
 
-    def _create_associations(self):
+    def _create_organizations(self):
         created = []
         base_date = date(2018, 6, 15)
-        for i, data in enumerate(ASSOCIATIONS):
-            assoc, was_created = FarmersAssociation.objects.get_or_create(
+        for i, data in enumerate(ORGANIZATIONS):
+            assoc, was_created = FarmersOrganization.objects.get_or_create(
                 name=data['name'],
                 defaults={
                     'barangay':             data['barangay'],
@@ -291,7 +291,7 @@ class Command(BaseCommand):
             created.append(assoc)
             if was_created:
                 self._create_officers(assoc, i)
-                self.stdout.write(f'  Created association: {assoc.name}')
+                self.stdout.write(f'  Created organization: {assoc.name}')
             else:
                 self.stdout.write(f'  Exists (skip):       {assoc.name}')
         return created
@@ -299,17 +299,17 @@ class Command(BaseCommand):
     def _create_officers(self, assoc, assoc_index):
         for position, names in OFFICERS_TEMPLATE:
             name = names[assoc_index % len(names)]
-            AssociationOfficer.objects.get_or_create(
-                association=assoc,
+            OrganizationOfficer.objects.get_or_create(
+                organization=assoc,
                 position=position,
                 defaults={'full_name': name},
             )
 
     # ── Farmers ───────────────────────────────────────────────────────────────
 
-    def _create_farmers(self, associations):
+    def _create_farmers(self, organizations):
         created = []
-        assoc_by_barangay = {a.barangay: a for a in associations}
+        assoc_by_barangay = {a.barangay: a for a in organizations}
         today = date.today()
 
         for idx, (first, last, gender, birth_year, barangay, pwd, icc, fourps) in enumerate(FARMERS_DATA):
@@ -336,7 +336,7 @@ class Command(BaseCommand):
                     'is_icc_ip_member':    icc,
                     'is_4ps_beneficiary':  fourps,
                     'is_senior_citizen':   is_senior,
-                    'farmers_association': assoc_by_barangay.get(barangay),
+                    'farmers_organization': assoc_by_barangay.get(barangay),
                     'is_active':           True,
                 },
             )
@@ -365,7 +365,7 @@ class Command(BaseCommand):
 
             rec = CropMonitoringRecord(
                 farmer=farmer,
-                farmers_association=farmer.farmers_association,
+                farmers_organization=farmer.farmers_organization,
                 farm_location_barangay=farmer.barangay,
                 land_status=land_status,
                 crop_type=ct,
