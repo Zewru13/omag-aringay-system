@@ -22,6 +22,7 @@ from .models import (
     FisheriesHarvestRecord,
     Fisherfolk,
     FishingTripLog,
+    Pond,
     SpeciesActivityStage,
     SpeciesCategory,
     SpeciesOption,
@@ -37,6 +38,7 @@ from .serializers import (
     FisheriesDisasterReportSerializer,
     FisheriesHarvestRecordSerializer,
     FishingTripLogSerializer,
+    PondSerializer,
     SpeciesActivityStageSerializer,
     SpeciesCategorySerializer,
     SpeciesOptionSerializer,
@@ -209,6 +211,39 @@ class SpeciesActivityStageDeleteView(generics.DestroyAPIView):
     serializer_class = SpeciesActivityStageSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     queryset = SpeciesActivityStage.objects.all()
+
+
+# ─── Pond ─────────────────────────────────────────────────────────────────────
+
+class PondListCreateView(generics.ListCreateAPIView):
+    """Ponds belonging to one fisherfolk. Returns both active and inactive
+    ponds — the Fisherfolk Detail page's management table needs to show
+    deactivated ponds too; the stocking-form pond selector filters to
+    is_active on the frontend."""
+    serializer_class = PondSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
+
+    def get_queryset(self):
+        return Pond.objects.filter(fisherfolk_id=self.kwargs['fisherfolk_id']).order_by('date_created')
+
+    def perform_create(self, serializer):
+        serializer.save(fisherfolk_id=self.kwargs['fisherfolk_id'])
+
+
+class PondDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = PondSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    queryset = Pond.objects.all()
+
+    def destroy(self, request, *args, **kwargs):
+        pond = self.get_object()
+        if pond.stocking_records.exists():
+            return Response(
+                {'detail': 'This pond has stocking history and cannot be deleted. Deactivate it instead.'},
+                status=drf_status.HTTP_400_BAD_REQUEST,
+            )
+        return super().destroy(request, *args, **kwargs)
 
 
 # ─── Stocking Record ──────────────────────────────────────────────────────────

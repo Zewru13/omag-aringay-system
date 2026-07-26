@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, ClipboardList, Edit } from 'lucide-react'
+import { ArrowLeft, ClipboardList, Edit, Plus } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
+import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import LoadingSpinner from '../../components/UI/LoadingSpinner.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
@@ -12,6 +13,7 @@ import DataTable from '../../components/UI/DataTable.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import EditFisherfolkModal from './EditFisherfolkModal.jsx'
+import PondModal from './PondModal.jsx'
 
 const HISTORY_COLUMNS = [
   { key: 'program_name', label: 'Program' },
@@ -39,6 +41,16 @@ const STOCKING_COLUMNS = [
   { key: 'harvested_kg_fmt',     label: 'HARVESTED (KG)' },
   { key: 'pond_location_barangay', label: 'POND BARANGAY' },
   { key: 'status_cell',          label: 'STATUS' },
+]
+
+const POND_COLUMNS = [
+  { key: 'name',            label: 'NAME' },
+  { key: 'barangay',        label: 'BARANGAY' },
+  { key: 'area_fmt',        label: 'AREA (HA)' },
+  { key: 'water_source',    label: 'WATER SOURCE' },
+  { key: 'history_fmt',     label: 'STOCKING HISTORY' },
+  { key: 'status_pill',     label: 'STATUS' },
+  { key: 'actions_cell',    label: 'ACTIONS' },
 ]
 
 function formatDate(value) {
@@ -143,6 +155,7 @@ function VendorSection({ record }) {
 function FisherfolkDetailPage() {
   const { id } = useParams()
   const { isAdmin, isEvaluator } = useAuth()
+  const { showToast } = useToast()
   const [fisherfolk, setFisherfolk]       = useState(null)
   const [isLoading, setIsLoading]         = useState(true)
   const [error, setError]                 = useState('')
@@ -153,6 +166,12 @@ function FisherfolkDetailPage() {
   const [historyError, setHistoryError]   = useState('')
   const [stockingRecords, setStockingRecords]       = useState([])
   const [isLoadingStocking, setIsLoadingStocking]   = useState(false)
+  const [ponds, setPonds]                 = useState([])
+  const [isLoadingPonds, setIsLoadingPonds] = useState(false)
+  const [isPondModalOpen, setIsPondModalOpen] = useState(false)
+  const [editingPond, setEditingPond]     = useState(null)
+  const [deletingPond, setDeletingPond]   = useState(null)
+  const [deleteError, setDeleteError]     = useState('')
 
   const fetchFisherfolk = async () => {
     setIsLoading(true)
@@ -194,6 +213,40 @@ function FisherfolkDetailPage() {
     }
   }
 
+  const fetchPonds = async () => {
+    setIsLoadingPonds(true)
+    try {
+      const r = await api.get(`/fisheries/fisherfolk/${id}/ponds/`)
+      setPonds(Array.isArray(r.data) ? r.data : (r.data.results || []))
+    } catch {
+      setPonds([])
+    } finally {
+      setIsLoadingPonds(false)
+    }
+  }
+
+  const toggleActive = async (pond) => {
+    try {
+      await api.patch(`/fisheries/ponds/${pond.id}/`, { is_active: !pond.is_active })
+      showToast(`Pond ${pond.is_active ? 'deactivated' : 'activated'}.`, 'success')
+      fetchPonds()
+    } catch {
+      showToast('Failed to update pond status.', 'error')
+    }
+  }
+
+  const handleDeletePond = async () => {
+    setDeleteError('')
+    try {
+      await api.delete(`/fisheries/ponds/${deletingPond.id}/`)
+      showToast('Pond deleted.', 'success')
+      setDeletingPond(null)
+      fetchPonds()
+    } catch (err) {
+      setDeleteError(err?.response?.data?.detail || 'Failed to delete pond.')
+    }
+  }
+
   useEffect(() => { fetchFisherfolk() }, [id])
 
   useEffect(() => {
@@ -201,6 +254,7 @@ function FisherfolkDetailPage() {
     const type = fisherfolk.fisherfolk_type
     if (type === 'Aquaculture' || type === 'Mariculture') {
       fetchStockingRecords()
+      fetchPonds()
     }
   }, [fisherfolk])
 
@@ -220,6 +274,31 @@ function FisherfolkDetailPage() {
     status_cell: (
       <StatusPill tone={STOCKING_STATUS_TONES[r.status] || 'slate'}>{r.status}</StatusPill>
     ),
+  }))
+
+  const pondsData = ponds.map((p) => ({
+    ...p,
+    area_fmt: p.area_hectares != null ? Number(p.area_hectares).toFixed(4) : '—',
+    water_source: p.water_source || '—',
+    history_fmt: `${p.stocking_record_count} record${p.stocking_record_count === 1 ? '' : 's'}`,
+    status_pill: (
+      <StatusPill tone={p.is_active ? 'green' : 'slate'}>{p.is_active ? 'Active' : 'Inactive'}</StatusPill>
+    ),
+    actions_cell: (isAdmin || isEvaluator) ? (
+      <div className="flex items-center justify-end gap-3 text-[12px] font-medium">
+        <button type="button" className="text-[#1B4D2E] hover:underline" onClick={() => setEditingPond(p)}>
+          Edit
+        </button>
+        <button type="button" className="text-[#4A5E4A] hover:underline" onClick={() => toggleActive(p)}>
+          {p.is_active ? 'Deactivate' : 'Activate'}
+        </button>
+        {p.stocking_record_count === 0 && (
+          <button type="button" className="text-rose-500 hover:underline" onClick={() => setDeletingPond(p)}>
+            Delete
+          </button>
+        )}
+      </div>
+    ) : null,
   }))
 
   return (
@@ -323,6 +402,27 @@ function FisherfolkDetailPage() {
                 )}
               </section>
             )}
+
+            {/* Ponds — aquaculture / mariculture only (Batch 3) */}
+            {(fisherfolk.fisherfolk_type === 'Aquaculture' || fisherfolk.fisherfolk_type === 'Mariculture') && (
+              <section className="rounded-2xl border border-slate-100 bg-white p-6">
+                <div className="mb-4 flex items-center justify-between">
+                  <h2 className="text-sm font-medium uppercase tracking-wide text-slate-400">Ponds</h2>
+                  {(isAdmin || isEvaluator) && (
+                    <Button icon={Plus} size="sm" onClick={() => setIsPondModalOpen(true)} variant="primary">
+                      Add Pond
+                    </Button>
+                  )}
+                </div>
+                {isLoadingPonds ? (
+                  <LoadingSpinner />
+                ) : ponds.length === 0 ? (
+                  <p className="py-3 text-sm italic text-slate-400">No ponds on file.</p>
+                ) : (
+                  <DataTable columns={POND_COLUMNS} data={pondsData} isLoading={false} />
+                )}
+              </section>
+            )}
           </>
         )}
       </div>
@@ -341,6 +441,34 @@ function FisherfolkDetailPage() {
           fisherfolk={fisherfolk}
           onClose={() => setIsEditModalOpen(false)}
           onSuccess={fetchFisherfolk}
+        />
+      )}
+
+      {isPondModalOpen && (
+        <PondModal
+          fisherfolkId={id}
+          onClose={() => setIsPondModalOpen(false)}
+          onSuccess={fetchPonds}
+        />
+      )}
+
+      {editingPond && (
+        <PondModal
+          fisherfolkId={id}
+          pond={editingPond}
+          onClose={() => setEditingPond(null)}
+          onSuccess={fetchPonds}
+        />
+      )}
+
+      {deletingPond && (
+        <ConfirmDialog
+          title="Delete Pond?"
+          message={deleteError || `Permanently delete "${deletingPond.name}"? This cannot be undone.`}
+          confirmLabel="Delete"
+          variant="danger"
+          onConfirm={handleDeletePond}
+          onCancel={() => { setDeletingPond(null); setDeleteError('') }}
         />
       )}
     </PageLayout>

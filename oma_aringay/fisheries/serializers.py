@@ -15,6 +15,7 @@ from .models import (
     FisheriesDisasterReport,
     FisheriesHarvestRecord,
     FishingTripLog,
+    Pond,
     SpeciesActivityStage,
     SpeciesCategory,
     SpeciesOption,
@@ -553,8 +554,24 @@ class FisheriesHarvestRecordSerializer(serializers.ModelSerializer):
         return data
 
 
+class PondSerializer(serializers.ModelSerializer):
+    stocking_record_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Pond
+        fields = [
+            'id', 'fisherfolk', 'name', 'barangay', 'area_hectares', 'water_source',
+            'is_active', 'date_created', 'stocking_record_count',
+        ]
+        read_only_fields = ['id', 'date_created', 'fisherfolk']
+
+    def get_stocking_record_count(self, obj):
+        return obj.stocking_records.count()
+
+
 class StockingRecordSerializer(serializers.ModelSerializer):
     fisherfolk_name  = serializers.SerializerMethodField()
+    pond_name        = serializers.CharField(source='pond.name', read_only=True, default=None)
     species_name     = serializers.CharField(source='species.species_name', read_only=True)
     category_name    = serializers.CharField(source='species.category.name', read_only=True)
     is_near_harvest  = serializers.SerializerMethodField()
@@ -577,6 +594,7 @@ class StockingRecordSerializer(serializers.ModelSerializer):
         model  = StockingRecord
         fields = [
             'id', 'fisherfolk', 'fisherfolk_name',
+            'pond', 'pond_name',
             'pond_location_barangay', 'land_status', 'land_status_other_specify', 'culture_type',
             'species', 'species_name', 'category_name',
             'date_stocked', 'area_hectares', 'number_of_fingerlings',
@@ -594,7 +612,7 @@ class StockingRecordSerializer(serializers.ModelSerializer):
             'stocking_density', 'production_cycle_no',
         ]
         read_only_fields = [
-            'id', 'fisherfolk_name', 'species_name', 'category_name',
+            'id', 'fisherfolk_name', 'pond_name', 'species_name', 'category_name',
             'expected_harvest_date', 'estimated_harvest_kg',
             'recorded_by', 'date_recorded',
             'is_near_harvest', 'log_count', 'disaster_count', 'disaster_report_count',

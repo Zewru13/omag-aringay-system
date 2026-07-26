@@ -1,7 +1,8 @@
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
 function ModalShell({ title, subtitle, icon: Icon, iconBg = 'bg-primary-light', iconColor = 'text-primary', onClose, children, footer, maxWidth = 'max-w-md' }) {
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 modal-backdrop"
       onClick={onClose}
@@ -43,7 +44,8 @@ function ModalShell({ title, subtitle, icon: Icon, iconBg = 'bg-primary-light', 
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

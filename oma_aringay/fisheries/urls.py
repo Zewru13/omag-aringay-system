@@ -15,6 +15,8 @@ from .views import (
     FishingTripLogDetailView,
     FishingTripLogListCreateView,
     FishingTripSummaryView,
+    PondDetailView,
+    PondListCreateView,
     SpeciesCategoryListCreateView,
     SpeciesCategoryDetailView,
     SpeciesOptionListCreateView,
@@ -40,6 +42,10 @@ urlpatterns = [
     path('fisherfolk/', FisherfolkListView.as_view(), name='fisherfolk-list'),
     path('fisherfolk/check-duplicate/', FisherfolkDuplicateCheckView.as_view(), name='fisherfolk-check-duplicate'),
     path('fisherfolk/<int:id>/', FisherfolkDetailView.as_view(), name='fisherfolk-detail'),
+
+    # ── Ponds (Batch 3) ───────────────────────────────────────────────────────
+    path('fisherfolk/<int:fisherfolk_id>/ponds/', PondListCreateView.as_view(), name='fisherfolk-ponds-list-create'),
+    path('ponds/<int:pk>/', PondDetailView.as_view(), name='pond-detail'),
 
     # ── Species categories ──────────────────────────────────────────────────
     path('species-categories/', SpeciesCategoryListCreateView.as_view(), name='species-category-list'),

@@ -271,6 +271,48 @@ class SpeciesActivityStage(models.Model):
         return f'{self.species_option.species_name} — Day {self.day_after_stocking}: {self.activity_name}'
 
 
+# ─── Pond ───────────────────────────────────────────────────────────────────
+# A persistent physical pond belonging to a fisherfolk, tracked separately
+# from StockingRecord so stocking history can be followed per pond over
+# time (Batch 3). WATER_SOURCE_CHOICES is hoisted to module level so both
+# Pond and StockingRecord share the exact same choice set (StockingRecord
+# still declares its own field using this constant — see below).
+
+WATER_SOURCE_CHOICES = [
+    ('River',     'River'),
+    ('Spring',    'Spring'),
+    ('Rain-fed',  'Rain-fed'),
+    ('Deep Well', 'Deep Well'),
+    ('Other',     'Other'),
+]
+
+
+class Pond(models.Model):
+    fisherfolk = models.ForeignKey(Fisherfolk, on_delete=models.CASCADE, related_name='ponds')
+    name = models.CharField(
+        max_length=100, blank=True,
+        help_text='Optional — auto-numbered ("Pond 1", "Pond 2", ...) per fisherfolk if left blank.',
+    )
+    barangay = models.CharField(max_length=100, choices=BARANGAY_CHOICES, blank=True)
+    area_hectares = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
+    water_source = models.CharField(max_length=20, choices=WATER_SOURCE_CHOICES, blank=True)
+    is_active = models.BooleanField(default=True)
+    date_created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['fisherfolk_id', 'date_created']
+
+    def save(self, *args, **kwargs):
+        if not self.name and self.fisherfolk_id:
+            existing_count = Pond.objects.filter(fisherfolk_id=self.fisherfolk_id).count()
+            self.name = f'Pond {existing_count + 1}'
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        who = self.fisherfolk.full_name if self.fisherfolk_id else 'Unknown'
+        return f'{self.name} — {who}'
+
+
 # ─── Stocking Record ──────────────────────────────────────────────────────────
 
 class StockingRecord(models.Model):
@@ -291,13 +333,6 @@ class StockingRecord(models.Model):
         ('Tenant', 'Tenant'),
         ('Other',  'Other'),
     ]
-    WATER_SOURCE_CHOICES = [
-        ('River',     'River'),
-        ('Spring',    'Spring'),
-        ('Rain-fed',  'Rain-fed'),
-        ('Deep Well', 'Deep Well'),
-        ('Other',     'Other'),
-    ]
     FINGERLING_SOURCE_CHOICES = [
         ('BFAR',             'BFAR'),
         ('Private Hatchery', 'Private Hatchery'),
@@ -314,6 +349,13 @@ class StockingRecord(models.Model):
     ]
 
     fisherfolk              = models.ForeignKey(Fisherfolk, on_delete=models.SET_NULL, null=True, blank=True, related_name='stocking_records')
+    pond                    = models.ForeignKey(
+        'Pond', on_delete=models.SET_NULL, null=True, blank=True, related_name='stocking_records',
+        help_text='Nullable — not every stocking record has a linked Pond yet (pre-Batch-3 history, or '
+                   'a record entered without selecting one). pond_location_barangay/area_hectares/'
+                   'water_source below stay the source of truth for reads; when pond is set, save() '
+                   'overwrites them from the Pond so they never drift out of sync.',
+    )
     pond_location_barangay  = models.CharField(max_length=100, blank=True, default='')
     land_status             = models.CharField(max_length=20, choices=LAND_STATUS_CHOICES, blank=True)
     land_status_other_specify = models.CharField(max_length=150, blank=True)
@@ -359,6 +401,17 @@ class StockingRecord(models.Model):
         ]
 
     def save(self, *args, **kwargs):
+        # Batch 3: when a Pond is linked, it's the source of truth for these
+        # three fields — every existing reader of pond_location_barangay/
+        # area_hectares/water_source (yield analysis, dashboard, PDF/Excel
+        # exports) keeps working unchanged because the inline fields are
+        # always kept in sync here rather than removed.
+        if self.pond_id:
+            pond = self.pond
+            self.pond_location_barangay = pond.barangay
+            self.area_hectares = pond.area_hectares
+            self.water_source = pond.water_source
+
         if self.date_stocked and self.species_id:
             try:
                 sp = SpeciesOption.objects.get(pk=self.species_id)

@@ -3,7 +3,6 @@ import { AlertTriangle, CheckCircle2, Eye, Fish, Lock, Pencil, Plus, Search, Tra
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import RowActions from '../../components/UI/RowActions.jsx'
-import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import HarvestVarianceBadge from '../../components/UI/HarvestVarianceBadge.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
@@ -19,6 +18,7 @@ import {
   StockingDisasterReportModal,
   ViewStockingLogsModal,
 } from './StockingMonitoringModals.jsx'
+import PondSelector from './PondSelector.jsx'
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -240,6 +240,7 @@ function HarvestPreviewBox({ species, dateStocked, fingerlings, survivalRate, av
 function makeRecord(n) {
   return {
     _id:                  n,
+    pond:                 null,
     pond_location_barangay: '',
     land_status:          '',
     land_status_other_specify: '',
@@ -265,9 +266,21 @@ function makeRecord(n) {
   }
 }
 
-function StockingRecordCard({ rec, index, total, speciesList, onUpdate, onRemove }) {
+function StockingRecordCard({ rec, index, total, speciesList, fisherfolkId, onUpdate, onRemove }) {
   const set = (field, value) => onUpdate(rec._id, field, value)
   const isShellfish = Boolean(rec._speciesObj && rec._speciesObj.category_name && rec._speciesObj.category_name !== 'Finfish')
+
+  const handlePondSelect = (pond) => {
+    if (!pond) {
+      set('pond', null)
+      return
+    }
+    onUpdate(rec._id, 'pond', pond.id)
+    onUpdate(rec._id, 'pond_location_barangay', pond.barangay || '')
+    onUpdate(rec._id, 'area_hectares', pond.area_hectares != null ? String(pond.area_hectares) : '')
+    onUpdate(rec._id, 'water_source', pond.water_source || '')
+    onUpdate(rec._id, 'water_source_other_specify', '')
+  }
 
   const handleSpeciesChange = (speciesId) => {
     const sp = speciesList.find(s => String(s.id) === String(speciesId))
@@ -299,12 +312,7 @@ function StockingRecordCard({ rec, index, total, speciesList, onUpdate, onRemove
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <BarangaySelect
-          id={`pond_loc_${rec._id}`}
-          label="Pond Location (Barangay)"
-          value={rec.pond_location_barangay}
-          onChange={e => set('pond_location_barangay', e.target.value)}
-        />
+        <PondSelector fisherfolkId={fisherfolkId} value={rec.pond} onSelectPond={handlePondSelect} />
         <FormField label="Land Status">
           <select className={baseInputClasses} value={rec.land_status}
             onChange={e => {
@@ -401,28 +409,8 @@ function StockingRecordCard({ rec, index, total, speciesList, onUpdate, onRemove
         )}
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <FormField label="Water Source">
-          <select className={baseInputClasses} value={rec.water_source}
-            onChange={e => {
-              set('water_source', e.target.value)
-              if (e.target.value !== 'Other') set('water_source_other_specify', '')
-            }}>
-            <option value="">Select…</option>
-            <option value="River">River</option>
-            <option value="Spring">Spring</option>
-            <option value="Rain-fed">Rain-fed</option>
-            <option value="Deep Well">Deep Well</option>
-            <option value="Other">Other</option>
-          </select>
-          {rec.water_source === 'Other' && (
-            <input type="text" className={`${baseInputClasses} mt-2`}
-              placeholder="Please specify water source"
-              value={rec.water_source_other_specify}
-              onChange={e => set('water_source_other_specify', e.target.value)} />
-          )}
-        </FormField>
-        {!isShellfish && (
+      {!isShellfish && (
+        <div className="grid gap-3 sm:grid-cols-2">
           <FormField label="Fingerling/Fry Source">
             <select className={baseInputClasses} value={rec.fingerling_source}
               onChange={e => {
@@ -442,8 +430,8 @@ function StockingRecordCard({ rec, index, total, speciesList, onUpdate, onRemove
                 onChange={e => set('fingerling_source_other_specify', e.target.value)} />
             )}
           </FormField>
-        )}
-      </div>
+        </div>
+      )}
 
       {!isShellfish && (
         <div className="grid gap-3 sm:grid-cols-2">
@@ -455,21 +443,14 @@ function StockingRecordCard({ rec, index, total, speciesList, onUpdate, onRemove
         </div>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <FormField label="Date Stocked" required>
-          <input type="date" className={baseInputClasses} value={rec.date_stocked}
-            max={new Date().toISOString().split('T')[0]}
-            onChange={e => {
-              set('date_stocked', e.target.value)
-              set('season', detectSeason(e.target.value))
-            }} />
-        </FormField>
-        <FormField label="Area (ha)">
-          <input type="number" step="0.0001" min="0" className={baseInputClasses}
-            placeholder="0.0000" value={rec.area_hectares}
-            onChange={e => set('area_hectares', e.target.value)} />
-        </FormField>
-      </div>
+      <FormField label="Date Stocked" required>
+        <input type="date" className={baseInputClasses} value={rec.date_stocked}
+          max={new Date().toISOString().split('T')[0]}
+          onChange={e => {
+            set('date_stocked', e.target.value)
+            set('season', detectSeason(e.target.value))
+          }} />
+      </FormField>
 
       <div className="grid gap-3 sm:grid-cols-3">
         <FormField label={isShellfish ? 'No. of Spat / Pieces' : 'No. of Fingerlings'} required>
@@ -582,6 +563,7 @@ function AddStockingModal({ onClose, onSuccess }) {
         await api.post('/fisheries/stocking/', {
           fisherfolk:               fisherfolkInfo.id,
           species:                  rec.species,
+          pond:                     rec.pond || null,
           pond_location_barangay:   rec.pond_location_barangay || '',
           land_status:              rec.land_status || '',
           land_status_other_specify: rec.land_status === 'Other' ? (rec.land_status_other_specify || '') : '',
@@ -661,6 +643,7 @@ function AddStockingModal({ onClose, onSuccess }) {
                     index={i}
                     total={records.length}
                     speciesList={speciesList}
+                    fisherfolkId={fisherfolkInfo.id}
                     onUpdate={updateRecord}
                     onRemove={removeRecord}
                   />
@@ -734,6 +717,7 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
   }
 
   const originalData = {
+    pond:                    record.pond || null,
     pond_location_barangay: record.pond_location_barangay || '',
     land_status:            record.land_status || '',
     land_status_other_specify: record.land_status_other_specify || '',
@@ -787,6 +771,7 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
     setError(''); setIsSubmitting(true)
     try {
       await api.patch(`/fisheries/stocking/${record.id}/`, {
+        pond:                    form.pond || null,
         pond_location_barangay: form.pond_location_barangay,
         land_status:            form.land_status,
         land_status_other_specify: form.land_status === 'Other' ? form.land_status_other_specify : '',
@@ -837,18 +822,21 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
           )}
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <BarangaySelect
-            label="Pond Location (Barangay)"
-            value={form.pond_location_barangay}
-            onChange={(e) => set('pond_location_barangay', e.target.value)}
-          />
-          <div>
-            <label className={editLabelCls}>Area (ha)</label>
-            <input type="number" step="0.0001" min="0" className={baseInputClasses} placeholder="0.0000"
-              value={form.area_hectares} onChange={e => set('area_hectares', e.target.value)} />
-          </div>
-        </div>
+        <PondSelector
+          fisherfolkId={record.fisherfolk}
+          value={form.pond}
+          onSelectPond={(pond) => {
+            if (!pond) { set('pond', null); return }
+            setForm((f) => ({
+              ...f,
+              pond: pond.id,
+              pond_location_barangay: pond.barangay || '',
+              area_hectares: pond.area_hectares != null ? String(pond.area_hectares) : '',
+              water_source: pond.water_source || '',
+              water_source_other_specify: '',
+            }))
+          }}
+        />
 
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
@@ -926,29 +914,8 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
           )}
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <label className={editLabelCls}>Water Source</label>
-            <select className={baseInputClasses} value={form.water_source}
-              onChange={e => {
-                set('water_source', e.target.value)
-                if (e.target.value !== 'Other') set('water_source_other_specify', '')
-              }}>
-              <option value="">Select…</option>
-              <option value="River">River</option>
-              <option value="Spring">Spring</option>
-              <option value="Rain-fed">Rain-fed</option>
-              <option value="Deep Well">Deep Well</option>
-              <option value="Other">Other</option>
-            </select>
-            {form.water_source === 'Other' && (
-              <input type="text" className={`${baseInputClasses} mt-2`}
-                placeholder="Please specify water source"
-                value={form.water_source_other_specify}
-                onChange={e => set('water_source_other_specify', e.target.value)} />
-            )}
-          </div>
-          {!isShellfish && (
+        {!isShellfish && (
+          <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className={editLabelCls}>Fingerling/Fry Source</label>
               <select className={baseInputClasses} value={form.fingerling_source}
@@ -969,8 +936,8 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
                   onChange={e => set('fingerling_source_other_specify', e.target.value)} />
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {!isShellfish && (
           <div className="grid gap-3 sm:grid-cols-2">
