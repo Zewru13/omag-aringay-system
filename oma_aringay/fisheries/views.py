@@ -15,6 +15,9 @@ from core.notifications import notify_all_except
 from core.utils import accumulate_yield_group, day_range_bounds, new_yield_group
 
 from .models import (
+    DiseaseResponseGuide,
+    DiseaseType,
+    FeedType,
     FisheriesActivityLog,
     FisheriesAssistanceRecord,
     FisheriesDisasterReport,
@@ -30,6 +33,9 @@ from .models import (
     TripSpeciesEntry,
 )
 from .serializers import (
+    DiseaseResponseGuideSerializer,
+    DiseaseTypeSerializer,
+    FeedTypeSerializer,
     FisherfolkCreateSerializer,
     FisherfolkDetailSerializer,
     FisherfolkListSerializer,
@@ -38,6 +44,7 @@ from .serializers import (
     FisheriesDisasterReportSerializer,
     FisheriesHarvestRecordSerializer,
     FishingTripLogSerializer,
+    HealthMonitoringSerializer,
     PondSerializer,
     SpeciesActivityStageSerializer,
     SpeciesCategorySerializer,
@@ -213,6 +220,55 @@ class SpeciesActivityStageDeleteView(generics.DestroyAPIView):
     queryset = SpeciesActivityStage.objects.all()
 
 
+# ─── Feed Type (Batch 4) ────────────────────────────────────────────────────
+
+class FeedTypeListCreateView(generics.ListCreateAPIView):
+    serializer_class = FeedTypeSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
+    queryset = FeedType.objects.order_by('name')
+
+
+class FeedTypeDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = FeedTypeSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    queryset = FeedType.objects.all()
+
+
+# ─── Disease reference data (Batch 4) ───────────────────────────────────────
+
+class DiseaseTypeListCreateView(generics.ListCreateAPIView):
+    serializer_class = DiseaseTypeSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
+    queryset = DiseaseType.objects.order_by('name')
+
+
+class DiseaseTypeDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = DiseaseTypeSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    queryset = DiseaseType.objects.all()
+
+
+class DiseaseResponseGuideListCreateView(generics.ListCreateAPIView):
+    serializer_class = DiseaseResponseGuideSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
+
+    def get_queryset(self):
+        qs = DiseaseResponseGuide.objects.select_related('disease_type').order_by('disease_type__name')
+        disease_type_id = self.request.query_params.get('disease_type')
+        if disease_type_id:
+            qs = qs.filter(disease_type_id=disease_type_id)
+        return qs
+
+
+class DiseaseResponseGuideDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = DiseaseResponseGuideSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    queryset = DiseaseResponseGuide.objects.select_related('disease_type')
+
+
 # ─── Pond ─────────────────────────────────────────────────────────────────────
 
 class PondListCreateView(generics.ListCreateAPIView):
@@ -317,6 +373,30 @@ class StockingHistoryView(generics.ListAPIView):
             qs = qs.filter(year=params['year'])
         if params.get('fisherfolk'):
             qs = qs.filter(fisherfolk_id=params['fisherfolk'])
+        return qs
+
+
+class HealthMonitoringListView(generics.ListAPIView):
+    """Batch 4 — active stocking records with a health/feeding summary for
+    the Health & Feeding Monitoring table. Reuses HealthMonitoringSerializer
+    (built on StockingRecordSerializer, no new storage) — full per-record
+    history is the existing stocking/<id>/logs/ endpoint, same data
+    ViewStockingLogsModal already reads."""
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    serializer_class = HealthMonitoringSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        qs = StockingRecord.objects.filter(
+            status__in=[StockingRecord.Status.STOCKED, StockingRecord.Status.NEAR_HARVEST],
+        ).select_related('fisherfolk', 'pond', 'species').prefetch_related('logs').order_by(
+            'fisherfolk__last_name', 'fisherfolk__first_name', '-date_stocked',
+        )
+        params = self.request.query_params
+        if params.get('fisherfolk'):
+            qs = qs.filter(fisherfolk_id=params['fisherfolk'])
+        if params.get('barangay'):
+            qs = qs.filter(pond_location_barangay__iexact=params['barangay'])
         return qs
 
 

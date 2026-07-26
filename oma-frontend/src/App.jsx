@@ -27,6 +27,7 @@ import CropInformationPage from "./pages/CropInformation/CropInformationPage.jsx
 import CropSettingsHub from "./pages/CropSettings/CropSettingsHub.jsx";
 import UserManagementPage from "./pages/Users/UserManagementPage.jsx";
 import HelpPage from "./pages/Help/HelpPage.jsx";
+import HealthMonitoringPage from "./pages/HealthMonitoring/HealthMonitoringPage.jsx";
 
 function HomeRedirect() {
   const { isAuthenticated } = useAuth();
@@ -164,6 +165,15 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
                 <FisheriesMonitoringPage />
+              </ProtectedRoute>
+            }
+          />
+          {/* Health & Feeding Monitoring (Batch 4) */}
+          <Route
+            path="/fisheries-health-monitoring"
+            element={
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
+                <HealthMonitoringPage />
               </ProtectedRoute>
             }
           />

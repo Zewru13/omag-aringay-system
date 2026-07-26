@@ -3,6 +3,9 @@ from django.contrib import admin
 from .models import (
     AquacultureRecord,
     CaptureRecord,
+    DiseaseResponseGuide,
+    DiseaseType,
+    FeedType,
     FisheriesActivityLog,
     FisheriesDisasterReport,
     FisheriesDisasterResponseRule,
@@ -73,8 +76,25 @@ class StockingRecordAdmin(admin.ModelAdmin):
 
 @admin.register(FisheriesActivityLog)
 class FisheriesActivityLogAdmin(admin.ModelAdmin):
-    list_display = ['stocking_record', 'activity', 'date_of_activity', 'water_fish_condition']
-    list_filter  = ['water_fish_condition', 'severity']
+    list_display = ['stocking_record', 'activity', 'date_of_activity', 'water_fish_condition', 'disease_type']
+    list_filter  = ['water_fish_condition', 'severity', 'disease_type']
+
+
+@admin.register(FeedType)
+class FeedTypeAdmin(admin.ModelAdmin):
+    list_display = ['name', 'is_active']
+    filter_horizontal = ['species_options']
+
+
+@admin.register(DiseaseType)
+class DiseaseTypeAdmin(admin.ModelAdmin):
+    list_display = ['name', 'is_active']
+
+
+@admin.register(DiseaseResponseGuide)
+class DiseaseResponseGuideAdmin(admin.ModelAdmin):
+    list_display = ['disease_type']
+    list_filter  = ['disease_type']
 
 
 @admin.register(FisheriesDisasterReport)

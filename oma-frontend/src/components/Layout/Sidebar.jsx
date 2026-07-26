@@ -7,6 +7,7 @@ import {
   ClipboardList,
   FileBarChart,
   Fish,
+  HeartPulse,
   LayoutDashboard,
   Leaf,
   LineChart,
@@ -75,6 +76,7 @@ const GROUPS = [
     icon: Waves,
     items: [
       { to: "/fisheries-monitoring", icon: Activity, label: "Fisheries Monitoring" },
+      { to: "/fisheries-health-monitoring", icon: HeartPulse, label: "Health & Feeding Monitoring" },
     ],
   },
   {

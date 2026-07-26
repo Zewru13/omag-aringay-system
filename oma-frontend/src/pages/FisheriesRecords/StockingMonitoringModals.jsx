@@ -362,8 +362,34 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
   const [treatmentApplied, setTreatmentApplied] = useState('')
   const [outcome,          setOutcome]          = useState('')
   const [recommendations,  setRecommendations]  = useState('')
+  const [diseaseTypeId,    setDiseaseTypeId]    = useState('')
+  const [vetConsulted,     setVetConsulted]     = useState('')
 
   const [remedyDisasterId, setRemedyDisasterId] = useState('')
+
+  // Batch 4 — Feed Type / Disease Type reference data, and the
+  // DiseaseResponseGuide suggestion (if any) for the selected disease.
+  const [feedTypes,     setFeedTypes]     = useState([])
+  const [diseaseTypes,  setDiseaseTypes]  = useState([])
+  const [responseGuide, setResponseGuide] = useState(null)
+  const [isLoadingGuide, setIsLoadingGuide] = useState(false)
+
+  useEffect(() => {
+    api.get('/fisheries/feed-types/').then(r => setFeedTypes(Array.isArray(r.data) ? r.data : (r.data.results || []))).catch(() => setFeedTypes([]))
+    api.get('/fisheries/disease-types/').then(r => setDiseaseTypes(Array.isArray(r.data) ? r.data : (r.data.results || []))).catch(() => setDiseaseTypes([]))
+  }, [])
+
+  useEffect(() => {
+    if (!diseaseTypeId) { setResponseGuide(null); return }
+    setIsLoadingGuide(true)
+    api.get('/fisheries/disease-response-guides/', { params: { disease_type: diseaseTypeId } })
+      .then(r => {
+        const list = Array.isArray(r.data) ? r.data : (r.data.results || [])
+        setResponseGuide(list[0] || null)
+      })
+      .catch(() => setResponseGuide(null))
+      .finally(() => setIsLoadingGuide(false))
+  }, [diseaseTypeId])
 
   const showFeedFields  = activityType === 'Feed Monitoring'
   const showIssueFields = activityType === 'Disease Control'
@@ -448,6 +474,7 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
     setActivityTypeOtherSpecify('')
     setRemedyDisasterId('')
     setObservedIssue(''); setSeverity(''); setMortalityCount(''); setTreatmentApplied(''); setOutcome('')
+    setDiseaseTypeId(''); setVetConsulted(''); setResponseGuide(null)
     setAreaAffected(''); setAreaAffectedError('')
     setRecommendations('')
     setPendingSuggestion(null)
@@ -485,6 +512,8 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
         severity:            showIssueFields ? severity : '',
         mortality_count:     showIssueFields ? (mortalityCount || null) : null,
         area_affected_ha:    showIssueFields ? (areaAffected || null) : null,
+        disease_type:        showIssueFields ? (diseaseTypeId || null) : null,
+        vet_consulted:       showIssueFields ? vetConsulted : '',
         treatment_applied:   showIssueFields ? treatmentApplied : '',
         outcome:             showIssueFields ? outcome : '',
         recommendations,
@@ -664,8 +693,10 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
                 </p>
                 <div className="mb-2">
                   <label className="text-xs font-medium text-slate-700 mb-1 block">Feed Type</label>
-                  <input type="text" value={feedType} onChange={e => setFeedType(e.target.value)}
-                    placeholder="e.g. Commercial Pellet, Trash Fish" className={baseInputClasses} />
+                  <select value={feedType} onChange={e => setFeedType(e.target.value)} className={baseInputClasses}>
+                    <option value="">Select feed type</option>
+                    {feedTypes.map(ft => <option key={ft.id} value={ft.name}>{ft.name}</option>)}
+                  </select>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -724,6 +755,36 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
                     <p className="mt-1 text-[11px] text-slate-500">Planted area: {stockedArea} ha</p>
                   ) : null}
                 </div>
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  <div>
+                    <label className="text-xs font-medium text-slate-700 mb-1 block">Disease Type (optional)</label>
+                    <select value={diseaseTypeId} onChange={e => setDiseaseTypeId(e.target.value)} className={baseInputClasses}>
+                      <option value="">Select disease type</option>
+                      {diseaseTypes.map(dt => <option key={dt.id} value={dt.id}>{dt.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-slate-700 mb-1 block">Vet Consulted</label>
+                    <input type="text" value={vetConsulted} onChange={e => setVetConsulted(e.target.value)}
+                      placeholder="Vet name, or N/A" className={baseInputClasses} />
+                  </div>
+                </div>
+                {diseaseTypeId && (
+                  <div className="mb-2 rounded-lg bg-white border border-rose-200 px-3 py-2">
+                    {isLoadingGuide ? (
+                      <p className="text-[11px] text-slate-400">Checking for a recommended treatment…</p>
+                    ) : responseGuide?.recommended_treatment ? (
+                      <>
+                        <p className="text-[11px] font-semibold text-rose-700 mb-0.5">Recommended treatment</p>
+                        <p className="text-[12px] text-slate-700">{responseGuide.recommended_treatment}</p>
+                      </>
+                    ) : (
+                      <p className="text-[11px] italic text-slate-500">
+                        No recommended treatment configured — log what was actually applied.
+                      </p>
+                    )}
+                  </div>
+                )}
                 <div className="mb-2">
                   <label className="text-xs font-medium text-slate-700 mb-1 block">Treatment Applied</label>
                   <input type="text" value={treatmentApplied} onChange={e => setTreatmentApplied(e.target.value)}
@@ -908,12 +969,18 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
                       {[log.feed_type, log.feed_quantity_kg && `${log.feed_quantity_kg} kg`, log.feed_brand].filter(Boolean).join(' — ')}
                     </p>
                   )}
-                  {log.observed_issue && (
+                  {(log.observed_issue || log.disease_type_name) && (
                     <p className="text-xs text-slate-500 mt-1">
                       {log.observed_issue}
+                      {log.disease_type_name && `${log.observed_issue ? ' | ' : ''}Disease: ${log.disease_type_name}`}
                       {log.severity && ` | Severity: ${log.severity}`}
                       {log.mortality_count != null && ` | Mortality: ${log.mortality_count}`}
                       {log.outcome && ` | ${log.outcome}`}
+                    </p>
+                  )}
+                  {(log.treatment_applied || log.vet_consulted) && (
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      {[log.treatment_applied && `Treatment: ${log.treatment_applied}`, log.vet_consulted && `Vet: ${log.vet_consulted}`].filter(Boolean).join(' — ')}
                     </p>
                   )}
                   {log.recommendations && <p className="mt-0.5 text-xs text-slate-500">{log.recommendations}</p>}

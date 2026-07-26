@@ -9,6 +9,9 @@ from core.validators import validate_not_future_date
 from .models import (
     AquacultureRecord,
     CaptureRecord,
+    DiseaseResponseGuide,
+    DiseaseType,
+    FeedType,
     Fisherfolk,
     FisheriesActivityLog,
     FisheriesAssistanceRecord,
@@ -386,6 +389,7 @@ class SpeciesOptionSerializer(serializers.ModelSerializer):
 
 class FisheriesActivityLogSerializer(serializers.ModelSerializer):
     logged_by_name = serializers.SerializerMethodField()
+    disease_type_name = serializers.CharField(source='disease_type.name', read_only=True, default=None)
 
     class Meta:
         model  = FisheriesActivityLog
@@ -393,6 +397,7 @@ class FisheriesActivityLogSerializer(serializers.ModelSerializer):
             'id', 'stocking_record', 'activity', 'activity_other_specify', 'date_of_activity',
             'water_fish_condition', 'feed_type', 'feed_quantity_kg', 'feed_brand',
             'observed_issue', 'severity', 'mortality_count', 'area_affected_ha',
+            'disease_type', 'disease_type_name', 'vet_consulted',
             'treatment_applied', 'outcome',
             'recommendations',
             'target_day', 'is_late', 'logged_by', 'logged_by_name',
@@ -569,6 +574,29 @@ class PondSerializer(serializers.ModelSerializer):
         return obj.stocking_records.count()
 
 
+class FeedTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FeedType
+        fields = ['id', 'name', 'description', 'is_active', 'species_options']
+        read_only_fields = ['id']
+
+
+class DiseaseTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DiseaseType
+        fields = ['id', 'name', 'description', 'is_active']
+        read_only_fields = ['id']
+
+
+class DiseaseResponseGuideSerializer(serializers.ModelSerializer):
+    disease_type_name = serializers.CharField(source='disease_type.name', read_only=True)
+
+    class Meta:
+        model = DiseaseResponseGuide
+        fields = ['id', 'disease_type', 'disease_type_name', 'recommended_treatment', 'notes']
+        read_only_fields = ['id', 'disease_type_name']
+
+
 class StockingRecordSerializer(serializers.ModelSerializer):
     fisherfolk_name  = serializers.SerializerMethodField()
     pond_name        = serializers.CharField(source='pond.name', read_only=True, default=None)
@@ -585,6 +613,7 @@ class StockingRecordSerializer(serializers.ModelSerializer):
     harvest_count    = serializers.SerializerMethodField()
     stocking_density = serializers.SerializerMethodField()
     production_cycle_no = serializers.SerializerMethodField()
+    next_feeding_date = serializers.SerializerMethodField()
     pond_location_barangay = serializers.CharField(required=False, allow_blank=True, default='')
     area_hectares          = serializers.DecimalField(max_digits=10, decimal_places=4, required=False, allow_null=True)
     survival_rate_pct      = serializers.DecimalField(max_digits=5, decimal_places=2, required=False, allow_null=True)
@@ -609,7 +638,7 @@ class StockingRecordSerializer(serializers.ModelSerializer):
             'has_recovered_disaster',
             'total_harvested_kg', 'harvest_count', 'harvest_variance_days',
             'final_harvest_date',
-            'stocking_density', 'production_cycle_no',
+            'stocking_density', 'production_cycle_no', 'next_feeding_date',
         ]
         read_only_fields = [
             'id', 'fisherfolk_name', 'pond_name', 'species_name', 'category_name',
@@ -618,7 +647,7 @@ class StockingRecordSerializer(serializers.ModelSerializer):
             'is_near_harvest', 'log_count', 'disaster_count', 'disaster_report_count',
             'has_recovered_disaster',
             'total_harvested_kg', 'harvest_count', 'harvest_variance_days',
-            'stocking_density', 'production_cycle_no',
+            'stocking_density', 'production_cycle_no', 'next_feeding_date',
         ]
 
     def get_fisherfolk_name(self, obj):
@@ -665,6 +694,9 @@ class StockingRecordSerializer(serializers.ModelSerializer):
     def get_production_cycle_no(self, obj):
         return obj.compute_production_cycle_no()
 
+    def get_next_feeding_date(self, obj):
+        return obj.compute_next_feeding_date()
+
     def validate_date_stocked(self, value):
         validate_not_future_date(value, 'Date stocked')
         return value
@@ -690,6 +722,33 @@ class StockingRecordDetailSerializer(StockingRecordSerializer):
     class Meta(StockingRecordSerializer.Meta):
         fields = StockingRecordSerializer.Meta.fields + ['logs', 'disaster_reports', 'harvests']
         read_only_fields = StockingRecordSerializer.Meta.read_only_fields + ['logs', 'disaster_reports', 'harvests']
+
+
+# ─── Health & Feeding Monitoring (Batch 4) ─────────────────────────────────────
+# Read-only view over StockingRecord + FisheriesActivityLog — no new storage,
+# just two extra computed fields specific to this module's table view. Full
+# history reuses the existing FisheriesActivityLogSerializer via the
+# stocking/<id>/logs/ endpoint (ViewStockingLogsModal's own data source).
+
+class HealthMonitoringSerializer(StockingRecordSerializer):
+    latest_water_fish_condition = serializers.SerializerMethodField()
+    latest_mortality_count = serializers.SerializerMethodField()
+
+    class Meta(StockingRecordSerializer.Meta):
+        fields = StockingRecordSerializer.Meta.fields + [
+            'latest_water_fish_condition', 'latest_mortality_count',
+        ]
+        read_only_fields = StockingRecordSerializer.Meta.read_only_fields + [
+            'latest_water_fish_condition', 'latest_mortality_count',
+        ]
+
+    def get_latest_water_fish_condition(self, obj):
+        log = obj.logs.exclude(water_fish_condition='').order_by('-date_of_activity').first()
+        return log.water_fish_condition if log else None
+
+    def get_latest_mortality_count(self, obj):
+        log = obj.logs.exclude(mortality_count=None).order_by('-date_of_activity').first()
+        return log.mortality_count if log else None
 
 
 # ─── Legacy Capture Fishing / Vessel / Assistance serializers ─────────────────

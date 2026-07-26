@@ -1,6 +1,12 @@
 from django.urls import path
 
 from .views import (
+    DiseaseResponseGuideDetailView,
+    DiseaseResponseGuideListCreateView,
+    DiseaseTypeDetailView,
+    DiseaseTypeListCreateView,
+    FeedTypeDetailView,
+    FeedTypeListCreateView,
     FisherfolkListView,
     FisherfolkDetailView,
     FisherfolkDuplicateCheckView,
@@ -15,6 +21,7 @@ from .views import (
     FishingTripLogDetailView,
     FishingTripLogListCreateView,
     FishingTripSummaryView,
+    HealthMonitoringListView,
     PondDetailView,
     PondListCreateView,
     SpeciesCategoryListCreateView,
@@ -57,9 +64,20 @@ urlpatterns = [
     path('species/<int:species_id>/stages/', SpeciesActivityStageListCreateView.as_view(), name='species-stages'),
     path('species/stages/<int:pk>/', SpeciesActivityStageDeleteView.as_view(), name='species-stage-delete'),
 
+    # ── Feed types (Batch 4) ─────────────────────────────────────────────────
+    path('feed-types/', FeedTypeListCreateView.as_view(), name='feed-type-list'),
+    path('feed-types/<int:pk>/', FeedTypeDetailView.as_view(), name='feed-type-detail'),
+
+    # ── Disease reference data (Batch 4) ────────────────────────────────────
+    path('disease-types/', DiseaseTypeListCreateView.as_view(), name='disease-type-list'),
+    path('disease-types/<int:pk>/', DiseaseTypeDetailView.as_view(), name='disease-type-detail'),
+    path('disease-response-guides/', DiseaseResponseGuideListCreateView.as_view(), name='disease-response-guide-list'),
+    path('disease-response-guides/<int:pk>/', DiseaseResponseGuideDetailView.as_view(), name='disease-response-guide-detail'),
+
     # ── Stocking records ────────────────────────────────────────────────────
     path('stocking/', StockingListCreateView.as_view(), name='stocking-list'),
     path('stocking/history/', StockingHistoryView.as_view(), name='stocking-history'),
+    path('health-monitoring/', HealthMonitoringListView.as_view(), name='health-monitoring-list'),
     path('stocking/<int:pk>/', StockingDetailView.as_view(), name='stocking-detail'),
 
     # ── Nested stocking sub-resources ───────────────────────────────────────

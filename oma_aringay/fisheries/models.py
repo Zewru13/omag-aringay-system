@@ -236,6 +236,11 @@ class SpeciesOption(models.Model):
     culture_duration_days     = models.IntegerField()
     default_survival_rate_pct = models.DecimalField(max_digits=5, decimal_places=2)
     default_avg_body_weight_kg = models.DecimalField(max_digits=8, decimal_places=3)
+    # Batch 4 — PROVISIONAL generic default (every species defaults to daily
+    # feeding) pending OMAg/BFAR species-specific feeding-frequency guidance.
+    # Not sourced data — just a starting point so "next feeding date" has
+    # something to compute from before real intervals are configured.
+    default_feeding_interval_days = models.IntegerField(default=1)
 
     class Meta:
         ordering = ['species_name']
@@ -269,6 +274,56 @@ class SpeciesActivityStage(models.Model):
 
     def __str__(self):
         return f'{self.species_option.species_name} — Day {self.day_after_stocking}: {self.activity_name}'
+
+
+# ─── Feed Type (Batch 4) ────────────────────────────────────────────────────
+# Reference data for the Feed Type field on FisheriesActivityLog. Seeded
+# with exactly 2 PROVISIONAL starter categories (generic, not per-species
+# formulations) pending OMAg/BFAR refinement — same convention as the
+# frontend's PERENNIAL_CROPS-style provisional lists.
+
+class FeedType(models.Model):
+    name        = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+    is_active   = models.BooleanField(default=True)
+    species_options = models.ManyToManyField(
+        SpeciesOption, blank=True, related_name='feed_types',
+        help_text='Species this feed type applies to. Seeded by linking every '
+                   'existing species to every seeded feed type as a placeholder '
+                   'starting point — not a real per-species differentiation.',
+    )
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+# ─── Disease reference data (Batch 4) ───────────────────────────────────────
+# Mirrors FisheriesDisasterResponseRule's disease_type -> recommendation
+# pattern, but seeded EMPTY of any cure — mechanism only. No disease names
+# or treatments are invented here; OMAg/BFAR staff populate these via admin.
+
+class DiseaseType(models.Model):
+    name        = models.CharField(max_length=150, unique=True)
+    description = models.TextField(blank=True)
+    is_active   = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class DiseaseResponseGuide(models.Model):
+    disease_type          = models.ForeignKey(DiseaseType, on_delete=models.CASCADE, related_name='response_guides')
+    recommended_treatment = models.TextField(blank=True)
+    notes                 = models.TextField(blank=True)
+
+    def __str__(self):
+        return f'{self.disease_type.name} — response guide'
 
 
 # ─── Pond ───────────────────────────────────────────────────────────────────
@@ -475,6 +530,28 @@ class StockingRecord(models.Model):
                 return self.Status.NEAR_HARVEST
         return self.Status.STOCKED
 
+    def compute_next_feeding_date(self):
+        """
+        Batch 4 — suggested next feeding date = most recent logged 'Feed
+        Monitoring' activity's date + the species' default_feeding_interval_days,
+        or date_stocked + interval if nothing has been logged yet.
+
+        Deliberately separate from the Activity Suggestion Engine
+        (SpeciesActivityStage/application_days): that mechanism expands a
+        finite list of specific milestone days (e.g. Feeding checkpoints at
+        [7, 30, 60, 90]), not an open-ended daily/interval recurrence — it
+        isn't built for "every N days indefinitely," so this is simple date
+        arithmetic instead, not a reuse of the ASE's occurrence expansion.
+        Shared by StockingRecordSerializer, same pattern as
+        compute_production_cycle_no().
+        """
+        if not self.species_id or not self.date_stocked:
+            return None
+        interval = self.species.default_feeding_interval_days or 1
+        last_feeding = self.logs.filter(activity='Feed Monitoring').order_by('-date_of_activity').first()
+        base_date = last_feeding.date_of_activity if last_feeding else self.date_stocked
+        return base_date + timedelta(days=interval)
+
 
 # ─── Fisheries Activity Log ────────────────────────────────────────────────────
 
@@ -503,6 +580,13 @@ class FisheriesActivityLog(models.Model):
     mortality_count     = models.IntegerField(null=True, blank=True)
     area_affected_ha    = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True, help_text='Area affected in hectares (Disease Control activity)')
     treatment_applied   = models.CharField(max_length=200, blank=True)
+    # Batch 4 — disease_type links a log to DiseaseResponseGuide's recommended
+    # treatment (a suggestion only; treatment_applied above always stays the
+    # actual editable record of what was really done).
+    disease_type        = models.ForeignKey(
+        'DiseaseType', on_delete=models.SET_NULL, null=True, blank=True, related_name='activity_logs',
+    )
+    vet_consulted        = models.CharField(max_length=150, blank=True, help_text='Vet name, or "N/A".')
     outcome             = models.CharField(max_length=50, blank=True, choices=[
         ('Recovered',        'Recovered'),
         ('Ongoing',          'Ongoing'),

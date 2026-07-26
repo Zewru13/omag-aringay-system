@@ -2,10 +2,14 @@ import { useSearchParams } from 'react-router-dom'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import SpeciesOptionPage from './SpeciesOptionPage.jsx'
 import SpeciesCategoryPage from './SpeciesCategoryPage.jsx'
+import FeedTypePage from './FeedTypePage.jsx'
+import DiseaseSettingsPage from './DiseaseSettingsPage.jsx'
 
 const TABS = [
   { value: 'species',    label: 'Species' },
   { value: 'categories', label: 'Categories' },
+  { value: 'feed-types', label: 'Feed Types' },
+  { value: 'diseases',   label: 'Diseases' },
 ]
 
 function FisheriesSettingsHub() {
@@ -39,6 +43,8 @@ function FisheriesSettingsHub() {
 
       {activeTab === 'species'    && <SpeciesOptionPage   asTab />}
       {activeTab === 'categories' && <SpeciesCategoryPage asTab />}
+      {activeTab === 'feed-types' && <FeedTypePage        asTab />}
+      {activeTab === 'diseases'   && <DiseaseSettingsPage asTab />}
     </PageLayout>
   )
 }
