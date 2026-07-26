@@ -18,7 +18,6 @@ import FisheriesRecordsPage from '../FisheriesRecords/FisheriesRecordsPage.jsx'
 import FisheriesHistoryModal from './FisheriesHistoryModal.jsx'
 import LogCatchModal from './LogCatchModal.jsx'
 import LogFisheriesDisasterModal from './LogFisheriesDisasterModal.jsx'
-import LogGovernmentAssistanceModal from './LogGovernmentAssistanceModal.jsx'
 
 const DISASTER_STATUS_TONES = { Reported: 'amber', Verified: 'green', Closed: 'slate' }
 const CURRENT_YEAR = new Date().getFullYear()
@@ -35,20 +34,6 @@ const CATCH_COLUMNS = [
   { key: 'hours_at_sea_fmt',  label: 'Hrs at Sea' },
   { key: 'fuel_liters_fmt',   label: 'Fuel (L)' },
   { key: 'actions_cell',      label: 'Actions' },
-]
-
-const ASSISTANCE_COLUMNS = [
-  { key: 'date_received_fmt',                 label: 'Date Received' },
-  { key: 'fisherfolk_name',                   label: 'Fisherfolk Name' },
-  { key: 'fisherfolk_lgu_registration_number', label: 'LGU Reg. No.' },
-  { key: 'fisherfolk_barangay',               label: 'Barangay' },
-  { key: 'assistance_type',                   label: 'Assistance Type' },
-  { key: 'source_agency',                     label: 'Source of Assistance' },
-  { key: 'quantity',                          label: 'Quantity / Amount' },
-  { key: 'remarks',                           label: 'Remarks' },
-  { key: 'recorded_by_name',                  label: 'Recorded By' },
-  { key: 'date_recorded_fmt',                 label: 'Date Recorded' },
-  { key: 'actions_cell',                      label: 'Actions' },
 ]
 
 const DISASTER_COLUMNS = [
@@ -344,141 +329,8 @@ function EditCatchModal({ record, onClose, onSaved }) {
   )
 }
 
-// ─── Edit Assistance Modal ──────────────────────────────────────────────────────
-
-const ASSISTANCE_TYPE_OPTIONS = ['Fishing Gear', 'Boat/Vessel', 'Fingerlings/Seeds', 'Feed', 'Cash Assistance', 'Equipment', 'Training', 'Other']
-const SOURCE_OPTIONS = ['LGU', 'MAO', 'BFAR', 'DA', 'NGO', 'Private Donor', 'Others']
-
-function EditAssistanceModal({ record, onClose, onSaved }) {
-  const { isAdmin } = useAuth()
-  const { showToast } = useToast()
-  const originalData = {
-    assistance_type: record.assistance_type || '',
-    source_agency: record.source_agency || '',
-    date_received: record.date_received || '',
-    quantity: record.quantity != null ? String(record.quantity) : '',
-    description: record.description || '',
-    remarks: record.remarks || '',
-  }
-  const [form, setForm] = useState(originalData)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState('')
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
-
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
-  const isDirty = JSON.stringify(form) !== JSON.stringify(originalData)
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setError(''); setIsSubmitting(true)
-    try {
-      await api.patch(`/fisheries/fisheries-assistance/${record.id}/`, {
-        ...form,
-        quantity: form.quantity !== '' ? parseFloat(form.quantity) : null,
-      })
-      showToast('Assistance record updated.', 'success')
-      onSaved()
-    } catch (err) {
-      setError(err?.response?.data?.detail || 'Failed to update assistance record.')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  const handleDeleteConfirmed = async () => {
-    setIsDeleting(true)
-    try {
-      await api.delete(`/fisheries/fisheries-assistance/${record.id}/`)
-      showToast('Assistance record deleted.', 'success')
-      onSaved()
-      onClose()
-    } catch (err) {
-      showToast(err?.response?.data?.detail || 'Failed to delete assistance record.', 'error')
-      setShowDeleteConfirm(false)
-    } finally {
-      setIsDeleting(false)
-    }
-  }
-
-  return (
-    <>
-      <ModalShell title="Edit Assistance Record" subtitle={record.fisherfolk_name} icon={Pencil} onClose={onClose} maxWidth="max-w-xl">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <FormField label="Date Received" required>
-              <input type="date" className={baseInputClasses} value={form.date_received}
-                max={new Date().toISOString().split('T')[0]}
-                onChange={(e) => set('date_received', e.target.value)} />
-            </FormField>
-            <FormField label="Assistance Type" required>
-              <select className={baseInputClasses} value={form.assistance_type}
-                onChange={(e) => set('assistance_type', e.target.value)}>
-                <option value="">Select Assistance Type</option>
-                {ASSISTANCE_TYPE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </FormField>
-            <FormField label="Source of Assistance" required>
-              <select className={baseInputClasses} value={form.source_agency}
-                onChange={(e) => set('source_agency', e.target.value)}>
-                <option value="">Select Source</option>
-                {SOURCE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </FormField>
-            <FormField label="Quantity / Amount" required>
-              <input type="number" step="0.01" min="0" className={baseInputClasses} value={form.quantity}
-                onChange={(e) => set('quantity', e.target.value)} />
-            </FormField>
-          </div>
-          <FormField label="Description">
-            <textarea className={baseInputClasses} rows={2} value={form.description}
-              onChange={(e) => set('description', e.target.value)} />
-          </FormField>
-          <FormField label="Remarks">
-            <textarea className={baseInputClasses} rows={2} value={form.remarks}
-              onChange={(e) => set('remarks', e.target.value)} />
-          </FormField>
-
-          {error && (
-            <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>
-          )}
-
-          <DangerZone
-            isAdmin={isAdmin}
-            description="Permanently delete this assistance record."
-            onDeleteClick={() => setShowDeleteConfirm(true)}
-          />
-
-          <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-3">
-            <button type="button" onClick={onClose}
-              className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
-              Cancel
-            </button>
-            <button type="submit" disabled={isSubmitting || !isDirty}
-              className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50">
-              {isSubmitting ? 'Saving…' : 'Save Changes'}
-            </button>
-          </div>
-        </form>
-      </ModalShell>
-
-      {showDeleteConfirm && (
-        <ConfirmDialog
-          title="Delete Assistance Record?"
-          message="This action cannot be undone."
-          confirmLabel={isDeleting ? 'Deleting…' : 'Delete Record'}
-          requireTypedConfirmation
-          typedConfirmationText="DELETE"
-          variant="danger"
-          onConfirm={handleDeleteConfirmed}
-          onCancel={() => setShowDeleteConfirm(false)}
-        />
-      )}
-    </>
-  )
-}
-
 // ─── Edit Disaster Report Modal ─────────────────────────────────────────────────
+// (Edit Assistance Modal relocated to pages/AssistanceManagement/FisheriesAssistancePage.jsx — Batch 5)
 
 const DISASTER_TYPES = ['Typhoon', 'Flooding', 'Storm Surge', 'El Nino Drought', 'Red Tide', 'Disease Outbreak', 'Other']
 const DISASTER_STATUS_OPTIONS = ['Reported', 'Verified', 'Closed']
@@ -616,10 +468,11 @@ function EditDisasterModal({ record, onClose, onSaved }) {
 export default function FisheriesMonitoringPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const rawTab = searchParams.get('tab') || 'stocking'
-  // Forecasting moved out to its own /fisheries-forecasting route (Batch C) —
-  // an old ?tab=forecasting link/bookmark falls back to the default tab
-  // instead of rendering nothing.
-  const subTab = rawTab === 'forecasting' ? 'stocking' : rawTab
+  // Forecasting moved out to its own /fisheries-forecasting route (Batch C),
+  // Assistance moved out to /fisheries-assistance (Batch 5) — an old
+  // ?tab=forecasting or ?tab=assistance link/bookmark falls back to the
+  // default tab instead of rendering nothing.
+  const subTab = (rawTab === 'forecasting' || rawTab === 'assistance') ? 'stocking' : rawTab
   const setSubTab = (tab) => setSearchParams({ tab }, { replace: true })
 
   const [barangay, setBarangay] = useState('')
@@ -634,24 +487,14 @@ export default function FisheriesMonitoringPage() {
   const [isLoadingDisasters, setIsLoadingDisasters] = useState(false)
   const [errorDisasters, setErrorDisasters]   = useState('')
 
-  const [assistance, setAssistance]               = useState([])
-  const [isLoadingAssistance, setIsLoadingAssistance] = useState(false)
-  const [errorAssistance, setErrorAssistance]     = useState('')
-  const [assistanceSearch, setAssistanceSearch]   = useState('')
-  const [assistanceBarangay, setAssistanceBarangay] = useState('')
-  const [assistanceSource, setAssistanceSource]   = useState('')
-  const [assistanceType, setAssistanceType]       = useState('')
-
   const [showAddCatch, setShowAddCatch]         = useState(false)
   const [showFisheriesHistory, setShowFisheriesHistory] = useState(false)
   const [showLogDisaster, setShowLogDisaster]   = useState(false)
-  const [showLogAssistance, setShowLogAssistance] = useState(false)
 
   // View Details / Edit — Batch 5 action-icon reorganization
   const [viewingDetail, setViewingDetail] = useState(null) // { title, subtitle, rows }
   const [speciesBreakdown, setSpeciesBreakdown] = useState(null) // a catch record
   const [editingCatch, setEditingCatch]         = useState(null)
-  const [editingAssistance, setEditingAssistance] = useState(null)
   const [editingDisaster, setEditingDisaster]   = useState(null)
 
   const fetchCatch = useCallback(async () => {
@@ -682,24 +525,8 @@ export default function FisheriesMonitoringPage() {
     finally { setIsLoadingDisasters(false) }
   }, [barangay, year])
 
-  const fetchAssistance = useCallback(async () => {
-    setIsLoadingAssistance(true); setErrorAssistance('')
-    try {
-      const params = new URLSearchParams()
-      if (year) params.set('year', year)
-      if (assistanceBarangay) params.set('barangay', assistanceBarangay)
-      if (assistanceSearch) params.set('search', assistanceSearch)
-      if (assistanceSource) params.set('source_of_assistance', assistanceSource)
-      if (assistanceType) params.set('assistance_type', assistanceType)
-      const r = await api.get(`/fisheries/fisheries-assistance/?${params}`)
-      setAssistance(Array.isArray(r.data) ? r.data : (r.data.results || []))
-    } catch { setErrorAssistance('Failed to load assistance records.') }
-    finally { setIsLoadingAssistance(false) }
-  }, [year, assistanceBarangay, assistanceSearch, assistanceSource, assistanceType])
-
   useEffect(() => { if (subTab === 'capture') fetchCatch() }, [subTab, fetchCatch])
   useEffect(() => { if (subTab === 'disasters') fetchDisasters() }, [subTab, fetchDisasters])
-  useEffect(() => { if (subTab === 'assistance') fetchAssistance() }, [subTab, fetchAssistance])
 
   const catchData = useMemo(() => catchLogs.map((c) => {
     const entries = c.species_entries || []
@@ -746,44 +573,6 @@ export default function FisheriesMonitoringPage() {
     }
   }), [catchLogs])
 
-  const assistanceData = useMemo(() => assistance.map((a) => ({
-    ...a,
-    quantity: a.quantity != null ? Number(a.quantity).toLocaleString() : '—',
-    date_received_fmt: formatDate(a.date_received),
-    date_recorded_fmt: formatDate(a.date_recorded),
-    // View Details dropped (Batch B) — the table already shows every field
-    // it displayed except Description; it was even missing LGU Reg. No.,
-    // which the table does show.
-    actions_cell: (
-      <TableActionsMenu
-        onEdit={() => setEditingAssistance(a)}
-      />
-    ),
-  })), [assistance])
-
-  const assistanceByType = useMemo(() => {
-    const map = new Map()
-    assistance.forEach((a) => {
-      const key = a.assistance_type || 'Unknown'
-      map.set(key, (map.get(key) || 0) + 1)
-    })
-    return Array.from(map.entries()).map(([label, value]) => ({ label, value }))
-  }, [assistance])
-
-  const assistanceBySource = useMemo(() => {
-    const map = new Map()
-    assistance.forEach((a) => {
-      const key = a.source_of_assistance || 'Unknown'
-      map.set(key, (map.get(key) || 0) + 1)
-    })
-    return Array.from(map.entries()).map(([label, value]) => ({ label, value }))
-  }, [assistance])
-
-  const totalAssistanceQuantity = useMemo(
-    () => assistance.reduce((sum, a) => sum + (parseFloat(a.quantity) || 0), 0),
-    [assistance],
-  )
-
   const disasterData = useMemo(() => disasters.map((d) => ({
     ...d,
     report_date_fmt:    formatDate(d.report_date),
@@ -809,7 +598,7 @@ export default function FisheriesMonitoringPage() {
   return (
     <PageLayout
       title="Fisheries Monitoring"
-      subtitle="Stocking & culture, capture fishing, assistance, and disaster reports"
+      subtitle="Stocking & culture, capture fishing, and disaster reports"
     >
       <div className="space-y-5">
         {/* Filters + Actions — not applicable to Stocking & Culture, which has its own filter bar */}
@@ -844,11 +633,6 @@ export default function FisheriesMonitoringPage() {
                   <Plus size={15} className="mr-1" /> Log Disaster
                 </Button>
               )}
-              {subTab === 'assistance' && (
-                <Button onClick={() => setShowLogAssistance(true)}>
-                  <Plus size={15} className="mr-1" /> Log Government Assistance
-                </Button>
-              )}
             </div>
           </div>
         )}
@@ -857,7 +641,6 @@ export default function FisheriesMonitoringPage() {
           options={[
             { value: 'stocking',   label: 'Stocking & Culture' },
             { value: 'capture',    label: 'Capture' },
-            { value: 'assistance', label: 'Assistance' },
             { value: 'disasters',  label: 'Fisherfolk Disasters' },
           ]}
           value={subTab}
@@ -937,82 +720,6 @@ export default function FisheriesMonitoringPage() {
           </div>
         )}
 
-        {/* Government Assistance */}
-        {subTab === 'assistance' && (
-          <div className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
-              <input
-                className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-[#1E4620] focus:outline-none"
-                placeholder="Search fisherfolk or LGU no."
-                value={assistanceSearch}
-                onChange={(e) => setAssistanceSearch(e.target.value)}
-              />
-              <BarangaySelect value={assistanceBarangay} onChange={(e) => setAssistanceBarangay(e.target.value)} includeAllOption />
-              <input
-                className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-[#1E4620] focus:outline-none"
-                placeholder="Source of assistance"
-                value={assistanceSource}
-                onChange={(e) => setAssistanceSource(e.target.value)}
-              />
-              <input
-                className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-[#1E4620] focus:outline-none"
-                placeholder="Assistance type"
-                value={assistanceType}
-                onChange={(e) => setAssistanceType(e.target.value)}
-              />
-              <select
-                className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-[#1E4620] focus:outline-none"
-                value={year}
-                onChange={(e) => setYear(e.target.value)}
-              >
-                <option value="">All Years</option>
-                {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-              </select>
-            </div>
-
-            {assistance.length > 0 && (
-              <>
-                <div className="flex flex-wrap gap-3">
-                  <MetricCard label="Total Records" value={assistance.length} />
-                  <MetricCard
-                    label="Total Quantity Distributed"
-                    value={totalAssistanceQuantity.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                  />
-                </div>
-
-                <div className="grid gap-3 lg:grid-cols-2">
-                  <div className="rounded-xl border border-slate-200 bg-white p-4">
-                    <p className="text-sm font-semibold text-slate-700 mb-2">Beneficiaries by Assistance Type</p>
-                    <div className="space-y-1">
-                      {assistanceByType.map((item) => (
-                        <div key={item.label} className="flex items-center justify-between text-sm">
-                          <span className="text-slate-600">{item.label}</span>
-                          <span className="font-semibold text-slate-800">{item.value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-slate-200 bg-white p-4">
-                    <p className="text-sm font-semibold text-slate-700 mb-2">Beneficiaries by Source of Assistance</p>
-                    <div className="space-y-1">
-                      {assistanceBySource.map((item) => (
-                        <div key={item.label} className="flex items-center justify-between text-sm">
-                          <span className="text-slate-600">{item.label}</span>
-                          <span className="font-semibold text-slate-800">{item.value}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-
-            {errorAssistance
-              ? <ErrorMessage message={errorAssistance} />
-              : <DataTable columns={ASSISTANCE_COLUMNS} data={assistanceData} isLoading={isLoadingAssistance} />
-            }
-          </div>
-        )}
       </div>
 
       {/* Modals */}
@@ -1024,9 +731,6 @@ export default function FisheriesMonitoringPage() {
       )}
       {showLogDisaster && (
         <LogFisheriesDisasterModal onClose={() => setShowLogDisaster(false)} onSuccess={fetchDisasters} />
-      )}
-      {showLogAssistance && (
-        <LogGovernmentAssistanceModal onClose={() => setShowLogAssistance(false)} onSuccess={fetchAssistance} />
       )}
 
       {viewingDetail && (
@@ -1048,13 +752,6 @@ export default function FisheriesMonitoringPage() {
           record={editingCatch}
           onClose={() => setEditingCatch(null)}
           onSaved={() => { setEditingCatch(null); fetchCatch() }}
-        />
-      )}
-      {editingAssistance && (
-        <EditAssistanceModal
-          record={editingAssistance}
-          onClose={() => setEditingAssistance(null)}
-          onSaved={() => { setEditingAssistance(null); fetchAssistance() }}
         />
       )}
       {editingDisaster && (

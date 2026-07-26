@@ -28,6 +28,8 @@ import CropSettingsHub from "./pages/CropSettings/CropSettingsHub.jsx";
 import UserManagementPage from "./pages/Users/UserManagementPage.jsx";
 import HelpPage from "./pages/Help/HelpPage.jsx";
 import HealthMonitoringPage from "./pages/HealthMonitoring/HealthMonitoringPage.jsx";
+import CropAssistancePage from "./pages/AssistanceManagement/CropAssistancePage.jsx";
+import FisheriesAssistancePage from "./pages/AssistanceManagement/FisheriesAssistancePage.jsx";
 
 function HomeRedirect() {
   const { isAuthenticated } = useAuth();
@@ -192,6 +194,25 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
                 <FisheriesForecastingTab />
+              </ProtectedRoute>
+            }
+          />
+          {/* Assistance Management — Crop Assistance (new) and Fisheries Assistance
+              (relocated out of the /fisheries-monitoring "Assistance" tab), same
+              two-domain-sibling-routes pattern as Forecasting (Batch 5). */}
+          <Route
+            path="/crop-assistance"
+            element={
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
+                <CropAssistancePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/fisheries-assistance"
+            element={
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
+                <FisheriesAssistancePage />
               </ProtectedRoute>
             }
           />

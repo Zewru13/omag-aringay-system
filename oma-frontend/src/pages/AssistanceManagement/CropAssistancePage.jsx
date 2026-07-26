@@ -1,0 +1,436 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Pencil, Plus, Search, Trash2, User } from 'lucide-react'
+import api from '../../api/axiosInstance.js'
+import PageLayout from '../../components/Layout/PageLayout.jsx'
+import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
+import Button from '../../components/UI/Button.jsx'
+import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
+import DataTable from '../../components/UI/DataTable.jsx'
+import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
+import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import ModalShell from '../../components/UI/ModalShell.jsx'
+import RowActions from '../../components/UI/RowActions.jsx'
+import { useAuth } from '../../context/AuthContext.jsx'
+import { useToast } from '../../context/ToastContext.jsx'
+
+// Must match production.models.CropAssistanceRecord.ASSISTANCE_TYPE_CHOICES exactly.
+const ASSISTANCE_TYPE_OPTIONS = ['Fertilizer', 'Seeds', 'Equipment', 'Cash Assistance', 'Training', 'Other']
+const SEASON_OPTIONS = ['Dry', 'Wet']
+const CURRENT_YEAR = new Date().getFullYear()
+const YEARS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - i)
+
+const COLUMNS = [
+  { key: 'date_received_fmt', label: 'Date Received' },
+  { key: 'farmer_name',       label: 'Farmer' },
+  { key: 'assistance_type',   label: 'Assistance Type' },
+  { key: 'source_agency',     label: 'Source Agency' },
+  { key: 'quantity',          label: 'Quantity' },
+  { key: 'season_year_cell',  label: 'Season / Year' },
+  { key: 'logged_by_name',    label: 'Logged By' },
+  { key: 'actions_cell',      label: 'Actions' },
+]
+
+function formatDate(v) {
+  if (!v) return '—'
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(v + 'T00:00:00'))
+}
+
+// ── Farmer Search — same pattern as AddCropMonitoringModal.jsx's FarmerSearchInput ──
+
+function FarmerSearchInput({ onSelect, selected }) {
+  const [query,     setQuery]     = useState('')
+  const [results,   setResults]   = useState([])
+  const [searching, setSearching] = useState(false)
+  const [showDrop,  setShowDrop]  = useState(false)
+  const debounceRef = useRef(null)
+  const wrapperRef  = useRef(null)
+
+  const doSearch = useCallback(async (q) => {
+    if (!q.trim()) { setResults([]); return }
+    setSearching(true)
+    try {
+      const r = await api.get('/farmers/', { params: { search: q } })
+      const list = Array.isArray(r.data) ? r.data : (r.data.results || [])
+      setResults(list.slice(0, 8))
+    } catch { setResults([]) }
+    finally { setSearching(false) }
+  }, [])
+
+  const handleChange = (e) => {
+    const v = e.target.value
+    setQuery(v)
+    setShowDrop(true)
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => doSearch(v), 300)
+  }
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setShowDrop(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const handleSelect = (farmer) => {
+    onSelect({ id: farmer.id, full_name: farmer.full_name, barangay: farmer.barangay || '' })
+    setQuery(farmer.full_name)
+    setShowDrop(false)
+  }
+
+  const handleClear = () => {
+    setQuery('')
+    onSelect({ id: null, full_name: '', barangay: '' })
+    setResults([])
+  }
+
+  const displayValue = selected.id ? selected.full_name : query
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <label className="mb-1.5 block text-[13px] font-medium text-[#4A5E4A]">
+        Farmer <span className="text-rose-500">*</span>
+      </label>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#A8BCA8] pointer-events-none" />
+        <input
+          type="text"
+          placeholder="Search by name or RSBSA number…"
+          value={displayValue}
+          onChange={handleChange}
+          onFocus={() => { if (results.length > 0) setShowDrop(true) }}
+          className={`${baseInputClasses} pl-8 ${selected.id ? 'pr-16' : ''}`}
+        />
+        {selected.id && (
+          <button type="button" onClick={handleClear}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-rose-500 hover:text-rose-700 px-1">
+            Clear
+          </button>
+        )}
+      </div>
+      {showDrop && (
+        <div className="absolute z-50 mt-1 w-full rounded-xl border border-[#E2E8E2] bg-white shadow-lg max-h-52 overflow-y-auto">
+          {searching ? (
+            <p className="px-4 py-3 text-xs text-[#7A8E7A]">Searching…</p>
+          ) : results.length === 0 ? (
+            <p className="px-4 py-3 text-xs text-[#7A8E7A]">{query.trim() ? 'No farmers found.' : 'Type to search farmers.'}</p>
+          ) : (
+            results.map((f) => (
+              <button key={f.id} type="button" onMouseDown={() => handleSelect(f)}
+                className="flex items-start gap-3 w-full px-4 py-2.5 text-left hover:bg-[#F5F7F5] transition-colors">
+                <User className="w-3.5 h-3.5 mt-0.5 text-[#A8BCA8] shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-[#1A2B1A]">{f.full_name}</p>
+                  <p className="text-[11px] text-[#7A8E7A]">{f.barangay || ''}</p>
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Add Modal ────────────────────────────────────────────────────────────────
+
+function AddAssistanceModal({ onClose, onSuccess }) {
+  const { showToast } = useToast()
+  const [farmer, setFarmer] = useState({ id: null, full_name: '', barangay: '' })
+  const [form, setForm] = useState({
+    assistance_type: '', description: '', quantity: '', date_received: '',
+    source_agency: '', season: '', year: CURRENT_YEAR,
+  })
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!farmer.id) { showToast('Select a farmer first.', 'error'); return }
+    if (!form.assistance_type || !form.date_received || !form.source_agency) {
+      showToast('Fill in all required fields.', 'error'); return
+    }
+    setError(''); setIsSubmitting(true)
+    try {
+      await api.post('/production/crop-assistance/', { ...form, farmer: farmer.id })
+      showToast('Crop assistance record added.', 'success')
+      onSuccess(); onClose()
+    } catch (err) {
+      const data = err?.response?.data
+      setError((data && typeof data === 'object' && Object.values(data)[0]?.[0]) || 'Failed to save record.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <ModalShell title="Log Crop Assistance" subtitle="Record assistance given to a farmer." onClose={onClose} maxWidth="max-w-xl">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <FarmerSearchInput onSelect={setFarmer} selected={farmer} />
+        {farmer.id && <p className="text-[11px] text-[#7A8E7A] -mt-2">Barangay: {farmer.barangay || '—'}</p>}
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <FormField label="Assistance Type" required>
+            <select className={baseInputClasses} value={form.assistance_type} onChange={(e) => set('assistance_type', e.target.value)}>
+              <option value="">Select Assistance Type</option>
+              {ASSISTANCE_TYPE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </FormField>
+          <FormField label="Source Agency" required>
+            <input className={baseInputClasses} value={form.source_agency} onChange={(e) => set('source_agency', e.target.value)} placeholder="e.g. Municipal Agriculture Office" />
+          </FormField>
+          <FormField label="Date Received" required>
+            <input type="date" className={baseInputClasses} value={form.date_received}
+              max={new Date().toISOString().split('T')[0]}
+              onChange={(e) => {
+                const v = e.target.value
+                set('date_received', v)
+                if (v) set('year', new Date(v).getFullYear())
+              }} />
+          </FormField>
+          <FormField label="Quantity">
+            <input className={baseInputClasses} value={form.quantity} onChange={(e) => set('quantity', e.target.value)} placeholder="e.g. 2 bags" />
+          </FormField>
+          <FormField label="Season">
+            <select className={baseInputClasses} value={form.season} onChange={(e) => set('season', e.target.value)}>
+              <option value="">Select…</option>
+              {SEASON_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
+          </FormField>
+          <FormField label="Year" required>
+            <select className={baseInputClasses} value={form.year} onChange={(e) => set('year', e.target.value)}>
+              {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </FormField>
+        </div>
+
+        <FormField label="Description">
+          <textarea rows={2} className={baseInputClasses} value={form.description} onChange={(e) => set('description', e.target.value)} />
+        </FormField>
+
+        {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
+
+        <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-3">
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="submit" isLoading={isSubmitting}>Save Record</Button>
+        </div>
+      </form>
+    </ModalShell>
+  )
+}
+
+// ── Edit Modal ───────────────────────────────────────────────────────────────
+
+function EditAssistanceModal({ record, onClose, onSaved }) {
+  const { isAdmin } = useAuth()
+  const { showToast } = useToast()
+  const originalData = {
+    assistance_type: record.assistance_type || '',
+    description: record.description || '',
+    quantity: record.quantity || '',
+    date_received: record.date_received || '',
+    source_agency: record.source_agency || '',
+    season: record.season || '',
+    year: record.year,
+  }
+  const [form, setForm] = useState(originalData)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+  const isDirty = JSON.stringify(form) !== JSON.stringify(originalData)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setError(''); setIsSubmitting(true)
+    try {
+      await api.patch(`/production/crop-assistance/${record.id}/`, form)
+      showToast('Assistance record updated.', 'success')
+      onSaved()
+    } catch (err) {
+      setError(err?.response?.data?.detail || 'Failed to update record.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleDeleteConfirmed = async () => {
+    setIsDeleting(true)
+    try {
+      await api.delete(`/production/crop-assistance/${record.id}/`)
+      showToast('Assistance record deleted.', 'success')
+      onSaved(); onClose()
+    } catch (err) {
+      showToast(err?.response?.data?.detail || 'Failed to delete record.', 'error')
+      setShowDeleteConfirm(false)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  return (
+    <>
+      <ModalShell title="Edit Assistance Record" subtitle={record.farmer_name} icon={Pencil} onClose={onClose} maxWidth="max-w-xl">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <FormField label="Assistance Type" required>
+              <select className={baseInputClasses} value={form.assistance_type} onChange={(e) => set('assistance_type', e.target.value)}>
+                {ASSISTANCE_TYPE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </FormField>
+            <FormField label="Source Agency" required>
+              <input className={baseInputClasses} value={form.source_agency} onChange={(e) => set('source_agency', e.target.value)} />
+            </FormField>
+            <FormField label="Date Received" required>
+              <input type="date" className={baseInputClasses} value={form.date_received}
+                max={new Date().toISOString().split('T')[0]}
+                onChange={(e) => set('date_received', e.target.value)} />
+            </FormField>
+            <FormField label="Quantity">
+              <input className={baseInputClasses} value={form.quantity} onChange={(e) => set('quantity', e.target.value)} />
+            </FormField>
+            <FormField label="Season">
+              <select className={baseInputClasses} value={form.season} onChange={(e) => set('season', e.target.value)}>
+                <option value="">Select…</option>
+                {SEASON_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </FormField>
+            <FormField label="Year" required>
+              <select className={baseInputClasses} value={form.year} onChange={(e) => set('year', e.target.value)}>
+                {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </FormField>
+          </div>
+          <FormField label="Description">
+            <textarea rows={2} className={baseInputClasses} value={form.description} onChange={(e) => set('description', e.target.value)} />
+          </FormField>
+
+          {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
+
+          {isAdmin && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3">
+              <p className="text-[12px] font-semibold text-rose-700 mb-1">Danger Zone</p>
+              <p className="text-[11px] text-rose-600 mb-2">Permanently delete this assistance record.</p>
+              <button type="button" onClick={() => setShowDeleteConfirm(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-[12px] font-medium text-rose-600 hover:bg-rose-100 transition-colors">
+                <Trash2 size={13} /> Delete this record
+              </button>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-3">
+            <button type="button" onClick={onClose}
+              className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
+              Cancel
+            </button>
+            <button type="submit" disabled={isSubmitting || !isDirty}
+              className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50">
+              {isSubmitting ? 'Saving…' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </ModalShell>
+
+      {showDeleteConfirm && (
+        <ConfirmDialog
+          title="Delete Assistance Record?"
+          message="This action cannot be undone."
+          confirmLabel={isDeleting ? 'Deleting…' : 'Delete Record'}
+          requireTypedConfirmation
+          typedConfirmationText="DELETE"
+          variant="danger"
+          onConfirm={handleDeleteConfirmed}
+          onCancel={() => setShowDeleteConfirm(false)}
+        />
+      )}
+    </>
+  )
+}
+
+// ── Main Page ────────────────────────────────────────────────────────────────
+
+export default function CropAssistancePage({ asTab = false }) {
+  const { isAdmin } = useAuth()
+  const [records, setRecords] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [barangay, setBarangay] = useState('')
+  const [year, setYear] = useState('')
+  const [showAdd, setShowAdd] = useState(false)
+  const [editing, setEditing] = useState(null)
+
+  const fetchAll = useCallback(async () => {
+    setIsLoading(true); setError('')
+    try {
+      const params = new URLSearchParams()
+      if (barangay) params.set('barangay', barangay)
+      if (year) params.set('year', year)
+      const r = await api.get(`/production/crop-assistance/?${params}`)
+      setRecords(Array.isArray(r.data) ? r.data : (r.data.results || []))
+    } catch {
+      setError('Failed to load crop assistance records.')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [barangay, year])
+
+  useEffect(() => { fetchAll() }, [fetchAll])
+
+  const rows = useMemo(() => records.map((r) => ({
+    ...r,
+    date_received_fmt: formatDate(r.date_received),
+    season_year_cell: [r.season, r.year].filter(Boolean).join(' '),
+    actions_cell: (
+      <RowActions actions={[
+        { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditing(r) },
+      ]} />
+    ),
+  })), [records])
+
+  const innerContent = (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="w-48">
+          <BarangaySelect value={barangay} onChange={(e) => setBarangay(e.target.value)} includeAllOption />
+        </div>
+        <div>
+          <select
+            className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-[#1E4620] focus:outline-none"
+            value={year} onChange={(e) => setYear(e.target.value)}
+          >
+            <option value="">All Years</option>
+            {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
+        <div className="ml-auto">
+          <Button onClick={() => setShowAdd(true)}>
+            <Plus size={15} className="mr-1" /> Log Crop Assistance
+          </Button>
+        </div>
+      </div>
+
+      {error ? <ErrorMessage message={error} /> : <DataTable columns={COLUMNS} data={rows} isLoading={isLoading} />}
+
+      {showAdd && <AddAssistanceModal onClose={() => setShowAdd(false)} onSuccess={fetchAll} />}
+      {editing && (
+        <EditAssistanceModal
+          record={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); fetchAll() }}
+        />
+      )}
+    </div>
+  )
+
+  if (asTab) return innerContent
+
+  return (
+    <PageLayout title="Crop Assistance" subtitle="Government and organization assistance given to farmers.">
+      {innerContent}
+    </PageLayout>
+  )
+}

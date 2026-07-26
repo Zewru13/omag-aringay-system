@@ -6,9 +6,9 @@ from core.validators import validate_not_future_date
 from farmers.models import FarmParcel
 
 from .models import (
-    BarangayCropSummary, CropActivityLog, CropActivityStage, CropCategory,
-    CropDisasterReport, CropMonitoringRecord, CropRemark, CropSubcategory, CropType,
-    CropVariety, DamageReport, FarmInputLog, HarvestRecord, LaborOperationLog,
+    BarangayCropSummary, CropActivityLog, CropActivityStage, CropAssistanceRecord,
+    CropCategory, CropDisasterReport, CropMonitoringRecord, CropRemark, CropSubcategory,
+    CropType, CropVariety, DamageReport, FarmInputLog, HarvestRecord, LaborOperationLog,
     PestDiseaseReport, PlantingRecord, SeedSource,
 )
 
@@ -747,4 +747,26 @@ class DamageReportSerializer(serializers.ModelSerializer):
 
     def validate_calamity_date(self, value):
         validate_not_future_date(value, 'Calamity date')
+        return value
+
+
+class CropAssistanceSerializer(serializers.ModelSerializer):
+    farmer_name = serializers.CharField(source='farmer.full_name', read_only=True)
+    logged_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CropAssistanceRecord
+        fields = [
+            'id', 'farmer', 'farmer_name',
+            'assistance_type', 'description', 'quantity', 'date_received',
+            'source_agency', 'season', 'year',
+            'logged_by', 'logged_by_name', 'date_created',
+        ]
+        read_only_fields = ['id', 'farmer_name', 'logged_by', 'logged_by_name', 'date_created']
+
+    def get_logged_by_name(self, obj):
+        return obj.logged_by.full_name if obj.logged_by else None
+
+    def validate_date_received(self, value):
+        validate_not_future_date(value, 'Date received')
         return value

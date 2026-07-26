@@ -7,6 +7,7 @@ import {
   ClipboardList,
   FileBarChart,
   Fish,
+  HandHeart,
   HeartPulse,
   LayoutDashboard,
   Leaf,
@@ -86,6 +87,15 @@ const GROUPS = [
     items: [
       { to: "/forecasting", icon: TrendingUp, label: "Crop Forecasting" },
       { to: "/fisheries-forecasting", icon: TrendingUp, label: "Fisheries Forecasting" },
+    ],
+  },
+  {
+    key: "assistance-management",
+    label: "Assistance Management",
+    icon: HandHeart,
+    items: [
+      { to: "/crop-assistance", icon: Sprout, label: "Crop Assistance" },
+      { to: "/fisheries-assistance", icon: Fish, label: "Fisheries Assistance" },
     ],
   },
 ];
