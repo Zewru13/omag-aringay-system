@@ -32,9 +32,6 @@ from .views import (
     StockingHarvestDeleteView,
     TripSpeciesEntryDeleteView,
     TripSpeciesEntryListCreateView,
-    VesselInspectionDetailView,
-    VesselInspectionListCreateView,
-    VesselLicenseAlertView,
 )
 
 
@@ -69,7 +66,7 @@ urlpatterns = [
     path('stocking/harvests/<int:pk>/', StockingHarvestDeleteView.as_view(), name='stocking-harvest-delete'),
     path('stocking/<int:stocking_id>/suggestions/', FisheriesActivitySuggestionsView.as_view(), name='stocking-suggestions'),
 
-    # ── Legacy Capture Fishing / Vessel / Assistance (relocated from monitoring) ──
+    # ── Legacy Capture Fishing / Assistance (relocated from monitoring) ──────
     path('fishing-trips/', FishingTripLogListCreateView.as_view(), name='fishing-trip-list-create'),
     path('fishing-trips/summary/', FishingTripSummaryView.as_view(), name='fishing-trip-summary'),
     path('fishing-trips/history/', FisheriesHistoricalTimelineView.as_view(), name='fishing-trip-history'),
@@ -77,9 +74,6 @@ urlpatterns = [
     path('fishing-trips/<int:pk>/', FishingTripLogDetailView.as_view(), name='fishing-trip-detail'),
     path('fishing-trips/<int:trip_id>/species/', TripSpeciesEntryListCreateView.as_view(), name='trip-species-list-create'),
     path('fishing-trips/species/<int:pk>/', TripSpeciesEntryDeleteView.as_view(), name='trip-species-delete'),
-    path('vessel-inspections/', VesselInspectionListCreateView.as_view(), name='vessel-inspection-list-create'),
-    path('vessel-inspections/<int:pk>/', VesselInspectionDetailView.as_view(), name='vessel-inspection-detail'),
-    path('vessel-licenses/alerts/', VesselLicenseAlertView.as_view(), name='vessel-license-alerts'),
     path('fisheries-assistance/', FisheriesAssistanceListCreateView.as_view(), name='fisheries-assistance-list'),
     path('fisheries-assistance/<int:pk>/', FisheriesAssistanceDetailView.as_view(), name='fisheries-assistance-detail'),
 

@@ -42,9 +42,6 @@ const fetchUpcomingVisits = () =>
     }).length
   })
 
-const fetchExpiringLicenses = () =>
-  api.get('/fisheries/vessel-licenses/alerts/').then((r) => normalizeList(r.data).length)
-
 const fetchActiveMonitoring = () =>
   api.get('/production/monitoring/').then((r) =>
     typeof r.data?.count === 'number' ? r.data.count : normalizeList(r.data).length
@@ -88,9 +85,8 @@ export default function useDashboardData() {
   const seasonal = useSection(fetchSeasonal)
   const yearlyTrend = useSection(fetchYearlyTrend)
   const upcomingVisits = useSection(fetchUpcomingVisits)
-  const expiringLicenses = useSection(fetchExpiringLicenses)
   const activeMonitoring = useSection(fetchActiveMonitoring)
   const municipalityCrops = useSection(fetchMunicipalityCrops)
 
-  return { summary, extended, commodities, seasonal, yearlyTrend, upcomingVisits, expiringLicenses, activeMonitoring, municipalityCrops }
+  return { summary, extended, commodities, seasonal, yearlyTrend, upcomingVisits, activeMonitoring, municipalityCrops }
 }

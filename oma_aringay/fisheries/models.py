@@ -88,7 +88,6 @@ class Fisherfolk(models.Model):
         max_length=50, unique=True, null=True, blank=True,
         validators=[validate_rsbsa],
     )
-    boatr_number       = models.CharField(max_length=50, blank=True, default='')
     is_aquaculture     = models.BooleanField(default=True)
     is_capture_fishery = models.BooleanField(default=False)
     is_mariculture     = models.BooleanField(default=False)
@@ -712,48 +711,6 @@ class FishingTripLog(models.Model):
 
     def __str__(self):
         return f'Trip by {self.fisherfolk} on {self.trip_date}'
-
-
-class VesselInspection(models.Model):
-    class VesselCondition(models.TextChoices):
-        GOOD = 'Good', 'Good'
-        FAIR = 'Fair', 'Fair'
-        POOR = 'Poor', 'Poor'
-        FOR_REPAIR = 'For Repair', 'For Repair'
-
-    fisherfolk = models.ForeignKey(
-        Fisherfolk,
-        on_delete=models.CASCADE,
-        related_name='vessel_inspections',
-    )
-    inspection_date = models.DateField()
-    license_number = models.CharField(max_length=100)
-    license_expiry_date = models.DateField()
-    vessel_condition = models.CharField(max_length=20, choices=VesselCondition.choices)
-    remarks = models.TextField(blank=True)
-    inspected_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True, blank=True,
-        related_name='conducted_vessel_inspections',
-    )
-    date_recorded = models.DateTimeField(auto_now_add=True)
-
-    def clean(self):
-        if self.fisherfolk_id:
-            try:
-                ff = Fisherfolk.objects.get(pk=self.fisherfolk_id)
-                if ff.fisherfolk_type != Fisherfolk.FisherfolkType.CAPTURE:
-                    raise ValidationError('Vessel inspections can only be created for Capture fisherfolk.')
-            except Fisherfolk.DoesNotExist:
-                pass
-
-    def save(self, *args, **kwargs):
-        self.clean()
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return f'Inspection of {self.fisherfolk} on {self.inspection_date}'
 
 
 class TripSpeciesEntry(models.Model):

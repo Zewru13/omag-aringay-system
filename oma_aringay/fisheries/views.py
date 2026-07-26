@@ -27,7 +27,6 @@ from .models import (
     SpeciesOption,
     StockingRecord,
     TripSpeciesEntry,
-    VesselInspection,
 )
 from .serializers import (
     FisherfolkCreateSerializer,
@@ -44,7 +43,6 @@ from .serializers import (
     StockingRecordDetailSerializer,
     StockingRecordSerializer,
     TripSpeciesEntrySerializer,
-    VesselInspectionSerializer,
 )
 
 
@@ -916,50 +914,6 @@ class FisheriesBarangaySummaryView(APIView):
             'by_barangay': result,
             'top_species': top_species,
         })
-
-
-class VesselInspectionListCreateView(generics.ListCreateAPIView):
-    serializer_class = VesselInspectionSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    pagination_class = None
-
-    def get_queryset(self):
-        qs = VesselInspection.objects.select_related('fisherfolk', 'inspected_by').order_by('-inspection_date')
-        params = self.request.query_params
-        if params.get('fisherfolk'):
-            qs = qs.filter(fisherfolk_id=params['fisherfolk'])
-        if params.get('barangay'):
-            qs = qs.filter(fisherfolk__barangay=params['barangay'])
-        return qs
-
-    def perform_create(self, serializer):
-        serializer.save(inspected_by=self.request.user)
-
-
-class VesselInspectionDetailView(generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = VesselInspectionSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    queryset = VesselInspection.objects.select_related('fisherfolk')
-
-    def destroy(self, request, *args, **kwargs):
-        if request.user.role != 'ADMIN':
-            return Response(
-                {'detail': 'Only administrators can delete vessel inspections.'},
-                status=drf_status.HTTP_403_FORBIDDEN,
-            )
-        return super().destroy(request, *args, **kwargs)
-
-
-class VesselLicenseAlertView(APIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-
-    def get(self, request):
-        threshold = date.today() + timedelta(days=30)
-        qs = VesselInspection.objects.filter(
-            license_expiry_date__lte=threshold,
-        ).select_related('fisherfolk').order_by('license_expiry_date')
-        serializer = VesselInspectionSerializer(qs, many=True)
-        return Response(serializer.data)
 
 
 # ─── Fisheries Assistance Records ────────────────────────────────────────────

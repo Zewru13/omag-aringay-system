@@ -16,8 +16,8 @@ Stocking records — 15 total (Batch E reduction), composed deliberately:
 
 Plus, kept intentionally sparse so those tabs aren't empty:
   - 15 demo fisherfolk (marker: lgu_registration_number starting '2099-')
-  - Capture & Vessels: a few FishingTripLog + TripSpeciesEntry (at least one
-    multi-species trip), VesselInspection
+  - Capture: a few FishingTripLog + TripSpeciesEntry (at least one
+    multi-species trip)
   - Assistance records
   - Fisherfolk-level disaster reports (monitoring app)
 
@@ -46,7 +46,6 @@ from fisheries.models import (
     SpeciesOption,
     StockingRecord,
     TripSpeciesEntry,
-    VesselInspection,
 )
 from monitoring.models import FisherfolkDisasterReport
 
@@ -55,23 +54,23 @@ User = get_user_model()
 DEMO_LGU_YEAR = '2099'  # unmistakably-fake registration year used as the demo marker
 SEED_TAG = 'Seeded by seed_fisheries_demo_data command.'
 
-# first, last, gender, birth_year, barangay, fisherfolk_type, pwd, icc, fourps, has_fishr, has_rsbsa, has_boatr
+# first, last, gender, birth_year, barangay, fisherfolk_type, pwd, icc, fourps, has_fishr, has_rsbsa
 FISHERFOLK_DATA = [
-    ('Marcelo',      'Bautista',      'Male',   1970, 'San Juan West',    'Aquaculture', False, False, False, True,  True,  False),
-    ('Herminia',     'Salvador',      'Female', 1983, 'San Juan East',    'Aquaculture', False, False, True,  True,  False, False),
-    ('Teodoro',      'Villegas',      'Male',   1965, 'Poblacion',        'Aquaculture', True,  False, False, False, True,  False),
-    ('Consuelo',     'Ramirez',       'Female', 1990, 'Santa Lucia',      'Aquaculture', False, False, False, True,  True,  False),
-    ('Pablo',        'Guerrero',      'Male',   1958, 'Dulao',            'Aquaculture', False, True,  False, False, False, False),
-    ('Remedios',     'Castro',        'Female', 1977, 'Manga',            'Aquaculture', False, False, False, True,  False, False),
-    ('Anselmo',      'Rivera',        'Male',   1985, 'Gallano',          'Aquaculture', False, False, False, True,  True,  False),
-    ('Dolores',      'Aquino',        'Female', 1968, 'Macabato',         'Aquaculture', False, False, False, False, True,  False),
-    ('Rogelio',      'Domingo',       'Male',   1962, 'San Juan East',    'Capture',     False, False, False, True,  True,  True),
-    ('Estrella',     'Manalo',        'Female', 1975, 'San Juan West',    'Capture',     False, False, True,  True,  False, True),
-    ('Isagani',      'Cortez',        'Male',   1980, 'Samara',           'Capture',     False, False, False, False, True,  True),
-    ('Purificacion', 'Del Rosario',   'Female', 1955, 'Alaska',           'Capture',     False, False, False, True,  True,  True),
-    ('Wilfredo',     'Marasigan',     'Male',   1992, 'San Benito Sur',   'Capture',     False, False, False, True,  False, False),
-    ('Corazon',      'Espino',        'Female', 1972, 'San Benito Norte', 'Inland',      False, False, False, True,  True,  False),
-    ('Danilo',       'Mercado',       'Male',   1988, 'San Eugenio',      'Inland',      False, False, False, False, False, False),
+    ('Marcelo',      'Bautista',      'Male',   1970, 'San Juan West',    'Aquaculture', False, False, False, True,  True),
+    ('Herminia',     'Salvador',      'Female', 1983, 'San Juan East',    'Aquaculture', False, False, True,  True,  False),
+    ('Teodoro',      'Villegas',      'Male',   1965, 'Poblacion',        'Aquaculture', True,  False, False, False, True),
+    ('Consuelo',     'Ramirez',       'Female', 1990, 'Santa Lucia',      'Aquaculture', False, False, False, True,  True),
+    ('Pablo',        'Guerrero',      'Male',   1958, 'Dulao',            'Aquaculture', False, True,  False, False, False),
+    ('Remedios',     'Castro',        'Female', 1977, 'Manga',            'Aquaculture', False, False, False, True,  False),
+    ('Anselmo',      'Rivera',        'Male',   1985, 'Gallano',          'Aquaculture', False, False, False, True,  True),
+    ('Dolores',      'Aquino',        'Female', 1968, 'Macabato',         'Aquaculture', False, False, False, False, True),
+    ('Rogelio',      'Domingo',       'Male',   1962, 'San Juan East',    'Capture',     False, False, False, True,  True),
+    ('Estrella',     'Manalo',        'Female', 1975, 'San Juan West',    'Capture',     False, False, True,  True,  False),
+    ('Isagani',      'Cortez',        'Male',   1980, 'Samara',           'Capture',     False, False, False, False, True),
+    ('Purificacion', 'Del Rosario',   'Female', 1955, 'Alaska',           'Capture',     False, False, False, True,  True),
+    ('Wilfredo',     'Marasigan',     'Male',   1992, 'San Benito Sur',   'Capture',     False, False, False, True,  False),
+    ('Corazon',      'Espino',        'Female', 1972, 'San Benito Norte', 'Inland',      False, False, False, True,  True),
+    ('Danilo',       'Mercado',       'Male',   1988, 'San Eugenio',      'Inland',      False, False, False, False, False),
 ]
 
 # ff_idx refers to a 0-based position into FISHERFOLK_DATA / the created fisherfolk list.
@@ -189,7 +188,6 @@ class Command(BaseCommand):
 
         fisherfolk = self._create_fisherfolk()
         aquaculture_ff = [fisherfolk[i] for i in range(0, 8)]
-        capture_ff = [fisherfolk[i] for i in range(8, 13)]
         capture_and_inland_ff = [fisherfolk[i] for i in range(8, 15)]
 
         stocking_by_key, stocking_created = self._create_stocking_domain(
@@ -199,7 +197,6 @@ class Command(BaseCommand):
             FisheriesDisasterReport.objects.filter(stocking_record__fisherfolk__in=aquaculture_ff).count()
 
         trips_created, entries_created = self._create_capture_data(capture_and_inland_ff, admin_user)
-        vessels_created = self._create_vessel_inspections(capture_ff, admin_user)
         assistance_created = self._create_assistance(fisherfolk, admin_user)
         ff_disasters_created = self._create_fisherfolk_disasters(fisherfolk, admin_user)
 
@@ -221,7 +218,6 @@ class Command(BaseCommand):
         self.stdout.write(f'  Stocking disasters    : {disaster_count:>3}')
         self.stdout.write(f'  Fishing trips         : {FishingTripLog.objects.filter(fisherfolk__in=capture_and_inland_ff).count():>3}')
         self.stdout.write(f'  Trip species entries  : {TripSpeciesEntry.objects.filter(fishing_trip__fisherfolk__in=capture_and_inland_ff).count():>3}')
-        self.stdout.write(f'  Vessel inspections    : {VesselInspection.objects.filter(fisherfolk__in=capture_ff).count():>3}')
         self.stdout.write(f'  Assistance records    : {FisheriesAssistanceRecord.objects.filter(fisherfolk__in=fisherfolk).count():>3}')
         self.stdout.write(f'  Fisherfolk disasters  : {FisherfolkDisasterReport.objects.filter(fisherfolk__in=fisherfolk).count():>3}')
         self.stdout.write(self.style.SUCCESS('================================================'))
@@ -239,9 +235,9 @@ class Command(BaseCommand):
         # first so demo stocking records don't get orphaned onto real data.
         stocking_deleted, _ = StockingRecord.objects.filter(fisherfolk_id__in=demo_ff_ids).delete()
 
-        # FishingTripLog / VesselInspection / FisheriesAssistanceRecord /
-        # FisherfolkDisasterReport are all CASCADE on fisherfolk — deleting
-        # the fisherfolk cleans those up automatically.
+        # FishingTripLog / FisheriesAssistanceRecord / FisherfolkDisasterReport
+        # are all CASCADE on fisherfolk — deleting the fisherfolk cleans those
+        # up automatically.
         ff_deleted, _ = Fisherfolk.objects.filter(id__in=demo_ff_ids).delete()
 
         self.stdout.write(self.style.WARNING(
@@ -273,7 +269,7 @@ class Command(BaseCommand):
     def _create_fisherfolk(self):
         created = []
         for idx, (first, last, gender, birth_year, barangay, ftype, pwd, icc, fourps,
-                   has_fishr, has_rsbsa, has_boatr) in enumerate(FISHERFOLK_DATA):
+                   has_fishr, has_rsbsa) in enumerate(FISHERFOLK_DATA):
             lgu_reg = f'{DEMO_LGU_YEAR}-03302-{idx + 1:04d}'
             birth_month = (idx % 12) + 1
             birth_day = min((idx % 28) + 1, 28)
@@ -297,7 +293,6 @@ class Command(BaseCommand):
                 'is_inland_fishery': ftype == 'Inland',
                 'fishr_number': f'01-33-02-{DEMO_LGU_YEAR}-{idx + 1:04d}' if has_fishr else None,
                 'rsbsa_number': f'01-33-02-999-{idx + 1:06d}' if has_rsbsa else None,
-                'boatr_number': f'DEMO-BOATR-{idx + 1:04d}' if has_boatr else '',
                 'contact_number': f'0917{idx + 1:07d}',
             }
             ff, was_created = Fisherfolk.objects.get_or_create(
@@ -520,7 +515,7 @@ class Command(BaseCommand):
         self.stdout.write(f'  Created {count} stocking-level disaster reports.')
         return count
 
-    # ── Capture & Vessels ────────────────────────────────────────────────────
+    # ── Capture ──────────────────────────────────────────────────────────────
 
     def _create_capture_data(self, capture_and_inland_ff, admin_user):
         if FishingTripLog.objects.filter(fisherfolk__in=capture_and_inland_ff).exists():
@@ -566,32 +561,6 @@ class Command(BaseCommand):
 
         self.stdout.write(f'  Created {trips_created} fishing trips, {entries_created} species entries.')
         return trips_created, entries_created
-
-    def _create_vessel_inspections(self, capture_ff, admin_user):
-        if VesselInspection.objects.filter(fisherfolk__in=capture_ff).exists():
-            self.stdout.write('  Vessel inspections already seeded — skipping (use --flush to reset).')
-            return 0
-
-        today = date.today()
-        specs = [
-            dict(ff_idx=0, inspected_days_ago=60, expiry_days_from_now=20, condition='Good'),
-            dict(ff_idx=2, inspected_days_ago=30, expiry_days_from_now=-15, condition='For Repair'),
-        ]
-        count = 0
-        for i, spec in enumerate(specs):
-            ff = capture_ff[spec['ff_idx']]
-            VesselInspection.objects.create(
-                fisherfolk=ff,
-                inspection_date=today - timedelta(days=spec['inspected_days_ago']),
-                license_number=f'BFAR-LIC-{2020 + i}-{ff.id:04d}',
-                license_expiry_date=today + timedelta(days=spec['expiry_days_from_now']),
-                vessel_condition=spec['condition'],
-                remarks=SEED_TAG,
-                inspected_by=admin_user,
-            )
-            count += 1
-        self.stdout.write(f'  Created {count} vessel inspections.')
-        return count
 
     # ── Assistance ───────────────────────────────────────────────────────────
 

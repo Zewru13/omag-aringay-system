@@ -56,7 +56,6 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
     is_active: fisherfolk.is_active,
     fishr_number: fisherfolk.fishr_number || '',
     rsbsa_number: fisherfolk.rsbsa_number || '',
-    boatr_number: fisherfolk.boatr_number || '',
     is_aquaculture: fisherfolk.is_aquaculture ?? true,
     is_capture_fishery: fisherfolk.is_capture_fishery ?? false,
     is_mariculture: fisherfolk.is_mariculture ?? false,
@@ -91,10 +90,6 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
     }
     if (field === 'prefix') {
       setPrefixResetNote('')
-    }
-    if (field === 'is_capture_fishery') {
-      setForm((prev) => ({ ...prev, is_capture_fishery: value, boatr_number: value ? prev.boatr_number : '' }))
-      return
     }
     setForm((prev) => ({ ...prev, [field]: value }))
     if (field === 'birthdate') setBirthdateError(validateAge(value) || '')
@@ -264,17 +259,6 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
               {fieldErrors.rsbsa_number && <p className="mt-1 text-xs text-rose-600">{fieldErrors.rsbsa_number}</p>}
             </div>
 
-            {form.is_capture_fishery && (
-              <div>
-                <FormLabel className={labelCls}>BoatR Number</FormLabel>
-                <input
-                  className={baseInputClasses}
-                  value={form.boatr_number}
-                  onChange={(e) => updateField('boatr_number', e.target.value)}
-                  placeholder="e.g. 1234567"
-                />
-              </div>
-            )}
 
             <div className="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
               <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Type of Fishery Activity</p>

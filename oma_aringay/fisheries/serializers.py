@@ -21,7 +21,6 @@ from .models import (
     StockingRecord,
     TripSpeciesEntry,
     VendorRecord,
-    VesselInspection,
 )
 
 
@@ -84,7 +83,7 @@ class FisherfolkListSerializer(serializers.ModelSerializer):
             'id', 'lgu_registration_number', 'fishr_number', 'prefix', 'full_name',
             'gender', 'birthdate', 'barangay', 'fisherfolk_type',
             'is_active', 'is_senior_citizen', 'date_registered',
-            'rsbsa_number', 'boatr_number',
+            'rsbsa_number',
             'is_aquaculture', 'is_capture_fishery', 'is_mariculture', 'is_inland_fishery', 'is_fish_vendor',
         ]
 
@@ -119,7 +118,7 @@ class FisherfolkDetailSerializer(serializers.ModelSerializer):
             'facility_location', 'pond_area_ha', 'number_of_ponds', 'water_source',
             'number_of_cages', 'cage_dimensions', 'fish_registration_number',
             'boat_registration_number', 'has_vessel',
-            'rsbsa_number', 'boatr_number',
+            'rsbsa_number',
             'is_aquaculture', 'is_capture_fishery', 'is_mariculture', 'is_inland_fishery', 'is_fish_vendor',
         ]
         read_only_fields = ['id', 'date_registered', 'registered_by', 'aquaculture_record', 'capture_record', 'vendor_record']
@@ -165,9 +164,6 @@ class FisherfolkDetailSerializer(serializers.ModelSerializer):
         if error:
             raise serializers.ValidationError({'prefix': error})
 
-        is_capture_fishery = data.get('is_capture_fishery', getattr(self.instance, 'is_capture_fishery', False))
-        if not is_capture_fishery:
-            data['boatr_number'] = ''
         return data
 
 
@@ -204,7 +200,6 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
     has_vessel        = serializers.BooleanField(required=False, default=True)
 
     # OMAg identifiers and activity profile flags
-    boatr_number       = serializers.CharField(required=False, allow_blank=True)
     is_aquaculture     = serializers.BooleanField(required=False, default=True)
     is_capture_fishery = serializers.BooleanField(required=False, default=False)
     is_mariculture     = serializers.BooleanField(required=False, default=False)
@@ -229,7 +224,7 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
             'facility_location', 'pond_area_ha', 'number_of_ponds', 'water_source',
             'number_of_cages', 'cage_dimensions',
             'boat_registration_number', 'has_vessel',
-            'rsbsa_number', 'boatr_number',
+            'rsbsa_number',
             'is_aquaculture', 'is_capture_fishery', 'is_mariculture', 'is_inland_fishery', 'is_fish_vendor',
         ]
         read_only_fields = ['id', 'date_registered', 'registered_by']
@@ -263,9 +258,6 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
         error = validate_prefix_gender(prefix, gender)
         if error:
             raise serializers.ValidationError({'prefix': error})
-
-        if not data.get('is_capture_fishery', False):
-            data['boatr_number'] = ''
 
         fisherfolk_type = data.get('fisherfolk_type', '')
         if not data.get('has_vessel', True):
@@ -729,41 +721,6 @@ class FishingTripLogSerializer(serializers.ModelSerializer):
     def validate_return_date(self, value):
         validate_not_future_date(value, 'Return date')
         return value
-
-
-class VesselInspectionSerializer(serializers.ModelSerializer):
-    fisherfolk_name = serializers.CharField(source='fisherfolk.full_name', read_only=True)
-    days_until_expiry = serializers.SerializerMethodField()
-    license_status = serializers.SerializerMethodField()
-
-    class Meta:
-        model = VesselInspection
-        fields = [
-            'id', 'fisherfolk', 'fisherfolk_name',
-            'inspection_date', 'license_number', 'license_expiry_date',
-            'vessel_condition', 'remarks', 'inspected_by', 'date_recorded',
-            'days_until_expiry', 'license_status',
-        ]
-        read_only_fields = [
-            'id', 'fisherfolk_name', 'inspected_by', 'date_recorded',
-            'days_until_expiry', 'license_status',
-        ]
-
-    def get_days_until_expiry(self, obj):
-        return (obj.license_expiry_date - date.today()).days
-
-    def get_license_status(self, obj):
-        days = (obj.license_expiry_date - date.today()).days
-        if days < 0:
-            return 'Expired'
-        if days <= 30:
-            return 'Expiring Soon'
-        return 'Valid'
-
-    def validate_inspection_date(self, value):
-        validate_not_future_date(value, 'Inspection date')
-        return value
-    # license_expiry_date deliberately NOT capped — it's forward-looking by definition.
 
 
 class FisheriesAssistanceSerializer(serializers.ModelSerializer):

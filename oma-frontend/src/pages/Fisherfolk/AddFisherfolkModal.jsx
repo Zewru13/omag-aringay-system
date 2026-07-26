@@ -16,7 +16,6 @@ const initialForm = {
   prefix: '',
   fishr_number: '',
   rsbsa_number: '',
-  boatr_number: '',
   first_name: '',
   last_name: '',
   middle_name: '',
@@ -121,10 +120,6 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
     }
     if (field === 'prefix') {
       setPrefixResetNote('')
-    }
-    if (field === 'is_capture_fishery') {
-      setForm((c) => ({ ...c, is_capture_fishery: value, boatr_number: value ? c.boatr_number : '' }))
-      return
     }
     setForm((c) => {
       const next = { ...c, [field]: value }
@@ -233,13 +228,6 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
               <p className="mt-1 text-[12px] text-rose-600">{fieldErrors.rsbsa_number}</p>
             )}
           </div>
-
-          {form.is_capture_fishery && (
-            <div>
-              <FormLabel>BoatR Number</FormLabel>
-              <input className={baseInputClasses} id="boatr_number" value={form.boatr_number} onChange={(e) => updateField('boatr_number', e.target.value)} placeholder="e.g. 1234567" />
-            </div>
-          )}
 
           <div>
             <FormLabel required>First Name</FormLabel>

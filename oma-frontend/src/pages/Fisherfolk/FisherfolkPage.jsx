@@ -26,7 +26,6 @@ const columns = [
   { key: 'full_name',               label: 'Full Name' },
   { key: 'fisherfolk_type',         label: 'Type' },
   { key: 'activity_badges',         label: 'Activities' },
-  { key: 'boatr_number',            label: 'BoatR No.' },
   { key: 'barangay',                label: 'Barangay' },
   { key: 'age',                     label: 'Age' },
   { key: 'status',                  label: 'Status' },
@@ -129,9 +128,6 @@ function FisherfolkPage({ asTab = false }) {
         ? f.fishr_number
         : <span className={mutedBadgeCls}>No FishR</span>,
       rsbsa_number: f.rsbsa_number || '—',
-      boatr_number: f.is_capture_fishery
-        ? (f.boatr_number ? f.boatr_number : <span className={mutedBadgeCls}>No BoatR</span>)
-        : '—',
       activity_badges: (
         <span className="inline-flex flex-wrap gap-1">
           {ACTIVITY_BADGES.map((b) => f[b.key] ? (

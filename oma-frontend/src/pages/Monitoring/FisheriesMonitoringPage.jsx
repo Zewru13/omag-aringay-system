@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Anchor, Eye, History, Pencil, Plus, Trash2 } from 'lucide-react'
+import { Eye, History, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
@@ -19,10 +19,8 @@ import FisheriesHistoryModal from './FisheriesHistoryModal.jsx'
 import LogCatchModal from './LogCatchModal.jsx'
 import LogFisheriesDisasterModal from './LogFisheriesDisasterModal.jsx'
 import LogGovernmentAssistanceModal from './LogGovernmentAssistanceModal.jsx'
-import LogVesselInspectionModal from './LogVesselInspectionModal.jsx'
 
 const DISASTER_STATUS_TONES = { Reported: 'amber', Verified: 'green', Closed: 'slate' }
-const VESSEL_STATUS_TONES  = { Valid: 'green', 'Expiring Soon': 'amber', Expired: 'rose' }
 const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - i)
 
@@ -37,17 +35,6 @@ const CATCH_COLUMNS = [
   { key: 'hours_at_sea_fmt',  label: 'Hrs at Sea' },
   { key: 'fuel_liters_fmt',   label: 'Fuel (L)' },
   { key: 'actions_cell',      label: 'Actions' },
-]
-
-const VESSEL_COLUMNS = [
-  { key: 'fisherfolk_name',        label: 'Fisherfolk' },
-  { key: 'license_number',         label: 'License No.' },
-  { key: 'inspection_date_fmt',    label: 'Inspection Date' },
-  { key: 'license_expiry_date_fmt', label: 'License Expiry' },
-  { key: 'vessel_condition',       label: 'Condition' },
-  { key: 'license_status_pill',    label: 'License Status' },
-  { key: 'remarks',                label: 'Remarks' },
-  { key: 'actions_cell',           label: 'Actions' },
 ]
 
 const ASSISTANCE_COLUMNS = [
@@ -108,9 +95,9 @@ function SubTabBar({ options, value, onChange }) {
 
 // ─── Table Row Actions: View Details / Edit ────────────────────────────────────
 // Delete lives inside each Edit modal now, not as a standalone icon — Batch 5.
-// onViewDetails is optional — Vessel Inspections and Assistance Records had
-// their View Details dropped (Batch B: the modal was near-redundant with the
-// table row), leaving just Edit for those two tables. At most 2 actions
+// onViewDetails is optional — Assistance Records had its View Details
+// dropped (Batch B: the modal was near-redundant with the table row),
+// leaving just Edit for that table. At most 2 actions
 // either way, both roles, always — the action-count rule (Batch B) means
 // this stays plain icons, never a ⋮ (RowActions makes that call automatically).
 
@@ -344,126 +331,6 @@ function EditCatchModal({ record, onClose, onSaved }) {
       {showDeleteConfirm && (
         <ConfirmDialog
           title="Delete Catch Log?"
-          message="This action cannot be undone."
-          confirmLabel={isDeleting ? 'Deleting…' : 'Delete Record'}
-          requireTypedConfirmation
-          typedConfirmationText="DELETE"
-          variant="danger"
-          onConfirm={handleDeleteConfirmed}
-          onCancel={() => setShowDeleteConfirm(false)}
-        />
-      )}
-    </>
-  )
-}
-
-// ─── Edit Vessel Inspection Modal ──────────────────────────────────────────────
-
-function EditVesselInspectionModal({ record, onClose, onSaved }) {
-  const { isAdmin } = useAuth()
-  const { showToast } = useToast()
-  const originalData = {
-    inspection_date: record.inspection_date || '',
-    license_number: record.license_number || '',
-    license_expiry_date: record.license_expiry_date || '',
-    vessel_condition: record.vessel_condition || '',
-    remarks: record.remarks || '',
-  }
-  const [form, setForm] = useState(originalData)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState('')
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
-
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
-  const isDirty = JSON.stringify(form) !== JSON.stringify(originalData)
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    setError(''); setIsSubmitting(true)
-    try {
-      await api.patch(`/fisheries/vessel-inspections/${record.id}/`, form)
-      showToast('Vessel inspection updated.', 'success')
-      onSaved()
-    } catch (err) {
-      setError(err?.response?.data?.detail || 'Failed to update vessel inspection.')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  const handleDeleteConfirmed = async () => {
-    setIsDeleting(true)
-    try {
-      await api.delete(`/fisheries/vessel-inspections/${record.id}/`)
-      showToast('Vessel inspection deleted.', 'success')
-      onSaved()
-      onClose()
-    } catch (err) {
-      showToast(err?.response?.data?.detail || 'Failed to delete vessel inspection.', 'error')
-      setShowDeleteConfirm(false)
-    } finally {
-      setIsDeleting(false)
-    }
-  }
-
-  return (
-    <>
-      <ModalShell title="Edit Vessel Inspection" subtitle={record.fisherfolk_name} icon={Pencil} onClose={onClose} maxWidth="max-w-xl">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <FormField label="Inspection Date" required>
-              <input type="date" className={baseInputClasses} value={form.inspection_date}
-                max={new Date().toISOString().split('T')[0]}
-                onChange={(e) => set('inspection_date', e.target.value)} />
-            </FormField>
-            <FormField label="License Number" required>
-              <input type="text" className={baseInputClasses} value={form.license_number}
-                onChange={(e) => set('license_number', e.target.value)} />
-            </FormField>
-            <FormField label="License Expiry Date" required>
-              <input type="date" className={baseInputClasses} value={form.license_expiry_date}
-                onChange={(e) => set('license_expiry_date', e.target.value)} />
-            </FormField>
-            <FormField label="Vessel Condition" required>
-              <select className={baseInputClasses} value={form.vessel_condition}
-                onChange={(e) => set('vessel_condition', e.target.value)}>
-                <option value="">Select Condition</option>
-                {['Good', 'Fair', 'Poor', 'For Repair'].map((o) => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </FormField>
-          </div>
-          <FormField label="Remarks">
-            <textarea className={baseInputClasses} rows={2} value={form.remarks}
-              onChange={(e) => set('remarks', e.target.value)} />
-          </FormField>
-
-          {error && (
-            <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>
-          )}
-
-          <DangerZone
-            isAdmin={isAdmin}
-            description="Permanently delete this vessel inspection record."
-            onDeleteClick={() => setShowDeleteConfirm(true)}
-          />
-
-          <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-3">
-            <button type="button" onClick={onClose}
-              className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
-              Cancel
-            </button>
-            <button type="submit" disabled={isSubmitting || !isDirty}
-              className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50">
-              {isSubmitting ? 'Saving…' : 'Save Changes'}
-            </button>
-          </div>
-        </form>
-      </ModalShell>
-
-      {showDeleteConfirm && (
-        <ConfirmDialog
-          title="Delete Vessel Inspection?"
           message="This action cannot be undone."
           confirmLabel={isDeleting ? 'Deleting…' : 'Delete Record'}
           requireTypedConfirmation
@@ -763,10 +630,6 @@ export default function FisheriesMonitoringPage() {
   const [isLoadingCatch, setIsLoadingCatch] = useState(false)
   const [errorCatch, setErrorCatch]     = useState('')
 
-  const [vesselInspections, setVesselInspections]     = useState([])
-  const [isLoadingVessel, setIsLoadingVessel]         = useState(false)
-  const [errorVessel, setErrorVessel]                 = useState('')
-
   const [disasters, setDisasters]             = useState([])
   const [isLoadingDisasters, setIsLoadingDisasters] = useState(false)
   const [errorDisasters, setErrorDisasters]   = useState('')
@@ -781,7 +644,6 @@ export default function FisheriesMonitoringPage() {
 
   const [showAddCatch, setShowAddCatch]         = useState(false)
   const [showFisheriesHistory, setShowFisheriesHistory] = useState(false)
-  const [showLogVessel, setShowLogVessel]       = useState(false)
   const [showLogDisaster, setShowLogDisaster]   = useState(false)
   const [showLogAssistance, setShowLogAssistance] = useState(false)
 
@@ -789,7 +651,6 @@ export default function FisheriesMonitoringPage() {
   const [viewingDetail, setViewingDetail] = useState(null) // { title, subtitle, rows }
   const [speciesBreakdown, setSpeciesBreakdown] = useState(null) // a catch record
   const [editingCatch, setEditingCatch]         = useState(null)
-  const [editingVessel, setEditingVessel]       = useState(null)
   const [editingAssistance, setEditingAssistance] = useState(null)
   const [editingDisaster, setEditingDisaster]   = useState(null)
 
@@ -808,17 +669,6 @@ export default function FisheriesMonitoringPage() {
     } catch { setErrorCatch('Failed to load catch logs.') }
     finally { setIsLoadingCatch(false) }
   }, [barangay, year])
-
-  const fetchVesselInspections = useCallback(async () => {
-    setIsLoadingVessel(true); setErrorVessel('')
-    try {
-      const params = new URLSearchParams()
-      if (barangay) params.set('barangay', barangay)
-      const r = await api.get(`/fisheries/vessel-inspections/?${params}`)
-      setVesselInspections(Array.isArray(r.data) ? r.data : (r.data.results || []))
-    } catch { setErrorVessel('Failed to load vessel inspections.') }
-    finally { setIsLoadingVessel(false) }
-  }, [barangay])
 
   const fetchDisasters = useCallback(async () => {
     setIsLoadingDisasters(true); setErrorDisasters('')
@@ -848,7 +698,6 @@ export default function FisheriesMonitoringPage() {
   }, [year, assistanceBarangay, assistanceSearch, assistanceSource, assistanceType])
 
   useEffect(() => { if (subTab === 'capture') fetchCatch() }, [subTab, fetchCatch])
-  useEffect(() => { if (subTab === 'capture') fetchVesselInspections() }, [subTab, fetchVesselInspections])
   useEffect(() => { if (subTab === 'disasters') fetchDisasters() }, [subTab, fetchDisasters])
   useEffect(() => { if (subTab === 'assistance') fetchAssistance() }, [subTab, fetchAssistance])
 
@@ -896,23 +745,6 @@ export default function FisheriesMonitoringPage() {
       ),
     }
   }), [catchLogs])
-
-  const vesselData = useMemo(() => vesselInspections.map((v) => ({
-    ...v,
-    inspection_date_fmt: formatDate(v.inspection_date),
-    license_expiry_date_fmt: formatDate(v.license_expiry_date),
-    license_status_pill: (
-      <StatusPill tone={VESSEL_STATUS_TONES[v.license_status] || 'slate'}>{v.license_status}</StatusPill>
-    ),
-    // View Details dropped (Batch B) — every field it showed (condition,
-    // license status/expiry, remarks) is already a column in this table;
-    // the only addition, Days Until Expiry, is derivable from License Expiry.
-    actions_cell: (
-      <TableActionsMenu
-        onEdit={() => setEditingVessel(v)}
-      />
-    ),
-  })), [vesselInspections])
 
   const assistanceData = useMemo(() => assistance.map((a) => ({
     ...a,
@@ -977,7 +809,7 @@ export default function FisheriesMonitoringPage() {
   return (
     <PageLayout
       title="Fisheries Monitoring"
-      subtitle="Stocking & culture, capture fishing, vessel inspections, assistance, and disaster reports"
+      subtitle="Stocking & culture, capture fishing, assistance, and disaster reports"
     >
       <div className="space-y-5">
         {/* Filters + Actions — not applicable to Stocking & Culture, which has its own filter bar */}
@@ -1002,9 +834,6 @@ export default function FisheriesMonitoringPage() {
                   <Button variant="outline" onClick={() => setShowFisheriesHistory(true)}>
                     <History size={15} className="mr-1" /> Historical
                   </Button>
-                  <Button variant="outline" onClick={() => setShowLogVessel(true)}>
-                    <Anchor size={15} className="mr-1" /> Log Vessel Inspection
-                  </Button>
                   <Button onClick={() => setShowAddCatch(true)}>
                     <Plus size={15} className="mr-1" /> Log Catch
                   </Button>
@@ -1027,7 +856,7 @@ export default function FisheriesMonitoringPage() {
         <SubTabBar
           options={[
             { value: 'stocking',   label: 'Stocking & Culture' },
-            { value: 'capture',    label: 'Capture & Vessels' },
+            { value: 'capture',    label: 'Capture' },
             { value: 'assistance', label: 'Assistance' },
             { value: 'disasters',  label: 'Fisherfolk Disasters' },
           ]}
@@ -1089,14 +918,6 @@ export default function FisheriesMonitoringPage() {
               ? <ErrorMessage message={errorCatch} />
               : <DataTable columns={CATCH_COLUMNS} data={catchData} isLoading={isLoadingCatch} />
             }
-
-            <div>
-              <p className="text-sm font-semibold text-slate-700 mb-2">Vessel Inspections</p>
-              {errorVessel
-                ? <ErrorMessage message={errorVessel} />
-                : <DataTable columns={VESSEL_COLUMNS} data={vesselData} isLoading={isLoadingVessel} />
-              }
-            </div>
           </div>
         )}
 
@@ -1201,9 +1022,6 @@ export default function FisheriesMonitoringPage() {
       {showFisheriesHistory && (
         <FisheriesHistoryModal onClose={() => setShowFisheriesHistory(false)} />
       )}
-      {showLogVessel && (
-        <LogVesselInspectionModal onClose={() => setShowLogVessel(false)} onSuccess={fetchVesselInspections} />
-      )}
       {showLogDisaster && (
         <LogFisheriesDisasterModal onClose={() => setShowLogDisaster(false)} onSuccess={fetchDisasters} />
       )}
@@ -1230,13 +1048,6 @@ export default function FisheriesMonitoringPage() {
           record={editingCatch}
           onClose={() => setEditingCatch(null)}
           onSaved={() => { setEditingCatch(null); fetchCatch() }}
-        />
-      )}
-      {editingVessel && (
-        <EditVesselInspectionModal
-          record={editingVessel}
-          onClose={() => setEditingVessel(null)}
-          onSaved={() => { setEditingVessel(null); fetchVesselInspections() }}
         />
       )}
       {editingAssistance && (

@@ -20,7 +20,6 @@ from .views import (
     PlantingRecordsReport,
     SeasonalCatchReport,
     SeasonalVarianceReport,
-    VesselLicenseStatusReport,
     YieldAnalysisReport,
 )
 
@@ -49,7 +48,6 @@ urlpatterns = [
     path('monitoring/seasonal-variance/', SeasonalVarianceReport.as_view(), name='report-seasonal-variance'),
     path('monitoring/farm-visits/', FarmVisitReport.as_view(), name='report-farm-visits'),
     path('monitoring/seasonal-catch/', SeasonalCatchReport.as_view(), name='report-seasonal-catch'),
-    path('monitoring/vessel-licenses/', VesselLicenseStatusReport.as_view(), name='report-vessel-licenses'),
     path('monitoring/catch-summary/', FisheriesCatchSummaryReport.as_view(), name='report-catch-summary'),
     path('production/harvested-crop/', HarvestedCropReport.as_view(), name='report-harvested-crop'),
     path('organizations/list/', OrganizationListReport.as_view(), name='report-organization-list'),
