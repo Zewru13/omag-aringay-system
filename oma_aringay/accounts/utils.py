@@ -5,6 +5,25 @@ from django.conf import settings
 from django.core.mail import send_mail
 
 
+def citizen_account_info(linked_record_type, record_id):
+    """
+    Batch 10: {'id': ..., 'is_active': ...} for the CITIZEN account linked
+    to (linked_record_type, record_id), or None if no such account exists.
+    Shared by the Farmer/Fisherfolk/FarmersOrganization/
+    FisherfolkOrganization detail serializers to drive the staff-facing
+    "Activate Account" button — deferred import avoids a module-level
+    circular import (accounts.models itself lazily imports farmers/
+    fisheries/associations inside User.get_linked_record for the same reason).
+    """
+    from accounts.models import User
+    account = User.objects.filter(
+        linked_record_type=linked_record_type, linked_record_id=record_id,
+    ).only('id', 'is_active').first()
+    if account is None:
+        return None
+    return {'id': account.id, 'is_active': account.is_active}
+
+
 def generate_default_password():
     """~22 url-safe characters — well over the 15-char policy minimum, and
     random enough to never collide with the common-password or local

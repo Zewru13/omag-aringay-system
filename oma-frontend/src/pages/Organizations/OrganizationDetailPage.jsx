@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Plus, Search, Trash2, UserCog, Users } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import api from "../../api/axiosInstance.js";
+import ActivateCitizenAccountButton from "../../components/ActivateCitizenAccountButton.jsx";
 import PageLayout from "../../components/Layout/PageLayout.jsx";
 import Button from "../../components/UI/Button.jsx";
 import StatusPill from "../../components/UI/StatusPill.jsx";
@@ -786,13 +787,22 @@ function OrganizationDetailPage() {
           <>
             {/* Organization Info */}
             <div className="bg-white border border-[#E2E8E2] rounded-xl p-6">
-              <div className="mb-5 flex flex-wrap items-center gap-3 border-b border-[#F0F4F0] pb-4">
-                <h1 className="text-[18px] font-semibold text-[#1A2B1A]">
-                  {organization.name}
-                </h1>
-                <StatusPill tone={organization.is_active ? "green" : "slate"}>
-                  {organization.is_active ? "Active" : "Inactive"}
-                </StatusPill>
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-[#F0F4F0] pb-4">
+                <div className="flex flex-wrap items-center gap-3">
+                  <h1 className="text-[18px] font-semibold text-[#1A2B1A]">
+                    {organization.name}
+                  </h1>
+                  <StatusPill tone={organization.is_active ? "green" : "slate"}>
+                    {organization.is_active ? "Active" : "Inactive"}
+                  </StatusPill>
+                </div>
+                {(isAdmin || isEvaluator) && (
+                  <ActivateCitizenAccountButton
+                    citizenAccount={organization.citizen_account}
+                    personLabel={organization.name}
+                    onActivated={() => setRefreshKey((k) => k + 1)}
+                  />
+                )}
               </div>
               <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
                 <Field label="Barangay" value={organization.barangay} />

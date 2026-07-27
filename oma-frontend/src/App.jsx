@@ -30,10 +30,12 @@ import HelpPage from "./pages/Help/HelpPage.jsx";
 import HealthMonitoringPage from "./pages/HealthMonitoring/HealthMonitoringPage.jsx";
 import CropAssistancePage from "./pages/AssistanceManagement/CropAssistancePage.jsx";
 import FisheriesAssistancePage from "./pages/AssistanceManagement/FisheriesAssistancePage.jsx";
+import CitizenHomePage from "./pages/Citizen/CitizenHomePage.jsx";
 
 function HomeRedirect() {
-  const { isAuthenticated } = useAuth();
-  return <Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />;
+  const { isAuthenticated, isCitizen } = useAuth();
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  return <Navigate to={isCitizen ? "/my-account" : "/dashboard"} replace />;
 }
 
 // Preserves :type/:id when redirecting the old /associations/:type/:id path
@@ -54,7 +56,11 @@ function App() {
           <Route
             path="/change-password"
             element={
-              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
+              // Batch 10: CITIZEN accounts always start must_change_password=True
+              // (see create_citizen_accounts) — ProtectedRoute redirects them
+              // here on their very first authenticated request, so this route
+              // has to actually admit them, not just ADMIN/EVALUATOR.
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR", "CITIZEN"]}>
                 <ForceChangePasswordPage />
               </ProtectedRoute>
             }
@@ -64,6 +70,15 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
                 <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          {/* Batch 10: minimal self-service landing page for CITIZEN accounts. */}
+          <Route
+            path="/my-account"
+            element={
+              <ProtectedRoute allowedRoles={["CITIZEN"]}>
+                <CitizenHomePage />
               </ProtectedRoute>
             }
           />

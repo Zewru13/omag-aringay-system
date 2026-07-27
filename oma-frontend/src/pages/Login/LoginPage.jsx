@@ -25,8 +25,6 @@ function LoginPage() {
   const [needsVerification, setNeedsVerification] = useState(false);
   const [resendState, setResendState] = useState("idle"); // idle | sending | sent | error
 
-  const from = location.state?.from?.pathname || "/dashboard";
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email.trim() || !password) return;
@@ -35,11 +33,19 @@ function LoginPage() {
     setResendState("idle");
     setLoading(true);
     try {
-      await login(email.trim(), password);
+      const user = await login(email.trim(), password);
+      // Batch 10: CITIZEN accounts can't reach /dashboard (ADMIN/EVALUATOR
+      // only) — a bare login (no location.state.from, i.e. not bounced off
+      // a protected route) needs a role-aware default landing page instead
+      // of the old hardcoded "/dashboard".
+      const fallback = user?.role === "CITIZEN" ? "/my-account" : "/dashboard";
+      const from = location.state?.from?.pathname || fallback;
       navigate(from, { replace: true });
     } catch (err) {
       if (err.code === "email_not_verified") {
         setNeedsVerification(true);
+        setError(err.message);
+      } else if (err.code === "citizen_not_activated") {
         setError(err.message);
       } else {
         setError("Invalid email, username, or password. Please try again.");

@@ -3,6 +3,8 @@ from datetime import date
 from django.db.models import Q, Sum
 from rest_framework import serializers
 
+from accounts.models import User
+from accounts.utils import citizen_account_info
 from core.constants import validate_prefix_gender
 from core.validators import validate_not_future_date
 
@@ -105,6 +107,7 @@ class FisherfolkDetailSerializer(serializers.ModelSerializer):
     capture_record    = CaptureSerializer(read_only=True)
     vendor_record     = VendorSerializer(read_only=True)
     is_senior_citizen = serializers.SerializerMethodField()
+    citizen_account   = serializers.SerializerMethodField()
 
     class Meta:
         model  = Fisherfolk
@@ -123,8 +126,12 @@ class FisherfolkDetailSerializer(serializers.ModelSerializer):
             'boat_registration_number', 'has_vessel',
             'rsbsa_number',
             'is_aquaculture', 'is_capture_fishery', 'is_mariculture', 'is_inland_fishery', 'is_fish_vendor',
+            'citizen_account',
         ]
-        read_only_fields = ['id', 'date_registered', 'registered_by', 'aquaculture_record', 'capture_record', 'vendor_record']
+        read_only_fields = ['id', 'date_registered', 'registered_by', 'aquaculture_record', 'capture_record', 'vendor_record', 'citizen_account']
+
+    def get_citizen_account(self, obj):
+        return citizen_account_info(User.LinkedRecordType.FISHERFOLK, obj.id)
 
     def get_is_senior_citizen(self, obj):
         if not obj.birthdate:

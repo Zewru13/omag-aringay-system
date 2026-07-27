@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from accounts.models import User
+from accounts.utils import citizen_account_info
 from core.validators import validate_not_future_date
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk
@@ -122,10 +124,14 @@ class FarmersOrganizationDetailSerializer(serializers.ModelSerializer):
     members   = FarmersOrganizationMemberSerializer(many=True, read_only=True)
     equipment = FarmersOrganizationEquipmentSerializer(many=True, read_only=True)
     officers  = OrganizationOfficerSerializer(many=True, read_only=True)
+    citizen_account = serializers.SerializerMethodField()
 
     class Meta:
         model  = FarmersOrganization
         fields = '__all__'
+
+    def get_citizen_account(self, obj):
+        return citizen_account_info(User.LinkedRecordType.FARMERS_ORG, obj.id)
 
     def validate_contact_number(self, value):
         return _validate_contact(value)
@@ -230,10 +236,14 @@ class FisherfolkOrganizationDetailSerializer(serializers.ModelSerializer):
     members   = FisherfolkOrganizationMemberSerializer(many=True, read_only=True)
     equipment = FisherfolkOrganizationEquipmentSerializer(many=True, read_only=True)
     officers  = FisherfolkOrganizationOfficerSerializer(many=True, read_only=True)
+    citizen_account = serializers.SerializerMethodField()
 
     class Meta:
         model  = FisherfolkOrganization
         fields = '__all__'
+
+    def get_citizen_account(self, obj):
+        return citizen_account_info(User.LinkedRecordType.FISHERFOLK_ORG, obj.id)
 
     def validate_contact_number(self, value):
         return _validate_contact(value)

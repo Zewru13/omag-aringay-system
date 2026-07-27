@@ -86,6 +86,7 @@ export function AuthProvider({ children }) {
     updateUser,
     isAdmin: user?.role === 'ADMIN',
     isEvaluator: user?.role === 'EVALUATOR',
+    isCitizen: user?.role === 'CITIZEN',
     isAuthenticated: Boolean(user),
   }), [user, isLoading, updateUser])
 

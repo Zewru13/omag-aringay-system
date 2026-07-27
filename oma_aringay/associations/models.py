@@ -16,7 +16,11 @@ class FarmersOrganization(models.Model):
     name = models.CharField(max_length=200)
     barangay = models.CharField(max_length=100, choices=BARANGAY_CHOICES)
     street_address = models.CharField(max_length=200, blank=True, default='')
-    registration_number = models.CharField(max_length=100, default='')
+    # Batch 10: unique=True added — this is now also the login identifier
+    # for this organization's self-service CITIZEN account (see
+    # accounts.views.LoginView), which requires a reliable 1:1 mapping.
+    # Confirmed safe: 0 duplicate values among existing real records.
+    registration_number = models.CharField(max_length=100, unique=True, default='')
     dole_registration_number = models.CharField(max_length=100, blank=True, default='')
     bir_number = models.CharField(max_length=100, blank=True, default='')
     date_established = models.DateField(null=True, blank=True)
@@ -154,7 +158,11 @@ class FisherfolkOrganization(models.Model):
     name                = models.CharField(max_length=200)
     barangay            = models.CharField(max_length=100, choices=BARANGAY_CHOICES)
     street_address      = models.CharField(max_length=200, blank=True, default='')
-    registration_number = models.CharField(max_length=100, blank=True, default='')
+    # Batch 10: unique=True added — see FarmersOrganization.registration_number
+    # comment. Left blank=True unchanged (a business-rule call outside this
+    # batch's scope); a second org saved with a blank value would correctly
+    # fail at the database's unique constraint rather than silently colliding.
+    registration_number = models.CharField(max_length=100, unique=True, blank=True, default='')
     date_established    = models.DateField(null=True, blank=True)
     date_organized      = models.DateField(null=True, blank=True)
     date_registered     = models.DateField(null=True, blank=True)

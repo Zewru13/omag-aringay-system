@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ArrowLeft, ClipboardList, Edit, Plus } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
+import ActivateCitizenAccountButton from '../../components/ActivateCitizenAccountButton.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
@@ -356,6 +357,13 @@ function FisherfolkDetailPage() {
                     <Button icon={Edit} onClick={() => setIsEditModalOpen(true)} variant="outline">
                       Edit Profile
                     </Button>
+                  )}
+                  {(isAdmin || isEvaluator) && (
+                    <ActivateCitizenAccountButton
+                      citizenAccount={fisherfolk.citizen_account}
+                      personLabel={fisherfolk.full_name}
+                      onActivated={fetchFisherfolk}
+                    />
                   )}
                 </div>
               </div>

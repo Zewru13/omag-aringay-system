@@ -8,10 +8,11 @@ from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .permissions import IsAdmin
+from .permissions import IsAdmin, IsAdminOrEvaluator
 from .serializers import (
     ChangePasswordSerializer,
     MeUpdateSerializer,
@@ -59,9 +60,102 @@ def _deactivate_other_admins(exclude_user_id=None):
     return deactivated
 
 
+def _linked_user_for(record_type, record_id):
+    return User.objects.filter(
+        linked_record_type=record_type, linked_record_id=record_id,
+    ).first()
+
+
+def _resolve_login_identifier(identifier):
+    """
+    Batch 10: sequential lookup chain, same pattern the original
+    email/username fallback already used — extended with the CITIZEN
+    login identifiers (RSBSA number for Farmer/Fisherfolk, registration
+    number for either organization type). Each of these resolves to a
+    User indirectly, via linked_record_type/linked_record_id — not by
+    matching the identifier against a field on User itself, since User has
+    no RSBSA/registration-number column (see accounts.models.User.get_linked_record).
+    Returns the matching User, or None if nothing matched at all.
+    """
+    from associations.models import FarmersOrganization, FisherfolkOrganization
+    from farmers.models import Farmer
+    from fisheries.models import Fisherfolk
+
+    try:
+        return User.objects.get(email__iexact=identifier)
+    except User.DoesNotExist:
+        pass
+
+    try:
+        return User.objects.get(username__iexact=identifier)
+    except User.DoesNotExist:
+        pass
+
+    farmer = Farmer.objects.filter(rsbsa_number__iexact=identifier).first()
+    if farmer:
+        linked = _linked_user_for(User.LinkedRecordType.FARMER, farmer.id)
+        if linked:
+            return linked
+
+    fisherfolk = Fisherfolk.objects.filter(rsbsa_number__iexact=identifier).first()
+    if fisherfolk:
+        linked = _linked_user_for(User.LinkedRecordType.FISHERFOLK, fisherfolk.id)
+        if linked:
+            return linked
+
+    farmers_org = FarmersOrganization.objects.filter(registration_number__iexact=identifier).first()
+    if farmers_org:
+        linked = _linked_user_for(User.LinkedRecordType.FARMERS_ORG, farmers_org.id)
+        if linked:
+            return linked
+
+    fisherfolk_org = FisherfolkOrganization.objects.filter(registration_number__iexact=identifier).first()
+    if fisherfolk_org:
+        linked = _linked_user_for(User.LinkedRecordType.FISHERFOLK_ORG, fisherfolk_org.id)
+        if linked:
+            return linked
+
+    return None
+
+
+class LoginRateThrottle(ScopedRateThrottle):
+    """
+    Batch 10: throttles by the submitted login identifier (email/username/
+    RSBSA number/org registration number), not by request IP — DRF's stock
+    ScopedRateThrottle.get_cache_key() falls back to IP for anonymous
+    requests (LoginView has no authentication_classes, so request.user is
+    always anonymous here), which isn't what "5 attempts per identifier per
+    minute" asks for: a shared office/LAN IP with several different real
+    people logging in shouldn't throttle them against each other.
+
+    This does NOT stop an attacker rotating through many different
+    identifiers from one IP (that's a different, IP-keyed threat model) —
+    deliberately out of scope here; flagged for a possible follow-up.
+    """
+    scope = 'login'
+
+    def get_cache_key(self, request, view):
+        identifier = (
+            request.data.get('email')
+            or request.data.get('username')
+            or ''
+        ).strip().lower()
+        if not identifier:
+            # No identifier submitted at all — nothing meaningful to key on;
+            # let the request through to LoginView, which will 401 anyway
+            # ('' matches no user).
+            return None
+        return self.cache_format % {
+            'scope': self.scope,
+            'ident': identifier,
+        }
+
+
 class LoginView(APIView):
     permission_classes = []
     authentication_classes = []
+    throttle_scope = 'login'
+    throttle_classes = [LoginRateThrottle]
 
     def post(self, request):
         identifier = (
@@ -71,16 +165,12 @@ class LoginView(APIView):
         ).strip()
         password = request.data.get('password')
 
-        try:
-            db_user = User.objects.get(email__iexact=identifier)
-        except User.DoesNotExist:
-            try:
-                db_user = User.objects.get(username__iexact=identifier)
-            except User.DoesNotExist:
-                return Response(
-                    {'detail': 'No account found with that email or username.'},
-                    status=status.HTTP_401_UNAUTHORIZED,
-                )
+        db_user = _resolve_login_identifier(identifier)
+        if db_user is None:
+            return Response(
+                {'detail': 'No account found with that email, username, RSBSA number, or organization registration number.'},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
 
         # Check the password directly, BEFORE calling authenticate(). Django's
         # ModelBackend.authenticate() silently returns None for any
@@ -95,7 +185,12 @@ class LoginView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        if not db_user.is_email_verified:
+        # Email verification is an ADMIN/EVALUATOR-only concept — CITIZEN
+        # accounts have no email at all (is_email_verified stays at its
+        # default False forever for this role by design; see
+        # create_citizen_accounts and ActivateCitizenAccountView). Gating
+        # this check on role, not touching it for the two existing roles.
+        if db_user.role != User.Roles.CITIZEN and not db_user.is_email_verified:
             return Response(
                 {
                     'detail': 'Please verify your email first. Check your inbox for the verification link.',
@@ -105,6 +200,14 @@ class LoginView(APIView):
             )
 
         if not db_user.is_active:
+            if db_user.role == User.Roles.CITIZEN:
+                return Response(
+                    {
+                        'detail': 'This account has not been activated yet. Please visit the Office of the Municipal Agriculturist to have your identity verified and your account activated.',
+                        'code': 'citizen_not_activated',
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
             return Response(
                 {'detail': 'This account is inactive.'},
                 status=status.HTTP_403_FORBIDDEN,
@@ -308,6 +411,42 @@ class UserReactivateView(APIView):
             user.is_active = True
             user.save(update_fields=['is_active'])
         return Response(UserSerializer(user).data)
+
+
+class ActivateCitizenAccountView(APIView):
+    """
+    Batch 10: staff-facing activation for a CITIZEN account created by
+    create_citizen_accounts. Confirms the person's identity was verified
+    in an office visit and hands over a usable credential.
+
+    A fresh temp password is generated here, not reused from account
+    creation — the one set by create_citizen_accounts was hashed
+    immediately and was never retrievable in plaintext (nor should it be);
+    this is the first moment a usable password exists to relay. Unlike
+    UserCreateView's email-first / admin-relay-as-fallback design, this
+    account has no email at all — on-screen relay is the ONLY delivery
+    path here, not a fallback.
+    """
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def post(self, request, id):
+        user = get_object_or_404(User, pk=id, role=User.Roles.CITIZEN)
+        if user.is_active:
+            return Response(
+                {'detail': 'This account is already active.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        temp_password = generate_default_password()
+        user.set_password(temp_password)
+        user.is_active = True
+        user.save()
+
+        return Response({
+            'user': UserSerializer(user).data,
+            'temp_password': temp_password,
+            'detail': 'Account activated. Share this temporary password with the person directly — it will not be shown again.',
+        })
 
 
 class VerifyEmailView(APIView):

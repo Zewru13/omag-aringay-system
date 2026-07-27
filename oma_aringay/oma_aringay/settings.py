@@ -157,6 +157,17 @@ REST_FRAMEWORK = {
     # renderer format (only "json"/"api" are). Disabling it here restores every
     # report endpoint's PDF/Excel export, which was silently 404ing app-wide.
     'URL_FORMAT_OVERRIDE': None,
+    # Batch 10: login throttling. 5/min keyed per submitted identifier (see
+    # accounts.views.LoginRateThrottle) — enough headroom for a genuine typo
+    # or two, tight enough to make scripted password-guessing against a
+    # single email/RSBSA number/org registration number impractical. DRF's
+    # throttle window is a rolling one (SimpleRateThrottle), so this isn't a
+    # hard lockout — the oldest attempt ages out of the 60s window and a new
+    # attempt becomes available continuously, rather than a fixed "wait
+    # exactly 60s" cliff.
+    'DEFAULT_THROTTLE_RATES': {
+        'login': '5/min',
+    },
 }
 
 SIMPLE_JWT = {

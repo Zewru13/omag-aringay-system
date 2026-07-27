@@ -2,6 +2,8 @@ from datetime import date
 
 from rest_framework import serializers
 
+from accounts.models import User
+from accounts.utils import citizen_account_info
 from core.constants import validate_prefix_gender
 
 from .models import Farmer, FarmCrop, FarmMachinery, FarmParcel
@@ -132,6 +134,7 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(read_only=True)
     farm_parcels = FarmParcelSerializer(many=True, read_only=True)
     farmers_organization_name = serializers.SerializerMethodField()
+    citizen_account = serializers.SerializerMethodField()
 
     class Meta:
         model = Farmer
@@ -164,8 +167,12 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
             'farm_parcels',
             'farmers_organization',
             'farmers_organization_name',
+            'citizen_account',
         ]
-        read_only_fields = ['id', 'date_registered', 'registered_by', 'farm_parcels', 'farmers_organization_name']
+        read_only_fields = ['id', 'date_registered', 'registered_by', 'farm_parcels', 'farmers_organization_name', 'citizen_account']
+
+    def get_citizen_account(self, obj):
+        return citizen_account_info(User.LinkedRecordType.FARMER, obj.id)
 
     def get_farmers_organization_name(self, obj):
         if obj.farmers_organization:
