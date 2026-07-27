@@ -78,5 +78,22 @@ class User(AbstractUser):
             return None
         return model.objects.filter(pk=self.linked_record_id).first()
 
+    def get_linked_farmer_id(self):
+        """linked_record_id iff linked_record_type is FARMER, else None.
+        Batch 12: guards against a lurking bug pattern found across every
+        Batch 11 citizen-scoping call site — comparing linked_record_id
+        directly against a farmer_id/fisherfolk_id column without first
+        confirming linked_record_type actually matches. Since
+        linked_record_id is just a bare int shared across four unrelated
+        tables (Farmer/Fisherfolk/FarmersOrganization/FisherfolkOrganization),
+        an ORGANIZATION-linked citizen could otherwise accidentally match a
+        farmer/fisherfolk row whose id happens to equal their org's id.
+        No DB hit — linked_record_type/id are already on this instance."""
+        return self.linked_record_id if self.linked_record_type == self.LinkedRecordType.FARMER else None
+
+    def get_linked_fisherfolk_id(self):
+        """Fisherfolk counterpart of get_linked_farmer_id() — see its docstring."""
+        return self.linked_record_id if self.linked_record_type == self.LinkedRecordType.FISHERFOLK else None
+
     def __str__(self):
         return self.email or f'{self.get_role_display()} ({self.full_name or self.username})'

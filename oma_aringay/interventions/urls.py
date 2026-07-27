@@ -7,14 +7,18 @@ from .views import (
     BeneficiaryCreateView,
     BeneficiaryDeleteView,
     BeneficiaryListView,
+    BeneficiaryRecordDetailView,
     FarmerInterventionHistoryView,
     FisherfolkBeneficiaryAdHocDetailView,
     FisherfolkBeneficiaryAdHocListCreateView,
     FisherfolkBeneficiaryDeleteView,
     FisherfolkBeneficiaryListCreateView,
+    FisherfolkBeneficiaryRecordDetailView,
     FisherfolkInterventionHistoryView,
     MyBeneficiaryHistoryView,
     MyFisherfolkBeneficiaryHistoryView,
+    MyOrgBeneficiaryHistoryView,
+    MyOrgFisherfolkBeneficiaryHistoryView,
     ProgramCreateView,
     ProgramDetailView,
     ProgramListView,
@@ -44,6 +48,16 @@ urlpatterns = [
         'my-fisherfolk-beneficiary-history/',
         MyFisherfolkBeneficiaryHistoryView.as_view(),
         name='my-fisherfolk-beneficiary-history',
+    ),
+    path(
+        'my-org-beneficiary-history/',
+        MyOrgBeneficiaryHistoryView.as_view(),
+        name='my-org-beneficiary-history',
+    ),
+    path(
+        'my-org-fisherfolk-beneficiary-history/',
+        MyOrgFisherfolkBeneficiaryHistoryView.as_view(),
+        name='my-org-fisherfolk-beneficiary-history',
     ),
     path(
         'programs/<int:id>/export/',
@@ -77,6 +91,11 @@ urlpatterns = [
         name='beneficiaries-delete',
     ),
     path(
+        'beneficiaries/<int:id>/detail/',
+        BeneficiaryRecordDetailView.as_view(),
+        name='beneficiaries-record-detail',
+    ),
+    path(
         'programs/<int:program_id>/fisherfolk-beneficiaries/',
         FisherfolkBeneficiaryListCreateView.as_view(),
         name='fisherfolk-beneficiaries-list-create',
@@ -85,6 +104,11 @@ urlpatterns = [
         'fisherfolk-beneficiaries/<int:id>/',
         FisherfolkBeneficiaryDeleteView.as_view(),
         name='fisherfolk-beneficiaries-delete',
+    ),
+    path(
+        'fisherfolk-beneficiaries/<int:id>/detail/',
+        FisherfolkBeneficiaryRecordDetailView.as_view(),
+        name='fisherfolk-beneficiaries-record-detail',
     ),
     # ─── Ad-hoc (program=null) beneficiary records (Batch 6) ────────────────
     # Absorbs production.CropAssistanceRecord / fisheries.FisheriesAssistanceRecord.

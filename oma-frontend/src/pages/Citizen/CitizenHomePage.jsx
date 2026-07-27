@@ -5,13 +5,17 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import MyRecordsPanel from './MyRecordsPanel.jsx'
 import MyYieldAnalysisSection from './MyYieldAnalysisSection.jsx'
 import MyAssistanceHistorySection from './MyAssistanceHistorySection.jsx'
+import MyOrgReportingSection from './MyOrgReportingSection.jsx'
 import { CROP_DOMAIN, FISHERIES_DOMAIN } from './citizenDomainConfig.js'
+import { FARMERS_ORG_DOMAIN, FISHERFOLK_ORG_DOMAIN } from './orgDomainConfig.js'
 
-// Batch 10 built the read-only proof-of-chain overview below. Batch 11 adds
-// self-service tabs on top of it: log/edit own activity & harvest entries
-// (Farmer/Fisherfolk only — Organizations are Batch 12, disaster reporting
-// is explicitly excluded from citizen capability everywhere on this page),
-// plus read-only Yield Analysis and Assistance History.
+// Batch 10 built the read-only proof-of-chain overview below. Batch 11
+// added self-service tabs for Farmer/Fisherfolk: log/edit own activity &
+// harvest entries, read-only Yield Analysis and Assistance History.
+// Batch 12 adds the ORGANIZATION-role equivalent: report beneficiary
+// assistance for this org's own members only, edit own submissions. No
+// crop/pond records, no member profile editing, no disaster reporting
+// anywhere on this page for any role.
 
 function Field({ label, value }) {
   return (
@@ -48,9 +52,12 @@ export default function CitizenHomePage() {
   const record = user?.linked_record
   const recordType = user?.linked_record_type
   const recordTypeLabel = RECORD_TYPE_LABELS[recordType] || 'Record'
-  const isOrg = recordType === 'FARMERS_ORG' || recordType === 'FISHERFOLK_ORG'
+  const isFarmersOrg = recordType === 'FARMERS_ORG'
+  const isFisherfolkOrg = recordType === 'FISHERFOLK_ORG'
+  const isOrg = isFarmersOrg || isFisherfolkOrg
   const isFarmer = recordType === 'FARMER'
   const isFisherfolk = recordType === 'FISHERFOLK'
+  const orgDomain = isFarmersOrg ? FARMERS_ORG_DOMAIN : isFisherfolkOrg ? FISHERFOLK_ORG_DOMAIN : null
 
   const [tab, setTab] = useState('overview')
 
@@ -92,7 +99,9 @@ export default function CitizenHomePage() {
               {isFarmer && <TabButton active={tab === 'crop'} onClick={() => setTab('crop')}>My Crop Records</TabButton>}
               {isFisherfolk && <TabButton active={tab === 'fisheries'} onClick={() => setTab('fisheries')}>My Stocking Records</TabButton>}
               {!isOrg && <TabButton active={tab === 'yield'} onClick={() => setTab('yield')}>My Yield Analysis</TabButton>}
-              <TabButton active={tab === 'assistance'} onClick={() => setTab('assistance')}>My Assistance History</TabButton>
+              <TabButton active={tab === 'assistance'} onClick={() => setTab('assistance')}>
+                {isOrg ? 'Report Assistance' : 'My Assistance History'}
+              </TabButton>
             </div>
 
             <div className="mt-5">
@@ -135,10 +144,8 @@ export default function CitizenHomePage() {
               {tab === 'assistance' && isFisherfolk && (
                 <MyAssistanceHistorySection endpoint="/interventions/my-fisherfolk-beneficiary-history/" />
               )}
-              {tab === 'assistance' && isOrg && (
-                <p className="rounded-xl border border-[#E2E8E2] bg-white p-6 text-[13px] italic text-[#A8BCA8]">
-                  Organization assistance history is coming in a future update.
-                </p>
+              {tab === 'assistance' && isOrg && orgDomain && (
+                <MyOrgReportingSection domain={orgDomain} orgId={record.id} />
               )}
             </div>
           </>

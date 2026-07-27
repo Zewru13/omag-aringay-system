@@ -117,6 +117,21 @@ class BeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
         return attrs
 
 
+class BeneficiaryRecordUpdateSerializer(BeneficiaryRecordCreateSerializer):
+    """
+    Batch 12: used only by BeneficiaryRecordDetailView (GET/PATCH). Adds
+    `farmer` to read_only_fields on top of the create serializer's own —
+    otherwise an ORGANIZATION citizen editing their own record (which
+    passes IsOrgMemberRecordCitizen's object-level check against the
+    record's CURRENT farmer) could PATCH `farmer` to someone else's id in
+    the same request and have it silently take, exactly the
+    monitoring_record/farm_parcel hole Batch 11 found and closed in
+    HarvestRecordSerializer.
+    """
+    class Meta(BeneficiaryRecordCreateSerializer.Meta):
+        read_only_fields = BeneficiaryRecordCreateSerializer.Meta.read_only_fields + ['farmer']
+
+
 class FisherfolkBeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
     fisherfolk_full_name = serializers.CharField(source='fisherfolk.full_name', read_only=True)
     fisherfolk_lgu_registration_number = serializers.CharField(
@@ -198,3 +213,9 @@ class FisherfolkBeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
             )
 
         return attrs
+
+
+class FisherfolkBeneficiaryRecordUpdateSerializer(FisherfolkBeneficiaryRecordCreateSerializer):
+    """Batch 12: fisherfolk equivalent of BeneficiaryRecordUpdateSerializer — see its docstring."""
+    class Meta(FisherfolkBeneficiaryRecordCreateSerializer.Meta):
+        read_only_fields = FisherfolkBeneficiaryRecordCreateSerializer.Meta.read_only_fields + ['fisherfolk']

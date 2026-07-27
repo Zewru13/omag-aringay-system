@@ -684,8 +684,8 @@ class CropMonitoringListCreateView(generics.ListCreateAPIView):
             )
         )
         if self.request.user.role == 'CITIZEN':
-            linked = self.request.user.get_linked_record()
-            qs = qs.filter(farmer_id=linked.id if linked else -1)
+            farmer_id = self.request.user.get_linked_farmer_id()
+            qs = qs.filter(farmer_id=farmer_id if farmer_id else -1)
         params = self.request.query_params
         if params.get('year'):
             qs = qs.filter(year=params['year'])
@@ -908,9 +908,14 @@ def _yield_analysis_queryset(request):
         # data, never anyone else's — no aggregate/barangay-comparison view
         # is exposed to this role at all (see YieldAnalysisSummaryView,
         # left IsAdminOrEvaluator-only). -1 is an unreachable pk, so an
-        # unlinked account safely gets zero rows rather than everything.
-        linked = request.user.get_linked_record()
-        qs = qs.filter(farmer_id=linked.id if linked else -1)
+        # unlinked account (or, Batch 12: an ORGANIZATION-linked one — crop
+        # records are out of scope for that role entirely) safely gets zero
+        # rows rather than everything. get_linked_farmer_id() (not
+        # get_linked_record()) is what makes that type-safe: it returns
+        # None for a non-FARMER linked_record_type instead of resolving to
+        # some other table's row and letting its .id leak through.
+        farmer_id = request.user.get_linked_farmer_id()
+        qs = qs.filter(farmer_id=farmer_id if farmer_id else -1)
     barangay  = request.query_params.get('barangay', '')
     crop_type = request.query_params.get('crop_type', '')
     season    = request.query_params.get('season', '')

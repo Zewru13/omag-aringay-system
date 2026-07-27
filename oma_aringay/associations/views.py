@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import IsAdminOrEvaluator
+from accounts.permissions import IsAdminOrEvaluator, IsOwnOrgOrStaff
 from farmers.models import Farmer
 
 from .models import (
@@ -62,12 +62,20 @@ class FarmersOrganizationMemberAddView(generics.ListCreateAPIView):
     assignment search-select. Sourced from Farmer.farmers_organization (the
     real membership link for Farmers Organizations; see
     FarmersOrganizationMember's docstring), not the join table.
-    POST: unchanged join-table "add member" capability — kept for parity
-    with the fisherfolk side, though nothing in the current UI calls it for
-    farmers (see model docstring).
+    Batch 12: GET also opens to the FARMERS_ORG citizen who IS this
+    organization — the member picker for their own "Report Assistance"
+    flow reuses this exact endpoint rather than a parallel one.
+    POST: unchanged join-table "add member" capability, staff-only — kept
+    for parity with the fisherfolk side, though nothing in the current UI
+    calls it for farmers (see model docstring).
     """
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    org_linked_record_type = 'FARMERS_ORG'
     pagination_class = None
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAuthenticated(), IsOwnOrgOrStaff()]
+        return [IsAuthenticated(), IsAdminOrEvaluator()]
 
     def get_serializer_class(self):
         if self.request.method == 'GET':
@@ -182,12 +190,19 @@ class FisherfolkOrganizationDetailView(generics.RetrieveUpdateAPIView):
 class FisherfolkOrganizationMemberAddView(generics.ListCreateAPIView):
     """
     GET: search THIS organization's own members — used by the officer
-    assignment search-select.
-    POST: unchanged "add member" (join-table row).
+    assignment search-select. Batch 12: GET also opens to the
+    FISHERFOLK_ORG citizen who IS this organization (member picker for
+    their own "Report Assistance" flow).
+    POST: unchanged "add member" (join-table row), staff-only.
     """
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    org_linked_record_type = 'FISHERFOLK_ORG'
     serializer_class = FisherfolkOrganizationMemberSerializer
     pagination_class = None
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAuthenticated(), IsOwnOrgOrStaff()]
+        return [IsAuthenticated(), IsAdminOrEvaluator()]
 
     def get_queryset(self):
         qs = FisherfolkOrganizationMember.objects.filter(

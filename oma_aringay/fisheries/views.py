@@ -320,8 +320,8 @@ class StockingListCreateView(generics.ListCreateAPIView):
         ).prefetch_related('logs', 'disaster_reports', 'harvests').order_by('-date_recorded')
 
         if self.request.user.role == 'CITIZEN':
-            linked = self.request.user.get_linked_record()
-            qs = qs.filter(fisherfolk_id=linked.id if linked else -1)
+            fisherfolk_id = self.request.user.get_linked_fisherfolk_id()
+            qs = qs.filter(fisherfolk_id=fisherfolk_id if fisherfolk_id else -1)
 
         params = self.request.query_params
         raw_status = params.get('status', '')
@@ -1115,8 +1115,11 @@ def _fisheries_yield_analysis_queryset(request):
         # Batch 11: same own-record-only scoping as production's
         # _yield_analysis_queryset — no aggregate/comparison view for this
         # role (FisheriesYieldAnalysisSummaryView stays IsAdminOrEvaluator).
-        linked = request.user.get_linked_record()
-        qs = qs.filter(fisherfolk_id=linked.id if linked else -1)
+        # Batch 12: get_linked_fisherfolk_id() (not get_linked_record())
+        # keeps this type-safe now that ORGANIZATION-linked citizens exist —
+        # stocking records are out of scope for that role entirely.
+        fisherfolk_id = request.user.get_linked_fisherfolk_id()
+        qs = qs.filter(fisherfolk_id=fisherfolk_id if fisherfolk_id else -1)
     barangay   = request.query_params.get('barangay', '')
     species    = request.query_params.get('species', '')
     year       = request.query_params.get('year', '')

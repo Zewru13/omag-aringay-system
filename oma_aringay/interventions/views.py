@@ -11,12 +11,14 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import IsAdminOrEvaluator, IsCitizen
+from accounts.permissions import IsAdminOrEvaluator, IsCitizen, IsOrgMemberRecordCitizen
 
 from .models import BeneficiaryRecord, FisherfolkBeneficiaryRecord, InterventionProgram
 from .serializers import (
     BeneficiaryRecordCreateSerializer,
+    BeneficiaryRecordUpdateSerializer,
     FisherfolkBeneficiaryRecordCreateSerializer,
+    FisherfolkBeneficiaryRecordUpdateSerializer,
     InterventionProgramSerializer,
 )
 
@@ -62,7 +64,18 @@ class BeneficiaryListView(generics.ListCreateAPIView):
     pagination_class = None
 
     def get_permissions(self):
-        return [IsAuthenticated(), IsAdminOrEvaluator()]
+        # Batch 12: LIST stays staff-only — an ORGANIZATION citizen browsing
+        # every beneficiary under a program would see other organizations'/
+        # staff's submissions for shared members, out of this batch's scope
+        # (see MyOrgBeneficiaryHistoryView for what they DO get: their own
+        # submissions only). CREATE opens to them via IsOrgMemberRecordCitizen,
+        # which staff pass through unconditionally either way.
+        if self.request.method == 'GET':
+            return [IsAuthenticated(), IsAdminOrEvaluator()]
+        return [IsAuthenticated(), IsOrgMemberRecordCitizen()]
+
+    def get_target_person_id(self, request):
+        return request.data.get('farmer')
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -124,6 +137,29 @@ class BeneficiaryDeleteView(generics.DestroyAPIView):
     lookup_field = 'id'
 
 
+class BeneficiaryRecordDetailView(generics.RetrieveUpdateAPIView):
+    """
+    Batch 12: GET/PATCH by id for ANY BeneficiaryRecord — program-based or
+    ad hoc, unlike BeneficiaryAdHocDetailView below which is deliberately
+    scoped to program__isnull=True only. No update endpoint existed at all
+    for program-based records before this (same gap shape Batch 11 found
+    for CropActivityLog) — built once, shared by staff (unrestricted, via
+    IsOrgMemberRecordCitizen's ADMIN/EVALUATOR bypass) and ORGANIZATION
+    citizens (own-submitted, own-member entries only) alike.
+    """
+    queryset = BeneficiaryRecord.objects.select_related('farmer', 'program')
+    serializer_class = BeneficiaryRecordUpdateSerializer
+    permission_classes = [IsAuthenticated, IsOrgMemberRecordCitizen]
+    http_method_names = ['get', 'patch']
+    lookup_field = 'id'
+
+    def get_object_person_id(self, obj):
+        return obj.farmer_id
+
+    def get_object_creator_id(self, obj):
+        return obj.recorded_by_id
+
+
 # ─── Ad-hoc (program=null) beneficiary records (Batch 6) ───────────────────
 # Absorbs production.CropAssistanceRecord's list/create/detail contract.
 # Scoped to program__isnull=True so this endpoint can never touch a
@@ -132,8 +168,17 @@ class BeneficiaryDeleteView(generics.DestroyAPIView):
 
 class BeneficiaryAdHocListCreateView(generics.ListCreateAPIView):
     serializer_class = BeneficiaryRecordCreateSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     pagination_class = None
+
+    def get_permissions(self):
+        # Batch 12: same LIST-stays-staff-only / CREATE-opens-to-org-members
+        # split as BeneficiaryListView above.
+        if self.request.method == 'GET':
+            return [IsAuthenticated(), IsAdminOrEvaluator()]
+        return [IsAuthenticated(), IsOrgMemberRecordCitizen()]
+
+    def get_target_person_id(self, request):
+        return request.data.get('farmer')
 
     def get_queryset(self):
         qs = BeneficiaryRecord.objects.filter(
@@ -221,7 +266,14 @@ class FisherfolkBeneficiaryListCreateView(generics.ListCreateAPIView):
     pagination_class = None
 
     def get_permissions(self):
-        return [IsAuthenticated(), IsAdminOrEvaluator()]
+        # Batch 12: same LIST-stays-staff-only / CREATE-opens-to-org-members
+        # split as BeneficiaryListView.
+        if self.request.method == 'GET':
+            return [IsAuthenticated(), IsAdminOrEvaluator()]
+        return [IsAuthenticated(), IsOrgMemberRecordCitizen()]
+
+    def get_target_person_id(self, request):
+        return request.data.get('fisherfolk')
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -265,13 +317,35 @@ class FisherfolkBeneficiaryDeleteView(generics.DestroyAPIView):
     lookup_field = 'id'
 
 
+class FisherfolkBeneficiaryRecordDetailView(generics.RetrieveUpdateAPIView):
+    """Batch 12: fisherfolk equivalent of BeneficiaryRecordDetailView."""
+    queryset = FisherfolkBeneficiaryRecord.objects.select_related('fisherfolk', 'program')
+    serializer_class = FisherfolkBeneficiaryRecordUpdateSerializer
+    permission_classes = [IsAuthenticated, IsOrgMemberRecordCitizen]
+    http_method_names = ['get', 'patch']
+    lookup_field = 'id'
+
+    def get_object_person_id(self, obj):
+        return obj.fisherfolk_id
+
+    def get_object_creator_id(self, obj):
+        return obj.recorded_by_id
+
+
 # ─── Ad-hoc (program=null) fisherfolk beneficiary records (Batch 6) ────────
 # Absorbs fisheries.FisheriesAssistanceRecord's list/create/detail contract.
 
 class FisherfolkBeneficiaryAdHocListCreateView(generics.ListCreateAPIView):
     serializer_class = FisherfolkBeneficiaryRecordCreateSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     pagination_class = None
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAuthenticated(), IsAdminOrEvaluator()]
+        return [IsAuthenticated(), IsOrgMemberRecordCitizen()]
+
+    def get_target_person_id(self, request):
+        return request.data.get('fisherfolk')
 
     def get_queryset(self):
         qs = FisherfolkBeneficiaryRecord.objects.filter(
@@ -318,11 +392,18 @@ class MyBeneficiaryHistoryView(generics.ListAPIView):
     pagination_class = None
 
     def get_queryset(self):
-        linked = self.request.user.get_linked_record()
-        if linked is None:
+        # Batch 12: explicit type guard — an ORGANIZATION-linked citizen's
+        # linked_record_id points into a different table entirely, and
+        # comparing it against farmer_id here would risk an accidental
+        # int collision. This view is FARMER-only; see
+        # MyOrgBeneficiaryHistoryView for the ORGANIZATION-role equivalent
+        # (different semantics: recorded_by=self, not farmer=self — an
+        # organization is never a beneficiary subject itself).
+        farmer_id = self.request.user.get_linked_farmer_id()
+        if farmer_id is None:
             return BeneficiaryRecord.objects.none()
         return BeneficiaryRecord.objects.filter(
-            farmer_id=linked.id,
+            farmer_id=farmer_id,
         ).select_related('program', 'farmer', 'recorded_by').order_by('-date_given', '-id')
 
 
@@ -333,12 +414,51 @@ class MyFisherfolkBeneficiaryHistoryView(generics.ListAPIView):
     pagination_class = None
 
     def get_queryset(self):
-        linked = self.request.user.get_linked_record()
-        if linked is None:
+        # Batch 12: see MyBeneficiaryHistoryView's comment — same type-guard
+        # fix, FISHERFOLK-only here.
+        fisherfolk_id = self.request.user.get_linked_fisherfolk_id()
+        if fisherfolk_id is None:
             return FisherfolkBeneficiaryRecord.objects.none()
         return FisherfolkBeneficiaryRecord.objects.filter(
-            fisherfolk_id=linked.id,
+            fisherfolk_id=fisherfolk_id,
         ).select_related('program', 'fisherfolk', 'recorded_by').order_by('-date_given', '-id')
+
+
+class MyOrgBeneficiaryHistoryView(generics.ListAPIView):
+    """
+    Batch 12: an ORGANIZATION citizen's own reporting history — records
+    THEY submitted (recorded_by = themselves). Deliberately NOT "every
+    record touching this org's members" — an organization is never a
+    beneficiary subject itself, and surfacing other organizations'/staff's
+    submissions for the same member is explicitly out of this batch's
+    scope (Step 4). Different filter shape from MyBeneficiaryHistoryView
+    on purpose: that one is farmer_id=self (person is the subject), this
+    one is recorded_by=self (org is the reporter).
+    """
+    serializer_class = BeneficiaryRecordCreateSerializer
+    permission_classes = [IsAuthenticated, IsCitizen]
+    pagination_class = None
+
+    def get_queryset(self):
+        if self.request.user.linked_record_type != 'FARMERS_ORG':
+            return BeneficiaryRecord.objects.none()
+        return BeneficiaryRecord.objects.filter(
+            recorded_by=self.request.user,
+        ).select_related('program', 'farmer').order_by('-date_given', '-id')
+
+
+class MyOrgFisherfolkBeneficiaryHistoryView(generics.ListAPIView):
+    """Batch 12: fisherfolk-organization equivalent of MyOrgBeneficiaryHistoryView."""
+    serializer_class = FisherfolkBeneficiaryRecordCreateSerializer
+    permission_classes = [IsAuthenticated, IsCitizen]
+    pagination_class = None
+
+    def get_queryset(self):
+        if self.request.user.linked_record_type != 'FISHERFOLK_ORG':
+            return FisherfolkBeneficiaryRecord.objects.none()
+        return FisherfolkBeneficiaryRecord.objects.filter(
+            recorded_by=self.request.user,
+        ).select_related('program', 'fisherfolk').order_by('-date_given', '-id')
 
 
 class BeneficiaryExportView(APIView):
