@@ -410,7 +410,7 @@ function FarmerDetailPage() {
             </div>
 
             {/* RSBSA Classification badges */}
-            {(farmer.is_pwd || farmer.is_4ps_beneficiary || farmer.is_icc_ip_member || farmer.is_senior_citizen) && (
+            {(farmer.is_pwd || farmer.is_4ps_beneficiary || farmer.is_icc_ip_member || farmer.is_senior_citizen || farmer.is_farm_laborer) && (
               <div className="mt-5 flex flex-wrap gap-2">
                 {farmer.is_pwd && (
                   <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[12px] font-medium text-blue-700 ring-1 ring-blue-200">
@@ -430,6 +430,11 @@ function FarmerDetailPage() {
                 {farmer.is_senior_citizen && (
                   <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-[12px] font-medium text-amber-700 ring-1 ring-amber-200">
                     Senior Citizen
+                  </span>
+                )}
+                {farmer.is_farm_laborer && (
+                  <span className="inline-flex items-center rounded-full bg-orange-50 px-3 py-1 text-[12px] font-medium text-orange-700 ring-1 ring-orange-200">
+                    Farm Laborer
                   </span>
                 )}
               </div>

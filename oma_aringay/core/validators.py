@@ -3,7 +3,23 @@ from datetime import date
 
 from django.core.exceptions import ValidationError
 
-RSBSA_RE = re.compile(r'^01-33-02-\d{3}-\d{6}$')
+# Batch 8: the real RSBSA/BFAR registry import surfaced 4 distinct real
+# formats in actual use — not one canonical shape. Each is matched
+# separately and stored/validated in its own source format (no forced
+# normalization):
+#   A) 01-33-02-006-000230            (DA, no prefix — this is the
+#      original/only pattern this validator accepted before Batch 8)
+#   B) BF-01-033-02-023-00000033      (BFAR, prefixed, 8-digit last segment)
+#   C) 01-033-02-019-000151           (no prefix, 3-digit province segment)
+#   D) BF-01-033-02-004-000007        (BFAR, prefixed, 6-digit last segment)
+# All 4 keep the literal "01-33-02"/"01-033-02" region-province-municipality
+# prefix (matching what's actually observed — Aringay, La Union) rather than
+# genericizing to \d{2}-\d{2}-\d{2}, so garbage values still fail validation.
+RSBSA_RE_A = re.compile(r'^01-33-02-\d{3}-\d{6}$')
+RSBSA_RE_B = re.compile(r'^BF-01-033-02-\d{3}-\d{8}$')
+RSBSA_RE_C = re.compile(r'^01-033-02-\d{3}-\d{6}$')
+RSBSA_RE_D = re.compile(r'^BF-01-033-02-\d{3}-\d{6}$')
+RSBSA_PATTERNS = (RSBSA_RE_A, RSBSA_RE_B, RSBSA_RE_C, RSBSA_RE_D)
 PHILSYS_RE = re.compile(r'^\d{4}-\d{4}-\d{4}-\d{4}$')
 LGU_REG_RE = re.compile(r'^\d{4}-03302-\d{4}$')
 FISHR_RE = re.compile(r'^01-33-02-\d{4}-\d{4}$')
@@ -14,10 +30,11 @@ TAX_DECLARATION_RE = re.compile(r'^\d{2}-\d{3}-\d{5}-\d{4}-\d{4}$')
 def validate_rsbsa(value):
     if not value:
         return
-    if not RSBSA_RE.match(value):
+    if not any(pattern.match(value) for pattern in RSBSA_PATTERNS):
         raise ValidationError(
-            'Invalid RSBSA number. Expected format: 01-33-02-BBB-NNNNNN '
-            '(e.g. 01-33-02-014-058212).'
+            'Invalid RSBSA number. Expected one of: 01-33-02-014-058212, '
+            'BF-01-033-02-023-00000033, 01-033-02-019-000151, or '
+            'BF-01-033-02-004-000007.'
         )
 
 

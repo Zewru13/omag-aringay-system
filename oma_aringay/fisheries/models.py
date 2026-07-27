@@ -23,6 +23,12 @@ class Fisherfolk(models.Model):
         MARICULTURE = 'Mariculture', 'Mariculture'
         INLAND      = 'Inland',      'Inland Fishery'
         VENDOR      = 'Vendor',      'Fish Vendor'
+        # Batch 8: fisherfolk_type is required but the RSBSA/BFAR import
+        # source has no equivalent column — explicit "not determined from
+        # source" marker rather than a guessed type. Deliberately excluded
+        # from FishingTripLog.clean()'s (CAPTURE, INLAND) allow-list above,
+        # so imported records can't log trips until staff assign a real type.
+        UNSPECIFIED = 'Unspecified', 'Not Yet Classified'
 
     class CivilStatus(models.TextChoices):
         SINGLE    = 'Single',    'Single'

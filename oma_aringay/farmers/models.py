@@ -22,6 +22,10 @@ class Farmer(models.Model):
         MARRIED = 'Married', 'Married'
         WIDOWED = 'Widowed', 'Widowed'
         SEPARATED = 'Separated', 'Separated'
+        # Batch 8: civil_status is a required field but the RSBSA/BFAR
+        # import source has no equivalent column — this is an explicit
+        # "not determined from source" marker, not a guess at marital status.
+        UNSPECIFIED = 'Unspecified', 'Unspecified'
 
     class Prefix(models.TextChoices):
         MR = 'Mr.', 'Mr.'
@@ -58,6 +62,10 @@ class Farmer(models.Model):
     icc_ip_name = models.CharField(max_length=150, blank=True)
     is_senior_citizen = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
+    # Batch 8: visibility/reporting flag only, distinguishing farm laborers
+    # (farmworker=YES, farmer!=YES in the RSBSA/BFAR import) from farm
+    # operators. No UI restrictions are tied to this flag.
+    is_farm_laborer = models.BooleanField(default=False)
     date_registered = models.DateTimeField(auto_now_add=True)
     registered_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

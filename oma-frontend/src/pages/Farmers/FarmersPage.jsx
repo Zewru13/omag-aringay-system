@@ -112,6 +112,16 @@ function FarmersPage({ asTab = false }) {
     const ageVal = calcAge(farmer.birthdate)
     return {
       ...farmer,
+      full_name: (
+        <span className="inline-flex items-center gap-2">
+          {farmer.full_name}
+          {farmer.is_farm_laborer && (
+            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 border border-amber-200">
+              Farm Laborer
+            </span>
+          )}
+        </span>
+      ),
       age: (
         <span className="inline-flex items-center gap-1">
           {ageVal}
