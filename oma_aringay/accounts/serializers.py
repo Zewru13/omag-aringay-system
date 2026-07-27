@@ -38,12 +38,14 @@ class UserSerializer(serializers.ModelSerializer):
             return None
         if obj.linked_record_type in (User.LinkedRecordType.FARMER, User.LinkedRecordType.FISHERFOLK):
             return {
+                'id': record.id,
                 'label': record.full_name,
                 'rsbsa_number': record.rsbsa_number,
                 'barangay': record.barangay,
             }
         # FARMERS_ORG / FISHERFOLK_ORG
         return {
+            'id': record.id,
             'label': record.name,
             'registration_number': record.registration_number,
             'barangay': record.barangay,

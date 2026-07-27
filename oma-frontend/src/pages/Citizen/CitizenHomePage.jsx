@@ -1,13 +1,17 @@
+import { useState } from 'react'
 import { LogOut } from 'lucide-react'
 import logo from '../../assets/LOGO OMAg.jpg'
 import { useAuth } from '../../context/AuthContext.jsx'
+import MyRecordsPanel from './MyRecordsPanel.jsx'
+import MyYieldAnalysisSection from './MyYieldAnalysisSection.jsx'
+import MyAssistanceHistorySection from './MyAssistanceHistorySection.jsx'
+import { CROP_DOMAIN, FISHERIES_DOMAIN } from './citizenDomainConfig.js'
 
-// Batch 10: minimal proof-of-chain page for CITIZEN accounts — confirms
-// login -> linked record resolved -> correct data shown, end to end.
-// Deliberately standalone (not PageLayout, which renders the full
-// Admin/Evaluator Sidebar) and read-only: no edit capability, no crop/
-// pond/beneficiary UI. That's the next batch, once this foundation is
-// verified.
+// Batch 10 built the read-only proof-of-chain overview below. Batch 11 adds
+// self-service tabs on top of it: log/edit own activity & harvest entries
+// (Farmer/Fisherfolk only — Organizations are Batch 12, disaster reporting
+// is explicitly excluded from citizen capability everywhere on this page),
+// plus read-only Yield Analysis and Assistance History.
 
 function Field({ label, value }) {
   return (
@@ -25,11 +29,30 @@ const RECORD_TYPE_LABELS = {
   FISHERFOLK_ORG: 'Fisherfolk Organization',
 }
 
+function TabButton({ active, onClick, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-3 py-2 text-[13px] font-medium border-b-2 transition-colors ${
+        active ? 'border-[#1B4D2E] text-[#1B4D2E]' : 'border-transparent text-[#7A8E7A] hover:text-[#4A5E4A]'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
+
 export default function CitizenHomePage() {
   const { user, logout } = useAuth()
   const record = user?.linked_record
-  const recordTypeLabel = RECORD_TYPE_LABELS[user?.linked_record_type] || 'Record'
-  const isOrg = user?.linked_record_type === 'FARMERS_ORG' || user?.linked_record_type === 'FISHERFOLK_ORG'
+  const recordType = user?.linked_record_type
+  const recordTypeLabel = RECORD_TYPE_LABELS[recordType] || 'Record'
+  const isOrg = recordType === 'FARMERS_ORG' || recordType === 'FISHERFOLK_ORG'
+  const isFarmer = recordType === 'FARMER'
+  const isFisherfolk = recordType === 'FISHERFOLK'
+
+  const [tab, setTab] = useState('overview')
 
   return (
     <div className="min-h-screen bg-[#F5F7F5]">
@@ -50,31 +73,76 @@ export default function CitizenHomePage() {
         </button>
       </header>
 
-      <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
+      <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
         <h1 className="text-[20px] font-semibold text-[#1A2B1A]">Welcome, {record?.label || user?.full_name}</h1>
         <p className="mt-1 text-[13px] text-[#7A8E7A]">
-          This is a read-only preview of your {recordTypeLabel.toLowerCase()} record on file with the
-          Office of the Municipal Agriculturist.
+          Self-service account for your {recordTypeLabel.toLowerCase()} record with the Office of the Municipal Agriculturist.
         </p>
 
-        <div className="mt-6 rounded-xl border border-[#E2E8E2] bg-white p-6">
-          {!record ? (
+        {!record ? (
+          <div className="mt-6 rounded-xl border border-[#E2E8E2] bg-white p-6">
             <p className="text-[13px] italic text-[#A8BCA8]">
               Your account isn't linked to a record yet. Please visit the office for assistance.
             </p>
-          ) : (
-            <div className="grid gap-5 sm:grid-cols-2">
-              <Field label="Name" value={record.label} />
-              <Field label="Record Type" value={recordTypeLabel} />
-              <Field label={isOrg ? 'Registration Number' : 'RSBSA Number'} value={isOrg ? record.registration_number : record.rsbsa_number} />
-              <Field label="Barangay" value={record.barangay} />
+          </div>
+        ) : (
+          <>
+            <div className="mt-6 flex gap-1 border-b border-[#E2E8E2] overflow-x-auto">
+              <TabButton active={tab === 'overview'} onClick={() => setTab('overview')}>Overview</TabButton>
+              {isFarmer && <TabButton active={tab === 'crop'} onClick={() => setTab('crop')}>My Crop Records</TabButton>}
+              {isFisherfolk && <TabButton active={tab === 'fisheries'} onClick={() => setTab('fisheries')}>My Stocking Records</TabButton>}
+              {!isOrg && <TabButton active={tab === 'yield'} onClick={() => setTab('yield')}>My Yield Analysis</TabButton>}
+              <TabButton active={tab === 'assistance'} onClick={() => setTab('assistance')}>My Assistance History</TabButton>
             </div>
-          )}
-        </div>
 
-        <p className="mt-6 text-[12px] text-[#A8BCA8]">
-          More self-service features — reporting crop activities, updates, and assistance history — are coming in a future update.
-        </p>
+            <div className="mt-5">
+              {tab === 'overview' && (
+                <div className="rounded-xl border border-[#E2E8E2] bg-white p-6">
+                  <div className="grid gap-5 sm:grid-cols-2">
+                    <Field label="Name" value={record.label} />
+                    <Field label="Record Type" value={recordTypeLabel} />
+                    <Field label={isOrg ? 'Registration Number' : 'RSBSA Number'} value={isOrg ? record.registration_number : record.rsbsa_number} />
+                    <Field label="Barangay" value={record.barangay} />
+                  </div>
+                </div>
+              )}
+
+              {tab === 'crop' && isFarmer && <MyRecordsPanel domain={CROP_DOMAIN} />}
+              {tab === 'fisheries' && isFisherfolk && <MyRecordsPanel domain={FISHERIES_DOMAIN} />}
+
+              {tab === 'yield' && isFarmer && (
+                <MyYieldAnalysisSection
+                  endpoint="/production/yield-analysis/"
+                  cropLabel="Crop"
+                  cropKey="crop_type"
+                  dateLabel="Date Planted"
+                  dateKey="date_planted"
+                />
+              )}
+              {tab === 'yield' && isFisherfolk && (
+                <MyYieldAnalysisSection
+                  endpoint="/fisheries/yield-analysis/"
+                  cropLabel="Species"
+                  cropKey="species"
+                  dateLabel="Date Stocked"
+                  dateKey="date_stocked"
+                />
+              )}
+
+              {tab === 'assistance' && isFarmer && (
+                <MyAssistanceHistorySection endpoint="/interventions/my-beneficiary-history/" />
+              )}
+              {tab === 'assistance' && isFisherfolk && (
+                <MyAssistanceHistorySection endpoint="/interventions/my-fisherfolk-beneficiary-history/" />
+              )}
+              {tab === 'assistance' && isOrg && (
+                <p className="rounded-xl border border-[#E2E8E2] bg-white p-6 text-[13px] italic text-[#A8BCA8]">
+                  Organization assistance history is coming in a future update.
+                </p>
+              )}
+            </div>
+          </>
+        )}
       </main>
     </div>
   )

@@ -11,7 +11,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import IsAdmin, IsAdminOrEvaluator
+from accounts.permissions import IsAdmin, IsAdminOrEvaluator, IsStaffOrOwnRecordCitizen
 from core.constants import BARANGAY_CHOICES
 from core.locking import assert_not_locked_by_other
 from core.notifications import notify_all_except
@@ -91,7 +91,16 @@ class HarvestRecordListView(generics.ListAPIView):
 class HarvestRecordCreateView(generics.CreateAPIView):
     queryset = HarvestRecord.objects.all()
     serializer_class = HarvestRecordCreateSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
+
+    def get_target_owner_id(self, request):
+        monitoring_id = request.data.get('monitoring_record')
+        if not monitoring_id:
+            return None
+        try:
+            return CropMonitoringRecord.objects.get(pk=monitoring_id).farmer_id
+        except CropMonitoringRecord.DoesNotExist:
+            return None
 
     def create(self, request, *args, **kwargs):
         monitoring_id = request.data.get('monitoring_record')
@@ -130,14 +139,26 @@ class HarvestRecordDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = HarvestRecord.objects.select_related(
         'farm_parcel',
         'farm_parcel__farmer',
+        'monitoring_record',
         'recorded_by',
     )
     serializer_class = HarvestRecordSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
     http_method_names = ['get', 'patch', 'delete']
     lookup_field = 'id'
 
+    def get_object_owner_id(self, obj):
+        return obj.monitoring_record.farmer_id if obj.monitoring_record_id else None
+
+    def get_object_creator_id(self, obj):
+        return obj.recorded_by_id
+
     def destroy(self, request, *args, **kwargs):
+        # CITIZEN never reaches here at all — IsStaffOrOwnRecordCitizen only
+        # grants unsafe methods (DELETE included) to a CITIZEN when they
+        # also created the entry, but delete was never part of this
+        # batch's citizen scope, so this ADMIN-only check (pre-existing,
+        # unchanged) still correctly blocks a CITIZEN regardless.
         if request.user.role != 'ADMIN':
             return Response(
                 {'detail': 'Only administrators can delete harvest records.'},
@@ -642,7 +663,14 @@ class CropTypeDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class CropMonitoringListCreateView(generics.ListCreateAPIView):
     serializer_class = CropMonitoringRecordSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get_permissions(self):
+        # Batch 11: CITIZEN may list (own records only, scoped below) but
+        # never create — staff remains the sole gatekeeper for starting a
+        # new monitoring cycle.
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsAdminOrEvaluator()]
 
     def get_queryset(self):
         qs = CropMonitoringRecord.objects.select_related(
@@ -655,6 +683,9 @@ class CropMonitoringListCreateView(generics.ListCreateAPIView):
                 )
             )
         )
+        if self.request.user.role == 'CITIZEN':
+            linked = self.request.user.get_linked_record()
+            qs = qs.filter(farmer_id=linked.id if linked else -1)
         params = self.request.query_params
         if params.get('year'):
             qs = qs.filter(year=params['year'])
@@ -872,6 +903,14 @@ def _yield_analysis_queryset(request):
     ).select_related('farmer', 'crop_type').prefetch_related(
         'activity_logs', 'harvest_records',
     )
+    if request.user.role == 'CITIZEN':
+        # Batch 11: a citizen only ever sees their own record-level yield
+        # data, never anyone else's — no aggregate/barangay-comparison view
+        # is exposed to this role at all (see YieldAnalysisSummaryView,
+        # left IsAdminOrEvaluator-only). -1 is an unreachable pk, so an
+        # unlinked account safely gets zero rows rather than everything.
+        linked = request.user.get_linked_record()
+        qs = qs.filter(farmer_id=linked.id if linked else -1)
     barangay  = request.query_params.get('barangay', '')
     crop_type = request.query_params.get('crop_type', '')
     season    = request.query_params.get('season', '')
@@ -987,7 +1026,9 @@ def _analyze_crop(rec):
 
 
 class YieldAnalysisView(APIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    # Batch 11: CITIZEN is allowed here too — _yield_analysis_queryset()
+    # scopes the actual rows returned, ADMIN/EVALUATOR stay unrestricted.
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         records = _yield_analysis_queryset(request)
@@ -1069,8 +1110,15 @@ def _crop_record_label(monitoring):
 
 class CropActivityLogListCreateView(generics.ListCreateAPIView):
     serializer_class = CropActivityLogSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
     pagination_class = None
+
+    def get_target_owner_id(self, request):
+        monitoring_id = self.kwargs.get('monitoring_id')
+        try:
+            return CropMonitoringRecord.objects.get(pk=monitoring_id).farmer_id
+        except CropMonitoringRecord.DoesNotExist:
+            return None
 
     def get_queryset(self):
         monitoring_id = self.kwargs.get('monitoring_id')
@@ -1113,6 +1161,28 @@ class CropActivityLogDeleteView(generics.DestroyAPIView):
     serializer_class = CropActivityLogSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     queryset = CropActivityLog.objects.all()
+
+
+class CropActivityLogDetailView(generics.RetrieveUpdateAPIView):
+    """
+    Batch 11: no update endpoint existed for CropActivityLog before this —
+    only list/create and delete (see CropActivityLogDeleteView above).
+    Built fresh, available to ADMIN/EVALUATOR (unrestricted, matching every
+    other model's existing edit access) and CITIZEN (own-record,
+    own-entry only, via IsStaffOrOwnRecordCitizen) alike, rather than a
+    citizen-only bespoke endpoint.
+    """
+    queryset = CropActivityLog.objects.select_related('monitoring_record')
+    serializer_class = CropActivityLogSerializer
+    permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
+    http_method_names = ['get', 'patch']
+    lookup_field = 'id'
+
+    def get_object_owner_id(self, obj):
+        return obj.monitoring_record.farmer_id if obj.monitoring_record_id else None
+
+    def get_object_creator_id(self, obj):
+        return obj.recorded_by_id
 
 
 # ─── CropDisasterReport ──────────────────────────────────────────────────────

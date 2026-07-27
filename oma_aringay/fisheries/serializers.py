@@ -428,6 +428,20 @@ class FisheriesActivityLogSerializer(serializers.ModelSerializer):
             stocking_id = self.context.get('view').kwargs.get('stocking_id') if self.context.get('view') else None
             if stocking_id:
                 stocking_record = StockingRecord.objects.filter(pk=stocking_id).first()
+            elif self.instance is not None:
+                # PATCH via StockingActivityLogDetailView has no stocking_id
+                # URL kwarg (keyed by the log entry's own id) and
+                # stocking_record is read-only, so fall back to the existing
+                # instance's own record — otherwise these guards would
+                # silently no-op on every edit.
+                stocking_record = self.instance.stocking_record
+
+        disaster_report = data.get('disaster_report')
+        if disaster_report and stocking_record and disaster_report.stocking_record_id != stocking_record.id:
+            raise serializers.ValidationError({
+                'disaster_report': 'This disaster report does not belong to the same stocking record.'
+            })
+
         activity = data.get('activity', '')
         if date_of_activity and stocking_record and stocking_record.date_stocked:
             if date_of_activity < stocking_record.date_stocked:

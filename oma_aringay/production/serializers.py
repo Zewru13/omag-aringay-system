@@ -204,6 +204,20 @@ class CropActivityLogSerializer(serializers.ModelSerializer):
             if monitoring_id:
                 from .models import CropMonitoringRecord
                 monitoring_record = CropMonitoringRecord.objects.filter(pk=monitoring_id).first()
+            elif self.instance is not None:
+                # PATCH via CropActivityLogDetailView has no monitoring_id URL
+                # kwarg (it's keyed by the log entry's own id) and
+                # monitoring_record is read-only, so fall back to the
+                # existing instance's own record — otherwise these guards
+                # would silently no-op on every edit.
+                monitoring_record = self.instance.monitoring_record
+
+        disaster_report = data.get('disaster_report')
+        if disaster_report and monitoring_record and disaster_report.monitoring_record_id != monitoring_record.id:
+            raise serializers.ValidationError({
+                'disaster_report': 'This disaster report does not belong to the same monitoring record.'
+            })
+
         activity_type = data.get('activity_type', '')
         if date_of_activity and monitoring_record and monitoring_record.date_planted:
             if date_of_activity < monitoring_record.date_planted:
@@ -527,6 +541,8 @@ class HarvestRecordSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             'id',
+            'farm_parcel',
+            'monitoring_record',
             'farmer_name',
             'rsbsa_number',
             'barangay',

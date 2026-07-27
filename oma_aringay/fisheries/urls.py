@@ -33,10 +33,12 @@ from .views import (
     StockingDetailView,
     StockingActivityLogListCreateView,
     StockingActivityLogDeleteView,
+    StockingActivityLogDetailView,
     StockingDisasterReportListCreateView,
     StockingDisasterReportDeleteView,
     StockingHarvestListCreateView,
     StockingHarvestDeleteView,
+    StockingHarvestDetailView,
     TripSpeciesEntryDeleteView,
     TripSpeciesEntryListCreateView,
 )
@@ -81,11 +83,13 @@ urlpatterns = [
     # ── Nested stocking sub-resources ───────────────────────────────────────
     path('stocking/<int:stocking_id>/logs/', StockingActivityLogListCreateView.as_view(), name='stocking-logs'),
     path('stocking/logs/<int:pk>/', StockingActivityLogDeleteView.as_view(), name='stocking-log-delete'),
+    path('stocking/logs/<int:id>/detail/', StockingActivityLogDetailView.as_view(), name='stocking-log-detail'),
     path('stocking/<int:stocking_id>/disasters/', StockingDisasterReportListCreateView.as_view(), name='stocking-disasters'),
     path('disasters/<int:pk>/resolve/', FisheriesDisasterResolveView.as_view(), name='fisheries-disaster-resolve'),
     path('disasters/<int:pk>/', StockingDisasterReportDeleteView.as_view(), name='fisheries-disaster-delete'),
     path('stocking/<int:stocking_id>/harvests/', StockingHarvestListCreateView.as_view(), name='stocking-harvests'),
     path('stocking/harvests/<int:pk>/', StockingHarvestDeleteView.as_view(), name='stocking-harvest-delete'),
+    path('stocking/harvests/<int:id>/detail/', StockingHarvestDetailView.as_view(), name='stocking-harvest-detail'),
     path('stocking/<int:stocking_id>/suggestions/', FisheriesActivitySuggestionsView.as_view(), name='stocking-suggestions'),
 
     # ── Legacy Capture Fishing / Assistance (relocated from monitoring) ──────

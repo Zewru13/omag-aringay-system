@@ -11,7 +11,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import IsAdminOrEvaluator
+from accounts.permissions import IsAdminOrEvaluator, IsCitizen
 
 from .models import BeneficiaryRecord, FisherfolkBeneficiaryRecord, InterventionProgram
 from .serializers import (
@@ -304,6 +304,41 @@ class FisherfolkBeneficiaryAdHocDetailView(generics.RetrieveUpdateDestroyAPIView
                 status=drf_status.HTTP_403_FORBIDDEN,
             )
         return super().destroy(request, *args, **kwargs)
+
+
+class MyBeneficiaryHistoryView(generics.ListAPIView):
+    """
+    Batch 11: CITIZEN-only, read-only view of the caller's own assistance
+    history — both program-based and ad hoc BeneficiaryRecord rows,
+    resolved via get_linked_record() (never a farmer id from the request),
+    so a citizen cannot pass someone else's id to see their history.
+    """
+    serializer_class = BeneficiaryRecordCreateSerializer
+    permission_classes = [IsAuthenticated, IsCitizen]
+    pagination_class = None
+
+    def get_queryset(self):
+        linked = self.request.user.get_linked_record()
+        if linked is None:
+            return BeneficiaryRecord.objects.none()
+        return BeneficiaryRecord.objects.filter(
+            farmer_id=linked.id,
+        ).select_related('program', 'farmer', 'recorded_by').order_by('-date_given', '-id')
+
+
+class MyFisherfolkBeneficiaryHistoryView(generics.ListAPIView):
+    """Batch 11: fisherfolk equivalent of MyBeneficiaryHistoryView."""
+    serializer_class = FisherfolkBeneficiaryRecordCreateSerializer
+    permission_classes = [IsAuthenticated, IsCitizen]
+    pagination_class = None
+
+    def get_queryset(self):
+        linked = self.request.user.get_linked_record()
+        if linked is None:
+            return FisherfolkBeneficiaryRecord.objects.none()
+        return FisherfolkBeneficiaryRecord.objects.filter(
+            fisherfolk_id=linked.id,
+        ).select_related('program', 'fisherfolk', 'recorded_by').order_by('-date_given', '-id')
 
 
 class BeneficiaryExportView(APIView):

@@ -9,7 +9,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import IsAdmin, IsAdminOrEvaluator
+from accounts.permissions import IsAdmin, IsAdminOrEvaluator, IsStaffOrOwnRecordCitizen
 from core.locking import assert_not_locked_by_other
 from core.notifications import notify_all_except
 from core.utils import accumulate_yield_group, day_range_bounds, new_yield_group
@@ -303,7 +303,13 @@ class PondDetailView(generics.RetrieveUpdateDestroyAPIView):
 # ─── Stocking Record ──────────────────────────────────────────────────────────
 
 class StockingListCreateView(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    def get_permissions(self):
+        # Batch 11: CITIZEN may list (own records only, scoped below) but
+        # never create — staff remains the sole gatekeeper for starting a
+        # new stocking cycle.
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsAdminOrEvaluator()]
 
     def get_serializer_class(self):
         return StockingRecordSerializer
@@ -312,6 +318,10 @@ class StockingListCreateView(generics.ListCreateAPIView):
         qs = StockingRecord.objects.select_related(
             'fisherfolk', 'species', 'species__category', 'recorded_by',
         ).prefetch_related('logs', 'disaster_reports', 'harvests').order_by('-date_recorded')
+
+        if self.request.user.role == 'CITIZEN':
+            linked = self.request.user.get_linked_record()
+            qs = qs.filter(fisherfolk_id=linked.id if linked else -1)
 
         params = self.request.query_params
         raw_status = params.get('status', '')
@@ -436,8 +446,15 @@ def _stocking_record_label(stocking):
 
 class StockingActivityLogListCreateView(generics.ListCreateAPIView):
     serializer_class = FisheriesActivityLogSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
     pagination_class = None
+
+    def get_target_owner_id(self, request):
+        stocking_id = self.kwargs.get('stocking_id')
+        try:
+            return StockingRecord.objects.get(pk=stocking_id).fisherfolk_id
+        except StockingRecord.DoesNotExist:
+            return None
 
     def get_queryset(self):
         return FisheriesActivityLog.objects.filter(
@@ -479,6 +496,22 @@ class StockingActivityLogDeleteView(generics.DestroyAPIView):
     serializer_class = FisheriesActivityLogSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     queryset = FisheriesActivityLog.objects.all()
+
+
+class StockingActivityLogDetailView(generics.RetrieveUpdateAPIView):
+    """Batch 11: same rationale as CropActivityLogDetailView in production/views.py — no
+    update endpoint existed for FisheriesActivityLog before this (list/create + delete only)."""
+    queryset = FisheriesActivityLog.objects.select_related('stocking_record')
+    serializer_class = FisheriesActivityLogSerializer
+    permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
+    http_method_names = ['get', 'patch']
+    lookup_field = 'id'
+
+    def get_object_owner_id(self, obj):
+        return obj.stocking_record.fisherfolk_id if obj.stocking_record_id else None
+
+    def get_object_creator_id(self, obj):
+        return obj.logged_by_id
 
 
 class StockingDisasterReportListCreateView(generics.ListCreateAPIView):
@@ -584,8 +617,15 @@ class StockingDisasterReportDeleteView(generics.DestroyAPIView):
 
 class StockingHarvestListCreateView(generics.ListCreateAPIView):
     serializer_class = FisheriesHarvestRecordSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
     pagination_class = None
+
+    def get_target_owner_id(self, request):
+        stocking_id = self.kwargs.get('stocking_id')
+        try:
+            return StockingRecord.objects.get(pk=stocking_id).fisherfolk_id
+        except StockingRecord.DoesNotExist:
+            return None
 
     def get_queryset(self):
         return FisheriesHarvestRecord.objects.filter(
@@ -625,6 +665,21 @@ class StockingHarvestListCreateView(generics.ListCreateAPIView):
             record_label=_stocking_record_label(stocking),
             detail=f'{harvest.quantity_kg} kg',
         )
+
+
+class StockingHarvestDetailView(generics.RetrieveUpdateAPIView):
+    """Batch 11: mirrors HarvestRecordDetailView in production/views.py for the fisheries side."""
+    queryset = FisheriesHarvestRecord.objects.select_related('stocking_record')
+    serializer_class = FisheriesHarvestRecordSerializer
+    permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
+    http_method_names = ['get', 'patch']
+    lookup_field = 'id'
+
+    def get_object_owner_id(self, obj):
+        return obj.stocking_record.fisherfolk_id if obj.stocking_record_id else None
+
+    def get_object_creator_id(self, obj):
+        return obj.recorded_by_id
 
 
 class StockingHarvestDeleteView(generics.DestroyAPIView):
@@ -1056,6 +1111,12 @@ def _fisheries_yield_analysis_queryset(request):
     ).select_related('fisherfolk', 'species', 'species__category').prefetch_related(
         'logs', 'harvests',
     )
+    if request.user.role == 'CITIZEN':
+        # Batch 11: same own-record-only scoping as production's
+        # _yield_analysis_queryset — no aggregate/comparison view for this
+        # role (FisheriesYieldAnalysisSummaryView stays IsAdminOrEvaluator).
+        linked = request.user.get_linked_record()
+        qs = qs.filter(fisherfolk_id=linked.id if linked else -1)
     barangay   = request.query_params.get('barangay', '')
     species    = request.query_params.get('species', '')
     year       = request.query_params.get('year', '')
@@ -1198,7 +1259,9 @@ def _cycle_trend_note(analyzed):
 
 
 class FisheriesYieldAnalysisView(APIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    # Batch 11: CITIZEN allowed here too — _fisheries_yield_analysis_queryset()
+    # scopes the actual rows returned, ADMIN/EVALUATOR stay unrestricted.
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         records = _fisheries_yield_analysis_queryset(request)

@@ -13,6 +13,8 @@ from .views import (
     FisherfolkBeneficiaryDeleteView,
     FisherfolkBeneficiaryListCreateView,
     FisherfolkInterventionHistoryView,
+    MyBeneficiaryHistoryView,
+    MyFisherfolkBeneficiaryHistoryView,
     ProgramCreateView,
     ProgramDetailView,
     ProgramListView,
@@ -32,6 +34,16 @@ urlpatterns = [
         'fisherfolk-history/<int:fisherfolk_id>/',
         FisherfolkInterventionHistoryView.as_view(),
         name='fisherfolk-intervention-history',
+    ),
+    path(
+        'my-beneficiary-history/',
+        MyBeneficiaryHistoryView.as_view(),
+        name='my-beneficiary-history',
+    ),
+    path(
+        'my-fisherfolk-beneficiary-history/',
+        MyFisherfolkBeneficiaryHistoryView.as_view(),
+        name='my-fisherfolk-beneficiary-history',
     ),
     path(
         'programs/<int:id>/export/',
