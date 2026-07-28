@@ -4,6 +4,7 @@ import {
 } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
+import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
@@ -682,36 +683,27 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-700">Activity *</label>
-                <select className={baseInputClasses} value={activityType}
-                  onChange={e => {
-                    const newType = e.target.value
+                {/* Batch B: was a grouped <select> ("Suggested now" / "Other
+                    activities" optgroups, with a "· due" label suffix on
+                    suggested entries) — ComboboxWithOther takes a flat
+                    option list, so the two groups are flattened into one
+                    ordered list (suggested-first, same as before) and the
+                    "· due" annotation is dropped since it was display-only
+                    and had no separate label/value slot to live in here.
+                    The selectable values and their priority order are
+                    unchanged. */}
+                <ComboboxWithOther
+                  options={[...suggestedActivityOptions, ...otherActivityOptions].filter(o => o !== 'Other')}
+                  value={activityType}
+                  otherValue={activityTypeOtherSpecify}
+                  onChange={(newType) => {
                     setActivityType(newType)
-                    if (newType !== 'Other') setActivityTypeOtherSpecify('')
                     if (PRE_PLANTING_ACTIVITIES.includes(newType)) setPlantCondition('')
                     setPendingSuggestion(null)
-                  }}>
-                  <option value="">Select Activity</option>
-                  {activityStages.length > 0 ? (
-                    <>
-                      {suggestedActivityOptions.length > 0 && (
-                        <optgroup label="Suggested now">
-                          {suggestedActivityOptions.map(o => <option key={o} value={o}>{o} · due</option>)}
-                        </optgroup>
-                      )}
-                      <optgroup label="Other activities">
-                        {otherActivityOptions.map(o => <option key={o} value={o}>{o}</option>)}
-                      </optgroup>
-                    </>
-                  ) : (
-                    ACTIVITY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)
-                  )}
-                </select>
-                {activityType === 'Other' && (
-                  <input type="text" className={`${baseInputClasses} mt-2`}
-                    placeholder="Please specify the activity"
-                    value={activityTypeOtherSpecify}
-                    onChange={e => setActivityTypeOtherSpecify(e.target.value)} />
-                )}
+                  }}
+                  onOtherChange={setActivityTypeOtherSpecify}
+                  placeholder="Select Activity"
+                />
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-700">Date of Activity *</label>
@@ -1244,25 +1236,14 @@ function DisasterReportModal({ record, onClose, onSuccess }) {
           />
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-700">Disaster Type *</label>
-            <select className={baseInputClasses} value={disasterType}
-              onChange={e => {
-                setDisasterType(e.target.value)
-                if (e.target.value !== 'Other') setDisasterTypeOtherSpecify('')
-              }}>
-              <option value="">Select type</option>
-              <option value="Drought">Drought</option>
-              <option value="Flood">Flood</option>
-              <option value="Typhoon">Typhoon</option>
-              <option value="Strong Winds">Strong Winds</option>
-              <option value="Pest Outbreak">Pest Outbreak</option>
-              <option value="Other">Other</option>
-            </select>
-            {disasterType === 'Other' && (
-              <input type="text" className={`${baseInputClasses} mt-2`}
-                placeholder="Please specify the disaster type"
-                value={disasterTypeOtherSpecify}
-                onChange={e => setDisasterTypeOtherSpecify(e.target.value)} />
-            )}
+            <ComboboxWithOther
+              options={['Drought', 'Flood', 'Typhoon', 'Strong Winds', 'Pest Outbreak']}
+              value={disasterType}
+              otherValue={disasterTypeOtherSpecify}
+              onChange={setDisasterType}
+              onOtherChange={setDisasterTypeOtherSpecify}
+              placeholder="Select type"
+            />
           </div>
 
           <div>

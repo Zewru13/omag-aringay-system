@@ -12,6 +12,7 @@ import {
   User,
 } from "lucide-react";
 import BarangaySelect from "../../components/UI/BarangaySelect.jsx";
+import ComboboxWithOther from "../../components/UI/ComboboxWithOther.jsx";
 import api from "../../api/axiosInstance.js";
 import PageLayout from "../../components/Layout/PageLayout.jsx";
 import RowActions from "../../components/UI/RowActions.jsx";
@@ -654,32 +655,16 @@ function EditCropModal({ record, onClose, onSaved }) {
             <label className={editLabelCls}>
               Land Status <span className="text-rose-500">*</span>
             </label>
-            <select
-              className={baseInputClasses}
+            <ComboboxWithOther
+              options={["Owner", "Lessee", "Tenant"]}
               value={form.land_status}
-              onChange={(e) => {
-                set("land_status", e.target.value);
-                if (e.target.value !== "Other") set("land_status_other_specify", "");
-              }}
-            >
-              <option value="">Select…</option>
-              <option value="Owner">Owner</option>
-              <option value="Lessee">Lessee</option>
-              <option value="Tenant">Tenant</option>
-              <option value="Other">Other</option>
-            </select>
-            {form.land_status === "Other" && (
-              <input
-                type="text"
-                className={`${baseInputClasses} mt-2`}
-                placeholder="Please specify land status"
-                value={form.land_status_other_specify}
-                onChange={(e) => set("land_status_other_specify", e.target.value)}
-              />
-            )}
-            {fieldErrors.land_status && (
-              <p className="text-[12px] text-[#C0392B] mt-1">{fieldErrors.land_status}</p>
-            )}
+              otherValue={form.land_status_other_specify}
+              onChange={(v) => set("land_status", v)}
+              onOtherChange={(v) => set("land_status_other_specify", v)}
+              placeholder="Select…"
+              required
+              error={fieldErrors.land_status}
+            />
           </div>
         </div>
 
@@ -792,30 +777,14 @@ function EditCropModal({ record, onClose, onSaved }) {
               (optional)
             </span>
           </label>
-          <select
-            className={baseInputClasses}
+          <ComboboxWithOther
+            options={["Own Seeds", "DA/LGU Provided", "Commercial", "Organization"]}
             value={form.seed_source}
-            onChange={(e) => {
-              set("seed_source", e.target.value);
-              if (e.target.value !== "Other") set("seed_source_other_specify", "");
-            }}
-          >
-            <option value="">Select…</option>
-            <option value="Own Seeds">Own Seeds</option>
-            <option value="DA/LGU Provided">DA/LGU Provided</option>
-            <option value="Commercial">Commercial</option>
-            <option value="Organization">Organization</option>
-            <option value="Other">Other</option>
-          </select>
-          {form.seed_source === "Other" && (
-            <input
-              type="text"
-              className={`${baseInputClasses} mt-2`}
-              placeholder="Please specify seed source"
-              value={form.seed_source_other_specify}
-              onChange={(e) => set("seed_source_other_specify", e.target.value)}
-            />
-          )}
+            otherValue={form.seed_source_other_specify}
+            onChange={(v) => set("seed_source", v)}
+            onOtherChange={(v) => set("seed_source_other_specify", v)}
+            placeholder="Select…"
+          />
         </div>
 
         {/* Quantity + Unit */}

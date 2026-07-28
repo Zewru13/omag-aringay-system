@@ -3,6 +3,7 @@ import { Fish } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import Button from '../../components/UI/Button.jsx'
+import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 
@@ -619,31 +620,15 @@ function RegisterFisherfolkModal({ onClose, onSuccess }) {
                   )}
                   <div>
                     <label className={labelCls}>Water Source</label>
-                    <select className={baseInputClasses} value={form.water_source} onChange={(e) => updateField('water_source', e.target.value)}>
-                      <option value="River">River</option>
-                      <option value="Lake">Lake</option>
-                      <option value="Creek">Creek</option>
-                      <option value="Spring">Spring</option>
-                      <option value="Irrigation Canal">Irrigation Canal</option>
-                      <option value="Rain-fed">Rain-fed</option>
-                      <option value="Tidal">Tidal</option>
-                      <option value="Brackish Water">Brackish Water</option>
-                      <option value="Freshwater">Freshwater</option>
-                      <option value="Other">Other</option>
-                    </select>
+                    <ComboboxWithOther
+                      options={['River', 'Lake', 'Creek', 'Spring', 'Irrigation Canal', 'Rain-fed', 'Tidal', 'Brackish Water', 'Freshwater']}
+                      value={form.water_source}
+                      otherValue={form.water_source_other}
+                      onChange={(v) => updateField('water_source', v)}
+                      onOtherChange={(v) => updateField('water_source_other', v)}
+                      required
+                    />
                   </div>
-                  {form.water_source === 'Other' && (
-                    <div className="sm:col-span-2">
-                      <label className={labelCls}>Specify Water Source</label>
-                      <input
-                        className={baseInputClasses}
-                        required
-                        value={form.water_source_other}
-                        onChange={(e) => updateField('water_source_other', e.target.value)}
-                        placeholder="Specify water source"
-                      />
-                    </div>
-                  )}
                   {isCageCulture && (
                     <>
                       <div>

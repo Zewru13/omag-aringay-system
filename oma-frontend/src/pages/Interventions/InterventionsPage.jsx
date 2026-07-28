@@ -3,6 +3,7 @@ import { Plus } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import PageLayout from "../../components/Layout/PageLayout.jsx"
 import DataTable from "../../components/UI/DataTable.jsx"
+import ComboboxWithOther from "../../components/UI/ComboboxWithOther.jsx"
 import ModalShell from "../../components/UI/ModalShell.jsx"
 import Button from "../../components/UI/Button.jsx"
 import StatusPill from "../../components/UI/StatusPill.jsx"
@@ -132,40 +133,21 @@ function InterventionsPage() {
             </FormField>
 
             <FormField label="Source of Program" required>
-              <select
-                className={baseInputClasses}
-                required
+              <ComboboxWithOther
+                options={[
+                  "LGU - Aringay",
+                  "Office of the Provincial Agriculturist",
+                  "Department of Agriculture (DA)",
+                  "Department of Agrarian Reform (DAR)",
+                  "Non-Government Organization (NGO)",
+                ]}
                 value={formData.source_of_program}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    source_of_program: e.target.value,
-                    source_other_specify: "",
-                  }))
-                }
-              >
-                <option value="LGU - Aringay">LGU - Aringay</option>
-                <option value="Office of the Provincial Agriculturist">Office of the Provincial Agriculturist</option>
-                <option value="Department of Agriculture (DA)">Department of Agriculture (DA)</option>
-                <option value="Department of Agrarian Reform (DAR)">Department of Agrarian Reform (DAR)</option>
-                <option value="Non-Government Organization (NGO)">Non-Government Organization (NGO)</option>
-                <option value="Other">Other</option>
-              </select>
+                otherValue={formData.source_other_specify}
+                onChange={(v) => setFormData((prev) => ({ ...prev, source_of_program: v }))}
+                onOtherChange={(v) => setFormData((prev) => ({ ...prev, source_other_specify: v }))}
+                required
+              />
             </FormField>
-
-            {formData.source_of_program === "Other" && (
-              <FormField label="Specify Source" required>
-                <input
-                  className={baseInputClasses}
-                  required
-                  type="text"
-                  value={formData.source_other_specify}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, source_other_specify: e.target.value }))
-                  }
-                />
-              </FormField>
-            )}
 
             <FormField label="Target Beneficiaries">
               <input

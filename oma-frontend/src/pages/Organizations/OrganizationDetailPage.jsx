@@ -8,6 +8,7 @@ import Button from "../../components/UI/Button.jsx";
 import StatusPill from "../../components/UI/StatusPill.jsx";
 import Tabs from "../../components/UI/Tabs.jsx";
 import ModalShell from "../../components/UI/ModalShell.jsx";
+import ComboboxWithOther from "../../components/UI/ComboboxWithOther.jsx";
 import ConfirmDialog from "../../components/UI/ConfirmDialog.jsx";
 import { baseInputClasses } from "../../components/UI/FormField.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
@@ -533,33 +534,14 @@ function AddEquipmentModal({ type, organizationId, onClose, onSuccess }) {
         {/* Equipment Name */}
         <div>
           <label className={labelCls}>Equipment Name</label>
-          <select
-            className={`${baseInputClasses} mt-1`}
+          <ComboboxWithOther
+            options={equipmentChoices.filter((c) => c !== "Other")}
             value={form.equipment_name}
-            onChange={(e) => updateField("equipment_name", e.target.value)}
-          >
-            {equipmentChoices.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+            otherValue={form.equipment_name_other}
+            onChange={(v) => updateField("equipment_name", v)}
+            onOtherChange={(v) => updateField("equipment_name_other", v)}
+          />
         </div>
-
-        {/* Specify if Other */}
-        {form.equipment_name === "Other" && (
-          <div>
-            <label className={labelCls}>Specify Equipment</label>
-            <input
-              className={`${baseInputClasses} mt-1`}
-              required
-              value={form.equipment_name_other}
-              onChange={(e) =>
-                updateField("equipment_name_other", e.target.value)
-              }
-            />
-          </div>
-        )}
 
         <div className="grid gap-4 md:grid-cols-2">
           {/* Quantity */}

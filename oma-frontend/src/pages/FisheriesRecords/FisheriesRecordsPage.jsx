@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, Eye, Fish, Lock, Pencil, Plus, Search, Tra
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import RowActions from '../../components/UI/RowActions.jsx'
+import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import HarvestVarianceBadge from '../../components/UI/HarvestVarianceBadge.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
@@ -318,23 +319,14 @@ function StockingRecordCard({ rec, index, total, speciesList, fisherfolkId, onUp
       <div className="grid gap-3 sm:grid-cols-2">
         <PondSelector fisherfolkId={fisherfolkId} value={rec.pond} onSelectPond={handlePondSelect} />
         <FormField label="Land Status">
-          <select className={baseInputClasses} value={rec.land_status}
-            onChange={e => {
-              set('land_status', e.target.value)
-              if (e.target.value !== 'Other') set('land_status_other_specify', '')
-            }}>
-            <option value="">Select…</option>
-            <option value="Owner">Owner</option>
-            <option value="Lessee">Lessee</option>
-            <option value="Tenant">Tenant</option>
-            <option value="Other">Other</option>
-          </select>
-          {rec.land_status === 'Other' && (
-            <input type="text" className={`${baseInputClasses} mt-2`}
-              placeholder="Please specify land status"
-              value={rec.land_status_other_specify}
-              onChange={e => set('land_status_other_specify', e.target.value)} />
-          )}
+          <ComboboxWithOther
+            options={['Owner', 'Lessee', 'Tenant']}
+            value={rec.land_status}
+            otherValue={rec.land_status_other_specify}
+            onChange={(v) => set('land_status', v)}
+            onOtherChange={(v) => set('land_status_other_specify', v)}
+            placeholder="Select…"
+          />
         </FormField>
       </div>
 
@@ -357,25 +349,14 @@ function StockingRecordCard({ rec, index, total, speciesList, fisherfolkId, onUp
       </div>
 
       <FormField label="Culture Phase (optional)">
-        <select className={baseInputClasses} value={rec.culture_phase}
-          onChange={e => {
-            set('culture_phase', e.target.value)
-            if (e.target.value !== 'Other') set('culture_phase_other_specify', '')
-          }}>
-          <option value="">Select…</option>
-          <option value="Nursery Phase">Nursery Phase</option>
-          <option value="Stocking Phase">Stocking Phase</option>
-          <option value="Grow-out Phase">Grow-out Phase</option>
-          <option value="Harvest Phase">Harvest Phase</option>
-          <option value="Post-Harvest Phase">Post-Harvest Phase</option>
-          <option value="Other">Other</option>
-        </select>
-        {rec.culture_phase === 'Other' && (
-          <input type="text" className={`${baseInputClasses} mt-2`}
-            placeholder="Please specify culture phase"
-            value={rec.culture_phase_other_specify}
-            onChange={e => set('culture_phase_other_specify', e.target.value)} />
-        )}
+        <ComboboxWithOther
+          options={['Nursery Phase', 'Stocking Phase', 'Grow-out Phase', 'Harvest Phase', 'Post-Harvest Phase']}
+          value={rec.culture_phase}
+          otherValue={rec.culture_phase_other_specify}
+          onChange={(v) => set('culture_phase', v)}
+          onOtherChange={(v) => set('culture_phase_other_specify', v)}
+          placeholder="Select…"
+        />
       </FormField>
 
       {rec._speciesObj && (
@@ -416,23 +397,14 @@ function StockingRecordCard({ rec, index, total, speciesList, fisherfolkId, onUp
       {!isShellfish && (
         <div className="grid gap-3 sm:grid-cols-2">
           <FormField label="Fingerling/Fry Source">
-            <select className={baseInputClasses} value={rec.fingerling_source}
-              onChange={e => {
-                set('fingerling_source', e.target.value)
-                if (e.target.value !== 'Other') set('fingerling_source_other_specify', '')
-              }}>
-              <option value="">Select…</option>
-              <option value="BFAR">BFAR</option>
-              <option value="Private Hatchery">Private Hatchery</option>
-              <option value="Own Production">Own Production</option>
-              <option value="Other">Other</option>
-            </select>
-            {rec.fingerling_source === 'Other' && (
-              <input type="text" className={`${baseInputClasses} mt-2`}
-                placeholder="Please specify fingerling source"
-                value={rec.fingerling_source_other_specify}
-                onChange={e => set('fingerling_source_other_specify', e.target.value)} />
-            )}
+            <ComboboxWithOther
+              options={['BFAR', 'Private Hatchery', 'Own Production']}
+              value={rec.fingerling_source}
+              otherValue={rec.fingerling_source_other_specify}
+              onChange={(v) => set('fingerling_source', v)}
+              onOtherChange={(v) => set('fingerling_source_other_specify', v)}
+              placeholder="Select…"
+            />
           </FormField>
         </div>
       )}
@@ -845,23 +817,14 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
             <label className={editLabelCls}>Land Status</label>
-            <select className={baseInputClasses} value={form.land_status}
-              onChange={e => {
-                set('land_status', e.target.value)
-                if (e.target.value !== 'Other') set('land_status_other_specify', '')
-              }}>
-              <option value="">Select…</option>
-              <option value="Owner">Owner</option>
-              <option value="Lessee">Lessee</option>
-              <option value="Tenant">Tenant</option>
-              <option value="Other">Other</option>
-            </select>
-            {form.land_status === 'Other' && (
-              <input type="text" className={`${baseInputClasses} mt-2`}
-                placeholder="Please specify land status"
-                value={form.land_status_other_specify}
-                onChange={e => set('land_status_other_specify', e.target.value)} />
-            )}
+            <ComboboxWithOther
+              options={['Owner', 'Lessee', 'Tenant']}
+              value={form.land_status}
+              otherValue={form.land_status_other_specify}
+              onChange={(v) => set('land_status', v)}
+              onOtherChange={(v) => set('land_status_other_specify', v)}
+              placeholder="Select…"
+            />
           </div>
           <div>
             <label className={editLabelCls}>Culture Type</label>
@@ -873,25 +836,14 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
           </div>
           <div>
             <label className={editLabelCls}>Culture Phase (optional)</label>
-            <select className={baseInputClasses} value={form.culture_phase}
-              onChange={e => {
-                set('culture_phase', e.target.value)
-                if (e.target.value !== 'Other') set('culture_phase_other_specify', '')
-              }}>
-              <option value="">Select…</option>
-              <option value="Nursery Phase">Nursery Phase</option>
-              <option value="Stocking Phase">Stocking Phase</option>
-              <option value="Grow-out Phase">Grow-out Phase</option>
-              <option value="Harvest Phase">Harvest Phase</option>
-              <option value="Post-Harvest Phase">Post-Harvest Phase</option>
-              <option value="Other">Other</option>
-            </select>
-            {form.culture_phase === 'Other' && (
-              <input type="text" className={`${baseInputClasses} mt-2`}
-                placeholder="Please specify culture phase"
-                value={form.culture_phase_other_specify}
-                onChange={e => set('culture_phase_other_specify', e.target.value)} />
-            )}
+            <ComboboxWithOther
+              options={['Nursery Phase', 'Stocking Phase', 'Grow-out Phase', 'Harvest Phase', 'Post-Harvest Phase']}
+              value={form.culture_phase}
+              otherValue={form.culture_phase_other_specify}
+              onChange={(v) => set('culture_phase', v)}
+              onOtherChange={(v) => set('culture_phase_other_specify', v)}
+              placeholder="Select…"
+            />
           </div>
           <div>
             <label className={editLabelCls}>Date Stocked <span className="text-rose-500">*</span></label>
@@ -922,23 +874,14 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className={editLabelCls}>Fingerling/Fry Source</label>
-              <select className={baseInputClasses} value={form.fingerling_source}
-                onChange={e => {
-                  set('fingerling_source', e.target.value)
-                  if (e.target.value !== 'Other') set('fingerling_source_other_specify', '')
-                }}>
-                <option value="">Select…</option>
-                <option value="BFAR">BFAR</option>
-                <option value="Private Hatchery">Private Hatchery</option>
-                <option value="Own Production">Own Production</option>
-                <option value="Other">Other</option>
-              </select>
-              {form.fingerling_source === 'Other' && (
-                <input type="text" className={`${baseInputClasses} mt-2`}
-                  placeholder="Please specify fingerling source"
-                  value={form.fingerling_source_other_specify}
-                  onChange={e => set('fingerling_source_other_specify', e.target.value)} />
-              )}
+              <ComboboxWithOther
+                options={['BFAR', 'Private Hatchery', 'Own Production']}
+                value={form.fingerling_source}
+                otherValue={form.fingerling_source_other_specify}
+                onChange={(v) => set('fingerling_source', v)}
+                onOtherChange={(v) => set('fingerling_source_other_specify', v)}
+                placeholder="Select…"
+              />
             </div>
           </div>
         )}

@@ -2,6 +2,7 @@ import { useState } from "react"
 import api from "../../api/axiosInstance.js"
 import ModalShell from "../../components/UI/ModalShell.jsx"
 import Button from "../../components/UI/Button.jsx"
+import ComboboxWithOther from "../../components/UI/ComboboxWithOther.jsx"
 import { baseInputClasses } from "../../components/UI/FormField.jsx"
 import { useToast } from "../../context/ToastContext.jsx"
 
@@ -65,36 +66,21 @@ function EditProgramModal({ program, onClose, onSuccess }) {
 
         <div>
           <label className={labelCls} htmlFor="ep_source">Source of Program</label>
-          <select
-            className={baseInputClasses}
-            id="ep_source"
+          <ComboboxWithOther
+            options={[
+              "LGU - Aringay",
+              "Office of the Provincial Agriculturist",
+              "Department of Agriculture (DA)",
+              "Department of Agrarian Reform (DAR)",
+              "Non-Government Organization (NGO)",
+            ]}
             value={form.source_of_program}
-            onChange={(e) =>
-              setForm((f) => ({ ...f, source_of_program: e.target.value, source_other_specify: "" }))
-            }
-          >
-            <option value="LGU - Aringay">LGU - Aringay</option>
-            <option value="Office of the Provincial Agriculturist">Office of the Provincial Agriculturist</option>
-            <option value="Department of Agriculture (DA)">Department of Agriculture (DA)</option>
-            <option value="Department of Agrarian Reform (DAR)">Department of Agrarian Reform (DAR)</option>
-            <option value="Non-Government Organization (NGO)">Non-Government Organization (NGO)</option>
-            <option value="Other">Other</option>
-          </select>
+            otherValue={form.source_other_specify}
+            onChange={(v) => updateField("source_of_program", v)}
+            onOtherChange={(v) => updateField("source_other_specify", v)}
+            required
+          />
         </div>
-
-        {form.source_of_program === "Other" && (
-          <div>
-            <label className={labelCls} htmlFor="ep_specify">Specify Source</label>
-            <input
-              className={baseInputClasses}
-              id="ep_specify"
-              required
-              type="text"
-              value={form.source_other_specify}
-              onChange={(e) => updateField("source_other_specify", e.target.value)}
-            />
-          </div>
-        )}
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <div>

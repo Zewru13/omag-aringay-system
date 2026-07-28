@@ -3,6 +3,7 @@ import {
   AlertTriangle, Bug, CheckCircle, CheckCircle2, Fish, Lock, Wheat,
 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
+import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import GrowthProgressBar from '../../components/UI/GrowthProgressBar.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
@@ -628,34 +629,20 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-700">Activity *</label>
-                <select className={baseInputClasses} value={activityType}
-                  onChange={e => {
-                    setActivityType(e.target.value)
-                    if (e.target.value !== 'Other') setActivityTypeOtherSpecify('')
+                {/* Batch B: was a grouped <select> — see CropMonitoringPage.jsx's
+                    identical conversion for why the two optgroups are
+                    flattened into one ordered (suggested-first) list. */}
+                <ComboboxWithOther
+                  options={[...suggestedActivityOptions, ...otherActivityOptions].filter(o => o !== 'Other')}
+                  value={activityType}
+                  otherValue={activityTypeOtherSpecify}
+                  onChange={(v) => {
+                    setActivityType(v)
                     setPendingSuggestion(null)
-                  }}>
-                  <option value="">Select Activity</option>
-                  {activityStages.length > 0 ? (
-                    <>
-                      {suggestedActivityOptions.length > 0 && (
-                        <optgroup label="Suggested now">
-                          {suggestedActivityOptions.map(o => <option key={o} value={o}>{o} · due</option>)}
-                        </optgroup>
-                      )}
-                      <optgroup label="Other activities">
-                        {otherActivityOptions.map(o => <option key={o} value={o}>{o}</option>)}
-                      </optgroup>
-                    </>
-                  ) : (
-                    ACTIVITY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)
-                  )}
-                </select>
-                {activityType === 'Other' && (
-                  <input type="text" className={`${baseInputClasses} mt-2`}
-                    placeholder="Please specify the activity"
-                    value={activityTypeOtherSpecify}
-                    onChange={e => setActivityTypeOtherSpecify(e.target.value)} />
-                )}
+                  }}
+                  onOtherChange={setActivityTypeOtherSpecify}
+                  placeholder="Select Activity"
+                />
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-700">Date of Activity *</label>
@@ -1104,20 +1091,14 @@ export function StockingDisasterReportModal({ record, onClose, onSuccess }) {
           />
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-700">Disaster Type *</label>
-            <select className={baseInputClasses} value={disasterType}
-              onChange={e => {
-                setDisasterType(e.target.value)
-                if (e.target.value !== 'Other') setDisasterTypeOtherSpecify('')
-              }}>
-              <option value="">Select type</option>
-              {DISASTER_TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-            </select>
-            {disasterType === 'Other' && (
-              <input type="text" className={`${baseInputClasses} mt-2`}
-                placeholder="Please specify the disaster type"
-                value={disasterTypeOtherSpecify}
-                onChange={e => setDisasterTypeOtherSpecify(e.target.value)} />
-            )}
+            <ComboboxWithOther
+              options={DISASTER_TYPE_OPTIONS.filter(o => o !== 'Other')}
+              value={disasterType}
+              otherValue={disasterTypeOtherSpecify}
+              onChange={setDisasterType}
+              onOtherChange={setDisasterTypeOtherSpecify}
+              placeholder="Select type"
+            />
           </div>
 
           <div>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
+import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import LoadingSpinner from '../../components/UI/LoadingSpinner.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
@@ -257,31 +258,15 @@ function FeedingLogTab({ cycleId }) {
             </div>
             <div>
               <label className={labelCls}>Feed Type *</label>
-              <select
-                className={baseInputClasses}
-                required
+              <ComboboxWithOther
+                options={FEED_TYPE_OPTIONS.filter(o => o !== 'Other')}
                 value={form.feed_type}
-                onChange={e => {
-                  const value = e.target.value
-                  setForm(f => ({
-                    ...f,
-                    feed_type: value,
-                    feed_type_other: value === 'Other' ? f.feed_type_other : '',
-                  }))
-                }}
-              >
-                <option value="">Select Feed Type</option>
-                {FEED_TYPE_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
-              </select>
-              {form.feed_type === 'Other' && (
-                <input
-                  className={`${baseInputClasses} mt-2`}
-                  required
-                  value={form.feed_type_other}
-                  onChange={e => setForm(f => ({ ...f, feed_type_other: e.target.value }))}
-                  placeholder="Specify Feed Type"
-                />
-              )}
+                otherValue={form.feed_type_other}
+                onChange={(v) => setForm(f => ({ ...f, feed_type: v }))}
+                onOtherChange={(v) => setForm(f => ({ ...f, feed_type_other: v }))}
+                placeholder="Select Feed Type"
+                required
+              />
             </div>
             <div>
               <label className={labelCls}>Quantity (kg) *</label>
@@ -438,36 +423,25 @@ function HealthLogTab({ cycleId }) {
             </div>
             <div>
               <label className={labelCls}>Observation *</label>
-              <select
-                className={baseInputClasses}
-                required
+              <ComboboxWithOther
+                options={HEALTH_OBSERVATION_OPTIONS.filter(o => o !== 'Other')}
                 value={form.observation}
-                onChange={e => {
-                  const selectedObservation = e.target.value
+                otherValue={form.observation_other}
+                onChange={(selectedObservation) => {
                   const recommended = HEALTH_RECOMMENDED_TREATMENT[selectedObservation] || ''
                   const isMortality = selectedObservation === 'Fish Mortality'
                   setForm(f => ({
                     ...f,
                     observation: selectedObservation,
-                    observation_other: selectedObservation === 'Other' ? f.observation_other : '',
                     mortality_count: isMortality ? (f.mortality_count && Number(f.mortality_count) > 0 ? f.mortality_count : '1') : '0',
                     treatment_applied: isMortality ? 'Remove dead fish and disinfect pond' : recommended,
                     treatment_applied_other: '',
                   }))
                 }}
-              >
-                <option value="">Select Observation</option>
-                {HEALTH_OBSERVATION_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
-              </select>
-              {form.observation === 'Other' && (
-                <input
-                  className={`${baseInputClasses} mt-2`}
-                  required
-                  value={form.observation_other}
-                  onChange={e => setForm(f => ({ ...f, observation_other: e.target.value }))}
-                  placeholder="Specify Observation"
-                />
-              )}
+                onOtherChange={(v) => setForm(f => ({ ...f, observation_other: v }))}
+                placeholder="Select Observation"
+                required
+              />
             </div>
             {form.observation === 'Fish Mortality' && (
               <div>

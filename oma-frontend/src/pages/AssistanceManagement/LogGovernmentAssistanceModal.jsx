@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
+import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -19,6 +20,15 @@ const ASSISTANCE_TYPE_OPTIONS = [
   'Other',
 ]
 
+// Batch B: these two used to end in the literal 'Others' (plural) as their
+// own bespoke Other-sentinel, unlike every other Other-pattern in the app
+// (which all use 'Other', singular) — ComboboxWithOther has one fixed
+// sentinel ('Other'), so this file's internal trigger value is
+// standardized to match. The actual value sent to the backend when Other
+// is chosen was always just the typed free text either way (see
+// handleSubmit's `=== 'Others' ? ... .trim() : ...` normalization, now
+// `=== 'Other'`) — nothing transmitted changes, only this internal
+// client-side constant name.
 const SOURCE_OPTIONS = [
   'LGU',
   'MAO',
@@ -26,7 +36,6 @@ const SOURCE_OPTIONS = [
   'DA',
   'NGO',
   'Private Donor',
-  'Others',
 ]
 
 const UNIT_OPTIONS = [
@@ -43,7 +52,6 @@ const UNIT_OPTIONS = [
   'Fish Pen',
   'Fishing Net',
   'Engine',
-  'Others',
 ]
 
 const STATUS_OPTIONS = ['Pending', 'Approved', 'Released', 'Received', 'Completed']
@@ -153,19 +161,19 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
       return
     }
 
-    if (form.source_of_assistance === 'Others' && !form.source_of_assistance_other.trim()) {
+    if (form.source_of_assistance === 'Other' && !form.source_of_assistance_other.trim()) {
       showToast('Specify Source of Assistance.', 'error')
       return
     }
 
-    if (!isCashType && form.unit === 'Others' && !form.unit_other.trim()) {
+    if (!isCashType && form.unit === 'Other' && !form.unit_other.trim()) {
       showToast('Specify Unit.', 'error')
       return
     }
 
     const assistanceType = form.assistance_type === 'Other' ? form.assistance_type_other.trim() : form.assistance_type
-    const source = form.source_of_assistance === 'Others' ? form.source_of_assistance_other.trim() : form.source_of_assistance
-    const unit = isCashType ? 'PHP' : (form.unit === 'Others' ? form.unit_other.trim() : form.unit)
+    const source = form.source_of_assistance === 'Other' ? form.source_of_assistance_other.trim() : form.source_of_assistance
+    const unit = isCashType ? 'PHP' : (form.unit === 'Other' ? form.unit_other.trim() : form.unit)
 
     const selectedYear = new Date(form.date_received).getFullYear()
 
@@ -282,51 +290,25 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
           </FormField>
 
           <FormField label="Assistance Type" required>
-            <select
-              className={baseInputClasses}
+            <ComboboxWithOther
+              options={ASSISTANCE_TYPE_OPTIONS.filter(o => o !== 'Other')}
               value={form.assistance_type}
-              onChange={(e) => {
-                const value = e.target.value
-                set('assistance_type', value)
-                if (value !== 'Other') set('assistance_type_other', '')
-              }}
-            >
-              <option value="">Select Assistance Type</option>
-              {ASSISTANCE_TYPE_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
-            </select>
-            {form.assistance_type === 'Other' && (
-              <input
-                type="text"
-                className={`${baseInputClasses} mt-2`}
-                placeholder="Specify Assistance Type"
-                value={form.assistance_type_other}
-                onChange={(e) => set('assistance_type_other', e.target.value)}
-              />
-            )}
+              otherValue={form.assistance_type_other}
+              onChange={(v) => set('assistance_type', v)}
+              onOtherChange={(v) => set('assistance_type_other', v)}
+              placeholder="Select Assistance Type"
+            />
           </FormField>
 
           <FormField label="Source of Assistance" required>
-            <select
-              className={baseInputClasses}
+            <ComboboxWithOther
+              options={SOURCE_OPTIONS}
               value={form.source_of_assistance}
-              onChange={(e) => {
-                const value = e.target.value
-                set('source_of_assistance', value)
-                if (value !== 'Others') set('source_of_assistance_other', '')
-              }}
-            >
-              <option value="">Select Source</option>
-              {SOURCE_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
-            </select>
-            {form.source_of_assistance === 'Others' && (
-              <input
-                type="text"
-                className={`${baseInputClasses} mt-2`}
-                placeholder="Specify Source of Assistance"
-                value={form.source_of_assistance_other}
-                onChange={(e) => set('source_of_assistance_other', e.target.value)}
-              />
-            )}
+              otherValue={form.source_of_assistance_other}
+              onChange={(v) => set('source_of_assistance', v)}
+              onOtherChange={(v) => set('source_of_assistance_other', v)}
+              placeholder="Select Source"
+            />
           </FormField>
 
           <FormField label={isCashType ? 'Amount Received (₱)' : 'Quantity / Amount'} required>
@@ -342,27 +324,14 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
 
           {!isCashType && (
             <FormField label="Unit" required>
-              <select
-                className={baseInputClasses}
+              <ComboboxWithOther
+                options={UNIT_OPTIONS}
                 value={form.unit}
-                onChange={(e) => {
-                  const value = e.target.value
-                  set('unit', value)
-                  if (value !== 'Others') set('unit_other', '')
-                }}
-              >
-                <option value="">Select Unit</option>
-                {UNIT_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
-              </select>
-              {form.unit === 'Others' && (
-                <input
-                  type="text"
-                  className={`${baseInputClasses} mt-2`}
-                  placeholder="Specify Unit"
-                  value={form.unit_other}
-                  onChange={(e) => set('unit_other', e.target.value)}
-                />
-              )}
+                otherValue={form.unit_other}
+                onChange={(v) => set('unit', v)}
+                onOtherChange={(v) => set('unit_other', v)}
+                placeholder="Select Unit"
+              />
             </FormField>
           )}
 

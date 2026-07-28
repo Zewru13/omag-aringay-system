@@ -3,6 +3,7 @@ import { AlertTriangle, Plus, Search, Sprout, Trash2, User } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
+import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -238,23 +239,14 @@ function CropRecordCard({ rec, index, total, cropTypes, seedSources, varieties, 
         />
 
         <FormField label="Land Status" required error={errors.land_status}>
-          <select className={baseInputClasses} value={rec.land_status}
-            onChange={e => {
-              set('land_status', e.target.value)
-              if (e.target.value !== 'Other') set('land_status_other_specify', '')
-            }}>
-            <option value="">Select…</option>
-            <option value="Owner">Owner</option>
-            <option value="Lessee">Lessee</option>
-            <option value="Tenant">Tenant</option>
-            <option value="Other">Other</option>
-          </select>
-          {rec.land_status === 'Other' && (
-            <input type="text" className={`${baseInputClasses} mt-2`}
-              placeholder="Please specify land status"
-              value={rec.land_status_other_specify}
-              onChange={e => set('land_status_other_specify', e.target.value)} />
-          )}
+          <ComboboxWithOther
+            options={['Owner', 'Lessee', 'Tenant']}
+            value={rec.land_status}
+            otherValue={rec.land_status_other_specify}
+            onChange={(v) => set('land_status', v)}
+            onOtherChange={(v) => set('land_status_other_specify', v)}
+            placeholder="Select…"
+          />
         </FormField>
 
         {farmerParcels.length > 0 && (
@@ -366,56 +358,33 @@ function CropRecordCard({ rec, index, total, cropTypes, seedSources, varieties, 
       {/* Optional planting details */}
       <div className="grid gap-3 sm:grid-cols-2">
         <FormField label="Variety Used (optional)">
-          {rec.variety_used_is_other ? (
-            <div className="flex gap-2">
-              <input type="text" className={baseInputClasses}
-                placeholder="Please specify variety"
-                value={rec.variety_used}
-                onChange={e => set('variety_used', e.target.value)}
-                autoFocus />
-              <button type="button"
-                className="shrink-0 text-xs font-medium text-[#4A5E4A] hover:text-[#1B4D2E] px-2"
-                onClick={() => { set('variety_used_is_other', false); set('variety_used', '') }}>
-                Back to list
-              </button>
-            </div>
-          ) : (
-            <select className={baseInputClasses} value={rec.variety_used}
-              onChange={e => {
-                if (e.target.value === '__other__') {
-                  set('variety_used_is_other', true)
-                  set('variety_used', '')
-                } else {
-                  set('variety_used', e.target.value)
-                }
-              }}>
-              <option value="">Select variety</option>
-              {relevantVarieties.map(v => (
-                <option key={v.id} value={v.name}>{v.name}</option>
-              ))}
-              <option value="__other__">Other</option>
-            </select>
-          )}
+          <ComboboxWithOther
+            options={relevantVarieties.map(v => v.name)}
+            value={rec.variety_used_is_other ? 'Other' : rec.variety_used}
+            otherValue={rec.variety_used}
+            onChange={(v) => {
+              if (v === 'Other') {
+                set('variety_used_is_other', true)
+                set('variety_used', '')
+              } else {
+                set('variety_used_is_other', false)
+                set('variety_used', v)
+              }
+            }}
+            onOtherChange={(v) => set('variety_used', v)}
+            placeholder="Select variety"
+          />
         </FormField>
 
         <FormField label="Seed Source (optional)">
-          <select className={baseInputClasses} value={rec.seed_source}
-            onChange={e => {
-              set('seed_source', e.target.value)
-              if (e.target.value !== 'Other') set('seed_source_other_specify', '')
-            }}>
-            <option value="">Select source</option>
-            {seedSources.filter(s => s.is_active).map(s => (
-              <option key={s.id} value={s.name}>{s.name}</option>
-            ))}
-            <option value="Other">Other</option>
-          </select>
-          {rec.seed_source === 'Other' && (
-            <input type="text" className={`${baseInputClasses} mt-2`}
-              placeholder="Please specify seed source"
-              value={rec.seed_source_other_specify}
-              onChange={e => set('seed_source_other_specify', e.target.value)} />
-          )}
+          <ComboboxWithOther
+            options={seedSources.filter(s => s.is_active).map(s => s.name)}
+            value={rec.seed_source}
+            otherValue={rec.seed_source_other_specify}
+            onChange={(v) => set('seed_source', v)}
+            onOtherChange={(v) => set('seed_source_other_specify', v)}
+            placeholder="Select source"
+          />
         </FormField>
 
         <FormField label="Quantity of Seeds (optional)">

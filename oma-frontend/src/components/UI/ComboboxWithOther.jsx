@@ -1,0 +1,277 @@
+import { useEffect, useId, useRef, useState } from 'react'
+import { ChevronDown } from 'lucide-react'
+import { baseInputClasses } from './FormField.jsx'
+
+// Batch B: replaces every "select with an Other option that reveals a
+// second textbox elsewhere on the page" pattern with a single inline
+// control — same box, box just becomes editable the moment "Other" is
+// picked. The underlying value contract is unchanged from that old
+// pattern: `value` is either one of `options`, or the literal string
+// "Other"; `otherValue` is the free-text companion, only meaningful when
+// value === "Other". Callers wire these straight into the same two form-
+// state fields (e.g. disaster_type / disaster_type_other_specify) they
+// always did — this component only changes how the two are edited, not
+// what gets submitted.
+//
+// otherValue is cleared automatically (onOtherChange('')) the moment the
+// user switches AWAY from "Other" back to a real option — matching what
+// every hand-rolled instance of this pattern already did (e.g.
+// LogGovernmentAssistanceModal's `if (value !== 'Other') set(..., '')`).
+// Re-selecting "Other" after having already typed something does NOT
+// clear it — same as a native select never touching an independent text
+// field it doesn't own.
+//
+// ARIA: implements the "select-only combobox with a popup listbox"
+// pattern (WAI-ARIA APG) — focus stays on the trigger/input, the active
+// option is tracked via aria-activedescendant, not by moving focus into
+// the listbox. Arrow keys / Enter / Escape / Tab are all handled so
+// nothing a native <select> offered is lost.
+
+const OTHER_SENTINEL = 'Other'
+
+function ComboboxWithOther({
+  options,
+  value,
+  otherValue = '',
+  onChange,
+  onOtherChange,
+  otherLabel = 'Other',
+  placeholder = 'Select...',
+  required = false,
+  error,
+  disabled = false,
+  className = '',
+}) {
+  const baseId = useId()
+  const listboxId = `${baseId}-listbox`
+  const optionId = (i) => `${baseId}-opt-${i}`
+
+  const [isOpen, setIsOpen] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(-1)
+
+  const rootRef = useRef(null)
+  const triggerRef = useRef(null)
+  const otherInputRef = useRef(null)
+  const listRef = useRef(null)
+
+  const allOptions = [...options, OTHER_SENTINEL]
+  const isOtherMode = value === OTHER_SENTINEL
+
+  useEffect(() => {
+    function handleOutside(e) {
+      if (rootRef.current && !rootRef.current.contains(e.target)) setIsOpen(false)
+    }
+    document.addEventListener('mousedown', handleOutside)
+    return () => document.removeEventListener('mousedown', handleOutside)
+  }, [])
+
+  // Focus the text box the instant Other mode is entered — "the SAME box
+  // becomes an editable text field immediately, focused and ready to type".
+  useEffect(() => {
+    if (isOtherMode && !isOpen) {
+      otherInputRef.current?.focus()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOtherMode])
+
+  useEffect(() => {
+    if (isOpen && activeIndex >= 0) {
+      document.getElementById(optionId(activeIndex))?.scrollIntoView({ block: 'nearest' })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, activeIndex])
+
+  const openDropdown = () => {
+    if (disabled) return
+    const currentIdx = allOptions.indexOf(value)
+    setActiveIndex(currentIdx >= 0 ? currentIdx : 0)
+    setIsOpen(true)
+  }
+
+  const closeDropdown = () => setIsOpen(false)
+
+  const selectOption = (opt) => {
+    if (opt === OTHER_SENTINEL) {
+      onChange(OTHER_SENTINEL)
+    } else {
+      if (isOtherMode) onOtherChange?.('')
+      onChange(opt)
+    }
+    setIsOpen(false)
+    triggerRef.current?.focus()
+  }
+
+  const handleTriggerKeyDown = (e) => {
+    if (disabled) return
+    if (!isOpen) {
+      if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(e.key)) {
+        e.preventDefault()
+        openDropdown()
+      }
+      return
+    }
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault()
+        setActiveIndex((i) => Math.min(i + 1, allOptions.length - 1))
+        break
+      case 'ArrowUp':
+        e.preventDefault()
+        setActiveIndex((i) => Math.max(i - 1, 0))
+        break
+      case 'Enter':
+      case ' ':
+        e.preventDefault()
+        if (activeIndex >= 0) selectOption(allOptions[activeIndex])
+        break
+      case 'Escape':
+        e.preventDefault()
+        closeDropdown()
+        break
+      case 'Tab':
+        closeDropdown()
+        break
+      default:
+        break
+    }
+  }
+
+  // Other-mode text input still needs to reopen the dropdown via keyboard
+  // (Alt+Down is the conventional combobox shortcut; plain ArrowDown when
+  // the caret is already at either end also opens it, same courtesy a
+  // native select's "type to search, arrow to browse" affords).
+  const handleOtherInputKeyDown = (e) => {
+    if (e.key === 'ArrowDown' && (e.altKey || !isOpen)) {
+      e.preventDefault()
+      openDropdown()
+      return
+    }
+    if (isOpen) {
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setActiveIndex((i) => Math.max(i - 1, 0))
+      } else if (e.key === 'Enter' && activeIndex >= 0) {
+        e.preventDefault()
+        selectOption(allOptions[activeIndex])
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        closeDropdown()
+      }
+    }
+  }
+
+  const displayLabel = value && !isOtherMode ? value : ''
+
+  return (
+    <div ref={rootRef} className={`relative ${className}`}>
+      {!isOtherMode ? (
+        <button
+          ref={triggerRef}
+          type="button"
+          role="combobox"
+          aria-expanded={isOpen}
+          aria-haspopup="listbox"
+          aria-controls={listboxId}
+          aria-required={required || undefined}
+          aria-invalid={error ? true : undefined}
+          aria-activedescendant={isOpen && activeIndex >= 0 ? optionId(activeIndex) : undefined}
+          disabled={disabled}
+          onClick={() => (isOpen ? closeDropdown() : openDropdown())}
+          onKeyDown={handleTriggerKeyDown}
+          className={`${baseInputClasses} flex items-center justify-between gap-2 text-left disabled:opacity-50 disabled:cursor-not-allowed`}
+        >
+          <span className={displayLabel ? '' : 'text-[#A8BCA8]'}>
+            {displayLabel || placeholder}
+          </span>
+          <ChevronDown
+            size={14}
+            className={`shrink-0 text-[#7A8E7A] transition-transform motion-reduce:transition-none ${isOpen ? 'rotate-180' : ''}`}
+            aria-hidden="true"
+          />
+        </button>
+      ) : (
+        <div className="relative">
+          <input
+            ref={otherInputRef}
+            type="text"
+            role="combobox"
+            aria-expanded={isOpen}
+            aria-haspopup="listbox"
+            aria-controls={listboxId}
+            aria-required={required || undefined}
+            aria-invalid={error ? true : undefined}
+            aria-activedescendant={isOpen && activeIndex >= 0 ? optionId(activeIndex) : undefined}
+            disabled={disabled}
+            value={otherValue}
+            placeholder={`${otherLabel} — please specify`}
+            onChange={(e) => onOtherChange?.(e.target.value)}
+            onKeyDown={handleOtherInputKeyDown}
+            className={`${baseInputClasses} pr-8 disabled:opacity-50 disabled:cursor-not-allowed`}
+          />
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-label="Choose a different option"
+            disabled={disabled}
+            onClick={() => (isOpen ? closeDropdown() : openDropdown())}
+            className="absolute right-0 top-0 flex h-[38px] w-8 items-center justify-center text-[#7A8E7A] hover:text-[#1B4D2E] disabled:opacity-50"
+          >
+            <ChevronDown
+              size={14}
+              className={`transition-transform motion-reduce:transition-none ${isOpen ? 'rotate-180' : ''}`}
+              aria-hidden="true"
+            />
+          </button>
+        </div>
+      )}
+
+      {/* Kept mounted (not conditionally rendered) so the opacity/scale
+          toggle below is an actual CSS transition rather than an instant
+          mount/unmount — motion-reduce:transition-none zeroes it out for
+          users who asked for reduced motion. aria-hidden keeps it out of
+          the accessibility tree while closed; nothing ever needs to focus
+          into it since the trigger owns aria-activedescendant. */}
+      <ul
+        ref={listRef}
+        id={listboxId}
+        role="listbox"
+        aria-hidden={!isOpen}
+        className={`absolute z-50 mt-1 w-full max-h-52 overflow-y-auto rounded-xl border border-[#E2E8E2] bg-white py-1 shadow-lg origin-top
+          transition-[opacity,transform] duration-100 ease-out motion-reduce:transition-none ${
+            isOpen ? 'opacity-100 scale-100 visible' : 'opacity-0 scale-95 invisible pointer-events-none'
+          }`}
+      >
+        {allOptions.map((opt, i) => {
+          const label = opt === OTHER_SENTINEL ? otherLabel : opt
+          const isSelected = value === opt
+          const isActive = i === activeIndex
+          return (
+            <li
+              key={opt}
+              id={optionId(i)}
+              role="option"
+              aria-selected={isSelected}
+              onMouseDown={(e) => { e.preventDefault(); selectOption(opt) }}
+              onMouseEnter={() => setActiveIndex(i)}
+              className={`cursor-pointer px-3 py-2 text-[13px] transition-colors motion-reduce:transition-none ${
+                isSelected
+                  ? 'bg-[#EBF5EE] font-semibold text-[#1B4D2E]'
+                  : isActive
+                    ? 'bg-[#F5F7F5] text-[#1A2B1A]'
+                    : 'text-[#1A2B1A]'
+              }`}
+            >
+              {label}
+            </li>
+          )
+        })}
+      </ul>
+
+      {error && (
+        <p className="text-[12px] text-[#C0392B] mt-1">{error}</p>
+      )}
+    </div>
+  )
+}
+
+export default ComboboxWithOther

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
+import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -76,14 +77,14 @@ export default function CitizenActivityLogModal({ domain, recordId, log, onClose
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField label="Activity" required>
-            <select
-              className={baseInputClasses}
+            <ComboboxWithOther
+              options={domain.activityChoices.filter((t) => t !== 'Other')}
               value={form[domain.activityField]}
-              onChange={(e) => set(domain.activityField, e.target.value)}
+              otherValue={form[domain.activityOtherField]}
+              onChange={(v) => set(domain.activityField, v)}
+              onOtherChange={(v) => set(domain.activityOtherField, v)}
               disabled={blockedByOther}
-            >
-              {domain.activityChoices.map((t) => <option key={t}>{t}</option>)}
-            </select>
+            />
           </FormField>
           <FormField label="Date of Activity" required hint="When the activity was actually performed.">
             <input
@@ -96,17 +97,6 @@ export default function CitizenActivityLogModal({ domain, recordId, log, onClose
             />
           </FormField>
         </div>
-        {form[domain.activityField] === 'Other' && (
-          <FormField label="Specify Activity" required>
-            <input
-              type="text"
-              className={baseInputClasses}
-              value={form[domain.activityOtherField]}
-              onChange={(e) => set(domain.activityOtherField, e.target.value)}
-              disabled={blockedByOther}
-            />
-          </FormField>
-        )}
         <FormField label={domain.key === 'crop' ? 'Notes' : 'Notes / Observations'}>
           <textarea
             className={baseInputClasses}

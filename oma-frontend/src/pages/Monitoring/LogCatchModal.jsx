@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
+import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import SearchBar from '../../components/UI/SearchBar.jsx'
@@ -284,54 +285,24 @@ function LogCatchModal({ onClose, onSuccess }) {
             />
           </FormField>
           <FormField label="Fishing Ground" required>
-            <select
-              className={baseInputClasses}
+            <ComboboxWithOther
+              options={FISHING_GROUND_OPTIONS.filter(o => o !== 'Other')}
               value={form.fishing_ground}
-              onChange={(e) => {
-                const value = e.target.value
-                set('fishing_ground', value)
-                if (value !== 'Other') set('fishing_ground_other', '')
-              }}
-            >
-              <option value="">Select Fishing Ground</option>
-              {FISHING_GROUND_OPTIONS.map((option) => (
-                <option key={option} value={option}>{option}</option>
-              ))}
-            </select>
-            {form.fishing_ground === 'Other' && (
-              <input
-                type="text"
-                className={`${baseInputClasses} mt-2`}
-                placeholder="Specify Fishing Ground"
-                value={form.fishing_ground_other}
-                onChange={(e) => set('fishing_ground_other', e.target.value)}
-              />
-            )}
+              otherValue={form.fishing_ground_other}
+              onChange={(v) => set('fishing_ground', v)}
+              onOtherChange={(v) => set('fishing_ground_other', v)}
+              placeholder="Select Fishing Ground"
+            />
           </FormField>
           <FormField label="Gear Used" required>
-            <select
-              className={baseInputClasses}
+            <ComboboxWithOther
+              options={GEAR_USED_OPTIONS.filter(o => o !== 'Other')}
               value={form.gear_used}
-              onChange={(e) => {
-                const value = e.target.value
-                set('gear_used', value)
-                if (value !== 'Other') set('gear_used_other', '')
-              }}
-            >
-              <option value="">Select Gear Used</option>
-              {GEAR_USED_OPTIONS.map((option) => (
-                <option key={option} value={option}>{option}</option>
-              ))}
-            </select>
-            {form.gear_used === 'Other' && (
-              <input
-                type="text"
-                className={`${baseInputClasses} mt-2`}
-                placeholder="Specify Gear Used"
-                value={form.gear_used_other}
-                onChange={(e) => set('gear_used_other', e.target.value)}
-              />
-            )}
+              otherValue={form.gear_used_other}
+              onChange={(v) => set('gear_used', v)}
+              onOtherChange={(v) => set('gear_used_other', v)}
+              placeholder="Select Gear Used"
+            />
           </FormField>
         </div>
 
@@ -351,29 +322,14 @@ function LogCatchModal({ onClose, onSuccess }) {
               <div key={i} className="grid gap-2 items-end" style={{ gridTemplateColumns: '2fr 1fr 1fr auto' }}>
                 <div>
                   {i === 0 && <label className="text-xs text-slate-500 mb-1 block">Species Name</label>}
-                  <select
-                    className={baseInputClasses}
+                  <ComboboxWithOther
+                    options={SPECIES_NAME_OPTIONS.filter(o => o !== 'Other')}
                     value={row.species_name}
-                    onChange={(e) => {
-                      const value = e.target.value
-                      updateSpeciesRow(i, 'species_name', value)
-                      if (value !== 'Other') updateSpeciesRow(i, 'species_name_other', '')
-                    }}
-                  >
-                    <option value="">Select Species</option>
-                    {SPECIES_NAME_OPTIONS.map((option) => (
-                      <option key={option} value={option}>{option}</option>
-                    ))}
-                  </select>
-                  {row.species_name === 'Other' && (
-                    <input
-                      type="text"
-                      className={`${baseInputClasses} mt-2`}
-                      placeholder="Specify Species"
-                      value={row.species_name_other || ''}
-                      onChange={(e) => updateSpeciesRow(i, 'species_name_other', e.target.value)}
-                    />
-                  )}
+                    otherValue={row.species_name_other || ''}
+                    onChange={(v) => updateSpeciesRow(i, 'species_name', v)}
+                    onOtherChange={(v) => updateSpeciesRow(i, 'species_name_other', v)}
+                    placeholder="Select Species"
+                  />
                 </div>
                 <div>
                   {i === 0 && <label className="text-xs text-slate-500 mb-1 block">Volume (kg)</label>}

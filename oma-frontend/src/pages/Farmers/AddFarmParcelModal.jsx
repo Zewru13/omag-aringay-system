@@ -3,6 +3,7 @@ import { Plus, Trash2, X } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import Button from '../../components/UI/Button.jsx'
+import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
@@ -275,18 +276,14 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
         <div className="grid gap-2 md:grid-cols-3">
           <div>
             <label className={labelCls}>Crop Name</label>
-            <select className={baseInputClasses} value={parcel._cropName}
-              onChange={e => set('_cropName', e.target.value)}>
-              {CROP_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-            </select>
+            <ComboboxWithOther
+              options={CROP_OPTIONS.filter(o => o !== 'Other')}
+              value={parcel._cropName}
+              otherValue={parcel._cropNameOther}
+              onChange={(v) => set('_cropName', v)}
+              onOtherChange={(v) => set('_cropNameOther', v)}
+            />
           </div>
-          {parcel._cropName === 'Other' && (
-            <div>
-              <label className={labelCls}>Specify</label>
-              <input className={baseInputClasses} value={parcel._cropNameOther}
-                onChange={e => set('_cropNameOther', e.target.value)} />
-            </div>
-          )}
           <div>
             <label className={labelCls}>Crop Area (ha)</label>
             <input type="number" min="0" step="0.0001" className={baseInputClasses}
@@ -373,18 +370,14 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
         <div className="grid gap-2 md:grid-cols-2">
           <div>
             <label className={labelCls}>Machinery Type</label>
-            <select className={baseInputClasses} value={parcel._machineryType}
-              onChange={e => set('_machineryType', e.target.value)}>
-              {MACHINERY_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
-            </select>
+            <ComboboxWithOther
+              options={MACHINERY_OPTIONS.filter(o => o !== 'Other')}
+              value={parcel._machineryType}
+              otherValue={parcel._machineryTypeOther}
+              onChange={(v) => set('_machineryType', v)}
+              onOtherChange={(v) => set('_machineryTypeOther', v)}
+            />
           </div>
-          {parcel._machineryType === 'Other' && (
-            <div>
-              <label className={labelCls}>Specify</label>
-              <input className={baseInputClasses} value={parcel._machineryTypeOther}
-                onChange={e => set('_machineryTypeOther', e.target.value)} />
-            </div>
-          )}
           <div>
             <label className={labelCls}>Quantity</label>
             <input type="number" min="1" className={baseInputClasses}
