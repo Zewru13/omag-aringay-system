@@ -2,6 +2,7 @@ from collections import defaultdict
 from datetime import date, timedelta
 from decimal import Decimal
 
+from django.db import transaction
 from django.db.models import Count, Q, Sum
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status as drf_status
@@ -289,6 +290,36 @@ class PondListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(fisherfolk_id=self.kwargs['fisherfolk_id'])
+
+
+class PondBulkCreateView(APIView):
+    """Batch D — bulk pond creation, alongside PondListCreateView's existing
+    single-add flow (unchanged). Accepts a list of pond objects, validates
+    ALL of them with the same PondSerializer before creating ANY (so a
+    single bad row returns per-item errors with nothing persisted), then
+    saves them one at a time — not bulk_create — so Pond.save()'s
+    auto-numbering (see Pond.save) sees each prior row already committed
+    and continues the sequence correctly within the same request."""
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def post(self, request, fisherfolk_id):
+        get_object_or_404(Fisherfolk, pk=fisherfolk_id)
+        items = request.data
+        if not isinstance(items, list) or not items:
+            return Response(
+                {'detail': 'Expected a non-empty list of ponds.'},
+                status=drf_status.HTTP_400_BAD_REQUEST,
+            )
+
+        item_serializers = [PondSerializer(data=item) for item in items]
+        validities = [s.is_valid() for s in item_serializers]
+        if not all(validities):
+            return Response({'errors': [s.errors for s in item_serializers]}, status=drf_status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            created = [s.save(fisherfolk_id=fisherfolk_id) for s in item_serializers]
+
+        return Response(PondSerializer(created, many=True).data, status=drf_status.HTTP_201_CREATED)
 
 
 class PondDetailView(generics.RetrieveUpdateDestroyAPIView):

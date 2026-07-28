@@ -598,7 +598,7 @@ export default function FisheriesMonitoringPage() {
   return (
     <PageLayout
       title="Fisheries Monitoring"
-      subtitle="Stocking & culture, capture fishing, and disaster reports"
+      subtitle="Aquaculture, capture fishing, and disaster reports"
     >
       <div className="space-y-5">
         {/* Filters + Actions — not applicable to Stocking & Culture, which has its own filter bar */}
@@ -639,7 +639,7 @@ export default function FisheriesMonitoringPage() {
 
         <SubTabBar
           options={[
-            { value: 'stocking',   label: 'Stocking & Culture' },
+            { value: 'stocking',   label: 'Aquaculture' },
             { value: 'capture',    label: 'Capture' },
             { value: 'disasters',  label: 'Fisherfolk Disasters' },
           ]}

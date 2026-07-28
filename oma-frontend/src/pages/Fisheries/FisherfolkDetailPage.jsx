@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, ClipboardList, Edit, Pencil, Plus, Power, Trash2 } from 'lucide-react'
+import { ArrowLeft, ClipboardList, Edit, Layers, Pencil, Plus, Power, Trash2 } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import ActivateCitizenAccountButton from '../../components/ActivateCitizenAccountButton.jsx'
@@ -16,6 +16,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import EditFisherfolkModal from './EditFisherfolkModal.jsx'
 import PondModal from './PondModal.jsx'
+import BulkPondModal from './BulkPondModal.jsx'
 
 const HISTORY_COLUMNS = [
   { key: 'program_name', label: 'Program' },
@@ -171,6 +172,7 @@ function FisherfolkDetailPage() {
   const [ponds, setPonds]                 = useState([])
   const [isLoadingPonds, setIsLoadingPonds] = useState(false)
   const [isPondModalOpen, setIsPondModalOpen] = useState(false)
+  const [isBulkPondModalOpen, setIsBulkPondModalOpen] = useState(false)
   const [editingPond, setEditingPond]     = useState(null)
   const [deletingPond, setDeletingPond]   = useState(null)
   const [deleteError, setDeleteError]     = useState('')
@@ -414,9 +416,14 @@ function FisherfolkDetailPage() {
                 <div className="mb-4 flex items-center justify-between">
                   <h2 className="text-sm font-medium uppercase tracking-wide text-slate-400">Ponds</h2>
                   {(isAdmin || isEvaluator) && (
-                    <Button icon={Plus} size="sm" onClick={() => setIsPondModalOpen(true)} variant="primary">
-                      Add Pond
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button icon={Layers} size="sm" onClick={() => setIsBulkPondModalOpen(true)} variant="secondary">
+                        Bulk Add Ponds
+                      </Button>
+                      <Button icon={Plus} size="sm" onClick={() => setIsPondModalOpen(true)} variant="primary">
+                        Add Pond
+                      </Button>
+                    </div>
                   )}
                 </div>
                 {isLoadingPonds ? (
@@ -462,6 +469,15 @@ function FisherfolkDetailPage() {
           fisherfolkId={id}
           pond={editingPond}
           onClose={() => setEditingPond(null)}
+          onSuccess={fetchPonds}
+        />
+      )}
+
+      {isBulkPondModalOpen && (
+        <BulkPondModal
+          fisherfolkId={id}
+          existingPondCount={ponds.length}
+          onClose={() => setIsBulkPondModalOpen(false)}
           onSuccess={fetchPonds}
         />
       )}

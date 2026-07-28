@@ -1,0 +1,168 @@
+import { useState } from 'react'
+import { Layers } from 'lucide-react'
+import api from '../../api/axiosInstance.js'
+import ModalShell from '../../components/UI/ModalShell.jsx'
+import Button from '../../components/UI/Button.jsx'
+import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
+
+// Must match fisheries.models.WATER_SOURCE_CHOICES on the backend exactly
+// (same list as PondModal.jsx).
+const WATER_SOURCE_OPTIONS = ['River', 'Spring', 'Rain-fed', 'Deep Well', 'Other']
+
+const emptyRow = (name) => ({ name, barangay: '', area_hectares: '', water_source: '' })
+
+// Batch D — bulk pond creation, alongside PondModal's existing single-add
+// flow (untouched). Two steps: ask how many, then reveal that many rows.
+// Suggested names continue the same auto-numbering Pond.save() already
+// does on the backend ("Pond N+1", "Pond N+2", ...) so the two flows never
+// diverge — the suggestion is just a pre-filled, still-editable default.
+function BulkPondModal({ fisherfolkId, existingPondCount, onClose, onSuccess }) {
+  const [count, setCount] = useState('')
+  const [rows, setRows] = useState(null) // null until count is confirmed
+  const [rowErrors, setRowErrors] = useState([])
+  const [formError, setFormError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const handleCountSubmit = (e) => {
+    e.preventDefault()
+    const n = parseInt(count, 10)
+    if (!n || n < 1 || n > 50) return
+    setRows(Array.from({ length: n }, (_, i) => emptyRow(`Pond ${existingPondCount + i + 1}`)))
+    setRowErrors(Array.from({ length: n }, () => ({})))
+  }
+
+  const setRowField = (index, field, value) => {
+    setRows((prev) => prev.map((r, i) => (i === index ? { ...r, [field]: value } : r)))
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setFormError('')
+    setIsSubmitting(true)
+    const payload = rows.map((r) => ({
+      name: r.name,
+      barangay: r.barangay,
+      area_hectares: r.area_hectares !== '' ? parseFloat(r.area_hectares) : null,
+      water_source: r.water_source,
+    }))
+    try {
+      await api.post(`/fisheries/fisherfolk/${fisherfolkId}/ponds/bulk/`, payload)
+      onSuccess()
+      onClose()
+    } catch (err) {
+      const data = err?.response?.data
+      if (data?.errors) {
+        // Per-row error detail, aligned to input order — nothing was
+        // created (backend validates all rows before creating any), and
+        // rows themselves are left exactly as typed so nothing is lost.
+        setRowErrors(data.errors.map((e) => e || {}))
+        setFormError('Some rows have errors — fix them and submit again. No ponds were created.')
+      } else {
+        setFormError(data?.detail || 'Failed to create ponds.')
+      }
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const rowFieldError = (index, field) => {
+    const e = rowErrors[index]?.[field]
+    return Array.isArray(e) ? e[0] : e
+  }
+
+  if (!rows) {
+    return (
+      <ModalShell
+        title="Bulk Add Ponds"
+        subtitle="How many ponds would you like to add?"
+        icon={Layers}
+        onClose={onClose}
+        maxWidth="max-w-sm"
+      >
+        <form onSubmit={handleCountSubmit} className="space-y-4">
+          <FormField label="Number of Ponds">
+            <input
+              type="number" min="1" max="50" step="1"
+              className={baseInputClasses}
+              placeholder="e.g. 3"
+              value={count}
+              onChange={(e) => setCount(e.target.value)}
+              autoFocus
+            />
+          </FormField>
+          <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4">
+            <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+            <Button type="submit">Continue</Button>
+          </div>
+        </form>
+      </ModalShell>
+    )
+  }
+
+  return (
+    <ModalShell
+      title="Bulk Add Ponds"
+      subtitle={`Adding ${rows.length} pond${rows.length === 1 ? '' : 's'} — names are auto-suggested, edit any field as needed.`}
+      icon={Layers}
+      onClose={onClose}
+      maxWidth="max-w-2xl"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-4 max-h-[55vh] overflow-y-auto pr-1">
+          {rows.map((row, i) => (
+            <div key={i} className="rounded-lg border border-[#E2E8E2] p-3">
+              <p className="mb-2 text-[12px] font-medium uppercase tracking-wide text-slate-400">Pond {i + 1}</p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <FormField label="Pond Name" error={rowFieldError(i, 'name')}>
+                  <input
+                    type="text"
+                    className={baseInputClasses}
+                    value={row.name}
+                    onChange={(e) => setRowField(i, 'name', e.target.value)}
+                  />
+                </FormField>
+                <BarangaySelect
+                  label="Barangay"
+                  value={row.barangay}
+                  onChange={(e) => setRowField(i, 'barangay', e.target.value)}
+                  error={rowFieldError(i, 'barangay')}
+                />
+                <FormField label="Area (ha)" error={rowFieldError(i, 'area_hectares')}>
+                  <input
+                    type="number" step="0.0001" min="0"
+                    className={baseInputClasses}
+                    placeholder="0.0000"
+                    value={row.area_hectares}
+                    onChange={(e) => setRowField(i, 'area_hectares', e.target.value)}
+                  />
+                </FormField>
+                <FormField label="Water Source" error={rowFieldError(i, 'water_source')}>
+                  <select
+                    className={baseInputClasses}
+                    value={row.water_source}
+                    onChange={(e) => setRowField(i, 'water_source', e.target.value)}
+                  >
+                    <option value="">Select…</option>
+                    {WATER_SOURCE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </FormField>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {formError && (
+          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] font-medium text-red-700">{formError}</p>
+        )}
+
+        <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4">
+          <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button type="submit" isLoading={isSubmitting}>Create {rows.length} Pond{rows.length === 1 ? '' : 's'}</Button>
+        </div>
+      </form>
+    </ModalShell>
+  )
+}
+
+export default BulkPondModal

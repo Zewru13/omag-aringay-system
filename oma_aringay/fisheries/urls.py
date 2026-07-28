@@ -20,6 +20,7 @@ from .views import (
     FishingTripLogListCreateView,
     FishingTripSummaryView,
     HealthMonitoringListView,
+    PondBulkCreateView,
     PondDetailView,
     PondListCreateView,
     SpeciesCategoryListCreateView,
@@ -50,8 +51,9 @@ urlpatterns = [
     path('fisherfolk/check-duplicate/', FisherfolkDuplicateCheckView.as_view(), name='fisherfolk-check-duplicate'),
     path('fisherfolk/<int:id>/', FisherfolkDetailView.as_view(), name='fisherfolk-detail'),
 
-    # ── Ponds (Batch 3) ───────────────────────────────────────────────────────
+    # ── Ponds (Batch 3; bulk-create added Batch D) ──────────────────────────────
     path('fisherfolk/<int:fisherfolk_id>/ponds/', PondListCreateView.as_view(), name='fisherfolk-ponds-list-create'),
+    path('fisherfolk/<int:fisherfolk_id>/ponds/bulk/', PondBulkCreateView.as_view(), name='fisherfolk-ponds-bulk-create'),
     path('ponds/<int:pk>/', PondDetailView.as_view(), name='pond-detail'),
 
     # ── Species categories ──────────────────────────────────────────────────
