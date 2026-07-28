@@ -315,6 +315,13 @@ class DiseaseType(models.Model):
     name        = models.CharField(max_length=150, unique=True)
     description = models.TextField(blank=True)
     is_active   = models.BooleanField(default=True)
+    # Batch C — mirrors FeedType.species_options exactly: which species this
+    # disease category applies to, so the activity-log form can scope its
+    # Disease Type dropdown to the stocking record's own species.
+    species_options = models.ManyToManyField(
+        SpeciesOption, blank=True, related_name='disease_types',
+        help_text='Species this disease category applies to.',
+    )
 
     class Meta:
         ordering = ['name']
@@ -592,6 +599,12 @@ class FisheriesActivityLog(models.Model):
     disease_type        = models.ForeignKey(
         'DiseaseType', on_delete=models.SET_NULL, null=True, blank=True, related_name='activity_logs',
     )
+    # Batch C — companion free-text field for ComboboxWithOther's "Other"
+    # branch on the Disease Type dropdown (disease_type is an FK, so unlike
+    # every other _other_specify field in this app it can't itself hold
+    # typed text). Same convention otherwise: blank unless disease_type is
+    # unset because the user picked something not in DiseaseType.
+    disease_type_other_specify = models.CharField(max_length=200, blank=True)
     vet_consulted        = models.CharField(max_length=150, blank=True, help_text='Vet name, or "N/A".')
     outcome             = models.CharField(max_length=50, blank=True, choices=[
         ('Recovered',        'Recovered'),

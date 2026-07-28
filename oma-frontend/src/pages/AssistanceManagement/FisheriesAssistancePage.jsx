@@ -8,6 +8,7 @@ import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
+import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
@@ -18,7 +19,17 @@ import LogGovernmentAssistanceModal from './LogGovernmentAssistanceModal.jsx'
 // Must match interventions.models.FisherfolkBeneficiaryRecord.AssistanceType exactly
 // (Batch 6: absorbed from fisheries.models.FisheriesAssistanceRecord).
 const ASSISTANCE_TYPE_OPTIONS = ['Fishing Gear', 'Boat/Vessel', 'Fingerlings/Seeds', 'Feed', 'Cash Assistance', 'Equipment', 'Training', 'Other']
-const SOURCE_OPTIONS = ['LGU', 'MAO', 'BFAR', 'DA', 'NGO', 'Private Donor', 'Others']
+// Batch C — reconciled to interventions.models.InterventionProgram.SourceOfProgram's
+// real choice set (was a bare select with a dead 'Others' sentinel — no companion
+// field ever existed for it, so picking it silently did nothing; see Batch B's
+// audit). Now a proper ComboboxWithOther like every other source_agency field.
+const SOURCE_OPTIONS = [
+  'LGU - Aringay',
+  'Office of the Provincial Agriculturist',
+  'Department of Agriculture (DA)',
+  'Department of Agrarian Reform (DAR)',
+  'Non-Government Organization (NGO)',
+]
 const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - i)
 
@@ -62,6 +73,7 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
   const originalData = {
     assistance_type: record.assistance_type || '',
     source_agency: record.source_agency || '',
+    source_agency_other: '',
     date_received: record.date_given || '',
     quantity: record.quantity != null ? String(record.quantity) : '',
     description: record.description || '',
@@ -78,11 +90,16 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (form.source_agency === 'Other' && !form.source_agency_other.trim()) {
+      showToast('Please specify the source of assistance.', 'error'); return
+    }
     setError(''); setIsSubmitting(true)
     try {
-      const { date_received, ...rest } = form
+      const { date_received, source_agency_other, ...rest } = form
+      const sourceAgency = form.source_agency === 'Other' ? source_agency_other.trim() : form.source_agency
       await api.patch(`/interventions/fisherfolk-beneficiaries/adhoc/${record.id}/`, {
         ...rest,
+        source_agency: sourceAgency,
         date_given: date_received,
         quantity: form.quantity !== '' ? parseFloat(form.quantity) : null,
       })
@@ -127,11 +144,14 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
               </select>
             </FormField>
             <FormField label="Source of Assistance" required>
-              <select className={baseInputClasses} value={form.source_agency}
-                onChange={(e) => set('source_agency', e.target.value)}>
-                <option value="">Select Source</option>
-                {SOURCE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-              </select>
+              <ComboboxWithOther
+                options={SOURCE_OPTIONS}
+                value={form.source_agency}
+                otherValue={form.source_agency_other}
+                onChange={(v) => set('source_agency', v)}
+                onOtherChange={(v) => set('source_agency_other', v)}
+                placeholder="Select Source"
+              />
             </FormField>
             <FormField label="Quantity / Amount" required>
               <input type="number" step="0.01" min="0" className={baseInputClasses} value={form.quantity}

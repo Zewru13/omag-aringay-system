@@ -403,7 +403,7 @@ class FisheriesActivityLogSerializer(serializers.ModelSerializer):
             'id', 'stocking_record', 'activity', 'activity_other_specify', 'date_of_activity',
             'water_fish_condition', 'feed_type', 'feed_quantity_kg', 'feed_brand',
             'observed_issue', 'severity', 'mortality_count', 'area_affected_ha',
-            'disease_type', 'disease_type_name', 'vet_consulted',
+            'disease_type', 'disease_type_name', 'disease_type_other_specify', 'vet_consulted',
             'treatment_applied', 'outcome',
             'recommendations',
             'target_day', 'is_late', 'logged_by', 'logged_by_name',
@@ -604,7 +604,7 @@ class FeedTypeSerializer(serializers.ModelSerializer):
 class DiseaseTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = DiseaseType
-        fields = ['id', 'name', 'description', 'is_active']
+        fields = ['id', 'name', 'description', 'is_active', 'species_options']
         read_only_fields = ['id']
 
 

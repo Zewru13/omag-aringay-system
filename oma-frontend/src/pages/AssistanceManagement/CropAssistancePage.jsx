@@ -4,6 +4,7 @@ import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import Button from '../../components/UI/Button.jsx'
+import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
@@ -17,6 +18,17 @@ import { useToast } from '../../context/ToastContext.jsx'
 // (Batch 6: absorbed from production.models.CropAssistanceRecord).
 const ASSISTANCE_TYPE_OPTIONS = ['Fertilizer', 'Seeds', 'Equipment', 'Cash Assistance', 'Training', 'Other']
 const SEASON_OPTIONS = ['Dry', 'Wet']
+// Batch C — matches interventions.models.InterventionProgram.SourceOfProgram
+// exactly (minus its own 'Other', appended by ComboboxWithOther). This field
+// was a plain free-text input before; source_agency itself is still a free
+// CharField on the backend, so this is a frontend-only UX reconciliation.
+const SOURCE_AGENCY_OPTIONS = [
+  'LGU - Aringay',
+  'Office of the Provincial Agriculturist',
+  'Department of Agriculture (DA)',
+  'Department of Agrarian Reform (DAR)',
+  'Non-Government Organization (NGO)',
+]
 const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - i)
 
@@ -141,10 +153,20 @@ function AddAssistanceModal({ onClose, onSuccess }) {
   const [farmer, setFarmer] = useState({ id: null, full_name: '', barangay: '' })
   const [form, setForm] = useState({
     assistance_type: '', description: '', quantity: '', date_received: '',
-    source_agency: '', season: '', year: CURRENT_YEAR,
+    source_agency: '', source_agency_other: '', season: '', year: CURRENT_YEAR,
+    // Batch C Step 2 — optional; program stays null (ad-hoc) unless the
+    // user actively picks one from the dropdown below.
+    program: '',
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [programs, setPrograms] = useState([])
+
+  useEffect(() => {
+    api.get('/interventions/programs/')
+      .then((r) => setPrograms((Array.isArray(r.data) ? r.data : (r.data.results || [])).filter((p) => p.is_active)))
+      .catch(() => setPrograms([]))
+  }, [])
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
@@ -154,11 +176,20 @@ function AddAssistanceModal({ onClose, onSuccess }) {
     if (!form.assistance_type || !form.date_received || !form.source_agency) {
       showToast('Fill in all required fields.', 'error'); return
     }
+    if (form.source_agency === 'Other' && !form.source_agency_other.trim()) {
+      showToast('Please specify the source agency.', 'error'); return
+    }
     setError(''); setIsSubmitting(true)
     try {
-      const { description, date_received, ...rest } = form
+      const { description, date_received, source_agency_other, program, ...rest } = form
+      const sourceAgency = form.source_agency === 'Other' ? source_agency_other.trim() : form.source_agency
       await api.post('/interventions/beneficiaries/adhoc/', {
-        ...rest, remarks: description, date_given: date_received, farmer: farmer.id,
+        ...rest,
+        source_agency: sourceAgency,
+        remarks: description,
+        date_given: date_received,
+        farmer: farmer.id,
+        ...(program ? { program } : {}),
       })
       showToast('Crop assistance record added.', 'success')
       onSuccess(); onClose()
@@ -184,7 +215,14 @@ function AddAssistanceModal({ onClose, onSuccess }) {
             </select>
           </FormField>
           <FormField label="Source Agency" required>
-            <input className={baseInputClasses} value={form.source_agency} onChange={(e) => set('source_agency', e.target.value)} placeholder="e.g. Municipal Agriculture Office" />
+            <ComboboxWithOther
+              options={SOURCE_AGENCY_OPTIONS}
+              value={form.source_agency}
+              otherValue={form.source_agency_other}
+              onChange={(v) => set('source_agency', v)}
+              onOtherChange={(v) => set('source_agency_other', v)}
+              placeholder="Select source agency…"
+            />
           </FormField>
           <FormField label="Date Received" required>
             <input type="date" className={baseInputClasses} value={form.date_received}
@@ -215,6 +253,14 @@ function AddAssistanceModal({ onClose, onSuccess }) {
           <textarea rows={2} className={baseInputClasses} value={form.description} onChange={(e) => set('description', e.target.value)} />
         </FormField>
 
+        <FormField label="Attach to a formal program (optional)">
+          <select className={baseInputClasses} value={form.program} onChange={(e) => set('program', e.target.value)}>
+            <option value="">No program — standalone record</option>
+            {programs.map((p) => <option key={p.id} value={p.id}>{p.program_name} ({p.season} {p.year})</option>)}
+          </select>
+          <p className="mt-1 text-[11px] text-[#7A8E7A]">Leave unselected to log this as a standalone record, same as today.</p>
+        </FormField>
+
         {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
 
         <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-3">
@@ -237,6 +283,7 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
     quantity: record.quantity || '',
     date_received: record.date_given || '',
     source_agency: record.source_agency || '',
+    source_agency_other: '',
     season: record.season || '',
     year: record.year,
   }
@@ -251,11 +298,15 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (form.source_agency === 'Other' && !form.source_agency_other.trim()) {
+      showToast('Please specify the source agency.', 'error'); return
+    }
     setError(''); setIsSubmitting(true)
     try {
-      const { description, date_received, ...rest } = form
+      const { description, date_received, source_agency_other, ...rest } = form
+      const sourceAgency = form.source_agency === 'Other' ? source_agency_other.trim() : form.source_agency
       await api.patch(`/interventions/beneficiaries/adhoc/${record.id}/`, {
-        ...rest, remarks: description, date_given: date_received,
+        ...rest, source_agency: sourceAgency, remarks: description, date_given: date_received,
       })
       showToast('Assistance record updated.', 'success')
       onSaved()
@@ -291,7 +342,13 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
               </select>
             </FormField>
             <FormField label="Source Agency" required>
-              <input className={baseInputClasses} value={form.source_agency} onChange={(e) => set('source_agency', e.target.value)} />
+              <ComboboxWithOther
+                options={SOURCE_AGENCY_OPTIONS}
+                value={form.source_agency}
+                otherValue={form.source_agency_other}
+                onChange={(v) => set('source_agency', v)}
+                onOtherChange={(v) => set('source_agency_other', v)}
+              />
             </FormField>
             <FormField label="Date Received" required>
               <input type="date" className={baseInputClasses} value={form.date_received}

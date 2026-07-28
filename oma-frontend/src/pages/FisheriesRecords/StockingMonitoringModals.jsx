@@ -363,7 +363,13 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
   const [treatmentApplied, setTreatmentApplied] = useState('')
   const [outcome,          setOutcome]          = useState('')
   const [recommendations,  setRecommendations]  = useState('')
-  const [diseaseTypeId,    setDiseaseTypeId]    = useState('')
+  // Batch C — diseaseTypeName drives the ComboboxWithOther trigger (a name
+  // string, or the 'Other' sentinel) since disease_type is an FK and
+  // ComboboxWithOther works with option strings; diseaseTypeOtherSpecify is
+  // its free-text companion. The actual FK id is resolved from diseaseTypes
+  // by name at submit time (see handleSubmitClick's payload below).
+  const [diseaseTypeName,  setDiseaseTypeName]  = useState('')
+  const [diseaseTypeOtherSpecify, setDiseaseTypeOtherSpecify] = useState('')
   const [vetConsulted,     setVetConsulted]     = useState('')
 
   const [remedyDisasterId, setRemedyDisasterId] = useState('')
@@ -377,20 +383,27 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
 
   useEffect(() => {
     api.get('/fisheries/feed-types/').then(r => setFeedTypes(Array.isArray(r.data) ? r.data : (r.data.results || []))).catch(() => setFeedTypes([]))
-    api.get('/fisheries/disease-types/').then(r => setDiseaseTypes(Array.isArray(r.data) ? r.data : (r.data.results || []))).catch(() => setDiseaseTypes([]))
-  }, [])
+    // Batch C — scoped to this stocking record's own species (same
+    // species_options M2M pattern as FeedType), so e.g. TiLV only shows up
+    // for a Tilapia record.
+    api.get('/fisheries/disease-types/', { params: record.species ? { species: record.species } : {} })
+      .then(r => setDiseaseTypes(Array.isArray(r.data) ? r.data : (r.data.results || [])))
+      .catch(() => setDiseaseTypes([]))
+  }, [record.species])
+
+  const selectedDiseaseType = diseaseTypes.find(dt => dt.name === diseaseTypeName)
 
   useEffect(() => {
-    if (!diseaseTypeId) { setResponseGuide(null); return }
+    if (!selectedDiseaseType) { setResponseGuide(null); return }
     setIsLoadingGuide(true)
-    api.get('/fisheries/disease-response-guides/', { params: { disease_type: diseaseTypeId } })
+    api.get('/fisheries/disease-response-guides/', { params: { disease_type: selectedDiseaseType.id } })
       .then(r => {
         const list = Array.isArray(r.data) ? r.data : (r.data.results || [])
         setResponseGuide(list[0] || null)
       })
       .catch(() => setResponseGuide(null))
       .finally(() => setIsLoadingGuide(false))
-  }, [diseaseTypeId])
+  }, [selectedDiseaseType])
 
   const showFeedFields  = activityType === 'Feed Monitoring'
   const showIssueFields = activityType === 'Disease Control'
@@ -475,7 +488,7 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
     setActivityTypeOtherSpecify('')
     setRemedyDisasterId('')
     setObservedIssue(''); setSeverity(''); setMortalityCount(''); setTreatmentApplied(''); setOutcome('')
-    setDiseaseTypeId(''); setVetConsulted(''); setResponseGuide(null)
+    setDiseaseTypeName(''); setDiseaseTypeOtherSpecify(''); setVetConsulted(''); setResponseGuide(null)
     setAreaAffected(''); setAreaAffectedError('')
     setRecommendations('')
     setPendingSuggestion(null)
@@ -490,6 +503,9 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
     if (showIssueFields) {
       const err = validateAreaAffected(areaAffected)
       if (err) { setAreaAffectedError(err); showToast(err, 'error'); return }
+      if (diseaseTypeName === 'Other' && !diseaseTypeOtherSpecify.trim()) {
+        showToast('Please specify the disease type.', 'error'); return
+      }
     }
     if (showRemedyFields) {
       if (!remedyDisasterId) { showToast('Please select the related disaster.', 'error'); return }
@@ -513,7 +529,8 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
         severity:            showIssueFields ? severity : '',
         mortality_count:     showIssueFields ? (mortalityCount || null) : null,
         area_affected_ha:    showIssueFields ? (areaAffected || null) : null,
-        disease_type:        showIssueFields ? (diseaseTypeId || null) : null,
+        disease_type:        showIssueFields && diseaseTypeName !== 'Other' ? (selectedDiseaseType?.id || null) : null,
+        disease_type_other_specify: showIssueFields && diseaseTypeName === 'Other' ? diseaseTypeOtherSpecify.trim() : '',
         vet_consulted:       showIssueFields ? vetConsulted : '',
         treatment_applied:   showIssueFields ? treatmentApplied : '',
         outcome:             showIssueFields ? outcome : '',
@@ -745,10 +762,14 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
                 <div className="grid grid-cols-2 gap-2 mb-2">
                   <div>
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Disease Type (optional)</label>
-                    <select value={diseaseTypeId} onChange={e => setDiseaseTypeId(e.target.value)} className={baseInputClasses}>
-                      <option value="">Select disease type</option>
-                      {diseaseTypes.map(dt => <option key={dt.id} value={dt.id}>{dt.name}</option>)}
-                    </select>
+                    <ComboboxWithOther
+                      options={diseaseTypes.map(dt => dt.name)}
+                      value={diseaseTypeName}
+                      otherValue={diseaseTypeOtherSpecify}
+                      onChange={setDiseaseTypeName}
+                      onOtherChange={setDiseaseTypeOtherSpecify}
+                      placeholder="Select disease type"
+                    />
                   </div>
                   <div>
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Vet Consulted</label>
@@ -756,14 +777,17 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
                       placeholder="Vet name, or N/A" className={baseInputClasses} />
                   </div>
                 </div>
-                {diseaseTypeId && (
+                {diseaseTypeName && diseaseTypeName !== 'Other' && (
                   <div className="mb-2 rounded-lg bg-white border border-rose-200 px-3 py-2">
                     {isLoadingGuide ? (
                       <p className="text-[11px] text-slate-400">Checking for a recommended treatment…</p>
                     ) : responseGuide?.recommended_treatment ? (
                       <>
-                        <p className="text-[11px] font-semibold text-rose-700 mb-0.5">Recommended treatment</p>
-                        <p className="text-[12px] text-slate-700">{responseGuide.recommended_treatment}</p>
+                        <p className="text-[11px] font-semibold text-rose-700 mb-0.5">Suggested treatment (not required — log what was actually applied below)</p>
+                        <p className="text-[12px] text-slate-700 mb-1">{responseGuide.recommended_treatment}</p>
+                        {responseGuide.notes && (
+                          <p className="text-[10px] italic text-slate-400">{responseGuide.notes}</p>
+                        )}
                       </>
                     ) : (
                       <p className="text-[11px] italic text-slate-500">
@@ -775,7 +799,7 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
                 <div className="mb-2">
                   <label className="text-xs font-medium text-slate-700 mb-1 block">Treatment Applied</label>
                   <input type="text" value={treatmentApplied} onChange={e => setTreatmentApplied(e.target.value)}
-                    placeholder="e.g. Salt bath, Antibiotic" className={baseInputClasses} />
+                    placeholder="e.g. Salt bath, isolated affected stock" className={baseInputClasses} />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-slate-700 mb-1 block">Outcome</label>

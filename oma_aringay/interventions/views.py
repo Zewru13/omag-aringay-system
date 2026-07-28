@@ -194,7 +194,13 @@ class BeneficiaryAdHocListCreateView(generics.ListCreateAPIView):
         return qs
 
     def perform_create(self, serializer):
-        serializer.save(program=None, recorded_by=self.request.user)
+        # Batch C — was hard-coded to program=None (which silently discarded
+        # any program the client sent); now respects whatever the serializer
+        # already validated (None if the client omitted it, a real
+        # InterventionProgram if the new "attach to a program" picker set
+        # one — validate() above already rejects a duplicate (program,
+        # farmer) pair either way).
+        serializer.save(recorded_by=self.request.user)
 
 
 class BeneficiaryAdHocDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -361,7 +367,8 @@ class FisherfolkBeneficiaryAdHocListCreateView(generics.ListCreateAPIView):
         return qs
 
     def perform_create(self, serializer):
-        serializer.save(program=None, recorded_by=self.request.user)
+        # Batch C — see BeneficiaryAdHocListCreateView.perform_create's comment.
+        serializer.save(recorded_by=self.request.user)
 
 
 class FisherfolkBeneficiaryAdHocDetailView(generics.RetrieveUpdateDestroyAPIView):

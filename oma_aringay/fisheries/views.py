@@ -239,7 +239,13 @@ class DiseaseTypeListCreateView(generics.ListCreateAPIView):
     serializer_class = DiseaseTypeSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     pagination_class = None
-    queryset = DiseaseType.objects.order_by('name')
+
+    def get_queryset(self):
+        qs = DiseaseType.objects.order_by('name')
+        species_id = self.request.query_params.get('species')
+        if species_id:
+            qs = qs.filter(species_options__id=species_id)
+        return qs
 
 
 class DiseaseTypeDetailView(generics.RetrieveUpdateDestroyAPIView):

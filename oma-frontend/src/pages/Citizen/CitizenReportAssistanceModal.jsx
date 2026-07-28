@@ -1,12 +1,26 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { HeartHandshake } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
+import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 
 const todayISO = () => new Date().toISOString().split('T')[0]
+
+// Batch C — matches interventions.models.InterventionProgram.SourceOfProgram
+// exactly (minus its own 'Other', appended by ComboboxWithOther). Same
+// reconciliation as CropAssistancePage/LogGovernmentAssistanceModal/
+// FisheriesAssistancePage — source_agency is a free CharField on the
+// backend either way, so this is a frontend-only choice-set alignment.
+const SOURCE_AGENCY_OPTIONS = [
+  'LGU - Aringay',
+  'Office of the Provincial Agriculturist',
+  'Department of Agriculture (DA)',
+  'Department of Agrarian Reform (DAR)',
+  'Non-Government Organization (NGO)',
+]
 
 // Batch 12: ORGANIZATION citizen's "Report Assistance" form — create AND
 // edit, ad-hoc (program=null), following LogGovernmentAssistanceModal's
@@ -26,11 +40,22 @@ export default function CitizenReportAssistanceModal({ domain, member, entry, on
   const [form, setForm] = useState({
     assistance_type: entry?.assistance_type || domain.assistanceTypeOptions[0],
     source_agency: entry?.source_agency || '',
+    source_agency_other: '',
     quantity: entry?.quantity || '',
     date_given: entry?.date_given || todayISO(),
     season: entry?.season || (domain.seasonOptions ? domain.seasonOptions[0] : ''),
     remarks: entry?.remarks || '',
+    // Batch C Step 2 — optional, create-only; stays null (ad-hoc) unless picked.
+    program: '',
   })
+  const [programs, setPrograms] = useState([])
+
+  useEffect(() => {
+    if (isEdit) return
+    api.get('/interventions/programs/')
+      .then((r) => setPrograms((Array.isArray(r.data) ? r.data : (r.data.results || [])).filter((p) => p.is_active)))
+      .catch(() => setPrograms([]))
+  }, [isEdit])
 
   const set = (field, value) => setForm((f) => ({ ...f, [field]: value }))
 
@@ -41,17 +66,25 @@ export default function CitizenReportAssistanceModal({ domain, member, entry, on
       setErrorMessage('Assistance type, quantity, and date are required.')
       return
     }
+    if (form.source_agency === 'Other' && !form.source_agency_other.trim()) {
+      setErrorMessage('Please specify the source agency.')
+      return
+    }
     setIsSubmitting(true)
     try {
       const year = new Date(form.date_given).getFullYear()
+      const { source_agency_other, program, ...rest } = form
+      const sourceAgency = form.source_agency === 'Other' ? source_agency_other.trim() : form.source_agency
       if (isEdit) {
-        await api.patch(domain.detailUrl(entry.id), { ...form, year })
+        await api.patch(domain.detailUrl(entry.id), { ...rest, source_agency: sourceAgency, year })
         showToast('Assistance report updated.', 'success')
       } else {
         await api.post(domain.createUrl, {
-          ...form,
+          ...rest,
+          source_agency: sourceAgency,
           [domain.personField]: domain.memberIdOf(member),
           year,
+          ...(program ? { program } : {}),
         })
         showToast('Assistance reported.', 'success')
       }
@@ -90,7 +123,13 @@ export default function CitizenReportAssistanceModal({ domain, member, entry, on
             <input type="text" className={baseInputClasses} placeholder="e.g. 2 bags, 1 unit" value={form.quantity} onChange={(e) => set('quantity', e.target.value)} />
           </FormField>
           <FormField label="Source Agency">
-            <input type="text" className={baseInputClasses} value={form.source_agency} onChange={(e) => set('source_agency', e.target.value)} />
+            <ComboboxWithOther
+              options={SOURCE_AGENCY_OPTIONS}
+              value={form.source_agency}
+              otherValue={form.source_agency_other}
+              onChange={(v) => set('source_agency', v)}
+              onOtherChange={(v) => set('source_agency_other', v)}
+            />
           </FormField>
         </div>
         {domain.seasonOptions ? (
@@ -102,6 +141,15 @@ export default function CitizenReportAssistanceModal({ domain, member, entry, on
         ) : (
           <FormField label="Season">
             <input type="text" className={baseInputClasses} value={form.season} onChange={(e) => set('season', e.target.value)} />
+          </FormField>
+        )}
+        {!isEdit && (
+          <FormField label="Attach to a formal program (optional)">
+            <select className={baseInputClasses} value={form.program} onChange={(e) => set('program', e.target.value)}>
+              <option value="">No program — standalone record</option>
+              {programs.map((p) => <option key={p.id} value={p.id}>{p.program_name} ({p.season} {p.year})</option>)}
+            </select>
+            <p className="mt-1 text-[11px] text-slate-500">Leave unselected to log this as a standalone record, same as today.</p>
           </FormField>
         )}
         <FormField label="Remarks">
