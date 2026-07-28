@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
+import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
-import SearchBar from '../../components/UI/SearchBar.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import CreateOrganizationModal from '../Organizations/CreateOrganizationModal.jsx'
 import EditOrganizationModal from '../Organizations/EditOrganizationModal.jsx'
@@ -99,13 +99,11 @@ function FisherfolkOrganizationsPage({ asTab = false }) {
         <div className="flex justify-end mb-3">{actionBtn}</div>
       )}
 
-      <div className="bg-white border border-[#E2E8E2] rounded-xl px-4 py-[10px] mb-4 flex items-center gap-2.5">
-        <SearchBar
-          placeholder="Search organizations by name or address..."
-          value={searchQuery}
-          onChange={setSearchQuery}
-        />
-      </div>
+      <FilterPanel
+        search={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchPlaceholder="Search organizations by name or address..."
+      />
 
       <DataTable
         columns={columns}

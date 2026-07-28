@@ -7,6 +7,7 @@ import Button from '../../components/UI/Button.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
+import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
@@ -238,41 +239,40 @@ export default function FisheriesAssistancePage({ asTab = false }) {
 
   const innerContent = (
     <div className="space-y-4">
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
-        <input
-          className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-[#1E4620] focus:outline-none"
-          placeholder="Search fisherfolk or LGU no."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <div className="flex justify-end">
+        <Button onClick={() => setShowLog(true)}>
+          <Plus size={15} className="mr-1" /> Log Government Assistance
+        </Button>
+      </div>
+
+      <FilterPanel
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search fisherfolk or LGU no."
+        activeCount={[Boolean(barangay), Boolean(source), Boolean(type), Boolean(year)].filter(Boolean).length}
+      >
         <BarangaySelect value={barangay} onChange={(e) => setBarangay(e.target.value)} includeAllOption />
         <input
-          className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-[#1E4620] focus:outline-none"
+          className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[7px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none"
           placeholder="Source of assistance"
           value={source}
           onChange={(e) => setSource(e.target.value)}
         />
         <input
-          className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-[#1E4620] focus:outline-none"
+          className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[7px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none"
           placeholder="Assistance type"
           value={type}
           onChange={(e) => setType(e.target.value)}
         />
         <select
-          className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-[#1E4620] focus:outline-none"
+          className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[7px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none"
           value={year}
           onChange={(e) => setYear(e.target.value)}
         >
           <option value="">All Years</option>
           {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
         </select>
-      </div>
-
-      <div className="flex justify-end">
-        <Button onClick={() => setShowLog(true)}>
-          <Plus size={15} className="mr-1" /> Log Government Assistance
-        </Button>
-      </div>
+      </FilterPanel>
 
       {assistance.length > 0 && (
         <div className="flex flex-wrap gap-3">

@@ -6,6 +6,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
+import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import GrowthProgressBar from '../../components/UI/GrowthProgressBar.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
@@ -17,6 +18,9 @@ import { useToast } from '../../context/ToastContext.jsx'
 import useRecordLock from '../../hooks/useRecordLock.js'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
+
+const filterSelectCls =
+  'rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[7px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none'
 
 const otherLabel = (value, specify) => (value === 'Other' && specify ? `Other — ${specify}` : value)
 
@@ -1794,16 +1798,7 @@ export default function CropMonitoringPage() {
   return (
     <PageLayout title="Crop Monitoring" subtitle="Track activities and progress for each crop.">
       <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-3 bg-white border border-[#E2E8E2] rounded-lg px-4 py-2.5">
-          <span className="text-[#A8BCA8] flex-shrink-0">
-            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          </span>
-          <input
-            className="flex-1 min-w-[180px] border-none bg-transparent text-[13px] text-[#1A2B1A] placeholder-[#A8BCA8] focus:outline-none"
-            placeholder="Search by crop or organization..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
+        <div className="flex justify-end">
           <button
             type="button"
             onClick={() => navigate('/crop-records?action=add')}
@@ -1812,31 +1807,27 @@ export default function CropMonitoringPage() {
             <Plus className="h-3.5 w-3.5" />
             Add Crop
           </button>
-          <select
-            className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[5px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none"
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value)}
-          >
+        </div>
+
+        <FilterPanel
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search by crop or organization..."
+          activeCount={[statusFilter !== 'Planted,Near Harvest', Boolean(seasonFilter), Boolean(yearFilter), Boolean(barangayFilter)].filter(Boolean).length}
+        >
+          <select className={filterSelectCls} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
             <option value="Planted,Near Harvest">Active Crops</option>
             <option value="Near Harvest">Near Harvest</option>
             <option value="Harvested">Harvested</option>
             <option value="Total Loss">Total Loss</option>
             <option value="all">All Status</option>
           </select>
-          <select
-            className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[5px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none"
-            value={seasonFilter}
-            onChange={e => setSeasonFilter(e.target.value)}
-          >
+          <select className={filterSelectCls} value={seasonFilter} onChange={e => setSeasonFilter(e.target.value)}>
             <option value="">All Seasons</option>
             <option value="Dry">Dry Season</option>
             <option value="Wet">Wet Season</option>
           </select>
-          <select
-            className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[5px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none"
-            value={yearFilter}
-            onChange={e => setYearFilter(e.target.value)}
-          >
+          <select className={filterSelectCls} value={yearFilter} onChange={e => setYearFilter(e.target.value)}>
             <option value="">All Years</option>
             {Array.from({ length: 8 }, (_, i) => new Date().getFullYear() + 1 - i).map((y) => (
               <option key={y} value={y}>{y}</option>
@@ -1849,7 +1840,7 @@ export default function CropMonitoringPage() {
               <button type="button" onClick={() => setBarangayFilter('')} className="ml-0.5 hover:text-rose-600">✕</button>
             </span>
           )}
-        </div>
+        </FilterPanel>
 
         {error && <ErrorMessage message={error} />}
 

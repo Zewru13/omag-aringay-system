@@ -3,7 +3,7 @@ import { ArrowLeft, Download, Edit, Plus } from "lucide-react"
 import { useParams, Link } from "react-router-dom"
 import PageLayout from "../../components/Layout/PageLayout.jsx"
 import DataTable from "../../components/UI/DataTable.jsx"
-import SearchBar from "../../components/UI/SearchBar.jsx"
+import FilterPanel from "../../components/UI/FilterPanel.jsx"
 import Button from "../../components/UI/Button.jsx"
 import StatusPill from "../../components/UI/StatusPill.jsx"
 import api from "../../api/axiosInstance.js"
@@ -169,13 +169,11 @@ function ProgramDetailPage() {
             </div>
           </div>
 
-          <div className="mb-4">
-            <SearchBar
-              placeholder="Search by farmer name or barangay..."
-              value={searchQuery}
-              onChange={setSearchQuery}
-            />
-          </div>
+          <FilterPanel
+            search={searchQuery}
+            onSearchChange={setSearchQuery}
+            searchPlaceholder="Search by farmer name or barangay..."
+          />
           <DataTable columns={columns} data={tableData} isLoading={isLoading} />
         </section>
       </div>

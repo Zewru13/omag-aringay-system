@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, ClipboardList, Edit, Plus } from 'lucide-react'
+import { ArrowLeft, ClipboardList, Edit, Pencil, Plus, Power, Trash2 } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import ActivateCitizenAccountButton from '../../components/ActivateCitizenAccountButton.jsx'
@@ -9,6 +9,7 @@ import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import LoadingSpinner from '../../components/UI/LoadingSpinner.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
@@ -286,18 +287,14 @@ function FisherfolkDetailPage() {
       <StatusPill tone={p.is_active ? 'green' : 'slate'}>{p.is_active ? 'Active' : 'Inactive'}</StatusPill>
     ),
     actions_cell: (isAdmin || isEvaluator) ? (
-      <div className="flex items-center justify-end gap-3 text-[12px] font-medium">
-        <button type="button" className="text-[#1B4D2E] hover:underline" onClick={() => setEditingPond(p)}>
-          Edit
-        </button>
-        <button type="button" className="text-[#4A5E4A] hover:underline" onClick={() => toggleActive(p)}>
-          {p.is_active ? 'Deactivate' : 'Activate'}
-        </button>
-        {p.stocking_record_count === 0 && (
-          <button type="button" className="text-rose-500 hover:underline" onClick={() => setDeletingPond(p)}>
-            Delete
-          </button>
-        )}
+      <div className="flex justify-end">
+        <RowActions
+          actions={[
+            { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditingPond(p) },
+            { key: 'toggle', label: p.is_active ? 'Deactivate' : 'Activate', icon: Power, onClick: () => toggleActive(p) },
+            p.stocking_record_count === 0 && { key: 'delete', label: 'Delete', icon: Trash2, tone: 'rose', onClick: () => setDeletingPond(p) },
+          ]}
+        />
       </div>
     ) : null,
   }))

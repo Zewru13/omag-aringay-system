@@ -10,6 +10,7 @@ import {
   HandHeart,
   HeartHandshake,
   HeartPulse,
+  History,
   LayoutDashboard,
   Leaf,
   LineChart,
@@ -36,13 +37,30 @@ import logo from "../../assets/LOGO OMAg.jpg";
 // nests another (Organizations was split out to its own top-level group).
 
 const DASHBOARD_ITEM = { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" };
-const REPORTS_ITEM = { to: "/reports", icon: FileBarChart, label: "Reports" };
+
+// Batch A: Reports was a single leaf item landing on ReportsPage's default
+// tab (Harvested Crop) no matter which report you actually wanted — now a
+// group of 5 deep-links, same ?tab= convention as every other tabbed hub
+// below, so each one lands directly on the right report.
+const REPORTS_GROUP = {
+  key: "reports",
+  label: "Reports",
+  icon: FileBarChart,
+  items: [
+    { to: "/reports?tab=harvested", icon: Wheat, label: "Harvested Crop Report" },
+    { to: "/reports?tab=organization", icon: Building2, label: "Organization List" },
+    { to: "/reports?tab=crop_options", icon: Leaf, label: "Crop Options" },
+    { to: "/reports?tab=fisheries", icon: Fish, label: "Fisheries Production" },
+    { to: "/reports?tab=farmer_crop_history", icon: History, label: "Farmer Crop History" },
+  ],
+};
 
 // FarmersHub/FisherfolkHub both default to the "registry" tab when the URL
 // carries no ?tab= at all (`searchParams.get('tab') || 'registry'`) — this
 // mirrors that so a bare /farmers (e.g. an old link, or the farmer detail
 // page's back-navigation) still correctly highlights "Farmers", not nothing.
-const DEFAULT_TAB_BY_PATH = { "/farmers": "registry", "/fisherfolk": "registry" };
+// /reports mirrors the same idea for its default "harvested" report.
+const DEFAULT_TAB_BY_PATH = { "/farmers": "registry", "/fisherfolk": "registry", "/reports": "harvested" };
 
 const GROUPS = [
   {
@@ -376,7 +394,7 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
             <NavGroup key={group.key} group={group} isCollapsed={isCollapsed} />
           ))}
 
-          <LeafItem {...REPORTS_ITEM} isCollapsed={isCollapsed} />
+          <NavGroup group={REPORTS_GROUP} isCollapsed={isCollapsed} />
 
           {isAdmin && (
             <>

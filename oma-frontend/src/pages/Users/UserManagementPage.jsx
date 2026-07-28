@@ -2,10 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ChevronLeft, ChevronRight, MailWarning, Pencil, RotateCcw } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
+import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import CreateUserModal from './CreateUserModal.jsx'
 import EditUserModal from './EditUserModal.jsx'
+
+const filterSelectCls =
+  'border border-[#E2E8E2] rounded-lg px-3 py-[7px] text-[13px] bg-[#F9FAF9] text-[#1A2B1A] focus:outline-none focus:border-[#1B4D2E] focus:ring-2 focus:ring-[#1B4D2E]/10 transition-colors'
 
 const COLUMNS = [
   { key: 'name_cell',   label: 'NAME' },
@@ -183,21 +187,14 @@ export default function UserManagementPage() {
       }
     >
       <div className="space-y-4">
-        {/* Filter bar */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center bg-white border border-[#E2E8E2] rounded-lg px-4 py-2.5">
-          <div className="relative flex-1">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8BCA8]">
-              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-            </span>
-            <input
-              className="w-full border-none bg-transparent pl-8 pr-2 text-[13px] text-[#1A2B1A] placeholder-[#A8BCA8] focus:outline-none"
-              placeholder="Search by name or email..."
-              value={search}
-              onChange={e => { setSearch(e.target.value); setPage(1) }}
-            />
-          </div>
+        <FilterPanel
+          search={search}
+          onSearchChange={(v) => { setSearch(v); setPage(1) }}
+          searchPlaceholder="Search by name or email..."
+          activeCount={roleFilter !== 'All' ? 1 : 0}
+        >
           <select
-            className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[5px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none"
+            className={filterSelectCls}
             value={roleFilter}
             onChange={e => { setRoleFilter(e.target.value); setPage(1) }}
           >
@@ -205,7 +202,7 @@ export default function UserManagementPage() {
             <option value="ADMIN">Admin</option>
             <option value="EVALUATOR">Evaluator</option>
           </select>
-        </div>
+        </FilterPanel>
 
         {/* Table */}
         <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">

@@ -763,9 +763,11 @@ function OrganizationDetailPage() {
       subtitle="View members, equipment, and organization information"
     >
       <div className="space-y-4">
+        {/* Batch A: was hardcoded to /organizations, which has no route (404) —
+            the real destination is the type-specific hub's Organizations tab. */}
         <Link
           className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#4A5E4A] hover:text-[#1A2B1A] transition-colors"
-          to="/organizations"
+          to={type === "farmers" ? "/farmers?tab=organizations" : "/fisherfolk?tab=organizations"}
         >
           <ArrowLeft size={15} />
           Back to Organizations

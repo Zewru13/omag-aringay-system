@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Building2, ChevronDown, ChevronRight, Download, FileText, Fish, History, Leaf, Search, User, Wheat } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
@@ -1129,8 +1130,20 @@ function FarmerCropHistoryTab() {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
+// Batch A: the sidebar's Reports entry now deep-links directly to each
+// report via ?tab= (same query-param convention FarmersHub/FisherfolkHub/
+// CropSettingsHub already use) — activeTab reads from the URL instead of
+// local state, so those sidebar links land straight on the right report
+// instead of always opening on Harvested Crop and requiring a manual tab
+// click. The in-page tab row stays (unlike Change 1's Farmers/Fisherfolk
+// hubs, nothing here duplicates a separate sidebar destination one-for-one
+// without it — this is the only way to switch reports when the sidebar is
+// collapsed/closed) but now drives the same URL, so it stays in sync with
+// the sidebar's active-item highlighting.
 export default function ReportsPage() {
-  const [activeTab, setActiveTab] = useState('harvested')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = TABS.some(t => t.id === searchParams.get('tab')) ? searchParams.get('tab') : 'harvested'
+  const setActiveTab = (id) => setSearchParams({ tab: id }, { replace: true })
 
   return (
     <PageLayout title="Report Generation" subtitle="Generate and export data from different modules">

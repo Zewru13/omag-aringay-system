@@ -17,6 +17,7 @@ import PageLayout from "../../components/Layout/PageLayout.jsx";
 import RowActions from "../../components/UI/RowActions.jsx";
 import ConfirmDialog from "../../components/UI/ConfirmDialog.jsx";
 import ErrorMessage from "../../components/UI/ErrorMessage.jsx";
+import FilterPanel from "../../components/UI/FilterPanel.jsx";
 import HarvestVarianceBadge from "../../components/UI/HarvestVarianceBadge.jsx";
 import FormField, { baseInputClasses } from "../../components/UI/FormField.jsx";
 import ModalShell from "../../components/UI/ModalShell.jsx";
@@ -73,6 +74,9 @@ const COLUMNS = [
   { key: "status_cell", label: "STATUS" },
   { key: "actions_cell", label: "ACTIONS" },
 ];
+
+const filterSelectCls =
+  "rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[7px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none";
 
 const STATUS_FILTER_OPTIONS = [
   "All Status",
@@ -1163,54 +1167,25 @@ export default function CropInformationPage() {
       }
     >
       <div className="space-y-4">
-        {/* Filter bar */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center bg-white border border-[#E2E8E2] rounded-lg px-4 py-2.5">
-          <div className="relative flex-1">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8BCA8]">
-              <svg
-                width="14"
-                height="14"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.35-4.35" />
-              </svg>
-            </span>
-            <input
-              className="w-full border-none bg-transparent pl-8 pr-2 text-[13px] text-[#1A2B1A] placeholder-[#A8BCA8] focus:outline-none"
-              placeholder="Search by crop, organization..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-          <select
-            className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[5px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
+        <FilterPanel
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search by crop, organization..."
+          activeCount={[statusFilter !== 'All Status', Boolean(seasonFilter), Boolean(yearFilter)].filter(Boolean).length}
+        >
+          <select className={filterSelectCls} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
             {STATUS_FILTER_OPTIONS.map((s) => (
               <option key={s} value={s}>
                 {s}
               </option>
             ))}
           </select>
-          <select
-            className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[5px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none"
-            value={seasonFilter}
-            onChange={(e) => setSeasonFilter(e.target.value)}
-          >
+          <select className={filterSelectCls} value={seasonFilter} onChange={(e) => setSeasonFilter(e.target.value)}>
             <option value="">All Seasons</option>
             <option value="Dry">Dry Season</option>
             <option value="Wet">Wet Season</option>
           </select>
-          <select
-            className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[5px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none"
-            value={yearFilter}
-            onChange={(e) => setYearFilter(e.target.value)}
-          >
+          <select className={filterSelectCls} value={yearFilter} onChange={(e) => setYearFilter(e.target.value)}>
             <option value="">All Years</option>
             {Array.from(
               { length: 8 },
@@ -1221,7 +1196,7 @@ export default function CropInformationPage() {
               </option>
             ))}
           </select>
-        </div>
+        </FilterPanel>
 
         {error && <ErrorMessage message={error} />}
 
