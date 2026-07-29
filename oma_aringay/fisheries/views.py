@@ -223,9 +223,26 @@ class SpeciesActivityStageDeleteView(generics.DestroyAPIView):
 
 class FeedTypeListCreateView(generics.ListCreateAPIView):
     serializer_class = FeedTypeSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     pagination_class = None
-    queryset = FeedType.objects.order_by('name')
+
+    def get_permissions(self):
+        # Batch F — GET widened to any authenticated user: FeedType is
+        # shared reference data with no per-record owner (unlike
+        # CropActivitySuggestionsView's IsStaffOrOwnRecordCitizen widening
+        # in Batch E, there's no ownership check to make here), needed so
+        # a citizen's activity-log form can offer a species-scoped feed
+        # type picker. Write access (POST/PATCH/DELETE) stays staff-only.
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsAdminOrEvaluator()]
+
+    def get_queryset(self):
+        # Same species-scoping pattern as DiseaseTypeListCreateView (Batch C).
+        qs = FeedType.objects.order_by('name')
+        species_id = self.request.query_params.get('species')
+        if species_id:
+            qs = qs.filter(species_options__id=species_id)
+        return qs
 
 
 class FeedTypeDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -280,10 +297,30 @@ class PondListCreateView(generics.ListCreateAPIView):
     """Ponds belonging to one fisherfolk. Returns both active and inactive
     ponds — the Fisherfolk Detail page's management table needs to show
     deactivated ponds too; the stocking-form pond selector filters to
-    is_active on the frontend."""
+    is_active on the frontend.
+
+    Batch F — GET widened to IsStaffOrOwnRecordCitizen so a fisherfolk's
+    own citizen account can list their own ponds (including unstocked
+    ones, which never appear in the StockingRecord list) for the home
+    screen's "My Ponds" section. Write access (POST) stays staff-only —
+    citizens still cannot create ponds.
+    """
     serializer_class = PondSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     pagination_class = None
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAuthenticated(), IsStaffOrOwnRecordCitizen()]
+        return [IsAuthenticated(), IsAdminOrEvaluator()]
+
+    def get_target_owner_id(self, request):
+        # The fisherfolk being queried IS the URL kwarg itself here — no
+        # parent object to look up, unlike stocking logs resolving a
+        # monitoring/stocking id's owner.
+        try:
+            return int(self.kwargs['fisherfolk_id'])
+        except (TypeError, ValueError):
+            return None
 
     def get_queryset(self):
         return Pond.objects.filter(fisherfolk_id=self.kwargs['fisherfolk_id']).order_by('date_created')

@@ -117,6 +117,53 @@ export const labels = {
     },
   },
 
+  // ── New Fisherfolk home screen (Batch F) ────────────────────────────────
+  fisherfolkHome: {
+    loading: 'Loading your ponds...',
+    loadError: 'Unable to load your ponds.',
+    feedToday: {
+      title: 'Feed Today',
+      overdueBadge: 'Overdue',
+      dueTodayBadge: 'Due Today',
+      emptyTitle: "You're up to date",
+      emptyBody: 'No ponds are due for feeding right now.',
+      dueSummary: (count) => `${count} pond${count === 1 ? '' : 's'} due for feeding`,
+      lastFed: (feedType, qtyKg, date) => `Last fed: ${feedType || 'Unspecified feed'}${qtyKg ? ` · ${qtyKg} kg` : ''} · ${date}`,
+      noPriorFeeding: 'No prior feeding logged for this pond yet.',
+      repeatButton: "Repeat Yesterday's Feeding",
+      logSeparatelyLink: 'or log each pond separately',
+    },
+    confirmGuard: {
+      title: 'Confirm Feeding Log',
+      body: 'This will log the following for each pond, dated today:',
+      pondLine: (pondName, feedType, qtyKg) => `${pondName}: ${feedType || 'Unspecified feed'}${qtyKg ? ` · ${qtyKg} kg` : ''}`,
+      confirmButton: 'Confirm & Log All',
+      cancelButton: 'Cancel',
+      skippedNote: (count) => `${count} pond${count === 1 ? '' : 's'} skipped — no prior feeding entry to repeat. Log ${count === 1 ? 'it' : 'them'} manually below.`,
+      partialSuccess: (ok, total) => `Logged ${ok} of ${total} ponds.`,
+    },
+    myPonds: {
+      title: 'My Ponds',
+      empty: "You don't have any ponds on file yet. Visit the office to have one started.",
+      unstockedLabel: 'Not currently stocked',
+      speciesArea: (species, area) => `${species} · ${area} ha`,
+      fingerlings: (count) => `${count} fingerlings`,
+      progressDayOf: (elapsed, total) => `Day ${elapsed} of ${total}`,
+      expectedHarvest: (date) => `Expected harvest: ${date}`,
+      logFeeding: 'Log Feeding',
+      logActivity: 'Log Activity',
+    },
+    secondary: {
+      illnessTitle: 'Log Illness or Mortality',
+      illnessSubtitle: 'Report a health issue in a pond',
+    },
+    pondPicker: {
+      title: 'Select a Pond',
+      subtitle: 'Which pond is this about?',
+      noPonds: 'No stocked ponds to report against.',
+    },
+  },
+
   // ── MyRecordsPanel (legacy record list — still used for Fisherfolk) ───
   myRecordsPanel: {
     loading: (recordLabel) => `Loading your ${recordLabel}s...`,
@@ -152,6 +199,21 @@ export const labels = {
       pestDiseaseName: 'Pest / Disease Name',
       areaAffected: 'Area Affected (ha)',
       severity: 'Severity',
+      // Batch F — fisheries-domain conditional fields
+      waterFishCondition: 'Water / Fish Condition',
+      feedType: 'Feed Type',
+      feedQuantity: 'Feed Quantity (kg)',
+      feedBrand: 'Feed Brand',
+      mortalityCount: 'Mortality Count',
+      vetConsulted: 'Vet Consulted',
+      treatmentApplied: 'Treatment Applied',
+      outcome: 'Outcome',
+      recommendations: 'Recommendations',
+    },
+    outcomeOptions: {
+      Recovered: 'Recovered',
+      Ongoing: 'Ongoing',
+      'Losses Incurred': 'Losses Incurred',
     },
     dateShortcuts: {
       today: 'Today',
@@ -178,10 +240,11 @@ export const labels = {
     errors: {
       dateRequired: 'Date of activity is required.',
       specifyActivity: 'Please specify the activity.',
+      specifyFeedType: 'Please specify the feed type.',
       lockedByOther: 'Someone else is currently logging this record. Please wait.',
       areaAffectedRequired: 'Area affected is required.',
       areaAffectedInvalid: 'Area affected must be greater than 0.',
-      areaAffectedExceeds: (plantedArea) => `Area affected cannot exceed the ${plantedArea} ha planted.`,
+      areaAffectedExceeds: (recordArea) => `Area affected cannot exceed the ${recordArea} ha on record.`,
     },
     submitNew: 'Save Log',
     submitEdit: 'Save Changes',

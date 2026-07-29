@@ -2,13 +2,10 @@ import { useState } from 'react'
 import { LogOut } from 'lucide-react'
 import logo from '../../assets/LOGO OMAg.jpg'
 import { useAuth } from '../../context/AuthContext.jsx'
-import MyRecordsPanel from './MyRecordsPanel.jsx'
-import MyYieldAnalysisSection from './MyYieldAnalysisSection.jsx'
-import MyAssistanceHistorySection from './MyAssistanceHistorySection.jsx'
 import MyOrgReportingSection from './MyOrgReportingSection.jsx'
-import { FISHERIES_DOMAIN } from './citizenDomainConfig.js'
 import { FARMERS_ORG_DOMAIN, FISHERFOLK_ORG_DOMAIN } from './orgDomainConfig.js'
 import FarmerHomeScreen from './FarmerHomeScreen.jsx'
+import FisherfolkHomeScreen from './FisherfolkHomeScreen.jsx'
 import { labels } from './labels.js'
 
 // Batch 10 built the read-only proof-of-chain overview below. Batch 11
@@ -59,12 +56,16 @@ export default function CitizenHomePage() {
 
   const [tab, setTab] = useState('overview')
 
-  // Batch E — Farmer gets the new task-first, single-scroll home screen
-  // (see FarmerHomeScreen.jsx); Fisherfolk/Organization keep this existing
-  // tab layout unchanged this batch (redesign scoped to Farmer per the
-  // task title — no permission/behavior change either way).
+  // Batch E gave Farmer the new task-first, single-scroll home screen (see
+  // FarmerHomeScreen.jsx); Batch F does the same for Fisherfolk (see
+  // FisherfolkHomeScreen.jsx), adapted for multiple ponds and daily
+  // feeding. Organization keeps this existing tab layout — its own
+  // reporting-focused UI wasn't in scope for either redesign.
   if (isFarmer && record) {
     return <FarmerHomeScreen record={record} onLogout={logout} />
+  }
+  if (isFisherfolk && record) {
+    return <FisherfolkHomeScreen record={record} onLogout={logout} />
   }
 
   return (
@@ -102,10 +103,8 @@ export default function CitizenHomePage() {
           <>
             <div className="mt-6 flex gap-1 border-b border-[#E2E8E2] overflow-x-auto">
               <TabButton active={tab === 'overview'} onClick={() => setTab('overview')}>{labels.home.tabs.overview}</TabButton>
-              {isFisherfolk && <TabButton active={tab === 'fisheries'} onClick={() => setTab('fisheries')}>{labels.home.tabs.myStockingRecords}</TabButton>}
-              {!isOrg && <TabButton active={tab === 'yield'} onClick={() => setTab('yield')}>{labels.home.tabs.myYieldAnalysis}</TabButton>}
               <TabButton active={tab === 'assistance'} onClick={() => setTab('assistance')}>
-                {isOrg ? labels.home.tabs.reportAssistance : labels.home.tabs.myAssistanceHistory}
+                {labels.home.tabs.reportAssistance}
               </TabButton>
             </div>
 
@@ -115,28 +114,13 @@ export default function CitizenHomePage() {
                   <div className="grid gap-5 sm:grid-cols-2">
                     <Field label={labels.home.overviewFields.name} value={record.label} />
                     <Field label={labels.home.overviewFields.recordType} value={recordTypeLabel} />
-                    <Field label={isOrg ? labels.home.overviewFields.registrationNumber : labels.home.overviewFields.rsbsaNumber} value={isOrg ? record.registration_number : record.rsbsa_number} />
+                    <Field label={labels.home.overviewFields.registrationNumber} value={record.registration_number} />
                     <Field label={labels.home.overviewFields.barangay} value={record.barangay} />
                   </div>
                 </div>
               )}
 
-              {tab === 'fisheries' && isFisherfolk && <MyRecordsPanel domain={FISHERIES_DOMAIN} />}
-
-              {tab === 'yield' && isFisherfolk && (
-                <MyYieldAnalysisSection
-                  endpoint="/fisheries/yield-analysis/"
-                  cropLabel={labels.yieldAnalysis.fisheriesCropLabel}
-                  cropKey="species"
-                  dateLabel={labels.yieldAnalysis.fisheriesDateLabel}
-                  dateKey="date_stocked"
-                />
-              )}
-
-              {tab === 'assistance' && isFisherfolk && (
-                <MyAssistanceHistorySection endpoint="/interventions/my-fisherfolk-beneficiary-history/" />
-              )}
-              {tab === 'assistance' && isOrg && orgDomain && (
+              {tab === 'assistance' && orgDomain && (
                 <MyOrgReportingSection domain={orgDomain} orgId={record.id} />
               )}
             </div>
