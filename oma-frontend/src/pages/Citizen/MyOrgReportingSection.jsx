@@ -5,6 +5,7 @@ import Button from '../../components/UI/Button.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import CitizenReportAssistanceModal from './CitizenReportAssistanceModal.jsx'
+import { labels } from './labels.js'
 
 // Batch 12: ORGANIZATION citizen's beneficiary-reporting home — a member
 // picker scoped to THIS org's actual members (via memberSearchUrl, which
@@ -30,7 +31,7 @@ export default function MyOrgReportingSection({ domain, orgId }) {
       const r = await api.get(domain.historyUrl)
       setHistory(r.data)
     } catch {
-      showToast('Unable to load your reporting history.', 'error')
+      showToast(labels.orgReporting.errors.loadHistoryFailed, 'error')
     } finally {
       setIsLoadingHistory(false)
     }
@@ -64,22 +65,22 @@ export default function MyOrgReportingSection({ domain, orgId }) {
     <div className="space-y-6">
       <section className="rounded-xl border border-[#E2E8E2] bg-white p-5">
         <h4 className="text-[12px] font-semibold uppercase tracking-wider text-[#7A8E7A] mb-3">
-          Report Assistance for a Member
+          {labels.orgReporting.reportForMemberTitle}
         </h4>
         {!selectedMember ? (
           <div className="relative">
             <input
               type="text"
               className={baseInputClasses}
-              placeholder={`Search this organization's ${domain.personLabel.toLowerCase()} members by name...`}
+              placeholder={labels.orgReporting.searchPlaceholder(domain.personLabel.toLowerCase())}
               value={searchTerm}
               onChange={(e) => handleSearch(e.target.value)}
             />
             {searchTerm && (
               <div className="mt-2 max-h-56 overflow-y-auto rounded-xl border border-[#E2E8E2]">
-                {isSearching && <p className="p-3 text-center text-[13px] text-[#7A8E7A]">Searching...</p>}
+                {isSearching && <p className="p-3 text-center text-[13px] text-[#7A8E7A]">{labels.orgReporting.searching}</p>}
                 {!isSearching && members.length === 0 && (
-                  <p className="p-3 text-center text-[13px] text-[#7A8E7A]">No members found.</p>
+                  <p className="p-3 text-center text-[13px] text-[#7A8E7A]">{labels.orgReporting.noMembersFound}</p>
                 )}
                 {!isSearching && members.map((m) => (
                   <button
@@ -102,12 +103,12 @@ export default function MyOrgReportingSection({ domain, orgId }) {
               <p className="text-[11px] text-[#7A8E7A]">{domain.memberSubtitle(selectedMember)}</p>
             </div>
             <div className="flex items-center gap-2">
-              <Button size="sm" icon={Plus} onClick={() => setShowReportModal(true)}>Report Assistance</Button>
+              <Button size="sm" icon={Plus} onClick={() => setShowReportModal(true)}>{labels.orgReporting.reportAssistance}</Button>
               <button
                 type="button"
                 onClick={() => setSelectedMember(null)}
                 className="rounded-lg p-2 text-[#7A8E7A] hover:bg-white transition-colors"
-                aria-label="Clear selection"
+                aria-label={labels.orgReporting.clearSelection}
               >
                 <X size={14} />
               </button>
@@ -118,13 +119,13 @@ export default function MyOrgReportingSection({ domain, orgId }) {
 
       <section>
         <h4 className="text-[12px] font-semibold uppercase tracking-wider text-[#7A8E7A] mb-2">
-          Your Reporting History
+          {labels.orgReporting.historyTitle}
         </h4>
         {isLoadingHistory ? (
-          <p className="text-[13px] text-[#7A8E7A] italic">Loading...</p>
+          <p className="text-[13px] text-[#7A8E7A] italic">{labels.orgReporting.loading}</p>
         ) : history.length === 0 ? (
           <p className="rounded-xl border border-[#E2E8E2] bg-white p-6 text-[13px] italic text-[#A8BCA8]">
-            You haven't reported any assistance yet.
+            {labels.orgReporting.historyEmpty}
           </p>
         ) : (
           <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white">
@@ -132,9 +133,9 @@ export default function MyOrgReportingSection({ domain, orgId }) {
               <thead>
                 <tr className="border-b border-[#E2E8E2] text-left text-[11px] uppercase tracking-wider text-[#7A8E7A]">
                   <th className="px-4 py-2">{domain.personLabel}</th>
-                  <th className="px-4 py-2">Type</th>
-                  <th className="px-4 py-2">Quantity</th>
-                  <th className="px-4 py-2">Date Given</th>
+                  <th className="px-4 py-2">{labels.orgReporting.columns.type}</th>
+                  <th className="px-4 py-2">{labels.orgReporting.columns.quantity}</th>
+                  <th className="px-4 py-2">{labels.orgReporting.columns.dateGiven}</th>
                   <th className="px-4 py-2"></th>
                 </tr>
               </thead>
@@ -144,7 +145,7 @@ export default function MyOrgReportingSection({ domain, orgId }) {
                     <td className="px-4 py-2 text-[#1A2B1A]">
                       {domain.key === 'farmers_org' ? rec.farmer_full_name : rec.fisherfolk_full_name}
                     </td>
-                    <td className="px-4 py-2 text-[#4A5E4A]">{rec.assistance_type || (rec.program ? 'Program Distribution' : '—')}</td>
+                    <td className="px-4 py-2 text-[#4A5E4A]">{rec.assistance_type || (rec.program ? labels.orgReporting.programDistribution : labels.common.unknown)}</td>
                     <td className="px-4 py-2 text-[#4A5E4A]">{rec.quantity_given ? `${rec.quantity_given} ${rec.unit || ''}` : (rec.quantity || '—')}</td>
                     <td className="px-4 py-2 text-[#4A5E4A]">{rec.date_given}</td>
                     <td className="px-4 py-2 text-right">
@@ -153,7 +154,7 @@ export default function MyOrgReportingSection({ domain, orgId }) {
                         onClick={() => setEditEntry(rec)}
                         className="flex items-center gap-1 text-[12px] font-medium text-[#1B4D2E] hover:underline ml-auto"
                       >
-                        <Pencil size={12} /> Edit
+                        <Pencil size={12} /> {labels.common.edit}
                       </button>
                     </td>
                   </tr>

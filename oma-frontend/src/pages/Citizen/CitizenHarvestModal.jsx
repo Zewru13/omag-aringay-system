@@ -6,18 +6,19 @@ import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import useRecordLock from '../../hooks/useRecordLock.js'
+import { labels } from './labels.js'
 
 const todayISO = () => new Date().toISOString().split('T')[0]
 
 const UNIT_OPTIONS = [
-  { value: 'kg', label: 'Kilograms (kg)' },
-  { value: 'bags', label: 'Bags (50 kg/bag)' },
-  { value: 'cavan', label: 'Cavan (50 kg/cavan)' },
-  { value: 'sacks', label: 'Sacks' },
-  { value: 'pieces', label: 'Pieces/Heads' },
-  { value: 'bundles', label: 'Bundles' },
-  { value: 'boxes', label: 'Boxes' },
-  { value: 'other', label: 'Other' },
+  { value: 'kg', label: labels.harvest.unitOptions.kg },
+  { value: 'bags', label: labels.harvest.unitOptions.bags },
+  { value: 'cavan', label: labels.harvest.unitOptions.cavan },
+  { value: 'sacks', label: labels.harvest.unitOptions.sacks },
+  { value: 'pieces', label: labels.harvest.unitOptions.pieces },
+  { value: 'bundles', label: labels.harvest.unitOptions.bundles },
+  { value: 'boxes', label: labels.harvest.unitOptions.boxes },
+  { value: 'other', label: labels.harvest.unitOptions.other },
 ]
 
 // Batch 11: citizen-facing harvest form — create AND edit, for both domains.
@@ -65,27 +66,27 @@ export default function CitizenHarvestModal({ domain, record, harvest, onClose, 
     e.preventDefault()
     setErrorMessage('')
     if (!isEdit && recordLock.lockedByOther) {
-      setErrorMessage('Someone else is currently logging this record. Please wait.')
+      setErrorMessage(labels.harvest.errors.lockedByOther)
       return
     }
     setIsSubmitting(true)
     try {
       if (isEdit) {
         await api.patch(domain.harvestDetailUrl(harvest.id), form)
-        showToast('Harvest record updated.', 'success')
+        showToast(labels.harvest.successEdit, 'success')
       } else if (isCrop) {
         await api.post(domain.harvestCreateUrl(), { ...form, monitoring_record: record.id })
-        showToast('Harvest recorded.', 'success')
+        showToast(labels.harvest.successNew, 'success')
       } else {
         await api.post(domain.harvestCreateUrl(record.id), form)
-        showToast('Harvest recorded.', 'success')
+        showToast(labels.harvest.successNew, 'success')
       }
       onSuccess()
       onClose()
     } catch (err) {
       const data = err?.response?.data
       const firstError = data && typeof data === 'object' ? Object.values(data).flat()[0] : null
-      setErrorMessage(firstError || data?.detail || 'Unable to save harvest.')
+      setErrorMessage(firstError || data?.detail || labels.harvest.errors.genericSaveError)
     } finally {
       setIsSubmitting(false)
     }
@@ -93,7 +94,7 @@ export default function CitizenHarvestModal({ domain, record, harvest, onClose, 
 
   return (
     <ModalShell
-      title={isEdit ? 'Edit Harvest' : 'Record Harvest'}
+      title={isEdit ? labels.harvest.titleEdit : labels.harvest.titleNew}
       subtitle={domain.recordTitle(record)}
       icon={Tractor}
       onClose={onClose}
@@ -101,8 +102,8 @@ export default function CitizenHarvestModal({ domain, record, harvest, onClose, 
     >
       {blockedByOther && (
         <div className="mb-4 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-[12px] text-amber-800">
-          🔒 <strong>{recordLock.lockedByOther.name}</strong> is currently logging this record. Please wait
-          {recordLock.secondsRemaining ? ` (~${Math.ceil(recordLock.secondsRemaining / 60)} min)` : ''}.
+          🔒 <strong>{recordLock.lockedByOther.name}</strong> {labels.common.lockedByOtherSuffix}
+          {recordLock.secondsRemaining ? labels.common.lockedByOtherMinutes(Math.ceil(recordLock.secondsRemaining / 60)) : ''}.
         </div>
       )}
       <form className="space-y-4" onSubmit={handleSubmit}>
@@ -110,41 +111,41 @@ export default function CitizenHarvestModal({ domain, record, harvest, onClose, 
           {isCrop ? (
             <>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <FormField label="Season" required>
+                <FormField label={labels.harvest.fields.season} required>
                   <select className={baseInputClasses} value={form.season} onChange={(e) => set('season', e.target.value)}>
                     <option value="Dry">Dry</option>
                     <option value="Wet">Wet</option>
                   </select>
                 </FormField>
-                <FormField label="Year" required>
+                <FormField label={labels.harvest.fields.year} required>
                   <input type="number" className={baseInputClasses} value={form.year} onChange={(e) => set('year', e.target.value)} />
                 </FormField>
               </div>
-              <FormField label="Crop Name" required>
+              <FormField label={labels.harvest.fields.cropName} required>
                 <input type="text" className={baseInputClasses} value={form.crop_name} onChange={(e) => set('crop_name', e.target.value)} />
               </FormField>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <FormField label="Harvest Start Date" required>
+                <FormField label={labels.harvest.fields.harvestStartDate} required>
                   <input
                     type="date" max={todayISO()} className={baseInputClasses}
                     value={form.harvest_start_date} onChange={(e) => set('harvest_start_date', e.target.value)}
                   />
                 </FormField>
-                <FormField label="Harvest End Date">
+                <FormField label={labels.harvest.fields.harvestEndDate}>
                   <input
                     type="date" min={form.harvest_start_date || undefined} max={todayISO()} className={baseInputClasses}
                     value={form.harvest_end_date} onChange={(e) => set('harvest_end_date', e.target.value)}
                   />
                 </FormField>
               </div>
-              <FormField label="Area Harvested (ha)" required>
+              <FormField label={labels.harvest.fields.areaHarvested} required>
                 <input type="number" step="0.01" className={baseInputClasses} value={form.area_harvested_hectares} onChange={(e) => set('area_harvested_hectares', e.target.value)} />
               </FormField>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <FormField label="Volume (kg)" required>
+                <FormField label={labels.harvest.fields.volume} required>
                   <input type="number" step="0.01" className={baseInputClasses} value={form.volume_kg} onChange={(e) => set('volume_kg', e.target.value)} />
                 </FormField>
-                <FormField label="Unit of Measure">
+                <FormField label={labels.harvest.fields.unitOfMeasure}>
                   <select className={baseInputClasses} value={form.unit_of_measure} onChange={(e) => set('unit_of_measure', e.target.value)}>
                     {UNIT_OPTIONS.map((u) => <option key={u.value} value={u.value}>{u.label}</option>)}
                   </select>
@@ -153,29 +154,29 @@ export default function CitizenHarvestModal({ domain, record, harvest, onClose, 
             </>
           ) : (
             <>
-              <FormField label="Harvest Date" required>
+              <FormField label={labels.harvest.fields.harvestDate} required>
                 <input type="date" max={todayISO()} className={baseInputClasses} value={form.harvest_date} onChange={(e) => set('harvest_date', e.target.value)} />
               </FormField>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <FormField label="Quantity (kg)" required>
+                <FormField label={labels.harvest.fields.quantity} required>
                   <input type="number" step="0.01" className={baseInputClasses} value={form.quantity_kg} onChange={(e) => set('quantity_kg', e.target.value)} />
                 </FormField>
-                <FormField label="Avg. Body Weight (kg)">
+                <FormField label={labels.harvest.fields.avgBodyWeight}>
                   <input type="number" step="0.001" className={baseInputClasses} value={form.avg_body_weight_kg} onChange={(e) => set('avg_body_weight_kg', e.target.value)} />
                 </FormField>
               </div>
-              <FormField label="Area / Units Harvested" hint="e.g. Pond 2, 3 cages">
+              <FormField label={labels.harvest.fields.areaOrUnits} hint={labels.harvest.fields.areaOrUnitsHint}>
                 <input type="text" className={baseInputClasses} value={form.area_or_units_harvested} onChange={(e) => set('area_or_units_harvested', e.target.value)} />
               </FormField>
-              <FormField label="This is the final harvest for this cycle">
+              <FormField label={labels.harvest.fields.isFinal}>
                 <input type="checkbox" checked={form.is_final} onChange={(e) => set('is_final', e.target.checked)} className="h-4 w-4" />
               </FormField>
               {form.is_final && (
-                <FormField label="Reason if more than 7 days early/late" hint="Only required if flagged">
+                <FormField label={labels.harvest.fields.earlyLateReason} hint={labels.harvest.fields.earlyLateReasonHint}>
                   <input type="text" className={baseInputClasses} value={form.early_late_reason} onChange={(e) => set('early_late_reason', e.target.value)} />
                 </FormField>
               )}
-              <FormField label="Notes">
+              <FormField label={labels.harvest.fields.notes}>
                 <textarea rows={3} className={baseInputClasses} value={form.notes} onChange={(e) => set('notes', e.target.value)} />
               </FormField>
             </>
@@ -187,9 +188,9 @@ export default function CitizenHarvestModal({ domain, record, harvest, onClose, 
         )}
 
         <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
-          <Button onClick={onClose} type="button" variant="ghost">Cancel</Button>
+          <Button onClick={onClose} type="button" variant="ghost">{labels.common.cancel}</Button>
           <Button isLoading={isSubmitting} type="submit" variant="primary" disabled={blockedByOther}>
-            {isEdit ? 'Save Changes' : 'Record Harvest'}
+            {isEdit ? labels.harvest.submitEdit : labels.harvest.submitNew}
           </Button>
         </div>
       </form>

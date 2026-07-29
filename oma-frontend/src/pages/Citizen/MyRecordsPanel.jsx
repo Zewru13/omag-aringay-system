@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import CitizenActivityLogModal from './CitizenActivityLogModal.jsx'
 import CitizenHarvestModal from './CitizenHarvestModal.jsx'
+import { labels } from './labels.js'
 
 // Batch 11: lists the citizen's own crop/stocking records (staff-created —
 // this page never lets them start a new cycle) with expandable activity/
@@ -30,7 +31,7 @@ export default function MyRecordsPanel({ domain }) {
       const r = await api.get(domain.recordsUrl)
       setRecords(Array.isArray(r.data) ? r.data : r.data?.results || [])
     } catch {
-      showToast(`Unable to load your ${domain.recordLabel.toLowerCase()}s.`, 'error')
+      showToast(labels.myRecordsPanel.loadError(domain.recordLabel.toLowerCase()), 'error')
     } finally {
       setIsLoading(false)
     }
@@ -61,7 +62,7 @@ export default function MyRecordsPanel({ domain }) {
     try {
       await fetchDetail(record)
     } catch {
-      showToast('Unable to load activity/harvest history.', 'error')
+      showToast(labels.myRecordsPanel.detailLoadError, 'error')
     }
   }
 
@@ -70,13 +71,13 @@ export default function MyRecordsPanel({ domain }) {
   }
 
   if (isLoading) {
-    return <p className="text-[13px] text-[#7A8E7A] italic">Loading your {domain.recordLabel.toLowerCase()}s...</p>
+    return <p className="text-[13px] text-[#7A8E7A] italic">{labels.myRecordsPanel.loading(domain.recordLabel.toLowerCase())}</p>
   }
 
   if (records.length === 0) {
     return (
       <p className="rounded-xl border border-[#E2E8E2] bg-white p-6 text-[13px] italic text-[#A8BCA8]">
-        You don't have any {domain.recordLabel.toLowerCase()}s on file yet. Visit the office to have one started.
+        {labels.myRecordsPanel.empty(domain.recordLabel.toLowerCase())}
       </p>
     )
   }
@@ -108,13 +109,13 @@ export default function MyRecordsPanel({ domain }) {
               <div className="border-t border-[#E2E8E2] px-4 py-4 space-y-5">
                 <section>
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-[12px] font-semibold uppercase tracking-wider text-[#7A8E7A]">Activity Log</h4>
+                    <h4 className="text-[12px] font-semibold uppercase tracking-wider text-[#7A8E7A]">{labels.myRecordsPanel.activityLogTitle}</h4>
                     <Button size="sm" variant="outline" icon={Plus} onClick={() => setModal({ kind: 'log', record, entry: null })}>
-                      Log Activity
+                      {labels.myRecordsPanel.logActivity}
                     </Button>
                   </div>
                   {logs.length === 0 ? (
-                    <p className="text-[12px] italic text-[#A8BCA8]">No activity logged yet.</p>
+                    <p className="text-[12px] italic text-[#A8BCA8]">{labels.myRecordsPanel.noActivity}</p>
                   ) : (
                     <ul className="space-y-2">
                       {logs.map((log) => {
@@ -123,7 +124,7 @@ export default function MyRecordsPanel({ domain }) {
                           <li key={log.id} className="flex items-center justify-between gap-3 rounded-lg bg-[#F9FAF9] px-3 py-2">
                             <div>
                               <p className="text-[13px] font-medium text-[#1A2B1A]">{log[domain.activityField]}</p>
-                              <p className="text-[11px] text-[#7A8E7A]">{log.date_of_activity}{log.is_late ? ' · Late' : ''}</p>
+                              <p className="text-[11px] text-[#7A8E7A]">{log.date_of_activity}{log.is_late ? labels.myRecordsPanel.lateSuffix : ''}</p>
                             </div>
                             {isMine ? (
                               <button
@@ -131,10 +132,10 @@ export default function MyRecordsPanel({ domain }) {
                                 onClick={() => setModal({ kind: 'log', record, entry: log })}
                                 className="flex items-center gap-1 text-[12px] font-medium text-[#1B4D2E] hover:underline"
                               >
-                                <Pencil size={12} /> Edit
+                                <Pencil size={12} /> {labels.common.edit}
                               </button>
                             ) : (
-                              <span className="text-[11px] text-[#A8BCA8] italic">Logged by staff</span>
+                              <span className="text-[11px] text-[#A8BCA8] italic">{labels.common.loggedByStaff}</span>
                             )}
                           </li>
                         )
@@ -145,15 +146,15 @@ export default function MyRecordsPanel({ domain }) {
 
                 <section>
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-[12px] font-semibold uppercase tracking-wider text-[#7A8E7A]">Harvest</h4>
+                    <h4 className="text-[12px] font-semibold uppercase tracking-wider text-[#7A8E7A]">{labels.myRecordsPanel.harvestTitle}</h4>
                     {(domain.key === 'fisheries' || !record.harvest_record_id) && (
                       <Button size="sm" variant="outline" icon={Plus} onClick={() => setModal({ kind: 'harvest', record, entry: null })}>
-                        Record Harvest
+                        {labels.myRecordsPanel.recordHarvest}
                       </Button>
                     )}
                   </div>
                   {harvests.length === 0 ? (
-                    <p className="text-[12px] italic text-[#A8BCA8]">No harvest recorded yet.</p>
+                    <p className="text-[12px] italic text-[#A8BCA8]">{labels.myRecordsPanel.noHarvest}</p>
                   ) : (
                     <ul className="space-y-2">
                       {harvests.map((h) => {
@@ -172,10 +173,10 @@ export default function MyRecordsPanel({ domain }) {
                                 onClick={() => setModal({ kind: 'harvest', record, entry: h })}
                                 className="flex items-center gap-1 text-[12px] font-medium text-[#1B4D2E] hover:underline"
                               >
-                                <Pencil size={12} /> Edit
+                                <Pencil size={12} /> {labels.common.edit}
                               </button>
                             ) : (
-                              <span className="text-[11px] text-[#A8BCA8] italic">Logged by staff</span>
+                              <span className="text-[11px] text-[#A8BCA8] italic">{labels.common.loggedByStaff}</span>
                             )}
                           </li>
                         )

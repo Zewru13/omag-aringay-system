@@ -758,7 +758,20 @@ class CropDuplicateCheckView(APIView):
 # ─── Module 2b: Crop Activity Suggestions ────────────────────────────────────
 
 class CropActivitySuggestionsView(APIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    # Batch E — widened from staff-only to IsStaffOrOwnRecordCitizen so a
+    # farmer's own citizen account can read due/overdue suggestions for
+    # their own record on the redesigned home screen; ADMIN/EVALUATOR
+    # access is unchanged (this class is a strict superset), response
+    # shape and validation are untouched. Same get_target_owner_id pattern
+    # already used by CropActivityLogListCreateView.
+    permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
+
+    def get_target_owner_id(self, request):
+        monitoring_id = self.kwargs.get('monitoring_id')
+        try:
+            return CropMonitoringRecord.objects.get(pk=monitoring_id).farmer_id
+        except CropMonitoringRecord.DoesNotExist:
+            return None
 
     def get(self, request, monitoring_id):
         from datetime import date, timedelta

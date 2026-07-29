@@ -6,6 +6,7 @@ import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import { labels } from './labels.js'
 
 const todayISO = () => new Date().toISOString().split('T')[0]
 
@@ -63,11 +64,11 @@ export default function CitizenReportAssistanceModal({ domain, member, entry, on
     e.preventDefault()
     setErrorMessage('')
     if (!form.assistance_type || !form.quantity.toString().trim() || !form.date_given) {
-      setErrorMessage('Assistance type, quantity, and date are required.')
+      setErrorMessage(labels.reportAssistance.errors.requiredFields)
       return
     }
     if (form.source_agency === 'Other' && !form.source_agency_other.trim()) {
-      setErrorMessage('Please specify the source agency.')
+      setErrorMessage(labels.reportAssistance.errors.specifySourceAgency)
       return
     }
     setIsSubmitting(true)
@@ -77,7 +78,7 @@ export default function CitizenReportAssistanceModal({ domain, member, entry, on
       const sourceAgency = form.source_agency === 'Other' ? source_agency_other.trim() : form.source_agency
       if (isEdit) {
         await api.patch(domain.detailUrl(entry.id), { ...rest, source_agency: sourceAgency, year })
-        showToast('Assistance report updated.', 'success')
+        showToast(labels.reportAssistance.successEdit, 'success')
       } else {
         await api.post(domain.createUrl, {
           ...rest,
@@ -86,14 +87,14 @@ export default function CitizenReportAssistanceModal({ domain, member, entry, on
           year,
           ...(program ? { program } : {}),
         })
-        showToast('Assistance reported.', 'success')
+        showToast(labels.reportAssistance.successNew, 'success')
       }
       onSuccess()
       onClose()
     } catch (err) {
       const data = err?.response?.data
       const firstError = data && typeof data === 'object' ? Object.values(data).flat()[0] : null
-      setErrorMessage(firstError || data?.detail || 'Failed to save.')
+      setErrorMessage(firstError || data?.detail || labels.reportAssistance.errors.genericSaveError)
     } finally {
       setIsSubmitting(false)
     }
@@ -101,7 +102,7 @@ export default function CitizenReportAssistanceModal({ domain, member, entry, on
 
   return (
     <ModalShell
-      title={isEdit ? 'Edit Assistance Report' : 'Report Assistance'}
+      title={isEdit ? labels.reportAssistance.titleEdit : labels.reportAssistance.titleNew}
       subtitle={isEdit ? undefined : domain.memberLabel(member)}
       icon={HeartHandshake}
       onClose={onClose}
@@ -109,20 +110,20 @@ export default function CitizenReportAssistanceModal({ domain, member, entry, on
     >
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FormField label="Assistance Type" required>
+          <FormField label={labels.reportAssistance.fields.assistanceType} required>
             <select className={baseInputClasses} value={form.assistance_type} onChange={(e) => set('assistance_type', e.target.value)}>
               {domain.assistanceTypeOptions.map((t) => <option key={t}>{t}</option>)}
             </select>
           </FormField>
-          <FormField label="Date Given" required>
+          <FormField label={labels.reportAssistance.fields.dateGiven} required>
             <input type="date" max={todayISO()} className={baseInputClasses} value={form.date_given} onChange={(e) => set('date_given', e.target.value)} />
           </FormField>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <FormField label="Quantity / Amount" required>
-            <input type="text" className={baseInputClasses} placeholder="e.g. 2 bags, 1 unit" value={form.quantity} onChange={(e) => set('quantity', e.target.value)} />
+          <FormField label={labels.reportAssistance.fields.quantityAmount} required>
+            <input type="text" className={baseInputClasses} placeholder={labels.reportAssistance.fields.quantityPlaceholder} value={form.quantity} onChange={(e) => set('quantity', e.target.value)} />
           </FormField>
-          <FormField label="Source Agency">
+          <FormField label={labels.reportAssistance.fields.sourceAgency}>
             <ComboboxWithOther
               options={SOURCE_AGENCY_OPTIONS}
               value={form.source_agency}
@@ -133,26 +134,26 @@ export default function CitizenReportAssistanceModal({ domain, member, entry, on
           </FormField>
         </div>
         {domain.seasonOptions ? (
-          <FormField label="Season">
+          <FormField label={labels.reportAssistance.fields.season}>
             <select className={baseInputClasses} value={form.season} onChange={(e) => set('season', e.target.value)}>
               {domain.seasonOptions.map((s) => <option key={s}>{s}</option>)}
             </select>
           </FormField>
         ) : (
-          <FormField label="Season">
+          <FormField label={labels.reportAssistance.fields.season}>
             <input type="text" className={baseInputClasses} value={form.season} onChange={(e) => set('season', e.target.value)} />
           </FormField>
         )}
         {!isEdit && (
-          <FormField label="Attach to a formal program (optional)">
+          <FormField label={labels.reportAssistance.fields.program}>
             <select className={baseInputClasses} value={form.program} onChange={(e) => set('program', e.target.value)}>
-              <option value="">No program — standalone record</option>
+              <option value="">{labels.reportAssistance.fields.programNone}</option>
               {programs.map((p) => <option key={p.id} value={p.id}>{p.program_name} ({p.season} {p.year})</option>)}
             </select>
-            <p className="mt-1 text-[11px] text-slate-500">Leave unselected to log this as a standalone record, same as today.</p>
+            <p className="mt-1 text-[11px] text-slate-500">{labels.reportAssistance.fields.programHelp}</p>
           </FormField>
         )}
-        <FormField label="Remarks">
+        <FormField label={labels.reportAssistance.fields.remarks}>
           <textarea rows={2} className={baseInputClasses} value={form.remarks} onChange={(e) => set('remarks', e.target.value)} />
         </FormField>
 
@@ -161,9 +162,9 @@ export default function CitizenReportAssistanceModal({ domain, member, entry, on
         )}
 
         <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
-          <Button onClick={onClose} type="button" variant="ghost">Cancel</Button>
+          <Button onClick={onClose} type="button" variant="ghost">{labels.common.cancel}</Button>
           <Button isLoading={isSubmitting} type="submit" variant="primary">
-            {isEdit ? 'Save Changes' : 'Report Assistance'}
+            {isEdit ? labels.reportAssistance.submitEdit : labels.reportAssistance.submitNew}
           </Button>
         </div>
       </form>
