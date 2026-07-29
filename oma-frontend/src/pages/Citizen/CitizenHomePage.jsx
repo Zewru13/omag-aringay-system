@@ -28,18 +28,8 @@ function Field({ label, value }) {
   )
 }
 
-const RECORD_TYPE_LABELS = {
-  FARMER: 'Farmer',
-  FISHERFOLK: 'Fisherfolk',
-  FARMERS_ORG: 'Farmers Organization',
-  FISHERFOLK_ORG: 'Fisherfolk Organization',
-}
-const RECORD_TYPE_LABELS_LOWER = {
-  FARMER: labels.home.recordTypeLabels.FARMER,
-  FISHERFOLK: labels.home.recordTypeLabels.FISHERFOLK,
-  FARMERS_ORG: labels.home.recordTypeLabels.FARMERS_ORG,
-  FISHERFOLK_ORG: labels.home.recordTypeLabels.FISHERFOLK_ORG,
-}
+const RECORD_TYPE_LABELS = labels.home.recordTypeLabelsCapitalized
+const RECORD_TYPE_LABELS_LOWER = labels.home.recordTypeLabels
 
 function TabButton({ active, onClick, children }) {
   return (
@@ -59,7 +49,7 @@ export default function CitizenHomePage() {
   const { user, logout } = useAuth()
   const record = user?.linked_record
   const recordType = user?.linked_record_type
-  const recordTypeLabel = RECORD_TYPE_LABELS[recordType] || 'Record'
+  const recordTypeLabel = RECORD_TYPE_LABELS[recordType] || labels.home.recordTypeFallback
   const isFarmersOrg = recordType === 'FARMERS_ORG'
   const isFisherfolkOrg = recordType === 'FISHERFOLK_ORG'
   const isOrg = isFarmersOrg || isFisherfolkOrg

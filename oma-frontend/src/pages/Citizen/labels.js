@@ -48,6 +48,13 @@ export const labels = {
       FARMERS_ORG: 'farmers organization',
       FISHERFOLK_ORG: 'fisherfolk organization',
     },
+    recordTypeLabelsCapitalized: {
+      FARMER: 'Farmer',
+      FISHERFOLK: 'Fisherfolk',
+      FARMERS_ORG: 'Farmers Organization',
+      FISHERFOLK_ORG: 'Fisherfolk Organization',
+    },
+    recordTypeFallback: 'Record',
     // Legacy tab-bar labels (still used for Fisherfolk/Organization roles
     // this batch — only the Farmer role gets the new task-first layout).
     tabs: {
