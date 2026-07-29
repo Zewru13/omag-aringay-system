@@ -59,6 +59,56 @@
   /* Motion */
   --ease-out-fluid: cubic-bezier(.22, .61, .36, 1);
   --ease-spring: cubic-bezier(.34, 1.4, .64, 1);
+
+  /* ─── Citizen self-service palette (cz-*) ──────────────────────────────
+     The citizen-facing screens (src/pages/Citizen/**) follow their own
+     visual specification — a phone-shaped, domain-tinted layout with
+     cooler neutrals and hairline borders than the staff app above.
+     Namespaced with `cz-` precisely so the two systems never collide:
+     staff surfaces keep the warm parchment tokens, citizen screens use
+     these. Consume as bg-cz-crop-header, text-cz-text-2, etc. */
+
+  /* Crop domain */
+  --color-cz-crop-header: #173404;
+  --color-cz-crop-pale:   #EAF3DE;
+  --color-cz-crop-100:    #C0DD97;
+  --color-cz-crop-300:    #97C459;
+  --color-cz-crop-fill:   #639922;
+  --color-cz-crop-deep:   #3B6D11;
+  --color-cz-crop-deeper: #27500A;
+
+  /* Fisheries domain */
+  --color-cz-fish-header: #04342C;
+  --color-cz-fish-pale:   #E1F5EE;
+  --color-cz-fish-100:    #9FE1CB;
+  --color-cz-fish-300:    #5DCAA5;
+  --color-cz-fish-fill:   #1D9E75;
+  --color-cz-fish-deep:   #0F6E56;
+
+  /* Danger — overdue */
+  --color-cz-danger-bg:     #FCEBEB;
+  --color-cz-danger-border: #F5C6C6;
+  --color-cz-danger-accent: #A32D2D;
+  --color-cz-danger-title:  #501313;
+  --color-cz-danger-body:   #791F1F;
+  --color-cz-danger-on:     #FCEBEB;
+
+  /* Warning — due today */
+  --color-cz-warn-bg:     #FAEEDA;
+  --color-cz-warn-border: #F0D9AE;
+  --color-cz-warn-accent: #854F0B;
+  --color-cz-warn-title:  #412402;
+  --color-cz-warn-body:   #633806;
+  --color-cz-warn-on:     #FAEEDA;
+
+  /* Neutrals */
+  --color-cz-surface:       #FFFFFF;
+  --color-cz-page:          #F7F7F5;
+  --color-cz-border:        #E5E5E2;
+  --color-cz-border-strong: #D4D4D0;
+  --color-cz-text:          #1A1A18;
+  --color-cz-text-2:        #6B6B66;
+  --color-cz-text-muted:    #9B9B96;
 }
 
 :root {

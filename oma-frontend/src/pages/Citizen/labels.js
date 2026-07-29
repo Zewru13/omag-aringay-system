@@ -81,39 +81,47 @@ export const labels = {
     loading: 'Loading your crop records...',
     loadError: 'Unable to load your crop records.',
     needsAttention: {
-      title: 'Needs Attention',
+      title: 'Needs attention',
       overdueBadge: 'Overdue',
-      dueTodayBadge: 'Due Today',
+      overdueBadgeDays: (days) => `Overdue · ${days} ${days === 1 ? 'day' : 'days'}`,
+      dueTodayBadge: 'Due today',
       emptyTitle: "You're up to date",
       emptyBody: 'No activities are due right now — check back after your next visit to the field.',
-      actionLabel: 'Log This Activity',
+      actionLabel: 'Log this activity',
       contextLine: (crop, barangay, area) => `${crop} · ${barangay} · ${area} ha`,
     },
     myCrops: {
-      title: 'My Crops',
+      title: 'My crops',
       empty: "You don't have any crop records on file yet. Visit the office to have one started.",
       progressDayOf: (elapsed, total) => `Day ${elapsed} of ${total}`,
       expectedHarvest: (date) => `Expected harvest: ${date}`,
-      logActivity: 'Log Activity',
-      viewHistory: 'View History',
+      harvestShort: (iso) => {
+        if (!iso) return ''
+        const d = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' })
+          .format(new Date(iso + 'T00:00:00'))
+        return `Harvest ~${d}`
+      },
+      cardMeta: (barangay, area, season) => `${barangay} · ${area} ha · ${season} season`,
+      logActivity: 'Log activity',
+      viewHistory: 'View history',
       seasonYear: (season, year) => `${season} ${year}`,
     },
     secondary: {
-      harvestResultsTitle: 'Harvest Results',
-      harvestResultsSubtitle: 'Your yield analysis, read-only',
-      assistanceTitle: 'Assistance Received',
-      assistanceSubtitle: 'Your beneficiary history, read-only',
+      harvestResultsTitle: 'Harvest results',
+      assistanceTitle: 'Assistance received',
       backToHome: 'Back',
     },
     history: {
-      title: (cropTitle) => `${cropTitle} — History`,
+      title: (cropTitle) => `${cropTitle} — history`,
       loading: 'Loading history...',
-      activityLogTitle: 'Activity Log',
-      logActivity: 'Log Activity',
+      loadError: (recordLabel) => `Unable to load your ${recordLabel}s.`,
+      activityLogTitle: 'Activity log',
+      logActivity: 'Log activity',
       noActivity: 'No activity logged yet.',
       harvestTitle: 'Harvest',
-      recordHarvest: 'Record Harvest',
+      recordHarvest: 'Record harvest',
       noHarvest: 'No harvest recorded yet.',
+      lateSuffix: ' · Late',
     },
   },
 
@@ -122,15 +130,18 @@ export const labels = {
     loading: 'Loading your ponds...',
     loadError: 'Unable to load your ponds.',
     feedToday: {
-      title: 'Feed Today',
+      title: 'Feed today',
       overdueBadge: 'Overdue',
-      dueTodayBadge: 'Due Today',
+      dueTodayBadge: 'Due today',
+      dueBadge: (count) => `Due today · ${count} pond${count === 1 ? '' : 's'}`,
       emptyTitle: "You're up to date",
       emptyBody: 'No ponds are due for feeding right now.',
       dueSummary: (count) => `${count} pond${count === 1 ? '' : 's'} due for feeding`,
       lastFed: (feedType, qtyKg, date) => `Last fed: ${feedType || 'Unspecified feed'}${qtyKg ? ` · ${qtyKg} kg` : ''} · ${date}`,
+      lastFedPond: (pond, feedType, qtyKg) => `${pond}: ${feedType || 'Unspecified feed'}${qtyKg ? ` · ${qtyKg} kg` : ''}`,
       noPriorFeeding: 'No prior feeding logged for this pond yet.',
-      repeatButton: "Repeat Yesterday's Feeding",
+      noPriorFeedingPond: (pond) => `${pond}: no prior feeding logged yet.`,
+      repeatButton: "Repeat yesterday's feeding",
       logSeparatelyLink: 'or log each pond separately',
     },
     confirmGuard: {
@@ -143,40 +154,23 @@ export const labels = {
       partialSuccess: (ok, total) => `Logged ${ok} of ${total} ponds.`,
     },
     myPonds: {
-      title: 'My Ponds',
+      title: 'My ponds',
       empty: "You don't have any ponds on file yet. Visit the office to have one started.",
       unstockedLabel: 'Not currently stocked',
-      speciesArea: (species, area) => `${species} · ${area} ha`,
-      fingerlings: (count) => `${count} fingerlings`,
+      pondSpecies: (pond, species) => `${pond} · ${species}`,
+      areaFingerlings: (area, count) => `${area} ha · ${count} fingerlings`,
       progressDayOf: (elapsed, total) => `Day ${elapsed} of ${total}`,
-      expectedHarvest: (date) => `Expected harvest: ${date}`,
-      logFeeding: 'Log Feeding',
-      logActivity: 'Log Activity',
+      logFeeding: 'Log feeding',
+      logActivity: 'Log activity',
     },
     secondary: {
-      illnessTitle: 'Log Illness or Mortality',
-      illnessSubtitle: 'Report a health issue in a pond',
+      illnessTitle: 'Log illness or mortality',
     },
     pondPicker: {
       title: 'Select a Pond',
       subtitle: 'Which pond is this about?',
       noPonds: 'No stocked ponds to report against.',
     },
-  },
-
-  // ── MyRecordsPanel (legacy record list — still used for Fisherfolk) ───
-  myRecordsPanel: {
-    loading: (recordLabel) => `Loading your ${recordLabel}s...`,
-    loadError: (recordLabel) => `Unable to load your ${recordLabel}s.`,
-    detailLoadError: 'Unable to load activity/harvest history.',
-    empty: (recordLabel) => `You don't have any ${recordLabel}s on file yet. Visit the office to have one started.`,
-    activityLogTitle: 'Activity Log',
-    logActivity: 'Log Activity',
-    noActivity: 'No activity logged yet.',
-    harvestTitle: 'Harvest',
-    recordHarvest: 'Record Harvest',
-    noHarvest: 'No harvest recorded yet.',
-    lateSuffix: ' · Late',
   },
 
   // ── CitizenActivityLogModal ────────────────────────────────────────────
@@ -220,6 +214,16 @@ export const labels = {
       yesterday: 'Yesterday',
       pickDate: 'Pick a date',
     },
+    // Rendered under the date buttons so the chosen day is always stated
+    // in full, not just implied by which button is lit. Date formatting
+    // lives here with the rest of the language-dependent text.
+    dateResolved: (iso) => {
+      if (!iso) return ''
+      return new Intl.DateTimeFormat('en-US', {
+        weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+      }).format(new Date(iso + 'T00:00:00'))
+    },
+    selectPlaceholder: 'Select…',
     plantConditionOptions: {
       Good: 'Good',
       Fair: 'Fair',

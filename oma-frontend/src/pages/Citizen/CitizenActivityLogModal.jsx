@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
+import { Check, ChevronDown, Frown, Meh, Smile } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
-import Button from '../../components/UI/Button.jsx'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
-import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import useRecordLock from '../../hooks/useRecordLock.js'
 import { labels } from './labels.js'
+import { CROP_THEME, CitizenScreen, CitizenSubHeader, FISH_THEME } from './citizenUI.jsx'
 
 const todayISO = () => new Date().toISOString().split('T')[0]
 const yesterdayISO = () => {
@@ -21,25 +20,96 @@ const dateMode = (dateStr) => {
   return 'custom'
 }
 
-// Batch 11 built this as a minimal activity/date/notes form. Batch E reworked
-// it for the crop domain (fertilizer/pest conditional fields, date
-// shortcuts, prefilled-context header, tappable plant condition). Batch F
-// extends the same treatment to the fisheries domain: water/fish condition
-// (general, mirrors plant_condition), feed fields (Feed Monitoring only,
-// feed type via a species-scoped ComboboxWithOther), and health-monitoring
-// fields (Disease Control only) — disease_type itself stays out of scope
-// (its picker endpoint is still staff-only; not requested this batch), so
-// that field is left unset same as crop's Disaster Remedy exclusion.
-// Endpoint, payload keys, useRecordLock usage, and server-side validation
-// (future-date / pre-stocking-date guards) are all completely unchanged —
-// this batch only adds fields the backend already accepted from staff and
-// changes how they're presented.
-export default function CitizenActivityLogModal({ domain, recordId, record, log, prefill, onClose, onSuccess }) {
+// Shared control geometry from the citizen visual spec: hairline border,
+// 8px radius, 13px/12px padding, 15px value text.
+const FIELD = 'w-full rounded-[8px] border-[0.5px] border-cz-border-strong bg-cz-surface px-3 py-[13px] text-[15px] text-cz-text placeholder:text-cz-text-muted focus:border-cz-text-2 focus:outline-none disabled:opacity-50'
+
+function FieldBlock({ label, required, error, children }) {
+  return (
+    <div className="mb-[18px]">
+      {label && (
+        <label className="mb-2 block text-[14px] font-medium text-cz-text">
+          {label}
+          {required && <span className="ml-1 text-cz-danger-accent">*</span>}
+        </label>
+      )}
+      {children}
+      {error && <p className="mt-1.5 text-[12px] text-cz-danger-accent">{error}</p>}
+    </div>
+  )
+}
+
+// Native select restyled to the spec (own chevron, 18px, right-aligned).
+function SelectField({ value, onChange, disabled, children }) {
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        className={`${FIELD} appearance-none pr-10`}
+      >
+        {children}
+      </select>
+      <ChevronDown
+        size={18}
+        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-cz-text-2"
+        aria-hidden="true"
+      />
+    </div>
+  )
+}
+
+// Three large tappable tiles — icon above label, so the chosen condition
+// is carried by shape and text, not just the fill colour.
+const CONDITION_ICONS = { Good: Smile, Fair: Meh, Poor: Frown }
+
+function ConditionTiles({ theme, value, onSelect, disabled }) {
+  return (
+    <div className="flex gap-2">
+      {['Good', 'Fair', 'Poor'].map((cond) => {
+        const Icon = CONDITION_ICONS[cond]
+        const selected = value === cond
+        return (
+          <button
+            key={cond}
+            type="button"
+            disabled={disabled}
+            aria-pressed={selected}
+            onClick={() => onSelect(cond)}
+            className={`flex min-h-[44px] flex-1 flex-col items-center justify-center gap-1 rounded-[8px] border-[0.5px] px-1 py-3 transition-colors disabled:opacity-50 ${
+              selected
+                ? `${theme.tileSelectedBorder} ${theme.tileSelectedBg} ${theme.tileSelectedText}`
+                : 'border-cz-border-strong text-cz-text-2'
+            }`}
+          >
+            <Icon size={20} aria-hidden="true" />
+            <span className={`text-[12px] ${selected ? 'font-medium' : ''}`}>
+              {labels.activityLog.plantConditionOptions[cond]}
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// Batch 11 built this as a minimal activity/date/notes form; Batch E added
+// the confirm-don't-ask header, date shortcuts and crop conditional
+// fields; Batch F extended it to the fisheries domain. This revision
+// re-skins it to the citizen visual spec and lifts it out of a modal
+// into a full screen — the header now carries the activity name and
+// record context. Endpoint, payload keys, validation and useRecordLock
+// usage are all byte-for-byte unchanged from Batch F.
+export default function CitizenActivityLogScreen({
+  domain, theme, recordId, record, log, prefill, onClose, onSuccess,
+}) {
   const { showToast } = useToast()
   const isEdit = Boolean(log)
   const isCrop = domain.key === 'crop'
   const isFisheries = domain.key === 'fisheries'
   const isPrefilled = !isEdit && Boolean(prefill?.activityType)
+  const t = theme || (isFisheries ? FISH_THEME : CROP_THEME)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [feedTypeOptions, setFeedTypeOptions] = useState([])
 
@@ -195,116 +265,198 @@ export default function CitizenActivityLogModal({ domain, recordId, record, log,
 
   const blockedByOther = !isEdit && recordLock.lockedByOther
 
+  // Header: when opened from a task card the activity is already known, so
+  // it becomes the title and the record identifies itself underneath.
+  const headerTitle = isPrefilled
+    ? activityValue
+    : (isEdit ? labels.activityLog.titleEdit : labels.activityLog.titleNew)
+  const headerSubtitle = record
+    ? (isCrop
+        ? labels.farmerHome.needsAttention.contextLine(
+            record.crop_type_name || labels.yieldAnalysis.cropCropLabel,
+            record.farm_location_barangay || labels.common.unknown,
+            record.area_planted_ha ?? labels.common.unknown,
+          )
+        : labels.fisherfolkHome.myPonds.pondSpecies(
+            record.pond_name || labels.common.unknown,
+            record.species_name || labels.yieldAnalysis.fisheriesCropLabel,
+          ))
+    : undefined
+
   return (
-    <ModalShell
-      title={isEdit ? labels.activityLog.titleEdit : labels.activityLog.titleNew}
-      subtitle={record ? labels.activityLog.prefilledSubtitle(domain.recordTitle(record)) : undefined}
-      onClose={onClose}
-    >
-      {blockedByOther && (
-        <div className="mb-4 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-[13px] text-amber-800">
-          🔒 <strong>{recordLock.lockedByOther.name}</strong> {labels.common.lockedByOtherSuffix}
-          {recordLock.secondsRemaining ? labels.common.lockedByOtherMinutes(Math.ceil(recordLock.secondsRemaining / 60)) : ''}.
-        </div>
-      )}
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <FormField label={labels.activityLog.fields.activity} required>
-          {isPrefilled ? (
-            <div className="flex min-h-[44px] items-center rounded-lg border border-[#C8D5C8] bg-[#F0F7F0] px-3 text-[15px] font-medium text-[#1B4D2E]">
-              {activityValue}
-            </div>
-          ) : (
+    <CitizenScreen>
+      <CitizenSubHeader theme={t} title={headerTitle} subtitle={headerSubtitle} onBack={onClose} />
+
+      <form onSubmit={handleSubmit} className="px-[14px] py-4">
+        {blockedByOther && (
+          <div className="mb-[18px] rounded-[12px] border-[0.5px] border-cz-warn-border bg-cz-warn-bg p-[14px]">
+            <p className="text-[13px] text-cz-warn-body">
+              🔒 <strong className="font-medium">{recordLock.lockedByOther.name}</strong> {labels.common.lockedByOtherSuffix}
+              {recordLock.secondsRemaining ? labels.common.lockedByOtherMinutes(Math.ceil(recordLock.secondsRemaining / 60)) : ''}.
+            </p>
+          </div>
+        )}
+
+        {/* ACTIVITY — only asked for when it isn't already known */}
+        {!isPrefilled && (
+          <FieldBlock label={labels.activityLog.fields.activity} required>
             <ComboboxWithOther
-              options={domain.activityChoices.filter((t) => t !== 'Other')}
+              options={domain.activityChoices.filter((x) => x !== 'Other')}
               value={form[domain.activityField]}
               otherValue={form[domain.activityOtherField]}
               onChange={(v) => set(domain.activityField, v)}
               onOtherChange={(v) => set(domain.activityOtherField, v)}
               disabled={blockedByOther}
+              placeholder={labels.activityLog.selectPlaceholder}
+              inputClassName={FIELD}
+              chevronSize={18}
             />
-          )}
-        </FormField>
+          </FieldBlock>
+        )}
 
-        <FormField label={labels.activityLog.fields.dateOfActivity} required hint={labels.activityLog.fields.dateHint}>
-          <div className="flex flex-wrap gap-2">
-            {['today', 'yesterday', 'custom'].map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                disabled={blockedByOther}
-                onClick={() => handleDateShortcut(mode)}
-                className={`min-h-[44px] rounded-lg border px-4 text-[15px] font-medium transition-colors disabled:opacity-50 ${
-                  selectedDateMode === mode
-                    ? 'border-[#1B4D2E] bg-[#1B4D2E] text-white'
-                    : 'border-[#C8D5C8] bg-white text-[#4A5E4A] hover:bg-[#F5F7F5]'
-                }`}
-              >
-                {mode === 'today' ? labels.activityLog.dateShortcuts.today
-                  : mode === 'yesterday' ? labels.activityLog.dateShortcuts.yesterday
-                  : labels.activityLog.dateShortcuts.pickDate}
-              </button>
-            ))}
+        {/* DATE */}
+        <FieldBlock label={labels.activityLog.fields.dateOfActivity} required>
+          <div className="flex gap-2">
+            {['today', 'yesterday', 'custom'].map((mode) => {
+              const selected = selectedDateMode === mode
+              const isPick = mode === 'custom'
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  disabled={blockedByOther}
+                  aria-pressed={selected}
+                  onClick={() => handleDateShortcut(mode)}
+                  className={`min-h-[44px] flex-1 rounded-[8px] px-1.5 py-3 transition-colors disabled:opacity-50 ${
+                    selected
+                      ? t.solidBtn
+                      : `border-[0.5px] border-cz-border-strong ${isPick ? 'text-cz-text-2' : 'text-cz-text'}`
+                  }`}
+                >
+                  <span className={`text-[14px] ${selected ? 'font-medium' : ''}`}>
+                    {mode === 'today' ? labels.activityLog.dateShortcuts.today
+                      : mode === 'yesterday' ? labels.activityLog.dateShortcuts.yesterday
+                      : labels.activityLog.dateShortcuts.pickDate}
+                  </span>
+                </button>
+              )
+            })}
           </div>
           {selectedDateMode === 'custom' && (
             <input
               type="date"
               max={todayISO()}
-              className={`${baseInputClasses} mt-2`}
+              className={`${FIELD} mt-2`}
               value={form.date_of_activity}
               onChange={(e) => set('date_of_activity', e.target.value)}
               disabled={blockedByOther}
               autoFocus
             />
           )}
-        </FormField>
+          <p className="mt-1.5 text-[12px] text-cz-text-muted">
+            {labels.activityLog.dateResolved(form.date_of_activity)}
+          </p>
+        </FieldBlock>
 
+        {/* CONDITION — crop and fisheries each have their own field name */}
         {isCrop && (
-          <FormField label={labels.activityLog.fields.plantCondition}>
-            <div className="grid grid-cols-3 gap-2">
-              {['Good', 'Fair', 'Poor'].map((cond) => (
-                <button
-                  key={cond}
-                  type="button"
-                  disabled={blockedByOther}
-                  onClick={() => set('plant_condition', cond)}
-                  className={`min-h-[44px] rounded-lg border px-2 text-[15px] font-medium transition-colors disabled:opacity-50 ${
-                    form.plant_condition === cond
-                      ? 'border-[#1B4D2E] bg-[#1B4D2E] text-white'
-                      : 'border-[#C8D5C8] bg-white text-[#4A5E4A] hover:bg-[#F5F7F5]'
-                  }`}
-                >
-                  {labels.activityLog.plantConditionOptions[cond]}
-                </button>
-              ))}
-            </div>
-          </FormField>
+          <FieldBlock label={labels.activityLog.fields.plantCondition}>
+            <ConditionTiles
+              theme={t}
+              value={form.plant_condition}
+              onSelect={(v) => set('plant_condition', v)}
+              disabled={blockedByOther}
+            />
+          </FieldBlock>
         )}
-
         {isFisheries && (
-          <FormField label={labels.activityLog.fields.waterFishCondition}>
-            <div className="grid grid-cols-3 gap-2">
-              {['Good', 'Fair', 'Poor'].map((cond) => (
-                <button
-                  key={cond}
-                  type="button"
-                  disabled={blockedByOther}
-                  onClick={() => set('water_fish_condition', cond)}
-                  className={`min-h-[44px] rounded-lg border px-2 text-[15px] font-medium transition-colors disabled:opacity-50 ${
-                    form.water_fish_condition === cond
-                      ? 'border-[#1B4D2E] bg-[#1B4D2E] text-white'
-                      : 'border-[#C8D5C8] bg-white text-[#4A5E4A] hover:bg-[#F5F7F5]'
-                  }`}
-                >
-                  {labels.activityLog.plantConditionOptions[cond]}
-                </button>
-              ))}
-            </div>
-          </FormField>
+          <FieldBlock label={labels.activityLog.fields.waterFishCondition}>
+            <ConditionTiles
+              theme={t}
+              value={form.water_fish_condition}
+              onSelect={(v) => set('water_fish_condition', v)}
+              disabled={blockedByOther}
+            />
+          </FieldBlock>
         )}
 
+        {/* FERTILISER (crop) */}
+        {showFertilizerFields && (
+          <>
+            <FieldBlock label={labels.activityLog.fields.fertilizerType}>
+              <input
+                type="text"
+                className={FIELD}
+                value={form.fertilizer_type}
+                onChange={(e) => set('fertilizer_type', e.target.value)}
+                disabled={blockedByOther}
+              />
+            </FieldBlock>
+            <FieldBlock label={labels.activityLog.fields.quantityApplied}>
+              <div className="flex gap-2">
+                <input
+                  type="number" step="0.01" inputMode="decimal"
+                  className={`${FIELD} flex-[2]`}
+                  value={form.quantity_applied}
+                  onChange={(e) => set('quantity_applied', e.target.value)}
+                  disabled={blockedByOther}
+                />
+                <div className="flex-[3]">
+                  <SelectField
+                    value={form.quantity_unit}
+                    onChange={(e) => set('quantity_unit', e.target.value)}
+                    disabled={blockedByOther}
+                  >
+                    {Object.entries(labels.activityLog.quantityUnitOptions).map(([v, l]) => (
+                      <option key={v} value={v}>{l}</option>
+                    ))}
+                  </SelectField>
+                </div>
+              </div>
+            </FieldBlock>
+          </>
+        )}
+
+        {/* PEST / DISEASE (crop) */}
+        {showPestFields && (
+          <>
+            <FieldBlock label={labels.activityLog.fields.pestDiseaseName}>
+              <input
+                type="text"
+                className={FIELD}
+                value={form.pest_disease_name}
+                onChange={(e) => set('pest_disease_name', e.target.value)}
+                disabled={blockedByOther}
+              />
+            </FieldBlock>
+            <FieldBlock label={labels.activityLog.fields.areaAffected} required error={areaAffectedError}>
+              <input
+                type="number" step="0.0001" inputMode="decimal"
+                className={FIELD}
+                value={form.area_affected_ha}
+                onChange={(e) => { set('area_affected_ha', e.target.value); setAreaAffectedError('') }}
+                disabled={blockedByOther}
+              />
+            </FieldBlock>
+            <FieldBlock label={labels.activityLog.fields.severity}>
+              <SelectField
+                value={form.severity}
+                onChange={(e) => set('severity', e.target.value)}
+                disabled={blockedByOther}
+              >
+                <option value="">{labels.activityLog.selectPlaceholder}</option>
+                {Object.entries(labels.activityLog.severityOptions).map(([v, l]) => (
+                  <option key={v} value={v}>{l}</option>
+                ))}
+              </SelectField>
+            </FieldBlock>
+          </>
+        )}
+
+        {/* FEEDING (fisheries) */}
         {showFeedFields && (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField label={labels.activityLog.fields.feedType}>
+          <>
+            <FieldBlock label={labels.activityLog.fields.feedType}>
               <ComboboxWithOther
                 options={feedTypeOptions}
                 value={form.feed_type_selection}
@@ -312,190 +464,138 @@ export default function CitizenActivityLogModal({ domain, recordId, record, log,
                 onChange={(v) => set('feed_type_selection', v)}
                 onOtherChange={(v) => set('feed_type_other', v)}
                 disabled={blockedByOther}
+                placeholder={labels.activityLog.selectPlaceholder}
+                inputClassName={FIELD}
+                chevronSize={18}
               />
-            </FormField>
-            <div className="grid grid-cols-2 gap-2">
-              <FormField label={labels.activityLog.fields.feedQuantity}>
+            </FieldBlock>
+            <FieldBlock label={labels.activityLog.fields.feedQuantity}>
+              <div className="flex gap-2">
                 <input
-                  type="number" step="0.01"
-                  className={baseInputClasses}
+                  type="number" step="0.01" inputMode="decimal"
+                  className={`${FIELD} flex-[2]`}
                   value={form.feed_quantity_kg}
                   onChange={(e) => set('feed_quantity_kg', e.target.value)}
                   disabled={blockedByOther}
                 />
-              </FormField>
-              <FormField label={labels.activityLog.fields.feedBrand}>
                 <input
                   type="text"
-                  className={baseInputClasses}
+                  placeholder={labels.activityLog.fields.feedBrand}
+                  className={`${FIELD} flex-[3]`}
                   value={form.feed_brand}
                   onChange={(e) => set('feed_brand', e.target.value)}
                   disabled={blockedByOther}
                 />
-              </FormField>
-            </div>
-          </div>
+              </div>
+            </FieldBlock>
+          </>
         )}
 
+        {/* HEALTH MONITORING (fisheries) */}
         {showIssueFields && (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField label={labels.activityLog.fields.areaAffected} required error={areaAffectedError}>
+          <>
+            <FieldBlock label={labels.activityLog.fields.areaAffected} required error={areaAffectedError}>
               <input
-                type="number" step="0.0001"
-                className={baseInputClasses}
+                type="number" step="0.0001" inputMode="decimal"
+                className={FIELD}
                 value={form.area_affected_ha}
                 onChange={(e) => { set('area_affected_ha', e.target.value); setAreaAffectedError('') }}
                 disabled={blockedByOther}
               />
-            </FormField>
-            <FormField label={labels.activityLog.fields.severity}>
-              <select
-                className={baseInputClasses}
+            </FieldBlock>
+            <FieldBlock label={labels.activityLog.fields.severity}>
+              <SelectField
                 value={form.severity}
                 onChange={(e) => set('severity', e.target.value)}
                 disabled={blockedByOther}
               >
-                <option value=""></option>
-                {Object.entries(labels.activityLog.severityOptions).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
-            </FormField>
-            <FormField label={labels.activityLog.fields.mortalityCount}>
+                <option value="">{labels.activityLog.selectPlaceholder}</option>
+                {Object.entries(labels.activityLog.severityOptions).map(([v, l]) => (
+                  <option key={v} value={v}>{l}</option>
+                ))}
+              </SelectField>
+            </FieldBlock>
+            <FieldBlock label={labels.activityLog.fields.mortalityCount}>
               <input
-                type="number" step="1" min="0"
-                className={baseInputClasses}
+                type="number" step="1" min="0" inputMode="numeric"
+                className={FIELD}
                 value={form.mortality_count}
                 onChange={(e) => set('mortality_count', e.target.value)}
                 disabled={blockedByOther}
               />
-            </FormField>
-            <FormField label={labels.activityLog.fields.vetConsulted}>
+            </FieldBlock>
+            <FieldBlock label={labels.activityLog.fields.vetConsulted}>
               <input
                 type="text"
-                className={baseInputClasses}
+                className={FIELD}
                 value={form.vet_consulted}
                 onChange={(e) => set('vet_consulted', e.target.value)}
                 disabled={blockedByOther}
               />
-            </FormField>
-            <FormField label={labels.activityLog.fields.treatmentApplied}>
+            </FieldBlock>
+            <FieldBlock label={labels.activityLog.fields.treatmentApplied}>
               <input
                 type="text"
-                className={baseInputClasses}
+                className={FIELD}
                 value={form.treatment_applied}
                 onChange={(e) => set('treatment_applied', e.target.value)}
                 disabled={blockedByOther}
               />
-            </FormField>
-            <FormField label={labels.activityLog.fields.outcome}>
-              <select
-                className={baseInputClasses}
+            </FieldBlock>
+            <FieldBlock label={labels.activityLog.fields.outcome}>
+              <SelectField
                 value={form.outcome}
                 onChange={(e) => set('outcome', e.target.value)}
                 disabled={blockedByOther}
               >
-                <option value=""></option>
-                {Object.entries(labels.activityLog.outcomeOptions).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
-            </FormField>
-            <div className="sm:col-span-2">
-              <FormField label={labels.activityLog.fields.recommendations}>
-                <textarea
-                  rows={2}
-                  className={baseInputClasses}
-                  value={form.recommendations}
-                  onChange={(e) => set('recommendations', e.target.value)}
-                  disabled={blockedByOther}
-                />
-              </FormField>
-            </div>
-          </div>
-        )}
-
-        {showFertilizerFields && (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField label={labels.activityLog.fields.fertilizerType}>
-              <input
-                type="text"
-                className={baseInputClasses}
-                value={form.fertilizer_type}
-                onChange={(e) => set('fertilizer_type', e.target.value)}
+                <option value="">{labels.activityLog.selectPlaceholder}</option>
+                {Object.entries(labels.activityLog.outcomeOptions).map(([v, l]) => (
+                  <option key={v} value={v}>{l}</option>
+                ))}
+              </SelectField>
+            </FieldBlock>
+            <FieldBlock label={labels.activityLog.fields.recommendations}>
+              <textarea
+                rows={2}
+                className={FIELD}
+                value={form.recommendations}
+                onChange={(e) => set('recommendations', e.target.value)}
                 disabled={blockedByOther}
               />
-            </FormField>
-            <div className="grid grid-cols-2 gap-2">
-              <FormField label={labels.activityLog.fields.quantityApplied}>
-                <input
-                  type="number" step="0.01"
-                  className={baseInputClasses}
-                  value={form.quantity_applied}
-                  onChange={(e) => set('quantity_applied', e.target.value)}
-                  disabled={blockedByOther}
-                />
-              </FormField>
-              <FormField label={labels.activityLog.fields.quantityUnit}>
-                <select
-                  className={baseInputClasses}
-                  value={form.quantity_unit}
-                  onChange={(e) => set('quantity_unit', e.target.value)}
-                  disabled={blockedByOther}
-                >
-                  {Object.entries(labels.activityLog.quantityUnitOptions).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </select>
-              </FormField>
-            </div>
-          </div>
+            </FieldBlock>
+          </>
         )}
 
-        {showPestFields && (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <FormField label={labels.activityLog.fields.pestDiseaseName}>
-              <input
-                type="text"
-                className={baseInputClasses}
-                value={form.pest_disease_name}
-                onChange={(e) => set('pest_disease_name', e.target.value)}
-                disabled={blockedByOther}
-              />
-            </FormField>
-            <FormField label={labels.activityLog.fields.areaAffected} required error={areaAffectedError}>
-              <input
-                type="number" step="0.0001"
-                className={baseInputClasses}
-                value={form.area_affected_ha}
-                onChange={(e) => { set('area_affected_ha', e.target.value); setAreaAffectedError('') }}
-                disabled={blockedByOther}
-              />
-            </FormField>
-            <FormField label={labels.activityLog.fields.severity}>
-              <select
-                className={baseInputClasses}
-                value={form.severity}
-                onChange={(e) => set('severity', e.target.value)}
-                disabled={blockedByOther}
-              >
-                <option value=""></option>
-                {Object.entries(labels.activityLog.severityOptions).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
-            </FormField>
-          </div>
-        )}
-
-        <FormField label={domain.key === 'crop' ? labels.activityLog.fields.notes : labels.activityLog.fields.notesFisheries}>
+        {/* NOTES */}
+        <FieldBlock label={isCrop ? labels.activityLog.fields.notes : labels.activityLog.fields.notesFisheries}>
           <textarea
-            className={baseInputClasses}
             rows={3}
+            className={FIELD}
             value={form[domain.notesField]}
             onChange={(e) => set(domain.notesField, e.target.value)}
             disabled={blockedByOther}
           />
-        </FormField>
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="outline" onClick={onClose}>{labels.common.cancel}</Button>
-          <Button type="submit" isLoading={isSubmitting} disabled={blockedByOther}>
+        </FieldBlock>
+
+        {/* SUBMIT */}
+        <button
+          type="submit"
+          disabled={blockedByOther || isSubmitting}
+          className={`flex w-full items-center justify-center gap-2 rounded-[8px] px-4 py-[15px] transition-opacity hover:opacity-90 disabled:opacity-50 ${t.solidBtn}`}
+        >
+          <Check size={18} aria-hidden="true" />
+          <span className="text-[16px] font-medium">
             {isEdit ? labels.activityLog.submitEdit : labels.activityLog.submitNew}
-          </Button>
-        </div>
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-1 w-full py-[14px] text-center text-cz-text-2"
+        >
+          <span className="text-[14px]">{labels.common.cancel}</span>
+        </button>
       </form>
-    </ModalShell>
+    </CitizenScreen>
   )
 }

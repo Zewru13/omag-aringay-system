@@ -1,26 +1,29 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, Pencil, Plus } from 'lucide-react'
+import { Pencil, Plus } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
-import Button from '../../components/UI/Button.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { CROP_DOMAIN } from './citizenDomainConfig.js'
-import CitizenActivityLogModal from './CitizenActivityLogModal.jsx'
+import CitizenActivityLogScreen from './CitizenActivityLogModal.jsx'
 import CitizenHarvestModal from './CitizenHarvestModal.jsx'
 import { labels } from './labels.js'
+import {
+  CROP_THEME, CitizenBody, CitizenScreen, CitizenSubHeader, SectionHeading,
+} from './citizenUI.jsx'
 
-// Batch E — "View History" destination for a single crop record from the
-// new Farmer home screen. Same data/actions as the old MyRecordsPanel
-// accordion row (own-entry edit only, staff entries read-only) — just
-// presented as its own full page instead of an expand-in-place row, to
-// match the new single-scroll, no-tabs navigation model.
+// Batch E added this as the "View history" destination for one crop
+// record; this revision re-skins it to the citizen visual spec and, now
+// that logging is a full screen rather than a modal, swaps to that screen
+// instead of stacking it on top. Same data, same own-entry-only edit
+// rule — a staff-logged entry still shows as read-only here.
 export default function FarmerCropHistoryView({ record, onBack, onRecordChanged }) {
   const { user } = useAuth()
   const { showToast } = useToast()
   const [logs, setLogs] = useState([])
   const [harvests, setHarvests] = useState([])
   const [isLoading, setIsLoading] = useState(true)
-  const [modal, setModal] = useState(null) // { kind: 'log' | 'harvest', entry }
+  const [logScreen, setLogScreen] = useState(null)   // { entry } — full screen
+  const [harvestModal, setHarvestModal] = useState(null) // { entry } — overlay
 
   const fetchDetail = async () => {
     setIsLoading(true)
@@ -33,7 +36,7 @@ export default function FarmerCropHistoryView({ record, onBack, onRecordChanged 
       setLogs(logsRes.data)
       setHarvests(harvestsRes)
     } catch {
-      showToast(labels.myRecordsPanel.loadError(CROP_DOMAIN.recordLabel.toLowerCase()), 'error')
+      showToast(labels.farmerHome.history.loadError(CROP_DOMAIN.recordLabel.toLowerCase()), 'error')
     } finally {
       setIsLoading(false)
     }
@@ -49,121 +52,125 @@ export default function FarmerCropHistoryView({ record, onBack, onRecordChanged 
     onRecordChanged?.()
   }
 
-  return (
-    <div className="min-h-screen bg-[#F5F7F5]">
-      <div className="mx-auto max-w-lg px-4 py-6">
+  if (logScreen) {
+    return (
+      <CitizenActivityLogScreen
+        domain={CROP_DOMAIN}
+        theme={CROP_THEME}
+        recordId={record.id}
+        record={record}
+        log={logScreen.entry}
+        onClose={() => setLogScreen(null)}
+        onSuccess={refreshAfterChange}
+      />
+    )
+  }
+
+  const addButton = (onClick) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex min-h-[44px] items-center gap-1.5 rounded-[8px] border-[0.5px] border-cz-border-strong px-3 py-2 text-cz-text transition-colors hover:bg-cz-page"
+    >
+      <Plus size={15} aria-hidden="true" />
+      <span className="text-[13px] font-medium">{labels.farmerHome.history.logActivity}</span>
+    </button>
+  )
+
+  const entryRow = (key, title, meta, isMine, onEdit) => (
+    <li key={key} className="flex items-center gap-3 border-b-[0.5px] border-cz-border px-[14px] py-[13px] last:border-b-0">
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[15px] font-medium text-cz-text">{title}</p>
+        <p className="text-[12px] text-cz-text-2">{meta}</p>
+      </div>
+      {isMine ? (
         <button
           type="button"
-          onClick={onBack}
-          className="mb-4 flex min-h-[44px] items-center gap-1.5 text-[15px] font-medium text-[#4A5E4A]"
+          onClick={onEdit}
+          className={`-my-2 flex min-h-[44px] shrink-0 items-center gap-1 px-2 ${CROP_THEME.accentText}`}
         >
-          <ArrowLeft size={18} /> {labels.farmerHome.secondary.backToHome}
+          <Pencil size={14} aria-hidden="true" />
+          <span className="text-[13px] font-medium">{labels.common.edit}</span>
         </button>
-
-        <h1 className="text-[18px] font-semibold text-[#1A2B1A]">{labels.farmerHome.history.title(CROP_DOMAIN.recordTitle(record))}</h1>
-
-        {isLoading ? (
-          <p className="mt-6 text-[15px] text-[#7A8E7A] italic">{labels.farmerHome.history.loading}</p>
-        ) : (
-          <div className="mt-5 space-y-5">
-            <section className="rounded-2xl border border-[#E2E8E2] bg-white p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-[13px] font-semibold uppercase tracking-wider text-[#7A8E7A]">{labels.farmerHome.history.activityLogTitle}</h2>
-                <Button size="sm" variant="outline" icon={Plus} onClick={() => setModal({ kind: 'log', entry: null })}>
-                  {labels.farmerHome.history.logActivity}
-                </Button>
-              </div>
-              {logs.length === 0 ? (
-                <p className="text-[14px] italic text-[#A8BCA8]">{labels.farmerHome.history.noActivity}</p>
-              ) : (
-                <ul className="space-y-2">
-                  {logs.map((log) => {
-                    const isMine = log[CROP_DOMAIN.creatorField] === user?.id
-                    return (
-                      <li key={log.id} className="flex items-center justify-between gap-3 rounded-xl bg-[#F9FAF9] px-3 py-3">
-                        <div>
-                          <p className="text-[15px] font-medium text-[#1A2B1A]">{log[CROP_DOMAIN.activityField]}</p>
-                          <p className="text-[13px] text-[#7A8E7A]">{log.date_of_activity}{log.is_late ? labels.myRecordsPanel.lateSuffix : ''}</p>
-                        </div>
-                        {isMine ? (
-                          <button
-                            type="button"
-                            onClick={() => setModal({ kind: 'log', entry: log })}
-                            className="flex min-h-[44px] items-center gap-1 px-2 text-[13px] font-medium text-[#1B4D2E]"
-                          >
-                            <Pencil size={14} /> {labels.common.edit}
-                          </button>
-                        ) : (
-                          <span className="text-[12px] text-[#A8BCA8] italic">{labels.common.loggedByStaff}</span>
-                        )}
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
-            </section>
-
-            <section className="rounded-2xl border border-[#E2E8E2] bg-white p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className="text-[13px] font-semibold uppercase tracking-wider text-[#7A8E7A]">{labels.farmerHome.history.harvestTitle}</h2>
-                {!record.harvest_record_id && (
-                  <Button size="sm" variant="outline" icon={Plus} onClick={() => setModal({ kind: 'harvest', entry: null })}>
-                    {labels.farmerHome.history.recordHarvest}
-                  </Button>
-                )}
-              </div>
-              {harvests.length === 0 ? (
-                <p className="text-[14px] italic text-[#A8BCA8]">{labels.farmerHome.history.noHarvest}</p>
-              ) : (
-                <ul className="space-y-2">
-                  {harvests.map((h) => {
-                    const isMine = h[CROP_DOMAIN.creatorField] === user?.id
-                    return (
-                      <li key={h.id} className="flex items-center justify-between gap-3 rounded-xl bg-[#F9FAF9] px-3 py-3">
-                        <div>
-                          <p className="text-[15px] font-medium text-[#1A2B1A]">{h.volume_kg} kg</p>
-                          <p className="text-[13px] text-[#7A8E7A]">{h.harvest_start_date}</p>
-                        </div>
-                        {isMine ? (
-                          <button
-                            type="button"
-                            onClick={() => setModal({ kind: 'harvest', entry: h })}
-                            className="flex min-h-[44px] items-center gap-1 px-2 text-[13px] font-medium text-[#1B4D2E]"
-                          >
-                            <Pencil size={14} /> {labels.common.edit}
-                          </button>
-                        ) : (
-                          <span className="text-[12px] text-[#A8BCA8] italic">{labels.common.loggedByStaff}</span>
-                        )}
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
-            </section>
-          </div>
-        )}
-      </div>
-
-      {modal?.kind === 'log' && (
-        <CitizenActivityLogModal
-          domain={CROP_DOMAIN}
-          recordId={record.id}
-          record={record}
-          log={modal.entry}
-          onClose={() => setModal(null)}
-          onSuccess={refreshAfterChange}
-        />
+      ) : (
+        <span className="shrink-0 text-[12px] italic text-cz-text-muted">{labels.common.loggedByStaff}</span>
       )}
-      {modal?.kind === 'harvest' && (
+    </li>
+  )
+
+  return (
+    <CitizenScreen>
+      <CitizenSubHeader
+        theme={CROP_THEME}
+        title={labels.farmerHome.history.title(CROP_DOMAIN.recordTitle(record))}
+        subtitle={record.farm_location_barangay || undefined}
+        onBack={onBack}
+      />
+
+      <CitizenBody>
+        {isLoading ? (
+          <p className="text-[15px] italic text-cz-text-2">{labels.farmerHome.history.loading}</p>
+        ) : (
+          <>
+            <div className="mb-[10px] flex items-center justify-between">
+              <SectionHeading>{labels.farmerHome.history.activityLogTitle}</SectionHeading>
+              <div className="-mt-[10px]">{addButton(() => setLogScreen({ entry: null }))}</div>
+            </div>
+            {logs.length === 0 ? (
+              <p className="mb-4 text-[14px] italic text-cz-text-muted">{labels.farmerHome.history.noActivity}</p>
+            ) : (
+              <ul className="mb-4 overflow-hidden rounded-[12px] border-[0.5px] border-cz-border-strong bg-cz-surface">
+                {logs.map((log) => entryRow(
+                  log.id,
+                  log[CROP_DOMAIN.activityField],
+                  `${log.date_of_activity}${log.is_late ? labels.farmerHome.history.lateSuffix : ''}`,
+                  log[CROP_DOMAIN.creatorField] === user?.id,
+                  () => setLogScreen({ entry: log }),
+                ))}
+              </ul>
+            )}
+
+            <div className="mb-[10px] flex items-center justify-between">
+              <SectionHeading>{labels.farmerHome.history.harvestTitle}</SectionHeading>
+              {!record.harvest_record_id && (
+                <div className="-mt-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => setHarvestModal({ entry: null })}
+                    className="flex min-h-[44px] items-center gap-1.5 rounded-[8px] border-[0.5px] border-cz-border-strong px-3 py-2 text-cz-text transition-colors hover:bg-cz-page"
+                  >
+                    <Plus size={15} aria-hidden="true" />
+                    <span className="text-[13px] font-medium">{labels.farmerHome.history.recordHarvest}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+            {harvests.length === 0 ? (
+              <p className="text-[14px] italic text-cz-text-muted">{labels.farmerHome.history.noHarvest}</p>
+            ) : (
+              <ul className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border-strong bg-cz-surface">
+                {harvests.map((h) => entryRow(
+                  h.id,
+                  `${h.volume_kg} kg`,
+                  h.harvest_start_date,
+                  h[CROP_DOMAIN.creatorField] === user?.id,
+                  () => setHarvestModal({ entry: h }),
+                ))}
+              </ul>
+            )}
+          </>
+        )}
+      </CitizenBody>
+
+      {harvestModal && (
         <CitizenHarvestModal
           domain={CROP_DOMAIN}
           record={record}
-          harvest={modal.entry}
-          onClose={() => setModal(null)}
+          harvest={harvestModal.entry}
+          onClose={() => setHarvestModal(null)}
           onSuccess={refreshAfterChange}
         />
       )}
-    </div>
+    </CitizenScreen>
   )
 }

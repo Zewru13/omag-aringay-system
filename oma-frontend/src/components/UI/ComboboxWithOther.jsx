@@ -41,6 +41,13 @@ function ComboboxWithOther({
   error,
   disabled = false,
   className = '',
+  // The citizen self-service screens (src/pages/Citizen/**) follow a
+  // different visual spec from the staff app — taller controls, hairline
+  // borders, larger type. These two optional overrides let them restyle
+  // the control without forking the component or disturbing the staff
+  // usages, which simply don't pass them and keep baseInputClasses.
+  inputClassName = baseInputClasses,
+  chevronSize = 14,
 }) {
   const baseId = useId()
   const listboxId = `${baseId}-listbox`
@@ -178,13 +185,13 @@ function ComboboxWithOther({
           disabled={disabled}
           onClick={() => (isOpen ? closeDropdown() : openDropdown())}
           onKeyDown={handleTriggerKeyDown}
-          className={`${baseInputClasses} flex items-center justify-between gap-2 text-left disabled:opacity-50 disabled:cursor-not-allowed`}
+          className={`${inputClassName} flex items-center justify-between gap-2 text-left disabled:opacity-50 disabled:cursor-not-allowed`}
         >
           <span className={displayLabel ? '' : 'text-[#A8BCA8]'}>
             {displayLabel || placeholder}
           </span>
           <ChevronDown
-            size={14}
+            size={chevronSize}
             className={`shrink-0 text-[#7A8E7A] transition-transform motion-reduce:transition-none ${isOpen ? 'rotate-180' : ''}`}
             aria-hidden="true"
           />
@@ -206,7 +213,7 @@ function ComboboxWithOther({
             placeholder={`${otherLabel} — please specify`}
             onChange={(e) => onOtherChange?.(e.target.value)}
             onKeyDown={handleOtherInputKeyDown}
-            className={`${baseInputClasses} pr-8 disabled:opacity-50 disabled:cursor-not-allowed`}
+            className={`${inputClassName} pr-8 disabled:opacity-50 disabled:cursor-not-allowed`}
           />
           <button
             type="button"
@@ -214,10 +221,10 @@ function ComboboxWithOther({
             aria-label="Choose a different option"
             disabled={disabled}
             onClick={() => (isOpen ? closeDropdown() : openDropdown())}
-            className="absolute right-0 top-0 flex h-[38px] w-8 items-center justify-center text-[#7A8E7A] hover:text-[#1B4D2E] disabled:opacity-50"
+            className="absolute right-0 top-0 flex h-full w-9 items-center justify-center text-[#7A8E7A] hover:text-[#1B4D2E] disabled:opacity-50"
           >
             <ChevronDown
-              size={14}
+              size={chevronSize}
               className={`transition-transform motion-reduce:transition-none ${isOpen ? 'rotate-180' : ''}`}
               aria-hidden="true"
             />
