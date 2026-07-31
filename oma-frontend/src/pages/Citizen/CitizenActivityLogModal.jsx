@@ -5,7 +5,7 @@ import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import useRecordLock from '../../hooks/useRecordLock.js'
 import { labels } from './labels.js'
-import { CROP_THEME, CitizenScreen, CitizenSubHeader, FISH_THEME } from './citizenUI.jsx'
+import { CITIZEN_GUTTER, CROP_THEME, CitizenScreen, CitizenSubHeader, FISH_THEME } from './citizenUI.jsx'
 
 const todayISO = () => new Date().toISOString().split('T')[0]
 const yesterdayISO = () => {
@@ -287,7 +287,7 @@ export default function CitizenActivityLogScreen({
     <CitizenScreen>
       <CitizenSubHeader theme={t} title={headerTitle} subtitle={headerSubtitle} onBack={onClose} />
 
-      <form onSubmit={handleSubmit} className="px-[14px] py-4">
+      <form onSubmit={handleSubmit} className={`${CITIZEN_GUTTER} py-4`}>
         {blockedByOther && (
           <div className="mb-[18px] rounded-[12px] border-[0.5px] border-cz-warn-border bg-cz-warn-bg p-[14px]">
             <p className="text-[13px] text-cz-warn-body">

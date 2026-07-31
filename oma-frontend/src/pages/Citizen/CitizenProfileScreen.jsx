@@ -1,6 +1,6 @@
 import { Info, User } from 'lucide-react'
 import { labels } from './labels.js'
-import { CitizenScreen, CitizenSubHeader } from './citizenUI.jsx'
+import { CITIZEN_GUTTER, CitizenScreen, CitizenSubHeader } from './citizenUI.jsx'
 
 // Read-only registry view for a Farmer/Fisherfolk citizen. There is no edit
 // affordance anywhere in this file by design — self-service editing is a
@@ -44,7 +44,7 @@ function FieldGroup({ heading, rows }) {
   const visible = rows.filter((r) => hasValue(r.value))
   if (visible.length === 0) return null
   return (
-    <section className="px-4 pt-[18px]">
+    <section className={`${CITIZEN_GUTTER} pt-[18px]`}>
       <h2 className="mb-1 text-[12px] font-medium tracking-[0.03em] text-cz-text-2">{heading}</h2>
       {visible.map((r, i) => (
         <FieldRow
@@ -86,7 +86,7 @@ export default function CitizenProfileScreen({ record, recordType, theme, onBack
       <CitizenSubHeader theme={theme} title={labels.profile.title} onBack={onBack} />
 
       {/* IDENTITY */}
-      <div className="flex flex-col items-center border-b-[0.5px] border-cz-border px-4 py-5 text-center">
+      <div className={`${CITIZEN_GUTTER} flex flex-col items-center border-b-[0.5px] border-cz-border py-5 text-center`}>
         <div className={`mb-[10px] flex h-16 w-16 items-center justify-center rounded-full ${theme.circleBg}`}>
           <User size={30} className={theme.circleIcon} aria-hidden="true" />
         </div>
@@ -100,9 +100,11 @@ export default function CitizenProfileScreen({ record, recordType, theme, onBack
       <FieldGroup heading={labels.profile.groups.contact} rows={contactRows} />
 
       {/* OFFICE NOTICE */}
-      <div className="mx-4 mt-1 mb-[18px] flex gap-2 rounded-[8px] bg-cz-warn-bg p-3">
-        <Info size={16} className="mt-px shrink-0 text-cz-warn-accent" aria-hidden="true" />
-        <p className="text-[12px] leading-[1.5] text-cz-warn-body">{labels.profile.officeNotice}</p>
+      <div className={`${CITIZEN_GUTTER} mt-1 mb-[18px]`}>
+        <div className="flex gap-2 rounded-[8px] bg-cz-warn-bg p-3">
+          <Info size={16} className="mt-px shrink-0 text-cz-warn-accent" aria-hidden="true" />
+          <p className="text-[12px] leading-[1.5] text-cz-warn-body">{labels.profile.officeNotice}</p>
+        </div>
       </div>
     </CitizenScreen>
   )

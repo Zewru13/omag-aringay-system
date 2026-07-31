@@ -87,7 +87,7 @@ export default function CitizenHomePage() {
         </button>
       </header>
 
-      <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
+      <main className="mx-auto w-full px-4 py-8 sm:max-w-[720px] sm:px-6 lg:max-w-[1100px]">
         <h1 className="text-[20px] font-semibold text-[#1A2B1A]">{labels.home.greeting(record?.label || user?.full_name)}</h1>
         <p className="mt-1 text-[13px] text-[#7A8E7A]">
           {labels.home.subtitle(RECORD_TYPE_LABELS_LOWER[recordType] || 'record')}

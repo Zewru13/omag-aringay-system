@@ -261,7 +261,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
   )
 
   return (
-    <CitizenScreen wide>
+    <CitizenScreen>
       <CitizenHomeHeader
         theme={FISH_THEME}
         name={record.label}
@@ -322,7 +322,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
             <div className="mt-4">
               <SectionHeading>
                 {labels.fisherfolkHome.myPonds.title}
-                {pondRows.length > 0 && <span className="hidden lg:inline"> ({pondRows.length})</span>}
+                {pondRows.length > 0 && <span className="hidden sm:inline"> ({pondRows.length})</span>}
               </SectionHeading>
             </div>
             {pondRows.length === 0 ? (
@@ -342,7 +342,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
               // count instead would mean a fisherfolk with 3 ponds saw a
               // different treatment than one with 5, for no reason they could
               // perceive.
-              <div className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border-strong bg-cz-surface lg:grid lg:grid-cols-2 lg:items-start lg:gap-[10px] lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent">
+              <div className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border-strong bg-cz-surface sm:grid sm:grid-cols-2 sm:items-start sm:gap-[10px] sm:overflow-visible sm:rounded-none sm:border-0 sm:bg-transparent">
                 {pondRows.map(({ pond, record: sr }, i) => {
                   const isDue = sr && dueRecords.some((d) => d.id === sr.id)
                   const progress = sr ? cycleProgress(sr.date_stocked, sr.expected_harvest_date) : null
@@ -352,7 +352,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
                     <RowTag
                       key={pond.id}
                       {...(sr ? { type: 'button', onClick: () => setLogScreen({ record: sr }) } : {})}
-                      className={`block w-full px-[14px] py-[13px] text-left ${divider} lg:rounded-[10px] lg:border-[0.5px] lg:border-cz-border-strong lg:bg-cz-surface lg:p-3 ${
+                      className={`block w-full px-[14px] py-[13px] text-left ${divider} sm:rounded-[10px] sm:border-[0.5px] sm:border-cz-border-strong sm:bg-cz-surface sm:p-3 ${
                         sr ? 'min-h-[44px] transition-colors hover:bg-cz-page' : ''
                       }`}
                     >
@@ -434,7 +434,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
           onClick={() => !isRepeating && setConfirmGuard(null)}
         >
           <div
-            className="w-full max-w-[340px] rounded-[12px] border-[0.5px] border-cz-border-strong bg-cz-surface p-[18px]"
+            className="w-full rounded-[12px] border-[0.5px] border-cz-border-strong bg-cz-surface p-[18px] sm:max-w-[420px]"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-[17px] font-medium text-cz-text">{labels.fisherfolkHome.confirmGuard.title}</h2>

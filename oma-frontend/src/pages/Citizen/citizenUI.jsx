@@ -65,26 +65,37 @@ export const FISH_THEME = {
 }
 
 // ─── Screen shell ───────────────────────────────────────────────────────
-// Phone-shaped at EVERY breakpoint: the column never widens past 380px,
-// it just centres itself in whatever viewport it gets.
+// FLUID at every width. The container is always `w-full`; a max-width only
+// engages once there is genuinely more room than the content wants:
+//
+//   < 640px   full viewport width — the container measures exactly the
+//             viewport, so a real phone is filled edge to edge
+//   640-1023  centred, capped at 720px
+//   >= 1024   centred, capped at 1100px
+//   >= 1440   still 1100px — deliberately does not keep growing
+//
+// This replaces the previous max-w-[340px]/sm:max-w-[380px] phone column,
+// which left dead space on tablets and, worse, failed to fill a 390px or
+// 414px phone — the exact devices this portal is used on.
+//
+// HORIZONTAL PADDING lives on the header and body children (px-4 sm:px-6),
+// not on this container. That is deliberate: the domain-tinted header is a
+// full-bleed colour bar, and padding here would inset it and leave page
+// background running down both sides of it. Because the padding sits
+// inside, the container's own measured width still equals the viewport
+// below 640px, which is what the layout rule requires.
+export const CITIZEN_GUTTER = 'px-4 sm:px-6'
 
-export function CitizenScreen({ children, wide = false }) {
-  // `wide` opens the column up at >=1024px for the two HOME screens only
-  // (see CitizenHomeBody). Every sub-view — log activity, history, yield,
-  // assistance, profile — leaves it false and stays in the phone column at
-  // every width: those are single-task, single-column reads where a
-  // 1100px-wide form would be worse, not better.
-  //
-  // The mobile/tablet cap is expressed identically in both branches
-  // (max-w-[340px] sm:max-w-[380px]) so turning `wide` on cannot alter
-  // anything below the lg breakpoint.
+export function CitizenScreen({ children }) {
+  // EVERY citizen screen gets this identical container — home screens and
+  // sub-views alike. That uniformity is the point: if Profile capped at
+  // 720px while Home ran to 1100px, the tinted header bar would change
+  // width as you navigated and the two would read as different apps. What
+  // differs between them is what goes INSIDE (the home screens add the
+  // Quick Links region via CitizenHomeBody), never the container.
   return (
     <div className="min-h-screen w-full bg-cz-page">
-      <div
-        className={`mx-auto w-full max-w-[340px] bg-cz-page sm:max-w-[380px] ${
-          wide ? 'lg:max-w-[1100px]' : ''
-        }`}
-      >
+      <div className="mx-auto w-full bg-cz-page sm:max-w-[720px] lg:max-w-[1100px]">
         {children}
       </div>
     </div>
@@ -95,7 +106,7 @@ export function CitizenScreen({ children, wide = false }) {
 
 export function CitizenHomeHeader({ theme, name, metaLine, onLogout }) {
   return (
-    <header className={`${theme.header} px-[18px] pt-4 pb-[18px] lg:px-6 lg:py-[18px]`}>
+    <header className={`${theme.header} ${CITIZEN_GUTTER} pt-4 pb-[18px] lg:py-[18px]`}>
       <div className="mb-[14px] flex items-start justify-between lg:mb-0">
         <span className={`text-[12px] tracking-[0.04em] ${theme.brand}`}>
           {labels.header.appName}
@@ -135,13 +146,12 @@ export function CitizenHomeHeader({ theme, name, metaLine, onLogout }) {
 }
 
 // ─── Desktop two-region home body ───────────────────────────────────────
-// Below 1024px this is byte-for-byte the old single CitizenBody: same
-// px-[14px] pt-4 pb-1.5, children in source order, no flex, no sidebar.
+// Below 1024px: one fluid column, children in source order, no sidebar.
 // At >=1024px it becomes main + aside.
 
 export function CitizenHomeBody({ children, aside }) {
   return (
-    <div className="px-[14px] pt-4 pb-1.5 lg:flex lg:gap-5 lg:px-6 lg:py-5">
+    <div className={`${CITIZEN_GUTTER} pt-4 pb-1.5 lg:flex lg:gap-5 lg:py-5`}>
       <div className="min-w-0 lg:flex-[1.4]">{children}</div>
       {aside && (
         <aside className="hidden lg:block lg:flex-1 lg:border-l-[0.5px] lg:border-cz-border lg:pl-5">
@@ -160,7 +170,13 @@ export function CitizenHomeBody({ children, aside }) {
 // stop being comfortably tappable. Two keeps the card proportions close to
 // what they are on mobile, which is where they were designed.
 export function CitizenCardGrid({ children }) {
-  return <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-[10px]">{children}</div>
+  // Two-up from 640px, not just 1024px: at tablet width a single column of
+  // full-width cards wastes most of the row. grid-cols-2 is
+  // repeat(2, minmax(0,1fr)) — fr units, so the columns divide whatever
+  // width the container has rather than measuring any fixed size. minmax's
+  // 0 floor is what lets long crop/pond names truncate instead of forcing
+  // the column wider than its share.
+  return <div className="sm:grid sm:grid-cols-2 sm:items-start sm:gap-[10px]">{children}</div>
 }
 
 // Quick Links sidebar heading (desktop only — the mobile equivalent is the
@@ -173,7 +189,7 @@ export function QuickLinksHeading({ children }) {
 
 export function CitizenSubHeader({ theme, title, subtitle, onBack }) {
   return (
-    <header className={`${theme.header} flex items-center gap-[10px] px-4 py-[14px]`}>
+    <header className={`${theme.header} ${CITIZEN_GUTTER} flex items-center gap-[10px] py-[14px]`}>
       <button
         type="button"
         onClick={onBack}
@@ -193,7 +209,7 @@ export function CitizenSubHeader({ theme, title, subtitle, onBack }) {
 // ─── Body wrapper + section heading ─────────────────────────────────────
 
 export function CitizenBody({ children, className = '' }) {
-  return <div className={`px-[14px] pt-4 pb-1.5 ${className}`}>{children}</div>
+  return <div className={`${CITIZEN_GUTTER} pt-4 pb-1.5 ${className}`}>{children}</div>
 }
 
 export function SectionHeading({ children }) {

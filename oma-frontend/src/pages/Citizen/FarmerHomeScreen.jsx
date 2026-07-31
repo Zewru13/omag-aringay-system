@@ -159,7 +159,7 @@ export default function FarmerHomeScreen({ record, onLogout }) {
   )
 
   return (
-    <CitizenScreen wide>
+    <CitizenScreen>
       <CitizenHomeHeader
         theme={CROP_THEME}
         name={record.label}
@@ -210,7 +210,7 @@ export default function FarmerHomeScreen({ record, onLogout }) {
             <div className="mt-4">
               <SectionHeading>
                 {labels.farmerHome.myCrops.title}
-                {records.length > 0 && <span className="hidden lg:inline"> ({records.length})</span>}
+                {records.length > 0 && <span className="hidden sm:inline"> ({records.length})</span>}
               </SectionHeading>
             </div>
             {records.length === 0 ? (
@@ -227,7 +227,7 @@ export default function FarmerHomeScreen({ record, onLogout }) {
                 return (
                   <div
                     key={rec.id}
-                    className="mb-[10px] rounded-[12px] border-[0.5px] border-cz-border-strong bg-cz-surface p-[14px] lg:mb-0"
+                    className="mb-[10px] rounded-[12px] border-[0.5px] border-cz-border-strong bg-cz-surface p-[14px] sm:mb-0"
                   >
                     <div className="flex items-center gap-[10px]">
                       <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${CROP_THEME.circleBg}`}>
