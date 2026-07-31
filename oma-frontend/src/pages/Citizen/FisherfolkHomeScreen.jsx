@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { BarChart3, Clock, DropletOff, Fish, Gift, Repeat, Stethoscope, User } from 'lucide-react'
+import { AlertTriangle, BarChart3, Clock, DropletOff, Fish, Gift, Repeat, Stethoscope, User } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { FISHERIES_DOMAIN } from './citizenDomainConfig.js'
 import CitizenActivityLogScreen from './CitizenActivityLogModal.jsx'
+import CitizenDisasterScreen from './CitizenDisasterScreen.jsx'
 import CitizenProfileScreen from './CitizenProfileScreen.jsx'
 import MyYieldAnalysisSection from './MyYieldAnalysisSection.jsx'
 import MyAssistanceHistorySection from './MyAssistanceHistorySection.jsx'
@@ -33,6 +34,12 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
 
   const [view, setView] = useState({ kind: 'home' }) // 'home' | 'yield' | 'assistance' | 'pondPicker'
   const [logScreen, setLogScreen] = useState(null) // { record, prefillActivity }
+  const [disasterScreen, setDisasterScreen] = useState(null) // { record }
+  // Evaluator-parity batch: the pond picker (already built for "Log
+  // illness or mortality") is reused as-is for "Report disaster" rather
+  // than building a second picker — the only thing that differs is what
+  // opens once a pond is chosen, which this mode flag drives.
+  const [pondPickerMode, setPondPickerMode] = useState('illness') // 'illness' | 'disaster'
   const [confirmGuard, setConfirmGuard] = useState(null) // { repeatable: [...], skippedCount }
   const [isRepeating, setIsRepeating] = useState(false)
 
@@ -183,14 +190,28 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
     )
   }
 
+  if (disasterScreen) {
+    return (
+      <CitizenDisasterScreen
+        domain={FISHERIES_DOMAIN}
+        theme={FISH_THEME}
+        recordId={disasterScreen.record.id}
+        record={disasterScreen.record}
+        onClose={() => setDisasterScreen(null)}
+        onSuccess={handleLogSuccess}
+      />
+    )
+  }
+
   if (view.kind === 'pondPicker') {
     const activeRecords = stockingRecords.filter((sr) => ACTIVE_STATUSES.includes(sr.status))
+    const isDisasterMode = pondPickerMode === 'disaster'
     return (
       <CitizenScreen>
         <CitizenSubHeader
           theme={FISH_THEME}
           title={labels.fisherfolkHome.pondPicker.title}
-          subtitle={labels.fisherfolkHome.pondPicker.subtitle}
+          subtitle={isDisasterMode ? labels.fisherfolkHome.pondPicker.disasterSubtitle : labels.fisherfolkHome.pondPicker.subtitle}
           onBack={() => setView({ kind: 'home' })}
         />
         <CitizenBody>
@@ -207,7 +228,11 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
                 <button
                   key={sr.id}
                   type="button"
-                  onClick={() => { setView({ kind: 'home' }); setLogScreen({ record: sr, prefillActivity: 'Disease Control' }) }}
+                  onClick={() => {
+                    setView({ kind: 'home' })
+                    if (isDisasterMode) setDisasterScreen({ record: sr })
+                    else setLogScreen({ record: sr, prefillActivity: 'Disease Control' })
+                  }}
                   className={`flex min-h-[44px] w-full items-center gap-[10px] px-[14px] py-[13px] text-left transition-colors hover:bg-cz-page ${
                     i < activeRecords.length - 1 ? 'border-b-[0.5px] border-cz-border' : ''
                   }`}
@@ -239,7 +264,8 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
   // the one entry that starts a task rather than opening a read-only view.
   const quickLinks = [
     { icon: User, label: labels.farmerHome.secondary.profileTitle, onClick: () => setView({ kind: 'profile' }) },
-    { icon: Stethoscope, label: labels.fisherfolkHome.secondary.illnessTitle, onClick: () => setView({ kind: 'pondPicker' }) },
+    { icon: Stethoscope, label: labels.fisherfolkHome.secondary.illnessTitle, onClick: () => { setPondPickerMode('illness'); setView({ kind: 'pondPicker' }) } },
+    { icon: AlertTriangle, label: labels.fisherfolkHome.secondary.disasterTitle, onClick: () => { setPondPickerMode('disaster'); setView({ kind: 'pondPicker' }) } },
     { icon: BarChart3, label: labels.farmerHome.secondary.harvestResultsTitle, onClick: () => setView({ kind: 'yield' }) },
     { icon: Gift, label: labels.farmerHome.secondary.assistanceTitle, onClick: () => setView({ kind: 'assistance' }) },
   ]

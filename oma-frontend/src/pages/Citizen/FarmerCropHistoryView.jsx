@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Pencil, Plus } from 'lucide-react'
+import { AlertTriangle, ChevronRight, Pencil, Plus } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { CROP_DOMAIN } from './citizenDomainConfig.js'
 import CitizenActivityLogScreen from './CitizenActivityLogModal.jsx'
+import CitizenDisasterScreen from './CitizenDisasterScreen.jsx'
 import CitizenHarvestModal from './CitizenHarvestModal.jsx'
 import { labels } from './labels.js'
 import {
@@ -12,18 +13,26 @@ import {
 } from './citizenUI.jsx'
 
 // Batch E added this as the "View history" destination for one crop
-// record; this revision re-skins it to the citizen visual spec and, now
-// that logging is a full screen rather than a modal, swaps to that screen
-// instead of stacking it on top. Same data, same own-entry-only edit
-// rule — a staff-logged entry still shows as read-only here.
+// record; the visual-spec revision swapped log editing from a modal to a
+// full screen. Evaluator-parity batch: every entry now shows Edit
+// regardless of who logged it — get_object_creator_id is no longer part
+// of the backend's IsStaffOrOwnRecordCitizen check for CITIZEN (see
+// accounts/permissions.py), so the frontend's own-entry gate would just be
+// a UI lie if left in place. Ownership of the RECORD itself (not the
+// entry) is still the real boundary, enforced server-side and untouched —
+// this screen can only ever be reached for the citizen's own record to
+// begin with. Also adds a Disasters section, opening the new
+// CitizenDisasterScreen (report + status-track + recover) for this record.
 export default function FarmerCropHistoryView({ record, onBack, onRecordChanged }) {
   const { user } = useAuth()
   const { showToast } = useToast()
   const [logs, setLogs] = useState([])
   const [harvests, setHarvests] = useState([])
+  const [disasterCount, setDisasterCount] = useState(null) // { active, total } | null while loading
   const [isLoading, setIsLoading] = useState(true)
   const [logScreen, setLogScreen] = useState(null)   // { entry } — full screen
   const [harvestModal, setHarvestModal] = useState(null) // { entry } — overlay
+  const [disasterScreen, setDisasterScreen] = useState(false) // full screen
 
   const fetchDetail = async () => {
     setIsLoading(true)
@@ -32,9 +41,16 @@ export default function FarmerCropHistoryView({ record, onBack, onRecordChanged 
       const harvestsPromise = record.harvest_record_id
         ? api.get(CROP_DOMAIN.harvestDetailUrl(record.harvest_record_id)).then((r) => [r.data])
         : Promise.resolve([])
-      const [logsRes, harvestsRes] = await Promise.all([logsPromise, harvestsPromise])
+      const disastersPromise = api.get(CROP_DOMAIN.disastersUrl(record.id)).catch(() => null)
+      const [logsRes, harvestsRes, disastersRes] = await Promise.all([logsPromise, harvestsPromise, disastersPromise])
       setLogs(logsRes.data)
       setHarvests(harvestsRes)
+      if (disastersRes) {
+        const rows = Array.isArray(disastersRes.data) ? disastersRes.data : (disastersRes.data?.results || [])
+        setDisasterCount({ active: rows.filter((d) => d.status === 'Active').length, total: rows.length })
+      } else {
+        setDisasterCount(null)
+      }
     } catch {
       showToast(labels.farmerHome.history.loadError(CROP_DOMAIN.recordLabel.toLowerCase()), 'error')
     } finally {
@@ -66,6 +82,19 @@ export default function FarmerCropHistoryView({ record, onBack, onRecordChanged 
     )
   }
 
+  if (disasterScreen) {
+    return (
+      <CitizenDisasterScreen
+        domain={CROP_DOMAIN}
+        theme={CROP_THEME}
+        recordId={record.id}
+        record={record}
+        onClose={() => setDisasterScreen(false)}
+        onSuccess={refreshAfterChange}
+      />
+    )
+  }
+
   const addButton = (onClick) => (
     <button
       type="button"
@@ -77,24 +106,28 @@ export default function FarmerCropHistoryView({ record, onBack, onRecordChanged 
     </button>
   )
 
-  const entryRow = (key, title, meta, isMine, onEdit) => (
+  // Evaluator-parity batch: Edit shows on every row now, staff-logged or
+  // not — `isStaffLogged` only drives the small "Logged by staff" tag next
+  // to it, informational rather than gating. The actual permission is
+  // enforced server-side (IsStaffOrOwnRecordCitizen, own-record-only), so
+  // there is nothing left for the frontend to block on here.
+  const entryRow = (key, title, meta, isStaffLogged, onEdit) => (
     <li key={key} className="flex items-center gap-3 border-b-[0.5px] border-cz-border px-[14px] py-[13px] last:border-b-0">
       <div className="min-w-0 flex-1">
         <p className="truncate text-[15px] font-medium text-cz-text">{title}</p>
-        <p className="text-[12px] text-cz-text-2">{meta}</p>
+        <p className="text-[12px] text-cz-text-2">
+          {meta}
+          {isStaffLogged && <span className="italic text-cz-text-muted"> · {labels.common.loggedByStaff}</span>}
+        </p>
       </div>
-      {isMine ? (
-        <button
-          type="button"
-          onClick={onEdit}
-          className={`-my-2 flex min-h-[44px] shrink-0 items-center gap-1 px-2 ${CROP_THEME.accentText}`}
-        >
-          <Pencil size={14} aria-hidden="true" />
-          <span className="text-[13px] font-medium">{labels.common.edit}</span>
-        </button>
-      ) : (
-        <span className="shrink-0 text-[12px] italic text-cz-text-muted">{labels.common.loggedByStaff}</span>
-      )}
+      <button
+        type="button"
+        onClick={onEdit}
+        className={`-my-2 flex min-h-[44px] shrink-0 items-center gap-1 px-2 ${CROP_THEME.accentText}`}
+      >
+        <Pencil size={14} aria-hidden="true" />
+        <span className="text-[13px] font-medium">{labels.common.edit}</span>
+      </button>
     </li>
   )
 
@@ -124,7 +157,7 @@ export default function FarmerCropHistoryView({ record, onBack, onRecordChanged 
                   log.id,
                   log[CROP_DOMAIN.activityField],
                   `${log.date_of_activity}${log.is_late ? labels.farmerHome.history.lateSuffix : ''}`,
-                  log[CROP_DOMAIN.creatorField] === user?.id,
+                  log[CROP_DOMAIN.creatorField] !== user?.id,
                   () => setLogScreen({ entry: log }),
                 ))}
               </ul>
@@ -153,11 +186,30 @@ export default function FarmerCropHistoryView({ record, onBack, onRecordChanged 
                   h.id,
                   `${h.volume_kg} kg`,
                   h.harvest_start_date,
-                  h[CROP_DOMAIN.creatorField] === user?.id,
+                  h[CROP_DOMAIN.creatorField] !== user?.id,
                   () => setHarvestModal({ entry: h }),
                 ))}
               </ul>
             )}
+
+            <div className="mb-[10px] flex items-center justify-between">
+              <SectionHeading>{labels.farmerHome.history.disasterTitle}</SectionHeading>
+            </div>
+            <button
+              type="button"
+              onClick={() => setDisasterScreen(true)}
+              className="flex min-h-[44px] w-full items-center justify-between gap-2 rounded-[12px] border-[0.5px] border-cz-border-strong bg-cz-surface px-[14px] py-[13px] text-left transition-colors hover:bg-cz-page"
+            >
+              <span className="flex items-center gap-2">
+                <AlertTriangle size={16} className={disasterCount?.active ? 'text-cz-danger-accent' : 'text-cz-text-muted'} aria-hidden="true" />
+                <span className="text-[14px] text-cz-text">
+                  {disasterCount?.active
+                    ? labels.farmerHome.history.activeDisasterCount(disasterCount.active)
+                    : labels.farmerHome.history.manageDisasters}
+                </span>
+              </span>
+              <ChevronRight size={16} className="text-cz-text-muted" aria-hidden="true" />
+            </button>
           </>
         )}
       </CitizenBody>

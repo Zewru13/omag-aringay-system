@@ -104,6 +104,7 @@ export const labels = {
       cardMeta: (barangay, area, season) => `${barangay} · ${area} ha · ${season} season`,
       logActivity: 'Log activity',
       viewHistory: 'View history',
+      reportDisaster: 'Report disaster',
       seasonYear: (season, year) => `${season} ${year}`,
     },
     secondary: {
@@ -124,6 +125,9 @@ export const labels = {
       recordHarvest: 'Record harvest',
       noHarvest: 'No harvest recorded yet.',
       lateSuffix: ' · Late',
+      disasterTitle: 'Disasters',
+      manageDisasters: 'Report / view',
+      activeDisasterCount: (n) => `${n} active`,
     },
   },
 
@@ -167,10 +171,12 @@ export const labels = {
     },
     secondary: {
       illnessTitle: 'Log illness or mortality',
+      disasterTitle: 'Report disaster',
     },
     pondPicker: {
       title: 'Select a Pond',
       subtitle: 'Which pond is this about?',
+      disasterSubtitle: 'Which pond does this disaster affect?',
       noPonds: 'No stocked ponds to report against.',
     },
   },
@@ -299,6 +305,55 @@ export const labels = {
     submitEdit: 'Save Changes',
     successNew: 'Harvest recorded.',
     successEdit: 'Harvest record updated.',
+  },
+
+  // ── CitizenDisasterScreen ────────────────────────────────────────────────
+  // Evaluator-parity batch: report + status-track + recover disasters on the
+  // citizen's own record. One screen, two internal modes ('list' shows
+  // existing reports with Mark Recovered; 'create' is the report form) —
+  // see CitizenDisasterScreen.jsx for why these share one component instead
+  // of being split into a modal + a separate history view.
+  disaster: {
+    title: 'Disasters',
+    reportButton: 'Report Disaster',
+    backToList: 'Back to list',
+    empty: 'No disaster reports on this record.',
+    loading: 'Loading disaster reports...',
+    loadError: 'Something went wrong loading this — please try again.',
+    retry: 'Try again',
+    statusActive: 'Active',
+    statusRecovered: 'Recovered',
+    statusTotalLoss: 'Total Loss',
+    totalLossNotice: 'Marked as a total loss — this record\'s production cycle has ended.',
+    recoveredOn: (dateStr) => `Recovered ${dateStr}`,
+    fields: {
+      disasterType: 'Disaster type',
+      dateOfOccurrence: 'Date of occurrence',
+      areaAffected: 'Area affected (ha)',
+      estimatedDamage: 'Estimated damage',
+      productionLoss: 'Estimated production loss',
+      isTotalLoss: 'This is a total loss',
+      isTotalLossHint: 'The crop/stock was completely destroyed and this cycle is ending. This cannot be undone from here — contact the OMAg office to correct it.',
+      recoveryNote: 'Recovery note',
+      recoveryNoteHint: 'Required unless every recommended response for this disaster has already been logged.',
+    },
+    errors: {
+      dateRequired: 'Date of occurrence is required.',
+      specifyType: 'Please specify the disaster type.',
+      areaAffectedRequired: 'Area affected is required.',
+      areaAffectedInvalid: 'Area affected must be greater than 0.',
+      areaAffectedExceeds: (recordArea) => `Area affected cannot exceed the ${recordArea} ha on record.`,
+      lockedByOther: 'Someone else is currently logging this record. Please wait.',
+      genericSaveError: 'Unable to save disaster report.',
+      recoveryNoteRequired: 'A recovery note is required when not all recommended responses have been completed.',
+      genericRecoverError: 'Unable to mark this as recovered.',
+    },
+    submit: 'Submit Report',
+    submitSuccess: 'Disaster report submitted.',
+    markRecovered: 'Mark Recovered',
+    confirmRecovery: 'Confirm Recovery',
+    recovering: 'Marking…',
+    recoverSuccess: 'Disaster marked as recovered.',
   },
 
   // ── MyYieldAnalysisSection ──────────────────────────────────────────────

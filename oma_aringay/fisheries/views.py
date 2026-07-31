@@ -589,9 +589,22 @@ class StockingActivityLogDetailView(generics.RetrieveUpdateAPIView):
 
 
 class StockingDisasterReportListCreateView(generics.ListCreateAPIView):
+    """
+    Evaluator-parity batch: CITIZEN may now report a disaster on their own
+    stocking record — mirrors CropDisasterReportListCreateView in
+    production/views.py. Validation (disaster type, area-affected cap,
+    Total Loss) is entirely serializer-side and untouched.
+    """
     serializer_class = FisheriesDisasterReportSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
     pagination_class = None
+
+    def get_target_owner_id(self, request):
+        stocking_id = self.kwargs.get('stocking_id')
+        try:
+            return StockingRecord.objects.get(pk=stocking_id).fisherfolk_id
+        except StockingRecord.DoesNotExist:
+            return None
 
     def get_queryset(self):
         return FisheriesDisasterReport.objects.filter(
@@ -626,11 +639,22 @@ class FisheriesDisasterResolveView(APIView):
         hard-block recovery until every rule was logged, which left
         disasters stuck Active forever whenever nothing was actually done.
         Total Loss is terminal and can never be marked Recovered.
+
+    Evaluator-parity batch: CITIZEN may resolve a disaster on their own
+    record — mirrors CropDisasterResolveView in production/views.py. Same
+    explicit-check rationale: plain APIView, no DRF object-permission hook
+    to delegate to. Recovery logic below unchanged for every role.
     """
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
 
     def post(self, request, pk):
         disaster = get_object_or_404(FisheriesDisasterReport, pk=pk)
+
+        if request.user.role == 'CITIZEN':
+            owner_fisherfolk_id = disaster.stocking_record.fisherfolk_id if disaster.stocking_record_id else None
+            if request.user.linked_record_type != 'FISHERFOLK' or request.user.linked_record_id != owner_fisherfolk_id:
+                return Response({'detail': 'You do not have permission to perform this action.'}, status=403)
+
         if disaster.status == 'Recovered':
             return Response({'detail': 'Disaster is already marked as recovered.'}, status=400)
         if disaster.is_total_loss:

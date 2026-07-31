@@ -16,6 +16,13 @@ export const CROP_DOMAIN = {
   harvestCreateUrl: () => '/production/create/',
   harvestListUrl: null, // crop harvests aren't listable by monitoring_record — use record.harvest_record_id
   harvestDetailUrl: (harvestId) => `/production/${harvestId}/`,
+  // Evaluator-parity batch: disaster reporting/resolve endpoints, and the
+  // exact CropDisasterReport.DISASTER_TYPE_CHOICES values — these must
+  // match the backend CharField choices byte-for-byte or a create 400s.
+  disastersUrl: (recordId) => `/production/monitoring/${recordId}/disasters/`,
+  disasterResolveUrl: (disasterId) => `/production/disasters/${disasterId}/resolve/`,
+  disasterTypeChoices: ['Drought', 'Flood', 'Typhoon', 'Strong Winds', 'Pest Outbreak', 'Other'],
+  areaLabel: 'ha planted',
   creatorField: 'recorded_by',
   activityField: 'activity_type',
   activityChoices: [
@@ -44,6 +51,12 @@ export const FISHERIES_DOMAIN = {
   harvestCreateUrl: (recordId) => `/fisheries/stocking/${recordId}/harvests/`,
   harvestListUrl: (recordId) => `/fisheries/stocking/${recordId}/harvests/`,
   harvestDetailUrl: (harvestId) => `/fisheries/stocking/harvests/${harvestId}/detail/`,
+  // Evaluator-parity batch: mirrors CROP_DOMAIN's disaster block. Choices
+  // match FisheriesDisasterReport.DISASTER_TYPE_CHOICES exactly.
+  disastersUrl: (recordId) => `/fisheries/stocking/${recordId}/disasters/`,
+  disasterResolveUrl: (disasterId) => `/fisheries/disasters/${disasterId}/resolve/`,
+  disasterTypeChoices: ['Fish Kill', 'Disease Outbreak', 'Flood', 'Typhoon', 'Drought', 'Predator Attack', 'Pollution Incident', 'Other'],
+  areaLabel: 'ha stocked',
   creatorField: 'logged_by',
   activityField: 'activity',
   activityChoices: [

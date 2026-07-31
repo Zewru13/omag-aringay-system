@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle, BarChart3, Clock, Gift, Plus, Sprout, User, Wheat } from 'lucide-react'
+import { AlertCircle, AlertTriangle, BarChart3, Clock, Gift, Plus, Sprout, User, Wheat } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { CROP_DOMAIN } from './citizenDomainConfig.js'
 import CitizenActivityLogScreen from './CitizenActivityLogModal.jsx'
+import CitizenDisasterScreen from './CitizenDisasterScreen.jsx'
 import CitizenProfileScreen from './CitizenProfileScreen.jsx'
 import FarmerCropHistoryView from './FarmerCropHistoryView.jsx'
 import MyYieldAnalysisSection from './MyYieldAnalysisSection.jsx'
@@ -29,6 +30,7 @@ export default function FarmerHomeScreen({ record, onLogout }) {
 
   const [view, setView] = useState({ kind: 'home' }) // 'home' | 'yield' | 'assistance' | { kind: 'history', record }
   const [logScreen, setLogScreen] = useState(null) // { record, prefillActivity }
+  const [disasterScreen, setDisasterScreen] = useState(null) // { record }
 
   const fetchRecords = async () => {
     setIsLoading(true)
@@ -79,6 +81,19 @@ export default function FarmerHomeScreen({ record, onLogout }) {
         log={null}
         prefill={logScreen.prefillActivity ? { activityType: logScreen.prefillActivity } : undefined}
         onClose={() => setLogScreen(null)}
+        onSuccess={handleLogSuccess}
+      />
+    )
+  }
+
+  if (disasterScreen) {
+    return (
+      <CitizenDisasterScreen
+        domain={CROP_DOMAIN}
+        theme={CROP_THEME}
+        recordId={disasterScreen.record.id}
+        record={disasterScreen.record}
+        onClose={() => setDisasterScreen(null)}
         onSuccess={handleLogSuccess}
       />
     )
@@ -279,6 +294,20 @@ export default function FarmerHomeScreen({ record, onLogout }) {
                         <span className="text-[14px]">{labels.farmerHome.myCrops.viewHistory}</span>
                       </button>
                     </div>
+                    {/* Evaluator-parity batch: its own full-width row rather
+                        than a 3rd flex-1 slot next to Log activity/View
+                        history — a rarer, more consequential action reads
+                        better with its own visual weight (danger tone) than
+                        squeezed to a third of the row's width on a 340px
+                        card. */}
+                    <button
+                      type="button"
+                      onClick={() => setDisasterScreen({ record: rec })}
+                      className="mt-2 flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-[8px] border-[0.5px] border-cz-danger-border px-2 py-[11px] text-cz-danger-accent transition-colors hover:bg-cz-danger-bg"
+                    >
+                      <AlertTriangle size={14} aria-hidden="true" />
+                      <span className="text-[13px] font-medium">{labels.farmerHome.myCrops.reportDisaster}</span>
+                    </button>
                   </div>
                 )
               })}

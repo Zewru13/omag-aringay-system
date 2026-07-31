@@ -41,10 +41,20 @@ class IsStaffOrOwnRecordCitizen(BasePermission):
     """
     Batch 11: ADMIN/EVALUATOR keep their full existing access, unchanged —
     this class is a strict superset of IsAdminOrEvaluator's behavior, not a
-    replacement of its rules. A CITIZEN may only touch activity/harvest
-    entries belonging to their OWN linked Farmer/Fisherfolk record
-    (resolved via User.get_linked_record(), Batch 10), and — for unsafe
-    methods on a specific entry — only one they themselves created.
+    replacement of its rules. A CITIZEN may only touch activity/harvest/
+    disaster entries belonging to their OWN linked Farmer/Fisherfolk record
+    (resolved via User.get_linked_record(), Batch 10).
+
+    Evaluator-parity batch: the entry no longer needs to have been created
+    by that citizen — has_object_permission's own-creator check was
+    removed, so a citizen may now edit a STAFF-logged entry on their own
+    record too, matching what an Evaluator could already do. Ownership of
+    the PARENT record (get_object_owner_id vs linked_record_id) remains
+    the sole gate and was not loosened at all — a citizen still cannot
+    reach another person's record by ID, regardless of who logged what on
+    it. Existing views' get_object_creator_id implementations are simply
+    unused now (harmless to leave in place — this class no longer calls
+    that hook at all, on any method, safe or unsafe).
 
     Deliberately a proper object-level permission (has_object_permission),
     not just a queryset filter: a queryset filter alone only protects
@@ -75,11 +85,15 @@ class IsStaffOrOwnRecordCitizen(BasePermission):
       - get_object_owner_id(self, obj) -> int | None
             Called by has_object_permission for retrieve/update/destroy.
             Same idea, but reading the already-fetched entry object's own
-            FK chain (obj.monitoring_record.farmer_id, etc).
+            FK chain (obj.monitoring_record.farmer_id, etc). This is the
+            ONLY hook has_object_permission calls (Evaluator-parity batch —
+            see above).
       - get_object_creator_id(self, obj) -> int | None
-            Called by has_object_permission only for unsafe methods
-            (PATCH/PUT/DELETE). Returns the entry's own recorded_by_id /
-            logged_by_id.
+            No longer called by this class as of the Evaluator-parity
+            batch. Left as part of the documented interface only because
+            existing views already implement it and removing it from them
+            is unnecessary churn; a new view adopting this permission class
+            does not need to implement it.
     """
 
     def has_permission(self, request, view):
@@ -117,13 +131,15 @@ class IsStaffOrOwnRecordCitizen(BasePermission):
         if request.user.linked_record_type not in ('FARMER', 'FISHERFOLK'):
             return False
 
-        if view.get_object_owner_id(obj) != request.user.linked_record_id:
-            return False
-
-        if request.method not in SAFE_METHODS:
-            if view.get_object_creator_id(obj) != request.user.id:
-                return False
-        return True
+        # Evaluator-parity batch: a CITIZEN may act on ANY entry belonging to
+        # their own record now, not just ones they personally created —
+        # get_object_creator_id is deliberately no longer consulted here.
+        # The line above (get_object_owner_id vs linked_record_id) is the
+        # ENTIRE remaining boundary: it is exactly as strict as it was
+        # before this change, and is still checked unconditionally for both
+        # safe and unsafe methods. A citizen touching another person's
+        # record — by ID, staff-logged or not — still fails right here.
+        return view.get_object_owner_id(obj) == request.user.linked_record_id
 
 
 def _person_is_org_member(linked_record_type, org_id, person_id):

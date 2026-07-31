@@ -73,6 +73,36 @@ class LockHeartbeatView(APIView):
         return Response(_lock_payload(lock), status=status.HTTP_200_OK)
 
 
+def _citizen_owns_locked_record(user, record_type, record_id):
+    """
+    Evaluator-parity batch: does `user` (a CITIZEN) own the underlying
+    Farmer/Fisherfolk record that `record_type`/`record_id` (RecordLock's
+    own vocabulary — 'crop' or 'stocking') refers to? Mirrors the
+    get_target_owner_id resolution used throughout production/views.py and
+    fisheries/views.py, but standalone here since LockReleaseView isn't
+    built on IsStaffOrOwnRecordCitizen's has_object_permission hook (a lock
+    isn't the entry being edited — it's a row on a completely different
+    model with no FK to Farmer/Fisherfolk at all).
+    """
+    if user.linked_record_type not in ('FARMER', 'FISHERFOLK'):
+        return False
+    try:
+        record_id_int = int(record_id)
+    except (TypeError, ValueError):
+        return False
+    if record_type == 'crop' and user.linked_record_type == 'FARMER':
+        from production.models import CropMonitoringRecord
+        return CropMonitoringRecord.objects.filter(
+            pk=record_id_int, farmer_id=user.linked_record_id,
+        ).exists()
+    if record_type == 'stocking' and user.linked_record_type == 'FISHERFOLK':
+        from fisheries.models import StockingRecord
+        return StockingRecord.objects.filter(
+            pk=record_id_int, fisherfolk_id=user.linked_record_id,
+        ).exists()
+    return False
+
+
 class LockReleaseView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -89,14 +119,23 @@ class LockReleaseView(APIView):
 
         is_owner = lock.locked_by_id == request.user.id
         is_admin = request.user.role == 'ADMIN'
-        if not is_owner and not is_admin:
+        # Evaluator-parity batch: a CITIZEN may force-release a stale lock
+        # held by someone else, but ONLY on their own record — never on
+        # anyone else's, and this is a genuinely separate grant from
+        # `is_owner` above (is_owner already covers "it's my own lock").
+        is_citizen_own_record = (
+            request.user.role == 'CITIZEN'
+            and _citizen_owns_locked_record(request.user, record_type, record_id)
+        )
+        if not is_owner and not is_admin and not is_citizen_own_record:
             return Response(
-                {'detail': 'Only the lock owner or an administrator can release this lock.'},
+                {'detail': 'Only the lock owner, an administrator, or the record\'s own citizen owner can release this lock.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
         lock.delete()
-        return Response({'released': True, 'forced': is_admin and not is_owner}, status=status.HTTP_200_OK)
+        forced = not is_owner and (is_admin or is_citizen_own_record)
+        return Response({'released': True, 'forced': forced}, status=status.HTTP_200_OK)
 
 
 class LockStatusView(APIView):

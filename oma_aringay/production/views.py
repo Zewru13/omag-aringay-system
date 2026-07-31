@@ -1206,9 +1206,24 @@ class CropActivityLogDetailView(generics.RetrieveUpdateAPIView):
 # ─── CropDisasterReport ──────────────────────────────────────────────────────
 
 class CropDisasterReportListCreateView(generics.ListCreateAPIView):
+    """
+    Evaluator-parity batch: CITIZEN may now report a disaster on their own
+    monitoring record — the same IsStaffOrOwnRecordCitizen widening pattern
+    used for activity logs and harvest records (Batch 11). get_target_owner_id
+    resolves the parent CropMonitoringRecord the same way
+    CropActivityLogListCreateView already does. Validation (disaster type,
+    area-affected cap, Total Loss) is entirely serializer-side and untouched.
+    """
     serializer_class = CropDisasterReportSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
     pagination_class = None
+
+    def get_target_owner_id(self, request):
+        monitoring_id = self.kwargs.get('monitoring_id')
+        try:
+            return CropMonitoringRecord.objects.get(pk=monitoring_id).farmer_id
+        except CropMonitoringRecord.DoesNotExist:
+            return None
 
     def get_queryset(self):
         monitoring_id = self.kwargs.get('monitoring_id')
@@ -1244,12 +1259,26 @@ class CropDisasterResolveView(APIView):
         resolution until every rule was logged, which left disasters stuck
         Active forever whenever nothing was actually done. Total Loss is
         terminal and can never be marked Recovered.
+
+    Evaluator-parity batch: CITIZEN may resolve a disaster on their own
+    record. This is a plain APIView (no queryset for DRF's object-level
+    permission machinery to hook into), so the ownership check below is
+    explicit rather than delegated to IsStaffOrOwnRecordCitizen's
+    has_object_permission — same rule (own linked Farmer record only),
+    just applied by hand. The recovery logic itself below is completely
+    unchanged for every role.
     """
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
 
     def post(self, request, pk):
         from datetime import date as _date
         disaster = get_object_or_404(CropDisasterReport, pk=pk)
+
+        if request.user.role == 'CITIZEN':
+            owner_farmer_id = disaster.monitoring_record.farmer_id if disaster.monitoring_record_id else None
+            if request.user.linked_record_type != 'FARMER' or request.user.linked_record_id != owner_farmer_id:
+                return Response({'detail': 'You do not have permission to perform this action.'}, status=403)
+
         if disaster.status == 'Recovered':
             return Response({'detail': 'Disaster is already marked as recovered.'}, status=400)
         if disaster.is_total_loss:
