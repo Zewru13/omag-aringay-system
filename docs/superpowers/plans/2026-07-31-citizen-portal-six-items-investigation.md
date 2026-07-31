@@ -1,209 +1,204 @@
 # Citizen Portal — Six Work Items: Investigation & Roadmap
 
-> **Status: INVESTIGATION ONLY. No code was changed in this pass.**
+> **Status: PLANNING. No application code has been changed.**
+> **Revision 2 (2026-07-31)** — decisions applied, scope adjusted. Execution has NOT begun.
 >
-> **Scope note (writing-plans "Scope Check"):** these six items are independent
-> subsystems. Per the skill's own guidance they should NOT share one
-> implementation plan. This document is the investigation record plus a
-> per-item approach sketch; each item gets its own bite-sized TDD plan
-> written at the start of its own execution cycle, once the open questions
-> below are answered.
+> **Scope note (writing-plans "Scope Check"):** these items are independent
+> subsystems and should NOT share one implementation plan. This document is
+> the investigation record, the decision log, and a per-item approach sketch.
+> Each item gets its own bite-sized TDD plan written at the start of its own
+> execution cycle.
 
 **Investigated:** 2026-07-31
-**Backend:** Django + DRF, `oma_aringay/` (apps: accounts, farmers, fisheries, production, interventions, associations, core, reports, monitoring, auditlog)
-**Frontend:** React + Vite + Tailwind **v4**, `oma-frontend/`
+**Backend:** Django + DRF, `oma_aringay/` **Frontend:** React + Vite + Tailwind **v4**, `oma-frontend/`
 **Live DB probed:** MariaDB via XAMPP, read-only queries only
 
 ---
 
-## Global facts established (apply to several items)
+## Decision log (revision 2)
+
+| ID | Decision | Source |
+|---|---|---|
+| **Q3.1** | Hide the Recommendations input on the **citizen** fisheries form only. Evaluator "Remedy Performed *" control untouched. **No schema change, no migration.** | User |
+| **Q6.1** | Evaluator link = **barangay-based assignment**. An evaluator is assigned one or more barangays. | User |
+| **Q6.2** | It is a **visibility restriction**, not just notification routing. | User |
+| **Q2.1** | Profile **photo upload out of scope**. Text fields only. | User |
+| **Q1.2** | The 3 overflowing tables become a **card layout below `md`**, matching the pattern shipped in `c5a3f1b`. | User |
+| **Q4a.1** | Add the missing `min` to the citizen date picker so the UI blocks backdating before the server 400s. | User |
+| **Q4b.1** | **Reject explicitly** on null `area_hectares` with a clear message — do not silently bypass the cap, do not auto-backfill. | User |
+| **Q4c-drift** | Fold the `feed_type` drift fix into item 4c. | User |
+| **Q3.2 / Q3.3** | **Moot** — no schema change means no column drop, so no remedy-field replacement and no prod-dump question. Retained below for the record. | Follows from Q3.1 |
+| **Q6.4** | `notify_all_except` fix is a **separate follow-up**, deliberately kept out of this plan. See the final section. | User |
+| **Q2.2** | Citizen **cannot** edit `email` — not in the approved field list, and they don't log in with it. | Judgment |
+| **Q4c.1** | **Yes**, add the missing `disease_type` dropdown to the citizen fisheries form. Pure parity, existing endpoint, existing seeded data, no new model. | Judgment |
+| **Q5.1** | Hand-rolled inline **SVG sparkline**, not Recharts. Recharts *is* already a dependency (`package.json:19`, `^3.8.1`) but is not currently imported on the citizen route; pulling it in would add a chart library to the one bundle that rural mobile users load. A single trend line does not justify it. | Judgment |
+| **Q1.1** | Organization screen becomes **fluid mobile-first** (works from 360px up) but **keeps its desktop width** — it is not forced into the 380px phone column. Its job is member search + bulk reporting, which is plausibly a desktop task, and there are only 8 such accounts. Easy to overrule if you'd rather it match Farmer/Fisherfolk exactly. | Judgment |
+
+**Still open and genuinely product-level — listed in "Flagged for your decision" below:**
+Q2.3, Q4c.2, Q4c.3, Q5.2, Q6.3, plus **six new questions** (N1–N6) raised by the decisions above.
+
+---
+
+## Global facts established
 
 | Fact | Evidence |
 |---|---|
 | Roles are `ADMIN`, `EVALUATOR`, `CITIZEN` only | `accounts/models.py:6-12` |
-| A CITIZEN is linked to exactly one of 4 record types via `(linked_record_type, linked_record_id)` | `accounts/models.py:55-58` |
-| Type-safe accessors exist and must be used for scoping | `get_linked_farmer_id()` / `get_linked_fisherfolk_id()`, `accounts/models.py:81-96` |
-| Account population | 5 ADMIN, 8 EVALUATOR, **4274 CITIZEN** (3392 FARMER, 874 FISHERFOLK, 7 FARMERS_ORG, 1 FISHERFOLK_ORG) |
-| Domain rows | 3567 Farmer, 873 Fisherfolk, 18 CropMonitoringRecord, 21 StockingRecord, 20 Pond |
-| Farmer/Fisherfolk citizen screens do **not** use `PageLayout`/`Sidebar` | `CitizenScreen` shell, `pages/Citizen/citizenUI.jsx:71-79` |
-| Tailwind v4 — **no `tailwind.config.js`**; tokens live in `@theme{}` in `src/index.css` | citizen tokens are the `cz-*` namespace |
-| Known cascade trap: unlayered `button,input,select,textarea{font:inherit}` in `index.css` beats `@layer utilities` | documented at `pages/Citizen/citizenUI.jsx:18-25`; button labels must be wrapped in `<span>` |
+| CITIZEN linked to one record via `(linked_record_type, linked_record_id)` | `accounts/models.py:55-58` |
+| Type-safe scoping accessors exist and must be used | `get_linked_farmer_id()` / `get_linked_fisherfolk_id()`, `accounts/models.py:81-96` |
+| Accounts | 5 ADMIN, 8 EVALUATOR, **4274 CITIZEN** (3392 FARMER, 874 FISHERFOLK, 7 FARMERS_ORG, 1 FISHERFOLK_ORG) |
+| Domain rows | 3567 Farmer, 873 Fisherfolk, 18 CropMonitoringRecord, 21 StockingRecord, 20 Pond, 141 CropActivityLog, 401 FisheriesActivityLog |
+| Farmer/Fisherfolk citizen screens don't use `PageLayout`/`Sidebar` | `CitizenScreen`, `pages/Citizen/citizenUI.jsx:71-79` |
+| Tailwind v4 — **no `tailwind.config.js`**; tokens in `@theme{}` in `src/index.css`, `cz-*` namespace | — |
+| Cascade trap: unlayered `button,input,select,textarea{font:inherit}` beats `@layer utilities` | `pages/Citizen/citizenUI.jsx:18-25`; wrap button labels in `<span>` |
 
 ---
 
-## ITEM 1 — Mobile-first responsive layout (Farmer / Fisherfolk / Organization)
+## ITEM 1 — Mobile-first responsive layout
+
+**Scope (revised):** Organization screen + the 3 overflowing tables. **Farmer and Fisherfolk are already done** (`c5a3f1b`) and are out of scope.
 
 ### Confirmed locations
 
 | Thing | Location |
 |---|---|
-| Citizen route entry | `App.jsx:77-84` → `/my-account`, `allowedRoles={["CITIZEN"]}` |
 | Role fork | `pages/Citizen/CitizenHomePage.jsx:64-69` |
-| Farmer screen (already mobile-first) | `pages/Citizen/FarmerHomeScreen.jsx` |
-| Fisherfolk screen (already mobile-first) | `pages/Citizen/FisherfolkHomeScreen.jsx` |
-| Shared mobile shell | `pages/Citizen/citizenUI.jsx` — `CitizenScreen`, `max-w-[340px] sm:max-w-[380px]` |
-| **Organization screen (NOT mobile-first)** | `CitizenHomePage.jsx:71-131` — `max-w-4xl`, `sm:grid-cols-2` |
-| Staff sidebar (accordion) | `components/Layout/Sidebar.jsx:244` (`open` state), `:334` (`md:hidden` scrim), `:344-348` (off-canvas drawer) |
+| **Organization screen** | `CitizenHomePage.jsx:71-131` — `max-w-4xl`, `sm:grid-cols-2` |
+| Table 1 — 6 columns | `MyYieldAnalysisSection.jsx:28-60` |
+| Table 2 — 4 columns | `MyAssistanceHistorySection.jsx:26-47` |
+| Table 3 — 5 columns | `MyOrgReportingSection.jsx:131-164` |
+| Card/shell primitives to reuse | `pages/Citizen/citizenUI.jsx` |
 
-### Mismatch from the brief
+All three tables render inside the 340px citizen column with only `overflow-x-auto`, and all three still use the **staff** palette (`#E2E8E2`, `#7A8E7A`, `#1A2B1A`) rather than `cz-*` tokens — so the two secondary Farmer/Fisherfolk views visibly break style with their own home screen.
 
-1. **Farmer and Fisherfolk are already done.** Batches E/F plus the visual re-skin (commit `c5a3f1b`) rebuilt both as phone-shaped columns at every breakpoint, with 44px touch targets enforced throughout. Re-doing them is not the work.
-2. **The accordion sidebar is a non-issue for Farmer/Fisherfolk** — those screens never mount `Sidebar` or `PageLayout` at all. And the staff sidebar is *already* an off-canvas hamburger drawer below `md` (`-translate-x-full md:translate-x-0`), so it isn't desktop-only either. No bottom-nav decision is actually forced by the current code.
-3. **The real item-1 gap is elsewhere**, in three places:
-   - **Organization citizens** still get the pre-Batch-E desktop layout (`max-w-4xl` centred card, 2-col grid, horizontally scrolling tab strip).
-   - **Three data tables have no mobile fallback beyond `overflow-x-auto`**, and they render *inside* the 340px citizen column:
-     - `MyYieldAnalysisSection.jsx:28-60` — 6 columns
-     - `MyAssistanceHistorySection.jsx:26-47` — 4 columns
-     - `MyOrgReportingSection.jsx:131-164` — 5 columns
-   - `MyOrgReportingSection` / `MyAssistanceHistorySection` / `MyYieldAnalysisSection` still use the **staff** palette (`#E2E8E2`, `#7A8E7A`, `#1A2B1A`) rather than `cz-*` tokens, so the two secondary Farmer/Fisherfolk views visibly break style with their own home screen.
+Note on the sidebar: it is **not** part of this item. Farmer/Fisherfolk screens never mount it, and it is already an off-canvas hamburger drawer below `md` (`Sidebar.jsx:334`, `:344-348`).
 
-### Open questions
+### Approach
 
-- **Q1.1** Organization accounts: re-skin to the same `CitizenScreen` phone column as Farmer/Fisherfolk, or leave desktop-width (only 8 org accounts exist, and their job is bulk member reporting which is plausibly a desktop task)?
-- **Q1.2** For the three tables — convert to stacked cards on mobile, or keep the table and only restyle to `cz-*` tokens?
-
-### Approach sketch
-
-Cycle 1a: convert the three shared sections to `cz-*` tokens + a card-list layout below `sm`, reusing `citizenUI.jsx` primitives. Cycle 1b (gated on Q1.1): Organization home screen. No API changes in either.
+- **1a** — convert the 3 sections to `cz-*` tokens + card list below `md`, reusing `citizenUI.jsx`. Frontend only, no API change. Unblocks item 5.
+- **1b** — Organization screen fluid mobile-first per Q1.1.
 
 ---
 
-## ITEM 2 — Editable profile
+## ITEM 2 — Editable profile (text fields only)
 
 ### Confirmed locations
 
 | Thing | Location |
 |---|---|
-| Existing self-service endpoint | `GET`/`PATCH /accounts/me/` — `accounts/views.py:263-277`, `permission_classes = [IsAuthenticated]` |
-| Read serializer | `UserSerializer`, `accounts/serializers.py:20-52` (already returns `linked_record` for citizens) |
-| Write serializer | `MeUpdateSerializer`, `accounts/serializers.py:132-140` — **only** `full_name`, `contact_number`, `email` |
-| Existing UI | `pages/Profile/ProfilePage.jsx` |
-| Route | `App.jsx:85-92` — `/profile`, `allowedRoles={["ADMIN","EVALUATOR"]}` |
-| Farmer profile fields | `farmers/models.py:40-84` |
-| Fisherfolk profile fields | `fisheries/models.py:62-132` |
-| Media config | `settings.py:131-133` — `MEDIA_URL`/`MEDIA_ROOT` set; `urls.py:39` serves it **only under `DEBUG`** |
+| Existing self-service endpoint | `GET`/`PATCH /accounts/me/` — `accounts/views.py:263-277`, `[IsAuthenticated]` |
+| Read serializer | `UserSerializer`, `accounts/serializers.py:20-52` |
+| Write serializer | `MeUpdateSerializer`, `accounts/serializers.py:132-140` — only `full_name`, `contact_number`, `email` |
+| Staff UI (unchanged) | `pages/Profile/ProfilePage.jsx`; route `App.jsx:85-92` is ADMIN/EVALUATOR-only |
+| Farmer fields | `farmers/models.py:40-84` |
+| Fisherfolk fields | `fisheries/models.py:62-132` |
 
-### Mismatch from the brief
+### Key finding
 
-1. **A reusable self-service endpoint already exists** (`/accounts/me/`) and citizens can already call it — but it edits the **`User`** row, not the Farmer/Fisherfolk/Organization row. Everything a citizen would actually recognise as "my profile" (barangay, RSBSA/FishR number, birthdate, civil status, ponds/parcels) lives on the domain record and has **no** self-service write path. The admin-only paths are the staff CRUD views in `farmers/views.py` / `fisheries/views.py`.
-2. `ProfilePage.jsx:198-200` hardcodes the role pill to `ADMIN ? "Admin" : "Evaluator"` — a CITIZEN would render as "Evaluator". The page is not currently reachable by citizens, but it is not citizen-safe either.
-3. **No avatar/photo field exists anywhere** — zero `ImageField`/`FileField` in the entire backend. Photo upload is genuinely new work: Pillow dependency, model field + migration, multipart handling, **and** production media serving (`urls.py:39` only wires media under `DEBUG`, so `settings_production.py` has no media route at all). This is the single biggest complexity multiplier in item 2.
-4. **Latent bug to avoid inheriting:** `MeUpdateSerializer` accepts `email` with **no** uniqueness validation and **no** `username` sync, whereas `UserUpdateSerializer` has both (`serializers.py:117-129`). Since citizens log in by RSBSA/org number, letting them PATCH `email` through this serializer risks a duplicate-email `IntegrityError` and a desynced `username`.
+`/accounts/me/` edits the **`User`** row. Everything a citizen would recognise as "my profile" — barangay, RSBSA/FishR number, birthdate, civil status, ponds/parcels — lives on the **domain record** and has no self-service write path. That's the gap; a new endpoint is required.
 
-### Recommended editable / read-only split
+**Latent bug not to inherit:** `MeUpdateSerializer` accepts `email` with no uniqueness validation and no `username` sync, whereas `UserUpdateSerializer` has both (`serializers.py:117-129`). Q2.2 (citizen cannot edit email) sidesteps this rather than needing to fix it.
 
-| Field | Farmer | Fisherfolk | Organization | Rationale |
+### Editable / read-only split
+
+| Field | Farmer | Fisherfolk | Org | Rationale |
 |---|---|---|---|---|
-| `contact_number` | edit | edit | edit | Changes often, no downstream integrity |
-| `civil_status`, `highest_education` | edit | edit | — | Self-declared, low risk |
-| `is_pwd`, `is_4ps_beneficiary`, `is_icc_ip_member` | **read-only** | **read-only** | — | Drives assistance eligibility — self-editing is an integrity risk |
-| `barangay`, `municipality` | **read-only** | **read-only** | **read-only** | Barangay is the de-facto scoping key across the whole app |
-| `rsbsa_number` / `fishr_number` / `lgu_registration_number` | **read-only** | **read-only** | **read-only** | Login identifier + unique key |
-| `first/middle/last_name`, `birthdate`, `gender` | **read-only** | **read-only** | — | Registry identity |
-| `fisherfolk_type`, `farmers_organization` | — | **read-only** | — | Drives permission and log eligibility (`FishingTripLog.clean()`) |
-| Parcels / ponds | **read-only** | **read-only** | — | Out of scope; ponds already have a staff CRUD path |
+| `contact_number` | **edit** | **edit** | **edit** | Changes often, no integrity risk |
+| `civil_status`, `highest_education` | **edit** | **edit** | — | Self-declared |
+| `barangay`, `municipality`, `province` | display-only | display-only | display-only | Barangay is the scoping key app-wide — and, after item 6, the **evaluator-assignment key** |
+| Farm parcel / pond IDs | display-only | display-only | — | Per decision |
+| `rsbsa_number` / `fishr_number` / `lgu_registration_number` | display-only | display-only | display-only | Login identifier + unique key |
+| `birthdate`, `gender` | display-only | display-only | — | Registry identity |
+| `is_pwd`, `is_4ps_beneficiary`, `is_icc_ip_member` | display-only | display-only | — | Drives assistance eligibility |
+| `fisherfolk_type`, `farmers_organization` | — | display-only | — | Drives permissions + `FishingTripLog.clean()` |
+| **`first/middle/last_name`** | ⚠️ see **N1** | ⚠️ see **N1** | — | You listed "name" as editable; flagged below |
 
-### Open questions
+Read-only status must be enforced **server-side** via `read_only_fields`, not by hiding inputs.
 
-- **Q2.1** Is photo/avatar in scope, or deferred? (Recommend **deferred** — it is the only sub-item requiring a new dependency, a migration, and a production infrastructure change.)
-- **Q2.2** Should a citizen be able to change their own `email`? They have none by design and don't log in with it. Recommend **no** (leaves `MeUpdateSerializer`'s missing-uniqueness bug untriggered rather than needing a fix).
-- **Q2.3** Should edits apply immediately, or land in a staff review queue? The whole app treats the registry as authoritative; immediate self-edit is a policy change, not just a feature.
+### Approach
 
-### Approach sketch
-
-New `CitizenProfileView` (`GET`/`PATCH /accounts/me/profile/`) gated by a permission that resolves the caller's own linked record. Per-type serializers with the read-only split above enforced **server-side** (`read_only_fields`), not just by hiding inputs. New citizen-styled profile screen under `pages/Citizen/`; leave `/profile` staff-only and untouched.
+New `CitizenProfileView` (`GET`/`PATCH /accounts/me/profile/`) with a permission resolving the caller's own linked record; per-type serializers enforcing the split above; new citizen-styled screen under `pages/Citizen/`. `/profile` and `ProfilePage.jsx` untouched.
 
 ---
 
-## ITEM 3 — Remove "Recommendation Input" from Fisheries
+## ITEM 3 — Hide Recommendations input (citizen fisheries form only)
 
 ### Confirmed locations
 
 | Thing | Location |
 |---|---|
-| **The field** | `FisheriesActivityLog.recommendations` — `fisheries/models.py:614` (`TextField(blank=True)`) |
-| Serializer exposure | `FisheriesActivityLogSerializer.fields`, `fisheries/serializers.py:408` |
-| Staff/evaluator input | `pages/FisheriesRecords/StockingMonitoringModals.jsx:843-850` |
-| Citizen input | `pages/Citizen/CitizenActivityLogModal.jsx:557-565` (shown only when activity = `Disease Control`) |
-| Citizen payload write | `CitizenActivityLogModal.jsx:244` (written **unconditionally** for fisheries, so non-Disease-Control logs POST `recommendations: ''`) |
-| Label | `pages/Citizen/labels.js:205` |
-| Read-back display | `StockingMonitoringModals.jsx:997` |
+| The column | `FisheriesActivityLog.recommendations` — `fisheries/models.py:614` |
+| Serializer exposure (**stays**) | `fisheries/serializers.py:408` |
+| **Citizen input — REMOVE** | `pages/Citizen/CitizenActivityLogModal.jsx:557-565` |
+| **Citizen payload write — REMOVE** | `CitizenActivityLogModal.jsx:244` (currently writes `recommendations` **unconditionally** for fisheries, so even non-Disease-Control logs POST `''`) |
+| Label — remove | `pages/Citizen/labels.js:205` |
+| **Evaluator input — UNTOUCHED** | `StockingMonitoringModals.jsx:843-850` |
+| Read-back display — untouched | `StockingMonitoringModals.jsx:997` |
 
-### Confirmed: fisheries-only, not a shared component
+### Why the evaluator control stays (validates the decision)
 
-`CropActivityLog` has **no** `recommendations` field. The crop side's similarly-labelled control (`CropMonitoringPage.jsx:830-833`, `CropMonitoringDetailModal.jsx:298` "Recommendations / Notes") writes to `CropActivityLog.notes`. Different component, different column — removing the fisheries field cannot affect farmers.
-
-**Do not confuse with these other `recommendation` fields, none of which are in scope:**
-`CropActivityStage.recommendation`, `SpeciesActivityStage.recommendation`, `DisasterResponseRule.recommendation`, `FisheriesDisasterResponseRule.recommendation`, `DiseaseResponseGuide.recommended_treatment`, `PestDiseaseReport.recommended_action`. These are staff-configured reference text that *feeds* the form; they are not the input being removed.
-
-### Backend data — measured, not assumed
-
-| Metric | Value |
-|---|---|
-| `FisheriesActivityLog` rows total | 401 |
-| Rows with non-empty `recommendations` | **327** |
-| …verbatim copies of a `SpeciesActivityStage.recommendation` (seed script `seed_fisheries_demo_data.py:407`) | **316** |
-| …carrying the explicit `SEED_TAG` (`seed_fisheries_demo_data.py:510`) | **11** |
-| …**human-authored** | **0** |
-
-Every single populated row is machine-generated by the demo seeder. In *this* database, a hard delete destroys nothing real.
-
-### Blocking finding — the field is load-bearing
-
-`StockingMonitoringModals.jsx` reuses this one textarea for two purposes:
+`StockingMonitoringModals.jsx` reuses the one textarea for two purposes:
 
 ```
 line 845:  {showRemedyFields ? 'Remedy Performed *' : 'Recommendations'}
 line 512:  if (!recommendations.trim()) { showToast('Please describe the remedy performed.', 'error'); return }
 ```
 
-When `activity === 'Disaster Remedy'` (`:410`) it becomes a **mandatory** "Remedy Performed" input and is the only place that text is captured. Deleting the column outright would break the evaluator disaster-remedy flow.
+When `activity === 'Disaster Remedy'` (`:410`) it is a **mandatory** capture and the only place that text is recorded. Functionally distinct despite sharing the column — exactly as decided.
 
-(For context: `activity='Disaster Remedy'` currently has **0** rows — the code path exists but is unexercised in data.)
+### Confirmed fisheries-only
 
-### Hide-only vs. full removal — the tradeoff
+`CropActivityLog` has no `recommendations` field; the crop side's similarly-labelled control (`CropMonitoringPage.jsx:830-833`) writes to `CropActivityLog.notes`. Removing the citizen input cannot affect farmers.
 
-| | Hide-only (frontend) | Full removal (FE + serializer + model + migration) |
-|---|---|---|
-| Effort | ~1 hour | ~half day + migration + backup |
-| Reversible | Yes | No (327 rows dropped) |
-| Leaves dead column | Yes | No |
-| Breaks Disaster Remedy | No | **Yes**, unless a replacement field is added first |
-| Risk to prod data | None | Depends on prod contents — **this DB is not prod** |
+**Not in scope, do not confuse:** `CropActivityStage.recommendation`, `SpeciesActivityStage.recommendation`, `DisasterResponseRule.recommendation`, `FisheriesDisasterResponseRule.recommendation`, `DiseaseResponseGuide.recommended_treatment`, `PestDiseaseReport.recommended_action` — staff-configured reference text that *feeds* forms.
 
-**Recommendation: hide-only from the citizen form now**, and treat the full column drop as a separate follow-up gated on Q3.2.
+### Data (retained for the record; no longer gating)
 
-### Open questions
+327 of 401 rows have non-empty `recommendations`. All 327 are machine-generated: **316** verbatim copies of a `SpeciesActivityStage.recommendation` (`seed_fisheries_demo_data.py:407`), **11** carrying `SEED_TAG` (`:510`), **0 human-authored**. `activity='Disaster Remedy'` has 0 rows.
 
-- **Q3.1** Does "remove from Fisheries accounts" mean *citizen* fisherfolk accounts only, or the evaluator fisheries form too? The phrase "Fisheries accounts" reads as citizen-side, but the evaluator form is where the field is actually used.
-- **Q3.2** If full removal is wanted: what replaces the mandatory "Remedy Performed" capture — a new dedicated `remedy_performed` column, or fold it into `treatment_applied`?
-- **Q3.3** Has this dev database ever been loaded from a production dump? The "0 human-authored rows" finding is a statement about this database only.
+Since no schema change is happening, **Q3.2** (remedy-field replacement) and **Q3.3** (has this DB seen a prod dump?) are moot.
 
-### Approach sketch
+### Approach
 
-Cycle 3a (safe, unblocked): drop the `recommendations` `FieldBlock` from `CitizenActivityLogModal.jsx`, stop writing the key at `:244`, remove the label. No backend change. Cycle 3b (gated on Q3.1/Q3.2/Q3.3): the evaluator form and the column drop, with a fresh DB backup first.
+Frontend only, fully reversible. Existing rows keep their data; the evaluator UI keeps displaying it.
 
 ---
 
-## ITEM 4 — Consistent validation across farmer, fisherfolk, and evaluator
+## ITEM 4 — Consistent validation
 
 ### 4a — No backdating before the start date
 
-**Fisheries start-date field confirmed:** `StockingRecord.date_stocked` (`fisheries/models.py:432`). Not "date stocked" as a display string — the column is `date_stocked`.
+**Fisheries start-date column confirmed:** `StockingRecord.date_stocked` (`fisheries/models.py:432`).
 
 | Layer | Crop | Fisheries |
 |---|---|---|
-| Backend rule | `production/serializers.py:222-233` | `fisheries/serializers.py:446-457` |
-| Escape hatch | `CropActivityStage.allows_pre_planting` (`production/models.py:120`) — **25 of 200** stages | `SpeciesActivityStage.allows_pre_planting` (`fisheries/models.py:272`) — **6 of 41** stages |
+| Backend rule (**already correct**) | `production/serializers.py:222-233` | `fisheries/serializers.py:446-457` |
+| Exemption flag | `CropActivityStage.allows_pre_planting` — **25 of 200** stages | `SpeciesActivityStage.allows_pre_planting` — **6 of 41** stages |
 | Future-date guard | `production/serializers.py:194-197` | `fisheries/serializers.py:419-422` |
-| Evaluator frontend `min` | — | `StockingMonitoringModals.jsx:667` (`min={allowsPrePlanting ? undefined : record.date_stocked}`) |
+| Evaluator frontend `min` | — | `StockingMonitoringModals.jsx:667` |
 | **Citizen frontend `min`** | **absent** | **absent** |
 
-**Mismatch from the brief:** the assumption was that this validation is evaluator-only and must be *added* for citizens. It is not — it lives in the **serializer**, and citizens post through the same serializers (`StockingActivityLogListCreateView`, `fisheries/views.py:521-523`; the crop equivalent in `production/views.py`). It is therefore **already enforced identically for all three account types, and is not bypassable from the frontend.**
+The rule lives in the **serializer**, so it already applies identically to citizens and staff and is **not frontend-bypassable**. This is a UX fix, not a security fix. Today the "Yesterday" shortcut (`CitizenActivityLogModal.jsx:193`) can silently produce an invalid date that surfaces only as a raw 400 through the generic toast (`:256-260`).
 
-The actual gap is **UX symmetry, not security**: `CitizenActivityLogModal.jsx:346-354` sets `max={todayISO()}` but no `min`. Worse, the "Yesterday" shortcut (`:193`) can silently produce a date before `date_planted`/`date_stocked` — the citizen only discovers this as a raw 400 surfaced through the generic error toast at `:256-260`.
+#### ⚠️ Correctness trap — a blanket `min` would be wrong
 
-- **Q4a.1** Should the citizen date picker hard-block pre-start dates (`min=`), or allow selection and show an inline explanation? Hard-blocking is simpler but the `allows_pre_planting` exception makes it activity-dependent, which means fetching the stage list into the citizen screen — the citizen form does not currently load `CropActivityStage`/`SpeciesActivityStage`.
+The exempt activities, measured from the live DB:
+
+- **Crop:** `Land Preparation`, `Seed Bed Preparation`, `Seed Soaking`, `Seed Sowing`, `Soil Preparation & Leveling`
+- **Fisheries:** `Pond Preparation`
+
+**`Pond Preparation` is in the citizen fisherfolk dropdown** (`citizenDomainConfig.js:50`) and is the *only* pre-stocking-exempt fisheries activity. A blanket `min={date_stocked}` would wrongly block the single most common legitimate pre-stocking log. The `min` must therefore be **activity-conditional**, mirroring `StockingMonitoringModals.jsx:667`.
+
+(Crop is subtler: none of the 5 exempt names are in the citizen crop dropdown, but they *can* arrive via prefill from a task card, so the same conditional logic is needed.)
+
+#### ⚠️ Backend prerequisite — this is not a frontend-only change
+
+To know which activities are exempt, the citizen form must read the stage list. Both endpoints are currently **staff-only**:
+
+- `GET /production/crop-types/<id>/stages/` — `CropActivityStageListCreateView`, `production/views.py:1875` → `[IsAuthenticated, IsAdminOrEvaluator]`
+- `GET /fisheries/species/<id>/stages/` — `SpeciesActivityStageListCreateView`, `fisheries/views.py:204` → `[IsAuthenticated, IsAdminOrEvaluator]`
+
+So 4a needs a **GET-only permission widening** first, following the established precedent (Batch E on `CropActivitySuggestionsView`; Batch F on `FeedTypeListCreateView`). Writes stay `IsAdminOrEvaluator`.
 
 ### 4b — Area affected must not exceed registered area
 
@@ -211,66 +206,69 @@ The actual gap is **UX symmetry, not security**: `CitizenActivityLogModal.jsx:34
 |---|---|---|
 | Activity log, backend | `production/serializers.py:240-253` | `fisheries/serializers.py:464-477` |
 | Disaster report, backend | `production/serializers.py:297-310` | `fisheries/serializers.py:521-534` |
-| Citizen frontend | `CitizenActivityLogModal.jsx:182-188` | same function |
+| Citizen frontend | `CitizenActivityLogModal.jsx:182-188` (both domains) | same |
 | Evaluator frontend | `CropMonitoringPage.jsx` | `StockingMonitoringModals.jsx:414-422` |
 
-Registered-area source: `CropMonitoringRecord.area_planted_ha` vs `StockingRecord.area_hectares` (which `save()` syncs from `Pond.area_hectares`, `fisheries/models.py:477-481`).
+Every cap is written `if stocking_record.area_hectares and ...`. `StockingRecord.area_hectares` is **nullable** (`models.py:433`), so NULL makes the guard fall through silently — backend *and* frontend (`CitizenActivityLogModal.jsx:167` → `plantedArea = null`, cap skipped).
 
-**Confirmed gap — fisheries only.** Every cap is written as `if stocking_record.area_hectares and ...`. `StockingRecord.area_hectares` is **nullable** (`models.py:433`), so a NULL area makes the guard fall through silently — backend *and* frontend (`CitizenActivityLogModal.jsx:167` yields `plantedArea = null`, and `validateAreaAffected` then skips the cap).
+**Per decision: reject explicitly instead of bypassing.** All four fisheries call sites change from "skip the cap" to "raise a validation error", with a citizen-legible message routed through `labels.js` (e.g. *"The pond area on file is missing. Please contact your evaluator."*). Crop side needs no change — `area_planted_ha` is non-nullable and 0 of 18 records are NULL.
 
-Measured: **2 of 21 StockingRecords have `area_hectares` NULL**; **1 of 20 Ponds has `area_hectares` NULL**. Crop side: `area_planted_ha` is non-nullable and **0 of 18** records are NULL, so crop is fully covered.
+**Records needing an evaluator/admin backfill (separate from the code change):**
 
-- **Q4b.1** For a stocking record with no recorded area: reject the area-affected entry with "pond area not recorded — ask OMAg staff to set it", or accept it uncapped as today?
+| Model | Count | Field |
+|---|---|---|
+| `StockingRecord` | **2 of 21** | `area_hectares` IS NULL |
+| `Pond` | **1 of 20** | `area_hectares` IS NULL |
 
-### 4c — Standardized dropdowns instead of free text
+Note the coupling: `StockingRecord.save()` overwrites `area_hectares` from `Pond.area_hectares` when a pond is linked (`fisheries/models.py:477-481`), so **the Pond must be backfilled first** or the stocking record's value will be re-nulled on next save. See **N6**.
 
-| Field | Domain | Current input | Reference table? |
+### 4c — Standardized dropdowns (now includes the feed_type drift fix)
+
+| Field | Domain | Current input | Reference table |
 |---|---|---|---|
 | `feed_type` | Fisheries | `ComboboxWithOther` from `/fisheries/feed-types/?species=` (`CitizenActivityLogModal.jsx:460-470`) | **`FeedType`** + `species_options` M2M (`fisheries/models.py:291-306`) |
-| `disease_type` | Fisheries | Evaluator: `ComboboxWithOther` from `/fisheries/disease-types/?species=` (`StockingMonitoringModals.jsx:389`). **Citizen: field is entirely absent** | **`DiseaseType`** + `species_options` M2M (`fisheries/models.py:314-330`) |
-| `fertilizer_type` | Crop | free-text `<input>` (`CitizenActivityLogModal.jsx:387-393`; evaluator `CropMonitoringPage.jsx:528`) | **none exists** |
+| `disease_type` | Fisheries | Evaluator: combobox from `/fisheries/disease-types/?species=`. **Citizen: absent entirely** | **`DiseaseType`** + `species_options` M2M (`fisheries/models.py:314-330`) |
+| `fertilizer_type` | Crop | free-text `<input>` (`CitizenActivityLogModal.jsx:387-393`) | **none exists** |
 | `pest_disease_name` | Crop | free-text `<input>` (`CitizenActivityLogModal.jsx:424-430`) | **none exists** |
 
-**Measured drift, already happening:**
-- `FeedType` reference table holds exactly 2 rows: `Commercial Pellet Feed`, `Natural/Pond Feed`.
-- Actual `FisheriesActivityLog.feed_type` values in the DB include `worm`, **`Commercial fellet`** (typo), `Commercial Pellets, 32% CP` — **none of which match either reference row.** The combobox has an "Other" branch and `feed_type` is a plain `CharField` with no FK, so free text wins.
-- Crop free-text columns hold only demo values so far (`Demo`, `Pest Attack`) — the drift hasn't started there yet, which makes now the cheap moment to standardize.
+#### The feed_type drift, measured
 
-**Confirmed parity gap:** the citizen fisheries `Disease Control` form (`CitizenActivityLogModal.jsx:495-567`) shows area / severity / mortality / vet / treatment / outcome / recommendations but **not** `disease_type` — so a fisherfolk logging a disease cannot categorize it at all, while an evaluator can, from the same `DiseaseType` list. This is straight drift between the two account types on the *same* activity.
+`FeedType` holds exactly **2** canonical rows: `Commercial Pellet Feed`, `Natural/Pond Feed`.
+Actual stored `FisheriesActivityLog.feed_type` values include `worm`, **`Commercial fellet`** (typo), `Commercial Pellets, 32% CP` — **none matching either canonical row**. The combobox has an "Other" branch and `feed_type` is a plain `CharField` with no FK, so free text wins.
 
-**Where a 1:1 mapping should not be forced** (flagged for review as instructed): crop `pest_disease_name` and fisheries `disease_type` are not the same concept — the fisheries list is species-scoped aquatic pathology plus water-quality stress (`Poor Water Quality / Ammonia-Nitrite Stress` is one of the 5 seeded rows), while the crop equivalent spans insect pests *and* plant pathogens. Proposal: **parallel but domain-specific** reference models following the exact `DiseaseType` shape (name / description / is_active / `crop_types` M2M scoping), not a shared table.
+Crop free-text columns still hold only demo values (`Demo`, `Pest Attack`) — drift hasn't started there, which is why doing this now is cheap.
 
-- **Q4c.1** Add the missing `disease_type` dropdown to the citizen fisheries form? (Recommend **yes** — pure parity, reuses an existing endpoint and existing seeded data, no new model.)
-- **Q4c.2** Create new crop reference models (`FertilizerType`, `CropPestDiseaseType`), each with a `crop_types` M2M and an admin settings page under `CropSettingsHub`? Who supplies the initial list — OMAg staff, or seed empty and let them populate?
-- **Q4c.3** Keep the "Other" free-text escape hatch? Keeping it preserves field usability but is exactly what produced `Commercial fellet`. Suggest keeping it but adding a staff "unmatched values" review surface later.
+#### Citizen/evaluator parity gap
 
-### Item 4 approach sketch
+The citizen fisheries `Disease Control` form (`CitizenActivityLogModal.jsx:495-567`) shows area / severity / mortality / vet / treatment / outcome but **not** `disease_type` — so a fisherfolk cannot categorize a disease at all, while an evaluator can, from the same 5-row `DiseaseType` list. **Q4c.1 resolved: add it.**
 
-Three genuinely separate cycles. 4a and 4b are small, backend-anchored, and unblocked once their single question each is answered. 4c is the largest — new models + migrations + settings UI + form rewiring on both sides of both domains — and should be split again into 4c-fisheries (parity only, no new models) and 4c-crop (new models).
+#### Domain mapping — deliberately not 1:1
+
+Crop `pest_disease_name` and fisheries `disease_type` are not the same concept: the fisheries list is species-scoped aquatic pathology *plus* water-quality stress (`Poor Water Quality / Ammonia-Nitrite Stress` is one of the 5 seeded rows), while the crop equivalent spans insect pests *and* plant pathogens. Proposal remains **parallel but domain-specific** models on the `DiseaseType` shape (name / description / is_active / `crop_types` M2M), not a shared table. Gated on **Q4c.2**.
+
+### Item 4 approach — four cycles
+
+- **4a** — GET-permission widening on both stage endpoints, then activity-conditional `min` in the citizen form.
+- **4b** — explicit rejection at the 4 fisheries call sites + `labels.js` message. Backfill tracked separately (**N6**).
+- **4c-fisheries** — add `disease_type` to the citizen form; decide the drift remedy (**Q4c.3**). No new models.
+- **4c-crop** — new reference models + migrations + settings UI. Gated on **Q4c.2**.
 
 ---
 
 ## ITEM 5 — Self-service yield/analysis view
 
-### Confirmed locations
+### Already exists and is already scoped
 
 | Thing | Location |
 |---|---|
 | Crop queryset + citizen scoping | `production/views.py:913-947` |
-| Crop endpoint | `YieldAnalysisView`, `production/views.py:1046-1058` — `permission_classes = [IsAuthenticated]` |
-| Crop aggregate (staff-only) | `YieldAnalysisSummaryView`, `production/views.py:1061-1062` — `[IsAuthenticated, IsAdminOrEvaluator]` |
-| Fisheries queryset + citizen scoping | `fisheries/views.py:1182-1209` |
-| Fisheries endpoints | `fisheries/urls.py:109-110` |
+| Crop endpoint | `YieldAnalysisView`, `:1046-1058` — `[IsAuthenticated]` |
+| Crop aggregate (**stays staff-only**) | `YieldAnalysisSummaryView`, `:1061-1062` |
+| Fisheries mirror | `fisheries/views.py:1182-1209`; `fisheries/urls.py:109-110` |
 | Per-record analysis | `_analyze_crop()`, `production/views.py:1000-1043` |
-| Activity completion | `_activity_completion()`, `production/views.py:950-997` |
 | Citizen UI | `pages/Citizen/MyYieldAnalysisSection.jsx` |
-| Mount points | `FarmerHomeScreen.jsx:106-114`, `FisherfolkHomeScreen.jsx:~164` |
 
-### Mismatch from the brief
-
-**This already exists and is already scoped.** Batch 11 built it; Batches E/F surfaced it. The question "can it be scoped down or does it need a separate query?" is already answered — it was scoped down, in place, with the aggregate view deliberately left staff-only.
-
-### Data-access boundary — verified, no leak
+### Boundary verified — no leak
 
 ```python
 # production/views.py:919-931
@@ -279,70 +277,87 @@ if request.user.role == 'CITIZEN':
     qs = qs.filter(farmer_id=farmer_id if farmer_id else -1)
 ```
 
-Three properties confirmed by reading:
-1. The citizen filter is applied **before** the query-param filters (`:932-946`), and all are chained `.filter()` → ANDed. A citizen passing `?farmer=999` gets `farmer_id=own AND farmer_id=999` = empty set. **No leak via query params.**
-2. `get_linked_farmer_id()` returns `None` for any non-FARMER `linked_record_type`, so an org-linked or unlinked citizen falls to the unreachable `-1` sentinel rather than matching a same-numbered row in another table.
-3. The fisheries mirror (`fisheries/views.py:1188-1196`) is structurally identical with `get_linked_fisherfolk_id()`.
+1. The citizen filter is applied **before** the query-param filters (`:932-946`) and all are chained `.filter()` → ANDed. `?farmer=999` yields `own AND 999` = empty. **No leak via query params.**
+2. `get_linked_farmer_id()` returns `None` for any non-FARMER link, falling to the unreachable `-1` sentinel rather than matching a same-numbered row in another table.
+3. The fisheries mirror is structurally identical with `get_linked_fisherfolk_id()`.
 
-### The actual remaining work
+### Remaining work is presentation only
 
-Presentation, not access control:
-- `MyYieldAnalysisSection.jsx` renders a **6-column table** inside a **340px** column with only `overflow-x-auto` (overlaps item 1).
-- It shows only the flat per-record row. The brief asks for **yield trend**, **expected vs actual variance**, and **harvest history** — of these, variance is already returned (`variance_kg`, `variance_pct`) and harvest dates are already returned (`harvest_dates`, `production/views.py:1014-1017`). **Trend over time is the only genuinely new thing**, and it needs no new query — it is the existing record list sorted by `date_planted`/`date_stocked`, which the endpoint already orders (`:947`, `:1209`).
-- `missed_high_priority` and `activity_breakdown` are already returned and currently unused by the citizen UI — that's the "possible contributing factors" story, already computed.
+Already returned by the existing payload and currently unused by the citizen UI: `variance_kg`, `variance_pct`, `harvest_dates` (`:1014-1017`), `missed_high_priority`, `activity_breakdown`. **Trend needs no new query** — it is the existing list, already ordered by `date_planted` / `date_stocked` (`:947`, `:1209`).
 
-- **Q5.1** Chart or no chart? A trend line means a charting dependency in the citizen bundle (the staff dashboard uses Recharts — check whether pulling it into the citizen route is acceptable) versus a hand-rolled inline SVG sparkline.
-- **Q5.2** Should the citizen view surface `missed_high_priority`? It is already computed and already scoped, but it reads as "you missed these activities" — worth a wording decision given the endpoint's own disclaimer (`YIELD_ANALYSIS_DISCLAIMER`, `production/views.py:906-910`) explicitly says missed activities are *not* proven causes.
+### Approach
 
-### Approach sketch
-
-Frontend-only in the common case. Rebuild `MyYieldAnalysisSection` as citizen-styled cards + a variance summary + an optional sparkline, consuming the **existing** payload unchanged. No permission or queryset change. Re-verify the boundary with a disposable account regardless, since this touches a scoping-sensitive surface.
+Frontend only. Rebuild `MyYieldAnalysisSection` as citizen-styled cards + variance summary + inline-SVG sparkline (Q5.1), consuming the existing payload unchanged. No permission or queryset change. Re-verify the boundary with a disposable account anyway, since this is a scoping-sensitive surface.
 
 ---
 
-## ITEM 6 — Link farmer/fisherfolk/organization activity to their evaluator
+## ITEM 6 — Evaluator link (barangay-based visibility restriction)
 
-### Confirmed finding: **no such link exists, in any form, for any account type**
+### ✅ Requested confirmation: **evaluators have NO barangay attribute today. It must be added first.**
 
-Searched the whole backend for `assigned_evaluator`, `evaluator_id`, `assigned_to`, `reviewer`. Zero results outside role-string comparisons. Specifically:
+`accounts.User` has: `email`, `role`, `full_name`, `suffix`, `contact_number`, `must_change_password`, `is_email_verified`, `email_verification_token`, `email_verification_sent_at`, `linked_record_type`, `linked_record_id`. **No barangay field, and no separate evaluator-profile model exists.** The only `barangay` references in the whole `accounts` app are two read-only passthroughs of the *citizen's* linked record (`serializers.py:44`, `:51`).
 
-- There is **no** evaluator-assignment FK on `Farmer`, `Fisherfolk`, `FarmersOrganization`, `FisherfolkOrganization`, `CropMonitoringRecord`, `StockingRecord`, `CropActivityLog`, or `FisheriesActivityLog`.
-- There is **no** barangay-based evaluator scoping either. `IsAdminOrEvaluator` (`accounts/permissions.py:22-28`) is a flat role check — **every evaluator can see and act on every record in the municipality.** The `?barangay=` filters are user-chosen query params, not enforced scoping.
-- The FKs that *do* exist — `recorded_by`, `logged_by`, `registered_by`, `reported_by`, `recovered_by` — record **who encoded a row**, i.e. an authorship trail. They are not assignment, are nullable, and are `SET_NULL` on user deletion.
+Confirmed absent by search: `assigned_evaluator`, `evaluator_id`, `assigned_to`, `reviewer` — zero results outside role-string comparisons. `IsAdminOrEvaluator` (`accounts/permissions.py:22-28`) is a flat role check: **every evaluator currently sees every record in the municipality.** The `?barangay=` filters are user-chosen query params, not enforced scoping. `recorded_by` / `logged_by` / `registered_by` / `reported_by` record *authorship*, not assignment, and are nullable `SET_NULL`.
 
-So the brief's premise ("confirm the actual structure — assigned by barangay? association membership?") resolves to: **neither. There is nothing to confirm consistent, because nothing is implemented for any of the three submitting account types.** The item is a greenfield build, not a gap-fill.
+So step 1 of item 6 is building the assignment mechanism itself.
 
-### What currently routes staff attention
+### Good news — the barangay data is essentially complete
 
-`core/notifications.py:10-43` — `notify_all_except(actor, ...)`:
+| Table | Rows | Blank barangay |
+|---|---|---|
+| `Farmer.barangay` | 3567 | **0** |
+| `Fisherfolk.barangay` | 873 | **0** |
+| `Pond.barangay` | 20 | **0** |
+| `CropMonitoringRecord.farm_location_barangay` | 18 | **0** |
+| `StockingRecord.pond_location_barangay` | 21 | **1** |
 
-```python
-recipients = User.objects.filter(is_active=True)
-if actor is not None:
-    recipients = recipients.exclude(pk=actor.pk)
+`BARANGAY_CHOICES` is a fixed 24-entry list (`core/constants.py:1-25`). Exactly **one** orphan row needs handling before the restriction goes live — and it is plausibly the same record family as the null-area rows in 4b (see **N6**).
+
+### Proposed mechanism
+
+`User.assigned_barangays` — a `ManyToManyField` to a small `Barangay` table, or a validated `JSONField` of `BARANGAY_CHOICES` values. The in-repo precedent for scoping M2Ms is `FeedType.species_options` / `DiseaseType.species_options` (`fisheries/models.py:295`, `:321`). Assignment is managed on the existing user-admin surface (`pages/Users/UserManagementPage.jsx`, `EditUserModal.jsx`).
+
+### ⚠️ The restriction's blast radius is larger than "activity logs"
+
+`IsAdminOrEvaluator` is used **162 times across 8 files**: `production/views.py` (52), `fisheries/views.py` (36), `reports/views.py` (21), `associations/views.py` (18), `interventions/views.py` (16), `farmers/views.py` (12), `monitoring/views.py` (5), `accounts/views.py` (2).
+
+And every activity-log endpoint is **nested under a parent record**:
+
+```
+production/urls.py:88   monitoring/<int:monitoring_id>/logs/
+production/urls.py:94   monitoring/logs/<int:id>/detail/
+fisheries/urls.py:86    stocking/<int:stocking_id>/logs/
+fisheries/urls.py:88    stocking/logs/<int:id>/detail/
 ```
 
-**No role filter.** Every activity log, harvest, and disaster report fans out one `Notification` row to every active user.
+Restricting *only* the log querysets would be **leaky and inconsistent**: an evaluator would be blocked from an out-of-area record's logs while still seeing that record, its farmer, its yield analysis, and its dashboard contribution. The natural enforcement point is the **parent record queryset** (`CropMonitoringRecord`, `StockingRecord`), which then transitively covers logs.
 
-**Two problems this creates, both measured:**
-1. **Correctness/privacy:** citizens are recipients. **74 notification rows are already addressed to CITIZEN recipients**, telling them about other people's records. (They are not currently *rendered* — `CitizenHomePage` doesn't mount `NotificationBell` — but the rows exist and the endpoint is role-agnostic.)
-2. **Scalability:** with **4274 active citizen accounts**, a single citizen logging one activity attempts a `bulk_create` of ~4274 rows. `Notification` total today is 281, which means this has not yet been exercised at scale — but it will be the moment citizen accounts are used in earnest.
+Also note the detail/delete routes are keyed by **log id directly**, so queryset filtering alone is insufficient — they need `has_object_permission`, exactly the lesson recorded in `IsStaffOrOwnRecordCitizen`'s docstring (`accounts/permissions.py:48-56`).
 
-This is a pre-existing defect independent of item 6, surfaced by it. Flagging rather than fixing, per the investigation-only instruction.
+This makes item 6 substantially the largest of the six. See **N2**, **N3**, **N4** before it can be planned.
 
-### Design questions that must be answered before any code
+---
 
-- **Q6.1** What *is* an evaluator link, operationally? Three plausible models, materially different:
-  - **(a) Barangay assignment** — `Evaluator ↔ barangay` (many-to-many; there are 8 evaluators and a fixed barangay list in `core/constants.py`). Derives the link for every record automatically from existing `barangay` / `farm_location_barangay` / `pond_location_barangay` columns. **No per-record FK, no backfill.** Cheapest and most robust.
-  - **(b) Per-person assignment** — `Farmer.assigned_evaluator` / `Fisherfolk.assigned_evaluator` FK. Explicit, but needs a backfill decision for 3567 + 873 existing rows and an ongoing "who assigns new registrants" process.
-  - **(c) Per-record/per-submission assignment** — a reviewer FK on each activity log. Most granular, most write-amplification, and implies a review *workflow* (pending/accepted/rejected) that does not exist anywhere in this codebase today.
-- **Q6.2** Does "link" mean **routing** (this evaluator gets notified / sees it in a work queue) or **restriction** (this evaluator is the *only* one who may act on it)? Restriction is a substantially larger change — it means rewriting `IsAdminOrEvaluator` and every queryset that currently returns municipality-wide data, including reports and the dashboard.
-- **Q6.3** Should organizations link the same way? An org spans multiple barangays by membership, so barangay assignment (a) does not map cleanly onto it — orgs may need their own rule.
-- **Q6.4** Should the notification fan-out be fixed as part of this item (route to the linked evaluator instead of broadcasting), or as its own separate fix first?
+## 🚩 Flagged for your decision
 
-### Approach sketch — deliberately not written yet
+Real product/UX calls I have deliberately not made.
 
-This item cannot be responsibly planned until Q6.1 and Q6.2 are answered; the three options differ by roughly an order of magnitude in scope, and option (c) implies building a review workflow that is currently absent. **Recommendation: answer Q6.1/Q6.2 first, then treat item 6 as its own brainstorming pass**, not a straight plan-and-execute cycle like the other five.
+### Carried over
+
+- **Q2.3 — Immediate self-edit, or a staff review queue?** The registry is treated as authoritative everywhere in this app; letting citizens write to it directly is a policy change, not just a feature. My read of "ship text-field profile editing" is *immediate*, but confirming matters because it interacts with **N1**.
+- **Q4c.2 — Create `FertilizerType` / `CropPestDiseaseType` reference models?** And if so, **who supplies the initial lists** — OMAg staff, or seed empty and let them populate via a new settings page under `CropSettingsHub`? Seeding agronomic content is not something I should invent.
+- **Q4c.3 — Keep the "Other" free-text escape hatch?** Keeping it preserves field usability; it is also exactly what produced `Commercial fellet`. Suggested middle path: keep "Other", but add a staff "unmatched values" review surface so drift is visible and reconcilable. That surface is extra scope — worth deciding now.
+- **Q5.2 — Surface `missed_high_priority` to citizens?** It is already computed and already scoped. But it reads as *"you missed these activities"*, while the endpoint's own `YIELD_ANALYSIS_DISCLAIMER` (`production/views.py:906-910`) explicitly says missed activities are **not proven causes**. Wording and whether to show it at all is a judgment about the OMAg–farmer relationship, not a technical one.
+- **Q6.3 — How do organizations link to an evaluator?** An organization spans multiple barangays by membership, so barangay assignment doesn't map cleanly. Options: the org's own registered barangay; the union of its members' barangays; or orgs stay unrestricted.
+
+### New — raised by the revision-2 decisions
+
+- **N1 — Should citizens really be able to edit their own name?** You listed "name" as editable. `first_name`/`middle_name`/`last_name` are registry identity: they appear in RSBSA/BFAR matching, in every report and export, and in `Farmer.full_name`, which is what evaluators search on. A citizen renaming themselves silently breaks that trail, and there is no audit coverage for it (`AuditLogEntry` does not track these models — established during the 2026-07-29 incident review). Recommend **display-only**, or editable-with-review per Q2.3. Everything else on your list is uncontroversial.
+- **N2 — Does the barangay restriction apply to ADMIN as well as EVALUATOR?** You wrote "evaluator/admin queries", and `IsAdminOrEvaluator` covers both — but restricting ADMIN would cut municipality-wide dashboards, reports/exports, forecasting, and the audit log, and ADMIN is the only role that may delete stocking records (`fisheries/views.py:503`). **Strong recommendation: EVALUATOR only; ADMIN stays municipality-wide.** Please confirm, because it changes the design fundamentally.
+- **N3 — Restrict at the parent-record level, or logs only?** Logs-only is leaky and inconsistent (reasoning above). Recommend parent-record level. This is a scope decision, not an implementation detail.
+- **N4 — Do the aggregate surfaces get restricted too?** Dashboard, `YieldAnalysisSummaryView`, Forecasting, and the PDF/Excel reports in `reports/views.py` (21 `IsAdminOrEvaluator` usages) are all municipality-wide today. If an evaluator is barangay-restricted for records but still sees municipality-wide totals, the restriction is partly cosmetic. Restricting them is a significant additional scope.
+- **N5 — What happens to an evaluator with zero assigned barangays?** Fail closed (sees nothing) or fail open (sees everything)? Fail-open is friendlier during rollout across the existing 8 evaluator accounts; fail-closed is safer. This also determines whether a data migration must assign all 24 barangays to all 8 existing evaluators before deploy.
+- **N6 — Who backfills the orphan rows, and when?** 2 `StockingRecord.area_hectares` NULL, 1 `Pond.area_hectares` NULL, 1 `StockingRecord.pond_location_barangay` blank. These are almost certainly overlapping rows. They block clean rollout of both 4b (records become un-loggable, by design) and item 6 (a blank-barangay record is invisible to every restricted evaluator). Order matters: **Pond first, then StockingRecord**, because `StockingRecord.save()` re-derives its values from the linked Pond (`fisheries/models.py:477-481`). I can produce the exact row list on request — no mutations.
 
 ---
 
@@ -350,17 +365,43 @@ This item cannot be responsibly planned until Q6.1 and Q6.2 are answered; the th
 
 | Order | Item | Why here | Blocked on |
 |---|---|---|---|
-| 1 | **4a** date `min` on citizen form | Smallest; backend already correct | Q4a.1 |
-| 2 | **4b** null-area cap | Small, quantified, backend + frontend one-liner each | Q4b.1 |
-| 3 | **3a** hide citizen recommendations input | Frontend-only, fully reversible | Q3.1 |
-| 4 | **1a** citizen table/section re-skin | Unblocks item 5's presentation work | Q1.2 |
-| 5 | **5** yield view rebuild | Depends on 1a's card primitives; no API change | Q5.1, Q5.2 |
-| 6 | **4c-fisheries** add `disease_type` to citizen form | Parity, reuses existing endpoint/data | Q4c.1 |
-| 7 | **2** editable profile | New endpoint + serializers; largest self-contained backend item | Q2.1–Q2.3 |
-| 8 | **1b** organization screen | Only 8 accounts; lowest reach | Q1.1 |
+| 1 | **3** hide citizen recommendations input | Frontend-only, fully reversible, fully decided | — |
+| 2 | **4b** explicit null-area rejection | Small, quantified, 4 call sites + one label | N6 (rollout, not code) |
+| 3 | **4a** stage-endpoint widening + conditional `min` | Small, but needs the backend widening first | — |
+| 4 | **1a** citizen table/section card rework | Unblocks item 5's presentation work | — |
+| 5 | **5** yield view rebuild | Depends on 1a's card primitives; no API change | Q5.2 |
+| 6 | **4c-fisheries** `disease_type` parity + drift remedy | Reuses existing endpoint and data | Q4c.3 |
+| 7 | **2** editable profile | New endpoint + serializers; largest self-contained backend item | Q2.3, N1 |
+| 8 | **1b** Organization screen | Only 8 accounts; lowest reach | — (Q1.1 resolved) |
 | 9 | **4c-crop** new reference models | New models + migrations + settings UI | Q4c.2, Q4c.3 |
-| 10 | **3b** full column removal | Destructive; needs backup + remedy-field replacement | Q3.2, Q3.3 |
-| — | **6** evaluator link | Needs a design decision, not a plan | Q6.1–Q6.4 |
+| 10 | **6** barangay assignment + visibility restriction | Largest; 162 permission call sites in blast radius | N2, N3, N4, N5, N6, Q6.3 |
+
+---
+
+## ⛔ Out of scope — recommended immediate follow-up (separate PR)
+
+**Deliberately excluded from the citizen-portal plan so it doesn't get buried in a larger PR.**
+
+### `notify_all_except` broadcasts to every active user
+
+`core/notifications.py:10-43`:
+
+```python
+recipients = User.objects.filter(is_active=True)
+if actor is not None:
+    recipients = recipients.exclude(pk=actor.pk)
+```
+
+**No role filter.** Every activity log, harvest, and disaster report fans out one `Notification` row per active user.
+
+**Two measured problems:**
+
+1. **Misrouting / privacy** — citizens are recipients. **74 notification rows already address CITIZEN recipients** about other people's records. They aren't currently *rendered* (`CitizenHomePage` never mounts `NotificationBell`), but the rows exist and the endpoint is role-agnostic, so this is one UI change away from being visible.
+2. **Production risk** — with **4274 active citizen accounts**, a single citizen logging one activity attempts a `bulk_create` of ~4274 rows. `Notification` total is only 281 today, which means this has **not yet been exercised at scale** — it will be the moment citizen accounts see real use.
+
+Call sites include `fisheries/views.py:559-566` (`StockingActivityLogListCreateView.perform_create`) and the crop equivalent.
+
+**Suggested minimal fix:** filter recipients to `role__in=('ADMIN','EVALUATOR')`. That alone removes both problems and is a one-line change with a clear test. Routing to the *assigned* evaluator becomes possible later, once item 6 lands.
 
 ---
 
