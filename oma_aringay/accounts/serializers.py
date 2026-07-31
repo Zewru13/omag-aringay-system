@@ -37,12 +37,34 @@ class UserSerializer(serializers.ModelSerializer):
         if record is None:
             return None
         if obj.linked_record_type in (User.LinkedRecordType.FARMER, User.LinkedRecordType.FISHERFOLK):
-            return {
+            # Read-only registry detail for the citizen's own "My Profile"
+            # screen. Purely additive to the Batch 10 payload above — the
+            # four original keys are unchanged, so every existing consumer
+            # keeps working. Still strictly own-record data: get_linked_record()
+            # resolves from request.user's own linked_record_id and /accounts/me/
+            # only ever serialises request.user, so no widening is possible here.
+            #
+            # No fallback/placeholder values are substituted for blanks: the
+            # profile screen's rule is to OMIT an unknown field entirely, and
+            # that decision needs to see the real '' / 'Unspecified' the
+            # registry actually holds rather than a prettified stand-in.
+            data = {
                 'id': record.id,
                 'label': record.full_name,
                 'rsbsa_number': record.rsbsa_number,
                 'barangay': record.barangay,
+                'civil_status': record.civil_status,
+                'contact_number': record.contact_number,
+                'highest_education': record.highest_education,
             }
+            if obj.linked_record_type == User.LinkedRecordType.FISHERFOLK:
+                # Fisherfolk-only identifiers. Deliberately not mirrored onto
+                # Farmer — Farmer has no such columns, and emitting null keys
+                # for them would invite the frontend to render empty rows.
+                data['fishr_number'] = record.fishr_number
+                data['lgu_registration_number'] = record.lgu_registration_number
+                data['fisherfolk_type'] = record.fisherfolk_type
+            return data
         # FARMERS_ORG / FISHERFOLK_ORG
         return {
             'id': record.id,

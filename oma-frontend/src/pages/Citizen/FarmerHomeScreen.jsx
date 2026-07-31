@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle, BarChart3, Clock, Gift, Plus, Sprout, Wheat } from 'lucide-react'
+import { AlertCircle, BarChart3, Clock, Gift, Plus, Sprout, User, Wheat } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { CROP_DOMAIN } from './citizenDomainConfig.js'
 import CitizenActivityLogScreen from './CitizenActivityLogModal.jsx'
+import CitizenProfileScreen from './CitizenProfileScreen.jsx'
 import FarmerCropHistoryView from './FarmerCropHistoryView.jsx'
 import MyYieldAnalysisSection from './MyYieldAnalysisSection.jsx'
 import MyAssistanceHistorySection from './MyAssistanceHistorySection.jsx'
 import { labels } from './labels.js'
 import {
-  CROP_THEME, CitizenBody, CitizenEmptyState, CitizenHomeHeader, CitizenScreen,
-  CitizenSubHeader, ProgressTrack, SectionHeading, SecondaryRow, SecondaryRows,
-  StatusCard, cycleProgress,
+  CROP_THEME, CitizenBody, CitizenCardGrid, CitizenEmptyState, CitizenHomeBody,
+  CitizenHomeHeader, CitizenScreen, CitizenSubHeader, ProgressTrack, QuickLinksHeading,
+  SectionHeading, SecondaryRow, SecondaryRows, StatusCard, cycleProgress,
 } from './citizenUI.jsx'
 
 // Batch E built this task-first Farmer home screen; this revision re-skins
@@ -93,6 +94,17 @@ export default function FarmerHomeScreen({ record, onLogout }) {
     )
   }
 
+  if (view.kind === 'profile') {
+    return (
+      <CitizenProfileScreen
+        record={record}
+        recordType="FARMER"
+        theme={CROP_THEME}
+        onBack={() => setView({ kind: 'home' })}
+      />
+    )
+  }
+
   if (view.kind === 'yield' || view.kind === 'assistance') {
     const isYield = view.kind === 'yield'
     return (
@@ -121,8 +133,33 @@ export default function FarmerHomeScreen({ record, onLogout }) {
 
   // ── Home ─────────────────────────────────────────────────────────────
 
+  // One definition, two presentations: the mobile SecondaryRows list and the
+  // >=1024px Quick Links sidebar render from this same array, so the two can
+  // never drift out of sync as entries are added.
+  const quickLinks = [
+    { icon: User, label: labels.farmerHome.secondary.profileTitle, onClick: () => setView({ kind: 'profile' }) },
+    { icon: BarChart3, label: labels.farmerHome.secondary.harvestResultsTitle, onClick: () => setView({ kind: 'yield' }) },
+    { icon: Gift, label: labels.farmerHome.secondary.assistanceTitle, onClick: () => setView({ kind: 'assistance' }) },
+  ]
+
+  const quickLinksAside = (
+    <>
+      <QuickLinksHeading>{labels.farmerHome.secondary.quickLinksTitle}</QuickLinksHeading>
+      {quickLinks.map((l, i) => (
+        <SecondaryRow
+          key={l.label}
+          icon={l.icon}
+          label={l.label}
+          onClick={l.onClick}
+          isLast={i === quickLinks.length - 1}
+          hideChevron
+        />
+      ))}
+    </>
+  )
+
   return (
-    <CitizenScreen>
+    <CitizenScreen wide>
       <CitizenHomeHeader
         theme={CROP_THEME}
         name={record.label}
@@ -130,7 +167,7 @@ export default function FarmerHomeScreen({ record, onLogout }) {
         onLogout={onLogout}
       />
 
-      <CitizenBody>
+      <CitizenHomeBody aside={isLoading ? null : quickLinksAside}>
         {isLoading ? (
           <p className="text-[15px] italic text-cz-text-2">{labels.farmerHome.loading}</p>
         ) : (
@@ -171,7 +208,10 @@ export default function FarmerHomeScreen({ record, onLogout }) {
 
             {/* MY CROPS */}
             <div className="mt-4">
-              <SectionHeading>{labels.farmerHome.myCrops.title}</SectionHeading>
+              <SectionHeading>
+                {labels.farmerHome.myCrops.title}
+                {records.length > 0 && <span className="hidden lg:inline"> ({records.length})</span>}
+              </SectionHeading>
             </div>
             {records.length === 0 ? (
               <CitizenEmptyState
@@ -181,12 +221,13 @@ export default function FarmerHomeScreen({ record, onLogout }) {
                 body={labels.farmerHome.myCrops.empty}
               />
             ) : (
-              records.map((rec) => {
+              <CitizenCardGrid>
+              {records.map((rec) => {
                 const progress = cycleProgress(rec.date_planted, rec.expected_harvest_date)
                 return (
                   <div
                     key={rec.id}
-                    className="mb-[10px] rounded-[12px] border-[0.5px] border-cz-border-strong bg-cz-surface p-[14px]"
+                    className="mb-[10px] rounded-[12px] border-[0.5px] border-cz-border-strong bg-cz-surface p-[14px] lg:mb-0"
                   >
                     <div className="flex items-center gap-[10px]">
                       <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${CROP_THEME.circleBg}`}>
@@ -240,26 +281,28 @@ export default function FarmerHomeScreen({ record, onLogout }) {
                     </div>
                   </div>
                 )
-              })
+              })}
+              </CitizenCardGrid>
             )}
 
-            {/* SECONDARY ROWS */}
-            <SecondaryRows>
-              <SecondaryRow
-                icon={BarChart3}
-                label={labels.farmerHome.secondary.harvestResultsTitle}
-                onClick={() => setView({ kind: 'yield' })}
-              />
-              <SecondaryRow
-                icon={Gift}
-                label={labels.farmerHome.secondary.assistanceTitle}
-                onClick={() => setView({ kind: 'assistance' })}
-                isLast
-              />
-            </SecondaryRows>
+            {/* SECONDARY ROWS — mobile/tablet only; at >=1024px these same
+                entries render in the Quick Links sidebar instead. */}
+            <div className="lg:hidden">
+              <SecondaryRows>
+                {quickLinks.map((l, i) => (
+                  <SecondaryRow
+                    key={l.label}
+                    icon={l.icon}
+                    label={l.label}
+                    onClick={l.onClick}
+                    isLast={i === quickLinks.length - 1}
+                  />
+                ))}
+              </SecondaryRows>
+            </div>
           </>
         )}
-      </CitizenBody>
+      </CitizenHomeBody>
     </CitizenScreen>
   )
 }

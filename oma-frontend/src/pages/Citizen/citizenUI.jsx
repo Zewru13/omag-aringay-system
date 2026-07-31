@@ -68,10 +68,23 @@ export const FISH_THEME = {
 // Phone-shaped at EVERY breakpoint: the column never widens past 380px,
 // it just centres itself in whatever viewport it gets.
 
-export function CitizenScreen({ children }) {
+export function CitizenScreen({ children, wide = false }) {
+  // `wide` opens the column up at >=1024px for the two HOME screens only
+  // (see CitizenHomeBody). Every sub-view — log activity, history, yield,
+  // assistance, profile — leaves it false and stays in the phone column at
+  // every width: those are single-task, single-column reads where a
+  // 1100px-wide form would be worse, not better.
+  //
+  // The mobile/tablet cap is expressed identically in both branches
+  // (max-w-[340px] sm:max-w-[380px]) so turning `wide` on cannot alter
+  // anything below the lg breakpoint.
   return (
     <div className="min-h-screen w-full bg-cz-page">
-      <div className="mx-auto w-full max-w-[340px] bg-cz-page sm:max-w-[380px]">
+      <div
+        className={`mx-auto w-full max-w-[340px] bg-cz-page sm:max-w-[380px] ${
+          wide ? 'lg:max-w-[1100px]' : ''
+        }`}
+      >
         {children}
       </div>
     </div>
@@ -82,8 +95,8 @@ export function CitizenScreen({ children }) {
 
 export function CitizenHomeHeader({ theme, name, metaLine, onLogout }) {
   return (
-    <header className={`${theme.header} px-[18px] pt-4 pb-[18px]`}>
-      <div className="mb-[14px] flex items-start justify-between">
+    <header className={`${theme.header} px-[18px] pt-4 pb-[18px] lg:px-6 lg:py-[18px]`}>
+      <div className="mb-[14px] flex items-start justify-between lg:mb-0">
         <span className={`text-[12px] tracking-[0.04em] ${theme.brand}`}>
           {labels.header.appName}
         </span>
@@ -91,16 +104,69 @@ export function CitizenHomeHeader({ theme, name, metaLine, onLogout }) {
           type="button"
           onClick={onLogout}
           aria-label={labels.header.logOut}
-          className={`-m-[13px] flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${theme.iconBtn} transition-colors hover:bg-white/10`}
+          className={`-m-[13px] flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${theme.iconBtn} transition-colors hover:bg-white/10 lg:hidden`}
         >
           <LogOut size={18} aria-hidden="true" />
         </button>
       </div>
-      <p className={`mb-[2px] text-[13px] ${theme.greeting}`}>{labels.farmerHome.headerGreeting}</p>
-      <h1 className={`text-[21px] font-medium leading-[1.3] ${theme.name}`}>{name}</h1>
-      <p className={`mt-1 text-[12px] ${theme.meta}`}>{metaLine}</p>
+
+      {/* >=1024px: greeting+name left, identity right. Below that this is a
+          plain stack and the two blocks simply follow each other, which is
+          exactly the pre-existing mobile order. */}
+      <div className="lg:flex lg:items-end lg:justify-between lg:gap-6">
+        <div className="min-w-0">
+          <p className={`mb-[2px] text-[13px] ${theme.greeting}`}>{labels.farmerHome.headerGreeting}</p>
+          <h1 className={`text-[21px] font-medium leading-[1.3] ${theme.name}`}>{name}</h1>
+        </div>
+        <div className="flex items-end gap-3">
+          <p className={`mt-1 text-[12px] lg:mt-0 lg:text-right ${theme.meta}`}>{metaLine}</p>
+          <button
+            type="button"
+            onClick={onLogout}
+            aria-label={labels.header.logOut}
+            className={`hidden shrink-0 items-center justify-center rounded-lg ${theme.iconBtn} transition-colors hover:bg-white/10 lg:-mb-1 lg:flex lg:h-11 lg:w-11`}
+          >
+            <LogOut size={18} aria-hidden="true" />
+          </button>
+        </div>
+      </div>
     </header>
   )
+}
+
+// ─── Desktop two-region home body ───────────────────────────────────────
+// Below 1024px this is byte-for-byte the old single CitizenBody: same
+// px-[14px] pt-4 pb-1.5, children in source order, no flex, no sidebar.
+// At >=1024px it becomes main + aside.
+
+export function CitizenHomeBody({ children, aside }) {
+  return (
+    <div className="px-[14px] pt-4 pb-1.5 lg:flex lg:gap-5 lg:px-6 lg:py-5">
+      <div className="min-w-0 lg:flex-[1.4]">{children}</div>
+      {aside && (
+        <aside className="hidden lg:block lg:flex-1 lg:border-l-[0.5px] lg:border-cz-border lg:pl-5">
+          {aside}
+        </aside>
+      )}
+    </div>
+  )
+}
+
+// The crop/pond collection. One column on mobile (unchanged), exactly two
+// from 1024px up — and deliberately capped there. It is not allowed to grow
+// to 3 or 4 on very wide screens: these cards carry a name, a meta line, a
+// progress bar and two actions, and at 4-up on a 2560px display each card
+// becomes a narrow strip where the meta line wraps and the action buttons
+// stop being comfortably tappable. Two keeps the card proportions close to
+// what they are on mobile, which is where they were designed.
+export function CitizenCardGrid({ children }) {
+  return <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-[10px]">{children}</div>
+}
+
+// Quick Links sidebar heading (desktop only — the mobile equivalent is the
+// SecondaryRows divider, which needs no label).
+export function QuickLinksHeading({ children }) {
+  return <h2 className="mb-1 text-[13px] font-medium text-cz-text-2">{children}</h2>
 }
 
 // ─── Sub-view header (back arrow + title) ───────────────────────────────
@@ -235,7 +301,10 @@ export function SecondaryRows({ children }) {
   return <div className="mt-4 border-t-[0.5px] border-cz-border">{children}</div>
 }
 
-export function SecondaryRow({ icon: Icon, label, onClick, isLast = false }) {
+// `hideChevron` is for the desktop Quick Links sidebar: there the row is the
+// end of the line rather than a step into a deeper screen, so the affordance
+// the chevron promises isn't there to promise.
+export function SecondaryRow({ icon: Icon, label, onClick, isLast = false, hideChevron = false }) {
   return (
     <button
       type="button"
@@ -246,7 +315,7 @@ export function SecondaryRow({ icon: Icon, label, onClick, isLast = false }) {
     >
       <Icon size={20} className="shrink-0 text-cz-text-2" aria-hidden="true" />
       <span className="flex-1 text-[15px] text-cz-text">{label}</span>
-      <ChevronRight size={18} className="shrink-0 text-cz-text-muted" aria-hidden="true" />
+      {!hideChevron && <ChevronRight size={18} className="shrink-0 text-cz-text-muted" aria-hidden="true" />}
     </button>
   )
 }

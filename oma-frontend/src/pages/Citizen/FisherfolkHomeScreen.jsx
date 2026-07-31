@@ -1,16 +1,17 @@
 import { useEffect, useState } from 'react'
-import { BarChart3, Clock, DropletOff, Fish, Gift, Repeat, Stethoscope } from 'lucide-react'
+import { BarChart3, Clock, DropletOff, Fish, Gift, Repeat, Stethoscope, User } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { FISHERIES_DOMAIN } from './citizenDomainConfig.js'
 import CitizenActivityLogScreen from './CitizenActivityLogModal.jsx'
+import CitizenProfileScreen from './CitizenProfileScreen.jsx'
 import MyYieldAnalysisSection from './MyYieldAnalysisSection.jsx'
 import MyAssistanceHistorySection from './MyAssistanceHistorySection.jsx'
 import { labels } from './labels.js'
 import {
-  CitizenBody, CitizenEmptyState, CitizenHomeHeader, CitizenScreen, CitizenSubHeader,
-  FISH_THEME, ProgressTrack, SectionHeading, SecondaryRow, SecondaryRows, StatusCard,
-  cycleProgress,
+  CitizenBody, CitizenCardGrid, CitizenEmptyState, CitizenHomeBody, CitizenHomeHeader,
+  CitizenScreen, CitizenSubHeader, FISH_THEME, ProgressTrack, QuickLinksHeading,
+  SectionHeading, SecondaryRow, SecondaryRows, StatusCard, cycleProgress,
 } from './citizenUI.jsx'
 
 const todayISO = () => new Date().toISOString().split('T')[0]
@@ -171,6 +172,17 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
     )
   }
 
+  if (view.kind === 'profile') {
+    return (
+      <CitizenProfileScreen
+        record={record}
+        recordType="FISHERFOLK"
+        theme={FISH_THEME}
+        onBack={() => setView({ kind: 'home' })}
+      />
+    )
+  }
+
   if (view.kind === 'pondPicker') {
     const activeRecords = stockingRecords.filter((sr) => ACTIVE_STATUSES.includes(sr.status))
     return (
@@ -222,8 +234,34 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
 
   // ── Home ─────────────────────────────────────────────────────────────
 
+  // Single source for both presentations — see FarmerHomeScreen for the
+  // same pattern. "Log illness or mortality" leads the list because it is
+  // the one entry that starts a task rather than opening a read-only view.
+  const quickLinks = [
+    { icon: User, label: labels.farmerHome.secondary.profileTitle, onClick: () => setView({ kind: 'profile' }) },
+    { icon: Stethoscope, label: labels.fisherfolkHome.secondary.illnessTitle, onClick: () => setView({ kind: 'pondPicker' }) },
+    { icon: BarChart3, label: labels.farmerHome.secondary.harvestResultsTitle, onClick: () => setView({ kind: 'yield' }) },
+    { icon: Gift, label: labels.farmerHome.secondary.assistanceTitle, onClick: () => setView({ kind: 'assistance' }) },
+  ]
+
+  const quickLinksAside = (
+    <>
+      <QuickLinksHeading>{labels.farmerHome.secondary.quickLinksTitle}</QuickLinksHeading>
+      {quickLinks.map((l, i) => (
+        <SecondaryRow
+          key={l.label}
+          icon={l.icon}
+          label={l.label}
+          onClick={l.onClick}
+          isLast={i === quickLinks.length - 1}
+          hideChevron
+        />
+      ))}
+    </>
+  )
+
   return (
-    <CitizenScreen>
+    <CitizenScreen wide>
       <CitizenHomeHeader
         theme={FISH_THEME}
         name={record.label}
@@ -231,7 +269,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
         onLogout={onLogout}
       />
 
-      <CitizenBody>
+      <CitizenHomeBody aside={isLoading ? null : quickLinksAside}>
         {isLoading ? (
           <p className="text-[15px] italic text-cz-text-2">{labels.fisherfolkHome.loading}</p>
         ) : (
@@ -282,7 +320,10 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
 
             {/* MY PONDS — one bordered container, compact rows */}
             <div className="mt-4">
-              <SectionHeading>{labels.fisherfolkHome.myPonds.title}</SectionHeading>
+              <SectionHeading>
+                {labels.fisherfolkHome.myPonds.title}
+                {pondRows.length > 0 && <span className="hidden lg:inline"> ({pondRows.length})</span>}
+              </SectionHeading>
             </div>
             {pondRows.length === 0 ? (
               <CitizenEmptyState
@@ -292,7 +333,16 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
                 body={labels.fisherfolkHome.myPonds.empty}
               />
             ) : (
-              <div className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border-strong bg-cz-surface">
+              // Below 1024px: Batch F's single bordered container with
+              // divider-joined rows, untouched. At >=1024px the container
+              // dissolves (border/radius/bg/overflow all cleared) and each row
+              // becomes its own compact card in the same capped 2-column grid
+              // the crop cards use — so the grid/list boundary sits exactly at
+              // the lg breakpoint rather than at a pond count. Splitting by
+              // count instead would mean a fisherfolk with 3 ponds saw a
+              // different treatment than one with 5, for no reason they could
+              // perceive.
+              <div className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border-strong bg-cz-surface lg:grid lg:grid-cols-2 lg:items-start lg:gap-[10px] lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent">
                 {pondRows.map(({ pond, record: sr }, i) => {
                   const isDue = sr && dueRecords.some((d) => d.id === sr.id)
                   const progress = sr ? cycleProgress(sr.date_stocked, sr.expected_harvest_date) : null
@@ -302,7 +352,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
                     <RowTag
                       key={pond.id}
                       {...(sr ? { type: 'button', onClick: () => setLogScreen({ record: sr }) } : {})}
-                      className={`block w-full px-[14px] py-[13px] text-left ${divider} ${
+                      className={`block w-full px-[14px] py-[13px] text-left ${divider} lg:rounded-[10px] lg:border-[0.5px] lg:border-cz-border-strong lg:bg-cz-surface lg:p-3 ${
                         sr ? 'min-h-[44px] transition-colors hover:bg-cz-page' : ''
                       }`}
                     >
@@ -356,28 +406,24 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
               </div>
             )}
 
-            {/* SECONDARY ROWS */}
-            <SecondaryRows>
-              <SecondaryRow
-                icon={Stethoscope}
-                label={labels.fisherfolkHome.secondary.illnessTitle}
-                onClick={() => setView({ kind: 'pondPicker' })}
-              />
-              <SecondaryRow
-                icon={BarChart3}
-                label={labels.farmerHome.secondary.harvestResultsTitle}
-                onClick={() => setView({ kind: 'yield' })}
-              />
-              <SecondaryRow
-                icon={Gift}
-                label={labels.farmerHome.secondary.assistanceTitle}
-                onClick={() => setView({ kind: 'assistance' })}
-                isLast
-              />
-            </SecondaryRows>
+            {/* SECONDARY ROWS — mobile/tablet only; at >=1024px these same
+                entries render in the Quick Links sidebar instead. */}
+            <div className="lg:hidden">
+              <SecondaryRows>
+                {quickLinks.map((l, i) => (
+                  <SecondaryRow
+                    key={l.label}
+                    icon={l.icon}
+                    label={l.label}
+                    onClick={l.onClick}
+                    isLast={i === quickLinks.length - 1}
+                  />
+                ))}
+              </SecondaryRows>
+            </div>
           </>
         )}
-      </CitizenBody>
+      </CitizenHomeBody>
 
       {/* MANDATORY confirmation guard — shows exactly what will be logged,
           pond by pond, before any repeat submission fires. Re-skinned

@@ -107,9 +107,11 @@ export const labels = {
       seasonYear: (season, year) => `${season} ${year}`,
     },
     secondary: {
+      profileTitle: 'My profile',
       harvestResultsTitle: 'Harvest results',
       assistanceTitle: 'Assistance received',
       backToHome: 'Back',
+      quickLinksTitle: 'Quick Links',
     },
     history: {
       title: (cropTitle) => `${cropTitle} — history`,
@@ -300,9 +302,40 @@ export const labels = {
   },
 
   // ── MyYieldAnalysisSection ──────────────────────────────────────────────
+  // ── CitizenProfileScreen ───────────────────────────────────────────────
+  // Read-only registry view. Every field label lives here; the screen itself
+  // decides whether a row appears at all (see BLANK_VALUES in the component).
+  profile: {
+    title: 'My Profile',
+    roleFarmer: 'Farmer',
+    roleFisherfolk: 'Fisherfolk',
+    groups: {
+      registry: 'REGISTRY IDENTITY',
+      contact: 'CONTACT',
+    },
+    fields: {
+      rsbsaNumber: 'RSBSA number',
+      fishrNumber: 'FishR number',
+      lguRegistrationNumber: 'LGU registration no.',
+      barangay: 'Barangay',
+      civilStatus: 'Civil status',
+      fisherfolkType: 'Fishery activity',
+      highestEducation: 'Highest education',
+      contactNumber: 'Contact number',
+    },
+    officeNotice: 'To update any of this information, please visit the OMAg office.',
+  },
+
   yieldAnalysis: {
     loading: 'Loading your yield analysis...',
     empty: 'No harvested or total-loss records yet — this section fills in once a cycle is complete.',
+    // Deliberately distinct from `empty` above. Before this, the fetch had
+    // no .catch(), so `data` stayed null on failure and fell through to the
+    // same "nothing harvested yet" branch — a real outage and an honest
+    // empty state rendered identically, with no way for the citizen (or
+    // support) to tell them apart.
+    loadError: 'Something went wrong loading this — please try again.',
+    retry: 'Try again',
     columns: {
       estimatedKg: 'Estimated (kg)',
       actualKg: 'Actual (kg)',
