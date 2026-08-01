@@ -16,6 +16,7 @@ export const FARMERS_ORG_DOMAIN = {
   createUrl: '/interventions/beneficiaries/adhoc/',
   detailUrl: (id) => `/interventions/beneficiaries/${id}/detail/`,
   historyUrl: '/interventions/my-org-beneficiary-history/',
+  distributeUrl: (orgId) => `/organizations/farmers/${orgId}/distribute-assistance/`,
   personField: 'farmer',
   assistanceTypeOptions: ['Fertilizer', 'Seeds', 'Equipment', 'Cash Assistance', 'Training', 'Other'],
   seasonOptions: ['Dry', 'Wet'],
@@ -31,6 +32,7 @@ export const FISHERFOLK_ORG_DOMAIN = {
   createUrl: '/interventions/fisherfolk-beneficiaries/adhoc/',
   detailUrl: (id) => `/interventions/fisherfolk-beneficiaries/${id}/detail/`,
   historyUrl: '/interventions/my-org-fisherfolk-beneficiary-history/',
+  distributeUrl: (orgId) => `/organizations/fisherfolk/${orgId}/distribute-assistance/`,
   personField: 'fisherfolk',
   assistanceTypeOptions: ['Fishing Gear', 'Boat/Vessel', 'Fingerlings/Seeds', 'Feed', 'Equipment', 'Cash Assistance', 'Training', 'Other'],
   seasonOptions: null, // FisherfolkBeneficiaryRecord.season is a free CharField, not a fixed choice set

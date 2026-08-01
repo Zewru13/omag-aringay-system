@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Trash2, Users } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
@@ -15,6 +15,8 @@ import RowActions from '../../components/UI/RowActions.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import LogGovernmentAssistanceModal from './LogGovernmentAssistanceModal.jsx'
+import DistributeAssistanceModal from './DistributeAssistanceModal.jsx'
+import { FISHERFOLK_DISTRIBUTION_DOMAIN } from './distributionDomains.js'
 
 // Must match interventions.models.FisherfolkBeneficiaryRecord.AssistanceType exactly
 // (Batch 6: absorbed from fisheries.models.FisheriesAssistanceRecord).
@@ -222,6 +224,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
   const [type, setType] = useState('')
   const [year, setYear] = useState('')
   const [showLog, setShowLog] = useState(false)
+  const [showDistribute, setShowDistribute] = useState(false)
   const [editing, setEditing] = useState(null)
 
   const fetchAssistance = useCallback(async () => {
@@ -259,7 +262,10 @@ export default function FisheriesAssistancePage({ asTab = false }) {
 
   const innerContent = (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={() => setShowDistribute(true)}>
+          <Users size={15} className="mr-1" /> Distribute to Organization
+        </Button>
         <Button onClick={() => setShowLog(true)}>
           <Plus size={15} className="mr-1" /> Log Government Assistance
         </Button>
@@ -311,6 +317,13 @@ export default function FisheriesAssistancePage({ asTab = false }) {
 
       {showLog && (
         <LogGovernmentAssistanceModal onClose={() => setShowLog(false)} onSuccess={fetchAssistance} />
+      )}
+      {showDistribute && (
+        <DistributeAssistanceModal
+          domain={FISHERFOLK_DISTRIBUTION_DOMAIN}
+          onClose={() => setShowDistribute(false)}
+          onSuccess={fetchAssistance}
+        />
       )}
       {editing && (
         <EditAssistanceModal

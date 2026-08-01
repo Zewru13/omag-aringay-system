@@ -219,3 +219,46 @@ class FisherfolkBeneficiaryRecordUpdateSerializer(FisherfolkBeneficiaryRecordCre
     """Batch 12: fisherfolk equivalent of BeneficiaryRecordUpdateSerializer — see its docstring."""
     class Meta(FisherfolkBeneficiaryRecordCreateSerializer.Meta):
         read_only_fields = FisherfolkBeneficiaryRecordCreateSerializer.Meta.read_only_fields + ['fisherfolk']
+
+
+class OrganizationDistributionRequestSerializer(serializers.Serializer):
+    """
+    Per-organization bulk assistance distribution (associations app's
+    Farmers/FisherfolkOrganizationDistributeAssistanceView). Validates only
+    the assistance details applied identically to every current member of
+    the target organization — member resolution and the per-member
+    program-skip/30-day-cross-org-flag logic are the view's job, not this
+    serializer's.
+
+    assistance_type and date_given are required HERE even though both are
+    blank=True on the models (Batch 6's dual-mode design allows a blank
+    assistance_type for pure program-based records) — a bulk distribution
+    always needs a well-defined type for the 30-day cross-org safeguard to
+    compare against, and a date to snapshot/window against.
+
+    `description` is the generic free-text field named in the batch brief;
+    the view maps it to `remarks` for BeneficiaryRecord (no description
+    field exists on that model) and `description` for
+    FisherfolkBeneficiaryRecord (which has both remarks and description).
+    """
+    assistance_type = serializers.CharField()
+    source_agency = serializers.CharField(required=False, allow_blank=True, default='')
+    date_given = serializers.DateField()
+    quantity = serializers.CharField(required=False, allow_blank=True, default='')
+    description = serializers.CharField(required=False, allow_blank=True, default='')
+    season = serializers.CharField(required=False, allow_blank=True, default='')
+    program = serializers.PrimaryKeyRelatedField(
+        queryset=InterventionProgram.objects.all(), required=False, allow_null=True, default=None,
+    )
+
+    def validate_assistance_type(self, value):
+        valid_choices = dict(self.context['model'].AssistanceType.choices)
+        if value not in valid_choices:
+            raise serializers.ValidationError(
+                f'Invalid assistance type. Must be one of: {", ".join(valid_choices)}.'
+            )
+        return value
+
+    def validate_date_given(self, value):
+        validate_not_future_date(value, 'Date given')
+        return value

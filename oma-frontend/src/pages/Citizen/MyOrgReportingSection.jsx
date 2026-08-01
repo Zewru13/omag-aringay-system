@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Pencil, Plus, X } from 'lucide-react'
+import { Pencil, Plus, Users, X } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import CitizenDistributeToOrgModal from './CitizenDistributeToOrgModal.jsx'
 import CitizenReportAssistanceModal from './CitizenReportAssistanceModal.jsx'
 import { labels } from './labels.js'
 
@@ -13,13 +14,14 @@ import { labels } from './labels.js'
 // "Report Assistance" against the picked member, and a read-only-except-
 // own-entries list of everything this org has reported. No member profile
 // editing, no crop/pond record access — beneficiary reporting only.
-export default function MyOrgReportingSection({ domain, orgId }) {
+export default function MyOrgReportingSection({ domain, orgId, orgName }) {
   const { showToast } = useToast()
   const [searchTerm, setSearchTerm] = useState('')
   const [members, setMembers] = useState([])
   const [isSearching, setIsSearching] = useState(false)
   const [selectedMember, setSelectedMember] = useState(null)
   const [showReportModal, setShowReportModal] = useState(false)
+  const [showDistributeModal, setShowDistributeModal] = useState(false)
 
   const [history, setHistory] = useState([])
   const [isLoadingHistory, setIsLoadingHistory] = useState(true)
@@ -64,9 +66,14 @@ export default function MyOrgReportingSection({ domain, orgId }) {
   return (
     <div className="space-y-6">
       <section className="rounded-xl border border-[#E2E8E2] bg-white p-5">
-        <h4 className="text-[12px] font-semibold uppercase tracking-wider text-[#7A8E7A] mb-3">
-          {labels.orgReporting.reportForMemberTitle}
-        </h4>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h4 className="text-[12px] font-semibold uppercase tracking-wider text-[#7A8E7A]">
+            {labels.orgReporting.reportForMemberTitle}
+          </h4>
+          <Button size="sm" variant="outline" icon={Users} onClick={() => setShowDistributeModal(true)}>
+            {labels.orgReporting.distributeToOrg}
+          </Button>
+        </div>
         {!selectedMember ? (
           <div className="relative">
             <input
@@ -180,6 +187,15 @@ export default function MyOrgReportingSection({ domain, orgId }) {
           member={null}
           entry={editEntry}
           onClose={() => setEditEntry(null)}
+          onSuccess={fetchHistory}
+        />
+      )}
+      {showDistributeModal && (
+        <CitizenDistributeToOrgModal
+          domain={domain}
+          orgId={orgId}
+          orgName={orgName}
+          onClose={() => setShowDistributeModal(false)}
           onSuccess={fetchHistory}
         />
       )}

@@ -121,7 +121,7 @@ export default function CitizenHomePage() {
               )}
 
               {tab === 'assistance' && orgDomain && (
-                <MyOrgReportingSection domain={orgDomain} orgId={record.id} />
+                <MyOrgReportingSection domain={orgDomain} orgId={record.id} orgName={record.label} />
               )}
             </div>
           </>

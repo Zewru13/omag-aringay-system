@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Pencil, Plus, Search, Trash2, User } from 'lucide-react'
+import { Pencil, Plus, Search, Trash2, User, Users } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
@@ -13,6 +13,8 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import DistributeAssistanceModal from './DistributeAssistanceModal.jsx'
+import { FARMER_DISTRIBUTION_DOMAIN } from './distributionDomains.js'
 
 // Must match interventions.models.BeneficiaryRecord.AssistanceType exactly
 // (Batch 6: absorbed from production.models.CropAssistanceRecord).
@@ -426,6 +428,7 @@ export default function CropAssistancePage({ asTab = false }) {
   const [barangay, setBarangay] = useState('')
   const [year, setYear] = useState('')
   const [showAdd, setShowAdd] = useState(false)
+  const [showDistribute, setShowDistribute] = useState(false)
   const [editing, setEditing] = useState(null)
 
   const fetchAll = useCallback(async () => {
@@ -471,7 +474,10 @@ export default function CropAssistancePage({ asTab = false }) {
             {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex gap-2">
+          <Button variant="outline" onClick={() => setShowDistribute(true)}>
+            <Users size={15} className="mr-1" /> Distribute to Organization
+          </Button>
           <Button onClick={() => setShowAdd(true)}>
             <Plus size={15} className="mr-1" /> Log Crop Assistance
           </Button>
@@ -481,6 +487,13 @@ export default function CropAssistancePage({ asTab = false }) {
       {error ? <ErrorMessage message={error} /> : <DataTable columns={COLUMNS} data={rows} isLoading={isLoading} />}
 
       {showAdd && <AddAssistanceModal onClose={() => setShowAdd(false)} onSuccess={fetchAll} />}
+      {showDistribute && (
+        <DistributeAssistanceModal
+          domain={FARMER_DISTRIBUTION_DOMAIN}
+          onClose={() => setShowDistribute(false)}
+          onSuccess={fetchAll}
+        />
+      )}
       {editing && (
         <EditAssistanceModal
           record={editing}

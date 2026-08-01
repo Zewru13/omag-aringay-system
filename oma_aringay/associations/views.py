@@ -1,3 +1,6 @@
+from datetime import timedelta
+
+from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, serializers, status
@@ -7,6 +10,8 @@ from rest_framework.views import APIView
 
 from accounts.permissions import IsAdminOrEvaluator, IsOwnOrgOrStaff
 from farmers.models import Farmer
+from interventions.models import BeneficiaryRecord, FisherfolkBeneficiaryRecord
+from interventions.serializers import OrganizationDistributionRequestSerializer
 
 from .models import (
     FarmersOrganization,
@@ -263,3 +268,176 @@ class FisherfolkOrganizationOfficerDestroyView(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     queryset = FisherfolkOrganizationOfficer.objects.all()
     lookup_url_kwarg = 'officer_id'
+
+
+# ─── Per-organization bulk assistance distribution ──────────────────────────
+# Creates ONE BeneficiaryRecord/FisherfolkBeneficiaryRecord per CURRENT
+# member of an organization, in one request. Sits alongside the existing
+# one-by-one flow (CitizenReportAssistanceModal / AddAssistanceModal /
+# LogGovernmentAssistanceModal) — does not replace it.
+
+def _run_organization_distribution(record_model, person_field, organization, members, data, user, commit=True):
+    """
+    Shared by both domain views below — identical per-member logic, differing
+    only in which model/FK field/attribution field is used.
+
+    Deliberately NOT one all-or-nothing transaction.atomic() around the whole
+    loop (unlike PondBulkCreateView's precedent): a member already enrolled in
+    the attached program is expected, routine behavior here, not a batch
+    failure — the rest of the members must still get their record. Each row is
+    instead created inside its OWN transaction.atomic(), so a single row's
+    write is still all-or-nothing internally, but one member's failure can
+    never roll back or block rows already committed for other members. The
+    return value is a per-member result list, not a single success/failure.
+
+    commit=False (Step 3's confirmation-screen preview) runs the exact same
+    program-skip and 30-day cross-org checks — both are read-only — but never
+    calls .create(). Statuses are reported as 'would_create'/'skipped' instead
+    of 'created'/'skipped' so the frontend can't mistake a preview for a
+    completed distribution.
+    """
+    program = data.get('program')
+    assistance_type = data['assistance_type']
+    date_given = data['date_given']
+    cutoff = date_given - timedelta(days=30)
+    attributed_field = (
+        'attributed_organization' if record_model is BeneficiaryRecord
+        else 'attributed_fisherfolk_organization'
+    )
+    text_field = 'remarks' if record_model is BeneficiaryRecord else 'description'
+
+    results = []
+    for person in members:
+        person_filter = {person_field: person}
+
+        if program and record_model.objects.filter(program=program, **person_filter).exists():
+            results.append({
+                'person_id': person.id,
+                'name': person.full_name,
+                'status': 'skipped',
+                'reason': 'Already has a record under this program.',
+            })
+            continue
+
+        # Safeguard (non-blocking): same assistance_type from a DIFFERENT
+        # organization within the last 30 days. Flagged in the result, never
+        # silently allowed or silently blocked.
+        prior = (
+            record_model.objects
+            .filter(assistance_type=assistance_type, date_given__gte=cutoff, date_given__lte=date_given, **person_filter)
+            .exclude(**{f'{attributed_field}_id': organization.id})
+            .exclude(**{f'{attributed_field}__isnull': True})
+            .select_related(attributed_field)
+            .order_by('-date_given')
+            .first()
+        )
+        note = None
+        if prior:
+            other_org = getattr(prior, attributed_field)
+            note = f'Also received {prior.assistance_type} from {other_org.name} on {prior.date_given}.'
+
+        if not commit:
+            results.append({
+                'person_id': person.id,
+                'name': person.full_name,
+                'status': 'would_create',
+                'note': note,
+            })
+            continue
+
+        try:
+            with transaction.atomic():
+                record = record_model.objects.create(
+                    program=program,
+                    assistance_type=assistance_type,
+                    source_agency=data.get('source_agency', ''),
+                    quantity=data.get('quantity', ''),
+                    date_given=date_given,
+                    season=data.get('season', ''),
+                    year=date_given.year,
+                    recorded_by=user,
+                    **{person_field: person, text_field: data.get('description', '')},
+                )
+            results.append({
+                'person_id': person.id,
+                'name': person.full_name,
+                'status': 'created',
+                'record_id': record.id,
+                'note': note,
+            })
+        except Exception as exc:
+            results.append({
+                'person_id': person.id,
+                'name': person.full_name,
+                'status': 'error',
+                'reason': str(exc),
+            })
+
+    return results
+
+
+class FarmersOrganizationDistributeAssistanceView(APIView):
+    """
+    Step 2: ADMIN/EVALUATOR may distribute to any organization; a CITIZEN
+    linked to a FARMERS_ORG may only distribute to their OWN organization —
+    IsOwnOrgOrStaff reused as-is (URL 'pk' kwarg + org_linked_record_type),
+    same pattern as FarmersOrganizationMemberAddView's GET.
+    """
+    permission_classes = [IsAuthenticated, IsOwnOrgOrStaff]
+    org_linked_record_type = 'FARMERS_ORG'
+
+    def post(self, request, pk):
+        organization = get_object_or_404(FarmersOrganization, pk=pk)
+
+        request_serializer = OrganizationDistributionRequestSerializer(
+            data=request.data, context={'model': BeneficiaryRecord},
+        )
+        request_serializer.is_valid(raise_exception=True)
+        data = request_serializer.validated_data
+
+        # Snapshot at distribution time — resolved once, here, before any
+        # writes. Members added after this point never retroactively receive
+        # this distribution.
+        members = list(Farmer.objects.filter(farmers_organization_id=pk))
+
+        results = _run_organization_distribution(
+            BeneficiaryRecord, 'farmer', organization, members, data, request.user,
+            commit=not bool(request.data.get('dry_run')),
+        )
+        return Response({
+            'organization_id': organization.id,
+            'organization_name': organization.name,
+            'member_count': len(members),
+            'results': results,
+        }, status=status.HTTP_200_OK)
+
+
+class FisherfolkOrganizationDistributeAssistanceView(APIView):
+    """Fisherfolk equivalent of FarmersOrganizationDistributeAssistanceView above."""
+    permission_classes = [IsAuthenticated, IsOwnOrgOrStaff]
+    org_linked_record_type = 'FISHERFOLK_ORG'
+
+    def post(self, request, pk):
+        organization = get_object_or_404(FisherfolkOrganization, pk=pk)
+
+        request_serializer = OrganizationDistributionRequestSerializer(
+            data=request.data, context={'model': FisherfolkBeneficiaryRecord},
+        )
+        request_serializer.is_valid(raise_exception=True)
+        data = request_serializer.validated_data
+
+        members = [
+            m.fisherfolk for m in
+            FisherfolkOrganizationMember.objects.filter(organization_id=pk).select_related('fisherfolk')
+        ]
+
+        results = _run_organization_distribution(
+            FisherfolkBeneficiaryRecord, 'fisherfolk', organization, members, data, request.user,
+            commit=not bool(request.data.get('dry_run')),
+        )
+        return Response({
+            'organization_id': organization.id,
+            'organization_name': organization.name,
+            'member_count': len(members),
+            'results': results,
+        }, status=status.HTTP_200_OK)
