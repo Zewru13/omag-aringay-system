@@ -18,6 +18,13 @@ export const FISHERFOLK_DISTRIBUTION_DOMAIN = {
   orgLabel: 'Fisherfolk Organization',
   orgSearchUrl: '/organizations/fisherfolk/',
   distributeUrl: (orgId) => `/organizations/fisherfolk/${orgId}/distribute-assistance/`,
-  assistanceTypeOptions: ['Fishing Gear', 'Boat/Vessel', 'Fingerlings/Seeds', 'Feed', 'Cash Assistance', 'Equipment', 'Training', 'Other'],
+  // Unchanged by Step 5's "standardize to CropAssistanceRecord's set"
+  // instruction — that set (Fertilizer/Seeds/...) is the FARMER domain's own
+  // established list (see FARMER_DISTRIBUTION_DOMAIN above, already
+  // matching, no change needed there either). This fisherfolk list mirrors
+  // FisherfolkBeneficiaryRecord.AssistanceType's real model choices, which
+  // has neither 'Fertilizer' nor plain 'Seeds' — swapping in the farmer set
+  // here would submit values the backend rejects.
+  assistanceTypeOptions: ['Fishing Gear', 'Boat/Vessel', 'Fingerlings/Seeds', 'Feed', 'Equipment', 'Cash Assistance', 'Training', 'Other'],
   seasonOptions: null,
 }

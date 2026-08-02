@@ -35,10 +35,12 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
 
   const [form, setForm] = useState({
     assistance_type: '',
+    assistance_type_other: '',
     source_agency: '',
     source_agency_other: '',
     date_given: todayISO(),
     quantity: '',
+    cash_amount: '',
     description: '',
     season: domain.seasonOptions ? domain.seasonOptions[0] : '',
     program: '',
@@ -66,14 +68,19 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
   }, [orgSearch, domain.orgSearchUrl])
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+  const isCashAssistance = form.assistance_type === 'Cash Assistance'
 
   const buildPayload = (dryRun) => {
     const sourceAgency = form.source_agency === 'Other' ? form.source_agency_other.trim() : form.source_agency
+    const assistanceType = form.assistance_type === 'Other' ? form.assistance_type_other.trim() : form.assistance_type
+    const quantity = isCashAssistance
+      ? (form.cash_amount ? `₱${form.cash_amount} per head` : '')
+      : form.quantity
     return {
-      assistance_type: form.assistance_type,
+      assistance_type: assistanceType,
       source_agency: sourceAgency,
       date_given: form.date_given,
-      quantity: form.quantity,
+      quantity,
       description: form.description,
       season: form.season,
       ...(form.program ? { program: form.program } : {}),
@@ -88,8 +95,14 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
     if (!form.assistance_type || !form.date_given) {
       showToast('Fill in all required fields.', 'error'); return
     }
+    if (form.assistance_type === 'Other' && !form.assistance_type_other.trim()) {
+      showToast('Please specify the assistance type.', 'error'); return
+    }
     if (form.source_agency === 'Other' && !form.source_agency_other.trim()) {
       showToast('Please specify the source agency.', 'error'); return
+    }
+    if (isCashAssistance && (!form.cash_amount || Number(form.cash_amount) <= 0)) {
+      showToast('Enter a valid cash amount per head.', 'error'); return
     }
     setIsBusy(true)
     try {
@@ -188,10 +201,14 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
 
           <div className="grid gap-3 sm:grid-cols-2">
             <FormField label="Assistance Type" required>
-              <select className={baseInputClasses} value={form.assistance_type} onChange={(e) => set('assistance_type', e.target.value)}>
-                <option value="">Select Assistance Type</option>
-                {domain.assistanceTypeOptions.map((o) => <option key={o} value={o}>{o}</option>)}
-              </select>
+              <ComboboxWithOther
+                options={domain.assistanceTypeOptions.filter((o) => o !== 'Other')}
+                value={form.assistance_type}
+                otherValue={form.assistance_type_other}
+                onChange={(v) => set('assistance_type', v)}
+                onOtherChange={(v) => set('assistance_type_other', v)}
+                placeholder="Select Assistance Type"
+              />
             </FormField>
             <FormField label="Source Agency">
               <ComboboxWithOther
@@ -206,9 +223,16 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
             <FormField label="Date Given" required>
               <input type="date" className={baseInputClasses} value={form.date_given} max={todayISO()} onChange={(e) => set('date_given', e.target.value)} />
             </FormField>
-            <FormField label="Quantity (per member)">
-              <input className={baseInputClasses} value={form.quantity} onChange={(e) => set('quantity', e.target.value)} placeholder="e.g. 1 sack" />
-            </FormField>
+            {isCashAssistance ? (
+              <FormField label="Total cash amount (₱) per head" required>
+                <input type="number" step="0.01" min="0.01" className={baseInputClasses} value={form.cash_amount}
+                  onChange={(e) => set('cash_amount', e.target.value)} placeholder="e.g. 500.00" />
+              </FormField>
+            ) : (
+              <FormField label="Quantity (per member)">
+                <input className={baseInputClasses} value={form.quantity} onChange={(e) => set('quantity', e.target.value)} placeholder="e.g. 1 sack" />
+              </FormField>
+            )}
             {domain.seasonOptions ? (
               <FormField label="Season">
                 <select className={baseInputClasses} value={form.season} onChange={(e) => set('season', e.target.value)}>
@@ -251,7 +275,11 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
           <div className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] p-4 space-y-1.5">
             <p className="text-[13px]"><span className="font-medium text-[#1A2B1A]">Organization:</span> {preview.organization_name}</p>
             <p className="text-[13px]"><span className="font-medium text-[#1A2B1A]">Current members:</span> {preview.member_count}</p>
-            <p className="text-[13px]"><span className="font-medium text-[#1A2B1A]">Assistance:</span> {form.assistance_type}{form.quantity ? ` — ${form.quantity}` : ''} on {form.date_given}</p>
+            <p className="text-[13px]">
+              <span className="font-medium text-[#1A2B1A]">Assistance:</span>{' '}
+              {form.assistance_type === 'Other' ? form.assistance_type_other.trim() : form.assistance_type}
+              {isCashAssistance ? ` — ₱${form.cash_amount} per head` : (form.quantity ? ` — ${form.quantity}` : '')} on {form.date_given}
+            </p>
             {form.program && <p className="text-[13px]"><span className="font-medium text-[#1A2B1A]">Program:</span> {programs.find((p) => String(p.id) === String(form.program))?.program_name}</p>}
           </div>
 

@@ -50,6 +50,11 @@ class Farmer(models.Model):
     gender = models.CharField(max_length=10, choices=Gender.choices)
     birthdate = models.DateField()
     contact_number = models.CharField(max_length=20, blank=True)
+    # Batch: optional citizen-registration email. Not unique at this level —
+    # this is a contact detail on the person's own record, not a login
+    # identifier (that's User.email, set separately if/when a linked CITIZEN
+    # account is created for them).
+    email = models.EmailField(blank=True, null=True)
     barangay = models.CharField(max_length=100, choices=BARANGAY_CHOICES)
     municipality = models.CharField(max_length=100, default='Aringay')
     province = models.CharField(max_length=100, default='La Union')

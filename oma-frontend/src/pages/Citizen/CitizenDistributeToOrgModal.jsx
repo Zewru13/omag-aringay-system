@@ -30,10 +30,12 @@ export default function CitizenDistributeToOrgModal({ domain, orgId, orgName, on
   const [step, setStep] = useState('form') // 'form' | 'confirm' | 'result'
   const [form, setForm] = useState({
     assistance_type: domain.assistanceTypeOptions[0],
+    assistance_type_other: '',
     source_agency: '',
     source_agency_other: '',
     date_given: todayISO(),
     quantity: '',
+    cash_amount: '',
     description: '',
     season: domain.seasonOptions ? domain.seasonOptions[0] : '',
     program: '',
@@ -51,14 +53,19 @@ export default function CitizenDistributeToOrgModal({ domain, orgId, orgName, on
   }, [])
 
   const set = (field, value) => setForm((f) => ({ ...f, [field]: value }))
+  const isCashAssistance = form.assistance_type === 'Cash Assistance'
 
   const buildPayload = (dryRun) => {
     const sourceAgency = form.source_agency === 'Other' ? form.source_agency_other.trim() : form.source_agency
+    const assistanceType = form.assistance_type === 'Other' ? form.assistance_type_other.trim() : form.assistance_type
+    const quantity = isCashAssistance
+      ? (form.cash_amount ? `₱${form.cash_amount} per head` : '')
+      : form.quantity
     return {
-      assistance_type: form.assistance_type,
+      assistance_type: assistanceType,
       source_agency: sourceAgency,
       date_given: form.date_given,
-      quantity: form.quantity,
+      quantity,
       description: form.description,
       season: form.season,
       ...(form.program ? { program: form.program } : {}),
@@ -78,8 +85,16 @@ export default function CitizenDistributeToOrgModal({ domain, orgId, orgName, on
       setErrorMessage(L.errors.requiredFields)
       return
     }
+    if (form.assistance_type === 'Other' && !form.assistance_type_other.trim()) {
+      setErrorMessage(L.errors.specifyAssistanceType)
+      return
+    }
     if (form.source_agency === 'Other' && !form.source_agency_other.trim()) {
       setErrorMessage(L.errors.specifySourceAgency)
+      return
+    }
+    if (isCashAssistance && (!form.cash_amount || Number(form.cash_amount) <= 0)) {
+      setErrorMessage(L.errors.invalidCashAmount)
       return
     }
     setIsBusy(true)
@@ -130,18 +145,29 @@ export default function CitizenDistributeToOrgModal({ domain, orgId, orgName, on
         <form className="space-y-4" onSubmit={handlePreview}>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField label={L.fields.assistanceType} required>
-              <select className={baseInputClasses} value={form.assistance_type} onChange={(e) => set('assistance_type', e.target.value)}>
-                {domain.assistanceTypeOptions.map((t) => <option key={t}>{t}</option>)}
-              </select>
+              <ComboboxWithOther
+                options={domain.assistanceTypeOptions.filter((o) => o !== 'Other')}
+                value={form.assistance_type}
+                otherValue={form.assistance_type_other}
+                onChange={(v) => set('assistance_type', v)}
+                onOtherChange={(v) => set('assistance_type_other', v)}
+              />
             </FormField>
             <FormField label={L.fields.dateGiven} required>
               <input type="date" max={todayISO()} className={baseInputClasses} value={form.date_given} onChange={(e) => set('date_given', e.target.value)} />
             </FormField>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <FormField label={L.fields.quantity}>
-              <input type="text" className={baseInputClasses} value={form.quantity} onChange={(e) => set('quantity', e.target.value)} />
-            </FormField>
+            {isCashAssistance ? (
+              <FormField label={L.fields.cashAmount} required>
+                <input type="number" step="0.01" min="0.01" className={baseInputClasses} value={form.cash_amount}
+                  onChange={(e) => set('cash_amount', e.target.value)} placeholder="e.g. 500.00" />
+              </FormField>
+            ) : (
+              <FormField label={L.fields.quantity}>
+                <input type="text" className={baseInputClasses} value={form.quantity} onChange={(e) => set('quantity', e.target.value)} />
+              </FormField>
+            )}
             <FormField label={L.fields.sourceAgency}>
               <ComboboxWithOther
                 options={SOURCE_AGENCY_OPTIONS}
@@ -190,7 +216,11 @@ export default function CitizenDistributeToOrgModal({ domain, orgId, orgName, on
           <div className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] p-4 space-y-1.5">
             <p className="text-[13px]"><span className="font-medium text-[#1A2B1A]">Organization:</span> {preview.organization_name}</p>
             <p className="text-[13px]"><span className="font-medium text-[#1A2B1A]">{L.currentMembers}:</span> {preview.member_count}</p>
-            <p className="text-[13px]"><span className="font-medium text-[#1A2B1A]">{L.assistanceSummary}:</span> {form.assistance_type}{form.quantity ? ` — ${form.quantity}` : ''} on {form.date_given}</p>
+            <p className="text-[13px]">
+              <span className="font-medium text-[#1A2B1A]">{L.assistanceSummary}:</span>{' '}
+              {form.assistance_type === 'Other' ? form.assistance_type_other.trim() : form.assistance_type}
+              {isCashAssistance ? ` — ₱${form.cash_amount} per head` : (form.quantity ? ` — ${form.quantity}` : '')} on {form.date_given}
+            </p>
           </div>
 
           {skippedInPreview.length > 0 && (

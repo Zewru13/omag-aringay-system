@@ -27,7 +27,11 @@ class FarmersOrganization(models.Model):
     date_organized = models.DateField(null=True, blank=False)
     date_registered = models.DateField(null=True, blank=False)
     registration_agency = models.CharField(max_length=10, choices=REGISTRATION_AGENCY_CHOICES)
-    email_address = models.EmailField(default='')
+    # Batch: was missing blank=True (unlike FisherfolkOrganization.email_address
+    # below, which already had it) — required at the model level despite the
+    # field being genuinely optional. Fixed for consistency between the two org
+    # types; default='' unchanged.
+    email_address = models.EmailField(blank=True, default='')
     contact_person = models.CharField(max_length=150)
     contact_number = models.CharField(max_length=20)
     is_active = models.BooleanField(default=True)

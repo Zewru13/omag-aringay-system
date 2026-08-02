@@ -76,6 +76,9 @@ class Fisherfolk(models.Model):
     gender        = models.CharField(max_length=10, choices=Gender.choices)
     birthdate     = models.DateField()
     contact_number = models.CharField(max_length=20, blank=True)
+    # Batch: optional citizen-registration email — see farmers.Farmer.email's
+    # comment (same rationale, not a login identifier at this level).
+    email         = models.EmailField(blank=True, null=True)
     barangay      = models.CharField(max_length=100, choices=BARANGAY_CHOICES)
     municipality  = models.CharField(max_length=100, default='Aringay')
     civil_status  = models.CharField(max_length=20, choices=CivilStatus.choices, blank=True, default='')

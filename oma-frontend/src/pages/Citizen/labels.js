@@ -484,6 +484,7 @@ export const labels = {
       assistanceType: 'Assistance Type',
       dateGiven: 'Date Given',
       quantity: 'Quantity (per member)',
+      cashAmount: 'Total cash amount (₱) per head',
       sourceAgency: 'Source Agency',
       season: 'Season',
       description: 'Description',
@@ -493,7 +494,9 @@ export const labels = {
     },
     errors: {
       requiredFields: 'Assistance type and date are required.',
+      specifyAssistanceType: 'Please specify the assistance type.',
       specifySourceAgency: 'Please specify the source agency.',
+      invalidCashAmount: 'Enter a valid cash amount per head.',
       previewFailed: 'Failed to preview distribution.',
       distributeFailed: 'Failed to distribute assistance.',
     },
