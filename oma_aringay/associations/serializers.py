@@ -28,6 +28,55 @@ class FarmerOrganizationMemberSearchSerializer(serializers.ModelSerializer):
         fields = ['id', 'full_name', 'barangay', 'rsbsa_number']
 
 
+# ─── Batch 1: add-member candidate search (citizen-reachable) ──────────────
+# These two are deliberately NOT the serializers above. The ones above
+# describe people who are ALREADY this organization's members; these
+# describe people who are not, so an organization officer can find someone
+# to add. That is a wider audience, so the field list is cut to the minimum
+# the add-member decision actually needs:
+#
+#   full_name + barangay  — to identify the right person
+#   current membership    — so the caller can be warned BEFORE attempting a
+#                           reassignment (farmers) or see existing
+#                           memberships (fisherfolk)
+#
+# Government identifiers (RSBSA / FishR / LGU registration numbers) and all
+# contact details are deliberately EXCLUDED. They are not needed to pick a
+# person out of a search you already typed a name into, and they are the
+# fields with real disclosure consequences. See the views for the matching
+# minimum-query-length and result-cap limits that stop this being usable to
+# enumerate the whole registry.
+
+class FarmerAddCandidateSerializer(serializers.ModelSerializer):
+    current_organization_id = serializers.IntegerField(
+        source='farmers_organization_id', read_only=True,
+    )
+    current_organization_name = serializers.CharField(
+        source='farmers_organization.name', read_only=True, default=None,
+    )
+
+    class Meta:
+        model = Farmer
+        fields = ['id', 'full_name', 'barangay',
+                  'current_organization_id', 'current_organization_name']
+
+
+class FisherfolkAddCandidateSerializer(serializers.ModelSerializer):
+    current_organizations = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Fisherfolk
+        fields = ['id', 'full_name', 'barangay', 'current_organizations']
+
+    def get_current_organizations(self, obj):
+        # A list, not a single value: fisherfolk membership is a real join
+        # table and belonging to several organizations is legitimate.
+        return [
+            {'id': m.organization_id, 'name': m.organization.name}
+            for m in obj.fisherfolk_organizations.select_related('organization')
+        ]
+
+
 class OrganizationOfficerSerializer(serializers.ModelSerializer):
     farmer = serializers.PrimaryKeyRelatedField(
         queryset=Farmer.objects.all(), write_only=True, required=True,

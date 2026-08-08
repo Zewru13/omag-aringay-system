@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 
 from accounts.permissions import IsAdminOrEvaluator, IsOwnOrgOrStaff
 from farmers.models import Farmer
+from fisheries.models import Fisherfolk
 from interventions.models import BeneficiaryRecord, FisherfolkBeneficiaryRecord
 from interventions.serializers import OrganizationDistributionRequestSerializer
 
@@ -24,7 +25,9 @@ from .models import (
     OrganizationOfficer,
 )
 from .serializers import (
+    FarmerAddCandidateSerializer,
     FarmerOrganizationMemberSearchSerializer,
+    FisherfolkAddCandidateSerializer,
     FarmersOrganizationDetailSerializer,
     FarmersOrganizationEquipmentSerializer,
     FarmersOrganizationListSerializer,
@@ -70,17 +73,29 @@ class FarmersOrganizationMemberAddView(generics.ListCreateAPIView):
     Batch 12: GET also opens to the FARMERS_ORG citizen who IS this
     organization — the member picker for their own "Report Assistance"
     flow reuses this exact endpoint rather than a parallel one.
-    POST: unchanged join-table "add member" capability, staff-only — kept
-    for parity with the fisherfolk side, though nothing in the current UI
-    calls it for farmers (see model docstring).
+
+    Batch 1 (org member management): POST opens to that same citizen, and
+    now writes the membership link that is actually read everywhere else —
+    Farmer.farmers_organization — instead of a FarmersOrganizationMember
+    join row. The join table has 0 rows and nothing reads it (see its model
+    docstring); the direct FK is what the Members tab, the officer
+    "is a member" validation, bulk distribution, and the remove endpoint
+    all use. Writing the join row left "added" members invisible to every
+    one of those, so this is the write half finally matching the read half.
+
+    Because the FK is single-valued, adding a farmer who already belongs to
+    a DIFFERENT organization is a REASSIGNMENT, not an addition. That is
+    destructive to the other organization's roster, so it requires an
+    explicit `confirm_reassignment: true` in the body; without it the
+    request is refused with 409 and the current organization's name so the
+    caller can warn first. Reassignment also drops any officer position the
+    farmer held in the OLD organization, for the same reason member removal
+    does (associations.serializers enforces "officers must be members", and
+    leaving a stale officer row would violate that invariant silently).
     """
     org_linked_record_type = 'FARMERS_ORG'
     pagination_class = None
-
-    def get_permissions(self):
-        if self.request.method == 'GET':
-            return [IsAuthenticated(), IsOwnOrgOrStaff()]
-        return [IsAuthenticated(), IsAdminOrEvaluator()]
+    permission_classes = [IsAuthenticated, IsOwnOrgOrStaff]
 
     def get_serializer_class(self):
         if self.request.method == 'GET':
@@ -101,14 +116,64 @@ class FarmersOrganizationMemberAddView(generics.ListCreateAPIView):
             return qs.order_by('last_name', 'first_name')
         return FarmersOrganizationMember.objects.filter(organization_id=organization_id)
 
-    def perform_create(self, serializer):
-        organization_id = self.kwargs['pk']
-        farmer = serializer.validated_data['farmer']
-        if FarmersOrganizationMember.objects.filter(organization_id=organization_id, farmer=farmer).exists():
+    def create(self, request, *args, **kwargs):
+        organization_id = int(self.kwargs['pk'])
+        organization = get_object_or_404(FarmersOrganization, pk=organization_id)
+        farmer_id = request.data.get('farmer')
+        if not farmer_id:
+            raise serializers.ValidationError({'farmer': 'This field is required.'})
+        farmer = get_object_or_404(Farmer, pk=farmer_id)
+
+        current_id = farmer.farmers_organization_id
+        if current_id == organization_id:
             raise serializers.ValidationError(
                 {'detail': 'This farmer is already a member of this organization.'}
             )
-        serializer.save(organization_id=organization_id)
+
+        if current_id is not None:
+            if str(request.data.get('confirm_reassignment')).lower() not in ('true', '1'):
+                current = FarmersOrganization.objects.filter(pk=current_id).first()
+                # 409, not 400: the request is well-formed and the caller is
+                # allowed to do this — it conflicts with existing state, and
+                # becomes valid once resubmitted with the confirmation flag.
+                return Response(
+                    {
+                        'detail': 'requires_reassignment_confirmation',
+                        'message': (
+                            f'{farmer.full_name} is currently a member of '
+                            f'{current.name if current else "another organization"}. '
+                            f'Adding them here will remove them from that organization.'
+                        ),
+                        'farmer_id': farmer.id,
+                        'farmer_name': farmer.full_name,
+                        'current_organization_id': current_id,
+                        'current_organization_name': current.name if current else None,
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+
+        with transaction.atomic():
+            if current_id is not None:
+                # Same auto-clear as FarmersOrganizationMemberDirectRemoveView:
+                # they are leaving that organization, so they cannot stay an
+                # officer of it.
+                OrganizationOfficer.objects.filter(
+                    organization_id=current_id, farmer_id=farmer.id,
+                ).delete()
+            farmer.farmers_organization = organization
+            farmer.save(update_fields=['farmers_organization'])
+
+        return Response(
+            {
+                'farmer_id': farmer.id,
+                'full_name': farmer.full_name,
+                'barangay': farmer.barangay,
+                'organization_id': organization_id,
+                'organization_name': organization.name,
+                'reassigned_from_organization_id': current_id,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class FarmersOrganizationMemberRemoveView(generics.DestroyAPIView):
@@ -126,8 +191,14 @@ class FarmersOrganizationMemberDirectRemoveView(APIView):
     first (Batch 4's chosen behavior — see OrganizationOfficer.farmer's
     SET_NULL, which can't auto-cascade here since we're nulling a field,
     not deleting a row, so this has to be done explicitly).
+
+    Batch 1 (org member management): opened to the FARMERS_ORG citizen who
+    IS this organization. The officer auto-clear below is deliberately left
+    exactly as it was — it sits in the delete() body, so it fires for every
+    caller, staff or citizen, rather than being tied to who is asking.
     """
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsOwnOrgOrStaff]
+    org_linked_record_type = 'FARMERS_ORG'
 
     def delete(self, request, pk, farmer_id):
         farmer = get_object_or_404(Farmer, pk=farmer_id, farmers_organization_id=pk)
@@ -152,7 +223,16 @@ class FarmersOrganizationEquipmentRemoveView(generics.DestroyAPIView):
 
 
 class OrganizationOfficerListCreateView(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    """
+    Batch 1 (org member management): GET (read the roster) and POST (assign
+    an officer) both open to the FARMERS_ORG citizen who IS this
+    organization. OrganizationOfficerSerializer.validate_farmer's "this
+    farmer is not a member of this organization" check is untouched and
+    still runs for every caller — widening who may assign does not widen
+    who may BE assigned.
+    """
+    permission_classes = [IsAuthenticated, IsOwnOrgOrStaff]
+    org_linked_record_type = 'FARMERS_ORG'
     serializer_class = OrganizationOfficerSerializer
     pagination_class = None
 
@@ -198,16 +278,19 @@ class FisherfolkOrganizationMemberAddView(generics.ListCreateAPIView):
     assignment search-select. Batch 12: GET also opens to the
     FISHERFOLK_ORG citizen who IS this organization (member picker for
     their own "Report Assistance" flow).
-    POST: unchanged "add member" (join-table row), staff-only.
+    POST: "add member" (join-table row). Batch 1 (org member management)
+    opens this to that same citizen.
+
+    Deliberately NO reassignment concept here, unlike the farmers side.
+    FisherfolkOrganizationMember is a real join table, so belonging to
+    several organizations at once is legitimate rather than a conflict —
+    adding someone who is already in another organization just creates a
+    second row and takes nothing away from anyone.
     """
     org_linked_record_type = 'FISHERFOLK_ORG'
     serializer_class = FisherfolkOrganizationMemberSerializer
     pagination_class = None
-
-    def get_permissions(self):
-        if self.request.method == 'GET':
-            return [IsAuthenticated(), IsOwnOrgOrStaff()]
-        return [IsAuthenticated(), IsAdminOrEvaluator()]
+    permission_classes = [IsAuthenticated, IsOwnOrgOrStaff]
 
     def get_queryset(self):
         qs = FisherfolkOrganizationMember.objects.filter(
@@ -233,9 +316,38 @@ class FisherfolkOrganizationMemberAddView(generics.ListCreateAPIView):
 
 
 class FisherfolkOrganizationMemberRemoveView(generics.DestroyAPIView):
+    """Staff-only, unchanged. Its URL carries no organization id, so
+    IsOwnOrgOrStaff (which resolves ownership from the `pk` kwarg) cannot
+    gate it — the org-scoped citizen route is the sibling view below."""
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     queryset = FisherfolkOrganizationMember.objects.all()
     lookup_url_kwarg = 'member_id'
+
+
+class FisherfolkOrganizationMemberOrgScopedRemoveView(generics.DestroyAPIView):
+    """
+    Batch 1 (org member management): org-scoped "remove member" for
+    Fisherfolk Organizations, mirroring the farmers side's
+    `<pk>/members/<id>/` shape so IsOwnOrgOrStaff has a `pk` to check.
+    Added alongside the staff route rather than replacing it, so the
+    existing staff UI call keeps working untouched.
+
+    Officer auto-clear is NOT reimplemented here: the officer row points at
+    the membership row via FisherfolkOrganizationOfficer.member with
+    on_delete=CASCADE, so deleting the membership deletes the officer
+    position at the model layer, for every caller and every code path.
+
+    get_queryset filters by the organization from the URL, so a member id
+    belonging to some other organization 404s instead of being deleted.
+    """
+    permission_classes = [IsAuthenticated, IsOwnOrgOrStaff]
+    org_linked_record_type = 'FISHERFOLK_ORG'
+    lookup_url_kwarg = 'member_id'
+
+    def get_queryset(self):
+        return FisherfolkOrganizationMember.objects.filter(
+            organization_id=self.kwargs['pk'],
+        )
 
 
 class FisherfolkOrganizationEquipmentAddView(generics.CreateAPIView):
@@ -253,7 +365,14 @@ class FisherfolkOrganizationEquipmentRemoveView(generics.DestroyAPIView):
 
 
 class FisherfolkOrganizationOfficerListCreateView(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    """
+    Batch 1 (org member management): GET and POST both open to the
+    FISHERFOLK_ORG citizen who IS this organization.
+    FisherfolkOrganizationOfficerSerializer.validate's "this fisherfolk is
+    not a member of this organization" check is untouched and still runs.
+    """
+    permission_classes = [IsAuthenticated, IsOwnOrgOrStaff]
+    org_linked_record_type = 'FISHERFOLK_ORG'
     serializer_class = FisherfolkOrganizationOfficerSerializer
     pagination_class = None
 
@@ -268,6 +387,74 @@ class FisherfolkOrganizationOfficerDestroyView(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     queryset = FisherfolkOrganizationOfficer.objects.all()
     lookup_url_kwarg = 'officer_id'
+
+
+# ─── Batch 1: add-member candidate search ──────────────────────────────────
+# Finds people to ADD, so unlike the member-list endpoints it necessarily
+# looks outside the calling organization. Three limits keep that from
+# becoming a registry dump, since the farmer table alone holds ~3.5k rows:
+#
+#   1. IsOwnOrgOrStaff — only the organization itself (or staff) may search
+#      at all, and only under its own id in the URL.
+#   2. MIN_SEARCH_LENGTH — a blank or 1-character query returns nothing
+#      rather than everything, so there is no "list all" mode.
+#   3. MAX_RESULTS — a broad query is truncated, so paging through the
+#      whole registry a slice at a time is not possible either.
+#
+# Field list is minimal by construction — see the candidate serializers.
+
+MIN_SEARCH_LENGTH = 2
+MAX_RESULTS = 20
+
+
+class _AddCandidateSearchBase(generics.ListAPIView):
+    permission_classes = [IsAuthenticated, IsOwnOrgOrStaff]
+    pagination_class = None
+
+    def _search_term(self):
+        return self.request.query_params.get('search', '').strip()
+
+
+class FarmersOrganizationAddCandidateSearchView(_AddCandidateSearchBase):
+    """Farmers only — a Farmers Organization can never surface fisherfolk."""
+    org_linked_record_type = 'FARMERS_ORG'
+    serializer_class = FarmerAddCandidateSerializer
+
+    def get_queryset(self):
+        search = self._search_term()
+        if len(search) < MIN_SEARCH_LENGTH:
+            return Farmer.objects.none()
+        return (
+            Farmer.objects
+            .filter(
+                Q(first_name__icontains=search)
+                | Q(last_name__icontains=search)
+                | Q(middle_name__icontains=search)
+            )
+            .select_related('farmers_organization')
+            .order_by('last_name', 'first_name')[:MAX_RESULTS]
+        )
+
+
+class FisherfolkOrganizationAddCandidateSearchView(_AddCandidateSearchBase):
+    """Fisherfolk only — a Fisherfolk Organization can never surface farmers."""
+    org_linked_record_type = 'FISHERFOLK_ORG'
+    serializer_class = FisherfolkAddCandidateSerializer
+
+    def get_queryset(self):
+        search = self._search_term()
+        if len(search) < MIN_SEARCH_LENGTH:
+            return Fisherfolk.objects.none()
+        return (
+            Fisherfolk.objects
+            .filter(
+                Q(first_name__icontains=search)
+                | Q(last_name__icontains=search)
+                | Q(middle_name__icontains=search)
+            )
+            .prefetch_related('fisherfolk_organizations__organization')
+            .order_by('last_name', 'first_name')[:MAX_RESULTS]
+        )
 
 
 # ─── Per-organization bulk assistance distribution ──────────────────────────
