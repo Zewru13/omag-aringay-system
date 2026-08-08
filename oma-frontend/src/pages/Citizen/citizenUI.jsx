@@ -28,12 +28,18 @@ import { labels } from './labels.js'
 // One object per domain so the two home screens stay structurally
 // identical and only their tint differs.
 
+// CONTRAST NOTE: `greeting` and `meta` deliberately use the -100 step, not
+// -300. When the header tokens were lifted to the basis's lighter tone
+// (#1C5737 / #1C574C), -300 on that background measures 4.20:1 (crop) and
+// 4.15:1 (fish) — under the 4.5:1 AA floor for the 12-13px text these two
+// roles carry. -100 measures 5.69:1 / 5.60:1 and clears it. If the header
+// tokens are ever darkened again, these can go back to -300.
 export const CROP_THEME = {
   header: 'bg-cz-crop-header',
   brand: 'text-cz-crop-100',
-  greeting: 'text-cz-crop-300',
+  greeting: 'text-cz-crop-100',
   name: 'text-cz-crop-pale',
-  meta: 'text-cz-crop-300',
+  meta: 'text-cz-crop-100',
   iconBtn: 'text-cz-crop-100',
   circleBg: 'bg-cz-crop-pale',
   circleIcon: 'text-cz-crop-deep',
@@ -49,9 +55,9 @@ export const CROP_THEME = {
 export const FISH_THEME = {
   header: 'bg-cz-fish-header',
   brand: 'text-cz-fish-100',
-  greeting: 'text-cz-fish-300',
+  greeting: 'text-cz-fish-100',
   name: 'text-cz-fish-pale',
-  meta: 'text-cz-fish-300',
+  meta: 'text-cz-fish-100',
   iconBtn: 'text-cz-fish-100',
   circleBg: 'bg-cz-fish-pale',
   circleIcon: 'text-cz-fish-deep',
@@ -86,19 +92,79 @@ export const FISH_THEME = {
 // below 640px, which is what the layout rule requires.
 export const CITIZEN_GUTTER = 'px-4 sm:px-6'
 
-export function CitizenScreen({ children }) {
+export function CitizenScreen({ children, hasTabBar = false }) {
   // EVERY citizen screen gets this identical container — home screens and
   // sub-views alike. That uniformity is the point: if Profile capped at
   // 720px while Home ran to 1100px, the tinted header bar would change
   // width as you navigated and the two would read as different apps. What
   // differs between them is what goes INSIDE (the home screens add the
   // Quick Links region via CitizenHomeBody), never the container.
+  //
+  // `hasTabBar` only adds bottom padding, and only below 640px — the bar
+  // itself is position:fixed, so without this the last card would sit
+  // underneath it. Above 640px the bar is not rendered at all and the
+  // padding collapses to zero, which is what keeps the breakpoint
+  // transition free of dead space at the bottom of the page.
   return (
     <div className="min-h-screen w-full bg-cz-page">
-      <div className="mx-auto w-full bg-cz-page sm:max-w-[720px] lg:max-w-[1100px]">
+      <div
+        className={`mx-auto w-full bg-cz-page sm:max-w-[720px] lg:max-w-[1100px] ${
+          hasTabBar ? 'pb-[calc(60px+env(safe-area-inset-bottom))] sm:pb-0' : ''
+        }`}
+      >
         {children}
       </div>
     </div>
+  )
+}
+
+// ─── Mobile tab bar (< 640px only) ──────────────────────────────────────
+// Adopted from the UI basis, which shows a persistent 3-item bar. It is
+// deliberately MOBILE-ONLY (`sm:hidden`): from 640px up this portal keeps
+// the SecondaryRows / Quick Links sidebar model it already had, so the bar
+// is not a replacement for that navigation, only a small-screen addition.
+//
+// The basis draws the bar inside a phone frame with no guidance above phone
+// width; rendering it at every width would have meant either a stranded bar
+// across a 1100px desktop layout or abandoning the fluid container rule.
+// This keeps both.
+export function CitizenTabBar({ theme, active, items }) {
+  return (
+    <nav
+      className="fixed inset-x-0 bottom-0 z-30 border-t-[0.5px] border-cz-border bg-cz-surface pb-[env(safe-area-inset-bottom)] sm:hidden"
+      aria-label={labels.tabBar.ariaLabel}
+    >
+      <div className="mx-auto flex w-full max-w-[720px]">
+        {items.map((item) => {
+          const isActive = item.key === active
+          const Icon = item.icon
+          return (
+            <button
+              key={item.key}
+              type="button"
+              onClick={item.onClick}
+              aria-current={isActive ? 'page' : undefined}
+              className="flex min-h-[56px] flex-1 flex-col items-center justify-center gap-[3px] px-1 py-1.5 transition-colors"
+            >
+              <Icon
+                size={20}
+                className={isActive ? theme.accentText : 'text-cz-text-muted'}
+                aria-hidden="true"
+              />
+              {/* Weight, not colour alone, carries the active state — the
+                  same icon+text+weight rule the rest of these screens use. */}
+              <span
+                className={`text-[11px] ${
+                  isActive ? `font-semibold ${theme.accentText}` : 'text-cz-text-muted'
+                }`}
+              >
+                {item.label}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </nav>
   )
 }
 
@@ -253,18 +319,49 @@ export function StatusCard({
   actionIcon: ActionIcon,
   actionLabel,
   onAction,
+  // UI-basis pass: when `onCardClick` is supplied the whole card becomes the
+  // tap target with a trailing chevron, instead of carrying a separate
+  // action button. `cardActionLabel` is what the card ANNOUNCES it does —
+  // it is not rendered as visible text, so the affordance stays implicit
+  // visually (as the basis draws it) while remaining explicit to a screen
+  // reader. The `actionLabel`/`onAction` button API below is untouched, so
+  // callers that still want an explicit button (the fisherfolk feeding
+  // hero) keep working exactly as before.
+  onCardClick,
+  cardActionLabel,
   children,
   footer,
 }) {
   const t = TONES[tone]
-  return (
-    <div className={`mb-[10px] rounded-[12px] border-[0.5px] p-[14px] ${t.card}`}>
+
+  const body = (
+    <>
       <div className="mb-1.5 flex items-center gap-1.5">
         {BadgeIcon && <BadgeIcon size={16} className={`shrink-0 ${t.accent}`} aria-hidden="true" />}
         <span className={`text-[12px] font-medium ${t.accent}`}>{badgeText}</span>
       </div>
       {title && <p className={`text-[17px] font-medium leading-[1.35] ${t.title}`}>{title}</p>}
       {context && <p className={`mt-[3px] text-[13px] ${t.body}`}>{context}</p>}
+    </>
+  )
+
+  if (onCardClick) {
+    return (
+      <button
+        type="button"
+        onClick={onCardClick}
+        aria-label={cardActionLabel ? `${title} — ${cardActionLabel}` : title}
+        className={`mb-[10px] flex w-full items-center gap-3 rounded-[12px] border-[0.5px] p-[14px] text-left transition-opacity hover:opacity-90 ${t.card}`}
+      >
+        <span className="min-w-0 flex-1">{body}</span>
+        <ChevronRight size={18} className={`shrink-0 ${t.accent}`} aria-hidden="true" />
+      </button>
+    )
+  }
+
+  return (
+    <div className={`mb-[10px] rounded-[12px] border-[0.5px] p-[14px] ${t.card}`}>
+      {body}
       {children}
       {actionLabel && (
         <button

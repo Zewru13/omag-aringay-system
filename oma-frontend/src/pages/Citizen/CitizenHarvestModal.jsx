@@ -112,9 +112,13 @@ export default function CitizenHarvestModal({ domain, record, harvest, onClose, 
             <>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField label={labels.harvest.fields.season} required>
+                  {/* value= stays the English DB value; only the label is
+                      translated, so form.season (and the payload) is
+                      unchanged by this. */}
                   <select className={baseInputClasses} value={form.season} onChange={(e) => set('season', e.target.value)}>
-                    <option value="Dry">Dry</option>
-                    <option value="Wet">Wet</option>
+                    {Object.entries(labels.harvest.seasonOptions).map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
                   </select>
                 </FormField>
                 <FormField label={labels.harvest.fields.year} required>

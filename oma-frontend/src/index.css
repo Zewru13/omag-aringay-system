@@ -68,8 +68,12 @@
      staff surfaces keep the warm parchment tokens, citizen screens use
      these. Consume as bg-cz-crop-header, text-cz-text-2, etc. */
 
-  /* Crop domain */
-  --color-cz-crop-header: #173404;
+  /* Crop domain
+     `crop-header` is sampled directly from the UI basis mockups
+     (modal colour of the header band, images 1 and 2) rather than
+     chosen by eye — it lifts the previous near-black #173404 to a
+     readable forest green without leaving the domain. */
+  --color-cz-crop-header: #1C5737;
   --color-cz-crop-pale:   #EAF3DE;
   --color-cz-crop-100:    #C0DD97;
   --color-cz-crop-300:    #97C459;
@@ -77,8 +81,16 @@
   --color-cz-crop-deep:   #3B6D11;
   --color-cz-crop-deeper: #27500A;
 
-  /* Fisheries domain */
-  --color-cz-fish-header: #04342C;
+  /* Fisheries domain
+     DERIVED, not sampled. The basis mockup's fisherfolk header measures
+     #1A4561 — hue 204°, which is navy blue, not teal, and adopting it
+     would break the crop/fisheries green-vs-teal domain language this
+     portal is built on. So this takes the basis's TONAL WEIGHT (the same
+     R and G channels as the sampled crop header above) and raises only
+     the blue channel until the hue lands at ~169°, back in the teal
+     family the previous #04342C occupied. Same lift in lightness as the
+     crop side, same domain distinction as before. */
+  --color-cz-fish-header: #1C574C;
   --color-cz-fish-pale:   #E1F5EE;
   --color-cz-fish-100:    #9FE1CB;
   --color-cz-fish-300:    #5DCAA5;
@@ -103,7 +115,9 @@
 
   /* Neutrals */
   --color-cz-surface:       #FFFFFF;
-  --color-cz-page:          #F7F7F5;
+  /* Sampled from the basis mockups' page band (images 1 and 4) — a warm
+     cream, replacing the previous cool #F7F7F5. */
+  --color-cz-page:          #F4F0E6;
   --color-cz-border:        #E5E5E2;
   --color-cz-border-strong: #D4D4D0;
   --color-cz-text:          #1A1A18;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle, AlertTriangle, BarChart3, Clock, Gift, Plus, Sprout, User, Wheat } from 'lucide-react'
+import { AlertCircle, AlertTriangle, BarChart3, Clock, Gift, Home, Sprout, User, Wheat } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { CROP_DOMAIN } from './citizenDomainConfig.js'
@@ -12,8 +12,8 @@ import MyAssistanceHistorySection from './MyAssistanceHistorySection.jsx'
 import { labels } from './labels.js'
 import {
   CROP_THEME, CitizenBody, CitizenCardGrid, CitizenEmptyState, CitizenHomeBody,
-  CitizenHomeHeader, CitizenScreen, CitizenSubHeader, ProgressTrack, QuickLinksHeading,
-  SectionHeading, SecondaryRow, SecondaryRows, StatusCard, cycleProgress,
+  CitizenHomeHeader, CitizenScreen, CitizenSubHeader, CitizenTabBar, ProgressTrack,
+  QuickLinksHeading, SectionHeading, SecondaryRow, SecondaryRows, StatusCard, cycleProgress,
 } from './citizenUI.jsx'
 
 // Batch E built this task-first Farmer home screen; this revision re-skins
@@ -69,6 +69,22 @@ export default function FarmerHomeScreen({ record, onLogout }) {
 
   const handleLogSuccess = () => { fetchRecords() }
 
+  // Mobile-only tab bar. Declared before the early-returning sub-views so
+  // each of them can render it; `active` is null on screens that aren't one
+  // of the three destinations, which leaves no tab lit rather than lighting
+  // a wrong one.
+  const tabBar = (active) => (
+    <CitizenTabBar
+      theme={CROP_THEME}
+      active={active}
+      items={[
+        { key: 'home', icon: Home, label: labels.tabBar.home, onClick: () => setView({ kind: 'home' }) },
+        { key: 'harvests', icon: BarChart3, label: labels.tabBar.harvests, onClick: () => setView({ kind: 'yield' }) },
+        { key: 'myInfo', icon: User, label: labels.tabBar.myInfo, onClick: () => setView({ kind: 'profile' }) },
+      ]}
+    />
+  )
+
   // ── Full-screen sub-views ────────────────────────────────────────────
 
   if (logScreen) {
@@ -116,6 +132,7 @@ export default function FarmerHomeScreen({ record, onLogout }) {
         recordType="FARMER"
         theme={CROP_THEME}
         onBack={() => setView({ kind: 'home' })}
+        tabBar={tabBar('myInfo')}
       />
     )
   }
@@ -123,10 +140,11 @@ export default function FarmerHomeScreen({ record, onLogout }) {
   if (view.kind === 'yield' || view.kind === 'assistance') {
     const isYield = view.kind === 'yield'
     return (
-      <CitizenScreen>
+      <CitizenScreen hasTabBar>
         <CitizenSubHeader
           theme={CROP_THEME}
-          title={isYield ? labels.farmerHome.secondary.harvestResultsTitle : labels.farmerHome.secondary.assistanceTitle}
+          title={isYield ? labels.yieldAnalysis.title : labels.farmerHome.secondary.assistanceTitle}
+          subtitle={isYield ? labels.yieldAnalysis.subtitle : undefined}
           onBack={() => setView({ kind: 'home' })}
         />
         <CitizenBody>
@@ -135,13 +153,13 @@ export default function FarmerHomeScreen({ record, onLogout }) {
               endpoint="/production/yield-analysis/"
               cropLabel={labels.yieldAnalysis.cropCropLabel}
               cropKey="crop_type"
-              dateLabel={labels.yieldAnalysis.cropDateLabel}
               dateKey="date_planted"
             />
           ) : (
             <MyAssistanceHistorySection endpoint="/interventions/my-beneficiary-history/" />
           )}
         </CitizenBody>
+        {tabBar(isYield ? 'harvests' : null)}
       </CitizenScreen>
     )
   }
@@ -174,7 +192,7 @@ export default function FarmerHomeScreen({ record, onLogout }) {
   )
 
   return (
-    <CitizenScreen>
+    <CitizenScreen hasTabBar>
       <CitizenHomeHeader
         theme={CROP_THEME}
         name={record.label}
@@ -200,6 +218,13 @@ export default function FarmerHomeScreen({ record, onLogout }) {
               needsAttention.map((task) => {
                 const isOverdue = task.status === 'overdue'
                 return (
+                  // UI-basis pass: the card itself is now the tap target with
+                  // a trailing chevron, replacing the explicit "Log this
+                  // activity" button. The DESTINATION is unchanged — it opens
+                  // the same log screen, prefilled with the same activity, via
+                  // the same setLogScreen call the button used to make. The
+                  // accessible name still says what tapping does, so the
+                  // affordance is only visually implicit, not unlabelled.
                   <StatusCard
                     key={`${task.record.id}-${task.occurrence_key}`}
                     tone={isOverdue ? 'danger' : 'warning'}
@@ -213,9 +238,8 @@ export default function FarmerHomeScreen({ record, onLogout }) {
                       task.record.farm_location_barangay || labels.common.unknown,
                       task.record.area_planted_ha ?? labels.common.unknown,
                     )}
-                    actionIcon={Plus}
-                    actionLabel={labels.farmerHome.needsAttention.actionLabel}
-                    onAction={() => setLogScreen({ record: task.record, prefillActivity: task.activity_name })}
+                    onCardClick={() => setLogScreen({ record: task.record, prefillActivity: task.activity_name })}
+                    cardActionLabel={labels.farmerHome.needsAttention.actionLabel}
                   />
                 )
               })
@@ -256,7 +280,11 @@ export default function FarmerHomeScreen({ record, onLogout }) {
                           {labels.farmerHome.myCrops.cardMeta(
                             rec.farm_location_barangay || labels.common.unknown,
                             rec.area_planted_ha ?? labels.common.unknown,
-                            rec.season || labels.common.unknown,
+                            // Display-only lookup on the stored value; falls
+                            // back to the raw value if it isn't one of the
+                            // two known choices, so an unexpected season
+                            // still shows rather than vanishing.
+                            labels.harvest.seasonOptions[rec.season] || rec.season || labels.common.unknown,
                           )}
                         </p>
                       </div>
@@ -332,6 +360,7 @@ export default function FarmerHomeScreen({ record, onLogout }) {
           </>
         )}
       </CitizenHomeBody>
+      {tabBar('home')}
     </CitizenScreen>
   )
 }

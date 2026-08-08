@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, BarChart3, Clock, DropletOff, Fish, Gift, Repeat, Stethoscope, User } from 'lucide-react'
+import { AlertTriangle, BarChart3, Check, Clock, DropletOff, Fish, Gift, Home, Repeat, Stethoscope, User } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { FISHERIES_DOMAIN } from './citizenDomainConfig.js'
@@ -11,12 +11,19 @@ import MyAssistanceHistorySection from './MyAssistanceHistorySection.jsx'
 import { labels } from './labels.js'
 import {
   CitizenBody, CitizenCardGrid, CitizenEmptyState, CitizenHomeBody, CitizenHomeHeader,
-  CitizenScreen, CitizenSubHeader, FISH_THEME, ProgressTrack, QuickLinksHeading,
+  CitizenScreen, CitizenSubHeader, CitizenTabBar, FISH_THEME, ProgressTrack, QuickLinksHeading,
   SectionHeading, SecondaryRow, SecondaryRows, StatusCard, cycleProgress,
 } from './citizenUI.jsx'
 
 const todayISO = () => new Date().toISOString().split('T')[0]
 const ACTIVE_STATUSES = ['Stocked', 'Near Harvest']
+
+// The stored activity CHOICE VALUE for feeding. Deliberately a code
+// constant and NOT a labels.js entry: it is written to the database and
+// matched server-side against SpeciesActivityStage names, so translating it
+// would break that matching (see the note at the top of labels.js). The
+// repeat-feeding payload below posts this same literal.
+const FEEDING_ACTIVITY = 'Feed Monitoring'
 
 // Batch F built this task-first Fisherfolk home screen; this revision
 // re-skins it to the citizen visual specification (phone-shaped column,
@@ -98,10 +105,38 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
 
   const handleLogSuccess = () => { fetchAll() }
 
+  // Mobile-only tab bar. Declared here so every early-returning sub-view
+  // below can render it; `active` is null on screens that aren't one of the
+  // three destinations (Assistance, reached from Quick Links), which simply
+  // leaves no tab highlighted rather than lighting a wrong one.
+  const tabBar = (active) => (
+    <CitizenTabBar
+      theme={FISH_THEME}
+      active={active}
+      items={[
+        { key: 'home', icon: Home, label: labels.tabBar.home, onClick: () => setView({ kind: 'home' }) },
+        { key: 'harvests', icon: BarChart3, label: labels.tabBar.harvests, onClick: () => setView({ kind: 'yield' }) },
+        { key: 'myInfo', icon: User, label: labels.tabBar.myInfo, onClick: () => setView({ kind: 'profile' }) },
+      ]}
+    />
+  )
+
   const openRepeatConfirm = () => {
     setConfirmGuard({
       repeatable: repeatableDue.map((sr) => ({ record: sr, lastFeeding: lastFeedingByRecord[sr.id] })),
       skippedCount: nonRepeatableDue.length,
+    })
+  }
+
+  // Per-pond repeat (UI-basis addition). It deliberately routes through the
+  // SAME confirmGuard state and the same handleConfirmRepeat submit path as
+  // the repeat-all hero action — just with a single-entry list — so the
+  // mandatory confirmation step cannot be bypassed by taking the per-pond
+  // route. There is no second, guard-free submit path in this file.
+  const openRepeatConfirmForPond = (sr) => {
+    setConfirmGuard({
+      repeatable: [{ record: sr, lastFeeding: lastFeedingByRecord[sr.id] }],
+      skippedCount: 0,
     })
   }
 
@@ -112,7 +147,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
     for (const { record: sr, lastFeeding } of confirmGuard.repeatable) {
       try {
         const res = await api.post(FISHERIES_DOMAIN.logsUrl(sr.id), {
-          activity: 'Feed Monitoring',
+          activity: FEEDING_ACTIVITY,
           activity_other_specify: '',
           date_of_activity: todayISO(),
           water_fish_condition: '',
@@ -156,10 +191,11 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
   if (view.kind === 'yield' || view.kind === 'assistance') {
     const isYield = view.kind === 'yield'
     return (
-      <CitizenScreen>
+      <CitizenScreen hasTabBar>
         <CitizenSubHeader
           theme={FISH_THEME}
-          title={isYield ? labels.farmerHome.secondary.harvestResultsTitle : labels.farmerHome.secondary.assistanceTitle}
+          title={isYield ? labels.yieldAnalysis.title : labels.farmerHome.secondary.assistanceTitle}
+          subtitle={isYield ? labels.yieldAnalysis.subtitle : undefined}
           onBack={() => setView({ kind: 'home' })}
         />
         <CitizenBody>
@@ -168,13 +204,14 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
               endpoint="/fisheries/yield-analysis/"
               cropLabel={labels.yieldAnalysis.fisheriesCropLabel}
               cropKey="species"
-              dateLabel={labels.yieldAnalysis.fisheriesDateLabel}
               dateKey="date_stocked"
+              isFisheries
             />
           ) : (
             <MyAssistanceHistorySection endpoint="/interventions/my-fisherfolk-beneficiary-history/" />
           )}
         </CitizenBody>
+        {tabBar(isYield ? 'harvests' : null)}
       </CitizenScreen>
     )
   }
@@ -186,6 +223,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
         recordType="FISHERFOLK"
         theme={FISH_THEME}
         onBack={() => setView({ kind: 'home' })}
+        tabBar={tabBar('myInfo')}
       />
     )
   }
@@ -287,7 +325,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
   )
 
   return (
-    <CitizenScreen>
+    <CitizenScreen hasTabBar>
       <CitizenHomeHeader
         theme={FISH_THEME}
         name={record.label}
@@ -373,12 +411,23 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
                   const isDue = sr && dueRecords.some((d) => d.id === sr.id)
                   const progress = sr ? cycleProgress(sr.date_stocked, sr.expected_harvest_date) : null
                   const divider = i < pondRows.length - 1 ? 'border-b-[0.5px] border-cz-border' : ''
-                  const RowTag = sr ? 'button' : 'div'
+                  const canRepeat = isDue && repeatableDue.some((d) => d.id === sr.id)
+                  // The row used to BE a <button>. It can't stay one now that
+                  // the basis's per-pond actions sit inside it — a button
+                  // inside a button is invalid and breaks keyboard traversal.
+                  // The outer element is a plain div and the tap-to-log target
+                  // is the inner content button instead, so the whole
+                  // identity/progress area still opens the log screen exactly
+                  // as before.
+                  const ContentTag = sr ? 'button' : 'div'
                   return (
-                    <RowTag
+                    <div
                       key={pond.id}
+                      className={`block w-full px-[14px] py-[13px] text-left ${divider} sm:rounded-[10px] sm:border-[0.5px] sm:border-cz-border-strong sm:bg-cz-surface sm:p-3`}
+                    >
+                    <ContentTag
                       {...(sr ? { type: 'button', onClick: () => setLogScreen({ record: sr }) } : {})}
-                      className={`block w-full px-[14px] py-[13px] text-left ${divider} sm:rounded-[10px] sm:border-[0.5px] sm:border-cz-border-strong sm:bg-cz-surface sm:p-3 ${
+                      className={`block w-full text-left ${
                         sr ? 'min-h-[44px] transition-colors hover:bg-cz-page' : ''
                       }`}
                     >
@@ -426,7 +475,41 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
                           </p>
                         </>
                       )}
-                    </RowTag>
+                    </ContentTag>
+
+                    {/* PER-POND FEEDING ACTIONS (UI basis). Only on ponds that
+                        are actually due — putting them on every pond would
+                        invite logging a feeding for a pond that isn't due.
+                        "Ulitin" only appears when there IS a prior feeding to
+                        repeat; otherwise the single "Ibang pakain" button
+                        stands alone rather than offering a repeat that would
+                        have nothing to copy. */}
+                    {isDue && (
+                      <div className="mt-[10px] flex gap-2">
+                        {canRepeat && (
+                          <button
+                            type="button"
+                            onClick={() => openRepeatConfirmForPond(sr)}
+                            className="flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-[8px] bg-cz-fish-pale px-2 py-[11px] text-cz-fish-deep transition-opacity hover:opacity-90"
+                          >
+                            <Check size={14} aria-hidden="true" />
+                            <span className="text-[14px] font-medium">
+                              {labels.fisherfolkHome.feedToday.repeatPond}
+                            </span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setLogScreen({ record: sr, prefillActivity: FEEDING_ACTIVITY })}
+                          className="flex min-h-[44px] flex-1 items-center justify-center rounded-[8px] border-[0.5px] border-cz-border-strong px-2 py-[11px] text-cz-text transition-colors hover:bg-cz-page"
+                        >
+                          <span className="text-[14px]">
+                            {labels.fisherfolkHome.feedToday.logDifferentPond}
+                          </span>
+                        </button>
+                      </div>
+                    )}
+                    </div>
                   )
                 })}
               </div>
@@ -502,6 +585,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
           </div>
         </div>
       )}
+      {tabBar('home')}
     </CitizenScreen>
   )
 }

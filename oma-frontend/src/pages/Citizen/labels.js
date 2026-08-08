@@ -1,11 +1,16 @@
 // Batch E — every user-facing string on the citizen self-service pages
-// (src/pages/Citizen/**), centralized here as named keys. The client has
-// not yet decided between English, Tagalog, and Ilocano (La Union is
-// predominantly Ilocano-speaking) for this audience, so nothing below may
+// (src/pages/Citizen/**), centralized here as named keys. Nothing below may
 // be hardcoded inside a component — every citizen-facing label, button,
-// heading, empty state, and error message renders from this file. When
-// the client decides, swapping languages is a ONE-FILE change here, not a
+// heading, empty state, and error message renders from this file, so
+// changing the portal's language is a ONE-FILE change here rather than a
 // component-by-component refactor.
+//
+// LANGUAGE: Tagalog, spoken register (not textbook/formal Filipino). Terms
+// that Aringay speakers actually use in English stay in English on purpose —
+// RSBSA, FishR, LGU, barangay names, pond, feed, kg/ha, contact number,
+// Season, Total Loss, program names. Translating those would read as
+// stilted, not more accessible. "Po" is used where it falls naturally in
+// speech (instructions, apologies, requests), not bolted onto every line.
 //
 // NOT included here: activity/assistance-type CHOICE VALUES (e.g.
 // 'Fertilizer Application', 'Pest Control') defined in citizenDomainConfig.js
@@ -13,496 +18,556 @@
 // matched against staff-side data (e.g. the suggestion engine compares
 // activity_type against CropActivityStage.stage_name) — translating the
 // VALUE would silently break that matching and staff/citizen data
-// consistency. Only genuinely decorative/instructional UI text belongs here.
+// consistency. Where a map below is keyed BY such a value (outcomeOptions,
+// plantConditionOptions, severityOptions), only the displayed text is
+// translated; the key is left exactly as the database stores it.
+
+// Locale for every date rendered on the citizen screens. Single constant so
+// the portal's date language is the same one-file change as its text.
+// 'fil-PH' gives Filipino month and weekday names ("Ago", "Sabado"); the
+// second entry is an explicit fallback for runtimes whose ICU data does not
+// carry Filipino, which would otherwise silently resolve to the browser
+// default rather than anything we chose.
+export const DATE_LOCALE = ['fil-PH', 'en-PH']
 
 export const labels = {
   common: {
-    loading: 'Loading…',
-    cancel: 'Cancel',
-    save: 'Save',
-    saveChanges: 'Save Changes',
-    edit: 'Edit',
-    close: 'Close',
+    loading: 'Naglo-load…',
+    cancel: 'Kanselahin',
+    save: 'I-save',
+    saveChanges: 'I-save ang binago',
+    edit: 'I-edit',
+    close: 'Isara',
     unknown: '—',
-    loggedByStaff: 'Logged by staff',
+    loggedByStaff: 'Nilagay ng staff',
     // The caller renders the locker's name in its own <strong> tag, so
     // these are the surrounding text only, not a full templated sentence.
-    lockedByOtherSuffix: 'is currently logging this record. Please wait',
+    lockedByOtherSuffix: 'ang kasalukuyang naglo-log nito. Maghintay po muna',
     lockedByOtherMinutes: (mins) => ` (~${mins} min)`,
-    genericSaveError: 'Failed to save. Please try again.',
+    genericSaveError: 'Hindi na-save. Subukan po ulit.',
   },
 
   header: {
     appName: 'OMAg Aringay',
-    tagline: 'Self-Service Account',
-    logOut: 'Log Out',
+    tagline: 'Sariling Account',
+    logOut: 'Mag-log out',
+  },
+
+  // ── Mobile tab bar (< 640px only) ──────────────────────────────────────
+  tabBar: {
+    ariaLabel: 'Pangunahing navigation',
+    home: 'Home',
+    harvests: 'Ani',
+    myInfo: 'Impormasyon',
   },
 
   home: {
-    greeting: (name) => `Welcome, ${name}`,
-    subtitle: (recordTypeLabel) => `Self-service account for your ${recordTypeLabel} record with the Office of the Municipal Agriculturist.`,
-    notLinked: "Your account isn't linked to a record yet. Please visit the office for assistance.",
+    greeting: (name) => `Kumusta, ${name}`,
+    subtitle: (recordTypeLabel) => `Sariling account para sa inyong record bilang ${recordTypeLabel} sa Office of the Municipal Agriculturist.`,
+    notLinked: 'Hindi pa naka-link ang account ninyo sa isang record. Pumunta po sa opisina para matulungan kayo.',
     recordTypeLabels: {
-      FARMER: 'farmer',
-      FISHERFOLK: 'fisherfolk',
-      FARMERS_ORG: 'farmers organization',
-      FISHERFOLK_ORG: 'fisherfolk organization',
+      FARMER: 'magsasaka',
+      FISHERFOLK: 'mangingisda',
+      FARMERS_ORG: 'organisasyon ng magsasaka',
+      FISHERFOLK_ORG: 'organisasyon ng mangingisda',
     },
     recordTypeLabelsCapitalized: {
-      FARMER: 'Farmer',
-      FISHERFOLK: 'Fisherfolk',
-      FARMERS_ORG: 'Farmers Organization',
-      FISHERFOLK_ORG: 'Fisherfolk Organization',
+      FARMER: 'Magsasaka',
+      FISHERFOLK: 'Mangingisda',
+      FARMERS_ORG: 'Organisasyon ng Magsasaka',
+      FISHERFOLK_ORG: 'Organisasyon ng Mangingisda',
     },
     recordTypeFallback: 'Record',
-    // Legacy tab-bar labels (still used for Fisherfolk/Organization roles
-    // this batch — only the Farmer role gets the new task-first layout).
+    // Legacy tab labels — still used by the ORGANIZATION role, which keeps
+    // the older tabbed layout (neither home-screen redesign covered it).
     tabs: {
-      overview: 'Overview',
-      myCropRecords: 'My Crop Records',
-      myStockingRecords: 'My Stocking Records',
-      myYieldAnalysis: 'My Yield Analysis',
-      myAssistanceHistory: 'My Assistance History',
-      reportAssistance: 'Report Assistance',
+      overview: 'Buod',
+      myCropRecords: 'Mga tanim ko',
+      myStockingRecords: 'Mga stocking record ko',
+      myYieldAnalysis: 'Resulta ng ani ko',
+      myAssistanceHistory: 'Mga natanggap na tulong',
+      reportAssistance: 'Mag-report ng tulong',
     },
     overviewFields: {
-      name: 'Name',
-      recordType: 'Record Type',
-      rsbsaNumber: 'RSBSA Number',
-      registrationNumber: 'Registration Number',
+      name: 'Pangalan',
+      recordType: 'Uri ng record',
+      rsbsaNumber: 'RSBSA number',
+      registrationNumber: 'Registration number',
       barangay: 'Barangay',
     },
   },
 
-  // ── New Farmer home screen (Batch E) ──────────────────────────────────
+  // ── Farmer home screen ────────────────────────────────────────────────
   farmerHome: {
     rsbsaPrefix: 'RSBSA',
-    headerGreeting: 'Welcome back',
-    loading: 'Loading your crop records...',
-    loadError: 'Unable to load your crop records.',
+    // TIME-NEUTRAL ON PURPOSE. The UI basis shows "MALIGAYANG UMAGA", but
+    // this string renders at every hour of the day and there is no
+    // time-of-day logic behind it — a literal "good morning" would be
+    // wrong every afternoon. "Kumusta po" carries the same warmth without
+    // asserting the time.
+    headerGreeting: 'Kumusta po',
+    loading: 'Kinukuha ang mga tanim ninyo...',
+    loadError: 'Hindi makuha ang mga tanim ninyo.',
     needsAttention: {
-      title: 'Needs attention',
-      overdueBadge: 'Overdue',
-      overdueBadgeDays: (days) => `Overdue · ${days} ${days === 1 ? 'day' : 'days'}`,
-      dueTodayBadge: 'Due today',
-      emptyTitle: "You're up to date",
-      emptyBody: 'No activities are due right now — check back after your next visit to the field.',
-      actionLabel: 'Log this activity',
+      title: 'Kailangan ng aksyon',
+      overdueBadge: 'Lampas na',
+      // Tagalog does not inflect "araw" for plural, so unlike the English
+      // original there is no singular/plural branch here.
+      overdueBadgeDays: (days) => `Lampas na · ${days} araw`,
+      dueTodayBadge: 'Ngayon na',
+      emptyTitle: 'Wala pong kulang',
+      emptyBody: 'Walang gawaing kailangan ngayon — balikan po ninyo pagkatapos ng susunod ninyong punta sa bukid.',
+      actionLabel: 'I-log ang gawaing ito',
       contextLine: (crop, barangay, area) => `${crop} · ${barangay} · ${area} ha`,
     },
     myCrops: {
-      title: 'My crops',
-      empty: "You don't have any crop records on file yet. Visit the office to have one started.",
-      progressDayOf: (elapsed, total) => `Day ${elapsed} of ${total}`,
-      expectedHarvest: (date) => `Expected harvest: ${date}`,
+      title: 'Mga tanim ko',
+      empty: 'Wala pa pong nakatalang tanim sa pangalan ninyo. Pumunta po sa opisina para masimulan ito.',
+      progressDayOf: (elapsed, total) => `Araw ${elapsed} ng ${total}`,
+      expectedHarvest: (date) => `Inaasahang ani: ${date}`,
       harvestShort: (iso) => {
         if (!iso) return ''
-        const d = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' })
+        const d = new Intl.DateTimeFormat(DATE_LOCALE, { month: 'short', day: 'numeric' })
           .format(new Date(iso + 'T00:00:00'))
-        return `Harvest ~${d}`
+        return `Ani ~${d}`
       },
-      cardMeta: (barangay, area, season) => `${barangay} · ${area} ha · ${season} season`,
-      logActivity: 'Log activity',
-      viewHistory: 'View history',
-      reportDisaster: 'Report disaster',
+      // `season` arrives already mapped through harvest.seasonOptions by the
+      // caller — this function interpolates a display label, never the raw
+      // stored 'Dry'/'Wet' value.
+      cardMeta: (barangay, area, season) => `${barangay} · ${area} ha · ${season}`,
+      logActivity: 'Mag-log ng gawain',
+      viewHistory: 'Tingnan ang history',
+      reportDisaster: 'I-report ang kalamidad',
       seasonYear: (season, year) => `${season} ${year}`,
+      daysLeft: (n) => `${n} araw na lang`,
+      harvestedBadge: 'Naani na',
     },
     secondary: {
-      profileTitle: 'My profile',
-      harvestResultsTitle: 'Harvest results',
-      assistanceTitle: 'Assistance received',
-      backToHome: 'Back',
-      quickLinksTitle: 'Quick Links',
+      profileTitle: 'Impormasyon ko',
+      harvestResultsTitle: 'Resulta ng ani ko',
+      assistanceTitle: 'Mga natanggap na tulong',
+      backToHome: 'Bumalik',
+      quickLinksTitle: 'Mga shortcut',
     },
     history: {
       title: (cropTitle) => `${cropTitle} — history`,
-      loading: 'Loading history...',
-      loadError: (recordLabel) => `Unable to load your ${recordLabel}s.`,
-      activityLogTitle: 'Activity log',
-      logActivity: 'Log activity',
-      noActivity: 'No activity logged yet.',
-      harvestTitle: 'Harvest',
-      recordHarvest: 'Record harvest',
-      noHarvest: 'No harvest recorded yet.',
-      lateSuffix: ' · Late',
-      disasterTitle: 'Disasters',
-      manageDisasters: 'Report / view',
-      activeDisasterCount: (n) => `${n} active`,
+      loading: 'Kinukuha ang history...',
+      loadError: (recordLabel) => `Hindi makuha ang mga ${recordLabel} ninyo.`,
+      activityLogTitle: 'Talaan ng gawain',
+      logActivity: 'Mag-log ng gawain',
+      noActivity: 'Wala pang naka-log na gawain.',
+      harvestTitle: 'Ani',
+      recordHarvest: 'Itala ang ani',
+      noHarvest: 'Wala pang naitalang ani.',
+      lateSuffix: ' · Huli',
+      disasterTitle: 'Mga kalamidad',
+      manageDisasters: 'I-report / tingnan',
+      activeDisasterCount: (n) => `${n} aktibo`,
     },
   },
 
-  // ── New Fisherfolk home screen (Batch F) ────────────────────────────────
+  // ── Fisherfolk home screen ─────────────────────────────────────────────
   fisherfolkHome: {
-    loading: 'Loading your ponds...',
-    loadError: 'Unable to load your ponds.',
+    loading: 'Kinukuha ang mga pond ninyo...',
+    loadError: 'Hindi makuha ang mga pond ninyo.',
     feedToday: {
-      title: 'Feed today',
-      overdueBadge: 'Overdue',
-      dueTodayBadge: 'Due today',
-      dueBadge: (count) => `Due today · ${count} pond${count === 1 ? '' : 's'}`,
-      emptyTitle: "You're up to date",
-      emptyBody: 'No ponds are due for feeding right now.',
-      dueSummary: (count) => `${count} pond${count === 1 ? '' : 's'} due for feeding`,
-      lastFed: (feedType, qtyKg, date) => `Last fed: ${feedType || 'Unspecified feed'}${qtyKg ? ` · ${qtyKg} kg` : ''} · ${date}`,
-      lastFedPond: (pond, feedType, qtyKg) => `${pond}: ${feedType || 'Unspecified feed'}${qtyKg ? ` · ${qtyKg} kg` : ''}`,
-      noPriorFeeding: 'No prior feeding logged for this pond yet.',
-      noPriorFeedingPond: (pond) => `${pond}: no prior feeding logged yet.`,
-      repeatButton: "Repeat yesterday's feeding",
-      logSeparatelyLink: 'or log each pond separately',
+      title: 'Pakain ngayon',
+      overdueBadge: 'Lampas na',
+      dueTodayBadge: 'Ngayon na',
+      dueBadge: (count) => `Ngayon na · ${count} pond`,
+      emptyTitle: 'Wala pong kulang',
+      emptyBody: 'Walang pond na kailangang pakainin ngayon.',
+      dueSummary: (count) => `${count} pond ang kailangang pakainin`,
+      lastFed: (feedType, qtyKg, date) => `Huling pakain: ${feedType || 'hindi tukoy na feed'}${qtyKg ? ` · ${qtyKg} kg` : ''} · ${date}`,
+      lastFedPond: (pond, feedType, qtyKg) => `${pond}: ${feedType || 'hindi tukoy na feed'}${qtyKg ? ` · ${qtyKg} kg` : ''}`,
+      noPriorFeeding: 'Wala pang naka-log na pakain para sa pond na ito.',
+      noPriorFeedingPond: (pond) => `${pond}: wala pang naka-log na pakain.`,
+      repeatButton: 'Ulitin ang pakain kahapon',
+      logSeparatelyLink: 'o i-log isa-isa ang bawat pond',
+      // Per-pond actions adopted from the UI basis. Kept short because they
+      // sit two-up on a 340px card.
+      repeatPond: 'Ulitin',
+      logDifferentPond: 'Ibang pakain',
+      lastRecordedOn: (date) => `Huling naitala: ${date}`,
     },
     confirmGuard: {
-      title: 'Confirm Feeding Log',
-      body: 'This will log the following for each pond, dated today:',
-      pondLine: (pondName, feedType, qtyKg) => `${pondName}: ${feedType || 'Unspecified feed'}${qtyKg ? ` · ${qtyKg} kg` : ''}`,
-      confirmButton: 'Confirm & Log All',
-      cancelButton: 'Cancel',
-      skippedNote: (count) => `${count} pond${count === 1 ? '' : 's'} skipped — no prior feeding entry to repeat. Log ${count === 1 ? 'it' : 'them'} manually below.`,
-      partialSuccess: (ok, total) => `Logged ${ok} of ${total} ponds.`,
+      title: 'Kumpirmahin ang pakain',
+      body: 'I-lo-log po ang sumusunod para sa bawat pond, na may petsa ngayong araw:',
+      pondLine: (pondName, feedType, qtyKg) => `${pondName}: ${feedType || 'hindi tukoy na feed'}${qtyKg ? ` · ${qtyKg} kg` : ''}`,
+      confirmButton: 'Kumpirmahin at i-log',
+      cancelButton: 'Kanselahin',
+      skippedNote: (count) => `${count} pond ang nilaktawan — walang dating pakain na maaaring ulitin. I-log po ito nang isa-isa sa ibaba.`,
+      partialSuccess: (ok, total) => `Na-log ang ${ok} sa ${total} pond.`,
     },
     myPonds: {
-      title: 'My ponds',
-      empty: "You don't have any ponds on file yet. Visit the office to have one started.",
-      unstockedLabel: 'Not currently stocked',
+      title: 'Mga pond ko',
+      empty: 'Wala pa pong nakatalang pond sa pangalan ninyo. Pumunta po sa opisina para masimulan ito.',
+      unstockedLabel: 'Walang laman ngayon',
       pondSpecies: (pond, species) => `${pond} · ${species}`,
       areaFingerlings: (area, count) => `${area} ha · ${count} fingerlings`,
-      progressDayOf: (elapsed, total) => `Day ${elapsed} of ${total}`,
-      logFeeding: 'Log feeding',
-      logActivity: 'Log activity',
+      progressDayOf: (elapsed, total) => `Araw ${elapsed} ng ${total}`,
+      logFeeding: 'Mag-log ng pakain',
+      logActivity: 'Mag-log ng gawain',
     },
     secondary: {
-      illnessTitle: 'Log illness or mortality',
-      disasterTitle: 'Report disaster',
+      illnessTitle: 'Mag-log ng sakit o namatay',
+      disasterTitle: 'I-report ang kalamidad',
     },
     pondPicker: {
-      title: 'Select a Pond',
-      subtitle: 'Which pond is this about?',
-      disasterSubtitle: 'Which pond does this disaster affect?',
-      noPonds: 'No stocked ponds to report against.',
+      title: 'Pumili ng pond',
+      subtitle: 'Aling pond po ito?',
+      disasterSubtitle: 'Aling pond ang tinamaan ng kalamidad?',
+      noPonds: 'Walang pond na may laman na maaaring i-report.',
     },
   },
 
-  // ── CitizenActivityLogModal ────────────────────────────────────────────
+  // ── CitizenActivityLogScreen ───────────────────────────────────────────
   activityLog: {
-    titleNew: 'Log Activity',
-    titleEdit: 'Edit Activity Log',
+    titleNew: 'Mag-log ng gawain',
+    titleEdit: 'I-edit ang talaan',
     // Shown when opened from a "Needs Attention" task card — the header
     // confirms context instead of asking the user to (re)select it.
-    prefilledSubtitle: (cropTitle) => `Logging for ${cropTitle}`,
+    prefilledSubtitle: (cropTitle) => `Para sa ${cropTitle}`,
     fields: {
-      activity: 'Activity',
-      dateOfActivity: 'Date of Activity',
-      dateHint: 'When the activity was actually performed.',
-      notes: 'Notes',
-      notesFisheries: 'Notes / Observations',
-      plantCondition: 'Plant Condition',
-      fertilizerType: 'Fertilizer / Input Type',
-      quantityApplied: 'Quantity Applied',
+      activity: 'Gawain',
+      dateOfActivity: 'Petsa ng gawain',
+      dateHint: 'Kailan po talaga ginawa ang gawain.',
+      notes: 'Mga Tala',
+      notesFisheries: 'Mga Tala / napansin',
+      plantCondition: 'Kalagayan ng halaman',
+      fertilizerType: 'Uri ng fertilizer / input',
+      quantityApplied: 'Dami na nagamit',
       quantityUnit: 'Unit',
-      pestDiseaseName: 'Pest / Disease Name',
-      areaAffected: 'Area Affected (ha)',
-      severity: 'Severity',
-      // Batch F — fisheries-domain conditional fields
-      waterFishCondition: 'Water / Fish Condition',
-      feedType: 'Feed Type',
-      feedQuantity: 'Feed Quantity (kg)',
-      feedBrand: 'Feed Brand',
-      mortalityCount: 'Mortality Count',
-      vetConsulted: 'Vet Consulted',
-      treatmentApplied: 'Treatment Applied',
-      outcome: 'Outcome',
-      recommendations: 'Recommendations',
+      pestDiseaseName: 'Peste / sakit',
+      areaAffected: 'Lawak na tinamaan (ha)',
+      severity: 'Gaano kalala',
+      waterFishCondition: 'Kalagayan ng tubig / isda',
+      feedType: 'Uri ng feed',
+      feedQuantity: 'Dami ng feed (kg)',
+      feedBrand: 'Brand ng feed',
+      mortalityCount: 'Bilang ng namatay',
+      vetConsulted: 'May kinonsultang vet',
+      treatmentApplied: 'Ginawang lunas',
+      outcome: 'Resulta',
+      recommendations: 'Rekomendasyon',
     },
+    // Keys are the stored database values — do not translate the keys.
     outcomeOptions: {
-      Recovered: 'Recovered',
-      Ongoing: 'Ongoing',
-      'Losses Incurred': 'Losses Incurred',
+      Recovered: 'Nakabawi',
+      Ongoing: 'Tuloy pa',
+      'Losses Incurred': 'May nawala',
     },
     dateShortcuts: {
-      today: 'Today',
-      yesterday: 'Yesterday',
-      pickDate: 'Pick a date',
+      today: 'Ngayon',
+      yesterday: 'Kahapon',
+      pickDate: 'Pumili ng petsa',
     },
     // Rendered under the date buttons so the chosen day is always stated
-    // in full, not just implied by which button is lit. Date formatting
-    // lives here with the rest of the language-dependent text.
+    // in full.
     dateResolved: (iso) => {
       if (!iso) return ''
-      return new Intl.DateTimeFormat('en-US', {
+      return new Intl.DateTimeFormat(DATE_LOCALE, {
         weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
       }).format(new Date(iso + 'T00:00:00'))
     },
-    selectPlaceholder: 'Select…',
+    selectPlaceholder: 'Pumili…',
     plantConditionOptions: {
-      Good: 'Good',
-      Fair: 'Fair',
-      Poor: 'Poor',
+      Good: 'Maganda',
+      Fair: 'Katamtaman',
+      Poor: 'Mahina',
     },
     severityOptions: {
-      Low: 'Low',
-      Medium: 'Medium',
-      High: 'High',
+      Low: 'Mababa',
+      Medium: 'Katamtaman',
+      High: 'Mataas',
     },
     quantityUnitOptions: {
       kg: 'kg',
-      bags: 'bags',
-      liters: 'liters',
-      sacks: 'sacks',
-      pieces: 'pieces',
+      bags: 'bag',
+      liters: 'litro',
+      sacks: 'sako',
+      pieces: 'piraso',
     },
     errors: {
-      dateRequired: 'Date of activity is required.',
-      specifyActivity: 'Please specify the activity.',
-      specifyFeedType: 'Please specify the feed type.',
-      lockedByOther: 'Someone else is currently logging this record. Please wait.',
-      areaAffectedRequired: 'Area affected is required.',
-      areaAffectedInvalid: 'Area affected must be greater than 0.',
-      areaAffectedExceeds: (recordArea) => `Area affected cannot exceed the ${recordArea} ha on record.`,
+      dateRequired: 'Kailangan po ang petsa ng gawain.',
+      specifyActivity: 'Pakisulat po kung anong gawain.',
+      specifyFeedType: 'Pakisulat po kung anong feed.',
+      lockedByOther: 'May ibang naglo-log nito ngayon. Maghintay po muna.',
+      areaAffectedRequired: 'Kailangan po ang lawak na tinamaan.',
+      areaAffectedInvalid: 'Ang lawak na tinamaan ay dapat mas mataas sa 0.',
+      areaAffectedExceeds: (recordArea) => `Hindi po pwedeng lumagpas ang lawak sa ${recordArea} ha na nakatala.`,
     },
-    submitNew: 'Save Log',
-    submitEdit: 'Save Changes',
-    successNew: 'Activity log added.',
-    successEdit: 'Activity log updated.',
+    submitNew: 'I-save ang talaan',
+    submitEdit: 'I-save ang binago',
+    successNew: 'Naidagdag ang talaan ng gawain.',
+    successEdit: 'Na-update ang talaan ng gawain.',
   },
 
   // ── CitizenHarvestModal ────────────────────────────────────────────────
   harvest: {
-    titleNew: 'Record Harvest',
-    titleEdit: 'Edit Harvest',
+    titleNew: 'Itala ang ani',
+    titleEdit: 'I-edit ang ani',
     fields: {
       season: 'Season',
-      year: 'Year',
-      cropName: 'Crop Name',
-      harvestStartDate: 'Harvest Start Date',
-      harvestEndDate: 'Harvest End Date',
-      areaHarvested: 'Area Harvested (ha)',
-      volume: 'Volume (kg)',
-      unitOfMeasure: 'Unit of Measure',
-      harvestDate: 'Harvest Date',
-      quantity: 'Quantity (kg)',
-      avgBodyWeight: 'Avg. Body Weight (kg)',
-      areaOrUnits: 'Area / Units Harvested',
-      areaOrUnitsHint: 'e.g. Pond 2, 3 cages',
-      isFinal: 'This is the final harvest for this cycle',
-      earlyLateReason: 'Reason if more than 7 days early/late',
-      earlyLateReasonHint: 'Only required if flagged',
-      notes: 'Notes',
+      year: 'Taon',
+      cropName: 'Pangalan ng tanim',
+      harvestStartDate: 'Simula ng ani',
+      harvestEndDate: 'Katapusan ng ani',
+      areaHarvested: 'Lawak na inani (ha)',
+      volume: 'Dami (kg)',
+      unitOfMeasure: 'Unit',
+      harvestDate: 'Petsa ng ani',
+      quantity: 'Dami (kg)',
+      avgBodyWeight: 'Average na timbang (kg)',
+      areaOrUnits: 'Lawak / bilang na inani',
+      areaOrUnitsHint: 'hal. Pond 2, 3 cages',
+      isFinal: 'Ito na ang huling ani para sa cycle na ito',
+      earlyLateReason: 'Dahilan kung lampas 7 araw ang aga o huli',
+      earlyLateReasonHint: 'Kailangan lang kung may flag',
+      notes: 'Mga Tala',
+    },
+    // DISPLAY ONLY. Keys are the stored database values ('Dry'/'Wet') and
+    // must not be translated — they are what CropMonitoringRecord.season
+    // holds and what the payload sends. Only the visible label changes, so
+    // the field name "Season" itself stays English as an established system
+    // term while the two values read naturally.
+    seasonOptions: {
+      Dry: 'Tag-init',
+      Wet: 'Tag-ulan',
     },
     unitOptions: {
-      kg: 'Kilograms (kg)',
-      bags: 'Bags (50 kg/bag)',
-      cavan: 'Cavan (50 kg/cavan)',
-      sacks: 'Sacks',
-      pieces: 'Pieces/Heads',
-      bundles: 'Bundles',
-      boxes: 'Boxes',
-      other: 'Other',
+      kg: 'Kilo (kg)',
+      bags: 'Bag (50 kg/bag)',
+      cavan: 'Kaban (50 kg/kaban)',
+      sacks: 'Sako',
+      pieces: 'Piraso / ulo',
+      bundles: 'Bigkis',
+      boxes: 'Kahon',
+      other: 'Iba pa',
     },
     errors: {
-      lockedByOther: 'Someone else is currently logging this record. Please wait.',
-      genericSaveError: 'Unable to save harvest.',
+      lockedByOther: 'May ibang naglo-log nito ngayon. Maghintay po muna.',
+      genericSaveError: 'Hindi ma-save ang ani.',
     },
-    submitNew: 'Record Harvest',
-    submitEdit: 'Save Changes',
-    successNew: 'Harvest recorded.',
-    successEdit: 'Harvest record updated.',
+    submitNew: 'Itala ang ani',
+    submitEdit: 'I-save ang binago',
+    successNew: 'Naitala ang ani.',
+    successEdit: 'Na-update ang talaan ng ani.',
   },
 
-  // ── CitizenDisasterScreen ────────────────────────────────────────────────
-  // Evaluator-parity batch: report + status-track + recover disasters on the
-  // citizen's own record. One screen, two internal modes ('list' shows
-  // existing reports with Mark Recovered; 'create' is the report form) —
-  // see CitizenDisasterScreen.jsx for why these share one component instead
-  // of being split into a modal + a separate history view.
+  // ── CitizenDisasterScreen ──────────────────────────────────────────────
   disaster: {
-    title: 'Disasters',
-    reportButton: 'Report Disaster',
-    backToList: 'Back to list',
-    empty: 'No disaster reports on this record.',
-    loading: 'Loading disaster reports...',
-    loadError: 'Something went wrong loading this — please try again.',
-    retry: 'Try again',
-    statusActive: 'Active',
-    statusRecovered: 'Recovered',
+    title: 'Mga kalamidad',
+    reportButton: 'I-report ang kalamidad',
+    backToList: 'Bumalik sa listahan',
+    empty: 'Walang naitalang kalamidad sa record na ito.',
+    loading: 'Kinukuha ang mga report...',
+    loadError: 'May nangyaring mali — subukan po ulit.',
+    retry: 'Subukan ulit',
+    statusActive: 'Aktibo',
+    statusRecovered: 'Nakabawi',
+    // Kept in English: "Total Loss" is the official term used on OMAg
+    // paperwork and in staff-side screens, and it must read identically
+    // across both so a citizen and an evaluator are discussing one thing.
     statusTotalLoss: 'Total Loss',
-    totalLossNotice: 'Marked as a total loss — this record\'s production cycle has ended.',
-    recoveredOn: (dateStr) => `Recovered ${dateStr}`,
+    totalLossNotice: 'Namarkahan bilang total loss — tapos na ang production cycle ng record na ito.',
+    recoveredOn: (dateStr) => `Nakabawi noong ${dateStr}`,
     fields: {
-      disasterType: 'Disaster type',
-      dateOfOccurrence: 'Date of occurrence',
-      areaAffected: 'Area affected (ha)',
-      estimatedDamage: 'Estimated damage',
-      productionLoss: 'Estimated production loss',
-      isTotalLoss: 'This is a total loss',
-      isTotalLossHint: 'The crop/stock was completely destroyed and this cycle is ending. This cannot be undone from here — contact the OMAg office to correct it.',
-      recoveryNote: 'Recovery note',
-      recoveryNoteHint: 'Required unless every recommended response for this disaster has already been logged.',
+      disasterType: 'Uri ng kalamidad',
+      dateOfOccurrence: 'Petsa ng pangyayari',
+      areaAffected: 'Lawak na tinamaan (ha)',
+      estimatedDamage: 'Tantiyang pinsala',
+      productionLoss: 'Tantiyang nawalang produksyon',
+      isTotalLoss: 'Total loss po ito',
+      isTotalLossHint: 'Tuluyang nasira ang tanim o stock at tapos na ang cycle na ito. Hindi na po ito mababawi dito — tawagan ang OMAg office para maitama.',
+      recoveryNote: 'Note tungkol sa pagbawi',
+      recoveryNoteHint: 'Kailangan po ito maliban kung na-log na lahat ng inirerekomendang tugon para sa kalamidad na ito.',
     },
     errors: {
-      dateRequired: 'Date of occurrence is required.',
-      specifyType: 'Please specify the disaster type.',
-      areaAffectedRequired: 'Area affected is required.',
-      areaAffectedInvalid: 'Area affected must be greater than 0.',
-      areaAffectedExceeds: (recordArea) => `Area affected cannot exceed the ${recordArea} ha on record.`,
-      lockedByOther: 'Someone else is currently logging this record. Please wait.',
-      genericSaveError: 'Unable to save disaster report.',
-      recoveryNoteRequired: 'A recovery note is required when not all recommended responses have been completed.',
-      genericRecoverError: 'Unable to mark this as recovered.',
+      dateRequired: 'Kailangan po ang petsa ng pangyayari.',
+      specifyType: 'Pakisulat po kung anong uri ng kalamidad.',
+      areaAffectedRequired: 'Kailangan po ang lawak na tinamaan.',
+      areaAffectedInvalid: 'Ang lawak na tinamaan ay dapat mas mataas sa 0.',
+      areaAffectedExceeds: (recordArea) => `Hindi po pwedeng lumagpas ang lawak sa ${recordArea} ha na nakatala.`,
+      lockedByOther: 'May ibang naglo-log nito ngayon. Maghintay po muna.',
+      genericSaveError: 'Hindi ma-save ang report ng kalamidad.',
+      recoveryNoteRequired: 'Kailangan po ng note tungkol sa pagbawi kung hindi pa tapos lahat ng inirerekomendang tugon.',
+      genericRecoverError: 'Hindi mamarkahan bilang nakabawi.',
     },
-    submit: 'Submit Report',
-    submitSuccess: 'Disaster report submitted.',
-    markRecovered: 'Mark Recovered',
-    confirmRecovery: 'Confirm Recovery',
-    recovering: 'Marking…',
-    recoverSuccess: 'Disaster marked as recovered.',
+    submit: 'Isumite ang report',
+    submitSuccess: 'Naisumite ang report ng kalamidad.',
+    markRecovered: 'Markahan na nakabawi',
+    confirmRecovery: 'Kumpirmahin ang pagbawi',
+    recovering: 'Minamarkahan…',
+    recoverSuccess: 'Namarkahan bilang nakabawi.',
   },
 
-  // ── MyYieldAnalysisSection ──────────────────────────────────────────────
   // ── CitizenProfileScreen ───────────────────────────────────────────────
   // Read-only registry view. Every field label lives here; the screen itself
   // decides whether a row appears at all (see BLANK_VALUES in the component).
   profile: {
-    title: 'My Profile',
-    roleFarmer: 'Farmer',
-    roleFisherfolk: 'Fisherfolk',
+    title: 'Impormasyon ko',
+    roleFarmer: 'Magsasaka',
+    roleFisherfolk: 'Mangingisda',
     groups: {
-      registry: 'REGISTRY IDENTITY',
+      registry: 'IMPORMASYON SA REHISTRO',
       contact: 'CONTACT',
     },
     fields: {
+      fullName: 'Buong pangalan',
       rsbsaNumber: 'RSBSA number',
       fishrNumber: 'FishR number',
       lguRegistrationNumber: 'LGU registration no.',
       barangay: 'Barangay',
-      civilStatus: 'Civil status',
-      fisherfolkType: 'Fishery activity',
-      highestEducation: 'Highest education',
+      address: 'Address',
+      classification: 'Klasipikasyon',
+      civilStatus: 'Katayuan Sibil',
+      fisherfolkType: 'Uri ng pangingisda',
+      highestEducation: 'Natapos na pag-aaral',
       contactNumber: 'Contact number',
     },
-    officeNotice: 'To update any of this information, please visit the OMAg office.',
+    // Every record in this system belongs to this one municipality, so the
+    // municipality/province half of the address is a constant rather than
+    // data — see CitizenProfileScreen for why this is safe.
+    addressSuffix: 'Aringay, La Union',
+    // Basis copy, translated. Longer and more specific than the previous
+    // one-liner: it says WHERE the data comes from, not just where to go.
+    officeNotice: 'Galing po ang impormasyong ito sa opisyal na registry ng gobyerno. Para mapalitan ito, pumunta po mismo sa Office of the Municipal Agriculturist.',
   },
 
+  // ── MyYieldAnalysisSection (harvest results) ───────────────────────────
   yieldAnalysis: {
-    loading: 'Loading your yield analysis...',
-    empty: 'No harvested or total-loss records yet — this section fills in once a cycle is complete.',
-    // Deliberately distinct from `empty` above. Before this, the fetch had
-    // no .catch(), so `data` stayed null on failure and fell through to the
-    // same "nothing harvested yet" branch — a real outage and an honest
-    // empty state rendered identically, with no way for the citizen (or
-    // support) to tell them apart.
-    loadError: 'Something went wrong loading this — please try again.',
-    retry: 'Try again',
-    columns: {
-      estimatedKg: 'Estimated (kg)',
-      actualKg: 'Actual (kg)',
-      variance: 'Variance',
-      activities: 'Activities',
-    },
+    title: 'Resulta ng ani ko',
+    subtitle: 'Kung ano ang aktwal na nangyari sa bawat ani',
+    loading: 'Kinukuha ang resulta ng ani ninyo...',
+    empty: 'Wala pang natapos na ani o total loss — mapupuno po ito kapag may natapos nang cycle.',
+    // Deliberately distinct from `empty` above: a real outage and an honest
+    // empty state must not render identically.
+    loadError: 'May nangyaring mali — subukan po ulit.',
+    retry: 'Subukan ulit',
+    // Card panel headings (small caps in the UI).
+    estimatedLabel: 'TANTIYA',
+    actualLabel: 'AKTWAL',
+    // Status pills. `totalLossBadge` stays English for the same reason as
+    // disaster.statusTotalLoss.
+    aboveEstimateBadge: 'Lumagpas sa tantiya',
+    belowEstimateBadge: 'Mas mababa sa tantiya',
     totalLossBadge: 'Total Loss',
-    cropCropLabel: 'Crop',
-    cropDateLabel: 'Date Planted',
+    // Footer trend lines.
+    aboveTrend: (pct) => `${pct}% mas mataas kaysa orihinal na tantiya`,
+    belowTrend: (pct) => `${pct}% mas mababa kaysa orihinal na tantiya`,
+    onTargetTrend: 'Katumbas ng orihinal na tantiya',
+    totalLossTrendCrop: 'Nawala ang tanim — walang naitalang ani',
+    totalLossTrendFisheries: 'Nawala ang stock — walang naitalang ani',
+    // Kept from the table version rather than dropped: the activity count
+    // moves into a quiet footer line instead of its own column.
+    activitiesLine: (done, total) => `${done} sa ${total} gawain ang natapos`,
+    // Card meta line: area + barangay + date, whichever are present.
+    cropCropLabel: 'Tanim',
+    cropDateLabel: 'Petsa ng tanim',
     fisheriesCropLabel: 'Species',
-    fisheriesDateLabel: 'Date Stocked',
+    fisheriesDateLabel: 'Petsa ng stocking',
   },
 
   // ── MyAssistanceHistorySection ─────────────────────────────────────────
   assistanceHistory: {
-    loading: 'Loading your assistance history...',
-    empty: 'No assistance records on file yet.',
+    loading: 'Kinukuha ang mga natanggap ninyong tulong...',
+    empty: 'Wala pang naitalang tulong.',
     columns: {
-      type: 'Type',
-      quantity: 'Quantity',
-      dateReceived: 'Date Received',
+      type: 'Uri',
+      quantity: 'Dami',
+      dateReceived: 'Petsa natanggap',
       remarks: 'Remarks',
     },
-    programDistribution: 'Program Distribution',
+    programDistribution: 'Pamamahagi ng Programa',
   },
 
-  // ── MyOrgReportingSection ───────────────────────────────────────────────
+  // ── MyOrgReportingSection ──────────────────────────────────────────────
   orgReporting: {
-    reportForMemberTitle: 'Report Assistance for a Member',
-    searchPlaceholder: (personLabelLower) => `Search this organization's ${personLabelLower} members by name...`,
-    searching: 'Searching...',
-    noMembersFound: 'No members found.',
-    reportAssistance: 'Report Assistance',
-    distributeToOrg: 'Distribute to All Members',
-    clearSelection: 'Clear selection',
-    historyTitle: 'Your Reporting History',
-    loading: 'Loading...',
-    historyEmpty: "You haven't reported any assistance yet.",
+    reportForMemberTitle: 'Mag-report ng tulong para sa isang miyembro',
+    searchPlaceholder: (personLabelLower) => `Hanapin ang ${personLabelLower} na miyembro ng organisasyon sa pangalan...`,
+    searching: 'Naghahanap...',
+    noMembersFound: 'Walang nakitang miyembro.',
+    reportAssistance: 'Mag-report ng tulong',
+    distributeToOrg: 'Ipamahagi sa lahat ng miyembro',
+    clearSelection: 'Alisin ang napili',
+    historyTitle: 'Mga na-report ninyo',
+    loading: 'Naglo-load...',
+    historyEmpty: 'Wala pa kayong na-report na tulong.',
     columns: {
-      type: 'Type',
-      quantity: 'Quantity',
-      dateGiven: 'Date Given',
+      type: 'Uri',
+      quantity: 'Dami',
+      dateGiven: 'Petsa ibinigay',
     },
-    programDistribution: 'Program Distribution',
+    programDistribution: 'Pamamahagi ng Programa',
     errors: {
-      loadHistoryFailed: 'Unable to load your reporting history.',
+      loadHistoryFailed: 'Hindi makuha ang mga na-report ninyo.',
     },
   },
 
-  // ── CitizenReportAssistanceModal ────────────────────────────────────────
+  // ── CitizenReportAssistanceModal ───────────────────────────────────────
   reportAssistance: {
-    titleNew: 'Report Assistance',
-    titleEdit: 'Edit Assistance Report',
+    titleNew: 'Mag-report ng tulong',
+    titleEdit: 'I-edit ang report ng tulong',
     fields: {
-      assistanceType: 'Assistance Type',
-      dateGiven: 'Date Given',
-      quantityAmount: 'Quantity / Amount',
-      quantityPlaceholder: 'e.g. 2 bags, 1 unit',
-      sourceAgency: 'Source Agency',
+      assistanceType: 'Uri ng tulong',
+      dateGiven: 'Petsa ibinigay',
+      quantityAmount: 'Dami / halaga',
+      quantityPlaceholder: 'hal. 2 sako, 1 unit',
+      sourceAgency: 'Galing na ahensya',
       season: 'Season',
-      program: 'Attach to a formal program (optional)',
-      programHelp: 'Leave unselected to log this as a standalone record, same as today.',
-      programNone: 'No program — standalone record',
+      program: 'Ikabit sa isang programa (opsyonal)',
+      programHelp: 'Iwanang walang pili para maitala ito nang mag-isa, gaya ng dati.',
+      programNone: 'Walang programa — mag-isang record',
       remarks: 'Remarks',
     },
     errors: {
-      requiredFields: 'Assistance type, quantity, and date are required.',
-      specifySourceAgency: 'Please specify the source agency.',
-      genericSaveError: 'Failed to save.',
+      requiredFields: 'Kailangan po ang uri ng tulong, dami, at petsa.',
+      specifySourceAgency: 'Pakisulat po kung anong ahensya.',
+      genericSaveError: 'Hindi na-save.',
     },
-    submitNew: 'Report Assistance',
-    submitEdit: 'Save Changes',
-    successNew: 'Assistance reported.',
-    successEdit: 'Assistance report updated.',
+    submitNew: 'Mag-report ng tulong',
+    submitEdit: 'I-save ang binago',
+    successNew: 'Na-report ang tulong.',
+    successEdit: 'Na-update ang report ng tulong.',
   },
 
-  // ── CitizenDistributeToOrgModal ─────────────────────────────────────────
+  // ── CitizenDistributeToOrgModal ────────────────────────────────────────
   distributeAssistance: {
-    title: 'Distribute to All Members',
-    subtitle: (personLabelLower) => `Create one assistance record for every current ${personLabelLower} member of your organization.`,
-    reviewButton: 'Review Distribution',
-    confirmButton: 'Confirm & Distribute',
-    back: 'Back',
-    done: 'Done',
-    currentMembers: 'Current members',
-    assistanceSummary: 'Assistance',
-    willSkip: (count) => `${count} member(s) will be skipped`,
-    willFlag: (count) => `${count} member(s) flagged for review`,
-    willReceive: (count) => `${count} member(s) will receive a new record. This cannot be undone automatically — review carefully before confirming.`,
+    title: 'Ipamahagi sa lahat ng miyembro',
+    subtitle: (personLabelLower) => `Gagawa ng isang record ng tulong para sa bawat kasalukuyang ${personLabelLower} na miyembro ng organisasyon ninyo.`,
+    reviewButton: 'Suriin ang ipamamahagi',
+    confirmButton: 'Kumpirmahin at ipamahagi',
+    back: 'Bumalik',
+    done: 'Tapos',
+    currentMembers: 'Kasalukuyang miyembro',
+    assistanceSummary: 'Tulong',
+    willSkip: (count) => `${count} miyembro ang lalaktawan`,
+    willFlag: (count) => `${count} miyembro ang naka-flag para suriin`,
+    willReceive: (count) => `${count} miyembro ang makakatanggap ng bagong record. Hindi po ito awtomatikong mababawi — suriin pong mabuti bago kumpirmahin.`,
     fields: {
-      assistanceType: 'Assistance Type',
-      dateGiven: 'Date Given',
-      quantity: 'Quantity (per member)',
-      cashAmount: 'Total cash amount (₱) per head',
-      sourceAgency: 'Source Agency',
+      assistanceType: 'Uri ng tulong',
+      dateGiven: 'Petsa ibinigay',
+      quantity: 'Dami (bawat miyembro)',
+      cashAmount: 'Kabuuang halaga (₱) bawat isa',
+      sourceAgency: 'Galing na ahensya',
       season: 'Season',
-      description: 'Description',
-      program: 'Attach to a formal program (optional)',
-      programHelp: 'A member already enrolled in this program will be skipped, not blocked.',
-      programNone: 'No program — standalone record',
+      description: 'Deskripsyon',
+      program: 'Ikabit sa isang programa (opsyonal)',
+      programHelp: 'Ang miyembrong naka-enroll na sa programang ito ay lalaktawan, hindi haharangin.',
+      programNone: 'Walang programa — mag-isang record',
     },
     errors: {
-      requiredFields: 'Assistance type and date are required.',
-      specifyAssistanceType: 'Please specify the assistance type.',
-      specifySourceAgency: 'Please specify the source agency.',
-      invalidCashAmount: 'Enter a valid cash amount per head.',
-      previewFailed: 'Failed to preview distribution.',
-      distributeFailed: 'Failed to distribute assistance.',
+      requiredFields: 'Kailangan po ang uri ng tulong at petsa.',
+      specifyAssistanceType: 'Pakisulat po kung anong uri ng tulong.',
+      specifySourceAgency: 'Pakisulat po kung anong ahensya.',
+      invalidCashAmount: 'Maglagay po ng tamang halaga bawat isa.',
+      previewFailed: 'Hindi ma-preview ang ipamamahagi.',
+      distributeFailed: 'Hindi naipamahagi ang tulong.',
     },
-    resultSummary: (created, skipped, errors) => `${created} created · ${skipped} skipped · ${errors} errors`,
-    statusCreated: 'Created',
-    statusSkipped: 'Skipped',
+    resultSummary: (created, skipped, errors) => `${created} nagawa · ${skipped} nilaktawan · ${errors} error`,
+    statusCreated: 'Nagawa',
+    statusSkipped: 'Nilaktawan',
     statusError: 'Error',
   },
 }

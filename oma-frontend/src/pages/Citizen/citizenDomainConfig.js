@@ -6,6 +6,13 @@
 // harvest create is nested under the stocking id in the URL) — that
 // asymmetry is captured here once instead of scattered through components.
 
+import { labels } from './labels.js'
+
+// Display-only. `season` is stored as 'Dry'/'Wet'; recordTitle is read by a
+// citizen, so it shows the Tagalog label while the stored value is untouched.
+// Falls back to the raw value for anything outside the two known choices.
+const seasonLabel = (s) => (s ? labels.harvest.seasonOptions[s] || s : '')
+
 export const CROP_DOMAIN = {
   key: 'crop',
   lockType: 'crop',
@@ -37,7 +44,7 @@ export const CROP_DOMAIN = {
   ],
   activityOtherField: 'activity_type_other_specify',
   notesField: 'notes',
-  recordTitle: (r) => `${r.crop_type_name || 'Crop'} — ${r.season || ''} ${r.year || ''}`.trim(),
+  recordTitle: (r) => `${r.crop_type_name || 'Crop'} — ${seasonLabel(r.season)} ${r.year || ''}`.trim(),
   recordSubtitle: (r) => r.farm_location_barangay || r.farmer_barangay || '',
 }
 
@@ -72,6 +79,6 @@ export const FISHERIES_DOMAIN = {
   ],
   activityOtherField: 'activity_other_specify',
   notesField: 'observed_issue',
-  recordTitle: (r) => `${r.species_name || 'Stock'} — ${r.season || ''} ${r.year || ''}`.trim(),
+  recordTitle: (r) => `${r.species_name || 'Stock'} — ${seasonLabel(r.season)} ${r.year || ''}`.trim(),
   recordSubtitle: (r) => r.pond_location_barangay || '',
 }
