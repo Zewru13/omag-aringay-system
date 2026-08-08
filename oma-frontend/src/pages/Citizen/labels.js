@@ -45,6 +45,17 @@ export const labels = {
     lockedByOtherSuffix: 'ang kasalukuyang naglo-log nito. Maghintay po muna',
     lockedByOtherMinutes: (mins) => ` (~${mins} min)`,
     genericSaveError: 'Hindi na-save. Subukan po ulit.',
+    // Batch 2: shared short-date renderer for anywhere a stored ISO date is
+    // shown to a citizen. Goes through DATE_LOCALE like every other date on
+    // these screens, so a raw '2026-08-09' never reaches the page.
+    formatDate: (iso) => {
+      if (!iso) return '—'
+      const d = new Date(`${iso}T00:00:00`)
+      if (Number.isNaN(d.getTime())) return iso
+      return new Intl.DateTimeFormat(DATE_LOCALE, {
+        day: 'numeric', month: 'short', year: 'numeric',
+      }).format(d)
+    },
   },
 
   header: {
@@ -505,6 +516,97 @@ export const labels = {
     },
   },
 
+  // ── Batch 2: Organization dashboard ────────────────────────────────────
+  orgHome: {
+    dashboardTitle: 'Dashboard ng Organisasyon',
+    typeBadgeFarmers: 'Farmers Organization',
+    typeBadgeFisherfolk: 'Fisherfolk Organization',
+    // Address is composed the same way the citizen profile screen does it —
+    // every organization in this system is in Aringay, La Union.
+    addressLine: (barangay) => `Brgy. ${barangay}, Aringay, La Union`,
+    statMembers: 'Kasapi',
+    statPositions: 'Posisyon',
+    positionsOf: (filled, total) => `${filled}/${total}`,
+
+    vacancyTitle: 'May bakanteng posisyon',
+    vacancyBody: (positions) => `${positions} — kailangan italaga`,
+    noVacancy: 'Kumpleto ang mga opisyal',
+
+    actionsHeading: 'Mga aksyon',
+    addMember: 'Magdagdag ng Kasapi',
+    addMemberSub: (personLabelLower) => `Maghanap at magdagdag ng rehistradong ${personLabelLower}`,
+    assignOfficer: 'Italaga ang Opisyal',
+    assignOfficerSub: 'Pumili ng kasapi para sa isang posisyon',
+    distribute: 'Ipamahagi ang Tulong',
+    distributeSub: 'I-record ang tulong na naibigay sa mga kasapi',
+
+    officerRosterHeading: 'Roster ng Opisyal',
+    vacant: 'Bakante',
+    membersHeading: 'Mga kasapi',
+    membersCount: (n) => `Mga kasapi — ${n} lahat`,
+    membersEmpty: 'Wala pang kasapi ang organisasyong ito.',
+    membersLoading: 'Kinukuha ang mga kasapi...',
+    officersLoading: 'Kinukuha ang mga opisyal...',
+    loadFailed: 'Hindi makuha ang datos ng organisasyon.',
+    retry: 'Subukan ulit',
+
+    secondaryHeading: 'Iba pa',
+    reportingHistory: 'History ng Reporting',
+    reportingHistorySub: 'Tingnan ang mga nakaraang record',
+    backToDashboard: 'Bumalik sa dashboard',
+  },
+
+  // ── Batch 2: Add Member ────────────────────────────────────────────────
+  orgAddMember: {
+    title: 'Magdagdag ng Kasapi',
+    searchPlaceholder: 'Maghanap ng pangalan...',
+    // The 2-character minimum is a real server rule, not a UI nicety — the
+    // endpoint returns nothing below it. Say so rather than showing an
+    // empty-looking result.
+    hint: (personLabelLower) => `Maghanap ng pangalan ng rehistradong ${personLabelLower} para idagdag sa organisasyon.`,
+    minChars: 'Magpasok po ng hindi bababa sa 2 letra.',
+    searching: 'Naghahanap...',
+    noResults: 'Walang nakitang tugma.',
+    capped: 'Ipinapakita lang ang unang 20. Gawing mas tiyak ang paghahanap kung wala rito.',
+    alreadyMember: 'Kasapi na',
+    currentOrgLabel: (orgName) => `Kasapi ng ${orgName}`,
+    noCurrentOrg: 'Walang organisasyon',
+    addButton: 'Idagdag',
+
+    reassignTitle: 'Lilipat ng organisasyon',
+    reassignBody: (name, orgName) =>
+      `Si ${name} ay kasapi ngayon ng ${orgName}. Kapag idinagdag ninyo rito, matatanggal po siya sa ${orgName}.`,
+    reassignOfficerNote: 'Matatanggal din ang posisyon niya bilang opisyal doon.',
+    reassignConfirm: 'Ituloy at ilipat',
+    addSuccess: (name) => `Naidagdag na si ${name}.`,
+    addFailed: 'Hindi maidagdag ang kasapi.',
+  },
+
+  // ── Batch 2: Remove Member ─────────────────────────────────────────────
+  orgRemoveMember: {
+    title: 'Tanggalin sa organisasyon',
+    body: (name) => `Tatanggalin po si ${name} sa organisasyon. Hindi po mabubura ang record niya sa registry.`,
+    // Only shown when the member actually holds a position — the backend
+    // clears it automatically, so the copy has to say so before the fact.
+    officerWarning: (position) => `Siya po ang kasalukuyang ${position}. Matatanggal din ang posisyong ito at magiging bakante.`,
+    confirm: 'Tanggalin',
+    success: (name) => `Natanggal na si ${name}.`,
+    failed: 'Hindi matanggal ang kasapi.',
+  },
+
+  // ── Batch 2: Assign Officer ────────────────────────────────────────────
+  orgAssignOfficer: {
+    title: 'Italaga ang Opisyal',
+    pickPosition: 'Pumili ng posisyon:',
+    pickMember: 'Pumili ng kasapi para sa posisyong ito:',
+    currentHolder: (name) => `Ngayon: ${name}`,
+    willReplace: (name) => `Papalitan po si ${name} sa posisyong ito.`,
+    noMembers: 'Walang kasapi na maitatalaga. Magdagdag po muna ng kasapi.',
+    assignButton: 'Italaga',
+    success: (name, position) => `Si ${name} na po ang ${position}.`,
+    failed: 'Hindi maitalaga ang opisyal.',
+  },
+
   // ── CitizenReportAssistanceModal ───────────────────────────────────────
   reportAssistance: {
     titleNew: 'Mag-report ng tulong',
@@ -540,8 +642,14 @@ export const labels = {
     confirmButton: 'Kumpirmahin at ipamahagi',
     back: 'Bumalik',
     done: 'Tapos',
+    organizationLabel: 'Organisasyon',
     currentMembers: 'Kasalukuyang miyembro',
     assistanceSummary: 'Tulong',
+    // Batch 2: was an inline ` — ₱X per head` / ` on YYYY-MM-DD` tail on the
+    // confirmation line. Split out so both the wording and the date format
+    // go through this file.
+    perHeadSummary: (amount) => ` — ₱${amount} bawat kasapi`,
+    onDate: (formatted) => ` noong ${formatted}`,
     willSkip: (count) => `${count} miyembro ang lalaktawan`,
     willFlag: (count) => `${count} miyembro ang naka-flag para suriin`,
     willReceive: (count) => `${count} miyembro ang makakatanggap ng bagong record. Hindi po ito awtomatikong mababawi — suriin pong mabuti bago kumpirmahin.`,

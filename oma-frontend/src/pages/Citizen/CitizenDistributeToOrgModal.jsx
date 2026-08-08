@@ -205,7 +205,7 @@ export default function CitizenDistributeToOrgModal({ domain, orgId, orgName, on
           )}
 
           <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
-            <Button onClick={onClose} type="button" variant="ghost">Cancel</Button>
+            <Button onClick={onClose} type="button" variant="ghost">{labels.common.cancel}</Button>
             <Button isLoading={isBusy} type="submit" variant="primary">{L.reviewButton}</Button>
           </div>
         </form>
@@ -213,13 +213,14 @@ export default function CitizenDistributeToOrgModal({ domain, orgId, orgName, on
 
       {step === 'confirm' && preview && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] p-4 space-y-1.5">
-            <p className="text-[13px]"><span className="font-medium text-[#1A2B1A]">Organization:</span> {preview.organization_name}</p>
-            <p className="text-[13px]"><span className="font-medium text-[#1A2B1A]">{L.currentMembers}:</span> {preview.member_count}</p>
+          <div className="rounded-xl border border-[0.5px] border-cz-border-strong bg-cz-page p-4 space-y-1.5">
+            <p className="text-[13px]"><span className="font-medium text-cz-text">{L.organizationLabel}:</span> {preview.organization_name}</p>
+            <p className="text-[13px]"><span className="font-medium text-cz-text">{L.currentMembers}:</span> {preview.member_count}</p>
             <p className="text-[13px]">
-              <span className="font-medium text-[#1A2B1A]">{L.assistanceSummary}:</span>{' '}
+              <span className="font-medium text-cz-text">{L.assistanceSummary}:</span>{' '}
               {form.assistance_type === 'Other' ? form.assistance_type_other.trim() : form.assistance_type}
-              {isCashAssistance ? ` — ₱${form.cash_amount} per head` : (form.quantity ? ` — ${form.quantity}` : '')} on {form.date_given}
+              {isCashAssistance ? L.perHeadSummary(form.cash_amount) : (form.quantity ? ` — ${form.quantity}` : '')}
+              {L.onDate(labels.common.formatDate(form.date_given))}
             </p>
           </div>
 
@@ -241,7 +242,7 @@ export default function CitizenDistributeToOrgModal({ domain, orgId, orgName, on
             </div>
           )}
 
-          <p className="text-[12px] text-[#7A8E7A]">{L.willReceive(preview.member_count - skippedInPreview.length)}</p>
+          <p className="text-[12px] text-cz-text-2">{L.willReceive(preview.member_count - skippedInPreview.length)}</p>
 
           {errorMessage && (
             <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">{errorMessage}</p>
@@ -256,9 +257,9 @@ export default function CitizenDistributeToOrgModal({ domain, orgId, orgName, on
 
       {step === 'result' && finalResult && (
         <div className="space-y-4">
-          <div className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] p-4">
-            <p className="text-[13px] font-medium text-[#1A2B1A]">{finalResult.organization_name}</p>
-            <p className="text-[12px] text-[#7A8E7A]">
+          <div className="rounded-xl border border-[0.5px] border-cz-border-strong bg-cz-page p-4">
+            <p className="text-[13px] font-medium text-cz-text">{finalResult.organization_name}</p>
+            <p className="text-[12px] text-cz-text-2">
               {L.resultSummary(
                 finalResult.results.filter((r) => r.status === 'created').length,
                 finalResult.results.filter((r) => r.status === 'skipped').length,
@@ -266,14 +267,14 @@ export default function CitizenDistributeToOrgModal({ domain, orgId, orgName, on
               )}
             </p>
           </div>
-          <ul className="max-h-72 overflow-y-auto divide-y divide-[#F0F4F0] rounded-xl border border-[#E2E8E2]">
+          <ul className="max-h-72 overflow-y-auto divide-y divide-cz-border rounded-xl border border-[0.5px] border-cz-border-strong">
             {finalResult.results.map((r) => (
               <li key={r.person_id} className="px-3 py-2">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[13px] text-[#1A2B1A]">{r.name}</span>
+                  <span className="text-[13px] text-cz-text">{r.name}</span>
                   {resultBadge(r.status)}
                 </div>
-                {(r.reason || r.note) && <p className="mt-0.5 text-[11px] text-[#7A8E7A]">{r.reason || r.note}</p>}
+                {(r.reason || r.note) && <p className="mt-0.5 text-[11px] text-cz-text-2">{r.reason || r.note}</p>}
               </li>
             ))}
           </ul>

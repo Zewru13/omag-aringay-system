@@ -16,6 +16,10 @@ import { labels } from './labels.js'
 // editing, no crop/pond record access — beneficiary reporting only.
 export default function MyOrgReportingSection({ domain, orgId, orgName }) {
   const { showToast } = useToast()
+  // Batch 2: the two domain-tinted spots below (selected-member strip, edit
+  // link) follow the org's own colour rather than a fixed green, so a
+  // Fisherfolk Organization reads teal like the rest of its screens.
+  const theme = domain.theme
   const [searchTerm, setSearchTerm] = useState('')
   const [members, setMembers] = useState([])
   const [isSearching, setIsSearching] = useState(false)
@@ -65,9 +69,9 @@ export default function MyOrgReportingSection({ domain, orgId, orgName }) {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-xl border border-[#E2E8E2] bg-white p-5">
+      <section className="rounded-xl border border-[0.5px] border-cz-border-strong bg-white p-5">
         <div className="mb-3 flex items-center justify-between gap-2">
-          <h4 className="text-[12px] font-semibold uppercase tracking-wider text-[#7A8E7A]">
+          <h4 className="text-[12px] font-semibold uppercase tracking-wider text-cz-text-2">
             {labels.orgReporting.reportForMemberTitle}
           </h4>
           <Button size="sm" variant="outline" icon={Users} onClick={() => setShowDistributeModal(true)}>
@@ -84,37 +88,37 @@ export default function MyOrgReportingSection({ domain, orgId, orgName }) {
               onChange={(e) => handleSearch(e.target.value)}
             />
             {searchTerm && (
-              <div className="mt-2 max-h-56 overflow-y-auto rounded-xl border border-[#E2E8E2]">
-                {isSearching && <p className="p-3 text-center text-[13px] text-[#7A8E7A]">{labels.orgReporting.searching}</p>}
+              <div className="mt-2 max-h-56 overflow-y-auto rounded-xl border border-[0.5px] border-cz-border-strong">
+                {isSearching && <p className="p-3 text-center text-[13px] text-cz-text-2">{labels.orgReporting.searching}</p>}
                 {!isSearching && members.length === 0 && (
-                  <p className="p-3 text-center text-[13px] text-[#7A8E7A]">{labels.orgReporting.noMembersFound}</p>
+                  <p className="p-3 text-center text-[13px] text-cz-text-2">{labels.orgReporting.noMembersFound}</p>
                 )}
                 {!isSearching && members.map((m) => (
                   <button
                     key={domain.memberIdOf(m)}
                     type="button"
-                    className="block w-full px-3 py-2 text-left hover:bg-[#F9FAF9] transition-colors"
+                    className="block w-full px-3 py-2 text-left hover:bg-cz-page transition-colors"
                     onClick={() => { setSelectedMember(m); setSearchTerm(''); setMembers([]) }}
                   >
-                    <p className="text-[13px] font-medium text-[#1A2B1A]">{domain.memberLabel(m)}</p>
-                    <p className="text-[11px] text-[#7A8E7A]">{domain.memberSubtitle(m)}</p>
+                    <p className="text-[13px] font-medium text-cz-text">{domain.memberLabel(m)}</p>
+                    <p className="text-[11px] text-cz-text-2">{domain.memberSubtitle(m)}</p>
                   </button>
                 ))}
               </div>
             )}
           </div>
         ) : (
-          <div className="flex items-center justify-between gap-3 rounded-lg bg-[#F0F7F0] border border-[#C8D5C8] px-3 py-2">
+          <div className={`flex items-center justify-between gap-3 rounded-lg ${theme.tileSelectedBg} border border-cz-border-strong px-3 py-2`}>
             <div>
-              <p className="text-[13px] font-medium text-[#1A2B1A]">{domain.memberLabel(selectedMember)}</p>
-              <p className="text-[11px] text-[#7A8E7A]">{domain.memberSubtitle(selectedMember)}</p>
+              <p className="text-[13px] font-medium text-cz-text">{domain.memberLabel(selectedMember)}</p>
+              <p className="text-[11px] text-cz-text-2">{domain.memberSubtitle(selectedMember)}</p>
             </div>
             <div className="flex items-center gap-2">
               <Button size="sm" icon={Plus} onClick={() => setShowReportModal(true)}>{labels.orgReporting.reportAssistance}</Button>
               <button
                 type="button"
                 onClick={() => setSelectedMember(null)}
-                className="rounded-lg p-2 text-[#7A8E7A] hover:bg-white transition-colors"
+                className="rounded-lg p-2 text-cz-text-2 hover:bg-white transition-colors"
                 aria-label={labels.orgReporting.clearSelection}
               >
                 <X size={14} />
@@ -125,20 +129,20 @@ export default function MyOrgReportingSection({ domain, orgId, orgName }) {
       </section>
 
       <section>
-        <h4 className="text-[12px] font-semibold uppercase tracking-wider text-[#7A8E7A] mb-2">
+        <h4 className="text-[12px] font-semibold uppercase tracking-wider text-cz-text-2 mb-2">
           {labels.orgReporting.historyTitle}
         </h4>
         {isLoadingHistory ? (
-          <p className="text-[13px] text-[#7A8E7A] italic">{labels.orgReporting.loading}</p>
+          <p className="text-[13px] text-cz-text-2 italic">{labels.orgReporting.loading}</p>
         ) : history.length === 0 ? (
-          <p className="rounded-xl border border-[#E2E8E2] bg-white p-6 text-[13px] italic text-[#A8BCA8]">
+          <p className="rounded-xl border border-[0.5px] border-cz-border-strong bg-white p-6 text-[13px] italic text-cz-text-muted">
             {labels.orgReporting.historyEmpty}
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white">
+          <div className="overflow-x-auto rounded-xl border border-[0.5px] border-cz-border-strong bg-white">
             <table className="w-full text-[13px]">
               <thead>
-                <tr className="border-b border-[#E2E8E2] text-left text-[11px] uppercase tracking-wider text-[#7A8E7A]">
+                <tr className="border-b border-[0.5px] border-cz-border-strong text-left text-[11px] uppercase tracking-wider text-cz-text-2">
                   <th className="px-4 py-2">{domain.personLabel}</th>
                   <th className="px-4 py-2">{labels.orgReporting.columns.type}</th>
                   <th className="px-4 py-2">{labels.orgReporting.columns.quantity}</th>
@@ -148,18 +152,18 @@ export default function MyOrgReportingSection({ domain, orgId, orgName }) {
               </thead>
               <tbody>
                 {history.map((rec) => (
-                  <tr key={rec.id} className="border-b border-[#F0F4F0] last:border-0">
-                    <td className="px-4 py-2 text-[#1A2B1A]">
+                  <tr key={rec.id} className="border-b border-cz-border last:border-0">
+                    <td className="px-4 py-2 text-cz-text">
                       {domain.key === 'farmers_org' ? rec.farmer_full_name : rec.fisherfolk_full_name}
                     </td>
-                    <td className="px-4 py-2 text-[#4A5E4A]">{rec.assistance_type || (rec.program ? labels.orgReporting.programDistribution : labels.common.unknown)}</td>
-                    <td className="px-4 py-2 text-[#4A5E4A]">{rec.quantity_given ? `${rec.quantity_given} ${rec.unit || ''}` : (rec.quantity || '—')}</td>
-                    <td className="px-4 py-2 text-[#4A5E4A]">{rec.date_given}</td>
+                    <td className="px-4 py-2 text-cz-text-2">{rec.assistance_type || (rec.program ? labels.orgReporting.programDistribution : labels.common.unknown)}</td>
+                    <td className="px-4 py-2 text-cz-text-2">{rec.quantity_given ? `${rec.quantity_given} ${rec.unit || ''}` : (rec.quantity || '—')}</td>
+                    <td className="px-4 py-2 text-cz-text-2">{labels.common.formatDate(rec.date_given)}</td>
                     <td className="px-4 py-2 text-right">
                       <button
                         type="button"
                         onClick={() => setEditEntry(rec)}
-                        className="flex items-center gap-1 text-[12px] font-medium text-[#1B4D2E] hover:underline ml-auto"
+                        className={`ml-auto flex items-center gap-1 text-[12px] font-medium ${theme.accentText} hover:underline`}
                       >
                         <Pencil size={12} /> {labels.common.edit}
                       </button>
