@@ -123,7 +123,61 @@
   --color-cz-text:          #1A1A18;
   --color-cz-text-2:        #6B6B66;
   --color-cz-text-muted:    #9B9B96;
+
+  /* ── Organization account ────────────────────────────────────────────
+     Sampled from the Organization reference images (image10/image11 at
+     1452px, the highest-resolution frames in the set), not eyeballed.
+
+     COLOUR DECISION: the mockup's app bar and hero card are #0B3D52 —
+     hue 197deg, a navy-cyan. The domain convention already established
+     across the citizen app is crop green (#1C5737, hue 147deg) and fish
+     teal (#1C574C, hue 169deg), and organizations follow their domain.
+     Adopting the mockup's navy would have made an organization's screens
+     a different colour from the same person's own Farmer/Fisherfolk
+     screens. So the header and hero take the EXISTING domain tokens and
+     everything else below is used exactly as sampled — the navy is the
+     one deliberate deviation, agreed before building.
+
+     These are all genuinely new: no existing cz-* token covers a
+     categorical badge set or a per-person avatar identity palette. */
+
+  /* Neutral surface used for the org page background in the mockup. The
+     citizen app's warm --color-cz-page is kept for the page itself; this
+     is only for the inset panels the mockup shows in a cooler grey. */
+  --color-cz-org-panel:     #F0F4F7;
+
+  /* Action-row icon tiles (sampled from the three "Mga Aksyon" rows). */
+  --color-cz-tile-blue-bg:   #E0F2FE;
+  --color-cz-tile-blue-fg:   #0891B2;
+  --color-cz-tile-amber-bg:  #FEF3C6;
+  --color-cz-tile-amber-fg:  #BB4D00;
+  --color-cz-tile-slate-bg:  #F1F5F9;
+  --color-cz-tile-slate-fg:  #62748E;
+
+  /* Role badge on member cards (PRESIDENT / SECRETARY / ...). */
+  --color-cz-role-bg:        #E0F2FE;
+  --color-cz-role-fg:        #0891B2;
+
+  /* Alert banner — the mockup's own amber, warmer than cz-warn-*. */
+  --color-cz-alert-bg:       #FFFBEB;
+  --color-cz-alert-accent:   #EBA626;
+  --color-cz-alert-title:    #973C00;
+
+  /* History category badges (image9). One per assistance-type family;
+     the component falls back to the slate tile for anything unmapped
+     rather than inventing a colour at runtime. */
+  --color-cz-badge-violet:   #EDE9FE;
+  --color-cz-badge-sky:      #E0F2FE;
+  --color-cz-badge-yellow:   #FEF9C3;
+  --color-cz-badge-pink:     #FCE7F3;
+  --color-cz-badge-green:    #DCFCE7;
 }
+
+/* Avatar identity palette — seven colours sampled off the roster and
+   member grid in image10. Categorical, not semantic: they must stay
+   distinguishable from each other and carry no status meaning, which is
+   why they are a plain list rather than cz-* semantic tokens. Assigned
+   deterministically per person in OrgAvatar.jsx. */
 
 :root {
   --color-forest: #1B4D2E;

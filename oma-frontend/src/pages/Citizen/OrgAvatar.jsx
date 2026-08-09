@@ -8,17 +8,20 @@
 // The tint is DETERMINISTIC — the same person always gets the same colour,
 // on every render and every device. A random pick would reshuffle whenever
 // the list re-rendered, which reads as a glitch rather than as identity.
-// These six hexes are a categorical identity palette, deliberately not
-// cz-* theme tokens: they must stay distinguishable from each other, and
-// they carry no status meaning, so they do not belong in the semantic
-// token set.
+//
+// These seven hexes are SAMPLED from the Organization reference images
+// (image10's officer roster and member grid), replacing the approximate
+// six-colour set this file shipped with. They are a categorical identity
+// palette, deliberately not cz-* theme tokens: they must stay
+// distinguishable from each other and they carry no status meaning.
 const AVATAR_TINTS = [
-  'bg-[#7C3A3A] text-white',
-  'bg-[#1C574C] text-white',
-  'bg-[#3B6D11] text-white',
-  'bg-[#5B3A7C] text-white',
-  'bg-[#2C5578] text-white',
-  'bg-[#8A5A1B] text-white',
+  'bg-[#7B341E] text-white',  // MS
+  'bg-[#0B3D52] text-white',  // RC
+  'bg-[#0E6B8A] text-white',  // ER
+  'bg-[#0C7A6B] text-white',  // JD
+  'bg-[#2D5A27] text-white',  // AF
+  'bg-[#6B3FA0] text-white',  // PB
+  'bg-[#8B4513] text-white',  // LM
 ]
 
 function tintFor(key) {
