@@ -29,11 +29,14 @@ import { labels } from './labels.js'
 // identical and only their tint differs.
 
 // CONTRAST NOTE: `greeting` and `meta` deliberately use the -100 step, not
-// -300. When the header tokens were lifted to the basis's lighter tone
-// (#1C5737 / #1C574C), -300 on that background measures 4.20:1 (crop) and
-// 4.15:1 (fish) — under the 4.5:1 AA floor for the 12-13px text these two
-// roles carry. -100 measures 5.69:1 / 5.60:1 and clears it. If the header
-// tokens are ever darkened again, these can go back to -300.
+// -300, because the -300 step falls under the 4.5:1 AA floor for the 12-13px
+// text these two roles carry. Measured against the current header tokens:
+//
+//   crop  #C0DD97 on #1C5737 = 5.69:1   (-300 #97C459 would be 4.20:1)
+//   fish  #B0E6FF on #1C4B6A = 6.89:1   (-300 #75B3E6 would be 4.13:1)
+//
+// Both clear AA. If the header tokens are ever darkened again, re-measure
+// before moving these back to -300.
 export const CROP_THEME = {
   header: 'bg-cz-crop-header',
   brand: 'text-cz-crop-100',
@@ -43,7 +46,7 @@ export const CROP_THEME = {
   iconBtn: 'text-cz-crop-100',
   circleBg: 'bg-cz-crop-pale',
   circleIcon: 'text-cz-crop-deep',
-  track: 'bg-cz-crop-pale',
+  track: 'bg-cz-track',
   fill: 'bg-cz-crop-fill',
   accentText: 'text-cz-crop-deep',
   solidBtn: 'bg-cz-crop-header text-cz-crop-pale',
@@ -64,8 +67,8 @@ export const FISH_THEME = {
   iconBtn: 'text-cz-fish-100',
   circleBg: 'bg-cz-fish-pale',
   circleIcon: 'text-cz-fish-deep',
-  track: 'bg-cz-fish-pale',
-  fill: 'bg-cz-fish-fill',
+  track: 'bg-cz-track',
+  fill: 'bg-gradient-to-r from-[#1C5075] to-[#2877A3]',
   accentText: 'text-cz-fish-deep',
   solidBtn: 'bg-cz-fish-header text-cz-fish-pale',
   tileSelectedBorder: 'border-cz-fish-deep',

@@ -77,25 +77,36 @@
   --color-cz-crop-pale:   #EAF3DE;
   --color-cz-crop-100:    #C0DD97;
   --color-cz-crop-300:    #97C459;
-  --color-cz-crop-fill:   #639922;
+  /* SAMPLED from the crop progress bar in image1 (a flat 195px run at
+     y=319-324, so this is measured, not guessed). The previous #639922 was
+     a lime at hue 82 deg; the basis draws the bar in the header's own hue
+     family at 147 deg. */
+  --color-cz-crop-fill:   #2A7D4F;
   --color-cz-crop-deep:   #3B6D11;
   --color-cz-crop-deeper: #27500A;
 
   /* Fisheries domain
-     DERIVED, not sampled. The basis mockup's fisherfolk header measures
-     #1A4561 — hue 204°, which is navy blue, not teal, and adopting it
-     would break the crop/fisheries green-vs-teal domain language this
-     portal is built on. So this takes the basis's TONAL WEIGHT (the same
-     R and G channels as the sampled crop header above) and raises only
-     the blue channel until the hue lands at ~169°, back in the teal
-     family the previous #04342C occupied. Same lift in lightness as the
-     crop side, same domain distinction as before. */
-  --color-cz-fish-header: #1C574C;
-  --color-cz-fish-pale:   #E1F5EE;
-  --color-cz-fish-100:    #9FE1CB;
-  --color-cz-fish-300:    #5DCAA5;
-  --color-cz-fish-fill:   #1D9E75;
-  --color-cz-fish-deep:   #0F6E56;
+     SAMPLED, not derived. An earlier pass derived a teal here (#1C574C,
+     hue 169°) rather than copying the basis, on the reasoning that the
+     mockup's blue would break a green-vs-teal domain language. That was
+     overruled the same way the organisation navy was: the basis is the
+     specification, so these are its real values.
+
+     The header in the basis is a GRADIENT, not a flat fill — it runs
+     #194460 at the top to #1E5072 at the bottom across images 7, 8, 11
+     and 12. `fish-header` is its measured midpoint, which is what a flat
+     fill has to be to read the same overall weight.
+
+     Note this stays clearly separable from the organisation navy
+     (cz-org-bar #0B3D52, hue 197° / sat 76% / light 18%): at hue 204° /
+     sat 58% / light 26% this is lighter and markedly less saturated, so a
+     fisherfolk citizen does not read as a fisherfolk organisation. */
+  --color-cz-fish-header: #1C4B6A;
+  --color-cz-fish-pale:   #E2F1FB;
+  --color-cz-fish-100:    #B0E6FF;
+  --color-cz-fish-300:    #75B3E6;
+  --color-cz-fish-fill:   #236790;
+  --color-cz-fish-deep:   #1A5B80;
 
   /* Danger — overdue */
   --color-cz-danger-bg:     #FCEBEB;
@@ -123,6 +134,30 @@
   --color-cz-text:          #1A1A18;
   --color-cz-text-2:        #6B6B66;
   --color-cz-text-muted:    #9B9B96;
+
+  /* Progress-bar track. NEUTRAL in the basis, not a domain tint: the
+     unfilled remainder measures #EDE9DF behind both the crop bars and the
+     pond bars (clearest in image8, where the 25%/45%/68% bars leave most
+     of the track showing). The screens previously used each domain's own
+     -pale step here, which tinted the empty portion green or teal. */
+  --color-cz-track:         #EDE9DF;
+
+  /* Status badges — SEMANTIC and domain-free, sampled as bg/fg PAIRS from
+     the basis ("Harvested", "Above estimate", "Total Loss", "Overdue",
+     "Below estimate", "Due today", "Upcoming"). Domain-free is the point:
+     a "Recovered" pill previously borrowed the fisheries ramp, so it was
+     teal on a farmer's screen and would have turned blue when the fisheries
+     tokens were re-sampled. Status must not move when a domain is retinted.
+     Note -warn- here measures identical to the organisation doc's
+     tile-amber pair, so the two reference documents agree. */
+  --color-cz-status-good-bg: #DBFCE7;
+  --color-cz-status-good-fg: #008236;
+  --color-cz-status-bad-bg:  #FFE2E2;
+  --color-cz-status-bad-fg:  #C10007;
+  --color-cz-status-warn-bg: #FEF3C6;
+  --color-cz-status-warn-fg: #BB4D00;
+  --color-cz-status-info-bg: #DBEAFE;
+  --color-cz-status-info-fg: #1D4ED8;
 
   /* ── Organization account ────────────────────────────────────────────
      Sampled from the Organization reference images (image10/image11 at

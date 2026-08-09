@@ -185,7 +185,7 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
     }
     if (status === 'Recovered') {
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-cz-fish-pale px-2 py-[3px] text-[11px] font-medium text-cz-fish-deep">
+        <span className="inline-flex items-center gap-1 rounded-full bg-cz-status-good-bg px-2 py-[3px] text-[11px] font-medium text-cz-status-good-fg">
           <Check size={11} aria-hidden="true" /> {labels.disaster.statusRecovered}
         </span>
       )
@@ -382,7 +382,7 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
                   </div>
                   <p className="text-[12px] text-cz-text-2">{d.date_of_occurrence} · {d.area_affected_ha} {domain.areaLabel.split(' ')[0]} affected</p>
                   {d.status === 'Recovered' && (
-                    <p className="mt-1.5 text-[12px] text-cz-fish-deep">{labels.disaster.recoveredOn(d.recovered_date)}</p>
+                    <p className="mt-1.5 text-[12px] text-cz-status-good-fg">{labels.disaster.recoveredOn(d.recovered_date)}</p>
                   )}
                   {d.is_total_loss && d.status !== 'Recovered' && (
                     <p className="mt-1.5 text-[12px] leading-[1.5] text-cz-danger-body">{labels.disaster.totalLossNotice}</p>
