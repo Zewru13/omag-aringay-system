@@ -1,30 +1,39 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  AlertTriangle, ClipboardList, Home, UserPlus, Users, UserCog,
+  ClipboardList, FileText, Home, Info, UserPlus, Users, UserCog, UserSearch,
 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import MyOrgReportingSection from './MyOrgReportingSection.jsx'
+import OrgReportAssistanceScreen from './OrgReportAssistanceScreen.jsx'
+import OrgReportHistoryScreen from './OrgReportHistoryScreen.jsx'
 import OrgAddMemberScreen from './OrgAddMemberScreen.jsx'
 import OrgAssignOfficerScreen from './OrgAssignOfficerScreen.jsx'
 import OrgAvatar from './OrgAvatar.jsx'
+import OrgInfoScreen from './OrgInfoScreen.jsx'
 import OrgRemoveMemberDialog from './OrgRemoveMemberDialog.jsx'
-import { labels } from './labels.js'
 import {
-  CITIZEN_GUTTER, CitizenBody, CitizenEmptyState, CitizenHomeHeader, CitizenScreen,
-  CitizenSubHeader, CitizenTabBar, SecondaryRow, SecondaryRows, SectionHeading,
-} from './citizenUI.jsx'
+  OrgActionRow, OrgAlertBanner, OrgAppBar, OrgHeroCard, OrgMemberCard,
+  OrgOfficerRoster, OrgScreen, OrgSectionLabel,
+} from './OrgDashboardParts.jsx'
+import { labels } from './labels.js'
+import { CitizenTabBar } from './citizenUI.jsx'
 
-// Batch 2: the real ORGANIZATION dashboard, replacing the two-tab
-// (Overview | Report Assistance) placeholder that CitizenHomePage used to
-// render for org accounts.
+// Batch: the Organization dashboard rebuilt against the approved reference
+// images — image2 (top of scroll) and image1 (scrolled) for mobile,
+// image10/image11 for desktop.
 //
-// Everything numeric here is derived from live responses — member count
-// from the member list's length, filled/total positions from the officer
-// list measured against domain.officerPositions. Nothing is hardcoded,
-// which matters because the two organization types genuinely differ in
-// how membership is stored (see orgDomainConfig).
+// ONE component, two layouts. The reference shows the same content
+// reflowing, not two different pages: below 1024px everything stacks in the
+// order image2/image1 draw it; at 1024px+ the left column carries hero →
+// alert → actions → roster → history and the right column carries the member
+// grid, exactly as image10/image11 show. The right column deliberately ends
+// where the members end (image11 leaves that space empty).
+//
+// Numbers are real, never the mockup's literals: KASAPI is the member list's
+// length and POSISYON is the officer list measured against the domain's
+// actual position set — seven, where the mockup draws five.
 
-export default function OrganizationHomeScreen({ record, recordType, domain, onLogout }) {
+export default function OrganizationHomeScreen({ record, recordType, domain }) {
   const theme = domain.theme
   const isFisherfolk = recordType === 'FISHERFOLK_ORG'
   const orgId = record?.id
@@ -58,8 +67,6 @@ export default function OrganizationHomeScreen({ record, recordType, domain, onL
     return () => { cancelled = true }
   }, [orgId, domain, reloadKey])
 
-  // Vacancy is computed against the domain's REAL position set (seven, per
-  // the backend's POSITION_CHOICES), not an assumed five.
   const { filledPositions, vacantPositions } = useMemo(() => {
     const held = new Set(officers.map((o) => o.position))
     return {
@@ -74,8 +81,6 @@ export default function OrganizationHomeScreen({ record, recordType, domain, onL
     return map
   }, [officers])
 
-  // Which member (if any) currently holds a position — drives the extra
-  // sentence in the remove-member confirmation.
   const positionOfPerson = useCallback(
     (personId) => {
       const hit = officers.find((o) => domain.officerPersonId(o) === personId)
@@ -96,12 +101,13 @@ export default function OrganizationHomeScreen({ record, recordType, domain, onL
     />
   )
 
-  // ── Full-screen sub-views ────────────────────────────────────────────
+  // ── Sub-views ────────────────────────────────────────────────────────
   if (view === 'addMember') {
     return (
       <OrgAddMemberScreen
         domain={domain}
         orgId={orgId}
+        orgName={record?.label}
         existingMemberIds={members.map((m) => domain.rowPersonId(m))}
         onBack={() => setView('home')}
         onSuccess={() => { refresh(); setView('home') }}
@@ -114,6 +120,7 @@ export default function OrganizationHomeScreen({ record, recordType, domain, onL
       <OrgAssignOfficerScreen
         domain={domain}
         orgId={orgId}
+        orgName={record?.label}
         members={members}
         officerByPosition={officerByPosition}
         onBack={() => setView('home')}
@@ -122,78 +129,104 @@ export default function OrganizationHomeScreen({ record, recordType, domain, onL
     )
   }
 
+  if (view === 'orgInfo') {
+    return (
+      <OrgInfoScreen
+        record={record}
+        domain={domain}
+        onBack={() => setView('home')}
+        tabBar={tabBar(null)}
+        onRecordChanged={refresh}
+      />
+    )
+  }
+
   if (view === 'assistance') {
     return (
-      <CitizenScreen hasTabBar>
-        <CitizenSubHeader
-          theme={theme}
-          title={labels.orgHome.distribute}
-          onBack={() => setView('home')}
-        />
-        <CitizenBody>
-          <MyOrgReportingSection domain={domain} orgId={orgId} orgName={record?.label} />
-        </CitizenBody>
-        <div className="h-4" />
-        {tabBar('assistance')}
-      </CitizenScreen>
+      <OrgReportAssistanceScreen
+        domain={domain}
+        orgId={orgId}
+        orgName={record?.label}
+        members={members}
+        onBack={() => setView('home')}
+        tabBar={tabBar('assistance')}
+      />
+    )
+  }
+
+  if (view === 'history') {
+    return (
+      <OrgReportHistoryScreen
+        domain={domain}
+        orgName={record?.label}
+        onBack={() => setView('home')}
+        tabBar={tabBar(null)}
+      />
+    )
+  }
+
+  // Per-member reporting (search one member, report/edit a single record).
+  // The reference has no screen for it, but it is real capability from
+  // Batch 12 and is NOT dropped — it keeps its own entry point below the
+  // reference's own rows.
+  if (view === 'perMember') {
+    return (
+      <OrgScreen
+        title={labels.orgReporting.reportForMemberTitle}
+        chipLabel={record?.label}
+        onBack={() => setView('home')}
+        tabBar={tabBar(null)}
+        wide
+      >
+        <MyOrgReportingSection domain={domain} orgId={orgId} orgName={record?.label} />
+      </OrgScreen>
     )
   }
 
   if (view === 'members') {
     return (
-      <CitizenScreen hasTabBar>
-        <CitizenSubHeader
-          theme={theme}
-          title={labels.orgHome.membersHeading}
-          subtitle={labels.orgHome.membersCount(members.length)}
-          onBack={() => setView('home')}
-        />
-        <CitizenBody>
-          {members.length === 0 ? (
-            <CitizenEmptyState
-              icon={Users}
-              iconClass={theme.accentText}
-              title={labels.orgHome.membersEmpty}
-            />
-          ) : (
-            <ul className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border-strong bg-cz-surface">
-              {members.map((m, i) => {
-                const personId = domain.rowPersonId(m)
-                const position = positionOfPerson(personId)
-                return (
-                  <li
-                    key={m.id}
-                    className={`flex items-center gap-3 px-[14px] py-[11px] ${
-                      i === members.length - 1 ? '' : 'border-b-[0.5px] border-cz-border'
-                    }`}
-                  >
-                    <OrgAvatar name={domain.rowName(m)} id={personId} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[14px] font-medium text-cz-text">{domain.rowName(m)}</p>
-                      <p className="truncate text-[12px] text-cz-text-2">
-                        {domain.rowBarangay(m) || labels.common.unknown}
-                      </p>
-                    </div>
-                    {position && (
-                      <span className={`shrink-0 rounded-full px-2 py-[3px] text-[10px] font-medium ${theme.tileSelectedBg} ${theme.accentText}`}>
-                        {position}
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => setRemoveTarget(m)}
-                      className="shrink-0 rounded-[8px] px-2 py-2 text-[12px] font-medium text-cz-danger-accent transition-colors hover:bg-cz-danger-bg"
-                    >
-                      {labels.orgRemoveMember.confirm}
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-          )}
-        </CitizenBody>
-        <div className="h-4" />
-        {tabBar('members')}
+      <OrgScreen
+        title={labels.orgHome.membersHeading}
+        chipLabel={record?.label}
+        onBack={() => setView('home')}
+        tabBar={tabBar('members')}
+        wide
+      >
+        <OrgSectionLabel>{labels.orgHome.membersCount(members.length)}</OrgSectionLabel>
+        <ul className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+          {members.map((m, i) => {
+            const personId = domain.rowPersonId(m)
+            const position = positionOfPerson(personId)
+            return (
+              <li
+                key={m.id}
+                className={`flex items-center gap-3 px-4 py-3 ${
+                  i === members.length - 1 ? '' : 'border-b-[0.5px] border-cz-border'
+                }`}
+              >
+                <OrgAvatar name={domain.rowName(m)} id={personId} size={38} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[15px] font-semibold text-cz-text">{domain.rowName(m)}</p>
+                  <p className="truncate text-[13px] text-cz-text-2">
+                    {domain.rowBarangay(m) ? `Brgy. ${domain.rowBarangay(m)}` : labels.common.unknown}
+                  </p>
+                </div>
+                {position && (
+                  <span className="shrink-0 rounded-[5px] bg-cz-role-bg px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] text-cz-role-fg">
+                    {position}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setRemoveTarget(m)}
+                  className="shrink-0 rounded-[8px] px-2 py-2 text-[12px] font-medium text-cz-danger-accent transition-colors hover:bg-cz-danger-bg"
+                >
+                  {labels.orgRemoveMember.confirm}
+                </button>
+              </li>
+            )
+          })}
+        </ul>
         {removeTarget && (
           <OrgRemoveMemberDialog
             domain={domain}
@@ -204,193 +237,134 @@ export default function OrganizationHomeScreen({ record, recordType, domain, onL
             onSuccess={() => { setRemoveTarget(null); refresh() }}
           />
         )}
-      </CitizenScreen>
+      </OrgScreen>
     )
   }
 
-  // ── Home ─────────────────────────────────────────────────────────────
-  return (
-    <CitizenScreen hasTabBar>
-      <CitizenHomeHeader
+  // ── Dashboard ────────────────────────────────────────────────────────
+  const leftColumn = (
+    <div className="space-y-4">
+      <OrgHeroCard
         theme={theme}
+        typeLabel={isFisherfolk ? labels.orgHome.typeBadgeFisherfolk : labels.orgHome.typeBadgeFarmers}
         name={record?.label || labels.common.unknown}
-        metaLine={labels.orgHome.addressLine(record?.barangay || labels.common.unknown)}
-        onLogout={onLogout}
+        addressLine={labels.orgHome.addressLine(record?.barangay || labels.common.unknown)}
+        memberCount={members.length}
+        filled={filledPositions.length}
+        total={domain.officerPositions.length}
+        isLoading={isLoading}
       />
 
-      {/* Identity strip: type badge + the two live stats. */}
-      <section className={`${CITIZEN_GUTTER} -mt-3`}>
-        <div className="rounded-[12px] border-[0.5px] border-cz-border-strong bg-cz-surface p-[14px]">
-          <span className={`inline-block rounded-full px-2 py-[3px] text-[11px] font-medium ${theme.tileSelectedBg} ${theme.accentText}`}>
-            {isFisherfolk ? labels.orgHome.typeBadgeFisherfolk : labels.orgHome.typeBadgeFarmers}
-          </span>
-          <div className="mt-3 flex gap-8">
-            <div>
-              <p className="text-[10px] font-medium tracking-[0.05em] text-cz-text-2">
-                {labels.orgHome.statMembers.toUpperCase()}
-              </p>
-              <p className="mt-[2px] text-[22px] font-medium tabular-nums text-cz-text">
-                {isLoading ? '—' : members.length}
-              </p>
-            </div>
-            <div>
-              <p className="text-[10px] font-medium tracking-[0.05em] text-cz-text-2">
-                {labels.orgHome.statPositions.toUpperCase()}
-              </p>
-              <p className="mt-[2px] text-[22px] font-medium tabular-nums text-cz-text">
-                {isLoading
-                  ? '—'
-                  : labels.orgHome.positionsOf(filledPositions.length, domain.officerPositions.length)}
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {hasError && (
-        <div className={`${CITIZEN_GUTTER} mt-3`}>
-          <div className="rounded-[12px] border-[0.5px] border-cz-danger-border bg-cz-danger-bg p-4">
-            <p className="text-[13px] text-cz-danger-body">{labels.orgHome.loadFailed}</p>
-            <button
-              type="button"
-              onClick={refresh}
-              className="mt-3 flex min-h-[44px] w-full items-center justify-center rounded-[8px] border-[0.5px] border-cz-danger-accent px-3 py-[11px] text-cz-danger-body"
-            >
-              <span className="text-[14px] font-medium">{labels.orgHome.retry}</span>
-            </button>
-          </div>
+        <div className="rounded-[12px] border-[0.5px] border-cz-danger-border bg-cz-danger-bg p-4">
+          <p className="text-[13px] text-cz-danger-body">{labels.orgHome.loadFailed}</p>
+          <button
+            type="button"
+            onClick={refresh}
+            className="mt-3 flex min-h-[44px] w-full items-center justify-center rounded-[8px] border-[0.5px] border-cz-danger-accent"
+          >
+            <span className="text-[14px] font-medium text-cz-danger-body">{labels.orgHome.retry}</span>
+          </button>
         </div>
       )}
 
       {!isLoading && !hasError && vacantPositions.length > 0 && (
-        <div className={`${CITIZEN_GUTTER} mt-3`}>
-          <div className="flex gap-2 rounded-[8px] border-[0.5px] border-cz-warn-border bg-cz-warn-bg p-3">
-            <AlertTriangle size={16} className="mt-px shrink-0 text-cz-warn-accent" aria-hidden="true" />
-            <div>
-              <p className="text-[13px] font-medium text-cz-warn-title">{labels.orgHome.vacancyTitle}</p>
-              <p className="mt-[2px] text-[12px] leading-[1.5] text-cz-warn-body">
-                {labels.orgHome.vacancyBody(vacantPositions.join(', '))}
-              </p>
-            </div>
-          </div>
-        </div>
+        <OrgAlertBanner positions={vacantPositions.join(', ')} />
       )}
 
-      <section className={`${CITIZEN_GUTTER} mt-4`}>
-        <SectionHeading>{labels.orgHome.actionsHeading}</SectionHeading>
-        <SecondaryRows>
-          <SecondaryRow
-            icon={UserPlus}
-            label={labels.orgHome.addMember}
+      <section>
+        <OrgSectionLabel>{labels.orgHome.actionsHeading}</OrgSectionLabel>
+        <div className="space-y-2.5">
+          <OrgActionRow
+            icon={UserPlus} tone="blue"
+            title={labels.orgHome.addMember} subtitle={labels.orgHome.addMemberSub}
             onClick={() => setView('addMember')}
           />
-          <SecondaryRow
-            icon={UserCog}
-            label={labels.orgHome.assignOfficer}
+          <OrgActionRow
+            icon={UserCog} tone="amber"
+            title={labels.orgHome.assignOfficer} subtitle={labels.orgHome.assignOfficerSub}
             onClick={() => setView('assignOfficer')}
           />
-          <SecondaryRow
-            icon={ClipboardList}
-            label={labels.orgHome.distribute}
+          <OrgActionRow
+            icon={ClipboardList} tone="green"
+            title={labels.orgHome.distribute} subtitle={labels.orgHome.distributeSub}
             onClick={() => setView('assistance')}
-            isLast
           />
-        </SecondaryRows>
+        </div>
       </section>
 
-      <section className={`${CITIZEN_GUTTER} mt-4`}>
-        <SectionHeading>{labels.orgHome.officerRosterHeading}</SectionHeading>
-        <ul className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border-strong bg-cz-surface">
-          {domain.officerPositions.map((position, i) => {
-            const o = officerByPosition[position]
+      <section>
+        <OrgSectionLabel>{labels.orgHome.officerRosterHeading}</OrgSectionLabel>
+        <OrgOfficerRoster
+          positions={domain.officerPositions}
+          officerByPosition={officerByPosition}
+          officerPersonId={domain.officerPersonId}
+        />
+      </section>
+
+      {/* "Iba pa" rows — History, and the Organization Info entry point the
+          profile self-editing backend needs a home for. */}
+      <div className="space-y-2.5">
+        <OrgActionRow
+          icon={FileText} tone="slate" showChevron
+          title={labels.orgHome.reportingHistory} subtitle={labels.orgHome.reportingHistorySub}
+          onClick={() => setView('history')}
+        />
+        <OrgActionRow
+          icon={UserSearch} tone="slate" showChevron
+          title={labels.orgHome.perMemberRow} subtitle={labels.orgHome.perMemberRowSub}
+          onClick={() => setView('perMember')}
+        />
+        <OrgActionRow
+          icon={Info} tone="slate" showChevron
+          title={labels.orgHome.orgInfoRow} subtitle={labels.orgHome.orgInfoRowSub}
+          onClick={() => setView('orgInfo')}
+        />
+      </div>
+    </div>
+  )
+
+  const memberGrid = (
+    <section>
+      <OrgSectionLabel>{labels.orgHome.membersCount(isLoading ? 0 : members.length)}</OrgSectionLabel>
+      {isLoading ? (
+        <p className="text-[13px] italic text-cz-text-2">{labels.orgHome.membersLoading}</p>
+      ) : members.length === 0 ? (
+        <p className="rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface p-6 text-center text-[13px] italic text-cz-text-muted">
+          {labels.orgHome.membersEmpty}
+        </p>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+          {members.map((m) => {
+            const personId = domain.rowPersonId(m)
             return (
-              <li
-                key={position}
-                className={`flex items-center gap-3 px-[14px] py-[11px] ${
-                  i === domain.officerPositions.length - 1 ? '' : 'border-b-[0.5px] border-cz-border'
-                }`}
-              >
-                {o ? (
-                  <OrgAvatar name={o.full_name} id={domain.officerPersonId(o)} size={34} />
-                ) : (
-                  <span
-                    className="inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-full border border-dashed border-cz-warn-border text-cz-warn-accent"
-                    aria-hidden="true"
-                  >
-                    +
-                  </span>
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-medium tracking-[0.05em] text-cz-text-2">
-                    {position.toUpperCase()}
-                  </p>
-                  {o ? (
-                    <p className="mt-[1px] truncate text-[14px] font-medium text-cz-text">{o.full_name}</p>
-                  ) : (
-                    <span className="mt-[2px] inline-block rounded-full bg-cz-warn-bg px-2 py-[2px] text-[10px] font-medium text-cz-warn-accent">
-                      {labels.orgHome.vacant}
-                    </span>
-                  )}
-                </div>
-              </li>
+              <OrgMemberCard
+                key={m.id}
+                name={domain.rowName(m)}
+                barangay={domain.rowBarangay(m)}
+                role={positionOfPerson(personId)}
+                personId={personId}
+              />
             )
           })}
-        </ul>
-      </section>
+        </div>
+      )}
+    </section>
+  )
 
-      <section className={`${CITIZEN_GUTTER} mt-4`}>
-        <SectionHeading>{labels.orgHome.membersCount(isLoading ? 0 : members.length)}</SectionHeading>
-        {isLoading ? (
-          <p className="text-[13px] italic text-cz-text-2">{labels.orgHome.membersLoading}</p>
-        ) : members.length === 0 ? (
-          <CitizenEmptyState
-            icon={Users}
-            iconClass={theme.accentText}
-            title={labels.orgHome.membersEmpty}
-          />
-        ) : (
-          <div className="grid grid-cols-2 gap-[10px]">
-            {members.map((m) => {
-              const personId = domain.rowPersonId(m)
-              const position = positionOfPerson(personId)
-              return (
-                <div
-                  key={m.id}
-                  className="rounded-[12px] border-[0.5px] border-cz-border-strong bg-cz-surface p-[14px]"
-                >
-                  <OrgAvatar name={domain.rowName(m)} id={personId} />
-                  <p className="mt-[10px] truncate text-[14px] font-medium text-cz-text">
-                    {domain.rowName(m)}
-                  </p>
-                  <p className="truncate text-[12px] text-cz-text-2">
-                    {domain.rowBarangay(m) || labels.common.unknown}
-                  </p>
-                  {position && (
-                    <span className={`mt-2 inline-block rounded-full px-2 py-[3px] text-[10px] font-medium ${theme.tileSelectedBg} ${theme.accentText}`}>
-                      {position}
-                    </span>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </section>
-
-      <section className={`${CITIZEN_GUTTER} mt-4`}>
-        <SectionHeading>{labels.orgHome.secondaryHeading}</SectionHeading>
-        <SecondaryRows>
-          <SecondaryRow
-            icon={ClipboardList}
-            label={labels.orgHome.reportingHistory}
-            onClick={() => setView('assistance')}
-            isLast
-          />
-        </SecondaryRows>
-      </section>
-
-      <div className="h-4" />
+  return (
+    <div className="min-h-screen w-full bg-cz-org-panel">
+      <OrgAppBar title={labels.orgHome.dashboardTitle} chipLabel={record?.label} />
+      <main className="mx-auto w-full max-w-[1240px] px-4 pb-[calc(72px+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-10">
+        {/* Mobile/tablet: one column, hero → alert → actions → roster →
+            history, then members. Desktop (1024px+): two columns, exactly as
+            image10/image11 draw them. */}
+        <div className="lg:grid lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:items-start lg:gap-6">
+          {leftColumn}
+          <div className="mt-6 lg:mt-0">{memberGrid}</div>
+        </div>
+      </main>
       {tabBar('home')}
-    </CitizenScreen>
+    </div>
   )
 }

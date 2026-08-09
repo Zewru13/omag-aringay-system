@@ -494,6 +494,40 @@ export const labels = {
   },
 
   // ── MyOrgReportingSection ──────────────────────────────────────────────
+  // Reference images 5-8. Copy is the mockup's own, verbatim where it is
+  // legible, including the English technical terms it mixes in.
+  orgReportAssistance: {
+    title: 'I-report ang Tulong',
+    typeHeading: 'URI NG TULONG',
+    quantity: 'DAMI',
+    unit: 'YUNIT',
+    cashPerMember: 'HALAGA BAWAT KASAPI (₱)',
+    cashPreview: (amount) => `₱${amount} bawat kasapi`,
+    recipientsHeading: 'MGA TATANGGAP',
+    allMembers: 'Lahat ng kasapi',
+    memberCount: (n) => `${n} kasapi`,
+    // States the option-(b) scope honestly rather than drawing per-member
+    // checkboxes that would not change what is sent.
+    allMembersNote: 'Ipapadala sa lahat ng kasalukuyang kasapi. Hindi pa po pwedeng pumili ng iilan lang.',
+    previewButton: 'I-preview bago kumpirmahin →',
+    confirmTitle: 'Kumpirmahin ang tulong',
+    resultTitle: 'Tapos na ang pag-report',
+    notSpecified: 'Hindi tinukoy',
+    other: 'Iba pa',
+    otherTypePlaceholder: 'Anong uri ng tulong?',
+    otherAgencyPlaceholder: 'Anong ahensya?',
+  },
+
+  // Reference image9.
+  orgReportHistory: {
+    title: 'History ng Reporting',
+    latest: 'PINAKABAGO',
+    perMember: (amount) => `${amount} bawat kasapi`,
+    givenTo: (n) => `Ibinigay sa ${n} kasapi`,
+    reportedBy: (name) => `I-report ni ${name}`,
+    viewRecipients: (n) => `Tingnan ang ${n} tatanggap`,
+  },
+
   orgReporting: {
     reportForMemberTitle: 'Mag-report ng tulong para sa isang miyembro',
     searchPlaceholder: (personLabelLower) => `Hanapin ang ${personLabelLower} na miyembro ng organisasyon sa pangalan...`,
@@ -583,48 +617,58 @@ export const labels = {
 
   // ── Batch 2: Organization dashboard ────────────────────────────────────
   orgHome: {
+    // Copy is taken VERBATIM from the approved reference images — including
+    // the English-in-Tagalog mixes ("History ng Reporting", "VACANT",
+    // "registered farmer/fisherfolk"), which are how the mockup reads and
+    // how these terms are actually said locally.
+    appName: 'OMAG ARINGAY',
     dashboardTitle: 'Dashboard ng Organisasyon',
     typeBadgeFarmers: 'Farmers Organization',
     typeBadgeFisherfolk: 'Fisherfolk Organization',
-    // Address is composed the same way the citizen profile screen does it —
-    // every organization in this system is in Aringay, La Union.
     addressLine: (barangay) => `Brgy. ${barangay}, Aringay, La Union`,
-    statMembers: 'Kasapi',
-    statPositions: 'Posisyon',
-    positionsOf: (filled, total) => `${filled}/${total}`,
+
+    statMembers: 'KASAPI',
+    statPositions: 'POSISYON',
 
     vacancyTitle: 'May bakanteng posisyon',
-    vacancyBody: (positions) => `${positions} — kailangan italaga`,
-    noVacancy: 'Kumpleto ang mga opisyal',
+    vacancyBody: (positions) => `${positions} — kailangang italaga`,
 
-    actionsHeading: 'Mga aksyon',
+    actionsHeading: 'MGA AKSYON',
     addMember: 'Magdagdag ng Kasapi',
-    addMemberSub: (personLabelLower) => `Maghanap at magdagdag ng rehistradong ${personLabelLower}`,
+    addMemberSub: 'Maghanap at magdagdag ng registered farmer/fisherfolk',
     assignOfficer: 'Italaga ang Opisyal',
     assignOfficerSub: 'Pumili ng kasapi para sa isang posisyon',
-    distribute: 'Ipamahagi ang Tulong',
-    distributeSub: 'I-record ang tulong na naibigay sa mga kasapi',
+    distribute: 'I-report ang Tulong',
+    distributeSub: 'I-record ang naibigay na government assistance',
 
-    officerRosterHeading: 'Roster ng Opisyal',
-    vacant: 'Bakante',
-    membersHeading: 'Mga kasapi',
-    membersCount: (n) => `Mga kasapi — ${n} lahat`,
+    officerRosterHeading: 'ROSTER NG OPISYAL',
+    vacant: 'VACANT',
+
+    membersHeading: 'Mga Kasapi',
+    membersCount: (n) => `MGA KASAPI — ${n} TOTAL`,
     membersEmpty: 'Wala pang kasapi ang organisasyong ito.',
     membersLoading: 'Kinukuha ang mga kasapi...',
-    officersLoading: 'Kinukuha ang mga opisyal...',
     loadFailed: 'Hindi makuha ang datos ng organisasyon.',
     retry: 'Subukan ulit',
 
-    secondaryHeading: 'Iba pa',
     reportingHistory: 'History ng Reporting',
-    reportingHistorySub: 'Tingnan ang mga nakaraang record',
+    reportingHistorySub: 'Tingnan ang mga nakaraang rekord',
+    perMemberRow: 'I-report para sa isang kasapi',
+    perMemberRowSub: 'Kapag hindi lahat ng kasapi ang tumanggap',
+    orgInfoRow: 'Impormasyon ng Organisasyon',
+    orgInfoRowSub: 'Logo, contact number, pangalan at address',
     backToDashboard: 'Bumalik sa dashboard',
   },
+
 
   // ── Batch 2: Add Member ────────────────────────────────────────────────
   orgAddMember: {
     title: 'Magdagdag ng Kasapi',
-    searchPlaceholder: 'Maghanap ng pangalan...',
+    // image4's placeholder reads "pangalan, RSBSA number, o barangay". The
+    // search endpoint deliberately does NOT match on RSBSA/FishR/LGU numbers
+    // (unnecessary disclosure for this use case, decided in Batch 1), so the
+    // placeholder promises only what the endpoint actually does.
+    searchPlaceholder: 'Maghanap ng pangalan o barangay',
     // The 2-character minimum is a real server rule, not a UI nicety — the
     // endpoint returns nothing below it. Say so rather than showing an
     // empty-looking result.
@@ -662,7 +706,7 @@ export const labels = {
   // ── Batch 2: Assign Officer ────────────────────────────────────────────
   orgAssignOfficer: {
     title: 'Italaga ang Opisyal',
-    pickPosition: 'Pumili ng posisyon:',
+    pickPosition: 'Pumili ng posisyon para italaga:',
     pickMember: 'Pumili ng kasapi para sa posisyong ito:',
     currentHolder: (name) => `Ngayon: ${name}`,
     willReplace: (name) => `Papalitan po si ${name} sa posisyong ito.`,

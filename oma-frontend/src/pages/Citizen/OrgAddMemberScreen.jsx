@@ -4,7 +4,7 @@ import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import OrgAvatar from './OrgAvatar.jsx'
 import { labels } from './labels.js'
-import { CITIZEN_GUTTER, CitizenBody, CitizenScreen, CitizenSubHeader } from './citizenUI.jsx'
+import { OrgScreen } from './OrgDashboardParts.jsx'
 
 // Batch 2: Add Member. Search -> select -> add, against Batch 1's
 // domain-scoped candidate endpoint (2-char minimum, 20-row cap, name /
@@ -25,10 +25,9 @@ import { CITIZEN_GUTTER, CitizenBody, CitizenScreen, CitizenSubHeader } from './
 const MIN_SEARCH_LENGTH = 2
 
 export default function OrgAddMemberScreen({
-  domain, orgId, existingMemberIds, onBack, onSuccess,
+  domain, orgId, orgName, existingMemberIds, onBack, onSuccess,
 }) {
   const { showToast } = useToast()
-  const theme = domain.theme
   const [term, setTerm] = useState('')
   const [results, setResults] = useState([])
   const [isSearching, setIsSearching] = useState(false)
@@ -101,31 +100,30 @@ export default function OrgAddMemberScreen({
   const tooShort = term.trim().length > 0 && term.trim().length < MIN_SEARCH_LENGTH
 
   return (
-    <CitizenScreen>
-      <CitizenSubHeader theme={theme} title={labels.orgAddMember.title} onBack={onBack} />
-
-      <div className={`${CITIZEN_GUTTER} mt-3`}>
-        <div className="flex items-center gap-2 rounded-[8px] border-[0.5px] border-cz-border-strong bg-cz-surface px-3">
-          <Search size={16} className="shrink-0 text-cz-text-muted" aria-hidden="true" />
-          <input
-            type="text"
-            value={term}
-            onChange={(e) => runSearch(e.target.value)}
-            placeholder={labels.orgAddMember.searchPlaceholder}
-            aria-label={labels.orgAddMember.searchPlaceholder}
-            className="min-h-[44px] w-full bg-transparent text-[14px] text-cz-text outline-none placeholder:text-cz-text-muted"
-          />
-        </div>
+    <OrgScreen title={labels.orgAddMember.title} chipLabel={orgName} onBack={onBack}>
+      {/* image4's search-first empty state: one white pill-radius field on
+          the panel ground, then a centred muted sentence and nothing else
+          until the search actually returns something. */}
+      <div className="flex items-center gap-2.5 rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface px-3.5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+        <Search size={17} className="shrink-0 text-cz-text-muted" aria-hidden="true" />
+        <input
+          type="text"
+          value={term}
+          onChange={(e) => runSearch(e.target.value)}
+          placeholder={labels.orgAddMember.searchPlaceholder}
+          aria-label={labels.orgAddMember.searchPlaceholder}
+          className="min-h-[46px] w-full bg-transparent text-[14px] text-cz-text outline-none placeholder:text-cz-text-muted"
+        />
       </div>
 
-      <CitizenBody>
+      <div className="mt-4 space-y-3">
         {term.trim().length === 0 && (
-          <p className="px-1 text-center text-[13px] leading-[1.5] text-cz-text-2">
+          <p className="px-6 pt-2 text-center text-[13px] leading-[1.55] text-cz-text-2">
             {labels.orgAddMember.hint(domain.personLabel.toLowerCase())}
           </p>
         )}
         {tooShort && (
-          <p className="px-1 text-center text-[13px] text-cz-text-2">{labels.orgAddMember.minChars}</p>
+          <p className="px-6 pt-2 text-center text-[13px] text-cz-text-2">{labels.orgAddMember.minChars}</p>
         )}
         {isSearching && (
           <p className="text-[13px] italic text-cz-text-2">{labels.orgAddMember.searching}</p>
@@ -143,27 +141,27 @@ export default function OrgAddMemberScreen({
         )}
 
         {results.length > 0 && (
-          <ul className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border-strong bg-cz-surface">
+          <ul className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
             {results.map((cand, i) => {
               const already = memberIdSet.has(cand.id)
               const membershipNote = domain.candidateMembershipNote(cand)
               return (
                 <li
                   key={cand.id}
-                  className={`flex items-center gap-3 px-[14px] py-[11px] ${
+                  className={`flex items-center gap-3 px-4 py-3 ${
                     i === results.length - 1 ? '' : 'border-b-[0.5px] border-cz-border'
                   }`}
                 >
-                  <OrgAvatar name={cand.full_name} id={cand.id} />
+                  <OrgAvatar name={cand.full_name} id={cand.id} size={38} />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14px] font-medium text-cz-text">{cand.full_name}</p>
-                    <p className="truncate text-[12px] text-cz-text-2">
+                    <p className="truncate text-[15px] font-semibold text-cz-text">{cand.full_name}</p>
+                    <p className="mt-0.5 truncate text-[13px] text-cz-text-2">
                       {cand.barangay || labels.common.unknown}
                       {membershipNote ? ` · ${labels.orgAddMember.currentOrgLabel(membershipNote)}` : ''}
                     </p>
                   </div>
                   {already ? (
-                    <span className="shrink-0 rounded-full bg-cz-page px-2 py-[3px] text-[10px] font-medium text-cz-text-2">
+                    <span className="shrink-0 rounded-full bg-cz-tile-slate-bg px-2.5 py-1 text-[11px] font-semibold text-cz-tile-slate-fg">
                       {labels.orgAddMember.alreadyMember}
                     </span>
                   ) : (
@@ -171,9 +169,9 @@ export default function OrgAddMemberScreen({
                       type="button"
                       disabled={busyId === cand.id}
                       onClick={() => handleAdd(cand)}
-                      className={`min-h-[36px] shrink-0 rounded-[8px] px-3 ${theme.solidBtn} transition-opacity hover:opacity-90 disabled:opacity-50`}
+                      className="min-h-[38px] shrink-0 rounded-[9px] bg-cz-org-bar px-3.5 text-white transition-opacity hover:opacity-90 disabled:opacity-50"
                     >
-                      <span className="text-[13px] font-medium">{labels.orgAddMember.addButton}</span>
+                      <span className="text-[13px] font-semibold">{labels.orgAddMember.addButton}</span>
                     </button>
                   )}
                 </li>
@@ -185,7 +183,7 @@ export default function OrgAddMemberScreen({
         {results.length >= 20 && (
           <p className="text-[11px] text-cz-text-muted">{labels.orgAddMember.capped}</p>
         )}
-      </CitizenBody>
+      </div>
 
       {pendingReassign && (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center">
@@ -209,20 +207,20 @@ export default function OrgAddMemberScreen({
               type="button"
               disabled={busyId === pendingReassign.candidate.id}
               onClick={() => submitAdd(pendingReassign.candidate, true)}
-              className={`mt-4 flex min-h-[44px] w-full items-center justify-center rounded-[8px] ${theme.solidBtn} transition-opacity hover:opacity-90 disabled:opacity-50`}
+              className="mt-4 flex min-h-[46px] w-full items-center justify-center rounded-[10px] bg-cz-org-bar text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
-              <span className="text-[15px] font-medium">{labels.orgAddMember.reassignConfirm}</span>
+              <span className="text-[15px] font-semibold">{labels.orgAddMember.reassignConfirm}</span>
             </button>
             <button
               type="button"
               onClick={() => setPendingReassign(null)}
-              className="mt-2 flex min-h-[44px] w-full items-center justify-center rounded-[8px] border-[0.5px] border-cz-border-strong"
+              className="mt-2 flex min-h-[46px] w-full items-center justify-center rounded-[10px] border-[0.5px] border-cz-border-strong"
             >
               <span className="text-[14px] text-cz-text-2">{labels.common.cancel}</span>
             </button>
           </div>
         </div>
       )}
-    </CitizenScreen>
+    </OrgScreen>
   )
 }

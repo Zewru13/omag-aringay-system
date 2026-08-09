@@ -50,6 +50,9 @@ export const CROP_THEME = {
   tileSelectedBorder: 'border-cz-crop-deep',
   tileSelectedBg: 'bg-cz-crop-pale',
   tileSelectedText: 'text-cz-crop-deeper',
+  // Batch: the small status dot inside the organization type pill
+  // ("Fisherfolk Organization"), per the reference hero card.
+  dot: 'bg-cz-crop-100',
 }
 
 export const FISH_THEME = {
@@ -68,6 +71,7 @@ export const FISH_THEME = {
   tileSelectedBorder: 'border-cz-fish-deep',
   tileSelectedBg: 'bg-cz-fish-pale',
   tileSelectedText: 'text-cz-fish-deep',
+  dot: 'bg-cz-fish-100',
 }
 
 // ─── Screen shell ───────────────────────────────────────────────────────

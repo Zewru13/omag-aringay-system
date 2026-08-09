@@ -129,14 +129,14 @@
      1452px, the highest-resolution frames in the set), not eyeballed.
 
      COLOUR DECISION: the mockup's app bar and hero card are #0B3D52 —
-     hue 197deg, a navy-cyan. The domain convention already established
-     across the citizen app is crop green (#1C5737, hue 147deg) and fish
-     teal (#1C574C, hue 169deg), and organizations follow their domain.
-     Adopting the mockup's navy would have made an organization's screens
-     a different colour from the same person's own Farmer/Fisherfolk
-     screens. So the header and hero take the EXISTING domain tokens and
-     everything else below is used exactly as sampled — the navy is the
-     one deliberate deviation, agreed before building.
+     hue 197deg, a navy-cyan, against the citizen app's crop green
+     (#1C5737, hue 147deg) and fish teal (#1C574C, hue 169deg). The first
+     pass kept the domain token so an officer's org screens matched their
+     own Farmer/Fisherfolk screens; on review the reference's navy was
+     adopted instead, so an ORGANISATION reads as an organisation rather
+     than as a large farmer. This is scoped to the organisation screens
+     ONLY — cz-crop-header and cz-fish-header are untouched and the
+     Farmer/Fisherfolk citizen screens are unchanged.
 
      These are all genuinely new: no existing cz-* token covers a
      categorical badge set or a per-person avatar identity palette. */
@@ -145,6 +145,18 @@
      citizen app's warm --color-cz-page is kept for the page itself; this
      is only for the inset panels the mockup shows in a cooler grey. */
   --color-cz-org-panel:     #F0F4F7;
+
+  /* App bar + hero, ORGANISATION SCREENS ONLY. Sampled from image10/
+     image11. These are deliberately NOT cz-crop-header/cz-fish-header:
+     organizations get the reference's own navy identity, while Farmer and
+     Fisherfolk citizen screens keep their domain green/teal untouched.
+     Nothing outside src/pages/Citizen/Org*.jsx may consume these. */
+  --color-cz-org-bar:       #0B3D52;
+  --color-cz-org-hero-from: #12405A;
+  --color-cz-org-hero-to:   #0E3446;
+  /* Text tiers that sit ON the navy. */
+  --color-cz-org-on:        #FFFFFF;
+  --color-cz-org-on-muted:  #9FC3D4;
 
   /* Action-row icon tiles (sampled from the three "Mga Aksyon" rows). */
   --color-cz-tile-blue-bg:   #E0F2FE;
