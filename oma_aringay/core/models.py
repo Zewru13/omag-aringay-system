@@ -93,3 +93,97 @@ class Notification(models.Model):
 
     def __str__(self):
         return f'{self.actor} {self.verb} {self.record_label}'
+
+
+# ─── Profile change requests ──────────────────────────────────────────────
+#
+# A citizen may edit some of their own registry data instantly (contact
+# number, profile picture) but NOT the fields that identify them in the
+# government registry — name, barangay, organization name/address. Those go
+# through this queue for staff review instead.
+#
+# The (linked_record_type, linked_record_id) pair intentionally mirrors
+# User.linked_record_type/linked_record_id rather than using ContentType +
+# GenericForeignKey — same reasoning as RecordLock above, and it means a
+# request row can be matched to its submitter's account with a plain
+# equality check instead of a content-type lookup.
+#
+# ONE ROW PER FIELD. A person changing their full name files three rows
+# (first_name, middle_name, last_name), so an evaluator approves "last name
+# Cruz -> Cruz-Santos" rather than parsing a combined string, and so a
+# single wrong part can be rejected without discarding the rest.
+class ProfileChangeRequest(models.Model):
+    class RecordType(models.TextChoices):
+        FARMER = 'FARMER', 'Farmer'
+        FISHERFOLK = 'FISHERFOLK', 'Fisherfolk'
+        FARMERS_ORG = 'FARMERS_ORG', 'Farmers Organization'
+        FISHERFOLK_ORG = 'FISHERFOLK_ORG', 'Fisherfolk Organization'
+
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        APPROVED = 'APPROVED', 'Approved'
+        REJECTED = 'REJECTED', 'Rejected'
+
+    # Which fields each record type is allowed to request changes to. The
+    # citizen-facing serializer validates against this, so widening the set
+    # is a deliberate edit here rather than something a client can assert.
+    REQUESTABLE_FIELDS = {
+        RecordType.FARMER: ['first_name', 'middle_name', 'last_name', 'barangay'],
+        RecordType.FISHERFOLK: ['first_name', 'middle_name', 'last_name', 'barangay'],
+        RecordType.FARMERS_ORG: ['name', 'barangay', 'street_address'],
+        RecordType.FISHERFOLK_ORG: ['name', 'barangay', 'street_address'],
+    }
+
+    linked_record_type = models.CharField(max_length=20, choices=RecordType.choices)
+    linked_record_id = models.PositiveIntegerField()
+
+    field_name = models.CharField(max_length=50)
+    old_value = models.CharField(max_length=255, blank=True)
+    requested_value = models.CharField(max_length=255)
+
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name='profile_change_requests',
+    )
+    requested_at = models.DateTimeField(auto_now_add=True)
+
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='reviewed_profile_change_requests',
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ['-requested_at']
+        indexes = [
+            models.Index(fields=['status', 'requested_at']),
+            models.Index(fields=['linked_record_type', 'linked_record_id']),
+        ]
+        constraints = [
+            # At most ONE pending request per record+field.
+            #
+            # NOTE: this is a no-op on the database this project actually
+            # runs (MariaDB/MySQL) — Django reports models.W036 "MySQL does
+            # not support unique constraints with conditions" and simply
+            # does not create it. It is kept because it IS enforced on
+            # PostgreSQL/SQLite and documents the intent, but it must not be
+            # relied on here.
+            #
+            # The real enforcement for this deployment is in
+            # ProfileChangeRequestCreateSerializer, which does the duplicate
+            # check inside a transaction with select_for_update() on the
+            # existing pending rows — see its docstring.
+            models.UniqueConstraint(
+                fields=['linked_record_type', 'linked_record_id', 'field_name'],
+                condition=models.Q(status='PENDING'),
+                name='uniq_pending_change_per_record_field',
+            ),
+        ]
+
+    def __str__(self):
+        return (f'{self.linked_record_type}#{self.linked_record_id} '
+                f'{self.field_name}: {self.old_value!r} -> {self.requested_value!r} '
+                f'({self.status})')

@@ -516,6 +516,71 @@ export const labels = {
     },
   },
 
+  // ── Batch: profile self-editing ────────────────────────────────────────
+  // Two tiers, and the copy has to make the difference obvious: some edits
+  // land immediately, others go to the office for review.
+  profileEdit: {
+    photoLabel: 'Larawan',
+    logoLabel: 'Logo',
+    changePhoto: 'Palitan ang larawan',
+    changeLogo: 'Palitan ang logo',
+    removePhoto: 'Alisin',
+    uploading: 'Ina-upload...',
+    uploadFailed: 'Hindi na-upload ang larawan.',
+    uploadSuccess: 'Na-update na ang larawan.',
+    removeSuccess: 'Naalis na ang larawan.',
+    // Mirrors the server's own limits so the two never disagree.
+    photoHint: 'JPG, PNG, o WEBP. Hanggang 5MB.',
+
+    contactLabel: 'Contact number',
+    contactSave: 'I-save',
+    contactCancel: 'Kanselahin',
+    contactSuccess: 'Na-update na ang contact number.',
+    contactFailed: 'Hindi na-update ang contact number.',
+    contactPlaceholder: '09XXXXXXXXX',
+    editAction: 'I-edit',
+
+    requestChange: 'Humiling ng Pagbabago',
+    pendingReview: 'Nakabinbin sa pagsusuri',
+    pendingNote: (value) => `Hiniling: ${value}`,
+    requestTitle: (fieldLabel) => `Humiling ng pagbabago — ${fieldLabel}`,
+    requestCurrent: 'Kasalukuyan',
+    requestNew: 'Bagong halaga',
+    requestSubmit: 'Isumite ang hiling',
+    requestSuccess: 'Naisumite na po. Hihintayin ang pagsusuri ng opisina.',
+    requestFailed: 'Hindi naisumite ang hiling.',
+    // The office reviews these, so say so plainly rather than implying the
+    // change has already happened.
+    reviewNotice: 'Ang mga pagbabagong ito ay dumadaan po sa pagsusuri ng opisina bago maaprubahan.',
+
+    historyTitle: 'Mga hiling na pagbabago',
+    historyEmpty: 'Wala pa kayong naisumiteng hiling.',
+    statusPending: 'Nakabinbin',
+    statusApproved: 'Naaprubahan',
+    statusRejected: 'Hindi naaprubahan',
+    rejectionReason: (reason) => `Dahilan: ${reason}`,
+
+    fieldLabels: {
+      first_name: 'Pangalan',
+      middle_name: 'Gitnang pangalan',
+      last_name: 'Apelyido',
+      barangay: 'Barangay',
+      name: 'Pangalan ng organisasyon',
+      street_address: 'Address',
+    },
+  },
+
+  // ── Batch: Organization Info screen ────────────────────────────────────
+  orgInfo: {
+    title: 'Impormasyon ng organisasyon',
+    registrationNumber: 'Registration no.',
+    contactPerson: 'Contact person',
+    groups: {
+      identity: 'IMPORMASYON NG ORGANISASYON',
+      contact: 'CONTACT',
+    },
+  },
+
   // ── Batch 2: Organization dashboard ────────────────────────────────────
   orgHome: {
     dashboardTitle: 'Dashboard ng Organisasyon',

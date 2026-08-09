@@ -76,6 +76,8 @@ class Fisherfolk(models.Model):
     gender        = models.CharField(max_length=10, choices=Gender.choices)
     birthdate     = models.DateField()
     contact_number = models.CharField(max_length=20, blank=True)
+    # Batch: citizen-uploaded, applies instantly (no staff review).
+    profile_picture = models.ImageField(upload_to='profile_pictures/fisherfolk/', null=True, blank=True)
     # Batch: optional citizen-registration email — see farmers.Farmer.email's
     # comment (same rationale, not a login identifier at this level).
     email         = models.EmailField(blank=True, null=True)

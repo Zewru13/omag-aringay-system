@@ -101,3 +101,57 @@ def validate_not_future_date(value, label='Date'):
     """
     if value and value > date.today():
         raise ValidationError(f'{label} cannot be in the future.')
+
+
+# ─── Batch: profile picture / organization logo uploads ───────────────────
+# Deliberately BOTH checks, not either:
+#   - extension+mimetype is what the browser claims,
+#   - Pillow actually decoding the file is what it really is.
+# A .jpg that is really a PDF passes the first and fails the second, which
+# is the case that matters — Django's ImageField alone would accept the
+# upload and only blow up later when something tried to render it.
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
+ALLOWED_IMAGE_CONTENT_TYPES = {'image/jpeg', 'image/png', 'image/webp'}
+ALLOWED_IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp'}
+
+
+def validate_uploaded_image(f):
+    """Raise ValidationError unless `f` is a real jpg/png/webp under 5 MB."""
+    if f is None:
+        return f
+
+    if f.size > MAX_UPLOAD_BYTES:
+        mb = MAX_UPLOAD_BYTES // (1024 * 1024)
+        raise ValidationError(
+            f'Image is too large ({f.size / 1024 / 1024:.1f} MB). Maximum is {mb} MB.'
+        )
+
+    name = (getattr(f, 'name', '') or '').lower()
+    ext = name[name.rfind('.'):] if '.' in name else ''
+    if ext not in ALLOWED_IMAGE_EXTENSIONS:
+        raise ValidationError(
+            'Unsupported file type. Please upload a JPG, PNG, or WEBP image.'
+        )
+
+    content_type = getattr(f, 'content_type', '') or ''
+    if content_type and content_type.lower() not in ALLOWED_IMAGE_CONTENT_TYPES:
+        raise ValidationError(
+            'Unsupported file type. Please upload a JPG, PNG, or WEBP image.'
+        )
+
+    # Actually decode it. verify() consumes the file object, so rewind after
+    # so the caller can still save it.
+    try:
+        from PIL import Image
+        f.seek(0)
+        Image.open(f).verify()
+    except ValidationError:
+        raise
+    except Exception:
+        raise ValidationError('That file is not a readable image.')
+    finally:
+        try:
+            f.seek(0)
+        except Exception:
+            pass
+    return f

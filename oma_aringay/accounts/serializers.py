@@ -64,6 +64,16 @@ class UserSerializer(serializers.ModelSerializer):
                 data['fishr_number'] = record.fishr_number
                 data['lgu_registration_number'] = record.lgu_registration_number
                 data['fisherfolk_type'] = record.fisherfolk_type
+            # Batch (profile self-service): the raw name parts are needed
+            # because a change request is filed per part, not against the
+            # composed full_name. `label` above stays the composed display
+            # value every existing consumer already reads.
+            data['first_name'] = record.first_name
+            data['middle_name'] = record.middle_name
+            data['last_name'] = record.last_name
+            data['profile_picture_url'] = (
+                record.profile_picture.url if record.profile_picture else None
+            )
             return data
         # FARMERS_ORG / FISHERFOLK_ORG
         return {
@@ -71,6 +81,12 @@ class UserSerializer(serializers.ModelSerializer):
             'label': record.name,
             'registration_number': record.registration_number,
             'barangay': record.barangay,
+            # Batch (profile self-service): organizations edit these too.
+            'name': record.name,
+            'street_address': record.street_address,
+            'contact_number': record.contact_number,
+            'contact_person': record.contact_person,
+            'logo_url': record.logo.url if record.logo else None,
         }
 
 

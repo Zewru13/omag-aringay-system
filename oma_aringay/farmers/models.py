@@ -50,6 +50,9 @@ class Farmer(models.Model):
     gender = models.CharField(max_length=10, choices=Gender.choices)
     birthdate = models.DateField()
     contact_number = models.CharField(max_length=20, blank=True)
+    # Batch: citizen-uploaded, applies instantly (no staff review). Blank
+    # for every existing record — this is opt-in, not backfilled.
+    profile_picture = models.ImageField(upload_to='profile_pictures/farmers/', null=True, blank=True)
     # Batch: optional citizen-registration email. Not unique at this level —
     # this is a contact detail on the person's own record, not a login
     # identifier (that's User.email, set separately if/when a linked CITIZEN

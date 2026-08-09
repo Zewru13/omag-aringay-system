@@ -34,6 +34,8 @@ class FarmersOrganization(models.Model):
     email_address = models.EmailField(blank=True, default='')
     contact_person = models.CharField(max_length=150)
     contact_number = models.CharField(max_length=20)
+    # Batch: citizen-uploaded organization logo, applies instantly.
+    logo = models.ImageField(upload_to='logos/farmers_orgs/', null=True, blank=True)
     is_active = models.BooleanField(default=True)
     date_created = models.DateTimeField(auto_now_add=True)
 
@@ -174,6 +176,8 @@ class FisherfolkOrganization(models.Model):
     email_address       = models.EmailField(blank=True, default='')
     contact_person      = models.CharField(max_length=150)
     contact_number      = models.CharField(max_length=20)
+    # Batch: citizen-uploaded organization logo, applies instantly.
+    logo                = models.ImageField(upload_to='logos/fisherfolk_orgs/', null=True, blank=True)
     is_active           = models.BooleanField(default=True)
     date_created        = models.DateTimeField(auto_now_add=True)
 
