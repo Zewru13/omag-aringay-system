@@ -136,6 +136,53 @@ export const labels = {
     // Pond Preparation 20, Stocking 19 ...). Copying it literally would make
     // those unloggable, so the three keep their prominent cards and 'Iba pa'
     // reveals the rest. Nothing is lost; the reference's shape is kept.
+    // ── Log ng Kalusugan (frames 7, 9-12, 15) ──────────────────────────
+    // Its own three-step screen in the reference, NOT a field inside the
+    // activity log. Step 1 pond, step 2 illness, step 3 the form, then a
+    // confirmation. Every string below is copied from the frames.
+    health: {
+      title: 'Log ng Kalusugan',
+      subtitle: 'Sakit o pagkamatay ng isda',
+      notice: 'Gamitin ito para sa sakit, parasito, o malawakang pagkamatay ng isda. Para sa karaniwang pagpapakain, gamitin ang I-Log na aktibidad.',
+      pondQuestion: 'Alin pong pond ang apektado?',
+      selectedPond: 'Napiling pond',
+      illnessQuestion: 'Anong uri ng sakit o problema?',
+      contextLabel: 'Pond · Uri ng sakit',
+      noIllnessTypes: 'Wala pang nakatalang uri ng sakit. Makipag-ugnayan po sa OMAg.',
+
+      guideHeading: 'PANGKALAHATANG MUNGKAHI SA PAG-AALAGA',
+      guideDisclaimer: 'Pangkalahatang gabay lamang ito — hindi ito nagbibigay ng tiyak na gamot o dosis. Kumonsulta sa beterinaryo o BFAR para sa tamang paggamot.',
+
+      observationDate: 'PETSA NG OBSERBASYON',
+      affectedPortion: 'TINATAYANG BAHAGI NG POND NA APEKTADO',
+      // Keys are the stored English values on
+      // FisheriesActivityLog.AFFECTED_PORTION_CHOICES; these are display only.
+      portionOptions: {
+        'Few fish': 'Ilang isda lamang (wala pang 10%)',
+        Part: 'Bahagi ng pond (10–30%)',
+        Half: 'Kalahati ng pond (30–60%)',
+        Most: 'Karamihan ng pond (higit sa 60%)',
+        All: 'Lahat ng isda',
+      },
+      mortality: 'BILANG NG NAMATAY (KUNG MAYROON)',
+      mortalityPlaceholder: 'hal. 50',
+      consulted: 'KUMONSULTA SA BETERINARYO O BFAR?',
+      yes: 'Oo',
+      no: 'Hindi',
+      treatment: 'PAGGAMOT NA GINAWA (KUNG MAYROON)',
+      treatmentPlaceholder: "Ilarawan ang ginawang paggamot. Kung wala pang ginawa, maaaring ilagay ang 'Wala pa.'",
+      treatmentDisclaimer: 'Ang paggamot ay inyong sariling desisyon at obserbasyon — huwag ibase sa mungkahi sa itaas nang walang konsultasyon sa eksperto.',
+      extraNotes: 'KARAGDAGANG TALA (OPSYONAL)',
+      extraNotesPlaceholder: 'Anumang ibang obserbasyon…',
+      escalation: 'Para sa malubha o malawakang pagkamatay ng isda, makipag-ugnayan agad sa OMAg o BFAR regional office.',
+      save: 'I-save ang Log ng Kalusugan',
+
+      successTitle: 'Naitala na po',
+      successBody: (pond) => `Nai-save ang kalusugan log para sa ${pond}. Puwede na ninyong isara ito o mag-log ng isa pa.`,
+      logMore: 'Mag-log pa',
+      backHome: 'Bumalik sa Home',
+    },
+
     activityTypeHeading: 'URI NG AKTIBIDAD',
     activityMore: 'Iba pa',
     activityMoreSub: 'Sampling, stocking, pond preparation, at iba pa',

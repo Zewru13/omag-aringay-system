@@ -7,8 +7,8 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import useRecordLock from '../../hooks/useRecordLock.js'
 import { labels } from './labels.js'
+import { todayISO } from '../../utils/localDate.js'
 
-const todayISO = () => new Date().toISOString().split('T')[0]
 
 const UNIT_OPTIONS = [
   { value: 'kg', label: labels.harvest.unitOptions.kg },

@@ -404,9 +404,10 @@ class FisheriesActivityLogSerializer(serializers.ModelSerializer):
             'water_fish_condition', 'ph_level', 'dissolved_oxygen', 'water_clarity',
             'feed_type', 'feed_quantity_kg', 'feed_brand',
             'observed_issue', 'severity', 'mortality_count', 'area_affected_ha',
+            'affected_portion',
             'disease_type', 'disease_type_name', 'disease_type_other_specify', 'vet_consulted',
             'treatment_applied', 'outcome',
-            'recommendations',
+            'recommendations', 'notes',
             'target_day', 'is_late', 'logged_by', 'logged_by_name',
             'date_logged', 'disaster_report', 'disaster_rule',
         ]
@@ -463,7 +464,13 @@ class FisheriesActivityLogSerializer(serializers.ModelSerializer):
             })
 
         area_affected_ha = data.get('area_affected_ha')
-        if activity == 'Disease Control' and area_affected_ha is None:
+        # Disease Control must say HOW MUCH of the pond is affected, but there
+        # are now two ways to answer. Staff enter hectares; the citizen health
+        # log asks for a proportion band instead, because someone standing at
+        # a sick pond can judge "about half" but not "0.32 ha". Either one
+        # satisfies the requirement — demanding hectares of a citizen was what
+        # made the reference's own form unsubmittable.
+        if activity == 'Disease Control' and area_affected_ha is None and not data.get('affected_portion'):
             raise serializers.ValidationError({
                 'area_affected_ha': 'Area affected is required for Disease Control activities.'
             })

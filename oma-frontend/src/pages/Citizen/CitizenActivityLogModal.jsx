@@ -6,13 +6,8 @@ import { useToast } from '../../context/ToastContext.jsx'
 import useRecordLock from '../../hooks/useRecordLock.js'
 import { labels } from './labels.js'
 import { CITIZEN_GUTTER, CROP_THEME, CitizenScreen, CitizenSubHeader, FISH_THEME } from './citizenUI.jsx'
+import { todayISO, yesterdayISO } from '../../utils/localDate.js'
 
-const todayISO = () => new Date().toISOString().split('T')[0]
-const yesterdayISO = () => {
-  const d = new Date()
-  d.setDate(d.getDate() - 1)
-  return d.toISOString().split('T')[0]
-}
 
 const dateMode = (dateStr) => {
   if (dateStr === todayISO()) return 'today'

@@ -292,12 +292,43 @@ class CropActivityLog(models.Model):
         choices=[('kg', 'kg'), ('bags', 'bags'), ('liters', 'liters'), ('sacks', 'sacks'), ('pieces', 'pieces')],
     )
 
+    # PARAAN NG PAGLAGAY — the reference pairs every fertilizer entry with how
+    # it was applied, which the model could not record; quantity alone does not
+    # distinguish a broadcast from a foliar spray.
+    application_method = models.CharField(
+        max_length=30, blank=True,
+        choices=[
+            ('Broadcast',   'Broadcast'),
+            ('Basal',       'Basal'),
+            ('Side-dress',  'Side-dress'),
+            ('Foliar Spray', 'Foliar Spray'),
+            ('Fertigation', 'Fertigation'),
+        ],
+    )
+
     # Pest/Disease-specific fields (filled when activity = Pest Control or Disease Control)
     pest_disease_name = models.CharField(max_length=200, blank=True, help_text='e.g. Brown Planthopper, Bacterial Blight')
     area_affected_ha = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True, help_text='Area affected in hectares')
     severity = models.CharField(
         max_length=10, blank=True,
         choices=[('Low', 'Low'), ('Medium', 'Medium'), ('High', 'High')],
+    )
+    # GAMOT / LUNAS NA GINAMIT (pest) and FUNGICIDE / GAMOT NA GINAMIT (disease)
+    # are one field: both record the product actually used, and the reference
+    # only relabels it per activity. Free text, like the fisheries side's
+    # treatment_applied — brand names are local and change constantly, so a
+    # choice list would go stale and force people into "Other".
+    treatment_used = models.CharField(
+        max_length=200, blank=True,
+        help_text='Pesticide/fungicide or remedy actually applied (Pest Control / Disease Control).',
+    )
+
+    # KALIDAD NG TUBIG — Water Quality Check on the crop side. The reference
+    # draws it as a select but does not reveal its options, so it mirrors
+    # plant_condition's Good/Fair/Poor band rather than inventing a scale.
+    water_quality = models.CharField(
+        max_length=10, blank=True,
+        choices=[('Good', 'Good'), ('Fair', 'Fair'), ('Poor', 'Poor')],
     )
 
     target_day = models.IntegerField(null=True, blank=True, help_text="Day after planting this log was targeted for")

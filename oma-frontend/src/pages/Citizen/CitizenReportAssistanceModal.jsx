@@ -7,8 +7,8 @@ import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { labels } from './labels.js'
+import { todayISO } from '../../utils/localDate.js'
 
-const todayISO = () => new Date().toISOString().split('T')[0]
 
 // Batch C — matches interventions.models.InterventionProgram.SourceOfProgram
 // exactly (minus its own 'Other', appended by ComboboxWithOther). Same

@@ -178,9 +178,9 @@ class CropActivityLogSerializer(serializers.ModelSerializer):
         model = CropActivityLog
         fields = [
             'id', 'monitoring_record', 'activity_type', 'activity_type_other_specify', 'date_of_activity',
-            'plant_condition', 'status_at_log', 'notes',
-            'fertilizer_type', 'quantity_applied', 'quantity_unit',
-            'pest_disease_name', 'area_affected_ha', 'severity',
+            'plant_condition', 'status_at_log', 'notes', 'water_quality',
+            'fertilizer_type', 'quantity_applied', 'quantity_unit', 'application_method',
+            'pest_disease_name', 'area_affected_ha', 'severity', 'treatment_used',
             'recorded_by', 'logged_by_name', 'target_day', 'is_late',
             'date_logged', 'disaster_report', 'disaster_rule',
         ]

@@ -6,6 +6,7 @@ import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { labels } from './labels.js'
+import { todayISO } from '../../utils/localDate.js'
 
 const SOURCE_AGENCY_OPTIONS = [
   'LGU - Aringay',
@@ -15,7 +16,6 @@ const SOURCE_AGENCY_OPTIONS = [
   'Non-Government Organization (NGO)',
 ]
 
-const todayISO = () => new Date().toISOString().split('T')[0]
 const L = labels.distributeAssistance
 
 // Batch 12 sibling of CitizenReportAssistanceModal — same org, same fields,

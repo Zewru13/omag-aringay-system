@@ -623,6 +623,20 @@ class FisheriesActivityLog(models.Model):
     observed_issue      = models.CharField(max_length=200, blank=True)
     severity            = models.CharField(max_length=10, choices=SEVERITY_CHOICES, blank=True)
     mortality_count     = models.IntegerField(null=True, blank=True)
+
+    # TINATAYANG BAHAGI NG POND NA APEKTADO. area_affected_ha below already
+    # exists but is in hectares, which a fisherfolk looking at a sick pond
+    # cannot estimate; the reference asks the same question as a proportion
+    # band instead. Both are kept: staff keep entering hectares, citizens
+    # answer the band, and neither overwrites the other.
+    AFFECTED_PORTION_CHOICES = [
+        ('Few fish',    'Few fish (under 10%)'),
+        ('Part',        'Part of pond (10-30%)'),
+        ('Half',        'Half of pond (30-60%)'),
+        ('Most',        'Most of pond (over 60%)'),
+        ('All',         'All fish'),
+    ]
+    affected_portion    = models.CharField(max_length=20, choices=AFFECTED_PORTION_CHOICES, blank=True)
     area_affected_ha    = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True, help_text='Area affected in hectares (Disease Control activity)')
     treatment_applied   = models.CharField(max_length=200, blank=True)
     # Batch 4 — disease_type links a log to DiseaseResponseGuide's recommended
@@ -644,6 +658,11 @@ class FisheriesActivityLog(models.Model):
         ('Losses Incurred',  'Losses Incurred'),
     ])
     recommendations     = models.TextField(blank=True)
+    # KARAGDAGANG TALA — the citizen's own free observation. Deliberately not
+    # folded into `recommendations` above, which is what OMAg staff advise;
+    # merging the two would make it impossible to tell afterwards whether a
+    # line came from the office or from the fisherfolk.
+    notes               = models.TextField(blank=True)
     target_day          = models.IntegerField(null=True, blank=True, help_text='Day after stocking this log targets')
     is_late             = models.BooleanField(default=False, help_text='Logged after the target window')
     date_logged         = models.DateTimeField(auto_now_add=True, null=True, blank=True, help_text='When OMAg staff encoded this log')

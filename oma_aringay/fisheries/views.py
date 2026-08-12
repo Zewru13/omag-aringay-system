@@ -283,8 +283,17 @@ class DiseaseTypeDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class DiseaseResponseGuideListCreateView(generics.ListCreateAPIView):
     serializer_class = DiseaseResponseGuideSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     pagination_class = None
+
+    def get_permissions(self):
+        # Same reasoning as DiseaseTypeListCreateView above: the health-log
+        # screen shows the guide for whichever illness the fisherfolk picked
+        # ("Pangkalahatang mungkahi sa pag-aalaga"), so a citizen must be able
+        # to read it. Authoring guidance stays staff-only — this text steers
+        # how someone treats their stock.
+        if self.request.method == 'POST':
+            return [IsAuthenticated(), IsAdminOrEvaluator()]
+        return [IsAuthenticated()]
 
     def get_queryset(self):
         qs = DiseaseResponseGuide.objects.select_related('disease_type').order_by('disease_type__name')

@@ -4,6 +4,7 @@ import api from '../../api/axiosInstance.js'
 import { labels } from './labels.js'
 import { OrgScreen, OrgSectionLabel } from './OrgDashboardParts.jsx'
 import OrgAvatar from './OrgAvatar.jsx'
+import { todayISO } from '../../utils/localDate.js'
 
 // Reference images 5-8, built as ONE component with conditional rendering.
 // The four drawn states are not four screens — they are this screen with a
@@ -54,7 +55,6 @@ const UNIT_OPTIONS = {
 const DEFAULT_UNITS = ['unit']
 const unitsFor = (type) => UNIT_OPTIONS[type] || DEFAULT_UNITS
 
-const todayISO = () => new Date().toISOString().split('T')[0]
 const L = labels.distributeAssistance
 const R = labels.orgReportAssistance
 

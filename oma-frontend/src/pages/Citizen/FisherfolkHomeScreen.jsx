@@ -5,6 +5,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { FISHERIES_DOMAIN } from './citizenDomainConfig.js'
 import CitizenActivityLogScreen from './CitizenActivityLogModal.jsx'
 import CitizenDisasterScreen from './CitizenDisasterScreen.jsx'
+import CitizenHealthLogScreen from './CitizenHealthLogScreen.jsx'
 import CitizenProfileScreen from './CitizenProfileScreen.jsx'
 import MyYieldAnalysisSection from './MyYieldAnalysisSection.jsx'
 import MyAssistanceHistorySection from './MyAssistanceHistorySection.jsx'
@@ -14,8 +15,8 @@ import {
   CitizenScreen, CitizenSubHeader, CitizenTabBar, FISH_THEME, ProgressTrack, QuickLinksHeading,
   SectionHeading, SecondaryRow, SecondaryRows, StatusCard, cycleProgress,
 } from './citizenUI.jsx'
+import { todayISO } from '../../utils/localDate.js'
 
-const todayISO = () => new Date().toISOString().split('T')[0]
 const ACTIVE_STATUSES = ['Stocked', 'Near Harvest']
 
 // The stored activity CHOICE VALUE for feeding. Deliberately a code
@@ -118,7 +119,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
         { key: 'log', icon: FileText, label: labels.tabBar.fishLog,
           onClick: () => { setPondPickerMode('log'); setView({ kind: 'pondPicker' }) } },
         { key: 'health', icon: Stethoscope, label: labels.tabBar.fishHealth,
-          onClick: () => { setPondPickerMode('illness'); setView({ kind: 'pondPicker' }) } },
+          onClick: () => setView({ kind: 'health' }) },
         { key: 'report', icon: AlertTriangle, label: labels.tabBar.fishReport,
           onClick: () => { setPondPickerMode('disaster'); setView({ kind: 'pondPicker' }) } },
         { key: 'myInfo', icon: User, label: labels.tabBar.profile, onClick: () => setView({ kind: 'profile' }) },
@@ -254,6 +255,19 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
     )
   }
 
+  // Kalusugan is its own three-step screen in the reference (frames 7, 9-12,
+  // 15), so it does NOT go through the shared pond picker + activity log.
+  if (view.kind === 'health') {
+    return (
+      <CitizenHealthLogScreen
+        records={stockingRecords.filter((sr) => ACTIVE_STATUSES.includes(sr.status))}
+        onBack={() => setView({ kind: 'home' })}
+        onSaved={fetchAll}
+        tabBar={tabBar('health')}
+      />
+    )
+  }
+
   if (view.kind === 'pondPicker') {
     const activeRecords = stockingRecords.filter((sr) => ACTIVE_STATUSES.includes(sr.status))
     const isDisasterMode = pondPickerMode === 'disaster'
@@ -322,7 +336,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
   // the one entry that starts a task rather than opening a read-only view.
   const quickLinks = [
     { icon: User, label: labels.farmerHome.secondary.profileTitle, onClick: () => setView({ kind: 'profile' }) },
-    { icon: Stethoscope, label: labels.fisherfolkHome.secondary.illnessTitle, onClick: () => { setPondPickerMode('illness'); setView({ kind: 'pondPicker' }) } },
+    { icon: Stethoscope, label: labels.fisherfolkHome.secondary.illnessTitle, onClick: () => setView({ kind: 'health' }) },
     { icon: AlertTriangle, label: labels.fisherfolkHome.secondary.disasterTitle, onClick: () => { setPondPickerMode('disaster'); setView({ kind: 'pondPicker' }) } },
     { icon: BarChart3, label: labels.farmerHome.secondary.harvestResultsTitle, onClick: () => setView({ kind: 'yield' }) },
     { icon: Gift, label: labels.farmerHome.secondary.assistanceTitle, onClick: () => setView({ kind: 'assistance' }) },
