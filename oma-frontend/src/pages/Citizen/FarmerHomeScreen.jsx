@@ -3,8 +3,8 @@ import { AlertCircle, AlertTriangle, BarChart3, ChevronRight, Clock, FileText, G
 import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { CROP_DOMAIN } from './citizenDomainConfig.js'
-import CitizenActivityLogScreen from './CitizenActivityLogModal.jsx'
 import CitizenDisasterScreen from './CitizenDisasterScreen.jsx'
+import CitizenFarmerActivityScreen from './CitizenFarmerActivityScreen.jsx'
 import CitizenProfileScreen from './CitizenProfileScreen.jsx'
 import FarmerCropHistoryView from './FarmerCropHistoryView.jsx'
 import MyYieldAnalysisSection from './MyYieldAnalysisSection.jsx'
@@ -29,7 +29,6 @@ export default function FarmerHomeScreen({ record, onLogout }) {
   const [tasksByRecord, setTasksByRecord] = useState({}) // recordId -> [{...suggestion}]
 
   const [view, setView] = useState({ kind: 'home' }) // 'home' | 'yield' | 'assistance' | { kind: 'history', record }
-  const [logScreen, setLogScreen] = useState(null) // { record, prefillActivity }
   const [disasterScreen, setDisasterScreen] = useState(null) // { record }
 
   const fetchRecords = async () => {
@@ -73,11 +72,10 @@ export default function FarmerHomeScreen({ record, onLogout }) {
   // crop record. With exactly one record the tab goes straight in; with
   // several it opens a picker. It never picks for the user.
   const pickRecordFor = (intent) => {
-    if (records.length === 1) {
-      if (intent === 'log') setLogScreen({ record: records[0] })
-      else setDisasterScreen({ record: records[0] })
-      return
-    }
+    // AKTIBIDAD carries its own TANIMAN dropdown (frames 21-26), so it never
+    // needs a picker step regardless of how many crops there are.
+    if (intent === 'log') { setView({ kind: 'activity' }); return }
+    if (records.length === 1) { setDisasterScreen({ record: records[0] }); return }
     setView({ kind: 'picker', intent })
   }
 
@@ -101,21 +99,6 @@ export default function FarmerHomeScreen({ record, onLogout }) {
 
   // ── Full-screen sub-views ────────────────────────────────────────────
 
-  if (logScreen) {
-    return (
-      <CitizenActivityLogScreen
-        domain={CROP_DOMAIN}
-        theme={CROP_THEME}
-        recordId={logScreen.record.id}
-        record={logScreen.record}
-        log={null}
-        prefill={logScreen.prefillActivity ? { activityType: logScreen.prefillActivity } : undefined}
-        onClose={() => setLogScreen(null)}
-        onSuccess={handleLogSuccess}
-      />
-    )
-  }
-
   if (disasterScreen) {
     return (
       <CitizenDisasterScreen
@@ -129,8 +112,21 @@ export default function FarmerHomeScreen({ record, onLogout }) {
           // Log the response activity against the same record. The tick on
           // the checklist then follows from the saved log, not from here.
           setDisasterScreen(null)
-          setLogScreen({ record: disasterScreen.record, prefillActivity: rule.activity_name })
+          setView({ kind: 'activity', recordId: String(disasterScreen.record.id), activity: rule.activity_name })
         }}
+      />
+    )
+  }
+
+  if (view.kind === 'activity') {
+    return (
+      <CitizenFarmerActivityScreen
+        records={records}
+        initialRecordId={view.recordId}
+        initialActivity={view.activity}
+        onBack={() => setView({ kind: 'home' })}
+        onSaved={fetchRecords}
+        tabBar={tabBar('activity')}
       />
     )
   }
@@ -155,7 +151,7 @@ export default function FarmerHomeScreen({ record, onLogout }) {
                   <button
                     type="button"
                     onClick={() => {
-                      if (isLog) setLogScreen({ record: rec })
+                      if (isLog) setView({ kind: 'activity', recordId: String(rec.id) })
                       else setDisasterScreen({ record: rec })
                     }}
                     className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-cz-page"
@@ -306,7 +302,7 @@ export default function FarmerHomeScreen({ record, onLogout }) {
                       task.record.farm_location_barangay || labels.common.unknown,
                       task.record.area_planted_ha ?? labels.common.unknown,
                     )}
-                    onCardClick={() => setLogScreen({ record: task.record, prefillActivity: task.activity_name })}
+                    onCardClick={() => setView({ kind: 'activity', recordId: String(task.record.id), activity: task.activity_name })}
                     cardActionLabel={labels.farmerHome.needsAttention.actionLabel}
                   />
                 )
@@ -385,7 +381,7 @@ export default function FarmerHomeScreen({ record, onLogout }) {
                     <div className="mt-3 flex gap-2">
                       <button
                         type="button"
-                        onClick={() => setLogScreen({ record: rec })}
+                        onClick={() => setView({ kind: 'activity', recordId: String(rec.id) })}
                         className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-[8px] bg-cz-crop-header px-2 py-[11px] text-white transition-opacity hover:opacity-90"
                       >
                         <FileText size={15} aria-hidden="true" />

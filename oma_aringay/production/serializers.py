@@ -238,9 +238,16 @@ class CropActivityLogSerializer(serializers.ModelSerializer):
             })
 
         area_affected_ha = data.get('area_affected_ha')
-        if activity_type in ('Pest Control', 'Disease Control') and area_affected_ha is None:
+        # A pest or disease log must record HOW BAD it is, but there are two
+        # ways to say so. Staff measure the affected area in hectares; the
+        # citizen form (frames 23-24) asks for ANTAS NG PINSALA instead,
+        # because a farmer walking a field can judge low/medium/high but not
+        # a hectare figure. Either answer satisfies the requirement — the
+        # severity column already existed and was simply never offered here.
+        if (activity_type in ('Pest Control', 'Disease Control')
+                and area_affected_ha is None and not data.get('severity')):
             raise serializers.ValidationError({
-                'area_affected_ha': 'Area affected is required for Pest Control / Disease Control activities.'
+                'area_affected_ha': 'Area affected or severity is required for Pest Control / Disease Control activities.'
             })
         if area_affected_ha is not None:
             if area_affected_ha <= 0:

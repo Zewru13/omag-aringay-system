@@ -136,6 +136,90 @@ export const labels = {
     // Pond Preparation 20, Stocking 19 ...). Copying it literally would make
     // those unloggable, so the three keep their prominent cards and 'Iba pa'
     // reveals the rest. Nothing is lost; the reference's shape is kept.
+    // ── Farmer AKTIBIDAD screen (frames 21-26) ────────────────────────
+    // Structurally different from the fisherfolk log: a TANIMAN dropdown
+    // (not cards), a 2x2 grid of Tagalog activity pills (not icon rows),
+    // three date pills where the third reveals a picker, per-type fields,
+    // and a collapsible history at the bottom.
+    farmerLog: {
+      title: 'I-log ang Aktibidad',
+      cropHeading: 'TANIMAN',
+      cropOption: (name, ha, brgy) => `${name} — ${ha} ha, Brgy. ${brgy}`,
+
+      activityHeading: 'URI NG AKTIBIDAD',
+      // Keys are the values actually stored in activity_type. Three of the
+      // four are already in live data and in the serializer's own
+      // special-casing ('Pest Control', 'Disease Control'); the citizen form
+      // previously offered 'Pesticide Application', which matched neither,
+      // so a citizen's pest log silently skipped the area-affected rule.
+      types: {
+        'Fertilizer Application': 'Paglalagay ng Abono',
+        'Pest Control': 'Kontrol sa Peste',
+        'Disease Control': 'Kontrol sa Sakit ng Halaman',
+        'Water Quality Check': 'Pagsusuri ng Kalidad ng Tubig',
+        Other: 'Iba pa',
+      },
+      // 'Iba pa' is drawn as a fifth tile in the same grid, which is the
+      // reference's own device for "anything else" on the sakuna form
+      // (frame 28). It is needed: 30 distinct activity_type values are in
+      // live use and the four tiles cover only three of them.
+      otherPlaceholder: 'Ilarawan ang uri ng aktibidad…',
+
+      dateHeading: 'PETSA NG AKTIBIDAD',
+      dateToday: 'Ngayon',
+      dateYesterday: 'Kahapon',
+      dateOther: 'Iba pang petsa',
+
+      fertilizerType: 'URI NG ABONO',
+      // The reference draws a select but never opens it, and the column
+      // holds no real data to source from, so the options are the model's
+      // own documented examples (CropActivityLog.fertilizer_type help_text)
+      // with a free-text fallback rather than an invented catalogue.
+      fertilizerOptions: ['14-14-14 NPK', 'Urea (46-0-0)', 'Organic / Compost'],
+      quantityKg: 'DAMI (KG)',
+      quantityPlaceholder: 'hal. 25',
+      applicationMethod: 'PARAAN NG PAGLAGAY',
+      methodOptions: {
+        Broadcast: 'Broadcast (isabog)',
+        Basal: 'Basal (sa tanim)',
+        'Side-dress': 'Side-dress (sa gilid)',
+        'Foliar Spray': 'Foliar spray (dahon)',
+        Fertigation: 'Fertigation (sa tubig)',
+      },
+
+      pestName: 'PANGALAN NG PESTE',
+      pestPlaceholder: 'hal. Stem Borer, Brown Plant Hopper',
+      pestTreatment: 'GAMOT / LUNAS NA GINAMIT',
+      pestTreatmentPlaceholder: 'hal. Chlorpyrifos, Fipronil',
+
+      diseaseName: 'URI NG SAKIT',
+      diseasePlaceholder: 'hal. Blast, Tungro, Bacterial Leaf Blight',
+      diseaseTreatment: 'FUNGICIDE / GAMOT NA GINAMIT',
+      diseaseTreatmentPlaceholder: 'hal. Mancozeb, Tricyclazole',
+
+      damageLevel: 'ANTAS NG PINSALA',
+      damageOptions: { Low: 'Mababa', Medium: 'Katamtaman', High: 'Mataas' },
+
+      plantCondition: 'KALAGAYAN NG HALAMAN',
+      conditionOptions: { Good: 'Mabuti', Fair: 'Katamtaman', Poor: 'Mahina' },
+      waterQuality: 'KALIDAD NG TUBIG',
+      waterOptions: { Good: 'Mabuti', Fair: 'Katamtaman', Poor: 'Mahina' },
+
+      notes: 'MGA TALA / OBSERBASYON',
+      notesOptional: '(opsyonal)',
+      notesPlaceholder: 'Ano pa ang napansin ninyo sa taniman ngayon?',
+
+      save: 'I-save ang Aktibidad',
+      saveEdit: 'I-save ang binago',
+      cancelEdit: 'Kanselahin ang pag-edit',
+
+      historyHeading: 'Kasaysayan ng mga Aktibidad',
+      historyEmpty: 'Wala pa pong naitalang aktibidad para sa taniman na ito.',
+      editBtn: 'I-edit',
+      selectPlaceholder: 'Pumili po…',
+      noCrops: 'Wala pang nakarehistrong taniman. Makipag-ugnayan po sa Office of the Municipal Agriculturist.',
+    },
+
     // ── Log ng Kalusugan (frames 7, 9-12, 15) ──────────────────────────
     // Its own three-step screen in the reference, NOT a field inside the
     // activity log. Step 1 pond, step 2 illness, step 3 the form, then a
