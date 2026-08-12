@@ -255,8 +255,17 @@ class FeedTypeDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class DiseaseTypeListCreateView(generics.ListCreateAPIView):
     serializer_class = DiseaseTypeSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     pagination_class = None
+
+    def get_permissions(self):
+        # DiseaseType is a REFERENCE table, not anybody's personal data, and a
+        # fisherfolk citizen has to read it to say what is wrong with their
+        # pond (the health-log screen offers these as choices). Reading is
+        # therefore open to any authenticated user; creating one stays
+        # staff-only, unchanged.
+        if self.request.method == 'POST':
+            return [IsAuthenticated(), IsAdminOrEvaluator()]
+        return [IsAuthenticated()]
 
     def get_queryset(self):
         qs = DiseaseType.objects.order_by('name')
@@ -802,7 +811,22 @@ class StockingHarvestDeleteView(generics.DestroyAPIView):
 # ─── Activity Suggestions ─────────────────────────────────────────────────────
 
 class FisheriesActivitySuggestionsView(APIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    # Widened to match the crop side, which was widened in Batch E while this
+    # was left staff-only. A fisherfolk citizen could not read suggestions for
+    # their OWN pond, so the home screen's feeding hero and the disaster
+    # recommendation checklist both silently degraded to empty on a 403.
+    # ADMIN/EVALUATOR access is unchanged - this class is a strict superset -
+    # and the response shape is untouched. Ownership is resolved by hand below
+    # for the same reason the crop view does it: this is a plain APIView with
+    # no queryset for DRF's object-level machinery to hook into.
+    permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
+
+    def get_target_owner_id(self, request):
+        stocking_id = self.kwargs.get('stocking_id')
+        try:
+            return StockingRecord.objects.get(pk=stocking_id).fisherfolk_id
+        except StockingRecord.DoesNotExist:
+            return None
 
     def get(self, request, stocking_id):
         record = get_object_or_404(

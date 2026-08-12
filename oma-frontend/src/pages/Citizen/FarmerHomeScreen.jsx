@@ -125,6 +125,12 @@ export default function FarmerHomeScreen({ record, onLogout }) {
         record={disasterScreen.record}
         onClose={() => setDisasterScreen(null)}
         onSuccess={handleLogSuccess}
+        onLogResponse={({ rule }) => {
+          // Log the response activity against the same record. The tick on
+          // the checklist then follows from the saved log, not from here.
+          setDisasterScreen(null)
+          setLogScreen({ record: disasterScreen.record, prefillActivity: rule.activity_name })
+        }}
       />
     )
   }

@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { AlertCircle, AlertTriangle, Check, Plus } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
-import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import useRecordLock from '../../hooks/useRecordLock.js'
 import { labels } from './labels.js'
@@ -55,7 +54,11 @@ function FieldBlock({ label, required, error, hint, children }) {
 // IsStaffOrOwnRecordCitizen, Batch — Evaluator-parity), POST
 // domain.disasterResolveUrl(id) for recovery (same two-path auto/manual
 // logic already built server-side, not reimplemented here).
-export default function CitizenDisasterScreen({ domain, theme, recordId, record, onClose, onSuccess }) {
+// `onLogResponse({ rule, disaster })` is optional: when supplied, an
+// unticked recommendation row opens the activity log prefilled with that
+// rule's response activity. Without it the rows render as plain read-only
+// status, which is still correct — they were never toggles.
+export default function CitizenDisasterScreen({ domain, theme, recordId, record, onClose, onSuccess, onLogResponse }) {
   const { showToast } = useToast()
   const isCrop = domain.key === 'crop'
   const [mode, setMode] = useState('list') // 'list' | 'create'
@@ -79,6 +82,15 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
   const [areaError, setAreaError] = useState('')
 
   // Recovery UI state, keyed by disaster id.
+  // disaster_id -> { rules, all_rules_done }, from the record's suggestions
+  // endpoint. This is the ONLY source of checklist state: a rule is done when
+  // its response activity has actually been logged against that disaster
+  // (disaster_rule_id on the activity log), never because someone tapped a
+  // box. Tapping a row therefore opens the log screen rather than toggling
+  // anything -- a tick the user could set by hand would not move the resolve
+  // rule, which is what actually gates recovery.
+  const [responseByDisaster, setResponseByDisaster] = useState({})
+
   const [recoverNotes, setRecoverNotes] = useState({})
   const [recoveringId, setRecoveringId] = useState(null)
   const [recoverErrors, setRecoverErrors] = useState({})
@@ -96,6 +108,16 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
       .then((r) => setDisasters(Array.isArray(r.data) ? r.data : (r.data?.results || [])))
       .catch(() => { setDisasters([]); setHasError(true) })
       .finally(() => setIsLoading(false))
+
+    // Recommendation checklist state. Failing here must not break the
+    // disaster list itself, so it has its own catch and simply yields no
+    // checklist rather than an error.
+    api.get(domain.suggestionsUrl(recordId))
+      .then((r) => {
+        const rows = r.data?.disaster_response || []
+        setResponseByDisaster(Object.fromEntries(rows.map((x) => [x.disaster_id, x])))
+      })
+      .catch(() => setResponseByDisaster({}))
   }
 
   useEffect(() => {
@@ -211,18 +233,47 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
             </div>
           )}
 
-          <FieldBlock label={labels.disaster.fields.disasterType} required>
-            <ComboboxWithOther
-              options={domain.disasterTypeChoices.filter((x) => x !== 'Other')}
-              value={form.disaster_type}
-              otherValue={form.disaster_type_other_specify}
-              onChange={(v) => set('disaster_type', v)}
-              onOtherChange={(v) => set('disaster_type_other_specify', v)}
-              disabled={blockedByOther}
-              placeholder={labels.activityLog.selectPlaceholder}
-              inputClassName={FIELD}
-              chevronSize={18}
-            />
+          {/* URI NG SAKUNA — tiles, per the reference. Every type the model
+              defines is offered, not just the reference's subset: Strong Winds
+              carries this domain's response rules, and Disease Outbreak /
+              Predator Attack appear in live fisheries records, so omitting
+              them would make real events unreportable. */}
+          <FieldBlock label={labels.ffNew.disasterTypeHeading} required>
+            <div className="grid grid-cols-2 gap-2">
+              {domain.disasterTypeChoices.map((choice) => {
+                const selected = form.disaster_type === choice
+                return (
+                  <button
+                    key={choice}
+                    type="button"
+                    disabled={blockedByOther}
+                    onClick={() => set('disaster_type', choice)}
+                    className={`flex min-h-[46px] items-center rounded-[10px] border-[0.5px] px-3 py-2.5 text-left transition-colors disabled:opacity-50 ${
+                      selected
+                        ? `${theme.tileSelectedBorder} ${theme.tileSelectedBg}`
+                        : 'border-cz-border bg-cz-surface hover:bg-cz-page'
+                    }`}
+                  >
+                    <span className={`text-[13.5px] leading-[1.3] ${
+                      selected ? `font-semibold ${theme.tileSelectedText}` : 'text-cz-text'
+                    }`}
+                    >
+                      {labels.ffNew.disasterTypes[choice] || choice}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+            {form.disaster_type === 'Other' && (
+              <input
+                type="text"
+                value={form.disaster_type_other_specify}
+                onChange={(e) => set('disaster_type_other_specify', e.target.value)}
+                disabled={blockedByOther}
+                placeholder={labels.ffNew.disasterOtherPlaceholder}
+                className={`${FIELD} mt-2`}
+              />
+            )}
           </FieldBlock>
 
           <FieldBlock label={labels.disaster.fields.dateOfOccurrence} required>
@@ -387,6 +438,74 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
                   {d.is_total_loss && d.status !== 'Recovered' && (
                     <p className="mt-1.5 text-[12px] leading-[1.5] text-cz-danger-body">{labels.disaster.totalLossNotice}</p>
                   )}
+
+                  {/* MGA REKOMENDASYON — read-only. Each tick reflects a
+                      LOGGED response activity, so the rows are links to the
+                      log screen, not checkboxes. A box the farmer could tick
+                      by hand would not advance the resolve rule, which is
+                      what actually gates marking a disaster recovered. */}
+                  {(() => {
+                    const resp = responseByDisaster[d.id]
+                    if (!resp || d.status === 'Recovered' || d.is_total_loss) return null
+                    const rules = resp.rules || []
+                    if (rules.length === 0) {
+                      return (
+                        <p className="mt-3 border-t-[0.5px] border-cz-border pt-3 text-[12px] italic text-cz-text-muted">
+                          {labels.ffNew.recNone}
+                        </p>
+                      )
+                    }
+                    const done = rules.filter((x) => x.is_done).length
+                    const left = rules.length - done
+                    return (
+                      <div className="mt-3 border-t-[0.5px] border-cz-border pt-3">
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">
+                            {labels.ffNew.recommendations}
+                          </p>
+                          <span className="text-[12px] font-bold tabular-nums text-cz-text-2">
+                            {labels.ffNew.recProgress(done, rules.length)}
+                          </span>
+                        </div>
+                        <ul className="space-y-1">
+                          {rules.map((rule) => (
+                            <li key={rule.rule_id}>
+                              <button
+                                type="button"
+                                onClick={() => onLogResponse?.({ rule, disaster: d })}
+                                disabled={rule.is_done || !onLogResponse}
+                                aria-label={rule.is_done ? rule.title : `${rule.title} \u2014 ${labels.ffNew.recTapHint}`}
+                                className={`flex w-full items-start gap-2.5 rounded-[8px] px-1.5 py-1.5 text-left transition-colors ${
+                                  rule.is_done ? 'cursor-default' : 'hover:bg-cz-page'
+                                }`}
+                              >
+                                <span
+                                  className={`mt-[2px] flex h-4 w-4 shrink-0 items-center justify-center rounded-[4px] border-[1.5px] ${
+                                    rule.is_done
+                                      ? 'border-cz-status-good-fg bg-cz-status-good-fg text-white'
+                                      : 'border-cz-border-strong'
+                                  }`}
+                                  aria-hidden="true"
+                                >
+                                  {rule.is_done && <Check size={11} strokeWidth={3} />}
+                                </span>
+                                <span
+                                  className={`min-w-0 flex-1 text-[13px] leading-[1.4] ${
+                                    rule.is_done ? 'text-cz-text-muted line-through' : 'text-cz-text'
+                                  }`}
+                                >
+                                  {rule.title}
+                                </span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="mt-2 text-[12px] text-cz-text-2">
+                          {left === 0 ? labels.ffNew.recAllDone : labels.ffNew.recRemaining(left)}
+                        </p>
+                      </div>
+                    )
+                  })()}
                   {canRecover && (
                     <div className="mt-3 border-t-[0.5px] border-cz-border pt-3">
                       <textarea

@@ -142,6 +142,42 @@ export const labels = {
     // Water Quality Check readings. Values are stored in English (matching
     // every other choice set in the model); these are the Tagalog display
     // labels only.
+    // Sakuna / Ulat recommendation checklist.
+    // Disaster-type tiles. Every value the models actually define is listed:
+    // the reference omits Strong Winds (farmer) and Disease Outbreak /
+    // Predator Attack (fisherfolk), but Strong Winds carries response rules
+    // and the other two appear in live records, so dropping them would make
+    // real situations unreportable. Values stay English; these are display.
+    // Kalusugan. The illness list is the real DiseaseType table (5 rows,
+    // seeded earlier), not a hardcoded copy of the reference's list -- they
+    // happen to match exactly.
+    illnessHeading: 'Anong uri ng sakit o problema?',
+    kalusuganNotice: 'Gamitin ito para sa sakit, parasito, o malawakang pagkamatay ng isda. Para sa karaniwang pagpapakain, gamitin ang I-Log ang Aktibidad.',
+
+    disasterTypeHeading: 'URI NG SAKUNA',
+    disasterTypes: {
+      Typhoon: 'Bagyo',
+      Flood: 'Baha',
+      Drought: 'Tagtuyot',
+      'Pest Outbreak': 'Pagkalat ng Peste',
+      'Strong Winds': 'Malakas na Hangin',
+      'Fish Kill': 'Fish Kill \u2014 malawakang pagkamatay ng isda',
+      'Disease Outbreak': 'Pagkalat ng Sakit',
+      'Pollution Incident': 'Polusyon',
+      'Predator Attack': 'Inatake ng Mandaragit',
+      Other: 'Iba pa',
+    },
+    disasterOtherPlaceholder: 'Ilarawan ang uri ng sakuna\u2026',
+
+    recommendations: 'MGA REKOMENDASYON',
+    recProgress: (done, total) => `${done}/${total}`,
+    recRemaining: (n) => (n === 1 ? '1 hakbang pa ang natitira' : `${n} hakbang pa ang natitira`),
+    recAllDone: 'Tapos na ang lahat ng hakbang.',
+    recNone: 'Walang partikular na rekomendasyon para sa uri ng sakunang ito.',
+    // The tick comes from a LOGGED activity, never from tapping the row --
+    // see the note in CitizenDisasterScreen.
+    recTapHint: 'Pindutin para i-log ang hakbang na ito',
+
     phLevel: 'PH LEVEL',
     phPlaceholder: 'hal. 7.2',
     dissolvedOxygen: 'DISSOLVED OXYGEN',

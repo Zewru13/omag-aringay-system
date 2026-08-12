@@ -242,6 +242,14 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
         record={disasterScreen.record}
         onClose={() => setDisasterScreen(null)}
         onSuccess={handleLogSuccess}
+        onLogResponse={({ rule }) => {
+          // Same contract as the farmer side: log the response activity, and
+          // the checklist tick follows from the saved log rather than from
+          // anything set here.
+          const target = disasterScreen.record
+          setDisasterScreen(null)
+          setLogScreen({ record: target, prefillActivity: rule.activity_name })
+        }}
       />
     )
   }

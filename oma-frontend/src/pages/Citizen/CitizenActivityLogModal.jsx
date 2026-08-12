@@ -108,6 +108,10 @@ export default function CitizenActivityLogScreen({
   const isEdit = Boolean(log)
   // 'Iba pa' disclosure for the fisheries activity picker.
   const [showMoreActivities, setShowMoreActivities] = useState(false)
+  // Real DiseaseType rows. The citizen log form never offered this field
+  // before -- only the staff modal did -- so a fisherfolk could report a
+  // disease event without being able to say what it was.
+  const [diseaseTypes, setDiseaseTypes] = useState([])
   const isCrop = domain.key === 'crop'
   const isFisheries = domain.key === 'fisheries'
   const isPrefilled = !isEdit && Boolean(prefill?.activityType)
@@ -134,6 +138,9 @@ export default function CitizenActivityLogScreen({
     quantity_applied: log?.quantity_applied ?? '',
     quantity_unit: log?.quantity_unit || 'kg',
     pest_disease_name: log?.pest_disease_name || '',
+    // FK to DiseaseType. Sent only for Disease Control, cleared otherwise, so
+    // switching activity type cannot smuggle a stale disease onto a feeding log.
+    disease_type: log?.disease_type || '',
     area_affected_ha: log?.area_affected_ha ?? '',
     severity: log?.severity || '',
     water_fish_condition: log?.water_fish_condition || '',
@@ -170,6 +177,19 @@ export default function CitizenActivityLogScreen({
   const showPestFields = isCrop && ['Pesticide Application', 'Pest Control', 'Disease Control'].includes(activityValue)
   // True when the chosen activity is NOT one of the three carded ones, so
   // the 'Iba pa' disclosure stays open when editing such a log.
+  useEffect(() => {
+    if (!isFisheries) return undefined
+    let cancelled = false
+    api.get('/fisheries/disease-types/')
+      .then((r) => {
+        if (cancelled) return
+        const rows = Array.isArray(r.data) ? r.data : (r.data?.results || [])
+        setDiseaseTypes(rows.filter((x) => x.is_active !== false))
+      })
+      .catch(() => { if (!cancelled) setDiseaseTypes([]) })
+    return () => { cancelled = true }
+  }, [isFisheries])
+
   const isOtherActivity = isFisheries
     && Boolean(activityValue)
     && !['Feed Monitoring', 'Disease Control', 'Water Quality Check'].includes(activityValue)
@@ -250,6 +270,7 @@ export default function CitizenActivityLogScreen({
         payload.feed_type = showFeedFields ? (form.feed_type_selection === 'Other' ? form.feed_type_other.trim() : form.feed_type_selection) : ''
         payload.feed_quantity_kg = showFeedFields ? (form.feed_quantity_kg || null) : null
         payload.feed_brand = showFeedFields ? form.feed_brand : ''
+        payload.disease_type = showIssueFields ? (form.disease_type || null) : null
         payload.severity = showIssueFields ? form.severity : ''
         payload.mortality_count = showIssueFields ? (form.mortality_count || null) : null
         payload.area_affected_ha = showIssueFields ? (form.area_affected_ha || null) : null
@@ -623,6 +644,59 @@ export default function CitizenActivityLogScreen({
         {/* HEALTH MONITORING (fisheries) */}
         {showIssueFields && (
           <>
+            {/* URI NG SAKIT — the reference makes this its own step with big
+                tappable options. Values are real DiseaseType rows, so the
+                choice is stored as the FK the model already has rather than
+                as free text. */}
+            {diseaseTypes.length > 0 && (
+              <FieldBlock label={labels.ffNew.illnessHeading}>
+                <div className="space-y-2">
+                  {diseaseTypes.map((dt) => {
+                    const selected = String(form.disease_type || '') === String(dt.id)
+                    return (
+                      <button
+                        key={dt.id}
+                        type="button"
+                        disabled={blockedByOther}
+                        onClick={() => set('disease_type', selected ? '' : dt.id)}
+                        // Selection is shown with a left accent bar, weight
+                        // and a check -- NOT a background fill. On this
+                        // control a bg-* utility, and even an inline
+                        // background-color, both lose to an !important rule
+                        // somewhere in the cascade, which produced an
+                        // invisible (white-on-white) selected state. Border,
+                        // colour and content all apply normally, so the
+                        // indicator is built from those instead.
+                        className={`relative flex w-full items-center gap-2.5 overflow-hidden rounded-[10px] border-[0.5px] px-4 py-3 text-left transition-colors disabled:opacity-50 ${
+                          selected
+                            ? 'border-cz-fish-header'
+                            : 'border-cz-border hover:bg-cz-page'
+                        }`}
+                      >
+                        {selected && (
+                          <span
+                            className="absolute inset-y-0 left-0 w-[4px] bg-cz-fish-header"
+                            aria-hidden="true"
+                          />
+                        )}
+                        <Check
+                          size={16}
+                          className={`shrink-0 ${selected ? 'text-cz-fish-header' : 'text-transparent'}`}
+                          aria-hidden="true"
+                        />
+                        <span className={`text-[14px] leading-[1.35] ${
+                          selected ? 'font-semibold text-cz-fish-header' : 'text-cz-text'
+                        }`}
+                        >
+                        {dt.name}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </FieldBlock>
+            )}
+
             <FieldBlock label={labels.activityLog.fields.areaAffected} required error={areaAffectedError}>
               <input
                 type="number" step="0.0001" inputMode="decimal"
