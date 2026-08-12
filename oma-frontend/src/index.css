@@ -6,7 +6,14 @@
    text-secondary, shadow-md, …) rather than hardcoding hex. */
 
 @theme {
-  --font-display: 'Fraunces', ui-serif, Georgia, serif;
+  /* ONE family across the whole app. `--font-display` used to be Fraunces,
+     a high-contrast display serif; on a service used by farmers, fisherfolk
+     and municipal staff it read as decorative rather than plain-spoken, so
+     headings now use the same humanist sans as body copy and differ only by
+     size and weight. The token is kept (rather than deleted) so the eight
+     call sites stay meaningful — it still means "heading", it just no longer
+     means "different typeface". Fraunces is no longer downloaded at all. */
+  --font-display: 'Public Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-sans: 'Public Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 
   /* Brand */
@@ -43,6 +50,31 @@
   --color-semantic-critical-bg: #FBE3E0;
   --color-semantic-info: #275E63;
   --color-semantic-info-bg: #DCEEF0;
+
+  /* ── Staff navigation rail ───────────────────────────────────────────
+     Sampled from the admin/evaluator reference (images 1-4 of the staff
+     basis), not eyeballed. The rail is the one dark surface in the staff
+     app: every other staff surface stays on the warm parchment tokens
+     above, so these are namespaced nav-* and must not leak outside
+     components/Layout/Sidebar.jsx.
+
+     `nav-admin` is the reference's single deliberate exception — the ADMIN
+     group label is gold where every other group label is muted green,
+     marking the destructive/privileged section. It is the only group whose
+     items are all admin-gated, so the colour is carrying real meaning. */
+  --color-nav-bg:        #163826;
+  --color-nav-active:    #395646;
+  --color-nav-logo:      #2D6B4A;
+  /* The reference's group label measures #6F8479, which is 3.23:1 on the
+     rail — under the 4.5:1 AA floor, and these labels are BUTTONS (they
+     expand/collapse), not decoration. Lifted to the nearest tone in the
+     same hue family that clears it at 4.63:1. Only deviation from the
+     sampled rail palette, and it is a legibility fix, not taste. */
+  --color-nav-label:     #8AA095;
+  --color-nav-rail:      #2E4C3C;
+  --color-nav-item:      #B8C9BF;
+  --color-nav-item-on:   #FFFFFF;
+  --color-nav-admin:     #DDC74A;
 
   /* Radius */
   --radius-sm: 8px;

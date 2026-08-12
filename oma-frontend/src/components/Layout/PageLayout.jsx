@@ -39,7 +39,7 @@ function PageLayout({ title, subtitle, action, children }) {
       <div
         className={[
           'min-h-screen bg-bg pt-14 transition-all duration-300',
-          sidebarCollapsed ? 'md:pl-16' : 'md:pl-[220px]',
+          sidebarCollapsed ? 'md:pl-16' : 'md:pl-[248px]',
         ].join(' ')}
       >
         <main className="p-4 sm:p-6">

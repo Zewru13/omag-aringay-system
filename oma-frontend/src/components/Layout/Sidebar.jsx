@@ -65,7 +65,7 @@ const DEFAULT_TAB_BY_PATH = { "/farmers": "registry", "/fisherfolk": "registry",
 const GROUPS = [
   {
     key: "registration",
-    label: "Registration Management",
+    label: "Registration",
     icon: ClipboardList,
     items: [
       { to: "/farmers?tab=registry", icon: Users, label: "Farmers" },
@@ -74,7 +74,7 @@ const GROUPS = [
   },
   {
     key: "organization-management",
-    label: "Organization Management",
+    label: "Organizations",
     icon: Building2,
     items: [
       { to: "/farmers?tab=organizations", icon: Users, label: "Farmers Organizations" },
@@ -92,7 +92,7 @@ const GROUPS = [
   },
   {
     key: "fisheries-management",
-    label: "Fisheries Management",
+    label: "Fisheries",
     icon: Waves,
     items: [
       { to: "/fisheries-monitoring", icon: Activity, label: "Fisheries Monitoring" },
@@ -110,7 +110,7 @@ const GROUPS = [
   },
   {
     key: "assistance-management",
-    label: "Assistance Management",
+    label: "Assistance",
     icon: HandHeart,
     items: [
       { to: "/crop-assistance", icon: Sprout, label: "Crop Assistance" },
@@ -190,10 +190,10 @@ function LeafItem({ to, icon: Icon, label, isCollapsed, depth = 0 }) {
           className={[
             "relative w-10 h-10 flex items-center justify-center rounded-[10px] mx-auto mb-0.5 cursor-pointer group",
             "transition-[background-color,box-shadow,transform] duration-200 ease-in-out will-change-transform hover:translate-x-0.5",
-            isActive ? "bg-primary-light shadow-[0_1px_3px_rgba(27,77,46,0.16)]" : "hover:bg-surface-2",
+            isActive ? "bg-nav-active" : "hover:bg-white/5",
           ].join(" ")}
         >
-          <Icon className={`w-[18px] h-[18px] ${isActive ? "text-primary" : "text-text-muted"}`} aria-hidden="true" />
+          <Icon className={`w-[18px] h-[18px] ${isActive ? "text-nav-item-on" : "text-nav-item"}`} aria-hidden="true" />
           <div className="absolute left-[calc(100%+8px)] top-1/2 -translate-y-1/2 bg-[color:var(--color-primary-deep)] text-white text-[12px] px-2.5 py-1 rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50 shadow-md">
             {label}
           </div>
@@ -206,26 +206,20 @@ function LeafItem({ to, icon: Icon, label, isCollapsed, depth = 0 }) {
     <NavLink to={to}>
       <div
         className={[
-          "relative flex items-center gap-2.5 rounded-[10px] text-[13px] cursor-pointer mb-0.5",
-          "transition-[background-color,color,box-shadow,transform] duration-200 ease-in-out will-change-transform hover:translate-x-0.5",
-          depth > 0 ? "py-2 pl-9 pr-3 mx-1.5" : "px-3 py-2.5 mx-1.5",
+          "relative flex items-center gap-2.5 rounded-[8px] text-[13px] cursor-pointer mb-0.5",
+          "transition-[background-color,color] duration-200 ease-in-out",
+          // Sub-items sit further in and carry no icon of their own — the
+          // reference hangs them off the group's vertical rail instead.
+          // Indent is measured from the rail the parent group draws, not
+          // from the sidebar edge — the rail already carries the offset.
+          depth > 0 ? "py-[7px] pl-4 pr-3 mr-2" : "px-3 py-2.5 mx-2",
           isActive
-            ? "bg-primary-light text-primary font-semibold shadow-[0_1px_3px_rgba(27,77,46,0.16)]"
-            : "text-text-secondary hover:bg-surface-2 hover:text-text-primary",
+            ? "bg-nav-active text-nav-item-on font-medium"
+            : "text-nav-item hover:bg-white/5 hover:text-nav-item-on",
         ].join(" ")}
       >
-        <span
-          className={[
-            "absolute left-0 w-[3px] rounded-r bg-[color:var(--color-accent)] top-1/2 -translate-y-1/2",
-            "transition-[height,opacity] duration-200 ease-in-out",
-            isActive ? "h-5 opacity-100" : "h-2 opacity-0",
-          ].join(" ")}
-          aria-hidden="true"
-        />
-        {depth > 0 ? (
-          <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 transition-colors duration-200 ${isActive ? "bg-primary" : "bg-border-strong"}`} aria-hidden="true" />
-        ) : (
-          <Icon className={`w-[18px] h-[18px] flex-shrink-0 transition-colors duration-200 ${isActive ? "text-primary" : "text-text-muted"}`} aria-hidden="true" />
+        {depth === 0 && (
+          <Icon className="w-[18px] h-[18px] flex-shrink-0" aria-hidden="true" />
         )}
         <span className="text-[13px] leading-snug">{label}</span>
       </div>
@@ -280,20 +274,24 @@ function NavGroup({ group, isCollapsed, depth = 0 }) {
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={[
-          "flex w-full items-center justify-between text-left rounded-[var(--radius-sm)] transition-colors duration-200 ease-in-out cursor-pointer text-text-muted hover:text-text-secondary",
-          depth === 0 ? "px-3 py-2" : "px-3 py-2 pl-9",
+          "flex w-full items-center justify-between text-left rounded-[var(--radius-sm)] transition-colors duration-200 ease-in-out cursor-pointer hover:text-nav-item-on",
+          // ADMIN is the reference's one coloured group label — it marks the
+          // privileged section, and every item under it is admin-gated, so
+          // the colour is carrying meaning rather than decorating.
+          group.adminOnly ? "text-nav-admin" : "text-nav-label",
+          depth === 0 ? "px-4 py-2" : "px-3 py-2 pl-9",
         ].join(" ")}
       >
         <span
           className={[
             "flex items-center gap-2 min-w-0",
             depth === 0
-              ? "text-[10px] font-semibold uppercase tracking-[0.03em]"
+              ? "text-[11px] font-semibold uppercase tracking-[0.06em]"
               : "text-[11px] font-medium",
           ].join(" ")}
         >
           {depth === 0 && GroupIcon && (
-            <GroupIcon className="w-3 h-3 flex-shrink-0" aria-hidden="true" />
+            <GroupIcon className="w-[14px] h-[14px] flex-shrink-0" aria-hidden="true" />
           )}
           <span className="truncate">{group.label}</span>
         </span>
@@ -309,7 +307,10 @@ function NavGroup({ group, isCollapsed, depth = 0 }) {
           open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
         ].join(" ")}
       >
+        {/* The reference hangs sub-items off a hairline rail rather than
+            indenting them with a dot each. Sits at the group icon's centre. */}
         <div className="overflow-hidden min-h-0">
+          <div className={depth === 0 ? "border-l border-nav-rail ml-[22px]" : ""}>
           {group.items.map((item) =>
             item.items ? (
               <NavGroup key={item.key || item.label} group={item} isCollapsed={isCollapsed} depth={depth + 1} />
@@ -317,6 +318,7 @@ function NavGroup({ group, isCollapsed, depth = 0 }) {
               <LeafItem key={item.to} {...item} isCollapsed={isCollapsed} depth={depth} />
             ),
           )}
+          </div>
         </div>
       </div>
     </div>
@@ -341,8 +343,8 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
 
       <aside
         className={[
-          "bg-surface border-r border-border flex flex-col fixed left-0 top-14 md:top-0 bottom-0 z-50 md:z-20 overflow-y-auto transition-all duration-300",
-          isCollapsed ? "w-16" : "w-[220px]",
+          "bg-nav-bg flex flex-col fixed left-0 top-14 md:top-0 bottom-0 z-50 md:z-20 overflow-y-auto transition-all duration-300",
+          isCollapsed ? "w-16" : "w-[248px]",
           isOpen
             ? "translate-x-0 shadow-xl"
             : "-translate-x-full md:translate-x-0",
@@ -350,32 +352,33 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
       >
         {/* Logo area — h-14 + md:top-0 on the aside makes this header fill the
             top-left corner flush with the navbar (no gap above the wordmark) */}
-        <div className="h-14 flex items-center px-4 border-b border-border flex-shrink-0">
+        <div className="h-[72px] flex items-center px-4 border-b border-nav-rail flex-shrink-0">
           {isCollapsed ? (
             <img
               src={logo}
               alt="OMAg"
-              className="w-8 h-8 object-contain mx-auto rounded-md ring-1 ring-border-strong/60"
+              className="w-9 h-9 object-contain mx-auto rounded-[9px]"
             />
           ) : (
             <div className="flex items-center gap-3 min-w-0">
-              <img
-                src={logo}
-                alt="OMAg"
-                className="w-8 h-8 object-contain rounded-md ring-1 ring-border-strong/60 flex-shrink-0"
-              />
+              {/* The reference draws a solid rounded tile here rather than a
+                  photo. Keeping the real logo inside it: the tile is the
+                  reference's shape, the mark is the municipality's own. */}
+              <span className="w-9 h-9 flex-shrink-0 rounded-[9px] bg-nav-logo overflow-hidden flex items-center justify-center">
+                <img src={logo} alt="OMAg" className="w-full h-full object-cover" />
+              </span>
               <div className="min-w-0">
-                <p className="text-[15px] font-bold text-text-primary leading-tight tracking-tight truncate">
-                  OMAg Aringay
+                <p className="text-[15px] font-bold text-nav-item-on leading-tight tracking-tight truncate">
+                  OMAg
                 </p>
-                <p className="text-[10px] font-medium text-text-muted uppercase tracking-[0.08em] mt-0.5">
+                <p className="text-[11px] text-nav-label leading-tight truncate">
                   Aringay, La Union
                 </p>
               </div>
             </div>
           )}
           <button
-            className="press-scale ml-auto rounded-lg p-1.5 text-text-muted transition-colors duration-200 hover:bg-surface-2 hover:text-text-primary md:hidden"
+            className="press-scale ml-auto rounded-lg p-1.5 text-nav-item transition-colors duration-200 hover:bg-white/10 hover:text-nav-item-on md:hidden"
             onClick={onClose}
             type="button"
             aria-label="Close menu"
@@ -388,7 +391,7 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
         <nav className="flex-1 py-3">
           <LeafItem {...DASHBOARD_ITEM} isCollapsed={isCollapsed} />
 
-          {isCollapsed && <div className="mx-auto w-8 border-t border-border my-2" />}
+          {isCollapsed && <div className="mx-auto w-8 border-t border-nav-rail my-2" />}
 
           {GROUPS.map((group) => (
             <NavGroup key={group.key} group={group} isCollapsed={isCollapsed} />
@@ -398,7 +401,7 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
 
           {isAdmin && (
             <>
-              {isCollapsed && <div className="mx-auto w-8 border-t border-border my-2" />}
+              {isCollapsed && <div className="mx-auto w-8 border-t border-nav-rail my-2" />}
               <NavGroup group={ADMIN_GROUP} isCollapsed={isCollapsed} />
             </>
           )}

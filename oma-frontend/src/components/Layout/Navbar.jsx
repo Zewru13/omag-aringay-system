@@ -38,7 +38,7 @@ function Navbar({ onToggleSidebar, isCollapsed }) {
   return (
     <>
       <header
-        className={`h-14 bg-[color:var(--color-primary-deep)] shadow-sm fixed top-0 right-0 z-30 flex items-center justify-between px-4 left-0 ${isCollapsed ? 'md:left-16' : 'md:left-[220px]'}`}
+        className={`h-14 bg-[color:var(--color-primary-deep)] shadow-sm fixed top-0 right-0 z-30 flex items-center justify-between px-4 left-0 ${isCollapsed ? 'md:left-16' : 'md:left-[248px]'}`}
         style={{ transition: 'left 300ms ease-in-out' }}
       >
         {/* Left: hamburger + system name */}

@@ -5,6 +5,7 @@ import DataTable from "../../components/UI/DataTable.jsx"
 import Button from "../../components/UI/Button.jsx"
 import StatusPill from "../../components/UI/StatusPill.jsx"
 import Tabs from "../../components/UI/Tabs.jsx"
+import ProductionAnalyticsTab from "./ProductionAnalyticsTab.jsx"
 import { baseInputClasses } from "../../components/UI/FormField.jsx"
 import api from "../../api/axiosInstance.js"
 import { useAuth } from "../../context/AuthContext.jsx"
@@ -19,6 +20,7 @@ const PRODUCTION_TABS = [
   { label: "Harvest Records", value: "harvest" },
   { label: "Planting Records", value: "planting" },
   { label: "Damage Reports", value: "damage" },
+  { label: "Analytics", value: "analytics" },
 ]
 
 const harvestColumns = [
@@ -298,7 +300,11 @@ function ProductionPage() {
       {showDamageModal && (
         <LogDamageReportModal onClose={() => setShowDamageModal(false)} onSuccess={() => { setShowDamageModal(false); fetchDamages() }} />
       )}
-    </PageLayout>
+            {/* Analytics tab — the production analytics relocated off the
+            dashboard when that page was rebuilt to the staff reference. */}
+        {activeTab === "analytics" && <ProductionAnalyticsTab />}
+
+</PageLayout>
   )
 }
 

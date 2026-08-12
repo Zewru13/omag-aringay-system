@@ -19,6 +19,10 @@ from core.utils import accumulate_yield_group, new_yield_group
 from farmers.models import FarmParcel, Farmer
 from fisheries.models import Fisherfolk
 
+from .dashboard_activity import (
+    active_disaster_rows, barangay_rows, crop_activity_status,
+    crop_yield_variance, fisheries_activity_status, sector_summary,
+)
 from .models import (
     BarangayCropSummary,
     CropActivityLog, CropActivityStage, CropCategory, CropDisasterReport,
@@ -199,6 +203,33 @@ class ProductionDashboardView(APIView):
             'total_volume_kg_this_year': total_volume,
             'top_commodity': top_commodity_record['crop_name'] if top_commodity_record else None,
             'total_fisherfolk': Fisherfolk.objects.count(),
+        })
+
+
+class DashboardActivityStatusView(APIView):
+    """OVERDUE / DUE TODAY / UPCOMING for both domains, plus the per-barangay
+    breakdown the staff dashboard's "Activity Status" table needs.
+
+    Both figures come from the same classifier the record detail screens use
+    (see production/dashboard_activity.py), so the dashboard can never disagree
+    with the screen it links to.
+
+    NOTE the reference dashboard also draws an "Assigned Evaluator" column on
+    this table. There is no staff-to-barangay assignment anywhere in this
+    system, so no such field is returned — inventing a name here would put a
+    fabricated accountability record in front of an administrator.
+    """
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request):
+        crop_totals, crop_by_brgy = crop_activity_status()
+        fish_totals, fish_by_brgy = fisheries_activity_status()
+        return Response({
+            'crop': {**crop_totals, 'by_barangay': barangay_rows(crop_by_brgy)},
+            'fisheries': {**fish_totals, 'by_barangay': barangay_rows(fish_by_brgy)},
+            'active_disasters': active_disaster_rows(),
+            'sectors': sector_summary(),
+            'yield_variance': crop_yield_variance(),
         })
 
 
