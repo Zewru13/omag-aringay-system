@@ -584,12 +584,39 @@ class FisheriesActivityLog(models.Model):
         ('Medium', 'Medium'),
         ('High',   'High'),
     ]
+    # Stored English like every other choice set here; the citizen screens do
+    # the Tagalog display, same convention as SEVERITY_CHOICES above.
+    DISSOLVED_OXYGEN_CHOICES = [
+        ('Low',    'Low'),
+        ('Normal', 'Normal'),
+        ('High',   'High'),
+    ]
+    WATER_CLARITY_CHOICES = [
+        ('Clear',  'Clear'),
+        ('Slightly Turbid', 'Slightly Turbid'),
+        ('Turbid', 'Turbid'),
+    ]
 
     stocking_record     = models.ForeignKey(StockingRecord, on_delete=models.CASCADE, related_name='logs')
     activity            = models.CharField(max_length=150)
     activity_other_specify = models.CharField(max_length=150, blank=True)
     date_of_activity    = models.DateField()
     water_fish_condition = models.CharField(max_length=10, choices=WATER_CONDITION_CHOICES, blank=True)
+
+    # Water Quality Check readings. The new fisheries reference asks for these
+    # three explicitly; before this, a water-quality log could only record the
+    # single free-text `water_fish_condition` above, which is what all 130
+    # existing water-quality logs use. All three are nullable/blank so those
+    # records stay valid and simply carry no readings.
+    #
+    # DO and clarity are CATEGORICAL rather than numeric on purpose: the
+    # reference draws them as dropdowns, and a fisherfolk judging a pond by
+    # eye can answer a category but usually not a mg/L figure. pH is numeric
+    # because the reference shows a typed example ("hal. 7.2"), which implies
+    # a test strip or meter.
+    ph_level         = models.DecimalField(max_digits=4, decimal_places=2, null=True, blank=True)
+    dissolved_oxygen = models.CharField(max_length=20, choices=DISSOLVED_OXYGEN_CHOICES, blank=True)
+    water_clarity    = models.CharField(max_length=20, choices=WATER_CLARITY_CHOICES, blank=True)
     feed_type           = models.CharField(max_length=200, blank=True)
     feed_quantity_kg    = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     feed_brand          = models.CharField(max_length=200, blank=True)

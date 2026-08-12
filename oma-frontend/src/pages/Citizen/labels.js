@@ -65,11 +65,99 @@ export const labels = {
   },
 
   // ── Mobile tab bar (< 640px only) ──────────────────────────────────────
+  // New farmer/fisheries reference: FIVE tabs, and the two domains carry
+  // DIFFERENT sets — a farmer logs activities and reports sakuna, a
+  // fisherfolk logs feeding and reports pond health. Copy is verbatim from
+  // the reference, including the English-in-Tagalog forms it uses.
   tabBar: {
     ariaLabel: 'Pangunahing navigation',
-    home: 'Home',
+    home: 'HOME',
+    // Farmer
+    farmerActivity: 'AKTIBIDAD',
+    farmerDisaster: 'SAKUNA',
+    farmerHarvest: 'ANI',
+    // Fisherfolk
+    fishLog: 'I-LOG',
+    fishHealth: 'KALUSUGAN',
+    fishReport: 'ULAT',
+    // Both
+    profile: 'PROFILE',
+
+    // Superseded by the five-tab sets above, still consumed by the current
+    // three-tab wiring in FarmerHomeScreen/FisherfolkHomeScreen. They go
+    // when those screens are rebuilt and their tabs are re-pointed.
     harvests: 'Ani',
     myInfo: 'Impormasyon',
+  },
+
+  // New farmer/fisheries reference — copy verbatim from the 33 frames.
+  ffNew: {
+    greetingMorning: 'Magandang umaga,',
+    headerMeta: (brgy, rsbsa) => `Brgy. ${brgy} · RSBSA ${rsbsa}`,
+    footer: (dateText) => `${dateText} · OMAg Aringay`,
+
+    needsAttention: 'Mga Kailangan ng Pansin',
+    badgeOverdue: 'OVERDUE',
+    badgeDueToday: 'DUE TODAY',
+    overdueDays: (n) => `${n} araw na nalagpas`,
+
+    activeCrops: 'MGA AKTIBONG TANIMAN',
+    activePill: 'ACTIVE',
+    cropProgress: 'Progreso patungong ani',
+    daysLeft: (n, dateText) => `${n} araw pa · ${dateText}`,
+    logActivity: 'I-log ang Aktibidad',
+    reportDisaster: 'Iulat ang Sakuna',
+
+    myPonds: 'AKING MGA POND',
+    feedingNow: 'Pagpapakain Ngayon',
+    pondCount: (n) => `${n} pond`,
+    lastFeed: (dateText, feed, qty) => `Huling pagkain: ${dateText} · ${feed} · ${qty}`,
+    pondProgress: 'Progreso',
+    fingerlings: (n) => `${n} fingerlings`,
+    noStock: 'Walang stock',
+    needsFeeding: 'Pakainin na',
+    logActivityCta: '+ I-log ang Aktibidad',
+
+    // Every record already carries an owner, so an empty state here means
+    // the office has not registered anything for this person yet.
+    noCrops: 'Wala pang nakarehistrong taniman. Makipag-ugnayan po sa Office of the Municipal Agriculturist.',
+    noPonds: 'Wala pang nakarehistrong pond. Makipag-ugnayan po sa Office of the Municipal Agriculturist.',
+    allClear: 'Walang kailangang aksyon ngayon.',
+
+    // The reference tags every history row with who logged it, as a pill,
+    // not only the staff-logged ones. Both states are backed: the log
+    // serializers expose recorded_by / logged_by, compared against the
+    // citizen's own user id.
+    loggedByStaff: 'NA-LOG NG STAFF',
+    loggedByYou: 'IKAW ANG NAG-LOG',
+
+    // I-Log screen. The reference draws THREE activity cards, but the system
+    // supports nine and six of the others are in active use (Sampling 64,
+    // Pond Preparation 20, Stocking 19 ...). Copying it literally would make
+    // those unloggable, so the three keep their prominent cards and 'Iba pa'
+    // reveals the rest. Nothing is lost; the reference's shape is kept.
+    activityTypeHeading: 'URI NG AKTIBIDAD',
+    activityMore: 'Iba pa',
+    activityMoreSub: 'Sampling, stocking, pond preparation, at iba pa',
+    // Water Quality Check readings. Values are stored in English (matching
+    // every other choice set in the model); these are the Tagalog display
+    // labels only.
+    phLevel: 'PH LEVEL',
+    phPlaceholder: 'hal. 7.2',
+    dissolvedOxygen: 'DISSOLVED OXYGEN',
+    waterClarity: 'KALINAWAN NG TUBIG',
+    doOptions: { Low: 'Mababa', Normal: 'Normal', High: 'Mataas' },
+    clarityOptions: {
+      Clear: 'Malinaw',
+      'Slightly Turbid': 'Bahagyang malabo',
+      Turbid: 'Malabo',
+    },
+
+    activitySubtitles: {
+      'Feed Monitoring': 'Pagpapakain ng isda',
+      'Disease Control': 'Pamamahala ng sakit',
+      'Water Quality Check': 'Pagsusuri ng tubig',
+    },
   },
 
   home: {

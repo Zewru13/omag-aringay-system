@@ -100,12 +100,21 @@
      staff surfaces keep the warm parchment tokens, citizen screens use
      these. Consume as bg-cz-crop-header, text-cz-text-2, etc. */
 
-  /* Crop domain
-     `crop-header` is sampled directly from the UI basis mockups
-     (modal colour of the header band, images 1 and 2) rather than
-     chosen by eye — it lifts the previous near-black #173404 to a
-     readable forest green without leaving the domain. */
-  --color-cz-crop-header: #1C5737;
+  /* PALETTE CONVERGENCE (new farmer/fisheries reference, 33 frames).
+     That reference is drawn entirely in the STAFF palette above plus the
+     fisherfolk blue — measured, not assumed: its farmer header is #1B4D2E
+     (= --color-primary), its page ground #F6F5F1 (= --color-bg), its
+     hairline #E7E5DE (= --color-border), and its status tints #E7F5EC /
+     #FBEED6 / #FBE3E0 / #B4271B are the semantic-* tokens exactly.
+
+     So the citizen screens no longer carry a separate warm-cream ground and
+     their own crop green. The cz-* names are kept because the citizen
+     screens still differ in shape (phone layout, hairline borders, domain
+     tinting), but the values below now coincide with the staff tokens BY
+     DESIGN rather than by accident. Do not "tidy" them apart again.
+
+     Crop domain — was #1C5737, sampled from the older basis. */
+  --color-cz-crop-header: #1B4D2E;
   --color-cz-crop-pale:   #EAF3DE;
   --color-cz-crop-100:    #C0DD97;
   --color-cz-crop-300:    #97C459;
@@ -158,10 +167,10 @@
 
   /* Neutrals */
   --color-cz-surface:       #FFFFFF;
-  /* Sampled from the basis mockups' page band (images 1 and 4) — a warm
-     cream, replacing the previous cool #F7F7F5. */
-  --color-cz-page:          #F4F0E6;
-  --color-cz-border:        #E5E5E2;
+  /* Page ground and hairline now equal --color-bg / --color-border, per
+     the convergence note above (was #F4F0E6 warm cream / #E5E5E2). */
+  --color-cz-page:          #F6F5F1;
+  --color-cz-border:        #E7E5DE;
   --color-cz-border-strong: #D4D4D0;
   --color-cz-text:          #1A1A18;
   --color-cz-text-2:        #6B6B66;
@@ -173,6 +182,13 @@
      of the track showing). The screens previously used each domain's own
      -pale step here, which tinted the empty portion green or teal. */
   --color-cz-track:         #EDE9DF;
+
+  /* Very pale card tints behind the "Mga Kailangan ng Pansin" rows in the
+     new reference — lighter than the semantic -bg steps, which the same
+     frames use for pills. Measured at light 96-97. */
+  --color-cz-soft-danger:   #FDF4F3;
+  --color-cz-soft-warn:     #FDF8EF;
+  --color-cz-soft-info:     #E4EEF5;
 
   /* Status badges — SEMANTIC and domain-free, sampled as bg/fg PAIRS from
      the basis ("Harvested", "Above estimate", "Total Loss", "Overdue",

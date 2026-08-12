@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, BarChart3, Check, Clock, DropletOff, Fish, Gift, Home, Repeat, Stethoscope, User } from 'lucide-react'
+import { AlertTriangle, BarChart3, Check, Clock, DropletOff, FileText, Fish, Gift, Home, Repeat, Stethoscope, User } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { FISHERIES_DOMAIN } from './citizenDomainConfig.js'
@@ -115,8 +115,13 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
       active={active}
       items={[
         { key: 'home', icon: Home, label: labels.tabBar.home, onClick: () => setView({ kind: 'home' }) },
-        { key: 'harvests', icon: BarChart3, label: labels.tabBar.harvests, onClick: () => setView({ kind: 'yield' }) },
-        { key: 'myInfo', icon: User, label: labels.tabBar.myInfo, onClick: () => setView({ kind: 'profile' }) },
+        { key: 'log', icon: FileText, label: labels.tabBar.fishLog,
+          onClick: () => { setPondPickerMode('log'); setView({ kind: 'pondPicker' }) } },
+        { key: 'health', icon: Stethoscope, label: labels.tabBar.fishHealth,
+          onClick: () => { setPondPickerMode('illness'); setView({ kind: 'pondPicker' }) } },
+        { key: 'report', icon: AlertTriangle, label: labels.tabBar.fishReport,
+          onClick: () => { setPondPickerMode('disaster'); setView({ kind: 'pondPicker' }) } },
+        { key: 'myInfo', icon: User, label: labels.tabBar.profile, onClick: () => setView({ kind: 'profile' }) },
       ]}
     />
   )
@@ -244,11 +249,16 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
   if (view.kind === 'pondPicker') {
     const activeRecords = stockingRecords.filter((sr) => ACTIVE_STATUSES.includes(sr.status))
     const isDisasterMode = pondPickerMode === 'disaster'
+    const isPlainLog = pondPickerMode === 'log'
     return (
-      <CitizenScreen>
+      <CitizenScreen hasTabBar>
         <CitizenSubHeader
           theme={FISH_THEME}
-          title={labels.fisherfolkHome.pondPicker.title}
+          title={
+            isDisasterMode ? labels.tabBar.fishReport
+              : isPlainLog ? labels.tabBar.fishLog
+              : labels.tabBar.fishHealth
+          }
           subtitle={isDisasterMode ? labels.fisherfolkHome.pondPicker.disasterSubtitle : labels.fisherfolkHome.pondPicker.subtitle}
           onBack={() => setView({ kind: 'home' })}
         />
@@ -269,6 +279,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
                   onClick={() => {
                     setView({ kind: 'home' })
                     if (isDisasterMode) setDisasterScreen({ record: sr })
+                    else if (isPlainLog) setLogScreen({ record: sr })
                     else setLogScreen({ record: sr, prefillActivity: 'Disease Control' })
                   }}
                   className={`flex min-h-[44px] w-full items-center gap-[10px] px-[14px] py-[13px] text-left transition-colors hover:bg-cz-page ${
@@ -291,6 +302,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
             </div>
           )}
         </CitizenBody>
+        {tabBar(isDisasterMode ? 'report' : isPlainLog ? 'log' : 'health')}
       </CitizenScreen>
     )
   }
@@ -384,17 +396,14 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
 
             {/* MY PONDS — one bordered container, compact rows */}
             <div className="mt-4">
-              <SectionHeading>
-                {labels.fisherfolkHome.myPonds.title}
-                {pondRows.length > 0 && <span className="hidden sm:inline"> ({pondRows.length})</span>}
-              </SectionHeading>
+              <SectionHeading>{labels.ffNew.myPonds}</SectionHeading>
             </div>
             {pondRows.length === 0 ? (
               <CitizenEmptyState
                 icon={DropletOff}
                 iconClass="text-cz-text-muted"
-                title={labels.fisherfolkHome.myPonds.title}
-                body={labels.fisherfolkHome.myPonds.empty}
+                title={labels.fisherfolkHome.myPonds.empty}
+                body={labels.ffNew.noPonds}
               />
             ) : (
               // Below 1024px: Batch F's single bordered container with
@@ -456,7 +465,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
                                   sr.area_hectares ?? labels.common.unknown,
                                   sr.number_of_fingerlings ?? labels.common.unknown,
                                 )
-                              : labels.fisherfolkHome.myPonds.unstockedLabel}
+                              : labels.ffNew.noStock}
                           </p>
                         </div>
                         {isDue && (

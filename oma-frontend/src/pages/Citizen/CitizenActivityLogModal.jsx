@@ -106,6 +106,8 @@ export default function CitizenActivityLogScreen({
 }) {
   const { showToast } = useToast()
   const isEdit = Boolean(log)
+  // 'Iba pa' disclosure for the fisheries activity picker.
+  const [showMoreActivities, setShowMoreActivities] = useState(false)
   const isCrop = domain.key === 'crop'
   const isFisheries = domain.key === 'fisheries'
   const isPrefilled = !isEdit && Boolean(prefill?.activityType)
@@ -117,7 +119,13 @@ export default function CitizenActivityLogScreen({
   const [selectedDateMode, setSelectedDateMode] = useState(dateMode(initialDate))
 
   const [form, setForm] = useState({
-    [domain.activityField]: log?.[domain.activityField] || prefill?.activityType || domain.activityChoices[0],
+    // Fisheries opens on Feed Monitoring rather than activityChoices[0]
+    // ('Pond Preparation'): the reference gives three activities their own
+    // cards, and defaulting to a non-carded one made the screen open with
+    // the 'Iba pa' disclosure already expanded. Feed Monitoring is also by
+    // far the most logged (147 of 383). Crop keeps its existing default.
+    [domain.activityField]: log?.[domain.activityField] || prefill?.activityType
+      || (domain.key === 'fisheries' ? 'Feed Monitoring' : domain.activityChoices[0]),
     [domain.activityOtherField]: log?.[domain.activityOtherField] || '',
     date_of_activity: initialDate,
     [domain.notesField]: log?.[domain.notesField] || '',
@@ -160,6 +168,13 @@ export default function CitizenActivityLogScreen({
   // from a task card. Both are checked so the relevant fields show either way.
   const showFertilizerFields = isCrop && activityValue.includes('Fertilizer')
   const showPestFields = isCrop && ['Pesticide Application', 'Pest Control', 'Disease Control'].includes(activityValue)
+  // True when the chosen activity is NOT one of the three carded ones, so
+  // the 'Iba pa' disclosure stays open when editing such a log.
+  const isOtherActivity = isFisheries
+    && Boolean(activityValue)
+    && !['Feed Monitoring', 'Disease Control', 'Water Quality Check'].includes(activityValue)
+
+  const showWaterQualityFields = isFisheries && activityValue === 'Water Quality Check'
   const showFeedFields = isFisheries && activityValue === 'Feed Monitoring'
   const showIssueFields = isFisheries && activityValue === 'Disease Control'
   const plantedArea = isCrop
@@ -298,7 +313,75 @@ export default function CitizenActivityLogScreen({
         )}
 
         {/* ACTIVITY — only asked for when it isn't already known */}
-        {!isPrefilled && (
+        {/* The reference's three prominent cards, fisheries only — the crop
+            side has eight choices and the reference keeps a dropdown there.
+            'Iba pa' expands to the remaining real choices rather than
+            dropping them: six of them are actively logged. */}
+        {!isPrefilled && isFisheries && (
+          <FieldBlock label={labels.ffNew.activityTypeHeading} required>
+            <div className="space-y-2">
+              {['Feed Monitoring', 'Disease Control', 'Water Quality Check'].map((choice) => {
+                const selected = form[domain.activityField] === choice
+                return (
+                  <button
+                    key={choice}
+                    type="button"
+                    disabled={blockedByOther}
+                    onClick={() => { set(domain.activityField, choice); setShowMoreActivities(false) }}
+                    className={`flex w-full items-center gap-3 rounded-[10px] border-[0.5px] px-4 py-3 text-left transition-colors disabled:opacity-50 ${
+                      selected
+                        ? 'border-cz-fish-header bg-cz-fish-header text-white'
+                        : 'border-cz-border bg-cz-surface hover:bg-cz-page'
+                    }`}
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className={`block text-[15px] font-semibold ${selected ? 'text-white' : 'text-cz-text'}`}>
+                        {choice}
+                      </span>
+                      <span className={`mt-0.5 block text-[12.5px] ${selected ? 'text-cz-fish-100' : 'text-cz-text-2'}`}>
+                        {labels.ffNew.activitySubtitles[choice]}
+                      </span>
+                    </span>
+                  </button>
+                )
+              })}
+
+              <button
+                type="button"
+                disabled={blockedByOther}
+                onClick={() => setShowMoreActivities((v) => !v)}
+                className={`flex w-full items-center gap-3 rounded-[10px] border-[0.5px] px-4 py-3 text-left transition-colors disabled:opacity-50 ${
+                  showMoreActivities || isOtherActivity
+                    ? 'border-cz-fish-header bg-cz-surface'
+                    : 'border-cz-border bg-cz-surface hover:bg-cz-page'
+                }`}
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] font-semibold text-cz-text">{labels.ffNew.activityMore}</span>
+                  <span className="mt-0.5 block text-[12.5px] text-cz-text-2">{labels.ffNew.activityMoreSub}</span>
+                </span>
+              </button>
+
+              {(showMoreActivities || isOtherActivity) && (
+                <ComboboxWithOther
+                  options={domain.activityChoices.filter(
+                    (x) => x !== 'Other' && !['Feed Monitoring', 'Disease Control', 'Water Quality Check'].includes(x),
+                  )}
+                  value={isOtherActivity ? form[domain.activityField] : ''}
+                  otherValue={form[domain.activityOtherField]}
+                  onChange={(v) => set(domain.activityField, v)}
+                  onOtherChange={(v) => set(domain.activityOtherField, v)}
+                  disabled={blockedByOther}
+                  placeholder={labels.activityLog.selectPlaceholder}
+                  inputClassName={FIELD}
+                  chevronSize={18}
+                />
+              )}
+            </div>
+          </FieldBlock>
+        )}
+
+        {!isPrefilled && !isFisheries && (
           <FieldBlock label={labels.activityLog.fields.activity} required>
             <ComboboxWithOther
               options={domain.activityChoices.filter((x) => x !== 'Other')}
@@ -454,6 +537,52 @@ export default function CitizenActivityLogScreen({
         )}
 
         {/* FEEDING (fisheries) */}
+        {/* WATER QUALITY — pH, dissolved oxygen and clarity, per the new
+            reference. These are real model fields as of this batch; before
+            it, a water-quality log could only carry the free-text condition
+            field, which every existing water-quality record still uses. */}
+        {showWaterQualityFields && (
+          <>
+            <FieldBlock label={labels.ffNew.phLevel}>
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                max="14"
+                inputMode="decimal"
+                value={form.ph_level ?? ''}
+                onChange={(e) => set('ph_level', e.target.value)}
+                placeholder={labels.ffNew.phPlaceholder}
+                className={FIELD}
+              />
+            </FieldBlock>
+            <FieldBlock label={labels.ffNew.dissolvedOxygen}>
+              <select
+                value={form.dissolved_oxygen || ''}
+                onChange={(e) => set('dissolved_oxygen', e.target.value)}
+                className={FIELD}
+              >
+                <option value="">{labels.activityLog.selectPlaceholder}</option>
+                {Object.entries(labels.ffNew.doOptions).map(([v, lbl]) => (
+                  <option key={v} value={v}>{lbl}</option>
+                ))}
+              </select>
+            </FieldBlock>
+            <FieldBlock label={labels.ffNew.waterClarity}>
+              <select
+                value={form.water_clarity || ''}
+                onChange={(e) => set('water_clarity', e.target.value)}
+                className={FIELD}
+              >
+                <option value="">{labels.activityLog.selectPlaceholder}</option>
+                {Object.entries(labels.ffNew.clarityOptions).map(([v, lbl]) => (
+                  <option key={v} value={v}>{lbl}</option>
+                ))}
+              </select>
+            </FieldBlock>
+          </>
+        )}
+
         {showFeedFields && (
           <>
             <FieldBlock label={labels.activityLog.fields.feedType}>

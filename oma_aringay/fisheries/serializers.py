@@ -401,7 +401,8 @@ class FisheriesActivityLogSerializer(serializers.ModelSerializer):
         model  = FisheriesActivityLog
         fields = [
             'id', 'stocking_record', 'activity', 'activity_other_specify', 'date_of_activity',
-            'water_fish_condition', 'feed_type', 'feed_quantity_kg', 'feed_brand',
+            'water_fish_condition', 'ph_level', 'dissolved_oxygen', 'water_clarity',
+            'feed_type', 'feed_quantity_kg', 'feed_brand',
             'observed_issue', 'severity', 'mortality_count', 'area_affected_ha',
             'disease_type', 'disease_type_name', 'disease_type_other_specify', 'vet_consulted',
             'treatment_applied', 'outcome',

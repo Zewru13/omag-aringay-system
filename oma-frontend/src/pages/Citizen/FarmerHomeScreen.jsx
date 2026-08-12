@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle, AlertTriangle, BarChart3, Clock, Gift, Home, Sprout, User, Wheat } from 'lucide-react'
+import { AlertCircle, AlertTriangle, BarChart3, ChevronRight, Clock, FileText, Gift, Home, Sprout, User, Wheat } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { CROP_DOMAIN } from './citizenDomainConfig.js'
@@ -69,6 +69,18 @@ export default function FarmerHomeScreen({ record, onLogout }) {
 
   const handleLogSuccess = () => { fetchRecords() }
 
+  // AKTIBIDAD and SAKUNA are tabs in the new reference, but both act ON a
+  // crop record. With exactly one record the tab goes straight in; with
+  // several it opens a picker. It never picks for the user.
+  const pickRecordFor = (intent) => {
+    if (records.length === 1) {
+      if (intent === 'log') setLogScreen({ record: records[0] })
+      else setDisasterScreen({ record: records[0] })
+      return
+    }
+    setView({ kind: 'picker', intent })
+  }
+
   // Mobile-only tab bar. Declared before the early-returning sub-views so
   // each of them can render it; `active` is null on screens that aren't one
   // of the three destinations, which leaves no tab lit rather than lighting
@@ -79,8 +91,10 @@ export default function FarmerHomeScreen({ record, onLogout }) {
       active={active}
       items={[
         { key: 'home', icon: Home, label: labels.tabBar.home, onClick: () => setView({ kind: 'home' }) },
-        { key: 'harvests', icon: BarChart3, label: labels.tabBar.harvests, onClick: () => setView({ kind: 'yield' }) },
-        { key: 'myInfo', icon: User, label: labels.tabBar.myInfo, onClick: () => setView({ kind: 'profile' }) },
+        { key: 'activity', icon: FileText, label: labels.tabBar.farmerActivity, onClick: () => pickRecordFor('log') },
+        { key: 'disaster', icon: AlertTriangle, label: labels.tabBar.farmerDisaster, onClick: () => pickRecordFor('disaster') },
+        { key: 'harvests', icon: BarChart3, label: labels.tabBar.farmerHarvest, onClick: () => setView({ kind: 'yield' }) },
+        { key: 'myInfo', icon: User, label: labels.tabBar.profile, onClick: () => setView({ kind: 'profile' }) },
       ]}
     />
   )
@@ -112,6 +126,54 @@ export default function FarmerHomeScreen({ record, onLogout }) {
         onClose={() => setDisasterScreen(null)}
         onSuccess={handleLogSuccess}
       />
+    )
+  }
+
+  if (view.kind === 'picker') {
+    const isLog = view.intent === 'log'
+    return (
+      <CitizenScreen hasTabBar>
+        <CitizenSubHeader
+          theme={CROP_THEME}
+          title={isLog ? labels.tabBar.farmerActivity : labels.tabBar.farmerDisaster}
+          subtitle={labels.ffNew.activeCrops}
+          onBack={() => setView({ kind: 'home' })}
+        />
+        <CitizenBody>
+          {records.length === 0 ? (
+            <p className="px-1 py-8 text-center text-[13px] italic text-cz-text-muted">{labels.ffNew.noCrops}</p>
+          ) : (
+            <ul className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface">
+              {records.map((rec, i) => (
+                <li key={rec.id} className={i === records.length - 1 ? '' : 'border-b-[0.5px] border-cz-border'}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isLog) setLogScreen({ record: rec })
+                      else setDisasterScreen({ record: rec })
+                    }}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-cz-page"
+                  >
+                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${CROP_THEME.circleBg}`}>
+                      <Wheat size={17} className={CROP_THEME.circleIcon} aria-hidden="true" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[15px] font-semibold text-cz-text">
+                        {rec.crop_type_name || labels.yieldAnalysis.cropCropLabel}
+                      </span>
+                      <span className="mt-0.5 block truncate text-[13px] text-cz-text-2">
+                        {rec.area_planted_ha ?? labels.common.unknown} ha · Brgy. {rec.farm_location_barangay || labels.common.unknown}
+                      </span>
+                    </span>
+                    <ChevronRight size={18} className="shrink-0 text-cz-text-muted" aria-hidden="true" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </CitizenBody>
+        {tabBar(isLog ? 'activity' : 'disaster')}
+      </CitizenScreen>
     )
   }
 
@@ -247,10 +309,7 @@ export default function FarmerHomeScreen({ record, onLogout }) {
 
             {/* MY CROPS */}
             <div className="mt-4">
-              <SectionHeading>
-                {labels.farmerHome.myCrops.title}
-                {records.length > 0 && <span className="hidden sm:inline"> ({records.length})</span>}
-              </SectionHeading>
+              <SectionHeading>{labels.ffNew.activeCrops}</SectionHeading>
             </div>
             {records.length === 0 ? (
               <CitizenEmptyState
@@ -272,10 +331,17 @@ export default function FarmerHomeScreen({ record, onLogout }) {
                       <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${CROP_THEME.circleBg}`}>
                         <Wheat size={20} className={CROP_THEME.circleIcon} aria-hidden="true" />
                       </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-[16px] font-medium text-cz-text">
-                          {rec.crop_type_name || labels.yieldAnalysis.cropCropLabel}
-                        </p>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="truncate text-[16px] font-semibold text-cz-text">
+                            {rec.crop_type_name || labels.yieldAnalysis.cropCropLabel}
+                          </p>
+                          {rec.status && rec.status !== 'Harvested' && rec.status !== 'Total Loss' && (
+                            <span className="shrink-0 rounded-full border-[0.5px] border-cz-crop-header/25 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] text-cz-crop-header">
+                              {labels.ffNew.activePill}
+                            </span>
+                          )}
+                        </div>
                         <p className="truncate text-[12px] text-cz-text-2">
                           {labels.farmerHome.myCrops.cardMeta(
                             rec.farm_location_barangay || labels.common.unknown,
@@ -292,17 +358,21 @@ export default function FarmerHomeScreen({ record, onLogout }) {
 
                     {progress && (
                       <>
-                        <div className="mt-3">
+                        <div className="mt-3 flex items-baseline justify-between gap-2">
+                          <span className="text-[12.5px] text-cz-text-2">{labels.ffNew.cropProgress}</span>
+                          <span className="text-[15px] font-bold tabular-nums text-cz-crop-header">
+                            {Math.round(progress.pct)}%
+                          </span>
+                        </div>
+                        <div className="mt-1.5">
                           <ProgressTrack theme={CROP_THEME} pct={progress.pct} height={8} />
                         </div>
-                        <div className="mt-1.5 flex items-center justify-between">
-                          <span className="text-[12px] text-cz-text-2">
-                            {labels.farmerHome.myCrops.progressDayOf(progress.elapsed, progress.total)}
-                          </span>
-                          <span className={`text-[12px] font-medium ${CROP_THEME.accentText}`}>
-                            {labels.farmerHome.myCrops.harvestShort(rec.expected_harvest_date)}
-                          </span>
-                        </div>
+                        <p className="mt-1.5 text-[12px] text-cz-text-2">
+                          {labels.ffNew.daysLeft(
+                            Math.max(0, progress.total - progress.elapsed),
+                            labels.farmerHome.myCrops.harvestShort(rec.expected_harvest_date),
+                          )}
+                        </p>
                       </>
                     )}
 
@@ -310,37 +380,36 @@ export default function FarmerHomeScreen({ record, onLogout }) {
                       <button
                         type="button"
                         onClick={() => setLogScreen({ record: rec })}
-                        className="flex min-h-[44px] flex-1 items-center justify-center rounded-[8px] border-[0.5px] border-cz-border-strong px-2 py-[11px] text-cz-text transition-colors hover:bg-cz-page"
+                        className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-[8px] bg-cz-crop-header px-2 py-[11px] text-white transition-opacity hover:opacity-90"
                       >
-                        <span className="text-[14px] font-medium">{labels.farmerHome.myCrops.logActivity}</span>
+                        <FileText size={15} aria-hidden="true" />
+                        <span className="text-[14px] font-semibold">{labels.ffNew.logActivity}</span>
                       </button>
                       <button
                         type="button"
-                        onClick={() => setView({ kind: 'history', record: rec })}
-                        className="flex min-h-[44px] flex-1 items-center justify-center rounded-[8px] border-[0.5px] border-cz-border-strong px-2 py-[11px] text-cz-text-2 transition-colors hover:bg-cz-page"
+                        onClick={() => setDisasterScreen({ record: rec })}
+                        aria-label={labels.ffNew.reportDisaster}
+                        className="flex min-h-[44px] w-[46px] shrink-0 items-center justify-center rounded-[8px] border-[0.5px] border-cz-border-strong text-cz-text-2 transition-colors hover:bg-cz-page"
                       >
-                        <span className="text-[14px]">{labels.farmerHome.myCrops.viewHistory}</span>
+                        <AlertTriangle size={16} aria-hidden="true" />
                       </button>
                     </div>
-                    {/* Evaluator-parity batch: its own full-width row rather
-                        than a 3rd flex-1 slot next to Log activity/View
-                        history — a rarer, more consequential action reads
-                        better with its own visual weight (danger tone) than
-                        squeezed to a third of the row's width on a 340px
-                        card. */}
                     <button
                       type="button"
-                      onClick={() => setDisasterScreen({ record: rec })}
-                      className="mt-2 flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-[8px] border-[0.5px] border-cz-danger-border px-2 py-[11px] text-cz-danger-accent transition-colors hover:bg-cz-danger-bg"
+                      onClick={() => setView({ kind: 'history', record: rec })}
+                      className="mt-2 w-full text-center text-cz-text-2 transition-colors hover:text-cz-text"
                     >
-                      <AlertTriangle size={14} aria-hidden="true" />
-                      <span className="text-[13px] font-medium">{labels.farmerHome.myCrops.reportDisaster}</span>
+                      <span className="text-[13px]">{labels.farmerHome.myCrops.viewHistory}</span>
                     </button>
                   </div>
                 )
               })}
               </CitizenCardGrid>
             )}
+
+            <p className="mt-5 text-center text-[12px] text-cz-text-muted">
+              {labels.ffNew.footer(new Date().toLocaleDateString('fil-PH', { year: 'numeric', month: 'long', day: 'numeric' }))}
+            </p>
 
             {/* SECONDARY ROWS — mobile/tablet only; at >=1024px these same
                 entries render in the Quick Links sidebar instead. */}

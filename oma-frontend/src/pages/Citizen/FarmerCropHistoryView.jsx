@@ -117,8 +117,16 @@ export default function FarmerCropHistoryView({ record, onBack, onRecordChanged 
         <p className="truncate text-[15px] font-medium text-cz-text">{title}</p>
         <p className="text-[12px] text-cz-text-2">
           {meta}
-          {isStaffLogged && <span className="italic text-cz-text-muted"> · {labels.common.loggedByStaff}</span>}
         </p>
+        <span
+          className={`mt-1 inline-block rounded-[5px] px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.03em] ${
+            isStaffLogged
+              ? 'bg-[color:var(--color-semantic-warning-bg)] text-[color:var(--color-semantic-warning)]'
+              : 'bg-[color:var(--color-semantic-safe-bg)] text-[color:var(--color-semantic-safe)]'
+          }`}
+        >
+          {isStaffLogged ? labels.ffNew.loggedByStaff : labels.ffNew.loggedByYou}
+        </span>
       </div>
       <button
         type="button"
