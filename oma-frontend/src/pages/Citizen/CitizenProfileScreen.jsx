@@ -1,156 +1,296 @@
-import { ChevronRight, Info, User } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Hourglass, IdCard, MapPin, Phone, ShieldCheck, SquarePen } from 'lucide-react'
+import api from '../../api/axiosInstance.js'
+import { useToast } from '../../context/ToastContext.jsx'
 import { labels } from './labels.js'
-import { CITIZEN_GUTTER, CitizenScreen } from './citizenUI.jsx'
+import { CROP_THEME, CitizenBody, CitizenScreen, CitizenSubHeader, FISH_THEME } from './citizenUI.jsx'
 
-// Read-only registry view for a Farmer/Fisherfolk citizen. There is no edit
-// affordance anywhere in this file by design — self-service editing is a
-// separate decision and is deliberately not assumed here. Everything shown
-// comes from /accounts/me/'s `linked_record`, which only ever resolves the
-// caller's OWN record, so this screen adds no new data access.
+// ─── Aking Profile (frames 13, 14, 31) ────────────────────────────────────
+// Everything shown comes from /accounts/me/'s `linked_record`, which only
+// ever resolves the caller's OWN record, so this screen adds no new data
+// access. What is new against the previous version is the reference's own
+// structure: an identity card straddling the header, one card per field,
+// the immutability note on RSBSA, and the pending-change panel.
 //
-// UI-basis pass: the identity block moved INTO the tinted header (centred
-// avatar/name/role) and rows became stacked label-above-value instead of
-// label-left/value-right. The back affordance moved into the header's top
-// row so the centred identity block isn't pushed off-axis by it.
+// PENDING CHANGES. ProfileChangeRequest and its citizen endpoint have
+// existed since the profile self-service batch and were never surfaced
+// anywhere in the UI -- a citizen could have a request sitting in the staff
+// queue with no way to see it. Frame 31 draws exactly that panel, so it is
+// wired here against /profile/change-requests/.
 //
-// HIDE-EMPTY RULE — UNCHANGED BY THE RE-SKIN. A row renders only when its
-// value is real. Blank strings and the literal 'Unspecified' marker are
-// treated identically — both mean "the registry doesn't actually know this"
-// — and the row is omitted rather than shown with a placeholder. This
-// matters at the scale this system runs at: civil_status is 'Unspecified'
-// for 3556 of 3568 farmers and blank for 873 of 874 fisherfolk, and
-// highest_education is blank for essentially everyone, so rendering
-// placeholders would bury the two or three fields that ARE real under a
-// wall of nothing. A group whose rows all vanish drops its heading too — a
-// label over an empty region reads as broken.
+// HIDE-EMPTY RULE, kept from the previous version: a field renders only when
+// its value is real. 'Unspecified' is a stored choice meaning "not
+// determined from the import source", not a person's answer, so it counts as
+// empty. civil_status is 'Unspecified' for 3556 of 3568 farmers and
+// highest_education is blank for essentially everyone -- rendering
+// placeholders would bury the two or three fields that ARE real.
 
-// 'Unspecified' is a real stored choice value (Farmer.CivilStatus.UNSPECIFIED,
-// Fisherfolk.FisherfolkType.UNSPECIFIED) meaning "not determined from the
-// RSBSA/BFAR import source", not a user's answer — so it is hidden, not shown.
-const BLANK_VALUES = new Set(['', 'Unspecified'])
+const BLANK = new Set(['', 'Unspecified'])
+const hasValue = (v) => v !== null && v !== undefined && !BLANK.has(String(v).trim())
 
-const hasValue = (v) => v !== null && v !== undefined && !BLANK_VALUES.has(String(v).trim())
+const initialsOf = (rec) => {
+  const a = (rec?.first_name || '').trim()[0] || ''
+  const b = (rec?.middle_name || rec?.last_name || '').trim()[0] || ''
+  return (a + b).toUpperCase() || '—'
+}
 
-// Stacked row, per the basis: small-caps label above, value below.
-function FieldRow({ label, value, isLast }) {
+const NAME_FIELDS = ['first_name', 'middle_name', 'last_name']
+
+function Field({ icon: Icon, label, value, note, pending }) {
+  const P = labels.ffNew.profile
   return (
-    <div className={`px-[14px] py-[11px] ${isLast ? '' : 'border-b-[0.5px] border-cz-border'}`}>
-      <p className="text-[10px] font-medium tracking-[0.05em] text-cz-text-2">{label.toUpperCase()}</p>
-      <p className="mt-[3px] text-[14px] font-medium leading-[1.4] text-cz-text">{value}</p>
+    <div className="rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface px-4 py-3.5">
+      <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">
+        {Icon && <Icon size={14} className="shrink-0 text-cz-text-muted" aria-hidden="true" />}
+        {label}
+      </p>
+      <p className="mt-1.5 text-[16px] font-semibold leading-[1.35] text-cz-text">{value}</p>
+      {note && <p className="mt-1 text-[12.5px] leading-[1.5] text-cz-text-2">{note}</p>}
+      {pending && (
+        <div className="mt-3 rounded-[10px] border-[0.5px] border-cz-warn-accent/30 bg-cz-warn-bg px-3.5 py-3">
+          <p className="mb-1 flex items-center gap-2 text-[13px] font-semibold text-cz-warn-accent">
+            <Hourglass size={14} aria-hidden="true" />
+            {P.pendingHeading}
+          </p>
+          <p className="text-[13px] leading-[1.5] text-cz-text">
+            {P.pendingRequested(pending.requested_value)}
+          </p>
+          <p className="text-[13px] leading-[1.5] text-cz-text-2">
+            {P.pendingSubmitted(labels.common.formatDate(String(pending.requested_at).slice(0, 10)))}
+          </p>
+          <p className="mt-1.5 text-[12.5px] leading-[1.5] text-cz-text-2">{P.pendingNote}</p>
+        </div>
+      )}
     </div>
   )
 }
 
-// The basis draws one filled-strip heading over a single card of rows. The
-// two existing groupings are preserved as separate cards so "contact" is
-// still visually distinct from registry identity, each with the same strip
-// treatment — and each still disappears entirely when the hide-empty rule
-// empties it.
-function FieldGroup({ heading, rows }) {
-  const visible = rows.filter((r) => hasValue(r.value))
-  if (visible.length === 0) return null
+function EditSheet({ theme, record, pendingFields, onClose, onSaved }) {
+  const P = labels.ffNew.profile
+  const { showToast } = useToast()
+  const [form, setForm] = useState({
+    contact_number: record?.contact_number || '',
+    first_name: record?.first_name || '',
+    middle_name: record?.middle_name || '',
+    last_name: record?.last_name || '',
+    barangay: record?.barangay || '',
+  })
+  const [saving, setSaving] = useState(false)
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+
+  const FIELD = 'w-full rounded-[10px] border-[0.5px] border-cz-border-strong bg-cz-surface px-3.5 py-[13px] text-[15px] text-cz-text focus:outline-none disabled:opacity-50'
+
+  const submit = async () => {
+    setSaving(true)
+    let did = false
+    try {
+      // Contact number is a direct edit on the record; name and barangay are
+      // not, so they go through the change-request queue. Both paths already
+      // existed server-side -- neither is invented here.
+      if ((form.contact_number || '') !== (record?.contact_number || '')) {
+        await api.patch('/profile/contact-number/', { contact_number: form.contact_number })
+        did = true
+        showToast(P.editContactSaved, 'success')
+      }
+      for (const f of [...NAME_FIELDS, 'barangay']) {
+        if (pendingFields.has(f)) continue
+        if ((form[f] || '') === (record?.[f] || '')) continue
+        await api.post('/profile/change-requests/', { field_name: f, requested_value: form[f] })
+        did = true
+      }
+      if (!did) { showToast(P.editNothing, 'info'); setSaving(false); return }
+      showToast(P.editSubmitted, 'success')
+      onSaved?.()
+      onClose()
+    } catch (err) {
+      const d = err?.response?.data
+      const msg = typeof d === 'string' ? d
+        : Object.values(d || {}).flat().join(' ') || labels.common.genericSaveError
+      showToast(msg, 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
-    <section className={`${CITIZEN_GUTTER} mt-3`}>
-      <div className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border-strong bg-cz-surface">
-        <h2 className="border-b-[0.5px] border-cz-border bg-cz-page px-[14px] py-[9px] text-[11px] font-semibold tracking-[0.05em] text-cz-text-2">
-          {heading}
-        </h2>
-        {visible.map((r, i) => (
-          <FieldRow key={r.label} label={r.label} value={r.value} isLast={i === visible.length - 1} />
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" role="dialog" aria-modal="true">
+      <div className="max-h-[90vh] w-full max-w-[520px] overflow-y-auto rounded-t-[16px] bg-cz-page p-5 sm:rounded-[16px]">
+        <h2 className="text-[19px] font-bold text-cz-text">{P.editTitle}</h2>
+        <p className="mt-1 mb-4 text-[13px] leading-[1.5] text-cz-text-2">{P.editSubtitle}</p>
+
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{P.editContactLabel}</p>
+        <input
+          type="tel"
+          value={form.contact_number}
+          onChange={(e) => set('contact_number', e.target.value)}
+          className={FIELD}
+        />
+        <p className="mt-1 mb-5 text-[12px] text-cz-text-2">{P.editContactNote}</p>
+
+        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{P.editReviewHeading}</p>
+        <p className="mt-1 mb-3 text-[12.5px] leading-[1.5] text-cz-text-2">{P.editReviewNote}</p>
+
+        {[
+          ['first_name', P.editFirstName],
+          ['middle_name', P.editMiddleName],
+          ['last_name', P.editLastName],
+          ['barangay', P.editBarangay],
+        ].map(([key, label]) => (
+          <div key={key} className="mb-3">
+            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{label}</p>
+            <input
+              type="text"
+              value={form[key]}
+              disabled={pendingFields.has(key)}
+              onChange={(e) => set(key, e.target.value)}
+              className={FIELD}
+            />
+            {pendingFields.has(key) && (
+              <p className="mt-1 text-[12px] text-cz-warn-accent">{P.editPendingBlocked}</p>
+            )}
+          </div>
         ))}
+
+        <div className="mt-5 flex gap-2.5">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-[10px] border-[0.5px] border-cz-border-strong bg-cz-surface py-[13px] text-[14px] font-medium text-cz-text-2"
+          >
+            {P.editCancel}
+          </button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={saving}
+            className={`flex-1 rounded-[10px] py-[13px] text-[14px] font-semibold disabled:opacity-50 ${theme.solidBtn}`}
+          >
+            {P.editSave}
+          </button>
+        </div>
       </div>
-    </section>
+    </div>
   )
 }
 
-export default function CitizenProfileScreen({ record, recordType, theme, onBack, tabBar }) {
+export default function CitizenProfileScreen({ record, recordType, onBack, tabBar }) {
+  const P = labels.ffNew.profile
   const isFisherfolk = recordType === 'FISHERFOLK'
-  const f = labels.profile.fields
+  const theme = isFisherfolk ? FISH_THEME : CROP_THEME
 
-  // Composed from barangay + a constant municipality/province. Safe because
-  // every record in this system belongs to Aringay, La Union — this is not
-  // inventing data, it is spelling out a fact already true of the whole
-  // dataset. It still respects hide-empty: with no barangay there is no
-  // address row at all, rather than a row reading just "Aringay, La Union".
-  const address = hasValue(record?.barangay)
-    ? `${record.barangay}, ${labels.profile.addressSuffix}`
-    : ''
+  const [requests, setRequests] = useState([])
+  const [editing, setEditing] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
 
-  const registryRows = [
-    { label: f.fullName, value: record?.label },
-    // Fisherfolk keep RSBSA / FishR / LGU as three SEPARATE rows, each
-    // subject to hide-empty. The basis mockup collapses them into one row
-    // labelled "RSBSA NUMBER", which would mislabel a FishR number as an
-    // RSBSA one — a data-accuracy problem, not a style choice, so it is
-    // deliberately not adopted.
-    { label: f.rsbsaNumber, value: record?.rsbsa_number },
-    ...(isFisherfolk
-      ? [
-          { label: f.fishrNumber, value: record?.fishr_number },
-          { label: f.lguRegistrationNumber, value: record?.lgu_registration_number },
-        ]
-      : []),
-    { label: f.address, value: address },
-    {
-      label: f.classification,
-      value: isFisherfolk ? labels.profile.roleFisherfolk : labels.profile.roleFarmer,
-    },
-    ...(isFisherfolk ? [{ label: f.fisherfolkType, value: record?.fisherfolk_type }] : []),
-    { label: f.civilStatus, value: record?.civil_status },
-    { label: f.highestEducation, value: record?.highest_education },
-  ]
+  useEffect(() => {
+    let cancelled = false
+    api.get('/profile/change-requests/')
+      .then((r) => {
+        if (cancelled) return
+        const rows = Array.isArray(r.data) ? r.data : (r.data?.results || [])
+        setRequests(rows.filter((x) => x.status === 'PENDING'))
+      })
+      .catch(() => { if (!cancelled) setRequests([]) })
+    return () => { cancelled = true }
+  }, [reloadKey])
 
-  const contactRows = [
-    { label: f.contactNumber, value: record?.contact_number },
-  ]
+  const pendingFor = (field) => requests.find((r) => r.field_name === field) || null
+  const pendingFields = new Set(requests.map((r) => r.field_name))
+  // The reference attaches the panel to BUONG PANGALAN as a whole, so any of
+  // the three name parts being under review surfaces there.
+  const pendingName = NAME_FIELDS.map(pendingFor).find(Boolean) || null
+
+  const fullName = [record?.first_name, record?.middle_name, record?.last_name]
+    .filter(Boolean).join(' ') || record?.label || labels.common.unknown
 
   return (
-    <CitizenScreen hasTabBar={Boolean(tabBar)}>
-      {/* IDENTITY — inside the tinted header, per the basis. */}
-      <header className={`${theme.header} ${CITIZEN_GUTTER} pb-5 pt-3`}>
-        <button
-          type="button"
-          onClick={onBack}
-          aria-label={labels.farmerHome.secondary.backToHome}
-          className={`-ml-3 flex h-11 w-11 items-center justify-center rounded-lg ${theme.iconBtn} transition-colors hover:bg-white/10`}
-        >
-          <ChevronRight size={20} className="rotate-180" aria-hidden="true" />
-        </button>
-        <div className="-mt-2 flex flex-col items-center text-center">
-          <div className={`mb-[10px] flex h-16 w-16 items-center justify-center rounded-full ${theme.circleBg}`}>
-            <User size={30} className={theme.circleIcon} aria-hidden="true" />
-          </div>
-          <p className={`text-[18px] font-medium ${theme.name}`}>
-            {record?.label || labels.common.unknown}
-          </p>
-          <p className={`mt-[2px] text-[12px] ${theme.meta}`}>
-            {isFisherfolk ? labels.profile.roleFisherfolk : labels.profile.roleFarmer}
-            {hasValue(record?.barangay) ? ` · ${record.barangay}` : ''}
-          </p>
-        </div>
-      </header>
-
-      {/* OFFICE NOTICE — moved to the TOP, per the basis. */}
-      <div className={`${CITIZEN_GUTTER} mt-3`}>
-        <div className="flex gap-2 rounded-[8px] border-[0.5px] border-cz-warn-border bg-cz-warn-bg p-3">
-          <Info size={16} className="mt-px shrink-0 text-cz-warn-accent" aria-hidden="true" />
-          <p className="text-[12px] leading-[1.5] text-cz-warn-body">{labels.profile.officeNotice}</p>
+    <CitizenScreen hasTabBar>
+      <CitizenSubHeader
+        theme={theme}
+        title={P.title}
+        subtitle={P.subtitle}
+        onBack={onBack}
+      />
+      <div className={`${theme.header} px-4 pb-12 sm:px-6`}>
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="flex items-center gap-2 rounded-[10px] border-[0.5px] border-white/40 px-3.5 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-white/10"
+          >
+            <SquarePen size={15} aria-hidden="true" />
+            {P.editCta}
+          </button>
         </div>
       </div>
 
-      <FieldGroup heading={labels.profile.groups.registry} rows={registryRows} />
-      <FieldGroup heading={labels.profile.groups.contact} rows={contactRows} />
+      <CitizenBody className="-mt-10">
+        <div className="mb-4 flex items-center gap-4 rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface px-4 py-4">
+          <div className={`flex h-[62px] w-[62px] shrink-0 items-center justify-center overflow-hidden rounded-full ${theme.circleBg}`}>
+            {record?.profile_picture_url
+              ? <img src={record.profile_picture_url} alt="" className="h-full w-full object-cover" />
+              : <span className={`text-[20px] font-bold ${theme.circleIcon}`}>{initialsOf(record)}</span>}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[19px] font-bold leading-[1.2] text-cz-text">{fullName}</p>
+            {hasValue(record?.rsbsa_number) && (
+              <p className="mt-0.5 text-[13.5px] text-cz-text-2">{record.rsbsa_number}</p>
+            )}
+            <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-cz-status-good-bg px-3 py-1 text-[12.5px] font-semibold text-cz-status-good-fg">
+              <ShieldCheck size={13} aria-hidden="true" />
+              {isFisherfolk ? P.verifiedFisherfolk : P.verifiedFarmer}
+            </span>
+          </div>
+        </div>
 
-      {/* TODO: Office contact card — pending real OMAg-verified address /
-          phone / opening hours. The UI basis shows this block populated
-          ("Aringay Municipal Hall", "(072) 888-0000", "Monday – Friday ·
-          8:00 AM – 5:00 PM"), but none of those values exist anywhere in
-          this system and none have been confirmed as accurate, so the card
-          is deliberately NOT rendered rather than shipped with numbers a
-          citizen might actually try to call. Build it once the office has
-          verified the details. */}
+        <div className="space-y-3">
+          {hasValue(record?.rsbsa_number) && (
+            <Field icon={IdCard} label={P.rsbsa} value={record.rsbsa_number} note={P.rsbsaNote} />
+          )}
+          <Field icon={IdCard} label={P.fullName} value={fullName} pending={pendingName} />
+          {hasValue(record?.barangay) && (
+            <Field icon={MapPin} label={P.barangay} value={record.barangay} pending={pendingFor('barangay')} />
+          )}
+          {hasValue(record?.contact_number) && (
+            <Field icon={Phone} label={P.contact} value={record.contact_number} />
+          )}
 
-      <div className="h-4" />
+          {isFisherfolk && [record?.fishr_number, record?.lgu_registration_number, record?.fisherfolk_type]
+            .some(hasValue) && (
+            <div className="rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface px-4 py-3.5">
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">
+                {P.extraHeading}
+              </p>
+              {[
+                [P.fishr, record?.fishr_number],
+                [P.lguReg, record?.lgu_registration_number],
+                [P.activityType, record?.fisherfolk_type],
+              ].filter(([, v]) => hasValue(v)).map(([label, value]) => (
+                <div key={label} className="mb-2.5 last:mb-0">
+                  <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{label}</p>
+                  <p className="mt-0.5 text-[15px] font-semibold text-cz-text">{value}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <p className="mt-6 text-center text-[12.5px] leading-[1.6] text-cz-text-muted">
+          {P.footerLine1}
+          <br />
+          {P.footerLine2}
+        </p>
+      </CitizenBody>
+
+      {editing && (
+        <EditSheet
+          theme={theme}
+          record={record}
+          pendingFields={pendingFields}
+          onClose={() => setEditing(false)}
+          onSaved={() => setReloadKey((k) => k + 1)}
+        />
+      )}
       {tabBar}
     </CitizenScreen>
   )

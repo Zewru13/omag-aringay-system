@@ -136,6 +136,61 @@ export const labels = {
     // Pond Preparation 20, Stocking 19 ...). Copying it literally would make
     // those unloggable, so the three keep their prominent cards and 'Iba pa'
     // reveals the rest. Nothing is lost; the reference's shape is kept.
+    // ── Aking Profile (frames 13, 14, 31) ─────────────────────────────
+    profile: {
+      title: 'Aking Profile',
+      subtitle: 'Impormasyon mula sa registry ng OMAg',
+      editCta: 'I-Edit ang Profile',
+
+      verifiedFarmer: 'Nakarehistrong Magsasaka',
+      verifiedFisherfolk: 'Nakarehistrong Mangingisda',
+
+      rsbsa: 'RSBSA NUMBER',
+      // The registry number is the identity key the whole system joins on;
+      // it is never a self-service edit, hence the standing note.
+      rsbsaNote: 'Hindi mababago. Makipag-ugnayan sa OMAg para sa pagwawasto.',
+      fullName: 'BUONG PANGALAN',
+      barangay: 'BARANGAY',
+      contact: 'CONTACT NUMBER',
+
+      extraHeading: 'KARAGDAGANG IMPORMASYON',
+      fishr: 'FISHR NUMBER',
+      lguReg: 'LGU REGISTRATION',
+      activityType: 'URI NG AKTIBIDAD',
+
+      // Pending-change panel. ProfileChangeRequest has existed since the
+      // profile self-service batch and has never been surfaced anywhere;
+      // this is the reference's own presentation of it (frame 31).
+      pendingHeading: 'Nakabinbin sa Pagsusuri',
+      pendingRequested: (value) => `Kahilingang palitan ng: ${value}`,
+      pendingSubmitted: (dateText) => `Isinumite: ${dateText}`,
+      pendingNote: 'Naghihintay ng pag-aproba. Hindi maaaring baguhin habang naghihintay.',
+
+      footerLine1: 'Para sa mga katanungan, makipag-ugnayan po sa',
+      footerLine2: 'Office of the Municipal Agriculturist · Aringay, La Union',
+
+      // Edit sheet. The reference draws the entry point but has no frame for
+      // the sheet itself, so it is kept to exactly what the backend already
+      // supports and says plainly which changes are instant and which need
+      // review -- rather than inventing a flow the frames never specify.
+      editTitle: 'I-Edit ang Profile',
+      editSubtitle: 'Ilang bahagi lang ang maaaring baguhin ninyo mismo.',
+      editContactLabel: 'CONTACT NUMBER',
+      editContactNote: 'Agad na mababago.',
+      editReviewHeading: 'KAILANGAN NG PAG-APRUBA',
+      editReviewNote: 'Ang pagbabago sa pangalan at barangay ay dadaan muna sa pagsusuri ng OMAg.',
+      editFirstName: 'PANGALAN',
+      editMiddleName: 'GITNANG PANGALAN',
+      editLastName: 'APELYIDO',
+      editBarangay: 'BARANGAY',
+      editSave: 'I-save',
+      editCancel: 'Kanselahin',
+      editSubmitted: 'Naisumite na po ang kahilingan.',
+      editContactSaved: 'Na-update na po ang contact number.',
+      editNothing: 'Wala pong binago.',
+      editPendingBlocked: 'May nakabinbin nang kahilingan para sa bahaging ito.',
+    },
+
     // ── Mga Resulta ng Ani (frames 32-33) ─────────────────────────────
     // Backward-looking only. The intro says so explicitly because the same
     // numbers feed the staff-side forecasting screens, and a citizen must
