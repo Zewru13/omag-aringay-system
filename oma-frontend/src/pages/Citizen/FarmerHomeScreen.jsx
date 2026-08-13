@@ -4,10 +4,10 @@ import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { CROP_DOMAIN } from './citizenDomainConfig.js'
 import CitizenDisasterScreen from './CitizenDisasterScreen.jsx'
+import CitizenAniScreen from './CitizenAniScreen.jsx'
 import CitizenFarmerActivityScreen from './CitizenFarmerActivityScreen.jsx'
 import CitizenProfileScreen from './CitizenProfileScreen.jsx'
 import FarmerCropHistoryView from './FarmerCropHistoryView.jsx'
-import MyYieldAnalysisSection from './MyYieldAnalysisSection.jsx'
 import MyAssistanceHistorySection from './MyAssistanceHistorySection.jsx'
 import { labels } from './labels.js'
 import {
@@ -118,6 +118,18 @@ export default function FarmerHomeScreen({ record, onLogout }) {
     )
   }
 
+  // ANI is its own screen in the reference (frames 32-33), not a section
+  // inside the generic secondary-view shell the old 'yield' branch used.
+  if (view.kind === 'yield') {
+    return (
+      <CitizenAniScreen
+        endpoint="/production/yield-analysis/"
+        onBack={() => setView({ kind: 'home' })}
+        tabBar={tabBar('harvests')}
+      />
+    )
+  }
+
   if (view.kind === 'activity') {
     return (
       <CitizenFarmerActivityScreen
@@ -201,29 +213,21 @@ export default function FarmerHomeScreen({ record, onLogout }) {
     )
   }
 
-  if (view.kind === 'yield' || view.kind === 'assistance') {
-    const isYield = view.kind === 'yield'
+  // 'yield' is handled above by CitizenAniScreen, so this branch is now
+  // assistance only -- the shared shell is kept because assistance has no
+  // reference frame of its own and is reached from Quick Links, not a tab.
+  if (view.kind === 'assistance') {
     return (
       <CitizenScreen hasTabBar>
         <CitizenSubHeader
           theme={CROP_THEME}
-          title={isYield ? labels.yieldAnalysis.title : labels.farmerHome.secondary.assistanceTitle}
-          subtitle={isYield ? labels.yieldAnalysis.subtitle : undefined}
+          title={labels.farmerHome.secondary.assistanceTitle}
           onBack={() => setView({ kind: 'home' })}
         />
         <CitizenBody>
-          {isYield ? (
-            <MyYieldAnalysisSection
-              endpoint="/production/yield-analysis/"
-              cropLabel={labels.yieldAnalysis.cropCropLabel}
-              cropKey="crop_type"
-              dateKey="date_planted"
-            />
-          ) : (
-            <MyAssistanceHistorySection endpoint="/interventions/my-beneficiary-history/" />
-          )}
+          <MyAssistanceHistorySection endpoint="/interventions/my-beneficiary-history/" />
         </CitizenBody>
-        {tabBar(isYield ? 'harvests' : null)}
+        {tabBar(null)}
       </CitizenScreen>
     )
   }

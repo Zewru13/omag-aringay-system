@@ -136,6 +136,41 @@ export const labels = {
     // Pond Preparation 20, Stocking 19 ...). Copying it literally would make
     // those unloggable, so the three keep their prominent cards and 'Iba pa'
     // reveals the rest. Nothing is lost; the reference's shape is kept.
+    // ── Mga Resulta ng Ani (frames 32-33) ─────────────────────────────
+    // Backward-looking only. The intro says so explicitly because the same
+    // numbers feed the staff-side forecasting screens, and a citizen must
+    // not read this as a prediction or a promise.
+    ani: {
+      title: 'Mga Resulta ng Ani',
+      subtitle: 'Aktwal kumpara sa tinantya sa pagtatanim',
+      intro: 'Ipinapakita dito kung paano lumabas ang bawat nakaraang pananim — walang pagtataya o pangako para sa hinaharap. Ang tinantyang ani ay batay sa lugar na itinanim at karaniwang ani bawat ektarya.',
+
+      meta: (ha, brgy, dateText) => [ha ? `${ha} ha` : null, brgy ? `Brgy. ${brgy}` : null, dateText]
+        .filter(Boolean).join(' · '),
+
+      actual: 'Aktwal na ani',
+      estimated: 'Tinantya sa oras ng pagtatanim',
+
+      // The reference uses the same "bahagyang mas mababa" sentence for a
+      // -7% and a -20% card, so there is one below-estimate string, not a
+      // severity ladder it never shows.
+      verdictAbove: 'Lumampas ang aktwal na ani sa tinantya — magandang resulta po para sa tanim na ito.',
+      verdictBelow: 'Bahagyang mas mababa ang aktwal na ani kumpara sa tinantya. Ito ang resulta ng tanim na ito.',
+      verdictOnTarget: 'Tumugma ang aktwal na ani sa tinantya para sa tanim na ito.',
+      verdictNoEstimate: 'Walang naitalang tinantyang ani para sa tanim na ito, kaya walang maihahambing.',
+      verdictTotalLoss: 'Naitala ang tanim na ito bilang ganap na nawasak, kaya hindi ito inihahambing sa tinantya.',
+
+      factorsHeading: 'MGA POSIBLENG KAUGNAY NA SALIK',
+      // scheduled_day is a day offset from planting; the reference shows the
+      // MONTH it fell in, which is derived here from date_planted + offset
+      // rather than asking the backend for a second representation.
+      factorItem: (activity, monthText) => `${activity}${monthText ? ` (${monthText})` : ''} — hindi naka-log`,
+      factorsFootnote: 'Nakalista ito bilang impormasyon lamang — hindi kinukumpirma na ito ang dahilan ng kaibahan.',
+
+      empty: 'Wala pa pong naitalang ani. Lilitaw dito ang resulta pagkatapos maitala ang inyong pag-aani.',
+      loadError: 'Hindi makuha ang resulta ng ani ngayon. Subukan po ulit mamaya.',
+    },
+
     // ── Farmer AKTIBIDAD screen (frames 21-26) ────────────────────────
     // Structurally different from the fisherfolk log: a TANIMAN dropdown
     // (not cards), a 2x2 grid of Tagalog activity pills (not icon rows),

@@ -1060,6 +1060,10 @@ def _analyze_crop(rec):
         'barangay': barangay or '—',
         'crop_type': rec.crop_type.name if rec.crop_type else '—',
         'variety': rec.variety_used or '—',
+        # The citizen ANI card (frames 32-33) identifies each past crop by
+        # area + barangay + harvest date. Area was the one part of that line
+        # the payload did not carry.
+        'area_planted_ha': float(rec.area_planted_ha) if rec.area_planted_ha is not None else None,
         'is_total_loss': rec.status == CropMonitoringRecord.Status.TOTAL_LOSS,
         'date_planted': rec.date_planted.isoformat() if rec.date_planted else None,
         'harvest_dates': harvest_dates,
