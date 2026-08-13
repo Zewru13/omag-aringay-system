@@ -5,6 +5,8 @@ from django.core.exceptions import ValidationError
 
 from django.conf import settings
 from django.db import models
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 
 from core.constants import BARANGAY_CHOICES
 from farmers.models import FarmParcel, Farmer
@@ -235,6 +237,12 @@ class CropMonitoringRecord(models.Model):
             if self.estimated_yield_kg != 0:
                 raw_pct = ((self.yield_variance_kg / Decimal(str(self.estimated_yield_kg))) * Decimal('100')).quantize(Decimal('0.01'))
                 self.yield_variance_pct = max(Decimal('-99999.99'), min(Decimal('99999.99'), raw_pct))
+        elif self.actual_yield_kg is None:
+            # Variance is derived from actual yield, so it cannot outlive it.
+            # Without this the figures survived the harvest being removed and
+            # kept being reported against a yield that was no longer there.
+            self.yield_variance_kg = None
+            self.yield_variance_pct = None
         # Auto-transition: Planted → Near Harvest when within 7 days of expected harvest
         if self.expected_harvest_date and self.status == self.Status.PLANTED:
             days_remaining = (self.expected_harvest_date - date.today()).days
@@ -538,13 +546,56 @@ class HarvestRecord(models.Model):
         super().save(*args, **kwargs)
 
         if mr:
-            mr.actual_yield_kg = self.volume_kg
-            mr.actual_harvest_date = self.date_recorded.date() if self.date_recorded else None
-            mr.status = CropMonitoringRecord.Status.HARVESTED
-            mr.save()
+            self.sync_monitoring_record(mr)
+
+    @staticmethod
+    def sync_monitoring_record(mr):
+        """Re-derive the monitoring record's harvest state from its harvests.
+
+        Deliberately recomputed from the whole set rather than from whichever
+        row was just written: a record can have several harvests, and the old
+        code assigned this one's volume alone, so a multi-harvest crop
+        reported only its most recent pass. The yield-analysis endpoint has
+        always summed them, so the stored figure and the analysed one
+        disagreed for exactly those records.
+        """
+        harvests = list(mr.harvest_records.all())
+        if harvests:
+            total = sum((h.volume_kg for h in harvests if h.volume_kg is not None), Decimal('0'))
+            dates = [h.date_recorded.date() for h in harvests if h.date_recorded]
+            mr.actual_yield_kg = total
+            mr.actual_harvest_date = max(dates) if dates else None
+        else:
+            mr.actual_yield_kg = None
+            mr.actual_harvest_date = None
+        # determine_status() already encodes the right answer here; it was
+        # written for total-loss reversal and applies unchanged.
+        mr.status = mr.determine_status()
+        mr.save()
 
     def __str__(self):
         return f'{self.crop_name} - {self.season} {self.year}'
+
+
+@receiver(post_delete, sender=HarvestRecord)
+def _resync_monitoring_after_harvest_delete(sender, instance, **kwargs):
+    """Undo what saving a harvest stamped onto the monitoring record.
+
+    Creating a harvest sets actual yield, harvest date and Harvested status on
+    the crop; deleting one has to reverse that, or the crop stays Harvested
+    for good carrying a yield whose harvest no longer exists. That surfaced on
+    the citizen ANI screen as a crop still in the ground reporting 0 kg actual
+    and -100% variance.
+
+    This is a post_delete receiver rather than a delete() override on purpose:
+    an override is silently skipped by queryset deletes and by cascades, which
+    is how most rows actually disappear.
+    """
+    if not instance.monitoring_record_id:
+        return
+    mr = CropMonitoringRecord.objects.filter(pk=instance.monitoring_record_id).first()
+    if mr:
+        HarvestRecord.sync_monitoring_record(mr)
 
 
 class PlantingRecord(models.Model):

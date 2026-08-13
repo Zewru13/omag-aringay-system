@@ -4,6 +4,8 @@ from datetime import timedelta, date
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 from django.db.models import Q
 
 from core.constants import BARANGAY_CHOICES
@@ -873,6 +875,20 @@ class FisheriesHarvestRecord(models.Model):
 
     def __str__(self):
         return f'Harvest {self.quantity_kg}kg on {self.harvest_date}'
+
+
+@receiver(post_delete, sender=FisheriesHarvestRecord)
+def _resync_stocking_after_harvest_delete(sender, instance, **kwargs):
+    """Mirrors the crop side: a final harvest closes the cycle, so removing
+    it has to let the stocking record fall back rather than stay Harvested
+    with no harvest behind it. determine_status() checks `harvests`, so it
+    returns Harvested only while one genuinely remains."""
+    if not instance.stocking_record_id:
+        return
+    sr = StockingRecord.objects.filter(pk=instance.stocking_record_id).first()
+    if sr:
+        sr.status = sr.determine_status()
+        sr.save(update_fields=['status'])
 
 
 # ─── Legacy Capture Fishing / Vessel / Assistance records ─────────────────────
