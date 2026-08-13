@@ -718,6 +718,13 @@ class FisheriesDisasterReport(models.Model):
     area_affected_ha    = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
     estimated_damage    = models.TextField(blank=True)
     production_loss     = models.TextField(blank=True)
+    # ANTAS NG PINSALA — mirrors CropDisasterReport.severity for the same
+    # reason: the numeric damage fields are unanswerable for a fisherfolk
+    # reporting from the pond side, and the reference's cards show this band.
+    severity            = models.CharField(
+        max_length=10, blank=True,
+        choices=[('Low', 'Low'), ('Medium', 'Medium'), ('High', 'High')],
+    )
     is_total_loss       = models.BooleanField(default=False, help_text='Stock completely destroyed — ends the production cycle')
     status              = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Active')
     recovered_date      = models.DateField(null=True, blank=True)

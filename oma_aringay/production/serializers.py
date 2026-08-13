@@ -270,6 +270,7 @@ class CropDisasterReportSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'monitoring_record', 'disaster_type', 'disaster_type_other_specify', 'date_of_occurrence',
             'area_affected_ha', 'estimated_damage', 'production_loss',
+            'severity',
             'is_total_loss',
             'status', 'recovered_date', 'recovered_by', 'recovered_by_name', 'recovery_note',
             'reported_by', 'reported_by_name', 'date_reported',

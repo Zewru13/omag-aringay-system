@@ -136,6 +136,29 @@ export const labels = {
     // Pond Preparation 20, Stocking 19 ...). Copying it literally would make
     // those unloggable, so the three keep their prominent cards and 'Iba pa'
     // reveals the rest. Nothing is lost; the reference's shape is kept.
+    // ── Sakuna / Ulat additions (frames 17, 18, 27-30) ────────────────
+    sakuna: {
+      damageLevel: 'ANTAS NG PINSALA',
+      // Semantic, not decorative: the reference tints Mababa green,
+      // Katamtaman amber and Mataas red, so the band reads at a glance.
+      damageOptions: { Low: 'Mababa', Medium: 'Katamtaman', High: 'Mataas' },
+
+      // Recovery is a two-step in the reference: the button appears once
+      // every recommendation is logged (frame 28), and only then does it
+      // open the required reason (frame 29). Keeping the reason behind the
+      // button stops a half-filled box sitting under every active disaster.
+      markRecovered: 'Markahan bilang Naayos na',
+      recoverQuestion: 'Paano naayos?',
+      recoverRequired: '(Kailangan po ito.)',
+      recoverConfirm: 'Kumpirmahin',
+      recoverBack: 'Bumalik',
+      recoveredLabel: 'Naayos na',
+
+      reportedTitle: 'Naiulat na po!',
+      reportedBody: 'Ang sakuna ay naitala na. Makikita ang mga rekomendasyon sa itaas.',
+      reportAnother: 'Mag-ulat pa ng isa',
+    },
+
     // ── Aking Profile (frames 13, 14, 31) ─────────────────────────────
     profile: {
       title: 'Aking Profile',

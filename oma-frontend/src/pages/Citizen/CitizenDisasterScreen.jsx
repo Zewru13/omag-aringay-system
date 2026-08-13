@@ -1,17 +1,11 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle, AlertTriangle, Check, Plus } from 'lucide-react'
+import { AlertCircle, AlertTriangle, Check, CheckCircle2, Plus } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import useRecordLock from '../../hooks/useRecordLock.js'
 import { labels } from './labels.js'
 import { CitizenScreen, CitizenSubHeader } from './citizenUI.jsx'
 import { todayISO, yesterdayISO } from '../../utils/localDate.js'
-
-const dateMode = (dateStr) => {
-  if (dateStr === todayISO()) return 'today'
-  if (dateStr === yesterdayISO()) return 'yesterday'
-  return 'custom'
-}
 
 // Same control geometry as CitizenActivityLogModal — hairline border, 8px
 // radius, 13px/12px padding, 15px value text. Deliberately not imported
@@ -72,6 +66,7 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
     area_affected_ha: '',
     estimated_damage: '',
     production_loss: '',
+    severity: '',
     is_total_loss: false,
   })
   const [areaError, setAreaError] = useState('')
@@ -88,6 +83,13 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
 
   const [recoverNotes, setRecoverNotes] = useState({})
   const [recoveringId, setRecoveringId] = useState(null)
+  // Frame 28 shows only the button; frame 29 shows the reason form it
+  // opens. Keeping the reason collapsed until then stops a half-filled
+  // textarea sitting under every active disaster.
+  const [recoverOpenId, setRecoverOpenId] = useState(null)
+  // Frames 29-30: a confirmation panel sits above the form after a
+  // successful report, rather than the list silently reappearing.
+  const [justReported, setJustReported] = useState(false)
   const [recoverErrors, setRecoverErrors] = useState({})
 
   const recordArea = isCrop
@@ -160,9 +162,11 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
         area_affected_ha: form.area_affected_ha,
         estimated_damage: form.estimated_damage,
         production_loss: form.production_loss,
+        severity: form.severity,
         is_total_loss: form.is_total_loss,
       })
       showToast(labels.disaster.submitSuccess, 'success')
+      setJustReported(true)
       setMode('list')
       setReloadKey((k) => k + 1)
       onSuccess?.()
@@ -341,6 +345,35 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
             />
           </FieldBlock>
 
+          {/* ANTAS NG PINSALA (frames 17, 18, 27, 28). Tinted per level
+              rather than one accent, because the reference uses colour here
+              to carry the level itself. The numeric damage fields above are
+              untouched -- staff keep filling those in. */}
+          <FieldBlock label={labels.ffNew.sakuna.damageLevel}>
+            <div className="grid grid-cols-3 gap-2">
+              {Object.entries(labels.ffNew.sakuna.damageOptions).map(([value, text]) => {
+                const on = form.severity === value
+                const tone = value === 'Low' ? 'border-cz-status-good-fg bg-cz-status-good-bg text-cz-status-good-fg'
+                  : value === 'Medium' ? 'border-cz-warn-accent bg-cz-warn-bg text-cz-warn-accent'
+                    : 'border-cz-danger-accent bg-cz-danger-bg text-cz-danger-accent'
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    disabled={blockedByOther}
+                    aria-pressed={on}
+                    onClick={() => set('severity', on ? '' : value)}
+                    className={`min-h-[44px] rounded-[8px] border-[0.5px] px-3 py-2.5 text-[14px] transition-colors disabled:opacity-50 ${
+                      on ? `${tone} font-semibold` : 'border-cz-border-strong bg-cz-surface text-cz-text hover:bg-cz-page'
+                    }`}
+                  >
+                    {text}
+                  </button>
+                )
+              })}
+            </div>
+          </FieldBlock>
+
           <FieldBlock hint={form.is_total_loss ? labels.disaster.fields.isTotalLossHint : undefined}>
             <button
               type="button"
@@ -412,7 +445,26 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
               <span className="text-[14px] font-medium">{labels.disaster.retry}</span>
             </button>
           </div>
-        ) : disasters.length === 0 ? (
+        ) : null}
+        {justReported && (
+          <div className="mb-3 rounded-[12px] border-[0.5px] border-cz-status-good-fg/25 bg-cz-status-good-bg px-4 py-5 text-center">
+            <div className="mx-auto mb-2.5 flex h-[46px] w-[46px] items-center justify-center rounded-full border-[0.5px] border-cz-status-good-fg/30 bg-cz-surface">
+              <CheckCircle2 size={22} className="text-cz-status-good-fg" aria-hidden="true" />
+            </div>
+            <p className="text-[17px] font-bold text-cz-text">{labels.ffNew.sakuna.reportedTitle}</p>
+            <p className="mx-auto mt-1 max-w-[300px] text-[13px] leading-[1.5] text-cz-text-2">
+              {labels.ffNew.sakuna.reportedBody}
+            </p>
+            <button
+              type="button"
+              onClick={() => { setJustReported(false); setMode('create') }}
+              className="mt-3 rounded-[8px] border-[0.5px] border-cz-status-good-fg/40 bg-cz-surface px-4 py-2.5 text-[13.5px] font-semibold text-cz-status-good-fg"
+            >
+              {labels.ffNew.sakuna.reportAnother}
+            </button>
+          </div>
+        )}
+        {isLoading || hasError ? null : disasters.length === 0 ? (
           <p className="text-[14px] italic text-cz-text-muted">{labels.disaster.empty}</p>
         ) : (
           <ul className="space-y-2">
@@ -424,6 +476,15 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
                     <p className="truncate text-[15px] font-medium text-cz-text">
                       {d.disaster_type === 'Other' ? d.disaster_type_other_specify : d.disaster_type}
                     </p>
+                    {d.severity && (
+                      <span className={`shrink-0 text-[13px] font-semibold ${
+                        d.severity === 'Low' ? 'text-cz-status-good-fg'
+                          : d.severity === 'Medium' ? 'text-cz-warn-accent' : 'text-cz-danger-accent'
+                      }`}
+                      >
+                        {labels.ffNew.sakuna.damageOptions[d.severity]}
+                      </span>
+                    )}
                     {statusPill(d.status, d.is_total_loss)}
                   </div>
                   <p className="text-[12px] text-cz-text-2">{d.date_of_occurrence} · {d.area_affected_ha} {domain.areaLabel.split(' ')[0]} affected</p>
@@ -501,8 +562,24 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
                       </div>
                     )
                   })()}
-                  {canRecover && (
+                  {canRecover && recoverOpenId !== d.id && (
                     <div className="mt-3 border-t-[0.5px] border-cz-border pt-3">
+                      <button
+                        type="button"
+                        onClick={() => setRecoverOpenId(d.id)}
+                        className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[8px] border-[0.5px] border-cz-status-good-fg/40 bg-cz-status-good-bg px-3 py-[11px] text-[13.5px] font-semibold text-cz-status-good-fg transition-colors hover:opacity-90"
+                      >
+                        <CheckCircle2 size={15} aria-hidden="true" />
+                        {labels.ffNew.sakuna.markRecovered}
+                      </button>
+                    </div>
+                  )}
+                  {canRecover && recoverOpenId === d.id && (
+                    <div className="mt-3 border-t-[0.5px] border-cz-border pt-3">
+                      <p className="mb-1.5 text-[13px] font-semibold text-cz-text">
+                        {labels.ffNew.sakuna.recoverQuestion}{' '}
+                        <span className="font-normal text-cz-warn-accent">{labels.ffNew.sakuna.recoverRequired}</span>
+                      </p>
                       <textarea
                         rows={2}
                         placeholder={labels.disaster.fields.recoveryNote}
@@ -515,16 +592,26 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
                       {recoverErrors[d.id] && (
                         <p className="mt-1 text-[12px] text-cz-danger-accent">{recoverErrors[d.id]}</p>
                       )}
-                      <button
-                        type="button"
-                        disabled={recoveringId === d.id}
-                        onClick={() => handleRecover(d.id)}
-                        className={`mt-2 flex min-h-[44px] w-full items-center justify-center rounded-[8px] px-3 py-[11px] transition-opacity hover:opacity-90 disabled:opacity-50 ${theme.solidBtn}`}
-                      >
-                        <span className="text-[13px] font-medium">
-                          {recoveringId === d.id ? labels.disaster.recovering : labels.disaster.markRecovered}
-                        </span>
-                      </button>
+                      <div className="mt-2 flex gap-2">
+                        <button
+                          type="button"
+                          disabled={recoveringId === d.id}
+                          onClick={() => handleRecover(d.id)}
+                          className={`flex min-h-[44px] flex-1 items-center justify-center rounded-[8px] px-3 py-[11px] transition-opacity hover:opacity-90 disabled:opacity-50 ${theme.solidBtn}`}
+                        >
+                          <span className="text-[13px] font-semibold">
+                            {recoveringId === d.id ? labels.disaster.recovering : labels.ffNew.sakuna.recoverConfirm}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={recoveringId === d.id}
+                          onClick={() => setRecoverOpenId(null)}
+                          className="min-h-[44px] rounded-[8px] border-[0.5px] border-cz-border-strong bg-cz-surface px-4 text-[13px] font-medium text-cz-text-2 disabled:opacity-50"
+                        >
+                          {labels.ffNew.sakuna.recoverBack}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </li>

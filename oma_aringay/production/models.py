@@ -385,6 +385,16 @@ class CropDisasterReport(models.Model):
     area_affected_ha = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
     estimated_damage = models.TextField(blank=True, help_text='Describe the damage')
     production_loss = models.TextField(blank=True, help_text='Estimated production loss')
+    # ANTAS NG PINSALA. The existing damage fields are free text plus a
+    # hectare figure — precise when staff fill them in, but unanswerable for a
+    # farmer reporting from the field on a phone, which is what the citizen
+    # form is for. This is the banded judgement the reference asks for, and it
+    # is the value its disaster cards show at a glance. It does NOT replace
+    # the numeric fields; staff keep entering those.
+    severity = models.CharField(
+        max_length=10, blank=True,
+        choices=[('Low', 'Low'), ('Medium', 'Medium'), ('High', 'High')],
+    )
     is_total_loss = models.BooleanField(default=False, help_text='Crop completely destroyed — ends the production cycle')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Active')
     recovered_date = models.DateField(null=True, blank=True)
