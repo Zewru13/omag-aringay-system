@@ -72,7 +72,11 @@ function FieldBlock({ label, required, error, hint, children }) {
 export default function CitizenDisasterScreen({ domain, theme, recordId, record, onClose, onSuccess, onLogResponse, bare = false }) {
   const { showToast } = useToast()
   const isCrop = domain.key === 'crop'
-  const [mode, setMode] = useState('list') // 'list' | 'create'
+  // Lands on the report form by default, matching the reference exactly —
+  // the status list and recovery workflow (a real, working feature the
+  // reference doesn't depict at all) are still reachable from the form via
+  // the history link below, just no longer the landing state.
+  const [mode, setMode] = useState('create') // 'list' | 'create'
 
   const [disasters, setDisasters] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -88,7 +92,6 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
     area_affected_ha: '',
     estimated_damage: '',
     production_loss: '',
-    severity: '',
     is_total_loss: false,
   })
   const [areaError, setAreaError] = useState('')
@@ -184,7 +187,6 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
         area_affected_ha: form.area_affected_ha,
         estimated_damage: form.estimated_damage,
         production_loss: form.production_loss,
-        severity: form.severity,
         is_total_loss: form.is_total_loss,
       })
       showToast(labels.disaster.submitSuccess, 'success')
@@ -241,9 +243,7 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
   }
 
   if (mode === 'create') {
-    return (
-      <CitizenScreen>
-        <CitizenSubHeader theme={theme} title={labels.disaster.reportButton} onBack={() => setMode('list')} />
+    const formBody = (
         <form onSubmit={handleSubmit} className="px-[14px] py-4">
           {blockedByOther && (
             <div className="mb-[18px] rounded-[12px] border-[0.5px] border-cz-warn-border bg-cz-warn-bg p-[14px]">
@@ -253,6 +253,13 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
               </p>
             </div>
           )}
+
+          {/* Warning banner, reference wording verbatim (page01/page05). */}
+          <div className="mb-[18px] rounded-[10px] border-[0.5px] border-cz-danger-border bg-cz-danger-bg px-4 py-3">
+            <p className="text-[13px] leading-[1.5] text-cz-danger-body">
+              {isCrop ? labels.ffNew.sakuna.introCrop : labels.ffNew.sakuna.introFisheries}
+            </p>
+          </div>
 
           {/* URI NG SAKUNA — a plain dropdown, per the reference. Every type
               the model defines is offered, not just the reference's subset:
@@ -412,12 +419,34 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
           </button>
           <button
             type="button"
-            onClick={() => setMode('list')}
+            onClick={onClose}
             className="mt-1 w-full py-[14px] text-center text-cz-text-2"
           >
             <span className="text-[14px]">{labels.common.cancel}</span>
           </button>
+          {/* The reference has no separate history screen at all -- this is
+              the one addition beyond it, so the recovery-tracking feature
+              built in an earlier batch stays reachable instead of deleted. */}
+          <button
+            type="button"
+            onClick={() => setMode('list')}
+            className="mt-2 w-full py-2 text-center text-[13px] font-medium text-cz-text-2 underline-offset-2 hover:underline"
+          >
+            {labels.ffNew.sakuna.viewHistory}
+          </button>
         </form>
+    )
+
+    // Desktop mode: no CitizenScreen/SubHeader -- the parent's DesktopShell
+    // supplies the topbar, whose back button exits the whole Sakuna screen
+    // (same as onClose below); reaching 'list' stays under that same chrome
+    // since mode is internal state, not a route change.
+    if (bare) return formBody
+
+    return (
+      <CitizenScreen>
+        <CitizenSubHeader theme={theme} title={labels.disaster.reportButton} onBack={onClose} />
+        {formBody}
       </CitizenScreen>
     )
   }

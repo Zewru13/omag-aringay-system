@@ -264,6 +264,12 @@ export const labels = {
 
     // ── Sakuna / Ulat additions (frames 17, 18, 27-30) ────────────────
     sakuna: {
+      // Reference wording verbatim (page01/page05 pink banner), domain-
+      // specific: crop says "pananim/taniman", fisheries says "pond".
+      introCrop: 'I-ulat ang pinsala sa inyong pananim. Maaari kang mag-report ng Total Loss kung ganap na nawasak ang taniman.',
+      introFisheries: 'I-ulat ang sakuna sa inyong pond. Maaari kang mag-report ng Total Loss kung ganap na nawasak ang pond.',
+      viewHistory: 'Tingnan ang mga naiulat na sakuna',
+
       damageLevel: 'ANTAS NG PINSALA',
       // Semantic, not decorative: the reference tints Mababa green,
       // Katamtaman amber and Mataas red, so the band reads at a glance.
@@ -614,7 +620,7 @@ export const labels = {
     loading: 'Kinukuha ang mga tanim ninyo...',
     loadError: 'Hindi makuha ang mga tanim ninyo.',
     needsAttention: {
-      title: 'Kailangan ng aksyon',
+      title: 'KAILANGANG ASIKASUHIN',
       overdueBadge: 'Lampas na',
       // Tagalog does not inflect "araw" for plural, so unlike the English
       // original there is no singular/plural branch here.
@@ -676,7 +682,7 @@ export const labels = {
     loading: 'Kinukuha ang mga pond ninyo...',
     loadError: 'Hindi makuha ang mga pond ninyo.',
     feedToday: {
-      title: 'Pakain ngayon',
+      title: 'PAKAININ NGAYON',
       overdueBadge: 'Lampas na',
       dueTodayBadge: 'Ngayon na',
       dueBadge: (count) => `Ngayon na · ${count} pond`,
