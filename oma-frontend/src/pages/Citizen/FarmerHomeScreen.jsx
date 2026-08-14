@@ -12,8 +12,7 @@ import CitizenAniScreen from './CitizenAniScreen.jsx'
 import CitizenFarmerActivityScreen from './CitizenFarmerActivityScreen.jsx'
 import CitizenProfileScreen from './CitizenProfileScreen.jsx'
 import FarmerCropHistoryView from './FarmerCropHistoryView.jsx'
-import MyAssistanceHistorySection from './MyAssistanceHistorySection.jsx'
-import { DesktopAssistanceList } from './CitizenDesktopScreens.jsx'
+import { CitizenAssistanceList } from './CitizenDesktopScreens.jsx'
 import {
   DesktopBody, DesktopQuickActions, DesktopRailCard, DesktopShell, DesktopSidebar,
   DesktopStatGrid, DesktopTopbar,
@@ -233,7 +232,7 @@ export default function FarmerHomeScreen({ record, onLogout }) {
       return (
         <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={CROP_THEME} title={D.helpAssistance} subtitle={D.helpAssistanceSubtitle} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
           <div className="px-6 py-5">
-            <DesktopAssistanceList endpoint="/interventions/my-beneficiary-history/" />
+            <CitizenAssistanceList endpoint="/interventions/my-beneficiary-history/" />
           </div>
         </DesktopShell>
       )
@@ -525,7 +524,7 @@ export default function FarmerHomeScreen({ record, onLogout }) {
           onBack={() => setView({ kind: 'home' })}
         />
         <CitizenBody>
-          <MyAssistanceHistorySection endpoint="/interventions/my-beneficiary-history/" />
+          <CitizenAssistanceList endpoint="/interventions/my-beneficiary-history/" />
         </CitizenBody>
         {tabBar(null)}
       </CitizenScreen>

@@ -6,13 +6,14 @@ import { labels } from './labels.js'
 import { todayISO, yesterdayISO } from '../../utils/localDate.js'
 import { DesktopRailCard } from './CitizenDesktopUI.jsx'
 
-// ─── Tulong Natanggap (desktop) ────────────────────────────────────────────
-// Frames 6 and 8. Reuses the same read-only /interventions/my-*-beneficiary-
-// history/ endpoints MyAssistanceHistorySection already calls (Batch 11) --
-// no new access, just the reference's card-list + summary-rail presentation
-// instead of that component's table. MyAssistanceHistorySection itself is
-// left untouched; it is still what mobile renders.
-export function DesktopAssistanceList({ endpoint }) {
+// ─── Tulong Natanggap ───────────────────────────────────────────────────────
+// Frames 4 and 8. Reuses the same read-only /interventions/my-*-beneficiary-
+// history/ endpoints the old table-based MyAssistanceHistorySection called
+// (Batch 11) -- no new access, just the reference's card-list + summary-rail
+// presentation. Shared between mobile and desktop: the rail column simply
+// wraps onto its own row below the list under 1024px, so one component
+// serves both instead of maintaining a second, un-restyled mobile version.
+export function CitizenAssistanceList({ endpoint }) {
   const D = labels.ffNew.desktop
   const [records, setRecords] = useState(null)
 
@@ -27,7 +28,7 @@ export function DesktopAssistanceList({ endpoint }) {
   const sources = [...new Set(records.map((r) => r.source_agency).filter(Boolean))]
 
   return (
-    <div className="flex items-start gap-5">
+    <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
       <div className="min-w-0 flex-1 space-y-2.5">
         {records.length === 0 ? (
           <p className="rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface p-6 text-center text-[13px] italic text-cz-text-muted">
@@ -51,7 +52,7 @@ export function DesktopAssistanceList({ endpoint }) {
         <p className="pt-2 text-center text-[12px] text-cz-text-muted">{D.assistanceReadOnly}</p>
       </div>
 
-      <div className="w-[280px] shrink-0 space-y-4">
+      <div className="w-full space-y-4 lg:w-[280px] lg:shrink-0">
         <DesktopRailCard title={D.assistanceSummary}>
           <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-muted">{D.assistanceTotalCount}</p>
           <p className="mt-0.5 text-[30px] font-bold leading-none text-cz-text">{records.length}</p>

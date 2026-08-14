@@ -13,8 +13,7 @@ import CitizenDisasterScreen from './CitizenDisasterScreen.jsx'
 import CitizenHealthLogScreen from './CitizenHealthLogScreen.jsx'
 import CitizenProfileScreen from './CitizenProfileScreen.jsx'
 import MyYieldAnalysisSection from './MyYieldAnalysisSection.jsx'
-import MyAssistanceHistorySection from './MyAssistanceHistorySection.jsx'
-import { DesktopAssistanceList, DesktopKaramdamanForm } from './CitizenDesktopScreens.jsx'
+import { CitizenAssistanceList, DesktopKaramdamanForm } from './CitizenDesktopScreens.jsx'
 import {
   DesktopBody, DesktopQuickActions, DesktopRailCard, DesktopShell, DesktopSidebar,
   DesktopStatGrid, DesktopTopbar,
@@ -420,7 +419,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
       return (
         <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} title={D.helpAssistance} subtitle={D.helpAssistanceSubtitle} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
           <div className="px-6 py-5">
-            <DesktopAssistanceList endpoint="/interventions/my-fisherfolk-beneficiary-history/" />
+            <CitizenAssistanceList endpoint="/interventions/my-fisherfolk-beneficiary-history/" />
           </div>
         </DesktopShell>
       )
@@ -603,7 +602,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
               isFisheries
             />
           ) : (
-            <MyAssistanceHistorySection endpoint="/interventions/my-fisherfolk-beneficiary-history/" />
+            <CitizenAssistanceList endpoint="/interventions/my-fisherfolk-beneficiary-history/" />
           )}
         </CitizenBody>
         {tabBar(isYield ? 'harvests' : null)}
