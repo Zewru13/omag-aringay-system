@@ -698,12 +698,21 @@ class FisheriesActivityLog(models.Model):
 # ─── Fisheries Disaster Report ────────────────────────────────────────────────
 
 class FisheriesDisasterReport(models.Model):
+    # Batch: consolidated from monitoring.FisherfolkDisasterReport, whose rows
+    # had no stocking cycle to attach to (Capture/Vendor fisherfolk have none).
+    # Flooding/Storm Surge/El Nino Drought/Red Tide came from that model —
+    # kept as distinct choices rather than collapsed into the closest existing
+    # one so historical data keeps its original specificity.
     DISASTER_TYPE_CHOICES = [
         ('Fish Kill',           'Fish Kill'),
         ('Disease Outbreak',    'Disease Outbreak'),
         ('Flood',               'Flood'),
+        ('Flooding',            'Flooding'),
+        ('Storm Surge',         'Storm Surge'),
         ('Typhoon',             'Typhoon'),
         ('Drought',             'Drought'),
+        ('El Nino Drought',     'El Niño / Drought'),
+        ('Red Tide',            'Red Tide'),
         ('Predator Attack',     'Predator Attack'),
         ('Pollution Incident',  'Pollution Incident'),
         ('Other',               'Other'),
@@ -713,13 +722,20 @@ class FisheriesDisasterReport(models.Model):
         ('Recovered', 'Recovered'),
     ]
 
-    stocking_record     = models.ForeignKey(StockingRecord, on_delete=models.CASCADE, related_name='disaster_reports')
+    # Exactly one of stocking_record / fisherfolk is set (enforced in the
+    # serializer): stocking_record for an aquaculture production cycle
+    # (unlocks the response-rule/recovery-activity engine below), fisherfolk
+    # directly for a general disaster with no cycle to attach to.
+    stocking_record      = models.ForeignKey(StockingRecord, on_delete=models.CASCADE, related_name='disaster_reports', null=True, blank=True)
+    fisherfolk           = models.ForeignKey(Fisherfolk, on_delete=models.CASCADE, related_name='general_disaster_reports', null=True, blank=True)
     disaster_type       = models.CharField(max_length=50, choices=DISASTER_TYPE_CHOICES)
     disaster_type_other_specify = models.CharField(max_length=150, blank=True)
     date_of_occurrence  = models.DateField()
     area_affected_ha    = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
     estimated_damage    = models.TextField(blank=True)
     production_loss     = models.TextField(blank=True)
+    volume_lost_kg       = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    equipment_damaged    = models.TextField(blank=True)
     # ANTAS NG PINSALA — mirrors CropDisasterReport.severity for the same
     # reason: the numeric damage fields are unanswerable for a fisherfolk
     # reporting from the pond side, and the reference's cards show this band.
@@ -750,6 +766,14 @@ class FisheriesDisasterReport(models.Model):
 
     class Meta:
         ordering = ['-date_of_occurrence']
+
+    @property
+    def owner_fisherfolk(self):
+        return self.stocking_record.fisherfolk if self.stocking_record_id else self.fisherfolk
+
+    @property
+    def owner_fisherfolk_id(self):
+        return self.stocking_record.fisherfolk_id if self.stocking_record_id else self.fisherfolk_id
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)

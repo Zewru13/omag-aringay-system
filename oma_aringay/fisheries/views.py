@@ -6,6 +6,7 @@ from django.db import transaction
 from django.db.models import Count, Q, Sum
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status as drf_status
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -45,6 +46,7 @@ from .serializers import (
     FisheriesDisasterReportSerializer,
     FisheriesHarvestRecordSerializer,
     FishingTripLogSerializer,
+    GeneralDisasterReportSerializer,
     HealthMonitoringSerializer,
     PondSerializer,
     SpeciesActivityStageSerializer,
@@ -736,6 +738,74 @@ class StockingDisasterReportDeleteView(generics.DestroyAPIView):
                 status=drf_status.HTTP_403_FORBIDDEN,
             )
         return super().destroy(request, *args, **kwargs)
+
+
+# ─── General (fisherfolk-direct) Disaster Reports ─────────────────────────────
+# Consolidated batch: for fisherfolk with no stocking cycle to attach a
+# StockingDisasterReportListCreateView report to (Capture/Vendor types have
+# no StockingRecord at all). Retired monitoring.FisherfolkDisasterReport's
+# rows and endpoints were merged onto FisheriesDisasterReport so disaster
+# reporting has one table instead of two unreconciled ones. Staff-only —
+# same as the old model, no citizen self-service extension here.
+#
+# Scoped to stocking_record__isnull=True (fisherfolk-direct rows only) —
+# cycle-attached disasters already have their own dedicated resolve/delete
+# surface (StockingDisasterReportDeleteView / FisheriesDisasterResolveView,
+# with the response-rule engine behind it) inside the aquaculture cycle
+# detail view. Showing them here too, editable through this simpler
+# no-rules-checked path, would recreate the exact two-inconsistent-paths
+# problem this consolidation is meant to remove.
+
+class GeneralDisasterReportListCreateView(generics.ListCreateAPIView):
+    serializer_class = GeneralDisasterReportSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
+
+    def get_queryset(self):
+        qs = FisheriesDisasterReport.objects.filter(
+            stocking_record__isnull=True,
+        ).select_related('fisherfolk').order_by('-date_of_occurrence')
+        params = self.request.query_params
+        if params.get('fisherfolk'):
+            qs = qs.filter(fisherfolk_id=params['fisherfolk'])
+        if params.get('barangay'):
+            qs = qs.filter(fisherfolk__barangay=params['barangay'])
+        if params.get('disaster_type'):
+            qs = qs.filter(disaster_type=params['disaster_type'])
+        return qs
+
+    def perform_create(self, serializer):
+        serializer.save(reported_by=self.request.user)
+
+
+class GeneralDisasterReportDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = GeneralDisasterReportSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    queryset = FisheriesDisasterReport.objects.filter(stocking_record__isnull=True).select_related('fisherfolk')
+    http_method_names = ['get', 'patch', 'delete']
+
+    def destroy(self, request, *args, **kwargs):
+        if request.user.role != 'ADMIN':
+            return Response(
+                {'detail': 'Only administrators can delete disaster reports.'},
+                status=drf_status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
+
+    def perform_update(self, serializer):
+        # No stocking cycle means no species/activity logs to check
+        # response-rule completeness against, so — unlike
+        # FisheriesDisasterResolveView — reaching Recovered here always
+        # needs a manual recovery_note, with no auto-complete path.
+        instance = serializer.instance
+        new_status = serializer.validated_data.get('status', instance.status)
+        if new_status == 'Recovered' and instance.status != 'Recovered':
+            recovery_note = (serializer.validated_data.get('recovery_note') or '').strip()
+            if not recovery_note:
+                raise ValidationError({'recovery_note': 'A recovery note is required to mark this Recovered.'})
+            serializer.save(recovered_date=date.today(), recovered_by=self.request.user)
+        else:
+            serializer.save()
 
 
 class StockingHarvestListCreateView(generics.ListCreateAPIView):

@@ -19,7 +19,7 @@ Plus, kept intentionally sparse so those tabs aren't empty:
   - Capture: a few FishingTripLog + TripSpeciesEntry (at least one
     multi-species trip)
   - Assistance records
-  - Fisherfolk-level disaster reports (monitoring app)
+  - Fisherfolk-level disaster reports (no stocking cycle involved)
 
 --flush  deletes all previously-created demo data before seeding.
 
@@ -47,7 +47,6 @@ from fisheries.models import (
     StockingRecord,
     TripSpeciesEntry,
 )
-from monitoring.models import FisherfolkDisasterReport
 
 User = get_user_model()
 
@@ -219,7 +218,7 @@ class Command(BaseCommand):
         self.stdout.write(f'  Fishing trips         : {FishingTripLog.objects.filter(fisherfolk__in=capture_and_inland_ff).count():>3}')
         self.stdout.write(f'  Trip species entries  : {TripSpeciesEntry.objects.filter(fishing_trip__fisherfolk__in=capture_and_inland_ff).count():>3}')
         self.stdout.write(f'  Assistance records    : {FisherfolkBeneficiaryRecord.objects.filter(program__isnull=True, fisherfolk__in=fisherfolk).count():>3}')
-        self.stdout.write(f'  Fisherfolk disasters  : {FisherfolkDisasterReport.objects.filter(fisherfolk__in=fisherfolk).count():>3}')
+        self.stdout.write(f'  Fisherfolk disasters  : {FisheriesDisasterReport.objects.filter(fisherfolk__in=fisherfolk).count():>3}')
         self.stdout.write(self.style.SUCCESS('================================================'))
         self.stdout.write(self.style.SUCCESS('  Done! Run --flush to reset.'))
         self.stdout.write('')
@@ -235,9 +234,9 @@ class Command(BaseCommand):
         # first so demo stocking records don't get orphaned onto real data.
         stocking_deleted, _ = StockingRecord.objects.filter(fisherfolk_id__in=demo_ff_ids).delete()
 
-        # FishingTripLog / FisherfolkBeneficiaryRecord / FisherfolkDisasterReport
-        # are all CASCADE on fisherfolk — deleting the fisherfolk cleans those
-        # up automatically.
+        # FishingTripLog / FisherfolkBeneficiaryRecord / FisheriesDisasterReport
+        # (fisherfolk-direct rows) are all CASCADE on fisherfolk — deleting the
+        # fisherfolk cleans those up automatically.
         ff_deleted, _ = Fisherfolk.objects.filter(id__in=demo_ff_ids).delete()
 
         self.stdout.write(self.style.WARNING(
@@ -599,33 +598,36 @@ class Command(BaseCommand):
         self.stdout.write(f'  Created {count} assistance records.')
         return count
 
-    # ── Fisherfolk-level disasters (monitoring app) ────────────────────────
+    # ── Fisherfolk-level disasters (fisherfolk-direct, no stocking cycle) ───
 
     def _create_fisherfolk_disasters(self, fisherfolk, admin_user):
-        if FisherfolkDisasterReport.objects.filter(fisherfolk__in=fisherfolk).exists():
+        if FisheriesDisasterReport.objects.filter(fisherfolk__in=fisherfolk).exists():
             self.stdout.write('  Fisherfolk disaster reports already seeded — skipping (use --flush to reset).')
             return 0
 
         today = date.today()
+        # status here is 'Active'/'Recovered' (FisheriesDisasterReport's terms,
+        # not the retired model's Reported/Verified/Closed).
         specs = [
-            dict(ff_idx=1, dtype='Typhoon', status='Reported', days_ago=10),
-            dict(ff_idx=9, dtype='Flooding', status='Closed', days_ago=180),
-            dict(ff_idx=12, dtype='Red Tide', status='Verified', days_ago=70),
+            dict(ff_idx=1, dtype='Typhoon', status='Active', days_ago=10),
+            dict(ff_idx=9, dtype='Flooding', status='Recovered', days_ago=180),
+            dict(ff_idx=12, dtype='Red Tide', status='Active', days_ago=70),
         ]
         count = 0
         for spec in specs:
             ff = fisherfolk[spec['ff_idx']]
-            # estimated_loss_php intentionally not set (Batch E) — no longer
-            # collected for fisherfolk-level disasters.
-            FisherfolkDisasterReport.objects.create(
+            is_recovered = spec['status'] == 'Recovered'
+            FisheriesDisasterReport.objects.create(
                 fisherfolk=ff,
-                report_date=today - timedelta(days=spec['days_ago']),
+                date_of_occurrence=today - timedelta(days=spec['days_ago']),
                 disaster_type=spec['dtype'],
-                affected_barangay=ff.barangay,
-                description=f'{spec["dtype"]} affected {ff.full_name}\'s fishing operations in {ff.barangay}.',
+                estimated_damage=f'{spec["dtype"]} affected {ff.full_name}\'s fishing operations in {ff.barangay}.',
                 volume_lost_kg=Decimal(str(random.randint(20, 500))),
                 status=spec['status'],
-                recorded_by=admin_user,
+                recovered_date=(today - timedelta(days=spec['days_ago'] - 5)) if is_recovered else None,
+                recovered_by=admin_user if is_recovered else None,
+                recovery_note='Resolved on its own — no equipment or intervention needed.' if is_recovered else '',
+                reported_by=admin_user,
             )
             count += 1
         self.stdout.write(f'  Created {count} fisherfolk-level disaster reports.')

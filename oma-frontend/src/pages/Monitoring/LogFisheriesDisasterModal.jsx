@@ -4,7 +4,6 @@ import Button from '../../components/UI/Button.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import SearchBar from '../../components/UI/SearchBar.jsx'
-import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 
 const DISASTER_TYPES = [
@@ -36,10 +35,9 @@ function LogFisheriesDisasterModal({ onClose, onSuccess }) {
   const [selectedFf, setSelectedFf] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [form, setForm] = useState({
-    report_date: new Date().toISOString().slice(0, 10),
+    date_of_occurrence: new Date().toISOString().slice(0, 10),
     disaster_type: 'Typhoon',
-    affected_barangay: '',
-    description: '',
+    estimated_damage: '',
     volume_lost_kg: '',
     equipment_damaged: [],
     equipment_damaged_other: '',
@@ -74,7 +72,6 @@ function LogFisheriesDisasterModal({ onClose, onSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!selectedFf) { showToast('Select a fisherfolk.', 'error'); return }
-    if (!form.affected_barangay) { showToast('Select the affected barangay.', 'error'); return }
 
     if (form.equipment_damaged.includes('Other') && !form.equipment_damaged_other.trim()) {
       showToast('Specify Equipment Damaged.', 'error'); return
@@ -89,10 +86,9 @@ function LogFisheriesDisasterModal({ onClose, onSuccess }) {
     try {
       await api.post('/monitoring/fisherfolk-disasters/', {
         fisherfolk: selectedFf.id,
-        report_date: form.report_date,
+        date_of_occurrence: form.date_of_occurrence,
         disaster_type: form.disaster_type,
-        affected_barangay: form.affected_barangay,
-        description: form.description,
+        estimated_damage: form.estimated_damage,
         volume_lost_kg: form.volume_lost_kg ? parseFloat(form.volume_lost_kg) : null,
         equipment_damaged: normalizedEquipmentDamaged,
       })
@@ -119,7 +115,6 @@ function LogFisheriesDisasterModal({ onClose, onSuccess }) {
                       setSelectedFf(ff)
                       setFfSearch(ff.full_name)
                       setFfResults([])
-                      set('affected_barangay', ff.barangay || '')
                     }}>
                     <span className="font-medium">{ff.full_name}</span>
                     <span className="ml-2 text-slate-400">{ff.fisherfolk_type} · {ff.barangay}</span>
@@ -132,26 +127,15 @@ function LogFisheriesDisasterModal({ onClose, onSuccess }) {
         </FormField>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <FormField label="Report Date" required>
-            <input type="date" className={baseInputClasses} required value={form.report_date}
+          <FormField label="Date of Occurrence" required>
+            <input type="date" className={baseInputClasses} required value={form.date_of_occurrence}
               max={new Date().toISOString().split('T')[0]}
-              onChange={e => set('report_date', e.target.value)} />
+              onChange={e => set('date_of_occurrence', e.target.value)} />
           </FormField>
           <FormField label="Disaster Type" required>
             <select className={baseInputClasses} value={form.disaster_type} onChange={e => set('disaster_type', e.target.value)}>
               {DISASTER_TYPES.map(d => <option key={d}>{d}</option>)}
             </select>
-          </FormField>
-          <FormField label="Affected Barangay" required>
-            {selectedFf?.barangay ? (
-              <input
-                className={`${baseInputClasses} bg-slate-100 text-slate-600`}
-                value={form.affected_barangay}
-                readOnly
-              />
-            ) : (
-              <BarangaySelect value={form.affected_barangay} onChange={e => set('affected_barangay', e.target.value)} />
-            )}
           </FormField>
           <FormField label="Volume Lost (kg)">
             <input type="number" step="0.01" className={baseInputClasses} min="0" value={form.volume_lost_kg} onChange={e => set('volume_lost_kg', e.target.value)} />
@@ -178,8 +162,8 @@ function LogFisheriesDisasterModal({ onClose, onSuccess }) {
               />
             )}
           </FormField>
-          <FormField label="Description" required className="sm:col-span-2">
-            <textarea className={baseInputClasses} rows={3} required value={form.description} onChange={e => set('description', e.target.value)} />
+          <FormField label="Description of Damage" required className="sm:col-span-2">
+            <textarea className={baseInputClasses} rows={3} required value={form.estimated_damage} onChange={e => set('estimated_damage', e.target.value)} />
           </FormField>
         </div>
 

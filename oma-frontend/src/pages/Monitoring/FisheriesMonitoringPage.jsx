@@ -19,7 +19,7 @@ import FisheriesHistoryModal from './FisheriesHistoryModal.jsx'
 import LogCatchModal from './LogCatchModal.jsx'
 import LogFisheriesDisasterModal from './LogFisheriesDisasterModal.jsx'
 
-const DISASTER_STATUS_TONES = { Reported: 'amber', Verified: 'green', Closed: 'slate' }
+const DISASTER_STATUS_TONES = { Active: 'amber', Recovered: 'green' }
 const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - i)
 
@@ -38,9 +38,9 @@ const CATCH_COLUMNS = [
 
 const DISASTER_COLUMNS = [
   { key: 'fisherfolk_name',      label: 'Fisherfolk' },
-  { key: 'report_date_fmt',      label: 'Report Date' },
+  { key: 'date_of_occurrence_fmt', label: 'Date' },
   { key: 'disaster_type',        label: 'Type' },
-  { key: 'affected_barangay',    label: 'Barangay' },
+  { key: 'fisherfolk_barangay',  label: 'Barangay' },
   { key: 'status_pill',          label: 'Status' },
   { key: 'actions_cell',         label: 'Actions' },
 ]
@@ -333,19 +333,19 @@ function EditCatchModal({ record, onClose, onSaved }) {
 // (Edit Assistance Modal relocated to pages/AssistanceManagement/FisheriesAssistancePage.jsx — Batch 5)
 
 const DISASTER_TYPES = ['Typhoon', 'Flooding', 'Storm Surge', 'El Nino Drought', 'Red Tide', 'Disease Outbreak', 'Other']
-const DISASTER_STATUS_OPTIONS = ['Reported', 'Verified', 'Closed']
+const DISASTER_STATUS_OPTIONS = ['Active', 'Recovered']
 
 function EditDisasterModal({ record, onClose, onSaved }) {
   const { isAdmin } = useAuth()
   const { showToast } = useToast()
   const originalData = {
-    report_date: record.report_date || '',
+    date_of_occurrence: record.date_of_occurrence || '',
     disaster_type: record.disaster_type || '',
-    affected_barangay: record.affected_barangay || '',
-    description: record.description || '',
+    estimated_damage: record.estimated_damage || '',
     volume_lost_kg: record.volume_lost_kg != null ? String(record.volume_lost_kg) : '',
     equipment_damaged: record.equipment_damaged || '',
-    status: record.status || 'Reported',
+    status: record.status || 'Active',
+    recovery_note: record.recovery_note || '',
   }
   const [form, setForm] = useState(originalData)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -355,9 +355,14 @@ function EditDisasterModal({ record, onClose, onSaved }) {
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
   const isDirty = JSON.stringify(form) !== JSON.stringify(originalData)
+  const isNewlyRecovered = form.status === 'Recovered' && record.status !== 'Recovered'
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (isNewlyRecovered && !form.recovery_note.trim()) {
+      setError('A recovery note is required to mark this Recovered — there\'s no stocking cycle to check response activities against.')
+      return
+    }
     setError(''); setIsSubmitting(true)
     try {
       await api.patch(`/monitoring/fisherfolk-disasters/${record.id}/`, {
@@ -393,10 +398,10 @@ function EditDisasterModal({ record, onClose, onSaved }) {
       <ModalShell title="Edit Disaster Report" subtitle={record.fisherfolk_name} icon={Pencil} onClose={onClose} maxWidth="max-w-xl">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
-            <FormField label="Report Date" required>
-              <input type="date" className={baseInputClasses} value={form.report_date}
+            <FormField label="Date of Occurrence" required>
+              <input type="date" className={baseInputClasses} value={form.date_of_occurrence}
                 max={new Date().toISOString().split('T')[0]}
-                onChange={(e) => set('report_date', e.target.value)} />
+                onChange={(e) => set('date_of_occurrence', e.target.value)} />
             </FormField>
             <FormField label="Disaster Type" required>
               <select className={baseInputClasses} value={form.disaster_type}
@@ -404,8 +409,6 @@ function EditDisasterModal({ record, onClose, onSaved }) {
                 {DISASTER_TYPES.map((d) => <option key={d} value={d}>{d}</option>)}
               </select>
             </FormField>
-            <BarangaySelect label="Affected Barangay" value={form.affected_barangay}
-              onChange={(e) => set('affected_barangay', e.target.value)} required />
             <FormField label="Status" required>
               <select className={baseInputClasses} value={form.status}
                 onChange={(e) => set('status', e.target.value)}>
@@ -421,10 +424,17 @@ function EditDisasterModal({ record, onClose, onSaved }) {
             <input type="text" className={baseInputClasses} value={form.equipment_damaged}
               onChange={(e) => set('equipment_damaged', e.target.value)} />
           </FormField>
-          <FormField label="Description" required>
-            <textarea className={baseInputClasses} rows={3} value={form.description}
-              onChange={(e) => set('description', e.target.value)} />
+          <FormField label="Description of Damage" required>
+            <textarea className={baseInputClasses} rows={3} value={form.estimated_damage}
+              onChange={(e) => set('estimated_damage', e.target.value)} />
           </FormField>
+          {isNewlyRecovered && (
+            <FormField label="Recovery Note" required>
+              <textarea className={baseInputClasses} rows={2} value={form.recovery_note}
+                placeholder="No stocking cycle to check response activities against — explain how/why this recovered."
+                onChange={(e) => set('recovery_note', e.target.value)} />
+            </FormField>
+          )}
 
           {error && (
             <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>
@@ -575,7 +585,7 @@ export default function FisheriesMonitoringPage() {
 
   const disasterData = useMemo(() => disasters.map((d) => ({
     ...d,
-    report_date_fmt:    formatDate(d.report_date),
+    date_of_occurrence_fmt: formatDate(d.date_of_occurrence),
     status_pill: <StatusPill tone={DISASTER_STATUS_TONES[d.status] || 'slate'}>{d.status}</StatusPill>,
     actions_cell: (
       <TableActionsMenu
@@ -583,11 +593,12 @@ export default function FisheriesMonitoringPage() {
           title: 'Disaster Report Details',
           subtitle: d.fisherfolk_name,
           rows: [
-            ['Fisherfolk', d.fisherfolk_name], ['Report Date', formatDate(d.report_date)],
-            ['Disaster Type', d.disaster_type], ['Affected Barangay', d.affected_barangay],
+            ['Fisherfolk', d.fisherfolk_name], ['Date', formatDate(d.date_of_occurrence)],
+            ['Disaster Type', d.disaster_type], ['Barangay', d.fisherfolk_barangay],
             ['Status', d.status],
             ['Volume Lost (kg)', d.volume_lost_kg ?? '—'], ['Equipment Damaged', d.equipment_damaged || '—'],
-            ['Description', d.description || '—'],
+            ['Description', d.estimated_damage || '—'],
+            ...(d.status === 'Recovered' ? [['Recovery Note', d.recovery_note || '—']] : []),
           ],
         })}
         onEdit={() => setEditingDisaster(d)}
@@ -710,7 +721,7 @@ export default function FisheriesMonitoringPage() {
             {disasters.length > 0 && (
               <div className="flex flex-wrap gap-3">
                 <MetricCard label="Total Reports" value={disasters.length} />
-                <MetricCard label="Reported" value={disasters.filter((d) => d.status === 'Reported').length} accent="#f57c00" />
+                <MetricCard label="Active" value={disasters.filter((d) => d.status === 'Active').length} accent="#f57c00" />
               </div>
             )}
             {errorDisasters

@@ -565,6 +565,71 @@ class FisheriesDisasterReportSerializer(serializers.ModelSerializer):
         return data
 
 
+class GeneralDisasterReportSerializer(serializers.ModelSerializer):
+    """
+    Consolidated batch: for a disaster reported directly against a
+    fisherfolk with no stocking cycle to attach to (Capture/Vendor types
+    have no StockingRecord — see FisheriesDisasterReportSerializer above
+    for the cycle-attached path). No response-rule engine exists without a
+    cycle's species/activity logs, so — unlike that serializer — status and
+    recovery_note are writable here directly rather than through a
+    dedicated resolve action; GeneralDisasterReportDetailView enforces that
+    a recovery_note is always required to reach Recovered this way.
+    area_affected_ha is optional here (unlike the pond-hectares case above,
+    "area affected" doesn't apply to every kind of general fisherfolk
+    disaster, e.g. equipment/vessel damage).
+    """
+    # Explicit (not auto-generated) so it's required even though the model
+    # field itself is nullable — required=False would otherwise be inferred
+    # from the model's null=True, which exists only for the stocking-linked
+    # rows this endpoint never touches (see GeneralDisasterReportListCreateView).
+    fisherfolk = serializers.PrimaryKeyRelatedField(queryset=Fisherfolk.objects.all())
+    fisherfolk_name = serializers.CharField(source='fisherfolk.full_name', read_only=True)
+    fisherfolk_barangay = serializers.CharField(source='fisherfolk.barangay', read_only=True)
+    reported_by_name = serializers.SerializerMethodField()
+    recovered_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model  = FisheriesDisasterReport
+        fields = [
+            'id', 'fisherfolk', 'fisherfolk_name', 'fisherfolk_barangay', 'disaster_type', 'disaster_type_other_specify',
+            'date_of_occurrence', 'area_affected_ha', 'estimated_damage', 'production_loss',
+            'volume_lost_kg', 'equipment_damaged',
+            'status', 'recovered_date', 'recovered_by', 'recovered_by_name', 'recovery_note',
+            'reported_by', 'reported_by_name', 'date_reported',
+        ]
+        read_only_fields = [
+            'id', 'fisherfolk_name', 'fisherfolk_barangay', 'recovered_date',
+            'recovered_by', 'recovered_by_name',
+            'reported_by', 'reported_by_name', 'date_reported',
+        ]
+
+    def get_reported_by_name(self, obj):
+        if obj.reported_by:
+            return getattr(obj.reported_by, 'full_name', str(obj.reported_by))
+        return None
+
+    def get_recovered_by_name(self, obj):
+        if obj.recovered_by:
+            return getattr(obj.recovered_by, 'full_name', str(obj.recovered_by))
+        return None
+
+    def validate_date_of_occurrence(self, value):
+        validate_not_future_date(value, 'Date of occurrence')
+        return value
+
+    def validate(self, data):
+        disaster_type = data.get('disaster_type', '')
+        if disaster_type == 'Other' and not (data.get('disaster_type_other_specify') or '').strip():
+            raise serializers.ValidationError({
+                'disaster_type_other_specify': 'Please specify the disaster type.'
+            })
+        area_affected_ha = data.get('area_affected_ha')
+        if area_affected_ha is not None and area_affected_ha <= 0:
+            raise serializers.ValidationError({'area_affected_ha': 'Area affected must be greater than 0.'})
+        return data
+
+
 class FisheriesHarvestRecordSerializer(serializers.ModelSerializer):
     recorded_by_name = serializers.SerializerMethodField()
 

@@ -207,18 +207,21 @@ def active_disaster_rows(limit=12):
 
     for d in (
         Fish.objects.filter(status='Active')
-        .select_related('stocking_record', 'stocking_record__fisherfolk')
+        .select_related('stocking_record', 'stocking_record__fisherfolk', 'fisherfolk')
         .order_by('-date_of_occurrence')[:limit]
     ):
+        # Consolidated batch: d.fisherfolk is the fallback subject/barangay
+        # source for reports with no stocking_record (Capture/Vendor
+        # fisherfolk have no cycle to attach one to).
         rec = d.stocking_record
-        person = getattr(rec, 'fisherfolk', None)
+        person = getattr(rec, 'fisherfolk', None) or d.fisherfolk
         rows.append({
             'id': d.id,
             'domain': 'fisheries',
             'record_id': getattr(rec, 'id', None),
             'disaster_type': d.disaster_type_other_specify or d.disaster_type,
             'date_of_occurrence': d.date_of_occurrence,
-            'barangay': getattr(rec, 'pond_location_barangay', '') or '',
+            'barangay': getattr(rec, 'pond_location_barangay', '') or getattr(person, 'barangay', '') or '',
             'subject': getattr(person, 'full_name', '') or '',
             'area_affected_ha': d.area_affected_ha,
             'is_total_loss': d.is_total_loss,

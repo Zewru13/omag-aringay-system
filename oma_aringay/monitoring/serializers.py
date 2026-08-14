@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from core.validators import validate_not_future_date
 
-from .models import FarmVisit, FisherfolkDisasterReport
+from .models import FarmVisit
 
 
 class FarmVisitSerializer(serializers.ModelSerializer):
@@ -22,23 +22,3 @@ class FarmVisitSerializer(serializers.ModelSerializer):
         validate_not_future_date(value, 'Visit date')
         return value
     # next_visit_date deliberately NOT capped — it's a planned future visit.
-
-
-class FisherfolkDisasterReportSerializer(serializers.ModelSerializer):
-    fisherfolk_name = serializers.CharField(source='fisherfolk.full_name', read_only=True)
-
-    class Meta:
-        model = FisherfolkDisasterReport
-        # estimated_loss_php intentionally omitted (Batch E) — the office does not
-        # collect estimated peso loss for fisherfolk-level disasters. The model
-        # column is retained (dormant) to preserve existing rows' data.
-        fields = [
-            'id', 'fisherfolk', 'fisherfolk_name', 'report_date', 'disaster_type',
-            'affected_barangay', 'description', 'volume_lost_kg',
-            'equipment_damaged', 'status', 'recorded_by', 'date_recorded',
-        ]
-        read_only_fields = ['id', 'fisherfolk_name', 'recorded_by', 'date_recorded']
-
-    def validate_report_date(self, value):
-        validate_not_future_date(value, 'Report date')
-        return value
