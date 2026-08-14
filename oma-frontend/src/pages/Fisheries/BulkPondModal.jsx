@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Layers } from 'lucide-react'
+import { Layers, Plus, X } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import Button from '../../components/UI/Button.jsx'
@@ -13,23 +13,26 @@ const WATER_SOURCE_OPTIONS = ['River', 'Spring', 'Rain-fed', 'Deep Well', 'Other
 const emptyRow = (name) => ({ name, barangay: '', area_hectares: '', water_source: '' })
 
 // Batch D — bulk pond creation, alongside PondModal's existing single-add
-// flow (untouched). Two steps: ask how many, then reveal that many rows.
-// Suggested names continue the same auto-numbering Pond.save() already
-// does on the backend ("Pond N+1", "Pond N+2", ...) so the two flows never
-// diverge — the suggestion is just a pre-filled, still-editable default.
+// flow (untouched). Opens with one row already visible; "+ Add Another
+// Pond" appends more, one click at a time, instead of asking for a count
+// up front. Suggested names continue the same auto-numbering Pond.save()
+// already does on the backend ("Pond N+1", "Pond N+2", ...) so the two
+// flows never diverge — the suggestion is just a pre-filled, still-editable
+// default.
 function BulkPondModal({ fisherfolkId, existingPondCount, onClose, onSuccess }) {
-  const [count, setCount] = useState('')
-  const [rows, setRows] = useState(null) // null until count is confirmed
-  const [rowErrors, setRowErrors] = useState([])
+  const [rows, setRows] = useState([emptyRow(`Pond ${existingPondCount + 1}`)])
+  const [rowErrors, setRowErrors] = useState([{}])
   const [formError, setFormError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleCountSubmit = (e) => {
-    e.preventDefault()
-    const n = parseInt(count, 10)
-    if (!n || n < 1 || n > 50) return
-    setRows(Array.from({ length: n }, (_, i) => emptyRow(`Pond ${existingPondCount + i + 1}`)))
-    setRowErrors(Array.from({ length: n }, () => ({})))
+  const addRow = () => {
+    setRows((prev) => [...prev, emptyRow(`Pond ${existingPondCount + prev.length + 1}`)])
+    setRowErrors((prev) => [...prev, {}])
+  }
+
+  const removeRow = (index) => {
+    setRows((prev) => prev.filter((_, i) => i !== index))
+    setRowErrors((prev) => prev.filter((_, i) => i !== index))
   }
 
   const setRowField = (index, field, value) => {
@@ -71,39 +74,10 @@ function BulkPondModal({ fisherfolkId, existingPondCount, onClose, onSuccess }) 
     return Array.isArray(e) ? e[0] : e
   }
 
-  if (!rows) {
-    return (
-      <ModalShell
-        title="Bulk Add Ponds"
-        subtitle="How many ponds would you like to add?"
-        icon={Layers}
-        onClose={onClose}
-        maxWidth="max-w-sm"
-      >
-        <form onSubmit={handleCountSubmit} className="space-y-4">
-          <FormField label="Number of Ponds">
-            <input
-              type="number" min="1" max="50" step="1"
-              className={baseInputClasses}
-              placeholder="e.g. 3"
-              value={count}
-              onChange={(e) => setCount(e.target.value)}
-              autoFocus
-            />
-          </FormField>
-          <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4">
-            <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-            <Button type="submit">Continue</Button>
-          </div>
-        </form>
-      </ModalShell>
-    )
-  }
-
   return (
     <ModalShell
       title="Bulk Add Ponds"
-      subtitle={`Adding ${rows.length} pond${rows.length === 1 ? '' : 's'} — names are auto-suggested, edit any field as needed.`}
+      subtitle="Add a row for each pond — names are auto-suggested, edit any field as needed."
       icon={Layers}
       onClose={onClose}
       maxWidth="max-w-2xl"
@@ -112,7 +86,19 @@ function BulkPondModal({ fisherfolkId, existingPondCount, onClose, onSuccess }) 
         <div className="space-y-4 max-h-[55vh] overflow-y-auto pr-1">
           {rows.map((row, i) => (
             <div key={i} className="rounded-lg border border-[#E2E8E2] p-3">
-              <p className="mb-2 text-[12px] font-medium uppercase tracking-wide text-slate-400">Pond {i + 1}</p>
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-[12px] font-medium uppercase tracking-wide text-slate-400">Pond {i + 1}</p>
+                {rows.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeRow(i)}
+                    className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
+                    aria-label={`Remove Pond ${i + 1}`}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <FormField label="Pond Name" error={rowFieldError(i, 'name')}>
                   <input
@@ -151,6 +137,15 @@ function BulkPondModal({ fisherfolkId, existingPondCount, onClose, onSuccess }) 
             </div>
           ))}
         </div>
+
+        <button
+          type="button"
+          onClick={addRow}
+          disabled={rows.length >= 50}
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-[#B7CBB7] py-2 text-[13px] font-medium text-[#1B4D2E] hover:bg-[#EBF5EE]/50 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Plus size={15} /> Add Another Pond
+        </button>
 
         {formError && (
           <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] font-medium text-red-700">{formError}</p>
