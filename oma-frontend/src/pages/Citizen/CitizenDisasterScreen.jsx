@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle, AlertTriangle, Check, CheckCircle2, Plus } from 'lucide-react'
+import { AlertCircle, AlertTriangle, Check, CheckCircle2, ChevronDown, Plus } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import useRecordLock from '../../hooks/useRecordLock.js'
@@ -11,6 +11,28 @@ import { todayISO, yesterdayISO } from '../../utils/localDate.js'
 // radius, 13px/12px padding, 15px value text. Deliberately not imported
 // from there since it's a plain string constant, not a shared component.
 const FIELD = 'w-full rounded-[8px] border-[0.5px] border-cz-border-strong bg-cz-surface px-3 py-[13px] text-[15px] text-cz-text placeholder:text-cz-text-muted focus:border-cz-text-2 focus:outline-none disabled:opacity-50'
+
+// Native select restyled to the spec — same pattern as CitizenActivityLogModal's
+// local SelectField, duplicated rather than imported for the same reason FIELD is.
+function SelectField({ value, onChange, disabled, children }) {
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        className={`${FIELD} appearance-none pr-10`}
+      >
+        {children}
+      </select>
+      <ChevronDown
+        size={18}
+        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-cz-text-2"
+        aria-hidden="true"
+      />
+    </div>
+  )
+}
 
 function FieldBlock({ label, required, error, hint, children }) {
   return (
@@ -232,37 +254,21 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
             </div>
           )}
 
-          {/* URI NG SAKUNA — tiles, per the reference. Every type the model
-              defines is offered, not just the reference's subset: Strong Winds
-              carries this domain's response rules, and Disease Outbreak /
-              Predator Attack appear in live fisheries records, so omitting
-              them would make real events unreportable. */}
+          {/* URI NG SAKUNA — a plain dropdown, per the reference. Every type
+              the model defines is offered, not just the reference's subset:
+              Strong Winds carries this domain's response rules, and Disease
+              Outbreak / Predator Attack appear in live fisheries records, so
+              omitting them would make real events unreportable. */}
           <FieldBlock label={labels.ffNew.disasterTypeHeading} required>
-            <div className="grid grid-cols-2 gap-2">
-              {domain.disasterTypeChoices.map((choice) => {
-                const selected = form.disaster_type === choice
-                return (
-                  <button
-                    key={choice}
-                    type="button"
-                    disabled={blockedByOther}
-                    onClick={() => set('disaster_type', choice)}
-                    className={`flex min-h-[46px] items-center rounded-[10px] border-[0.5px] px-3 py-2.5 text-left transition-colors disabled:opacity-50 ${
-                      selected
-                        ? `${theme.tileSelectedBorder} ${theme.tileSelectedBg}`
-                        : 'border-cz-border bg-cz-surface hover:bg-cz-page'
-                    }`}
-                  >
-                    <span className={`text-[13.5px] leading-[1.3] ${
-                      selected ? `font-semibold ${theme.tileSelectedText}` : 'text-cz-text'
-                    }`}
-                    >
-                      {labels.ffNew.disasterTypes[choice] || choice}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
+            <SelectField
+              value={form.disaster_type}
+              onChange={(e) => set('disaster_type', e.target.value)}
+              disabled={blockedByOther}
+            >
+              {domain.disasterTypeChoices.map((choice) => (
+                <option key={choice} value={choice}>{labels.ffNew.disasterTypes[choice] || choice}</option>
+              ))}
+            </SelectField>
             {form.disaster_type === 'Other' && (
               <input
                 type="text"

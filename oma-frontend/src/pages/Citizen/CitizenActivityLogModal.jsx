@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Check, ChevronDown, Frown, Meh, Smile } from 'lucide-react'
+import { Check, ChevronDown } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -55,15 +55,14 @@ function SelectField({ value, onChange, disabled, children }) {
   )
 }
 
-// Three large tappable tiles — icon above label, so the chosen condition
-// is carried by shape and text, not just the fill colour.
-const CONDITION_ICONS = { Good: Smile, Fair: Meh, Poor: Frown }
-
-function ConditionTiles({ theme, value, onSelect, disabled }) {
+// Plain three-way pill row — same geometry as the date-shortcut pills
+// below, matching the reference's flat condition toggles (Malinaw/
+// Katamtaman/Maruming, Mabuti/Katamtaman/Masamang, etc.) rather than the
+// icon-tile treatment this used to have.
+function ConditionPills({ theme, value, onSelect, disabled }) {
   return (
     <div className="flex gap-2">
       {['Good', 'Fair', 'Poor'].map((cond) => {
-        const Icon = CONDITION_ICONS[cond]
         const selected = value === cond
         return (
           <button
@@ -72,14 +71,11 @@ function ConditionTiles({ theme, value, onSelect, disabled }) {
             disabled={disabled}
             aria-pressed={selected}
             onClick={() => onSelect(cond)}
-            className={`flex min-h-[44px] flex-1 flex-col items-center justify-center gap-1 rounded-[8px] border-[0.5px] px-1 py-3 transition-colors disabled:opacity-50 ${
-              selected
-                ? `${theme.tileSelectedBorder} ${theme.tileSelectedBg} ${theme.tileSelectedText}`
-                : 'border-cz-border-strong text-cz-text-2'
+            className={`min-h-[44px] flex-1 rounded-[8px] px-1.5 py-3 transition-colors disabled:opacity-50 ${
+              selected ? theme.solidBtn : 'border-[0.5px] border-cz-border-strong text-cz-text'
             }`}
           >
-            <Icon size={20} aria-hidden="true" />
-            <span className={`text-[12px] ${selected ? 'font-medium' : ''}`}>
+            <span className={`text-[14px] ${selected ? 'font-medium' : ''}`}>
               {labels.activityLog.plantConditionOptions[cond]}
             </span>
           </button>
@@ -457,7 +453,7 @@ export default function CitizenActivityLogScreen({
         {/* CONDITION — crop and fisheries each have their own field name */}
         {isCrop && (
           <FieldBlock label={labels.activityLog.fields.plantCondition}>
-            <ConditionTiles
+            <ConditionPills
               theme={t}
               value={form.plant_condition}
               onSelect={(v) => set('plant_condition', v)}
@@ -467,7 +463,7 @@ export default function CitizenActivityLogScreen({
         )}
         {isFisheries && (
           <FieldBlock label={labels.activityLog.fields.waterFishCondition}>
-            <ConditionTiles
+            <ConditionPills
               theme={t}
               value={form.water_fish_condition}
               onSelect={(v) => set('water_fish_condition', v)}
@@ -636,56 +632,19 @@ export default function CitizenActivityLogScreen({
         {/* HEALTH MONITORING (fisheries) */}
         {showIssueFields && (
           <>
-            {/* URI NG SAKIT — the reference makes this its own step with big
-                tappable options. Values are real DiseaseType rows, so the
-                choice is stored as the FK the model already has rather than
-                as free text. */}
+            {/* URI NG SAKIT — a plain dropdown, per the reference. Values are
+                real DiseaseType rows, so the choice is still stored as the
+                FK the model already has. */}
             {diseaseTypes.length > 0 && (
               <FieldBlock label={labels.ffNew.illnessHeading}>
-                <div className="space-y-2">
-                  {diseaseTypes.map((dt) => {
-                    const selected = String(form.disease_type || '') === String(dt.id)
-                    return (
-                      <button
-                        key={dt.id}
-                        type="button"
-                        disabled={blockedByOther}
-                        onClick={() => set('disease_type', selected ? '' : dt.id)}
-                        // Selection is shown with a left accent bar, weight
-                        // and a check -- NOT a background fill. On this
-                        // control a bg-* utility, and even an inline
-                        // background-color, both lose to an !important rule
-                        // somewhere in the cascade, which produced an
-                        // invisible (white-on-white) selected state. Border,
-                        // colour and content all apply normally, so the
-                        // indicator is built from those instead.
-                        className={`relative flex w-full items-center gap-2.5 overflow-hidden rounded-[10px] border-[0.5px] px-4 py-3 text-left transition-colors disabled:opacity-50 ${
-                          selected
-                            ? 'border-cz-fish-header'
-                            : 'border-cz-border hover:bg-cz-page'
-                        }`}
-                      >
-                        {selected && (
-                          <span
-                            className="absolute inset-y-0 left-0 w-[4px] bg-cz-fish-header"
-                            aria-hidden="true"
-                          />
-                        )}
-                        <Check
-                          size={16}
-                          className={`shrink-0 ${selected ? 'text-cz-fish-header' : 'text-transparent'}`}
-                          aria-hidden="true"
-                        />
-                        <span className={`text-[14px] leading-[1.35] ${
-                          selected ? 'font-semibold text-cz-fish-header' : 'text-cz-text'
-                        }`}
-                        >
-                        {dt.name}
-                        </span>
-                      </button>
-                    )
-                  })}
-                </div>
+                <SelectField
+                  value={form.disease_type}
+                  onChange={(e) => set('disease_type', e.target.value)}
+                  disabled={blockedByOther}
+                >
+                  <option value="">{labels.activityLog.selectPlaceholder}</option>
+                  {diseaseTypes.map((dt) => <option key={dt.id} value={dt.id}>{dt.name}</option>)}
+                </SelectField>
               </FieldBlock>
             )}
 
@@ -719,14 +678,31 @@ export default function CitizenActivityLogScreen({
                 disabled={blockedByOther}
               />
             </FieldBlock>
+            {/* The reference asks a yes/no question; the model stores a
+                name or "N/A" (max_length=150, free text). Only the two
+                ends of that are expressible here, which is honest -- a
+                citizen tapping "Oo" on this screen is not being asked to
+                name the vet. */}
             <FieldBlock label={labels.activityLog.fields.vetConsulted}>
-              <input
-                type="text"
-                className={FIELD}
-                value={form.vet_consulted}
-                onChange={(e) => set('vet_consulted', e.target.value)}
-                disabled={blockedByOther}
-              />
+              <div className="grid grid-cols-2 gap-2">
+                {[['Oo', labels.ffNew.health.yes], ['N/A', labels.ffNew.health.no]].map(([v, text]) => {
+                  const selected = form.vet_consulted === v
+                  return (
+                    <button
+                      key={v}
+                      type="button"
+                      disabled={blockedByOther}
+                      aria-pressed={selected}
+                      onClick={() => set('vet_consulted', selected ? '' : v)}
+                      className={`min-h-[44px] rounded-[8px] px-3 py-3 transition-colors disabled:opacity-50 ${
+                        selected ? t.solidBtn : 'border-[0.5px] border-cz-border-strong text-cz-text'
+                      }`}
+                    >
+                      <span className={`text-[14px] ${selected ? 'font-medium' : ''}`}>{text}</span>
+                    </button>
+                  )
+                })}
+              </div>
             </FieldBlock>
             <FieldBlock label={labels.activityLog.fields.treatmentApplied}>
               <input

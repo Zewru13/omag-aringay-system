@@ -899,7 +899,7 @@ export const labels = {
       recoveryNoteRequired: 'Kailangan po ng note tungkol sa pagbawi kung hindi pa tapos lahat ng inirerekomendang tugon.',
       genericRecoverError: 'Hindi mamarkahan bilang nakabawi.',
     },
-    submit: 'Isumite ang report',
+    submit: 'I-submit ang Ulat',
     submitSuccess: 'Naisumite ang report ng kalamidad.',
     markRecovered: 'Markahan na nakabawi',
     confirmRecovery: 'Kumpirmahin ang pagbawi',

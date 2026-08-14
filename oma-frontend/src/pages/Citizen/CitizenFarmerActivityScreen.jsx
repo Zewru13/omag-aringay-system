@@ -220,18 +220,15 @@ export default function CitizenFarmerActivityScreen({ records, initialRecordId, 
 
             <div className="mb-[18px]">
               <Label>{t.activityHeading}</Label>
-              <div className="grid grid-cols-2 gap-2">
+              <select
+                value={activity}
+                onChange={(e) => set('activity_type', e.target.value)}
+                className={FIELD}
+              >
                 {Object.entries(t.types).map(([value, text]) => (
-                  <Pill
-                    key={value}
-                    selected={activity === value}
-                    onClick={() => set('activity_type', value)}
-                    className="text-left"
-                  >
-                    {text}
-                  </Pill>
+                  <option key={value} value={value}>{text}</option>
                 ))}
-              </div>
+              </select>
               {isOther && (
                 <input
                   type="text"
