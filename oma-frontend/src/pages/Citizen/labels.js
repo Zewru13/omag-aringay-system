@@ -308,10 +308,25 @@ export const labels = {
       barangay: 'BARANGAY',
       contact: 'CONTACT NUMBER',
 
-      extraHeading: 'KARAGDAGANG IMPORMASYON',
+      extraHeading: 'Government IDs at Impormasyon ng Account',
       fishr: 'FISHR NUMBER',
       lguReg: 'LGU REGISTRATION',
-      activityType: 'URI NG AKTIBIDAD',
+      // Reference labels this row differently per domain: "Fishery" for
+      // fisherfolk, "Uri" for farmer -- kept as two keys rather than one
+      // shared string so each side reads exactly as drawn.
+      activityTypeMiniFisherfolk: 'FISHERY',
+      activityTypeMiniFarmer: 'URI',
+      activityTypeFullFisherfolk: 'FISHERY ACTIVITY',
+      activityTypeFullFarmer: 'URI NG MAGSASAKA',
+      govIdsNote: 'Para sa pagwawasto ng alinmang ID number, makipag-ugnayan sa OMAg o BFAR.',
+      farmLaborer: 'Manggagawang Bukid',
+      regularFarmer: 'Magsasaka',
+
+      contactCardHeading: 'Contact Number — Agad Nababago',
+      contactSaveCta: 'Baguhin',
+      requestCardHeading: 'Mga Field na Nangangailangan ng Kahilingan',
+      requestCta: 'Humiling',
+      barangayFieldLabel: 'BARANGAY / TIRAHAN',
 
       // Pending-change panel. ProfileChangeRequest has existed since the
       // profile self-service batch and has never been surfaced anywhere;

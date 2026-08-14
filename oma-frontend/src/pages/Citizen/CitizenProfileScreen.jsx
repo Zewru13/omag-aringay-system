@@ -1,22 +1,27 @@
 import { useEffect, useState } from 'react'
-import { Hourglass, IdCard, MapPin, Phone, ShieldCheck, SquarePen } from 'lucide-react'
+import { Hourglass, Phone, SquarePen } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { labels } from './labels.js'
 import { CROP_THEME, CitizenBody, CitizenScreen, CitizenSubHeader, FISH_THEME } from './citizenUI.jsx'
 
-// ─── Aking Profile (frames 13, 14, 31) ────────────────────────────────────
+// ─── Aking Profile (frames 3, 8) ───────────────────────────────────────────
 // Everything shown comes from /accounts/me/'s `linked_record`, which only
-// ever resolves the caller's OWN record, so this screen adds no new data
-// access. What is new against the previous version is the reference's own
-// structure: an identity card straddling the header, one card per field,
-// the immutability note on RSBSA, and the pending-change panel.
+// ever resolves the caller's own record, so this screen adds no new data
+// access. Re-built against the Desktop POV reference's actual layout: an
+// identity card, a Contact Number card that saves instantly, a change-
+// request card with inline "Humiling" actions per field (replacing the
+// previous floating-button + bottom-sheet pattern, which had no frame of
+// its own), and a read-only Government IDs card.
 //
-// PENDING CHANGES. ProfileChangeRequest and its citizen endpoint have
-// existed since the profile self-service batch and were never surfaced
-// anywhere in the UI -- a citizen could have a request sitting in the staff
-// queue with no way to see it. Frame 31 draws exactly that panel, so it is
-// wired here against /profile/change-requests/.
+// NAME is one box in the reference ("Buong Pangalan") but the backend's
+// ProfileChangeRequest.REQUESTABLE_FIELDS only ever accepts the three real
+// model fields (first_name/middle_name/last_name) -- an aggregate
+// "full_name" would fail server-side validation and, if it somehow didn't,
+// the approval path's `setattr(record, field_name, value)` has no such
+// attribute to set. So this keeps three inputs under one "Buong Pangalan"
+// heading and one Humiling action that submits whichever parts changed --
+// visually one field, mechanically the three the backend actually has.
 //
 // HIDE-EMPTY RULE, kept from the previous version: a field renders only when
 // its value is real. 'Unspecified' is a stored choice meaning "not
@@ -24,6 +29,9 @@ import { CROP_THEME, CitizenBody, CitizenScreen, CitizenSubHeader, FISH_THEME } 
 // empty. civil_status is 'Unspecified' for 3556 of 3568 farmers and
 // highest_education is blank for essentially everyone -- rendering
 // placeholders would bury the two or three fields that ARE real.
+// (This rule now only governs the read-only Government IDs card; the
+// editable identity fields always render since a citizen must always be
+// able to request a correction, even from an empty value.)
 
 const BLANK = new Set(['', 'Unspecified'])
 const hasValue = (v) => v !== null && v !== undefined && !BLANK.has(String(v).trim())
@@ -34,153 +42,42 @@ const initialsOf = (rec) => {
   return (a + b).toUpperCase() || '—'
 }
 
-const NAME_FIELDS = ['first_name', 'middle_name', 'last_name']
+const CARD = 'rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface px-4 py-4'
+const INPUT = 'min-w-0 flex-1 rounded-[8px] border-[0.5px] border-cz-border-strong bg-cz-page px-3 py-[10px] text-[14px] text-cz-text focus:border-cz-text-2 focus:outline-none disabled:opacity-50'
 
-function Field({ icon: Icon, label, value, note, pending }) {
+function PendingNote({ pending }) {
   const P = labels.ffNew.profile
+  if (!pending) return null
   return (
-    <div className="rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface px-4 py-3.5">
-      <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">
-        {Icon && <Icon size={14} className="shrink-0 text-cz-text-muted" aria-hidden="true" />}
-        {label}
+    <div className="mt-2 rounded-[8px] border-[0.5px] border-cz-warn-accent/30 bg-cz-warn-bg px-3 py-2.5">
+      <p className="flex items-center gap-1.5 text-[12.5px] font-semibold text-cz-warn-accent">
+        <Hourglass size={12} aria-hidden="true" />
+        {P.pendingHeading}
       </p>
-      <p className="mt-1.5 text-[16px] font-semibold leading-[1.35] text-cz-text">{value}</p>
-      {note && <p className="mt-1 text-[12.5px] leading-[1.5] text-cz-text-2">{note}</p>}
-      {pending && (
-        <div className="mt-3 rounded-[10px] border-[0.5px] border-cz-warn-accent/30 bg-cz-warn-bg px-3.5 py-3">
-          <p className="mb-1 flex items-center gap-2 text-[13px] font-semibold text-cz-warn-accent">
-            <Hourglass size={14} aria-hidden="true" />
-            {P.pendingHeading}
-          </p>
-          <p className="text-[13px] leading-[1.5] text-cz-text">
-            {P.pendingRequested(pending.requested_value)}
-          </p>
-          <p className="text-[13px] leading-[1.5] text-cz-text-2">
-            {P.pendingSubmitted(labels.common.formatDate(String(pending.requested_at).slice(0, 10)))}
-          </p>
-          <p className="mt-1.5 text-[12.5px] leading-[1.5] text-cz-text-2">{P.pendingNote}</p>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function EditSheet({ theme, record, pendingFields, onClose, onSaved }) {
-  const P = labels.ffNew.profile
-  const { showToast } = useToast()
-  const [form, setForm] = useState({
-    contact_number: record?.contact_number || '',
-    first_name: record?.first_name || '',
-    middle_name: record?.middle_name || '',
-    last_name: record?.last_name || '',
-    barangay: record?.barangay || '',
-  })
-  const [saving, setSaving] = useState(false)
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
-
-  const FIELD = 'w-full rounded-[10px] border-[0.5px] border-cz-border-strong bg-cz-surface px-3.5 py-[13px] text-[15px] text-cz-text focus:outline-none disabled:opacity-50'
-
-  const submit = async () => {
-    setSaving(true)
-    let did = false
-    try {
-      // Contact number is a direct edit on the record; name and barangay are
-      // not, so they go through the change-request queue. Both paths already
-      // existed server-side -- neither is invented here.
-      if ((form.contact_number || '') !== (record?.contact_number || '')) {
-        await api.patch('/profile/contact-number/', { contact_number: form.contact_number })
-        did = true
-        showToast(P.editContactSaved, 'success')
-      }
-      for (const f of [...NAME_FIELDS, 'barangay']) {
-        if (pendingFields.has(f)) continue
-        if ((form[f] || '') === (record?.[f] || '')) continue
-        await api.post('/profile/change-requests/', { field_name: f, requested_value: form[f] })
-        did = true
-      }
-      if (!did) { showToast(P.editNothing, 'info'); setSaving(false); return }
-      showToast(P.editSubmitted, 'success')
-      onSaved?.()
-      onClose()
-    } catch (err) {
-      const d = err?.response?.data
-      const msg = typeof d === 'string' ? d
-        : Object.values(d || {}).flat().join(' ') || labels.common.genericSaveError
-      showToast(msg, 'error')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" role="dialog" aria-modal="true">
-      <div className="max-h-[90vh] w-full max-w-[520px] overflow-y-auto rounded-t-[16px] bg-cz-page p-5 sm:rounded-[16px]">
-        <h2 className="text-[19px] font-bold text-cz-text">{P.editTitle}</h2>
-        <p className="mt-1 mb-4 text-[13px] leading-[1.5] text-cz-text-2">{P.editSubtitle}</p>
-
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{P.editContactLabel}</p>
-        <input
-          type="tel"
-          value={form.contact_number}
-          onChange={(e) => set('contact_number', e.target.value)}
-          className={FIELD}
-        />
-        <p className="mt-1 mb-5 text-[12px] text-cz-text-2">{P.editContactNote}</p>
-
-        <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{P.editReviewHeading}</p>
-        <p className="mt-1 mb-3 text-[12.5px] leading-[1.5] text-cz-text-2">{P.editReviewNote}</p>
-
-        {[
-          ['first_name', P.editFirstName],
-          ['middle_name', P.editMiddleName],
-          ['last_name', P.editLastName],
-          ['barangay', P.editBarangay],
-        ].map(([key, label]) => (
-          <div key={key} className="mb-3">
-            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{label}</p>
-            <input
-              type="text"
-              value={form[key]}
-              disabled={pendingFields.has(key)}
-              onChange={(e) => set(key, e.target.value)}
-              className={FIELD}
-            />
-            {pendingFields.has(key) && (
-              <p className="mt-1 text-[12px] text-cz-warn-accent">{P.editPendingBlocked}</p>
-            )}
-          </div>
-        ))}
-
-        <div className="mt-5 flex gap-2.5">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 rounded-[10px] border-[0.5px] border-cz-border-strong bg-cz-surface py-[13px] text-[14px] font-medium text-cz-text-2"
-          >
-            {P.editCancel}
-          </button>
-          <button
-            type="button"
-            onClick={submit}
-            disabled={saving}
-            className={`flex-1 rounded-[10px] py-[13px] text-[14px] font-semibold disabled:opacity-50 ${theme.solidBtn}`}
-          >
-            {P.editSave}
-          </button>
-        </div>
-      </div>
+      <p className="mt-0.5 text-[12.5px] leading-[1.5] text-cz-text">{P.pendingRequested(pending.requested_value)}</p>
     </div>
   )
 }
 
 export default function CitizenProfileScreen({ record, recordType, onBack, tabBar, bare = false }) {
   const P = labels.ffNew.profile
+  const { showToast } = useToast()
   const isFisherfolk = recordType === 'FISHERFOLK'
   const theme = isFisherfolk ? FISH_THEME : CROP_THEME
 
   const [requests, setRequests] = useState([])
-  const [editing, setEditing] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
+
+  const [contactValue, setContactValue] = useState(record?.contact_number || '')
+  const [savingContact, setSavingContact] = useState(false)
+
+  const [nameForm, setNameForm] = useState({
+    first_name: record?.first_name || '',
+    middle_name: record?.middle_name || '',
+    last_name: record?.last_name || '',
+  })
+  const [barangayValue, setBarangayValue] = useState(record?.barangay || '')
+  const [submittingGroup, setSubmittingGroup] = useState(null) // 'name' | 'barangay' | null
 
   useEffect(() => {
     let cancelled = false
@@ -195,97 +92,247 @@ export default function CitizenProfileScreen({ record, recordType, onBack, tabBa
   }, [reloadKey])
 
   const pendingFor = (field) => requests.find((r) => r.field_name === field) || null
-  const pendingFields = new Set(requests.map((r) => r.field_name))
-  // The reference attaches the panel to BUONG PANGALAN as a whole, so any of
-  // the three name parts being under review surfaces there.
+  const NAME_FIELDS = ['first_name', 'middle_name', 'last_name']
   const pendingName = NAME_FIELDS.map(pendingFor).find(Boolean) || null
+  const pendingBarangay = pendingFor('barangay')
+  const namePending = Boolean(pendingName)
+  const barangayPending = Boolean(pendingBarangay)
 
   const fullName = [record?.first_name, record?.middle_name, record?.last_name]
     .filter(Boolean).join(' ') || record?.label || labels.common.unknown
 
-  const body = (
-    <>
-      <div className={bare ? 'rounded-t-[12px] px-4 py-4 ' + theme.header : `${theme.header} px-4 pb-12 sm:px-6`}>
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="flex items-center gap-2 rounded-[10px] border-[0.5px] border-white/40 px-3.5 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-white/10"
-          >
-            <SquarePen size={15} aria-hidden="true" />
-            {P.editCta}
-          </button>
-        </div>
-      </div>
+  const saveContact = async () => {
+    if (contactValue === (record?.contact_number || '')) return
+    setSavingContact(true)
+    try {
+      await api.patch('/profile/contact-number/', { contact_number: contactValue })
+      showToast(P.editContactSaved, 'success')
+    } catch (err) {
+      const d = err?.response?.data
+      showToast(typeof d === 'string' ? d : Object.values(d || {}).flat().join(' ') || labels.common.genericSaveError, 'error')
+    } finally {
+      setSavingContact(false)
+    }
+  }
 
-      <CitizenBody className={bare ? '!px-0' : '-mt-10'}>
-        <div className="mb-4 flex items-center gap-4 rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface px-4 py-4">
-          <div className={`flex h-[62px] w-[62px] shrink-0 items-center justify-center overflow-hidden rounded-full ${theme.circleBg}`}>
+  const requestNameChange = async () => {
+    const changed = NAME_FIELDS.filter((f) => (nameForm[f] || '') !== (record?.[f] || ''))
+    if (changed.length === 0) { showToast(P.editNothing, 'info'); return }
+    setSubmittingGroup('name')
+    try {
+      for (const f of changed) {
+        await api.post('/profile/change-requests/', { field_name: f, requested_value: nameForm[f] })
+      }
+      showToast(P.editSubmitted, 'success')
+      setReloadKey((k) => k + 1)
+    } catch (err) {
+      const d = err?.response?.data
+      showToast(typeof d === 'string' ? d : Object.values(d || {}).flat().join(' ') || labels.common.genericSaveError, 'error')
+    } finally {
+      setSubmittingGroup(null)
+    }
+  }
+
+  const requestBarangayChange = async () => {
+    if (barangayValue === (record?.barangay || '')) { showToast(P.editNothing, 'info'); return }
+    setSubmittingGroup('barangay')
+    try {
+      await api.post('/profile/change-requests/', { field_name: 'barangay', requested_value: barangayValue })
+      showToast(P.editSubmitted, 'success')
+      setReloadKey((k) => k + 1)
+    } catch (err) {
+      const d = err?.response?.data
+      showToast(typeof d === 'string' ? d : Object.values(d || {}).flat().join(' ') || labels.common.genericSaveError, 'error')
+    } finally {
+      setSubmittingGroup(null)
+    }
+  }
+
+  // Farmer has no "type" field on the backend; is_farm_laborer is the
+  // closest real distinction, so the reference's "Uri ng Magsasaka" row
+  // is derived from that boolean rather than a field that doesn't exist.
+  const farmerTypeLabel = record?.is_farm_laborer ? P.farmLaborer : P.regularFarmer
+
+  const govIds = isFisherfolk
+    ? [[P.rsbsa, record?.rsbsa_number], [P.fishr, record?.fishr_number], [P.lguReg, record?.lgu_registration_number],
+       [P.barangay, record?.barangay], [P.activityTypeFullFisherfolk, record?.fisherfolk_type]]
+    : [[P.rsbsa, record?.rsbsa_number], [P.barangay, record?.barangay], [P.activityTypeFullFarmer, farmerTypeLabel]]
+
+  const identityCard = (
+    <div className="w-full shrink-0 lg:w-[280px]">
+      <div className={`overflow-hidden rounded-[12px] border-[0.5px] border-cz-border`}>
+        <div className={`${theme.header} px-4 pb-5 pt-4`}>
+          <div className={`flex h-[56px] w-[56px] items-center justify-center overflow-hidden rounded-[10px] bg-white/15`}>
             {record?.profile_picture_url
               ? <img src={record.profile_picture_url} alt="" className="h-full w-full object-cover" />
-              : <span className={`text-[20px] font-bold ${theme.circleIcon}`}>{initialsOf(record)}</span>}
+              : <span className="text-[18px] font-bold text-white">{initialsOf(record)}</span>}
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[19px] font-bold leading-[1.2] text-cz-text">{fullName}</p>
-            {hasValue(record?.rsbsa_number) && (
-              <p className="mt-0.5 text-[13.5px] text-cz-text-2">{record.rsbsa_number}</p>
-            )}
-            <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-cz-status-good-bg px-3 py-1 text-[12.5px] font-semibold text-cz-status-good-fg">
-              <ShieldCheck size={13} aria-hidden="true" />
-              {isFisherfolk ? P.verifiedFisherfolk : P.verifiedFarmer}
-            </span>
-          </div>
+          <p className="mt-3 text-[17px] font-bold leading-[1.2] text-white">{fullName}</p>
+          <p className={`text-[13px] ${theme.name}`}>{isFisherfolk ? P.verifiedFisherfolk : P.verifiedFarmer}</p>
         </div>
-
-        <div className="space-y-3">
-          {hasValue(record?.rsbsa_number) && (
-            <Field icon={IdCard} label={P.rsbsa} value={record.rsbsa_number} note={P.rsbsaNote} />
-          )}
-          <Field icon={IdCard} label={P.fullName} value={fullName} pending={pendingName} />
+        <div className="space-y-2 bg-cz-surface px-4 py-3.5">
           {hasValue(record?.barangay) && (
-            <Field icon={MapPin} label={P.barangay} value={record.barangay} pending={pendingFor('barangay')} />
+            <div className="flex items-center justify-between gap-3 text-[13px]">
+              <span className="text-cz-text-2">{P.barangay}</span>
+              <span className="font-medium text-cz-text">{record.barangay}</span>
+            </div>
           )}
           {hasValue(record?.contact_number) && (
-            <Field icon={Phone} label={P.contact} value={record.contact_number} />
+            <div className="flex items-center justify-between gap-3 text-[13px]">
+              <span className="text-cz-text-2">{P.contact}</span>
+              <span className="font-medium text-cz-text">{record.contact_number}</span>
+            </div>
           )}
-
-          {isFisherfolk && [record?.fishr_number, record?.lgu_registration_number, record?.fisherfolk_type]
-            .some(hasValue) && (
-            <div className="rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface px-4 py-3.5">
-              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">
-                {P.extraHeading}
-              </p>
-              {[
-                [P.fishr, record?.fishr_number],
-                [P.lguReg, record?.lgu_registration_number],
-                [P.activityType, record?.fisherfolk_type],
-              ].filter(([, v]) => hasValue(v)).map(([label, value]) => (
-                <div key={label} className="mb-2.5 last:mb-0">
-                  <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{label}</p>
-                  <p className="mt-0.5 text-[15px] font-semibold text-cz-text">{value}</p>
-                </div>
-              ))}
+          {(isFisherfolk ? hasValue(record?.fisherfolk_type) : true) && (
+            <div className="flex items-center justify-between gap-3 text-[13px]">
+              <span className="text-cz-text-2">{isFisherfolk ? P.activityTypeMiniFisherfolk : P.activityTypeMiniFarmer}</span>
+              <span className="font-medium text-cz-text">{isFisherfolk ? record.fisherfolk_type : farmerTypeLabel}</span>
             </div>
           )}
         </div>
+      </div>
 
-        <p className="mt-6 text-center text-[12.5px] leading-[1.6] text-cz-text-muted">
-          {P.footerLine1}
-          <br />
-          {P.footerLine2}
-        </p>
-      </CitizenBody>
-
-      {editing && (
-        <EditSheet
-          theme={theme}
-          record={record}
-          pendingFields={pendingFields}
-          onClose={() => setEditing(false)}
-          onSaved={() => setReloadKey((k) => k + 1)}
-        />
+      {hasValue(record?.rsbsa_number) && (
+        <div className={`${CARD} mt-3`}>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{P.rsbsa}</p>
+          <p className="mt-1 text-[15px] font-semibold text-cz-text">{record.rsbsa_number}</p>
+          <p className="mt-1 text-[12px] leading-[1.5] text-cz-text-muted">{P.rsbsaNote}</p>
+        </div>
       )}
-    </>
+    </div>
+  )
+
+  const detailCards = (
+    <div className="min-w-0 flex-1 space-y-4">
+      {/* CONTACT NUMBER — saves instantly, no review. */}
+      <div className={CARD}>
+        <p className="mb-2 flex items-center gap-1.5 text-[13px] font-semibold text-cz-text">
+          <span className={`h-[10px] w-[3px] rounded-full ${theme.header}`} aria-hidden="true" />
+          {P.contactCardHeading}
+        </p>
+        <div className="flex items-center gap-2">
+          <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[8px] bg-cz-page">
+            <Phone size={16} className="text-cz-text-2" aria-hidden="true" />
+          </span>
+          <input
+            type="tel"
+            value={contactValue}
+            onChange={(e) => setContactValue(e.target.value)}
+            className={INPUT}
+          />
+          <button
+            type="button"
+            onClick={saveContact}
+            disabled={savingContact}
+            className="shrink-0 rounded-[8px] border-[0.5px] border-cz-border-strong bg-cz-surface px-3.5 py-[10px] text-[13px] font-medium text-cz-text transition-colors hover:bg-cz-page disabled:opacity-50"
+          >
+            {P.contactSaveCta}
+          </button>
+        </div>
+        <p className="mt-1.5 text-[12px] text-cz-text-muted">{P.editContactNote}</p>
+      </div>
+
+      {/* FIELDS REQUIRING A REQUEST — name and barangay go through staff
+          review; each Humiling action submits only what actually changed. */}
+      <div className={CARD}>
+        <p className="mb-3 text-[13px] font-semibold text-cz-text">{P.requestCardHeading}</p>
+
+        <div className="mb-4">
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{P.fullName}</p>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <input
+              type="text"
+              value={nameForm.first_name}
+              disabled={namePending}
+              onChange={(e) => setNameForm((f) => ({ ...f, first_name: e.target.value }))}
+              placeholder={P.editFirstName}
+              className={INPUT}
+            />
+            <input
+              type="text"
+              value={nameForm.middle_name}
+              disabled={namePending}
+              onChange={(e) => setNameForm((f) => ({ ...f, middle_name: e.target.value }))}
+              placeholder={P.editMiddleName}
+              className={INPUT}
+            />
+            <input
+              type="text"
+              value={nameForm.last_name}
+              disabled={namePending}
+              onChange={(e) => setNameForm((f) => ({ ...f, last_name: e.target.value }))}
+              placeholder={P.editLastName}
+              className={INPUT}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={requestNameChange}
+            disabled={namePending || submittingGroup === 'name'}
+            className="mt-2 flex items-center gap-1.5 rounded-[8px] border-[0.5px] border-cz-border-strong bg-cz-surface px-3.5 py-2 text-[13px] font-medium text-cz-text transition-colors hover:bg-cz-page disabled:opacity-50"
+          >
+            <SquarePen size={13} aria-hidden="true" />
+            {P.requestCta}
+          </button>
+          <PendingNote pending={pendingName} />
+        </div>
+
+        <div>
+          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{P.barangayFieldLabel}</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={barangayValue}
+              disabled={barangayPending}
+              onChange={(e) => setBarangayValue(e.target.value)}
+              className={INPUT}
+            />
+            <button
+              type="button"
+              onClick={requestBarangayChange}
+              disabled={barangayPending || submittingGroup === 'barangay'}
+              className="shrink-0 flex items-center gap-1.5 rounded-[8px] border-[0.5px] border-cz-border-strong bg-cz-surface px-3.5 py-[10px] text-[13px] font-medium text-cz-text transition-colors hover:bg-cz-page disabled:opacity-50"
+            >
+              <SquarePen size={13} aria-hidden="true" />
+              {P.requestCta}
+            </button>
+          </div>
+          <PendingNote pending={pendingBarangay} />
+        </div>
+
+        <p className="mt-3 text-[12px] leading-[1.5] text-cz-text-muted">{P.editReviewNote}</p>
+      </div>
+
+      {/* GOVERNMENT IDs — read-only, hide-empty. */}
+      {govIds.some(([, v]) => hasValue(v)) && (
+        <div className={CARD}>
+          <p className="mb-3 text-[13px] font-semibold text-cz-text">{P.extraHeading}</p>
+          <div className="grid grid-cols-2 gap-3">
+            {govIds.filter(([, v]) => hasValue(v)).map(([label, value]) => (
+              <div key={label}>
+                <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{label}</p>
+                <p className="mt-0.5 text-[14.5px] font-semibold text-cz-text">{value}</p>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-[12px] leading-[1.5] text-cz-text-muted">{P.govIdsNote}</p>
+        </div>
+      )}
+    </div>
+  )
+
+  const body = (
+    <div className={bare ? '' : `${theme.header} px-4 pb-6 pt-4 sm:px-6`}>
+      <div className={bare ? 'flex items-start gap-5' : 'flex flex-col gap-4 rounded-[12px] bg-cz-page p-4 lg:flex-row lg:items-start sm:p-5'}>
+        {identityCard}
+        {detailCards}
+      </div>
+      <p className="mt-6 text-center text-[12.5px] leading-[1.6] text-cz-text-muted">
+        {P.footerLine1}
+        <br />
+        {P.footerLine2}
+      </p>
+    </div>
   )
 
   if (bare) return body
@@ -298,7 +345,7 @@ export default function CitizenProfileScreen({ record, recordType, onBack, tabBa
         subtitle={P.subtitle}
         onBack={onBack}
       />
-      {body}
+      <CitizenBody className="!px-0 !pt-0">{body}</CitizenBody>
       {tabBar}
     </CitizenScreen>
   )
