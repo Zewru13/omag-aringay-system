@@ -393,6 +393,7 @@ class CropDisasterReport(models.Model):
     area_affected_ha = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
     estimated_damage = models.TextField(blank=True, help_text='Describe the damage')
     production_loss = models.TextField(blank=True, help_text='Estimated production loss')
+    photo = models.ImageField(upload_to='disaster_reports/crop/', null=True, blank=True)
     # ANTAS NG PINSALA. The existing damage fields are free text plus a
     # hectare figure — precise when staff fill them in, but unanswerable for a
     # farmer reporting from the field on a phone, which is what the citizen

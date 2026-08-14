@@ -598,6 +598,7 @@ export default function FisheriesMonitoringPage() {
             ['Status', d.status],
             ['Volume Lost (kg)', d.volume_lost_kg ?? '—'], ['Equipment Damaged', d.equipment_damaged || '—'],
             ['Description', d.estimated_damage || '—'],
+            ['Photo', d.photo ? <a href={d.photo} target="_blank" rel="noreferrer" className="text-[#1B4D2E] underline">View photo</a> : '—'],
             ...(d.status === 'Recovered' ? [['Recovery Note', d.recovery_note || '—']] : []),
           ],
         })}

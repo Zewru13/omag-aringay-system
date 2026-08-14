@@ -878,7 +878,7 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
             {allEvents.map(event => {
               if (event._type === 'disaster') {
                 const isExpanded = expandedDisasters.has(event.id)
-                const hasDetails = event.area_affected_ha || event.estimated_damage || event.production_loss
+                const hasDetails = event.area_affected_ha || event.estimated_damage || event.production_loss || event.photo
                 const isRecovered = event.status === 'Recovered'
                 return (
                   <div key={`d-${event.id}`} className="py-3">
@@ -937,6 +937,12 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
                         )}
                         {event.production_loss && (
                           <p className={`text-xs ${isRecovered ? 'text-emerald-700' : 'text-rose-700'}`}><span className="font-medium">Production loss:</span> {event.production_loss}</p>
+                        )}
+                        {event.photo && (
+                          <p className={`text-xs ${isRecovered ? 'text-emerald-700' : 'text-rose-700'}`}>
+                            <span className="font-medium">Photo:</span>{' '}
+                            <a href={event.photo} target="_blank" rel="noreferrer" className="underline">View photo</a>
+                          </p>
                         )}
                         {!hasDetails && (
                           <p className={`text-xs italic ${isRecovered ? 'text-emerald-400' : 'text-rose-400'}`}>No additional details recorded.</p>
@@ -1040,6 +1046,7 @@ export function StockingDisasterReportModal({ record, onClose, onSuccess }) {
   const [estimatedDamage,   setEstimatedDamage]   = useState('')
   const [productionLoss,    setProductionLoss]    = useState('')
   const [isTotalLoss,       setIsTotalLoss]       = useState(false)
+  const [photo,             setPhoto]             = useState(null)
   const [showConfirm,       setShowConfirm]       = useState(false)
   const [isSubmitting,      setIsSubmitting]      = useState(false)
   const [areaError,         setAreaError]         = useState('')
@@ -1079,7 +1086,7 @@ export function StockingDisasterReportModal({ record, onClose, onSuccess }) {
     setShowConfirm(false)
     setIsSubmitting(true)
     try {
-      await api.post(`/fisheries/stocking/${record.id}/disasters/`, {
+      const fields = {
         disaster_type:      disasterType,
         disaster_type_other_specify: disasterType === 'Other' ? disasterTypeOtherSpecify.trim() : '',
         date_of_occurrence: dateOfOccurrence,
@@ -1087,7 +1094,14 @@ export function StockingDisasterReportModal({ record, onClose, onSuccess }) {
         estimated_damage:   estimatedDamage,
         production_loss:    productionLoss,
         is_total_loss:      isTotalLoss,
-      })
+      }
+      let payload = fields
+      if (photo) {
+        payload = new FormData()
+        Object.entries(fields).forEach(([k, v]) => { if (v !== null && v !== undefined) payload.append(k, v) })
+        payload.append('photo', photo)
+      }
+      await api.post(`/fisheries/stocking/${record.id}/disasters/`, payload)
       showToast('Disaster report recorded.', 'success')
       onSuccess()
       onClose()
@@ -1184,6 +1198,13 @@ export function StockingDisasterReportModal({ record, onClose, onSuccess }) {
               <p className="text-xs text-rose-500 mt-0.5">This ends the production cycle. No harvest can be recorded.</p>
             </div>
           </label>
+
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-700">Photo (optional)</label>
+            <input type="file" accept="image/jpeg,image/png,image/webp" className={baseInputClasses}
+              onChange={e => setPhoto(e.target.files?.[0] || null)} />
+            <p className="mt-1 text-xs text-slate-400">JPG, PNG, or WEBP, up to 5 MB.</p>
+          </div>
 
           <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
             <button type="button" onClick={onClose}

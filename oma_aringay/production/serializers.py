@@ -2,7 +2,7 @@ from decimal import Decimal
 from rest_framework import serializers
 from datetime import date
 
-from core.validators import validate_not_future_date
+from core.validators import validate_not_future_date, validate_uploaded_image
 from farmers.models import FarmParcel
 
 from .models import (
@@ -269,7 +269,7 @@ class CropDisasterReportSerializer(serializers.ModelSerializer):
         model = CropDisasterReport
         fields = [
             'id', 'monitoring_record', 'disaster_type', 'disaster_type_other_specify', 'date_of_occurrence',
-            'area_affected_ha', 'estimated_damage', 'production_loss',
+            'area_affected_ha', 'estimated_damage', 'production_loss', 'photo',
             'severity',
             'is_total_loss',
             'status', 'recovered_date', 'recovered_by', 'recovered_by_name', 'recovery_note',
@@ -280,6 +280,10 @@ class CropDisasterReportSerializer(serializers.ModelSerializer):
             'recovered_by', 'recovered_by_name', 'recovery_note',
             'reported_by', 'reported_by_name', 'date_reported',
         ]
+
+    def validate_photo(self, value):
+        validate_uploaded_image(value)
+        return value
 
     def get_reported_by_name(self, obj):
         if obj.reported_by:

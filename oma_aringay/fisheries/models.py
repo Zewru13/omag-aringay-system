@@ -736,6 +736,7 @@ class FisheriesDisasterReport(models.Model):
     production_loss     = models.TextField(blank=True)
     volume_lost_kg       = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     equipment_damaged    = models.TextField(blank=True)
+    photo                = models.ImageField(upload_to='disaster_reports/fisheries/', null=True, blank=True)
     # ANTAS NG PINSALA — mirrors CropDisasterReport.severity for the same
     # reason: the numeric damage fields are unanswerable for a fisherfolk
     # reporting from the pond side, and the reference's cards show this band.

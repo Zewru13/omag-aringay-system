@@ -34,6 +34,7 @@ function LogFisheriesDisasterModal({ onClose, onSuccess }) {
   const [ffResults, setFfResults] = useState([])
   const [selectedFf, setSelectedFf] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [photo, setPhoto] = useState(null)
   const [form, setForm] = useState({
     date_of_occurrence: new Date().toISOString().slice(0, 10),
     disaster_type: 'Typhoon',
@@ -84,14 +85,21 @@ function LogFisheriesDisasterModal({ onClose, onSuccess }) {
 
     setIsSubmitting(true)
     try {
-      await api.post('/monitoring/fisherfolk-disasters/', {
+      const fields = {
         fisherfolk: selectedFf.id,
         date_of_occurrence: form.date_of_occurrence,
         disaster_type: form.disaster_type,
         estimated_damage: form.estimated_damage,
         volume_lost_kg: form.volume_lost_kg ? parseFloat(form.volume_lost_kg) : null,
         equipment_damaged: normalizedEquipmentDamaged,
-      })
+      }
+      let payload = fields
+      if (photo) {
+        payload = new FormData()
+        Object.entries(fields).forEach(([k, v]) => { if (v !== null && v !== undefined) payload.append(k, v) })
+        payload.append('photo', photo)
+      }
+      await api.post('/monitoring/fisherfolk-disasters/', payload)
       showToast('Disaster report submitted.', 'success')
       onSuccess()
       onClose()
@@ -164,6 +172,11 @@ function LogFisheriesDisasterModal({ onClose, onSuccess }) {
           </FormField>
           <FormField label="Description of Damage" required className="sm:col-span-2">
             <textarea className={baseInputClasses} rows={3} required value={form.estimated_damage} onChange={e => set('estimated_damage', e.target.value)} />
+          </FormField>
+          <FormField label="Photo (optional)" className="sm:col-span-2">
+            <input type="file" accept="image/jpeg,image/png,image/webp" className={baseInputClasses}
+              onChange={e => setPhoto(e.target.files?.[0] || null)} />
+            <p className="mt-1 text-xs text-slate-400">JPG, PNG, or WEBP, up to 5 MB.</p>
           </FormField>
         </div>
 

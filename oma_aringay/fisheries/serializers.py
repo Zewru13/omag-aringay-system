@@ -8,7 +8,7 @@ from rest_framework import serializers
 from accounts.models import User
 from accounts.utils import citizen_account_info
 from core.constants import validate_prefix_gender
-from core.validators import validate_not_future_date
+from core.validators import validate_not_future_date, validate_uploaded_image
 
 from .models import (
     AquacultureRecord,
@@ -515,7 +515,7 @@ class FisheriesDisasterReportSerializer(serializers.ModelSerializer):
         model  = FisheriesDisasterReport
         fields = [
             'id', 'stocking_record', 'disaster_type', 'disaster_type_other_specify', 'date_of_occurrence',
-            'area_affected_ha', 'estimated_damage', 'production_loss',
+            'area_affected_ha', 'estimated_damage', 'production_loss', 'photo',
             'severity',
             'is_total_loss',
             'status', 'recovered_date', 'recovered_by', 'recovered_by_name', 'recovery_note',
@@ -526,6 +526,10 @@ class FisheriesDisasterReportSerializer(serializers.ModelSerializer):
             'recovered_by', 'recovered_by_name', 'recovery_note',
             'reported_by', 'reported_by_name', 'date_reported',
         ]
+
+    def validate_photo(self, value):
+        validate_uploaded_image(value)
+        return value
 
     def get_reported_by_name(self, obj):
         if obj.reported_by:
@@ -593,7 +597,7 @@ class GeneralDisasterReportSerializer(serializers.ModelSerializer):
         model  = FisheriesDisasterReport
         fields = [
             'id', 'fisherfolk', 'fisherfolk_name', 'fisherfolk_barangay', 'disaster_type', 'disaster_type_other_specify',
-            'date_of_occurrence', 'area_affected_ha', 'estimated_damage', 'production_loss',
+            'date_of_occurrence', 'area_affected_ha', 'estimated_damage', 'production_loss', 'photo',
             'volume_lost_kg', 'equipment_damaged',
             'status', 'recovered_date', 'recovered_by', 'recovered_by_name', 'recovery_note',
             'reported_by', 'reported_by_name', 'date_reported',
@@ -603,6 +607,10 @@ class GeneralDisasterReportSerializer(serializers.ModelSerializer):
             'recovered_by', 'recovered_by_name',
             'reported_by', 'reported_by_name', 'date_reported',
         ]
+
+    def validate_photo(self, value):
+        validate_uploaded_image(value)
+        return value
 
     def get_reported_by_name(self, obj):
         if obj.reported_by:

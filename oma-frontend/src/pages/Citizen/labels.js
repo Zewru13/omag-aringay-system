@@ -908,6 +908,8 @@ export const labels = {
       isTotalLossHint: 'Tuluyang nasira ang tanim o stock at tapos na ang cycle na ito. Hindi na po ito mababawi dito — tawagan ang OMAg office para maitama.',
       recoveryNote: 'Note tungkol sa pagbawi',
       recoveryNoteHint: 'Kailangan po ito maliban kung na-log na lahat ng inirerekomendang tugon para sa kalamidad na ito.',
+      photo: 'Larawan (opsyonal)',
+      photoHint: 'JPG, PNG, o WEBP, hanggang 5 MB.',
     },
     errors: {
       dateRequired: 'Kailangan po ang petsa ng pangyayari.',
