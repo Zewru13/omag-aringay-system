@@ -97,7 +97,7 @@ function ConditionTiles({ theme, value, onSelect, disabled }) {
 // record context. Endpoint, payload keys, validation and useRecordLock
 // usage are all byte-for-byte unchanged from Batch F.
 export default function CitizenActivityLogScreen({
-  domain, theme, recordId, record, log, prefill, onClose, onSuccess,
+  domain, theme, recordId, record, log, prefill, onClose, onSuccess, bare = false,
 }) {
   const { showToast } = useToast()
   const isEdit = Boolean(log)
@@ -314,11 +314,8 @@ export default function CitizenActivityLogScreen({
           ))
     : undefined
 
-  return (
-    <CitizenScreen>
-      <CitizenSubHeader theme={t} title={headerTitle} subtitle={headerSubtitle} onBack={onClose} />
-
-      <form onSubmit={handleSubmit} className={`${CITIZEN_GUTTER} py-4`}>
+  const formEl = (
+      <form onSubmit={handleSubmit} className={bare ? 'py-4' : `${CITIZEN_GUTTER} py-4`}>
         {blockedByOther && (
           <div className="mb-[18px] rounded-[12px] border-[0.5px] border-cz-warn-border bg-cz-warn-bg p-[14px]">
             <p className="text-[13px] text-cz-warn-body">
@@ -794,6 +791,14 @@ export default function CitizenActivityLogScreen({
           <span className="text-[14px]">{labels.common.cancel}</span>
         </button>
       </form>
+  )
+
+  if (bare) return formEl
+
+  return (
+    <CitizenScreen>
+      <CitizenSubHeader theme={t} title={headerTitle} subtitle={headerSubtitle} onBack={onClose} />
+      {formEl}
     </CitizenScreen>
   )
 }

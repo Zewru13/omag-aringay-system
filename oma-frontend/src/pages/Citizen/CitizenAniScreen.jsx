@@ -101,17 +101,17 @@ function HarvestCard({ rec }) {
 
   const factors = (rec.missed_high_priority || []).map((m) => ({
     activity: m.activity,
-    month: monthOfOffset(rec.date_planted, m.scheduled_day),
+    month: monthOfOffset(rec.date_planted || rec.date_stocked, m.scheduled_day),
   }))
 
   return (
     <div className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface">
       <div className={`flex items-start gap-3 px-4 py-3.5 ${headTone}`}>
         <div className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-cz-surface/70">
-          <CropIcon name={rec.crop_type} size={19} className="text-cz-text-2" aria-hidden="true" />
+          <CropIcon name={rec.crop_type || rec.species} size={19} className="text-cz-text-2" aria-hidden="true" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-[17px] font-bold leading-[1.2] text-cz-text">{rec.crop_type}</p>
+          <p className="text-[17px] font-bold leading-[1.2] text-cz-text">{rec.crop_type || rec.species}</p>
           <p className="mt-0.5 text-[12.5px] leading-[1.4] text-cz-text-2">
             {A.meta(
               rec.area_planted_ha,
@@ -177,7 +177,7 @@ function HarvestCard({ rec }) {
   )
 }
 
-export default function CitizenAniScreen({ endpoint, onBack, tabBar }) {
+export default function CitizenAniScreen({ endpoint, onBack, tabBar, bare = false }) {
   const A = labels.ffNew.ani
   const [records, setRecords] = useState(null)
   const [hasError, setHasError] = useState(false)
@@ -190,28 +190,38 @@ export default function CitizenAniScreen({ endpoint, onBack, tabBar }) {
     return () => { cancelled = true }
   }, [endpoint])
 
+  const body = (
+    <>
+      <div className="mb-4 rounded-[10px] border-[0.5px] border-cz-crop-deep/20 bg-cz-crop-pale px-4 py-3.5">
+        <p className="text-[13px] leading-[1.55] text-cz-text-2">{A.intro}</p>
+      </div>
+
+      {records === null && (
+        <p className="py-6 text-center text-[13px] italic text-cz-text-2">{labels.common.loading}</p>
+      )}
+      {hasError && (
+        <p className="py-6 text-center text-[13px] text-cz-danger-accent">{A.loadError}</p>
+      )}
+      {records !== null && !hasError && records.length === 0 && (
+        <p className="px-2 py-8 text-center text-[13px] italic leading-[1.6] text-cz-text-muted">{A.empty}</p>
+      )}
+
+      {/* Desktop reference draws a 3-up grid, not a stacked list -- cheap to
+          honour since the cards were already fixed-width-agnostic. */}
+      <div className={bare ? 'grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3' : 'space-y-3'}>
+        {(records || []).map((rec) => <HarvestCard key={rec.id} rec={rec} />)}
+      </div>
+    </>
+  )
+
+  // Desktop mode: no CitizenScreen/SubHeader/tab bar -- the parent's
+  // DesktopShell supplies the sidebar, topbar and right rail around this.
+  if (bare) return body
+
   return (
     <CitizenScreen hasTabBar>
       <CitizenSubHeader theme={CROP_THEME} title={A.title} subtitle={A.subtitle} onBack={onBack} />
-      <CitizenBody>
-        <div className="mb-4 rounded-[10px] border-[0.5px] border-cz-crop-deep/20 bg-cz-crop-pale px-4 py-3.5">
-          <p className="text-[13px] leading-[1.55] text-cz-text-2">{A.intro}</p>
-        </div>
-
-        {records === null && (
-          <p className="py-6 text-center text-[13px] italic text-cz-text-2">{labels.common.loading}</p>
-        )}
-        {hasError && (
-          <p className="py-6 text-center text-[13px] text-cz-danger-accent">{A.loadError}</p>
-        )}
-        {records !== null && !hasError && records.length === 0 && (
-          <p className="px-2 py-8 text-center text-[13px] italic leading-[1.6] text-cz-text-muted">{A.empty}</p>
-        )}
-
-        <div className="space-y-3">
-          {(records || []).map((rec) => <HarvestCard key={rec.id} rec={rec} />)}
-        </div>
-      </CitizenBody>
+      <CitizenBody>{body}</CitizenBody>
       {tabBar}
     </CitizenScreen>
   )

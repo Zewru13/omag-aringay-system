@@ -136,6 +136,132 @@ export const labels = {
     // Pond Preparation 20, Stocking 19 ...). Copying it literally would make
     // those unloggable, so the three keep their prominent cards and 'Iba pa'
     // reveals the rest. Nothing is lost; the reference's shape is kept.
+    // ── Desktop POV shell (UI Base Desktop POV.pdf, 17 frames) ────────
+    // A genuinely different desktop information architecture: persistent
+    // left sidebar, topbar, two-column body with a right rail. Copied
+    // verbatim from the reference's own Tagalog nav labels and copy.
+    desktop: {
+      appNameFarmer: 'OMAg Farmer',
+      appNameFisherfolk: 'OMAg Fisherfolk',
+      municipality: 'Aringay, La Union',
+
+      navHome: 'Simula',
+      navLog: 'Mag-log',
+      navSakuna: 'Sakuna',
+      navKaramdaman: 'Karamdaman',
+      navAni: 'Ani',
+      navTulong: 'Tulong Natanggap',
+
+      greeting: (name) => `Magandang gabi, ${name}!`,
+      greetingMorning: (name) => `Magandang umaga, ${name}!`,
+
+      accountProfile: 'Aking Profile',
+      accountHelp: 'Tulong / Help',
+      accountLogout: 'Mag-logout',
+
+      needsAttention: 'Kailangang Asikasuhin',
+      overdueTag: (n) => `Huli na ng ${n} araw`,
+      dueNowTag: 'Ngayon',
+      logCta: 'Mag-log',
+
+      activeCrops: 'Mga Aktibong Taniman',
+      activePonds: 'Aking Mga Pond',
+      cycleProgress: 'Progreso sa panahon ng paglago',
+      expectedHarvest: 'Inaasahang Ani',
+      logActivityInline: '+ Mag-log ng Aktibidad',
+
+      quickActions: 'Mabilis na Kumilos',
+      qaSakuna: 'Ulat ng Sakuna',
+      qaSakunaSub: 'I-report ang pinsala sa taniman',
+      qaSakunaSubFish: 'Fish kill, baha, polusyon',
+      qaAni: 'Mga Resulta ng Ani',
+      qaAniSub: 'Kasaysayan ng lahat ng ani',
+      qaAniSubFish: 'Kasaysayan per pond',
+      qaKaramdaman: 'Karamdaman / Namamatay',
+      qaKaramdamanSub: 'I-log ang illness o mortality',
+      qaTulong: 'Tulong Natanggap',
+      qaTulongSub: 'Seeds, abono, at kagamitan',
+      qaTulongSubFish: 'Fingerlings, nets, at kagamitan',
+
+      farmSummary: 'Buod ng Bukid',
+      farmSummaryActiveCrops: 'Aktibong Taniman',
+      farmSummaryNeedsAttention: 'Pag-aasikaso',
+      farmSummaryArea: 'Kabuuang Lawak',
+      farmSummaryPlantedThisYear: 'Naitanim ngayong Taon',
+
+      fisherySummary: 'Buod ng Fishery',
+      fisherySummaryActivePonds: 'Aktibong Pond',
+      fisherySummaryTotalFish: 'Kabuuang Isda',
+      fisherySummaryArea: 'Kabuuang Lawak',
+      fisherySummaryEmptyPonds: 'Walang Isda',
+
+      selectedCrop: 'Napiling Taniman',
+      selectedCropHint: 'Pumili ng taniman upang makita ang detalye nito.',
+      selectedPond: 'Napiling Pond',
+      selectedPondHint: 'Pumili ng pond upang makita ang detalye nito.',
+
+      cropInsuranceHeading: 'CROP INSURANCE',
+      cropInsuranceBody: 'Pagkatapos mag-submit, makipag-ugnayan sa OMAg para sa PCIC crop insurance claim.',
+      fishInsuranceHeading: 'FISH INSURANCE',
+      fishInsuranceBody: 'Pagkatapos mag-submit, makipag-ugnayan sa BFAR o OMAg para sa fish loss insurance claim.',
+
+      tandaanHeading: 'TANDAAN',
+      tandaanEditable: 'Maaari mong i-edit ang anumang entry sa record mo, kasama na ang mga ini-log ng field staff.',
+      tandaanDateDefault: 'Ang petsa ay default sa ngayon — gamitin ang “Kahapon” para sa aktibidad na hindi naitala kaagad.',
+      tandaanFeedDaily: 'Ang Feed Monitoring ay para sa araw-araw na pag-log.',
+      tandaanDiseaseUnusual: 'Gamitin ang Disease Control para sa mga hindi karaniwang sitwasyon.',
+      loggedByYouNote: 'Ikaw ang mag-e-log nito — maaari mong baguhin kahit ang mga entry ng field staff.',
+
+      helpAssistance: 'TULONG NATANGGAP',
+      helpAssistanceSubtitle: 'Pinakabago muna',
+      assistanceSummary: 'Buod ng Tulong',
+      assistanceTotalCount: 'Kabuuang Tulong',
+      assistanceRecordedEntries: 'Recorded na entry',
+      assistanceProvidedBy: 'Nagbigay ng Tulong',
+      assistanceReadOnly: 'Read-only · Para sa katanungan, makipag-ugnayan sa OMAg',
+      assistanceInfoHeading: 'IMPORMASYON',
+      assistanceInfoBody: 'Ang listahang ito ay awtomatikong ina-update ng OMAg kapag may natanggap kang bagong tulong. Para sa katanungan, makipag-ugnayan sa opisina.',
+      assistanceInfoBodyFish: 'Ang listahang ito ay awtomatikong ina-update ng OMAg at BFAR kapag may natanggap kang bagong tulong.',
+      assistanceEmpty: 'Wala pa pong naitalang tulong na natanggap.',
+
+      karamdamanTitle: 'Karamdaman / Namamatay',
+      karamdamanSubtitle: 'Para sa hindi pangkaraniwang sitwasyon — hindi ito regular na feeding log',
+      karamdamanPond: 'Pond',
+      karamdamanType: 'Uri ng Karamdaman',
+      karamdamanMortality: 'Bilang ng Namatay',
+      karamdamanTreatment: 'Ginawang Paggamot',
+      karamdamanTreatmentPlaceholder: 'Ilagay ang iyong ginawang aksyon o paggamot…',
+      karamdamanTreatmentHint: 'Libreng punan ito — may mungkahi man o wala, ikaw ang nagdesisyon kung ano ang ginawa mo',
+      karamdamanConsulted: 'Kumonsulta sa Veterinarian o BFAR?',
+      karamdamanConsultedYes: 'Oo, nakausap na',
+      karamdamanConsultedNo: 'Hindi pa',
+      karamdamanConsultedScheduled: 'Nakatakda na',
+      karamdamanSave: 'I-save ang Record',
+      karamdamanMahalaga: 'MAHALAGA',
+      karamdamanMahalagaBody: 'Ang screen na ito ay para sa hindi pangkaraniwang karamdaman at mortality — hindi ito pangkaraniwang feeding log. Para sa regular na feeding, gamitin ang Log Activity.',
+      karamdamanVetContact: 'VETERINARY CONTACT',
+      karamdamanVetContactBody: 'Para sa emergency na payo mula sa BFAR, makipag-ugnayan sa OMAg at i-refer kayo sa tamang eksperto.',
+
+      profileGovIds: 'Government IDs at Impormasyon ng Account',
+      profileGovIdsNote: 'Para sa pagwawasto ng alinmang ID number, makipag-ugnayan sa OMAg o BFAR.',
+      profileFieldsPending: 'Mga Field na Nangangailangan ng Kahilingan',
+      profileFieldsPendingNote: 'Sinusuri ng opisina ang mga pagbabagong ito bago i-apply. Hindi mababago muli habang may nakabinbing kahilingan.',
+      profileRequestBtn: 'Humiling',
+      profileContactHeading: 'Contact Number — Agad Nababago',
+      profileContactNote: 'Hindi kailangan ng pag-aproba ng opisina',
+      profileChangeBtn: 'Baguhin',
+      profileAccountInfo: 'Impormasyon ng Account',
+
+      feedMonitoring: 'Feed Monitoring',
+      diseaseControl: 'Disease Control',
+      waterCondition: 'Kondisyon ng Tubig',
+      fishCondition: 'Kondisyon ng Isda',
+      feedTypeField: 'Uri ng Feed',
+      feedBrand: 'Brand / Pangalan ng Feed',
+      feedBrandHint: 'hal. Tateh, Shur-Gain, lokal na feed — o ilarawan kung walang brand',
+      feedAmount: 'Dami (kg)',
+    },
+
     // ── Sakuna / Ulat additions (frames 17, 18, 27-30) ────────────────
     sakuna: {
       damageLevel: 'ANTAS NG PINSALA',

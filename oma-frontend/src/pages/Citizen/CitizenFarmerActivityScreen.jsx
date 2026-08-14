@@ -70,7 +70,7 @@ const BLANK = {
   notes: '',
 }
 
-export default function CitizenFarmerActivityScreen({ records, initialRecordId, initialActivity, onBack, onSaved, tabBar }) {
+export default function CitizenFarmerActivityScreen({ records, initialRecordId, initialActivity, onBack, onSaved, tabBar, bare = false }) {
   const { showToast } = useToast()
   const { user } = useAuth()
   const t = F()
@@ -193,10 +193,8 @@ export default function CitizenFarmerActivityScreen({ records, initialRecordId, 
     { key: 'custom', text: t.dateOther, value: null },
   ]
 
-  return (
-    <CitizenScreen hasTabBar>
-      <CitizenSubHeader theme={CROP_THEME} title={t.title} onBack={onBack} />
-      <CitizenBody>
+  const body = (
+    <>
         {records.length === 0 ? (
           <p className="px-1 py-8 text-center text-[13px] italic text-cz-text-muted">{t.noCrops}</p>
         ) : (
@@ -487,7 +485,15 @@ export default function CitizenFarmerActivityScreen({ records, initialRecordId, 
             </div>
           </>
         )}
-      </CitizenBody>
+    </>
+  )
+
+  if (bare) return body
+
+  return (
+    <CitizenScreen hasTabBar>
+      <CitizenSubHeader theme={CROP_THEME} title={t.title} onBack={onBack} />
+      <CitizenBody>{body}</CitizenBody>
       {tabBar}
     </CitizenScreen>
   )

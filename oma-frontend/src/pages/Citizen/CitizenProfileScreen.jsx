@@ -173,7 +173,7 @@ function EditSheet({ theme, record, pendingFields, onClose, onSaved }) {
   )
 }
 
-export default function CitizenProfileScreen({ record, recordType, onBack, tabBar }) {
+export default function CitizenProfileScreen({ record, recordType, onBack, tabBar, bare = false }) {
   const P = labels.ffNew.profile
   const isFisherfolk = recordType === 'FISHERFOLK'
   const theme = isFisherfolk ? FISH_THEME : CROP_THEME
@@ -203,15 +203,9 @@ export default function CitizenProfileScreen({ record, recordType, onBack, tabBa
   const fullName = [record?.first_name, record?.middle_name, record?.last_name]
     .filter(Boolean).join(' ') || record?.label || labels.common.unknown
 
-  return (
-    <CitizenScreen hasTabBar>
-      <CitizenSubHeader
-        theme={theme}
-        title={P.title}
-        subtitle={P.subtitle}
-        onBack={onBack}
-      />
-      <div className={`${theme.header} px-4 pb-12 sm:px-6`}>
+  const body = (
+    <>
+      <div className={bare ? 'rounded-t-[12px] px-4 py-4 ' + theme.header : `${theme.header} px-4 pb-12 sm:px-6`}>
         <div className="flex justify-end">
           <button
             type="button"
@@ -224,7 +218,7 @@ export default function CitizenProfileScreen({ record, recordType, onBack, tabBa
         </div>
       </div>
 
-      <CitizenBody className="-mt-10">
+      <CitizenBody className={bare ? '!px-0' : '-mt-10'}>
         <div className="mb-4 flex items-center gap-4 rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface px-4 py-4">
           <div className={`flex h-[62px] w-[62px] shrink-0 items-center justify-center overflow-hidden rounded-full ${theme.circleBg}`}>
             {record?.profile_picture_url
@@ -291,6 +285,20 @@ export default function CitizenProfileScreen({ record, recordType, onBack, tabBa
           onSaved={() => setReloadKey((k) => k + 1)}
         />
       )}
+    </>
+  )
+
+  if (bare) return body
+
+  return (
+    <CitizenScreen hasTabBar>
+      <CitizenSubHeader
+        theme={theme}
+        title={P.title}
+        subtitle={P.subtitle}
+        onBack={onBack}
+      />
+      {body}
       {tabBar}
     </CitizenScreen>
   )

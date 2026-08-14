@@ -1,17 +1,27 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, BarChart3, Check, Clock, DropletOff, FileText, Fish, Gift, Home, Repeat, Stethoscope, User } from 'lucide-react'
+import {
+  AlertTriangle, BarChart3, Check, Clock, DropletOff, FileText, Fish, Gift, Home,
+  HeartPulse, Repeat, SquarePen, Stethoscope, User,
+} from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
+import useIsDesktop from '../../hooks/useIsDesktop.js'
 import { FISHERIES_DOMAIN } from './citizenDomainConfig.js'
 import CitizenActivityLogScreen from './CitizenActivityLogModal.jsx'
+import CitizenAniScreen from './CitizenAniScreen.jsx'
 import CitizenDisasterScreen from './CitizenDisasterScreen.jsx'
 import CitizenHealthLogScreen from './CitizenHealthLogScreen.jsx'
 import CitizenProfileScreen from './CitizenProfileScreen.jsx'
 import MyYieldAnalysisSection from './MyYieldAnalysisSection.jsx'
 import MyAssistanceHistorySection from './MyAssistanceHistorySection.jsx'
+import { DesktopAssistanceList, DesktopKaramdamanForm } from './CitizenDesktopScreens.jsx'
+import {
+  DesktopBody, DesktopQuickActions, DesktopRailCard, DesktopShell, DesktopSidebar,
+  DesktopStatGrid, DesktopTopbar,
+} from './CitizenDesktopUI.jsx'
 import { labels } from './labels.js'
 import {
-  CitizenBody, CitizenCardGrid, CitizenEmptyState, CitizenHomeBody, CitizenHomeHeader,
+  CitizenBody, CitizenEmptyState, CitizenHomeBody, CitizenHomeHeader,
   CitizenScreen, CitizenSubHeader, CitizenTabBar, FISH_THEME, ProgressTrack, QuickLinksHeading,
   SectionHeading, SecondaryRow, SecondaryRows, StatusCard, cycleProgress,
 } from './citizenUI.jsx'
@@ -35,6 +45,7 @@ const FEEDING_ACTIVITY = 'Feed Monitoring'
 // through the existing per-pond endpoint.
 export default function FisherfolkHomeScreen({ record, onLogout }) {
   const { showToast } = useToast()
+  const isDesktop = useIsDesktop()
   const [ponds, setPonds] = useState([])
   const [stockingRecords, setStockingRecords] = useState([])
   const [lastFeedingByRecord, setLastFeedingByRecord] = useState({}) // recordId -> log | null
@@ -175,6 +186,384 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
       okCount > 0 ? 'success' : 'error',
     )
     fetchAll()
+  }
+
+  // MANDATORY confirmation guard — shows exactly what will be logged, pond
+  // by pond, before any repeat submission fires. Computed once here (rather
+  // than inline in the mobile return) so both the mobile and desktop return
+  // paths below can render the same overlay off the same state; the gate
+  // itself is unchanged.
+  const confirmGuardModal = confirmGuard && (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={() => !isRepeating && setConfirmGuard(null)}
+    >
+      <div
+        className="w-full rounded-[12px] border-[0.5px] border-cz-border-strong bg-cz-surface p-[18px] sm:max-w-[420px]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-[17px] font-medium text-cz-text">{labels.fisherfolkHome.confirmGuard.title}</h2>
+        <p className="mt-1.5 text-[13px] leading-[1.5] text-cz-text-2">
+          {labels.fisherfolkHome.confirmGuard.body}
+        </p>
+        <ul className="mt-3 space-y-1.5">
+          {confirmGuard.repeatable.map(({ record: sr, lastFeeding }) => (
+            <li key={sr.id} className="rounded-[8px] bg-cz-page px-3 py-2.5 text-[14px] text-cz-text">
+              {labels.fisherfolkHome.confirmGuard.pondLine(
+                sr.pond_name || sr.species_name,
+                lastFeeding.feed_type,
+                lastFeeding.feed_quantity_kg,
+              )}
+            </li>
+          ))}
+        </ul>
+        {confirmGuard.skippedCount > 0 && (
+          <p className="mt-3 text-[13px] leading-[1.5] text-cz-warn-accent">
+            {labels.fisherfolkHome.confirmGuard.skippedNote(confirmGuard.skippedCount)}
+          </p>
+        )}
+        <button
+          type="button"
+          disabled={isRepeating}
+          onClick={handleConfirmRepeat}
+          className={`mt-4 flex min-h-[44px] w-full items-center justify-center rounded-[8px] px-4 py-[13px] transition-opacity hover:opacity-90 disabled:opacity-50 ${FISH_THEME.solidBtn}`}
+        >
+          <span className="text-[15px] font-medium">{labels.fisherfolkHome.confirmGuard.confirmButton}</span>
+        </button>
+        <button
+          type="button"
+          disabled={isRepeating}
+          onClick={() => setConfirmGuard(null)}
+          className="mt-1 min-h-[44px] w-full py-[14px] text-center text-cz-text-2"
+        >
+          <span className="text-[14px]">{labels.fisherfolkHome.confirmGuard.cancelButton}</span>
+        </button>
+      </div>
+    </div>
+  )
+
+  // ── Desktop POV (UI Base Desktop POV.pdf) ───────────────────────────
+  // Mirrors FarmerHomeScreen's desktop branch -- see the comment there for
+  // why this is a full render-tree branch rather than a CSS-hidden dual
+  // render. State/fetching above this point is unchanged and shared.
+  if (isDesktop) {
+    const D = labels.ffNew.desktop
+    const activeKey = view.kind === 'pondPicker' ? (pondPickerMode === 'disaster' ? 'disaster' : 'log')
+      : logScreen ? 'log'
+        : disasterScreen ? 'disaster'
+          : view.kind === 'health' ? 'health'
+            : view.kind === 'yield' ? 'yield'
+              : view.kind === 'profile' ? 'profile' : 'home'
+
+    const activePonds = stockingRecords.filter((sr) => ACTIVE_STATUSES.includes(sr.status))
+
+    const sidebar = (
+      <DesktopSidebar
+        theme={FISH_THEME}
+        brandIcon={Fish}
+        brandName={D.appNameFisherfolk}
+        brandSub={D.municipality}
+        activeKey={activeKey}
+        navItems={[
+          { key: 'home', icon: Home, label: D.navHome, onClick: () => { setLogScreen(null); setDisasterScreen(null); setView({ kind: 'home' }) } },
+          { key: 'log', icon: SquarePen, label: D.navLog, onClick: () => { setDisasterScreen(null); setPondPickerMode('log'); setView({ kind: 'pondPicker' }) } },
+          { key: 'disaster', icon: AlertTriangle, label: D.navSakuna, onClick: () => { setLogScreen(null); setPondPickerMode('disaster'); setView({ kind: 'pondPicker' }) } },
+          { key: 'health', icon: HeartPulse, label: D.navKaramdaman, onClick: () => { setLogScreen(null); setDisasterScreen(null); setView({ kind: 'health' }) } },
+          { key: 'yield', icon: BarChart3, label: D.navAni, onClick: () => { setLogScreen(null); setDisasterScreen(null); setView({ kind: 'yield' }) } },
+        ]}
+        pinnedItem={{ icon: Gift, label: D.navTulong, onClick: () => { setLogScreen(null); setDisasterScreen(null); setView({ kind: 'assistance' }) } }}
+      />
+    )
+
+    const accountProps = {
+      initials: (record.label || '').split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '—',
+      name: record.label,
+      roleLabel: labels.home.recordTypeLabels.FISHERFOLK || 'Mangingisda',
+      onProfile: () => { setLogScreen(null); setDisasterScreen(null); setView({ kind: 'profile' }) },
+      onHelp: () => { setLogScreen(null); setDisasterScreen(null); setView({ kind: 'assistance' }) },
+      onLogout,
+    }
+
+    // ── Sakuna ─────────────────────────────────────────────────────
+    if (disasterScreen) {
+      return (
+        <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} title={D.navSakuna} onBack={() => setDisasterScreen(null)} account={accountProps} />}>
+          <DesktopBody
+            rail={
+              <>
+                <DesktopRailCard title={D.selectedPond}>
+                  <p className="text-[14px] font-semibold text-cz-text">
+                    {labels.fisherfolkHome.myPonds.pondSpecies(disasterScreen.record.pond_name || labels.common.unknown, disasterScreen.record.species_name || labels.yieldAnalysis.fisheriesCropLabel)}
+                  </p>
+                  <p className="mt-0.5 text-[12.5px] text-cz-text-2">{D.selectedPondHint}</p>
+                </DesktopRailCard>
+                <DesktopRailCard title={D.fishInsuranceHeading}>
+                  <p className="text-[12.5px] leading-[1.55] text-cz-text-2">{D.fishInsuranceBody}</p>
+                </DesktopRailCard>
+              </>
+            }
+          >
+            <CitizenDisasterScreen
+              domain={FISHERIES_DOMAIN}
+              theme={FISH_THEME}
+              recordId={disasterScreen.record.id}
+              record={disasterScreen.record}
+              onClose={() => setDisasterScreen(null)}
+              onSuccess={handleLogSuccess}
+              onLogResponse={({ rule }) => {
+                const target = disasterScreen.record
+                setDisasterScreen(null)
+                setLogScreen({ record: target, prefillActivity: rule.activity_name })
+              }}
+              bare
+            />
+          </DesktopBody>
+        </DesktopShell>
+      )
+    }
+
+    // ── Mag-log (pond picker, then the activity form) ─────────────────
+    if (view.kind === 'pondPicker' || logScreen) {
+      const isDisasterMode = pondPickerMode === 'disaster'
+      if (!logScreen) {
+        return (
+          <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} title={isDisasterMode ? D.navSakuna : D.navLog} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
+            <div className="px-6 py-5">
+              {activePonds.length === 0 ? (
+                <p className="rounded-[10px] border-[0.5px] border-cz-border bg-cz-surface px-4 py-6 text-center text-[13px] italic text-cz-text-muted">
+                  {labels.fisherfolkHome.pondPicker.noPonds}
+                </p>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
+                  {activePonds.map((sr) => (
+                    <button
+                      key={sr.id}
+                      type="button"
+                      onClick={() => {
+                        if (isDisasterMode) setDisasterScreen({ record: sr })
+                        else setLogScreen({ record: sr })
+                      }}
+                      className="flex items-center gap-3 rounded-[10px] border-[0.5px] border-cz-border bg-cz-surface px-4 py-3.5 text-left transition-colors hover:bg-cz-page"
+                    >
+                      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${FISH_THEME.circleBg}`}>
+                        <Fish size={16} className={FISH_THEME.circleIcon} aria-hidden="true" />
+                      </span>
+                      <span className="truncate text-[14px] font-medium text-cz-text">
+                        {labels.fisherfolkHome.myPonds.pondSpecies(sr.pond_name || labels.common.unknown, sr.species_name || labels.yieldAnalysis.fisheriesCropLabel)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </DesktopShell>
+        )
+      }
+      return (
+        <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} title={D.navLog} onBack={() => setLogScreen(null)} account={accountProps} />}>
+          <DesktopBody
+            rail={
+              <>
+                <DesktopRailCard title={D.selectedPond}>
+                  <p className="text-[14px] font-semibold text-cz-text">
+                    {labels.fisherfolkHome.myPonds.pondSpecies(logScreen.record.pond_name || labels.common.unknown, logScreen.record.species_name || labels.yieldAnalysis.fisheriesCropLabel)}
+                  </p>
+                </DesktopRailCard>
+                <DesktopRailCard title={D.tandaanHeading}>
+                  <ul className="space-y-2 text-[12.5px] leading-[1.5] text-cz-text-2">
+                    <li>{D.tandaanFeedDaily}</li>
+                    <li>{D.tandaanDiseaseUnusual}</li>
+                  </ul>
+                </DesktopRailCard>
+              </>
+            }
+          >
+            <CitizenActivityLogScreen
+              domain={FISHERIES_DOMAIN}
+              theme={FISH_THEME}
+              recordId={logScreen.record.id}
+              record={logScreen.record}
+              log={null}
+              prefill={logScreen.prefillActivity ? { activityType: logScreen.prefillActivity } : undefined}
+              onSuccess={handleLogSuccess}
+              bare
+            />
+          </DesktopBody>
+        </DesktopShell>
+      )
+    }
+
+    // ── Karamdaman / Namamatay ─────────────────────────────────────────
+    if (view.kind === 'health') {
+      return (
+        <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} title={D.karamdamanTitle} subtitle={D.karamdamanSubtitle} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
+          <div className="px-6 py-5">
+            <DesktopKaramdamanForm records={stockingRecords} onSaved={fetchAll} />
+          </div>
+        </DesktopShell>
+      )
+    }
+
+    // ── Ani ──────────────────────────────────────────────────────────
+    if (view.kind === 'yield') {
+      return (
+        <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} title={D.navAni} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
+          <DesktopBody>
+            <CitizenAniScreen endpoint="/fisheries/yield-analysis/" bare />
+          </DesktopBody>
+        </DesktopShell>
+      )
+    }
+
+    // ── Tulong Natanggap ───────────────────────────────────────────────
+    if (view.kind === 'assistance') {
+      return (
+        <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} title={D.helpAssistance} subtitle={D.helpAssistanceSubtitle} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
+          <div className="px-6 py-5">
+            <DesktopAssistanceList endpoint="/interventions/my-fisherfolk-beneficiary-history/" />
+          </div>
+        </DesktopShell>
+      )
+    }
+
+    // ── Aking Profile ────────────────────────────────────────────────
+    if (view.kind === 'profile') {
+      return (
+        <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} title={D.accountProfile} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
+          <div className="px-6 py-5">
+            <CitizenProfileScreen record={record} recordType="FISHERFOLK" bare />
+          </div>
+        </DesktopShell>
+      )
+    }
+
+    // ── Simula (home) ───────────────────────────────────────────────
+    {
+      const totalFish = activePonds.reduce((sum, sr) => sum + (Number(sr.number_of_fingerlings) || 0), 0)
+      const totalArea = ponds.reduce((sum, p) => sum + (Number(p.area_hectares) || 0), 0)
+      const emptyPonds = ponds.filter((p) => !activeByPond[p.id]).length
+
+      return (
+        <>
+        <DesktopShell
+          sidebar={sidebar}
+          topbar={
+            <DesktopTopbar
+              theme={FISH_THEME}
+              greetingName={D.greeting(record.label)}
+              metaLine={`Brgy. ${record.barangay || labels.common.unknown} · ${new Date().toLocaleDateString('fil-PH', { year: 'numeric', month: 'long', day: 'numeric' })}`}
+              account={accountProps}
+            />
+          }
+        >
+          {isLoading ? (
+            <p className="px-6 py-5 text-[14px] italic text-cz-text-2">{labels.fisherfolkHome.loading}</p>
+          ) : (
+            <DesktopBody
+              rail={
+                <>
+                  <div>
+                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{D.quickActions}</p>
+                    <DesktopQuickActions
+                      items={[
+                        { icon: AlertTriangle, label: D.qaSakuna, sublabel: D.qaSakunaSubFish, onClick: () => { setPondPickerMode('disaster'); setView({ kind: 'pondPicker' }) } },
+                        { icon: HeartPulse, label: D.qaKaramdaman, sublabel: D.qaKaramdamanSub, onClick: () => setView({ kind: 'health' }) },
+                        { icon: BarChart3, label: D.qaAni, sublabel: D.qaAniSubFish, onClick: () => setView({ kind: 'yield' }) },
+                        { icon: Gift, label: D.qaTulong, sublabel: D.qaTulongSubFish, onClick: () => setView({ kind: 'assistance' }) },
+                      ]}
+                    />
+                  </div>
+                  <DesktopStatGrid
+                    title={D.fisherySummary}
+                    items={[
+                      { value: activePonds.length, label: D.fisherySummaryActivePonds },
+                      { value: totalFish, label: D.fisherySummaryTotalFish },
+                      { value: `${totalArea.toFixed(totalArea % 1 === 0 ? 0 : 2)} ha`, label: D.fisherySummaryArea },
+                      { value: emptyPonds, label: D.fisherySummaryEmptyPonds },
+                    ]}
+                  />
+                </>
+              }
+            >
+              {dueRecords.length > 0 && (
+                <div className="mb-6 rounded-[10px] border-[0.5px] border-cz-border bg-cz-surface p-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <p className="text-[14px] font-semibold text-cz-text">
+                      {labels.fisherfolkHome.feedToday.dueSummary(dueRecords.length)}
+                    </p>
+                    {repeatableDue.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={openRepeatConfirm}
+                        className="flex shrink-0 items-center gap-1.5 rounded-[8px] bg-cz-fish-header px-3.5 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90"
+                      >
+                        <Repeat size={14} aria-hidden="true" />
+                        {labels.fisherfolkHome.feedToday.repeatButton}
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    {dueRecords.map((sr) => (
+                      <div key={sr.id} className="flex items-center justify-between gap-3 rounded-[8px] bg-cz-page px-3.5 py-2.5">
+                        <div className="min-w-0">
+                          <p className="truncate text-[13.5px] font-medium text-cz-text">
+                            {labels.fisherfolkHome.myPonds.pondSpecies(sr.pond_name || labels.common.unknown, sr.species_name || labels.yieldAnalysis.fisheriesCropLabel)}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setLogScreen({ record: sr })}
+                          className="shrink-0 rounded-[8px] bg-cz-fish-header px-3.5 py-1.5 text-[12.5px] font-semibold text-white transition-opacity hover:opacity-90"
+                        >
+                          {D.logCta}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{D.activePonds}</p>
+              {pondRows.length === 0 ? (
+                <p className="rounded-[10px] border-[0.5px] border-cz-border bg-cz-surface px-4 py-4 text-[13px] italic text-cz-text-muted">
+                  {labels.fisherfolkHome.myPonds.empty}
+                </p>
+              ) : (
+                <div className="space-y-2.5">
+                  {pondRows.map(({ pond, record: sr }) => (
+                    <div key={pond.id} className="rounded-[10px] border-[0.5px] border-cz-border bg-cz-surface px-4 py-3.5">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-[14.5px] font-semibold text-cz-text">
+                            {pond.name || labels.common.unknown}
+                            {sr ? ` — ${sr.species_name || labels.yieldAnalysis.fisheriesCropLabel}` : ''}
+                          </p>
+                          <p className="truncate text-[12.5px] text-cz-text-2">
+                            {pond.area_hectares ?? labels.common.unknown} ha
+                            {sr ? ` · ${sr.area_hectares ?? labels.common.unknown} ha stocked` : ` · ${labels.ffNew.noStock}`}
+                          </p>
+                        </div>
+                        {sr && (
+                          <button
+                            type="button"
+                            onClick={() => setLogScreen({ record: sr })}
+                            className="shrink-0 text-[13px] font-semibold text-cz-fish-header hover:underline"
+                          >
+                            {D.logActivityInline}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </DesktopBody>
+          )}
+        </DesktopShell>
+        {confirmGuardModal}
+        </>
+      )
+    }
   }
 
   // ── Full-screen sub-views ────────────────────────────────────────────
@@ -565,57 +954,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
         )}
       </CitizenHomeBody>
 
-      {/* MANDATORY confirmation guard — shows exactly what will be logged,
-          pond by pond, before any repeat submission fires. Re-skinned
-          only; the gate itself is unchanged. */}
-      {confirmGuard && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => !isRepeating && setConfirmGuard(null)}
-        >
-          <div
-            className="w-full rounded-[12px] border-[0.5px] border-cz-border-strong bg-cz-surface p-[18px] sm:max-w-[420px]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 className="text-[17px] font-medium text-cz-text">{labels.fisherfolkHome.confirmGuard.title}</h2>
-            <p className="mt-1.5 text-[13px] leading-[1.5] text-cz-text-2">
-              {labels.fisherfolkHome.confirmGuard.body}
-            </p>
-            <ul className="mt-3 space-y-1.5">
-              {confirmGuard.repeatable.map(({ record: sr, lastFeeding }) => (
-                <li key={sr.id} className="rounded-[8px] bg-cz-page px-3 py-2.5 text-[14px] text-cz-text">
-                  {labels.fisherfolkHome.confirmGuard.pondLine(
-                    sr.pond_name || sr.species_name,
-                    lastFeeding.feed_type,
-                    lastFeeding.feed_quantity_kg,
-                  )}
-                </li>
-              ))}
-            </ul>
-            {confirmGuard.skippedCount > 0 && (
-              <p className="mt-3 text-[13px] leading-[1.5] text-cz-warn-accent">
-                {labels.fisherfolkHome.confirmGuard.skippedNote(confirmGuard.skippedCount)}
-              </p>
-            )}
-            <button
-              type="button"
-              disabled={isRepeating}
-              onClick={handleConfirmRepeat}
-              className={`mt-4 flex min-h-[44px] w-full items-center justify-center rounded-[8px] px-4 py-[13px] transition-opacity hover:opacity-90 disabled:opacity-50 ${FISH_THEME.solidBtn}`}
-            >
-              <span className="text-[15px] font-medium">{labels.fisherfolkHome.confirmGuard.confirmButton}</span>
-            </button>
-            <button
-              type="button"
-              disabled={isRepeating}
-              onClick={() => setConfirmGuard(null)}
-              className="mt-1 min-h-[44px] w-full py-[14px] text-center text-cz-text-2"
-            >
-              <span className="text-[14px]">{labels.fisherfolkHome.confirmGuard.cancelButton}</span>
-            </button>
-          </div>
-        </div>
-      )}
+      {confirmGuardModal}
       {tabBar('home')}
     </CitizenScreen>
   )

@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react'
-import { AlertCircle, AlertTriangle, BarChart3, ChevronRight, Clock, FileText, Gift, Home, Sprout, User, Wheat } from 'lucide-react'
+import {
+  AlertCircle, AlertTriangle, BarChart3, ChevronRight, Clock, FileText, Gift, Home,
+  SquarePen, Sprout, User, Wheat,
+} from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
+import useIsDesktop from '../../hooks/useIsDesktop.js'
 import { CROP_DOMAIN } from './citizenDomainConfig.js'
 import CitizenDisasterScreen from './CitizenDisasterScreen.jsx'
 import CitizenAniScreen from './CitizenAniScreen.jsx'
@@ -9,6 +13,11 @@ import CitizenFarmerActivityScreen from './CitizenFarmerActivityScreen.jsx'
 import CitizenProfileScreen from './CitizenProfileScreen.jsx'
 import FarmerCropHistoryView from './FarmerCropHistoryView.jsx'
 import MyAssistanceHistorySection from './MyAssistanceHistorySection.jsx'
+import { DesktopAssistanceList } from './CitizenDesktopScreens.jsx'
+import {
+  DesktopBody, DesktopQuickActions, DesktopRailCard, DesktopShell, DesktopSidebar,
+  DesktopStatGrid, DesktopTopbar,
+} from './CitizenDesktopUI.jsx'
 import { labels } from './labels.js'
 import {
   CROP_THEME, CitizenBody, CitizenCardGrid, CitizenEmptyState, CitizenHomeBody,
@@ -24,6 +33,7 @@ import {
 // create/edit capability changed with the re-skin.
 export default function FarmerHomeScreen({ record, onLogout }) {
   const { showToast } = useToast()
+  const isDesktop = useIsDesktop()
   const [records, setRecords] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [tasksByRecord, setTasksByRecord] = useState({}) // recordId -> [{...suggestion}]
@@ -96,6 +106,296 @@ export default function FarmerHomeScreen({ record, onLogout }) {
       ]}
     />
   )
+
+  // ── Desktop POV (UI Base Desktop POV.pdf) ───────────────────────────
+  // A genuinely different information architecture from the mobile
+  // screens above -- persistent sidebar, topbar, two-column body -- so
+  // the whole render branches here rather than reusing the mobile
+  // CitizenScreen/CitizenTabBar shell. State and fetching stay
+  // single-sourced above this branch; only the returned markup differs.
+  if (isDesktop) {
+    const D = labels.ffNew.desktop
+    const activeKey = view.kind === 'activity' ? 'log'
+      : disasterScreen || view.kind === 'picker' ? 'disaster'
+        : view.kind === 'yield' ? 'yield'
+          : view.kind === 'profile' ? 'profile' : 'home'
+
+    const sidebar = (
+      <DesktopSidebar
+        theme={CROP_THEME}
+        brandIcon={Sprout}
+        brandName={D.appNameFarmer}
+        brandSub={D.municipality}
+        activeKey={activeKey}
+        navItems={[
+          { key: 'home', icon: Home, label: D.navHome, onClick: () => { setDisasterScreen(null); setView({ kind: 'home' }) } },
+          { key: 'log', icon: SquarePen, label: D.navLog, onClick: () => { setDisasterScreen(null); setView({ kind: 'activity' }) } },
+          { key: 'disaster', icon: AlertTriangle, label: D.navSakuna, onClick: () => pickRecordFor('disaster') },
+          { key: 'yield', icon: BarChart3, label: D.navAni, onClick: () => { setDisasterScreen(null); setView({ kind: 'yield' }) } },
+        ]}
+        pinnedItem={{ icon: Gift, label: D.navTulong, onClick: () => { setDisasterScreen(null); setView({ kind: 'assistance' }) } }}
+      />
+    )
+
+    const accountProps = {
+      initials: (record.label || '').split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '—',
+      name: record.label,
+      roleLabel: labels.home.recordTypeLabels.FARMER || 'Magsasaka',
+      onProfile: () => { setDisasterScreen(null); setView({ kind: 'profile' }) },
+      onHelp: () => { setDisasterScreen(null); setView({ kind: 'assistance' }) },
+      onLogout,
+    }
+
+    // ── Sakuna (disaster) ──────────────────────────────────────────────
+    if (disasterScreen) {
+      return (
+        <DesktopShell
+          sidebar={sidebar}
+          topbar={<DesktopTopbar theme={CROP_THEME} title={D.navSakuna} onBack={() => setDisasterScreen(null)} account={accountProps} />}
+        >
+          <DesktopBody
+            rail={
+              <>
+                <DesktopRailCard title={D.selectedCrop}>
+                  <p className="text-[14px] font-semibold text-cz-text">
+                    {disasterScreen.record.crop_type_name || labels.yieldAnalysis.cropCropLabel}
+                  </p>
+                  <p className="mt-0.5 text-[12.5px] text-cz-text-2">{D.selectedCropHint}</p>
+                </DesktopRailCard>
+                <DesktopRailCard title={D.cropInsuranceHeading}>
+                  <p className="text-[12.5px] leading-[1.55] text-cz-text-2">{D.cropInsuranceBody}</p>
+                </DesktopRailCard>
+              </>
+            }
+          >
+            <CitizenDisasterScreen
+              domain={CROP_DOMAIN}
+              theme={CROP_THEME}
+              recordId={disasterScreen.record.id}
+              record={disasterScreen.record}
+              onClose={() => setDisasterScreen(null)}
+              onSuccess={handleLogSuccess}
+              onLogResponse={({ rule }) => {
+                setDisasterScreen(null)
+                setView({ kind: 'activity', recordId: String(disasterScreen.record.id), activity: rule.activity_name })
+              }}
+              bare
+            />
+          </DesktopBody>
+        </DesktopShell>
+      )
+    }
+
+    // ── Ani ──────────────────────────────────────────────────────────
+    if (view.kind === 'yield') {
+      return (
+        <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={CROP_THEME} title={D.navAni} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
+          <DesktopBody>
+            <CitizenAniScreen endpoint="/production/yield-analysis/" bare />
+          </DesktopBody>
+        </DesktopShell>
+      )
+    }
+
+    // ── Mag-log ──────────────────────────────────────────────────────
+    if (view.kind === 'activity') {
+      return (
+        <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={CROP_THEME} title={D.navLog} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
+          <DesktopBody
+            rail={
+              <>
+                <DesktopRailCard title={D.selectedCrop}>
+                  <p className="text-[13px] text-cz-text-2">{D.selectedCropHint}</p>
+                </DesktopRailCard>
+                <DesktopRailCard title={D.tandaanHeading}>
+                  <ul className="space-y-2 text-[12.5px] leading-[1.5] text-cz-text-2">
+                    <li>{D.tandaanEditable}</li>
+                    <li>{D.tandaanDateDefault}</li>
+                  </ul>
+                </DesktopRailCard>
+              </>
+            }
+          >
+            <CitizenFarmerActivityScreen
+              records={records}
+              initialRecordId={view.recordId}
+              initialActivity={view.activity}
+              onSaved={fetchRecords}
+              bare
+            />
+          </DesktopBody>
+        </DesktopShell>
+      )
+    }
+
+    // ── Tulong Natanggap ───────────────────────────────────────────────
+    if (view.kind === 'assistance') {
+      return (
+        <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={CROP_THEME} title={D.helpAssistance} subtitle={D.helpAssistanceSubtitle} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
+          <div className="px-6 py-5">
+            <DesktopAssistanceList endpoint="/interventions/my-beneficiary-history/" />
+          </div>
+        </DesktopShell>
+      )
+    }
+
+    // ── Aking Profile ────────────────────────────────────────────────
+    if (view.kind === 'profile') {
+      return (
+        <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={CROP_THEME} title={D.accountProfile} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
+          <div className="px-6 py-5">
+            <CitizenProfileScreen record={record} recordType="FARMER" bare />
+          </div>
+        </DesktopShell>
+      )
+    }
+
+    // ── Picker (disaster, multiple crops) / History fall back to the
+    // existing mobile-built screens for now -- both are secondary paths
+    // with no dedicated desktop frame in the reference.
+    if (view.kind === 'picker' || view.kind === 'history') {
+      // fall through to the mobile branches below unchanged
+    } else {
+      // ── Simula (home) ─────────────────────────────────────────────
+      const activeCrops = records.filter((r) => r.status && r.status !== 'Harvested' && r.status !== 'Total Loss')
+      const totalArea = records.reduce((sum, r) => sum + (Number(r.area_planted_ha) || 0), 0)
+      const thisYear = new Date().getFullYear()
+      const plantedThisYear = records.filter((r) => r.date_planted && new Date(r.date_planted).getFullYear() === thisYear).length
+
+      return (
+        <DesktopShell
+          sidebar={sidebar}
+          topbar={
+            <DesktopTopbar
+              theme={CROP_THEME}
+              greetingName={D.greeting(record.label)}
+              metaLine={`Brgy. ${record.barangay || labels.common.unknown} · ${new Date().toLocaleDateString('fil-PH', { year: 'numeric', month: 'long', day: 'numeric' })}`}
+              account={accountProps}
+            />
+          }
+        >
+          {isLoading ? (
+            <p className="px-6 py-5 text-[14px] italic text-cz-text-2">{labels.farmerHome.loading}</p>
+          ) : (
+            <DesktopBody
+              rail={
+                <>
+                  <div>
+                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{D.quickActions}</p>
+                    <DesktopQuickActions
+                      items={[
+                        { icon: AlertTriangle, label: D.qaSakuna, sublabel: D.qaSakunaSub, onClick: () => pickRecordFor('disaster') },
+                        { icon: BarChart3, label: D.qaAni, sublabel: D.qaAniSub, onClick: () => setView({ kind: 'yield' }) },
+                        { icon: Gift, label: D.qaTulong, sublabel: D.qaTulongSub, onClick: () => setView({ kind: 'assistance' }) },
+                      ]}
+                    />
+                  </div>
+                  <DesktopStatGrid
+                    title={D.farmSummary}
+                    items={[
+                      { value: activeCrops.length, label: D.farmSummaryActiveCrops },
+                      { value: needsAttention.length, label: D.farmSummaryNeedsAttention },
+                      { value: `${totalArea.toFixed(totalArea % 1 === 0 ? 0 : 2)} ha`, label: D.farmSummaryArea },
+                      { value: plantedThisYear, label: D.farmSummaryPlantedThisYear },
+                    ]}
+                  />
+                </>
+              }
+            >
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{D.needsAttention}</p>
+              {needsAttention.length === 0 ? (
+                <p className="mb-6 rounded-[10px] border-[0.5px] border-cz-border bg-cz-surface px-4 py-4 text-[13px] italic text-cz-text-muted">
+                  {labels.farmerHome.needsAttention.emptyBody}
+                </p>
+              ) : (
+                <div className="mb-6 space-y-2">
+                  {needsAttention.map((task) => {
+                    const isOverdue = task.status === 'overdue'
+                    return (
+                      <div
+                        key={`${task.record.id}-${task.occurrence_key}`}
+                        className={`flex items-center gap-3 rounded-[10px] border-l-[3px] px-4 py-3 ${
+                          isOverdue ? 'border-cz-danger-accent bg-cz-danger-bg' : 'border-cz-warn-accent bg-cz-warn-bg'
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className={`text-[14px] font-semibold ${isOverdue ? 'text-cz-danger-title' : 'text-cz-warn-title'}`}>
+                            {task.activity_name}
+                            <span className="ml-2 text-[12px] font-normal">
+                              {isOverdue ? D.overdueTag(Math.abs(task.days_diff ?? 0)) : D.dueNowTag}
+                            </span>
+                          </p>
+                          <p className="text-[12.5px] text-cz-text-2">
+                            {task.record.crop_type_name || labels.yieldAnalysis.cropCropLabel} · {task.record.area_planted_ha ?? labels.common.unknown} ha · Brgy. {task.record.farm_location_barangay || labels.common.unknown}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setView({ kind: 'activity', recordId: String(task.record.id), activity: task.activity_name })}
+                          className={`shrink-0 rounded-[8px] px-4 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 ${
+                            isOverdue ? 'bg-cz-danger-accent' : 'bg-cz-warn-accent'
+                          }`}
+                        >
+                          {D.logCta}
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{D.activeCrops}</p>
+              {records.length === 0 ? (
+                <p className="rounded-[10px] border-[0.5px] border-cz-border bg-cz-surface px-4 py-4 text-[13px] italic text-cz-text-muted">
+                  {labels.farmerHome.myCrops.empty}
+                </p>
+              ) : (
+                <div className="space-y-2.5">
+                  {records.map((rec) => {
+                    const progress = cycleProgress(rec.date_planted, rec.expected_harvest_date)
+                    return (
+                      <div key={rec.id} className="rounded-[10px] border-[0.5px] border-cz-border bg-cz-surface px-4 py-3.5">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-[14.5px] font-semibold text-cz-text">
+                              {rec.crop_type_name || labels.yieldAnalysis.cropCropLabel}
+                            </p>
+                            <p className="truncate text-[12.5px] text-cz-text-2">
+                              {rec.area_planted_ha ?? labels.common.unknown} ha · Brgy. {rec.farm_location_barangay || labels.common.unknown} · Itanim: {labels.common.formatDate(rec.date_planted)}
+                            </p>
+                          </div>
+                          <p className="shrink-0 text-right text-[12.5px] text-cz-text-2">
+                            {D.expectedHarvest}
+                            <br />
+                            <span className="font-medium text-cz-text">{labels.common.formatDate(rec.expected_harvest_date)}</span>
+                          </p>
+                        </div>
+                        {progress && (
+                          <div className="mt-2.5 flex items-center gap-3">
+                            <div className="h-[6px] flex-1 overflow-hidden rounded-full bg-cz-track">
+                              <div className="h-full rounded-full bg-cz-crop-fill" style={{ width: `${Math.min(100, progress.pct)}%` }} />
+                            </div>
+                            <span className="shrink-0 text-[12px] font-semibold tabular-nums text-cz-crop-header">{Math.round(progress.pct)}%</span>
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setView({ kind: 'activity', recordId: String(rec.id) })}
+                          className="mt-3 text-[13px] font-semibold text-cz-crop-header hover:underline"
+                        >
+                          {D.logActivityInline}
+                        </button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </DesktopBody>
+          )}
+        </DesktopShell>
+      )
+    }
+  }
 
   // ── Full-screen sub-views ────────────────────────────────────────────
 

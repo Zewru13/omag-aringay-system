@@ -47,7 +47,7 @@ function FieldBlock({ label, required, error, hint, children }) {
 // unticked recommendation row opens the activity log prefilled with that
 // rule's response activity. Without it the rows render as plain read-only
 // status, which is still correct — they were never toggles.
-export default function CitizenDisasterScreen({ domain, theme, recordId, record, onClose, onSuccess, onLogResponse }) {
+export default function CitizenDisasterScreen({ domain, theme, recordId, record, onClose, onSuccess, onLogResponse, bare = false }) {
   const { showToast } = useToast()
   const isCrop = domain.key === 'crop'
   const [mode, setMode] = useState('list') // 'list' | 'create'
@@ -416,10 +416,8 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
     )
   }
 
-  return (
-    <CitizenScreen>
-      <CitizenSubHeader theme={theme} title={labels.disaster.title} onBack={onClose} />
-      <div className="px-[14px] py-4">
+  const body = (
+    <div className={bare ? '' : 'px-[14px] py-4'}>
         <button
           type="button"
           onClick={() => setMode('create')}
@@ -619,7 +617,15 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
             })}
           </ul>
         )}
-      </div>
+    </div>
+  )
+
+  if (bare) return body
+
+  return (
+    <CitizenScreen>
+      <CitizenSubHeader theme={theme} title={labels.disaster.title} onBack={onClose} />
+      {body}
     </CitizenScreen>
   )
 }
