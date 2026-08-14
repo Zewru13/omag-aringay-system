@@ -10,7 +10,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.models import User
 from accounts.permissions import IsAdmin, IsAdminOrEvaluator, IsStaffOrOwnRecordCitizen
+from accounts.utils import create_citizen_user
 from core.locking import assert_not_locked_by_other
 from core.notifications import notify_all_except
 from core.utils import accumulate_yield_group, day_range_bounds, new_yield_group
@@ -108,7 +110,12 @@ class FisherfolkListView(generics.ListCreateAPIView):
         return qs
 
     def perform_create(self, serializer):
-        serializer.save(registered_by=self.request.user)
+        with transaction.atomic():
+            serializer.save(registered_by=self.request.user)
+            fisherfolk = serializer.instance
+            password = getattr(fisherfolk, '_citizen_password', '')
+            if password:
+                create_citizen_user(User.LinkedRecordType.FISHERFOLK, fisherfolk, password, email=fisherfolk.email)
 
 
 class FisherfolkDetailView(generics.RetrieveUpdateAPIView):

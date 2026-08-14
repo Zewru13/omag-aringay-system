@@ -215,6 +215,30 @@ class ChangePasswordSerializer(serializers.Serializer):
         return attrs
 
 
+class SetCitizenPasswordSerializer(serializers.Serializer):
+    """Staff-witnessed password entry for a CITIZEN account — either at
+    enrollment (see farmers/fisheries CreateSerializers) or, for a record
+    enrolled before this existed, at a later in-person "Set Up Account"
+    visit (accounts.views.SetCitizenPasswordView). No current_password,
+    unlike ChangePasswordSerializer: the account has none yet."""
+    password = serializers.CharField(write_only=True)
+    confirm_password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        password = attrs.get('password', '')
+        confirm = attrs.get('confirm_password', '')
+
+        if password != confirm:
+            raise serializers.ValidationError(
+                'Password and confirmation do not match.'
+            )
+        try:
+            validate_password(password, user=self.context.get('user'))
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError({'password': list(exc.messages)})
+        return attrs
+
+
 class VerifyEmailSerializer(serializers.Serializer):
     token = serializers.CharField()
 

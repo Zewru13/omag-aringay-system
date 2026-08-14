@@ -1,5 +1,7 @@
 from datetime import date
 
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from accounts.models import User
@@ -218,6 +220,14 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
 
 class FarmerCreateSerializer(serializers.ModelSerializer):
     farmers_organization_name = serializers.SerializerMethodField()
+    # Both optional and write-only: enrollment can create the linked CITIZEN
+    # login account in the same step (staff have already confirmed identity
+    # in person, same as the old Activate Account flow did after the fact),
+    # or leave both blank and let the account be set up later via
+    # ActivateCitizenAccountButton / SetCitizenPasswordView. Never a model
+    # field on Farmer itself -- see FarmerCreateView.perform_create.
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    confirm_password = serializers.CharField(write_only=True, required=False, allow_blank=True)
 
     class Meta:
         model = Farmer
@@ -231,6 +241,7 @@ class FarmerCreateSerializer(serializers.ModelSerializer):
             'gender',
             'birthdate',
             'contact_number',
+            'email',
             'barangay',
             'municipality',
             'province',
@@ -247,6 +258,8 @@ class FarmerCreateSerializer(serializers.ModelSerializer):
             'registered_by',
             'farmers_organization',
             'farmers_organization_name',
+            'password',
+            'confirm_password',
         ]
         read_only_fields = ['id', 'date_registered', 'registered_by', 'farmers_organization_name']
 
@@ -283,4 +296,25 @@ class FarmerCreateSerializer(serializers.ModelSerializer):
         error = validate_prefix_gender(prefix, gender)
         if error:
             raise serializers.ValidationError({'prefix': error})
+
+        password = data.get('password', '')
+        confirm = data.get('confirm_password', '')
+        if password or confirm:
+            if password != confirm:
+                raise serializers.ValidationError({'confirm_password': 'Password and confirmation do not match.'})
+            try:
+                validate_password(password)
+            except DjangoValidationError as exc:
+                raise serializers.ValidationError({'password': list(exc.messages)})
         return data
+
+    def create(self, validated_data):
+        # Neither is a Farmer model field -- stash the chosen password (if
+        # any) on the instance for the view to read after save() and pop
+        # confirm_password entirely, so Farmer.objects.create() never sees
+        # either.
+        password = validated_data.pop('password', '') or ''
+        validated_data.pop('confirm_password', None)
+        farmer = super().create(validated_data)
+        farmer._citizen_password = password
+        return farmer

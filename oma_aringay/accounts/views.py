@@ -17,6 +17,7 @@ from .serializers import (
     ChangePasswordSerializer,
     MeUpdateSerializer,
     ResendVerificationSerializer,
+    SetCitizenPasswordSerializer,
     UserCreateSerializer,
     UserSerializer,
     UserUpdateSerializer,
@@ -413,19 +414,21 @@ class UserReactivateView(APIView):
         return Response(UserSerializer(user).data)
 
 
-class ActivateCitizenAccountView(APIView):
+class SetCitizenPasswordView(APIView):
     """
-    Batch 10: staff-facing activation for a CITIZEN account created by
-    create_citizen_accounts. Confirms the person's identity was verified
-    in an office visit and hands over a usable credential.
+    Staff-witnessed "Set Up Account" for a CITIZEN account created by
+    create_citizen_accounts before this flow existed — the person is
+    physically present, staff have already confirmed their identity the
+    same way enrollment does, and the person types their own password
+    directly (staff never see or relay it). No temp password is generated
+    anywhere in this path, so there is nothing to force a change away from
+    on first login.
 
-    A fresh temp password is generated here, not reused from account
-    creation — the one set by create_citizen_accounts was hashed
-    immediately and was never retrievable in plaintext (nor should it be);
-    this is the first moment a usable password exists to relay. Unlike
-    UserCreateView's email-first / admin-relay-as-fallback design, this
-    account has no email at all — on-screen relay is the ONLY delivery
-    path here, not a fallback.
+    Replaces the old ActivateCitizenAccountView, which generated and
+    displayed a random temp password for staff to read aloud. That is no
+    longer how any CITIZEN account gets its password — see
+    accounts.utils.create_citizen_user(), used both here and by
+    Farmer/FisherfolkCreateSerializer for brand-new enrollments.
     """
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
@@ -437,15 +440,16 @@ class ActivateCitizenAccountView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        temp_password = generate_default_password()
-        user.set_password(temp_password)
+        serializer = SetCitizenPasswordSerializer(data=request.data, context={'user': user})
+        serializer.is_valid(raise_exception=True)
+
+        user.set_password(serializer.validated_data['password'])
         user.is_active = True
         user.save()
 
         return Response({
             'user': UserSerializer(user).data,
-            'temp_password': temp_password,
-            'detail': 'Account activated. Share this temporary password with the person directly — it will not be shown again.',
+            'detail': 'Account is now active. The person can log in immediately with the password they just set.',
         })
 
 

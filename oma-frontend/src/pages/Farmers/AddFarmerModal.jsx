@@ -21,6 +21,7 @@ const initialForm = {
   gender: 'Male',
   birthdate: '',
   contact_number: '',
+  email: '',
   barangay: '',
   civil_status: 'Single',
   highest_education: '',
@@ -29,6 +30,8 @@ const initialForm = {
   is_icc_ip_member: false,
   icc_ip_name: '',
   farmers_organization: null,
+  password: '',
+  confirm_password: '',
 }
 
 const computeAge = (birthdate) => {
@@ -180,6 +183,17 @@ function AddFarmerModal({ onClose, onSuccess }) {
     const contactErr = validateContact(form.contact_number)
     if (contactErr) { setContactError(contactErr); return }
 
+    if (form.password || form.confirm_password) {
+      if (form.password !== form.confirm_password) {
+        setFormError('Password and confirmation do not match.')
+        return
+      }
+      if (form.password.length < 8) {
+        setFormError('Password must be at least 8 characters.')
+        return
+      }
+    }
+
     setIsSubmitting(true)
 
     try {
@@ -195,6 +209,8 @@ function AddFarmerModal({ onClose, onSuccess }) {
         setBirthdateError(data.birthdate[0])
       } else if (data?.philsys_number?.[0]) {
         setPhilsysError(data.philsys_number[0])
+      } else if (data?.password?.[0] || data?.confirm_password?.[0]) {
+        setFormError(data.password?.[0] || data.confirm_password[0])
       } else {
         setFormError(data?.detail || 'Unable to register farmer. Please check the form and try again.')
       }
@@ -386,6 +402,38 @@ function AddFarmerModal({ onClose, onSuccess }) {
           <p className="text-[12px] text-[#7A8E7A] mt-1">
             Leave blank if the farmer is not part of any organization. This can be updated later by editing the farmer profile.
           </p>
+        </div>
+
+        {/* Account Setup — optional. The person's identity is already
+            confirmed by being physically present for enrollment; this box
+            exists to make that trust boundary explicit in the interface
+            itself, not just assumed from the form's layout — staff hand
+            over the device, the farmer types their own password, staff
+            never sees or handles it. Leave blank to set this up later from
+            the farmer's detail page (same in-person pattern, via the "Set
+            Up Account" button). */}
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-amber-800">Account Setup (optional)</p>
+          <p className="mb-3 text-[13px] font-medium text-amber-900">
+            Hand this device to the farmer now. They should type their own password directly below — staff should not enter it on their behalf.
+          </p>
+          <p className="mb-3 text-[12px] text-[#7A8E7A]">
+            The account activates immediately once saved; they'll log in with their RSBSA number, not a username. Leave both fields blank to set this up later instead.
+          </p>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div>
+              <FormLabel>Email</FormLabel>
+              <input className={baseInputClasses} id="email" type="email" onChange={(e) => updateField('email', e.target.value)} value={form.email} />
+            </div>
+            <div>
+              <FormLabel>Password</FormLabel>
+              <input className={baseInputClasses} id="password" type="password" autoComplete="new-password" onChange={(e) => updateField('password', e.target.value)} value={form.password} />
+            </div>
+            <div>
+              <FormLabel>Confirm Password</FormLabel>
+              <input className={baseInputClasses} id="confirm_password" type="password" autoComplete="new-password" onChange={(e) => updateField('confirm_password', e.target.value)} value={form.confirm_password} />
+            </div>
+          </div>
         </div>
 
         {dupChecking && (

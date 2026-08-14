@@ -3,11 +3,12 @@ Batch 10: bulk-creates CITIZEN accounts for every Farmer (operator, not
 laborer), Fisherfolk, FarmersOrganization, and FisherfolkOrganization
 record that doesn't already have a linked account.
 
-Accounts are created is_active=False ("created, unclaimed") — a citizen
-cannot log in until staff activate the account in person (see
-accounts.views.ActivateCitizenAccountView, Step 5). No email exists for
-these accounts, so nothing is sent; the temp password is only ever
-surfaced on-screen at activation time.
+Accounts are created is_active=False, unusable_password ("created,
+unclaimed") — a citizen cannot log in until staff meet them in person and
+run them through the "Set Up Account" flow (see
+accounts.views.SetCitizenPasswordView), where the person chooses and types
+their own password directly; there is no temporary password generated
+anywhere in this path to relay or force a change away from.
 
 Idempotent: skips any linked record that already has a User pointed at it
 via (linked_record_type, linked_record_id) before creating a new one.
@@ -16,7 +17,6 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from accounts.models import User
-from accounts.utils import generate_default_password
 from associations.models import FarmersOrganization, FisherfolkOrganization
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk
@@ -56,11 +56,16 @@ class Command(BaseCommand):
             full_name=full_name_fn(record),
             role=User.Roles.CITIZEN,
             is_active=False,
-            must_change_password=True,
+            must_change_password=False,
             linked_record_type=record_type,
             linked_record_id=record.id,
         )
-        user.set_password(generate_default_password())
+        # No password to set yet — SetCitizenPasswordView sets the real one
+        # when staff run this person through Set Up Account in person.
+        # unusable_password is Django's own concept for "no credential
+        # exists" (distinct from a wrong/expired one), so this account
+        # authenticates against nothing until then.
+        user.set_unusable_password()
         user.save()
         return user
 
