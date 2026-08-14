@@ -48,6 +48,14 @@ const initialForm = {
   is_mariculture: false,
   is_inland_fishery: false,
   is_fish_vendor: false,
+  vessel_type: '',
+  vessel_material: '',
+  vessel_registration_number: '',
+  fishing_gear_type: '',
+  fishing_ground: '',
+  average_catch_per_trip_kg: '',
+  has_vessel: true,
+  boat_registration_number: '',
   password: '',
   confirm_password: '',
 }
@@ -69,6 +77,13 @@ const validateContact = (value) => {
   return ''
 }
 
+const validateBoatRegNumber = (value) => {
+  if (!value) return ''
+  const digits = value.replace(/\D/g, '')
+  if (digits.length !== 7) return 'Boat Registration Number must be exactly 7 digits.'
+  return ''
+}
+
 const getMaxBirthdate = () => {
   const d = new Date()
   d.setFullYear(d.getFullYear() - 10)
@@ -81,6 +96,7 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
   const [prefixResetNote, setPrefixResetNote] = useState('')
   const [idTouched,     setIdTouched]     = useState({ fishr: false, rsbsa: false })
   const [contactError,  setContactError]  = useState('')
+  const [boatRegError,  setBoatRegError]  = useState('')
   const [fieldErrors,   setFieldErrors]   = useState({})
   const [formError,     setFormError]     = useState('')
   const [isSubmitting,  setIsSubmitting]  = useState(false)
@@ -137,6 +153,16 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
     if (field === 'prefix') {
       setPrefixResetNote('')
     }
+    if (field === 'boat_registration_number') {
+      const digits = value.replace(/\D/g, '').slice(0, 7)
+      setForm((c) => ({ ...c, boat_registration_number: digits }))
+      setBoatRegError(validateBoatRegNumber(digits))
+      return
+    }
+    if (field === 'vessel_type' && value !== 'Motorized') {
+      setForm((c) => ({ ...c, vessel_type: value, vessel_material: '' }))
+      return
+    }
     setForm((c) => {
       const next = { ...c, [field]: value }
       return next
@@ -151,6 +177,20 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
     const contactErr = validateContact(form.contact_number)
     if (contactErr) { setContactError(contactErr); return }
 
+    const boatRegErr = form.has_vessel ? validateBoatRegNumber(form.boat_registration_number) : ''
+    if (boatRegErr) { setBoatRegError(boatRegErr); return }
+
+    if (form.fisherfolk_type === 'Capture') {
+      if (!form.vessel_type) {
+        setFormError('Vessel Type is required for capture fisherfolk.')
+        return
+      }
+      if (form.vessel_type === 'Motorized' && !form.vessel_material) {
+        setFormError('Vessel Material is required for motorized vessels.')
+        return
+      }
+    }
+
     if (form.password || form.confirm_password) {
       if (form.password !== form.confirm_password) {
         setFormError('Password and confirmation do not match.')
@@ -164,7 +204,9 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
 
     setIsSubmitting(true)
     try {
-      const res = await api.post('/fisheries/fisherfolk/', form)
+      const payload = { ...form }
+      if (payload.average_catch_per_trip_kg === '') delete payload.average_catch_per_trip_kg
+      const res = await api.post('/fisheries/fisherfolk/', payload)
       onSuccess(res.data?.lgu_registration_number)
       onClose()
     } catch (error) {
@@ -377,6 +419,83 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
               <option value="Vendor">Vendor</option>
             </select>
           </div>
+
+          {form.fisherfolk_type === 'Capture' && (
+            <div className="mb-4 rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] p-4">
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-[#4A5E4A]">Vessel & Capture Details</p>
+              <div className="mb-3 flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="has_vessel"
+                  className="h-4 w-4 accent-[#1B4D2E]"
+                  checked={form.has_vessel}
+                  onChange={(e) => updateField('has_vessel', e.target.checked)}
+                />
+                <label htmlFor="has_vessel" className="text-[13px] text-[#1A2B1A] cursor-pointer">Owns or operates a fishing vessel</label>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <FormLabel required>Vessel Type</FormLabel>
+                  <select className={baseInputClasses} id="vessel_type" required value={form.vessel_type} onChange={(e) => updateField('vessel_type', e.target.value)}>
+                    <option value="">— Select —</option>
+                    <option value="Motorized">Motorized</option>
+                    <option value="Non-Motorized">Non-Motorized</option>
+                    <option value="No Vessel">No Vessel</option>
+                  </select>
+                </div>
+
+                {form.vessel_type === 'Motorized' && (
+                  <div>
+                    <FormLabel required>Vessel Material</FormLabel>
+                    <select className={baseInputClasses} id="vessel_material" required value={form.vessel_material} onChange={(e) => updateField('vessel_material', e.target.value)}>
+                      <option value="">— Select —</option>
+                      <option value="Wooden">Wooden</option>
+                      <option value="Composite">Composite</option>
+                      <option value="Fiberglass">Fiberglass</option>
+                      <option value="Steel">Steel</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                )}
+
+                {form.has_vessel && (
+                  <div>
+                    <FormLabel>Boat Registration Number (Boat-R)</FormLabel>
+                    <input
+                      className={baseInputClasses}
+                      id="boat_registration_number"
+                      inputMode="numeric"
+                      maxLength={7}
+                      placeholder="0000000"
+                      value={form.boat_registration_number}
+                      onChange={(e) => updateField('boat_registration_number', e.target.value)}
+                    />
+                    {boatRegError && <p className="mt-1 text-[12px] text-rose-600">{boatRegError}</p>}
+                  </div>
+                )}
+
+                <div>
+                  <FormLabel>Vessel Registration Number</FormLabel>
+                  <input className={baseInputClasses} id="vessel_registration_number" value={form.vessel_registration_number} onChange={(e) => updateField('vessel_registration_number', e.target.value)} />
+                </div>
+
+                <div>
+                  <FormLabel>Fishing Gear Type</FormLabel>
+                  <input className={baseInputClasses} id="fishing_gear_type" value={form.fishing_gear_type} onChange={(e) => updateField('fishing_gear_type', e.target.value)} />
+                </div>
+
+                <div>
+                  <FormLabel>Fishing Ground</FormLabel>
+                  <input className={baseInputClasses} id="fishing_ground" value={form.fishing_ground} onChange={(e) => updateField('fishing_ground', e.target.value)} />
+                </div>
+
+                <div>
+                  <FormLabel>Average Catch per Trip (kg)</FormLabel>
+                  <input className={baseInputClasses} id="average_catch_per_trip_kg" type="number" step="0.01" min="0" value={form.average_catch_per_trip_kg} onChange={(e) => updateField('average_catch_per_trip_kg', e.target.value)} />
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] p-4">
             <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-[#4A5E4A]">Type of Fishery Activity</p>

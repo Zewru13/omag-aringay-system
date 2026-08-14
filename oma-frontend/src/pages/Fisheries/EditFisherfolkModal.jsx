@@ -22,6 +22,13 @@ const validateContact = (value) => {
   return ''
 }
 
+const validateBoatRegNumber = (value) => {
+  if (!value) return ''
+  const digits = value.replace(/\D/g, '')
+  if (digits.length !== 7) return 'Boat Registration Number must be exactly 7 digits.'
+  return ''
+}
+
 const validateAge = (birthdate) => {
   if (!birthdate) return null
   const birth = new Date(birthdate)
@@ -61,11 +68,14 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
     is_mariculture: fisherfolk.is_mariculture ?? false,
     is_inland_fishery: fisherfolk.is_inland_fishery ?? false,
     is_fish_vendor: fisherfolk.is_fish_vendor ?? false,
+    has_vessel: fisherfolk.has_vessel ?? true,
+    boat_registration_number: fisherfolk.boat_registration_number || '',
   })
 
   const [prefixResetNote, setPrefixResetNote] = useState('')
   const [birthdateError, setBirthdateError] = useState('')
   const [contactError, setContactError] = useState('')
+  const [boatRegError, setBoatRegError] = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -75,6 +85,12 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
       const digits = value.replace(/\D/g, '').slice(0, 11)
       setForm((prev) => ({ ...prev, contact_number: digits }))
       setContactError(validateContact(digits))
+      return
+    }
+    if (field === 'boat_registration_number') {
+      const digits = value.replace(/\D/g, '').slice(0, 7)
+      setForm((prev) => ({ ...prev, boat_registration_number: digits }))
+      setBoatRegError(validateBoatRegNumber(digits))
       return
     }
     if (field === 'gender') {
@@ -131,6 +147,9 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
 
     const contactErr = validateContact(form.contact_number)
     if (contactErr) { setContactError(contactErr); return }
+
+    const boatRegErr = form.has_vessel ? validateBoatRegNumber(form.boat_registration_number) : ''
+    if (boatRegErr) { setBoatRegError(boatRegErr); return }
 
     setIsSubmitting(true)
 
@@ -290,6 +309,38 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
               </div>
               <p className="mt-2 text-[11px] text-slate-400">
                 Profile classification only; production monitoring covers aquaculture.
+              </p>
+            </div>
+
+            <div className="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Vessel Information</p>
+              <label className="flex items-center gap-2 cursor-pointer mb-3">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-[#1E4620]"
+                  checked={form.has_vessel}
+                  onChange={(e) => updateField('has_vessel', e.target.checked)}
+                />
+                <span className="text-[13px] text-slate-700">Owns or operates a fishing vessel</span>
+              </label>
+              {form.has_vessel && (
+                <div className="max-w-xs">
+                  <FormLabel className={labelCls}>Boat Registration Number (Boat-R)</FormLabel>
+                  <input
+                    className={baseInputClasses}
+                    id="edit_boat_registration_number"
+                    inputMode="numeric"
+                    maxLength={7}
+                    placeholder="0000000"
+                    value={form.boat_registration_number}
+                    onChange={(e) => updateField('boat_registration_number', e.target.value)}
+                  />
+                  {boatRegError && <p className="mt-1 text-xs text-rose-600">{boatRegError}</p>}
+                  {fieldErrors.boat_registration_number && <p className="mt-1 text-xs text-rose-600">{fieldErrors.boat_registration_number}</p>}
+                </div>
+              )}
+              <p className="mt-2 text-[11px] text-slate-400">
+                Vessel and gear details for capture fisherfolk are set at registration; contact an administrator to change them.
               </p>
             </div>
 
