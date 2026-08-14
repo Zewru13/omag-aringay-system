@@ -11,6 +11,20 @@ import { getPrefixOptions, isPrefixValidForGender } from '../../utils/prefixOpti
 
 const labelCls = 'text-[13px] font-medium text-[#4A5E4A] mb-1.5 block'
 
+// Section heading — a real divider + title, not just a faint uppercase
+// label buried inside a field's own FormLabel. Groups the form into the
+// same named sections a staff member would recognize from a paper form:
+// Personal, Contact, Government, then Account setup at the end.
+function Section({ title, description, children }) {
+  return (
+    <div className="border-t border-[#F0F4F0] pt-5 first:border-t-0 first:pt-0">
+      <h3 className="text-[13px] font-semibold uppercase tracking-wide text-[#1B4D2E]">{title}</h3>
+      {description && <p className="mt-0.5 mb-3 text-[12px] text-[#7A8E7A]">{description}</p>}
+      <div className={description ? '' : 'mt-3'}>{children}</div>
+    </div>
+  )
+}
+
 const initialForm = {
   prefix: '',
   rsbsa_number: '',
@@ -222,189 +236,197 @@ function AddFarmerModal({ onClose, onSuccess }) {
   return (
     <ModalShell title="Register Farmer" subtitle="Fill in the farmer's details below" icon={UserPlus} onClose={onClose} maxWidth="max-w-3xl">
       <form onSubmit={handleSubmit} className="space-y-5">
-        <div className="grid gap-4 md:grid-cols-2">
-          <div>
-            <FormLabel>Prefix</FormLabel>
-            <select className={baseInputClasses} id="prefix" onChange={(e) => updateField('prefix', e.target.value)} value={form.prefix}>
-              {getPrefixOptions(form.gender).map((p) => (
-                <option key={p || 'none'} value={p}>{p || '(None)'}</option>
-              ))}
-            </select>
-            {prefixResetNote && <p className="mt-1 text-[12px] text-amber-600">{prefixResetNote}</p>}
-          </div>
+        <Section title="Personal Information">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <FormLabel>Prefix</FormLabel>
+              <select className={baseInputClasses} id="prefix" onChange={(e) => updateField('prefix', e.target.value)} value={form.prefix}>
+                {getPrefixOptions(form.gender).map((p) => (
+                  <option key={p || 'none'} value={p}>{p || '(None)'}</option>
+                ))}
+              </select>
+              {prefixResetNote && <p className="mt-1 text-[12px] text-amber-600">{prefixResetNote}</p>}
+            </div>
 
-          <div>
-            <FormLabel required>RSBSA Number</FormLabel>
-            <SegmentedIdInput
-              parts={rsbsaParts}
-              value={form.rsbsa_number}
-              onChange={(v) => setForm((c) => ({ ...c, rsbsa_number: v }))}
-            />
-            <p className="mt-1 text-[11px] text-[#7A8E7A]">
-              {form.barangay
-                ? `Barangay code ${barangayCode} auto-filled from ${form.barangay}.`
-                : 'Select a barangay below to auto-fill the barangay code.'}
-            </p>
-            {rsbsaTouched && !form.rsbsa_number && (
-              <p className="mt-1 text-[12px] font-medium text-red-600">RSBSA number is required and must be complete.</p>
-            )}
-          </div>
+            <div>
+              <FormLabel required>First Name</FormLabel>
+              <input className={baseInputClasses} id="first_name" onChange={(e) => updateField('first_name', e.target.value)} required value={form.first_name} />
+            </div>
 
-          <div>
-            <FormLabel>PhilSys / National ID No.</FormLabel>
-            <input className={baseInputClasses} id="philsys_number" onChange={(e) => updateField('philsys_number', e.target.value)}
-              value={form.philsys_number} placeholder="8419-5032-7741-3096" />
-            {philsysError && <p className="mt-1 text-[12px] font-medium text-red-600">{philsysError}</p>}
-          </div>
+            <div>
+              <FormLabel required>Last Name</FormLabel>
+              <input className={baseInputClasses} id="last_name" onChange={(e) => updateField('last_name', e.target.value)} required value={form.last_name} />
+            </div>
 
-          <div>
-            <FormLabel required>First Name</FormLabel>
-            <input className={baseInputClasses} id="first_name" onChange={(e) => updateField('first_name', e.target.value)} required value={form.first_name} />
-          </div>
+            <div>
+              <FormLabel>Middle Name</FormLabel>
+              <input className={baseInputClasses} id="middle_name" onChange={(e) => updateField('middle_name', e.target.value)} value={form.middle_name} />
+            </div>
 
-          <div>
-            <FormLabel required>Last Name</FormLabel>
-            <input className={baseInputClasses} id="last_name" onChange={(e) => updateField('last_name', e.target.value)} required value={form.last_name} />
-          </div>
+            <div>
+              <FormLabel required>Sex</FormLabel>
+              <select className={baseInputClasses} id="gender" onChange={(e) => updateField('gender', e.target.value)} value={form.gender}>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </select>
+            </div>
 
-          <div>
-            <FormLabel>Middle Name</FormLabel>
-            <input className={baseInputClasses} id="middle_name" onChange={(e) => updateField('middle_name', e.target.value)} value={form.middle_name} />
-          </div>
+            <div>
+              <FormLabel required>Birthdate</FormLabel>
+              <input
+                className={baseInputClasses}
+                id="birthdate"
+                max={getMaxBirthdate()}
+                onChange={(e) => updateField('birthdate', e.target.value)}
+                required
+                type="date"
+                value={form.birthdate}
+              />
+              {form.birthdate && !birthdateError && (
+                <p className="mt-1 text-[12px] text-[#4A5E4A]">
+                  Age: <strong>{computeAge(form.birthdate)}</strong> years old
+                  {isSenior && (
+                    <span className="ml-2 text-amber-600 font-medium">(Senior Citizen auto-detected)</span>
+                  )}
+                </p>
+              )}
+              {birthdateError && (
+                <p className="mt-1 text-[12px] text-rose-600">{birthdateError}</p>
+              )}
+            </div>
 
-          <div>
-            <FormLabel required>Sex</FormLabel>
-            <select className={baseInputClasses} id="gender" onChange={(e) => updateField('gender', e.target.value)} value={form.gender}>
-              <option value="Male">Male</option>
-              <option value="Female">Female</option>
-            </select>
-          </div>
+            <div>
+              <FormLabel required>Civil Status</FormLabel>
+              <select className={baseInputClasses} id="civil_status" onChange={(e) => updateField('civil_status', e.target.value)} value={form.civil_status}>
+                <option value="Single">Single</option>
+                <option value="Married">Married</option>
+                <option value="Widowed">Widowed</option>
+                <option value="Separated">Separated</option>
+              </select>
+            </div>
 
-          <div>
-            <FormLabel required>Birthdate</FormLabel>
-            <input
-              className={baseInputClasses}
-              id="birthdate"
-              max={getMaxBirthdate()}
-              onChange={(e) => updateField('birthdate', e.target.value)}
+            <div>
+              <FormLabel>Highest Education</FormLabel>
+              <input className={baseInputClasses} id="highest_education" onChange={(e) => updateField('highest_education', e.target.value)} value={form.highest_education} />
+            </div>
+          </div>
+        </Section>
+
+        <Section title="Contact Information">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <FormLabel>Contact Number</FormLabel>
+              <input
+                className={baseInputClasses}
+                id="contact_number"
+                type="tel"
+                inputMode="numeric"
+                maxLength={11}
+                placeholder="09XXXXXXXXX"
+                onKeyPress={(e) => { if (!/[0-9]/.test(e.key)) e.preventDefault() }}
+                onChange={(e) => updateField('contact_number', e.target.value)}
+                value={form.contact_number}
+              />
+              {contactError && <p className="mt-1 text-[12px] text-rose-600">{contactError}</p>}
+            </div>
+
+            <BarangaySelect
+              id="barangay"
+              label="Barangay"
+              value={form.barangay}
+              onChange={(e) => updateField('barangay', e.target.value)}
               required
-              type="date"
-              value={form.birthdate}
             />
-            {form.birthdate && !birthdateError && (
-              <p className="mt-1 text-[12px] text-[#4A5E4A]">
-                Age: <strong>{computeAge(form.birthdate)}</strong> years old
-                {isSenior && (
-                  <span className="ml-2 text-amber-600 font-medium">(Senior Citizen auto-detected)</span>
-                )}
+          </div>
+        </Section>
+
+        <Section title="Government Information">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <FormLabel required>RSBSA Number</FormLabel>
+              <SegmentedIdInput
+                parts={rsbsaParts}
+                value={form.rsbsa_number}
+                onChange={(v) => setForm((c) => ({ ...c, rsbsa_number: v }))}
+              />
+              <p className="mt-1 text-[11px] text-[#7A8E7A]">
+                {form.barangay
+                  ? `Barangay code ${barangayCode} auto-filled from ${form.barangay}.`
+                  : 'Select a barangay below to auto-fill the barangay code.'}
               </p>
-            )}
-            {birthdateError && (
-              <p className="mt-1 text-[12px] text-rose-600">{birthdateError}</p>
-            )}
+              {rsbsaTouched && !form.rsbsa_number && (
+                <p className="mt-1 text-[12px] font-medium text-red-600">RSBSA number is required and must be complete.</p>
+              )}
+            </div>
+
+            <div>
+              <FormLabel>PhilSys / National ID No.</FormLabel>
+              <input className={baseInputClasses} id="philsys_number" onChange={(e) => updateField('philsys_number', e.target.value)}
+                value={form.philsys_number} placeholder="8419-5032-7741-3096" />
+              {philsysError && <p className="mt-1 text-[12px] font-medium text-red-600">{philsysError}</p>}
+            </div>
           </div>
 
-          <div>
-            <FormLabel>Contact Number</FormLabel>
-            <input
-              className={baseInputClasses}
-              id="contact_number"
-              type="tel"
-              inputMode="numeric"
-              maxLength={11}
-              placeholder="09XXXXXXXXX"
-              onKeyPress={(e) => { if (!/[0-9]/.test(e.key)) e.preventDefault() }}
-              onChange={(e) => updateField('contact_number', e.target.value)}
-              value={form.contact_number}
-            />
-            {contactError && <p className="mt-1 text-[12px] text-rose-600">{contactError}</p>}
-          </div>
-
-          <BarangaySelect
-            id="barangay"
-            label="Barangay"
-            value={form.barangay}
-            onChange={(e) => updateField('barangay', e.target.value)}
-            required
-          />
-
-          <div>
-            <FormLabel required>Civil Status</FormLabel>
-            <select className={baseInputClasses} id="civil_status" onChange={(e) => updateField('civil_status', e.target.value)} value={form.civil_status}>
-              <option value="Single">Single</option>
-              <option value="Married">Married</option>
-              <option value="Widowed">Widowed</option>
-              <option value="Separated">Separated</option>
-            </select>
-          </div>
-
-          <div>
-            <FormLabel>Highest Education</FormLabel>
-            <input className={baseInputClasses} id="highest_education" onChange={(e) => updateField('highest_education', e.target.value)} value={form.highest_education} />
-          </div>
-        </div>
-
-        {/* RSBSA Classification */}
-        <div className="rounded-xl border border-[#E2E8E2] bg-[#EBF5EE]/30 p-4">
-          <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-[#4A5E4A]">RSBSA Classification</p>
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-            {[
-              ['is_pwd', 'Person with Disability (PWD)', false],
-              ['is_4ps_beneficiary', '4Ps Beneficiary', false],
-              ['is_icc_ip_member', 'ICC/IP Member', false],
-            ].map(([field, label, autoLocked]) => (
-              <label key={field} className={`flex items-center gap-2 ${autoLocked ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}>
+          <div className="mt-4 rounded-xl border border-[#E2E8E2] bg-[#EBF5EE]/30 p-4">
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-[#4A5E4A]">RSBSA Classification</p>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+              {[
+                ['is_pwd', 'Person with Disability (PWD)', false],
+                ['is_4ps_beneficiary', '4Ps Beneficiary', false],
+                ['is_icc_ip_member', 'ICC/IP Member', false],
+              ].map(([field, label, autoLocked]) => (
+                <label key={field} className={`flex items-center gap-2 ${autoLocked ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}>
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-[#1B4D2E]"
+                    checked={form[field]}
+                    disabled={autoLocked}
+                    onChange={(e) => !autoLocked && updateField(field, e.target.checked)}
+                  />
+                  <span className="text-[13px] text-[#1A2B1A]">{label}</span>
+                </label>
+              ))}
+              <label
+                className="flex items-center gap-2 cursor-not-allowed opacity-70"
+                title={isSenior ? 'Automatically set — age is 60 or above.' : 'Automatically determined from birthdate.'}
+              >
                 <input
                   type="checkbox"
                   className="h-4 w-4 accent-[#1B4D2E]"
-                  checked={form[field]}
-                  disabled={autoLocked}
-                  onChange={(e) => !autoLocked && updateField(field, e.target.checked)}
+                  checked={isSenior}
+                  disabled
+                  readOnly
                 />
-                <span className="text-[13px] text-[#1A2B1A]">{label}</span>
+                <span className="text-[13px] text-[#1A2B1A]">Senior Citizen</span>
               </label>
-            ))}
-            <label
-              className="flex items-center gap-2 cursor-not-allowed opacity-70"
-              title={isSenior ? 'Automatically set — age is 60 or above.' : 'Automatically determined from birthdate.'}
-            >
-              <input
-                type="checkbox"
-                className="h-4 w-4 accent-[#1B4D2E]"
-                checked={isSenior}
-                disabled
-                readOnly
-              />
-              <span className="text-[13px] text-[#1A2B1A]">Senior Citizen</span>
-            </label>
-          </div>
-          {form.is_icc_ip_member && (
-            <div className="mt-3">
-              <FormLabel>ICC/IP Group Name</FormLabel>
-              <input className={baseInputClasses} id="icc_ip_name" value={form.icc_ip_name} onChange={(e) => updateField('icc_ip_name', e.target.value)} />
             </div>
-          )}
-        </div>
+            {form.is_icc_ip_member && (
+              <div className="mt-3">
+                <FormLabel>ICC/IP Group Name</FormLabel>
+                <input className={baseInputClasses} id="icc_ip_name" value={form.icc_ip_name} onChange={(e) => updateField('icc_ip_name', e.target.value)} />
+              </div>
+            )}
+          </div>
 
-        {/* Farmer Organization */}
-        <div>
-          <FormLabel>Farmer Organization</FormLabel>
-          <select
-            className={baseInputClasses}
-            value={form.farmers_organization || ''}
-            onChange={e => updateField('farmers_organization', e.target.value || null)}
-          >
-            <option value="">— Not a member of any organization</option>
-            {organizations.map(a => (
-              <option key={a.id} value={a.id}>{a.name}</option>
-            ))}
-          </select>
-          <p className="text-[12px] text-[#7A8E7A] mt-1">
-            Leave blank if the farmer is not part of any organization. This can be updated later by editing the farmer profile.
-          </p>
-        </div>
+          <div className="mt-4">
+            <FormLabel>Farmer Organization</FormLabel>
+            <select
+              className={baseInputClasses}
+              value={form.farmers_organization || ''}
+              onChange={e => updateField('farmers_organization', e.target.value || null)}
+            >
+              <option value="">— Not a member of any organization</option>
+              {organizations.map(a => (
+                <option key={a.id} value={a.id}>{a.name}</option>
+              ))}
+            </select>
+            <p className="text-[12px] text-[#7A8E7A] mt-1">
+              Leave blank if the farmer is not part of any organization. This can be updated later by editing the farmer profile.
+            </p>
+          </div>
+        </Section>
 
-        {/* Account Setup — optional. The person's identity is already
+        {/* Account Information — optional. The person's identity is already
             confirmed by being physically present for enrollment; this box
             exists to make that trust boundary explicit in the interface
             itself, not just assumed from the form's layout — staff hand
@@ -412,29 +434,30 @@ function AddFarmerModal({ onClose, onSuccess }) {
             never sees or handles it. Leave blank to set this up later from
             the farmer's detail page (same in-person pattern, via the "Set
             Up Account" button). */}
-        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
-          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-amber-800">Account Setup (optional)</p>
-          <p className="mb-3 text-[13px] font-medium text-amber-900">
-            Hand this device to the farmer now. They should type their own password directly below — staff should not enter it on their behalf.
-          </p>
-          <p className="mb-3 text-[12px] text-[#7A8E7A]">
-            The account activates immediately once saved; they'll log in with their RSBSA number, not a username. Leave both fields blank to set this up later instead.
-          </p>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div>
-              <FormLabel>Email</FormLabel>
-              <input className={baseInputClasses} id="email" type="email" onChange={(e) => updateField('email', e.target.value)} value={form.email} />
-            </div>
-            <div>
-              <FormLabel>Password</FormLabel>
-              <input className={baseInputClasses} id="password" type="password" autoComplete="new-password" onChange={(e) => updateField('password', e.target.value)} value={form.password} />
-            </div>
-            <div>
-              <FormLabel>Confirm Password</FormLabel>
-              <input className={baseInputClasses} id="confirm_password" type="password" autoComplete="new-password" onChange={(e) => updateField('confirm_password', e.target.value)} value={form.confirm_password} />
+        <Section title="Account Information">
+          <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
+            <p className="mb-3 text-[13px] font-medium text-amber-900">
+              Hand this device to the farmer now. They should type their own password directly below — staff should not enter it on their behalf.
+            </p>
+            <p className="mb-3 text-[12px] text-[#7A8E7A]">
+              The account activates immediately once saved; they'll log in with their RSBSA number, not a username. Leave both fields blank to set this up later instead.
+            </p>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <FormLabel>Email</FormLabel>
+                <input className={baseInputClasses} id="email" type="email" onChange={(e) => updateField('email', e.target.value)} value={form.email} />
+              </div>
+              <div>
+                <FormLabel>Password</FormLabel>
+                <input className={baseInputClasses} id="password" type="password" autoComplete="new-password" onChange={(e) => updateField('password', e.target.value)} value={form.password} />
+              </div>
+              <div>
+                <FormLabel>Confirm Password</FormLabel>
+                <input className={baseInputClasses} id="confirm_password" type="password" autoComplete="new-password" onChange={(e) => updateField('confirm_password', e.target.value)} value={form.confirm_password} />
+              </div>
             </div>
           </div>
-        </div>
+        </Section>
 
         {dupChecking && (
           <p className="text-[12px] text-[#7A8E7A] italic">Checking for duplicate entries…</p>
