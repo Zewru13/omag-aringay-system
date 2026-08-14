@@ -75,6 +75,15 @@ export default function FarmerHomeScreen({ record, onLogout }) {
       .map((s) => ({ ...s, record: rec })),
   ).sort((a, b) => (a.status === b.status ? 0 : a.status === 'overdue' ? -1 : 1))
 
+  // Buod ng Bukid figures (frames 1, 4) -- computed once here rather than
+  // inside the desktop branch below, so the mobile Home can show the same
+  // summary the reference draws instead of omitting it just because
+  // mobile has no sidebar rail to put it in.
+  const activeCrops = records.filter((r) => r.status && r.status !== 'Harvested' && r.status !== 'Total Loss')
+  const totalArea = records.reduce((sum, r) => sum + (Number(r.area_planted_ha) || 0), 0)
+  const thisYear = new Date().getFullYear()
+  const plantedThisYear = records.filter((r) => r.date_planted && new Date(r.date_planted).getFullYear() === thisYear).length
+
   const handleLogSuccess = () => { fetchRecords() }
 
   // AKTIBIDAD and SAKUNA are tabs in the new reference, but both act ON a
@@ -256,11 +265,6 @@ export default function FarmerHomeScreen({ record, onLogout }) {
       // fall through to the mobile branches below unchanged
     } else {
       // ── Simula (home) ─────────────────────────────────────────────
-      const activeCrops = records.filter((r) => r.status && r.status !== 'Harvested' && r.status !== 'Total Loss')
-      const totalArea = records.reduce((sum, r) => sum + (Number(r.area_planted_ha) || 0), 0)
-      const thisYear = new Date().getFullYear()
-      const plantedThisYear = records.filter((r) => r.date_planted && new Date(r.date_planted).getFullYear() === thisYear).length
-
       return (
         <DesktopShell
           sidebar={sidebar}
@@ -572,6 +576,23 @@ export default function FarmerHomeScreen({ record, onLogout }) {
           <p className="text-[15px] italic text-cz-text-2">{labels.farmerHome.loading}</p>
         ) : (
           <>
+            {/* BUOD NG BUKID — the reference keeps this in the desktop
+                sidebar rail; mobile has no rail, so it renders as a
+                compact card here instead of being dropped entirely. */}
+            <div className="mb-4 grid grid-cols-2 gap-2.5">
+              {[
+                [activeCrops.length, labels.ffNew.desktop.farmSummaryActiveCrops],
+                [needsAttention.length, labels.ffNew.desktop.farmSummaryNeedsAttention],
+                [`${totalArea.toFixed(totalArea % 1 === 0 ? 0 : 2)} ha`, labels.ffNew.desktop.farmSummaryArea],
+                [plantedThisYear, labels.ffNew.desktop.farmSummaryPlantedThisYear],
+              ].map(([value, label]) => (
+                <div key={label} className="rounded-[10px] border-[0.5px] border-cz-border bg-cz-surface px-3 py-2.5">
+                  <p className="text-[18px] font-bold leading-none text-cz-text">{value}</p>
+                  <p className="mt-1 text-[11px] leading-[1.3] text-cz-text-2">{label}</p>
+                </div>
+              ))}
+            </div>
+
             {/* NEEDS ATTENTION */}
             <SectionHeading>{labels.farmerHome.needsAttention.title}</SectionHeading>
             {needsAttention.length === 0 ? (

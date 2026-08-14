@@ -114,6 +114,15 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
   })
   const pondRows = ponds.map((p) => ({ pond: p, record: activeByPond[p.id] || null }))
 
+  // Buod ng Fishery figures (frames 4, 5) -- computed once here rather than
+  // inside the desktop branch below, so the mobile Home can show the same
+  // summary the reference draws instead of omitting it just because
+  // mobile has no sidebar rail to put it in.
+  const activePonds = stockingRecords.filter((sr) => ACTIVE_STATUSES.includes(sr.status))
+  const totalFish = activePonds.reduce((sum, sr) => sum + (Number(sr.number_of_fingerlings) || 0), 0)
+  const totalArea = ponds.reduce((sum, p) => sum + (Number(p.area_hectares) || 0), 0)
+  const emptyPonds = ponds.filter((p) => !activeByPond[p.id]).length
+
   const handleLogSuccess = () => { fetchAll() }
 
   // Mobile-only tab bar. Declared here so every early-returning sub-view
@@ -253,8 +262,6 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
           : view.kind === 'health' ? 'health'
             : view.kind === 'yield' ? 'yield'
               : view.kind === 'profile' ? 'profile' : 'home'
-
-    const activePonds = stockingRecords.filter((sr) => ACTIVE_STATUSES.includes(sr.status))
 
     const sidebar = (
       <DesktopSidebar
@@ -438,10 +445,6 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
 
     // ── Simula (home) ───────────────────────────────────────────────
     {
-      const totalFish = activePonds.reduce((sum, sr) => sum + (Number(sr.number_of_fingerlings) || 0), 0)
-      const totalArea = ponds.reduce((sum, p) => sum + (Number(p.area_hectares) || 0), 0)
-      const emptyPonds = ponds.filter((p) => !activeByPond[p.id]).length
-
       return (
         <>
         <DesktopShell
@@ -760,6 +763,23 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
           <p className="text-[15px] italic text-cz-text-2">{labels.fisherfolkHome.loading}</p>
         ) : (
           <>
+            {/* BUOD NG FISHERY — the reference keeps this in the desktop
+                sidebar rail; mobile has no rail, so it renders as a
+                compact card here instead of being dropped entirely. */}
+            <div className="mb-4 grid grid-cols-2 gap-2.5">
+              {[
+                [activePonds.length, labels.ffNew.desktop.fisherySummaryActivePonds],
+                [totalFish, labels.ffNew.desktop.fisherySummaryTotalFish],
+                [`${totalArea.toFixed(totalArea % 1 === 0 ? 0 : 2)} ha`, labels.ffNew.desktop.fisherySummaryArea],
+                [emptyPonds, labels.ffNew.desktop.fisherySummaryEmptyPonds],
+              ].map(([value, label]) => (
+                <div key={label} className="rounded-[10px] border-[0.5px] border-cz-border bg-cz-surface px-3 py-2.5">
+                  <p className="text-[18px] font-bold leading-none text-cz-text">{value}</p>
+                  <p className="mt-1 text-[11px] leading-[1.3] text-cz-text-2">{label}</p>
+                </div>
+              ))}
+            </div>
+
             {/* FEED TODAY */}
             <SectionHeading>{labels.fisherfolkHome.feedToday.title}</SectionHeading>
             {dueRecords.length === 0 ? (
