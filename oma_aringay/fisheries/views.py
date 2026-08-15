@@ -756,6 +756,11 @@ class StockingDisasterReportDeleteView(generics.DestroyAPIView):
 # no-rules-checked path, would recreate the exact two-inconsistent-paths
 # problem this consolidation is meant to remove.
 
+def _fisherfolk_disaster_label(fisherfolk):
+    barangay = fisherfolk.barangay or ''
+    return f'{fisherfolk.full_name}, {barangay}' if barangay else fisherfolk.full_name
+
+
 class GeneralDisasterReportListCreateView(generics.ListCreateAPIView):
     serializer_class = GeneralDisasterReportSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
@@ -775,7 +780,15 @@ class GeneralDisasterReportListCreateView(generics.ListCreateAPIView):
         return qs
 
     def perform_create(self, serializer):
-        serializer.save(reported_by=self.request.user)
+        disaster = serializer.save(reported_by=self.request.user)
+        notify_all_except(
+            actor=self.request.user,
+            verb='reported a disaster on',
+            record_type='fisherfolk_disaster',
+            record_id=disaster.fisherfolk_id,
+            record_label=_fisherfolk_disaster_label(disaster.fisherfolk),
+            detail=disaster.disaster_type,
+        )
 
 
 class GeneralDisasterReportDetailView(generics.RetrieveUpdateDestroyAPIView):
