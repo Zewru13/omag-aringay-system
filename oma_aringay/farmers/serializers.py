@@ -102,6 +102,7 @@ class FarmerListSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(read_only=True)
     commodity = serializers.SerializerMethodField()
     farmers_organization_name = serializers.SerializerMethodField()
+    is_affected_by_disaster = serializers.SerializerMethodField()
 
     class Meta:
         model = Farmer
@@ -117,6 +118,7 @@ class FarmerListSerializer(serializers.ModelSerializer):
             'is_active',
             'is_senior_citizen',
             'is_farm_laborer',
+            'is_affected_by_disaster',
             'date_registered',
             'farmers_organization',
             'farmers_organization_name',
@@ -131,12 +133,19 @@ class FarmerListSerializer(serializers.ModelSerializer):
             return obj.farmers_organization.name
         return None
 
+    def get_is_affected_by_disaster(self, obj):
+        # Computed, not stored — reflects the CropDisasterReport table
+        # directly so it never drifts from the source of truth. Cheap here:
+        # PAGE_SIZE=10, so this is at most 10 extra queries per list page.
+        return obj.crop_monitoring_records.filter(disaster_reports__status='Active').exists()
+
 
 class FarmerDetailSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(read_only=True)
     farm_parcels = FarmParcelSerializer(many=True, read_only=True)
     farmers_organization_name = serializers.SerializerMethodField()
     citizen_account = serializers.SerializerMethodField()
+    is_affected_by_disaster = serializers.SerializerMethodField()
 
     class Meta:
         model = Farmer
@@ -163,6 +172,7 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
             'icc_ip_name',
             'is_senior_citizen',
             'is_farm_laborer',
+            'is_affected_by_disaster',
             'is_active',
             'date_registered',
             'registered_by',
@@ -171,7 +181,10 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
             'farmers_organization_name',
             'citizen_account',
         ]
-        read_only_fields = ['id', 'date_registered', 'registered_by', 'farm_parcels', 'farmers_organization_name', 'citizen_account']
+        read_only_fields = ['id', 'date_registered', 'registered_by', 'farm_parcels', 'farmers_organization_name', 'citizen_account', 'is_affected_by_disaster']
+
+    def get_is_affected_by_disaster(self, obj):
+        return obj.crop_monitoring_records.filter(disaster_reports__status='Active').exists()
 
     def get_citizen_account(self, obj):
         return citizen_account_info(User.LinkedRecordType.FARMER, obj.id)

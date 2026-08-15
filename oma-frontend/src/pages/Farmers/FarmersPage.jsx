@@ -120,6 +120,11 @@ function FarmersPage({ asTab = false }) {
               Farm Laborer
             </span>
           )}
+          {farmer.is_affected_by_disaster && (
+            <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700 border border-rose-200">
+              Affected by Disaster
+            </span>
+          )}
         </span>
       ),
       age: (

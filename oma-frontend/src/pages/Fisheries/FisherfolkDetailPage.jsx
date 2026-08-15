@@ -341,6 +341,9 @@ function FisherfolkDetailPage() {
                         ? <StatusPill tone="green">With Vessel</StatusPill>
                         : <StatusPill tone="slate">No Vessel</StatusPill>
                     )}
+                    {fisherfolk.is_affected_by_disaster && (
+                      <StatusPill tone="rose">Affected by Disaster</StatusPill>
+                    )}
                   </div>
                   <p className="mt-1 text-sm font-medium text-slate-600">
                     LGU Registration Number: {fisherfolk.lgu_registration_number}

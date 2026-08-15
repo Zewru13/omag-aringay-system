@@ -80,16 +80,28 @@ class VendorSerializer(serializers.ModelSerializer):
 
 # ─── Fisherfolk ───────────────────────────────────────────────────────────────
 
+def _is_fisherfolk_affected_by_disaster(fisherfolk):
+    # Computed, not stored — checks FisheriesDisasterReport directly (both
+    # the stocking-cycle path and the fisherfolk-direct path from the
+    # disaster-report consolidation) so it never drifts from the source
+    # of truth.
+    return FisheriesDisasterReport.objects.filter(
+        Q(stocking_record__fisherfolk=fisherfolk) | Q(fisherfolk=fisherfolk),
+        status='Active',
+    ).exists()
+
+
 class FisherfolkListSerializer(serializers.ModelSerializer):
     full_name         = serializers.CharField(read_only=True)
     is_senior_citizen = serializers.SerializerMethodField()
+    is_affected_by_disaster = serializers.SerializerMethodField()
 
     class Meta:
         model  = Fisherfolk
         fields = [
             'id', 'lgu_registration_number', 'fishr_number', 'prefix', 'full_name',
             'gender', 'birthdate', 'barangay', 'fisherfolk_type',
-            'is_active', 'is_senior_citizen', 'date_registered',
+            'is_active', 'is_senior_citizen', 'is_affected_by_disaster', 'date_registered',
             'rsbsa_number',
             'is_aquaculture', 'is_capture_fishery', 'is_mariculture', 'is_inland_fishery', 'is_fish_vendor',
         ]
@@ -102,6 +114,9 @@ class FisherfolkListSerializer(serializers.ModelSerializer):
             (today.month, today.day) < (obj.birthdate.month, obj.birthdate.day)
         )) >= 60
 
+    def get_is_affected_by_disaster(self, obj):
+        return _is_fisherfolk_affected_by_disaster(obj)
+
 
 class FisherfolkDetailSerializer(serializers.ModelSerializer):
     full_name         = serializers.CharField(read_only=True)
@@ -110,6 +125,7 @@ class FisherfolkDetailSerializer(serializers.ModelSerializer):
     vendor_record     = VendorSerializer(read_only=True)
     is_senior_citizen = serializers.SerializerMethodField()
     citizen_account   = serializers.SerializerMethodField()
+    is_affected_by_disaster = serializers.SerializerMethodField()
 
     class Meta:
         model  = Fisherfolk
@@ -128,12 +144,16 @@ class FisherfolkDetailSerializer(serializers.ModelSerializer):
             'boat_registration_number', 'has_vessel',
             'rsbsa_number',
             'is_aquaculture', 'is_capture_fishery', 'is_mariculture', 'is_inland_fishery', 'is_fish_vendor',
+            'is_affected_by_disaster',
             'citizen_account',
         ]
-        read_only_fields = ['id', 'date_registered', 'registered_by', 'aquaculture_record', 'capture_record', 'vendor_record', 'citizen_account']
+        read_only_fields = ['id', 'date_registered', 'registered_by', 'aquaculture_record', 'capture_record', 'vendor_record', 'citizen_account', 'is_affected_by_disaster']
 
     def get_citizen_account(self, obj):
         return citizen_account_info(User.LinkedRecordType.FISHERFOLK, obj.id)
+
+    def get_is_affected_by_disaster(self, obj):
+        return _is_fisherfolk_affected_by_disaster(obj)
 
     def get_is_senior_citizen(self, obj):
         if not obj.birthdate:

@@ -367,6 +367,9 @@ function FarmerDetailPage() {
                   {farmer.is_senior_citizen && (
                     <StatusPill tone="amber">Senior Citizen</StatusPill>
                   )}
+                  {farmer.is_affected_by_disaster && (
+                    <StatusPill tone="rose">Affected by Disaster</StatusPill>
+                  )}
                 </div>
                 <p className="mt-1 text-[13px] font-medium text-[#4A5E4A]">
                   RSBSA Number: {farmer.rsbsa_number}
