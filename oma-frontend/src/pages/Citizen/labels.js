@@ -779,6 +779,8 @@ export const labels = {
       feedType: 'Uri ng feed',
       feedQuantity: 'Dami ng feed (kg)',
       feedBrand: 'Brand ng feed',
+      feedRecommended: (stage, feedName) => `Yugto ng paglaki: ${stage} — inirerekomenda: ${feedName}`,
+      feedUseRecommended: 'Gamitin ito',
       mortalityCount: 'Bilang ng namatay',
       possibleCause: 'Posibleng dahilan',
       possibleCauseOtherPlaceholder: 'Ilarawan ang dahilan…',
@@ -834,6 +836,12 @@ export const labels = {
       Incinerated: 'Sinunog',
       'Municipal Waste Collection': 'Ikinolekta ng basura ng bayan',
       Other: 'Iba pa',
+    },
+    growthStageOptions: {
+      Fry: 'Fry',
+      Fingerling: 'Fingerling',
+      Juvenile: 'Juvenile',
+      Adult: 'Adult',
     },
     quantityUnitOptions: {
       kg: 'kg',

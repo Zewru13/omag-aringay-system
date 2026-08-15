@@ -412,6 +412,7 @@ class SpeciesOptionSerializer(serializers.ModelSerializer):
             'id', 'species_name', 'category', 'category_name',
             'culture_environment', 'culture_duration_days',
             'default_survival_rate_pct', 'default_avg_body_weight_kg',
+            'fingerling_start_day', 'juvenile_start_day', 'adult_start_day',
             'stages',
         ]
         read_only_fields = ['id', 'category_name', 'stages']
@@ -430,6 +431,26 @@ class SpeciesOptionSerializer(serializers.ModelSerializer):
         if qs.exists():
             raise serializers.ValidationError(f"A species named '{name}' already exists.")
         return name
+
+    def validate(self, data):
+        # All-or-nothing: a partial set of growth-stage days can't be
+        # ordered meaningfully, so either all three are set (in increasing
+        # order) or all three stay blank — same rule the frontend enforces,
+        # checked again here since this serializer is the actual boundary.
+        fing = data.get('fingerling_start_day', getattr(self.instance, 'fingerling_start_day', None))
+        juv  = data.get('juvenile_start_day', getattr(self.instance, 'juvenile_start_day', None))
+        adult = data.get('adult_start_day', getattr(self.instance, 'adult_start_day', None))
+        values = [fing, juv, adult]
+        set_count = sum(1 for v in values if v is not None)
+        if 0 < set_count < 3:
+            raise serializers.ValidationError({
+                'fingerling_start_day': 'Set all three growth-stage days, or leave all three blank.',
+            })
+        if set_count == 3 and not (fing < juv < adult):
+            raise serializers.ValidationError({
+                'fingerling_start_day': 'Growth-stage days must increase: Fingerling < Juvenile < Adult.',
+            })
+        return data
 
 
 # ─── Stocking Record ──────────────────────────────────────────────────────────
@@ -732,7 +753,7 @@ class PondSerializer(serializers.ModelSerializer):
 class FeedTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = FeedType
-        fields = ['id', 'name', 'description', 'is_active', 'species_options']
+        fields = ['id', 'name', 'description', 'is_active', 'species_options', 'growth_stage']
         read_only_fields = ['id']
 
 
@@ -769,6 +790,9 @@ class StockingRecordSerializer(serializers.ModelSerializer):
     stocking_density = serializers.SerializerMethodField()
     production_cycle_no = serializers.SerializerMethodField()
     next_feeding_date = serializers.SerializerMethodField()
+    growth_stage = serializers.SerializerMethodField()
+    recommended_feed_type_id = serializers.SerializerMethodField()
+    recommended_feed_type_name = serializers.SerializerMethodField()
     pond_location_barangay = serializers.CharField(required=False, allow_blank=True, default='')
     area_hectares          = serializers.DecimalField(max_digits=10, decimal_places=4, required=False, allow_null=True)
     survival_rate_pct      = serializers.DecimalField(max_digits=5, decimal_places=2, required=False, allow_null=True)
@@ -794,6 +818,7 @@ class StockingRecordSerializer(serializers.ModelSerializer):
             'total_harvested_kg', 'harvest_count', 'harvest_variance_days',
             'final_harvest_date',
             'stocking_density', 'production_cycle_no', 'next_feeding_date',
+            'growth_stage', 'recommended_feed_type_id', 'recommended_feed_type_name',
         ]
         read_only_fields = [
             'id', 'fisherfolk_name', 'pond_name', 'species_name', 'category_name',
@@ -803,6 +828,7 @@ class StockingRecordSerializer(serializers.ModelSerializer):
             'has_recovered_disaster',
             'total_harvested_kg', 'harvest_count', 'harvest_variance_days',
             'stocking_density', 'production_cycle_no', 'next_feeding_date',
+            'growth_stage', 'recommended_feed_type_id', 'recommended_feed_type_name',
         ]
 
     def get_fisherfolk_name(self, obj):
@@ -851,6 +877,17 @@ class StockingRecordSerializer(serializers.ModelSerializer):
 
     def get_next_feeding_date(self, obj):
         return obj.compute_next_feeding_date()
+
+    def get_growth_stage(self, obj):
+        return obj.compute_growth_stage()
+
+    def get_recommended_feed_type_id(self, obj):
+        feed_type = obj.compute_recommended_feed_type()
+        return feed_type.id if feed_type else None
+
+    def get_recommended_feed_type_name(self, obj):
+        feed_type = obj.compute_recommended_feed_type()
+        return feed_type.name if feed_type else None
 
     def validate_date_stocked(self, value):
         validate_not_future_date(value, 'Date stocked')

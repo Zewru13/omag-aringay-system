@@ -35,6 +35,9 @@ const EMPTY_FORM = {
   culture_duration_days:      '',
   default_survival_rate_pct:  '',
   default_avg_body_weight_kg: '',
+  fingerling_start_day:       '',
+  juvenile_start_day:         '',
+  adult_start_day:            '',
 }
 
 // ── Day Chip Input ────────────────────────────────────────────────────────────
@@ -237,6 +240,9 @@ function SpeciesModal({ species, categories, onClose, onSaved }) {
         culture_duration_days:      species.culture_duration_days      || '',
         default_survival_rate_pct:  species.default_survival_rate_pct  || '',
         default_avg_body_weight_kg: species.default_avg_body_weight_kg || '',
+        fingerling_start_day:       species.fingerling_start_day ?? '',
+        juvenile_start_day:         species.juvenile_start_day   ?? '',
+        adult_start_day:            species.adult_start_day      ?? '',
       }
     : EMPTY_FORM
   const [form,         setForm]         = useState(originalForm)
@@ -254,11 +260,25 @@ function SpeciesModal({ species, categories, onClose, onSaved }) {
     e.preventDefault()
     if (!form.species_name.trim())    { showToast('Species name is required.', 'error'); return }
     if (!form.culture_duration_days)  { showToast('Culture duration is required.', 'error'); return }
+    const stageDays = [form.fingerling_start_day, form.juvenile_start_day, form.adult_start_day]
+    const stageDaysSet = stageDays.filter(d => d !== '')
+    if (stageDaysSet.length > 0 && stageDaysSet.length < 3) {
+      showToast('Set all three growth-stage days, or leave all three blank.', 'error'); return
+    }
+    if (stageDaysSet.length === 3) {
+      const [fing, juv, adult] = stageDaysSet.map(Number)
+      if (!(fing < juv && juv < adult)) {
+        showToast('Growth-stage days must increase: Fingerling < Juvenile < Adult.', 'error'); return
+      }
+    }
     setPendingPayload({
       ...form,
       category:                   form.category || null,
       default_survival_rate_pct:  form.default_survival_rate_pct  || null,
       default_avg_body_weight_kg: form.default_avg_body_weight_kg || null,
+      fingerling_start_day:       form.fingerling_start_day === '' ? null : form.fingerling_start_day,
+      juvenile_start_day:         form.juvenile_start_day   === '' ? null : form.juvenile_start_day,
+      adult_start_day:            form.adult_start_day      === '' ? null : form.adult_start_day,
     })
   }
 
@@ -335,6 +355,26 @@ function SpeciesModal({ species, categories, onClose, onSaved }) {
               onChange={e => set('culture_duration_days', e.target.value)}
             />
           </FormField>
+          <div className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] p-3">
+            <p className="mb-1 text-[12px] font-semibold text-[#1A2B1A]">Growth Stage Days (for feed recommendation)</p>
+            <p className="mb-2 text-[11px] text-[#7A8E7A]">
+              Day after stocking each stage begins. Leave all three blank if not yet known — growth-stage feed recommendation just won't be offered for this species until they're set.
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              <FormField label="Fingerling">
+                <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 15"
+                  value={form.fingerling_start_day} onChange={e => set('fingerling_start_day', e.target.value)} />
+              </FormField>
+              <FormField label="Juvenile">
+                <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 45"
+                  value={form.juvenile_start_day} onChange={e => set('juvenile_start_day', e.target.value)} />
+              </FormField>
+              <FormField label="Adult">
+                <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 90"
+                  value={form.adult_start_day} onChange={e => set('adult_start_day', e.target.value)} />
+              </FormField>
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <FormField label="Default Survival Rate (%)">
               <input

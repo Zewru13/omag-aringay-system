@@ -614,6 +614,14 @@ export default function CitizenActivityLogScreen({
                 inputClassName={FIELD}
                 chevronSize={18}
               />
+              {record?.growth_stage && record?.recommended_feed_type_name && form.feed_type_selection !== record.recommended_feed_type_name && (
+                <p className="mt-1.5 text-[12.5px] text-cz-fish-header">
+                  {labels.activityLog.fields.feedRecommended(record.growth_stage, record.recommended_feed_type_name)}{' '}
+                  <button type="button" className="underline" onClick={() => set('feed_type_selection', record.recommended_feed_type_name)}>
+                    {labels.activityLog.fields.feedUseRecommended}
+                  </button>
+                </p>
+              )}
             </FieldBlock>
             <FieldBlock label={labels.activityLog.fields.feedQuantity}>
               <div className="flex gap-2">

@@ -715,6 +715,12 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
                     <option value="">Select feed type</option>
                     {feedTypes.map(ft => <option key={ft.id} value={ft.name}>{ft.name}</option>)}
                   </select>
+                  {record.growth_stage && record.recommended_feed_type_name && feedType !== record.recommended_feed_type_name && (
+                    <p className="mt-1 text-[11px] text-[#1B4D2E]">
+                      {record.growth_stage} stage — recommended: <strong>{record.recommended_feed_type_name}</strong>{' '}
+                      <button type="button" className="underline" onClick={() => setFeedType(record.recommended_feed_type_name)}>Use this</button>
+                    </p>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>

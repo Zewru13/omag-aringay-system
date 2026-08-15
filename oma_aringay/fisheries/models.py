@@ -255,11 +255,38 @@ class SpeciesOption(models.Model):
     # something to compute from before real intervals are configured.
     default_feeding_interval_days = models.IntegerField(default=1)
 
+    # Growth-stage day thresholds for feed recommendation — NULL until
+    # OMAg/BFAR staff configure them via Species settings. Left unconfigured
+    # (any of the three blank) means growth-stage feed recommendation isn't
+    # available yet for this species; nothing is fabricated as a default,
+    # same discipline as DiseaseResponseGuide being seeded empty of content.
+    fingerling_start_day = models.PositiveIntegerField(null=True, blank=True, help_text='Day after stocking the Fingerling stage begins')
+    juvenile_start_day   = models.PositiveIntegerField(null=True, blank=True, help_text='Day after stocking the Juvenile stage begins')
+    adult_start_day      = models.PositiveIntegerField(null=True, blank=True, help_text='Day after stocking the Adult stage begins')
+
+    GROWTH_STAGES = ['Fry', 'Fingerling', 'Juvenile', 'Adult']
+
     class Meta:
         ordering = ['species_name']
 
     def __str__(self):
         return self.species_name
+
+    def growth_stage_for_day(self, days_since_stocking):
+        """None if days_since_stocking is unknown or the three thresholds
+        aren't all configured — a partial configuration can't be trusted to
+        order correctly, so it's treated the same as unconfigured."""
+        if days_since_stocking is None:
+            return None
+        if None in (self.fingerling_start_day, self.juvenile_start_day, self.adult_start_day):
+            return None
+        if days_since_stocking >= self.adult_start_day:
+            return 'Adult'
+        if days_since_stocking >= self.juvenile_start_day:
+            return 'Juvenile'
+        if days_since_stocking >= self.fingerling_start_day:
+            return 'Fingerling'
+        return 'Fry'
 
 
 class SpeciesActivityStage(models.Model):
@@ -296,6 +323,13 @@ class SpeciesActivityStage(models.Model):
 # frontend's PERENNIAL_CROPS-style provisional lists.
 
 class FeedType(models.Model):
+    GROWTH_STAGE_CHOICES = [
+        ('Fry',        'Fry'),
+        ('Fingerling', 'Fingerling'),
+        ('Juvenile',   'Juvenile'),
+        ('Adult',      'Adult'),
+    ]
+
     name        = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
     is_active   = models.BooleanField(default=True)
@@ -304,6 +338,13 @@ class FeedType(models.Model):
         help_text='Species this feed type applies to. Seeded by linking every '
                    'existing species to every seeded feed type as a placeholder '
                    'starting point — not a real per-species differentiation.',
+    )
+    # Batch — growth-stage-based feed recommendation. Blank means "suitable
+    # for any stage" (matches every existing seeded feed type, which predates
+    # stage differentiation); staff narrow this per feed type as needed.
+    growth_stage = models.CharField(
+        max_length=15, choices=GROWTH_STAGE_CHOICES, blank=True,
+        help_text='Growth stage this feed is recommended for. Blank = suitable for any stage.',
     )
 
     class Meta:
@@ -571,6 +612,31 @@ class StockingRecord(models.Model):
         last_feeding = self.logs.filter(activity='Feed Monitoring').order_by('-date_of_activity').first()
         base_date = last_feeding.date_of_activity if last_feeding else self.date_stocked
         return base_date + timedelta(days=interval)
+
+    @property
+    def days_since_stocking(self):
+        if not self.date_stocked:
+            return None
+        return (date.today() - self.date_stocked).days
+
+    def compute_growth_stage(self):
+        """Fry/Fingerling/Juvenile/Adult, or None if the species has no
+        stage thresholds configured yet. See SpeciesOption.growth_stage_for_day."""
+        if not self.species_id:
+            return None
+        return self.species.growth_stage_for_day(self.days_since_stocking)
+
+    def compute_recommended_feed_type(self):
+        """The active FeedType tagged for this record's current growth
+        stage and linked to its species; falls back to a stage-agnostic
+        (blank growth_stage) feed type for the species if no stage-specific
+        one is configured. None if the stage itself is unknown (see
+        compute_growth_stage) or nothing matches."""
+        stage = self.compute_growth_stage()
+        if not stage or not self.species_id:
+            return None
+        candidates = self.species.feed_types.filter(is_active=True)
+        return candidates.filter(growth_stage=stage).first() or candidates.filter(growth_stage='').first()
 
 
 # ─── Fisheries Activity Log ────────────────────────────────────────────────────

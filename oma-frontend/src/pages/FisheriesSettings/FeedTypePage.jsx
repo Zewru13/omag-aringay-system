@@ -11,10 +11,13 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 
+const GROWTH_STAGE_OPTIONS = ['Fry', 'Fingerling', 'Juvenile', 'Adult']
+
 const COLUMNS = [
-  { key: 'name',        label: 'FEED TYPE' },
-  { key: 'status_pill', label: 'STATUS' },
-  { key: 'actions',     label: 'ACTIONS' },
+  { key: 'name',            label: 'FEED TYPE' },
+  { key: 'growth_stage_cell', label: 'GROWTH STAGE' },
+  { key: 'status_pill',     label: 'STATUS' },
+  { key: 'actions',         label: 'ACTIONS' },
 ]
 
 function FeedTypeModal({ feedType, onClose, onSaved }) {
@@ -22,6 +25,7 @@ function FeedTypeModal({ feedType, onClose, onSaved }) {
   const isEdit = Boolean(feedType)
   const [name,        setName]        = useState(feedType?.name || '')
   const [description, setDescription] = useState(feedType?.description || '')
+  const [growthStage, setGrowthStage] = useState(feedType?.growth_stage || '')
   const [isActive,    setIsActive]    = useState(feedType?.is_active ?? true)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -30,7 +34,7 @@ function FeedTypeModal({ feedType, onClose, onSaved }) {
     if (!name.trim()) { showToast('Feed type name is required.', 'error'); return }
     setIsSubmitting(true)
     try {
-      const payload = { name, description, is_active: isActive }
+      const payload = { name, description, is_active: isActive, growth_stage: growthStage }
       if (isEdit) {
         await api.patch(`/fisheries/feed-types/${feedType.id}/`, payload)
       } else {
@@ -59,6 +63,15 @@ function FeedTypeModal({ feedType, onClose, onSaved }) {
         </FormField>
         <FormField label="Description (optional)">
           <textarea rows={2} className={`${baseInputClasses} resize-none`} value={description} onChange={e => setDescription(e.target.value)} />
+        </FormField>
+        <FormField label="Growth Stage (optional)">
+          <select className={baseInputClasses} value={growthStage} onChange={e => setGrowthStage(e.target.value)}>
+            <option value="">Any stage</option>
+            {GROWTH_STAGE_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <p className="mt-1 text-[11px] text-slate-400">
+            Narrows this feed type to a specific growth stage for the automatic feed recommendation. Leave as "Any stage" for a general-purpose feed.
+          </p>
         </FormField>
         <label className="flex items-center gap-2 text-[13px] text-slate-700">
           <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
@@ -98,6 +111,9 @@ export default function FeedTypePage({ asTab = false }) {
 
   const rows = feedTypes.map(ft => ({
     ...ft,
+    growth_stage_cell: ft.growth_stage
+      ? <StatusPill tone="slate">{ft.growth_stage}</StatusPill>
+      : <span className="text-[12px] text-slate-400">Any stage</span>,
     status_pill: <StatusPill tone={ft.is_active ? 'green' : 'slate'}>{ft.is_active ? 'Active' : 'Inactive'}</StatusPill>,
     actions: (
       <span className="flex items-center gap-1">
