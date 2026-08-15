@@ -145,6 +145,10 @@ export default function CitizenActivityLogScreen({
     feed_quantity_kg: log?.feed_quantity_kg ?? '',
     feed_brand: log?.feed_brand || '',
     mortality_count: log?.mortality_count ?? '',
+    possible_cause: log?.possible_cause || '',
+    possible_cause_other_specify: log?.possible_cause_other_specify || '',
+    disposal_method: log?.disposal_method || '',
+    disposal_method_other_specify: log?.disposal_method_other_specify || '',
     vet_consulted: log?.vet_consulted || '',
     treatment_applied: log?.treatment_applied || '',
     outcome: log?.outcome || '',
@@ -264,6 +268,10 @@ export default function CitizenActivityLogScreen({
         payload.disease_type = showIssueFields ? (form.disease_type || null) : null
         payload.severity = showIssueFields ? form.severity : ''
         payload.mortality_count = showIssueFields ? (form.mortality_count || null) : null
+        payload.possible_cause = showIssueFields && form.mortality_count ? form.possible_cause : ''
+        payload.possible_cause_other_specify = showIssueFields && form.mortality_count && form.possible_cause === 'Other' ? form.possible_cause_other_specify.trim() : ''
+        payload.disposal_method = showIssueFields && form.mortality_count ? form.disposal_method : ''
+        payload.disposal_method_other_specify = showIssueFields && form.mortality_count && form.disposal_method === 'Other' ? form.disposal_method_other_specify.trim() : ''
         payload.area_affected_ha = showIssueFields ? (form.area_affected_ha || null) : null
         payload.vet_consulted = showIssueFields ? form.vet_consulted : ''
         payload.treatment_applied = showIssueFields ? form.treatment_applied : ''
@@ -678,6 +686,54 @@ export default function CitizenActivityLogScreen({
                 disabled={blockedByOther}
               />
             </FieldBlock>
+            {form.mortality_count !== '' && Number(form.mortality_count) > 0 && (
+              <>
+                <FieldBlock label={labels.activityLog.fields.possibleCause}>
+                  <SelectField
+                    value={form.possible_cause}
+                    onChange={(e) => set('possible_cause', e.target.value)}
+                    disabled={blockedByOther}
+                  >
+                    <option value="">{labels.activityLog.selectPlaceholder}</option>
+                    {Object.entries(labels.activityLog.possibleCauseOptions).map(([v, l]) => (
+                      <option key={v} value={v}>{l}</option>
+                    ))}
+                  </SelectField>
+                  {form.possible_cause === 'Other' && (
+                    <input
+                      type="text"
+                      className={`${FIELD} mt-2`}
+                      value={form.possible_cause_other_specify}
+                      onChange={(e) => set('possible_cause_other_specify', e.target.value)}
+                      placeholder={labels.activityLog.fields.possibleCauseOtherPlaceholder}
+                      disabled={blockedByOther}
+                    />
+                  )}
+                </FieldBlock>
+                <FieldBlock label={labels.activityLog.fields.disposalMethod}>
+                  <SelectField
+                    value={form.disposal_method}
+                    onChange={(e) => set('disposal_method', e.target.value)}
+                    disabled={blockedByOther}
+                  >
+                    <option value="">{labels.activityLog.selectPlaceholder}</option>
+                    {Object.entries(labels.activityLog.disposalMethodOptions).map(([v, l]) => (
+                      <option key={v} value={v}>{l}</option>
+                    ))}
+                  </SelectField>
+                  {form.disposal_method === 'Other' && (
+                    <input
+                      type="text"
+                      className={`${FIELD} mt-2`}
+                      value={form.disposal_method_other_specify}
+                      onChange={(e) => set('disposal_method_other_specify', e.target.value)}
+                      placeholder={labels.activityLog.fields.disposalMethodOtherPlaceholder}
+                      disabled={blockedByOther}
+                    />
+                  )}
+                </FieldBlock>
+              </>
+            )}
             {/* The reference asks a yes/no question; the model stores a
                 name or "N/A" (max_length=150, free text). Only the two
                 ends of that are expressible here, which is honest -- a

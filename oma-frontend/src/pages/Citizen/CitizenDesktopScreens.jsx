@@ -94,7 +94,10 @@ export function DesktopKaramdamanForm({ records, onSaved }) {
   const { showToast } = useToast()
   const [diseaseTypes, setDiseaseTypes] = useState([])
   const [form, setForm] = useState({
-    stocking_record: '', disease_type: '', mortality_count: '', treatment_applied: '', consulted: '', date: todayISO(),
+    stocking_record: '', disease_type: '', mortality_count: '',
+    possible_cause: '', possible_cause_other_specify: '',
+    disposal_method: '', disposal_method_other_specify: '',
+    treatment_applied: '', consulted: '', date: todayISO(),
   })
   const [saving, setSaving] = useState(false)
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
@@ -122,11 +125,20 @@ export function DesktopKaramdamanForm({ records, onSaved }) {
         date_of_activity: form.date,
         disease_type: form.disease_type || null,
         mortality_count: form.mortality_count === '' ? null : Number(form.mortality_count),
+        possible_cause: form.mortality_count ? form.possible_cause : '',
+        possible_cause_other_specify: form.mortality_count && form.possible_cause === 'Other' ? form.possible_cause_other_specify.trim() : '',
+        disposal_method: form.mortality_count ? form.disposal_method : '',
+        disposal_method_other_specify: form.mortality_count && form.disposal_method === 'Other' ? form.disposal_method_other_specify.trim() : '',
         treatment_applied: form.treatment_applied,
         vet_consulted: form.consulted === 'yes' ? 'Oo' : form.consulted === 'scheduled' ? 'Nakatakda na' : form.consulted === 'no' ? 'N/A' : '',
       })
       showToast(labels.ffNew.health.successTitle, 'success')
-      setForm({ stocking_record: '', disease_type: '', mortality_count: '', treatment_applied: '', consulted: '', date: todayISO() })
+      setForm({
+        stocking_record: '', disease_type: '', mortality_count: '',
+        possible_cause: '', possible_cause_other_specify: '',
+        disposal_method: '', disposal_method_other_specify: '',
+        treatment_applied: '', consulted: '', date: todayISO(),
+      })
       onSaved?.()
     } catch (err) {
       const d = err?.response?.data
@@ -161,6 +173,33 @@ export function DesktopKaramdamanForm({ records, onSaved }) {
           <label className={LABEL}>{D.karamdamanMortality}</label>
           <input type="number" min="0" placeholder="0" value={form.mortality_count} onChange={(e) => set('mortality_count', e.target.value)} className={FIELD} />
         </div>
+
+        {form.mortality_count !== '' && Number(form.mortality_count) > 0 && (
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={LABEL}>{D.karamdamanCause}</label>
+              <select value={form.possible_cause} onChange={(e) => set('possible_cause', e.target.value)} className={FIELD}>
+                <option value="">{labels.activityLog.selectPlaceholder}</option>
+                {Object.entries(labels.activityLog.possibleCauseOptions).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+              {form.possible_cause === 'Other' && (
+                <input type="text" value={form.possible_cause_other_specify} onChange={(e) => set('possible_cause_other_specify', e.target.value)}
+                  placeholder={D.karamdamanCauseOtherPlaceholder} className={`${FIELD} mt-2`} />
+              )}
+            </div>
+            <div>
+              <label className={LABEL}>{D.karamdamanDisposal}</label>
+              <select value={form.disposal_method} onChange={(e) => set('disposal_method', e.target.value)} className={FIELD}>
+                <option value="">{labels.activityLog.selectPlaceholder}</option>
+                {Object.entries(labels.activityLog.disposalMethodOptions).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+              {form.disposal_method === 'Other' && (
+                <input type="text" value={form.disposal_method_other_specify} onChange={(e) => set('disposal_method_other_specify', e.target.value)}
+                  placeholder={D.karamdamanDisposalOtherPlaceholder} className={`${FIELD} mt-2`} />
+              )}
+            </div>
+          </div>
+        )}
 
         <div>
           <label className={LABEL}>{D.karamdamanTreatment} *</label>

@@ -444,7 +444,10 @@ class FisheriesActivityLogSerializer(serializers.ModelSerializer):
             'id', 'stocking_record', 'activity', 'activity_other_specify', 'date_of_activity',
             'water_fish_condition', 'ph_level', 'dissolved_oxygen', 'water_clarity',
             'feed_type', 'feed_quantity_kg', 'feed_brand',
-            'observed_issue', 'severity', 'mortality_count', 'area_affected_ha',
+            'observed_issue', 'severity', 'mortality_count',
+            'possible_cause', 'possible_cause_other_specify',
+            'disposal_method', 'disposal_method_other_specify',
+            'area_affected_ha',
             'affected_portion',
             'disease_type', 'disease_type_name', 'disease_type_other_specify', 'vet_consulted',
             'treatment_applied', 'outcome',
@@ -502,6 +505,15 @@ class FisheriesActivityLogSerializer(serializers.ModelSerializer):
         if activity == 'Other' and not (data.get('activity_other_specify') or '').strip():
             raise serializers.ValidationError({
                 'activity_other_specify': 'Please specify the activity.'
+            })
+
+        if data.get('possible_cause') == 'Other' and not (data.get('possible_cause_other_specify') or '').strip():
+            raise serializers.ValidationError({
+                'possible_cause_other_specify': 'Please specify the possible cause.'
+            })
+        if data.get('disposal_method') == 'Other' and not (data.get('disposal_method_other_specify') or '').strip():
+            raise serializers.ValidationError({
+                'disposal_method_other_specify': 'Please specify the disposal method.'
             })
 
         area_affected_ha = data.get('area_affected_ha')

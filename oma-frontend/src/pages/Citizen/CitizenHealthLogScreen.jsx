@@ -89,6 +89,10 @@ export default function CitizenHealthLogScreen({ records, onBack, onSaved, tabBa
     date_of_activity: todayISO(),
     affected_portion: '',
     mortality_count: '',
+    possible_cause: '',
+    possible_cause_other_specify: '',
+    disposal_method: '',
+    disposal_method_other_specify: '',
     consulted: null,
     treatment_applied: '',
     notes: '',
@@ -144,6 +148,10 @@ export default function CitizenHealthLogScreen({ records, onBack, onSaved, tabBa
         disease_type: disease.id,
         affected_portion: form.affected_portion || '',
         mortality_count: form.mortality_count === '' ? null : Number(form.mortality_count),
+        possible_cause: form.mortality_count ? form.possible_cause : '',
+        possible_cause_other_specify: form.mortality_count && form.possible_cause === 'Other' ? form.possible_cause_other_specify.trim() : '',
+        disposal_method: form.mortality_count ? form.disposal_method : '',
+        disposal_method_other_specify: form.mortality_count && form.disposal_method === 'Other' ? form.disposal_method_other_specify.trim() : '',
         // The reference asks a yes/no question; the model stores a name or
         // "N/A". Only the two ends of that are expressible here, which is
         // honest — a citizen answering "Oo" on their phone is not being
@@ -171,6 +179,8 @@ export default function CitizenHealthLogScreen({ records, onBack, onSaved, tabBa
     setRecord(null); setDisease(null); setGuide(null)
     setForm({
       date_of_activity: todayISO(), affected_portion: '', mortality_count: '',
+      possible_cause: '', possible_cause_other_specify: '',
+      disposal_method: '', disposal_method_other_specify: '',
       consulted: null, treatment_applied: '', notes: '',
     })
     setStep('pond')
@@ -385,6 +395,56 @@ export default function CitizenHealthLogScreen({ records, onBack, onSaved, tabBa
           className={FIELD}
         />
       </div>
+
+      {form.mortality_count !== '' && Number(form.mortality_count) > 0 && (
+        <>
+          <div className="mb-[18px]">
+            <StepLabel>{H.possibleCause}</StepLabel>
+            <select
+              value={form.possible_cause}
+              onChange={(e) => set('possible_cause', e.target.value)}
+              className={FIELD}
+            >
+              <option value="">{labels.activityLog.selectPlaceholder}</option>
+              {Object.entries(labels.activityLog.possibleCauseOptions).map(([value, text]) => (
+                <option key={value} value={value}>{text}</option>
+              ))}
+            </select>
+            {form.possible_cause === 'Other' && (
+              <input
+                type="text"
+                value={form.possible_cause_other_specify}
+                onChange={(e) => set('possible_cause_other_specify', e.target.value)}
+                placeholder={H.possibleCauseOtherPlaceholder}
+                className={`${FIELD} mt-2`}
+              />
+            )}
+          </div>
+
+          <div className="mb-[18px]">
+            <StepLabel>{H.disposalMethod}</StepLabel>
+            <select
+              value={form.disposal_method}
+              onChange={(e) => set('disposal_method', e.target.value)}
+              className={FIELD}
+            >
+              <option value="">{labels.activityLog.selectPlaceholder}</option>
+              {Object.entries(labels.activityLog.disposalMethodOptions).map(([value, text]) => (
+                <option key={value} value={value}>{text}</option>
+              ))}
+            </select>
+            {form.disposal_method === 'Other' && (
+              <input
+                type="text"
+                value={form.disposal_method_other_specify}
+                onChange={(e) => set('disposal_method_other_specify', e.target.value)}
+                placeholder={H.disposalMethodOtherPlaceholder}
+                className={`${FIELD} mt-2`}
+              />
+            )}
+          </div>
+        </>
+      )}
 
       <div className="mb-[18px]">
         <StepLabel>{H.consulted}</StepLabel>

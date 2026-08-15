@@ -358,6 +358,10 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
   const [observedIssue,    setObservedIssue]    = useState('')
   const [severity,         setSeverity]         = useState('')
   const [mortalityCount,   setMortalityCount]   = useState('')
+  const [possibleCause,    setPossibleCause]    = useState('')
+  const [possibleCauseOtherSpecify, setPossibleCauseOtherSpecify] = useState('')
+  const [disposalMethod,   setDisposalMethod]   = useState('')
+  const [disposalMethodOtherSpecify, setDisposalMethodOtherSpecify] = useState('')
   const [areaAffected,     setAreaAffected]     = useState('')
   const [areaAffectedError, setAreaAffectedError] = useState('')
   const [treatmentApplied, setTreatmentApplied] = useState('')
@@ -506,6 +510,12 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
       if (diseaseTypeName === 'Other' && !diseaseTypeOtherSpecify.trim()) {
         showToast('Please specify the disease type.', 'error'); return
       }
+      if (possibleCause === 'Other' && !possibleCauseOtherSpecify.trim()) {
+        showToast('Please specify the possible cause.', 'error'); return
+      }
+      if (disposalMethod === 'Other' && !disposalMethodOtherSpecify.trim()) {
+        showToast('Please specify the disposal method.', 'error'); return
+      }
     }
     if (showRemedyFields) {
       if (!remedyDisasterId) { showToast('Please select the related disaster.', 'error'); return }
@@ -528,6 +538,10 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
         observed_issue:      showIssueFields ? observedIssue : '',
         severity:            showIssueFields ? severity : '',
         mortality_count:     showIssueFields ? (mortalityCount || null) : null,
+        possible_cause:      showIssueFields && mortalityCount ? possibleCause : '',
+        possible_cause_other_specify: showIssueFields && mortalityCount && possibleCause === 'Other' ? possibleCauseOtherSpecify.trim() : '',
+        disposal_method:     showIssueFields && mortalityCount ? disposalMethod : '',
+        disposal_method_other_specify: showIssueFields && mortalityCount && disposalMethod === 'Other' ? disposalMethodOtherSpecify.trim() : '',
         area_affected_ha:    showIssueFields ? (areaAffected || null) : null,
         disease_type:        showIssueFields && diseaseTypeName !== 'Other' ? (selectedDiseaseType?.id || null) : null,
         disease_type_other_specify: showIssueFields && diseaseTypeName === 'Other' ? diseaseTypeOtherSpecify.trim() : '',
@@ -744,6 +758,44 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
                       onChange={e => setMortalityCount(e.target.value)} placeholder="e.g. 50" className={baseInputClasses} />
                   </div>
                 </div>
+                {mortalityCount && (
+                  <div className="grid grid-cols-2 gap-2 mb-2">
+                    <div>
+                      <label className="text-xs font-medium text-slate-700 mb-1 block">Possible Cause</label>
+                      <select value={possibleCause} onChange={e => setPossibleCause(e.target.value)} className={baseInputClasses}>
+                        <option value="">Select</option>
+                        <option value="Disease">Disease</option>
+                        <option value="Poor Water Quality">Poor Water Quality</option>
+                        <option value="Predator Attack">Predator Attack</option>
+                        <option value="Handling Stress">Handling Stress</option>
+                        <option value="Overcrowding">Overcrowding</option>
+                        <option value="Unknown">Unknown</option>
+                        <option value="Other">Other</option>
+                      </select>
+                      {possibleCause === 'Other' && (
+                        <input type="text" value={possibleCauseOtherSpecify}
+                          onChange={e => setPossibleCauseOtherSpecify(e.target.value)}
+                          placeholder="Specify cause" className={`${baseInputClasses} mt-1`} />
+                      )}
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-slate-700 mb-1 block">Disposal Method</label>
+                      <select value={disposalMethod} onChange={e => setDisposalMethod(e.target.value)} className={baseInputClasses}>
+                        <option value="">Select</option>
+                        <option value="Buried">Buried</option>
+                        <option value="Composted">Composted</option>
+                        <option value="Incinerated">Incinerated</option>
+                        <option value="Municipal Waste Collection">Municipal Waste Collection</option>
+                        <option value="Other">Other</option>
+                      </select>
+                      {disposalMethod === 'Other' && (
+                        <input type="text" value={disposalMethodOtherSpecify}
+                          onChange={e => setDisposalMethodOtherSpecify(e.target.value)}
+                          placeholder="Specify method" className={`${baseInputClasses} mt-1`} />
+                      )}
+                    </div>
+                  </div>
+                )}
                 <div className="mb-2">
                   <label className="text-xs font-medium text-slate-700 mb-1 block">Area Affected (ha) *</label>
                   <input type="number" step="0.0001" value={areaAffected}
@@ -992,6 +1044,8 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
                       {log.disease_type_name && `${log.observed_issue ? ' | ' : ''}Disease: ${log.disease_type_name}`}
                       {log.severity && ` | Severity: ${log.severity}`}
                       {log.mortality_count != null && ` | Mortality: ${log.mortality_count}`}
+                      {log.possible_cause && ` (${log.possible_cause === 'Other' ? log.possible_cause_other_specify : log.possible_cause})`}
+                      {log.disposal_method && ` — Disposal: ${log.disposal_method === 'Other' ? log.disposal_method_other_specify : log.disposal_method}`}
                       {log.outcome && ` | ${log.outcome}`}
                     </p>
                   )}

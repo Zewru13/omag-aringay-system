@@ -625,6 +625,30 @@ class FisheriesActivityLog(models.Model):
     observed_issue      = models.CharField(max_length=200, blank=True)
     severity            = models.CharField(max_length=10, choices=SEVERITY_CHOICES, blank=True)
     mortality_count     = models.IntegerField(null=True, blank=True)
+    # Mortality sub-section (count/cause/disposal) — cause and disposal only
+    # mean anything when mortality_count is actually set, so both stay blank
+    # otherwise; enforced in the serializer, not the model, same as every
+    # other conditionally-required field in this log.
+    POSSIBLE_CAUSE_CHOICES = [
+        ('Disease',             'Disease'),
+        ('Poor Water Quality',  'Poor Water Quality'),
+        ('Predator Attack',     'Predator Attack'),
+        ('Handling Stress',     'Handling Stress'),
+        ('Overcrowding',        'Overcrowding'),
+        ('Unknown',             'Unknown'),
+        ('Other',               'Other'),
+    ]
+    DISPOSAL_METHOD_CHOICES = [
+        ('Buried',                     'Buried'),
+        ('Composted',                  'Composted'),
+        ('Incinerated',                'Incinerated'),
+        ('Municipal Waste Collection', 'Municipal Waste Collection'),
+        ('Other',                      'Other'),
+    ]
+    possible_cause                = models.CharField(max_length=30, choices=POSSIBLE_CAUSE_CHOICES, blank=True)
+    possible_cause_other_specify  = models.CharField(max_length=150, blank=True)
+    disposal_method               = models.CharField(max_length=30, choices=DISPOSAL_METHOD_CHOICES, blank=True)
+    disposal_method_other_specify = models.CharField(max_length=150, blank=True)
 
     # TINATAYANG BAHAGI NG POND NA APEKTADO. area_affected_ha below already
     # exists but is in hectares, which a fisherfolk looking at a sick pond
