@@ -496,11 +496,15 @@ def _run_organization_distribution(record_model, person_field, organization, mem
     results = []
     for person in members:
         person_filter = {person_field: person}
+        # Real identifying number, not fabricated — Farmer's RSBSA number or
+        # Fisherfolk's LGU registration number, whichever the model has.
+        id_number = getattr(person, 'rsbsa_number', None) or getattr(person, 'lgu_registration_number', None)
 
         if program and record_model.objects.filter(program=program, **person_filter).exists():
             results.append({
                 'person_id': person.id,
                 'name': person.full_name,
+                'id_number': id_number,
                 'status': 'skipped',
                 'reason': 'Already has a record under this program.',
             })
@@ -527,6 +531,7 @@ def _run_organization_distribution(record_model, person_field, organization, mem
             results.append({
                 'person_id': person.id,
                 'name': person.full_name,
+                'id_number': id_number,
                 'status': 'would_create',
                 'note': note,
             })
@@ -548,6 +553,7 @@ def _run_organization_distribution(record_model, person_field, organization, mem
             results.append({
                 'person_id': person.id,
                 'name': person.full_name,
+                'id_number': id_number,
                 'status': 'created',
                 'record_id': record.id,
                 'note': note,
@@ -556,6 +562,7 @@ def _run_organization_distribution(record_model, person_field, organization, mem
             results.append({
                 'person_id': person.id,
                 'name': person.full_name,
+                'id_number': id_number,
                 'status': 'error',
                 'reason': str(exc),
             })

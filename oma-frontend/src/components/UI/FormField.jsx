@@ -5,7 +5,23 @@ export const baseInputClasses =
 // gets a muted "(optional)" suffix, so a field is never left unmarked.
 // Pass hideIndicator to suppress this for labels that aren't real form fields
 // (e.g. read-only display rows, section headings).
-export function FormLabel({ children, required, hideIndicator, className }) {
+//
+// pillLabel is an opt-in alternate style (small REQUIRED/OPTIONAL badge
+// instead of asterisk/text) — off by default so every existing caller keeps
+// today's look; only callers that explicitly pass it get the new style.
+export function FormLabel({ children, required, hideIndicator, pillLabel, className }) {
+  if (pillLabel) {
+    return (
+      <label className={className || 'mb-1.5 flex items-center gap-2 text-[13px] font-medium text-[#1A2B1A]'}>
+        {children}
+        {!hideIndicator && (
+          <span className="rounded-full bg-[#EFEDE6] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#7A8E7A]">
+            {required ? 'Required' : 'Optional'}
+          </span>
+        )}
+      </label>
+    )
+  }
   return (
     <label className={className || 'text-[13px] font-medium text-[#4A5E4A] mb-1.5 block'}>
       {children}
@@ -18,11 +34,11 @@ export function FormLabel({ children, required, hideIndicator, className }) {
   )
 }
 
-function FormField({ label, error, required, children }) {
+function FormField({ label, error, required, pillLabel, children }) {
   return (
     <div>
       {label && (
-        <FormLabel required={required}>{label}</FormLabel>
+        <FormLabel required={required} pillLabel={pillLabel}>{label}</FormLabel>
       )}
       {children}
       {error && (

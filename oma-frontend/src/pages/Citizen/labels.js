@@ -1339,6 +1339,53 @@ export const labels = {
     statusCreated: 'Nagawa',
     statusSkipped: 'Nilaktawan',
     statusError: 'Error',
+    // Batch: richer 3-step wizard layout (step indicator, org context card,
+    // big "about to distribute" summary, stat tiles, per-member outcome
+    // list). New keys only — everything above stays as-is, still used by
+    // the older OrgReportAssistanceScreen.jsx, a different screen sharing
+    // this same label block.
+    steps: {
+      details: 'Detalye ng Pamamahagi',
+      review: 'Suriin at Kumpirmahin',
+      results: 'Resulta ng Pamamahagi',
+    },
+    sections: {
+      targetOrg: 'Organisasyong Tatanggap',
+      assistanceDetails: 'Detalye ng Tulong',
+      confirmDistribution: 'Kumpirmahin ang Pamamahagi',
+      perMemberOutcome: 'Resulta bawat Miyembro',
+    },
+    aboutToDistribute: 'Ipamamahagi Ninyo Ang',
+    toAllMembersOf: 'Sa lahat ng kasalukuyang miyembro ng',
+    onDateBold: (formatted) => `noong ${formatted}`,
+    stats: {
+      totalMembers: 'Kabuuang miyembro',
+      eligible: 'Makakatanggap',
+      flagged: 'Naka-flag / dapat suriin',
+    },
+    flaggedPanelTitle: (count) => `${count} miyembro ang naka-flag para suriin`,
+    flaggedPanelBody: 'Makakatanggap pa rin sila ng record nila kaagad — ang flag ay tala lang para sa staff, sakaling nabigyan na sila ng parehong tulong sa ibang lugar kamakailan.',
+    skippedPanelTitle: (count) => `${count} miyembro ang lalaktawan`,
+    summaryTitle: 'Buod ng mangyayari:',
+    summaryCreated: (count) => `${count} record ang magagawa`,
+    summaryCreatedDetail: (count) => `— tulong na naitala para sa ${count} miyembro`,
+    summaryFlagged: (count) => `${count} naka-flag na may tala`,
+    summaryFlaggedDetail: '— nasama na sa itaas, dapat suriin ng staff',
+    summarySkipped: (count) => `${count} record ang nilaktawan`,
+    summarySkippedDetailProgram: '— naka-enroll na sa napiling programa',
+    summarySkippedDetailNone: '— walang doble sa batch na ito',
+    backToEdit: 'Bumalik sa Pag-edit',
+    confirmAndDistribute: 'Kumpirmahin at Ipamahagi',
+    completeTitle: 'Tapos na ang Pamamahagi',
+    completeSummary: (created, skipped, flagged) =>
+      `${created} record ang nagawa, ${skipped} nilaktawan, ${flagged} naka-flag para suriin`,
+    close: 'Isara',
+    startNew: 'Magsimula ng Bagong Pamamahagi',
+    filterAll: (count) => `Lahat ${count}`,
+    filterCreated: (count) => `${count} Nagawa`,
+    filterSkipped: (count) => `${count} Nilaktawan`,
+    filterFlagged: (count) => `${count} Naka-flag`,
+    filterError: (count) => `${count} Error`,
   },
 }
 
