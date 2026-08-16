@@ -146,6 +146,23 @@ class FarmParcel(models.Model):
         max_length=20,
         choices=LandOwnership.choices,
     )
+    # RSBSA form's "Name of Land Owner" / "RSBSA Number" fields — only
+    # meaningful when land_ownership is Tenant or Lessee (the farmer working
+    # the land isn't the owner), but kept unconditional at the DB level
+    # (blank=True, no CHECK constraint tied to land_ownership) since that's
+    # the simplest, most honest schema — the frontend enforces the
+    # conditional requirement, matching the real form's own conditional
+    # logic ("Name of Land Owner" only appears when Type of Ownership/Tenure
+    # isn't "Registered Owner").
+    land_owner_name = models.CharField(
+        max_length=200, blank=True,
+        help_text='Only meaningful when land_ownership is Tenant or Lessee.',
+    )
+    land_owner_rsbsa_number = models.CharField(
+        max_length=50, blank=True,
+        validators=[validate_rsbsa],
+        help_text='RSBSA number of the land owner (if different from the farmer). Same format as the farmer\'s own RSBSA number.',
+    )
     tax_declaration_number = models.CharField(
         max_length=100, blank=True,
         validators=[validate_tax_declaration_number],
@@ -160,11 +177,19 @@ class FarmParcel(models.Model):
     )
     barangay = models.CharField(max_length=100, choices=BARANGAY_CHOICES)
 
+    # Matches the official DA RSBSA Enrollment Form's Farm Type legend
+    # exactly (codes 1-4 + N/A, N/A being fisheries-only and not applicable
+    # here). Confirmed against the real form during the RSBSA document
+    # review — the previous choice set (Irrigated/Rainfed/Upland/Lowland,
+    # 4 flat unrelated options) didn't match the form at all. Verified
+    # against live data first: zero real FarmParcel rows had any of those
+    # old values set, so this is a pure choice-list correction, not a
+    # remap of real data.
     FARM_TYPE_CHOICES = [
         ('Irrigated', 'Irrigated'),
-        ('Rainfed', 'Rainfed'),
-        ('Upland', 'Upland'),
-        ('Lowland', 'Lowland'),
+        ('Rainfed Upland', 'Rainfed Upland'),
+        ('Rainfed Lowland', 'Rainfed Lowland'),
+        ('Urban or Peri-Urban', 'Urban or Peri-Urban'),
     ]
     CROPPING_SCHEDULE_CHOICES = [
         ('Single Cropping', 'Single Cropping'),

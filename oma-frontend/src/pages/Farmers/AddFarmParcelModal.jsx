@@ -30,6 +30,21 @@ const PARCEL_NUMBER_PARTS = [
 // only the format (not a confirmed fixed prefix) is known, this stays a
 // plain validated text field rather than a segmented input.
 const TAX_DECLARATION_RE = /^\d{2}-\d{3}-\d{5}-\d{4}-\d{4}$/
+// Mirrors core.validators.RSBSA_PATTERNS/validate_rsbsa exactly — the land
+// owner (Tenant/Lessee parcels) is a different person from the farmer, so
+// this can't reuse SegmentedIdInput's fixed-prefix-plus-own-barangay-code
+// pattern above (that's locked to the CURRENT farmer's own barangay); a
+// plain validated text field is the right shape here, same as
+// tax_declaration_number just above.
+const RSBSA_PATTERNS = [
+  /^01-33-02-\d{3}-\d{6}$/,
+  /^BF-01-033-02-\d{3}-\d{8}$/,
+  /^01-033-02-\d{3}-\d{6}$/,
+  /^BF-01-033-02-\d{3}-\d{6}$/,
+]
+const isValidRsbsa = (value) => !value || RSBSA_PATTERNS.some(re => re.test(value))
+const RSBSA_FORMAT_ERROR = 'Invalid RSBSA number. Expected one of: 01-33-02-014-058212, ' +
+  'BF-01-033-02-023-00000033, 01-033-02-019-000151, or BF-01-033-02-004-000007.'
 
 const CROP_OPTIONS = [
   'Palay (Rice)', 'Corn (Mais)', 'Onion', 'Garlic', 'Tomato',
@@ -50,7 +65,13 @@ const OWNERSHIP_OPTIONS = ['Owned', 'Borrowed', 'Rented', 'Organization-Owned']
 // field's smart-filtering below (Batch F) — was already used here for the
 // "No. of Trees" field.
 const PERENNIAL_CROPS = ['Mango', 'Cacao (Kakaw)', 'Banana (Saging)', 'Coffee (Kape)', 'Other Fruits']
-const FARM_TYPE_OPTIONS = ['Irrigated Lowland', 'Rainfed Lowland', 'Upland', 'Highland', 'Other']
+// Matches FarmParcel.FARM_TYPE_CHOICES on the backend exactly — the DA
+// RSBSA Enrollment Form's own Farm Type legend. The previous list
+// ('Irrigated Lowland'/'Rainfed Lowland'/'Upland'/'Highland'/'Other') didn't
+// match any real backend choice and would have been rejected by the
+// serializer's auto-generated ChoiceField on save (confirmed zero real
+// parcels had ever hit this — every existing row has farm_type unset).
+const FARM_TYPE_OPTIONS = ['Irrigated', 'Rainfed Upland', 'Rainfed Lowland', 'Urban or Peri-Urban']
 // Must match FarmParcel.CROPPING_SCHEDULE_CHOICES on the backend exactly —
 // the previous list ('Single Crop' / 'Double Crop' / 'Year-Round' /
 // 'Seasonal') didn't match any real model choice and silently failed to save.
@@ -67,6 +88,8 @@ const makeParcel = (n) => ({
   parcel_number: '',
   area_hectares: '',
   land_ownership: 'Owner',
+  land_owner_name: '',
+  land_owner_rsbsa_number: '',
   tax_declaration_number: '',
   farm_status: 'Active',
   barangay: '',
@@ -200,12 +223,44 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
         <div>
           <label className={labelCls}>Land Ownership</label>
           <select className={baseInputClasses} value={parcel.land_ownership}
-            onChange={e => set('land_ownership', e.target.value)}>
+            onChange={e => {
+              const next = e.target.value
+              set('land_ownership', next)
+              // RSBSA form only asks for the land owner when the farmer
+              // isn't the registered owner — clear stale values the moment
+              // ownership switches back to Owner so a leftover name/RSBSA
+              // from a prior Tenant/Lessee selection never gets submitted.
+              if (next !== 'Tenant' && next !== 'Lessee') {
+                set('land_owner_name', '')
+                set('land_owner_rsbsa_number', '')
+              }
+            }}>
             <option value="Owner">Owner</option>
             <option value="Tenant">Tenant</option>
             <option value="Lessee">Lessee</option>
           </select>
         </div>
+        {(parcel.land_ownership === 'Tenant' || parcel.land_ownership === 'Lessee') && (
+          <>
+            <div>
+              <label className={labelCls}>Land Owner Name *</label>
+              <input className={baseInputClasses} required value={parcel.land_owner_name}
+                placeholder="First Middle Last"
+                onChange={e => set('land_owner_name', e.target.value)} />
+            </div>
+            <div>
+              <label className={labelCls}>Land Owner RSBSA Number</label>
+              <input className={baseInputClasses} value={parcel.land_owner_rsbsa_number}
+                placeholder="01-33-02-014-058212"
+                onChange={e => set('land_owner_rsbsa_number', e.target.value)} />
+              {parcel.land_owner_rsbsa_number && !isValidRsbsa(parcel.land_owner_rsbsa_number) ? (
+                <p className="mt-1 text-[11px] text-rose-500">{RSBSA_FORMAT_ERROR}</p>
+              ) : (
+                <p className="mt-1 text-[11px] text-[#A8BCA8]">Optional — if the land owner is also RSBSA-registered.</p>
+              )}
+            </div>
+          </>
+        )}
         <div>
           <label className={labelCls}>Tax Dec Number</label>
           <input className={baseInputClasses} value={parcel.tax_declaration_number}
@@ -458,6 +513,16 @@ function AddFarmParcelModal({ farmerId, onClose, onSuccess }) {
         setError(`Parcel ${parcels.indexOf(p) + 1}: Tax declaration number format is invalid.`)
         return false
       }
+      if (p.land_ownership === 'Tenant' || p.land_ownership === 'Lessee') {
+        if (!p.land_owner_name.trim()) {
+          setError(`Parcel ${parcels.indexOf(p) + 1}: Land Owner Name is required for a Tenant or Lessee parcel.`)
+          return false
+        }
+      }
+      if (p.land_owner_rsbsa_number && !isValidRsbsa(p.land_owner_rsbsa_number)) {
+        setError(`Parcel ${parcels.indexOf(p) + 1}: ${RSBSA_FORMAT_ERROR}`)
+        return false
+      }
       // Cross-field rule: Parcel Number required once Tax Declaration Number
       // is provided (no reverse rule) — same check the backend enforces.
       if (p.tax_declaration_number.trim() && !p.parcel_number) {
@@ -478,6 +543,8 @@ function AddFarmParcelModal({ farmerId, onClose, onSuccess }) {
           parcel_number: parcel.parcel_number,
           area_hectares: parseFloat(parcel.area_hectares),
           land_ownership: parcel.land_ownership,
+          land_owner_name: parcel.land_owner_name,
+          land_owner_rsbsa_number: parcel.land_owner_rsbsa_number,
           tax_declaration_number: parcel.tax_declaration_number,
           farm_status: parcel.farm_status,
           barangay: parcel.barangay,

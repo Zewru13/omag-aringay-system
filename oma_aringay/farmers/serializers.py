@@ -61,6 +61,8 @@ class FarmParcelSerializer(serializers.ModelSerializer):
             'parcel_number',
             'area_hectares',
             'land_ownership',
+            'land_owner_name',
+            'land_owner_rsbsa_number',
             'tax_declaration_number',
             'commodity_type',
             'commodity_name',
