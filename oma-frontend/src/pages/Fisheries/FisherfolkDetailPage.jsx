@@ -19,12 +19,11 @@ import PondModal from './PondModal.jsx'
 import BulkPondModal from './BulkPondModal.jsx'
 
 const HISTORY_COLUMNS = [
-  { key: 'program_name', label: 'Program' },
-  { key: 'program_type', label: 'Type' },
+  { key: 'assistance_type', label: 'Assistance Type' },
+  { key: 'source_agency', label: 'Source Agency' },
+  { key: 'quantity', label: 'Quantity' },
   { key: 'season', label: 'Season' },
   { key: 'year', label: 'Year' },
-  { key: 'quantity_given', label: 'Qty Given' },
-  { key: 'unit', label: 'Unit' },
   { key: 'date_given', label: 'Date Given' },
 ]
 
@@ -194,8 +193,8 @@ function FisherfolkDetailPage() {
     setIsLoadingHistory(true)
     setHistoryError('')
     try {
-      const response = await api.get(`/interventions/fisherfolk-history/${id}/`)
-      setHistory(Array.isArray(response.data) ? response.data : [])
+      const response = await api.get('/interventions/fisherfolk-beneficiaries/adhoc/', { params: { fisherfolk: id } })
+      setHistory(Array.isArray(response.data) ? response.data : (response.data.results || []))
     } catch {
       setHistoryError('Unable to load assistance history.')
     } finally {

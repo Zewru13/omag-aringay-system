@@ -156,8 +156,8 @@ export default function MyOrgReportingSection({ domain, orgId, orgName }) {
                     <td className="px-4 py-2 text-cz-text">
                       {domain.key === 'farmers_org' ? rec.farmer_full_name : rec.fisherfolk_full_name}
                     </td>
-                    <td className="px-4 py-2 text-cz-text-2">{rec.assistance_type || (rec.program ? labels.orgReporting.programDistribution : labels.common.unknown)}</td>
-                    <td className="px-4 py-2 text-cz-text-2">{rec.quantity_given ? `${rec.quantity_given} ${rec.unit || ''}` : (rec.quantity || '—')}</td>
+                    <td className="px-4 py-2 text-cz-text-2">{rec.assistance_type || labels.common.unknown}</td>
+                    <td className="px-4 py-2 text-cz-text-2">{rec.quantity || '—'}</td>
                     <td className="px-4 py-2 text-cz-text-2">{labels.common.formatDate(rec.date_given)}</td>
                     <td className="px-4 py-2 text-right">
                       <button

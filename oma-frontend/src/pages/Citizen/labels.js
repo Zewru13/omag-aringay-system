@@ -1043,7 +1043,6 @@ export const labels = {
       dateReceived: 'Petsa natanggap',
       remarks: 'Remarks',
     },
-    programDistribution: 'Pamamahagi ng Programa',
   },
 
   // ── MyOrgReportingSection ──────────────────────────────────────────────
@@ -1097,7 +1096,6 @@ export const labels = {
       quantity: 'Dami',
       dateGiven: 'Petsa ibinigay',
     },
-    programDistribution: 'Pamamahagi ng Programa',
     errors: {
       loadHistoryFailed: 'Hindi makuha ang mga na-report ninyo.',
     },
@@ -1280,9 +1278,6 @@ export const labels = {
       quantityPlaceholder: 'hal. 2 sako, 1 unit',
       sourceAgency: 'Galing na ahensya',
       season: 'Season',
-      program: 'Ikabit sa isang programa (opsyonal)',
-      programHelp: 'Iwanang walang pili para maitala ito nang mag-isa, gaya ng dati.',
-      programNone: 'Walang programa — mag-isang record',
       remarks: 'Remarks',
     },
     errors: {
@@ -1323,9 +1318,6 @@ export const labels = {
       sourceAgency: 'Galing na ahensya',
       season: 'Season',
       description: 'Deskripsyon',
-      program: 'Ikabit sa isang programa (opsyonal)',
-      programHelp: 'Ang miyembrong naka-enroll na sa programang ito ay lalaktawan, hindi haharangin.',
-      programNone: 'Walang programa — mag-isang record',
     },
     errors: {
       requiredFields: 'Kailangan po ang uri ng tulong at petsa.',

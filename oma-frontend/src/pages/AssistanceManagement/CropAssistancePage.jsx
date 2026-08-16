@@ -20,10 +20,10 @@ import { FARMER_DISTRIBUTION_DOMAIN } from './distributionDomains.js'
 // (Batch 6: absorbed from production.models.CropAssistanceRecord).
 const ASSISTANCE_TYPE_OPTIONS = ['Fertilizer', 'Seeds', 'Equipment', 'Cash Assistance', 'Training', 'Other']
 const SEASON_OPTIONS = ['Dry', 'Wet']
-// Batch C — matches interventions.models.InterventionProgram.SourceOfProgram
-// exactly (minus its own 'Other', appended by ComboboxWithOther). This field
-// was a plain free-text input before; source_agency itself is still a free
-// CharField on the backend, so this is a frontend-only UX reconciliation.
+// Batch C — a shared, reconciled choice set (minus its own 'Other', appended
+// by ComboboxWithOther). This field was a plain free-text input before;
+// source_agency itself is still a free CharField on the backend, so this
+// is a frontend-only UX reconciliation.
 const SOURCE_AGENCY_OPTIONS = [
   'LGU - Aringay',
   'Office of the Provincial Agriculturist',
@@ -156,19 +156,9 @@ function AddAssistanceModal({ onClose, onSuccess }) {
   const [form, setForm] = useState({
     assistance_type: '', description: '', quantity: '', date_received: '',
     source_agency: '', source_agency_other: '', season: '', year: CURRENT_YEAR,
-    // Batch C Step 2 — optional; program stays null (ad-hoc) unless the
-    // user actively picks one from the dropdown below.
-    program: '',
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const [programs, setPrograms] = useState([])
-
-  useEffect(() => {
-    api.get('/interventions/programs/')
-      .then((r) => setPrograms((Array.isArray(r.data) ? r.data : (r.data.results || [])).filter((p) => p.is_active)))
-      .catch(() => setPrograms([]))
-  }, [])
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
@@ -183,7 +173,7 @@ function AddAssistanceModal({ onClose, onSuccess }) {
     }
     setError(''); setIsSubmitting(true)
     try {
-      const { description, date_received, source_agency_other, program, ...rest } = form
+      const { description, date_received, source_agency_other, ...rest } = form
       const sourceAgency = form.source_agency === 'Other' ? source_agency_other.trim() : form.source_agency
       await api.post('/interventions/beneficiaries/adhoc/', {
         ...rest,
@@ -191,7 +181,6 @@ function AddAssistanceModal({ onClose, onSuccess }) {
         remarks: description,
         date_given: date_received,
         farmer: farmer.id,
-        ...(program ? { program } : {}),
       })
       showToast('Crop assistance record added.', 'success')
       onSuccess(); onClose()
@@ -253,14 +242,6 @@ function AddAssistanceModal({ onClose, onSuccess }) {
 
         <FormField label="Description">
           <textarea rows={2} className={baseInputClasses} value={form.description} onChange={(e) => set('description', e.target.value)} />
-        </FormField>
-
-        <FormField label="Attach to a formal program (optional)">
-          <select className={baseInputClasses} value={form.program} onChange={(e) => set('program', e.target.value)}>
-            <option value="">No program — standalone record</option>
-            {programs.map((p) => <option key={p.id} value={p.id}>{p.program_name} ({p.season} {p.year})</option>)}
-          </select>
-          <p className="mt-1 text-[11px] text-[#7A8E7A]">Leave unselected to log this as a standalone record, same as today.</p>
         </FormField>
 
         {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}

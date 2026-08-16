@@ -11,8 +11,6 @@ import FarmersHub from "./pages/Farmers/FarmersHub.jsx";
 import FisherfolkDetailPage from "./pages/Fisheries/FisherfolkDetailPage.jsx";
 import FisherfolkHub from "./pages/Fisherfolk/FisherfolkHub.jsx";
 import FisheriesSettingsHub from "./pages/FisheriesSettings/FisheriesSettingsHub.jsx";
-import InterventionsPage from "./pages/Interventions/InterventionsPage.jsx";
-import ProgramDetailPage from "./pages/Interventions/ProgramDetailPage.jsx";
 import LoginPage from "./pages/Login/LoginPage.jsx";
 import ForceChangePasswordPage from "./pages/Auth/ForceChangePasswordPage.jsx";
 import VerifyEmailPage from "./pages/Auth/VerifyEmailPage.jsx";
@@ -148,22 +146,6 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["ADMIN"]}>
                 <FisheriesSettingsHub />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/interventions"
-            element={
-              <ProtectedRoute allowedRoles={["ADMIN"]}>
-                <InterventionsPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/interventions/:id"
-            element={
-              <ProtectedRoute allowedRoles={["ADMIN"]}>
-                <ProgramDetailPage />
               </ProtectedRoute>
             }
           />

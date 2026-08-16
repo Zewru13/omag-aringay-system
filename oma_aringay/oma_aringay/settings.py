@@ -86,6 +86,11 @@ DATABASES = {
         'OPTIONS': {
             'ssl_disabled': True,
             'auth_plugin': 'mysql_native_password',
+            # This machine's mysql-connector-python 9.7.0 C extension raises
+            # a broken AttributeError ('MySQLInterfaceError' object has no
+            # attribute 'msg') on every connection attempt, masking the real
+            # error. The pure-Python implementation connects fine.
+            'use_pure': True,
         },
     }
 }

@@ -2,44 +2,7 @@ from rest_framework import serializers
 
 from core.validators import validate_not_future_date
 
-from .models import BeneficiaryRecord, FisherfolkBeneficiaryRecord, InterventionProgram
-
-
-class InterventionProgramSerializer(serializers.ModelSerializer):
-    actual_beneficiaries = serializers.SerializerMethodField()
-
-    class Meta:
-        model = InterventionProgram
-        fields = [
-            'id',
-            'program_name',
-            'program_type',
-            'source_of_program',
-            'source_other_specify',
-            'season',
-            'year',
-            'description',
-            'target_beneficiaries',
-            'actual_beneficiaries',
-            'is_active',
-            'created_by',
-            'date_created',
-        ]
-        read_only_fields = ['id', 'created_by', 'date_created', 'actual_beneficiaries']
-
-    def get_actual_beneficiaries(self, obj):
-        farmer_count = obj.beneficiary_records.count()
-        fisherfolk_count = obj.fisherfolk_beneficiary_records.count()
-        return farmer_count + fisherfolk_count
-
-    def validate(self, attrs):
-        source = attrs.get('source_of_program', '')
-        specify = attrs.get('source_other_specify', '').strip()
-        if source == 'Other' and not specify:
-            raise serializers.ValidationError(
-                {'source_other_specify': 'Please specify the source of the program.'}
-            )
-        return attrs
+from .models import BeneficiaryRecord, FisherfolkBeneficiaryRecord
 
 
 class BeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
@@ -54,18 +17,14 @@ class BeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
         model = BeneficiaryRecord
         fields = [
             'id',
-            'program',
             'farmer',
             'farmer_full_name',
             'farmer_rsbsa_number',
             'farmer_barangay',
-            'quantity_given',
-            'unit',
             'date_given',
             'remarks',
             'recorded_by',
             'recorded_by_name',
-            # Ad-hoc-only fields (Batch 6) — blank on program-based records.
             'assistance_type',
             'source_agency',
             'quantity',
@@ -82,10 +41,6 @@ class BeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
             'recorded_by_name',
             'attributed_organization_name',
         ]
-        extra_kwargs = {
-            'program': {'required': False},
-        }
-        validators = []
 
     def get_recorded_by_name(self, obj):
         return obj.recorded_by.full_name if obj.recorded_by else None
@@ -93,28 +48,6 @@ class BeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
     def validate_date_given(self, value):
         validate_not_future_date(value, 'Date received')
         return value
-
-    def validate(self, attrs):
-        program = attrs.get('program')
-        farmer = attrs.get('farmer') or getattr(self.instance, 'farmer', None)
-
-        if program is None:
-            program = self.context.get('program')
-
-        if (
-            program
-            and farmer
-            and BeneficiaryRecord.objects.filter(
-                program=program,
-                farmer=farmer,
-            ).exclude(pk=getattr(self.instance, 'pk', None)).exists()
-        ):
-            raise serializers.ValidationError(
-                'This farmer has already received assistance under this program. '
-                'Duplicate distributions are not allowed.'
-            )
-
-        return attrs
 
 
 class BeneficiaryRecordUpdateSerializer(BeneficiaryRecordCreateSerializer):
@@ -149,19 +82,15 @@ class FisherfolkBeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
         model = FisherfolkBeneficiaryRecord
         fields = [
             'id',
-            'program',
             'fisherfolk',
             'fisherfolk_full_name',
             'fisherfolk_lgu_registration_number',
             'fisherfolk_barangay',
             'fisherfolk_type',
-            'quantity_given',
-            'unit',
             'date_given',
             'remarks',
             'recorded_by',
             'recorded_by_name',
-            # Ad-hoc-only fields (Batch 6) — blank on program-based records.
             'assistance_type',
             'source_agency',
             'quantity',
@@ -180,10 +109,6 @@ class FisherfolkBeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
             'recorded_by_name',
             'attributed_fisherfolk_organization_name',
         ]
-        extra_kwargs = {
-            'program': {'required': False},
-        }
-        validators = []
 
     def get_recorded_by_name(self, obj):
         return obj.recorded_by.full_name if obj.recorded_by else None
@@ -191,28 +116,6 @@ class FisherfolkBeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
     def validate_date_given(self, value):
         validate_not_future_date(value, 'Date received')
         return value
-
-    def validate(self, attrs):
-        program = attrs.get('program')
-        fisherfolk = attrs.get('fisherfolk') or getattr(self.instance, 'fisherfolk', None)
-
-        if program is None:
-            program = self.context.get('program')
-
-        if (
-            program
-            and fisherfolk
-            and FisherfolkBeneficiaryRecord.objects.filter(
-                program=program,
-                fisherfolk=fisherfolk,
-            ).exclude(pk=getattr(self.instance, 'pk', None)).exists()
-        ):
-            raise serializers.ValidationError(
-                'This fisherfolk has already received assistance under this program. '
-                'Duplicate distributions are not allowed.'
-            )
-
-        return attrs
 
 
 class FisherfolkBeneficiaryRecordUpdateSerializer(FisherfolkBeneficiaryRecordCreateSerializer):
@@ -227,14 +130,7 @@ class OrganizationDistributionRequestSerializer(serializers.Serializer):
     Farmers/FisherfolkOrganizationDistributeAssistanceView). Validates only
     the assistance details applied identically to every current member of
     the target organization — member resolution and the per-member
-    program-skip/30-day-cross-org-flag logic are the view's job, not this
-    serializer's.
-
-    assistance_type and date_given are required HERE even though both are
-    blank=True on the models (Batch 6's dual-mode design allows a blank
-    assistance_type for pure program-based records) — a bulk distribution
-    always needs a well-defined type for the 30-day cross-org safeguard to
-    compare against, and a date to snapshot/window against.
+    30-day-cross-org-flag logic are the view's job, not this serializer's.
 
     `description` is the generic free-text field named in the batch brief;
     the view maps it to `remarks` for BeneficiaryRecord (no description
@@ -247,9 +143,6 @@ class OrganizationDistributionRequestSerializer(serializers.Serializer):
     quantity = serializers.CharField(required=False, allow_blank=True, default='')
     description = serializers.CharField(required=False, allow_blank=True, default='')
     season = serializers.CharField(required=False, allow_blank=True, default='')
-    program = serializers.PrimaryKeyRelatedField(
-        queryset=InterventionProgram.objects.all(), required=False, allow_null=True, default=None,
-    )
 
     def validate_assistance_type(self, value):
         valid_choices = dict(self.context['model'].AssistanceType.choices)

@@ -8,8 +8,8 @@ import { OrgScreen } from './OrgDashboardParts.jsx'
 // to seven members is seven beneficiary records — but the reference reads
 // back one card per distribution ("Ibinigay sa 7 kasapi"). So the rows are
 // grouped here by what actually makes them one distribution: same assistance
-// type, same quantity, same date, same program, same reporter. The recipient
-// count on each card is the size of that real group, never a literal.
+// type, same quantity, same date, same reporter. The recipient count on
+// each card is the size of that real group, never a literal.
 //
 // PINAKABAGO ("latest") is conditional and earned: the endpoint already
 // orders by -date_given, -id, so the first group is genuinely the most
@@ -63,9 +63,9 @@ export default function OrgReportHistoryScreen({ domain, orgName, onBack, tabBar
   const groups = useMemo(() => {
     const map = new Map()
     rows.forEach((rec) => {
-      const type = rec.assistance_type || (rec.program ? labels.orgReporting.programDistribution : labels.common.unknown)
-      const amount = rec.quantity || (rec.quantity_given ? `${rec.quantity_given} ${rec.unit || ''}`.trim() : '')
-      const key = [type, amount, rec.date_given, rec.program || '', rec.recorded_by_name || ''].join('|')
+      const type = rec.assistance_type || labels.common.unknown
+      const amount = rec.quantity || ''
+      const key = [type, amount, rec.date_given, rec.recorded_by_name || ''].join('|')
       if (!map.has(key)) {
         map.set(key, {
           key, type, amount, dateGiven: rec.date_given,

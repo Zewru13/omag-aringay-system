@@ -42,66 +42,10 @@ def _resolve_attributed_organization(candidates, own_barangay):
     return None
 
 
-class InterventionProgram(models.Model):
-    class ProgramType(models.TextChoices):
-        SEEDS = 'Seeds', 'Seeds'
-        FERTILIZER = 'Fertilizer', 'Fertilizer'
-        RFFA_CASH = 'RFFA Cash', 'RFFA Cash'
-        EQUIPMENT = 'Equipment', 'Equipment'
-        OTHER = 'Other', 'Other'
-
-    class Season(models.TextChoices):
-        DRY = 'Dry', 'Dry'
-        WET = 'Wet', 'Wet'
-
-    class SourceOfProgram(models.TextChoices):
-        LGU = 'LGU - Aringay', 'LGU - Aringay'
-        OPA = 'Office of the Provincial Agriculturist', 'Office of the Provincial Agriculturist'
-        DA = 'Department of Agriculture (DA)', 'Department of Agriculture (DA)'
-        DAR = 'Department of Agrarian Reform (DAR)', 'Department of Agrarian Reform (DAR)'
-        NGO = 'Non-Government Organization (NGO)', 'Non-Government Organization (NGO)'
-        OTHER = 'Other', 'Other'
-
-    program_name = models.CharField(max_length=150)
-    program_type = models.CharField(max_length=30, choices=ProgramType.choices)
-    source_of_program = models.CharField(
-        max_length=60,
-        choices=SourceOfProgram.choices,
-        default=SourceOfProgram.LGU,
-    )
-    source_other_specify = models.CharField(max_length=150, blank=True)
-    season = models.CharField(max_length=10, choices=Season.choices)
-    year = models.PositiveIntegerField()
-    description = models.TextField(blank=True)
-    target_beneficiaries = models.IntegerField(null=True, blank=True)
-    is_active = models.BooleanField(default=True)
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='created_intervention_programs',
-    )
-    date_created = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f'{self.program_name} - {self.season} {self.year}'
-
-
-# Batch 6: BeneficiaryRecord now serves two modes:
-#   - Program-based (original): program set, quantity_given/unit set, the six
-#     ad-hoc-only fields below left blank. Created via
-#     /interventions/programs/<id>/beneficiaries/ (AddBeneficiaryModal), tied
-#     to a formal InterventionProgram campaign.
-#   - Ad-hoc (absorbed from production.CropAssistanceRecord): program=null,
-#     assistance_type/source_agency/quantity/season/year set, quantity_given/
-#     unit left blank. This is a standalone assistance log entry with no
-#     campaign — what CropAssistancePage.jsx represents.
-# unique_together=[['program','farmer']] still holds: SQL/MySQL treats every
-# NULL as distinct for uniqueness purposes, so multiple program=null rows for
-# the same farmer are correctly allowed (ad-hoc assistance isn't one-time-
-# ever), while duplicate (program, farmer) pairs for a real program still
-# correctly reject.
+# Batch: the formal InterventionProgram campaign system (and its
+# quantity_given/unit fields, program-mode-only and never used by a single
+# real row) was fully removed — every BeneficiaryRecord is now what used to
+# be called "ad-hoc": a standalone assistance log entry, no campaign.
 class BeneficiaryRecord(models.Model):
     class AssistanceType(models.TextChoices):
         # Mirrors production.models.CropAssistanceRecord.ASSISTANCE_TYPE_CHOICES exactly.
@@ -116,20 +60,11 @@ class BeneficiaryRecord(models.Model):
         DRY = 'Dry', 'Dry'
         WET = 'Wet', 'Wet'
 
-    program = models.ForeignKey(
-        InterventionProgram,
-        on_delete=models.CASCADE,
-        related_name='beneficiary_records',
-        null=True,
-        blank=True,
-    )
     farmer = models.ForeignKey(
         Farmer,
         on_delete=models.CASCADE,
         related_name='beneficiary_records',
     )
-    quantity_given = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    unit = models.CharField(max_length=50, blank=True)
     date_given = models.DateField()
     remarks = models.TextField(blank=True)
     recorded_by = models.ForeignKey(
@@ -140,8 +75,7 @@ class BeneficiaryRecord(models.Model):
         related_name='recorded_beneficiary_records',
     )
 
-    # Ad-hoc-only fields (blank when program is set) — absorbed from
-    # production.models.CropAssistanceRecord (Batch 6).
+    # Absorbed from production.models.CropAssistanceRecord (Batch 6).
     assistance_type = models.CharField(max_length=30, choices=AssistanceType.choices, blank=True)
     source_agency = models.CharField(max_length=150, blank=True)
     quantity = models.CharField(max_length=100, blank=True)
@@ -158,9 +92,6 @@ class BeneficiaryRecord(models.Model):
         related_name='attributed_beneficiary_records',
     )
 
-    class Meta:
-        unique_together = [['program', 'farmer']]
-
     def save(self, *args, **kwargs):
         if self.farmer_id:
             farmer = self.farmer
@@ -171,16 +102,14 @@ class BeneficiaryRecord(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        label = self.program.program_name if self.program else (self.assistance_type or 'Ad-hoc')
-        return f'{label} - {self.farmer.full_name}'
+        return f'{self.assistance_type or "Ad-hoc"} - {self.farmer.full_name}'
 
 
-# Batch 6: same program-based / ad-hoc duality as BeneficiaryRecord above.
-# Ad-hoc rows (program=null) absorb fisheries.models.FisheriesAssistanceRecord
-# — which is why this model additionally carries `description` as a field
-# distinct from `remarks` (the retiring model had both, holding genuinely
-# different data — description was a required summary, remarks was a free
-# optional note — so both are preserved rather than collapsed into one).
+# Absorbs fisheries.models.FisheriesAssistanceRecord — which is why this
+# model additionally carries `description` as a field distinct from
+# `remarks` (the retiring model had both, holding genuinely different data —
+# description was a required summary, remarks was a free optional note — so
+# both are preserved rather than collapsed into one).
 class FisherfolkBeneficiaryRecord(models.Model):
     class AssistanceType(models.TextChoices):
         # Mirrors fisheries.models.FisheriesAssistanceRecord.ASSISTANCE_TYPE_CHOICES exactly.
@@ -193,20 +122,11 @@ class FisherfolkBeneficiaryRecord(models.Model):
         TRAINING = 'Training', 'Training'
         OTHER = 'Other', 'Other'
 
-    program = models.ForeignKey(
-        InterventionProgram,
-        on_delete=models.CASCADE,
-        related_name='fisherfolk_beneficiary_records',
-        null=True,
-        blank=True,
-    )
     fisherfolk = models.ForeignKey(
         Fisherfolk,
         on_delete=models.CASCADE,
         related_name='beneficiary_records',
     )
-    quantity_given = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    unit = models.CharField(max_length=50, blank=True)
     date_given = models.DateField()
     remarks = models.TextField(blank=True)
     recorded_by = models.ForeignKey(
@@ -217,8 +137,7 @@ class FisherfolkBeneficiaryRecord(models.Model):
         related_name='recorded_fisherfolk_beneficiary_records',
     )
 
-    # Ad-hoc-only fields (blank when program is set) — absorbed from
-    # fisheries.models.FisheriesAssistanceRecord (Batch 6).
+    # Absorbed from fisheries.models.FisheriesAssistanceRecord (Batch 6).
     assistance_type = models.CharField(max_length=30, choices=AssistanceType.choices, blank=True)
     source_agency = models.CharField(max_length=150, blank=True)
     quantity = models.CharField(max_length=100, blank=True)
@@ -239,9 +158,6 @@ class FisherfolkBeneficiaryRecord(models.Model):
         related_name='attributed_beneficiary_records',
     )
 
-    class Meta:
-        unique_together = [['program', 'fisherfolk']]
-
     def save(self, *args, **kwargs):
         if self.fisherfolk_id:
             fisherfolk = self.fisherfolk
@@ -255,5 +171,4 @@ class FisherfolkBeneficiaryRecord(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        label = self.program.program_name if self.program else (self.assistance_type or 'Ad-hoc')
-        return f'{label} - {self.fisherfolk.full_name}'
+        return f'{self.assistance_type or "Ad-hoc"} - {self.fisherfolk.full_name}'

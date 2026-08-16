@@ -21,10 +21,10 @@ import { FISHERFOLK_DISTRIBUTION_DOMAIN } from './distributionDomains.js'
 // Must match interventions.models.FisherfolkBeneficiaryRecord.AssistanceType exactly
 // (Batch 6: absorbed from fisheries.models.FisheriesAssistanceRecord).
 const ASSISTANCE_TYPE_OPTIONS = ['Fishing Gear', 'Boat/Vessel', 'Fingerlings/Seeds', 'Feed', 'Cash Assistance', 'Equipment', 'Training', 'Other']
-// Batch C — reconciled to interventions.models.InterventionProgram.SourceOfProgram's
-// real choice set (was a bare select with a dead 'Others' sentinel — no companion
-// field ever existed for it, so picking it silently did nothing; see Batch B's
-// audit). Now a proper ComboboxWithOther like every other source_agency field.
+// Batch C — reconciled to a shared, real choice set (was a bare select with
+// a dead 'Others' sentinel — no companion field ever existed for it, so
+// picking it silently did nothing; see Batch B's audit). Now a proper
+// ComboboxWithOther like every other source_agency field.
 const SOURCE_OPTIONS = [
   'LGU - Aringay',
   'Office of the Provincial Agriculturist',
@@ -210,8 +210,8 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
 
 // ── Main Page ────────────────────────────────────────────────────────────────
 // Relocated from FisheriesMonitoringPage.jsx's "Assistance" tab (Batch 5).
-// Batch 6: repointed to interventions.FisherfolkBeneficiaryRecord (program=null)
-// at /interventions/fisherfolk-beneficiaries/adhoc/ — fisheries.FisheriesAssistanceRecord
+// Batch 6: repointed to interventions.FisherfolkBeneficiaryRecord at
+// /interventions/fisherfolk-beneficiaries/adhoc/ — fisheries.FisheriesAssistanceRecord
 // and its endpoint were retired; this page's data was migrated, not lost.
 
 export default function FisheriesAssistancePage({ asTab = false }) {

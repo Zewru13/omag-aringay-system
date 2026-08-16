@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import AvatarInitials from '../../components/UI/AvatarInitials.jsx'
@@ -56,23 +56,15 @@ export default function CitizenDistributeToOrgModal({ domain, orgId, orgName, on
     cash_amount: '',
     description: '',
     season: domain.seasonOptions ? domain.seasonOptions[0] : '',
-    program: '',
   })
 
   const [step, setStep] = useState('form') // 'form' | 'confirm' | 'result'
   const [form, setForm] = useState(emptyForm())
-  const [programs, setPrograms] = useState([])
   const [preview, setPreview] = useState(null)
   const [finalResult, setFinalResult] = useState(null)
   const [isBusy, setIsBusy] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [resultFilter, setResultFilter] = useState('all')
-
-  useEffect(() => {
-    api.get('/interventions/programs/')
-      .then((r) => setPrograms((Array.isArray(r.data) ? r.data : (r.data.results || [])).filter((p) => p.is_active)))
-      .catch(() => setPrograms([]))
-  }, [])
 
   const set = (field, value) => setForm((f) => ({ ...f, [field]: value }))
   const isCashAssistance = form.assistance_type === 'Cash Assistance'
@@ -90,7 +82,6 @@ export default function CitizenDistributeToOrgModal({ domain, orgId, orgName, on
       quantity,
       description: form.description,
       season: form.season,
-      ...(form.program ? { program: form.program } : {}),
       ...(dryRun ? { dry_run: true } : {}),
     }
   }
@@ -240,13 +231,6 @@ export default function CitizenDistributeToOrgModal({ domain, orgId, orgName, on
                 </FormField>
               )}
             </div>
-            <FormField label={L.fields.program} pillLabel>
-              <select className={baseInputClasses} value={form.program} onChange={(e) => set('program', e.target.value)}>
-                <option value="">{L.fields.programNone}</option>
-                {programs.map((p) => <option key={p.id} value={p.id}>{p.program_name} ({p.season} {p.year})</option>)}
-              </select>
-              <p className="mt-1 text-[11px] text-slate-500">{L.fields.programHelp}</p>
-            </FormField>
             <FormField label={L.fields.description} pillLabel>
               <textarea rows={2} className={baseInputClasses} value={form.description} onChange={(e) => set('description', e.target.value)} />
             </FormField>

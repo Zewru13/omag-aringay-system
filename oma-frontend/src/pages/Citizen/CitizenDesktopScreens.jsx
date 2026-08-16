@@ -41,8 +41,8 @@ export function CitizenAssistanceList({ endpoint }) {
             </span>
             <div className="min-w-0 flex-1">
               <p className="truncate text-[14.5px] font-semibold text-cz-text">
-                {rec.assistance_type || (rec.program ? labels.assistanceHistory.programDistribution : labels.common.unknown)}
-                {rec.quantity_given ? ` — ${rec.quantity_given} ${rec.unit || ''}`.trim() : ''}
+                {rec.assistance_type || labels.common.unknown}
+                {rec.quantity ? ` — ${rec.quantity}` : ''}
               </p>
               <p className="truncate text-[12.5px] text-cz-text-2">{rec.source_agency || labels.common.unknown}</p>
             </div>

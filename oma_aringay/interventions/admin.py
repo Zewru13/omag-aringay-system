@@ -1,10 +1,5 @@
 from django.contrib import admin
-from .models import InterventionProgram, BeneficiaryRecord
-
-@admin.register(InterventionProgram)
-class InterventionProgramAdmin(admin.ModelAdmin):
-    # Only use 'id' to avoid schema property mismatch issues
-    list_display = ('id',) 
+from .models import BeneficiaryRecord
 
 @admin.register(BeneficiaryRecord)
 class BeneficiaryRecordAdmin(admin.ModelAdmin):

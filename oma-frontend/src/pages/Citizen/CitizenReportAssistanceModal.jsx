@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { HeartHandshake } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
@@ -10,9 +10,8 @@ import { labels } from './labels.js'
 import { todayISO } from '../../utils/localDate.js'
 
 
-// Batch C — matches interventions.models.InterventionProgram.SourceOfProgram
-// exactly (minus its own 'Other', appended by ComboboxWithOther). Same
-// reconciliation as CropAssistancePage/LogGovernmentAssistanceModal/
+// Batch C — a shared, reconciled choice set (minus 'Other', appended by
+// ComboboxWithOther), same as CropAssistancePage/LogGovernmentAssistanceModal/
 // FisheriesAssistancePage — source_agency is a free CharField on the
 // backend either way, so this is a frontend-only choice-set alignment.
 const SOURCE_AGENCY_OPTIONS = [
@@ -24,8 +23,8 @@ const SOURCE_AGENCY_OPTIONS = [
 ]
 
 // Batch 12: ORGANIZATION citizen's "Report Assistance" form — create AND
-// edit, ad-hoc (program=null), following LogGovernmentAssistanceModal's
-// field set but much simpler: the member is already picked (passed in as
+// edit, following LogGovernmentAssistanceModal's field set but much
+// simpler: the member is already picked (passed in as
 // `member`, sourced from this org's own member-search endpoint — see
 // MyOrgReportingSection), so there's no cross-org farmer/fisherfolk search
 // here the way the staff-facing modal has. Attribution
@@ -46,17 +45,7 @@ export default function CitizenReportAssistanceModal({ domain, member, entry, on
     date_given: entry?.date_given || todayISO(),
     season: entry?.season || (domain.seasonOptions ? domain.seasonOptions[0] : ''),
     remarks: entry?.remarks || '',
-    // Batch C Step 2 — optional, create-only; stays null (ad-hoc) unless picked.
-    program: '',
   })
-  const [programs, setPrograms] = useState([])
-
-  useEffect(() => {
-    if (isEdit) return
-    api.get('/interventions/programs/')
-      .then((r) => setPrograms((Array.isArray(r.data) ? r.data : (r.data.results || [])).filter((p) => p.is_active)))
-      .catch(() => setPrograms([]))
-  }, [isEdit])
 
   const set = (field, value) => setForm((f) => ({ ...f, [field]: value }))
 
@@ -74,7 +63,7 @@ export default function CitizenReportAssistanceModal({ domain, member, entry, on
     setIsSubmitting(true)
     try {
       const year = new Date(form.date_given).getFullYear()
-      const { source_agency_other, program, ...rest } = form
+      const { source_agency_other, ...rest } = form
       const sourceAgency = form.source_agency === 'Other' ? source_agency_other.trim() : form.source_agency
       if (isEdit) {
         await api.patch(domain.detailUrl(entry.id), { ...rest, source_agency: sourceAgency, year })
@@ -85,7 +74,6 @@ export default function CitizenReportAssistanceModal({ domain, member, entry, on
           source_agency: sourceAgency,
           [domain.personField]: domain.memberIdOf(member),
           year,
-          ...(program ? { program } : {}),
         })
         showToast(labels.reportAssistance.successNew, 'success')
       }
@@ -142,15 +130,6 @@ export default function CitizenReportAssistanceModal({ domain, member, entry, on
         ) : (
           <FormField label={labels.reportAssistance.fields.season}>
             <input type="text" className={baseInputClasses} value={form.season} onChange={(e) => set('season', e.target.value)} />
-          </FormField>
-        )}
-        {!isEdit && (
-          <FormField label={labels.reportAssistance.fields.program}>
-            <select className={baseInputClasses} value={form.program} onChange={(e) => set('program', e.target.value)}>
-              <option value="">{labels.reportAssistance.fields.programNone}</option>
-              {programs.map((p) => <option key={p.id} value={p.id}>{p.program_name} ({p.season} {p.year})</option>)}
-            </select>
-            <p className="mt-1 text-[11px] text-slate-500">{labels.reportAssistance.fields.programHelp}</p>
           </FormField>
         )}
         <FormField label={labels.reportAssistance.fields.remarks}>

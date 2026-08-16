@@ -13,7 +13,6 @@ const MODEL_OPTIONS = [
   { label: 'Farmer', value: 'Farmer' },
   { label: 'Farm Parcel', value: 'FarmParcel' },
   { label: 'Fisherfolk', value: 'Fisherfolk' },
-  { label: 'Intervention Program', value: 'InterventionProgram' },
   { label: 'Beneficiary Record', value: 'BeneficiaryRecord' },
   { label: 'Fisherfolk Beneficiary', value: 'FisherfolkBeneficiaryRecord' },
   { label: 'Harvest Record', value: 'HarvestRecord' },

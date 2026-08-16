@@ -1,9 +1,7 @@
 from django.core.management.base import BaseCommand
-from django.utils import timezone
 from accounts.models import User
 from farmers.models import Farmer, FarmParcel
 from fisheries.models import Fisherfolk, AquacultureRecord, CaptureRecord, VendorRecord
-from interventions.models import InterventionProgram, BeneficiaryRecord
 from production.models import HarvestRecord
 
 
@@ -21,9 +19,6 @@ class Command(BaseCommand):
 
         # Create fisherfolk
         self.create_fisherfolk()
-
-        # Create intervention program
-        self.create_intervention_program(farmers)
 
         # Create harvest records
         self.create_harvest_records(farmers)
@@ -230,33 +225,6 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS('✓ Vendor fisherfolk created'))
         else:
             self.stdout.write('  Vendor fisherfolk already exists, skipping')
-
-    def create_intervention_program(self, farmers):
-        """Create an intervention program with 3 farmers as beneficiaries"""
-        if not InterventionProgram.objects.filter(program_name='Rice Seeds Distribution 2024').exists():
-            program = InterventionProgram.objects.create(
-                program_name='Rice Seeds Distribution 2024',
-                program_type='Seeds',
-                source_of_program='Department of Agriculture (DA)',
-                season='Dry',
-                year=2024,
-                is_active=True,
-            )
-
-            # Add 3 farmers as beneficiaries
-            if farmers and len(farmers) >= 3:
-                for i in range(3):
-                    BeneficiaryRecord.objects.create(
-                        program=program,
-                        farmer=farmers[i],
-                        quantity_given=50,
-                        unit='kg',
-                        date_given=timezone.now().date(),
-                    )
-
-            self.stdout.write(self.style.SUCCESS('✓ Intervention program created with beneficiaries'))
-        else:
-            self.stdout.write('  Intervention program already exists, skipping')
 
     def create_harvest_records(self, farmers):
         """Create 2 sample harvest records"""

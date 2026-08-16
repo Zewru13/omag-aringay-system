@@ -38,7 +38,6 @@ const EMPTY_FORM = (domain) => ({
   cash_amount: '',
   description: '',
   season: domain.seasonOptions ? domain.seasonOptions[0] : '',
-  program: '',
 })
 
 function formatDateLong(iso) {
@@ -66,18 +65,11 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
   const [org, setOrg] = useState(null)
 
   const [form, setForm] = useState(EMPTY_FORM(domain))
-  const [programs, setPrograms] = useState([])
   const [preview, setPreview] = useState(null) // dry-run response
   const [finalResult, setFinalResult] = useState(null)
   const [isBusy, setIsBusy] = useState(false)
   const [error, setError] = useState('')
   const [resultFilter, setResultFilter] = useState('all')
-
-  useEffect(() => {
-    api.get('/interventions/programs/')
-      .then((r) => setPrograms((Array.isArray(r.data) ? r.data : (r.data.results || [])).filter((p) => p.is_active)))
-      .catch(() => setPrograms([]))
-  }, [])
 
   useEffect(() => {
     if (!orgSearch.trim()) { setOrgResults([]); return }
@@ -105,7 +97,6 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
       quantity,
       description: form.description,
       season: form.season,
-      ...(form.program ? { program: form.program } : {}),
       ...(dryRun ? { dry_run: true } : {}),
     }
   }
@@ -311,16 +302,6 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
                 </FormField>
               )}
             </div>
-
-            <FormField label="Attach to a Program" pillLabel>
-              <select className={baseInputClasses} value={form.program} onChange={(e) => set('program', e.target.value)}>
-                <option value="">No program — standalone record</option>
-                {programs.map((p) => <option key={p.id} value={p.id}>{p.program_name} ({p.season} {p.year})</option>)}
-              </select>
-              <p className="mt-1 text-[11px] text-[#7A8E7A]">
-                A member already enrolled in this program will be skipped, not blocked — the rest still receive the distribution.
-              </p>
-            </FormField>
 
             <FormField label="Description" pillLabel>
               <textarea rows={2} className={baseInputClasses} value={form.description} onChange={(e) => set('description', e.target.value)} />

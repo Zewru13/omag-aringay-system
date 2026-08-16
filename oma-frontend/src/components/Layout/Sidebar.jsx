@@ -8,7 +8,6 @@ import {
   FileBarChart,
   Fish,
   HandHeart,
-  HeartHandshake,
   HeartPulse,
   History,
   LayoutDashboard,
@@ -125,15 +124,6 @@ const ADMIN_GROUP = {
   icon: ShieldCheck,
   adminOnly: true,
   items: [
-    // Restored (Batch 6) — accidentally dropped in a July 5 sidebar rewrite
-    // unrelated to Interventions itself (the commit also silently dropped
-    // /help and /audit-log links in the same pass); the /interventions route
-    // itself (App.jsx, allowedRoles=["ADMIN"]) was never removed. Placed
-    // here rather than as its own top-level group because it's the only
-    // group in GROUPS whose visibility already matches its admin-only route
-    // restriction — Assistance Management next to it is visible to
-    // EVALUATOR too, which /interventions is not.
-    { to: "/interventions", icon: HeartHandshake, label: "Interventions" },
     { to: "/crop-settings", icon: Leaf, label: "Crop Settings" },
     { to: "/fisheries-settings", icon: Settings2, label: "Fisheries Settings" },
     { to: "/users", icon: UserCog, label: "Users" },

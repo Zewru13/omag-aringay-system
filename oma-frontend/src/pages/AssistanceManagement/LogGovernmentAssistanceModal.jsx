@@ -20,12 +20,9 @@ const ASSISTANCE_TYPE_OPTIONS = [
   'Other',
 ]
 
-// Batch C — reconciled to the exact same real choice set as
-// interventions.models.InterventionProgram.SourceOfProgram (minus its own
-// 'Other', which ComboboxWithOther appends). Previously this file used a
-// bespoke, mismatched list ('LGU'/'MAO'/'BFAR'/'DA'/'NGO'/'Private Donor')
-// with no relationship to the program model's real choices — see Batch C
-// Step 0/1 findings. source_agency itself is still a free CharField on the
+// Batch C — a shared, reconciled choice set (minus 'Other', which
+// ComboboxWithOther appends) used consistently across every assistance
+// logging screen. source_agency itself is still a free CharField on the
 // backend (no choices= constraint), so this is a frontend-only UX
 // reconciliation; existing stored values that don't match this list are
 // left as-is, not coerced.
@@ -76,10 +73,7 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
     status: 'Pending',
     remarks: '',
     description: '',
-    // Batch C Step 2 — optional; stays null (ad-hoc) unless picked below.
-    program: '',
   })
-  const [programs, setPrograms] = useState([])
 
   useEffect(() => {
     let mounted = true
@@ -94,12 +88,6 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
       }
     }
     loadFisherfolk()
-    api.get('/interventions/programs/')
-      .then((r) => {
-        if (!mounted) return
-        setPrograms((Array.isArray(r.data) ? r.data : (r.data.results || [])).filter((p) => p.is_active))
-      })
-      .catch(() => { if (mounted) setPrograms([]) })
     return () => { mounted = false }
   }, [])
 
@@ -185,9 +173,9 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
 
     const selectedYear = new Date(form.date_received).getFullYear()
 
-    // This ad-hoc log (program=null) doesn't use quantity_given/unit/status — those
-    // belong to the program-based beneficiary flow. Folded into remarks below so the
-    // info the clerk entered isn't silently discarded (Batch 6: was fisheries.FisheriesAssistanceRecord).
+    // This model has no dedicated unit/status fields — folded into remarks
+    // below so the info the clerk entered isn't silently discarded (Batch 6:
+    // was fisheries.FisheriesAssistanceRecord).
     const unitNote = !isCashType && unit ? `Unit: ${unit}` : ''
     const statusNote = form.status ? `Status: ${form.status}` : ''
     const combinedRemarks = [statusNote, unitNote, form.remarks].filter(Boolean).join(' | ')
@@ -201,7 +189,6 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
       quantity: form.quantity,
       description: form.description || '',
       remarks: combinedRemarks,
-      ...(form.program ? { program: form.program } : {}),
     }
 
     setIsSubmitting(true)
@@ -371,14 +358,6 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
             value={form.remarks}
             onChange={(e) => set('remarks', e.target.value)}
           />
-        </FormField>
-
-        <FormField label="Attach to a formal program (optional)">
-          <select className={baseInputClasses} value={form.program} onChange={(e) => set('program', e.target.value)}>
-            <option value="">No program — standalone record</option>
-            {programs.map((p) => <option key={p.id} value={p.id}>{p.program_name} ({p.season} {p.year})</option>)}
-          </select>
-          <p className="mt-1 text-[11px] text-slate-500">Leave unselected to log this as a standalone record, same as today.</p>
         </FormField>
 
         <div className="flex justify-end gap-2 pt-2">

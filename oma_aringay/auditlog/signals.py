@@ -10,7 +10,6 @@ from fisheries.models import Fisherfolk
 from interventions.models import (
     BeneficiaryRecord,
     FisherfolkBeneficiaryRecord,
-    InterventionProgram,
 )
 from production.models import HarvestRecord
 
@@ -79,30 +78,17 @@ def on_fisherfolk_delete(sender, instance, **kwargs):
     _log(AuditLogEntry.Action.DELETE, 'Fisherfolk', f'{instance.first_name} {instance.last_name} (LGU: {instance.lgu_registration_number})')
 
 
-# ── interventions.InterventionProgram ─────────────────────────────────────────
-
-@receiver(post_save, sender=InterventionProgram)
-def on_intervention_program_save(sender, instance, created, **kwargs):
-    action = AuditLogEntry.Action.CREATE if created else AuditLogEntry.Action.UPDATE
-    _log(action, 'InterventionProgram', f'{instance.program_name} ({instance.year} {instance.season})')
-
-
-@receiver(post_delete, sender=InterventionProgram)
-def on_intervention_program_delete(sender, instance, **kwargs):
-    _log(AuditLogEntry.Action.DELETE, 'InterventionProgram', f'{instance.program_name} ({instance.year} {instance.season})')
-
-
 # ── interventions.BeneficiaryRecord ──────────────────────────────────────────
 
 @receiver(post_save, sender=BeneficiaryRecord)
 def on_beneficiary_record_save(sender, instance, created, **kwargs):
     action = AuditLogEntry.Action.CREATE if created else AuditLogEntry.Action.UPDATE
-    _log(action, 'BeneficiaryRecord', f'Beneficiary record (Farmer ID: {instance.farmer_id}, Program ID: {instance.program_id})')
+    _log(action, 'BeneficiaryRecord', f'Beneficiary record (Farmer ID: {instance.farmer_id})')
 
 
 @receiver(post_delete, sender=BeneficiaryRecord)
 def on_beneficiary_record_delete(sender, instance, **kwargs):
-    _log(AuditLogEntry.Action.DELETE, 'BeneficiaryRecord', f'Beneficiary record (Farmer ID: {instance.farmer_id}, Program ID: {instance.program_id})')
+    _log(AuditLogEntry.Action.DELETE, 'BeneficiaryRecord', f'Beneficiary record (Farmer ID: {instance.farmer_id})')
 
 
 # ── interventions.FisherfolkBeneficiaryRecord ─────────────────────────────────
@@ -110,12 +96,12 @@ def on_beneficiary_record_delete(sender, instance, **kwargs):
 @receiver(post_save, sender=FisherfolkBeneficiaryRecord)
 def on_fisherfolk_beneficiary_save(sender, instance, created, **kwargs):
     action = AuditLogEntry.Action.CREATE if created else AuditLogEntry.Action.UPDATE
-    _log(action, 'FisherfolkBeneficiaryRecord', f'Fisherfolk beneficiary record (Fisherfolk ID: {instance.fisherfolk_id}, Program ID: {instance.program_id})')
+    _log(action, 'FisherfolkBeneficiaryRecord', f'Fisherfolk beneficiary record (Fisherfolk ID: {instance.fisherfolk_id})')
 
 
 @receiver(post_delete, sender=FisherfolkBeneficiaryRecord)
 def on_fisherfolk_beneficiary_delete(sender, instance, **kwargs):
-    _log(AuditLogEntry.Action.DELETE, 'FisherfolkBeneficiaryRecord', f'Fisherfolk beneficiary record (Fisherfolk ID: {instance.fisherfolk_id}, Program ID: {instance.program_id})')
+    _log(AuditLogEntry.Action.DELETE, 'FisherfolkBeneficiaryRecord', f'Fisherfolk beneficiary record (Fisherfolk ID: {instance.fisherfolk_id})')
 
 
 # ── production.HarvestRecord ──────────────────────────────────────────────────

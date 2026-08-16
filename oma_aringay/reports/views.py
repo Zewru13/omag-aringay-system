@@ -23,11 +23,7 @@ from accounts.permissions import IsAdminOrEvaluator
 from core.utils import accumulate_yield_group, new_yield_group, possible_factors_text
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk, FishingTripLog, TripSpeciesEntry
-from interventions.models import (
-    BeneficiaryRecord,
-    FisherfolkBeneficiaryRecord,
-    InterventionProgram,
-)
+from interventions.models import BeneficiaryRecord
 from production.models import BarangayCropSummary, DamageReport, HarvestRecord, PlantingRecord
 
 from .pdf_utils import (
@@ -288,8 +284,7 @@ class FarmerProfileReport(APIView):
         asst_records = (
             BeneficiaryRecord.objects
             .filter(farmer=farmer)
-            .select_related('program')
-            .order_by('-program__year', 'program__season')
+            .order_by('-date_given', '-id')
         )
 
         if not asst_records.exists():
@@ -298,22 +293,21 @@ class FarmerProfileReport(APIView):
                 S['EmptyItalic'],
             ))
         else:
-            # col_widths sum: 150+73+47+38+38+43+79 = 468pt
+            # col_widths sum: 100+120+70+45+38+95 = 468pt
             asst_rows = []
             for r in asst_records:
                 asst_rows.append([
-                    fmt_field(r.program.program_name),
-                    fmt_field(r.program.program_type),
-                    fmt_field(r.program.season),
-                    fmt_field(r.program.year),
-                    fmt_field(r.quantity_given),
-                    fmt_field(r.unit),
+                    fmt_field(r.assistance_type),
+                    fmt_field(r.source_agency),
+                    fmt_field(r.quantity),
+                    fmt_field(r.season),
+                    fmt_field(r.year),
                     fmt_date(r.date_given),
                 ])
             story.append(build_ledger_table(
-                ['Program Name', 'Type', 'Season', 'Year', 'Qty', 'Unit', 'Date Given'],
+                ['Assistance Type', 'Source Agency', 'Quantity', 'Season', 'Year', 'Date Given'],
                 asst_rows,
-                col_widths=[150, 73, 47, 38, 38, 43, 79],
+                col_widths=[100, 120, 70, 45, 38, 95],
             ))
 
         story.append(Spacer(1, 30))
@@ -515,139 +509,6 @@ class FisherfolkMasterlistReport(APIView):
 
         doc.build(story, canvasmaker=NumberedCanvas)
         return _finish_pdf(buf, f'fisherfolk_masterlist_{today}.pdf')
-
-
-# ─── TASK 4 — Beneficiary Masterlist ─────────────────────────────────────────
-
-class BeneficiaryMasterlistReport(APIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-
-    def get(self, request, program_id):
-        today   = _today()
-        program = get_object_or_404(InterventionProgram, pk=program_id)
-
-        source_label = (
-            f'Other — {program.source_other_specify}'
-            if program.source_of_program == 'Other' and program.source_other_specify
-            else program.source_of_program
-        )
-
-        farmer_records = (
-            BeneficiaryRecord.objects
-            .filter(program_id=program_id)
-            .select_related('farmer')
-            .order_by('farmer__last_name', 'farmer__first_name', 'id')
-        )
-        ff_records = (
-            FisherfolkBeneficiaryRecord.objects
-            .filter(program_id=program_id)
-            .select_related('fisherfolk')
-            .order_by('fisherfolk__last_name', 'fisherfolk__first_name', 'id')
-        )
-
-        if wants_pdf(request):
-            return self._build_pdf(
-                program, program_id, source_label,
-                farmer_records, ff_records, today,
-            )
-
-        csv_headers = ['No.', 'RSBSA Number', 'Full Name', 'Barangay', 'Quantity Given', 'Unit', 'Date Given']
-        csv_rows    = []
-        total_qty   = Decimal('0')
-        for i, r in enumerate(farmer_records, 1):
-            total_qty += r.quantity_given
-            csv_rows.append([
-                i, fmt_field(r.farmer.rsbsa_number), full_name(r.farmer),
-                fmt_field(r.farmer.barangay), r.quantity_given,
-                fmt_field(r.unit), fmt_date(r.date_given),
-            ])
-        csv_rows.append(['TOTAL', f'{farmer_records.count()} beneficiaries', '', '', total_qty, '', ''])
-
-        return build_csv_response(
-            f'beneficiary_masterlist_{program_id}_{today}.csv',
-            'Beneficiary Masterlist Report',
-            csv_headers, csv_rows,
-        )
-
-    def _build_pdf(self, program, program_id, source_label, farmer_records, ff_records, today):
-        buf, doc = _make_doc()
-        S = get_styles()
-        story = []
-
-        story += build_official_header(LOGO_PATH, 'Beneficiary Masterlist Report')
-
-        # Section I — Program Information
-        story += build_section_heading('I', 'PROGRAM INFORMATION')
-        story.append(build_keyvalue_grid([
-            ('Program Name', fmt_field(program.program_name)),
-            ('Program Type', fmt_field(program.program_type)),
-            ('Season',       fmt_field(program.season)),
-            ('Year',         fmt_field(program.year)),
-            ('Source',       fmt_field(source_label)),
-            ('Date Created', fmt_date(getattr(program, 'date_created', None))),
-        ], columns=2, page_width=PAGE_WIDTH))
-
-        # Section II — Farmer Beneficiaries
-        story += build_section_heading('II', 'FARMER BENEFICIARIES')
-        farmer_list = list(farmer_records)
-        if farmer_list:
-            # col_widths: 25+80+130+80+50+50+53 = 468pt
-            f_rows = []
-            for i, r in enumerate(farmer_list, 1):
-                f_rows.append([
-                    str(i), fmt_field(r.farmer.rsbsa_number), full_name(r.farmer),
-                    fmt_field(r.farmer.barangay), fmt_field(r.quantity_given),
-                    fmt_field(r.unit), fmt_date(r.date_given),
-                ])
-            story.append(build_ledger_table(
-                ['No.', 'RSBSA No.', 'Full Name', 'Barangay', 'Qty', 'Unit', 'Date Given'],
-                f_rows,
-                col_widths=[25, 80, 130, 80, 50, 50, 53],
-            ))
-            story.append(Paragraph(
-                f'Total Farmer Beneficiaries: {len(farmer_list)}',
-                _bold_right(),
-            ))
-        else:
-            story.append(Paragraph(
-                'No farmer beneficiaries recorded for this program.',
-                S['EmptyItalic'],
-            ))
-
-        # Section III — Fisherfolk Beneficiaries (omit if none)
-        ff_list = list(ff_records)
-        if ff_list:
-            story += build_section_heading('III', 'FISHERFOLK BENEFICIARIES')
-            # col_widths: 25+80+115+70+60+40+40+38 = 468pt
-            ff_rows = []
-            for i, r in enumerate(ff_list, 1):
-                ff_rows.append([
-                    str(i), fmt_field(r.fisherfolk.lgu_registration_number),
-                    fmt_field(r.fisherfolk.full_name),
-                    fmt_field(r.fisherfolk.barangay),
-                    fmt_field(r.fisherfolk.fisherfolk_type),
-                    fmt_field(r.quantity_given), fmt_field(r.unit),
-                    fmt_date(r.date_given),
-                ])
-            story.append(build_ledger_table(
-                ['No.', 'LGU Reg. No.', 'Full Name', 'Barangay', 'Type', 'Qty', 'Unit', 'Date Given'],
-                ff_rows,
-                col_widths=[25, 80, 115, 70, 60, 40, 40, 38],
-            ))
-            story.append(Paragraph(
-                f'Total Fisherfolk Beneficiaries: {len(ff_list)}',
-                _bold_right(),
-            ))
-
-        story.append(Spacer(1, 30))
-        story.append(build_signature_block(
-            left_label='Submitted by',
-            left_role='OMAg Records Officer',
-            page_width=PAGE_WIDTH,
-        ))
-
-        doc.build(story, canvasmaker=NumberedCanvas)
-        return _finish_pdf(buf, f'beneficiary_masterlist_{program_id}_{today}.pdf')
 
 
 # ─── TASK 5 — Seasonal / Harvest Production Report ───────────────────────────

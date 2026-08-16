@@ -469,21 +469,17 @@ def _run_organization_distribution(record_model, person_field, organization, mem
     only in which model/FK field/attribution field is used.
 
     Deliberately NOT one all-or-nothing transaction.atomic() around the whole
-    loop (unlike PondBulkCreateView's precedent): a member already enrolled in
-    the attached program is expected, routine behavior here, not a batch
-    failure — the rest of the members must still get their record. Each row is
-    instead created inside its OWN transaction.atomic(), so a single row's
-    write is still all-or-nothing internally, but one member's failure can
-    never roll back or block rows already committed for other members. The
-    return value is a per-member result list, not a single success/failure.
+    loop (unlike PondBulkCreateView's precedent): one member's failure must
+    never roll back or block rows already committed for other members. Each
+    row is instead created inside its OWN transaction.atomic(), so a single
+    row's write is still all-or-nothing internally. The return value is a
+    per-member result list, not a single success/failure.
 
     commit=False (Step 3's confirmation-screen preview) runs the exact same
-    program-skip and 30-day cross-org checks — both are read-only — but never
-    calls .create(). Statuses are reported as 'would_create'/'skipped' instead
-    of 'created'/'skipped' so the frontend can't mistake a preview for a
-    completed distribution.
+    30-day cross-org check — read-only — but never calls .create(). Statuses
+    are reported as 'would_create' instead of 'created' so the frontend
+    can't mistake a preview for a completed distribution.
     """
-    program = data.get('program')
     assistance_type = data['assistance_type']
     date_given = data['date_given']
     cutoff = date_given - timedelta(days=30)
@@ -499,16 +495,6 @@ def _run_organization_distribution(record_model, person_field, organization, mem
         # Real identifying number, not fabricated — Farmer's RSBSA number or
         # Fisherfolk's LGU registration number, whichever the model has.
         id_number = getattr(person, 'rsbsa_number', None) or getattr(person, 'lgu_registration_number', None)
-
-        if program and record_model.objects.filter(program=program, **person_filter).exists():
-            results.append({
-                'person_id': person.id,
-                'name': person.full_name,
-                'id_number': id_number,
-                'status': 'skipped',
-                'reason': 'Already has a record under this program.',
-            })
-            continue
 
         # Safeguard (non-blocking): same assistance_type from a DIFFERENT
         # organization within the last 30 days. Flagged in the result, never
@@ -540,7 +526,6 @@ def _run_organization_distribution(record_model, person_field, organization, mem
         try:
             with transaction.atomic():
                 record = record_model.objects.create(
-                    program=program,
                     assistance_type=assistance_type,
                     source_agency=data.get('source_agency', ''),
                     quantity=data.get('quantity', ''),

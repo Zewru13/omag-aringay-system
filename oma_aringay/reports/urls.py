@@ -3,7 +3,6 @@ from django.urls import path
 from .views import (
     OrganizationListReport,
     BarangayCropSummaryReport,
-    BeneficiaryMasterlistReport,
     CropHistoricalReport,
     CropOptionsReport,
     DamageReportsExport,
@@ -35,11 +34,6 @@ urlpatterns = [
     path('farmer-crop-history/', FarmerCropHistoryReport.as_view(), name='report-farmer-crop-history'),
     path('yield-analysis/', YieldAnalysisReport.as_view(), name='report-yield-analysis'),
     path('fisheries-yield-analysis/', FisheriesYieldAnalysisReport.as_view(), name='report-fisheries-yield-analysis'),
-    path(
-        'interventions/<int:program_id>/masterlist/',
-        BeneficiaryMasterlistReport.as_view(),
-        name='report-beneficiary-masterlist',
-    ),
     path(
         'fisheries/masterlist/',
         FisherfolkMasterlistReport.as_view(),

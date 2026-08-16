@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { labels } from './labels.js'
@@ -77,19 +77,11 @@ export default function OrgReportAssistanceScreen({
     cash_amount: '',
     description: '',
     season: domain.seasonOptions ? domain.seasonOptions[0] : '',
-    program: '',
   })
-  const [programs, setPrograms] = useState([])
   const [preview, setPreview] = useState(null)
   const [finalResult, setFinalResult] = useState(null)
   const [isBusy, setIsBusy] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
-
-  useEffect(() => {
-    api.get('/interventions/programs/')
-      .then((r) => setPrograms((Array.isArray(r.data) ? r.data : (r.data.results || [])).filter((p) => p.is_active)))
-      .catch(() => setPrograms([]))
-  }, [])
 
   const set = (field, value) => setForm((f) => ({ ...f, [field]: value }))
 
@@ -117,7 +109,6 @@ export default function OrgReportAssistanceScreen({
       quantity,
       description: form.description,
       season: form.season,
-      ...(form.program ? { program: form.program } : {}),
       ...(dryRun ? { dry_run: true } : {}),
     }
   }
@@ -398,24 +389,6 @@ export default function OrgReportAssistanceScreen({
                 className={FIELD_BOX}
               >
                 {domain.seasonOptions.map((s) => <option key={s} value={s}>{labels.harvest.seasonOptions?.[s] || s}</option>)}
-              </select>
-            </div>
-          )}
-          {/* PRE-EXISTING: /interventions/programs/ answers 403 for citizen
-              accounts, so this list is empty for every organisation user.
-              The modal this screen replaces rendered the dropdown anyway,
-              leaving a control that could never be set to anything. It is
-              rendered only when there is something to choose. */}
-          {programs.length > 0 && (
-            <div>
-              <label className={FIELD_LABEL} htmlFor="org-program">{L.fields.program}</label>
-              <select
-                id="org-program" value={form.program}
-                onChange={(e) => set('program', e.target.value)}
-                className={FIELD_BOX}
-              >
-                <option value="">{L.fields.programNone}</option>
-                {programs.map((p) => <option key={p.id} value={p.id}>{p.program_name} ({p.season} {p.year})</option>)}
               </select>
             </div>
           )}
