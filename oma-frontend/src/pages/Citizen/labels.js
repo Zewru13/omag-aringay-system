@@ -363,6 +363,18 @@ export const labels = {
       editContactSaved: 'Na-update na po ang contact number.',
       editNothing: 'Wala pong binago.',
       editPendingBlocked: 'May nakabinbin nang kahilingan para sa bahaging ito.',
+
+      // Password card — voluntary, not a forced first-login step. Staff
+      // already generated and relayed the first password in person; this
+      // is just a genuinely reachable way to set a new one, any time.
+      passwordCardHeading: 'Password',
+      passwordCardNote: 'Optional. Maaari ninyong baguhin ang password anumang oras — hindi ito kailangan.',
+      passwordCurrentLabel: 'KASALUKUYANG PASSWORD',
+      passwordNewLabel: 'BAGONG PASSWORD',
+      passwordConfirmLabel: 'KUMPIRMAHIN ANG BAGONG PASSWORD',
+      passwordChangeCta: 'Baguhin ang Password',
+      passwordMismatch: 'Hindi magkatugma ang bagong password at kumpirmasyon.',
+      passwordChanged: 'Nabago na po ang password. Mag-log in ulit gamit ang bagong password.',
     },
 
     // ── Mga Resulta ng Ani (frames 32-33) ─────────────────────────────

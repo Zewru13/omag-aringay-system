@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Hourglass, Phone, SquarePen } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Hourglass, KeyRound, Phone, SquarePen } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
+import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { labels } from './labels.js'
 import { CROP_THEME, CitizenBody, CitizenScreen, CitizenSubHeader, FISH_THEME } from './citizenUI.jsx'
@@ -62,6 +64,8 @@ function PendingNote({ pending }) {
 export default function CitizenProfileScreen({ record, recordType, onBack, tabBar, bare = false }) {
   const P = labels.ffNew.profile
   const { showToast } = useToast()
+  const { logout } = useAuth()
+  const navigate = useNavigate()
   const isFisherfolk = recordType === 'FISHERFOLK'
   const theme = isFisherfolk ? FISH_THEME : CROP_THEME
 
@@ -70,6 +74,10 @@ export default function CitizenProfileScreen({ record, recordType, onBack, tabBa
 
   const [contactValue, setContactValue] = useState(record?.contact_number || '')
   const [savingContact, setSavingContact] = useState(false)
+
+  const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' })
+  const [passwordError, setPasswordError] = useState('')
+  const [changingPassword, setChangingPassword] = useState(false)
 
   const [nameForm, setNameForm] = useState({
     first_name: record?.first_name || '',
@@ -112,6 +120,34 @@ export default function CitizenProfileScreen({ record, recordType, onBack, tabBa
       showToast(typeof d === 'string' ? d : Object.values(d || {}).flat().join(' ') || labels.common.genericSaveError, 'error')
     } finally {
       setSavingContact(false)
+    }
+  }
+
+  const changePassword = async () => {
+    setPasswordError('')
+    if (passwordForm.next !== passwordForm.confirm) {
+      setPasswordError(P.passwordMismatch)
+      return
+    }
+    setChangingPassword(true)
+    try {
+      await api.post('/accounts/change-password/', {
+        current_password: passwordForm.current,
+        new_password: passwordForm.next,
+        confirm_new_password: passwordForm.confirm,
+      })
+      showToast(P.passwordChanged, 'success')
+      // The backend just blacklisted every token for this account — the
+      // only valid next step is a fresh login with the new password.
+      setTimeout(() => { logout(); navigate('/login') }, 800)
+    } catch (err) {
+      const d = err?.response?.data
+      setPasswordError(
+        d?.new_password?.[0] || d?.non_field_errors?.[0] || d?.detail ||
+        (typeof d === 'string' ? d : null) || labels.common.genericSaveError
+      )
+    } finally {
+      setChangingPassword(false)
     }
   }
 
@@ -230,6 +266,54 @@ export default function CitizenProfileScreen({ record, recordType, onBack, tabBa
           </button>
         </div>
         <p className="mt-1.5 text-[12px] text-cz-text-muted">{P.editContactNote}</p>
+      </div>
+
+      {/* PASSWORD — voluntary self-service, not a forced first-login step.
+          Staff already generated and relayed the first password in person
+          via "Set Up Account"; this just makes changing it later a real,
+          reachable option instead of something only staff can do. */}
+      <div className={CARD}>
+        <p className="mb-2 flex items-center gap-1.5 text-[13px] font-semibold text-cz-text">
+          <span className={`h-[10px] w-[3px] rounded-full ${theme.header}`} aria-hidden="true" />
+          {P.passwordCardHeading}
+        </p>
+        <div className="space-y-2">
+          <input
+            type="password"
+            autoComplete="current-password"
+            placeholder={P.passwordCurrentLabel}
+            value={passwordForm.current}
+            onChange={(e) => setPasswordForm((f) => ({ ...f, current: e.target.value }))}
+            className={INPUT}
+          />
+          <input
+            type="password"
+            autoComplete="new-password"
+            placeholder={P.passwordNewLabel}
+            value={passwordForm.next}
+            onChange={(e) => setPasswordForm((f) => ({ ...f, next: e.target.value }))}
+            className={INPUT}
+          />
+          <input
+            type="password"
+            autoComplete="new-password"
+            placeholder={P.passwordConfirmLabel}
+            value={passwordForm.confirm}
+            onChange={(e) => setPasswordForm((f) => ({ ...f, confirm: e.target.value }))}
+            className={INPUT}
+          />
+        </div>
+        {passwordError && <p className="mt-1.5 text-[12px] font-medium text-rose-600">{passwordError}</p>}
+        <button
+          type="button"
+          onClick={changePassword}
+          disabled={changingPassword || !passwordForm.current || !passwordForm.next || !passwordForm.confirm}
+          className="mt-2 flex items-center gap-1.5 rounded-[8px] border-[0.5px] border-cz-border-strong bg-cz-surface px-3.5 py-2 text-[13px] font-medium text-cz-text transition-colors hover:bg-cz-page disabled:opacity-50"
+        >
+          <KeyRound size={13} aria-hidden="true" />
+          {P.passwordChangeCta}
+        </button>
+        <p className="mt-1.5 text-[12px] text-cz-text-muted">{P.passwordCardNote}</p>
       </div>
 
       {/* FIELDS REQUIRING A REQUEST — name and barangay go through staff

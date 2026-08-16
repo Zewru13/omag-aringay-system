@@ -13,7 +13,7 @@ from rest_framework.views import APIView
 
 from accounts.models import User
 from accounts.permissions import IsAdmin, IsAdminOrEvaluator, IsStaffOrOwnRecordCitizen
-from accounts.utils import create_citizen_user
+from accounts.utils import create_inactive_citizen_shell
 from core.locking import assert_not_locked_by_other
 from core.notifications import notify_all_except
 from core.utils import accumulate_yield_group, day_range_bounds, new_yield_group
@@ -112,12 +112,14 @@ class FisherfolkListView(generics.ListCreateAPIView):
         return qs
 
     def perform_create(self, serializer):
+        # An inactive shell account is created immediately, ready for a
+        # later in-person "Set Up Account" visit
+        # (ActivateCitizenAccountButton / SetCitizenPasswordView) — staff no
+        # longer type or see a password at enrollment time.
         with transaction.atomic():
             serializer.save(registered_by=self.request.user)
             fisherfolk = serializer.instance
-            password = getattr(fisherfolk, '_citizen_password', '')
-            if password:
-                create_citizen_user(User.LinkedRecordType.FISHERFOLK, fisherfolk, password, email=fisherfolk.email)
+            create_inactive_citizen_shell(User.LinkedRecordType.FISHERFOLK, fisherfolk, email=fisherfolk.email)
 
 
 class FisherfolkDetailView(generics.RetrieveUpdateAPIView):

@@ -17,7 +17,6 @@ from .serializers import (
     ChangePasswordSerializer,
     MeUpdateSerializer,
     ResendVerificationSerializer,
-    SetCitizenPasswordSerializer,
     UserCreateSerializer,
     UserSerializer,
     UserUpdateSerializer,
@@ -416,19 +415,18 @@ class UserReactivateView(APIView):
 
 class SetCitizenPasswordView(APIView):
     """
-    Staff-witnessed "Set Up Account" for a CITIZEN account created by
-    create_citizen_accounts before this flow existed — the person is
+    Staff-witnessed "Set Up Account" for a CITIZEN account — either
+    bulk-backfilled by create_citizen_accounts, or auto-created inactive at
+    enrollment by Farmer/FisherfolkListView.perform_create
+    (accounts.utils.create_inactive_citizen_shell). The person is
     physically present, staff have already confirmed their identity the
-    same way enrollment does, and the person types their own password
-    directly (staff never see or relay it). No temp password is generated
-    anywhere in this path, so there is nothing to force a change away from
-    on first login.
-
-    Replaces the old ActivateCitizenAccountView, which generated and
-    displayed a random temp password for staff to read aloud. That is no
-    longer how any CITIZEN account gets its password — see
-    accounts.utils.create_citizen_user(), used both here and by
-    Farmer/FisherfolkCreateSerializer for brand-new enrollments.
+    same way enrollment does. Generates a strong random password
+    server-side, activates the account with it immediately, and returns it
+    once for staff to read aloud — never typed by the citizen, never
+    stored or relayed any other way. No must_change_password flag is set:
+    the account is fully usable as soon as it's relayed, and the person can
+    change the password later at their own discretion (ChangePasswordView),
+    not on a forced first-login screen.
     """
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
@@ -440,16 +438,15 @@ class SetCitizenPasswordView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        serializer = SetCitizenPasswordSerializer(data=request.data, context={'user': user})
-        serializer.is_valid(raise_exception=True)
-
-        user.set_password(serializer.validated_data['password'])
+        generated_password = generate_default_password()
+        user.set_password(generated_password)
         user.is_active = True
         user.save()
 
         return Response({
             'user': UserSerializer(user).data,
-            'detail': 'Account is now active. The person can log in immediately with the password they just set.',
+            'generated_password': generated_password,
+            'detail': 'Account is now active. Read the password aloud to the person and relay it in person.',
         })
 
 

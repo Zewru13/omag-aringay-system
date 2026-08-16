@@ -56,8 +56,6 @@ const initialForm = {
   average_catch_per_trip_kg: '',
   has_vessel: true,
   boat_registration_number: '',
-  password: '',
-  confirm_password: '',
 }
 
 const computeAge = (birthdate) => {
@@ -187,17 +185,6 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
       }
       if (form.vessel_type === 'Motorized' && !form.vessel_material) {
         setFormError('Vessel Material is required for motorized vessels.')
-        return
-      }
-    }
-
-    if (form.password || form.confirm_password) {
-      if (form.password !== form.confirm_password) {
-        setFormError('Password and confirmation do not match.')
-        return
-      }
-      if (form.password.length < 8) {
-        setFormError('Password must be at least 8 characters.')
         return
       }
     }
@@ -541,36 +528,18 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
           </div>
         </Section>
 
-        {/* Account Information — optional. The person's identity is already
-            confirmed by being physically present for enrollment; this box
-            exists to make that trust boundary explicit in the interface
-            itself, not just assumed from the form's layout — staff hand
-            over the device, the fisherfolk types their own password, staff
-            never sees or handles it. Leave blank to set this up later from
-            the fisherfolk's detail page (same in-person pattern, via the
-            "Set Up Account" button). */}
+        {/* Account Information — the citizen login account itself is set up
+            later, in person, via the "Set Up Account" button on the
+            fisherfolk's detail page (staff generate and read aloud a
+            system password there — never typed here). Email is optional
+            and just kept on file for later contact. */}
         <Section title="Account Information">
-          <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
-            <p className="mb-3 text-[13px] font-medium text-amber-900">
-              Hand this device to the fisherfolk now. They should type their own password directly below — staff should not enter it on their behalf.
+          <div>
+            <FormLabel>Email</FormLabel>
+            <input className={baseInputClasses} id="email" type="email" value={form.email} onChange={(e) => updateField('email', e.target.value)} />
+            <p className="mt-1 text-[12px] text-[#7A8E7A]">
+              Optional. The citizen login account is set up separately, in person, via "Set Up Account" on the fisherfolk's detail page.
             </p>
-            <p className="mb-3 text-[12px] text-[#7A8E7A]">
-              The account activates immediately once saved; they'll log in with their RSBSA or FishR number, not a username. Leave both fields blank to set this up later instead.
-            </p>
-            <div className="grid gap-4 md:grid-cols-3">
-              <div>
-                <FormLabel>Email</FormLabel>
-                <input className={baseInputClasses} id="email" type="email" value={form.email} onChange={(e) => updateField('email', e.target.value)} />
-              </div>
-              <div>
-                <FormLabel>Password</FormLabel>
-                <input className={baseInputClasses} id="password" type="password" autoComplete="new-password" value={form.password} onChange={(e) => updateField('password', e.target.value)} />
-              </div>
-              <div>
-                <FormLabel>Confirm Password</FormLabel>
-                <input className={baseInputClasses} id="confirm_password" type="password" autoComplete="new-password" value={form.confirm_password} onChange={(e) => updateField('confirm_password', e.target.value)} />
-              </div>
-            </div>
           </div>
         </Section>
 

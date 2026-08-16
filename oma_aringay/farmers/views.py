@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 
 from accounts.permissions import IsAdminOrEvaluator
 from accounts.models import User
-from accounts.utils import create_citizen_user
+from accounts.utils import create_inactive_citizen_shell
 from core.utils import day_range_bounds
 
 from .models import Farmer, FarmCrop, FarmMachinery, FarmParcel
@@ -94,13 +94,15 @@ class FarmerListView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         # is_farm_laborer farmers never get a citizen account (no farm of
         # their own to report on — same exclusion create_citizen_accounts
-        # applies), regardless of whether a password was submitted.
+        # applies). Everyone else gets an inactive shell immediately, ready
+        # for a later in-person "Set Up Account" visit
+        # (ActivateCitizenAccountButton / SetCitizenPasswordView) — staff no
+        # longer type or see a password at enrollment time.
         with transaction.atomic():
             serializer.save(registered_by=self.request.user)
             farmer = serializer.instance
-            password = getattr(farmer, '_citizen_password', '')
-            if password and not farmer.is_farm_laborer:
-                create_citizen_user(User.LinkedRecordType.FARMER, farmer, password, email=farmer.email)
+            if not farmer.is_farm_laborer:
+                create_inactive_citizen_shell(User.LinkedRecordType.FARMER, farmer, email=farmer.email)
 
 
 class FarmerCreateView(generics.CreateAPIView):
@@ -108,8 +110,7 @@ class FarmerCreateView(generics.CreateAPIView):
     NOTE: not called by any current frontend code — AddFarmerModal.jsx
     posts to '/farmers/' (FarmerListView above), not '/farmers/create/'.
     Kept in the same shape as FarmerListView.perform_create so it doesn't
-    silently regress to the old temp-password-free behavior if something
-    starts using it.
+    silently regress if something starts using it.
     """
     queryset = Farmer.objects.all()
     serializer_class = FarmerCreateSerializer
@@ -119,9 +120,8 @@ class FarmerCreateView(generics.CreateAPIView):
         with transaction.atomic():
             serializer.save(registered_by=self.request.user)
             farmer = serializer.instance
-            password = getattr(farmer, '_citizen_password', '')
-            if password and not farmer.is_farm_laborer:
-                create_citizen_user(User.LinkedRecordType.FARMER, farmer, password, email=farmer.email)
+            if not farmer.is_farm_laborer:
+                create_inactive_citizen_shell(User.LinkedRecordType.FARMER, farmer, email=farmer.email)
 
 
 class FarmerDetailView(generics.RetrieveUpdateAPIView):

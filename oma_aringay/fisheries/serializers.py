@@ -1,7 +1,5 @@
 from datetime import date
 
-from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Q, Sum
 from rest_framework import serializers
 
@@ -238,11 +236,6 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
     is_inland_fishery  = serializers.BooleanField(required=False, default=False)
     is_fish_vendor     = serializers.BooleanField(required=False, default=False)
 
-    # Same optional, write-only, atomic-account-creation pattern as
-    # farmers.FarmerCreateSerializer — see that class's comment.
-    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
-    confirm_password = serializers.CharField(write_only=True, required=False, allow_blank=True)
-
     class Meta:
         model  = Fisherfolk
         fields = [
@@ -263,7 +256,6 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
             'boat_registration_number', 'has_vessel',
             'rsbsa_number',
             'is_aquaculture', 'is_capture_fishery', 'is_mariculture', 'is_inland_fishery', 'is_fish_vendor',
-            'password', 'confirm_password',
         ]
         read_only_fields = ['id', 'date_registered', 'registered_by']
 
@@ -310,15 +302,6 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
                 if not (data.get('stall_location') or '').strip():
                     raise serializers.ValidationError({'stall_location': 'Stall location is required for this location type.'})
 
-        password = data.get('password', '')
-        confirm = data.get('confirm_password', '')
-        if password or confirm:
-            if password != confirm:
-                raise serializers.ValidationError({'confirm_password': 'Password and confirmation do not match.'})
-            try:
-                validate_password(password)
-            except DjangoValidationError as exc:
-                raise serializers.ValidationError({'password': list(exc.messages)})
         return data
 
     def validate_rsbsa_number(self, value):
@@ -327,8 +310,6 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        password = validated_data.pop('password', '') or ''
-        validated_data.pop('confirm_password', None)
         aquaculture_data = {
             'culture_type':         validated_data.pop('culture_type', ''),
             'species_cultured':     validated_data.pop('species_cultured', ''),
@@ -358,7 +339,6 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
             CaptureRecord.objects.create(fisherfolk=fisherfolk, **capture_data)
         elif fisherfolk.fisherfolk_type == 'Vendor':
             VendorRecord.objects.create(fisherfolk=fisherfolk, **vendor_data)
-        fisherfolk._citizen_password = password
         return fisherfolk
 
 

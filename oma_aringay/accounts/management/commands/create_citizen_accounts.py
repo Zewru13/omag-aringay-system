@@ -6,9 +6,11 @@ record that doesn't already have a linked account.
 Accounts are created is_active=False, unusable_password ("created,
 unclaimed") — a citizen cannot log in until staff meet them in person and
 run them through the "Set Up Account" flow (see
-accounts.views.SetCitizenPasswordView), where the person chooses and types
-their own password directly; there is no temporary password generated
-anywhere in this path to relay or force a change away from.
+accounts.views.SetCitizenPasswordView), which generates a strong random
+password, activates the account with it, and shows it once for staff to
+read aloud. No must_change_password flag is set — the account is fully
+usable as soon as it's relayed, and the person can change the password
+later at their own discretion.
 
 Idempotent: skips any linked record that already has a User pointed at it
 via (linked_record_type, linked_record_id) before creating a new one.
@@ -17,6 +19,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from accounts.models import User
+from accounts.utils import create_inactive_citizen_shell
 from associations.models import FarmersOrganization, FisherfolkOrganization
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk
@@ -37,7 +40,7 @@ class Command(BaseCommand):
             .values_list('linked_record_id', flat=True)
         )
 
-    def _create_for(self, record_type, queryset, full_name_fn):
+    def _create_for(self, record_type, queryset):
         existing = self._existing_linked_ids(record_type)
         created = 0
         skipped = 0
@@ -45,29 +48,12 @@ class Command(BaseCommand):
             if record.id in existing:
                 skipped += 1
                 continue
-            self._create_one(record_type, record, full_name_fn)
+            # Same shape Farmer/FisherfolkListView.perform_create produces
+            # for brand-new enrollments — see
+            # accounts.utils.create_inactive_citizen_shell.
+            create_inactive_citizen_shell(record_type, record)
             created += 1
         return created, skipped
-
-    def _create_one(self, record_type, record, full_name_fn):
-        user = User(
-            username=f'{record_type.lower()}-{record.id}',
-            email=None,
-            full_name=full_name_fn(record),
-            role=User.Roles.CITIZEN,
-            is_active=False,
-            must_change_password=False,
-            linked_record_type=record_type,
-            linked_record_id=record.id,
-        )
-        # No password to set yet — SetCitizenPasswordView sets the real one
-        # when staff run this person through Set Up Account in person.
-        # unusable_password is Django's own concept for "no credential
-        # exists" (distinct from a wrong/expired one), so this account
-        # authenticates against nothing until then.
-        user.set_unusable_password()
-        user.save()
-        return user
 
     def handle(self, *args, **options):
         dry_run = options['dry_run']
@@ -90,18 +76,10 @@ class Command(BaseCommand):
 
         results = {}
         with transaction.atomic():
-            results['FARMER'] = self._create_for(
-                User.LinkedRecordType.FARMER, farmer_qs, lambda r: r.full_name,
-            )
-            results['FISHERFOLK'] = self._create_for(
-                User.LinkedRecordType.FISHERFOLK, fisherfolk_qs, lambda r: r.full_name,
-            )
-            results['FARMERS_ORG'] = self._create_for(
-                User.LinkedRecordType.FARMERS_ORG, farmers_org_qs, lambda r: r.name,
-            )
-            results['FISHERFOLK_ORG'] = self._create_for(
-                User.LinkedRecordType.FISHERFOLK_ORG, fisherfolk_org_qs, lambda r: r.name,
-            )
+            results['FARMER'] = self._create_for(User.LinkedRecordType.FARMER, farmer_qs)
+            results['FISHERFOLK'] = self._create_for(User.LinkedRecordType.FISHERFOLK, fisherfolk_qs)
+            results['FARMERS_ORG'] = self._create_for(User.LinkedRecordType.FARMERS_ORG, farmers_org_qs)
+            results['FISHERFOLK_ORG'] = self._create_for(User.LinkedRecordType.FISHERFOLK_ORG, fisherfolk_org_qs)
 
         self.stdout.write(self.style.SUCCESS('=== Accounts created ==='))
         total_created = 0

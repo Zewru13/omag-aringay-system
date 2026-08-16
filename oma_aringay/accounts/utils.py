@@ -27,23 +27,25 @@ def citizen_account_info(linked_record_type, record_id):
 def generate_default_password():
     """~22 url-safe characters — well over the 15-char policy minimum, and
     random enough to never collide with the common-password or local
-    denylists, so it always passes AUTH_PASSWORD_VALIDATORS untouched.
-    Still used for ADMIN/EVALUATOR account creation (UserCreateView) and
-    the reset_admin_password command — those accounts have a real email to
-    relay a temp password to. CITIZEN accounts no longer use this; see
-    create_citizen_user() below."""
+    denylists, so it always passes AUTH_PASSWORD_VALIDATORS untouched. Used
+    for ADMIN/EVALUATOR account creation (UserCreateView), the
+    reset_admin_password command, and CITIZEN account activation
+    (accounts.views.SetCitizenPasswordView) — every one of those flows has
+    staff relay the password to the account's owner in person or by email,
+    never the person typing it into a form themselves."""
     return secrets.token_urlsafe(16)
 
 
-def create_citizen_user(record_type, record, password, email=None):
+def create_inactive_citizen_shell(record_type, record, email=None):
     """
-    Creates and activates a CITIZEN account in one step, with the password
-    the person chose themselves (at staff-witnessed enrollment, or at a
-    later in-person "Set Up Account" visit for a record enrolled before
-    this existed — see accounts.views.SetCitizenPasswordView). Replaces the
-    old generate-a-temp-password-and-relay-it flow: there is no temporary
-    password anywhere in this path, so there is nothing to force a change
-    away from on first login.
+    Creates an inactive, unusable-password CITIZEN account shell for a
+    Farmer/Fisherfolk/FarmersOrganization/FisherfolkOrganization record —
+    the same shape create_citizen_accounts' bulk backfill produces, so a
+    record enrolled today and one enrolled two years ago both end up
+    waiting on the same in-person "Set Up Account" visit
+    (accounts.views.SetCitizenPasswordView), which generates the real
+    password and activates the account. Used by both that command and
+    Farmer/FisherfolkListView.perform_create at enrollment time.
 
     `record` is the Farmer/Fisherfolk/FarmersOrganization/
     FisherfolkOrganization instance; its display name is read the same way
@@ -59,12 +61,12 @@ def create_citizen_user(record_type, record, password, email=None):
         email=email or None,
         full_name=full_name,
         role=User.Roles.CITIZEN,
-        is_active=True,
+        is_active=False,
         must_change_password=False,
         linked_record_type=record_type,
         linked_record_id=record.id,
     )
-    user.set_password(password)
+    user.set_unusable_password()
     user.save()
     return user
 

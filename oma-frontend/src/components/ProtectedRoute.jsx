@@ -18,9 +18,14 @@ function ProtectedRoute({ allowedRoles, children }) {
   }
 
   // Forced first-login password change: block every other route until the
-  // user sets a new password. The /change-password route itself is exempt
-  // so it can actually render.
-  if (user.must_change_password && location.pathname !== '/change-password') {
+  // user sets a new password. STAFF only (ADMIN/EVALUATOR) — those accounts
+  // get a system temp password relayed by email (UserCreateView) and need
+  // to prove they own that inbox by setting their own. CITIZEN accounts
+  // never carry a temp password to change away from (their "Set Up Account"
+  // password is already a real, usable one — see SetCitizenPasswordView),
+  // so changing it is optional, not forced. The /change-password route
+  // itself is exempt so it can actually render.
+  if (user.role !== 'CITIZEN' && user.must_change_password && location.pathname !== '/change-password') {
     return <Navigate to="/change-password" replace />
   }
 
