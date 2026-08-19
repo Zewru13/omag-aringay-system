@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 
 from django.conf import settings
@@ -32,6 +33,8 @@ from .utils import (
 
 
 User = get_user_model()
+
+logger = logging.getLogger(__name__)
 
 
 def _blacklist_outstanding_tokens(user):
@@ -300,7 +303,22 @@ class ChangePasswordView(APIView):
         # The password just changed — every token issued before now (this
         # request's own access token included, via CHECK_REVOKE_TOKEN) must
         # stop working. The user has to log in again with the new password.
-        _blacklist_outstanding_tokens(request.user)
+        # Same failure policy as core.notifications.notify_all_except: this
+        # is a secondary cleanup step that must never be able to break the
+        # caller. The password save above already committed and is the sole
+        # source of truth for whether this request succeeded — a failure
+        # here must not turn a successful password change into a 500 that
+        # leaves the user unsure whether their password actually changed.
+        # Still logged (not silently swallowed): a failed blacklist means
+        # old tokens stay valid longer than intended, which is worth knowing
+        # even though it shouldn't block the response.
+        try:
+            _blacklist_outstanding_tokens(request.user)
+        except Exception:
+            logger.exception(
+                'Token blacklist failed after password change (non-fatal): user_id=%s',
+                request.user.pk,
+            )
 
         return Response({
             'detail': 'Password updated successfully. Please log in again with your new password.',
