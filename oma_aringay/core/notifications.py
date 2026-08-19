@@ -96,3 +96,45 @@ def notify_user(recipient, actor, verb, record_type, record_id, record_label, de
         ],
         f'notify_user recipient={recipient.pk} verb={verb!r}',
     )
+
+
+def resolve_owner_user(farmer_id=None, farmers_organization_id=None, fisherfolk_id=None):
+    """
+    Resolve the single CITIZEN account that is the most relevant recipient
+    for a Farmer / FarmersOrganization / Fisherfolk record, for use with
+    notify_user(). A crop record can carry both farmer_id and
+    farmers_organization_id — when it does, the individual farmer's own
+    citizen account (if any, and active) is always preferred over the
+    organization's; the org account is only used when no individual owner
+    can be resolved. Returns None if nothing resolves (the record has no
+    activated citizen account at all), which notify_user() already treats
+    as a no-op.
+    """
+    User = get_user_model()
+
+    if farmer_id:
+        user = User.objects.filter(
+            linked_record_type=User.LinkedRecordType.FARMER,
+            linked_record_id=farmer_id,
+            is_active=True,
+        ).first()
+        if user is not None:
+            return user
+
+    if farmers_organization_id:
+        user = User.objects.filter(
+            linked_record_type=User.LinkedRecordType.FARMERS_ORG,
+            linked_record_id=farmers_organization_id,
+            is_active=True,
+        ).first()
+        if user is not None:
+            return user
+
+    if fisherfolk_id:
+        return User.objects.filter(
+            linked_record_type=User.LinkedRecordType.FISHERFOLK,
+            linked_record_id=fisherfolk_id,
+            is_active=True,
+        ).first()
+
+    return None

@@ -15,7 +15,7 @@ from accounts.models import User
 from accounts.permissions import IsAdmin, IsAdminOrEvaluator, IsStaffOrOwnRecordCitizen
 from accounts.utils import create_inactive_citizen_shell
 from core.locking import assert_not_locked_by_other
-from core.notifications import notify_all_except
+from core.notifications import notify_staff, notify_user, resolve_owner_user
 from core.utils import accumulate_yield_group, day_range_bounds, new_yield_group
 
 from .models import (
@@ -585,14 +585,16 @@ class StockingActivityLogListCreateView(generics.ListCreateAPIView):
             logged_by=self.request.user,
             is_late=is_late,
         )
-        notify_all_except(
-            actor=self.request.user,
-            verb='logged an activity on',
-            record_type='stocking',
-            record_id=stocking_id,
-            record_label=_stocking_record_label(stocking),
-            detail=f'{log.activity} on {log.date_of_activity}',
-        )
+        if self.request.user.role != 'CITIZEN':
+            notify_user(
+                recipient=resolve_owner_user(fisherfolk_id=stocking.fisherfolk_id),
+                actor=self.request.user,
+                verb='logged an activity on',
+                record_type='stocking',
+                record_id=stocking_id,
+                record_label=_stocking_record_label(stocking),
+                detail=f'{log.activity} on {log.date_of_activity}',
+            )
 
 
 class StockingActivityLogDeleteView(generics.DestroyAPIView):
@@ -648,7 +650,7 @@ class StockingDisasterReportListCreateView(generics.ListCreateAPIView):
             stocking_record_id=stocking_id,
             reported_by=self.request.user,
         )
-        notify_all_except(
+        notify_staff(
             actor=self.request.user,
             verb='reported a disaster on',
             record_type='stocking',
@@ -656,6 +658,16 @@ class StockingDisasterReportListCreateView(generics.ListCreateAPIView):
             record_label=_stocking_record_label(stocking),
             detail=disaster.disaster_type,
         )
+        if self.request.user.role != 'CITIZEN':
+            notify_user(
+                recipient=resolve_owner_user(fisherfolk_id=stocking.fisherfolk_id),
+                actor=self.request.user,
+                verb='reported a disaster on',
+                record_type='stocking',
+                record_id=stocking_id,
+                record_label=_stocking_record_label(stocking),
+                detail=disaster.disaster_type,
+            )
 
 
 class FisheriesDisasterResolveView(APIView):
@@ -783,7 +795,16 @@ class GeneralDisasterReportListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         disaster = serializer.save(reported_by=self.request.user)
-        notify_all_except(
+        notify_staff(
+            actor=self.request.user,
+            verb='reported a disaster on',
+            record_type='fisherfolk_disaster',
+            record_id=disaster.fisherfolk_id,
+            record_label=_fisherfolk_disaster_label(disaster.fisherfolk),
+            detail=disaster.disaster_type,
+        )
+        notify_user(
+            recipient=resolve_owner_user(fisherfolk_id=disaster.fisherfolk_id),
             actor=self.request.user,
             verb='reported a disaster on',
             record_type='fisherfolk_disaster',
@@ -865,14 +886,16 @@ class StockingHarvestListCreateView(generics.ListCreateAPIView):
                 status=StockingRecord.Status.HARVESTED
             )
         stocking = StockingRecord.objects.get(pk=stocking_id)
-        notify_all_except(
-            actor=self.request.user,
-            verb='recorded a harvest for',
-            record_type='stocking',
-            record_id=stocking_id,
-            record_label=_stocking_record_label(stocking),
-            detail=f'{harvest.quantity_kg} kg',
-        )
+        if self.request.user.role != 'CITIZEN':
+            notify_user(
+                recipient=resolve_owner_user(fisherfolk_id=stocking.fisherfolk_id),
+                actor=self.request.user,
+                verb='recorded a harvest for',
+                record_type='stocking',
+                record_id=stocking_id,
+                record_label=_stocking_record_label(stocking),
+                detail=f'{harvest.quantity_kg} kg',
+            )
 
 
 class StockingHarvestDetailView(generics.RetrieveUpdateAPIView):

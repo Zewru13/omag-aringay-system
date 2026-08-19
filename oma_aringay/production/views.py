@@ -14,7 +14,7 @@ from rest_framework.views import APIView
 from accounts.permissions import IsAdmin, IsAdminOrEvaluator, IsStaffOrOwnRecordCitizen
 from core.constants import BARANGAY_CHOICES
 from core.locking import assert_not_locked_by_other
-from core.notifications import notify_all_except
+from core.notifications import notify_staff, notify_user, resolve_owner_user
 from core.utils import accumulate_yield_group, new_yield_group
 from farmers.models import FarmParcel, Farmer
 from fisheries.models import Fisherfolk
@@ -129,14 +129,19 @@ class HarvestRecordCreateView(generics.CreateAPIView):
                 monitoring = CropMonitoringRecord.objects.get(pk=monitoring_id)
             except CropMonitoringRecord.DoesNotExist:
                 return
-            notify_all_except(
-                actor=self.request.user,
-                verb='recorded a harvest for',
-                record_type='crop',
-                record_id=monitoring_id,
-                record_label=_crop_record_label(monitoring),
-                detail=f'{harvest.volume_kg} {harvest.unit_of_measure or "kg"}',
-            )
+            if self.request.user.role != 'CITIZEN':
+                notify_user(
+                    recipient=resolve_owner_user(
+                        farmer_id=monitoring.farmer_id,
+                        farmers_organization_id=monitoring.farmers_organization_id,
+                    ),
+                    actor=self.request.user,
+                    verb='recorded a harvest for',
+                    record_type='crop',
+                    record_id=monitoring_id,
+                    record_label=_crop_record_label(monitoring),
+                    detail=f'{harvest.volume_kg} {harvest.unit_of_measure or "kg"}',
+                )
 
 
 class HarvestRecordDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -1200,14 +1205,19 @@ class CropActivityLogListCreateView(generics.ListCreateAPIView):
             recorded_by=self.request.user,
             is_late=is_late,
         )
-        notify_all_except(
-            actor=self.request.user,
-            verb='logged an activity on',
-            record_type='crop',
-            record_id=monitoring_id,
-            record_label=_crop_record_label(monitoring),
-            detail=f'{log.activity_type} on {log.date_of_activity}',
-        )
+        if self.request.user.role != 'CITIZEN':
+            notify_user(
+                recipient=resolve_owner_user(
+                    farmer_id=monitoring.farmer_id,
+                    farmers_organization_id=monitoring.farmers_organization_id,
+                ),
+                actor=self.request.user,
+                verb='logged an activity on',
+                record_type='crop',
+                record_id=monitoring_id,
+                record_label=_crop_record_label(monitoring),
+                detail=f'{log.activity_type} on {log.date_of_activity}',
+            )
 
 
 class CropActivityLogDeleteView(generics.DestroyAPIView):
@@ -1274,7 +1284,7 @@ class CropDisasterReportListCreateView(generics.ListCreateAPIView):
             monitoring_record_id=monitoring_id,
             reported_by=self.request.user,
         )
-        notify_all_except(
+        notify_staff(
             actor=self.request.user,
             verb='reported a disaster on',
             record_type='crop',
@@ -1282,6 +1292,19 @@ class CropDisasterReportListCreateView(generics.ListCreateAPIView):
             record_label=_crop_record_label(monitoring),
             detail=disaster.disaster_type,
         )
+        if self.request.user.role != 'CITIZEN':
+            notify_user(
+                recipient=resolve_owner_user(
+                    farmer_id=monitoring.farmer_id,
+                    farmers_organization_id=monitoring.farmers_organization_id,
+                ),
+                actor=self.request.user,
+                verb='reported a disaster on',
+                record_type='crop',
+                record_id=monitoring_id,
+                record_label=_crop_record_label(monitoring),
+                detail=disaster.disaster_type,
+            )
 
 
 class CropDisasterResolveView(APIView):
