@@ -176,6 +176,7 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
         chipLabel={record?.label}
         onBack={() => setView('home')}
         tabBar={tabBar(null)}
+        theme={theme}
         wide
       >
         <MyOrgReportingSection domain={domain} orgId={orgId} orgName={record?.label} />
@@ -190,6 +191,7 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
         chipLabel={record?.label}
         onBack={() => setView('home')}
         tabBar={tabBar('members')}
+        theme={theme}
         wide
       >
         <OrgSectionLabel>{labels.orgHome.membersCount(members.length)}</OrgSectionLabel>
@@ -354,7 +356,7 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
 
   return (
     <div className="min-h-screen w-full bg-cz-org-panel">
-      <OrgAppBar title={labels.orgHome.dashboardTitle} chipLabel={record?.label} />
+      <OrgAppBar title={labels.orgHome.dashboardTitle} chipLabel={record?.label} theme={theme} />
       <main className="mx-auto w-full max-w-[1240px] px-4 pb-[calc(72px+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-10">
         {/* Mobile/tablet: one column, hero → alert → actions → roster →
             history, then members. Desktop (1024px+): two columns, exactly as

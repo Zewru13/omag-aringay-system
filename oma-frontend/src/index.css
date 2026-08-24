@@ -16,17 +16,24 @@
   --font-display: 'Public Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-sans: 'Public Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 
-  /* Brand */
-  --color-primary: #1B4D2E;
-  --color-primary-hover: #235E38;
-  --color-primary-deep: #163318;
-  --color-primary-light: #EBF5EE;
-  --color-primary-muted: #C8E6D0;
+  /* Brand — "Field" (Admin/Evaluator/Farmer/Farmer Association). Part of
+     the Field & Tide system: one hue per domain at several tonal steps,
+     no separate accent hue. Values are the Field ramp's 700/500/900/100/300
+     steps — see the cz-crop-* tokens below, which mirror this exactly so
+     staff and citizen surfaces stay one palette, not two. */
+  --color-primary: #2F5233;
+  --color-primary-hover: #3A6140;
+  --color-primary-deep: #16382A;
+  --color-primary-light: #E4EFE5;
+  --color-primary-muted: #9FC2A4;
 
-  /* Accent — harvest gold. Reserved for CTAs/highlights, never status. */
-  --color-accent: #B45309;
-  --color-accent-hover: #96420A;
-  --color-accent-light: #FBEED6;
+  /* Accent — deliberately aliased to primary, not a separate hue. The
+     system moved from a green+gold pairing to one hue per domain; CTAs
+     use the same green as everything else in Field, just as the
+     reference dashboard used one hue for both brand and buttons. */
+  --color-accent: #2F5233;
+  --color-accent-hover: #3A6140;
+  --color-accent-light: #E4EFE5;
 
   /* Neutral surfaces — warm parchment, not cold grey */
   --color-bg: #F6F5F1;
@@ -100,54 +107,43 @@
      staff surfaces keep the warm parchment tokens, citizen screens use
      these. Consume as bg-cz-crop-header, text-cz-text-2, etc. */
 
-  /* PALETTE CONVERGENCE (new farmer/fisheries reference, 33 frames).
-     That reference is drawn entirely in the STAFF palette above plus the
-     fisherfolk blue — measured, not assumed: its farmer header is #1B4D2E
-     (= --color-primary), its page ground #F6F5F1 (= --color-bg), its
-     hairline #E7E5DE (= --color-border), and its status tints #E7F5EC /
-     #FBEED6 / #FBE3E0 / #B4271B are the semantic-* tokens exactly.
+  /* FIELD & TIDE (system-wide palette revision). One hue per domain, four
+     tonal steps, white/neutral ground — no separate accent hue, and no
+     third navy for organisations. Field IS --color-primary above (crop
+     tokens are the same ramp, not a coincidence — Admin/Evaluator, Farmer
+     and Farmer Association read as one domain). Tide is fisheries' own
+     ramp, used by both Fisherfolk and Fisherfolk Association — the old
+     separate "organisation navy" (cz-org-bar) is retired; an organisation
+     now simply takes its domain's own colour, applied through
+     CROP_THEME/FISH_THEME (citizenUI.jsx) rather than a hardcoded token.
 
-     So the citizen screens no longer carry a separate warm-cream ground and
-     their own crop green. The cz-* names are kept because the citizen
-     screens still differ in shape (phone layout, hairline borders, domain
-     tinting), but the values below now coincide with the staff tokens BY
-     DESIGN rather than by accident. Do not "tidy" them apart again.
+     Ramp step -> role:
+       700  header / primary surface
+       900  deepest step (hero-gradient floor, darkest text-on-light)
+       500  mid (progress-bar fill, nav-active-style surfaces)
+       300  decorative-only (dots, never text-on-header — see contrast note)
+       100  pale (safe text-on-header, palest tint fills)
 
-     Crop domain — was #1C5737, sampled from the older basis. */
-  --color-cz-crop-header: #1B4D2E;
-  --color-cz-crop-pale:   #EAF3DE;
-  --color-cz-crop-100:    #C0DD97;
-  --color-cz-crop-300:    #97C459;
-  /* SAMPLED from the crop progress bar in image1 (a flat 195px run at
-     y=319-324, so this is measured, not guessed). The previous #639922 was
-     a lime at hue 82 deg; the basis draws the bar in the header's own hue
-     family at 147 deg. */
-  --color-cz-crop-fill:   #2A7D4F;
-  --color-cz-crop-deep:   #3B6D11;
-  --color-cz-crop-deeper: #27500A;
+     CONTRAST NOTE: the -300 step measures under 4.5:1 AA on its own -700
+     header for small text (Field 300 on Field 700 = 4.52:1, too close to
+     the floor to trust). Text-on-header therefore always uses -100
+     (Field 7.48:1, Tide 8.83:1), matching the reasoning the previous
+     palette already used for the same reason — -300 is decorative only. */
+  --color-cz-crop-header: #2F5233;
+  --color-cz-crop-pale:   #E4EFE5;
+  --color-cz-crop-100:    #E4EFE5;
+  --color-cz-crop-300:    #9FC2A4;
+  --color-cz-crop-fill:   #4F7A57;
+  --color-cz-crop-deep:   #2F5233;
+  --color-cz-crop-deeper: #16382A;
 
-  /* Fisheries domain
-     SAMPLED, not derived. An earlier pass derived a teal here (#1C574C,
-     hue 169°) rather than copying the basis, on the reasoning that the
-     mockup's blue would break a green-vs-teal domain language. That was
-     overruled the same way the organisation navy was: the basis is the
-     specification, so these are its real values.
-
-     The header in the basis is a GRADIENT, not a flat fill — it runs
-     #194460 at the top to #1E5072 at the bottom across images 7, 8, 11
-     and 12. `fish-header` is its measured midpoint, which is what a flat
-     fill has to be to read the same overall weight.
-
-     Note this stays clearly separable from the organisation navy
-     (cz-org-bar #0B3D52, hue 197° / sat 76% / light 18%): at hue 204° /
-     sat 58% / light 26% this is lighter and markedly less saturated, so a
-     fisherfolk citizen does not read as a fisherfolk organisation. */
-  --color-cz-fish-header: #1C4B6A;
-  --color-cz-fish-pale:   #E2F1FB;
-  --color-cz-fish-100:    #B0E6FF;
-  --color-cz-fish-300:    #75B3E6;
-  --color-cz-fish-fill:   #236790;
-  --color-cz-fish-deep:   #1A5B80;
+  --color-cz-fish-header: #1B4457;
+  --color-cz-fish-pale:   #E3EEF1;
+  --color-cz-fish-100:    #E3EEF1;
+  --color-cz-fish-300:    #9BC1CF;
+  --color-cz-fish-fill:   #3E6C82;
+  --color-cz-fish-deep:   #1B4457;
+  --color-cz-fish-deeper: #10293A;
 
   /* Danger — overdue */
   --color-cz-danger-bg:     #FCEBEB;
@@ -208,38 +204,17 @@
   --color-cz-status-info-fg: #1D4ED8;
 
   /* ── Organization account ────────────────────────────────────────────
-     Sampled from the Organization reference images (image10/image11 at
-     1452px, the highest-resolution frames in the set), not eyeballed.
-
-     COLOUR DECISION: the mockup's app bar and hero card are #0B3D52 —
-     hue 197deg, a navy-cyan, against the citizen app's crop green
-     (#1C5737, hue 147deg) and fish teal (#1C574C, hue 169deg). The first
-     pass kept the domain token so an officer's org screens matched their
-     own Farmer/Fisherfolk screens; on review the reference's navy was
-     adopted instead, so an ORGANISATION reads as an organisation rather
-     than as a large farmer. This is scoped to the organisation screens
-     ONLY — cz-crop-header and cz-fish-header are untouched and the
-     Farmer/Fisherfolk citizen screens are unchanged.
-
-     These are all genuinely new: no existing cz-* token covers a
-     categorical badge set or a per-person avatar identity palette. */
-
-  /* Neutral surface used for the org page background in the mockup. The
-     citizen app's warm --color-cz-page is kept for the page itself; this
-     is only for the inset panels the mockup shows in a cooler grey. */
+     Field & Tide revision: the standalone "organisation navy" (formerly
+     cz-org-bar / cz-org-hero-from / cz-org-hero-to / cz-org-on-muted) is
+     retired. An organisation is no longer a third identity — it takes its
+     own domain's colour exactly like its Farmer/Fisherfolk counterpart,
+     via CROP_THEME/FISH_THEME (citizenUI.jsx: header/heroGradient/mutedOn),
+     never a hardcoded token. A Farmers Organization is Field green: the
+     same reason Admin/Evaluator/Farmer/Farmer Association all share one
+     palette. Only the neutral page ground below survives from that era —
+     it was never a hue decision, just a cooler grey than the citizen app's
+     warm default. */
   --color-cz-org-panel:     #F0F4F7;
-
-  /* App bar + hero, ORGANISATION SCREENS ONLY. Sampled from image10/
-     image11. These are deliberately NOT cz-crop-header/cz-fish-header:
-     organizations get the reference's own navy identity, while Farmer and
-     Fisherfolk citizen screens keep their domain green/teal untouched.
-     Nothing outside src/pages/Citizen/Org*.jsx may consume these. */
-  --color-cz-org-bar:       #0B3D52;
-  --color-cz-org-hero-from: #12405A;
-  --color-cz-org-hero-to:   #0E3446;
-  /* Text tiers that sit ON the navy. */
-  --color-cz-org-on:        #FFFFFF;
-  --color-cz-org-on-muted:  #9FC3D4;
 
   /* Action-row icon tiles (sampled from the three "Mga Aksyon" rows). */
   --color-cz-tile-blue-bg:   #E0F2FE;

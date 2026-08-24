@@ -81,7 +81,7 @@ export default function OrgReportHistoryScreen({ domain, orgName, onBack, tabBar
   const H = labels.orgReportHistory
 
   return (
-    <OrgScreen title={H.title} chipLabel={orgName} onBack={onBack} tabBar={tabBar}>
+    <OrgScreen title={H.title} chipLabel={orgName} onBack={onBack} tabBar={tabBar} theme={domain.theme}>
       {isLoading && <p className="text-[13px] italic text-cz-text-2">{labels.orgReporting.loading}</p>}
 
       {!isLoading && hasError && (

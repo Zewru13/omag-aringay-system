@@ -59,12 +59,15 @@ const L = labels.distributeAssistance
 const R = labels.orgReportAssistance
 
 const FIELD_LABEL = 'mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-cz-text-2'
-const FIELD_BOX = 'min-h-[46px] w-full rounded-[10px] border-[0.5px] border-cz-border-strong bg-cz-surface px-3.5 text-[14px] text-cz-text outline-none focus:border-cz-org-bar'
+// Base only — the focus-border colour is domain-specific (Field green vs
+// Tide navy), so `fieldBox` below appends domain.theme.focusBorder per render.
+const FIELD_BOX_BASE = 'min-h-[46px] w-full rounded-[10px] border-[0.5px] border-cz-border-strong bg-cz-surface px-3.5 text-[14px] text-cz-text outline-none'
 const CARD = 'rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)]'
 
 export default function OrgReportAssistanceScreen({
   domain, orgId, orgName, members, onBack, tabBar,
 }) {
+  const fieldBox = `${FIELD_BOX_BASE} ${domain.theme.focusBorder}`
   const [step, setStep] = useState('form') // 'form' | 'confirm' | 'result'
   const [form, setForm] = useState({
     assistance_type: domain.assistanceTypeOptions[0],
@@ -164,13 +167,13 @@ export default function OrgReportAssistanceScreen({
     return <span className="inline-flex shrink-0 items-center gap-1 text-[12px] font-semibold text-cz-danger-accent"><XCircle size={13} /> {L.statusError}</span>
   }
 
-  const primaryBtn = 'flex min-h-[48px] w-full items-center justify-center rounded-[10px] bg-cz-org-bar text-[15px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50'
+  const primaryBtn = `flex min-h-[48px] w-full items-center justify-center rounded-[10px] ${domain.theme.header} text-[15px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50`
   const ghostBtn = 'flex min-h-[46px] w-full items-center justify-center rounded-[10px] border-[0.5px] border-cz-border-strong text-[14px] text-cz-text-2 transition-colors hover:bg-cz-org-panel'
 
   // ── Confirmation (unchanged dry_run contract, restyled) ──────────────
   if (step === 'confirm' && preview) {
     return (
-      <OrgScreen title={R.confirmTitle} chipLabel={orgName} onBack={() => setStep('form')} tabBar={tabBar}>
+      <OrgScreen title={R.confirmTitle} chipLabel={orgName} onBack={() => setStep('form')} tabBar={tabBar} theme={domain.theme}>
         <div className={`${CARD} space-y-1.5`}>
           <p className="text-[13px] text-cz-text-2">
             <span className="font-semibold text-cz-text">{L.organizationLabel}:</span> {preview.organization_name}
@@ -226,7 +229,7 @@ export default function OrgReportAssistanceScreen({
   if (step === 'result' && finalResult) {
     const created = finalResult.results.filter((r) => r.status === 'created').length
     return (
-      <OrgScreen title={R.resultTitle} chipLabel={orgName} onBack={onBack} tabBar={tabBar}>
+      <OrgScreen title={R.resultTitle} chipLabel={orgName} onBack={onBack} tabBar={tabBar} theme={domain.theme}>
         <div className={CARD}>
           <p className="text-[15px] font-semibold text-cz-text">{finalResult.organization_name}</p>
           <p className="mt-0.5 text-[13px] text-cz-text-2">
@@ -258,7 +261,7 @@ export default function OrgReportAssistanceScreen({
 
   // ── Form (images 5-8) ────────────────────────────────────────────────
   return (
-    <OrgScreen title={R.title} chipLabel={orgName} onBack={onBack} tabBar={tabBar}>
+    <OrgScreen title={R.title} chipLabel={orgName} onBack={onBack} tabBar={tabBar} theme={domain.theme}>
       <form onSubmit={handlePreview}>
         {/* URI NG TULONG — segmented pills, real per-domain type list */}
         <OrgSectionLabel>{R.typeHeading}</OrgSectionLabel>
@@ -273,7 +276,7 @@ export default function OrgReportAssistanceScreen({
                 onClick={() => selectType(type)}
                 className={`min-h-[42px] rounded-[10px] px-4 text-[14px] font-semibold transition-colors ${
                   active
-                    ? 'bg-cz-org-bar text-white'
+                    ? `${domain.theme.header} text-white`
                     : 'border-[0.5px] border-cz-border bg-cz-surface text-cz-text hover:bg-cz-org-panel'
                 }`}
               >
@@ -290,7 +293,7 @@ export default function OrgReportAssistanceScreen({
             onChange={(e) => set('assistance_type_other', e.target.value)}
             placeholder={R.otherTypePlaceholder}
             aria-label={R.otherTypePlaceholder}
-            className={`${FIELD_BOX} mt-3`}
+            className={`${fieldBox} mt-3`}
           />
         )}
 
@@ -299,7 +302,7 @@ export default function OrgReportAssistanceScreen({
           {isCash ? (
             <>
               <label className={FIELD_LABEL} htmlFor="org-cash">{R.cashPerMember}</label>
-              <div className="flex items-center gap-2 rounded-[10px] border-[0.5px] border-cz-border-strong bg-cz-surface px-3.5 focus-within:border-cz-org-bar">
+              <div className={`flex items-center gap-2 rounded-[10px] border-[0.5px] border-cz-border-strong bg-cz-surface px-3.5 ${domain.theme.focusWithinBorder}`}>
                 <span className="text-[14px] text-cz-text-2" aria-hidden="true">₱</span>
                 <input
                   id="org-cash"
@@ -327,7 +330,7 @@ export default function OrgReportAssistanceScreen({
                   value={form.quantity}
                   onChange={(e) => set('quantity', e.target.value)}
                   placeholder="0"
-                  className={FIELD_BOX}
+                  className={fieldBox}
                 />
               </div>
               <div>
@@ -336,7 +339,7 @@ export default function OrgReportAssistanceScreen({
                   id="org-unit"
                   value={form.unit}
                   onChange={(e) => set('unit', e.target.value)}
-                  className={FIELD_BOX}
+                  className={fieldBox}
                 >
                   {unitsFor(form.assistance_type).map((u) => <option key={u} value={u}>{u}</option>)}
                 </select>
@@ -355,7 +358,7 @@ export default function OrgReportAssistanceScreen({
               id="org-date" type="date" max={todayISO()}
               value={form.date_given}
               onChange={(e) => set('date_given', e.target.value)}
-              className={FIELD_BOX}
+              className={fieldBox}
             />
           </div>
           <div>
@@ -363,7 +366,7 @@ export default function OrgReportAssistanceScreen({
             <select
               id="org-agency" value={form.source_agency}
               onChange={(e) => set('source_agency', e.target.value)}
-              className={FIELD_BOX}
+              className={fieldBox}
             >
               <option value="">{R.notSpecified}</option>
               {SOURCE_AGENCY_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
@@ -376,7 +379,7 @@ export default function OrgReportAssistanceScreen({
                 onChange={(e) => set('source_agency_other', e.target.value)}
                 placeholder={R.otherAgencyPlaceholder}
                 aria-label={R.otherAgencyPlaceholder}
-                className={`${FIELD_BOX} mt-2`}
+                className={`${fieldBox} mt-2`}
               />
             )}
           </div>
@@ -386,7 +389,7 @@ export default function OrgReportAssistanceScreen({
               <select
                 id="org-season" value={form.season}
                 onChange={(e) => set('season', e.target.value)}
-                className={FIELD_BOX}
+                className={fieldBox}
               >
                 {domain.seasonOptions.map((s) => <option key={s} value={s}>{labels.harvest.seasonOptions?.[s] || s}</option>)}
               </select>
@@ -398,7 +401,7 @@ export default function OrgReportAssistanceScreen({
               id="org-desc" rows={2}
               value={form.description}
               onChange={(e) => set('description', e.target.value)}
-              className={`${FIELD_BOX} py-2.5`}
+              className={`${fieldBox} py-2.5`}
             />
           </div>
         </div>
@@ -409,7 +412,7 @@ export default function OrgReportAssistanceScreen({
           <div className={CARD}>
             <div className="flex items-start gap-3">
               <span
-                className="mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] bg-cz-org-bar text-white"
+                className={`mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] ${domain.theme.header} text-white`}
                 aria-hidden="true"
               >
                 <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="3.4">

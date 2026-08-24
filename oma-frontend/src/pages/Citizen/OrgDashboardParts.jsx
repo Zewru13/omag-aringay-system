@@ -12,17 +12,15 @@ import { labels } from './labels.js'
 // 11px uppercase section labels at 0.06em tracking.
 
 // ── App bar ───────────────────────────────────────────────────────────────
-// #0B3D52 navy, sampled from the reference. This is the ONE surface family
-// where the organisation screens leave the crop-green / fish-teal domain
-// convention: an organisation reads as an organisation, not as a large
-// farmer. Scoped strictly to cz-org-* tokens — the domain tokens themselves
-// are untouched, so Farmer and Fisherfolk citizen screens are unaffected.
-// Everything else about the bar — the icon tile, the small-caps app name
-// over a bold page title, the right-aligned user chip on desktop — is
-// exactly as drawn.
-export function OrgAppBar({ title, chipLabel, onBack }) {
+// Field & Tide: an organisation now takes its own domain's colour (`theme`,
+// CROP_THEME or FISH_THEME) instead of the old hardcoded navy — a Farmers
+// Organization reads as Field green, a Fisherfolk Organization as Tide navy,
+// same as their Farmer/Fisherfolk counterparts. Everything else about the
+// bar — the icon tile, the small-caps app name over a bold page title, the
+// right-aligned user chip on desktop — is unchanged.
+export function OrgAppBar({ title, chipLabel, onBack, theme }) {
   return (
-    <header className="w-full bg-cz-org-bar">
+    <header className={`w-full ${theme.header}`}>
       <div className="mx-auto flex w-full max-w-[1240px] items-center gap-3 px-4 py-3 sm:px-6 sm:py-4">
         {onBack ? (
           <button
@@ -44,7 +42,7 @@ export function OrgAppBar({ title, chipLabel, onBack }) {
           </span>
         )}
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-cz-org-on-muted">
+          <p className={`text-[10px] font-semibold uppercase tracking-[0.12em] ${theme.mutedOn}`}>
             {labels.orgHome.appName}
           </p>
           <h1 className="truncate text-[17px] font-semibold text-white sm:text-[18px]">{title}</h1>
@@ -72,17 +70,17 @@ export function OrgAppBar({ title, chipLabel, onBack }) {
 // against the domain's actual position set (seven, not the mockup's five).
 export function OrgHeroCard({ theme, typeLabel, name, addressLine, memberCount, filled, total, isLoading }) {
   return (
-    <section className="rounded-[14px] bg-gradient-to-b from-cz-org-hero-from to-cz-org-hero-to p-5 text-white">
+    <section className={`rounded-[14px] p-5 text-white ${theme.heroGradient}`}>
       <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-[12px] font-medium">
         <span className={`h-1.5 w-1.5 rounded-full ${theme.dot}`} aria-hidden="true" />
         {typeLabel}
       </span>
       <h2 className="mt-3 text-[22px] font-bold leading-[1.2] sm:text-[26px]">{name}</h2>
-      <p className="mt-1 text-[13px] text-cz-org-on-muted">{addressLine}</p>
+      <p className={`mt-1 text-[13px] ${theme.mutedOn}`}>{addressLine}</p>
       <div className="my-4 h-px bg-white/15" />
       <div className="flex items-end justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-cz-org-on-muted">
+          <p className={`text-[11px] font-semibold uppercase tracking-[0.08em] ${theme.mutedOn}`}>
             {labels.orgHome.statMembers}
           </p>
           <p className="mt-0.5 text-[30px] font-bold leading-none tabular-nums">
@@ -90,12 +88,12 @@ export function OrgHeroCard({ theme, typeLabel, name, addressLine, memberCount, 
           </p>
         </div>
         <div className="text-right">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-cz-org-on-muted">
+          <p className={`text-[11px] font-semibold uppercase tracking-[0.08em] ${theme.mutedOn}`}>
             {labels.orgHome.statPositions}
           </p>
           <p className="mt-0.5 text-[30px] font-bold leading-none tabular-nums">
             {isLoading ? '—' : filled}
-            <span className="text-[18px] font-semibold text-cz-org-on-muted">/{total}</span>
+            <span className={`text-[18px] font-semibold ${theme.mutedOn}`}>/{total}</span>
           </p>
         </div>
       </div>
@@ -111,10 +109,10 @@ export function OrgHeroCard({ theme, typeLabel, name, addressLine, memberCount, 
 // Note this ground is cz-org-panel, NOT the citizen app's warm cz-page: the
 // reference draws the organisation screens on a cool grey (visible in image2
 // and image3 alike), and that reads as part of the same decision as the navy.
-export function OrgScreen({ title, chipLabel, onBack, tabBar, children, wide = false }) {
+export function OrgScreen({ title, chipLabel, onBack, tabBar, children, wide = false, theme }) {
   return (
     <div className="min-h-screen w-full bg-cz-org-panel">
-      <OrgAppBar title={title} chipLabel={chipLabel} onBack={onBack} />
+      <OrgAppBar title={title} chipLabel={chipLabel} onBack={onBack} theme={theme} />
       <main
         className={`mx-auto w-full ${wide ? 'max-w-[1240px]' : 'max-w-[720px]'} px-4 pb-[calc(72px+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-10`}
       >

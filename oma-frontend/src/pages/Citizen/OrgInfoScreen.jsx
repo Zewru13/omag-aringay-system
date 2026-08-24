@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Camera, Check, Clock, Pencil } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Camera, Check, Clock, KeyRound, Pencil } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
+import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { OrgAppBar, OrgSectionLabel } from './OrgDashboardParts.jsx'
 import { labels } from './labels.js'
+
+const INPUT = 'min-w-0 flex-1 rounded-[8px] border-[0.5px] border-cz-border-strong bg-cz-page px-3 py-[10px] text-[14px] text-cz-text focus:border-cz-text-2 focus:outline-none disabled:opacity-50'
 
 // Batch: the Organization equivalent of Farmer/Fisherfolk's "My Profile" —
 // the home for the profile self-editing backend committed in ab07388.
@@ -24,6 +28,8 @@ const REQUESTABLE = ['name', 'barangay', 'street_address']
 export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecordChanged }) {
   const theme = domain.theme
   const { showToast } = useToast()
+  const { logout } = useAuth()
+  const navigate = useNavigate()
   const fileRef = useRef(null)
 
   const [logoUrl, setLogoUrl] = useState(record?.logo_url || null)
@@ -36,6 +42,10 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
   const [requestDraft, setRequestDraft] = useState('')
   const [isBusy, setIsBusy] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+
+  const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' })
+  const [passwordError, setPasswordError] = useState('')
+  const [changingPassword, setChangingPassword] = useState(false)
 
   const loadRequests = useCallback(() => {
     api.get('/profile/change-requests/')
@@ -90,6 +100,35 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
     }
   }
 
+  const changePassword = async () => {
+    setPasswordError('')
+    if (passwordForm.next !== passwordForm.confirm) {
+      setPasswordError(labels.profileEdit.passwordMismatch)
+      return
+    }
+    setChangingPassword(true)
+    try {
+      await api.post('/accounts/change-password/', {
+        current_password: passwordForm.current,
+        new_password: passwordForm.next,
+        confirm_new_password: passwordForm.confirm,
+      })
+      showToast(labels.profileEdit.passwordChanged, 'success')
+      // Same reasoning as CitizenProfileScreen's identical block: the
+      // backend just blacklisted every token for this account, so the
+      // only valid next step is a fresh login with the new password.
+      setTimeout(() => { logout(); navigate('/login') }, 800)
+    } catch (err) {
+      const d = err?.response?.data
+      setPasswordError(
+        d?.new_password?.[0] || d?.non_field_errors?.[0] || d?.detail ||
+        (typeof d === 'string' ? d : null) || labels.common.genericSaveError
+      )
+    } finally {
+      setChangingPassword(false)
+    }
+  }
+
   const submitRequest = async () => {
     setIsBusy(true)
     setErrorMessage('')
@@ -120,7 +159,7 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
 
   return (
     <div className="min-h-screen w-full bg-cz-org-panel">
-      <OrgAppBar title={labels.orgInfo.title} chipLabel={record?.label} onBack={onBack} />
+      <OrgAppBar title={labels.orgInfo.title} chipLabel={record?.label} onBack={onBack} theme={theme} />
       <main className="mx-auto w-full max-w-[1240px] px-4 pb-[calc(72px+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-10">
         <div className="mx-auto max-w-[560px] space-y-4">
 
@@ -195,6 +234,58 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
                   </button>
                 </div>
               )}
+            </div>
+          </section>
+
+          {/* Password — voluntary self-service, mirrors the Farmer/
+              Fisherfolk card (CitizenProfileScreen.jsx), same endpoint. One
+              real addition: this account is shared/institutional, not
+              personal — passwordSharedAccountNote says so explicitly so
+              whichever officer is changing it understands the blast
+              radius, rather than reusing copy written for a single owner. */}
+          <section>
+            <OrgSectionLabel>{labels.orgInfo.groups.password}</OrgSectionLabel>
+            <div className="rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+              <p className="mb-2 rounded-[8px] border-[0.5px] border-cz-warn-border bg-cz-warn-bg px-3 py-2 text-[12px] leading-[1.5] text-cz-warn-body">
+                {labels.profileEdit.passwordSharedAccountNote}
+              </p>
+              <div className="space-y-2">
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  placeholder={labels.profileEdit.passwordCurrentLabel}
+                  value={passwordForm.current}
+                  onChange={(e) => setPasswordForm((f) => ({ ...f, current: e.target.value }))}
+                  className={INPUT}
+                />
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder={labels.profileEdit.passwordNewLabel}
+                  value={passwordForm.next}
+                  onChange={(e) => setPasswordForm((f) => ({ ...f, next: e.target.value }))}
+                  className={INPUT}
+                />
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  placeholder={labels.profileEdit.passwordConfirmLabel}
+                  value={passwordForm.confirm}
+                  onChange={(e) => setPasswordForm((f) => ({ ...f, confirm: e.target.value }))}
+                  className={INPUT}
+                />
+              </div>
+              {passwordError && <p className="mt-1.5 text-[12px] font-medium text-rose-600">{passwordError}</p>}
+              <button
+                type="button"
+                onClick={changePassword}
+                disabled={changingPassword || !passwordForm.current || !passwordForm.next || !passwordForm.confirm}
+                className={`mt-2 flex items-center gap-1.5 rounded-[8px] px-3.5 py-2 text-[13px] font-medium ${theme.solidBtn} disabled:opacity-50`}
+              >
+                <KeyRound size={13} aria-hidden="true" />
+                {labels.profileEdit.passwordChangeCta}
+              </button>
+              <p className="mt-1.5 text-[12px] text-cz-text-muted">{labels.profileEdit.passwordCardNote}</p>
             </div>
           </section>
 

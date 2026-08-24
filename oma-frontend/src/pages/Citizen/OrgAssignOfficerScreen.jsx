@@ -52,6 +52,7 @@ export default function OrgAssignOfficerScreen({
         title={position}
         chipLabel={orgName}
         onBack={() => { setPosition(null); setErrorMessage('') }}
+        theme={domain.theme}
       >
         <OrgPrompt>{labels.orgAssignOfficer.pickMember}</OrgPrompt>
 
@@ -104,7 +105,7 @@ export default function OrgAssignOfficerScreen({
   // holds it. The position set is the domain's real one (seven), not the
   // five the mockup happens to draw.
   return (
-    <OrgScreen title={labels.orgAssignOfficer.title} chipLabel={orgName} onBack={onBack}>
+    <OrgScreen title={labels.orgAssignOfficer.title} chipLabel={orgName} onBack={onBack} theme={domain.theme}>
       <OrgPrompt>{labels.orgAssignOfficer.pickPosition}</OrgPrompt>
       <ul className={card}>
         {domain.officerPositions.map((p, i) => {

@@ -8,7 +8,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.models import User
 from accounts.permissions import IsAdminOrEvaluator, IsOwnOrgOrStaff
+from accounts.utils import create_inactive_citizen_shell
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk
 from interventions.models import BeneficiaryRecord, FisherfolkBeneficiaryRecord
@@ -56,6 +58,17 @@ class FarmersOrganizationListCreateView(generics.ListCreateAPIView):
         if search:
             qs = qs.filter(Q(name__icontains=search) | Q(barangay__icontains=search))
         return qs
+
+    def perform_create(self, serializer):
+        # Same shell-creation the Farmer/Fisherfolk enrollment flows already
+        # do (farmers.views.FarmerListView.perform_create,
+        # fisheries.views.FisherfolkListView.perform_create) — an inactive
+        # shell ready for staff's later in-person "Set Up Account" visit.
+        # Organizations had no equivalent call at all until now.
+        with transaction.atomic():
+            serializer.save()
+            org = serializer.instance
+            create_inactive_citizen_shell(User.LinkedRecordType.FARMERS_ORG, org)
 
 
 class FarmersOrganizationDetailView(generics.RetrieveUpdateAPIView):
@@ -264,6 +277,14 @@ class FisherfolkOrganizationListCreateView(generics.ListCreateAPIView):
         if search:
             qs = qs.filter(Q(name__icontains=search) | Q(barangay__icontains=search))
         return qs
+
+    def perform_create(self, serializer):
+        # Same shell-creation the Farmer/Fisherfolk enrollment flows already
+        # do — see FarmersOrganizationListCreateView.perform_create above.
+        with transaction.atomic():
+            serializer.save()
+            org = serializer.instance
+            create_inactive_citizen_shell(User.LinkedRecordType.FISHERFOLK_ORG, org)
 
 
 class FisherfolkOrganizationDetailView(generics.RetrieveUpdateAPIView):

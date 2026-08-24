@@ -1165,6 +1165,22 @@ export const labels = {
       name: 'Pangalan ng organisasyon',
       street_address: 'Address',
     },
+
+    // Password card — same mechanics as the Farmer/Fisherfolk version
+    // (labels.ffNew.profile.password*, CitizenProfileScreen.jsx), reused
+    // for the Organization Info screen with one addition: this account is
+    // shared/institutional, not personal, so passwordSharedAccountNote
+    // says so explicitly rather than reusing identical copy that would
+    // silently imply a single owner.
+    passwordCardHeading: 'Password',
+    passwordCardNote: 'Opsyonal. Maaari ninyong baguhin ang password anumang oras — hindi ito kailangan.',
+    passwordSharedAccountNote: 'Ginagamit ang account na ito ng buong organisasyon — sinuman sa mga opisyal na may hawak ng password sa kasalukuyan. Ang pagbabago ng password ay makakaapekto sa LAHAT ng gumagamit nito, hindi lang sa inyo.',
+    passwordCurrentLabel: 'KASALUKUYANG PASSWORD',
+    passwordNewLabel: 'BAGONG PASSWORD',
+    passwordConfirmLabel: 'KUMPIRMAHIN ANG BAGONG PASSWORD',
+    passwordChangeCta: 'Baguhin ang Password',
+    passwordMismatch: 'Hindi magkatugma ang bagong password at kumpirmasyon.',
+    passwordChanged: 'Nabago na po ang password. Mag-log in ulit gamit ang bagong password.',
   },
 
   // ── Batch: Organization Info screen ────────────────────────────────────
@@ -1175,6 +1191,7 @@ export const labels = {
     groups: {
       identity: 'IMPORMASYON NG ORGANISASYON',
       contact: 'CONTACT',
+      password: 'PASSWORD',
     },
   },
 

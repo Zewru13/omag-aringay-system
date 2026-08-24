@@ -56,6 +56,14 @@ export const CROP_THEME = {
   // Batch: the small status dot inside the organization type pill
   // ("Fisherfolk Organization"), per the reference hero card.
   dot: 'bg-cz-crop-100',
+  // Field & Tide: added so the Organization screens (OrgAppBar/
+  // OrgHeroCard) can take this domain's colour instead of a hardcoded
+  // navy — a Farmers Organization is Field green, same as Farmer.
+  border: 'border-cz-crop-deep',
+  focusBorder: 'focus:border-cz-crop-deep',
+  focusWithinBorder: 'focus-within:border-cz-crop-deep',
+  heroGradient: 'bg-gradient-to-b from-cz-crop-header to-cz-crop-deeper',
+  mutedOn: 'text-cz-crop-100',
 }
 
 export const FISH_THEME = {
@@ -68,13 +76,21 @@ export const FISH_THEME = {
   circleBg: 'bg-cz-fish-pale',
   circleIcon: 'text-cz-fish-deep',
   track: 'bg-cz-track',
-  fill: 'bg-gradient-to-r from-[#1C5075] to-[#2877A3]',
+  // Was a hardcoded arbitrary-hex gradient predating the Field & Tide
+  // ramp — now the same two token stops the header/hero use, so a
+  // progress fill never drifts out of sync with the rest of the domain.
+  fill: 'bg-gradient-to-r from-cz-fish-header to-cz-fish-fill',
   accentText: 'text-cz-fish-deep',
   solidBtn: 'bg-cz-fish-header text-cz-fish-pale',
   tileSelectedBorder: 'border-cz-fish-deep',
   tileSelectedBg: 'bg-cz-fish-pale',
   tileSelectedText: 'text-cz-fish-deep',
   dot: 'bg-cz-fish-100',
+  border: 'border-cz-fish-deep',
+  focusBorder: 'focus:border-cz-fish-deep',
+  focusWithinBorder: 'focus-within:border-cz-fish-deep',
+  heroGradient: 'bg-gradient-to-b from-cz-fish-header to-cz-fish-deeper',
+  mutedOn: 'text-cz-fish-100',
 }
 
 // ─── Screen shell ───────────────────────────────────────────────────────

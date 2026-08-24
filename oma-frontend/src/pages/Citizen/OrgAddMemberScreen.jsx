@@ -100,7 +100,7 @@ export default function OrgAddMemberScreen({
   const tooShort = term.trim().length > 0 && term.trim().length < MIN_SEARCH_LENGTH
 
   return (
-    <OrgScreen title={labels.orgAddMember.title} chipLabel={orgName} onBack={onBack}>
+    <OrgScreen title={labels.orgAddMember.title} chipLabel={orgName} onBack={onBack} theme={domain.theme}>
       {/* image4's search-first empty state: one white pill-radius field on
           the panel ground, then a centred muted sentence and nothing else
           until the search actually returns something. */}
@@ -169,7 +169,7 @@ export default function OrgAddMemberScreen({
                       type="button"
                       disabled={busyId === cand.id}
                       onClick={() => handleAdd(cand)}
-                      className="min-h-[38px] shrink-0 rounded-[9px] bg-cz-org-bar px-3.5 text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+                      className={`min-h-[38px] shrink-0 rounded-[9px] ${domain.theme.header} px-3.5 text-white transition-opacity hover:opacity-90 disabled:opacity-50`}
                     >
                       <span className="text-[13px] font-semibold">{labels.orgAddMember.addButton}</span>
                     </button>
@@ -207,7 +207,7 @@ export default function OrgAddMemberScreen({
               type="button"
               disabled={busyId === pendingReassign.candidate.id}
               onClick={() => submitAdd(pendingReassign.candidate, true)}
-              className="mt-4 flex min-h-[46px] w-full items-center justify-center rounded-[10px] bg-cz-org-bar text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              className={`mt-4 flex min-h-[46px] w-full items-center justify-center rounded-[10px] ${domain.theme.header} text-white transition-opacity hover:opacity-90 disabled:opacity-50`}
             >
               <span className="text-[15px] font-semibold">{labels.orgAddMember.reassignConfirm}</span>
             </button>
