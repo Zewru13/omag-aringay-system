@@ -21,7 +21,7 @@ from fisheries.models import Fisherfolk
 
 from .dashboard_activity import (
     active_disaster_rows, barangay_rows, crop_activity_status,
-    crop_yield_variance, fisheries_activity_status, sector_summary,
+    crop_yield_variance, fisheries_activity_status, not_received_count, sector_summary,
 )
 from .models import (
     BarangayCropSummary,
@@ -235,6 +235,7 @@ class DashboardActivityStatusView(APIView):
             'active_disasters': active_disaster_rows(),
             'sectors': sector_summary(),
             'yield_variance': crop_yield_variance(),
+            'not_received_count': not_received_count(),
         })
 
 

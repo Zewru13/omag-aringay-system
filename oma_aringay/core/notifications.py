@@ -98,17 +98,18 @@ def notify_user(recipient, actor, verb, record_type, record_id, record_label, de
     )
 
 
-def resolve_owner_user(farmer_id=None, farmers_organization_id=None, fisherfolk_id=None):
+def resolve_owner_user(farmer_id=None, farmers_organization_id=None, fisherfolk_id=None, fisherfolk_organization_id=None):
     """
     Resolve the single CITIZEN account that is the most relevant recipient
-    for a Farmer / FarmersOrganization / Fisherfolk record, for use with
-    notify_user(). A crop record can carry both farmer_id and
-    farmers_organization_id — when it does, the individual farmer's own
-    citizen account (if any, and active) is always preferred over the
-    organization's; the org account is only used when no individual owner
-    can be resolved. Returns None if nothing resolves (the record has no
-    activated citizen account at all), which notify_user() already treats
-    as a no-op.
+    for a Farmer / FarmersOrganization / Fisherfolk / FisherfolkOrganization
+    record, for use with notify_user(). A crop record can carry both
+    farmer_id and farmers_organization_id — when it does, the individual
+    farmer's own citizen account (if any, and active) is always preferred
+    over the organization's; the org account is only used when no
+    individual owner can be resolved. Same priority for fisherfolk_id vs
+    fisherfolk_organization_id. Returns None if nothing resolves (the
+    record has no activated citizen account at all), which notify_user()
+    already treats as a no-op.
     """
     User = get_user_model()
 
@@ -131,9 +132,18 @@ def resolve_owner_user(farmer_id=None, farmers_organization_id=None, fisherfolk_
             return user
 
     if fisherfolk_id:
-        return User.objects.filter(
+        user = User.objects.filter(
             linked_record_type=User.LinkedRecordType.FISHERFOLK,
             linked_record_id=fisherfolk_id,
+            is_active=True,
+        ).first()
+        if user is not None:
+            return user
+
+    if fisherfolk_organization_id:
+        return User.objects.filter(
+            linked_record_type=User.LinkedRecordType.FISHERFOLK_ORG,
+            linked_record_id=fisherfolk_organization_id,
             is_active=True,
         ).first()
 

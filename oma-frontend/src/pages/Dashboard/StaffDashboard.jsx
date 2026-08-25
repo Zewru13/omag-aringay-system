@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, FileText, Fish, Sprout } from 'lucide-react'
+import { AlertTriangle, FileText, Fish, PackageX, Sprout } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 
 // The admin/evaluator dashboard, built to the approved staff reference
@@ -243,6 +243,55 @@ export default function StaffDashboard({ user }) {
               />
             </div>
           </div>
+
+          {/* Needs attention — assistance not received */}
+          {(board?.not_received_count?.total || 0) > 0 && (
+            <div className={CARD}>
+              <div className="flex items-center justify-between gap-3 px-5 py-3 bg-[color:var(--color-semantic-warning-bg)] border-b border-border flex-wrap">
+                <div className="flex items-center gap-2">
+                  <PackageX size={15} className="text-[color:var(--color-semantic-critical)]" aria-hidden="true" />
+                  <h3 className="text-[12.5px] font-bold uppercase tracking-[0.05em] text-[color:var(--color-semantic-critical)]">
+                    Needs Follow-up — Assistance Not Received
+                  </h3>
+                </div>
+                <span className="text-[12px] text-text-muted">Both domains shown</span>
+              </div>
+              <div className="flex flex-wrap divide-x divide-border">
+                <div className="flex-1 min-w-[200px] px-5 py-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sprout size={14} className="text-primary" aria-hidden="true" />
+                    <h4 className="text-[12px] font-bold uppercase tracking-[0.05em] text-primary">Crop</h4>
+                  </div>
+                  <p className="text-[26px] font-bold leading-none tabular-nums text-[color:var(--color-semantic-critical)]">
+                    {num(board?.not_received_count?.crop)}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/crop-assistance?tab=needs-follow-up')}
+                    className="mt-3 text-primary transition-opacity hover:opacity-75 cursor-pointer"
+                  >
+                    <span className="text-[12.5px]">Review crop cases →</span>
+                  </button>
+                </div>
+                <div className="flex-1 min-w-[200px] px-5 py-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Fish size={14} className="text-[color:var(--color-semantic-info)]" aria-hidden="true" />
+                    <h4 className="text-[12px] font-bold uppercase tracking-[0.05em] text-[color:var(--color-semantic-info)]">Fisheries</h4>
+                  </div>
+                  <p className="text-[26px] font-bold leading-none tabular-nums text-[color:var(--color-semantic-critical)]">
+                    {num(board?.not_received_count?.fisheries)}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/fisheries-assistance?tab=needs-follow-up')}
+                    className="mt-3 text-[color:var(--color-semantic-info)] transition-opacity hover:opacity-75 cursor-pointer"
+                  >
+                    <span className="text-[12.5px]">Review fisheries cases →</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Activity status — all barangays */}
           <div className={CARD}>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Pencil, Plus, Trash2, Users } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { CheckCircle2, Pencil, Plus, Trash2, Users } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
@@ -12,11 +13,30 @@ import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
+import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import LogGovernmentAssistanceModal from './LogGovernmentAssistanceModal.jsx'
 import DistributeAssistanceModal from './DistributeAssistanceModal.jsx'
 import { FISHERFOLK_DISTRIBUTION_DOMAIN } from './distributionDomains.js'
+
+// interventions.models.DistributionStatus — see CropAssistancePage.jsx's
+// identical comment; same lifecycle, fisherfolk domain.
+const STATUS_LABELS = {
+  PENDING: 'Pending',
+  AWAITING_CONFIRMATION: 'Awaiting Confirmation',
+  CONFIRMED: 'Confirmed',
+  NOT_RECEIVED: 'Not Received',
+  RESOLVED: 'Resolved',
+}
+const EDITABLE_STATUSES = new Set(['PENDING', 'CONFIRMED', undefined, ''])
+
+function extractErrorMessage(err, fallback) {
+  const data = err?.response?.data
+  if (Array.isArray(data) && data.length) return String(data[0])
+  if (data?.detail) return data.detail
+  return fallback
+}
 
 // Must match interventions.models.FisherfolkBeneficiaryRecord.AssistanceType exactly
 // (Batch 6: absorbed from fisheries.models.FisheriesAssistanceRecord).
@@ -45,6 +65,7 @@ const COLUMNS = [
   { key: 'quantity',                                   label: 'Quantity / Amount' },
   { key: 'remarks',                                    label: 'Remarks' },
   { key: 'recorded_by_name',                           label: 'Recorded By' },
+  { key: 'status_cell',                                label: 'Status' },
   { key: 'actions_cell',                               label: 'Actions' },
 ]
 
@@ -108,7 +129,7 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
       showToast('Assistance record updated.', 'success')
       onSaved()
     } catch (err) {
-      setError(err?.response?.data?.detail || 'Failed to update assistance record.')
+      setError(extractErrorMessage(err, 'Failed to update assistance record.'))
     } finally {
       setIsSubmitting(false)
     }
@@ -208,6 +229,55 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
   )
 }
 
+// ── Mark Resolved Modal ─────────────────────────────────────────────────────
+
+function MarkResolvedModal({ record, onClose, onResolved }) {
+  const { showToast } = useToast()
+  const [notes, setNotes] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!notes.trim()) { setError('Follow-up notes are required.'); return }
+    setError(''); setIsSubmitting(true)
+    try {
+      await api.post(`/interventions/fisherfolk-beneficiaries/${record.id}/mark-resolved/`, { follow_up_notes: notes.trim() })
+      showToast('Case marked resolved.', 'success')
+      onResolved()
+    } catch (err) {
+      setError(err?.response?.data?.detail || 'Failed to mark this case resolved.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <ModalShell title="Mark Resolved" subtitle={record.fisherfolk_full_name} icon={CheckCircle2} onClose={onClose} maxWidth="max-w-lg">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="rounded-xl border border-[#FBE3E0] bg-[#FDF3F2] px-4 py-3 text-[13px] text-[#8A1F16]">
+          <p className="font-semibold">Reason recipient gave: </p>
+          <p className="mt-0.5">{record.non_receipt_reason || '—'}</p>
+        </div>
+        <FormField label="Follow-up Notes" required>
+          <textarea
+            rows={3}
+            className={baseInputClasses}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="What was done to resolve this — e.g. redelivered, coordinated with organization…"
+          />
+        </FormField>
+        {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
+        <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-3">
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="submit" isLoading={isSubmitting}>Mark Resolved</Button>
+        </div>
+      </form>
+    </ModalShell>
+  )
+}
+
 // ── Main Page ────────────────────────────────────────────────────────────────
 // Relocated from FisheriesMonitoringPage.jsx's "Assistance" tab (Batch 5).
 // Batch 6: repointed to interventions.FisherfolkBeneficiaryRecord at
@@ -215,6 +285,7 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
 // and its endpoint were retired; this page's data was migrated, not lost.
 
 export default function FisheriesAssistancePage({ asTab = false }) {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [assistance, setAssistance] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
@@ -223,9 +294,11 @@ export default function FisheriesAssistancePage({ asTab = false }) {
   const [source, setSource] = useState('')
   const [type, setType] = useState('')
   const [year, setYear] = useState('')
+  const [view, setView] = useState(searchParams.get('tab') === 'needs-follow-up' ? 'needs-follow-up' : 'all')
   const [showLog, setShowLog] = useState(false)
   const [showDistribute, setShowDistribute] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [resolving, setResolving] = useState(null)
 
   const fetchAssistance = useCallback(async () => {
     setIsLoading(true); setError('')
@@ -236,21 +309,31 @@ export default function FisheriesAssistancePage({ asTab = false }) {
       if (search) params.set('search', search)
       if (source) params.set('source_of_assistance', source)
       if (type) params.set('assistance_type', type)
+      if (view === 'needs-follow-up') params.set('status', 'NOT_RECEIVED')
       const r = await api.get(`/interventions/fisherfolk-beneficiaries/adhoc/?${params}`)
       setAssistance(Array.isArray(r.data) ? r.data : (r.data.results || []))
     } catch { setError('Failed to load assistance records.') }
     finally { setIsLoading(false) }
-  }, [year, barangay, search, source, type])
+  }, [year, barangay, search, source, type, view])
 
   useEffect(() => { fetchAssistance() }, [fetchAssistance])
+
+  const changeView = (next) => {
+    setView(next)
+    const params = new URLSearchParams(searchParams)
+    if (next === 'needs-follow-up') params.set('tab', next); else params.delete('tab')
+    setSearchParams(params, { replace: true })
+  }
 
   const rows = useMemo(() => assistance.map((a) => ({
     ...a,
     quantity: a.quantity || '—',
     date_received_fmt: formatDate(a.date_given),
+    status_cell: a.status ? <StatusPill status={a.status}>{STATUS_LABELS[a.status] || a.status}</StatusPill> : '—',
     actions_cell: (
       <RowActions actions={[
-        { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditing(a) },
+        EDITABLE_STATUSES.has(a.status) && { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditing(a) },
+        a.status === 'NOT_RECEIVED' && { key: 'resolve', label: 'Mark Resolved', icon: CheckCircle2, tone: 'default', onClick: () => setResolving(a) },
       ]} />
     ),
   })), [assistance])
@@ -262,13 +345,30 @@ export default function FisheriesAssistancePage({ asTab = false }) {
 
   const innerContent = (
     <div className="space-y-4">
-      <div className="flex justify-end gap-2">
-        <Button variant="outline" onClick={() => setShowDistribute(true)}>
-          <Users size={15} className="mr-1" /> Distribute to Organization
-        </Button>
-        <Button onClick={() => setShowLog(true)}>
-          <Plus size={15} className="mr-1" /> Log Government Assistance
-        </Button>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex overflow-hidden rounded-xl border border-slate-300 w-fit">
+          {[
+            { key: 'all', label: 'All Records' },
+            { key: 'needs-follow-up', label: 'Needs Follow-up' },
+          ].map((t) => (
+            <button
+              key={t.key} type="button" onClick={() => changeView(t.key)}
+              className={`px-4 py-2 text-[13px] font-semibold transition-colors ${
+                view === t.key ? 'bg-[#1B4D2E] text-white' : 'bg-white text-[#4A5E4A] hover:bg-[#F5F7F5]'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowDistribute(true)}>
+            <Users size={15} className="mr-1" /> Distribute to Organization
+          </Button>
+          <Button onClick={() => setShowLog(true)}>
+            <Plus size={15} className="mr-1" /> Log Government Assistance
+          </Button>
+        </div>
       </div>
 
       <FilterPanel
@@ -330,6 +430,13 @@ export default function FisheriesAssistancePage({ asTab = false }) {
           record={editing}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); fetchAssistance() }}
+        />
+      )}
+      {resolving && (
+        <MarkResolvedModal
+          record={resolving}
+          onClose={() => setResolving(null)}
+          onResolved={() => { setResolving(null); fetchAssistance() }}
         />
       )}
     </div>

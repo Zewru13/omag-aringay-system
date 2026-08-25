@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Gift } from 'lucide-react'
+import { CheckCircle2, Gift, XCircle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -16,7 +16,23 @@ import { DesktopRailCard } from './CitizenDesktopUI.jsx'
 // serves both instead of maintaining a second, un-restyled mobile version.
 export function CitizenAssistanceList({ endpoint }) {
   const D = labels.ffNew.desktop
+  const { showToast } = useToast()
   const [records, setRecords] = useState(null)
+  const [reportingId, setReportingId] = useState(null)
+  const [reason, setReason] = useState('')
+  const [busyId, setBusyId] = useState(null)
+
+  // Confirm/Report-Not-Received live on the record's own domain-specific
+  // path — /interventions/beneficiaries/ vs /interventions/fisherfolk-
+  // beneficiaries/ — derived from which history endpoint this instance was
+  // given, same domain split the caller already makes.
+  const actionBase = endpoint.includes('fisherfolk')
+    ? '/interventions/fisherfolk-beneficiaries'
+    : '/interventions/beneficiaries'
+
+  const reload = () => {
+    api.get(endpoint).then((r) => setRecords(r.data)).catch(() => setRecords([]))
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -28,6 +44,34 @@ export function CitizenAssistanceList({ endpoint }) {
 
   const sources = [...new Set(records.map((r) => r.source_agency).filter(Boolean))]
 
+  const confirmReceived = async (rec) => {
+    setBusyId(rec.id)
+    try {
+      await api.post(`${actionBase}/${rec.id}/confirm-received/`)
+      showToast(D.assistanceConfirmedToast, 'success')
+      reload()
+    } catch (err) {
+      showToast(err?.response?.data?.detail || D.assistanceActionFailed, 'error')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  const submitNotReceived = async (rec) => {
+    if (!reason.trim()) { showToast(D.assistanceReasonRequired, 'error'); return }
+    setBusyId(rec.id)
+    try {
+      await api.post(`${actionBase}/${rec.id}/report-not-received/`, { non_receipt_reason: reason.trim() })
+      showToast(D.assistanceReportedToast, 'success')
+      setReportingId(null); setReason('')
+      reload()
+    } catch (err) {
+      showToast(err?.response?.data?.detail || D.assistanceActionFailed, 'error')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
       <div className="min-w-0 flex-1 space-y-2.5">
@@ -36,18 +80,67 @@ export function CitizenAssistanceList({ endpoint }) {
             {D.assistanceEmpty}
           </p>
         ) : records.map((rec) => (
-          <div key={rec.id} className="flex items-center gap-3 rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface px-4 py-3.5">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-cz-page">
-              <Gift size={16} className="text-cz-text-2" aria-hidden="true" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[14.5px] font-semibold text-cz-text">
-                {rec.assistance_type || labels.common.unknown}
-                {rec.quantity ? ` — ${rec.quantity}` : ''}
-              </p>
-              <p className="truncate text-[12.5px] text-cz-text-2">{rec.source_agency || labels.common.unknown}</p>
+          <div key={rec.id} className="rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface px-4 py-3.5">
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-cz-page">
+                <Gift size={16} className="text-cz-text-2" aria-hidden="true" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[14.5px] font-semibold text-cz-text">
+                  {rec.assistance_type || labels.common.unknown}
+                  {rec.quantity ? ` — ${rec.quantity}` : ''}
+                </p>
+                <p className="truncate text-[12.5px] text-cz-text-2">{rec.source_agency || labels.common.unknown}</p>
+              </div>
+              <p className="shrink-0 text-[12px] text-cz-text-muted">{labels.common.formatDate(rec.date_given)}</p>
             </div>
-            <p className="shrink-0 text-[12px] text-cz-text-muted">{labels.common.formatDate(rec.date_given)}</p>
+
+            {rec.status === 'AWAITING_CONFIRMATION' && (
+              <div className="mt-3 border-t-[0.5px] border-cz-border pt-3">
+                <p className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-cz-page px-2.5 py-1 text-[11.5px] font-semibold text-cz-text-2">
+                  {D.assistanceAwaitingBadge}
+                </p>
+                {reportingId === rec.id ? (
+                  <div className="space-y-2">
+                    <label className="block text-[12.5px] font-medium text-cz-text">{D.assistanceReasonLabel}</label>
+                    <textarea
+                      rows={2}
+                      value={reason}
+                      onChange={(e) => setReason(e.target.value)}
+                      placeholder={D.assistanceReasonPlaceholder}
+                      className="w-full rounded-[8px] border-[0.5px] border-cz-border-strong bg-cz-surface px-3 py-2 text-[13.5px] text-cz-text focus:outline-none"
+                    />
+                    <div className="flex gap-2">
+                      <button type="button" disabled={busyId === rec.id} onClick={() => submitNotReceived(rec)}
+                        className="rounded-[8px] bg-cz-fish-header px-3 py-1.5 text-[12.5px] font-semibold text-white disabled:opacity-50">
+                        {D.assistanceReportSubmit}
+                      </button>
+                      <button type="button" onClick={() => { setReportingId(null); setReason('') }}
+                        className="rounded-[8px] border-[0.5px] border-cz-border-strong px-3 py-1.5 text-[12.5px] font-medium text-cz-text-2">
+                        {D.assistanceCancel}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" disabled={busyId === rec.id} onClick={() => confirmReceived(rec)}
+                      className="inline-flex items-center gap-1.5 rounded-[8px] bg-cz-fish-header px-3 py-1.5 text-[12.5px] font-semibold text-white disabled:opacity-50">
+                      <CheckCircle2 size={14} aria-hidden="true" /> {D.assistanceConfirmReceived}
+                    </button>
+                    <button type="button" disabled={busyId === rec.id} onClick={() => setReportingId(rec.id)}
+                      className="inline-flex items-center gap-1.5 rounded-[8px] border-[0.5px] border-cz-border-strong px-3 py-1.5 text-[12.5px] font-medium text-cz-text-2 disabled:opacity-50">
+                      <XCircle size={14} aria-hidden="true" /> {D.assistanceReportNotReceived}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {rec.status === 'NOT_RECEIVED' && (
+              <p className="mt-3 border-t-[0.5px] border-cz-border pt-3 text-[12.5px] italic text-cz-text-2">
+                {D.assistanceNotReceivedNote}
+              </p>
+            )}
           </div>
         ))}
         <p className="pt-2 text-center text-[12px] text-cz-text-muted">{D.assistanceReadOnly}</p>

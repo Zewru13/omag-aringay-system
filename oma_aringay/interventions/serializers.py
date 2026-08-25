@@ -1,7 +1,5 @@
 from rest_framework import serializers
 
-from core.validators import validate_not_future_date
-
 from .models import BeneficiaryRecord, FisherfolkBeneficiaryRecord
 
 
@@ -31,6 +29,15 @@ class BeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
             'season',
             'year',
             'attributed_organization_name',
+            # Scheduled distribution + confirmation lifecycle — read-only
+            # here. status is server-computed on create (see
+            # BeneficiaryRecord.save()); all four are otherwise only ever
+            # written by the dedicated lifecycle-action endpoints
+            # (interventions.lifecycle_views), never by a generic PATCH.
+            'status',
+            'confirmed_at',
+            'non_receipt_reason',
+            'follow_up_notes',
         ]
         read_only_fields = [
             'id',
@@ -40,14 +47,20 @@ class BeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
             'recorded_by',
             'recorded_by_name',
             'attributed_organization_name',
+            'status',
+            'confirmed_at',
+            'non_receipt_reason',
+            'follow_up_notes',
         ]
 
     def get_recorded_by_name(self, obj):
         return obj.recorded_by.full_name if obj.recorded_by else None
 
-    def validate_date_given(self, value):
-        validate_not_future_date(value, 'Date received')
-        return value
+    # date_given no longer rejects future dates here — a future date is now
+    # the deliberate trigger for the PENDING scheduling path
+    # (BeneficiaryRecord.save()). validate_not_future_date (core.validators)
+    # is untouched and still used by ~20 unrelated date fields elsewhere;
+    # this removal is scoped to exactly this field on this serializer.
 
 
 class BeneficiaryRecordUpdateSerializer(BeneficiaryRecordCreateSerializer):
@@ -98,6 +111,10 @@ class FisherfolkBeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
             'season',
             'year',
             'attributed_fisherfolk_organization_name',
+            'status',
+            'confirmed_at',
+            'non_receipt_reason',
+            'follow_up_notes',
         ]
         read_only_fields = [
             'id',
@@ -108,14 +125,17 @@ class FisherfolkBeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
             'recorded_by',
             'recorded_by_name',
             'attributed_fisherfolk_organization_name',
+            'status',
+            'confirmed_at',
+            'non_receipt_reason',
+            'follow_up_notes',
         ]
 
     def get_recorded_by_name(self, obj):
         return obj.recorded_by.full_name if obj.recorded_by else None
 
-    def validate_date_given(self, value):
-        validate_not_future_date(value, 'Date received')
-        return value
+    # See BeneficiaryRecordCreateSerializer's comment above — same removal,
+    # same reasoning, fisherfolk side.
 
 
 class FisherfolkBeneficiaryRecordUpdateSerializer(FisherfolkBeneficiaryRecordCreateSerializer):
@@ -152,6 +172,9 @@ class OrganizationDistributionRequestSerializer(serializers.Serializer):
             )
         return value
 
-    def validate_date_given(self, value):
-        validate_not_future_date(value, 'Date given')
-        return value
+    # date_given no longer rejects future dates — see
+    # BeneficiaryRecordCreateSerializer's comment. A future-dated bulk
+    # distribution schedules every member's record as PENDING, same as the
+    # individual-report path; _run_organization_distribution's raw
+    # record_model.objects.create() calls go through the model's save(),
+    # so this needs no separate handling here.

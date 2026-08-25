@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Pencil, Plus, Search, Trash2, User, Users } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { CheckCircle2, Pencil, Plus, Search, Trash2, User, Users } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
@@ -11,10 +12,26 @@ import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
+import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import DistributeAssistanceModal from './DistributeAssistanceModal.jsx'
 import { FARMER_DISTRIBUTION_DOMAIN } from './distributionDomains.js'
+
+// interventions.models.DistributionStatus — the scheduled distribution +
+// confirmation lifecycle. Records created the old way (today/past-dated)
+// still land on CONFIRMED immediately, so most rows show that.
+const STATUS_LABELS = {
+  PENDING: 'Pending',
+  AWAITING_CONFIRMATION: 'Awaiting Confirmation',
+  CONFIRMED: 'Confirmed',
+  NOT_RECEIVED: 'Not Received',
+  RESOLVED: 'Resolved',
+}
+// Editing is blocked once a record has entered a citizen-facing state
+// (interventions.views.PendingOnlyEditMixin) — mirrored here so the row
+// action doesn't offer something the backend will reject.
+const EDITABLE_STATUSES = new Set(['PENDING', 'CONFIRMED', undefined, ''])
 
 // Must match interventions.models.BeneficiaryRecord.AssistanceType exactly
 // (Batch 6: absorbed from production.models.CropAssistanceRecord).
@@ -43,12 +60,24 @@ const COLUMNS = [
   { key: 'quantity',                      label: 'Quantity' },
   { key: 'season_year_cell',              label: 'Season / Year' },
   { key: 'recorded_by_name',              label: 'Logged By' },
+  { key: 'status_cell',                   label: 'Status' },
   { key: 'actions_cell',                  label: 'Actions' },
 ]
 
 function formatDate(v) {
   if (!v) return '—'
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(v + 'T00:00:00'))
+}
+
+// PendingOnlyEditMixin raises a plain ValidationError(str), which DRF
+// serializes as a bare array — not {detail: ...} — so that shape needs
+// handling too, or the specific "cannot be edited" reason silently
+// collapses into a generic fallback message.
+function extractErrorMessage(err, fallback) {
+  const data = err?.response?.data
+  if (Array.isArray(data) && data.length) return String(data[0])
+  if (data?.detail) return data.detail
+  return fallback
 }
 
 // ── Farmer Search — same pattern as AddCropMonitoringModal.jsx's FarmerSearchInput ──
@@ -294,7 +323,7 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
       showToast('Assistance record updated.', 'success')
       onSaved()
     } catch (err) {
-      setError(err?.response?.data?.detail || 'Failed to update record.')
+      setError(extractErrorMessage(err, 'Failed to update record.'))
     } finally {
       setIsSubmitting(false)
     }
@@ -399,18 +428,72 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
   )
 }
 
+// ── Mark Resolved Modal ─────────────────────────────────────────────────────
+// Manual-with-note discipline mirroring disaster recovery: NOT_RECEIVED ->
+// RESOLVED requires a non-empty follow_up_notes.
+
+function MarkResolvedModal({ record, onClose, onResolved }) {
+  const { showToast } = useToast()
+  const [notes, setNotes] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!notes.trim()) { setError('Follow-up notes are required.'); return }
+    setError(''); setIsSubmitting(true)
+    try {
+      await api.post(`/interventions/beneficiaries/${record.id}/mark-resolved/`, { follow_up_notes: notes.trim() })
+      showToast('Case marked resolved.', 'success')
+      onResolved()
+    } catch (err) {
+      setError(err?.response?.data?.detail || 'Failed to mark this case resolved.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <ModalShell title="Mark Resolved" subtitle={record.farmer_full_name} icon={CheckCircle2} onClose={onClose} maxWidth="max-w-lg">
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="rounded-xl border border-[#FBE3E0] bg-[#FDF3F2] px-4 py-3 text-[13px] text-[#8A1F16]">
+          <p className="font-semibold">Reason recipient gave: </p>
+          <p className="mt-0.5">{record.non_receipt_reason || '—'}</p>
+        </div>
+        <FormField label="Follow-up Notes" required>
+          <textarea
+            rows={3}
+            className={baseInputClasses}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="What was done to resolve this — e.g. redelivered, coordinated with organization…"
+          />
+        </FormField>
+        {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
+        <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-3">
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="submit" isLoading={isSubmitting}>Mark Resolved</Button>
+        </div>
+      </form>
+    </ModalShell>
+  )
+}
+
 // ── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CropAssistancePage({ asTab = false }) {
   const { isAdmin } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [records, setRecords] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [barangay, setBarangay] = useState('')
   const [year, setYear] = useState('')
+  const [view, setView] = useState(searchParams.get('tab') === 'needs-follow-up' ? 'needs-follow-up' : 'all')
   const [showAdd, setShowAdd] = useState(false)
   const [showDistribute, setShowDistribute] = useState(false)
   const [editing, setEditing] = useState(null)
+  const [resolving, setResolving] = useState(null)
 
   const fetchAll = useCallback(async () => {
     setIsLoading(true); setError('')
@@ -418,6 +501,7 @@ export default function CropAssistancePage({ asTab = false }) {
       const params = new URLSearchParams()
       if (barangay) params.set('barangay', barangay)
       if (year) params.set('year', year)
+      if (view === 'needs-follow-up') params.set('status', 'NOT_RECEIVED')
       const r = await api.get(`/interventions/beneficiaries/adhoc/?${params}`)
       setRecords(Array.isArray(r.data) ? r.data : (r.data.results || []))
     } catch {
@@ -425,23 +509,48 @@ export default function CropAssistancePage({ asTab = false }) {
     } finally {
       setIsLoading(false)
     }
-  }, [barangay, year])
+  }, [barangay, year, view])
 
   useEffect(() => { fetchAll() }, [fetchAll])
+
+  const changeView = (next) => {
+    setView(next)
+    const params = new URLSearchParams(searchParams)
+    if (next === 'needs-follow-up') params.set('tab', next); else params.delete('tab')
+    setSearchParams(params, { replace: true })
+  }
 
   const rows = useMemo(() => records.map((r) => ({
     ...r,
     date_received_fmt: formatDate(r.date_given),
     season_year_cell: [r.season, r.year].filter(Boolean).join(' '),
+    status_cell: r.status ? <StatusPill status={r.status}>{STATUS_LABELS[r.status] || r.status}</StatusPill> : '—',
     actions_cell: (
       <RowActions actions={[
-        { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditing(r) },
+        EDITABLE_STATUSES.has(r.status) && { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditing(r) },
+        r.status === 'NOT_RECEIVED' && { key: 'resolve', label: 'Mark Resolved', icon: CheckCircle2, tone: 'default', onClick: () => setResolving(r) },
       ]} />
     ),
   })), [records])
 
   const innerContent = (
     <div className="space-y-4">
+      <div className="flex overflow-hidden rounded-xl border border-slate-300 w-fit">
+        {[
+          { key: 'all', label: 'All Records' },
+          { key: 'needs-follow-up', label: 'Needs Follow-up' },
+        ].map((t) => (
+          <button
+            key={t.key} type="button" onClick={() => changeView(t.key)}
+            className={`px-4 py-2 text-[13px] font-semibold transition-colors ${
+              view === t.key ? 'bg-[#1B4D2E] text-white' : 'bg-white text-[#4A5E4A] hover:bg-[#F5F7F5]'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
       <div className="flex flex-wrap items-end gap-3">
         <div className="w-48">
           <BarangaySelect value={barangay} onChange={(e) => setBarangay(e.target.value)} includeAllOption />
@@ -480,6 +589,13 @@ export default function CropAssistancePage({ asTab = false }) {
           record={editing}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); fetchAll() }}
+        />
+      )}
+      {resolving && (
+        <MarkResolvedModal
+          record={resolving}
+          onClose={() => setResolving(null)}
+          onResolved={() => { setResolving(null); fetchAll() }}
         />
       )}
     </div>

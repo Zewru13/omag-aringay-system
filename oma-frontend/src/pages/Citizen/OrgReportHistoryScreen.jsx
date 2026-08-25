@@ -34,6 +34,24 @@ const LATEST_BADGE = 'bg-cz-badge-pink text-[#BE185D]'
 
 const PILL = 'inline-block rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.05em]'
 
+// Scheduled distribution + confirmation lifecycle (interventions.models.
+// DistributionStatus) — the organization gets visibility only, no
+// confirm-on-behalf-of action, so this is display-only per member.
+const STATUS_PILL = {
+  PENDING:               'bg-cz-tile-slate-bg text-cz-tile-slate-fg',
+  AWAITING_CONFIRMATION: 'bg-cz-badge-yellow text-[#854D0E]',
+  CONFIRMED:             'bg-cz-badge-green text-[#15803D]',
+  NOT_RECEIVED:          'bg-cz-badge-pink text-[#BE185D]',
+  RESOLVED:              'bg-cz-badge-sky text-cz-tile-blue-fg',
+}
+const STATUS_LABELS = {
+  PENDING: 'Pending',
+  AWAITING_CONFIRMATION: 'Awaiting Confirmation',
+  CONFIRMED: 'Confirmed',
+  NOT_RECEIVED: 'Not Received',
+  RESOLVED: 'Resolved',
+}
+
 // Cash distributions are STORED as "₱2000 per head" — that is the existing
 // record contract and staff screens read it, so it is not changed here.
 // The card title already says "bawat kasapi", so the stored suffix is
@@ -72,7 +90,10 @@ export default function OrgReportHistoryScreen({ domain, orgName, onBack, tabBar
           reporter: rec.recorded_by_name || '', recipients: [],
         })
       }
-      map.get(key).recipients.push(nameOf(rec) || labels.common.unknown)
+      map.get(key).recipients.push({
+        name: nameOf(rec) || labels.common.unknown,
+        status: rec.status || 'CONFIRMED',
+      })
     })
     return [...map.values()]
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -141,9 +162,14 @@ export default function OrgReportHistoryScreen({ domain, orgName, onBack, tabBar
                 </button>
 
                 {isOpen && (
-                  <ul className="mt-2 space-y-1 border-t-[0.5px] border-cz-border pt-2">
-                    {g.recipients.map((name, n) => (
-                      <li key={`${g.key}-${n}`} className="text-[13px] text-cz-text">{name}</li>
+                  <ul className="mt-2 space-y-1.5 border-t-[0.5px] border-cz-border pt-2">
+                    {g.recipients.map((r, n) => (
+                      <li key={`${g.key}-${n}`} className="flex items-center justify-between gap-2 text-[13px] text-cz-text">
+                        <span>{r.name}</span>
+                        <span className={`${PILL} ${STATUS_PILL[r.status] || STATUS_PILL.CONFIRMED}`}>
+                          {STATUS_LABELS[r.status] || r.status}
+                        </span>
+                      </li>
                     ))}
                   </ul>
                 )}

@@ -231,6 +231,18 @@ def active_disaster_rows(limit=12):
     return rows[:limit]
 
 
+def not_received_count():
+    """Open (unresolved) NOT_RECEIVED beneficiary records, per domain, for the
+    dashboard's "Needs Attention" tier — same tier active disaster reports
+    already surface on. RESOLVED cases are excluded on purpose: once staff
+    has followed up, it is no longer something needing attention."""
+    Beneficiary = apps.get_model('interventions', 'BeneficiaryRecord')
+    FisherfolkBeneficiary = apps.get_model('interventions', 'FisherfolkBeneficiaryRecord')
+    crop = Beneficiary.objects.filter(status='NOT_RECEIVED').count()
+    fisheries = FisherfolkBeneficiary.objects.filter(status='NOT_RECEIVED').count()
+    return {'crop': crop, 'fisheries': fisheries, 'total': crop + fisheries}
+
+
 def sector_summary():
     """The two sector cards: registry totals plus this-month new registrations.
 

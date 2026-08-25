@@ -25,6 +25,12 @@ const STATUS_MAP = {
   completed:   TONE.teal,
   OVERDUE:     TONE.rose,
   overdue:     TONE.rose,
+  // Scheduled distribution + confirmation lifecycle (interventions.models.DistributionStatus)
+  PENDING:               TONE.slate,
+  AWAITING_CONFIRMATION: TONE.amber,
+  CONFIRMED:             TONE.green,
+  NOT_RECEIVED:          TONE.rose,
+  RESOLVED:              TONE.teal,
 }
 
 const STATUS_DEFAULT = TONE.slate

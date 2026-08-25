@@ -1,9 +1,41 @@
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 from associations.models import FarmersOrganization, FisherfolkOrganization, FisherfolkOrganizationMember
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk
+
+
+class DistributionStatus(models.TextChoices):
+    """
+    Shared by both BeneficiaryRecord and FisherfolkBeneficiaryRecord — one
+    lifecycle, one set of labels, so the two domains can never drift apart
+    on wording the way separate per-model TextChoices classes eventually
+    would.
+
+    PENDING              date_given is in the future; nothing has happened
+                          yet, nothing is shown to the recipient.
+    AWAITING_CONFIRMATION date_given has arrived (set lazily — see
+                          interventions.lifecycle.advance_due_distributions,
+                          no scheduler); the recipient has been notified and
+                          can now Confirm or Report Not Received.
+    CONFIRMED            either the recipient confirmed receipt (real
+                          lifecycle, confirmed_at set), or date_given was
+                          today-or-past at creation time, in which case this
+                          is set immediately and confirmed_at stays null —
+                          the pre-existing, already-tested "logging
+                          something that already happened" path, not a
+                          confirmation event.
+    NOT_RECEIVED         the recipient reported non-receipt; open, needs
+                          staff follow-up.
+    RESOLVED             staff closed out a NOT_RECEIVED case.
+    """
+    PENDING = 'PENDING', 'Pending'
+    AWAITING_CONFIRMATION = 'AWAITING_CONFIRMATION', 'Awaiting Confirmation'
+    CONFIRMED = 'CONFIRMED', 'Confirmed'
+    NOT_RECEIVED = 'NOT_RECEIVED', 'Not Received'
+    RESOLVED = 'RESOLVED', 'Resolved'
 
 
 def _resolve_attributed_organization(candidates, own_barangay):
@@ -92,6 +124,19 @@ class BeneficiaryRecord(models.Model):
         related_name='attributed_beneficiary_records',
     )
 
+    # Scheduled distribution + confirmation lifecycle. status is server-
+    # computed on CREATE only (see save() below) — never a writable API
+    # field, same discipline as attributed_organization above. Default here
+    # exists only to backfill the migration (every real row today is
+    # past-dated, so CONFIRMED is the correct value for 100% of existing
+    # data); every future INSERT sets it explicitly in save().
+    status = models.CharField(
+        max_length=25, choices=DistributionStatus.choices, default=DistributionStatus.CONFIRMED,
+    )
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    non_receipt_reason = models.TextField(blank=True)
+    follow_up_notes = models.TextField(blank=True)
+
     def save(self, *args, **kwargs):
         if self.farmer_id:
             farmer = self.farmer
@@ -99,6 +144,11 @@ class BeneficiaryRecord(models.Model):
             self.attributed_organization = _resolve_attributed_organization(candidates, farmer.barangay)
         else:
             self.attributed_organization = None
+        if self._state.adding:
+            self.status = (
+                DistributionStatus.CONFIRMED if self.date_given and self.date_given <= timezone.localdate()
+                else DistributionStatus.PENDING
+            )
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -158,6 +208,15 @@ class FisherfolkBeneficiaryRecord(models.Model):
         related_name='attributed_beneficiary_records',
     )
 
+    # Same lifecycle as BeneficiaryRecord — see DistributionStatus and that
+    # model's save() comment for the exact reasoning, shared verbatim here.
+    status = models.CharField(
+        max_length=25, choices=DistributionStatus.choices, default=DistributionStatus.CONFIRMED,
+    )
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+    non_receipt_reason = models.TextField(blank=True)
+    follow_up_notes = models.TextField(blank=True)
+
     def save(self, *args, **kwargs):
         if self.fisherfolk_id:
             fisherfolk = self.fisherfolk
@@ -168,6 +227,11 @@ class FisherfolkBeneficiaryRecord(models.Model):
             self.attributed_fisherfolk_organization = _resolve_attributed_organization(candidates, fisherfolk.barangay)
         else:
             self.attributed_fisherfolk_organization = None
+        if self._state.adding:
+            self.status = (
+                DistributionStatus.CONFIRMED if self.date_given and self.date_given <= timezone.localdate()
+                else DistributionStatus.PENDING
+            )
         super().save(*args, **kwargs)
 
     def __str__(self):

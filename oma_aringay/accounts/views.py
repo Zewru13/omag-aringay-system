@@ -267,6 +267,15 @@ class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        # Lazy scheduled-distribution status transition — see
+        # interventions.lifecycle.advance_due_distributions' own docstring
+        # for why this endpoint (the session-bootstrap call every citizen
+        # screen loads through) is one of its two call sites. Deferred
+        # import: interventions is a downstream app, accounts is not one of
+        # its dependencies, so this avoids adding a reverse import at
+        # module load time for the sake of one method.
+        from interventions.lifecycle import advance_due_distributions
+        advance_due_distributions(request.user)
         return Response(UserSerializer(request.user).data)
 
     def patch(self, request):

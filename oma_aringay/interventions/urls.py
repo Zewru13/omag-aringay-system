@@ -3,10 +3,16 @@ from django.urls import path
 from .views import (
     BeneficiaryAdHocDetailView,
     BeneficiaryAdHocListCreateView,
+    BeneficiaryConfirmReceivedView,
+    BeneficiaryMarkResolvedView,
     BeneficiaryRecordDetailView,
+    BeneficiaryReportNotReceivedView,
     FisherfolkBeneficiaryAdHocDetailView,
     FisherfolkBeneficiaryAdHocListCreateView,
+    FisherfolkBeneficiaryConfirmReceivedView,
+    FisherfolkBeneficiaryMarkResolvedView,
     FisherfolkBeneficiaryRecordDetailView,
+    FisherfolkBeneficiaryReportNotReceivedView,
     MyBeneficiaryHistoryView,
     MyFisherfolkBeneficiaryHistoryView,
     MyOrgBeneficiaryHistoryView,
@@ -68,5 +74,36 @@ urlpatterns = [
         'fisherfolk-beneficiaries/adhoc/<int:id>/',
         FisherfolkBeneficiaryAdHocDetailView.as_view(),
         name='fisherfolk-beneficiaries-adhoc-detail',
+    ),
+    # ─── Scheduled distribution + confirmation lifecycle actions ────────────
+    path(
+        'beneficiaries/<int:pk>/confirm-received/',
+        BeneficiaryConfirmReceivedView.as_view(),
+        name='beneficiaries-confirm-received',
+    ),
+    path(
+        'beneficiaries/<int:pk>/report-not-received/',
+        BeneficiaryReportNotReceivedView.as_view(),
+        name='beneficiaries-report-not-received',
+    ),
+    path(
+        'beneficiaries/<int:pk>/mark-resolved/',
+        BeneficiaryMarkResolvedView.as_view(),
+        name='beneficiaries-mark-resolved',
+    ),
+    path(
+        'fisherfolk-beneficiaries/<int:pk>/confirm-received/',
+        FisherfolkBeneficiaryConfirmReceivedView.as_view(),
+        name='fisherfolk-beneficiaries-confirm-received',
+    ),
+    path(
+        'fisherfolk-beneficiaries/<int:pk>/report-not-received/',
+        FisherfolkBeneficiaryReportNotReceivedView.as_view(),
+        name='fisherfolk-beneficiaries-report-not-received',
+    ),
+    path(
+        'fisherfolk-beneficiaries/<int:pk>/mark-resolved/',
+        FisherfolkBeneficiaryMarkResolvedView.as_view(),
+        name='fisherfolk-beneficiaries-mark-resolved',
     ),
 ]
