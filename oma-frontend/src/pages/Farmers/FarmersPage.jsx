@@ -24,6 +24,7 @@ const columns = [
   { key: 'full_name', label: 'Full Name' },
   { key: 'barangay', label: 'Barangay' },
   { key: 'age', label: 'Age' },
+  { key: 'farmer_type', label: 'Farmer Type' },
   { key: 'status', label: 'Status' },
   { key: 'date_registered_display', label: 'Date Registered' },
 ]
@@ -112,19 +113,20 @@ function FarmersPage({ asTab = false }) {
     const ageVal = calcAge(farmer.birthdate)
     return {
       ...farmer,
-      full_name: (
-        <span className="inline-flex items-center gap-2">
-          {farmer.full_name}
-          {farmer.is_farm_laborer && (
-            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700 border border-amber-200">
-              Farm Laborer
-            </span>
-          )}
-          {farmer.is_affected_by_disaster && (
-            <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700 border border-rose-200">
-              Affected by Disaster
-            </span>
-          )}
+      full_name: farmer.full_name,
+      // Real semantics (farmers/models.py): is_farm_laborer distinguishes a
+      // farmworker (farmworker=YES, farmer!=YES in the RSBSA/BFAR import)
+      // from a farm operator — not from a land OWNER. Land ownership
+      // (Owner/Tenant/Lessee) is tracked per-FarmParcel, not per-farmer, so
+      // a non-laborer farmer may be a tenant, not an owner; "Farm Operator"
+      // is accurate where "Owner" would not be.
+      farmer_type: (
+        <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium border ${
+          farmer.is_farm_laborer
+            ? 'bg-amber-50 text-amber-700 border-amber-200'
+            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+        }`}>
+          {farmer.is_farm_laborer ? 'Farm Laborer' : 'Farm Operator'}
         </span>
       ),
       age: (

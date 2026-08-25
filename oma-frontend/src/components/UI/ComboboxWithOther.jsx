@@ -29,6 +29,13 @@ import { baseInputClasses } from './FormField.jsx'
 
 const OTHER_SENTINEL = 'Other'
 
+// `options` accepts either plain strings (value === display label, the
+// original contract every existing caller relies on) or {value, label}
+// objects, for the citizen screens whose option labels are translated
+// (English value stored/submitted, Filipino label shown) — added rather
+// than inventing a second Other-handling pattern for that one difference.
+const normalizeOption = (o) => (typeof o === 'string' ? { value: o, label: o } : o)
+
 function ComboboxWithOther({
   options,
   value,
@@ -61,7 +68,7 @@ function ComboboxWithOther({
   const otherInputRef = useRef(null)
   const listRef = useRef(null)
 
-  const allOptions = [...options, OTHER_SENTINEL]
+  const allOptions = [...options.map(normalizeOption), { value: OTHER_SENTINEL, label: otherLabel }]
   const isOtherMode = value === OTHER_SENTINEL
 
   useEffect(() => {
@@ -90,7 +97,7 @@ function ComboboxWithOther({
 
   const openDropdown = () => {
     if (disabled) return
-    const currentIdx = allOptions.indexOf(value)
+    const currentIdx = allOptions.findIndex((o) => o.value === value)
     setActiveIndex(currentIdx >= 0 ? currentIdx : 0)
     setIsOpen(true)
   }
@@ -98,11 +105,11 @@ function ComboboxWithOther({
   const closeDropdown = () => setIsOpen(false)
 
   const selectOption = (opt) => {
-    if (opt === OTHER_SENTINEL) {
+    if (opt.value === OTHER_SENTINEL) {
       onChange(OTHER_SENTINEL)
     } else {
       if (isOtherMode) onOtherChange?.('')
-      onChange(opt)
+      onChange(opt.value)
     }
     setIsOpen(false)
     triggerRef.current?.focus()
@@ -167,7 +174,9 @@ function ComboboxWithOther({
     }
   }
 
-  const displayLabel = value && !isOtherMode ? value : ''
+  const displayLabel = value && !isOtherMode
+    ? (allOptions.find((o) => o.value === value)?.label ?? value)
+    : ''
 
   return (
     <div ref={rootRef} className={`relative ${className}`}>
@@ -249,12 +258,11 @@ function ComboboxWithOther({
           }`}
       >
         {allOptions.map((opt, i) => {
-          const label = opt === OTHER_SENTINEL ? otherLabel : opt
-          const isSelected = value === opt
+          const isSelected = value === opt.value
           const isActive = i === activeIndex
           return (
             <li
-              key={opt}
+              key={opt.value}
               id={optionId(i)}
               role="option"
               aria-selected={isSelected}
@@ -268,7 +276,7 @@ function ComboboxWithOther({
                     : 'text-[#1A2B1A]'
               }`}
             >
-              {label}
+              {opt.label}
             </li>
           )
         })}

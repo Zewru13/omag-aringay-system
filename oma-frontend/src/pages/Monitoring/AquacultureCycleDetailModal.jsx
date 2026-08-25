@@ -814,64 +814,40 @@ function InputsTab({ cycleId }) {
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <label className={labelCls}>Input Type *</label>
-              <select
-                className={baseInputClasses}
-                required
+              <ComboboxWithOther
+                options={INPUT_TYPE_OPTIONS}
                 value={form.input_type}
-                onChange={e => {
-                  const nextInputType = e.target.value
-                  setForm(f => ({
-                    ...f,
-                    input_type: nextInputType,
-                    input_type_other: nextInputType === 'Other' ? f.input_type_other : '',
-                    item_name: '',
-                    item_name_other: '',
-                  }))
-                }}
-              >
-                <option value="">Select Input Type</option>
-                {INPUT_TYPE_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-              {form.input_type === 'Other' && (
-                <input
-                  className={`${baseInputClasses} mt-2`}
-                  required
-                  value={form.input_type_other}
-                  onChange={e => setForm(f => ({ ...f, input_type_other: e.target.value }))}
-                  placeholder="Specify Input Type"
-                />
-              )}
+                otherValue={form.input_type_other}
+                onChange={(v) => setForm(f => ({
+                  ...f,
+                  input_type: v,
+                  input_type_other: v === 'Other' ? f.input_type_other : '',
+                  item_name: '',
+                  item_name_other: '',
+                }))}
+                onOtherChange={(v) => setForm(f => ({ ...f, input_type_other: v }))}
+                placeholder="Select Input Type"
+                required
+                inputClassName={baseInputClasses}
+              />
             </div>
             <div>
               <label className={labelCls}>Item Name *</label>
-              <select
-                className={baseInputClasses}
-                required
+              <ComboboxWithOther
+                options={INPUT_ITEM_OPTIONS_BY_TYPE[form.input_type] || []}
                 value={form.item_name}
+                otherValue={form.item_name_other}
+                onChange={(v) => setForm(f => ({
+                  ...f,
+                  item_name: v,
+                  item_name_other: v === 'Other' ? f.item_name_other : '',
+                }))}
+                onOtherChange={(v) => setForm(f => ({ ...f, item_name_other: v }))}
+                placeholder={form.input_type ? 'Select Item Name' : 'Select Input Type first'}
                 disabled={!form.input_type}
-                onChange={e => {
-                  const nextItemName = e.target.value
-                  setForm(f => ({
-                    ...f,
-                    item_name: nextItemName,
-                    item_name_other: nextItemName === 'Other' ? f.item_name_other : '',
-                  }))
-                }}
-              >
-                <option value="">{form.input_type ? 'Select Item Name' : 'Select Input Type first'}</option>
-                {(INPUT_ITEM_OPTIONS_BY_TYPE[form.input_type] || []).map(option => (
-                  <option key={option} value={option}>{option}</option>
-                ))}
-              </select>
-              {form.item_name === 'Other' && (
-                <input
-                  className={`${baseInputClasses} mt-2`}
-                  required
-                  value={form.item_name_other}
-                  onChange={e => setForm(f => ({ ...f, item_name_other: e.target.value }))}
-                  placeholder="Specify Item Name"
-                />
-              )}
+                required
+                inputClassName={baseInputClasses}
+              />
             </div>
             <div>
               <label className={labelCls}>Quantity *</label>
@@ -879,31 +855,20 @@ function InputsTab({ cycleId }) {
             </div>
             <div>
               <label className={labelCls}>Unit *</label>
-              <select
-                className={baseInputClasses}
-                required
+              <ComboboxWithOther
+                options={INPUT_UNIT_OPTIONS}
                 value={form.unit}
-                onChange={e => {
-                  const nextUnit = e.target.value
-                  setForm(f => ({
-                    ...f,
-                    unit: nextUnit,
-                    unit_other: nextUnit === 'Other' ? f.unit_other : '',
-                  }))
-                }}
-              >
-                <option value="">Select Unit</option>
-                {INPUT_UNIT_OPTIONS.map(u => <option key={u} value={u}>{u}</option>)}
-              </select>
-              {form.unit === 'Other' && (
-                <input
-                  className={`${baseInputClasses} mt-2`}
-                  required
-                  value={form.unit_other}
-                  onChange={e => setForm(f => ({ ...f, unit_other: e.target.value }))}
-                  placeholder="Specify Unit"
-                />
-              )}
+                otherValue={form.unit_other}
+                onChange={(v) => setForm(f => ({
+                  ...f,
+                  unit: v,
+                  unit_other: v === 'Other' ? f.unit_other : '',
+                }))}
+                onOtherChange={(v) => setForm(f => ({ ...f, unit_other: v }))}
+                placeholder="Select Unit"
+                required
+                inputClassName={baseInputClasses}
+              />
             </div>
             <div>
               <label className={labelCls}>Date Acquired *</label>
@@ -915,30 +880,19 @@ function InputsTab({ cycleId }) {
             </div>
             <div>
               <label className={labelCls}>Supplier</label>
-              <select
-                className={baseInputClasses}
+              <ComboboxWithOther
+                options={SUPPLIER_OPTIONS}
                 value={form.supplier}
-                onChange={e => {
-                  const value = e.target.value
-                  setForm(f => ({
-                    ...f,
-                    supplier: value,
-                    supplier_other: value === 'Other' ? f.supplier_other : '',
-                  }))
-                }}
-              >
-                <option value="">Select Supplier (Optional)</option>
-                {SUPPLIER_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
-              </select>
-              {form.supplier === 'Other' && (
-                <input
-                  className={`${baseInputClasses} mt-2`}
-                  required
-                  value={form.supplier_other}
-                  onChange={e => setForm(f => ({ ...f, supplier_other: e.target.value }))}
-                  placeholder="Specify Supplier"
-                />
-              )}
+                otherValue={form.supplier_other}
+                onChange={(v) => setForm(f => ({
+                  ...f,
+                  supplier: v,
+                  supplier_other: v === 'Other' ? f.supplier_other : '',
+                }))}
+                onOtherChange={(v) => setForm(f => ({ ...f, supplier_other: v }))}
+                placeholder="Select Supplier (Optional)"
+                inputClassName={baseInputClasses}
+              />
             </div>
             <div>
               <label className={labelCls}>Remarks</label>

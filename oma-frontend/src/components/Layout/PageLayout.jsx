@@ -28,7 +28,7 @@ function PageLayout({ title, subtitle, action, children }) {
   }
 
   return (
-    <div className="min-h-screen bg-bg">
+    <div className="min-h-screen bg-white">
       <Navbar onToggleSidebar={handleSidebarToggle} isCollapsed={sidebarCollapsed} />
       <Sidebar
         isOpen={sidebarOpen}
@@ -37,10 +37,8 @@ function PageLayout({ title, subtitle, action, children }) {
       />
 
       <div
-        className={[
-          'min-h-screen bg-bg pt-14 transition-all duration-300',
-          sidebarCollapsed ? 'md:pl-16' : 'md:pl-[248px]',
-        ].join(' ')}
+        className="sidebar-content-offset min-h-screen bg-white pt-14 transition-all duration-300"
+        style={{ '--sidebar-w': sidebarCollapsed ? '64px' : '248px' }}
       >
         <main className="p-4 sm:p-6">
           {(title || action) && (

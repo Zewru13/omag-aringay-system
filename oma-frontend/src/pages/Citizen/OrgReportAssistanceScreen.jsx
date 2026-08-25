@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
+import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import { labels } from './labels.js'
 import { OrgScreen, OrgSectionLabel } from './OrgDashboardParts.jsx'
 import OrgAvatar from './OrgAvatar.jsx'
@@ -363,25 +364,16 @@ export default function OrgReportAssistanceScreen({
           </div>
           <div>
             <label className={FIELD_LABEL} htmlFor="org-agency">{L.fields.sourceAgency}</label>
-            <select
-              id="org-agency" value={form.source_agency}
-              onChange={(e) => set('source_agency', e.target.value)}
-              className={fieldBox}
-            >
-              <option value="">{R.notSpecified}</option>
-              {SOURCE_AGENCY_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-              <option value="Other">{R.other}</option>
-            </select>
-            {form.source_agency === 'Other' && (
-              <input
-                type="text"
-                value={form.source_agency_other}
-                onChange={(e) => set('source_agency_other', e.target.value)}
-                placeholder={R.otherAgencyPlaceholder}
-                aria-label={R.otherAgencyPlaceholder}
-                className={`${fieldBox} mt-2`}
-              />
-            )}
+            <ComboboxWithOther
+              options={SOURCE_AGENCY_OPTIONS}
+              value={form.source_agency}
+              otherValue={form.source_agency_other}
+              onChange={(v) => set('source_agency', v)}
+              onOtherChange={(v) => set('source_agency_other', v)}
+              otherLabel={R.other}
+              placeholder={R.notSpecified}
+              inputClassName={fieldBox}
+            />
           </div>
           {domain.seasonOptions && (
             <div>

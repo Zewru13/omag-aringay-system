@@ -334,15 +334,23 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
       <aside
         className={[
           "bg-nav-bg flex flex-col fixed left-0 top-14 md:top-0 bottom-0 z-50 md:z-20 overflow-y-auto transition-all duration-300",
-          isCollapsed ? "w-16" : "w-[248px]",
           isOpen
             ? "translate-x-0 shadow-xl"
             : "-translate-x-full md:translate-x-0",
         ].join(" ")}
+        // Width is driven inline, not by toggling between a Tailwind scale
+        // class (w-16) and an arbitrary-value class (w-[248px]): confirmed
+        // live that Tailwind's dev-mode JIT can leave the just-switched-to
+        // class with no generated CSS rule at all, so the DOM class updates
+        // but the computed width silently stays at its previous value until
+        // a full reload regenerates the stylesheet — the exact "state
+        // updated but the visual didn't apply live" bug. An inline style
+        // has no generation step, so it can't hit that gap.
+        style={{ width: isCollapsed ? '64px' : '248px' }}
       >
         {/* Logo area — h-14 + md:top-0 on the aside makes this header fill the
             top-left corner flush with the navbar (no gap above the wordmark) */}
-        <div className="h-[72px] flex items-center px-4 border-b border-nav-rail flex-shrink-0">
+        <div className="h-[72px] flex items-center px-4 flex-shrink-0">
           {isCollapsed ? (
             <img
               src={logo}

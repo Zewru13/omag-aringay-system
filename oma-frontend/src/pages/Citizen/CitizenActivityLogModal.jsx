@@ -697,48 +697,36 @@ export default function CitizenActivityLogScreen({
             {form.mortality_count !== '' && Number(form.mortality_count) > 0 && (
               <>
                 <FieldBlock label={labels.activityLog.fields.possibleCause}>
-                  <SelectField
+                  <ComboboxWithOther
+                    options={Object.entries(labels.activityLog.possibleCauseOptions)
+                      .filter(([v]) => v !== 'Other')
+                      .map(([value, label]) => ({ value, label }))}
                     value={form.possible_cause}
-                    onChange={(e) => set('possible_cause', e.target.value)}
+                    otherValue={form.possible_cause_other_specify}
+                    onChange={(v) => set('possible_cause', v)}
+                    onOtherChange={(v) => set('possible_cause_other_specify', v)}
+                    otherLabel={labels.activityLog.possibleCauseOptions.Other}
+                    placeholder={labels.activityLog.selectPlaceholder}
                     disabled={blockedByOther}
-                  >
-                    <option value="">{labels.activityLog.selectPlaceholder}</option>
-                    {Object.entries(labels.activityLog.possibleCauseOptions).map(([v, l]) => (
-                      <option key={v} value={v}>{l}</option>
-                    ))}
-                  </SelectField>
-                  {form.possible_cause === 'Other' && (
-                    <input
-                      type="text"
-                      className={`${FIELD} mt-2`}
-                      value={form.possible_cause_other_specify}
-                      onChange={(e) => set('possible_cause_other_specify', e.target.value)}
-                      placeholder={labels.activityLog.fields.possibleCauseOtherPlaceholder}
-                      disabled={blockedByOther}
-                    />
-                  )}
+                    inputClassName={FIELD}
+                    chevronSize={18}
+                  />
                 </FieldBlock>
                 <FieldBlock label={labels.activityLog.fields.disposalMethod}>
-                  <SelectField
+                  <ComboboxWithOther
+                    options={Object.entries(labels.activityLog.disposalMethodOptions)
+                      .filter(([v]) => v !== 'Other')
+                      .map(([value, label]) => ({ value, label }))}
                     value={form.disposal_method}
-                    onChange={(e) => set('disposal_method', e.target.value)}
+                    otherValue={form.disposal_method_other_specify}
+                    onChange={(v) => set('disposal_method', v)}
+                    onOtherChange={(v) => set('disposal_method_other_specify', v)}
+                    otherLabel={labels.activityLog.disposalMethodOptions.Other}
+                    placeholder={labels.activityLog.selectPlaceholder}
                     disabled={blockedByOther}
-                  >
-                    <option value="">{labels.activityLog.selectPlaceholder}</option>
-                    {Object.entries(labels.activityLog.disposalMethodOptions).map(([v, l]) => (
-                      <option key={v} value={v}>{l}</option>
-                    ))}
-                  </SelectField>
-                  {form.disposal_method === 'Other' && (
-                    <input
-                      type="text"
-                      className={`${FIELD} mt-2`}
-                      value={form.disposal_method_other_specify}
-                      onChange={(e) => set('disposal_method_other_specify', e.target.value)}
-                      placeholder={labels.activityLog.fields.disposalMethodOtherPlaceholder}
-                      disabled={blockedByOther}
-                    />
-                  )}
+                    inputClassName={FIELD}
+                    chevronSize={18}
+                  />
                 </FieldBlock>
               </>
             )}

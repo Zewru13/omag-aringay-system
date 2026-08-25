@@ -38,20 +38,20 @@ function Navbar({ onToggleSidebar, isCollapsed }) {
   return (
     <>
       <header
-        className={`h-14 bg-[color:var(--color-primary-deep)] shadow-sm fixed top-0 right-0 z-30 flex items-center justify-between px-4 left-0 ${isCollapsed ? 'md:left-16' : 'md:left-[248px]'}`}
+        className={`h-14 bg-white border-b border-border shadow-sm fixed top-0 right-0 z-30 flex items-center justify-between px-4 left-0 ${isCollapsed ? 'md:left-16' : 'md:left-[248px]'}`}
         style={{ transition: 'left 300ms ease-in-out' }}
       >
         {/* Left: hamburger + system name */}
         <div className="flex items-center gap-3">
           <button
-            className="press-scale w-9 h-9 flex items-center justify-center rounded-lg text-white hover:bg-white/10 transition-colors"
+            className="press-scale w-9 h-9 flex items-center justify-center rounded-lg text-text-primary hover:bg-surface-2 transition-colors"
             onClick={onToggleSidebar}
             type="button"
             aria-label="Toggle sidebar"
           >
             <Menu size={20} aria-hidden="true" />
           </button>
-          <span className="hidden md:block font-display text-[14px] font-medium text-white/90 tracking-tight">
+          <span className="hidden md:block font-display text-[14px] font-medium text-text-primary tracking-tight">
             Integrated Agricultural Monitoring System
           </span>
         </div>
@@ -62,22 +62,22 @@ function Navbar({ onToggleSidebar, isCollapsed }) {
           <div className="relative" ref={dropdownRef}>
           <button
             type="button"
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-surface-2 transition-colors"
             onClick={() => setDropdownOpen((v) => !v)}
           >
             {/* Avatar circle with initial */}
-            <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
-              <span className="text-[13px] font-semibold text-white leading-none">
+            <div className="w-7 h-7 rounded-full bg-primary-light flex items-center justify-center flex-shrink-0">
+              <span className="text-[13px] font-semibold text-primary leading-none">
                 {userInitial}
               </span>
             </div>
             <div className="hidden sm:block text-left">
-              <p className="text-[13px] font-medium text-white leading-tight">
+              <p className="text-[13px] font-medium text-text-primary leading-tight">
                 {user?.full_name || user?.email || 'User'}
               </p>
-              <p className="text-[11px] text-white/60 leading-tight">{formatDate(today)}</p>
+              <p className="text-[11px] text-text-muted leading-tight">{formatDate(today)}</p>
             </div>
-            <ChevronDown size={14} className="text-white/60" />
+            <ChevronDown size={14} className="text-text-muted" />
           </button>
 
           {dropdownOpen && (

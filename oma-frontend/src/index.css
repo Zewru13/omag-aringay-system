@@ -262,6 +262,25 @@
   box-sizing: border-box;
 }
 
+/* Staff layout: content offset for the collapsible sidebar. Not driven by
+   toggling Tailwind width/padding classes (md:pl-16 vs md:pl-[248px]) —
+   confirmed live that Tailwind's dev-mode JIT can leave the just-switched-
+   to class with no generated rule at all, so the class updates on the
+   element but the computed padding silently stays at its previous value
+   until a full reload. --sidebar-w is a plain CSS custom property, set via
+   inline style (PageLayout.jsx) — no generation step, so it can't hit that
+   gap; only this one rule needs to exist in the stylesheet, not one per
+   toggle state. */
+.sidebar-content-offset {
+  padding-left: 0;
+}
+
+@media (min-width: 768px) {
+  .sidebar-content-offset {
+    padding-left: var(--sidebar-w, 248px);
+  }
+}
+
 body {
   font-family: var(--font-sans);
   font-size: 14px;

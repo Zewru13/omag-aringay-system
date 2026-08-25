@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AlertCircle, AlertTriangle, Check, CheckCircle2, ChevronDown, Plus } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
+import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import useRecordLock from '../../hooks/useRecordLock.js'
 import { labels } from './labels.js'
@@ -275,25 +276,19 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
               Outbreak / Predator Attack appear in live fisheries records, so
               omitting them would make real events unreportable. */}
           <FieldBlock label={labels.ffNew.disasterTypeHeading} required>
-            <SelectField
+            <ComboboxWithOther
+              options={domain.disasterTypeChoices
+                .filter((choice) => choice !== 'Other')
+                .map((choice) => ({ value: choice, label: labels.ffNew.disasterTypes[choice] || choice }))}
               value={form.disaster_type}
-              onChange={(e) => set('disaster_type', e.target.value)}
+              otherValue={form.disaster_type_other_specify}
+              onChange={(v) => set('disaster_type', v)}
+              onOtherChange={(v) => set('disaster_type_other_specify', v)}
+              otherLabel={labels.ffNew.disasterTypes.Other || 'Other'}
               disabled={blockedByOther}
-            >
-              {domain.disasterTypeChoices.map((choice) => (
-                <option key={choice} value={choice}>{labels.ffNew.disasterTypes[choice] || choice}</option>
-              ))}
-            </SelectField>
-            {form.disaster_type === 'Other' && (
-              <input
-                type="text"
-                value={form.disaster_type_other_specify}
-                onChange={(e) => set('disaster_type_other_specify', e.target.value)}
-                disabled={blockedByOther}
-                placeholder={labels.ffNew.disasterOtherPlaceholder}
-                className={`${FIELD} mt-2`}
-              />
-            )}
+              inputClassName={FIELD}
+              chevronSize={18}
+            />
           </FieldBlock>
 
           <FieldBlock label={labels.disaster.fields.dateOfOccurrence} required>

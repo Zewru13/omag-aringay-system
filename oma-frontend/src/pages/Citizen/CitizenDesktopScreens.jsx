@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Gift } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
+import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { labels } from './labels.js'
 import { todayISO, yesterdayISO } from '../../utils/localDate.js'
@@ -178,25 +179,35 @@ export function DesktopKaramdamanForm({ records, onSaved }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={LABEL}>{D.karamdamanCause}</label>
-              <select value={form.possible_cause} onChange={(e) => set('possible_cause', e.target.value)} className={FIELD}>
-                <option value="">{labels.activityLog.selectPlaceholder}</option>
-                {Object.entries(labels.activityLog.possibleCauseOptions).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
-              {form.possible_cause === 'Other' && (
-                <input type="text" value={form.possible_cause_other_specify} onChange={(e) => set('possible_cause_other_specify', e.target.value)}
-                  placeholder={D.karamdamanCauseOtherPlaceholder} className={`${FIELD} mt-2`} />
-              )}
+              <ComboboxWithOther
+                options={Object.entries(labels.activityLog.possibleCauseOptions)
+                  .filter(([v]) => v !== 'Other')
+                  .map(([value, label]) => ({ value, label }))}
+                value={form.possible_cause}
+                otherValue={form.possible_cause_other_specify}
+                onChange={(v) => set('possible_cause', v)}
+                onOtherChange={(v) => set('possible_cause_other_specify', v)}
+                otherLabel={labels.activityLog.possibleCauseOptions.Other}
+                placeholder={labels.activityLog.selectPlaceholder}
+                inputClassName={FIELD}
+                chevronSize={18}
+              />
             </div>
             <div>
               <label className={LABEL}>{D.karamdamanDisposal}</label>
-              <select value={form.disposal_method} onChange={(e) => set('disposal_method', e.target.value)} className={FIELD}>
-                <option value="">{labels.activityLog.selectPlaceholder}</option>
-                {Object.entries(labels.activityLog.disposalMethodOptions).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-              </select>
-              {form.disposal_method === 'Other' && (
-                <input type="text" value={form.disposal_method_other_specify} onChange={(e) => set('disposal_method_other_specify', e.target.value)}
-                  placeholder={D.karamdamanDisposalOtherPlaceholder} className={`${FIELD} mt-2`} />
-              )}
+              <ComboboxWithOther
+                options={Object.entries(labels.activityLog.disposalMethodOptions)
+                  .filter(([v]) => v !== 'Other')
+                  .map(([value, label]) => ({ value, label }))}
+                value={form.disposal_method}
+                otherValue={form.disposal_method_other_specify}
+                onChange={(v) => set('disposal_method', v)}
+                onOtherChange={(v) => set('disposal_method_other_specify', v)}
+                otherLabel={labels.activityLog.disposalMethodOptions.Other}
+                placeholder={labels.activityLog.selectPlaceholder}
+                inputClassName={FIELD}
+                chevronSize={18}
+              />
             </div>
           </div>
         )}

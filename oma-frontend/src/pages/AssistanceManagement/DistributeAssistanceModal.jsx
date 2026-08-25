@@ -194,7 +194,7 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
       <StepIndicator steps={STEPS} currentIndex={STEP_INDEX[step]} />
 
       {step === 'form' && (
-        <form onSubmit={handlePreview} className="mt-6 space-y-4">
+        <form onSubmit={handlePreview} className="stagger-item mt-6 space-y-4">
           <div className="rounded-2xl border border-[#E2E8E2] bg-white p-5">
             <SectionEyebrow>Target Organization</SectionEyebrow>
             <FormField label={domain.orgLabel} required pillLabel>
@@ -320,7 +320,7 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
       )}
 
       {step === 'confirm' && preview && (
-        <div className="mt-6 space-y-4">
+        <div className="stagger-item mt-6 space-y-4">
           <SectionEyebrow>Confirm Distribution</SectionEyebrow>
 
           <div className="rounded-2xl bg-[#1B4D2E] p-6 text-white">
@@ -401,7 +401,7 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
       )}
 
       {step === 'result' && finalResult && (
-        <div className="mt-6 space-y-4">
+        <div className="stagger-item mt-6 space-y-4">
           <div className="flex items-start gap-3 rounded-2xl border border-[#BFE3CC] bg-[#EBF5EE] p-4">
             <CheckCircle2 size={20} className="mt-0.5 text-[#1E5637] shrink-0" aria-hidden="true" />
             <div>

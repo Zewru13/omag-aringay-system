@@ -768,37 +768,27 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
                   <div className="grid grid-cols-2 gap-2 mb-2">
                     <div>
                       <label className="text-xs font-medium text-slate-700 mb-1 block">Possible Cause</label>
-                      <select value={possibleCause} onChange={e => setPossibleCause(e.target.value)} className={baseInputClasses}>
-                        <option value="">Select</option>
-                        <option value="Disease">Disease</option>
-                        <option value="Poor Water Quality">Poor Water Quality</option>
-                        <option value="Predator Attack">Predator Attack</option>
-                        <option value="Handling Stress">Handling Stress</option>
-                        <option value="Overcrowding">Overcrowding</option>
-                        <option value="Unknown">Unknown</option>
-                        <option value="Other">Other</option>
-                      </select>
-                      {possibleCause === 'Other' && (
-                        <input type="text" value={possibleCauseOtherSpecify}
-                          onChange={e => setPossibleCauseOtherSpecify(e.target.value)}
-                          placeholder="Specify cause" className={`${baseInputClasses} mt-1`} />
-                      )}
+                      <ComboboxWithOther
+                        options={['Disease', 'Poor Water Quality', 'Predator Attack', 'Handling Stress', 'Overcrowding', 'Unknown']}
+                        value={possibleCause}
+                        otherValue={possibleCauseOtherSpecify}
+                        onChange={setPossibleCause}
+                        onOtherChange={setPossibleCauseOtherSpecify}
+                        placeholder="Select"
+                        inputClassName={baseInputClasses}
+                      />
                     </div>
                     <div>
                       <label className="text-xs font-medium text-slate-700 mb-1 block">Disposal Method</label>
-                      <select value={disposalMethod} onChange={e => setDisposalMethod(e.target.value)} className={baseInputClasses}>
-                        <option value="">Select</option>
-                        <option value="Buried">Buried</option>
-                        <option value="Composted">Composted</option>
-                        <option value="Incinerated">Incinerated</option>
-                        <option value="Municipal Waste Collection">Municipal Waste Collection</option>
-                        <option value="Other">Other</option>
-                      </select>
-                      {disposalMethod === 'Other' && (
-                        <input type="text" value={disposalMethodOtherSpecify}
-                          onChange={e => setDisposalMethodOtherSpecify(e.target.value)}
-                          placeholder="Specify method" className={`${baseInputClasses} mt-1`} />
-                      )}
+                      <ComboboxWithOther
+                        options={['Buried', 'Composted', 'Incinerated', 'Municipal Waste Collection']}
+                        value={disposalMethod}
+                        otherValue={disposalMethodOtherSpecify}
+                        onChange={setDisposalMethod}
+                        onOtherChange={setDisposalMethodOtherSpecify}
+                        placeholder="Select"
+                        inputClassName={baseInputClasses}
+                      />
                     </div>
                   </div>
                 )}

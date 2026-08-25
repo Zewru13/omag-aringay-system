@@ -38,7 +38,7 @@ function Toast() {
         return (
           <div
             key={toast.id}
-            className={`flex items-start gap-3 rounded-xl px-4 py-3 shadow-lg min-w-[280px] max-w-sm ${styles.container}`}
+            className={`stagger-item flex items-start gap-3 rounded-xl px-4 py-3 shadow-lg min-w-[280px] max-w-sm ${styles.container}`}
           >
             {styles.icon}
             <p className="flex-1 text-[13px]">{toast.message}</p>

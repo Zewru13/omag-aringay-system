@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AlertTriangle, Check, Fish, FlaskConical } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
+import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { labels } from './labels.js'
 import {
@@ -400,48 +401,36 @@ export default function CitizenHealthLogScreen({ records, onBack, onSaved, tabBa
         <>
           <div className="mb-[18px]">
             <StepLabel>{H.possibleCause}</StepLabel>
-            <select
+            <ComboboxWithOther
+              options={Object.entries(labels.activityLog.possibleCauseOptions)
+                .filter(([v]) => v !== 'Other')
+                .map(([value, label]) => ({ value, label }))}
               value={form.possible_cause}
-              onChange={(e) => set('possible_cause', e.target.value)}
-              className={FIELD}
-            >
-              <option value="">{labels.activityLog.selectPlaceholder}</option>
-              {Object.entries(labels.activityLog.possibleCauseOptions).map(([value, text]) => (
-                <option key={value} value={value}>{text}</option>
-              ))}
-            </select>
-            {form.possible_cause === 'Other' && (
-              <input
-                type="text"
-                value={form.possible_cause_other_specify}
-                onChange={(e) => set('possible_cause_other_specify', e.target.value)}
-                placeholder={H.possibleCauseOtherPlaceholder}
-                className={`${FIELD} mt-2`}
-              />
-            )}
+              otherValue={form.possible_cause_other_specify}
+              onChange={(v) => set('possible_cause', v)}
+              onOtherChange={(v) => set('possible_cause_other_specify', v)}
+              otherLabel={labels.activityLog.possibleCauseOptions.Other}
+              placeholder={labels.activityLog.selectPlaceholder}
+              inputClassName={FIELD}
+              chevronSize={18}
+            />
           </div>
 
           <div className="mb-[18px]">
             <StepLabel>{H.disposalMethod}</StepLabel>
-            <select
+            <ComboboxWithOther
+              options={Object.entries(labels.activityLog.disposalMethodOptions)
+                .filter(([v]) => v !== 'Other')
+                .map(([value, label]) => ({ value, label }))}
               value={form.disposal_method}
-              onChange={(e) => set('disposal_method', e.target.value)}
-              className={FIELD}
-            >
-              <option value="">{labels.activityLog.selectPlaceholder}</option>
-              {Object.entries(labels.activityLog.disposalMethodOptions).map(([value, text]) => (
-                <option key={value} value={value}>{text}</option>
-              ))}
-            </select>
-            {form.disposal_method === 'Other' && (
-              <input
-                type="text"
-                value={form.disposal_method_other_specify}
-                onChange={(e) => set('disposal_method_other_specify', e.target.value)}
-                placeholder={H.disposalMethodOtherPlaceholder}
-                className={`${FIELD} mt-2`}
-              />
-            )}
+              otherValue={form.disposal_method_other_specify}
+              onChange={(v) => set('disposal_method', v)}
+              onOtherChange={(v) => set('disposal_method_other_specify', v)}
+              otherLabel={labels.activityLog.disposalMethodOptions.Other}
+              placeholder={labels.activityLog.selectPlaceholder}
+              inputClassName={FIELD}
+              chevronSize={18}
+            />
           </div>
         </>
       )}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ChevronDown, ChevronUp, FileText, SquarePen } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
+import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { labels } from './labels.js'
@@ -132,7 +133,7 @@ export default function CitizenFarmerActivityScreen({ records, initialRecordId, 
       activity_type: known ? log.activity_type : 'Other',
       activity_type_other_specify: known ? '' : log.activity_type,
       date_of_activity: log.date_of_activity,
-      fertilizer_type: t.fertilizerOptions.includes(log.fertilizer_type) ? log.fertilizer_type : (log.fertilizer_type ? '__other' : ''),
+      fertilizer_type: t.fertilizerOptions.includes(log.fertilizer_type) ? log.fertilizer_type : (log.fertilizer_type ? 'Other' : ''),
       fertilizer_type_other: t.fertilizerOptions.includes(log.fertilizer_type) ? '' : (log.fertilizer_type || ''),
       quantity_applied: log.quantity_applied ?? '',
       application_method: log.application_method || '',
@@ -151,7 +152,7 @@ export default function CitizenFarmerActivityScreen({ records, initialRecordId, 
     if (!recordId) return
     setSaving(true)
     try {
-      const fert = form.fertilizer_type === '__other' ? form.fertilizer_type_other : form.fertilizer_type
+      const fert = form.fertilizer_type === 'Other' ? form.fertilizer_type_other : form.fertilizer_type
       // Every conditional field is cleared unless its own activity is
       // selected, so switching type cannot smuggle a stale value through.
       const payload = {
@@ -220,24 +221,19 @@ export default function CitizenFarmerActivityScreen({ records, initialRecordId, 
 
             <div className="mb-[18px]">
               <Label>{t.activityHeading}</Label>
-              <select
+              <ComboboxWithOther
+                options={Object.entries(t.types)
+                  .filter(([value]) => value !== 'Other')
+                  .map(([value, label]) => ({ value, label }))}
                 value={activity}
-                onChange={(e) => set('activity_type', e.target.value)}
-                className={FIELD}
-              >
-                {Object.entries(t.types).map(([value, text]) => (
-                  <option key={value} value={value}>{text}</option>
-                ))}
-              </select>
-              {isOther && (
-                <input
-                  type="text"
-                  value={form.activity_type_other_specify}
-                  onChange={(e) => set('activity_type_other_specify', e.target.value)}
-                  placeholder={t.otherPlaceholder}
-                  className={`${FIELD} mt-2`}
-                />
-              )}
+                otherValue={form.activity_type_other_specify}
+                onChange={(v) => set('activity_type', v)}
+                onOtherChange={(v) => set('activity_type_other_specify', v)}
+                otherLabel={t.types.Other}
+                placeholder={t.selectPlaceholder}
+                inputClassName={FIELD}
+                chevronSize={18}
+              />
             </div>
 
             <div className="mb-[18px]">
@@ -271,23 +267,17 @@ export default function CitizenFarmerActivityScreen({ records, initialRecordId, 
               <>
                 <div className="mb-[18px]">
                   <Label>{t.fertilizerType}</Label>
-                  <select
+                  <ComboboxWithOther
+                    options={t.fertilizerOptions}
                     value={form.fertilizer_type}
-                    onChange={(e) => set('fertilizer_type', e.target.value)}
-                    className={FIELD}
-                  >
-                    <option value="">{t.selectPlaceholder}</option>
-                    {t.fertilizerOptions.map((o) => <option key={o} value={o}>{o}</option>)}
-                    <option value="__other">{t.types.Other}</option>
-                  </select>
-                  {form.fertilizer_type === '__other' && (
-                    <input
-                      type="text"
-                      value={form.fertilizer_type_other}
-                      onChange={(e) => set('fertilizer_type_other', e.target.value)}
-                      className={`${FIELD} mt-2`}
-                    />
-                  )}
+                    otherValue={form.fertilizer_type_other}
+                    onChange={(v) => set('fertilizer_type', v)}
+                    onOtherChange={(v) => set('fertilizer_type_other', v)}
+                    otherLabel={t.types.Other}
+                    placeholder={t.selectPlaceholder}
+                    inputClassName={FIELD}
+                    chevronSize={18}
+                  />
                 </div>
                 <div className="mb-[18px]">
                   <Label>{t.quantityKg}</Label>
