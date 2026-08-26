@@ -1,37 +1,64 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Camera, Check, Clock, HelpCircle, KeyRound, LogOut, Pencil } from 'lucide-react'
+import { Camera, Check, Clock, HelpCircle, KeyRound, LogOut, Pencil, SquarePen } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
-import { OrgScreen, OrgSectionLabel } from './OrgDashboardParts.jsx'
+import { OrgScreen } from './OrgDashboardParts.jsx'
 import { labels } from './labels.js'
 
 const INPUT = 'min-w-0 flex-1 rounded-[8px] border-[0.5px] border-cz-border-strong bg-cz-page px-3 py-[10px] text-[14px] text-cz-text focus:border-cz-text-2 focus:outline-none disabled:opacity-50'
+const CARD = 'rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)]'
+const FIELD_LABEL = 'text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2'
 
 // Batch: the Organization equivalent of Farmer/Fisherfolk's "My Profile" —
 // the home for the profile self-editing backend committed in ab07388.
+// Restyle batch: same data/logic, reorganized into the same clear-card
+// hierarchy CitizenProfileScreen.jsx already established for this exact
+// kind of screen — a card heading (13px, sentence case, colour tick) over
+// field rows (11px uppercase muted label + value), one card per real group
+// of data rather than one long stack of same-weight sections.
 //
-// The two-tier split is the whole point of this screen and the copy has to
-// carry it:
-//   INSTANT   logo, contact number      -> saved as soon as you finish
-//   REVIEWED  name, barangay, address   -> filed as a ProfileChangeRequest
-//                                          and shown as pending until the
-//                                          office resolves it
-//
-// A field with a pending request must NOT look editable again — that is the
-// single most misleading state this screen could have, so the request action
-// is replaced outright by the pending chip rather than merely disabled.
+// THREE field behaviours live on this screen, and each keeps its own
+// consistent affordance rather than three ad-hoc styles:
+//   PLAIN READ-ONLY   registration facts, contact person, email
+//                     -> label + value, no action at all
+//   INSTANT           contact number -> saved as soon as you finish
+//                     -> Pencil "I-edit" affordance
+//   REVIEWED          name, barangay, address -> filed as a
+//                     ProfileChangeRequest, shown pending until resolved
+//                     -> SquarePen "Humiling ng Pagbabago" affordance,
+//                        replaced outright by a pending chip while a
+//                        request is open (never merely disabled — a
+//                        pending field must not read as "editable but
+//                        greyed out")
 
 const REQUESTABLE = ['name', 'barangay', 'street_address']
+// Pure read-only facts, grouped by what they're about — no change-request
+// path exists for any of these; the office's own registry is the record of
+// truth for them.
+const REGISTERED_INFO_FIELDS = ['registration_number', 'date_organized', 'date_registered', 'registration_agency']
+const CONTACT_READONLY_FIELDS = ['contact_person', 'email_address']
 
-// Purely read-only — not part of REQUESTABLE, no change-request path, just
-// the registered record shown as-is (Org parity batch: this payload didn't
-// even reach the frontend before — see accounts/serializers.py).
-const READONLY_DETAILS = [
-  'registration_number', 'contact_person', 'date_organized',
-  'date_registered', 'registration_agency', 'email_address',
-]
+const hasValue = (v) => v !== null && v !== undefined && String(v).trim() !== ''
+
+function CardHeading({ theme, children }) {
+  return (
+    <p className="mb-3 flex items-center gap-1.5 text-[13px] font-semibold text-cz-text">
+      <span className={`h-[10px] w-[3px] rounded-full ${theme.header}`} aria-hidden="true" />
+      {children}
+    </p>
+  )
+}
+
+function ReadOnlyRow({ label, value }) {
+  return (
+    <div>
+      <p className={FIELD_LABEL}>{label}</p>
+      <p className="mt-1 truncate text-[15px] text-cz-text">{value}</p>
+    </div>
+  )
+}
 
 export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecordChanged, active, onNav, railCollapsed, onToggleRail }) {
   const theme = domain.theme
@@ -172,54 +199,86 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
     return raw
   }
 
+  const registeredInfoRows = REGISTERED_INFO_FIELDS
+    .map((field) => [field, readonlyValue(field)])
+    .filter(([, v]) => hasValue(v))
+  const contactReadonlyRows = CONTACT_READONLY_FIELDS
+    .map((field) => [field, readonlyValue(field)])
+    .filter(([, v]) => hasValue(v))
+
   return (
     <OrgScreen
       title={labels.orgInfo.title} chipLabel={record?.label} onBack={onBack} theme={theme} tabBar={tabBar}
       active={active} onNav={onNav} railCollapsed={railCollapsed} onToggleRail={onToggleRail}
     >
-        <div className="mx-auto max-w-[560px] space-y-4">
+      <div className="mx-auto max-w-[560px] space-y-4">
 
-          {/* Logo — instant. Camera badge sits ON the image, lower-left,
-              always visible (not just as an empty-state placeholder), so
-              "how do I change this" never depends on whether one is set. */}
-          <section className="rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface p-5 text-center shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-            <div className="relative mx-auto h-24 w-24">
-              <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-cz-tile-slate-bg">
-                {logoUrl
-                  ? <img src={logoUrl} alt="" className="h-full w-full object-cover" />
-                  : <Camera size={28} className="text-cz-text-muted" aria-hidden="true" />}
-              </div>
-              <input
-                ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp"
-                onChange={handleFile} className="hidden"
-              />
-              <button
-                type="button"
-                disabled={isUploading}
-                aria-label={labels.profileEdit.changeLogo}
-                onClick={() => fileRef.current?.click()}
-                className={`absolute -bottom-1 -left-1 flex h-9 w-9 items-center justify-center rounded-full border-2 border-cz-surface ${theme.solidBtn} shadow-md transition-transform press-scale hover:scale-105 disabled:opacity-50`}
-              >
-                <Camera size={15} aria-hidden="true" />
-              </button>
+        {/* Logo — instant. Camera badge sits ON the image, lower-left,
+            always visible (not just as an empty-state placeholder), so
+            "how do I change this" never depends on whether one is set. */}
+        <section className={`${CARD} text-center`}>
+          <div className="relative mx-auto h-24 w-24">
+            <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-cz-tile-slate-bg">
+              {logoUrl
+                ? <img src={logoUrl} alt="" className="h-full w-full object-cover" />
+                : <Camera size={28} className="text-cz-text-muted" aria-hidden="true" />}
             </div>
-            {isUploading && <p className="mt-2.5 text-[12px] text-cz-text-2">{labels.profileEdit.uploading}</p>}
-            <p className="mt-2.5 text-[11px] text-cz-text-muted">{labels.profileEdit.photoHint}</p>
+            <input
+              ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp"
+              onChange={handleFile} className="hidden"
+            />
+            <button
+              type="button"
+              disabled={isUploading}
+              aria-label={labels.profileEdit.changeLogo}
+              onClick={() => fileRef.current?.click()}
+              className={`absolute -bottom-1 -left-1 flex h-9 w-9 items-center justify-center rounded-full border-2 border-cz-surface ${theme.solidBtn} shadow-md transition-transform press-scale hover:scale-105 disabled:opacity-50`}
+            >
+              <Camera size={15} aria-hidden="true" />
+            </button>
+          </div>
+          {isUploading && <p className="mt-2.5 text-[12px] text-cz-text-2">{labels.profileEdit.uploading}</p>}
+          <p className="mt-2.5 text-[11px] text-cz-text-muted">{labels.profileEdit.photoHint}</p>
+        </section>
+
+        {errorMessage && (
+          <p className="rounded-[8px] border-[0.5px] border-cz-danger-border bg-cz-danger-bg px-3 py-2 text-[13px] text-cz-danger-body">
+            {errorMessage}
+          </p>
+        )}
+
+        {/* Rehistradong Impormasyon — pure read-only facts, dense 2-col
+            grid (same treatment as CitizenProfileScreen's Government IDs
+            card: 10.5px labels, 14.5px bold values). Hide-empty: a field
+            with nothing behind it doesn't render a blank row. */}
+        {registeredInfoRows.length > 0 && (
+          <section className={CARD}>
+            <CardHeading theme={theme}>{labels.orgInfo.groups.registeredDetails}</CardHeading>
+            <div className="grid grid-cols-2 gap-3">
+              {registeredInfoRows.map(([field, value]) => (
+                <div key={field}>
+                  <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">
+                    {labels.orgInfo.readonlyFieldLabels[field]}
+                  </p>
+                  <p className="mt-0.5 text-[14.5px] font-semibold text-cz-text">{value}</p>
+                </div>
+              ))}
+            </div>
           </section>
+        )}
 
-          {errorMessage && (
-            <p className="rounded-[8px] border-[0.5px] border-cz-danger-border bg-cz-danger-bg px-3 py-2 text-[13px] text-cz-danger-body">
-              {errorMessage}
-            </p>
-          )}
+        {/* Contact — contact person and email are plain read-only; contact
+            number is the one instantly-editable field here, so it's the
+            only row carrying the Pencil affordance. */}
+        <section className={CARD}>
+          <CardHeading theme={theme}>{labels.orgInfo.groups.contact}</CardHeading>
+          <div className="space-y-3">
+            {contactReadonlyRows.map(([field, value]) => (
+              <ReadOnlyRow key={field} label={labels.orgInfo.readonlyFieldLabels[field]} value={value} />
+            ))}
 
-          {/* Contact number — instant */}
-          <section>
-            <OrgSectionLabel>{labels.orgInfo.groups.contact}</OrgSectionLabel>
-            <div className="rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">
-                {labels.profileEdit.contactLabel}
-              </p>
+            <div>
+              <p className={FIELD_LABEL}>{labels.profileEdit.contactLabel}</p>
               {editingContact ? (
                 <div className="mt-2 flex gap-2">
                   <input
@@ -248,155 +307,76 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
                   <button
                     type="button"
                     onClick={() => { setContactDraft(contact); setEditingContact(true) }}
-                    className={`inline-flex items-center gap-1.5 text-[13px] font-medium ${theme.accentText}`}
+                    className={`inline-flex shrink-0 items-center gap-1.5 text-[13px] font-medium ${theme.accentText}`}
                   >
                     <Pencil size={13} aria-hidden="true" /> {labels.profileEdit.editAction}
                   </button>
                 </div>
               )}
             </div>
-          </section>
+          </div>
+        </section>
 
-          {/* Password — voluntary self-service, mirrors the Farmer/
-              Fisherfolk card (CitizenProfileScreen.jsx), same endpoint. One
-              real addition: this account is shared/institutional, not
-              personal — passwordSharedAccountNote says so explicitly so
-              whichever officer is changing it understands the blast
-              radius, rather than reusing copy written for a single owner. */}
-          <section>
-            <OrgSectionLabel>{labels.orgInfo.groups.password}</OrgSectionLabel>
-            <div className="rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-              <p className="mb-2 rounded-[8px] border-[0.5px] border-cz-warn-border bg-cz-warn-bg px-3 py-2 text-[12px] leading-[1.5] text-cz-warn-body">
-                {labels.profileEdit.passwordSharedAccountNote}
-              </p>
-              <div className="space-y-2">
-                <input
-                  type="password"
-                  autoComplete="current-password"
-                  placeholder={labels.profileEdit.passwordCurrentLabel}
-                  value={passwordForm.current}
-                  onChange={(e) => setPasswordForm((f) => ({ ...f, current: e.target.value }))}
-                  className={INPUT}
-                />
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder={labels.profileEdit.passwordNewLabel}
-                  value={passwordForm.next}
-                  onChange={(e) => setPasswordForm((f) => ({ ...f, next: e.target.value }))}
-                  className={INPUT}
-                />
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  placeholder={labels.profileEdit.passwordConfirmLabel}
-                  value={passwordForm.confirm}
-                  onChange={(e) => setPasswordForm((f) => ({ ...f, confirm: e.target.value }))}
-                  className={INPUT}
-                />
-              </div>
-              {passwordError && <p className="mt-1.5 text-[12px] font-medium text-rose-600">{passwordError}</p>}
-              <button
-                type="button"
-                onClick={changePassword}
-                disabled={changingPassword || !passwordForm.current || !passwordForm.next || !passwordForm.confirm}
-                className={`mt-2 flex items-center gap-1.5 rounded-[8px] px-3.5 py-2 text-[13px] font-medium ${theme.solidBtn} disabled:opacity-50`}
-              >
-                <KeyRound size={13} aria-hidden="true" />
-                {labels.profileEdit.passwordChangeCta}
-              </button>
-              <p className="mt-1.5 text-[12px] text-cz-text-muted">{labels.profileEdit.passwordCardNote}</p>
-            </div>
-          </section>
-
-          {/* Registered details — read-only, no edit path of any kind (not
-              even a change request). Purely informational; the office's own
-              registry is the record of truth for these. */}
-          <section>
-            <OrgSectionLabel>{labels.orgInfo.groups.registeredDetails}</OrgSectionLabel>
-            <div className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-              {READONLY_DETAILS.map((field, i) => (
-                <div
-                  key={field}
-                  className={`px-4 py-3 ${i === READONLY_DETAILS.length - 1 ? '' : 'border-b-[0.5px] border-cz-border'}`}
-                >
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">
-                    {labels.orgInfo.readonlyFieldLabels[field]}
-                  </p>
-                  <p className="mt-1 truncate text-[15px] text-cz-text">
-                    {readonlyValue(field) || labels.common.unknown}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* Reviewed fields */}
-          <section>
-            <OrgSectionLabel>{labels.orgInfo.groups.identity}</OrgSectionLabel>
-            <p className="mb-2 rounded-[8px] border-[0.5px] border-cz-warn-border bg-cz-warn-bg px-3 py-2 text-[12px] leading-[1.5] text-cz-warn-body">
-              {labels.profileEdit.reviewNotice}
-            </p>
-            <div className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-              {REQUESTABLE.map((field, i) => {
-                const pending = pendingFor(field)
-                return (
-                  <div
-                    key={field}
-                    className={`px-4 py-3 ${i === REQUESTABLE.length - 1 ? '' : 'border-b-[0.5px] border-cz-border'}`}
-                  >
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">
-                      {labels.profileEdit.fieldLabels[field]}
+        {/* Pangalan at Address — request-based fields, plus their own
+            request history right beneath (every past/pending request here
+            is about one of these three fields, so it reads as one topic,
+            not a separate unrelated section). */}
+        <section className={CARD}>
+          <CardHeading theme={theme}>{labels.orgInfo.groups.identity}</CardHeading>
+          <p className="mb-3 rounded-[8px] border-[0.5px] border-cz-warn-border bg-cz-warn-bg px-3 py-2 text-[12px] leading-[1.5] text-cz-warn-body">
+            {labels.profileEdit.reviewNotice}
+          </p>
+          <div className="space-y-3">
+            {REQUESTABLE.map((field) => {
+              const pending = pendingFor(field)
+              return (
+                <div key={field}>
+                  <p className={FIELD_LABEL}>{labels.profileEdit.fieldLabels[field]}</p>
+                  <div className="mt-1 flex items-center justify-between gap-3">
+                    <p className="min-w-0 flex-1 truncate text-[15px] text-cz-text">
+                      {currentValue(field) || labels.common.unknown}
                     </p>
-                    <div className="mt-1 flex items-center justify-between gap-3">
-                      <p className="min-w-0 flex-1 truncate text-[15px] text-cz-text">
-                        {currentValue(field) || labels.common.unknown}
-                      </p>
-                      {pending ? (
-                        // Deliberately NOT a disabled button: a pending field
-                        // must not read as "editable but greyed out".
-                        <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-cz-tile-amber-bg px-2.5 py-1 text-[11px] font-medium text-cz-tile-amber-fg">
-                          <Clock size={12} aria-hidden="true" />
-                          {labels.profileEdit.pendingReview}
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setRequestField(field)
-                            setRequestDraft(currentValue(field))
-                            setErrorMessage('')
-                          }}
-                          className={`shrink-0 text-[13px] font-medium ${theme.accentText}`}
-                        >
-                          {labels.profileEdit.requestChange}
-                        </button>
-                      )}
-                    </div>
-                    {pending && (
-                      <p className="mt-1 text-[12px] text-cz-text-2">
-                        {labels.profileEdit.pendingNote(pending.requested_value)}
-                      </p>
+                    {pending ? (
+                      // Deliberately NOT a disabled button: a pending field
+                      // must not read as "editable but greyed out".
+                      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-cz-tile-amber-bg px-2.5 py-1 text-[11px] font-medium text-cz-tile-amber-fg">
+                        <Clock size={12} aria-hidden="true" />
+                        {labels.profileEdit.pendingReview}
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRequestField(field)
+                          setRequestDraft(currentValue(field))
+                          setErrorMessage('')
+                        }}
+                        className={`inline-flex shrink-0 items-center gap-1.5 text-[13px] font-medium ${theme.accentText}`}
+                      >
+                        <SquarePen size={13} aria-hidden="true" /> {labels.profileEdit.requestChange}
+                      </button>
                     )}
                   </div>
-                )
-              })}
-            </div>
-          </section>
+                  {pending && (
+                    <p className="mt-1 text-[12px] text-cz-text-2">
+                      {labels.profileEdit.pendingNote(pending.requested_value)}
+                    </p>
+                  )}
+                </div>
+              )
+            })}
+          </div>
 
-          {/* Request history */}
-          <section>
-            <OrgSectionLabel>{labels.profileEdit.historyTitle}</OrgSectionLabel>
+          <div className="mt-4 border-t-[0.5px] border-cz-border pt-3">
+            <p className="mb-2 text-[11.5px] font-semibold text-cz-text-2">{labels.profileEdit.historyTitle}</p>
             {requests.length === 0 ? (
-              <p className="rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface p-5 text-center text-[13px] italic text-cz-text-muted">
-                {labels.profileEdit.historyEmpty}
-              </p>
+              <p className="text-[12.5px] italic text-cz-text-muted">{labels.profileEdit.historyEmpty}</p>
             ) : (
-              <ul className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface">
-                {requests.map((r, i) => (
-                  <li key={r.id} className={`px-4 py-3 ${i === requests.length - 1 ? '' : 'border-b-[0.5px] border-cz-border'}`}>
+              <ul className="space-y-2.5">
+                {requests.map((r) => (
+                  <li key={r.id}>
                     <div className="flex items-center justify-between gap-3">
-                      <p className="min-w-0 flex-1 truncate text-[14px] text-cz-text">
+                      <p className="min-w-0 flex-1 truncate text-[13px] text-cz-text">
                         {labels.profileEdit.fieldLabels[r.field_name] || r.field_name}: {r.requested_value}
                       </p>
                       <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
@@ -410,7 +390,7 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
                       </span>
                     </div>
                     {r.status === 'REJECTED' && r.rejection_reason && (
-                      <p className="mt-1 text-[12px] text-cz-text-2">
+                      <p className="mt-0.5 text-[12px] text-cz-text-2">
                         {labels.profileEdit.rejectionReason(r.rejection_reason)}
                       </p>
                     )}
@@ -418,11 +398,67 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
                 ))}
               </ul>
             )}
-          </section>
+          </div>
+        </section>
 
-          {/* Help + Logout — direct entry points, always reachable from
-              this screen without going through the profile-chip dropdown. */}
-          <section className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+        {/* Password — voluntary self-service, mirrors the Farmer/
+            Fisherfolk card (CitizenProfileScreen.jsx), same endpoint. One
+            real addition: this account is shared/institutional, not
+            personal — passwordSharedAccountNote says so explicitly so
+            whichever officer is changing it understands the blast
+            radius, rather than reusing copy written for a single owner. */}
+        <section className={CARD}>
+          <CardHeading theme={theme}>{labels.orgInfo.groups.password}</CardHeading>
+          <p className="mb-2 rounded-[8px] border-[0.5px] border-cz-warn-border bg-cz-warn-bg px-3 py-2 text-[12px] leading-[1.5] text-cz-warn-body">
+            {labels.profileEdit.passwordSharedAccountNote}
+          </p>
+          <div className="space-y-2">
+            <input
+              type="password"
+              autoComplete="current-password"
+              placeholder={labels.profileEdit.passwordCurrentLabel}
+              value={passwordForm.current}
+              onChange={(e) => setPasswordForm((f) => ({ ...f, current: e.target.value }))}
+              className={INPUT}
+            />
+            <input
+              type="password"
+              autoComplete="new-password"
+              placeholder={labels.profileEdit.passwordNewLabel}
+              value={passwordForm.next}
+              onChange={(e) => setPasswordForm((f) => ({ ...f, next: e.target.value }))}
+              className={INPUT}
+            />
+            <input
+              type="password"
+              autoComplete="new-password"
+              placeholder={labels.profileEdit.passwordConfirmLabel}
+              value={passwordForm.confirm}
+              onChange={(e) => setPasswordForm((f) => ({ ...f, confirm: e.target.value }))}
+              className={INPUT}
+            />
+          </div>
+          {passwordError && <p className="mt-1.5 text-[12px] font-medium text-rose-600">{passwordError}</p>}
+          <button
+            type="button"
+            onClick={changePassword}
+            disabled={changingPassword || !passwordForm.current || !passwordForm.next || !passwordForm.confirm}
+            className={`mt-2 flex items-center gap-1.5 rounded-[8px] px-3.5 py-2 text-[13px] font-medium ${theme.solidBtn} disabled:opacity-50`}
+          >
+            <KeyRound size={13} aria-hidden="true" />
+            {labels.profileEdit.passwordChangeCta}
+          </button>
+          <p className="mt-1.5 text-[12px] text-cz-text-muted">{labels.profileEdit.passwordCardNote}</p>
+        </section>
+
+        {/* Account actions — Logout, Help. Deliberately NOT styled as a
+            data card: a top divider and looser spacing mark this as
+            navigation, not another fact about the organization. */}
+        <section className="border-t-[0.5px] border-cz-border pt-4">
+          <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-muted">
+            {labels.orgInfo.groups.actions}
+          </p>
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
             <button
               type="button"
               onClick={() => onNav?.('help')}
@@ -437,8 +473,9 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
             >
               <LogOut size={16} aria-hidden="true" /> {labels.orgHome.accountLogout}
             </button>
-          </section>
-        </div>
+          </div>
+        </section>
+      </div>
 
       {requestField && (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center">

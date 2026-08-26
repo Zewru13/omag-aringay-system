@@ -1203,10 +1203,11 @@ export const labels = {
     registrationNumber: 'Registration no.',
     contactPerson: 'Contact person',
     groups: {
-      registeredDetails: 'REHISTRADONG DETALYE',
-      identity: 'IMPORMASYON NG ORGANISASYON',
-      contact: 'CONTACT',
-      password: 'PASSWORD',
+      registeredDetails: 'Rehistradong Impormasyon',
+      identity: 'Pangalan at Address',
+      contact: 'Contact',
+      password: 'Password',
+      actions: 'Account',
     },
     readonlyFieldLabels: {
       registration_number: 'Registration number',
