@@ -92,14 +92,13 @@ def _is_fisherfolk_affected_by_disaster(fisherfolk):
 class FisherfolkListSerializer(serializers.ModelSerializer):
     full_name         = serializers.CharField(read_only=True)
     is_senior_citizen = serializers.SerializerMethodField()
-    is_affected_by_disaster = serializers.SerializerMethodField()
 
     class Meta:
         model  = Fisherfolk
         fields = [
             'id', 'lgu_registration_number', 'fishr_number', 'prefix', 'full_name',
             'gender', 'birthdate', 'barangay', 'fisherfolk_type',
-            'is_active', 'is_senior_citizen', 'is_affected_by_disaster', 'date_registered',
+            'is_active', 'is_senior_citizen', 'date_registered',
             'rsbsa_number',
             'is_aquaculture', 'is_capture_fishery', 'is_mariculture', 'is_inland_fishery', 'is_fish_vendor',
         ]
@@ -111,9 +110,6 @@ class FisherfolkListSerializer(serializers.ModelSerializer):
         return (today.year - obj.birthdate.year - (
             (today.month, today.day) < (obj.birthdate.month, obj.birthdate.day)
         )) >= 60
-
-    def get_is_affected_by_disaster(self, obj):
-        return _is_fisherfolk_affected_by_disaster(obj)
 
 
 class FisherfolkDetailSerializer(serializers.ModelSerializer):

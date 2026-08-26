@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  AlertTriangle, Bug, CheckCircle, CheckCircle2, Eye, FileText, Leaf, Lock, MapPin, Pencil, Plus, Trash2, Unlock, User, Wheat,
+  AlertTriangle, Bug, CheckCircle, CheckCircle2, Eye, FileText, Leaf, Lock, MapPin, Pencil, Trash2, Unlock, User, Wheat,
 } from 'lucide-react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
@@ -1659,7 +1659,6 @@ const COLUMNS = [
 ]
 
 export default function CropMonitoringPage() {
-  const navigate   = useNavigate()
   const [searchParams] = useSearchParams()
 
   const [records,          setRecords]          = useState([])
@@ -1800,17 +1799,6 @@ export default function CropMonitoringPage() {
   return (
     <PageLayout title="Crop Monitoring" subtitle="Track activities and progress for each crop.">
       <div className="space-y-4">
-        <div className="flex justify-end">
-          <button
-            type="button"
-            onClick={() => navigate('/crop-records?action=add')}
-            className="flex items-center gap-1.5 rounded-lg border border-[#C8D5C8] px-3 py-[5px] text-[12px] font-medium text-[#4A5E4A] transition-colors hover:bg-[#F5F7F5]"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Add Crop
-          </button>
-        </div>
-
         <FilterPanel
           search={search}
           onSearchChange={setSearch}

@@ -128,16 +128,7 @@ function FisherfolkPage({ asTab = false }) {
         ? f.fishr_number
         : <span className={mutedBadgeCls}>No FishR</span>,
       rsbsa_number: f.rsbsa_number || '—',
-      full_name: (
-        <span className="inline-flex items-center gap-2">
-          {f.full_name}
-          {f.is_affected_by_disaster && (
-            <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700 border border-rose-200">
-              Affected by Disaster
-            </span>
-          )}
-        </span>
-      ),
+      full_name: f.full_name,
       activity_badges: (
         <span className="inline-flex flex-wrap gap-1">
           {ACTIVITY_BADGES.map((b) => f[b.key] ? (

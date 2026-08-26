@@ -23,15 +23,29 @@ function timeAgo(iso) {
 }
 
 // `variant`: 'dark' (default, unchanged) is for a colored/dark bar — white
-// icon, white/10 hover. 'light' is for a light surface (e.g. the citizen
-// desktop topbar) — a dark icon on a neutral hover, same behavior.
+// icon, white/10 hover — still correct for the citizen Organization header,
+// which really is a colored bar. 'light' is the citizen-palette (cz-*) dark-
+// on-light treatment for the citizen desktop topbar. 'staff' is the staff
+// app's own design-system tokens (text-text-primary / surface-2) — added
+// after the staff Navbar's header was restyled from a dark bar to bg-white
+// (commit d9d45b4) without this component being touched, which left the
+// bell rendering white-on-white: present, but invisible. Not reusing
+// 'light' there on purpose — its hardcoded hex is the citizen app's
+// palette, not the staff app's tokens, and would drift from its sibling
+// header icons (the hamburger button, the account chevron) the moment
+// either palette's tokens change independently.
+const VARIANT_CLASSES = {
+  dark: 'text-white hover:bg-white/10',
+  light: 'text-[#4A5E4A] hover:bg-black/5',
+  staff: 'text-text-primary hover:bg-surface-2',
+}
+
 function NotificationBell({ variant = 'dark' }) {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
   const ref = useRef(null)
-  const isLight = variant === 'light'
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -80,9 +94,7 @@ function NotificationBell({ variant = 'dark' }) {
     <div className="relative" ref={ref}>
       <button
         type="button"
-        className={`relative w-9 h-9 flex items-center justify-center rounded-lg press-scale transition-colors ${
-          isLight ? 'text-[#4A5E4A] hover:bg-black/5' : 'text-white hover:bg-white/10'
-        }`}
+        className={`relative w-9 h-9 flex items-center justify-center rounded-lg press-scale transition-colors ${VARIANT_CLASSES[variant] || VARIANT_CLASSES.dark}`}
         onClick={() => setOpen(v => !v)}
         aria-label="Notifications"
       >

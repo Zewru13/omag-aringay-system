@@ -58,7 +58,7 @@ function Navbar({ onToggleSidebar, isCollapsed }) {
 
         {/* Right: notifications + user dropdown */}
         <div className="flex items-center gap-1">
-          <NotificationBell />
+          <NotificationBell variant="staff" />
           <div className="relative" ref={dropdownRef}>
           <button
             type="button"
