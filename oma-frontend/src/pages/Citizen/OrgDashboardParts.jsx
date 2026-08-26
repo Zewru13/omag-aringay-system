@@ -1,4 +1,10 @@
-import { AlertTriangle, ChevronRight } from 'lucide-react'
+import { useRef, useState } from 'react'
+import {
+  AlertTriangle, ChevronDown, ChevronRight, FileText, HelpCircle, Home, Info, LogOut, Menu, User,
+} from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import NotificationBell from '../../components/Layout/NotificationBell.jsx'
+import { useAuth } from '../../context/AuthContext.jsx'
 import OrgAvatar from './OrgAvatar.jsx'
 import { labels } from './labels.js'
 
@@ -11,27 +17,101 @@ import { labels } from './labels.js'
 // card padding, 14px row padding, 40px member avatars, 34px roster avatars,
 // 11px uppercase section labels at 0.06em tracking.
 
+// ── Profile chip dropdown (>=640px) ─────────────────────────────────────
+// My Profile routes to Impormasyon (that IS the org's profile), Help to the
+// new Org Help screen, Logout via AuthContext directly — this is the one
+// global action every screen needs identically, so it lives here rather
+// than being threaded as a prop through every OrgScreen caller.
+function OrgAccountMenu({ chipLabel, onNav }) {
+  const [open, setOpen] = useState(false)
+  const { logout } = useAuth()
+  const navigate = useNavigate()
+  const ref = useRef(null)
+
+  const close = () => setOpen(false)
+  const doLogout = () => { close(); logout(); navigate('/login') }
+
+  return (
+    <div className="relative hidden sm:block" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex items-center gap-2 rounded-full bg-white/15 py-1.5 pl-2 pr-3 transition-colors hover:bg-white/20 press-scale"
+      >
+        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20" aria-hidden="true">
+          <User size={13} className="text-white" />
+        </span>
+        <span className="max-w-[140px] truncate text-[13px] font-medium text-white">{chipLabel}</span>
+        <ChevronDown size={14} className={`text-white/80 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
+      </button>
+
+      {open && (
+        <>
+          <button type="button" aria-label={labels.common.close} className="fixed inset-0 z-40 cursor-default" onClick={close} />
+          <div className="modal-content absolute right-0 top-[calc(100%+8px)] z-50 w-[210px] origin-top-right overflow-hidden rounded-[10px] border-[0.5px] border-cz-border bg-cz-surface shadow-lg">
+            <button
+              type="button"
+              onClick={() => { close(); onNav('orgInfo') }}
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] text-cz-text transition-colors hover:bg-cz-org-panel"
+            >
+              <User size={15} className="shrink-0 text-cz-text-muted" aria-hidden="true" /> {labels.orgHome.accountProfile}
+            </button>
+            <button
+              type="button"
+              onClick={() => { close(); onNav('help') }}
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] text-cz-text transition-colors hover:bg-cz-org-panel"
+            >
+              <HelpCircle size={15} className="shrink-0 text-cz-text-muted" aria-hidden="true" /> {labels.orgHome.accountHelp}
+            </button>
+            <button
+              type="button"
+              onClick={doLogout}
+              className="flex w-full items-center gap-2.5 border-t-[0.5px] border-cz-border px-3.5 py-2.5 text-left text-[13px] text-cz-danger-accent transition-colors hover:bg-cz-danger-bg"
+            >
+              <LogOut size={15} className="shrink-0" aria-hidden="true" /> {labels.orgHome.accountLogout}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 // ── App bar ───────────────────────────────────────────────────────────────
 // Field & Tide: an organisation now takes its own domain's colour (`theme`,
 // CROP_THEME or FISH_THEME) instead of the old hardcoded navy — a Farmers
 // Organization reads as Field green, a Fisherfolk Organization as Tide navy,
-// same as their Farmer/Fisherfolk counterparts. Everything else about the
-// bar — the icon tile, the small-caps app name over a bold page title, the
-// right-aligned user chip on desktop — is unchanged.
-export function OrgAppBar({ title, chipLabel, onBack, theme }) {
+// same as their Farmer/Fisherfolk counterparts.
+//
+// `chipLabel` + `onNav` together turn on the real profile dropdown at
+// >=640px (My Profile / Help / Logout) — without onNav it falls back to the
+// old inert chip, so nothing breaks for a caller mid-migration.
+export function OrgAppBar({ title, chipLabel, onBack, theme, onNav, onToggleRail, railCollapsed }) {
   return (
     <header className={`w-full ${theme.header}`}>
       <div className="mx-auto flex w-full max-w-[1240px] items-center gap-3 px-4 py-3 sm:px-6 sm:py-4">
+        {onToggleRail && (
+          <button
+            type="button"
+            onClick={onToggleRail}
+            aria-label={railCollapsed ? labels.orgHome.expandNav : labels.orgHome.collapseNav}
+            aria-expanded={!railCollapsed}
+            className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/10 press-scale sm:flex"
+          >
+            <Menu size={19} aria-hidden="true" />
+          </button>
+        )}
         {onBack ? (
           <button
             type="button"
             onClick={onBack}
             aria-label={labels.orgHome.backToDashboard}
-            className="-ml-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/10"
+            className="-ml-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/10 press-scale"
           >
             <ChevronRight size={20} className="rotate-180" aria-hidden="true" />
           </button>
-        ) : (
+        ) : !onToggleRail && (
           <span
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-white/15"
             aria-hidden="true"
@@ -47,19 +127,70 @@ export function OrgAppBar({ title, chipLabel, onBack, theme }) {
           </p>
           <h1 className="truncate text-[17px] font-semibold text-white sm:text-[18px]">{title}</h1>
         </div>
+        <NotificationBell />
         {chipLabel && (
-          <span className="hidden items-center gap-2 rounded-full bg-white/15 py-1.5 pl-2 pr-3.5 sm:flex">
-            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" className="text-white">
-                <circle cx="12" cy="8" r="3.2" />
-                <path d="M5 20c0-3.6 3.1-5.6 7-5.6s7 2 7 5.6" strokeLinecap="round" />
-              </svg>
+          onNav ? <OrgAccountMenu chipLabel={chipLabel} onNav={onNav} /> : (
+            <span className="hidden items-center gap-2 rounded-full bg-white/15 py-1.5 pl-2 pr-3.5 sm:flex">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-white/20" aria-hidden="true">
+                <User size={13} className="text-white" />
+              </span>
+              <span className="max-w-[160px] truncate text-[13px] font-medium text-white">{chipLabel}</span>
             </span>
-            <span className="max-w-[160px] truncate text-[13px] font-medium text-white">{chipLabel}</span>
-          </span>
+          )
         )}
       </div>
     </header>
+  )
+}
+
+// ── Nav rail (>=640px) ───────────────────────────────────────────────────
+// Replaces the bottom tab bar at this width. Two states: expanded (icon +
+// label) and collapsed (icon only, via the hamburger in OrgAppBar) — width
+// alone animates between them so nothing reflows abruptly.
+const RAIL_ITEMS = [
+  { key: 'home', label: () => labels.tabBar.home, icon: 'home' },
+  { key: 'history', label: () => labels.orgHome.reportingHistory, icon: 'history' },
+  { key: 'orgInfo', label: () => labels.orgHome.orgInfoRow, icon: 'info' },
+]
+
+export function OrgNavRail({ theme, active, collapsed, onNav }) {
+  return (
+    <nav
+      className={`sticky top-0 hidden h-screen flex-col border-r-[0.5px] border-black/10 ${theme.header} py-3 transition-[width] duration-200 ease-out sm:flex`}
+      // Inline width, not a Tailwind w-[] utility, AND an explicit
+      // minWidth: 0 override — a flex item's default min-width:auto pins it
+      // to its content's min-content size (here, the longest nav label),
+      // so the collapse to 68px was silently refusing to apply at all no
+      // matter what width value was set, class or inline. This is the
+      // standard fix for that flexbox trap, not a Tailwind quirk.
+      style={{ width: collapsed ? 68 : 212, minWidth: 0, flexShrink: 0 }}
+      aria-label={labels.orgHome.navRailLabel}
+    >
+      <ul className="space-y-1 px-2.5">
+        {RAIL_ITEMS.map((item) => {
+          const isActive = item.key === active
+          const Icon = item.icon === 'home' ? Home : item.icon === 'history' ? FileText : Info
+          return (
+            <li key={item.key}>
+              <button
+                type="button"
+                onClick={() => onNav(item.key)}
+                aria-current={isActive ? 'page' : undefined}
+                title={collapsed ? item.label() : undefined}
+                className={`flex min-h-[44px] w-full items-center gap-3 rounded-[10px] px-3 text-left text-[13.5px] transition-colors ${
+                  isActive ? 'bg-white/18 font-semibold text-white' : `${theme.mutedOn} hover:bg-white/10 hover:text-white`
+                }`}
+              >
+                <Icon size={18} className="shrink-0" aria-hidden="true" />
+                <span className={`truncate transition-opacity duration-150 ${collapsed ? 'w-0 opacity-0' : 'opacity-100'}`}>
+                  {item.label()}
+                </span>
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </nav>
   )
 }
 
@@ -68,7 +199,7 @@ export function OrgAppBar({ title, chipLabel, onBack, theme }) {
 // hairline divider, then the two stats. Both numbers are REAL — member count
 // from the member list's length, positions from the officer list measured
 // against the domain's actual position set (seven, not the mockup's five).
-export function OrgHeroCard({ theme, typeLabel, name, addressLine, memberCount, filled, total, isLoading }) {
+export function OrgHeroCard({ theme, typeLabel, name, addressLine, memberCount, filled, total, isLoading, onMembersClick }) {
   return (
     <section className={`rounded-[14px] p-5 text-white ${theme.heroGradient}`}>
       <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-[12px] font-medium">
@@ -79,14 +210,20 @@ export function OrgHeroCard({ theme, typeLabel, name, addressLine, memberCount, 
       <p className={`mt-1 text-[13px] ${theme.mutedOn}`}>{addressLine}</p>
       <div className="my-4 h-px bg-white/15" />
       <div className="flex items-end justify-between">
-        <div>
-          <p className={`text-[11px] font-semibold uppercase tracking-[0.08em] ${theme.mutedOn}`}>
+        <button
+          type="button"
+          onClick={onMembersClick}
+          disabled={!onMembersClick}
+          className="-m-1 rounded-[10px] p-1 text-left transition-colors enabled:hover:bg-white/10 enabled:press-scale"
+        >
+          <p className={`flex items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.08em] ${theme.mutedOn}`}>
             {labels.orgHome.statMembers}
+            {onMembersClick && <ChevronRight size={12} aria-hidden="true" />}
           </p>
           <p className="mt-0.5 text-[30px] font-bold leading-none tabular-nums">
             {isLoading ? '—' : memberCount}
           </p>
-        </div>
+        </button>
         <div className="text-right">
           <p className={`text-[11px] font-semibold uppercase tracking-[0.08em] ${theme.mutedOn}`}>
             {labels.orgHome.statPositions}
@@ -109,15 +246,24 @@ export function OrgHeroCard({ theme, typeLabel, name, addressLine, memberCount, 
 // Note this ground is cz-org-panel, NOT the citizen app's warm cz-page: the
 // reference draws the organisation screens on a cool grey (visible in image2
 // and image3 alike), and that reads as part of the same decision as the navy.
-export function OrgScreen({ title, chipLabel, onBack, tabBar, children, wide = false, theme }) {
+export function OrgScreen({
+  title, chipLabel, onBack, tabBar, children, wide = false, theme,
+  active, onNav, railCollapsed, onToggleRail,
+}) {
   return (
-    <div className="min-h-screen w-full bg-cz-org-panel">
-      <OrgAppBar title={title} chipLabel={chipLabel} onBack={onBack} theme={theme} />
-      <main
-        className={`mx-auto w-full ${wide ? 'max-w-[1240px]' : 'max-w-[720px]'} px-4 pb-[calc(72px+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-10`}
-      >
-        {children}
-      </main>
+    <div className="flex min-h-screen w-full bg-cz-org-panel">
+      {onNav && <OrgNavRail theme={theme} active={active} collapsed={railCollapsed} onNav={onNav} />}
+      <div className="min-w-0 flex-1">
+        <OrgAppBar
+          title={title} chipLabel={chipLabel} onBack={onBack} theme={theme}
+          onNav={onNav} onToggleRail={onNav ? onToggleRail : undefined} railCollapsed={railCollapsed}
+        />
+        <main
+          className={`mx-auto w-full ${wide ? 'max-w-[1240px]' : 'max-w-[720px]'} px-4 pb-[calc(72px+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-10`}
+        >
+          {children}
+        </main>
+      </div>
       {tabBar}
     </div>
   )

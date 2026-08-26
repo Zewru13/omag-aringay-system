@@ -1092,6 +1092,7 @@ export const labels = {
     other: 'Iba pa',
     otherTypePlaceholder: 'Anong uri ng tulong?',
     otherAgencyPlaceholder: 'Anong ahensya?',
+    futureDateHint: 'Maaari pong pumili ng petsa sa hinaharap — magiging "Pending" ang record hanggang sa araw na iyon.',
   },
 
   // Reference image9.
@@ -1102,6 +1103,7 @@ export const labels = {
     givenTo: (n) => `Ibinigay sa ${n} kasapi`,
     reportedBy: (name) => `I-report ni ${name}`,
     viewRecipients: (n) => `Tingnan ang ${n} tatanggap`,
+    notReceivedReason: (reason) => `Dahilan: ${reason}`,
   },
 
   orgReporting: {
@@ -1201,10 +1203,58 @@ export const labels = {
     registrationNumber: 'Registration no.',
     contactPerson: 'Contact person',
     groups: {
+      registeredDetails: 'REHISTRADONG DETALYE',
       identity: 'IMPORMASYON NG ORGANISASYON',
       contact: 'CONTACT',
       password: 'PASSWORD',
     },
+    readonlyFieldLabels: {
+      registration_number: 'Registration number',
+      contact_person: 'Contact person',
+      date_organized: 'Petsa ng pag-organisa',
+      date_registered: 'Petsa ng pagpaparehistro',
+      registration_agency: 'Ahensyang nagparehistro',
+      email_address: 'Email address',
+    },
+  },
+
+  // ── Org parity batch: Help screen ───────────────────────────────────────
+  orgHelp: {
+    title: 'Tulong',
+    faqHeading: 'MGA MADALAS ITANONG',
+    contactHeading: 'MAKIPAG-UGNAYAN SA OMAg',
+    contactOfficeName: 'Opisina ng Municipal Agriculturist — Aringay, La Union',
+    // Deliberately honest, not a fabricated address/phone/hours — those
+    // are not finalized yet. An obvious placeholder beats a confident-
+    // looking wrong number.
+    contactPlaceholderNote: 'Malapit nang ilagay dito ang eksaktong address, numero, at oras ng opisina. Sa ngayon, dumalaw po sa opisina ng OMAg sa Munisipyo ng Aringay para sa katanungan.',
+    faq: [
+      {
+        key: 'add-member',
+        q: 'Paano magdagdag ng kasapi?',
+        a: 'Sa Home, pindutin ang "Magdagdag ng Kasapi". Maghanap gamit ang pangalan o barangay ng rehistradong farmer o fisherfolk, pagkatapos ay pindutin ang "Idagdag". Kung ang taong hinahanap ninyo ay kasapi na ng ibang Farmers Organization, may makikitang babala bago matuloy — awtomatiko silang matatanggal doon kapag idinagdag dito. Walang ganitong babala sa Fisherfolk Organization dahil pwede talagang kasapi ng higit sa isang organisasyon.',
+      },
+      {
+        key: 'assign-officer',
+        q: 'Paano italaga ang isang opisyal?',
+        a: 'Sa Home, pindutin ang "Italaga ang Opisyal". Pumili ng posisyon (mayroong 7: President, Vice President, Secretary, Treasurer, Auditor, Board Member, Manager), pagkatapos ay pumili ng kasapi mula sa listahan ng mga kasalukuyang kasapi ng organisasyon ninyo. Kung may humahawak na sa posisyong iyon, mapapalitan ang kanyang pagkatalaga.',
+      },
+      {
+        key: 'assistance-individual-vs-bulk',
+        q: 'Ano ang pagkakaiba ng pag-report ng tulong sa isang kasapi at sa lahat ng kasapi?',
+        a: 'Sa Mga Kasapi, may aksyong "I-report ang Tulong" sa bawat kasapi — ito ay para sa tulong na ibinigay sa iisang kasapi lamang. Ang "I-report ang Tulong" na Quick Action naman sa Home ay para sa "Distribute to Organization" — isang tulong na ibinigay nang sabay-sabay sa LAHAT ng kasalukuyang kasapi ng organisasyon. Bago ito ma-confirm, may makikitang preview muna kung ilang kasapi ang matatanggap nito.',
+      },
+      {
+        key: 'status-lifecycle',
+        q: 'Ano ang ibig sabihin ng Pending, Awaiting Confirmation, Confirmed, at Not Received?',
+        a: 'Kapag ang petsa ng pamamahagi ay nasa hinaharap pa, "Pending" muna ang status. Pag-abot ng petsang iyon, magiging "Awaiting Confirmation" ito at aabisuhan ang kasapi na kumpirmahin. Kapag kinumpirma ng kasapi na natanggap niya, magiging "Confirmed" ito. Kung sinabi ng kasapi na hindi niya natanggap, magiging "Not Received" ito, at aabisuhan ang opisina at ang organisasyon — ang opisina na ang susunod na aaksyon dito. Makikita ninyo ang totoong status ng bawat tatanggap sa "History ng Reporting".',
+      },
+      {
+        key: 'request-change',
+        q: 'Paano humiling ng pagbabago sa impormasyon ng organisasyon?',
+        a: 'Sa Impormasyon ng Organisasyon, ang logo at contact number ay agad na nagbabago pagka-save. Ang pangalan at address naman ay dumadaan sa pagsusuri ng opisina — pindutin ang "Humiling ng Pagbabago", ilagay ang bagong halaga, at ipapakita ang status na "Nakabinbin sa pagsusuri" hanggang sa maaprubahan o hindi ng opisina.',
+      },
+    ],
   },
 
   // ── Batch 2: Organization dashboard ────────────────────────────────────
@@ -1250,6 +1300,15 @@ export const labels = {
     orgInfoRow: 'Impormasyon ng Organisasyon',
     orgInfoRowSub: 'Logo, contact number, pangalan at address',
     backToDashboard: 'Bumalik sa dashboard',
+    memberReportAction: 'I-report ang Tulong',
+
+    // Profile chip dropdown (>=640px) and nav rail toggle
+    accountProfile: 'Aking Profile',
+    accountHelp: 'Tulong',
+    accountLogout: 'Mag-log out',
+    expandNav: 'Palawakin ang navigation',
+    collapseNav: 'Paliitin ang navigation',
+    navRailLabel: 'Pangunahing navigation',
   },
 
 
@@ -1314,16 +1373,21 @@ export const labels = {
     titleEdit: 'I-edit ang report ng tulong',
     fields: {
       assistanceType: 'Uri ng tulong',
+      otherTypePlaceholder: 'Ilarawan ang uri ng tulong…',
       dateGiven: 'Petsa ibinigay',
       quantityAmount: 'Dami / halaga',
       quantityPlaceholder: 'hal. 2 sako, 1 unit',
+      unit: 'Yunit',
+      cashPerMember: 'Halaga bawat kasapi',
       sourceAgency: 'Galing na ahensya',
       season: 'Season',
       remarks: 'Remarks',
     },
     errors: {
       requiredFields: 'Kailangan po ang uri ng tulong, dami, at petsa.',
+      specifyAssistanceType: 'Pakisulat po kung anong uri ng tulong.',
       specifySourceAgency: 'Pakisulat po kung anong ahensya.',
+      invalidCashAmount: 'Pakilagay po ang wastong halaga.',
       genericSaveError: 'Hindi na-save.',
     },
     submitNew: 'Mag-report ng tulong',

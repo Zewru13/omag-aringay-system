@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Camera, Check, Clock, KeyRound, Pencil } from 'lucide-react'
+import { Camera, Check, Clock, HelpCircle, KeyRound, LogOut, Pencil } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
-import { OrgAppBar, OrgSectionLabel } from './OrgDashboardParts.jsx'
+import { OrgScreen, OrgSectionLabel } from './OrgDashboardParts.jsx'
 import { labels } from './labels.js'
 
 const INPUT = 'min-w-0 flex-1 rounded-[8px] border-[0.5px] border-cz-border-strong bg-cz-page px-3 py-[10px] text-[14px] text-cz-text focus:border-cz-text-2 focus:outline-none disabled:opacity-50'
@@ -25,7 +25,15 @@ const INPUT = 'min-w-0 flex-1 rounded-[8px] border-[0.5px] border-cz-border-stro
 
 const REQUESTABLE = ['name', 'barangay', 'street_address']
 
-export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecordChanged }) {
+// Purely read-only — not part of REQUESTABLE, no change-request path, just
+// the registered record shown as-is (Org parity batch: this payload didn't
+// even reach the frontend before — see accounts/serializers.py).
+const READONLY_DETAILS = [
+  'registration_number', 'contact_person', 'date_organized',
+  'date_registered', 'registration_agency', 'email_address',
+]
+
+export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecordChanged, active, onNav, railCollapsed, onToggleRail }) {
   const theme = domain.theme
   const { showToast } = useToast()
   const { logout } = useAuth()
@@ -157,34 +165,46 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
     return record?.street_address || ''
   }
 
+  const readonlyValue = (field) => {
+    const raw = record?.[field]
+    if (!raw) return ''
+    if (field.startsWith('date_')) return labels.common.formatDate(raw)
+    return raw
+  }
+
   return (
-    <div className="min-h-screen w-full bg-cz-org-panel">
-      <OrgAppBar title={labels.orgInfo.title} chipLabel={record?.label} onBack={onBack} theme={theme} />
-      <main className="mx-auto w-full max-w-[1240px] px-4 pb-[calc(72px+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-10">
+    <OrgScreen
+      title={labels.orgInfo.title} chipLabel={record?.label} onBack={onBack} theme={theme} tabBar={tabBar}
+      active={active} onNav={onNav} railCollapsed={railCollapsed} onToggleRail={onToggleRail}
+    >
         <div className="mx-auto max-w-[560px] space-y-4">
 
-          {/* Logo — instant */}
+          {/* Logo — instant. Camera badge sits ON the image, lower-left,
+              always visible (not just as an empty-state placeholder), so
+              "how do I change this" never depends on whether one is set. */}
           <section className="rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface p-5 text-center shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-            <div className="mx-auto flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-cz-tile-slate-bg">
-              {logoUrl
-                ? <img src={logoUrl} alt="" className="h-full w-full object-cover" />
-                : <Camera size={28} className="text-cz-text-muted" aria-hidden="true" />}
+            <div className="relative mx-auto h-24 w-24">
+              <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-cz-tile-slate-bg">
+                {logoUrl
+                  ? <img src={logoUrl} alt="" className="h-full w-full object-cover" />
+                  : <Camera size={28} className="text-cz-text-muted" aria-hidden="true" />}
+              </div>
+              <input
+                ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp"
+                onChange={handleFile} className="hidden"
+              />
+              <button
+                type="button"
+                disabled={isUploading}
+                aria-label={labels.profileEdit.changeLogo}
+                onClick={() => fileRef.current?.click()}
+                className={`absolute -bottom-1 -left-1 flex h-9 w-9 items-center justify-center rounded-full border-2 border-cz-surface ${theme.solidBtn} shadow-md transition-transform press-scale hover:scale-105 disabled:opacity-50`}
+              >
+                <Camera size={15} aria-hidden="true" />
+              </button>
             </div>
-            <input
-              ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp"
-              onChange={handleFile} className="hidden"
-            />
-            <button
-              type="button"
-              disabled={isUploading}
-              onClick={() => fileRef.current?.click()}
-              className={`mt-3 inline-flex min-h-[40px] items-center justify-center rounded-[8px] px-4 ${theme.solidBtn} transition-opacity hover:opacity-90 disabled:opacity-50`}
-            >
-              <span className="text-[14px] font-medium">
-                {isUploading ? labels.profileEdit.uploading : labels.profileEdit.changeLogo}
-              </span>
-            </button>
-            <p className="mt-2 text-[11px] text-cz-text-muted">{labels.profileEdit.photoHint}</p>
+            {isUploading && <p className="mt-2.5 text-[12px] text-cz-text-2">{labels.profileEdit.uploading}</p>}
+            <p className="mt-2.5 text-[11px] text-cz-text-muted">{labels.profileEdit.photoHint}</p>
           </section>
 
           {errorMessage && (
@@ -289,6 +309,28 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
             </div>
           </section>
 
+          {/* Registered details — read-only, no edit path of any kind (not
+              even a change request). Purely informational; the office's own
+              registry is the record of truth for these. */}
+          <section>
+            <OrgSectionLabel>{labels.orgInfo.groups.registeredDetails}</OrgSectionLabel>
+            <div className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+              {READONLY_DETAILS.map((field, i) => (
+                <div
+                  key={field}
+                  className={`px-4 py-3 ${i === READONLY_DETAILS.length - 1 ? '' : 'border-b-[0.5px] border-cz-border'}`}
+                >
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">
+                    {labels.orgInfo.readonlyFieldLabels[field]}
+                  </p>
+                  <p className="mt-1 truncate text-[15px] text-cz-text">
+                    {readonlyValue(field) || labels.common.unknown}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+
           {/* Reviewed fields */}
           <section>
             <OrgSectionLabel>{labels.orgInfo.groups.identity}</OrgSectionLabel>
@@ -377,8 +419,26 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
               </ul>
             )}
           </section>
+
+          {/* Help + Logout — direct entry points, always reachable from
+              this screen without going through the profile-chip dropdown. */}
+          <section className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => onNav?.('help')}
+              className="flex min-h-[48px] items-center justify-center gap-2 rounded-[10px] border-[0.5px] border-cz-border-strong bg-cz-surface text-[14px] font-medium text-cz-text transition-colors press-scale hover:bg-cz-org-panel"
+            >
+              <HelpCircle size={16} className="text-cz-text-2" aria-hidden="true" /> {labels.orgHome.accountHelp}
+            </button>
+            <button
+              type="button"
+              onClick={() => { logout(); navigate('/login') }}
+              className="flex min-h-[48px] items-center justify-center gap-2 rounded-[10px] border-[0.5px] border-cz-danger-border bg-cz-danger-bg text-[14px] font-medium text-cz-danger-accent transition-colors press-scale hover:opacity-90"
+            >
+              <LogOut size={16} aria-hidden="true" /> {labels.orgHome.accountLogout}
+            </button>
+          </section>
         </div>
-      </main>
 
       {requestField && (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center">
@@ -419,7 +479,6 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
           </div>
         </div>
       )}
-      {tabBar}
-    </div>
+    </OrgScreen>
   )
 }

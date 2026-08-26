@@ -22,12 +22,16 @@ function timeAgo(iso) {
   return `${Math.floor(diffSec / 86400)}d ago`
 }
 
-function NotificationBell() {
+// `variant`: 'dark' (default, unchanged) is for a colored/dark bar — white
+// icon, white/10 hover. 'light' is for a light surface (e.g. the citizen
+// desktop topbar) — a dark icon on a neutral hover, same behavior.
+function NotificationBell({ variant = 'dark' }) {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [notifications, setNotifications] = useState([])
   const [unreadCount, setUnreadCount] = useState(0)
   const ref = useRef(null)
+  const isLight = variant === 'light'
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -76,20 +80,22 @@ function NotificationBell() {
     <div className="relative" ref={ref}>
       <button
         type="button"
-        className="relative w-9 h-9 flex items-center justify-center rounded-lg text-white hover:bg-white/10 transition-colors"
+        className={`relative w-9 h-9 flex items-center justify-center rounded-lg press-scale transition-colors ${
+          isLight ? 'text-[#4A5E4A] hover:bg-black/5' : 'text-white hover:bg-white/10'
+        }`}
         onClick={() => setOpen(v => !v)}
         aria-label="Notifications"
       >
         <Bell size={18} />
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white leading-none">
+          <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white leading-none animate-pulse">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-[#E2E8E2] rounded-xl shadow-[0_8px_24px_rgba(0,0,0,0.08)] w-80 max-h-96 flex flex-col">
+        <div className="modal-content absolute right-0 top-full mt-1 z-50 bg-white border border-[#E2E8E2] rounded-xl shadow-[0_8px_24px_rgba(0,0,0,0.08)] w-80 max-h-96 flex flex-col origin-top-right">
           <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#F0F4F0] flex-shrink-0">
             <p className="text-[13px] font-semibold text-[#1A2B1A]">Notifications</p>
             {unreadCount > 0 && (

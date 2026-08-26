@@ -87,6 +87,15 @@ class UserSerializer(serializers.ModelSerializer):
             'contact_number': record.contact_number,
             'contact_person': record.contact_person,
             'logo_url': record.logo.url if record.logo else None,
+            # Org parity batch: read-only registered details the
+            # Impormasyon screen displays but this payload never carried —
+            # dates/agency/email exist on both org models but had no
+            # consumer until now.
+            'date_established': record.date_established,
+            'date_organized': record.date_organized,
+            'date_registered': record.date_registered,
+            'registration_agency': record.registration_agency,
+            'email_address': record.email_address,
         }
 
 

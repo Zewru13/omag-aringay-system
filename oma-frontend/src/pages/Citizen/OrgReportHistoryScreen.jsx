@@ -59,7 +59,7 @@ const STATUS_LABELS = {
 // of a doubled "per head bawat kasapi".
 const stripPerHead = (amount) => amount.replace(/\s*per head\s*$/i, '').trim()
 
-export default function OrgReportHistoryScreen({ domain, orgName, onBack, tabBar }) {
+export default function OrgReportHistoryScreen({ domain, orgName, onBack, tabBar, active, onNav, railCollapsed, onToggleRail }) {
   const [rows, setRows] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
@@ -93,6 +93,7 @@ export default function OrgReportHistoryScreen({ domain, orgName, onBack, tabBar
       map.get(key).recipients.push({
         name: nameOf(rec) || labels.common.unknown,
         status: rec.status || 'CONFIRMED',
+        reason: rec.non_receipt_reason || '',
       })
     })
     return [...map.values()]
@@ -102,7 +103,10 @@ export default function OrgReportHistoryScreen({ domain, orgName, onBack, tabBar
   const H = labels.orgReportHistory
 
   return (
-    <OrgScreen title={H.title} chipLabel={orgName} onBack={onBack} tabBar={tabBar} theme={domain.theme}>
+    <OrgScreen
+      title={H.title} chipLabel={orgName} onBack={onBack} tabBar={tabBar} theme={domain.theme}
+      active={active} onNav={onNav} railCollapsed={railCollapsed} onToggleRail={onToggleRail}
+    >
       {isLoading && <p className="text-[13px] italic text-cz-text-2">{labels.orgReporting.loading}</p>}
 
       {!isLoading && hasError && (
@@ -164,11 +168,22 @@ export default function OrgReportHistoryScreen({ domain, orgName, onBack, tabBar
                 {isOpen && (
                   <ul className="mt-2 space-y-1.5 border-t-[0.5px] border-cz-border pt-2">
                     {g.recipients.map((r, n) => (
-                      <li key={`${g.key}-${n}`} className="flex items-center justify-between gap-2 text-[13px] text-cz-text">
-                        <span>{r.name}</span>
-                        <span className={`${PILL} ${STATUS_PILL[r.status] || STATUS_PILL.CONFIRMED}`}>
-                          {STATUS_LABELS[r.status] || r.status}
-                        </span>
+                      <li
+                        key={`${g.key}-${n}`}
+                        className="stagger-item text-[13px] text-cz-text"
+                        style={{ '--stagger-index': n }}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span>{r.name}</span>
+                          <span className={`${PILL} ${STATUS_PILL[r.status] || STATUS_PILL.CONFIRMED}`}>
+                            {STATUS_LABELS[r.status] || r.status}
+                          </span>
+                        </div>
+                        {r.status === 'NOT_RECEIVED' && r.reason && (
+                          <p className="mt-0.5 text-[12px] leading-[1.4] text-cz-text-2">
+                            {H.notReceivedReason(r.reason)}
+                          </p>
+                        )}
                       </li>
                     ))}
                   </ul>

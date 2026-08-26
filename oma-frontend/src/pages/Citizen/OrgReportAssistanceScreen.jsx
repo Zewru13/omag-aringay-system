@@ -98,20 +98,29 @@ export default function OrgReportAssistanceScreen({
 
   const isCash = form.assistance_type === 'Cash Assistance'
   const isOtherType = form.assistance_type === 'Other'
+  // Display-only — the confirm screen shows the actual free-text type the
+  // org typed, not the literal word "Other".
   const resolvedType = isOtherType ? form.assistance_type_other.trim() : form.assistance_type
 
-  // Identical payload shape to the modal this replaces.
+  // BeneficiaryRecord.assistance_type is a fixed TextChoices column
+  // (Fertilizer/Seeds/.../Other) — it rejects anything outside that set.
+  // A prior version of this screen sent the free-text specify value AS
+  // assistance_type when "Other" was picked, which the server 400s on
+  // every time. The literal choice always goes in assistance_type; the
+  // free text is folded into description instead, where it survives.
   const buildPayload = (dryRun) => {
     const sourceAgency = form.source_agency === 'Other' ? form.source_agency_other.trim() : form.source_agency
     const quantity = isCash
       ? (form.cash_amount ? `₱${form.cash_amount} per head` : '')
       : [form.quantity, form.unit].filter(Boolean).join(' ')
+    const otherNote = isOtherType && form.assistance_type_other.trim() ? `Other: ${form.assistance_type_other.trim()}` : ''
+    const description = [otherNote, form.description.trim()].filter(Boolean).join(' — ')
     return {
-      assistance_type: resolvedType,
+      assistance_type: form.assistance_type,
       source_agency: sourceAgency,
       date_given: form.date_given,
       quantity,
-      description: form.description,
+      description,
       season: form.season,
       ...(dryRun ? { dry_run: true } : {}),
     }
@@ -355,12 +364,17 @@ export default function OrgReportAssistanceScreen({
         <div className={`${CARD} mt-3 space-y-3`}>
           <div>
             <label className={FIELD_LABEL} htmlFor="org-date">{L.fields.dateGiven}</label>
+            {/* No max: a future date is the deliberate trigger for the
+                scheduled-distribution lifecycle (PENDING -> Awaiting
+                Confirmation) — blocking it here would make that feature
+                unreachable from this screen. */}
             <input
-              id="org-date" type="date" max={todayISO()}
+              id="org-date" type="date"
               value={form.date_given}
               onChange={(e) => set('date_given', e.target.value)}
               className={fieldBox}
             />
+            <p className="mt-1.5 text-[12px] text-cz-text-2">{R.futureDateHint}</p>
           </div>
           <div>
             <label className={FIELD_LABEL} htmlFor="org-agency">{L.fields.sourceAgency}</label>

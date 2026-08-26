@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  ClipboardList, FileText, Home, Info, UserPlus, Users, UserCog, UserSearch,
+  ClipboardList, FileText, Gift, Home, Info, Trash2, UserPlus, UserCog,
 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
+import CitizenReportAssistanceModal from './CitizenReportAssistanceModal.jsx'
 import MyOrgReportingSection from './MyOrgReportingSection.jsx'
+import OrgHelpScreen from './OrgHelpScreen.jsx'
 import OrgReportAssistanceScreen from './OrgReportAssistanceScreen.jsx'
 import OrgReportHistoryScreen from './OrgReportHistoryScreen.jsx'
 import OrgAddMemberScreen from './OrgAddMemberScreen.jsx'
@@ -12,7 +14,7 @@ import OrgAvatar from './OrgAvatar.jsx'
 import OrgInfoScreen from './OrgInfoScreen.jsx'
 import OrgRemoveMemberDialog from './OrgRemoveMemberDialog.jsx'
 import {
-  OrgActionRow, OrgAlertBanner, OrgAppBar, OrgHeroCard, OrgMemberCard,
+  OrgActionRow, OrgAlertBanner, OrgHeroCard,
   OrgOfficerRoster, OrgScreen, OrgSectionLabel,
 } from './OrgDashboardParts.jsx'
 import { labels } from './labels.js'
@@ -45,6 +47,11 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
   const [hasError, setHasError] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
   const [removeTarget, setRemoveTarget] = useState(null)
+  const [reportTarget, setReportTarget] = useState(null)
+  // Persisted at this level, not inside OrgScreen, because every sub-view is
+  // a fresh mount of a different component — a JS breakpoint would forget
+  // the collapse state on every navigation otherwise.
+  const [railCollapsed, setRailCollapsed] = useState(false)
 
   const refresh = useCallback(() => setReloadKey((k) => k + 1), [])
 
@@ -89,17 +96,26 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
     [officers, domain],
   )
 
+  // Below 640px: bottom tab bar. At 640px+: left nav rail (OrgScreen renders
+  // it when `onNav` is supplied) — both read the exact same 3 destinations
+  // and the same `view` state, so they can never drift apart.
   const tabBar = (active) => (
     <CitizenTabBar
       theme={theme}
       active={active}
       items={[
         { key: 'home', icon: Home, label: labels.tabBar.home, onClick: () => setView('home') },
-        { key: 'members', icon: Users, label: labels.orgHome.membersHeading, onClick: () => setView('members') },
-        { key: 'assistance', icon: ClipboardList, label: labels.orgHome.distribute, onClick: () => setView('assistance') },
+        { key: 'history', icon: FileText, label: labels.orgHome.reportingHistory, onClick: () => setView('history') },
+        { key: 'orgInfo', icon: Info, label: labels.orgHome.orgInfoRow, onClick: () => setView('orgInfo') },
       ]}
     />
   )
+  const railProps = {
+    active: view,
+    onNav: setView,
+    railCollapsed,
+    onToggleRail: () => setRailCollapsed((v) => !v),
+  }
 
   // ── Sub-views ────────────────────────────────────────────────────────
   if (view === 'addMember') {
@@ -137,6 +153,7 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
         onBack={() => setView('home')}
         tabBar={tabBar(null)}
         onRecordChanged={refresh}
+        {...railProps}
       />
     )
   }
@@ -149,7 +166,7 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
         orgName={record?.label}
         members={members}
         onBack={() => setView('home')}
-        tabBar={tabBar('assistance')}
+        tabBar={tabBar(null)}
       />
     )
   }
@@ -161,26 +178,19 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
         orgName={record?.label}
         onBack={() => setView('home')}
         tabBar={tabBar(null)}
+        {...railProps}
       />
     )
   }
 
-  // Per-member reporting (search one member, report/edit a single record).
-  // The reference has no screen for it, but it is real capability from
-  // Batch 12 and is NOT dropped — it keeps its own entry point below the
-  // reference's own rows.
-  if (view === 'perMember') {
+  if (view === 'help') {
     return (
-      <OrgScreen
-        title={labels.orgReporting.reportForMemberTitle}
-        chipLabel={record?.label}
+      <OrgHelpScreen
+        domain={domain}
         onBack={() => setView('home')}
         tabBar={tabBar(null)}
-        theme={theme}
-        wide
-      >
-        <MyOrgReportingSection domain={domain} orgId={orgId} orgName={record?.label} />
-      </OrgScreen>
+        {...railProps}
+      />
     )
   }
 
@@ -190,45 +200,66 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
         title={labels.orgHome.membersHeading}
         chipLabel={record?.label}
         onBack={() => setView('home')}
-        tabBar={tabBar('members')}
+        tabBar={tabBar(null)}
         theme={theme}
         wide
+        {...railProps}
       >
-        <OrgSectionLabel>{labels.orgHome.membersCount(members.length)}</OrgSectionLabel>
-        <ul className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-          {members.map((m, i) => {
-            const personId = domain.rowPersonId(m)
-            const position = positionOfPerson(personId)
-            return (
-              <li
-                key={m.id}
-                className={`flex items-center gap-3 px-4 py-3 ${
-                  i === members.length - 1 ? '' : 'border-b-[0.5px] border-cz-border'
-                }`}
-              >
-                <OrgAvatar name={domain.rowName(m)} id={personId} size={38} />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[15px] font-semibold text-cz-text">{domain.rowName(m)}</p>
-                  <p className="truncate text-[13px] text-cz-text-2">
-                    {domain.rowBarangay(m) ? `Brgy. ${domain.rowBarangay(m)}` : labels.common.unknown}
-                  </p>
-                </div>
-                {position && (
-                  <span className="shrink-0 rounded-[5px] bg-cz-role-bg px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] text-cz-role-fg">
-                    {position}
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setRemoveTarget(m)}
-                  className="shrink-0 rounded-[8px] px-2 py-2 text-[12px] font-medium text-cz-danger-accent transition-colors hover:bg-cz-danger-bg"
+        {/* Individual "search one member, log/edit" flow — relocated here
+            (unchanged internally) from a Home secondary row so Home can
+            drop to its required single link. Its own history table and its
+            own Distribute-to-Organization button are untouched; nothing
+            about this component changed, only where it's mounted. */}
+        <MyOrgReportingSection domain={domain} orgId={orgId} orgName={record?.label} />
+
+        <div className="mt-6">
+          <OrgSectionLabel>{labels.orgHome.membersCount(members.length)}</OrgSectionLabel>
+          <ul className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+            {members.map((m, i) => {
+              const personId = domain.rowPersonId(m)
+              const position = positionOfPerson(personId)
+              return (
+                <li
+                  key={m.id}
+                  className={`stagger-item flex items-center gap-3 px-4 py-3 ${
+                    i === members.length - 1 ? '' : 'border-b-[0.5px] border-cz-border'
+                  }`}
+                  style={{ '--stagger-index': i }}
                 >
-                  {labels.orgRemoveMember.confirm}
-                </button>
-              </li>
-            )
-          })}
-        </ul>
+                  <OrgAvatar name={domain.rowName(m)} id={personId} size={38} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[15px] font-semibold text-cz-text">{domain.rowName(m)}</p>
+                    <p className="truncate text-[13px] text-cz-text-2">
+                      {domain.rowBarangay(m) ? `Brgy. ${domain.rowBarangay(m)}` : labels.common.unknown}
+                    </p>
+                  </div>
+                  {position && (
+                    <span className="shrink-0 rounded-[5px] bg-cz-role-bg px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] text-cz-role-fg">
+                      {position}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setReportTarget(m)}
+                    title={labels.orgHome.memberReportAction}
+                    className="shrink-0 rounded-[8px] p-2 text-cz-text-2 transition-colors hover:bg-cz-org-panel"
+                  >
+                    <Gift size={16} aria-hidden="true" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRemoveTarget(m)}
+                    title={labels.orgRemoveMember.confirm}
+                    className="shrink-0 rounded-[8px] p-2 text-cz-danger-accent transition-colors hover:bg-cz-danger-bg"
+                  >
+                    <Trash2 size={16} aria-hidden="true" />
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+
         {removeTarget && (
           <OrgRemoveMemberDialog
             domain={domain}
@@ -237,6 +268,15 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
             heldPosition={positionOfPerson(domain.rowPersonId(removeTarget))}
             onClose={() => setRemoveTarget(null)}
             onSuccess={() => { setRemoveTarget(null); refresh() }}
+          />
+        )}
+        {reportTarget && (
+          <CitizenReportAssistanceModal
+            domain={domain}
+            member={reportTarget}
+            entry={null}
+            onClose={() => setReportTarget(null)}
+            onSuccess={refresh}
           />
         )}
       </OrgScreen>
@@ -255,6 +295,7 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
         filled={filledPositions.length}
         total={domain.officerPositions.length}
         isLoading={isLoading}
+        onMembersClick={() => setView('members')}
       />
 
       {hasError && (
@@ -304,69 +345,30 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
         />
       </section>
 
-      {/* "Iba pa" rows — History, and the Organization Info entry point the
-          profile self-editing backend needs a home for. */}
+      {/* Exactly ONE secondary link, per spec — Members and Impormasyon are
+          each their own real navigation destination now (member stat above,
+          and the persistent Home/History/Impormasyon nav), so neither
+          belongs here as a duplicate row. */}
       <div className="space-y-2.5">
         <OrgActionRow
           icon={FileText} tone="slate" showChevron
           title={labels.orgHome.reportingHistory} subtitle={labels.orgHome.reportingHistorySub}
           onClick={() => setView('history')}
         />
-        <OrgActionRow
-          icon={UserSearch} tone="slate" showChevron
-          title={labels.orgHome.perMemberRow} subtitle={labels.orgHome.perMemberRowSub}
-          onClick={() => setView('perMember')}
-        />
-        <OrgActionRow
-          icon={Info} tone="slate" showChevron
-          title={labels.orgHome.orgInfoRow} subtitle={labels.orgHome.orgInfoRowSub}
-          onClick={() => setView('orgInfo')}
-        />
       </div>
     </div>
   )
 
-  const memberGrid = (
-    <section>
-      <OrgSectionLabel>{labels.orgHome.membersCount(isLoading ? 0 : members.length)}</OrgSectionLabel>
-      {isLoading ? (
-        <p className="text-[13px] italic text-cz-text-2">{labels.orgHome.membersLoading}</p>
-      ) : members.length === 0 ? (
-        <p className="rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface p-6 text-center text-[13px] italic text-cz-text-muted">
-          {labels.orgHome.membersEmpty}
-        </p>
-      ) : (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-          {members.map((m) => {
-            const personId = domain.rowPersonId(m)
-            return (
-              <OrgMemberCard
-                key={m.id}
-                name={domain.rowName(m)}
-                barangay={domain.rowBarangay(m)}
-                role={positionOfPerson(personId)}
-                personId={personId}
-              />
-            )
-          })}
-        </div>
-      )}
-    </section>
-  )
-
+  // Members no longer renders inline here — it's its own destination,
+  // reached by the hero card's tappable member stat, so Home stays lean:
+  // identity, both stats, vacancy banner, the 3 Quick Actions, the full
+  // roster, and exactly one secondary link.
   return (
-    <div className="min-h-screen w-full bg-cz-org-panel">
-      <OrgAppBar title={labels.orgHome.dashboardTitle} chipLabel={record?.label} theme={theme} />
-      <main className="mx-auto w-full max-w-[1240px] px-4 pb-[calc(72px+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-10">
-        {/* Mobile/tablet: one column, hero → alert → actions → roster →
-            history, then members. Desktop (1024px+): two columns, exactly as
-            image10/image11 draw them. */}
-        <div className="lg:grid lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:items-start lg:gap-6">
-          {leftColumn}
-          <div className="mt-6 lg:mt-0">{memberGrid}</div>
-        </div>
-      </main>
-      {tabBar('home')}
-    </div>
+    <OrgScreen
+      title={labels.orgHome.dashboardTitle} chipLabel={record?.label} theme={theme}
+      tabBar={tabBar('home')} wide {...railProps}
+    >
+      <div className="mx-auto max-w-[640px]">{leftColumn}</div>
+    </OrgScreen>
   )
 }

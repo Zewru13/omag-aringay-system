@@ -69,18 +69,25 @@ export default function CitizenDistributeToOrgModal({ domain, orgId, orgName, on
   const set = (field, value) => setForm((f) => ({ ...f, [field]: value }))
   const isCashAssistance = form.assistance_type === 'Cash Assistance'
 
+  // BeneficiaryRecord.assistance_type is a fixed TextChoices column — it
+  // rejects anything outside Fertilizer/Seeds/.../Other, so the free-text
+  // "Other" specify can never be sent as assistance_type itself (that 400s
+  // every time). The literal 'Other' choice goes in assistance_type; the
+  // free text is folded into description, where it survives.
   const buildPayload = (dryRun) => {
     const sourceAgency = form.source_agency === 'Other' ? form.source_agency_other.trim() : form.source_agency
-    const assistanceType = form.assistance_type === 'Other' ? form.assistance_type_other.trim() : form.assistance_type
+    const isOtherType = form.assistance_type === 'Other'
+    const otherNote = isOtherType && form.assistance_type_other.trim() ? `Other: ${form.assistance_type_other.trim()}` : ''
+    const description = [otherNote, form.description.trim()].filter(Boolean).join(' — ')
     const quantity = isCashAssistance
       ? (form.cash_amount ? `₱${form.cash_amount} per head` : '')
       : form.quantity
     return {
-      assistance_type: assistanceType,
+      assistance_type: form.assistance_type,
       source_agency: sourceAgency,
       date_given: form.date_given,
       quantity,
-      description: form.description,
+      description,
       season: form.season,
       ...(dryRun ? { dry_run: true } : {}),
     }
