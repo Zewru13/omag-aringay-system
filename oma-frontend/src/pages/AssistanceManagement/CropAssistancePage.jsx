@@ -80,7 +80,7 @@ function extractErrorMessage(err, fallback) {
   return fallback
 }
 
-// ── Farmer Search — same pattern as AddCropMonitoringModal.jsx's FarmerSearchInput ──
+// ── Farmer Search — same pattern as AddCropMonitoringPage.jsx's FarmerSearchInput ──
 
 function FarmerSearchInput({ onSelect, selected }) {
   const [query,     setQuery]     = useState('')

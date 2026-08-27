@@ -11,6 +11,7 @@ import {
   Trash2,
   User,
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import BarangaySelect from "../../components/UI/BarangaySelect.jsx";
 import ComboboxWithOther from "../../components/UI/ComboboxWithOther.jsx";
 import api from "../../api/axiosInstance.js";
@@ -26,7 +27,6 @@ import PaginationBar from "../../components/UI/PaginationBar.jsx";
 import StatusPill from "../../components/UI/StatusPill.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
-import AddCropMonitoringModal from "../Monitoring/AddCropMonitoringModal.jsx";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -1000,6 +1000,7 @@ function CropRowActionsMenu({ rec, isAdmin, onViewDetails, onEdit, onRemarks, on
 
 export default function CropInformationPage() {
   const { isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [records, setRecords] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(1);
@@ -1013,7 +1014,6 @@ export default function CropInformationPage() {
   const [editingRec, setEditingRec] = useState(null);
   const [viewingRec, setViewingRec] = useState(null);
   const [deletingRec, setDeletingRec] = useState(null);
-  const [showAdd, setShowAdd] = useState(false);
 
   const fetchRecords = useCallback(
     async (pageNum = 1) => {
@@ -1129,7 +1129,7 @@ export default function CropInformationPage() {
         <button
           type="button"
           className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors"
-          onClick={() => setShowAdd(true)}
+          onClick={() => navigate("/crop-records/add")}
         >
           <Plus size={15} /> Add Crop
         </button>
@@ -1254,16 +1254,6 @@ export default function CropInformationPage() {
         />
       </div>
 
-      {showAdd && (
-        <AddCropMonitoringModal
-          onClose={() => setShowAdd(false)}
-          onSuccess={() => {
-            setShowAdd(false);
-            setPage(1);
-            fetchRecords(1);
-          }}
-        />
-      )}
 
       {remarksRec && (
         <RemarksModal record={remarksRec} onClose={() => setRemarksRec(null)} />

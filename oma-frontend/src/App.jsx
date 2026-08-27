@@ -16,12 +16,14 @@ import ForceChangePasswordPage from "./pages/Auth/ForceChangePasswordPage.jsx";
 import VerifyEmailPage from "./pages/Auth/VerifyEmailPage.jsx";
 import CropMonitoringPage from "./pages/Monitoring/CropMonitoringPage.jsx";
 import FisheriesMonitoringPage from "./pages/Monitoring/FisheriesMonitoringPage.jsx";
+import AddStockingPage from "./pages/FisheriesRecords/AddStockingPage.jsx";
 import FisheriesForecastingTab from "./pages/Monitoring/FisheriesForecastingTab.jsx";
 import ProductionPage from "./pages/Production/ProductionPage.jsx";
 import ProfilePage from "./pages/Profile/ProfilePage.jsx";
 import ReportsPage from "./pages/Reports/ReportsPage.jsx";
 import ForecastingPage from "./pages/Forecasting/ForecastingPage.jsx";
 import CropInformationPage from "./pages/CropInformation/CropInformationPage.jsx";
+import AddCropMonitoringPage from "./pages/Monitoring/AddCropMonitoringPage.jsx";
 import CropSettingsHub from "./pages/CropSettings/CropSettingsHub.jsx";
 import ActivitySettingsHub from "./pages/ActivitySettings/ActivitySettingsHub.jsx";
 import UserManagementPage from "./pages/Users/UserManagementPage.jsx";
@@ -169,6 +171,17 @@ function App() {
               </ProtectedRoute>
             }
           />
+          {/* Full-screen bulk-entry page — was a floating modal inside
+              FisheriesRecordsPage, moved to its own route so the table gets
+              the full viewport instead of a max-w-6xl dialog box. */}
+          <Route
+            path="/fisheries-monitoring/add"
+            element={
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
+                <AddStockingPage />
+              </ProtectedRoute>
+            }
+          />
           {/* Health & Feeding Monitoring (Batch 4) */}
           <Route
             path="/fisheries-health-monitoring"
@@ -238,6 +251,17 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
                 <CropInformationPage />
+              </ProtectedRoute>
+            }
+          />
+          {/* Full-screen bulk-entry page — was a floating modal, moved to its
+              own route so the table gets the full viewport instead of a
+              max-w-6xl dialog box. */}
+          <Route
+            path="/crop-records/add"
+            element={
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
+                <AddCropMonitoringPage />
               </ProtectedRoute>
             }
           />
