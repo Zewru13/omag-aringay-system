@@ -237,6 +237,28 @@ class SpeciesCategory(models.Model):
         return self.name
 
 
+class FisheriesActivityType(models.Model):
+    """
+    Activity Settings batch: fisheries-domain counterpart of
+    production.models.ActivityType — same shape, same toggle-not-delete
+    pattern. Promotes FisheriesActivityLog.activity from a
+    hardcoded-in-frontend free-text field into real master data;
+    FisheriesActivityLog.activity itself stays a plain CharField
+    (unchanged). 'Other' is deliberately never a row here — every consumer
+    already has its own dedicated Other + free-text handling
+    (activity_other_specify).
+    """
+    name = models.CharField(max_length=150, unique=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name_plural = 'Fisheries Activity Types'
+
+    def __str__(self):
+        return self.name
+
+
 class SpeciesOption(models.Model):
     class CultureEnvironment(models.TextChoices):
         FRESHWATER    = 'Freshwater',    'Freshwater'

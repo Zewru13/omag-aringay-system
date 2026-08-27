@@ -126,6 +126,7 @@ const ADMIN_GROUP = {
   items: [
     { to: "/crop-settings", icon: Leaf, label: "Crop Settings" },
     { to: "/fisheries-settings", icon: Settings2, label: "Fisheries Settings" },
+    { to: "/activity-settings", icon: Activity, label: "Activity Settings" },
     { to: "/users", icon: UserCog, label: "Users" },
   ],
 };

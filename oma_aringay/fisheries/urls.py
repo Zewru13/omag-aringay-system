@@ -11,6 +11,8 @@ from .views import (
     FisherfolkDetailView,
     FisherfolkDuplicateCheckView,
     FisheriesActivitySuggestionsView,
+    FisheriesActivityTypeDetailView,
+    FisheriesActivityTypeListCreateView,
     FisheriesBarangaySummaryView,
     FisheriesDisasterResolveView,
     FisheriesHistoricalTimelineView,
@@ -60,6 +62,8 @@ urlpatterns = [
     # ── Species categories ──────────────────────────────────────────────────
     path('species-categories/', SpeciesCategoryListCreateView.as_view(), name='species-category-list'),
     path('species-categories/<int:pk>/', SpeciesCategoryDetailView.as_view(), name='species-category-detail'),
+    path('activity-types/', FisheriesActivityTypeListCreateView.as_view(), name='fisheries-activity-types'),
+    path('activity-types/<int:pk>/', FisheriesActivityTypeDetailView.as_view(), name='fisheries-activity-type-detail'),
 
     # ── Species options & stages ────────────────────────────────────────────
     path('species/', SpeciesOptionListCreateView.as_view(), name='species-list'),

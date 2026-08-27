@@ -89,6 +89,29 @@ class SeedSource(models.Model):
         return self.name
 
 
+class ActivityType(models.Model):
+    """
+    Activity Settings batch: promotes CropActivityLog.activity_type from a
+    hardcoded-in-four-different-frontend-files free-text field into real
+    master data, same shape and same toggle-not-delete pattern as CropType.
+    activity_type itself stays a plain CharField (unchanged) — a
+    deactivated type never breaks an existing log, it just stops being
+    offered for new ones. 'Other' is deliberately never a row here: every
+    consumer already has its own dedicated Other + free-text handling
+    (activity_type_other_specify), so it stays a UI-level sentinel, not
+    master data.
+    """
+    name = models.CharField(max_length=150, unique=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name_plural = 'Activity Types'
+
+    def __str__(self):
+        return self.name
+
+
 class CropVariety(models.Model):
     name = models.CharField(max_length=150)
     crop_type = models.ForeignKey(

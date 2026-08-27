@@ -4,6 +4,7 @@ import api from '../../api/axiosInstance.js'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import { CROP_DOMAIN } from './citizenDomainConfig.js'
 import { labels } from './labels.js'
 import { todayISO, yesterdayISO } from '../../utils/localDate.js'
 import { CROP_THEME, CitizenBody, CitizenScreen, CitizenSubHeader } from './citizenUI.jsx'
@@ -79,18 +80,33 @@ export default function CitizenFarmerActivityScreen({ records, initialRecordId, 
   const [recordId, setRecordId] = useState(
     initialRecordId || (records[0] ? String(records[0].id) : ''),
   )
-  // A suggestion task or a disaster response rule arrives naming an activity.
-  // If it is one of the reference's five tiles it selects that tile; anything
-  // else (Weeding, Land Preparation, ...) lands on 'Iba pa' with the name
-  // already filled in, which is how those values have always been stored.
+  // Real ActivityType rows for the crop domain, fetched from the
+  // admin-managed Activity Settings master data (same source as every other
+  // activity-type consumer) rather than the four-entry labels.js dict this
+  // screen used to be limited to. ComboboxWithOther falls back to displaying
+  // an unmatched value verbatim, so a name not yet loaded (or a historical
+  // value no longer offered) still renders correctly instead of breaking.
+  const [activityTypeOptions, setActivityTypeOptions] = useState([])
+
+  useEffect(() => {
+    let cancelled = false
+    api.get(CROP_DOMAIN.activityTypesUrl)
+      .then((r) => {
+        if (cancelled) return
+        const rows = Array.isArray(r.data) ? r.data : (r.data?.results || [])
+        setActivityTypeOptions(rows.filter((x) => x.is_active).map((x) => x.name))
+      })
+      .catch(() => { if (!cancelled) setActivityTypeOptions([]) })
+    return () => { cancelled = true }
+  }, [])
+
+  // A suggestion task or a disaster response rule arrives naming an
+  // activity — that name is stored directly now that the dropdown offers
+  // the real master-data list, rather than being lumped into 'Iba pa' with
+  // the name preserved only as free text.
   const [form, setForm] = useState(() => {
     if (!initialActivity) return BLANK
-    const known = Object.keys(labels.ffNew.farmerLog.types).includes(initialActivity)
-    return {
-      ...BLANK,
-      activity_type: known ? initialActivity : 'Other',
-      activity_type_other_specify: known ? '' : initialActivity,
-    }
+    return { ...BLANK, activity_type: initialActivity, activity_type_other_specify: '' }
   })
   const [editingId, setEditingId] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -127,11 +143,10 @@ export default function CitizenFarmerActivityScreen({ records, initialRecordId, 
       log.date_of_activity === todayISO() ? 'today'
         : log.date_of_activity === yesterdayISO() ? 'yesterday' : 'custom',
     )
-    const known = Object.keys(t.types).includes(log.activity_type)
     setForm({
       ...BLANK,
-      activity_type: known ? log.activity_type : 'Other',
-      activity_type_other_specify: known ? '' : log.activity_type,
+      activity_type: log.activity_type || 'Other',
+      activity_type_other_specify: log.activity_type === 'Other' ? (log.activity_type_other_specify || '') : '',
       date_of_activity: log.date_of_activity,
       fertilizer_type: t.fertilizerOptions.includes(log.fertilizer_type) ? log.fertilizer_type : (log.fertilizer_type ? 'Other' : ''),
       fertilizer_type_other: t.fertilizerOptions.includes(log.fertilizer_type) ? '' : (log.fertilizer_type || ''),
@@ -222,9 +237,7 @@ export default function CitizenFarmerActivityScreen({ records, initialRecordId, 
             <div className="mb-[18px]">
               <Label>{t.activityHeading}</Label>
               <ComboboxWithOther
-                options={Object.entries(t.types)
-                  .filter(([value]) => value !== 'Other')
-                  .map(([value, label]) => ({ value, label }))}
+                options={activityTypeOptions.map((name) => ({ value: name, label: t.types[name] || name }))}
                 value={activity}
                 otherValue={form.activity_type_other_specify}
                 onChange={(v) => set('activity_type', v)}

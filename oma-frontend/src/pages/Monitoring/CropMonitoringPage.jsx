@@ -32,13 +32,6 @@ function formatMMSS(totalSeconds) {
   return `${m}:${String(r).padStart(2, '0')}`
 }
 
-const ACTIVITY_OPTIONS = [
-  'Land Preparation', 'Planting', 'Fertilizer Application',
-  'Irrigation / Watering', 'Weeding', 'Pest Control',
-  'Disease Control', 'Field Monitoring', 'Pre-Harvest Inspection',
-  'Harvesting', 'Disaster Remedy', 'Other',
-]
-
 const PRIORITY_BADGE = {
   High:   'bg-rose-500 text-white',
   Medium: 'bg-amber-500 text-white',
@@ -432,6 +425,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
 
   // ── Change 1: soft "Suggested now" ordering for the Activity dropdown ──────
   const [activityStages, setActivityStages] = useState([])
+  const [activityTypeOptions, setActivityTypeOptions] = useState([])
 
   useEffect(() => {
     if (!record.crop_type) return
@@ -439,6 +433,15 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
       .then(r => setActivityStages(Array.isArray(r.data) ? r.data : (r.data.results || [])))
       .catch(() => setActivityStages([]))
   }, [record.crop_type])
+
+  useEffect(() => {
+    api.get('/production/activity-types/')
+      .then(r => {
+        const all = Array.isArray(r.data) ? r.data : (r.data.results || [])
+        setActivityTypeOptions(all.filter(t => t.is_active).map(t => t.name))
+      })
+      .catch(() => setActivityTypeOptions([]))
+  }, [])
 
   const suggestedNowActivities = useMemo(() => {
     if (!record.date_planted || activityStages.length === 0) return new Set()
@@ -459,8 +462,8 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
     return applicable
   }, [activityStages, activityDate, record.date_planted, logs])
 
-  const suggestedActivityOptions = ACTIVITY_OPTIONS.filter(o => suggestedNowActivities.has(o))
-  const otherActivityOptions = ACTIVITY_OPTIONS.filter(o => !suggestedNowActivities.has(o))
+  const suggestedActivityOptions = activityTypeOptions.filter(o => suggestedNowActivities.has(o))
+  const otherActivityOptions = activityTypeOptions.filter(o => !suggestedNowActivities.has(o))
 
   // Land-prep-style activities may be logged before date_planted; everything else may not.
   const selectedStageAllowsPrePlanting = useMemo(() => {

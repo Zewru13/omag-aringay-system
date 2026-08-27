@@ -23,6 +23,7 @@ from .models import (
     DiseaseType,
     FeedType,
     FisheriesActivityLog,
+    FisheriesActivityType,
     FisheriesDisasterReport,
     FisheriesDisasterResponseRule,
     FisheriesHarvestRecord,
@@ -43,6 +44,7 @@ from .serializers import (
     FisherfolkDetailSerializer,
     FisherfolkListSerializer,
     FisheriesActivityLogSerializer,
+    FisheriesActivityTypeSerializer,
     FisheriesDisasterReportSerializer,
     FisheriesHarvestRecordSerializer,
     FishingTripLogSerializer,
@@ -185,6 +187,30 @@ class SpeciesCategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = SpeciesCategorySerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     queryset = SpeciesCategory.objects.all()
+
+
+# ─── Fisheries Activity Type ──────────────────────────────────────────────────
+
+class FisheriesActivityTypeListCreateView(generics.ListCreateAPIView):
+    serializer_class = FisheriesActivityTypeSerializer
+    pagination_class = None
+    queryset = FisheriesActivityType.objects.all().order_by('name')
+
+    def get_permissions(self):
+        # GET is read by every activity-logging surface, staff and citizen
+        # alike (StockingMonitoringModals, CitizenActivityLogModal) — mirrors
+        # production.ActivityTypeListCreateView's own GET/POST split. Only
+        # admins/evaluators may add a new type.
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsAdminOrEvaluator()]
+
+
+class FisheriesActivityTypeDetailView(generics.RetrieveUpdateAPIView):
+    """Toggle-not-delete — see FisheriesActivityType's own model docstring."""
+    serializer_class = FisheriesActivityTypeSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    queryset = FisheriesActivityType.objects.all()
 
 
 # ─── Species Option ───────────────────────────────────────────────────────────

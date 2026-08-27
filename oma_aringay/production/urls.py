@@ -1,6 +1,8 @@
 from django.urls import path
 
 from .views import (
+    ActivityTypeDetailView,
+    ActivityTypeListCreateView,
     AgriDashboardView,
     CropActivitySuggestionsView,
     YieldAnalysisView,
@@ -77,6 +79,8 @@ urlpatterns = [
     path('stages/<int:pk>/', CropActivityStageDeleteView.as_view(), name='stage-delete'),
     path('seed-sources/', SeedSourceListCreateView.as_view(), name='seed-sources'),
     path('seed-sources/<int:pk>/', SeedSourceDetailView.as_view(), name='seed-source-detail'),
+    path('activity-types/', ActivityTypeListCreateView.as_view(), name='activity-types'),
+    path('activity-types/<int:pk>/', ActivityTypeDetailView.as_view(), name='activity-type-detail'),
     path('varieties/', CropVarietyListCreateView.as_view(), name='crop-varieties'),
     path('varieties/<int:pk>/', CropVarietyDetailView.as_view(), name='crop-variety-detail'),
     path('forecasting/template/', ForecastingTemplateView.as_view(), name='forecasting-template'),

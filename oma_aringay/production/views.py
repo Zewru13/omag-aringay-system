@@ -25,6 +25,7 @@ from .dashboard_activity import (
     crop_yield_variance, fisheries_activity_status, not_received_count, sector_summary,
 )
 from .models import (
+    ActivityType,
     BarangayCropSummary,
     CropActivityLog, CropActivityStage, CropCategory, CropDisasterReport,
     CropMonitoringRecord, CropRemark,
@@ -33,6 +34,7 @@ from .models import (
     SeedSource,
 )
 from .serializers import (
+    ActivityTypeSerializer,
     BarangayCropSummarySerializer,
     CropActivityLogSerializer,
     CropActivityStageSerializer,
@@ -1938,6 +1940,32 @@ class SeedSourceDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = SeedSourceSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     queryset = SeedSource.objects.all()
+
+
+# ─── Activity Type ────────────────────────────────────────────────────────────
+
+class ActivityTypeListCreateView(generics.ListCreateAPIView):
+    serializer_class = ActivityTypeSerializer
+    pagination_class = None
+    queryset = ActivityType.objects.all().order_by('name')
+
+    def get_permissions(self):
+        # GET is read by every activity-logging surface, staff and citizen
+        # alike (CropMonitoringPage, CitizenFarmerActivityScreen,
+        # CitizenActivityLogModal) — same shape as
+        # CropMonitoringListCreateView's own GET/POST split. Only
+        # admins/evaluators may add a new type.
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsAdminOrEvaluator()]
+
+
+class ActivityTypeDetailView(generics.RetrieveUpdateAPIView):
+    """Toggle-not-delete, same as CropTypeDetailView — see ActivityType's
+    own model docstring for why."""
+    serializer_class = ActivityTypeSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    queryset = ActivityType.objects.all()
 
 
 # ─── Crop Variety ─────────────────────────────────────────────────────────────

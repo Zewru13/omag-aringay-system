@@ -103,6 +103,10 @@ export default function CitizenActivityLogScreen({
   // before -- only the staff modal did -- so a fisherfolk could report a
   // disease event without being able to say what it was.
   const [diseaseTypes, setDiseaseTypes] = useState([])
+  // Real ActivityType rows for this domain, fetched from the admin-managed
+  // Activity Settings master data (citizenDomainConfig's activityTypesUrl)
+  // rather than a hardcoded list — see ActivitySettingsHub.
+  const [activityTypeOptions, setActivityTypeOptions] = useState([])
   const isCrop = domain.key === 'crop'
   const isFisheries = domain.key === 'fisheries'
   const isPrefilled = !isEdit && Boolean(prefill?.activityType)
@@ -114,13 +118,13 @@ export default function CitizenActivityLogScreen({
   const [selectedDateMode, setSelectedDateMode] = useState(dateMode(initialDate))
 
   const [form, setForm] = useState({
-    // Fisheries opens on Feed Monitoring rather than activityChoices[0]
-    // ('Pond Preparation'): the reference gives three activities their own
+    // Fisheries opens on Feed Monitoring rather than the alphabetically-first
+    // type ('Disaster Remedy'): the reference gives three activities their own
     // cards, and defaulting to a non-carded one made the screen open with
     // the 'Iba pa' disclosure already expanded. Feed Monitoring is also by
     // far the most logged (147 of 383). Crop keeps its existing default.
     [domain.activityField]: log?.[domain.activityField] || prefill?.activityType
-      || (domain.key === 'fisheries' ? 'Feed Monitoring' : domain.activityChoices[0]),
+      || domain.defaultActivityType,
     [domain.activityOtherField]: log?.[domain.activityOtherField] || '',
     date_of_activity: initialDate,
     [domain.notesField]: log?.[domain.notesField] || '',
@@ -162,12 +166,15 @@ export default function CitizenActivityLogScreen({
 
   const activityValue = form[domain.activityField]
   // activity_type/activity is free text with no backend choices, so the
-  // value here can come from two different vocabularies: the citizen's own
-  // dropdown (citizenDomainConfig's activityChoices, e.g. "Pesticide
-  // Application") when picked manually, OR a suggestion engine stage name
+  // value here can come from two different vocabularies: the admin-managed
+  // ActivityType picklist (fetched below from domain.activityTypesUrl, e.g.
+  // "Pest Control") when picked manually, OR a suggestion engine stage name
   // (CropActivityStage/SpeciesActivityStage's stage/activity name, e.g.
   // "Pest Control", "First Fertilizer Application") when opened pre-filled
   // from a task card. Both are checked so the relevant fields show either way.
+  // 'Pesticide Application' is no longer offered in the picklist but is kept
+  // in this check since it can still arrive via a historical log or a
+  // suggestion stage name.
   const showFertilizerFields = isCrop && activityValue.includes('Fertilizer')
   const showPestFields = isCrop && ['Pesticide Application', 'Pest Control', 'Disease Control'].includes(activityValue)
   // True when the chosen activity is NOT one of the three carded ones, so
@@ -184,6 +191,18 @@ export default function CitizenActivityLogScreen({
       .catch(() => { if (!cancelled) setDiseaseTypes([]) })
     return () => { cancelled = true }
   }, [isFisheries])
+
+  useEffect(() => {
+    let cancelled = false
+    api.get(domain.activityTypesUrl)
+      .then((r) => {
+        if (cancelled) return
+        const rows = Array.isArray(r.data) ? r.data : (r.data?.results || [])
+        setActivityTypeOptions(rows.filter((x) => x.is_active).map((x) => x.name))
+      })
+      .catch(() => { if (!cancelled) setActivityTypeOptions([]) })
+    return () => { cancelled = true }
+  }, [domain.activityTypesUrl])
 
   const isOtherActivity = isFisheries
     && Boolean(activityValue)
@@ -381,7 +400,7 @@ export default function CitizenActivityLogScreen({
 
               {(showMoreActivities || isOtherActivity) && (
                 <ComboboxWithOther
-                  options={domain.activityChoices.filter(
+                  options={activityTypeOptions.filter(
                     (x) => x !== 'Other' && !['Feed Monitoring', 'Disease Control', 'Water Quality Check'].includes(x),
                   )}
                   value={isOtherActivity ? form[domain.activityField] : ''}
@@ -401,7 +420,7 @@ export default function CitizenActivityLogScreen({
         {!isPrefilled && !isFisheries && (
           <FieldBlock label={labels.activityLog.fields.activity} required>
             <ComboboxWithOther
-              options={domain.activityChoices.filter((x) => x !== 'Other')}
+              options={activityTypeOptions.filter((x) => x !== 'Other')}
               value={form[domain.activityField]}
               otherValue={form[domain.activityOtherField]}
               onChange={(v) => set(domain.activityField, v)}

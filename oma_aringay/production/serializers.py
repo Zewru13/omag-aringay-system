@@ -6,7 +6,7 @@ from core.validators import validate_not_future_date, validate_uploaded_image
 from farmers.models import FarmParcel
 
 from .models import (
-    BarangayCropSummary, CropActivityLog, CropActivityStage,
+    ActivityType, BarangayCropSummary, CropActivityLog, CropActivityStage,
     CropCategory, CropDisasterReport, CropMonitoringRecord, CropRemark, CropSubcategory,
     CropType, CropVariety, DamageReport, FarmInputLog, HarvestRecord, LaborOperationLog,
     PestDiseaseReport, PlantingRecord, SeedSource,
@@ -16,6 +16,13 @@ from .models import (
 class SeedSourceSerializer(serializers.ModelSerializer):
     class Meta:
         model = SeedSource
+        fields = ['id', 'name', 'is_active']
+        read_only_fields = ['id']
+
+
+class ActivityTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ActivityType
         fields = ['id', 'name', 'is_active']
         read_only_fields = ['id']
 

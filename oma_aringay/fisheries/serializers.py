@@ -16,6 +16,7 @@ from .models import (
     FeedType,
     Fisherfolk,
     FisheriesActivityLog,
+    FisheriesActivityType,
     FisheriesDisasterReport,
     FisheriesHarvestRecord,
     FishingTripLog,
@@ -345,6 +346,13 @@ class SpeciesCategorySerializer(serializers.ModelSerializer):
         model  = SpeciesCategory
         fields = ['id', 'name', 'date_created']
         read_only_fields = ['id', 'date_created']
+
+
+class FisheriesActivityTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = FisheriesActivityType
+        fields = ['id', 'name', 'is_active']
+        read_only_fields = ['id']
 
 
 class SpeciesActivityStageSerializer(serializers.ModelSerializer):

@@ -23,12 +23,6 @@ function formatMMSS(totalSeconds) {
 
 const otherLabel = (value, specify) => (value === 'Other' && specify ? `Other — ${specify}` : value)
 
-const ACTIVITY_OPTIONS = [
-  'Pond Preparation', 'Stocking', 'Feed Monitoring', 'Water Quality Check',
-  'Sampling', 'Disease Control', 'Pre-Harvest Inspection', 'Harvesting',
-  'Disaster Remedy', 'Other',
-]
-
 function fmtDate(v) {
   if (!v) return '—'
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(v + 'T00:00:00'))
@@ -427,6 +421,7 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
 
   // ── Change 1: soft "Suggested now" ordering for the Activity dropdown ──────
   const [activityStages, setActivityStages] = useState([])
+  const [activityTypeOptions, setActivityTypeOptions] = useState([])
 
   useEffect(() => {
     if (!record.species) return
@@ -434,6 +429,15 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
       .then(r => setActivityStages(Array.isArray(r.data) ? r.data : (r.data.results || [])))
       .catch(() => setActivityStages([]))
   }, [record.species])
+
+  useEffect(() => {
+    api.get('/fisheries/activity-types/')
+      .then(r => {
+        const all = Array.isArray(r.data) ? r.data : (r.data.results || [])
+        setActivityTypeOptions(all.filter(t => t.is_active).map(t => t.name))
+      })
+      .catch(() => setActivityTypeOptions([]))
+  }, [])
 
   const suggestedNowActivities = useMemo(() => {
     if (!record.date_stocked || activityStages.length === 0) return new Set()
@@ -454,8 +458,8 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
     return applicable
   }, [activityStages, activityDate, record.date_stocked, logs])
 
-  const suggestedActivityOptions = ACTIVITY_OPTIONS.filter(o => suggestedNowActivities.has(o))
-  const otherActivityOptions = ACTIVITY_OPTIONS.filter(o => !suggestedNowActivities.has(o))
+  const suggestedActivityOptions = activityTypeOptions.filter(o => suggestedNowActivities.has(o))
+  const otherActivityOptions = activityTypeOptions.filter(o => !suggestedNowActivities.has(o))
 
   // Land/pond-prep-style activities may be logged before date_stocked; everything else may not.
   const selectedStageAllowsPrePlanting = useMemo(() => {

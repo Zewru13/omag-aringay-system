@@ -23,6 +23,7 @@ import ReportsPage from "./pages/Reports/ReportsPage.jsx";
 import ForecastingPage from "./pages/Forecasting/ForecastingPage.jsx";
 import CropInformationPage from "./pages/CropInformation/CropInformationPage.jsx";
 import CropSettingsHub from "./pages/CropSettings/CropSettingsHub.jsx";
+import ActivitySettingsHub from "./pages/ActivitySettings/ActivitySettingsHub.jsx";
 import UserManagementPage from "./pages/Users/UserManagementPage.jsx";
 import HelpPage from "./pages/Help/HelpPage.jsx";
 import HealthMonitoringPage from "./pages/HealthMonitoring/HealthMonitoringPage.jsx";
@@ -253,6 +254,16 @@ function App() {
           />
           <Route path="/crop-options" element={<Navigate to="/crop-settings?tab=options" replace />} />
           <Route path="/crop-categories" element={<Navigate to="/crop-settings?tab=categories" replace />} />
+
+          {/* Activity settings hub — tabs: Crop Activities + Fisheries Activities (admin only) */}
+          <Route
+            path="/activity-settings"
+            element={
+              <ProtectedRoute allowedRoles={["ADMIN"]}>
+                <ActivitySettingsHub />
+              </ProtectedRoute>
+            }
+          />
 
           <Route
             path="/admin/users"
