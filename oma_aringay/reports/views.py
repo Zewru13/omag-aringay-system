@@ -22,9 +22,15 @@ from rest_framework.views import APIView
 from accounts.permissions import IsAdminOrEvaluator
 from core.utils import accumulate_yield_group, new_yield_group, possible_factors_text
 from farmers.models import Farmer
-from fisheries.models import Fisherfolk, FishingTripLog, TripSpeciesEntry
-from interventions.models import BeneficiaryRecord
-from production.models import BarangayCropSummary, DamageReport, HarvestRecord, PlantingRecord
+from fisheries.models import Fisherfolk, FishingTripLog, Pond, StockingRecord, TripSpeciesEntry
+from interventions.models import BeneficiaryRecord, FisherfolkBeneficiaryRecord
+from production.models import (
+    BarangayCropSummary,
+    CropMonitoringRecord,
+    DamageReport,
+    HarvestRecord,
+    PlantingRecord,
+)
 
 from .pdf_utils import (
     BORDER_COLOR,
@@ -140,6 +146,9 @@ class FarmerProfileReport(APIView):
             Farmer.objects.prefetch_related(
                 'farm_parcels__crops',
                 'farm_parcels__machinery',
+                'crop_monitoring_records__crop_type',
+                'crop_monitoring_records__activity_logs',
+                'crop_monitoring_records__harvest_records',
             ),
             pk=farmer_id,
         )
@@ -165,6 +174,7 @@ class FarmerProfileReport(APIView):
             ('Full Name',        full_name(farmer)),
             ('Farmer ID',        f'RSBSA-{farmer.id:06d}'),
             ('RSBSA No.',        fmt_field(farmer.rsbsa_number)),
+            ('PhilSys No.',      fmt_field(farmer.philsys_number)),
             ('Barangay',         fmt_field(farmer.barangay)),
             ('Gender',           fmt_field(farmer.gender)),
             ('Birthdate',        fmt_date(farmer.birthdate)),
@@ -174,6 +184,11 @@ class FarmerProfileReport(APIView):
             ('Municipality',     'Aringay'),
             ('Province',         'La Union'),
             ('Date Registered',  fmt_date(farmer.date_registered)),
+            ('PWD',              'Yes' if farmer.is_pwd else 'No'),
+            ('4Ps Beneficiary',  'Yes' if farmer.is_4ps_beneficiary else 'No'),
+            ('Senior Citizen',   'Yes' if farmer.is_senior_citizen else 'No'),
+            ('Farm Laborer',     'Yes' if farmer.is_farm_laborer else 'No'),
+            ('ICC/IP Member',    f'Yes — {fmt_field(farmer.icc_ip_name)}' if farmer.is_icc_ip_member else 'No'),
             ('Status',           build_status_badge(farmer.is_active)),
             ('', ''),   # pad to even number for 2-column grid
         ]
@@ -278,8 +293,101 @@ class FarmerProfileReport(APIView):
 
         story.append(Spacer(1, 12))
 
-        # ── Section III — Assistance History ─────────────────────────────────
-        story += build_section_heading('III', 'ASSISTANCE HISTORY')
+        # ── Section III — Crop Monitoring, Activity & Harvest History ─────────
+        # Per crop cycle (CropMonitoringRecord), same header-bar-then-sub-tables
+        # shape as Section II's per-parcel blocks. Harvests are reached via
+        # each record's own harvest_records (the live, current linkage — the
+        # older HarvestRecord.farm_parcel path is dead in practice, unpopulated
+        # on every real row), so this only ever shows harvests that actually
+        # belong to a real monitoring cycle for this farmer.
+        story += build_section_heading('III', 'CROP MONITORING, ACTIVITY & HARVEST HISTORY')
+
+        monitoring_records = sorted(
+            farmer.crop_monitoring_records.all(),
+            key=lambda r: r.date_planted, reverse=True,
+        )
+
+        if not monitoring_records:
+            story.append(_empty_state(
+                'No crop monitoring records have been recorded for this farmer.'
+            ))
+        else:
+            cycle_hdr_style = _P(FONT_BOLD, 9, WHITE)
+
+            for idx, rec in enumerate(monitoring_records):
+                if idx > 0:
+                    story.append(Spacer(1, 6))
+                    story.append(HRFlowable(
+                        width='100%', thickness=0.5,
+                        color=BORDER_COLOR, spaceAfter=6,
+                    ))
+
+                # Cycle header bar
+                bar_text = (
+                    f'{fmt_field(rec.crop_type.name if rec.crop_type else None)}  ·  '
+                    f'{fmt_field(rec.season)} {fmt_field(rec.year)}  ·  '
+                    f'Planted: {fmt_date(rec.date_planted)}  ·  '
+                    f'Status: {fmt_field(rec.status)}'
+                )
+                bar = Table([[Paragraph(bar_text, cycle_hdr_style)]], colWidths=[PAGE_WIDTH])
+                bar.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, -1), PRIMARY_GREEN),
+                    ('TOPPADDING', (0, 0), (-1, -1), 7),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 10),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+                ]))
+                story.append(bar)
+                story.append(Spacer(1, 6))
+
+                # A. Activity Log
+                story.append(Paragraph('A. Activity Log', S['SubLabel']))
+                logs = sorted(rec.activity_logs.all(), key=lambda l: l.date_of_activity)
+                if logs:
+                    log_rows = [
+                        [fmt_date(l.date_of_activity), fmt_field(l.activity_type), fmt_field(l.notes)]
+                        for l in logs
+                    ]
+                    story.append(build_ledger_table(
+                        ['Date', 'Activity Type', 'Notes'],
+                        log_rows,
+                        col_widths=[70, 140, 258],
+                    ))
+                else:
+                    story.append(Paragraph(
+                        'No activity logs have been recorded for this monitoring record.',
+                        S['EmptyItalic'],
+                    ))
+
+                # B. Harvest Records
+                story.append(Paragraph('B. Harvest Records', S['SubLabel']))
+                harvests = sorted(
+                    rec.harvest_records.all(),
+                    key=lambda h: h.harvest_start_date or h.date_recorded.date(),
+                )
+                if harvests:
+                    harvest_rows = []
+                    for h in harvests:
+                        period = fmt_date(h.harvest_start_date)
+                        if h.harvest_end_date and h.harvest_end_date != h.harvest_start_date:
+                            period += f' to {fmt_date(h.harvest_end_date)}'
+                        volume = f'{fmt_field(h.volume_kg)} {h.unit_of_measure or "kg"}'
+                        harvest_rows.append([period, volume, fmt_field(h.yield_per_hectare_kg)])
+                    story.append(build_ledger_table(
+                        ['Harvest Period', 'Volume', 'Yield/ha (kg)'],
+                        harvest_rows,
+                        col_widths=[160, 150, 158],
+                    ))
+                else:
+                    story.append(Paragraph(
+                        'No harvest records have been recorded for this monitoring record.',
+                        S['EmptyItalic'],
+                    ))
+
+        story.append(Spacer(1, 12))
+
+        # ── Section IV — Assistance History ────────────────────────────────────
+        story += build_section_heading('IV', 'ASSISTANCE HISTORY')
 
         asst_records = (
             BeneficiaryRecord.objects
@@ -312,8 +420,250 @@ class FarmerProfileReport(APIView):
 
         story.append(Spacer(1, 30))
 
-        # ── Section IV — Verification ─────────────────────────────────────────
-        story += build_section_heading('IV', 'VERIFICATION')
+        # ── Section V — Verification ────────────────────────────────────────────
+        story += build_section_heading('V', 'VERIFICATION')
+        story.append(Spacer(1, 10))
+
+        printed_by = (
+            (getattr(request.user, 'full_name', '') or '').strip()
+            or getattr(request.user, 'email', 'Unknown')
+        )
+        story.append(build_signature_block(
+            left_label='Prepared by',
+            left_role=(getattr(request.user, 'role', '') or '').title() or 'System Administrator',
+            printed_by_name=printed_by,
+            page_width=PAGE_WIDTH,
+        ))
+        story.append(Spacer(1, 14))
+        story.append(Paragraph(
+            'This is an official record generated by the OMAg Aringay Integrated '
+            'Agricultural Monitoring and Production Management System.',
+            S['Disclaimer'],
+        ))
+
+        return story
+
+
+# ─── TASK 1B — Fisherfolk Profile ─────────────────────────────────────────────
+# Fisherfolk counterpart of FarmerProfileReport above — same section shape
+# (Personal Info / site inventory / cycle-by-cycle activity+harvest history /
+# assistance / verification), same pdf_utils building blocks, adapted to this
+# domain's own models (Pond instead of FarmParcel, StockingRecord instead of
+# CropMonitoringRecord, FisherfolkBeneficiaryRecord instead of
+# BeneficiaryRecord — the two are separate models, not shared).
+
+class FisherfolkProfileReport(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request, fisherfolk_id):
+        fisherfolk = get_object_or_404(
+            Fisherfolk.objects.prefetch_related(
+                'ponds',
+                'stocking_records__species',
+                'stocking_records__pond',
+                'stocking_records__logs',
+                'stocking_records__harvests',
+            ),
+            pk=fisherfolk_id,
+        )
+        buf, doc = _make_doc()
+        doc.build(self._build_story(fisherfolk, request), canvasmaker=NumberedCanvas)
+        return _finish_pdf(
+            buf,
+            f'fisherfolk_profile_{fmt_field(fisherfolk.lgu_registration_number)}_{_today()}.pdf',
+        )
+
+    def _build_story(self, fisherfolk, request):  # noqa: C901
+        S = get_styles()
+        story = []
+
+        # ── Header ────────────────────────────────────────────────────────────
+        story += build_official_header(
+            LOGO_PATH,
+            'Fisherfolk Profile Record',
+            f'LGU Registration No. {fmt_field(fisherfolk.lgu_registration_number)}',
+        )
+
+        # ── Section I — Personal Information ──────────────────────────────────
+        story += build_section_heading('I', 'PERSONAL INFORMATION')
+
+        pairs = [
+            ('Full Name',           full_name(fisherfolk)),
+            ('Fisherfolk ID',       f'FISHR-{fisherfolk.id:06d}'),
+            ('LGU Registration No.',fmt_field(fisherfolk.lgu_registration_number)),
+            ('FishR No.',           fmt_field(fisherfolk.fishr_number)),
+            ('RSBSA No.',           fmt_field(fisherfolk.rsbsa_number)),
+            ('PhilSys No.',         fmt_field(fisherfolk.philsys_number)),
+            ('Barangay',            fmt_field(fisherfolk.barangay)),
+            ('Gender',               fmt_field(fisherfolk.gender)),
+            ('Birthdate',            fmt_date(fisherfolk.birthdate)),
+            ('Civil Status',         fmt_field(fisherfolk.civil_status)),
+            ('Highest Education',    fmt_field(fisherfolk.highest_education)),
+            ('Contact No.',          fmt_field(fisherfolk.contact_number)),
+            ('Fisherfolk Type',      fmt_field(fisherfolk.fisherfolk_type)),
+            ('Municipality',         'Aringay'),
+            ('Province',             'La Union'),
+            ('Date Registered',      fmt_date(fisherfolk.date_registered)),
+            ('PWD',                  'Yes' if fisherfolk.is_pwd else 'No'),
+            ('4Ps Beneficiary',      'Yes' if fisherfolk.is_4ps_beneficiary else 'No'),
+            ('Senior Citizen',       'Yes' if fisherfolk.is_senior_citizen else 'No'),
+            ('ICC/IP Member',        f'Yes — {fmt_field(fisherfolk.icc_ip_name)}' if fisherfolk.is_icc_ip_member else 'No'),
+            ('Has Vessel',           'Yes' if fisherfolk.has_vessel else 'No'),
+            ('Status',               build_status_badge(fisherfolk.is_active)),
+        ]
+        story.append(build_keyvalue_grid(pairs, columns=2, page_width=PAGE_WIDTH))
+        story.append(Spacer(1, 12))
+
+        # ── Section II — Ponds ─────────────────────────────────────────────────
+        story += build_section_heading('II', 'PONDS')
+
+        ponds = list(fisherfolk.ponds.all())
+        if not ponds:
+            story.append(_empty_state(
+                'No ponds have been registered for this fisherfolk.'
+            ))
+        else:
+            pond_rows = [
+                [
+                    fmt_field(p.name),
+                    fmt_field(p.barangay),
+                    fmt_field(p.area_hectares),
+                    fmt_field(p.water_source),
+                    build_status_badge(p.is_active),
+                ]
+                for p in ponds
+            ]
+            story.append(build_ledger_table(
+                ['Pond Name', 'Barangay', 'Area (ha)', 'Water Source', 'Status'],
+                pond_rows,
+                col_widths=[130, 100, 78, 100, 60],
+            ))
+
+        story.append(Spacer(1, 12))
+
+        # ── Section III — Stocking, Activity & Harvest History ────────────────
+        # Per stocking cycle (StockingRecord), same header-bar-then-sub-tables
+        # shape as FarmerProfileReport's crop-cycle section.
+        story += build_section_heading('III', 'STOCKING, ACTIVITY & HARVEST HISTORY')
+
+        stocking_records = sorted(
+            fisherfolk.stocking_records.all(),
+            key=lambda r: r.date_stocked, reverse=True,
+        )
+
+        if not stocking_records:
+            story.append(_empty_state(
+                'No stocking records have been recorded for this fisherfolk.'
+            ))
+        else:
+            cycle_hdr_style = _P(FONT_BOLD, 9, WHITE)
+
+            for idx, rec in enumerate(stocking_records):
+                if idx > 0:
+                    story.append(Spacer(1, 6))
+                    story.append(HRFlowable(
+                        width='100%', thickness=0.5,
+                        color=BORDER_COLOR, spaceAfter=6,
+                    ))
+
+                # Cycle header bar
+                bar_text = (
+                    f'{fmt_field(rec.species.species_name if rec.species else None)}  ·  '
+                    f'Pond: {fmt_field(rec.pond.name if rec.pond else None)}  ·  '
+                    f'{fmt_field(rec.season)} {fmt_field(rec.year)}  ·  '
+                    f'Stocked: {fmt_date(rec.date_stocked)}  ·  '
+                    f'Status: {fmt_field(rec.status)}'
+                )
+                bar = Table([[Paragraph(bar_text, cycle_hdr_style)]], colWidths=[PAGE_WIDTH])
+                bar.setStyle(TableStyle([
+                    ('BACKGROUND', (0, 0), (-1, -1), PRIMARY_GREEN),
+                    ('TOPPADDING', (0, 0), (-1, -1), 7),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 10),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+                ]))
+                story.append(bar)
+                story.append(Spacer(1, 6))
+
+                # A. Activity Log
+                story.append(Paragraph('A. Activity Log', S['SubLabel']))
+                logs = sorted(rec.logs.all(), key=lambda l: l.date_of_activity)
+                if logs:
+                    log_rows = [
+                        [fmt_date(l.date_of_activity), fmt_field(l.activity), fmt_field(l.notes)]
+                        for l in logs
+                    ]
+                    story.append(build_ledger_table(
+                        ['Date', 'Activity Type', 'Notes'],
+                        log_rows,
+                        col_widths=[70, 140, 258],
+                    ))
+                else:
+                    story.append(Paragraph(
+                        'No activity logs have been recorded for this stocking record.',
+                        S['EmptyItalic'],
+                    ))
+
+                # B. Harvest Records
+                story.append(Paragraph('B. Harvest Records', S['SubLabel']))
+                harvests = sorted(rec.harvests.all(), key=lambda h: h.harvest_date)
+                if harvests:
+                    harvest_rows = [
+                        [
+                            fmt_date(h.harvest_date),
+                            f'{fmt_field(h.quantity_kg)} kg',
+                            fmt_field(h.avg_body_weight_kg),
+                        ]
+                        for h in harvests
+                    ]
+                    story.append(build_ledger_table(
+                        ['Harvest Date', 'Quantity', 'Avg Body Weight (kg)'],
+                        harvest_rows,
+                        col_widths=[160, 150, 158],
+                    ))
+                else:
+                    story.append(Paragraph(
+                        'No harvest records have been recorded for this stocking record.',
+                        S['EmptyItalic'],
+                    ))
+
+        story.append(Spacer(1, 12))
+
+        # ── Section IV — Assistance History ────────────────────────────────────
+        story += build_section_heading('IV', 'ASSISTANCE HISTORY')
+
+        asst_records = (
+            FisherfolkBeneficiaryRecord.objects
+            .filter(fisherfolk=fisherfolk)
+            .order_by('-date_given', '-id')
+        )
+
+        if not asst_records.exists():
+            story.append(Paragraph(
+                'No assistance records found for this fisherfolk.',
+                S['EmptyItalic'],
+            ))
+        else:
+            asst_rows = []
+            for r in asst_records:
+                asst_rows.append([
+                    fmt_field(r.assistance_type),
+                    fmt_field(r.source_agency),
+                    fmt_field(r.quantity),
+                    fmt_field(r.season),
+                    fmt_field(r.year),
+                    fmt_date(r.date_given),
+                ])
+            story.append(build_ledger_table(
+                ['Assistance Type', 'Source Agency', 'Quantity', 'Season', 'Year', 'Date Given'],
+                asst_rows,
+                col_widths=[100, 120, 70, 45, 38, 95],
+            ))
+
+        story.append(Spacer(1, 30))
+
+        # ── Section V — Verification ────────────────────────────────────────────
+        story += build_section_heading('V', 'VERIFICATION')
         story.append(Spacer(1, 10))
 
         printed_by = (

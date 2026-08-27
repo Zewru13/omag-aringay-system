@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, ClipboardList, Edit, Layers, Pencil, Plus, Power, Trash2 } from 'lucide-react'
+import { ArrowLeft, ClipboardList, Edit, FileText, Layers, Pencil, Plus, Power, Trash2 } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import ActivateCitizenAccountButton from '../../components/ActivateCitizenAccountButton.jsx'
@@ -14,6 +14,7 @@ import StatusPill from '../../components/UI/StatusPill.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import { downloadFile } from '../../utils/fileDownload.js'
 import EditFisherfolkModal from './EditFisherfolkModal.jsx'
 import PondModal from './PondModal.jsx'
 import BulkPondModal from './BulkPondModal.jsx'
@@ -163,6 +164,7 @@ function FisherfolkDetailPage() {
   const [error, setError]                 = useState('')
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen]       = useState(false)
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false)
   const [history, setHistory]             = useState([])
   const [isLoadingHistory, setIsLoadingHistory]     = useState(false)
   const [historyError, setHistoryError]   = useState('')
@@ -266,6 +268,17 @@ function FisherfolkDetailPage() {
     fetchHistory()
   }
 
+  const handleGenerateReport = async () => {
+    setIsGeneratingReport(true)
+    try {
+      await downloadFile(api, `/reports/fisheries/${id}/profile/`, `fisherfolk_profile_${id}.pdf`)
+    } catch {
+      showToast('Failed to generate report.', 'error')
+    } finally {
+      setIsGeneratingReport(false)
+    }
+  }
+
   const stockingData = stockingRecords.map((r) => ({
     ...r,
     date_stocked_fmt:     fmtShort(r.date_stocked),
@@ -353,6 +366,9 @@ function FisherfolkDetailPage() {
                 <div className="flex flex-wrap gap-2">
                   <Button icon={ClipboardList} onClick={openHistory} variant="outline">
                     View Assistance History
+                  </Button>
+                  <Button icon={FileText} onClick={handleGenerateReport} variant="outline" isLoading={isGeneratingReport}>
+                    Generate Report
                   </Button>
                   {(isAdmin || isEvaluator) && (
                     <Button icon={Edit} onClick={() => setIsEditModalOpen(true)} variant="outline">

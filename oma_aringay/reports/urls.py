@@ -14,6 +14,7 @@ from .views import (
     FisheriesProductionReport,
     FisheriesYieldAnalysisReport,
     FisherfolkMasterlistReport,
+    FisherfolkProfileReport,
     HarvestProductionReport,
     HarvestedCropReport,
     PlantingRecordsReport,
@@ -26,6 +27,7 @@ from .views import (
 urlpatterns = [
     path('farmers/masterlist/', FarmerMasterlistReport.as_view(), name='report-farmer-masterlist'),
     path('farmers/<int:farmer_id>/profile/', FarmerProfileReport.as_view(), name='report-farmer-profile'),
+    path('fisheries/<int:fisherfolk_id>/profile/', FisherfolkProfileReport.as_view(), name='report-fisherfolk-profile'),
     path('production/', HarvestProductionReport.as_view(), name='report-harvest-production'),
     path('production/planting/', PlantingRecordsReport.as_view(), name='report-planting-records'),
     path('production/damage/', DamageReportsExport.as_view(), name='report-damage-reports'),

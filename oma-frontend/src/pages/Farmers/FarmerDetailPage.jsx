@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { ArrowLeft, ChevronDown, ChevronRight, ClipboardList, Edit, Plus } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, ClipboardList, Edit, FileText, Plus } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import ActivateCitizenAccountButton from '../../components/ActivateCitizenAccountButton.jsx'
@@ -12,6 +12,7 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import { downloadFile } from '../../utils/fileDownload.js'
 import AddFarmParcelModal from './AddFarmParcelModal.jsx'
 import EditFarmerModal from './EditFarmerModal.jsx'
 
@@ -266,6 +267,7 @@ function FarmerDetailPage() {
   const [isParcelModalOpen, setIsParcelModalOpen] = useState(false)
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false)
 
   const fetchFarmer = async () => {
     setIsLoadingFarmer(true)
@@ -329,6 +331,17 @@ function FarmerDetailPage() {
     fetchHistory()
   }
 
+  const handleGenerateReport = async () => {
+    setIsGeneratingReport(true)
+    try {
+      await downloadFile(api, `/reports/farmers/${id}/profile/`, `farmer_profile_${id}.pdf`)
+    } catch {
+      showToast('Failed to generate report.', 'error')
+    } finally {
+      setIsGeneratingReport(false)
+    }
+  }
+
   return (
     <PageLayout title="Farmer Details" subtitle="View and manage farmer profile and farm parcels">
       <div className="space-y-4">
@@ -377,6 +390,9 @@ function FarmerDetailPage() {
               <div className="flex flex-wrap gap-2">
                 <Button icon={ClipboardList} onClick={openHistory} variant="outline">
                   View Assistance History
+                </Button>
+                <Button icon={FileText} onClick={handleGenerateReport} variant="outline" isLoading={isGeneratingReport}>
+                  Generate Report
                 </Button>
 
                 {(isAdmin || isEvaluator) && (
