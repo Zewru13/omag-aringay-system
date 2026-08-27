@@ -14,14 +14,25 @@ def citizen_account_info(linked_record_type, record_id):
     "Activate Account" button — deferred import avoids a module-level
     circular import (accounts.models itself lazily imports farmers/
     fisheries/associations inside User.get_linked_record for the same reason).
+
+    Password-reveal batch: last_login added — the frontend's sessionStorage
+    password reveal uses it as the real "has this citizen actually logged
+    in yet" signal (see LoginView, which now actually sets it — it was
+    previously never populated anywhere in this app) to clear a stored
+    reveal the moment it's genuinely obsolete, rather than only on its own
+    time-based expiry.
     """
     from accounts.models import User
     account = User.objects.filter(
         linked_record_type=linked_record_type, linked_record_id=record_id,
-    ).only('id', 'is_active').first()
+    ).only('id', 'is_active', 'last_login').first()
     if account is None:
         return None
-    return {'id': account.id, 'is_active': account.is_active}
+    return {
+        'id': account.id,
+        'is_active': account.is_active,
+        'last_login': account.last_login.isoformat() if account.last_login else None,
+    }
 
 
 def generate_default_password():

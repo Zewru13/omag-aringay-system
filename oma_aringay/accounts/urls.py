@@ -6,6 +6,7 @@ from .views import (
     LoginView,
     LogoutView,
     MeView,
+    RegenerateCitizenPasswordView,
     ResendVerificationView,
     SetCitizenPasswordView,
     UserCreateView,
@@ -29,4 +30,5 @@ urlpatterns = [
     path('users/<int:id>/', UserUpdateView.as_view(), name='accounts-users-update'),
     path('users/<int:id>/reactivate/', UserReactivateView.as_view(), name='accounts-users-reactivate'),
     path('users/<int:id>/set-citizen-password/', SetCitizenPasswordView.as_view(), name='accounts-users-set-citizen-password'),
+    path('users/<int:id>/regenerate-citizen-password/', RegenerateCitizenPasswordView.as_view(), name='accounts-users-regenerate-citizen-password'),
 ]

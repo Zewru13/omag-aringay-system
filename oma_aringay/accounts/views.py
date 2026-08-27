@@ -229,6 +229,17 @@ class LoginView(APIView):
 
         refresh = RefreshToken.for_user(user)
 
+        # Password-reveal batch: this app is JWT-only and never calls
+        # django.contrib.auth.login(), so AbstractBaseUser.last_login —
+        # normally kept current by Django's own user_logged_in signal — was
+        # never being set anywhere, for any role. Set it explicitly here so
+        # it becomes a real, general-purpose "has this account ever
+        # actually logged in" signal — the staff-facing password reveal
+        # reads it via citizen_account_info() to know when a CITIZEN's
+        # stored one-time reveal is genuinely obsolete.
+        user.last_login = timezone.now()
+        user.save(update_fields=['last_login'])
+
         return Response({
             'refresh': str(refresh),
             'access': str(refresh.access_token),
@@ -480,6 +491,40 @@ class SetCitizenPasswordView(APIView):
             'user': UserSerializer(user).data,
             'generated_password': generated_password,
             'detail': 'Account is now active. Read the password aloud to the person and relay it in person.',
+        })
+
+
+class RegenerateCitizenPasswordView(APIView):
+    """
+    Password-reveal batch: companion to SetCitizenPasswordView for when
+    staff genuinely can't recover the original one-time reveal (the
+    frontend's sessionStorage window expired, they're on a different
+    device, whatever the reason) — same generator, same relay-in-person
+    contract, but the mirror-image guard: this account must ALREADY be
+    active, since it isn't a first activation. Immediately invalidates
+    whatever password the account currently has; reusable any number of
+    times, same as the original flow, until the account leaves this
+    already-active state (it never does, short of deactivation
+    elsewhere — there's no time limit on staff needing this).
+    """
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def post(self, request, id):
+        user = get_object_or_404(User, pk=id, role=User.Roles.CITIZEN)
+        if not user.is_active:
+            return Response(
+                {'detail': 'This account has not been activated yet — use Set Up Account first.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        generated_password = generate_default_password()
+        user.set_password(generated_password)
+        user.save()
+
+        return Response({
+            'user': UserSerializer(user).data,
+            'generated_password': generated_password,
+            'detail': 'Password regenerated. Read it aloud to the person and relay it in person.',
         })
 
 
