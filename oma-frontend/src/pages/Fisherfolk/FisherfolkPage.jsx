@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Upload } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
+import RsbsaImportModal from '../../components/RsbsaImportModal.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
@@ -76,6 +77,7 @@ function FisherfolkPage({ asTab = false }) {
   const [isLoading,   setIsLoading]   = useState(true)
   const [error,       setError]       = useState('')
   const [showAdd,     setShowAdd]     = useState(false)
+  const [showImport,  setShowImport]  = useState(false)
   const [successMsg,  setSuccessMsg]  = useState('')
 
   const fetchFisherfolk = async (pageNum = page) => {
@@ -157,14 +159,24 @@ function FisherfolkPage({ asTab = false }) {
   }
 
   const actionBtn = (isAdmin || isEvaluator) ? (
-    <button
-      className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
-      onClick={() => setShowAdd(true)}
-      type="button"
-    >
-      <Plus size={16} />
-      Register Fisherfolk
-    </button>
+    <div className="flex items-center gap-2">
+      <button
+        className="flex items-center gap-1.5 border border-[#D8E2D8] bg-white hover:bg-[#F5F7F5] text-[#1B4D2E] text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
+        onClick={() => setShowImport(true)}
+        type="button"
+      >
+        <Upload size={16} />
+        Import File
+      </button>
+      <button
+        className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
+        onClick={() => setShowAdd(true)}
+        type="button"
+      >
+        <Plus size={16} />
+        Register Fisherfolk
+      </button>
+    </div>
   ) : null
 
   const innerContent = (
@@ -274,6 +286,10 @@ function FisherfolkPage({ asTab = false }) {
           onClose={() => setShowAdd(false)}
           onSuccess={handleCreated}
         />
+      )}
+
+      {showImport && (
+        <RsbsaImportModal onClose={() => setShowImport(false)} />
       )}
     </>
   )

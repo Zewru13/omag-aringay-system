@@ -108,6 +108,12 @@ class Fisherfolk(models.Model):
     is_fish_vendor     = models.BooleanField(default=False)
 
     date_registered    = models.DateTimeField(auto_now_add=True)
+    # Auto-updates on every save() — the only reliable "last touched" signal
+    # on this model (no per-field change history exists; see
+    # farmers.rsbsa_import_views's module docstring — same rationale applies
+    # to Fisherfolk). null=True so existing rows backfill to whenever they
+    # were last actually saved, not a fabricated value.
+    updated_at = models.DateTimeField(auto_now=True, null=True)
     fisherfolk_organization = models.ForeignKey(
         'associations.FisherfolkOrganization',
         on_delete=models.SET_NULL,

@@ -17,100 +17,27 @@ Idempotent: skips any row whose rsbsa_no already exists as a
 Farmer.rsbsa_number / Fisherfolk.rsbsa_number before creating.
 """
 import csv
-import re
+
 from collections import Counter
-from datetime import datetime
 
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from core.constants import BARANGAY_CHOICES
 from farmers.models import Farmer
+from farmers.rsbsa_import import (
+    EXPECTED_HEADERS,
+    IMPORT_SYSTEM_USER_EMAIL,
+    build_last_name,
+    classify_row,
+    normalize_barangay,
+    normalize_contact,
+    normalize_name_part,
+    parse_birthday,
+)
 from fisheries.models import Fisherfolk
 
 User = get_user_model()
-
-IMPORT_SYSTEM_USER_EMAIL = 'rsbsa-bfar-import@system.local'
-
-RSBSA_RE_A = re.compile(r'^01-33-02-\d{3}-\d{6}$')
-RSBSA_RE_B = re.compile(r'^BF-01-033-02-\d{3}-\d{8}$')
-RSBSA_RE_C = re.compile(r'^01-033-02-\d{3}-\d{6}$')
-RSBSA_RE_D = re.compile(r'^BF-01-033-02-\d{3}-\d{6}$')
-
-BGY_NORMALIZE = {
-    'PANGAO AOAN EAST': 'Pangao-aoan East',
-    'PANGAO AOAN WEST': 'Pangao-aoan West',
-}
-SYSTEM_BGY = {name.upper(): name for name, _ in BARANGAY_CHOICES}
-
-
-def normalize_barangay(raw):
-    raw = (raw or '').strip()
-    if raw in BGY_NORMALIZE:
-        return BGY_NORMALIZE[raw]
-    return SYSTEM_BGY.get(raw.upper())
-
-
-def is_corrupted_rsbsa(value):
-    v = value.strip()
-    body = v[3:] if v.startswith('BF-') else v
-    return any(not seg.isdigit() for seg in body.split('-'))
-
-
-def is_blank(v):
-    return not v or v.strip() == '' or v.strip().lower() == 'null'
-
-
-def normalize_contact(raw):
-    """CSV contact_num is always 10 digits, no leading 0 (e.g. '9307572121').
-    System convention is 11 digits starting with 09. Blank stays blank."""
-    v = (raw or '').strip()
-    if is_blank(v):
-        return ''
-    if len(v) == 10 and v.isdigit() and v.startswith('9'):
-        return '0' + v
-    return v
-
-
-def parse_birthday(raw):
-    return datetime.strptime(raw.strip(), '%d/%m/%Y').date()
-
-
-def normalize_name_part(raw):
-    return (raw or '').strip().title()
-
-
-def build_last_name(last_name, ext_name):
-    last = normalize_name_part(last_name)
-    ext = (ext_name or '').strip()
-    if ext and ext.lower() != 'null':
-        last = f'{last} {ext.title()}'
-    return last
-
-
-def classify_row(row):
-    """Returns (disposition, reason_or_None) where disposition is one of
-    'IMPORT-FARMER', 'IMPORT-FISHERFOLK', 'HOLD-BACK'."""
-    rsbsa = row['rsbsa_no'].strip()
-    if is_corrupted_rsbsa(rsbsa):
-        return 'HOLD-BACK', 'corrupted_rsbsa'
-
-    farmer_flag = (row['farmer'] or '').strip().upper()
-    farmworker_flag = (row['farmworker'] or '').strip().upper()
-    fisherfolk_flag = (row['fisherfolk'] or '').strip().upper()
-
-    if is_blank(farmer_flag) and is_blank(farmworker_flag) and is_blank(fisherfolk_flag):
-        return 'HOLD-BACK', 'all_flags_blank'
-
-    if normalize_barangay(row['farmer_address_bgy']) is None:
-        return 'HOLD-BACK', 'unmatched_barangay'
-
-    if fisherfolk_flag == 'YES':
-        return 'IMPORT-FISHERFOLK', None
-    if farmer_flag == 'YES' or farmworker_flag == 'YES':
-        return 'IMPORT-FARMER', None
-    return 'HOLD-BACK', 'all_flags_no'
 
 
 class Command(BaseCommand):
@@ -133,16 +60,10 @@ class Command(BaseCommand):
         except FileNotFoundError:
             raise CommandError(f'File not found: {csv_path}')
 
-        expected_headers = [
-            'rsbsa_no', 'control_no', 'first_name', 'middle_name', 'last_name', 'ext_name',
-            'farmer_address_bgy', 'farmer_address_mun', 'farmer_address_prv', 'birthday',
-            'gender', 'contact_num', 'cropname', 'crop_area', 'farmer', 'farmworker',
-            'fisherfolk', 'agency', 'farm_type', 'date_created', 'date_updated',
-        ]
         actual_headers = rows[0].keys() if rows else []
-        if list(actual_headers) != expected_headers:
+        if list(actual_headers) != EXPECTED_HEADERS:
             raise CommandError(
-                f'CSV headers do not match expected spec.\nExpected: {expected_headers}\nActual: {list(actual_headers)}'
+                f'CSV headers do not match expected spec.\nExpected: {EXPECTED_HEADERS}\nActual: {list(actual_headers)}'
             )
 
         self.stdout.write(f'Loaded {len(rows)} rows from {csv_path}')

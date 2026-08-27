@@ -75,6 +75,13 @@ class Farmer(models.Model):
     # operators. No UI restrictions are tied to this flag.
     is_farm_laborer = models.BooleanField(default=False)
     date_registered = models.DateTimeField(auto_now_add=True)
+    # Auto-updates on every save() — the only reliable "last touched" signal
+    # on this model (no per-field change history exists; see
+    # rsbsa_import_views.py's module docstring). null=True so existing rows
+    # backfill to whenever they were last actually saved, rather than a
+    # fabricated value — a row untouched since its original import keeps
+    # whatever timestamp its last real save produced.
+    updated_at = models.DateTimeField(auto_now=True, null=True)
     registered_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Upload } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
+import RsbsaImportModal from '../../components/RsbsaImportModal.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
@@ -64,6 +65,7 @@ function FarmersPage({ asTab = false }) {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
 
   const fetchFarmers = async (pageNum = page) => {
@@ -149,14 +151,24 @@ function FarmersPage({ asTab = false }) {
   }
 
   const actionBtn = (isAdmin || isEvaluator) ? (
-    <button
-      className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
-      onClick={() => setIsAddModalOpen(true)}
-      type="button"
-    >
-      <Plus size={16} />
-      Register Farmer
-    </button>
+    <div className="flex items-center gap-2">
+      <button
+        className="flex items-center gap-1.5 border border-[#D8E2D8] bg-white hover:bg-[#F5F7F5] text-[#1B4D2E] text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
+        onClick={() => setIsImportModalOpen(true)}
+        type="button"
+      >
+        <Upload size={16} />
+        Import File
+      </button>
+      <button
+        className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
+        onClick={() => setIsAddModalOpen(true)}
+        type="button"
+      >
+        <Plus size={16} />
+        Register Farmer
+      </button>
+    </div>
   ) : null
 
   const innerContent = (
@@ -260,6 +272,10 @@ function FarmersPage({ asTab = false }) {
           onClose={() => setIsAddModalOpen(false)}
           onSuccess={handleFarmerCreated}
         />
+      )}
+
+      {isImportModalOpen && (
+        <RsbsaImportModal onClose={() => setIsImportModalOpen(false)} />
       )}
     </>
   )
