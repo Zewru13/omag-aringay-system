@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Leaf, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Leaf, Pencil, Plus, Power, X } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
@@ -23,6 +23,7 @@ const COLUMNS = [
   { key: 'subcategory_name', label: 'SUBCATEGORY',            sortable: false },
   { key: 'days_to_harvest',  label: 'GROWTH DURATION (DAYS)', sortable: true },
   { key: 'yield_display',    label: 'YIELD PER HA (KG)',       sortable: true },
+  { key: 'status',           label: 'STATUS',                 sortable: false },
   { key: 'actions',          label: 'ACTIONS',                sortable: false },
 ]
 
@@ -432,7 +433,7 @@ export default function CropOptionPage({ asTab = false }) {
   const [search,        setSearch]        = useState('')
   const [showModal,     setShowModal]     = useState(false)
   const [editCrop,      setEditCrop]      = useState(null)
-  const [deletingCrop,  setDeletingCrop]  = useState(null)
+  const [togglingCrop,  setTogglingCrop]  = useState(null)
   const [sortKey,       setSortKey]       = useState('name')
   const [sortAsc,       setSortAsc]       = useState(true)
   const [page,          setPage]          = useState(1)
@@ -488,32 +489,45 @@ export default function CropOptionPage({ asTab = false }) {
   const totalPages = Math.max(1, Math.ceil(sortedCrops.length / PAGE_SIZE))
   const paginated  = sortedCrops.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
-  const rows = paginated.map(c => ({
-    ...c,
-    category_name:    c.category_name    || '—',
-    subcategory_name: c.subcategory_name || '—',
-    yield_display:    c.yield_per_ha_kg  ? `${Number(c.yield_per_ha_kg).toLocaleString()} kg/ha` : '—',
-    actions: (
-      <span className="flex items-center gap-1">
-        <button
-          type="button"
-          className="text-[#1B4D2E] p-1.5 rounded-lg hover:bg-[#EBF5EE] transition-colors"
-          onClick={() => { setEditCrop(c); setShowModal(true) }}
-          title="Edit"
-        >
-          <Pencil size={14} />
-        </button>
-        <button
-          type="button"
-          className="text-rose-500 p-1.5 rounded-lg hover:bg-rose-50 transition-colors"
-          onClick={() => setDeletingCrop(c)}
-          title="Delete"
-        >
-          <Trash2 size={14} />
-        </button>
-      </span>
-    ),
-  }))
+  const rows = paginated.map(c => {
+    const isActive = c.is_active !== false
+    return {
+      ...c,
+      category_name:    c.category_name    || '—',
+      subcategory_name: c.subcategory_name || '—',
+      yield_display:    c.yield_per_ha_kg  ? `${Number(c.yield_per_ha_kg).toLocaleString()} kg/ha` : '—',
+      _rowClassName:    isActive ? '' : 'opacity-60',
+      status: (
+        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
+          isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+        }`}>
+          {isActive ? 'Active' : 'Inactive'}
+        </span>
+      ),
+      actions: (
+        <span className="flex items-center gap-1">
+          <button
+            type="button"
+            className="text-[#1B4D2E] p-1.5 rounded-lg hover:bg-[#EBF5EE] transition-colors"
+            onClick={() => { setEditCrop(c); setShowModal(true) }}
+            title="Edit"
+          >
+            <Pencil size={14} />
+          </button>
+          <button
+            type="button"
+            className={`p-1.5 rounded-lg transition-colors ${
+              isActive ? 'text-rose-500 hover:bg-rose-50' : 'text-[#1B4D2E] hover:bg-[#EBF5EE]'
+            }`}
+            onClick={() => setTogglingCrop({ id: c.id, name: c.name, targetActive: !isActive })}
+            title={isActive ? 'Deactivate' : 'Activate'}
+          >
+            <Power size={14} />
+          </button>
+        </span>
+      ),
+    }
+  })
 
   const actionBtn = (
     <Button size="sm" onClick={() => { setEditCrop(null); setShowModal(true) }}>
@@ -582,7 +596,7 @@ export default function CropOptionPage({ asTab = false }) {
               </td></tr>
             ) : (
               rows.map((row) => (
-                <tr key={row.id} className="border-b border-[#F0F4F0] transition-colors hover:bg-[#F9FAF9]">
+                <tr key={row.id} className={`border-b border-[#F0F4F0] transition-colors hover:bg-[#F9FAF9] ${row._rowClassName}`}>
                   {COLUMNS.map(col => (
                     <td key={col.key} className="px-4 py-[13px] text-[13px] text-[#1A2B1A] align-middle">{row[col.key]}</td>
                   ))}
@@ -630,24 +644,28 @@ export default function CropOptionPage({ asTab = false }) {
         />
       )}
 
-      {deletingCrop && (
+      {togglingCrop && (
         <ConfirmDialog
-          title="Delete Crop Option"
-          message={`Are you sure you want to delete "${deletingCrop.name}"? This cannot be undone.`}
-          confirmLabel="Delete"
-          variant="danger"
+          title={togglingCrop.targetActive ? 'Activate Crop' : 'Deactivate Crop'}
+          message={
+            togglingCrop.targetActive
+              ? `Reactivate "${togglingCrop.name}"? It will reappear in the Add Crop Monitoring dropdown.`
+              : `Deactivate "${togglingCrop.name}"? It will disappear from the Add Crop Monitoring dropdown, but existing monitoring records that reference it are unaffected.`
+          }
+          confirmLabel={togglingCrop.targetActive ? 'Activate' : 'Deactivate'}
+          variant={togglingCrop.targetActive ? 'default' : 'danger'}
           onConfirm={async () => {
             try {
-              await api.delete(`/production/crop-types/${deletingCrop.id}/`)
-              showToast(`"${deletingCrop.name}" deleted.`, 'success')
-              setDeletingCrop(null)
+              await api.patch(`/production/crop-types/${togglingCrop.id}/`, { is_active: togglingCrop.targetActive })
+              showToast(`"${togglingCrop.name}" ${togglingCrop.targetActive ? 'activated' : 'deactivated'}.`, 'success')
+              setTogglingCrop(null)
               fetchAll()
             } catch {
-              showToast('Failed to delete crop. It may be in use.', 'error')
-              setDeletingCrop(null)
+              showToast('Failed to update crop status.', 'error')
+              setTogglingCrop(null)
             }
           }}
-          onCancel={() => setDeletingCrop(null)}
+          onCancel={() => setTogglingCrop(null)}
         />
       )}
     </div>

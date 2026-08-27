@@ -90,6 +90,15 @@ class Farmer(models.Model):
         related_name='member_farmers',
         help_text="Organization this farmer belongs to (optional)",
     )
+    # Toggle-not-delete batch: Farmers Organization membership has no join
+    # row (it IS farmers_organization above), so "removing" a member can't
+    # flip a status flag on a row the way Fisherfolk's join table can — this
+    # flag lives on Farmer instead, representing whether the membership
+    # itself is currently active. Deliberately separate from `is_active`
+    # above (whole-record registry status, unrelated to org membership) —
+    # a farmer can be a fully active registrant with an inactive org
+    # membership, or vice versa.
+    is_org_membership_active = models.BooleanField(default=True)
 
     @property
     def full_name(self):

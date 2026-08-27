@@ -17,7 +17,7 @@ const ROLE_OPTIONS = [
   },
   {
     value: 'EVALUATOR',
-    label: 'EVALUATOR',
+    label: 'FOCAL PERSON',
     desc: 'OMAg staff for daily data entry, crop monitoring, and record management.',
   },
 ]

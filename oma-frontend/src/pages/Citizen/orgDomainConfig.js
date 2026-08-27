@@ -50,15 +50,17 @@ export const FARMERS_ORG_DOMAIN = {
     farmer: personId,
     ...(confirm ? { confirm_reassignment: true } : {}),
   }),
-  // Farmers removal is addressed by FARMER id (the membership link is a
-  // field on Farmer, not a row).
-  removeMemberUrl: (orgId, row) => `/organizations/farmers/${orgId}/members/${row.id}/`,
+  // Farmers active/inactive is addressed by FARMER id (the membership link
+  // is a field on Farmer, not a row) — same URL the old hard-remove used,
+  // now PATCHed with {is_active} instead of DELETEd.
+  setMemberActiveUrl: (orgId, row) => `/organizations/farmers/${orgId}/members/${row.id}/`,
   assignOfficerBody: (position, personId) => ({ position, farmer: personId }),
 
   // Row accessors for the MEMBER LIST shape (not the search shape).
   rowPersonId: (row) => row.id,
   rowName: (row) => row.full_name,
   rowBarangay: (row) => row.barangay,
+  rowIsActive: (row) => row.is_org_membership_active !== false,
   officerPersonId: (o) => o.farmer_id,
   // Farmers are single-org, so a search hit already in another org means a
   // reassignment is about to happen.
@@ -96,13 +98,16 @@ export const FISHERFOLK_ORG_DOMAIN = {
     fisherfolk: personId,
     date_joined: new Date().toISOString().split('T')[0],
   }),
-  // Fisherfolk removal is addressed by the JOIN ROW id, not the person's.
-  removeMemberUrl: (orgId, row) => `/organizations/fisherfolk/${orgId}/members/${row.id}/`,
+  // Fisherfolk active/inactive is addressed by the JOIN ROW id, not the
+  // person's — same URL the old hard-remove used, now PATCHed with
+  // {is_active} instead of DELETEd.
+  setMemberActiveUrl: (orgId, row) => `/organizations/fisherfolk/${orgId}/members/${row.id}/`,
   assignOfficerBody: (position, personId) => ({ position, fisherfolk: personId }),
 
   rowPersonId: (row) => row.fisherfolk,
   rowName: (row) => row.fisherfolk_full_name,
   rowBarangay: (row) => row.fisherfolk_barangay,
+  rowIsActive: (row) => row.is_active !== false,
   officerPersonId: (o) => o.fisherfolk_id,
   // Multi-org is legitimate here, so there is never a reassignment warning —
   // this stays null and the Add Member screen skips the whole branch.

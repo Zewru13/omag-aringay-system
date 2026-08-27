@@ -81,7 +81,7 @@ const FAQS = [
   },
   {
     q: "Who can add or edit Crop Options and Categories?",
-    a: "Only Admin accounts can manage Crop Options, Crop Categories, and User Management. Evaluators can view and add crop records and activity logs.",
+    a: "Only Admin accounts can manage Crop Options, Crop Categories, and User Management. Focal Persons can view and add crop records and activity logs.",
   },
   {
     q: "How do I record a harvest?",

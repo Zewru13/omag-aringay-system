@@ -1646,6 +1646,25 @@ function isNearHarvest(row) {
   return diffDays <= 14
 }
 
+// Mirrors core.utils.harvest_gate_status on the backend (the real
+// enforcement — this is client-side UX only, to explain the gate before
+// the user even opens the modal rather than after a rejected submit).
+function harvestGateInfo(row) {
+  if (!row.date_planted || !row.expected_harvest_date) return { gated: false, message: null }
+  const planted = new Date(row.date_planted + 'T00:00:00')
+  const expected = new Date(row.expected_harvest_date + 'T00:00:00')
+  const totalDays = (expected - planted) / (1000 * 60 * 60 * 24)
+  if (totalDays <= 0) return { gated: false, message: null }
+  const halfwayDays = totalDays / 2
+  const elapsedDays = (new Date() - planted) / (1000 * 60 * 60 * 24)
+  if (elapsedDays >= halfwayDays) return { gated: false, message: null }
+  const daysRemaining = Math.ceil(halfwayDays - elapsedDays)
+  return {
+    gated: true,
+    message: `Harvest can only be recorded once at least half the expected growth duration has passed. Available in about ${daysRemaining} more day(s).`,
+  }
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 const COLUMNS = [
@@ -1660,6 +1679,7 @@ const COLUMNS = [
 
 export default function CropMonitoringPage() {
   const [searchParams] = useSearchParams()
+  const { showToast } = useToast()
 
   const [records,          setRecords]          = useState([])
   const [totalCount,       setTotalCount]       = useState(0)
@@ -1782,10 +1802,16 @@ export default function CropMonitoringPage() {
       <RowActions
         actions={[
           { key: 'logs', label: 'View Logs', icon: Eye, onClick: () => setViewLogsRecord(rec) },
-          rec.status !== 'Total Loss' && rec.status !== 'Harvested' && {
-            key: 'harvest', label: 'Record Harvest', icon: Wheat, onClick: () => setHarvestRecord(rec),
-            tone: isNearHarvest(rec) ? 'amber' : 'default',
-          },
+          rec.status !== 'Total Loss' && rec.status !== 'Harvested' && (() => {
+            const gate = harvestGateInfo(rec)
+            return {
+              key: 'harvest',
+              label: gate.gated ? 'Record Harvest (Not Yet Available)' : 'Record Harvest',
+              icon: Wheat,
+              onClick: () => (gate.gated ? showToast(gate.message, 'error') : setHarvestRecord(rec)),
+              tone: gate.gated ? 'default' : (isNearHarvest(rec) ? 'amber' : 'default'),
+            }
+          })(),
           { key: 'disaster', label: 'Report Disaster', icon: AlertTriangle, onClick: () => setDisasterRecord(rec), tone: 'rose' },
           isAdmin && lockStatuses[rec.id] && {
             key: 'unlock', label: `Force Unlock (${lockStatuses[rec.id].locked_by?.name || 'locked'})`, icon: Unlock,

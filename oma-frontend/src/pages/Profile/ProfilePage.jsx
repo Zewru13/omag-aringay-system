@@ -196,7 +196,7 @@ function ProfilePage() {
                 </p>
                 <div className="mt-1.5">
                   <StatusPill tone={profile?.role === "ADMIN" ? "green" : "blue"}>
-                    {profile?.role === "ADMIN" ? "Admin" : "Evaluator"}
+                    {profile?.role === "ADMIN" ? "Admin" : "Focal Person"}
                   </StatusPill>
                 </div>
               </div>

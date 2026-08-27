@@ -1,12 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Plus, Search, Sprout, Trash2, User } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { AlertTriangle, ChevronDown, ChevronRight, Plus, Search, Sprout, Trash2, User } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
-import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
-import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
+import BARANGAYS from '../../constants/barangays.js'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+
+// Compact variants of the standard form controls — the standard
+// baseInputClasses (h-[38px], px-3) is sized for a single stacked field;
+// a table cell needs a shorter, narrower control so a whole record fits on
+// one horizontal row.
+const cellInputClasses =
+  'w-full h-9 px-2 border border-[#E2E8E2] rounded-md text-[12px] text-[#1A2B1A] bg-white placeholder-[#A8BCA8] focus:outline-none focus:border-[#1B4D2E] focus:ring-2 focus:ring-[#1B4D2E]/10 transition-colors'
 
 function detectSeason(dateStr) {
   if (!dateStr) return 'Wet'
@@ -31,40 +37,6 @@ const makeRecord = (n) => ({
   seed_quantity_unit: 'kg',
   farm_parcel: '',
 })
-
-// ── Harvest Preview ───────────────────────────────────────────────────────────
-
-function HarvestPreview({ cropTypes, cropTypeId, datePlanted, areaPha }) {
-  const preview = useMemo(() => {
-    if (!cropTypeId || !datePlanted) return null
-    const ct = cropTypes.find(c => String(c.id) === String(cropTypeId))
-    if (!ct) return null
-    const harvest = new Date(datePlanted + 'T00:00:00')
-    harvest.setDate(harvest.getDate() + ct.days_to_harvest)
-    const estYield = ct.yield_per_ha_kg && areaPha
-      ? (parseFloat(ct.yield_per_ha_kg) * parseFloat(areaPha)).toFixed(0)
-      : null
-    return {
-      date: harvest.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }),
-      days: ct.days_to_harvest,
-      estYield,
-    }
-  }, [cropTypes, cropTypeId, datePlanted, areaPha])
-
-  if (!preview) return null
-  return (
-    <div className="flex items-start gap-2 rounded-xl border border-[#C8E6D0] bg-[#EBF5EE] px-4 py-2.5">
-      <AlertTriangle size={14} className="mt-0.5 shrink-0 text-[#1B4D2E]" />
-      <div>
-        <p className="text-xs font-semibold text-[#1B4D2E]">Expected Harvest: {preview.date}</p>
-        <p className="text-[11px] text-[#235E38]">
-          {preview.days} days growing period
-          {preview.estYield ? ` · Est. yield: ${Number(preview.estYield).toLocaleString()} kg` : ''}
-        </p>
-      </div>
-    </div>
-  )
-}
 
 // ── Farmer Search (top-level, shared) ─────────────────────────────────────────
 
@@ -136,7 +108,7 @@ function FarmerSearchInput({ onSelect, selected }) {
           value={displayValue}
           onChange={handleChange}
           onFocus={() => { if (results.length > 0) setShowDrop(true) }}
-          className={`${baseInputClasses} pl-8 ${selected.farmer_id ? 'pr-16' : ''}`}
+          className={`w-full h-[38px] px-3 pl-8 border border-[#E2E8E2] rounded-lg text-[13px] text-[#1A2B1A] bg-white placeholder-[#A8BCA8] focus:outline-none focus:border-[#1B4D2E] focus:ring-2 focus:ring-[#1B4D2E]/10 transition-colors ${selected.farmer_id ? 'pr-16' : ''}`}
         />
         {selected.farmer_id && (
           <button
@@ -205,9 +177,9 @@ function useCropDuplicateCheck(farmerId, cropTypeId) {
   return { duplicates, isChecking }
 }
 
-// ── Single Crop Record Card ───────────────────────────────────────────────────
+// ── Crop Record Row (tabular) ─────────────────────────────────────────────────
 
-function CropRecordCard({ rec, index, total, cropTypes, seedSources, varieties, farmerId, farmerParcels, errors, onUpdate, onRemove }) {
+function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, farmerId, farmerParcels, error, expanded, onToggleExpand, onUpdate, onRemove }) {
   const set = (field, value) => onUpdate(rec._id, field, value)
   const { duplicates, isChecking } = useCropDuplicateCheck(farmerId, rec.crop_type)
 
@@ -215,30 +187,24 @@ function CropRecordCard({ rec, index, total, cropTypes, seedSources, varieties, 
     v => v.is_active && (!v.crop_type || String(v.crop_type) === String(rec.crop_type))
   )
 
+  const selectedCropType = cropTypes.find(c => String(c.id) === String(rec.crop_type))
+  const hasDuplicates = !isChecking && duplicates.length > 0
+
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">Crop Record {index + 1}</p>
-        {total > 1 && (
-          <button type="button" onClick={() => onRemove(rec._id)}
-            className="flex items-center gap-1 text-xs font-medium text-rose-500 hover:text-rose-700">
-            <Trash2 size={12} /> Remove
-          </button>
-        )}
-      </div>
-
-      {/* Farm location + land status */}
-      <div className="grid gap-3 sm:grid-cols-2">
-        <BarangaySelect
-          id={`farm_loc_${rec._id}`}
-          label="Farm Location (Barangay)"
-          required
-          value={rec.farm_location_barangay}
-          onChange={e => set('farm_location_barangay', e.target.value)}
-          error={errors.farm_location_barangay}
-        />
-
-        <FormField label="Land Status" required error={errors.land_status}>
+    <>
+      <tr className={`border-b border-[#F0F4F0] ${error ? 'bg-rose-50/40' : ''}`}>
+        <td className="px-2 py-2 text-center text-[12px] text-[#7A8E7A] align-top">{index + 1}</td>
+        <td className="px-2 py-2 align-top min-w-[140px]">
+          <select
+            className={cellInputClasses}
+            value={rec.farm_location_barangay}
+            onChange={e => set('farm_location_barangay', e.target.value)}
+          >
+            <option value="" disabled>Select…</option>
+            {BARANGAYS.map(b => <option key={b} value={b}>{b}</option>)}
+          </select>
+        </td>
+        <td className="px-2 py-2 align-top min-w-[130px]">
           <ComboboxWithOther
             options={['Owner', 'Lessee', 'Tenant']}
             value={rec.land_status}
@@ -246,165 +212,162 @@ function CropRecordCard({ rec, index, total, cropTypes, seedSources, varieties, 
             onChange={(v) => set('land_status', v)}
             onOtherChange={(v) => set('land_status_other_specify', v)}
             placeholder="Select…"
+            inputClassName={cellInputClasses}
+            chevronSize={12}
           />
-        </FormField>
-
-        {farmerParcels.length > 0 && (
-          <FormField label="Link to Farm Parcel (optional)">
-            <select className={baseInputClasses} value={rec.farm_parcel}
-              onChange={e => set('farm_parcel', e.target.value)}>
-              <option value="">Not linked to a specific parcel</option>
-              {farmerParcels.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.parcel_number ? `Parcel ${p.parcel_number}` : `Parcel #${p.id}`} — {p.barangay}
-                </option>
-              ))}
-            </select>
-          </FormField>
-        )}
-      </div>
-
-      <div className="border-t border-[#F0F4F0]" />
-
-      {/* Crop details */}
-      <div className="grid gap-3 sm:grid-cols-2">
-        <FormField label="Crop Type" required>
-          <select className={baseInputClasses} value={rec.crop_type}
+        </td>
+        <td className="px-2 py-2 align-top min-w-[170px]">
+          <select className={cellInputClasses} value={rec.crop_type}
             onChange={e => set('crop_type', e.target.value)}>
-            <option value="">Select crop type…</option>
+            <option value="">Select crop…</option>
             {cropTypes.map(ct => (
               <option key={ct.id} value={ct.id}>{ct.name} ({ct.days_to_harvest}d)</option>
             ))}
           </select>
-        </FormField>
-
-        <FormField label="Date Planted" required>
-          <input type="date" className={baseInputClasses} value={rec.date_planted}
+          {hasDuplicates && (
+            <p className="mt-1 flex items-center gap-1 text-[11px] text-amber-700" title="An active record already exists for this crop — you may still proceed.">
+              <AlertTriangle size={11} className="shrink-0" /> Active record exists
+            </p>
+          )}
+        </td>
+        <td className="px-2 py-2 align-top min-w-[140px]">
+          <input type="date" className={cellInputClasses} value={rec.date_planted}
             max={new Date().toISOString().split('T')[0]}
             onChange={e => {
               set('date_planted', e.target.value)
               set('season', detectSeason(e.target.value))
             }} />
-        </FormField>
-
-        {rec.crop_type && (() => {
-          const ct = cropTypes.find(c => String(c.id) === String(rec.crop_type))
-          if (!ct) return null
-          return (
-            <div className="sm:col-span-2 bg-slate-50 rounded-xl px-4 py-3">
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Category</p>
-                  <p className="text-sm font-medium text-slate-900">{ct.category_name || '—'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Subcategory</p>
-                  <p className="text-sm font-medium text-slate-900">{ct.subcategory_name || '—'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Growth Duration</p>
-                  <p className="text-sm font-medium text-slate-900">{ct.days_to_harvest} days</p>
-                </div>
-              </div>
-            </div>
-          )
-        })()}
-
-        <FormField label="Area Planted (ha)" required>
-          <input type="number" step="0.01" min="0" className={baseInputClasses}
+          {selectedCropType && rec.date_planted && (
+            <p className="mt-1 text-[11px] text-[#7A8E7A]">
+              Harvest ~{(() => {
+                const d = new Date(rec.date_planted + 'T00:00:00')
+                d.setDate(d.getDate() + selectedCropType.days_to_harvest)
+                return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+              })()}
+            </p>
+          )}
+        </td>
+        <td className="px-2 py-2 align-top min-w-[100px]">
+          <input type="number" step="0.01" min="0" className={cellInputClasses}
             placeholder="0.00"
             value={rec.area_planted_ha}
             onChange={e => set('area_planted_ha', e.target.value)} />
-        </FormField>
-
-        <FormField label="Cropping Season" required>
-          <select className={baseInputClasses} value={rec.season}
+        </td>
+        <td className="px-2 py-2 align-top min-w-[110px]">
+          <select className={cellInputClasses} value={rec.season}
             onChange={e => set('season', e.target.value)}>
-            <option value="Wet">Wet Season (Jun–Nov)</option>
-            <option value="Dry">Dry Season (Dec–May)</option>
+            <option value="Wet">Wet</option>
+            <option value="Dry">Dry</option>
           </select>
-        </FormField>
-      </div>
-
-      <HarvestPreview
-        cropTypes={cropTypes}
-        cropTypeId={rec.crop_type}
-        datePlanted={rec.date_planted}
-        areaPha={rec.area_planted_ha}
-      />
-
-      {isChecking && (
-        <p className="text-xs text-slate-400 italic">Checking for active duplicates…</p>
+        </td>
+        <td className="px-2 py-2 align-top text-center">
+          <button
+            type="button"
+            onClick={() => onToggleExpand(rec._id)}
+            title="More fields (variety, seed source, parcel)"
+            className="inline-flex items-center gap-0.5 rounded-md px-1.5 py-1.5 text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors"
+          >
+            {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          </button>
+        </td>
+        <td className="px-2 py-2 align-top text-center">
+          {total > 1 && (
+            <button type="button" onClick={() => onRemove(rec._id)} title="Remove row"
+              className="inline-flex items-center rounded-md p-1.5 text-rose-500 hover:bg-rose-50 transition-colors">
+              <Trash2 size={13} />
+            </button>
+          )}
+        </td>
+      </tr>
+      {error && (
+        <tr className="border-b border-[#F0F4F0]">
+          <td />
+          <td colSpan={8} className="px-2 pb-2 -mt-1 text-[11px] text-rose-600">{error}</td>
+        </tr>
       )}
-
-      {!isChecking && duplicates.length > 0 && (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3">
-          <div className="flex items-center gap-2 mb-1.5">
-            <AlertTriangle size={13} className="text-amber-600 flex-shrink-0" />
-            <p className="text-xs font-semibold text-amber-800">
-              Active record{duplicates.length > 1 ? 's' : ''} already exist for this crop — you may still proceed.
-            </p>
-          </div>
-          <ul className="space-y-0.5">
-            {duplicates.map(d => (
-              <li key={d.id} className="text-xs text-amber-700">
-                Planted: {d.date_planted || '—'} · Area: {d.area_planted_ha} ha
-              </li>
-            ))}
-          </ul>
-        </div>
+      {expanded && (
+        <tr className="border-b border-[#F0F4F0] bg-[#F9FAF9]">
+          <td />
+          <td colSpan={8} className="px-3 py-3">
+            <div className="grid gap-3 sm:grid-cols-4">
+              <div>
+                <p className="mb-1 text-[11px] font-medium text-[#4A5E4A]">Variety (optional)</p>
+                <ComboboxWithOther
+                  options={relevantVarieties.map(v => v.name)}
+                  value={rec.variety_used_is_other ? 'Other' : rec.variety_used}
+                  otherValue={rec.variety_used}
+                  onChange={(v) => {
+                    if (v === 'Other') { set('variety_used_is_other', true); set('variety_used', '') }
+                    else { set('variety_used_is_other', false); set('variety_used', v) }
+                  }}
+                  onOtherChange={(v) => set('variety_used', v)}
+                  placeholder="Select variety"
+                  inputClassName={cellInputClasses}
+                  chevronSize={12}
+                />
+              </div>
+              <div>
+                <p className="mb-1 text-[11px] font-medium text-[#4A5E4A]">Seed Source (optional)</p>
+                <ComboboxWithOther
+                  options={seedSources.filter(s => s.is_active).map(s => s.name)}
+                  value={rec.seed_source}
+                  otherValue={rec.seed_source_other_specify}
+                  onChange={(v) => set('seed_source', v)}
+                  onOtherChange={(v) => set('seed_source_other_specify', v)}
+                  placeholder="Select source"
+                  inputClassName={cellInputClasses}
+                  chevronSize={12}
+                />
+              </div>
+              <div>
+                <p className="mb-1 text-[11px] font-medium text-[#4A5E4A]">Quantity of Seeds (optional)</p>
+                <div className="flex gap-1.5">
+                  <input type="number" step="0.01" min="0" className={cellInputClasses}
+                    placeholder="e.g. 25"
+                    value={rec.quantity_of_seeds}
+                    onChange={e => set('quantity_of_seeds', e.target.value)} />
+                  <select className={`${cellInputClasses} w-24 shrink-0`} value={rec.seed_quantity_unit}
+                    onChange={e => set('seed_quantity_unit', e.target.value)}>
+                    <option value="kg">kg</option>
+                    <option value="bags">bags</option>
+                    <option value="pcs">pcs</option>
+                    <option value="bundles">bundles</option>
+                  </select>
+                </div>
+              </div>
+              {farmerParcels.length > 0 && (
+                <div>
+                  <p className="mb-1 text-[11px] font-medium text-[#4A5E4A]">Farm Parcel (optional)</p>
+                  <select className={cellInputClasses} value={rec.farm_parcel}
+                    onChange={e => set('farm_parcel', e.target.value)}>
+                    <option value="">Not linked</option>
+                    {farmerParcels.map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.parcel_number ? `Parcel ${p.parcel_number}` : `Parcel #${p.id}`} — {p.barangay}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {isChecking && (
+                <p className="col-span-full text-[11px] text-slate-400 italic">Checking for active duplicates…</p>
+              )}
+              {hasDuplicates && (
+                <div className="col-span-full rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
+                  <ul className="space-y-0.5">
+                    {duplicates.map(d => (
+                      <li key={d.id} className="text-[11px] text-amber-700">
+                        Planted: {d.date_planted || '—'} · Area: {d.area_planted_ha} ha
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </td>
+        </tr>
       )}
-
-      {/* Optional planting details */}
-      <div className="grid gap-3 sm:grid-cols-2">
-        <FormField label="Variety Used (optional)">
-          <ComboboxWithOther
-            options={relevantVarieties.map(v => v.name)}
-            value={rec.variety_used_is_other ? 'Other' : rec.variety_used}
-            otherValue={rec.variety_used}
-            onChange={(v) => {
-              if (v === 'Other') {
-                set('variety_used_is_other', true)
-                set('variety_used', '')
-              } else {
-                set('variety_used_is_other', false)
-                set('variety_used', v)
-              }
-            }}
-            onOtherChange={(v) => set('variety_used', v)}
-            placeholder="Select variety"
-          />
-        </FormField>
-
-        <FormField label="Seed Source (optional)">
-          <ComboboxWithOther
-            options={seedSources.filter(s => s.is_active).map(s => s.name)}
-            value={rec.seed_source}
-            otherValue={rec.seed_source_other_specify}
-            onChange={(v) => set('seed_source', v)}
-            onOtherChange={(v) => set('seed_source_other_specify', v)}
-            placeholder="Select source"
-          />
-        </FormField>
-
-        <FormField label="Quantity of Seeds (optional)">
-          <input type="number" step="0.01" min="0" className={baseInputClasses}
-            placeholder="e.g. 25"
-            value={rec.quantity_of_seeds}
-            onChange={e => set('quantity_of_seeds', e.target.value)} />
-        </FormField>
-
-        <FormField label="Unit">
-          <select className={baseInputClasses} value={rec.seed_quantity_unit}
-            onChange={e => set('seed_quantity_unit', e.target.value)}>
-            <option value="kg">kg</option>
-            <option value="bags">bags</option>
-            <option value="pcs">pcs</option>
-            <option value="bundles">bundles</option>
-          </select>
-        </FormField>
-      </div>
-    </div>
+    </>
   )
 }
 
@@ -417,10 +380,11 @@ function AddCropMonitoringModal({ onClose, onSuccess }) {
   const [varieties,    setVarieties]    = useState([])
   const [records,      setRecords]      = useState([makeRecord(1)])
   const [nextId,       setNextId]       = useState(2)
+  const [expandedIds,  setExpandedIds]  = useState(() => new Set())
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showConfirm,  setShowConfirm]  = useState(false)
   const [error,        setError]        = useState('')
-  const [fieldErrors,  setFieldErrors]  = useState({})
+  const [rowErrors,    setRowErrors]    = useState({})
 
   // Shared farmer state — applies to ALL crop records in this session
   const [farmerInfo, setFarmerInfo] = useState({
@@ -430,19 +394,18 @@ function AddCropMonitoringModal({ onClose, onSuccess }) {
     farmer_assoc_id: null,
     farmer_assoc_name: '',
   })
-  // That farmer's existing parcels — optional traceability link (Batch F
-  // stretch goal) between this production record and the land registry.
   const [farmerParcels, setFarmerParcels] = useState([])
 
   useEffect(() => {
-    api.get('/production/crop-types/').then(r => setCropTypes(Array.isArray(r.data) ? r.data : (r.data.results || [])))
+    api.get('/production/crop-types/').then(r => {
+      const all = Array.isArray(r.data) ? r.data : (r.data.results || [])
+      setCropTypes(all.filter(ct => ct.is_active !== false))
+    })
     api.get('/production/seed-sources/').then(r => setSeedSources(Array.isArray(r.data) ? r.data : (r.data.results || [])))
     api.get('/production/varieties/').then(r => setVarieties(Array.isArray(r.data) ? r.data : (r.data.results || [])))
   }, [])
 
   useEffect(() => {
-    // Clear any parcel link picked for a previous farmer — a stale parcel id
-    // must never be submitted against a newly-selected farmer.
     setRecords(r => r.map(x => ({ ...x, farm_parcel: '' })))
     if (!farmerInfo.farmer_id) { setFarmerParcels([]); return }
     api.get(`/farmers/${farmerInfo.farmer_id}/parcels/`)
@@ -461,27 +424,56 @@ function AddCropMonitoringModal({ onClose, onSuccess }) {
     setRecords(r => r.map(x => x._id === id ? { ...x, [field]: value } : x))
   }
 
+  const toggleExpand = (id) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  const buildPayload = (rec) => {
+    const year = new Date(rec.date_planted).getFullYear()
+    return {
+      farmer:                 farmerInfo.farmer_id,
+      farmers_organization:    farmerInfo.farmer_assoc_id || null,
+      farm_location_barangay: rec.farm_location_barangay || '',
+      land_status:            rec.land_status || '',
+      land_status_other_specify: rec.land_status === 'Other' ? (rec.land_status_other_specify || '') : '',
+      crop_type:              rec.crop_type || null,
+      season:                 rec.season,
+      year,
+      date_planted:           rec.date_planted || null,
+      area_planted_ha:        rec.area_planted_ha || null,
+      variety_used:           rec.variety_used || '',
+      seed_source:            rec.seed_source || '',
+      seed_source_other_specify: rec.seed_source === 'Other' ? (rec.seed_source_other_specify || '') : '',
+      quantity_of_seeds:      rec.quantity_of_seeds ? parseFloat(rec.quantity_of_seeds) : null,
+      seed_quantity_unit:     rec.seed_quantity_unit || 'kg',
+      farm_parcel:            rec.farm_parcel || null,
+    }
+  }
+
   const validate = () => {
     if (!farmerInfo.farmer_id) { setError('Please select a farmer.'); return false }
-    for (const rec of records) {
-      const i = records.indexOf(rec) + 1
-      if (!rec.crop_type)       { setError(`Record ${i}: Crop type is required.`); return false }
-      if (!rec.date_planted)    { setError(`Record ${i}: Date planted is required.`); return false }
-      if (!rec.area_planted_ha) { setError(`Record ${i}: Area planted is required.`); return false }
-    }
-    const nextFieldErrors = {}
-    for (const rec of records) {
-      const recErrors = {}
-      if (!rec.farm_location_barangay) recErrors.farm_location_barangay = 'Farm location (barangay) is required.'
-      if (!rec.land_status) recErrors.land_status = 'Land status is required.'
-      if (Object.keys(recErrors).length > 0) nextFieldErrors[rec._id] = recErrors
-    }
-    if (Object.keys(nextFieldErrors).length > 0) {
-      setFieldErrors(nextFieldErrors)
-      setError('Please fix the highlighted fields.')
+    const nextRowErrors = {}
+    records.forEach((rec, i) => {
+      const missing = []
+      if (!rec.farm_location_barangay) missing.push('barangay')
+      if (!rec.land_status) missing.push('land status')
+      if (!rec.crop_type) missing.push('crop type')
+      if (!rec.date_planted) missing.push('date planted')
+      if (!rec.area_planted_ha) missing.push('area planted')
+      if (missing.length > 0) {
+        nextRowErrors[rec._id] = `Row ${i + 1}: missing ${missing.join(', ')}.`
+      }
+    })
+    if (Object.keys(nextRowErrors).length > 0) {
+      setRowErrors(nextRowErrors)
+      setError('Please fix the highlighted rows.')
       return false
     }
-    setFieldErrors({})
+    setRowErrors({})
     return true
   }
 
@@ -496,32 +488,26 @@ function AddCropMonitoringModal({ onClose, onSuccess }) {
     setShowConfirm(false)
     setIsSubmitting(true)
     try {
-      for (const rec of records) {
-        const year = new Date(rec.date_planted).getFullYear()
-        await api.post('/production/monitoring/', {
-          farmer:                 farmerInfo.farmer_id,
-          farmers_organization:    farmerInfo.farmer_assoc_id || null,
-          farm_location_barangay: rec.farm_location_barangay || '',
-          land_status:            rec.land_status || '',
-          land_status_other_specify: rec.land_status === 'Other' ? (rec.land_status_other_specify || '') : '',
-          crop_type:              rec.crop_type,
-          season:                 rec.season,
-          year,
-          date_planted:           rec.date_planted,
-          area_planted_ha:        rec.area_planted_ha,
-          variety_used:           rec.variety_used || '',
-          seed_source:            rec.seed_source || '',
-          seed_source_other_specify: rec.seed_source === 'Other' ? (rec.seed_source_other_specify || '') : '',
-          quantity_of_seeds:      rec.quantity_of_seeds ? parseFloat(rec.quantity_of_seeds) : null,
-          seed_quantity_unit:     rec.seed_quantity_unit || 'kg',
-          farm_parcel:            rec.farm_parcel || null,
-        })
-      }
+      await api.post('/production/monitoring/bulk/', records.map(buildPayload))
       showToast(`${records.length} crop monitoring record${records.length > 1 ? 's' : ''} added.`, 'success')
       onSuccess()
       onClose()
     } catch (err) {
-      setError(err?.response?.data?.detail || 'Failed to save one or more records.')
+      const data = err?.response?.data
+      if (data?.errors && Array.isArray(data.errors)) {
+        const nextRowErrors = {}
+        data.errors.forEach((rowErr, i) => {
+          if (rowErr && Object.keys(rowErr).length > 0) {
+            const rec = records[i]
+            const msgs = Object.entries(rowErr).map(([k, v]) => `${k.replace(/_/g, ' ')}: ${Array.isArray(v) ? v[0] : v}`)
+            nextRowErrors[rec._id] = `Row ${i + 1}: ${msgs.join(' · ')}`
+          }
+        })
+        setRowErrors(nextRowErrors)
+        setError('Nothing was saved — fix the highlighted row(s) and try again.')
+      } else {
+        setError(data?.detail || 'Nothing was saved — failed to add these records.')
+      }
     } finally {
       setIsSubmitting(false)
     }
@@ -529,24 +515,15 @@ function AddCropMonitoringModal({ onClose, onSuccess }) {
 
   return (
     <>
-      <ModalShell title="Add New Crop" subtitle="Enter crop information below." icon={Sprout} onClose={onClose} maxWidth="max-w-2xl">
+      <ModalShell title="Add New Crop" subtitle="Enter one row per crop record — all rows save together." icon={Sprout} onClose={onClose} maxWidth="max-w-6xl">
         <form onSubmit={handleSubmit}>
-          {/* Scrollable body */}
-          <div
-            className="overflow-y-auto pr-1 space-y-4 pb-6"
-            style={{ maxHeight: 'calc(85vh - 180px)' }}
-          >
-            {/* ── SECTION 1: Farmer (entered once) ── */}
+          <div className="overflow-y-auto pr-1 space-y-4 pb-6" style={{ maxHeight: 'calc(85vh - 180px)' }}>
+            {/* Farmer (entered once) */}
             <div className="rounded-xl bg-slate-50 border border-slate-200 p-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400 mb-3">
                 Farmer Information
               </p>
-
-              <FarmerSearchInput
-                onSelect={setFarmerInfo}
-                selected={farmerInfo}
-              />
-
+              <FarmerSearchInput onSelect={setFarmerInfo} selected={farmerInfo} />
               {farmerInfo.farmer_id && (
                 <div className="grid grid-cols-2 gap-3 mt-3">
                   <div>
@@ -561,42 +538,60 @@ function AddCropMonitoringModal({ onClose, onSuccess }) {
               )}
             </div>
 
-            {/* ── SECTION 2: Crop Records (repeatable) ── */}
-            {records.map((rec, i) => (
-              <CropRecordCard
-                key={rec._id}
-                rec={rec}
-                index={i}
-                total={records.length}
-                cropTypes={cropTypes}
-                seedSources={seedSources}
-                varieties={varieties}
-                farmerId={farmerInfo.farmer_id}
-                farmerParcels={farmerParcels}
-                errors={fieldErrors[rec._id] || {}}
-                onUpdate={updateRecord}
-                onRemove={removeRecord}
-              />
-            ))}
+            {/* Crop records — horizontal table, one row per record */}
+            <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white">
+              <table className="min-w-full text-sm">
+                <thead className="bg-[#1B4D2E] text-white">
+                  <tr>
+                    <th className="px-2 py-2 text-[10px] font-semibold uppercase tracking-wide">#</th>
+                    <th className="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wide">Barangay</th>
+                    <th className="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wide">Land Status</th>
+                    <th className="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wide">Crop Type</th>
+                    <th className="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wide">Date Planted</th>
+                    <th className="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wide">Area (ha)</th>
+                    <th className="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wide">Season</th>
+                    <th className="px-2 py-2 text-[10px] font-semibold uppercase tracking-wide">More</th>
+                    <th className="px-2 py-2 text-[10px] font-semibold uppercase tracking-wide"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {records.map((rec, i) => (
+                    <CropRecordRow
+                      key={rec._id}
+                      rec={rec}
+                      index={i}
+                      total={records.length}
+                      cropTypes={cropTypes}
+                      seedSources={seedSources}
+                      varieties={varieties}
+                      farmerId={farmerInfo.farmer_id}
+                      farmerParcels={farmerParcels}
+                      error={rowErrors[rec._id]}
+                      expanded={expandedIds.has(rec._id)}
+                      onToggleExpand={toggleExpand}
+                      onUpdate={updateRecord}
+                      onRemove={removeRecord}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
-            {/* Add Another Crop Record button — inside scroll area */}
             <button
               type="button"
               onClick={addRecord}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#C8D5C8] py-3 text-sm font-medium text-[#4A5E4A] hover:border-[#1B4D2E] hover:text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors mt-2 mb-2"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#C8D5C8] py-2.5 text-sm font-medium text-[#4A5E4A] hover:border-[#1B4D2E] hover:text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors"
             >
-              <Plus size={14} /> Add Another Crop Record
+              <Plus size={14} /> Add Another Row
             </button>
           </div>
 
-          {/* Error — outside scroll */}
           {error && (
             <p className="mt-3 rounded-xl bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-600">
               {error}
             </p>
           )}
 
-          {/* Footer — never scrolls away */}
           <div className="flex justify-end gap-3 border-t border-[#F0F4F0] pt-4 mt-4">
             <button type="button" onClick={onClose}
               className="rounded-lg border border-[#C8D5C8] px-5 py-2 text-sm font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">

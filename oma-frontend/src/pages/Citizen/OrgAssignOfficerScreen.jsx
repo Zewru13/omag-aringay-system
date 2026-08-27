@@ -54,11 +54,11 @@ export default function OrgAssignOfficerScreen({
         onBack={() => { setPosition(null); setErrorMessage('') }}
         theme={domain.theme}
       >
-        <OrgPrompt>{labels.orgAssignOfficer.pickMember}</OrgPrompt>
+        <OrgPrompt>{current ? null : labels.orgAssignOfficer.pickMember}</OrgPrompt>
 
         {current && (
           <p className="mb-3 rounded-[10px] border border-[#F5E0A3] bg-cz-alert-bg px-3.5 py-2.5 text-[13px] leading-[1.45] text-cz-alert-title">
-            {labels.orgAssignOfficer.willReplace(current.full_name)}
+            {labels.orgAssignOfficer.positionHeld(current.full_name)}
           </p>
         )}
 
@@ -68,7 +68,7 @@ export default function OrgAssignOfficerScreen({
           </p>
         )}
 
-        {members.length === 0 ? (
+        {current ? null : members.length === 0 ? (
           <p className="rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface p-6 text-center text-[13px] italic text-cz-text-muted">
             {labels.orgAssignOfficer.noMembers}
           </p>

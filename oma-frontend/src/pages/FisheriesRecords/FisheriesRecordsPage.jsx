@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, CheckCircle2, Eye, Fish, Lock, Pencil, Plus, Search, Trash2, Unlock, User, Wheat } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Eye, Fish, Lock, Pencil, Plus, Search, Trash2, Unlock, User, Wheat } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import RowActions from '../../components/UI/RowActions.jsx'
@@ -21,6 +21,12 @@ import {
   ViewStockingLogsModal,
 } from './StockingMonitoringModals.jsx'
 import PondSelector from './PondSelector.jsx'
+import PondModal from '../Fisheries/PondModal.jsx'
+
+// Compact variants of the standard form controls — sized for a table cell
+// instead of a single stacked field, so a whole record fits on one row.
+const cellInputClasses =
+  'w-full h-9 px-2 border border-[#E2E8E2] rounded-md text-[12px] text-[#1A2B1A] bg-white placeholder-[#A8BCA8] focus:outline-none focus:border-[#1B4D2E] focus:ring-2 focus:ring-[#1B4D2E]/10 transition-colors'
 
 const filterSelectCls =
   'rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[7px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none'
@@ -271,15 +277,74 @@ function makeRecord(n) {
   }
 }
 
-function StockingRecordCard({ rec, index, total, speciesList, fisherfolkId, onUpdate, onRemove }) {
+// Compact pond dropdown for a table cell — same fetch/select contract as
+// PondSelector.jsx (including "+ Add New Pond"), just without its FormField
+// wrapper and read-only preview panel, which don't fit a table row.
+function PondCell({ fisherfolkId, value, onSelectPond }) {
+  const [ponds, setPonds] = useState([])
+  const [showAddModal, setShowAddModal] = useState(false)
+  const ADD_NEW_VALUE = '__add_new__'
+
+  const fetchPonds = () => {
+    if (!fisherfolkId) { setPonds([]); return Promise.resolve([]) }
+    return api.get(`/fisheries/fisherfolk/${fisherfolkId}/ponds/`)
+      .then((r) => {
+        const list = Array.isArray(r.data) ? r.data : (r.data.results || [])
+        const active = list.filter((p) => p.is_active)
+        setPonds(active)
+        return active
+      })
+      .catch(() => { setPonds([]); return [] })
+  }
+
+  useEffect(() => { fetchPonds() }, [fisherfolkId])
+
+  const handleChange = (e) => {
+    const v = e.target.value
+    if (v === ADD_NEW_VALUE) { setShowAddModal(true); return }
+    if (!v) { onSelectPond(null); return }
+    const pond = ponds.find((p) => String(p.id) === String(v))
+    onSelectPond(pond || null)
+  }
+
+  const handlePondCreated = async () => {
+    const active = await fetchPonds()
+    const newest = active.reduce((a, b) => (!a || b.id > a.id ? b : a), null)
+    if (newest) onSelectPond(newest)
+  }
+
+  return (
+    <>
+      <select
+        className={cellInputClasses}
+        value={value || ''}
+        disabled={!fisherfolkId}
+        onChange={handleChange}
+      >
+        <option value="">{fisherfolkId ? 'Select pond…' : 'Pick fisherfolk first'}</option>
+        {ponds.map((p) => (
+          <option key={p.id} value={p.id}>{p.name}{p.barangay ? ` — ${p.barangay}` : ''}</option>
+        ))}
+        {fisherfolkId && <option value={ADD_NEW_VALUE}>+ Add New Pond</option>}
+      </select>
+
+      {showAddModal && (
+        <PondModal
+          fisherfolkId={fisherfolkId}
+          onClose={() => setShowAddModal(false)}
+          onSuccess={handlePondCreated}
+        />
+      )}
+    </>
+  )
+}
+
+function StockingRecordRow({ rec, index, total, speciesList, fisherfolkId, error, expanded, onToggleExpand, onUpdate, onRemove }) {
   const set = (field, value) => onUpdate(rec._id, field, value)
   const isShellfish = Boolean(rec._speciesObj && rec._speciesObj.category_name && rec._speciesObj.category_name !== 'Finfish')
 
   const handlePondSelect = (pond) => {
-    if (!pond) {
-      set('pond', null)
-      return
-    }
+    if (!pond) { set('pond', null); return }
     onUpdate(rec._id, 'pond', pond.id)
     onUpdate(rec._id, 'pond_location_barangay', pond.barangay || '')
     onUpdate(rec._id, 'area_hectares', pond.area_hectares != null ? String(pond.area_hectares) : '')
@@ -305,170 +370,176 @@ function StockingRecordCard({ rec, index, total, speciesList, fisherfolkId, onUp
   }
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">Stocking Record {index + 1}</p>
-        {total > 1 && (
-          <button type="button" onClick={() => onRemove(rec._id)}
-            className="flex items-center gap-1 text-xs font-medium text-rose-500 hover:text-rose-700">
-            <Trash2 size={12} /> Remove
-          </button>
-        )}
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <PondSelector fisherfolkId={fisherfolkId} value={rec.pond} onSelectPond={handlePondSelect} />
-        <FormField label="Land Status">
-          <ComboboxWithOther
-            options={['Owner', 'Lessee', 'Tenant']}
-            value={rec.land_status}
-            otherValue={rec.land_status_other_specify}
-            onChange={(v) => set('land_status', v)}
-            onOtherChange={(v) => set('land_status_other_specify', v)}
-            placeholder="Select…"
-          />
-        </FormField>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <FormField label="Culture Type" required>
-          <select className={baseInputClasses} value={rec.culture_type} onChange={e => set('culture_type', e.target.value)}>
-            <option value="Pond">Pond</option>
-            <option value="Cage">Cage</option>
-            <option value="Pen">Pen</option>
-          </select>
-        </FormField>
-        <FormField label="Species" required>
-          <select className={baseInputClasses} value={rec.species} onChange={e => handleSpeciesChange(e.target.value)}>
+    <>
+      <tr className={`border-b border-[#F0F4F0] ${error ? 'bg-rose-50/40' : ''}`}>
+        <td className="px-2 py-2 text-center text-[12px] text-[#7A8E7A] align-top">{index + 1}</td>
+        <td className="px-2 py-2 align-top min-w-[160px]">
+          <PondCell fisherfolkId={fisherfolkId} value={rec.pond} onSelectPond={handlePondSelect} />
+        </td>
+        <td className="px-2 py-2 align-top min-w-[170px]">
+          <select className={cellInputClasses} value={rec.species} onChange={e => handleSpeciesChange(e.target.value)}>
             <option value="">Select species…</option>
             {speciesList.map(s => (
               <option key={s.id} value={s.id}>{s.species_name} ({s.culture_environment})</option>
             ))}
           </select>
-        </FormField>
-      </div>
-
-      <FormField label="Culture Phase (optional)">
-        <ComboboxWithOther
-          options={['Nursery Phase', 'Stocking Phase', 'Grow-out Phase', 'Harvest Phase', 'Post-Harvest Phase']}
-          value={rec.culture_phase}
-          otherValue={rec.culture_phase_other_specify}
-          onChange={(v) => set('culture_phase', v)}
-          onOtherChange={(v) => set('culture_phase_other_specify', v)}
-          placeholder="Select…"
-        />
-      </FormField>
-
-      {rec._speciesObj && (
-        <div className="sm:col-span-2 bg-slate-50 border border-[#E2E8E2] rounded-xl px-4 py-3">
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Category</p>
-              <p className="text-sm font-medium text-slate-900">{rec._speciesObj.category_name || '—'}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Environment</p>
-              <p className="text-sm font-medium text-slate-900">{rec._speciesObj.culture_environment}</p>
-            </div>
-            <div>
-              <p className="text-xs text-slate-400 uppercase tracking-wide mb-0.5">Culture Duration</p>
-              <p className="text-sm font-medium text-slate-900">{rec._speciesObj.culture_duration_days} days</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <FormField label={rec.culture_type === 'Pond' ? 'Number of Ponds' : rec.culture_type === 'Pen' ? 'Number of Pens' : 'Number of Cages'}>
-          <input type="number" min="0" className={baseInputClasses}
-            placeholder={rec.culture_type === 'Pond' ? 'e.g. 2' : rec.culture_type === 'Pen' ? 'e.g. 3' : 'e.g. 5'}
-            value={rec.number_of_units}
-            onChange={e => set('number_of_units', e.target.value)} />
-        </FormField>
-        {rec.culture_type !== 'Pond' && (
-          <FormField label="Unit Dimensions">
-            <input type="text" className={baseInputClasses}
-              placeholder="e.g. 10m x 10m x 2m" value={rec.unit_dimensions}
-              onChange={e => set('unit_dimensions', e.target.value)} />
-          </FormField>
-        )}
-      </div>
-
-      {!isShellfish && (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <FormField label="Fingerling/Fry Source">
-            <ComboboxWithOther
-              options={['BFAR', 'Private Hatchery', 'Own Production']}
-              value={rec.fingerling_source}
-              otherValue={rec.fingerling_source_other_specify}
-              onChange={(v) => set('fingerling_source', v)}
-              onOtherChange={(v) => set('fingerling_source_other_specify', v)}
-              placeholder="Select…"
-            />
-          </FormField>
-        </div>
-      )}
-
-      {!isShellfish && (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <FormField label="Average Fingerling Size (optional)">
-            <input type="text" className={baseInputClasses}
-              placeholder="e.g. 2-3 cm" value={rec.avg_fingerling_size}
-              onChange={e => set('avg_fingerling_size', e.target.value)} />
-          </FormField>
-        </div>
-      )}
-
-      <FormField label="Date Stocked" required>
-        <input type="date" className={baseInputClasses} value={rec.date_stocked}
-          max={new Date().toISOString().split('T')[0]}
-          onChange={e => {
-            set('date_stocked', e.target.value)
-            set('season', detectSeason(e.target.value))
-          }} />
-      </FormField>
-
-      <div className="grid gap-3 sm:grid-cols-3">
-        <FormField label={isShellfish ? 'No. of Spat / Pieces' : 'No. of Fingerlings'} required>
-          <input type="number" min="1" className={baseInputClasses}
-            placeholder="e.g. 500" value={rec.number_of_fingerlings}
+        </td>
+        <td className="px-2 py-2 align-top min-w-[110px]">
+          <select className={cellInputClasses} value={rec.culture_type} onChange={e => set('culture_type', e.target.value)}>
+            <option value="Pond">Pond</option>
+            <option value="Cage">Cage</option>
+            <option value="Pen">Pen</option>
+          </select>
+        </td>
+        <td className="px-2 py-2 align-top min-w-[140px]">
+          <input type="date" className={cellInputClasses} value={rec.date_stocked}
+            max={new Date().toISOString().split('T')[0]}
+            onChange={e => {
+              set('date_stocked', e.target.value)
+              set('season', detectSeason(e.target.value))
+            }} />
+        </td>
+        <td className="px-2 py-2 align-top min-w-[110px]">
+          <input type="number" min="1" className={cellInputClasses}
+            placeholder={isShellfish ? 'Spat/pcs' : 'e.g. 500'} value={rec.number_of_fingerlings}
             onChange={e => set('number_of_fingerlings', e.target.value)} />
-        </FormField>
-        <FormField label="Survival Rate (%)">
-          <input type="number" min="0" max="100" step="0.01" className={baseInputClasses}
-            placeholder="e.g. 80.00" value={rec.survival_rate_pct}
-            onChange={e => set('survival_rate_pct', e.target.value)} />
-        </FormField>
-        <FormField label="Avg Body Weight (kg)">
-          <input type="number" min="0" step="0.001" className={baseInputClasses}
-            placeholder="e.g. 0.250" value={rec.avg_body_weight_kg}
-            onChange={e => set('avg_body_weight_kg', e.target.value)} />
-        </FormField>
-      </div>
-
-      <FormField label="Seed/Fingerling Cost (₱, optional)">
-        <input type="number" min="0" step="0.01" className={baseInputClasses}
-          placeholder="e.g. 1500.00" value={rec.seed_cost_php}
-          onChange={e => set('seed_cost_php', e.target.value)} />
-      </FormField>
-
-      <HarvestPreviewBox
-        species={rec._speciesObj}
-        dateStocked={rec.date_stocked}
-        fingerlings={rec.number_of_fingerlings}
-        survivalRate={rec.survival_rate_pct}
-        avgWeight={rec.avg_body_weight_kg}
-        areaHectares={rec.area_hectares}
-        productionCycleNo={rec._productionCycleNo}
-      />
-
-      <FormField label="Season">
-        <select className={baseInputClasses} value={rec.season} onChange={e => set('season', e.target.value)}>
-          <option value="Wet">Wet Season (Jun–Nov)</option>
-          <option value="Dry">Dry Season (Dec–May)</option>
-        </select>
-      </FormField>
-    </div>
+        </td>
+        <td className="px-2 py-2 align-top min-w-[100px]">
+          <select className={cellInputClasses} value={rec.season} onChange={e => set('season', e.target.value)}>
+            <option value="Wet">Wet</option>
+            <option value="Dry">Dry</option>
+          </select>
+        </td>
+        <td className="px-2 py-2 align-top text-center">
+          <button
+            type="button"
+            onClick={() => onToggleExpand(rec._id)}
+            title="More fields (land status, culture phase, survival rate...)"
+            className="inline-flex items-center gap-0.5 rounded-md px-1.5 py-1.5 text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors"
+          >
+            {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          </button>
+        </td>
+        <td className="px-2 py-2 align-top text-center">
+          {total > 1 && (
+            <button type="button" onClick={() => onRemove(rec._id)} title="Remove row"
+              className="inline-flex items-center rounded-md p-1.5 text-rose-500 hover:bg-rose-50 transition-colors">
+              <Trash2 size={13} />
+            </button>
+          )}
+        </td>
+      </tr>
+      {error && (
+        <tr className="border-b border-[#F0F4F0]">
+          <td />
+          <td colSpan={8} className="px-2 pb-2 -mt-1 text-[11px] text-rose-600">{error}</td>
+        </tr>
+      )}
+      {expanded && (
+        <tr className="border-b border-[#F0F4F0] bg-[#F9FAF9]">
+          <td />
+          <td colSpan={8} className="px-3 py-3">
+            <div className="grid gap-3 sm:grid-cols-4">
+              <div>
+                <p className="mb-1 text-[11px] font-medium text-[#4A5E4A]">Land Status (optional)</p>
+                <ComboboxWithOther
+                  options={['Owner', 'Lessee', 'Tenant']}
+                  value={rec.land_status}
+                  otherValue={rec.land_status_other_specify}
+                  onChange={(v) => set('land_status', v)}
+                  onOtherChange={(v) => set('land_status_other_specify', v)}
+                  placeholder="Select…"
+                  inputClassName={cellInputClasses}
+                  chevronSize={12}
+                />
+              </div>
+              <div>
+                <p className="mb-1 text-[11px] font-medium text-[#4A5E4A]">Culture Phase (optional)</p>
+                <ComboboxWithOther
+                  options={['Nursery Phase', 'Stocking Phase', 'Grow-out Phase', 'Harvest Phase', 'Post-Harvest Phase']}
+                  value={rec.culture_phase}
+                  otherValue={rec.culture_phase_other_specify}
+                  onChange={(v) => set('culture_phase', v)}
+                  onOtherChange={(v) => set('culture_phase_other_specify', v)}
+                  placeholder="Select…"
+                  inputClassName={cellInputClasses}
+                  chevronSize={12}
+                />
+              </div>
+              <div>
+                <p className="mb-1 text-[11px] font-medium text-[#4A5E4A]">
+                  {rec.culture_type === 'Pond' ? 'Number of Ponds' : rec.culture_type === 'Pen' ? 'Number of Pens' : 'Number of Cages'} (optional)
+                </p>
+                <input type="number" min="0" className={cellInputClasses}
+                  placeholder={rec.culture_type === 'Pond' ? 'e.g. 2' : rec.culture_type === 'Pen' ? 'e.g. 3' : 'e.g. 5'}
+                  value={rec.number_of_units}
+                  onChange={e => set('number_of_units', e.target.value)} />
+              </div>
+              {rec.culture_type !== 'Pond' && (
+                <div>
+                  <p className="mb-1 text-[11px] font-medium text-[#4A5E4A]">Unit Dimensions (optional)</p>
+                  <input type="text" className={cellInputClasses}
+                    placeholder="e.g. 10m x 10m x 2m" value={rec.unit_dimensions}
+                    onChange={e => set('unit_dimensions', e.target.value)} />
+                </div>
+              )}
+              {!isShellfish && (
+                <div>
+                  <p className="mb-1 text-[11px] font-medium text-[#4A5E4A]">Fingerling/Fry Source (optional)</p>
+                  <ComboboxWithOther
+                    options={['BFAR', 'Private Hatchery', 'Own Production']}
+                    value={rec.fingerling_source}
+                    otherValue={rec.fingerling_source_other_specify}
+                    onChange={(v) => set('fingerling_source', v)}
+                    onOtherChange={(v) => set('fingerling_source_other_specify', v)}
+                    placeholder="Select…"
+                    inputClassName={cellInputClasses}
+                    chevronSize={12}
+                  />
+                </div>
+              )}
+              {!isShellfish && (
+                <div>
+                  <p className="mb-1 text-[11px] font-medium text-[#4A5E4A]">Avg Fingerling Size (optional)</p>
+                  <input type="text" className={cellInputClasses}
+                    placeholder="e.g. 2-3 cm" value={rec.avg_fingerling_size}
+                    onChange={e => set('avg_fingerling_size', e.target.value)} />
+                </div>
+              )}
+              <div>
+                <p className="mb-1 text-[11px] font-medium text-[#4A5E4A]">Survival Rate % (optional)</p>
+                <input type="number" min="0" max="100" step="0.01" className={cellInputClasses}
+                  placeholder="e.g. 80.00" value={rec.survival_rate_pct}
+                  onChange={e => set('survival_rate_pct', e.target.value)} />
+              </div>
+              <div>
+                <p className="mb-1 text-[11px] font-medium text-[#4A5E4A]">Avg Body Weight kg (optional)</p>
+                <input type="number" min="0" step="0.001" className={cellInputClasses}
+                  placeholder="e.g. 0.250" value={rec.avg_body_weight_kg}
+                  onChange={e => set('avg_body_weight_kg', e.target.value)} />
+              </div>
+              <div>
+                <p className="mb-1 text-[11px] font-medium text-[#4A5E4A]">Seed/Fingerling Cost ₱ (optional)</p>
+                <input type="number" min="0" step="0.01" className={cellInputClasses}
+                  placeholder="e.g. 1500.00" value={rec.seed_cost_php}
+                  onChange={e => set('seed_cost_php', e.target.value)} />
+              </div>
+              <div className="col-span-full">
+                <HarvestPreviewBox
+                  species={rec._speciesObj}
+                  dateStocked={rec.date_stocked}
+                  fingerlings={rec.number_of_fingerlings}
+                  survivalRate={rec.survival_rate_pct}
+                  avgWeight={rec.avg_body_weight_kg}
+                  areaHectares={rec.area_hectares}
+                  productionCycleNo={rec._productionCycleNo}
+                />
+              </div>
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   )
 }
 
@@ -477,9 +548,11 @@ function AddStockingModal({ onClose, onSuccess }) {
   const [speciesList,  setSpeciesList]  = useState([])
   const [records,      setRecords]      = useState([makeRecord(1)])
   const [nextId,       setNextId]       = useState(2)
+  const [expandedIds,  setExpandedIds]  = useState(() => new Set())
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showConfirm,  setShowConfirm]  = useState(false)
   const [error,        setError]        = useState('')
+  const [rowErrors,    setRowErrors]    = useState({})
   const [fisherfolkInfo, setFisherfolkInfo] = useState({
     id: null, full_name: '', barangay: '', assoc_name: '',
   })
@@ -514,14 +587,62 @@ function AddStockingModal({ onClose, onSuccess }) {
     setRecords(r => r.map(x => x._id === id ? { ...x, [field]: value } : x))
   }
 
+  const toggleExpand = (id) => {
+    setExpandedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  const buildPayload = (rec) => {
+    const year = new Date(rec.date_stocked).getFullYear()
+    return {
+      fisherfolk:               fisherfolkInfo.id,
+      species:                  rec.species || null,
+      pond:                     rec.pond || null,
+      pond_location_barangay:   rec.pond_location_barangay || '',
+      land_status:              rec.land_status || '',
+      land_status_other_specify: rec.land_status === 'Other' ? (rec.land_status_other_specify || '') : '',
+      culture_type:             rec.culture_type,
+      date_stocked:             rec.date_stocked || null,
+      area_hectares:            rec.area_hectares ? parseFloat(rec.area_hectares) : null,
+      number_of_fingerlings:    rec.number_of_fingerlings ? parseInt(rec.number_of_fingerlings) : null,
+      survival_rate_pct:        rec.survival_rate_pct !== '' ? parseFloat(rec.survival_rate_pct) : null,
+      avg_body_weight_kg:       rec.avg_body_weight_kg !== '' ? parseFloat(rec.avg_body_weight_kg) : null,
+      water_source:             rec.water_source || '',
+      water_source_other_specify: rec.water_source === 'Other' ? (rec.water_source_other_specify || '') : '',
+      number_of_units:          rec.number_of_units !== '' ? parseInt(rec.number_of_units) : null,
+      unit_dimensions:          rec.unit_dimensions || '',
+      fingerling_source:        rec.fingerling_source || '',
+      fingerling_source_other_specify: rec.fingerling_source === 'Other' ? (rec.fingerling_source_other_specify || '') : '',
+      avg_fingerling_size:      rec.avg_fingerling_size || '',
+      culture_phase:            rec.culture_phase || '',
+      culture_phase_other_specify: rec.culture_phase === 'Other' ? (rec.culture_phase_other_specify || '') : '',
+      seed_cost_php:            rec.seed_cost_php !== '' ? parseFloat(rec.seed_cost_php) : null,
+      season:                   rec.season,
+      year,
+    }
+  }
+
   const validate = () => {
     if (!fisherfolkInfo.id) { setError('Please select a fisherfolk.'); return false }
-    for (const rec of records) {
-      const i = records.indexOf(rec) + 1
-      if (!rec.species)              { setError(`Record ${i}: Species is required.`); return false }
-      if (!rec.date_stocked)         { setError(`Record ${i}: Date stocked is required.`); return false }
-      if (!rec.number_of_fingerlings){ setError(`Record ${i}: Number of fingerlings is required.`); return false }
+    const nextRowErrors = {}
+    records.forEach((rec, i) => {
+      const missing = []
+      if (!rec.species) missing.push('species')
+      if (!rec.date_stocked) missing.push('date stocked')
+      if (!rec.number_of_fingerlings) missing.push('number of fingerlings')
+      if (missing.length > 0) {
+        nextRowErrors[rec._id] = `Row ${i + 1}: missing ${missing.join(', ')}.`
+      }
+    })
+    if (Object.keys(nextRowErrors).length > 0) {
+      setRowErrors(nextRowErrors)
+      setError('Please fix the highlighted rows.')
+      return false
     }
+    setRowErrors({})
     return true
   }
 
@@ -534,45 +655,24 @@ function AddStockingModal({ onClose, onSuccess }) {
   const handleConfirmed = async () => {
     setShowConfirm(false); setIsSubmitting(true)
     try {
-      for (const rec of records) {
-        const year = new Date(rec.date_stocked).getFullYear()
-        await api.post('/fisheries/stocking/', {
-          fisherfolk:               fisherfolkInfo.id,
-          species:                  rec.species,
-          pond:                     rec.pond || null,
-          pond_location_barangay:   rec.pond_location_barangay || '',
-          land_status:              rec.land_status || '',
-          land_status_other_specify: rec.land_status === 'Other' ? (rec.land_status_other_specify || '') : '',
-          culture_type:             rec.culture_type,
-          date_stocked:             rec.date_stocked,
-          area_hectares:            rec.area_hectares ? parseFloat(rec.area_hectares) : null,
-          number_of_fingerlings:    parseInt(rec.number_of_fingerlings),
-          survival_rate_pct:        rec.survival_rate_pct !== '' ? parseFloat(rec.survival_rate_pct) : null,
-          avg_body_weight_kg:       rec.avg_body_weight_kg !== '' ? parseFloat(rec.avg_body_weight_kg) : null,
-          water_source:             rec.water_source || '',
-          water_source_other_specify: rec.water_source === 'Other' ? (rec.water_source_other_specify || '') : '',
-          number_of_units:          rec.number_of_units !== '' ? parseInt(rec.number_of_units) : null,
-          unit_dimensions:          rec.unit_dimensions || '',
-          fingerling_source:        rec.fingerling_source || '',
-          fingerling_source_other_specify: rec.fingerling_source === 'Other' ? (rec.fingerling_source_other_specify || '') : '',
-          avg_fingerling_size:      rec.avg_fingerling_size || '',
-          culture_phase:            rec.culture_phase || '',
-          culture_phase_other_specify: rec.culture_phase === 'Other' ? (rec.culture_phase_other_specify || '') : '',
-          seed_cost_php:            rec.seed_cost_php !== '' ? parseFloat(rec.seed_cost_php) : null,
-          season:                   rec.season,
-          year,
-        })
-      }
+      await api.post('/fisheries/stocking/bulk/', records.map(buildPayload))
       showToast(`${records.length} stocking record${records.length > 1 ? 's' : ''} added.`, 'success')
       onSuccess(); onClose()
     } catch (err) {
       const data = err?.response?.data
-      if (data && typeof data === 'object') {
-        const msgs = Object.entries(data)
-          .map(([k, v]) => `${k.replace(/_/g, ' ')}: ${Array.isArray(v) ? v[0] : v}`)
-        setError(msgs.join(' · ') || 'Failed to save one or more records.')
+      if (data?.errors && Array.isArray(data.errors)) {
+        const nextRowErrors = {}
+        data.errors.forEach((rowErr, i) => {
+          if (rowErr && Object.keys(rowErr).length > 0) {
+            const rec = records[i]
+            const msgs = Object.entries(rowErr).map(([k, v]) => `${k.replace(/_/g, ' ')}: ${Array.isArray(v) ? v[0] : v}`)
+            nextRowErrors[rec._id] = `Row ${i + 1}: ${msgs.join(' · ')}`
+          }
+        })
+        setRowErrors(nextRowErrors)
+        setError('Nothing was saved — fix the highlighted row(s) and try again.')
       } else {
-        setError('Failed to save one or more records.')
+        setError(data?.detail || 'Nothing was saved — failed to add these records.')
       }
     } finally {
       setIsSubmitting(false)
@@ -581,7 +681,7 @@ function AddStockingModal({ onClose, onSuccess }) {
 
   return (
     <>
-      <ModalShell title="Add New Stocking Record" subtitle="Enter stocking information below." icon={Fish} onClose={onClose} maxWidth="max-w-2xl">
+      <ModalShell title="Add New Stocking Record" subtitle="Enter one row per stocking record — all rows save together." icon={Fish} onClose={onClose} maxWidth="max-w-6xl">
         <form onSubmit={handleSubmit}>
           <div className="overflow-y-auto pr-1 space-y-4 pb-6" style={{ maxHeight: 'calc(85vh - 180px)' }}>
             {/* Fisherfolk section */}
@@ -604,35 +704,57 @@ function AddStockingModal({ onClose, onSuccess }) {
               )}
             </div>
 
-            {/* Stocking records */}
-            {(() => {
-              const speciesCounts = {}
-              return records.map((rec, i) => {
-                const key = rec.species || '_none'
-                const before = speciesCounts[key] || 0
-                speciesCounts[key] = before + 1
-                const recWithCycle = { ...rec, _productionCycleNo: rec.species ? existingCycleCount + before + 1 : null }
-                return (
-                  <StockingRecordCard
-                    key={rec._id}
-                    rec={recWithCycle}
-                    index={i}
-                    total={records.length}
-                    speciesList={speciesList}
-                    fisherfolkId={fisherfolkInfo.id}
-                    onUpdate={updateRecord}
-                    onRemove={removeRecord}
-                  />
-                )
-              })
-            })()}
+            {/* Stocking records — horizontal table, one row per record */}
+            <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white">
+              <table className="min-w-full text-sm">
+                <thead className="bg-[#1B4D2E] text-white">
+                  <tr>
+                    <th className="px-2 py-2 text-[10px] font-semibold uppercase tracking-wide">#</th>
+                    <th className="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wide">Pond</th>
+                    <th className="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wide">Species</th>
+                    <th className="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wide">Culture Type</th>
+                    <th className="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wide">Date Stocked</th>
+                    <th className="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wide">No. Fingerlings</th>
+                    <th className="px-2 py-2 text-left text-[10px] font-semibold uppercase tracking-wide">Season</th>
+                    <th className="px-2 py-2 text-[10px] font-semibold uppercase tracking-wide">More</th>
+                    <th className="px-2 py-2 text-[10px] font-semibold uppercase tracking-wide"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const speciesCounts = {}
+                    return records.map((rec, i) => {
+                      const key = rec.species || '_none'
+                      const before = speciesCounts[key] || 0
+                      speciesCounts[key] = before + 1
+                      const recWithCycle = { ...rec, _productionCycleNo: rec.species ? existingCycleCount + before + 1 : null }
+                      return (
+                        <StockingRecordRow
+                          key={rec._id}
+                          rec={recWithCycle}
+                          index={i}
+                          total={records.length}
+                          speciesList={speciesList}
+                          fisherfolkId={fisherfolkInfo.id}
+                          error={rowErrors[rec._id]}
+                          expanded={expandedIds.has(rec._id)}
+                          onToggleExpand={toggleExpand}
+                          onUpdate={updateRecord}
+                          onRemove={removeRecord}
+                        />
+                      )
+                    })
+                  })()}
+                </tbody>
+              </table>
+            </div>
 
             <button
               type="button"
               onClick={addRecord}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#C8D5C8] py-3 text-sm font-medium text-[#4A5E4A] hover:border-[#1B4D2E] hover:text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors mt-2 mb-2"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#C8D5C8] py-2.5 text-sm font-medium text-[#4A5E4A] hover:border-[#1B4D2E] hover:text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors"
             >
-              <Plus size={14} /> Add Another Stocking Record
+              <Plus size={14} /> Add Another Row
             </button>
           </div>
 
@@ -1108,21 +1230,44 @@ function StockingDetailModal({ record, onClose }) {
 // between the groups since a row always offers 3+ applicable actions here.
 // Delete lives inside EditStockingModal's Danger Zone, not in this menu.
 
+// Mirrors core.utils.harvest_gate_status on the backend (the real
+// enforcement — this is client-side UX only, to explain the gate before
+// the user even opens the modal rather than after a rejected submit).
+function harvestGateInfo(rec) {
+  if (!rec.date_stocked || !rec.expected_harvest_date) return { gated: false, message: null }
+  const stocked = new Date(rec.date_stocked + 'T00:00:00')
+  const expected = new Date(rec.expected_harvest_date + 'T00:00:00')
+  const totalDays = (expected - stocked) / (1000 * 60 * 60 * 24)
+  if (totalDays <= 0) return { gated: false, message: null }
+  const halfwayDays = totalDays / 2
+  const elapsedDays = (new Date() - stocked) / (1000 * 60 * 60 * 24)
+  if (elapsedDays >= halfwayDays) return { gated: false, message: null }
+  const daysRemaining = Math.ceil(halfwayDays - elapsedDays)
+  return {
+    gated: true,
+    message: `Harvest can only be recorded once at least half the expected culture duration has passed. Available in about ${daysRemaining} more day(s).`,
+  }
+}
+
 function StockingRowActions({
   rec, isAdmin, isLocked, lockedByName,
-  onViewDetails, onEdit, onViewLogs, onRecordHarvest, onReportDisaster, onForceUnlock,
+  onViewDetails, onEdit, onViewLogs, onRecordHarvest, onReportDisaster, onForceUnlock, showToast,
 }) {
   const canEdit = rec.status !== 'Harvested'
   const canHarvest = rec.status !== 'Total Loss' && rec.status !== 'Harvested'
   const isNearHarvest = rec.status === 'Near Harvest'
+  const harvestGate = harvestGateInfo(rec)
 
   const actions = [
     { key: 'view', label: 'View Details', icon: Eye, onClick: onViewDetails, group: 'crud' },
     canEdit && { key: 'edit', label: 'Edit', icon: Pencil, onClick: onEdit, group: 'crud' },
     { key: 'logs', label: 'View Logs', icon: Eye, onClick: onViewLogs, group: 'lifecycle' },
     canHarvest && {
-      key: 'harvest', label: 'Record Harvest', icon: Wheat, onClick: onRecordHarvest,
-      tone: isNearHarvest ? 'amber' : 'default', group: 'lifecycle',
+      key: 'harvest',
+      label: harvestGate.gated ? 'Record Harvest (Not Yet Available)' : 'Record Harvest',
+      icon: Wheat,
+      onClick: () => (harvestGate.gated ? showToast(harvestGate.message, 'error') : onRecordHarvest()),
+      tone: harvestGate.gated ? 'default' : (isNearHarvest ? 'amber' : 'default'), group: 'lifecycle',
     },
     { key: 'disaster', label: 'Report Disaster', icon: AlertTriangle, onClick: onReportDisaster, tone: 'rose', group: 'lifecycle' },
     isAdmin && isLocked && {
@@ -1279,6 +1424,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
         onRecordHarvest={() => setHarvestRec(rec)}
         onReportDisaster={() => setDisasterRec(rec)}
         onForceUnlock={() => handleForceUnlock(rec.id)}
+        showToast={showToast}
       />
     ),
   }))

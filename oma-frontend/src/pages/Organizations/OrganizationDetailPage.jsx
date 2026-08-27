@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Plus, Search, Trash2, UserCog, Users } from "lucide-react";
+import { ArrowLeft, Plus, Power, Search, Trash2, UserCog, Users } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import api from "../../api/axiosInstance.js";
 import ActivateCitizenAccountButton from "../../components/ActivateCitizenAccountButton.jsx";
@@ -307,7 +307,7 @@ function MemberSearchInput({ type, organizationId, onSelect, selected }) {
       setSearching(true);
       try {
         const r = await api.get(`/organizations/${type}/${organizationId}/members/`, {
-          params: { search: q },
+          params: { search: q, active_only: true },
         });
         const list = Array.isArray(r.data) ? r.data : r.data.results || [];
         setResults(list.slice(0, 8));
@@ -395,19 +395,21 @@ function AssignOfficerModal({ type, organizationId, existingOfficers, onClose, o
 
   const memberKey = type === "farmers" ? "farmer" : "fisherfolk";
 
+  const positionFilled = existingOfficers.some((o) => o.position === position);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!selected) {
       setError("Please search for and select a member first.");
       return;
     }
+    if (positionFilled) {
+      setError("This position is currently held by someone else. End their term first before assigning a new officer.");
+      return;
+    }
     setError("");
     setIsSubmitting(true);
     try {
-      const existing = existingOfficers.find((o) => o.position === position);
-      if (existing) {
-        await api.delete(`/organizations/${type}/officers/${existing.id}/`);
-      }
       await api.post(`/organizations/${type}/${organizationId}/officers/`, {
         position,
         [memberKey]: selected.id,
@@ -438,9 +440,9 @@ function AssignOfficerModal({ type, organizationId, existingOfficers, onClose, o
               </option>
             ))}
           </select>
-          {existingOfficers.some((o) => o.position === position) && (
+          {positionFilled && (
             <p className="mt-1 text-[11px] text-amber-600">
-              This position already has an officer — assigning a new one will replace them.
+              This position is currently held by someone else. End their term first before assigning a new officer.
             </p>
           )}
         </div>
@@ -476,11 +478,136 @@ function AssignOfficerModal({ type, organizationId, existingOfficers, onClose, o
           <Button onClick={onClose} type="button" variant="secondary">
             Cancel
           </Button>
-          <Button isLoading={isSubmitting} type="submit" variant="primary">
+          <Button
+            isLoading={isSubmitting}
+            disabled={positionFilled}
+            type="submit"
+            variant="primary"
+          >
             Assign Officer
           </Button>
         </div>
       </form>
+    </ModalShell>
+  );
+}
+
+// ─── End Term Early Modal ──────────────────────────────────────────────────────
+// Replaces the old plain-removal (hard delete) flow. Same required-field
+// discipline as CropMonitoringPage's disaster manual-recovery notes:
+// Confirm is disabled client-side until the reason is non-empty; the
+// backend enforces the same rule regardless.
+
+function EndTermModal({ type, officer, onClose, onSuccess }) {
+  const [reason, setReason] = useState("");
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const trimmed = reason.trim();
+    if (!trimmed) {
+      setError("A reason is required to end a term early.");
+      return;
+    }
+    setError("");
+    setIsSubmitting(true);
+    try {
+      await api.post(`/organizations/${type}/officers/${officer.id}/end-term/`, { reason: trimmed });
+      onSuccess();
+      onClose();
+    } catch (err) {
+      setError(err.response?.data?.detail || "Unable to end this term.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <ModalShell title="End Term Early" onClose={onClose}>
+      <form className="space-y-5" onSubmit={handleSubmit}>
+        <p className="text-[13px] text-[#4A5E4A]">
+          End {officer.name}'s term as {officer.position}? This does not remove their organization
+          membership — the position becomes vacant and can be assigned to someone new. Their term
+          is kept as a permanent historical record, not deleted.
+        </p>
+
+        <div>
+          <label className={labelCls}>Reason (required)</label>
+          <textarea
+            className={`${baseInputClasses} mt-1`}
+            rows={3}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Why is this term ending early?"
+          />
+        </div>
+
+        {error && (
+          <p className="rounded-lg bg-rose-50 px-3 py-2 text-[13px] font-medium text-rose-700">
+            {error}
+          </p>
+        )}
+
+        <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4">
+          <Button onClick={onClose} type="button" variant="secondary">
+            Cancel
+          </Button>
+          <Button
+            isLoading={isSubmitting}
+            disabled={!reason.trim()}
+            type="submit"
+            variant="primary"
+          >
+            End Term
+          </Button>
+        </div>
+      </form>
+    </ModalShell>
+  );
+}
+
+// ─── Officer History Modal ──────────────────────────────────────────────────────
+
+function OfficerHistoryModal({ history, onClose }) {
+  return (
+    <ModalShell title="Officer History" onClose={onClose}>
+      {history.length === 0 ? (
+        <p className="rounded-lg bg-[#F5F7F5] px-4 py-3 text-[13px] text-[#7A8E7A]">
+          No officer history yet.
+        </p>
+      ) : (
+        <div className="rounded-xl border border-[#E2E8E2] overflow-hidden overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-[#1B4D2E]">
+                <th className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white">Position</th>
+                <th className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white">Name</th>
+                <th className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white">Term Start</th>
+                <th className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white">Term End</th>
+                <th className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white">Status</th>
+                <th className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white">Early-Exit Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.map((officer) => (
+                <tr key={officer.id} className="border-t border-[#F0F4F0] hover:bg-[#F5F7F5]">
+                  <td className="px-4 py-3 text-[12px] font-semibold text-[#4A5E4A]">{officer.position}</td>
+                  <td className="px-4 py-3 text-[13px] text-[#1A2B1A]">{officer.full_name}</td>
+                  <td className="px-4 py-3 text-[13px] text-[#4A5E4A]">{formatDate(officer.term_start_date)}</td>
+                  <td className="px-4 py-3 text-[13px] text-[#4A5E4A]">{formatDate(officer.term_end_date)}</td>
+                  <td className="px-4 py-3">
+                    <StatusPill tone={officer.is_active ? "green" : officer.early_exit_reason ? "rose" : "slate"}>
+                      {officer.is_active ? "Current" : officer.early_exit_reason ? "Ended Early" : "Completed"}
+                    </StatusPill>
+                  </td>
+                  <td className="px-4 py-3 text-[13px] text-[#4A5E4A]">{officer.early_exit_reason || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </ModalShell>
   );
 }
@@ -651,10 +778,14 @@ function OrganizationDetailPage() {
   const [showAddMember, setShowAddMember] = useState(false);
   const [showAddEquipment, setShowAddEquipment] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [confirmRemoveMember, setConfirmRemoveMember] = useState(null);
+  // Toggle-not-delete batch: { id, name, targetActive, heldPosition } —
+  // heldPosition only matters when deactivating (targetActive === false),
+  // sourced from the same officer roster the roster tab already renders.
+  const [confirmSetMemberActive, setConfirmSetMemberActive] = useState(null);
   const [confirmRemoveEquipment, setConfirmRemoveEquipment] = useState(null);
-  const [confirmRemoveOfficer, setConfirmRemoveOfficer] = useState(null);
+  const [endTermOfficer, setEndTermOfficer] = useState(null);
   const [showAssignOfficer, setShowAssignOfficer] = useState(false);
+  const [showOfficerHistory, setShowOfficerHistory] = useState(false);
   const [members, setMembers] = useState([]);
 
   const typeLabel = type === "farmers" ? "Farmers" : "Fisherfolk";
@@ -663,6 +794,21 @@ function OrganizationDetailPage() {
     type === "farmers" ? "farmer_rsbsa_number" : "fisherfolk_lgu_number";
   const memberNameField =
     type === "farmers" ? "farmer_full_name" : "fisherfolk_full_name";
+
+  // Toggle-not-delete batch: which officer position (if any) a member row
+  // currently holds, so the deactivate confirmation can warn about it —
+  // same warning the citizen-side flow already gives. Farmers members ARE
+  // Farmer rows (m.id is the farmer id, matching officer.farmer_id
+  // directly); Fisherfolk members are join rows (m.id is the join-row id,
+  // but officer.fisherfolk_id is the PERSON's id — m.fisherfolk is the
+  // field that actually matches it).
+  const heldPositionFor = (m) => {
+    const officers = organization?.officers || [];
+    const officer = type === "farmers"
+      ? officers.find((o) => o.farmer_id === m.id)
+      : officers.find((o) => o.fisherfolk_id === m.fisherfolk);
+    return officer ? officer.position : null;
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -691,22 +837,26 @@ function OrganizationDetailPage() {
       .catch(console.error);
   }, [type, id, refreshKey]);
 
-  const handleRemoveMember = async () => {
-    if (!confirmRemoveMember) return;
+  // Toggle-not-delete batch: was a hard DELETE (Farmers: nulled
+  // Farmer.farmers_organization; Fisherfolk: deleted the join row). Both
+  // sides now PATCH {is_active} on the exact same URLs instead — the
+  // member's record and history stay intact either way, and this same
+  // action run again with the opposite target reverses it.
+  const handleSetMemberActive = async () => {
+    if (!confirmSetMemberActive) return;
+    const { id: memberId, targetActive } = confirmSetMemberActive;
     try {
       if (type === "farmers") {
-        // Farmers Organization membership is Farmer.farmers_organization directly
-        // (no join row) — removal clears that field, it does not delete anything.
-        await api.delete(`/organizations/farmers/${id}/members/${confirmRemoveMember.id}/`);
+        await api.patch(`/organizations/farmers/${id}/members/${memberId}/`, { is_active: targetActive });
       } else {
-        await api.delete(`/organizations/${type}/members/${confirmRemoveMember.id}/`);
+        await api.patch(`/organizations/${type}/members/${memberId}/`, { is_active: targetActive });
       }
-      showToast("Member removed.", "success");
+      showToast(targetActive ? "Member reactivated." : "Member deactivated.", "success");
       setRefreshKey((k) => k + 1);
     } catch (err) {
-      showToast(err.response?.data?.detail || "Unable to remove member.", "error");
+      showToast(err.response?.data?.detail || "Unable to update member.", "error");
     } finally {
-      setConfirmRemoveMember(null);
+      setConfirmSetMemberActive(null);
     }
   };
 
@@ -719,19 +869,6 @@ function OrganizationDetailPage() {
       showToast("Unable to remove equipment.", "error");
     } finally {
       setConfirmRemoveEquipment(null);
-    }
-  };
-
-  const handleRemoveOfficer = async () => {
-    if (!confirmRemoveOfficer) return;
-    try {
-      await api.delete(`/organizations/${type}/officers/${confirmRemoveOfficer.id}/`);
-      showToast("Officer removed.", "success");
-      setRefreshKey((k) => k + 1);
-    } catch {
-      showToast("Unable to remove officer.", "error");
-    } finally {
-      setConfirmRemoveOfficer(null);
     }
   };
 
@@ -881,33 +1018,43 @@ function OrganizationDetailPage() {
                             <th className="text-white text-[11px] font-semibold uppercase tracking-wider px-4 py-[11px] text-left">Name</th>
                             <th className="text-white text-[11px] font-semibold uppercase tracking-wider px-4 py-[11px] text-left">Barangay</th>
                             <th className="text-white text-[11px] font-semibold uppercase tracking-wider px-4 py-[11px] text-left">RSBSA No.</th>
+                            <th className="text-white text-[11px] font-semibold uppercase tracking-wider px-4 py-[11px] text-left">Status</th>
                             {(isAdmin || isEvaluator) && (
                               <th className="px-4 py-[11px]" />
                             )}
                           </tr>
                         </thead>
                         <tbody>
-                          {members.map(m => (
-                            <tr key={m.id} className="border-b border-[#F0F4F0] hover:bg-[#F9FAF9] transition-colors">
+                          {members.map(m => {
+                            const isActive = m.is_org_membership_active !== false;
+                            return (
+                            <tr key={m.id} className={`border-b border-[#F0F4F0] hover:bg-[#F9FAF9] transition-colors ${isActive ? '' : 'opacity-60'}`}>
                               <td className="px-4 py-[13px] text-[13px] font-medium text-[#1A2B1A]">{m.full_name}</td>
                               <td className="px-4 py-[13px] text-[13px] text-[#4A5E4A]">{m.barangay}</td>
                               <td className="px-4 py-[13px] text-[13px] text-[#4A5E4A]">{m.rsbsa_number}</td>
+                              <td className="px-4 py-[13px]">
+                                <StatusPill tone={isActive ? 'green' : 'slate'}>{isActive ? 'Active' : 'Inactive'}</StatusPill>
+                              </td>
                               {(isAdmin || isEvaluator) && (
                                 <td className="px-4 py-[13px]">
                                   <Button
-                                    className="!text-rose-600"
-                                    icon={Trash2}
-                                    onClick={() => setConfirmRemoveMember({ id: m.id, name: m.full_name })}
+                                    className={isActive ? '!text-rose-600' : '!text-[#1B4D2E]'}
+                                    icon={Power}
+                                    onClick={() => setConfirmSetMemberActive({
+                                      id: m.id, name: m.full_name, targetActive: !isActive,
+                                      heldPosition: heldPositionFor(m),
+                                    })}
                                     size="sm"
                                     type="button"
                                     variant="ghost"
                                   >
-                                    Remove
+                                    {isActive ? 'Deactivate' : 'Activate'}
                                   </Button>
                                 </td>
                               )}
                             </tr>
-                          ))}
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -931,14 +1078,17 @@ function OrganizationDetailPage() {
                             <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">{memberIdLabel}</th>
                             <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Position</th>
                             <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Date Joined</th>
+                            <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Status</th>
                             {(isAdmin || isEvaluator) && (
                               <th className="px-4 py-[11px]" />
                             )}
                           </tr>
                         </thead>
                         <tbody>
-                          {organization.members.map((m) => (
-                            <tr key={m.id} className="border-b border-[#F0F4F0] hover:bg-[#F9FAF9] transition-colors">
+                          {organization.members.map((m) => {
+                            const isActive = m.is_active !== false;
+                            return (
+                            <tr key={m.id} className={`border-b border-[#F0F4F0] hover:bg-[#F9FAF9] transition-colors ${isActive ? '' : 'opacity-60'}`}>
                               <td className="px-4 py-[13px] text-[13px] font-medium text-[#1A2B1A]">
                                 {m[memberNameField]}
                               </td>
@@ -953,22 +1103,29 @@ function OrganizationDetailPage() {
                               <td className="px-4 py-[13px] text-[13px] text-[#4A5E4A]">
                                 {formatDate(m.date_joined)}
                               </td>
+                              <td className="px-4 py-[13px]">
+                                <StatusPill tone={isActive ? 'green' : 'slate'}>{isActive ? 'Active' : 'Inactive'}</StatusPill>
+                              </td>
                               {(isAdmin || isEvaluator) && (
                                 <td className="px-4 py-[13px]">
                                   <Button
-                                    className="!text-rose-600"
-                                    icon={Trash2}
-                                    onClick={() => setConfirmRemoveMember({ id: m.id, name: m[memberNameField] })}
+                                    className={isActive ? '!text-rose-600' : '!text-[#1B4D2E]'}
+                                    icon={Power}
+                                    onClick={() => setConfirmSetMemberActive({
+                                      id: m.id, name: m[memberNameField], targetActive: !isActive,
+                                      heldPosition: heldPositionFor(m),
+                                    })}
                                     size="sm"
                                     type="button"
                                     variant="ghost"
                                   >
-                                    Remove
+                                    {isActive ? 'Deactivate' : 'Activate'}
                                   </Button>
                                 </td>
                               )}
                             </tr>
-                          ))}
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -1050,27 +1207,39 @@ function OrganizationDetailPage() {
               <div className="mt-6 bg-white border border-[#E2E8E2] rounded-xl p-6">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                   <h3 className="text-[14px] font-semibold text-[#1A2B1A]">Organization Officers</h3>
-                  {(isAdmin || isEvaluator) && (
-                    <button
-                      className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
-                      onClick={() => setShowAssignOfficer(true)}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      onClick={() => setShowOfficerHistory(true)}
+                      size="sm"
+                      type="button"
+                      variant="secondary"
                     >
-                      <UserCog size={15} />
-                      Assign Officer
-                    </button>
-                  )}
+                      Officer History
+                    </Button>
+                    {(isAdmin || isEvaluator) && (
+                      <button
+                        className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
+                        onClick={() => setShowAssignOfficer(true)}
+                      >
+                        <UserCog size={15} />
+                        Assign Officer
+                      </button>
+                    )}
+                  </div>
                 </div>
                 {organization.officers.length === 0 ? (
                   <p className="rounded-lg bg-[#F5F7F5] px-4 py-3 text-[13px] text-[#7A8E7A]">
                     No officers assigned yet.
                   </p>
                 ) : (
-                  <div className="rounded-xl border border-[#E2E8E2] overflow-hidden">
+                  <div className="rounded-xl border border-[#E2E8E2] overflow-hidden overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-[#1B4D2E]">
                           <th className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white">Position</th>
                           <th className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white">Name</th>
+                          <th className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white">Term Start</th>
+                          <th className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white">Term End</th>
                           {(isAdmin || isEvaluator) && (
                             <th className="px-4 py-[11px]" />
                           )}
@@ -1081,17 +1250,19 @@ function OrganizationDetailPage() {
                           <tr key={officer.id} className="border-t border-[#F0F4F0] hover:bg-[#F5F7F5]">
                             <td className="px-4 py-3 text-[12px] font-semibold text-[#4A5E4A]">{officer.position}</td>
                             <td className="px-4 py-3 text-[13px] text-[#1A2B1A]">{officer.full_name}</td>
+                            <td className="px-4 py-3 text-[13px] text-[#4A5E4A]">{formatDate(officer.term_start_date)}</td>
+                            <td className="px-4 py-3 text-[13px] text-[#4A5E4A]">{formatDate(officer.term_end_date)}</td>
                             {(isAdmin || isEvaluator) && (
                               <td className="px-4 py-3">
                                 <Button
                                   className="!text-rose-600"
                                   icon={Trash2}
-                                  onClick={() => setConfirmRemoveOfficer({ id: officer.id, position: officer.position, name: officer.full_name })}
+                                  onClick={() => setEndTermOfficer({ id: officer.id, position: officer.position, name: officer.full_name })}
                                   size="sm"
                                   type="button"
                                   variant="ghost"
                                 >
-                                  Remove
+                                  End Term Early
                                 </Button>
                               </td>
                             )}
@@ -1135,14 +1306,23 @@ function OrganizationDetailPage() {
         />
       )}
 
-      {confirmRemoveMember && organization && (
+      {confirmSetMemberActive && organization && (
         <ConfirmDialog
-          title="Remove Member"
-          message={`Remove ${confirmRemoveMember.name} from ${organization.name}? This does not delete their ${type === "farmers" ? "farmer" : "fisherfolk"} profile — only their membership in this organization.`}
-          confirmLabel="Remove"
-          danger
-          onConfirm={handleRemoveMember}
-          onCancel={() => setConfirmRemoveMember(null)}
+          title={confirmSetMemberActive.targetActive ? "Reactivate Member" : "Deactivate Member"}
+          message={
+            confirmSetMemberActive.targetActive
+              ? `Reactivate ${confirmSetMemberActive.name} in ${organization.name}?`
+              : `Deactivate ${confirmSetMemberActive.name} in ${organization.name}? Their ${type === "farmers" ? "farmer" : "fisherfolk"} profile and history are not affected — this can be reversed at any time.`
+          }
+          details={
+            !confirmSetMemberActive.targetActive && confirmSetMemberActive.heldPosition
+              ? `They currently hold the ${confirmSetMemberActive.heldPosition} position. Deactivating them will also clear this position, leaving it vacant.`
+              : null
+          }
+          confirmLabel={confirmSetMemberActive.targetActive ? "Reactivate" : "Deactivate"}
+          danger={!confirmSetMemberActive.targetActive}
+          onConfirm={handleSetMemberActive}
+          onCancel={() => setConfirmSetMemberActive(null)}
         />
       )}
 
@@ -1157,14 +1337,19 @@ function OrganizationDetailPage() {
         />
       )}
 
-      {confirmRemoveOfficer && organization && (
-        <ConfirmDialog
-          title="Remove Officer"
-          message={`Remove ${confirmRemoveOfficer.name} as ${confirmRemoveOfficer.position} of ${organization.name}? This does not remove their organization membership.`}
-          confirmLabel="Remove"
-          danger
-          onConfirm={handleRemoveOfficer}
-          onCancel={() => setConfirmRemoveOfficer(null)}
+      {endTermOfficer && (
+        <EndTermModal
+          type={type}
+          officer={endTermOfficer}
+          onClose={() => setEndTermOfficer(null)}
+          onSuccess={() => setRefreshKey((k) => k + 1)}
+        />
+      )}
+
+      {showOfficerHistory && (
+        <OfficerHistoryModal
+          history={organization?.officer_history || []}
+          onClose={() => setShowOfficerHistory(false)}
         />
       )}
     </PageLayout>

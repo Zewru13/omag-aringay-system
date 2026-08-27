@@ -368,3 +368,46 @@ button, input, select, textarea {
     scroll-behavior: auto !important;
   }
 }
+
+/* ─── Print (Reports page "Print" action) ──────────────────────────────────
+   Structural/layout-wide print rules live here; page-specific "hide this
+   filter panel / button row on print" visibility is handled inline via
+   Tailwind's print: variant at each call site instead of being duplicated
+   here. Navbar renders a <header>, Sidebar renders an <aside> (see their
+   component files) — this app has exactly one of each, always mounted by
+   PageLayout, so tag selectors are safe without adding a class to either
+   component. */
+@media print {
+  header, aside {
+    display: none !important;
+  }
+
+  /* PageLayout's content wrapper reserves top space for the fixed Navbar
+     (pt-14) and left space for the Sidebar via --sidebar-w — both gone on
+     print, so the reserved space would otherwise print as blank margin. */
+  .sidebar-content-offset {
+    padding-top: 0 !important;
+    margin-left: 0 !important;
+  }
+
+  /* Table header/status backgrounds only print if the browser's own
+     "background graphics" option is on, which most people leave off —
+     force it so the report doesn't rely on that setting. */
+  table, th, td {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* A data row split across a page boundary is the single most common
+     "broken-looking" print artifact for a long table. */
+  tr {
+    break-inside: avoid;
+  }
+
+  /* Wide tables (e.g. Farmer Crop History's 12 columns) fit a print page
+     far better sideways than in the screen's portrait default. */
+  @page {
+    size: landscape;
+    margin: 12mm;
+  }
+}

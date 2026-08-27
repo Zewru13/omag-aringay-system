@@ -23,6 +23,25 @@ import {
 // this screen can only ever be reached for the citizen's own record to
 // begin with. Also adds a Disasters section, opening the new
 // CitizenDisasterScreen (report + status-track + recover) for this record.
+// Mirrors core.utils.harvest_gate_status on the backend (the real
+// enforcement — this is client-side UX only, to explain the gate before
+// the citizen even opens the modal rather than after a rejected submit).
+function harvestGateInfo(record) {
+  if (!record.date_planted || !record.expected_harvest_date) return { gated: false, message: null }
+  const planted = new Date(record.date_planted + 'T00:00:00')
+  const expected = new Date(record.expected_harvest_date + 'T00:00:00')
+  const totalDays = (expected - planted) / (1000 * 60 * 60 * 24)
+  if (totalDays <= 0) return { gated: false, message: null }
+  const halfwayDays = totalDays / 2
+  const elapsedDays = (new Date() - planted) / (1000 * 60 * 60 * 24)
+  if (elapsedDays >= halfwayDays) return { gated: false, message: null }
+  const daysRemaining = Math.ceil(halfwayDays - elapsedDays)
+  return {
+    gated: true,
+    message: `Harvest can only be recorded once at least half the expected growth duration has passed. Available in about ${daysRemaining} more day(s).`,
+  }
+}
+
 export default function FarmerCropHistoryView({ record, onBack, onRecordChanged }) {
   const { user } = useAuth()
   const { showToast } = useToast()
@@ -177,7 +196,11 @@ export default function FarmerCropHistoryView({ record, onBack, onRecordChanged 
                 <div className="-mt-[10px]">
                   <button
                     type="button"
-                    onClick={() => setHarvestModal({ entry: null })}
+                    onClick={() => {
+                      const gate = harvestGateInfo(record)
+                      if (gate.gated) { showToast(gate.message, 'error'); return }
+                      setHarvestModal({ entry: null })
+                    }}
                     className="flex min-h-[44px] items-center gap-1.5 rounded-[8px] border-[0.5px] border-cz-border-strong px-3 py-2 text-cz-text transition-colors hover:bg-cz-page"
                   >
                     <Plus size={15} aria-hidden="true" />
@@ -186,6 +209,11 @@ export default function FarmerCropHistoryView({ record, onBack, onRecordChanged 
                 </div>
               )}
             </div>
+            {harvestGateInfo(record).gated && harvests.length === 0 && (
+              <p className="mb-3 rounded-[10px] border border-[#F5E0A3] bg-cz-alert-bg px-3.5 py-2.5 text-[13px] leading-[1.45] text-cz-alert-title">
+                {harvestGateInfo(record).message}
+              </p>
+            )}
             {harvests.length === 0 ? (
               <p className="text-[14px] italic text-cz-text-muted">{labels.farmerHome.history.noHarvest}</p>
             ) : (

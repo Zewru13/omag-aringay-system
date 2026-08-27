@@ -66,6 +66,13 @@ class CropType(models.Model):
         default=list, blank=True,
         help_text='Valid Unit of Measure options for this crop on the Record Harvest form.',
     )
+    # Toggle-not-delete batch: CropMonitoringRecord.crop_type is PROTECT, so
+    # a crop type with any real monitoring history was already undeletable
+    # — this replaces that dead-end Delete button with the same
+    # deactivate-hides-from-new-record-dropdowns pattern CropVariety/
+    # SeedSource already use. Existing records keep displaying their crop
+    # type name regardless of this flag.
+    is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return self.name

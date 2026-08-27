@@ -1,9 +1,19 @@
 from django.db import models
+from django.utils import timezone
 
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk
 
 from core.constants import BARANGAY_CHOICES
+
+
+def _plus_two_years(d):
+    """term_start_date + 2 years, landing on Feb 28 if term_start_date was a
+    Feb 29 that doesn't recur two years later."""
+    try:
+        return d.replace(year=d.year + 2)
+    except ValueError:
+        return d.replace(year=d.year + 2, day=28)
 
 
 class FarmersOrganization(models.Model):
@@ -74,9 +84,27 @@ class OrganizationOfficer(models.Model):
     position  = models.CharField(max_length=50, choices=POSITION_CHOICES)
     full_name = models.CharField(max_length=200)
 
+    # Batch: 2-year officer terms with full history. A row is never deleted
+    # or overwritten on any kind of exit (early end, natural completion,
+    # reassignment, membership deactivation) — is_active=False plus the
+    # term_end_date/early_exit_reason it ended with IS the historical
+    # record. unique_together deliberately removed: multiple historical
+    # rows per (organization, position) are now expected; "only one current
+    # holder per position" is enforced in the view instead (is_active=True
+    # uniqueness can't be a DB constraint on MySQL, which has no partial/
+    # conditional unique index support).
+    term_start_date = models.DateField(default=timezone.localdate)
+    term_end_date = models.DateField(null=True, blank=True)
+    early_exit_reason = models.TextField(blank=True, default='')
+    is_active = models.BooleanField(default=True)
+
     class Meta:
         ordering = ['position', 'full_name']
-        unique_together = [['organization', 'position']]
+
+    def save(self, *args, **kwargs):
+        if self.term_end_date is None and self.term_start_date:
+            self.term_end_date = _plus_two_years(self.term_start_date)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f'{self.position}: {self.full_name}'
@@ -203,9 +231,11 @@ class FisherfolkOrganizationOfficer(models.Model):
     )
     # Fisherfolk Organizations DO use FisherfolkOrganizationMember as the real
     # membership join table, so the officer links straight to that row (not
-    # to Fisherfolk directly). CASCADE is deliberate: removing someone's
-    # membership should automatically clear any officer position they held
-    # — this is the auto-clear behavior Batch 4 chose for member removal.
+    # to Fisherfolk directly). CASCADE remains as a safety net for a genuine
+    # row deletion, but the normal "remove a member" path no longer deletes
+    # this row at all (toggle-not-delete batch) — it flips
+    # FisherfolkOrganizationMember.is_active instead, so the officer-clear
+    # on deactivation is now explicit view-layer logic, not this cascade.
     member = models.ForeignKey(
         'FisherfolkOrganizationMember',
         on_delete=models.CASCADE,
@@ -215,9 +245,20 @@ class FisherfolkOrganizationOfficer(models.Model):
     position  = models.CharField(max_length=50, choices=POSITION_CHOICES)
     full_name = models.CharField(max_length=200)
 
+    # Batch: 2-year officer terms with full history — see
+    # OrganizationOfficer's identical fields/comment above.
+    term_start_date = models.DateField(default=timezone.localdate)
+    term_end_date = models.DateField(null=True, blank=True)
+    early_exit_reason = models.TextField(blank=True, default='')
+    is_active = models.BooleanField(default=True)
+
     class Meta:
         ordering = ['position', 'full_name']
-        unique_together = [['organization', 'position']]
+
+    def save(self, *args, **kwargs):
+        if self.term_end_date is None and self.term_start_date:
+            self.term_end_date = _plus_two_years(self.term_start_date)
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f'{self.position}: {self.full_name}'
@@ -240,6 +281,13 @@ class FisherfolkOrganizationMember(models.Model):
     fisherfolk = models.ForeignKey(Fisherfolk, on_delete=models.CASCADE, related_name='fisherfolk_organizations')
     position = models.CharField(max_length=20, choices=Position.choices, default=Position.MEMBER)
     date_joined = models.DateField()
+    # Toggle-not-delete batch: "removing" a member now deactivates this row
+    # instead of deleting it — the row (and any assistance-distribution
+    # history attributed through it) survives. Deliberately NOT reusing
+    # FisherfolkOrganization/Fisherfolk's own `is_active` — this represents
+    # membership-in-this-org status, not the org's or the person's own
+    # whole-record status, which are independent.
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         unique_together = [['organization', 'fisherfolk']]

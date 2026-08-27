@@ -349,6 +349,7 @@ export default function ForecastingTab({ asTab = false }) {
   const [expanded, setExpanded] = useState(() => new Set())
   const [filters, setFilters] = useState({ species: '', barangay: '', year: '' })
   const [fisherfolkFilter, setFisherfolkFilter] = useState(null)
+  const [search, setSearch] = useState('')
   const [viewMode, setViewMode] = useState('analysis') // 'analysis' | 'grouped'
   const [grouped, setGrouped] = useState([])
   const [isLoadingGrouped, setIsLoadingGrouped] = useState(false)
@@ -433,6 +434,17 @@ export default function ForecastingTab({ asTab = false }) {
     })
   }
 
+  // Client-side quick filter over the already-fetched (unpaginated) records —
+  // mirrors the crop Yield Analysis tab's search, same role as the
+  // species/barangay/year/fisherfolk filters' server-side counterparts.
+  const q = search.toLowerCase()
+  const filteredRecords = records.filter(rec =>
+    !q
+    || rec.species?.toLowerCase().includes(q)
+    || rec.fisherfolk?.toLowerCase().includes(q)
+    || rec.barangay?.toLowerCase().includes(q)
+  )
+
   const buildUrl = (fmt) => {
     const p = new URLSearchParams({ ...buildParams({ group_by: groupBy }), format: fmt })
     return `/reports/fisheries-yield-analysis/?${p}`
@@ -495,6 +507,18 @@ export default function ForecastingTab({ asTab = false }) {
             <label className={filterLabelCls}>Fisherfolk</label>
             <FisherfolkFilterInput selected={fisherfolkFilter} onSelect={setFisherfolkFilter} />
           </div>
+          <div className="w-56">
+            <label className={filterLabelCls}>Search</label>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#A8BCA8] pointer-events-none" />
+              <input
+                className={`${baseInputClasses} pl-7`}
+                placeholder="Species, fisherfolk, or barangay..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -531,9 +555,11 @@ export default function ForecastingTab({ asTab = false }) {
             <tbody>
               {isLoading ? (
                 <tr><td colSpan={10} className="py-8 text-center text-[13px] text-[#7A8E7A]">Loading…</td></tr>
-              ) : records.length === 0 ? (
-                <tr><td colSpan={10} className="py-8 text-center text-[13px] text-[#7A8E7A]">No harvested or total-loss stockings found in scope.</td></tr>
-              ) : records.map(rec => (
+              ) : filteredRecords.length === 0 ? (
+                <tr><td colSpan={10} className="py-8 text-center text-[13px] text-[#7A8E7A]">
+                  {records.length === 0 ? 'No harvested or total-loss stockings found in scope.' : 'No stockings match your search.'}
+                </td></tr>
+              ) : filteredRecords.map(rec => (
                 <Fragment key={rec.id}>
                   <tr
                     onClick={() => toggleExpand(rec.id)}

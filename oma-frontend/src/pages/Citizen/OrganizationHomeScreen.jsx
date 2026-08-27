@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  ClipboardList, FileText, Gift, Home, Info, Trash2, UserPlus, UserCog,
+  ClipboardList, FileText, Gift, History, Home, Info, Power, UserPlus, UserCog,
 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import CitizenReportAssistanceModal from './CitizenReportAssistanceModal.jsx'
@@ -10,9 +10,10 @@ import OrgReportAssistanceScreen from './OrgReportAssistanceScreen.jsx'
 import OrgReportHistoryScreen from './OrgReportHistoryScreen.jsx'
 import OrgAddMemberScreen from './OrgAddMemberScreen.jsx'
 import OrgAssignOfficerScreen from './OrgAssignOfficerScreen.jsx'
+import OrgOfficerHistoryScreen from './OrgOfficerHistoryScreen.jsx'
 import OrgAvatar from './OrgAvatar.jsx'
 import OrgInfoScreen from './OrgInfoScreen.jsx'
-import OrgRemoveMemberDialog from './OrgRemoveMemberDialog.jsx'
+import OrgSetMemberActiveDialog from './OrgSetMemberActiveDialog.jsx'
 import {
   OrgActionRow, OrgAlertBanner, OrgHeroCard,
   OrgOfficerRoster, OrgScreen, OrgSectionLabel,
@@ -46,7 +47,7 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
-  const [removeTarget, setRemoveTarget] = useState(null)
+  const [activeTarget, setActiveTarget] = useState(null) // { row, targetActive }
   const [reportTarget, setReportTarget] = useState(null)
   // Persisted at this level, not inside OrgScreen, because every sub-view is
   // a fresh mount of a different component — a JS breakpoint would forget
@@ -137,10 +138,28 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
         domain={domain}
         orgId={orgId}
         orgName={record?.label}
-        members={members}
+        // Inactive members can't hold a position (the backend rejects it
+        // too — see OrganizationOfficerSerializer.validate_farmer /
+        // FisherfolkOrganizationOfficerSerializer.validate). Filtered
+        // here only, not in the `members` state itself: the Members
+        // screen still needs the full list, active and inactive alike.
+        members={members.filter((m) => domain.rowIsActive(m))}
         officerByPosition={officerByPosition}
         onBack={() => setView('home')}
         onSuccess={() => { refresh(); setView('home') }}
+      />
+    )
+  }
+
+  if (view === 'officerHistory') {
+    return (
+      <OrgOfficerHistoryScreen
+        domain={domain}
+        orgId={orgId}
+        orgName={record?.label}
+        onBack={() => setView('home')}
+        tabBar={tabBar(null)}
+        {...railProps}
       />
     )
   }
@@ -218,17 +237,25 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
             {members.map((m, i) => {
               const personId = domain.rowPersonId(m)
               const position = positionOfPerson(personId)
+              const isActive = domain.rowIsActive(m)
               return (
                 <li
                   key={m.id}
-                  className={`stagger-item flex items-center gap-3 px-4 py-3 ${
+                  className={`stagger-item flex items-center gap-3 px-4 py-3 transition-opacity ${
                     i === members.length - 1 ? '' : 'border-b-[0.5px] border-cz-border'
-                  }`}
+                  } ${isActive ? '' : 'opacity-50'}`}
                   style={{ '--stagger-index': i }}
                 >
                   <OrgAvatar name={domain.rowName(m)} id={personId} size={38} />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[15px] font-semibold text-cz-text">{domain.rowName(m)}</p>
+                    <p className="flex items-center gap-1.5 truncate text-[15px] font-semibold text-cz-text">
+                      {domain.rowName(m)}
+                      {!isActive && (
+                        <span className="shrink-0 rounded-[5px] bg-cz-tile-slate-bg px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] text-cz-tile-slate-fg">
+                          {labels.orgMemberActive.inactiveBadge}
+                        </span>
+                      )}
+                    </p>
                     <p className="truncate text-[13px] text-cz-text-2">
                       {domain.rowBarangay(m) ? `Brgy. ${domain.rowBarangay(m)}` : labels.common.unknown}
                     </p>
@@ -248,11 +275,15 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setRemoveTarget(m)}
-                    title={labels.orgRemoveMember.confirm}
-                    className="shrink-0 rounded-[8px] p-2 text-cz-danger-accent transition-colors hover:bg-cz-danger-bg"
+                    onClick={() => setActiveTarget({ row: m, targetActive: !isActive })}
+                    title={isActive ? labels.orgMemberActive.deactivateAction : labels.orgMemberActive.activateAction}
+                    className={`shrink-0 rounded-[8px] p-2 transition-colors ${
+                      isActive
+                        ? 'text-cz-danger-accent hover:bg-cz-danger-bg'
+                        : 'text-cz-tile-blue-fg hover:bg-cz-tile-blue-bg'
+                    }`}
                   >
-                    <Trash2 size={16} aria-hidden="true" />
+                    <Power size={16} aria-hidden="true" />
                   </button>
                 </li>
               )
@@ -260,14 +291,15 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
           </ul>
         </div>
 
-        {removeTarget && (
-          <OrgRemoveMemberDialog
+        {activeTarget && (
+          <OrgSetMemberActiveDialog
             domain={domain}
             orgId={orgId}
-            row={removeTarget}
-            heldPosition={positionOfPerson(domain.rowPersonId(removeTarget))}
-            onClose={() => setRemoveTarget(null)}
-            onSuccess={() => { setRemoveTarget(null); refresh() }}
+            row={activeTarget.row}
+            targetActive={activeTarget.targetActive}
+            heldPosition={positionOfPerson(domain.rowPersonId(activeTarget.row))}
+            onClose={() => setActiveTarget(null)}
+            onSuccess={() => { setActiveTarget(null); refresh() }}
           />
         )}
         {reportTarget && (
@@ -343,6 +375,13 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
           officerByPosition={officerByPosition}
           officerPersonId={domain.officerPersonId}
         />
+        <div className="mt-2.5">
+          <OrgActionRow
+            icon={History} tone="slate" showChevron
+            title={labels.orgHome.officerHistory} subtitle={labels.orgHome.officerHistorySub}
+            onClick={() => setView('officerHistory')}
+          />
+        </div>
       </section>
 
       {/* Exactly ONE secondary link, per spec — Members and Impormasyon are

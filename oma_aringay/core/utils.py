@@ -1,7 +1,39 @@
 import datetime
+import math
 from decimal import Decimal
 
 from django.utils import timezone
+
+
+def harvest_gate_status(start_date, expected_date):
+    """
+    Record Harvest (crop and fisheries alike) is gated until at least 50%
+    of the record's expected growth/culture duration has elapsed since
+    planting/stocking. Reuses the same start_date/expected_date pair that
+    already drives expected_harvest_date and the Activity Suggestion
+    Engine's progress display (CropType.days_to_harvest /
+    SpeciesOption.culture_duration_days), rather than a second duration
+    field or lookup.
+
+    Returns (is_gated, message) — message is None when not gated. A record
+    missing either date, or with a non-positive computed duration, is never
+    gated (nothing to measure against).
+    """
+    if not start_date or not expected_date:
+        return False, None
+    total_days = (expected_date - start_date).days
+    if total_days <= 0:
+        return False, None
+    halfway_days = total_days / 2
+    elapsed_days = (timezone.localdate() - start_date).days
+    if elapsed_days >= halfway_days:
+        return False, None
+    days_remaining = math.ceil(halfway_days - elapsed_days)
+    return True, (
+        f'Harvest can only be recorded once at least half the expected growth duration has '
+        f'passed ({max(elapsed_days, 0)} of {math.ceil(halfway_days)} days so far). '
+        f'Available in about {days_remaining} more day(s).'
+    )
 
 
 def day_range_bounds(date_str, end_of_day=False):

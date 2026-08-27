@@ -2,6 +2,7 @@ from collections import defaultdict
 from decimal import Decimal
 from io import BytesIO
 
+from django.db import transaction
 from django.db.models import Avg, Case, CharField, Count, Exists, IntegerField, OuterRef, Q, Sum, Value, When
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -15,7 +16,7 @@ from accounts.permissions import IsAdmin, IsAdminOrEvaluator, IsStaffOrOwnRecord
 from core.constants import BARANGAY_CHOICES
 from core.locking import assert_not_locked_by_other
 from core.notifications import notify_staff, notify_user, resolve_owner_user
-from core.utils import accumulate_yield_group, new_yield_group
+from core.utils import accumulate_yield_group, harvest_gate_status, new_yield_group
 from farmers.models import FarmParcel, Farmer
 from fisheries.models import Fisherfolk
 
@@ -116,6 +117,9 @@ class HarvestRecordCreateView(generics.CreateAPIView):
                         {'detail': 'Cannot record harvest for a Total Loss record — the crop was completely destroyed.'},
                         status=drf_status.HTTP_400_BAD_REQUEST,
                     )
+                is_gated, message = harvest_gate_status(record.date_planted, record.expected_harvest_date)
+                if is_gated:
+                    return Response({'detail': message}, status=drf_status.HTTP_400_BAD_REQUEST)
             except CropMonitoringRecord.DoesNotExist:
                 pass
             assert_not_locked_by_other(request.user, 'crop', monitoring_id)
@@ -690,7 +694,17 @@ class CropTypeListView(generics.ListCreateAPIView):
     queryset = CropType.objects.all().order_by('name')
 
 
-class CropTypeDetailView(generics.RetrieveUpdateDestroyAPIView):
+class CropTypeDetailView(generics.RetrieveUpdateAPIView):
+    """
+    Toggle-not-delete batch: Delete is retired, not just hidden from the
+    UI — CropMonitoringRecord.crop_type is on_delete=PROTECT, so a crop
+    type with any real monitoring history was already undeletable (the old
+    DELETE just 500'd unhandled); a genuinely unused one now gets
+    deactivated instead of removed, same as CropVariety/SeedSource already
+    do. PATCH {is_active} hides it from new-record dropdowns without
+    touching any existing CropMonitoringRecord, which keeps displaying its
+    crop type name regardless of this flag.
+    """
     serializer_class = CropTypeSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     queryset = CropType.objects.all()
@@ -729,7 +743,14 @@ class CropMonitoringListCreateView(generics.ListCreateAPIView):
         if params.get('season'):
             qs = qs.filter(season__iexact=params['season'])
         if params.get('barangay'):
-            qs = qs.filter(farm_parcel__barangay=params['barangay'])
+            # Forecasting-filters batch: was farm_parcel__barangay, which
+            # only matches records with an OPTIONAL parcel link and silently
+            # missed everything else — farm_location_barangay is the
+            # record's own required field (see CropMonitoringRecordSerializer)
+            # and what _yield_analysis_queryset already filters on.
+            qs = qs.filter(farm_location_barangay__iexact=params['barangay'])
+        if params.get('crop_type'):
+            qs = qs.filter(crop_type_id=params['crop_type'])
         raw_status = params.get('status', '')
         if raw_status:
             statuses = [s.strip() for s in raw_status.split(',') if s.strip()]
@@ -742,6 +763,36 @@ class CropMonitoringListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(recorded_by=self.request.user)
+
+
+class CropMonitoringBulkCreateView(APIView):
+    """Mirrors PondBulkCreateView's bulk-create pattern (fisheries/views.py)
+    exactly, per the tabular multi-row Add Crop form: validates EVERY row
+    with CropMonitoringRecordSerializer before creating ANY (so a single bad
+    row returns per-item errors with nothing persisted), then saves them one
+    at a time — not bulk_create — inside a single transaction, since
+    CropMonitoringRecord.save() computes expected_harvest_date/
+    estimated_yield_kg/status per instance and needs to actually run for
+    each row."""
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def post(self, request):
+        items = request.data
+        if not isinstance(items, list) or not items:
+            return Response(
+                {'detail': 'Expected a non-empty list of crop records.'},
+                status=drf_status.HTTP_400_BAD_REQUEST,
+            )
+
+        item_serializers = [CropMonitoringRecordSerializer(data=item) for item in items]
+        validities = [s.is_valid() for s in item_serializers]
+        if not all(validities):
+            return Response({'errors': [s.errors for s in item_serializers]}, status=drf_status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            created = [s.save(recorded_by=request.user) for s in item_serializers]
+
+        return Response(CropMonitoringRecordSerializer(created, many=True).data, status=drf_status.HTTP_201_CREATED)
 
 
 class CropMonitoringDetailView(generics.RetrieveUpdateDestroyAPIView):

@@ -1286,6 +1286,8 @@ export const labels = {
 
     officerRosterHeading: 'ROSTER NG OPISYAL',
     vacant: 'VACANT',
+    officerHistory: 'Kasaysayan ng mga Opisyal',
+    officerHistorySub: 'Tingnan ang mga naunang opisyal at termino',
 
     membersHeading: 'Mga Kasapi',
     membersCount: (n) => `MGA KASAPI — ${n} TOTAL`,
@@ -1344,15 +1346,29 @@ export const labels = {
   },
 
   // ── Batch 2: Remove Member ─────────────────────────────────────────────
-  orgRemoveMember: {
-    title: 'Tanggalin sa organisasyon',
-    body: (name) => `Tatanggalin po si ${name} sa organisasyon. Hindi po mabubura ang record niya sa registry.`,
+  // Toggle-not-delete batch: replaces the old hard "Tanggalin" (Remove)
+  // flow. Deactivating keeps the member's full record and history intact
+  // — only their active participation in this org is turned off — and can
+  // always be reversed via the same action in reverse.
+  orgMemberActive: {
+    deactivateTitle: 'I-deactivate ang kasapi',
+    deactivateBody: (name) => `Gagawing inactive si ${name} sa organisasyong ito. Mananatili ang record niya — maaari po itong i-activate muli anumang oras.`,
     // Only shown when the member actually holds a position — the backend
     // clears it automatically, so the copy has to say so before the fact.
     officerWarning: (position) => `Siya po ang kasalukuyang ${position}. Matatanggal din ang posisyong ito at magiging bakante.`,
-    confirm: 'Tanggalin',
-    success: (name) => `Natanggal na si ${name}.`,
-    failed: 'Hindi matanggal ang kasapi.',
+    deactivateConfirm: 'I-deactivate',
+    deactivateSuccess: (name) => `Na-deactivate si ${name}.`,
+    deactivateFailed: 'Hindi na-deactivate ang kasapi.',
+
+    reactivateTitle: 'I-activate muli ang kasapi',
+    reactivateBody: (name) => `Gagawing active muli si ${name} sa organisasyong ito.`,
+    reactivateConfirm: 'I-activate',
+    reactivateSuccess: (name) => `Na-activate muli si ${name}.`,
+    reactivateFailed: 'Hindi na-activate ang kasapi.',
+
+    inactiveBadge: 'Inactive',
+    deactivateAction: 'I-deactivate',
+    activateAction: 'I-activate',
   },
 
   // ── Batch 2: Assign Officer ────────────────────────────────────────────
@@ -1361,11 +1377,19 @@ export const labels = {
     pickPosition: 'Pumili ng posisyon para italaga:',
     pickMember: 'Pumili ng kasapi para sa posisyong ito:',
     currentHolder: (name) => `Ngayon: ${name}`,
-    willReplace: (name) => `Papalitan po si ${name} sa posisyong ito.`,
+    positionHeld: (name) => `Hawak pa ni ${name} ang posisyong ito. Kailangan munang tapusin ng staff ang kanilang termino bago magtalaga ng bago.`,
     noMembers: 'Walang kasapi na maitatalaga. Magdagdag po muna ng kasapi.',
     assignButton: 'Italaga',
     success: (name, position) => `Si ${name} na po ang ${position}.`,
     failed: 'Hindi maitalaga ang opisyal.',
+  },
+
+  orgOfficerHistory: {
+    title: 'Kasaysayan ng mga Opisyal',
+    empty: 'Wala pang kasaysayan ng mga opisyal.',
+    statusCurrent: 'Kasalukuyan',
+    statusEndedEarly: 'Natapos Bago ang Oras',
+    statusCompleted: 'Natapos ang Termino',
   },
 
   // ── CitizenReportAssistanceModal ───────────────────────────────────────

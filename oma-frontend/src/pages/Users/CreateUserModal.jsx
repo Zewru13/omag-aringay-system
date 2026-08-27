@@ -19,7 +19,7 @@ const ROLE_OPTIONS = [
   },
   {
     value: 'EVALUATOR',
-    label: 'EVALUATOR',
+    label: 'FOCAL PERSON',
     desc: 'OMAg staff for daily data entry, crop monitoring, and record management.',
   },
 ]
@@ -146,6 +146,10 @@ function StepDetails({ role, formData, onChange, onBack, onNext, onCancel }) {
 
 function StepReview({ role, formData, onBack, onCancel, onSuccess }) {
   const { showToast } = useToast()
+  // Display label only — the raw `role` value (ADMIN/EVALUATOR) is what's
+  // actually submitted below; this just keeps the Review step and confirm
+  // dialog from leaking the internal code value onto the screen.
+  const roleLabel = ROLE_OPTIONS.find(o => o.value === role)?.label || role
   const [isSubmitting,   setIsSubmitting]   = useState(false)
   const [error,          setError]          = useState('')
   const [showConfirm,    setShowConfirm]    = useState(false)
@@ -278,7 +282,7 @@ function StepReview({ role, formData, onBack, onCancel, onSuccess }) {
         : currentAdmin
           ? `Creating a new administrator will immediately deactivate the current administrator (${currentAdmin.email}) and log them out. Only one administrator can be active at a time. Continue?`
           : 'Creating a new administrator will immediately deactivate any other active administrator and log them out. Only one administrator can be active at a time. Continue?')
-    : `Add new ${role} user "${fullName}"?`
+    : `Add new ${roleLabel} user "${fullName}"?`
 
   return (
     <div className="space-y-4">
@@ -287,7 +291,7 @@ function StepReview({ role, formData, onBack, onCancel, onSuccess }) {
       <div className="space-y-2">
         <Row label="Email"          value={formData.email} />
         <Row label="Name"           value={fullName} />
-        <Row label="Role"           value={role} />
+        <Row label="Role"           value={roleLabel} />
         <div className="rounded-lg bg-[#F9FAF9] border border-[#E2E8E2] px-4 py-3 text-[12px] text-[#7A8E7A]">
           A verification link and a secure random password will be sent to the user's email. The account stays inactive until they click the link.
         </div>

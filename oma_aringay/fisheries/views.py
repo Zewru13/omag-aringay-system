@@ -16,7 +16,7 @@ from accounts.permissions import IsAdmin, IsAdminOrEvaluator, IsStaffOrOwnRecord
 from accounts.utils import create_inactive_citizen_shell
 from core.locking import assert_not_locked_by_other
 from core.notifications import notify_staff, notify_user, resolve_owner_user
-from core.utils import accumulate_yield_group, day_range_bounds, new_yield_group
+from core.utils import accumulate_yield_group, day_range_bounds, harvest_gate_status, new_yield_group
 
 from .models import (
     DiseaseResponseGuide,
@@ -459,6 +459,35 @@ class StockingListCreateView(generics.ListCreateAPIView):
         serializer.save(recorded_by=self.request.user)
 
 
+class StockingBulkCreateView(APIView):
+    """Mirrors PondBulkCreateView's bulk-create pattern above exactly, per
+    the tabular multi-row Add Stocking form: validates EVERY row with
+    StockingRecordSerializer before creating ANY (so a single bad row
+    returns per-item errors with nothing persisted), then saves them one at
+    a time — not bulk_create — inside a single transaction, since
+    StockingRecord.save() computes per-instance fields and needs to
+    actually run for each row."""
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def post(self, request):
+        items = request.data
+        if not isinstance(items, list) or not items:
+            return Response(
+                {'detail': 'Expected a non-empty list of stocking records.'},
+                status=drf_status.HTTP_400_BAD_REQUEST,
+            )
+
+        item_serializers = [StockingRecordSerializer(data=item) for item in items]
+        validities = [s.is_valid() for s in item_serializers]
+        if not all(validities):
+            return Response({'errors': [s.errors for s in item_serializers]}, status=drf_status.HTTP_400_BAD_REQUEST)
+
+        with transaction.atomic():
+            created = [s.save(recorded_by=request.user) for s in item_serializers]
+
+        return Response(StockingRecordSerializer(created, many=True).data, status=drf_status.HTTP_201_CREATED)
+
+
 class StockingHistoryView(generics.ListAPIView):
     """All stocking records (every status) for the grouped-by-fisherfolk
     forecasting view. Reuses StockingRecordSerializer — which already exposes
@@ -870,6 +899,9 @@ class StockingHarvestListCreateView(generics.ListCreateAPIView):
                     {'detail': 'Cannot record harvest for a Total Loss record — the stock was completely destroyed.'},
                     status=drf_status.HTTP_400_BAD_REQUEST,
                 )
+            is_gated, message = harvest_gate_status(record.date_stocked, record.expected_harvest_date)
+            if is_gated:
+                return Response({'detail': message}, status=drf_status.HTTP_400_BAD_REQUEST)
         except StockingRecord.DoesNotExist:
             pass
         assert_not_locked_by_other(request.user, 'stocking', stocking_id)

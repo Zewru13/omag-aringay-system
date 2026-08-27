@@ -171,7 +171,7 @@ export default function StaffDashboard({ user }) {
   const today = new Date().toLocaleDateString('en-PH', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   })
-  const roleLabel = user?.role === 'ADMIN' ? 'Administrator view' : 'Evaluator view'
+  const roleLabel = user?.role === 'ADMIN' ? 'Administrator view' : 'Focal Person view'
   const rows = board?.[tableDomain]?.by_barangay || []
   const disasters = board?.active_disasters || []
   const variance = board?.yield_variance || []

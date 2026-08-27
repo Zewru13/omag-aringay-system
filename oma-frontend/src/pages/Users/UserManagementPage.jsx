@@ -103,7 +103,7 @@ export default function UserManagementPage() {
     ),
     role_pill: (
       <StatusPill tone={u.role === 'ADMIN' ? 'green' : 'blue'}>
-        {u.role === 'ADMIN' ? 'Admin' : 'Evaluator'}
+        {u.role === 'ADMIN' ? 'Admin' : 'Focal Person'}
       </StatusPill>
     ),
     status_pill: (
@@ -200,7 +200,7 @@ export default function UserManagementPage() {
           >
             <option value="All">All Roles</option>
             <option value="ADMIN">Admin</option>
-            <option value="EVALUATOR">Evaluator</option>
+            <option value="EVALUATOR">Focal Person</option>
           </select>
         </FilterPanel>
 

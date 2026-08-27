@@ -3,6 +3,7 @@ from datetime import timedelta
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import generics, serializers, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -16,6 +17,7 @@ from fisheries.models import Fisherfolk
 from interventions.models import BeneficiaryRecord, FisherfolkBeneficiaryRecord
 from interventions.serializers import OrganizationDistributionRequestSerializer
 
+from .lifecycle import expire_due_officer_terms
 from .models import (
     FarmersOrganization,
     FarmersOrganizationEquipment,
@@ -76,6 +78,10 @@ class FarmersOrganizationDetailView(generics.RetrieveUpdateAPIView):
     serializer_class = FarmersOrganizationDetailSerializer
     queryset = FarmersOrganization.objects.all()
 
+    def get_object(self):
+        expire_due_officer_terms()
+        return super().get_object()
+
 
 class FarmersOrganizationMemberAddView(generics.ListCreateAPIView):
     """
@@ -119,6 +125,14 @@ class FarmersOrganizationMemberAddView(generics.ListCreateAPIView):
         organization_id = self.kwargs['pk']
         if self.request.method == 'GET':
             qs = Farmer.objects.filter(farmers_organization_id=organization_id)
+            # Toggle-not-delete batch: officer assignment's search-select opts
+            # into this filter (an inactive membership can't hold an officer
+            # position, enforced in the serializer already) — Report
+            # Assistance's reuse of this same endpoint deliberately does NOT
+            # pass it, since reporting to an inactive member can still be
+            # legitimate.
+            if self.request.query_params.get('active_only') in ('1', 'true', 'True'):
+                qs = qs.filter(is_org_membership_active=True)
             search = self.request.query_params.get('search', '').strip()
             if search:
                 qs = qs.filter(
@@ -167,14 +181,23 @@ class FarmersOrganizationMemberAddView(generics.ListCreateAPIView):
 
         with transaction.atomic():
             if current_id is not None:
-                # Same auto-clear as FarmersOrganizationMemberDirectRemoveView:
+                # Same auto-clear as FarmersOrganizationMemberSetActiveView:
                 # they are leaving that organization, so they cannot stay an
-                # officer of it.
+                # officer of it. Batch: officer terms are never deleted on
+                # any exit — mark ended instead of the old .delete().
                 OrganizationOfficer.objects.filter(
-                    organization_id=current_id, farmer_id=farmer.id,
-                ).delete()
+                    organization_id=current_id, farmer_id=farmer.id, is_active=True,
+                ).update(
+                    is_active=False,
+                    term_end_date=timezone.localdate(),
+                    early_exit_reason='Reassigned to a different organization.',
+                )
             farmer.farmers_organization = organization
-            farmer.save(update_fields=['farmers_organization'])
+            # Toggle-not-delete batch: a reassignment is a fresh membership
+            # in the NEW organization, regardless of whatever active/inactive
+            # state this farmer was left in at their old one.
+            farmer.is_org_membership_active = True
+            farmer.save(update_fields=['farmers_organization', 'is_org_membership_active'])
 
         return Response(
             {
@@ -195,30 +218,50 @@ class FarmersOrganizationMemberRemoveView(generics.DestroyAPIView):
     lookup_url_kwarg = 'member_id'
 
 
-class FarmersOrganizationMemberDirectRemoveView(APIView):
+class FarmersOrganizationMemberSetActiveView(APIView):
     """
-    The actual "remove member" action for Farmers Organizations: clears
-    Farmer.farmers_organization (the real membership link) rather than
-    deleting a join-table row. Does NOT touch the Farmer profile otherwise.
-    Auto-clears any officer position this farmer holds in this organization
-    first (Batch 4's chosen behavior — see OrganizationOfficer.farmer's
-    SET_NULL, which can't auto-cascade here since we're nulling a field,
-    not deleting a row, so this has to be done explicitly).
+    Toggle-not-delete batch: replaces the old hard "remove member" action
+    (which nulled Farmer.farmers_organization) with an active/inactive flip
+    on Farmer.is_org_membership_active. The FK itself is never touched here
+    — the farmer stays linked to this organization, just marked inactive,
+    so their full history (assistance records, past officer terms) stays
+    attributed correctly and reactivation is a plain flip back.
 
-    Batch 1 (org member management): opened to the FARMERS_ORG citizen who
-    IS this organization. The officer auto-clear below is deliberately left
-    exactly as it was — it sits in the delete() body, so it fires for every
-    caller, staff or citizen, rather than being tied to who is asking.
+    Deactivating still auto-clears any officer position this farmer holds
+    in this organization first — same behavior the old delete() had, still
+    unconditional (fires for every caller, staff or citizen), just moved
+    into the deactivate branch since there's no FK-null/row-delete left to
+    hang it off of.
+
+    Opened to the FARMERS_ORG citizen who IS this organization, same as
+    the flow it replaces.
     """
     permission_classes = [IsAuthenticated, IsOwnOrgOrStaff]
     org_linked_record_type = 'FARMERS_ORG'
 
-    def delete(self, request, pk, farmer_id):
+    def patch(self, request, pk, farmer_id):
         farmer = get_object_or_404(Farmer, pk=farmer_id, farmers_organization_id=pk)
-        OrganizationOfficer.objects.filter(organization_id=pk, farmer_id=farmer_id).delete()
-        farmer.farmers_organization = None
-        farmer.save(update_fields=['farmers_organization'])
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        is_active = request.data.get('is_active')
+        if is_active is None:
+            return Response({'detail': 'is_active is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        is_active = str(is_active).lower() in ('true', '1')
+        if not is_active:
+            # Batch: mark ended instead of deleting — see
+            # FarmersOrganizationMemberAddView.create() above.
+            OrganizationOfficer.objects.filter(
+                organization_id=pk, farmer_id=farmer_id, is_active=True,
+            ).update(
+                is_active=False,
+                term_end_date=timezone.localdate(),
+                early_exit_reason='Organization membership deactivated.',
+            )
+        farmer.is_org_membership_active = is_active
+        farmer.save(update_fields=['is_org_membership_active'])
+        return Response({
+            'id': farmer.id,
+            'full_name': farmer.full_name,
+            'is_org_membership_active': farmer.is_org_membership_active,
+        })
 
 
 class FarmersOrganizationEquipmentAddView(generics.CreateAPIView):
@@ -243,6 +286,14 @@ class OrganizationOfficerListCreateView(generics.ListCreateAPIView):
     farmer is not a member of this organization" check is untouched and
     still runs for every caller — widening who may assign does not widen
     who may BE assigned.
+
+    Batch (2-year terms): GET defaults to current officers only
+    (is_active=True, one per filled position) — every existing caller
+    (AssignOfficerModal's "existingOfficers", the citizen roster) expects
+    that shape unchanged. Pass ?history=1 to get every past+present row for
+    the new Officer History view instead. POST refuses to create a second
+    active row for a position that already has one — the position must be
+    vacated (End Term Early, or natural term completion) first.
     """
     permission_classes = [IsAuthenticated, IsOwnOrgOrStaff]
     org_linked_record_type = 'FARMERS_ORG'
@@ -250,16 +301,48 @@ class OrganizationOfficerListCreateView(generics.ListCreateAPIView):
     pagination_class = None
 
     def get_queryset(self):
-        return OrganizationOfficer.objects.filter(organization_id=self.kwargs['pk'])
+        expire_due_officer_terms()
+        qs = OrganizationOfficer.objects.filter(organization_id=self.kwargs['pk'])
+        if self.request.query_params.get('history') not in ('1', 'true', 'True'):
+            qs = qs.filter(is_active=True)
+        return qs.order_by('position', '-term_start_date')
 
     def perform_create(self, serializer):
-        serializer.save(organization_id=self.kwargs['pk'])
+        expire_due_officer_terms()
+        organization_id = self.kwargs['pk']
+        position = serializer.validated_data.get('position')
+        if OrganizationOfficer.objects.filter(
+            organization_id=organization_id, position=position, is_active=True,
+        ).exists():
+            raise serializers.ValidationError(
+                {'detail': 'This position is currently held by someone else. End their term first before assigning a new officer.'}
+            )
+        serializer.save(organization_id=organization_id)
 
 
-class OrganizationOfficerDestroyView(generics.DestroyAPIView):
+class OrganizationOfficerEndTermView(APIView):
+    """
+    Replaces the old plain-removal (hard delete) flow. Requires a real
+    reason, same required-field discipline as CropDisasterResolveView's
+    recovery_note — sets term_end_date to today and early_exit_reason to
+    the given text, and flips is_active False so the position becomes
+    vacant/re-assignable. The row itself is never touched otherwise: it
+    remains a permanent, queryable historical record.
+    """
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    queryset = OrganizationOfficer.objects.all()
-    lookup_url_kwarg = 'officer_id'
+
+    def post(self, request, officer_id):
+        officer = get_object_or_404(OrganizationOfficer, pk=officer_id)
+        reason = (request.data.get('reason') or '').strip()
+        if not reason:
+            return Response({'detail': 'A reason is required to end a term early.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not officer.is_active:
+            return Response({'detail': 'This officer term has already ended.'}, status=status.HTTP_400_BAD_REQUEST)
+        officer.is_active = False
+        officer.term_end_date = timezone.localdate()
+        officer.early_exit_reason = reason
+        officer.save(update_fields=['is_active', 'term_end_date', 'early_exit_reason'])
+        return Response(OrganizationOfficerSerializer(officer).data)
 
 
 # ─── Fisherfolk Organization ───────────────────────────────────────────────────
@@ -292,6 +375,10 @@ class FisherfolkOrganizationDetailView(generics.RetrieveUpdateAPIView):
     serializer_class = FisherfolkOrganizationDetailSerializer
     queryset = FisherfolkOrganization.objects.all()
 
+    def get_object(self):
+        expire_due_officer_terms()
+        return super().get_object()
+
 
 class FisherfolkOrganizationMemberAddView(generics.ListCreateAPIView):
     """
@@ -317,6 +404,11 @@ class FisherfolkOrganizationMemberAddView(generics.ListCreateAPIView):
         qs = FisherfolkOrganizationMember.objects.filter(
             organization_id=self.kwargs['pk'],
         ).select_related('fisherfolk')
+        # Toggle-not-delete batch: same opt-in as the Farmers side above —
+        # officer assignment's search-select passes this, Report Assistance
+        # does not.
+        if self.request.method == 'GET' and self.request.query_params.get('active_only') in ('1', 'true', 'True'):
+            qs = qs.filter(is_active=True)
         search = self.request.query_params.get('search', '').strip()
         if search:
             qs = qs.filter(
@@ -336,39 +428,61 @@ class FisherfolkOrganizationMemberAddView(generics.ListCreateAPIView):
         serializer.save(organization_id=organization_id)
 
 
-class FisherfolkOrganizationMemberRemoveView(generics.DestroyAPIView):
-    """Staff-only, unchanged. Its URL carries no organization id, so
-    IsOwnOrgOrStaff (which resolves ownership from the `pk` kwarg) cannot
-    gate it — the org-scoped citizen route is the sibling view below."""
+def _set_fisherfolk_member_active(member, is_active):
+    """Shared by both the staff-only and org-scoped set-active views below.
+    Toggle-not-delete batch: deactivating still auto-clears any officer
+    position held via this membership row — the CASCADE that used to do
+    this automatically only fires on a real row delete, and this path no
+    longer deletes the row, so it's explicit here instead."""
+    if not is_active:
+        # Batch: mark ended instead of deleting — see
+        # FarmersOrganizationMemberAddView.create() above.
+        FisherfolkOrganizationOfficer.objects.filter(member=member, is_active=True).update(
+            is_active=False,
+            term_end_date=timezone.localdate(),
+            early_exit_reason='Organization membership deactivated.',
+        )
+    member.is_active = is_active
+    member.save(update_fields=['is_active'])
+
+
+class FisherfolkOrganizationMemberSetActiveView(APIView):
+    """Staff-only. Its URL carries no organization id, so IsOwnOrgOrStaff
+    (which resolves ownership from the `pk` kwarg) cannot gate it — the
+    org-scoped citizen route is the sibling view below."""
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    queryset = FisherfolkOrganizationMember.objects.all()
-    lookup_url_kwarg = 'member_id'
+
+    def patch(self, request, member_id):
+        member = get_object_or_404(FisherfolkOrganizationMember, pk=member_id)
+        is_active = request.data.get('is_active')
+        if is_active is None:
+            return Response({'detail': 'is_active is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        _set_fisherfolk_member_active(member, str(is_active).lower() in ('true', '1'))
+        return Response({'id': member.id, 'is_active': member.is_active})
 
 
-class FisherfolkOrganizationMemberOrgScopedRemoveView(generics.DestroyAPIView):
+class FisherfolkOrganizationMemberOrgScopedSetActiveView(APIView):
     """
-    Batch 1 (org member management): org-scoped "remove member" for
-    Fisherfolk Organizations, mirroring the farmers side's
-    `<pk>/members/<id>/` shape so IsOwnOrgOrStaff has a `pk` to check.
-    Added alongside the staff route rather than replacing it, so the
-    existing staff UI call keeps working untouched.
-
-    Officer auto-clear is NOT reimplemented here: the officer row points at
-    the membership row via FisherfolkOrganizationOfficer.member with
-    on_delete=CASCADE, so deleting the membership deletes the officer
-    position at the model layer, for every caller and every code path.
+    Toggle-not-delete batch: org-scoped active/inactive flip for Fisherfolk
+    Organization membership, mirroring the farmers side's `<pk>/members/
+    <id>/` shape so IsOwnOrgOrStaff has a `pk` to check. Sibling of the
+    staff-only route above, same as the delete-based views this replaced.
 
     get_queryset filters by the organization from the URL, so a member id
-    belonging to some other organization 404s instead of being deleted.
+    belonging to some other organization 404s instead of being toggled.
     """
     permission_classes = [IsAuthenticated, IsOwnOrgOrStaff]
     org_linked_record_type = 'FISHERFOLK_ORG'
-    lookup_url_kwarg = 'member_id'
 
-    def get_queryset(self):
-        return FisherfolkOrganizationMember.objects.filter(
-            organization_id=self.kwargs['pk'],
+    def patch(self, request, pk, member_id):
+        member = get_object_or_404(
+            FisherfolkOrganizationMember, pk=member_id, organization_id=pk,
         )
+        is_active = request.data.get('is_active')
+        if is_active is None:
+            return Response({'detail': 'is_active is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        _set_fisherfolk_member_active(member, str(is_active).lower() in ('true', '1'))
+        return Response({'id': member.id, 'is_active': member.is_active})
 
 
 class FisherfolkOrganizationEquipmentAddView(generics.CreateAPIView):
@@ -391,6 +505,9 @@ class FisherfolkOrganizationOfficerListCreateView(generics.ListCreateAPIView):
     FISHERFOLK_ORG citizen who IS this organization.
     FisherfolkOrganizationOfficerSerializer.validate's "this fisherfolk is
     not a member of this organization" check is untouched and still runs.
+
+    Batch (2-year terms): see OrganizationOfficerListCreateView's identical
+    docstring — same ?history=1 / vacant-position-required behavior.
     """
     permission_classes = [IsAuthenticated, IsOwnOrgOrStaff]
     org_linked_record_type = 'FISHERFOLK_ORG'
@@ -398,16 +515,41 @@ class FisherfolkOrganizationOfficerListCreateView(generics.ListCreateAPIView):
     pagination_class = None
 
     def get_queryset(self):
-        return FisherfolkOrganizationOfficer.objects.filter(organization_id=self.kwargs['pk'])
+        expire_due_officer_terms()
+        qs = FisherfolkOrganizationOfficer.objects.filter(organization_id=self.kwargs['pk'])
+        if self.request.query_params.get('history') not in ('1', 'true', 'True'):
+            qs = qs.filter(is_active=True)
+        return qs.order_by('position', '-term_start_date')
 
     def perform_create(self, serializer):
-        serializer.save(organization_id=self.kwargs['pk'])
+        expire_due_officer_terms()
+        organization_id = self.kwargs['pk']
+        position = serializer.validated_data.get('position')
+        if FisherfolkOrganizationOfficer.objects.filter(
+            organization_id=organization_id, position=position, is_active=True,
+        ).exists():
+            raise serializers.ValidationError(
+                {'detail': 'This position is currently held by someone else. End their term first before assigning a new officer.'}
+            )
+        serializer.save(organization_id=organization_id)
 
 
-class FisherfolkOrganizationOfficerDestroyView(generics.DestroyAPIView):
+class FisherfolkOrganizationOfficerEndTermView(APIView):
+    """Fisherfolk equivalent of OrganizationOfficerEndTermView above."""
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    queryset = FisherfolkOrganizationOfficer.objects.all()
-    lookup_url_kwarg = 'officer_id'
+
+    def post(self, request, officer_id):
+        officer = get_object_or_404(FisherfolkOrganizationOfficer, pk=officer_id)
+        reason = (request.data.get('reason') or '').strip()
+        if not reason:
+            return Response({'detail': 'A reason is required to end a term early.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not officer.is_active:
+            return Response({'detail': 'This officer term has already ended.'}, status=status.HTTP_400_BAD_REQUEST)
+        officer.is_active = False
+        officer.term_end_date = timezone.localdate()
+        officer.early_exit_reason = reason
+        officer.save(update_fields=['is_active', 'term_end_date', 'early_exit_reason'])
+        return Response(FisherfolkOrganizationOfficerSerializer(officer).data)
 
 
 # ─── Batch 1: add-member candidate search ──────────────────────────────────

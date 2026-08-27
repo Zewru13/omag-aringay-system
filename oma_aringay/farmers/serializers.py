@@ -120,6 +120,7 @@ class FarmerListSerializer(serializers.ModelSerializer):
             'date_registered',
             'farmers_organization',
             'farmers_organization_name',
+            'is_org_membership_active',
         ]
 
     def get_commodity(self, obj):

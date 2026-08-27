@@ -19,13 +19,15 @@ from .models import (
 
 
 class FarmerOrganizationMemberSearchSerializer(serializers.ModelSerializer):
-    """Read-only shape for the officer-assignment search-select: this
-    organization's own Farmer members only (see FarmersOrganizationMember's
-    docstring — membership here is Farmer.farmers_organization, not a join
-    table)."""
+    """Read-only shape for the officer-assignment search-select AND the
+    Members list display: this organization's own Farmer members only (see
+    FarmersOrganizationMember's docstring — membership here is
+    Farmer.farmers_organization, not a join table). is_org_membership_active
+    is included (toggle-not-delete batch) so the Members screen can show
+    deactivated members muted rather than hiding them outright."""
     class Meta:
         model = Farmer
-        fields = ['id', 'full_name', 'barangay', 'rsbsa_number']
+        fields = ['id', 'full_name', 'barangay', 'rsbsa_number', 'is_org_membership_active']
 
 
 # ─── Batch 1: add-member candidate search (citizen-reachable) ──────────────
@@ -86,14 +88,27 @@ class OrganizationOfficerSerializer(serializers.ModelSerializer):
 
     class Meta:
         model  = OrganizationOfficer
-        fields = ['id', 'position', 'full_name', 'farmer', 'farmer_id', 'farmer_barangay']
-        read_only_fields = ['id', 'full_name', 'farmer_id', 'farmer_barangay']
+        fields = [
+            'id', 'position', 'full_name', 'farmer', 'farmer_id', 'farmer_barangay',
+            'term_start_date', 'term_end_date', 'early_exit_reason', 'is_active',
+        ]
+        read_only_fields = [
+            'id', 'full_name', 'farmer_id', 'farmer_barangay',
+            'term_start_date', 'term_end_date', 'early_exit_reason', 'is_active',
+        ]
 
     def validate_farmer(self, value):
         organization_id = self.context['view'].kwargs.get('pk')
         if str(value.farmers_organization_id) != str(organization_id):
             raise serializers.ValidationError(
                 'This farmer is not a member of this organization.'
+            )
+        # Toggle-not-delete batch: an inactive membership can't hold an
+        # officer position — deactivating already clears any existing one,
+        # this is the mirror-image guard on assignment.
+        if not value.is_org_membership_active:
+            raise serializers.ValidationError(
+                "This farmer's membership in this organization is inactive."
             )
         return value
 
@@ -172,12 +187,25 @@ class FarmersOrganizationListSerializer(serializers.ModelSerializer):
 class FarmersOrganizationDetailSerializer(serializers.ModelSerializer):
     members   = FarmersOrganizationMemberSerializer(many=True, read_only=True)
     equipment = FarmersOrganizationEquipmentSerializer(many=True, read_only=True)
-    officers  = OrganizationOfficerSerializer(many=True, read_only=True)
+    # Current officers only (one per filled position) — officer_history
+    # below carries every past holder too. Both read from the same
+    # `officers` related_name; the lazy expiry check runs before this
+    # serializer is ever built (see the detail view's get_object()).
+    officers  = serializers.SerializerMethodField()
+    officer_history = serializers.SerializerMethodField()
     citizen_account = serializers.SerializerMethodField()
 
     class Meta:
         model  = FarmersOrganization
         fields = '__all__'
+
+    def get_officers(self, obj):
+        qs = obj.officers.filter(is_active=True)
+        return OrganizationOfficerSerializer(qs, many=True).data
+
+    def get_officer_history(self, obj):
+        qs = obj.officers.order_by('position', '-term_start_date')
+        return OrganizationOfficerSerializer(qs, many=True).data
 
     def get_citizen_account(self, obj):
         return citizen_account_info(User.LinkedRecordType.FARMERS_ORG, obj.id)
@@ -206,8 +234,12 @@ class FisherfolkOrganizationMemberSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'organization', 'fisherfolk', 'fisherfolk_full_name',
             'fisherfolk_lgu_number', 'fisherfolk_barangay', 'position', 'date_joined',
+            'is_active',
         ]
-        read_only_fields = ['organization']
+        # is_active is never written through the generic create/list path
+        # (toggle-not-delete batch) — only the dedicated set-active views
+        # below change it, same discipline as everywhere else in this app.
+        read_only_fields = ['organization', 'is_active']
 
     def validate_date_joined(self, value):
         validate_not_future_date(value, 'Date joined')
@@ -237,8 +269,14 @@ class FisherfolkOrganizationOfficerSerializer(serializers.ModelSerializer):
 
     class Meta:
         model  = FisherfolkOrganizationOfficer
-        fields = ['id', 'position', 'full_name', 'fisherfolk', 'fisherfolk_id', 'fisherfolk_barangay']
-        read_only_fields = ['id', 'full_name', 'fisherfolk_id', 'fisherfolk_barangay']
+        fields = [
+            'id', 'position', 'full_name', 'fisherfolk', 'fisherfolk_id', 'fisherfolk_barangay',
+            'term_start_date', 'term_end_date', 'early_exit_reason', 'is_active',
+        ]
+        read_only_fields = [
+            'id', 'full_name', 'fisherfolk_id', 'fisherfolk_barangay',
+            'term_start_date', 'term_end_date', 'early_exit_reason', 'is_active',
+        ]
 
     def get_fisherfolk_id(self, obj):
         return obj.member.fisherfolk_id if obj.member else None
@@ -256,6 +294,13 @@ class FisherfolkOrganizationOfficerSerializer(serializers.ModelSerializer):
             if not member:
                 raise serializers.ValidationError(
                     {'fisherfolk': 'This fisherfolk is not a member of this organization.'}
+                )
+            # Toggle-not-delete batch: same mirror-image guard as the
+            # farmers side — an inactive membership can't hold an officer
+            # position.
+            if not member.is_active:
+                raise serializers.ValidationError(
+                    {'fisherfolk': "This fisherfolk's membership in this organization is inactive."}
                 )
             data['member'] = member
             data['full_name'] = fisherfolk.full_name
@@ -284,12 +329,21 @@ class FisherfolkOrganizationListSerializer(serializers.ModelSerializer):
 class FisherfolkOrganizationDetailSerializer(serializers.ModelSerializer):
     members   = FisherfolkOrganizationMemberSerializer(many=True, read_only=True)
     equipment = FisherfolkOrganizationEquipmentSerializer(many=True, read_only=True)
-    officers  = FisherfolkOrganizationOfficerSerializer(many=True, read_only=True)
+    officers  = serializers.SerializerMethodField()
+    officer_history = serializers.SerializerMethodField()
     citizen_account = serializers.SerializerMethodField()
 
     class Meta:
         model  = FisherfolkOrganization
         fields = '__all__'
+
+    def get_officers(self, obj):
+        qs = obj.officers.filter(is_active=True)
+        return FisherfolkOrganizationOfficerSerializer(qs, many=True).data
+
+    def get_officer_history(self, obj):
+        qs = obj.officers.order_by('position', '-term_start_date')
+        return FisherfolkOrganizationOfficerSerializer(qs, many=True).data
 
     def get_citizen_account(self, obj):
         return citizen_account_info(User.LinkedRecordType.FISHERFOLK_ORG, obj.id)

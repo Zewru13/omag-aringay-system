@@ -276,6 +276,12 @@ class MeView(APIView):
         # module load time for the sake of one method.
         from interventions.lifecycle import advance_due_distributions
         advance_due_distributions(request.user)
+        # Officer-term lazy transition — same no-job-scheduler pattern,
+        # global rather than per-user (organization officer terms aren't
+        # owned by the session's own user), so it's unconditional and cheap
+        # (indexed .update() with nothing due most calls).
+        from associations.lifecycle import expire_due_officer_terms
+        expire_due_officer_terms()
         return Response(UserSerializer(request.user).data)
 
     def patch(self, request):

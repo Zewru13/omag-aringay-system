@@ -77,7 +77,7 @@ class CropTypeSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'days_to_harvest', 'yield_per_ha_kg',
             'category', 'category_name', 'subcategory', 'subcategory_name',
-            'suggested_activities', 'allowed_units', 'remarks',
+            'suggested_activities', 'allowed_units', 'remarks', 'is_active',
         ]
         # DRF auto-adds a UniqueValidator to `name` from the model's
         # unique=True — it's case-sensitive-looking but MySQL's default

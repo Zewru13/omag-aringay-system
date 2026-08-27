@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Building2, ChevronDown, ChevronRight, Download, FileText, Fish, History, Leaf, Search, User, Wheat } from 'lucide-react'
+import { Building2, ChevronDown, ChevronRight, Download, FileText, Fish, History, Leaf, Printer, Search, User, Wheat } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
@@ -138,9 +138,21 @@ function SignatureModal({ purpose, onClose, onGenerate }) {
 
 // ── Shared: Action Buttons Row ─────────────────────────────────────────────────
 
+// print:hidden on the whole row — action buttons have no business appearing
+// on the printed page itself, same reason the filter panels and tab
+// switcher below are hidden on print.
 function ActionButtons({ onPdf, onExcel, isDownloading }) {
   return (
-    <div className="flex gap-2 justify-end">
+    <div className="flex gap-2 justify-end print:hidden">
+      <button
+        type="button"
+        onClick={() => window.print()}
+        disabled={isDownloading}
+        className="flex items-center gap-1.5 bg-white border border-[#C8D5C8] hover:bg-[#F5F7F5] text-[#4A5E4A] text-[13px] font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
+      >
+        <Printer className="w-4 h-4" />
+        Print
+      </button>
       <button
         type="button"
         onClick={onPdf}
@@ -167,12 +179,17 @@ function ActionButtons({ onPdf, onExcel, isDownloading }) {
 
 function PreviewTable({ headers, rows, isLoading, emptyText = 'No records found.' }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-      <table className="min-w-full text-sm">
-        <thead className="bg-[#1B4D2E] text-white">
+    // print:overflow-visible — the screen version scrolls a too-wide table
+    // sideways, which on paper would just clip the overflow instead of
+    // scrolling; print:text-[10px]/px-2/py-1 shrink cells so wide tables
+    // (e.g. Farmer Crop History's 12 columns) have a real chance of fitting
+    // the page width instead of being cut off.
+    <div className="overflow-x-auto print:overflow-visible rounded-xl border border-[#E2E8E2] print:border-slate-300 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] print:shadow-none">
+      <table className="min-w-full text-sm print:w-full print:table-fixed">
+        <thead className="bg-[#1B4D2E] text-white print:bg-[#1B4D2E]">
           <tr>
             {headers.map((h, i) => (
-              <th key={i} className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-[0.06em] whitespace-nowrap">
+              <th key={i} className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-[0.06em] whitespace-nowrap print:whitespace-normal print:text-[9px] print:px-2 print:py-1">
                 {h}
               </th>
             ))}
@@ -184,9 +201,9 @@ function PreviewTable({ headers, rows, isLoading, emptyText = 'No records found.
           ) : rows.length === 0 ? (
             <tr><td colSpan={headers.length} className="py-8 text-center text-[13px] text-[#7A8E7A]">{emptyText}</td></tr>
           ) : rows.map((row, i) => (
-            <tr key={i} className="border-b border-[#F0F4F0] hover:bg-[#F9FAF9]">
+            <tr key={i} className="border-b border-[#F0F4F0] print:border-slate-300 hover:bg-[#F9FAF9]">
               {row.map((cell, j) => (
-                <td key={j} className="px-4 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{cell ?? '—'}</td>
+                <td key={j} className="px-4 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap print:whitespace-normal print:text-[9px] print:px-2 print:py-1 print:break-words">{cell ?? '—'}</td>
               ))}
             </tr>
           ))}
@@ -313,7 +330,7 @@ function HarvestedCropTab() {
   return (
     <div className="space-y-5">
       {/* Filters */}
-      <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+      <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 print:hidden">
         <p className="text-[13px] font-semibold text-[#1A2B1A] mb-4">Filter Options</p>
         <div className="flex flex-wrap gap-3">
           <div>
@@ -467,7 +484,7 @@ function OrganizationListTab() {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+      <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 print:hidden">
         <p className="text-[13px] font-semibold text-[#1A2B1A] mb-4">Filter Options</p>
         <div className="flex flex-wrap gap-3">
           <div className="w-44">
@@ -584,7 +601,7 @@ function CropOptionsTab() {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+      <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 print:hidden">
         <p className="text-[13px] font-semibold text-[#1A2B1A] mb-4">Filter Options</p>
         <div className="flex flex-wrap gap-3">
           <div>
@@ -723,7 +740,7 @@ function FisheriesProductionTab() {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+      <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 print:hidden">
         <p className="text-[13px] font-semibold text-[#1A2B1A] mb-4">Filter Options</p>
         <div className="flex flex-wrap gap-3">
           <div>
@@ -967,7 +984,7 @@ function FarmerCropHistoryTab() {
   return (
     <div className="space-y-5">
       {/* Filters */}
-      <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
+      <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 print:hidden">
         <p className="text-[13px] font-semibold text-[#1A2B1A] mb-4">Filter Options</p>
         <div className="flex flex-wrap gap-3">
           <div className="w-56">
@@ -1043,12 +1060,12 @@ function FarmerCropHistoryTab() {
       <div>
         <p className="text-[13px] font-semibold text-[#1A2B1A]">Preview: Farmer Crop History</p>
         <p className="text-[12px] text-[#7A8E7A] mb-3">Click a row to see the full activity timeline and harvest detail.</p>
-        <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-          <table className="min-w-full text-sm">
+        <div className="overflow-x-auto print:overflow-visible rounded-xl border border-[#E2E8E2] print:border-slate-300 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] print:shadow-none">
+          <table className="min-w-full text-sm print:w-full print:table-fixed">
             <thead className="bg-[#1B4D2E] text-white">
               <tr>
                 {['', 'FARMER', 'BARANGAY', 'CROP', 'VARIETY', 'DATE PLANTED', 'STATUS', '# ACT', 'FIRST ACT', 'LAST ACT', '# HARVESTS', 'TOTAL HARVESTED (KG)'].map((h, i) => (
-                  <th key={i} className="px-3 py-[11px] text-left text-[11px] font-semibold uppercase tracking-[0.06em] whitespace-nowrap">{h}</th>
+                  <th key={i} className="px-3 py-[11px] text-left text-[11px] font-semibold uppercase tracking-[0.06em] whitespace-nowrap print:whitespace-normal print:text-[9px] print:px-2 print:py-1">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -1066,17 +1083,17 @@ function FarmerCropHistoryTab() {
                     <td className="px-3 py-[11px] text-[#7A8E7A]">
                       {expanded.has(rec.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     </td>
-                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.farmer}</td>
-                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.barangay}</td>
-                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.crop_type}</td>
-                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.variety}</td>
-                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.date_planted}</td>
-                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.status}</td>
-                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.activity_count}</td>
-                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.first_activity_date || '—'}</td>
-                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.last_activity_date || '—'}</td>
-                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.harvest_count}</td>
-                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{totalHarvested(rec).toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap print:whitespace-normal print:text-[9px] print:px-2 print:py-1 print:break-words">{rec.farmer}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap print:whitespace-normal print:text-[9px] print:px-2 print:py-1 print:break-words">{rec.barangay}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap print:whitespace-normal print:text-[9px] print:px-2 print:py-1 print:break-words">{rec.crop_type}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap print:whitespace-normal print:text-[9px] print:px-2 print:py-1 print:break-words">{rec.variety}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap print:whitespace-normal print:text-[9px] print:px-2 print:py-1 print:break-words">{rec.date_planted}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap print:whitespace-normal print:text-[9px] print:px-2 print:py-1 print:break-words">{rec.status}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap print:whitespace-normal print:text-[9px] print:px-2 print:py-1 print:break-words">{rec.activity_count}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap print:whitespace-normal print:text-[9px] print:px-2 print:py-1 print:break-words">{rec.first_activity_date || '—'}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap print:whitespace-normal print:text-[9px] print:px-2 print:py-1 print:break-words">{rec.last_activity_date || '—'}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap print:whitespace-normal print:text-[9px] print:px-2 print:py-1 print:break-words">{rec.harvest_count}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap print:whitespace-normal print:text-[9px] print:px-2 print:py-1 print:break-words">{totalHarvested(rec).toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
                   </tr>
                   {expanded.has(rec.id) && (
                     <tr key={`${rec.id}-detail`} className="border-b border-[#F0F4F0] bg-[#F9FAF9]">
@@ -1148,7 +1165,7 @@ export default function ReportsPage() {
   return (
     <PageLayout title="Report Generation" subtitle="Generate and export data from different modules">
       <div className="space-y-5">
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 print:hidden">
           {TABS.map(tab => (
             <button
               key={tab.id}

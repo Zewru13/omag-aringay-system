@@ -6,6 +6,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
+import BARANGAYS from '../../constants/barangays.js'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
@@ -20,6 +21,11 @@ import { downloadFile } from '../../utils/fileDownload.js'
 import { possibleFactorsText } from '../../utils/yieldAnalysis.js'
 
 const filterLabelCls = 'block text-[12px] font-medium text-[#4A5E4A] mb-1'
+
+// Same compact select style CropMonitoringPage.jsx/FisheriesRecordsPage.jsx
+// already use for their FilterPanel children.
+const filterSelectCls =
+  'rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[7px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none'
 
 const COLUMNS = [
   { key: 'crop_type_name',    label: 'CROP' },
@@ -542,6 +548,7 @@ function YieldAnalysisTab() {
   const [expanded, setExpanded] = useState(() => new Set())
   const [filters, setFilters] = useState({ crop_type: '', barangay: '', season: '', year: '' })
   const [farmerFilter, setFarmerFilter] = useState(null)
+  const [search, setSearch] = useState('')
   const [viewMode, setViewMode] = useState('analysis') // 'analysis' | 'grouped'
   const [grouped, setGrouped] = useState([])
   const [isLoadingGrouped, setIsLoadingGrouped] = useState(false)
@@ -615,6 +622,19 @@ function YieldAnalysisTab() {
       return next
     })
   }
+
+  // Client-side quick filter over the already-fetched (unpaginated) records —
+  // the crop_type/barangay/season/year/farmer filters above are server-side
+  // and also drive the aggregate summary + export; this one is a simple text
+  // narrow-down of what's already on screen, same role as ForecastingPage's
+  // Forecast-tab search and CropMonitoringPage's search.
+  const q = search.toLowerCase()
+  const filteredRecords = records.filter(rec =>
+    !q
+    || rec.crop_type?.toLowerCase().includes(q)
+    || rec.farmer?.toLowerCase().includes(q)
+    || rec.barangay?.toLowerCase().includes(q)
+  )
 
   const buildUrl = (fmt) => {
     const p = new URLSearchParams({ ...buildParams({ group_by: groupBy }), format: fmt })
@@ -692,6 +712,18 @@ function YieldAnalysisTab() {
             <label className={filterLabelCls}>Farmer</label>
             <FarmerFilterInput selected={farmerFilter} onSelect={setFarmerFilter} />
           </div>
+          <div className="w-56">
+            <label className={filterLabelCls}>Search</label>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#A8BCA8] pointer-events-none" />
+              <input
+                className={`${baseInputClasses} pl-7`}
+                placeholder="Crop, farmer, or barangay..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -728,9 +760,11 @@ function YieldAnalysisTab() {
             <tbody>
               {isLoading ? (
                 <tr><td colSpan={9} className="py-8 text-center text-[13px] text-[#7A8E7A]">Loading…</td></tr>
-              ) : records.length === 0 ? (
-                <tr><td colSpan={9} className="py-8 text-center text-[13px] text-[#7A8E7A]">No harvested crops found in scope.</td></tr>
-              ) : records.map(rec => (
+              ) : filteredRecords.length === 0 ? (
+                <tr><td colSpan={9} className="py-8 text-center text-[13px] text-[#7A8E7A]">
+                  {records.length === 0 ? 'No harvested crops found in scope.' : 'No crops match your search.'}
+                </td></tr>
+              ) : filteredRecords.map(rec => (
                 <Fragment key={rec.id}>
                   <tr
                     onClick={() => toggleExpand(rec.id)}
@@ -808,43 +842,90 @@ export default function ForecastingPage() {
   const [forecastView,  setForecastView]  = useState('flat') // 'flat' | 'grouped'
   const [grouped,       setGrouped]       = useState([])
   const [isLoadingGrouped, setIsLoadingGrouped] = useState(false)
+  const [cropTypes,     setCropTypes]     = useState([])
+  const [barangayFilter, setBarangayFilter] = useState('')
+  const [cropTypeFilter, setCropTypeFilter] = useState('')
   const fileInputRef = useRef(null)
   const { showToast } = useToast()
 
+  useEffect(() => {
+    api.get('/production/crop-types/').then(r => {
+      setCropTypes(Array.isArray(r.data) ? r.data : (r.data.results || []))
+    }).catch(() => {})
+  }, [])
+
   // Grouped-by-farmer view reuses the Farmer Crop History report's JSON query
   // (all statuses, not just harvested), normalized to GroupedForecast's shape.
+  // Same barangay/crop-type filters as the flat view — FarmerCropHistoryReport
+  // already accepts both.
+  //
+  // barangayFilter and cropTypeFilter each trigger their own state update, so
+  // changing two filters in quick succession fires two overlapping requests
+  // with no guarantee they resolve in the order they were sent. Guarded with
+  // this codebase's own established cancelled-flag idiom (see e.g.
+  // MyYieldAnalysisSection.jsx, OrganizationHomeScreen.jsx, StaffDashboard.jsx
+  // — 14 files already use this exact pattern) rather than inventing a new
+  // one: the effect's cleanup flips `cancelled` before the next run starts,
+  // so a response that lands after a newer request has already begun is
+  // discarded instead of applied.
   useEffect(() => {
     if (forecastView !== 'grouped') return
+    let cancelled = false
     setIsLoadingGrouped(true)
-    api.get('/reports/farmer-crop-history/', { params: { format: 'json' } })
-      .then(r => setGrouped((r.data.records || []).map(rec => ({
-        id: rec.id,
-        person: rec.farmer,
-        commodity: rec.crop_type,
-        landStatus: rec.land_status,
-        dateField: rec.date_planted,
-        status: rec.status,
-        harvestDate: rec.actual_harvest_date,
-        variancePct: rec.variance_pct,
-        isTotalLoss: rec.is_total_loss,
-      }))))
-      .catch(() => showToast('Failed to load grouped view.', 'error'))
-      .finally(() => setIsLoadingGrouped(false))
+    const params = { format: 'json' }
+    if (barangayFilter) params.barangay = barangayFilter
+    if (cropTypeFilter) params.crop_type = cropTypeFilter
+    api.get('/reports/farmer-crop-history/', { params })
+      .then(r => {
+        if (cancelled) return
+        setGrouped((r.data.records || []).map(rec => ({
+          id: rec.id,
+          person: rec.farmer,
+          commodity: rec.crop_type,
+          landStatus: rec.land_status,
+          dateField: rec.date_planted,
+          status: rec.status,
+          harvestDate: rec.actual_harvest_date,
+          variancePct: rec.variance_pct,
+          isTotalLoss: rec.is_total_loss,
+        })))
+      })
+      .catch(() => { if (!cancelled) showToast('Failed to load grouped view.', 'error') })
+      .finally(() => { if (!cancelled) setIsLoadingGrouped(false) })
+    return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [forecastView])
+  }, [forecastView, barangayFilter, cropTypeFilter])
 
-  const fetchRecords = useCallback(async (pageNum = 1) => {
+  // Same cancelled-flag idiom as the grouped view above, for the flat view's
+  // fetch. fetchRecords is also called imperatively elsewhere (after an
+  // Excel import, after a record edit) — isCancelled defaults to "never
+  // cancelled" for those call sites, since they aren't part of the rapid
+  // filter-change sequence this guards against; only the page/filter-driven
+  // effect below supplies a real one, tied to its own cleanup.
+  const fetchRecords = useCallback(async (pageNum = 1, isCancelled = () => false) => {
     setIsLoading(true); setError('')
     try {
-      const r = await api.get('/production/monitoring/', { params: { status: 'Planted,Near Harvest', page: pageNum } })
+      const params = { status: 'Planted,Near Harvest', page: pageNum }
+      if (barangayFilter) params.barangay = barangayFilter
+      if (cropTypeFilter) params.crop_type = cropTypeFilter
+      const r = await api.get('/production/monitoring/', { params })
+      if (isCancelled()) return
       setRecords(Array.isArray(r.data) ? r.data : (r.data.results || []))
       setTotalCount(typeof r.data?.count === 'number' ? r.data.count : 0)
     } catch {
-      setError('Failed to load forecast records.')
-    } finally { setIsLoading(false) }
-  }, [])
+      if (!isCancelled()) setError('Failed to load forecast records.')
+    } finally {
+      if (!isCancelled()) setIsLoading(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [barangayFilter, cropTypeFilter])
 
-  useEffect(() => { fetchRecords(page) }, [fetchRecords, page])
+  useEffect(() => { setPage(1) }, [barangayFilter, cropTypeFilter])
+  useEffect(() => {
+    let cancelled = false
+    fetchRecords(page, () => cancelled)
+    return () => { cancelled = true }
+  }, [fetchRecords, page])
 
   const handleDownloadTemplate = async () => {
     try {
@@ -969,7 +1050,17 @@ export default function ForecastingPage() {
               search={search}
               onSearchChange={setSearch}
               searchPlaceholder="Search by crop or organization..."
-            />
+              activeCount={[Boolean(barangayFilter), Boolean(cropTypeFilter)].filter(Boolean).length}
+            >
+              <select className={filterSelectCls} value={cropTypeFilter} onChange={e => setCropTypeFilter(e.target.value)}>
+                <option value="">All Crops</option>
+                {cropTypes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <select className={filterSelectCls} value={barangayFilter} onChange={e => setBarangayFilter(e.target.value)}>
+                <option value="">All Barangays</option>
+                {BARANGAYS.map(b => <option key={b} value={b}>{b}</option>)}
+              </select>
+            </FilterPanel>
 
             {error && <ErrorMessage message={error} />}
 
