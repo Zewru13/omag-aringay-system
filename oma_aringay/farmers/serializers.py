@@ -200,7 +200,7 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
         return value
 
     def validate_rsbsa_number(self, value):
-        queryset = Farmer.objects.filter(rsbsa_number=value)
+        queryset = Farmer.objects.filter(rsbsa_number__iexact=value)
 
         if self.instance:
             queryset = queryset.exclude(pk=self.instance.pk)
@@ -277,7 +277,7 @@ class FarmerCreateSerializer(serializers.ModelSerializer):
         return value
 
     def validate_rsbsa_number(self, value):
-        if Farmer.objects.filter(rsbsa_number=value).exists():
+        if Farmer.objects.filter(rsbsa_number__iexact=value).exists():
             raise serializers.ValidationError(
                 'A farmer with this RSBSA number is already registered in the system.'
             )

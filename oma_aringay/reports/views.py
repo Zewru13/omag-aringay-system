@@ -1435,9 +1435,9 @@ class BarangayCropSummaryReport(APIView):
 
         qs = BarangayCropSummary.objects.filter(season=season, year=year).order_by('barangay', 'crop_name')
         if barangay:
-            qs = qs.filter(barangay=barangay)
+            qs = qs.filter(barangay__iexact=barangay)
         if crop_name:
-            qs = qs.filter(crop_name=crop_name)
+            qs = qs.filter(crop_name__iexact=crop_name)
         records = list(qs)
         today = date_type.today()
 
@@ -1550,9 +1550,9 @@ class CropHistoricalReport(APIView):
             from rest_framework.response import Response
             return Response({'detail': 'crop_name is required.'}, status=400)
 
-        qs = BarangayCropSummary.objects.filter(crop_name=crop_name).order_by('year', 'season')
+        qs = BarangayCropSummary.objects.filter(crop_name__iexact=crop_name).order_by('year', 'season')
         if barangay:
-            qs = qs.filter(barangay=barangay)
+            qs = qs.filter(barangay__iexact=barangay)
         records = list(qs)
         today = date_type.today()
 

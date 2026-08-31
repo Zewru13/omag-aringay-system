@@ -1589,9 +1589,9 @@ class BarangayCropSummaryListCreateView(generics.ListCreateAPIView):
         ).order_by('barangay', 'crop_name')
         p = self.request.query_params
         if p.get('barangay'):
-            qs = qs.filter(barangay=p['barangay'])
+            qs = qs.filter(barangay__iexact=p['barangay'])
         if p.get('crop_name'):
-            qs = qs.filter(crop_name=p['crop_name'])
+            qs = qs.filter(crop_name__iexact=p['crop_name'])
         if p.get('season'):
             qs = qs.filter(season=p['season'])
         if p.get('year'):
@@ -1773,9 +1773,9 @@ class CropHistoricalTimelineView(APIView):
         if not crop_name:
             return Response({'detail': 'crop_name is required.'}, status=400)
 
-        qs = BarangayCropSummary.objects.filter(crop_name=crop_name)
+        qs = BarangayCropSummary.objects.filter(crop_name__iexact=crop_name)
         if barangay:
-            qs = qs.filter(barangay=barangay)
+            qs = qs.filter(barangay__iexact=barangay)
 
         # Group by season + year
         grouped = qs.values('season', 'year').annotate(
