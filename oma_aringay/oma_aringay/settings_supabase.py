@@ -1,8 +1,8 @@
 """
 Phase 4 Step 1: connection settings for the REAL Supabase Postgres project.
 
-Unlike settings_postgres_test.py (a throwaway local instance), this points
-at real, user-owned infrastructure. Connection details come exclusively
+Unlike a throwaway local test instance, this points at real, user-owned
+infrastructure. Connection details come exclusively
 from environment variables (oma_aringay/.env, loaded by settings.py's own
 load_dotenv() call) — never hardcoded here, never logged, never printed.
 This module must fail loudly if any required variable is missing rather
