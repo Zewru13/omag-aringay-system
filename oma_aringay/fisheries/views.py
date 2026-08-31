@@ -7,6 +7,7 @@ from django.db.models import Count, Q, Sum
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status as drf_status
 from rest_framework.exceptions import ValidationError
+from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -479,6 +480,18 @@ class StockingListCreateView(generics.ListCreateAPIView):
                 | Q(species__species_name__icontains=q)
                 | Q(pond_location_barangay__icontains=q)
             )
+        # Fisheries Forecasting "Forecast" tab: day-window scope over the real
+        # expected_harvest_date field (today <= date <= date_to), rather than
+        # trusting `status` alone — status only flips to Near Harvest when
+        # something calls .save() on the record, so a record already inside
+        # the window can still read Stocked if nothing has touched it since.
+        # Same date_from/date_to query-param convention already used by
+        # auditlog/views.py. Total Loss (and Harvested) stay excluded via the
+        # existing no-status-param default branch above.
+        if params.get('date_from'):
+            qs = qs.filter(expected_harvest_date__gte=params['date_from'])
+        if params.get('date_to'):
+            qs = qs.filter(expected_harvest_date__lte=params['date_to'])
         return qs
 
     def perform_create(self, serializer):
@@ -512,6 +525,165 @@ class StockingBulkCreateView(APIView):
             created = [s.save(recorded_by=request.user) for s in item_serializers]
 
         return Response(StockingRecordSerializer(created, many=True).data, status=drf_status.HTTP_201_CREATED)
+
+
+class StockingForecastingTemplateView(APIView):
+    """Mirrors ForecastingTemplateView (production/views.py) exactly, with
+    fisheries-appropriate columns substituted: RSBSA number instead of
+    organization name (StockingRecord has no organization-level FK — only
+    an individual fisherfolk FK — so rows are matched to a specific person,
+    not an org), species instead of crop type, date stocked instead of date
+    planted, number of fingerlings instead of area planted (area_hectares is
+    optional on StockingRecord; number_of_fingerlings is the required
+    quantity field). Culture Type is a genuinely new required column with no
+    crop-side equivalent — StockingRecord.culture_type has no default and
+    must be supplied."""
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request):
+        from io import BytesIO
+
+        from django.http import HttpResponse
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = 'Stocking Forecasting Import'
+
+        headers = [
+            'Fisherfolk RSBSA Number', 'Species Name', 'Date Stocked (YYYY-MM-DD)',
+            'Number of Fingerlings', 'Culture Type (Pond/Cage/Pen)',
+        ]
+        green_fill = PatternFill(start_color='1E4620', end_color='1E4620', fill_type='solid')
+        white_font = Font(color='FFFFFF', bold=True)
+
+        col_widths = [28, 25, 28, 22, 28]
+        for col, (header, width) in enumerate(zip(headers, col_widths), 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.fill = green_fill
+            cell.font = white_font
+            ws.column_dimensions[cell.column_letter].width = width
+
+        ws.cell(row=2, column=1, value='01-33-02-999-999999')
+        ws.cell(row=2, column=2, value='Tilapia')
+        ws.cell(row=2, column=3, value='2025-01-15')
+        ws.cell(row=2, column=4, value=5000)
+        ws.cell(row=2, column=5, value='Pond')
+
+        buf = BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+
+        response = HttpResponse(
+            buf.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        response['Content-Disposition'] = 'attachment; filename="stocking_forecasting_template.xlsx"'
+        return response
+
+
+class StockingForecastingImportView(APIView):
+    """Mirrors ForecastingImportView (production/views.py) exactly: parses
+    the uploaded Excel row by row (data starts row 3, same as crop's
+    template), creates one StockingRecord per valid row directly via
+    .objects.create() (not the serializer — same as crop), collects
+    per-row errors without rolling back earlier successful rows (crop's
+    Excel import is deliberately not atomic; the bulk-create tabular form
+    is the atomic path, unaffected by this)."""
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    parser_classes = [MultiPartParser]
+
+    def post(self, request):
+        import datetime as dt
+
+        from openpyxl import load_workbook
+
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'No file uploaded.'}, status=400)
+
+        try:
+            wb = load_workbook(file, data_only=True)
+            ws = wb.active
+        except Exception as exc:
+            return Response({'error': f'Invalid Excel file: {exc}'}, status=400)
+
+        created = 0
+        errors = []
+        valid_culture_types = {c.lower(): c for c in dict(StockingRecord.CULTURE_TYPE_CHOICES)}
+
+        for row_num, row in enumerate(ws.iter_rows(min_row=3, values_only=True), start=3):
+            if not any(cell for cell in row if cell is not None):
+                continue
+
+            rsbsa            = str(row[0]).strip() if row[0] is not None else ''
+            species_name     = str(row[1]).strip() if row[1] is not None else ''
+            date_str         = str(row[2]).strip() if row[2] is not None else ''
+            fingerlings_str  = str(row[3]).strip() if row[3] is not None else ''
+            culture_type_str = str(row[4]).strip() if row[4] is not None else ''
+
+            if not rsbsa or not species_name or not date_str or not fingerlings_str or not culture_type_str:
+                errors.append({
+                    'row': row_num,
+                    'error': 'Fisherfolk RSBSA Number, Species Name, Date Stocked, Number of Fingerlings, '
+                             'and Culture Type are required.',
+                })
+                continue
+
+            try:
+                fisherfolk = Fisherfolk.objects.filter(rsbsa_number__iexact=rsbsa).first()
+                if not fisherfolk:
+                    errors.append({'row': row_num, 'error': f'Fisherfolk with RSBSA number "{rsbsa}" not found.'})
+                    continue
+            except Exception as exc:
+                errors.append({'row': row_num, 'error': str(exc)})
+                continue
+
+            try:
+                species = SpeciesOption.objects.filter(species_name__iexact=species_name).first()
+                if not species:
+                    errors.append({'row': row_num, 'error': f'Species "{species_name}" not found.'})
+                    continue
+            except Exception as exc:
+                errors.append({'row': row_num, 'error': str(exc)})
+                continue
+
+            try:
+                date_stocked = dt.date.fromisoformat(date_str[:10])
+            except ValueError:
+                errors.append({'row': row_num, 'error': f'Invalid date "{date_str}". Use YYYY-MM-DD.'})
+                continue
+
+            try:
+                number_of_fingerlings = int(float(fingerlings_str))
+            except ValueError:
+                errors.append({'row': row_num, 'error': f'Invalid number of fingerlings "{fingerlings_str}".'})
+                continue
+
+            culture_type = valid_culture_types.get(culture_type_str.lower())
+            if not culture_type:
+                errors.append({'row': row_num, 'error': f'Invalid culture type "{culture_type_str}". Use Pond, Cage, or Pen.'})
+                continue
+
+            try:
+                month = date_stocked.month
+                season = 'Wet' if 5 <= month <= 10 else 'Dry'
+                StockingRecord.objects.create(
+                    fisherfolk=fisherfolk,
+                    species=species,
+                    date_stocked=date_stocked,
+                    number_of_fingerlings=number_of_fingerlings,
+                    culture_type=culture_type,
+                    season=season,
+                    year=date_stocked.year,
+                    recorded_by=request.user,
+                )
+                created += 1
+            except Exception as exc:
+                errors.append({'row': row_num, 'error': str(exc)})
+
+        return Response({'created': created, 'errors': errors})
 
 
 class StockingHistoryView(generics.ListAPIView):
