@@ -1,9 +1,5 @@
 import os
 from datetime import timedelta
-
-# Fix mysql-connector-python 9.7.0 incompatibility with Django 4.2
-from mysql.connector.django.base import DatabaseWrapper as _MySQLDW
-_MySQLDW.display_name = 'MySQL'
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -75,25 +71,59 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'oma_aringay.wsgi.application'
 
-DATABASES = {
+# Phase 4 Step 6: DB_BACKEND toggle. Defaults to 'postgres' (Supabase) now
+# that Phase 4 has fully verified schema + real data against it. MySQL
+# stays completely intact behind DB_BACKEND=mysql as the tested rollback
+# path — nothing about the MySQL branch is deleted, commented out, or
+# degraded. Flip with an environment variable, no code change required:
+#   DB_BACKEND=mysql    -> real MySQL (oma_aringay_db)
+#   DB_BACKEND=postgres -> real Supabase (default)
+DB_BACKEND = os.environ.get('DB_BACKEND', 'postgres')
+
+_DATABASES_MYSQL = {
     'default': {
-        'ENGINE': 'mysql.connector.django',
+        'ENGINE': 'django.db.backends.mysql',
         'NAME': 'oma_aringay_db',
         'USER': 'root',
         'PASSWORD': '',
         'HOST': '127.0.0.1',
         'PORT': '3306',
         'OPTIONS': {
-            'ssl_disabled': True,
-            'auth_plugin': 'mysql_native_password',
-            # This machine's mysql-connector-python 9.7.0 C extension raises
-            # a broken AttributeError ('MySQLInterfaceError' object has no
-            # attribute 'msg') on every connection attempt, masking the real
-            # error. The pure-Python implementation connects fine.
-            'use_pure': True,
+            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
         },
     }
 }
+
+_DATABASES_POSTGRES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('SUPABASE_DB_NAME', ''),
+        'USER': os.environ.get('SUPABASE_DB_USER', ''),
+        'PASSWORD': os.environ.get('SUPABASE_DB_PASSWORD', ''),
+        'HOST': os.environ.get('SUPABASE_DB_HOST', ''),
+        'PORT': os.environ.get('SUPABASE_DB_PORT', ''),
+        'OPTIONS': {
+            'sslmode': 'require',
+        },
+    }
+}
+
+if DB_BACKEND == 'mysql':
+    DATABASES = _DATABASES_MYSQL
+elif DB_BACKEND == 'postgres':
+    _missing = [
+        name for name in
+        ('SUPABASE_DB_HOST', 'SUPABASE_DB_PORT', 'SUPABASE_DB_NAME', 'SUPABASE_DB_USER', 'SUPABASE_DB_PASSWORD')
+        if not os.environ.get(name)
+    ]
+    if _missing:
+        raise RuntimeError(
+            f'DB_BACKEND=postgres but missing required environment variable(s) {_missing} '
+            f'in oma_aringay/.env. Set DB_BACKEND=mysql to use the MySQL fallback instead.'
+        )
+    DATABASES = _DATABASES_POSTGRES
+else:
+    raise RuntimeError(f"DB_BACKEND must be 'mysql' or 'postgres', got {DB_BACKEND!r}")
 
 
 # Passphrase-friendly policy: length + denylist, no forced composition rules
