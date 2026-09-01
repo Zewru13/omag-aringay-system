@@ -164,7 +164,6 @@ class Command(BaseCommand):
                         is_capture_fishery=False,
                         is_mariculture=False,
                         is_inland_fishery=False,
-                        is_fish_vendor=False,
                         has_vessel=False,
                         registered_by=import_user,
                     )

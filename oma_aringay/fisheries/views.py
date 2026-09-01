@@ -983,8 +983,8 @@ class StockingDisasterReportDeleteView(generics.DestroyAPIView):
 
 # ─── General (fisherfolk-direct) Disaster Reports ─────────────────────────────
 # Consolidated batch: for fisherfolk with no stocking cycle to attach a
-# StockingDisasterReportListCreateView report to (Capture/Vendor types have
-# no StockingRecord at all). Retired monitoring.FisherfolkDisasterReport's
+# StockingDisasterReportListCreateView report to (Capture-type fisherfolk
+# have no StockingRecord at all). Retired monitoring.FisherfolkDisasterReport's
 # rows and endpoints were merged onto FisheriesDisasterReport so disaster
 # reporting has one table instead of two unreconciled ones. Staff-only —
 # same as the old model, no citizen self-service extension here.

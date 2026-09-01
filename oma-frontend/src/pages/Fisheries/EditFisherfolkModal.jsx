@@ -67,7 +67,6 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
     is_capture_fishery: fisherfolk.is_capture_fishery ?? false,
     is_mariculture: fisherfolk.is_mariculture ?? false,
     is_inland_fishery: fisherfolk.is_inland_fishery ?? false,
-    is_fish_vendor: fisherfolk.is_fish_vendor ?? false,
     has_vessel: fisherfolk.has_vessel ?? true,
     boat_registration_number: fisherfolk.boat_registration_number || '',
   })
@@ -287,7 +286,6 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
                   ['is_capture_fishery', 'Capture Fishery'],
                   ['is_mariculture',     'Mariculture'],
                   ['is_inland_fishery',  'Inland Fishery'],
-                  ['is_fish_vendor',     'Fish Vendor'],
                 ].map(([field, label]) => (
                   <label key={field} className="flex items-center gap-2 cursor-pointer">
                     <input

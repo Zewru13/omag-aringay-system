@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 from accounts.models import User
 from farmers.models import Farmer, FarmParcel
-from fisheries.models import Fisherfolk, AquacultureRecord, CaptureRecord, VendorRecord
+from fisheries.models import Fisherfolk, AquacultureRecord, CaptureRecord
 from production.models import HarvestRecord
 
 
@@ -151,7 +151,7 @@ class Command(BaseCommand):
         return farmers
 
     def create_fisherfolk(self):
-        """Create 3 sample fisherfolk: 1 Aquaculture, 1 Capture, 1 Vendor"""
+        """Create 2 sample fisherfolk: 1 Aquaculture, 1 Capture"""
         # Aquaculture fisherfolk
         if not Fisherfolk.objects.filter(lgu_registration_number='LGU-FISH-001').exists():
             fisherfolk1 = Fisherfolk.objects.create(
@@ -201,30 +201,6 @@ class Command(BaseCommand):
             self.stdout.write(self.style.SUCCESS('✓ Capture fisherfolk created'))
         else:
             self.stdout.write('  Capture fisherfolk already exists, skipping')
-
-        # Vendor fisherfolk
-        if not Fisherfolk.objects.filter(lgu_registration_number='LGU-FISH-003').exists():
-            fisherfolk3 = Fisherfolk.objects.create(
-                lgu_registration_number='LGU-FISH-003',
-                full_name='Lucia Aquino',
-                gender='Female',
-                date_of_birth='1982-08-14',
-                contact_number='09175553333',
-                barangay='Tabuc',
-                fisherfolk_type='vendor',
-                status='Active',
-            )
-
-            VendorRecord.objects.create(
-                fisherfolk=fisherfolk3,
-                stall_location='Public Market Aringay',
-                products_sold='Fresh Fish, Dried Fish',
-                source_of_fish='Local Fishermen',
-            )
-
-            self.stdout.write(self.style.SUCCESS('✓ Vendor fisherfolk created'))
-        else:
-            self.stdout.write('  Vendor fisherfolk already exists, skipping')
 
     def create_harvest_records(self, farmers):
         """Create 2 sample harvest records"""

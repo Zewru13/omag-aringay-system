@@ -40,7 +40,6 @@ const ACTIVITY_BADGES = [
   { key: 'is_capture_fishery', label: 'CF',  tone: 'bg-blue-100 text-blue-700' },
   { key: 'is_mariculture',     label: 'MC',  tone: 'bg-cyan-100 text-cyan-700' },
   { key: 'is_inland_fishery',  label: 'IF',  tone: 'bg-indigo-100 text-indigo-700' },
-  { key: 'is_fish_vendor',     label: 'FV',  tone: 'bg-amber-100 text-amber-700' },
 ]
 
 function normalizeList(data) {
@@ -206,7 +205,6 @@ function FisherfolkPage({ asTab = false }) {
           <option value="all">All Types</option>
           <option value="Aquaculture">Aquaculture</option>
           <option value="Capture">Capture</option>
-          <option value="Vendor">Vendor</option>
         </select>
         <label className="flex items-center gap-2 text-[13px] text-[#4A5E4A] cursor-pointer">
           <input

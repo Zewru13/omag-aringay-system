@@ -211,7 +211,7 @@ def active_disaster_rows(limit=12):
         .order_by('-date_of_occurrence')[:limit]
     ):
         # Consolidated batch: d.fisherfolk is the fallback subject/barangay
-        # source for reports with no stocking_record (Capture/Vendor
+        # source for reports with no stocking_record (Capture-type
         # fisherfolk have no cycle to attach one to).
         rec = d.stocking_record
         person = getattr(rec, 'fisherfolk', None) or d.fisherfolk

@@ -15,7 +15,6 @@ from .models import (
     SpeciesCategory,
     SpeciesOption,
     StockingRecord,
-    VendorRecord,
 )
 
 
@@ -35,11 +34,6 @@ class AquacultureRecordAdmin(admin.ModelAdmin):
 @admin.register(CaptureRecord)
 class CaptureRecordAdmin(admin.ModelAdmin):
     list_display = ['fisherfolk', 'vessel_type', 'fishing_gear_type', 'fishing_ground', 'vessel_material_other_specify']
-
-
-@admin.register(VendorRecord)
-class VendorRecordAdmin(admin.ModelAdmin):
-    list_display = ['fisherfolk', 'location_type', 'location_type_other_specify', 'type_of_products_sold']
 
 
 @admin.register(SpeciesCategory)

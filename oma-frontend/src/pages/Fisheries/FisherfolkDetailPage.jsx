@@ -141,21 +141,6 @@ function CaptureSection({ record }) {
   )
 }
 
-function VendorSection({ record }) {
-  return (
-    <section className="rounded-2xl border border-slate-100 bg-white p-6">
-      <h2 className="mb-4 text-sm font-medium text-slate-400 uppercase tracking-wide">Vendor Record</h2>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Location Type" value={otherLabel(record.location_type, record.location_type_other_specify)} />
-        {record.location_type !== 'Ambulant / No Fixed Location' && (
-          <Field label="Stall Location" value={record.stall_location} />
-        )}
-        <Field label="Commodity" value={record.type_of_products_sold} />
-        <Field label="Source of Fish" value={record.source_of_fish} />
-      </div>
-    </section>
-  )
-}
 
 function FisherfolkDetailPage() {
   const { id } = useParams()
@@ -412,7 +397,6 @@ function FisherfolkDetailPage() {
               <FacilitySection fisherfolk={fisherfolk} />
             )}
             {fisherfolk.capture_record && <CaptureSection record={fisherfolk.capture_record} />}
-            {fisherfolk.vendor_record   && <VendorSection  record={fisherfolk.vendor_record}   />}
 
             {/* Stocking Records — aquaculture / mariculture only */}
             {(fisherfolk.fisherfolk_type === 'Aquaculture' || fisherfolk.fisherfolk_type === 'Mariculture') && (

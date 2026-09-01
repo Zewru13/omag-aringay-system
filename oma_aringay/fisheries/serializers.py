@@ -26,7 +26,6 @@ from .models import (
     SpeciesOption,
     StockingRecord,
     TripSpeciesEntry,
-    VendorRecord,
 )
 
 
@@ -81,21 +80,6 @@ class CaptureSerializer(serializers.ModelSerializer):
         return data
 
 
-class VendorSerializer(serializers.ModelSerializer):
-    class Meta:
-        model  = VendorRecord
-        fields = ['id', 'fisherfolk', 'location_type', 'location_type_other_specify', 'stall_location', 'type_of_products_sold', 'source_of_fish']
-        read_only_fields = ['id']
-
-    def validate(self, data):
-        if data.get('location_type') != 'Ambulant / No Fixed Location':
-            if not (data.get('stall_location') or '').strip():
-                raise serializers.ValidationError({'stall_location': 'Stall location is required for this location type.'})
-        if data.get('location_type') == 'Other' and not (data.get('location_type_other_specify') or '').strip():
-            raise serializers.ValidationError({'location_type_other_specify': 'Please specify the location type.'})
-        return data
-
-
 # ─── Fisherfolk ───────────────────────────────────────────────────────────────
 
 def _is_fisherfolk_affected_by_disaster(fisherfolk):
@@ -120,7 +104,7 @@ class FisherfolkListSerializer(serializers.ModelSerializer):
             'gender', 'birthdate', 'barangay', 'fisherfolk_type',
             'is_active', 'is_senior_citizen', 'date_registered',
             'rsbsa_number',
-            'is_aquaculture', 'is_capture_fishery', 'is_mariculture', 'is_inland_fishery', 'is_fish_vendor',
+            'is_aquaculture', 'is_capture_fishery', 'is_mariculture', 'is_inland_fishery',
         ]
 
     def get_is_senior_citizen(self, obj):
@@ -136,7 +120,6 @@ class FisherfolkDetailSerializer(serializers.ModelSerializer):
     full_name         = serializers.CharField(read_only=True)
     aquaculture_record = AquacultureSerializer(read_only=True)
     capture_record    = CaptureSerializer(read_only=True)
-    vendor_record     = VendorSerializer(read_only=True)
     is_senior_citizen = serializers.SerializerMethodField()
     citizen_account   = serializers.SerializerMethodField()
     is_affected_by_disaster = serializers.SerializerMethodField()
@@ -152,16 +135,16 @@ class FisherfolkDetailSerializer(serializers.ModelSerializer):
             'is_pwd', 'is_4ps_beneficiary', 'is_icc_ip_member', 'icc_ip_name', 'is_senior_citizen',
             'fisherfolk_organization', 'organization_position',
             'is_active', 'date_registered', 'registered_by',
-            'aquaculture_record', 'capture_record', 'vendor_record',
+            'aquaculture_record', 'capture_record',
             'facility_location', 'pond_area_ha', 'number_of_ponds', 'water_source',
             'number_of_cages', 'cage_dimensions', 'fish_registration_number',
             'boat_registration_number', 'has_vessel',
             'rsbsa_number',
-            'is_aquaculture', 'is_capture_fishery', 'is_mariculture', 'is_inland_fishery', 'is_fish_vendor',
+            'is_aquaculture', 'is_capture_fishery', 'is_mariculture', 'is_inland_fishery',
             'is_affected_by_disaster',
             'citizen_account',
         ]
-        read_only_fields = ['id', 'date_registered', 'registered_by', 'aquaculture_record', 'capture_record', 'vendor_record', 'citizen_account', 'is_affected_by_disaster']
+        read_only_fields = ['id', 'date_registered', 'registered_by', 'aquaculture_record', 'capture_record', 'citizen_account', 'is_affected_by_disaster']
 
     def get_citizen_account(self, obj):
         return citizen_account_info(User.LinkedRecordType.FISHERFOLK, obj.id)
@@ -232,13 +215,6 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
     fishing_ground             = serializers.CharField(required=False, allow_blank=True, write_only=True)
     average_catch_per_trip_kg  = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, write_only=True)
 
-    # Vendor fields
-    location_type         = serializers.CharField(required=False, allow_blank=True, write_only=True)
-    location_type_other_specify = serializers.CharField(required=False, allow_blank=True, write_only=True)
-    stall_location        = serializers.CharField(required=False, allow_blank=True, write_only=True)
-    type_of_products_sold = serializers.CharField(required=False, allow_blank=True, write_only=True)
-    source_of_fish        = serializers.CharField(required=False, allow_blank=True, write_only=True)
-
     # Facility profile
     facility_location = serializers.CharField(required=False, allow_blank=True)
     pond_area_ha      = serializers.DecimalField(max_digits=8, decimal_places=4, required=False, allow_null=True)
@@ -254,7 +230,6 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
     is_capture_fishery = serializers.BooleanField(required=False, default=False)
     is_mariculture     = serializers.BooleanField(required=False, default=False)
     is_inland_fishery  = serializers.BooleanField(required=False, default=False)
-    is_fish_vendor     = serializers.BooleanField(required=False, default=False)
 
     class Meta:
         model  = Fisherfolk
@@ -272,12 +247,11 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
             'area_hectares', 'fingerlings_stocked', 'production_volume_kg',
             'vessel_type', 'vessel_material', 'vessel_material_other_specify', 'vessel_registration_number',
             'fishing_gear_type', 'fishing_ground', 'average_catch_per_trip_kg',
-            'location_type', 'location_type_other_specify', 'stall_location', 'type_of_products_sold', 'source_of_fish',
             'facility_location', 'pond_area_ha', 'number_of_ponds', 'water_source',
             'number_of_cages', 'cage_dimensions',
             'boat_registration_number', 'has_vessel',
             'rsbsa_number',
-            'is_aquaculture', 'is_capture_fishery', 'is_mariculture', 'is_inland_fishery', 'is_fish_vendor',
+            'is_aquaculture', 'is_capture_fishery', 'is_mariculture', 'is_inland_fishery',
         ]
         read_only_fields = ['id', 'date_registered', 'registered_by']
 
@@ -327,12 +301,6 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
             if data.get('vessel_type') != 'Motorized':
                 data['vessel_material'] = None
                 data['vessel_material_other_specify'] = ''
-        if fisherfolk_type == 'Vendor':
-            if data.get('location_type') != 'Ambulant / No Fixed Location':
-                if not (data.get('stall_location') or '').strip():
-                    raise serializers.ValidationError({'stall_location': 'Stall location is required for this location type.'})
-            if data.get('location_type') == 'Other' and not (data.get('location_type_other_specify') or '').strip():
-                raise serializers.ValidationError({'location_type_other_specify': 'Please specify the location type.'})
 
         return data
 
@@ -360,21 +328,11 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
             'fishing_ground':             validated_data.pop('fishing_ground', ''),
             'average_catch_per_trip_kg':  validated_data.pop('average_catch_per_trip_kg', 0),
         }
-        vendor_data = {
-            'location_type':         validated_data.pop('location_type', 'Fixed Stall'),
-            'location_type_other_specify': validated_data.pop('location_type_other_specify', ''),
-            'stall_location':        validated_data.pop('stall_location', ''),
-            'type_of_products_sold': validated_data.pop('type_of_products_sold', ''),
-            'source_of_fish':        validated_data.pop('source_of_fish', ''),
-        }
-
         fisherfolk = Fisherfolk.objects.create(**validated_data)
         if fisherfolk.fisherfolk_type in ('Aquaculture', 'Mariculture'):
             AquacultureRecord.objects.create(fisherfolk=fisherfolk, **aquaculture_data)
         elif fisherfolk.fisherfolk_type in ('Capture', 'Inland'):
             CaptureRecord.objects.create(fisherfolk=fisherfolk, **capture_data)
-        elif fisherfolk.fisherfolk_type == 'Vendor':
-            VendorRecord.objects.create(fisherfolk=fisherfolk, **vendor_data)
         return fisherfolk
 
 
@@ -648,7 +606,7 @@ class FisheriesDisasterReportSerializer(serializers.ModelSerializer):
 class GeneralDisasterReportSerializer(serializers.ModelSerializer):
     """
     Consolidated batch: for a disaster reported directly against a
-    fisherfolk with no stocking cycle to attach to (Capture/Vendor types
+    fisherfolk with no stocking cycle to attach to (Capture-type fisherfolk
     have no StockingRecord — see FisheriesDisasterReportSerializer above
     for the cycle-attached path). No response-rule engine exists without a
     cycle's species/activity logs, so — unlike that serializer — status and

@@ -678,7 +678,6 @@ class DashboardExtendedSummaryView(APIView):
         fisherfolk_breakdown = {
             'aquaculture': Fisherfolk.objects.filter(fisherfolk_type='Aquaculture').count(),
             'capture': Fisherfolk.objects.filter(fisherfolk_type='Capture').count(),
-            'vendor': Fisherfolk.objects.filter(fisherfolk_type='Vendor').count(),
         }
 
         return Response({

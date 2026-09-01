@@ -48,7 +48,6 @@ const initialForm = {
   is_capture_fishery: false,
   is_mariculture: false,
   is_inland_fishery: false,
-  is_fish_vendor: false,
   vessel_type: '',
   vessel_material: '',
   vessel_material_other_specify: '',
@@ -412,7 +411,6 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
             <select className={`${baseInputClasses} md:w-1/2`} id="fisherfolk_type" required value={form.fisherfolk_type} onChange={(e) => updateField('fisherfolk_type', e.target.value)}>
               <option value="Aquaculture">Aquaculture</option>
               <option value="Capture">Capture</option>
-              <option value="Vendor">Vendor</option>
             </select>
           </div>
 
@@ -505,7 +503,6 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
                 ['is_capture_fishery', 'Capture Fishery'],
                 ['is_mariculture',     'Mariculture'],
                 ['is_inland_fishery',  'Inland Fishery'],
-                ['is_fish_vendor',     'Fish Vendor'],
               ].map(([field, label]) => (
                 <label key={field} className="flex items-center gap-2 cursor-pointer">
                   <input

@@ -825,10 +825,9 @@ class FisherfolkMasterlistReport(APIView):
         total       = fisherfolk.count()
         aquaculture = fisherfolk.filter(fisherfolk_type='Aquaculture').count()
         capture     = fisherfolk.filter(fisherfolk_type='Capture').count()
-        vendor      = fisherfolk.filter(fisherfolk_type='Vendor').count()
         story.append(build_stats_row([
             ('Total Fisherfolk', total), ('Aquaculture', aquaculture),
-            ('Capture', capture), ('Vendor', vendor),
+            ('Capture', capture),
         ], page_width=PAGE_WIDTH))
         story.append(Spacer(1, 14))
 

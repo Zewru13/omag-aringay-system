@@ -24,7 +24,6 @@ class Fisherfolk(models.Model):
         CAPTURE     = 'Capture',     'Capture Fishery'
         MARICULTURE = 'Mariculture', 'Mariculture'
         INLAND      = 'Inland',      'Inland Fishery'
-        VENDOR      = 'Vendor',      'Fish Vendor'
         # Batch 8: fisherfolk_type is required but the RSBSA/BFAR import
         # source has no equivalent column — explicit "not determined from
         # source" marker rather than a guessed type. Deliberately excluded
@@ -105,7 +104,6 @@ class Fisherfolk(models.Model):
     is_capture_fishery = models.BooleanField(default=False)
     is_mariculture     = models.BooleanField(default=False)
     is_inland_fishery  = models.BooleanField(default=False)
-    is_fish_vendor     = models.BooleanField(default=False)
 
     date_registered    = models.DateTimeField(auto_now_add=True)
     # Auto-updates on every save() — the only reliable "last touched" signal
@@ -213,24 +211,6 @@ class CaptureRecord(models.Model):
 
     def __str__(self):
         return f'Capture - {self.fisherfolk.lgu_registration_number}'
-
-
-class VendorRecord(models.Model):
-    class LocationType(models.TextChoices):
-        FIXED_STALL  = 'Fixed Stall',                  'Fixed Stall'
-        MARKET_STALL = 'Market Stall',                 'Market Stall'
-        AMBULANT     = 'Ambulant / No Fixed Location', 'Ambulant / No Fixed Location'
-        OTHER        = 'Other',                        'Other'
-
-    fisherfolk             = models.OneToOneField(Fisherfolk, on_delete=models.CASCADE, related_name='vendor_record')
-    location_type          = models.CharField(max_length=30, choices=LocationType.choices, default=LocationType.FIXED_STALL)
-    location_type_other_specify = models.CharField(max_length=150, blank=True)
-    stall_location         = models.CharField(max_length=150, blank=True, null=True)
-    type_of_products_sold  = models.CharField(max_length=150, verbose_name='Commodity')
-    source_of_fish         = models.CharField(max_length=150)
-
-    def __str__(self):
-        return f'Vendor - {self.fisherfolk.lgu_registration_number}'
 
 
 # ─── Species reference data ────────────────────────────────────────────────────
@@ -821,7 +801,7 @@ class FisheriesActivityLog(models.Model):
 
 class FisheriesDisasterReport(models.Model):
     # Batch: consolidated from monitoring.FisherfolkDisasterReport, whose rows
-    # had no stocking cycle to attach to (Capture/Vendor fisherfolk have none).
+    # had no stocking cycle to attach to (Capture-type fisherfolk have none).
     # Flooding/Storm Surge/El Nino Drought/Red Tide came from that model —
     # kept as distinct choices rather than collapsed into the closest existing
     # one so historical data keeps its original specificity.
