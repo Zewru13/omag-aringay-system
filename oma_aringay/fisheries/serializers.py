@@ -971,3 +971,22 @@ class FishingTripLogSerializer(serializers.ModelSerializer):
     def validate_return_date(self, value):
         validate_not_future_date(value, 'Return date')
         return value
+
+    def validate(self, data):
+        # Mirrors FishingTripLog.clean()'s rule so a bad match is reported as
+        # a normal 400 here, before it ever reaches model.save() - which
+        # raises a bare django.core.exceptions.ValidationError that DRF's
+        # exception handler doesn't translate, and that becomes an unhandled
+        # 500. Re-checked on every save (not just fisherfolk selection)
+        # because the linked fisherfolk's type can drift after this trip log
+        # was created - falls back to the existing instance's fisherfolk on a
+        # partial update that doesn't touch that field.
+        fisherfolk = data.get('fisherfolk') or getattr(self.instance, 'fisherfolk', None)
+        if fisherfolk and fisherfolk.fisherfolk_type not in (
+            Fisherfolk.FisherfolkType.CAPTURE,
+            Fisherfolk.FisherfolkType.INLAND,
+        ):
+            raise serializers.ValidationError({
+                'fisherfolk': 'Fishing trip logs can only be created for Capture or Inland Fishery fisherfolk.'
+            })
+        return data
