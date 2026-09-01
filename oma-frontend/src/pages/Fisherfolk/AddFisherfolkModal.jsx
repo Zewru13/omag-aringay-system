@@ -5,6 +5,7 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import Button from '../../components/UI/Button.jsx'
 import { baseInputClasses, FormLabel } from '../../components/UI/FormField.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
+import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import SegmentedIdInput from '../../components/UI/SegmentedIdInput.jsx'
 import { BARANGAY_RSBSA_CODES } from '../../constants/barangays.js'
 import { getPrefixOptions, isPrefixValidForGender } from '../../utils/prefixOptions.js'
@@ -50,6 +51,7 @@ const initialForm = {
   is_fish_vendor: false,
   vessel_type: '',
   vessel_material: '',
+  vessel_material_other_specify: '',
   vessel_registration_number: '',
   fishing_gear_type: '',
   fishing_ground: '',
@@ -158,7 +160,7 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
       return
     }
     if (field === 'vessel_type' && value !== 'Motorized') {
-      setForm((c) => ({ ...c, vessel_type: value, vessel_material: '' }))
+      setForm((c) => ({ ...c, vessel_type: value, vessel_material: '', vessel_material_other_specify: '' }))
       return
     }
     setForm((c) => {
@@ -187,11 +189,18 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
         setFormError('Vessel Material is required for motorized vessels.')
         return
       }
+      if (form.vessel_type === 'Motorized' && form.vessel_material === 'Other' && !form.vessel_material_other_specify.trim()) {
+        setFormError('Please specify the vessel material.')
+        return
+      }
     }
 
     setIsSubmitting(true)
     try {
-      const payload = { ...form }
+      const payload = {
+        ...form,
+        vessel_material_other_specify: form.vessel_material === 'Other' ? (form.vessel_material_other_specify || '').trim() : '',
+      }
       if (payload.average_catch_per_trip_kg === '') delete payload.average_catch_per_trip_kg
       const res = await api.post('/fisheries/fisherfolk/', payload)
       onSuccess(res.data?.lgu_registration_number)
@@ -434,14 +443,18 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
                 {form.vessel_type === 'Motorized' && (
                   <div>
                     <FormLabel required>Vessel Material</FormLabel>
-                    <select className={baseInputClasses} id="vessel_material" required value={form.vessel_material} onChange={(e) => updateField('vessel_material', e.target.value)}>
-                      <option value="">— Select —</option>
-                      <option value="Wooden">Wooden</option>
-                      <option value="Composite">Composite</option>
-                      <option value="Fiberglass">Fiberglass</option>
-                      <option value="Steel">Steel</option>
-                      <option value="Other">Other</option>
-                    </select>
+                    <ComboboxWithOther
+                      options={['Wooden', 'Composite', 'Fiberglass', 'Steel']}
+                      value={form.vessel_material}
+                      otherValue={form.vessel_material_other_specify}
+                      onChange={(v) => updateField('vessel_material', v)}
+                      onOtherChange={(v) => updateField('vessel_material_other_specify', v)}
+                      placeholder="— Select —"
+                      required
+                    />
+                    {fieldErrors.vessel_material_other_specify && (
+                      <p className="mt-1 text-[12px] text-rose-600">{fieldErrors.vessel_material_other_specify}</p>
+                    )}
                   </div>
                 )}
 

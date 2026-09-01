@@ -178,7 +178,9 @@ class AquacultureRecord(models.Model):
 
     fisherfolk          = models.OneToOneField(Fisherfolk, on_delete=models.CASCADE, related_name='aquaculture_record')
     culture_type        = models.CharField(max_length=30, choices=CultureType.choices)
+    culture_type_other_specify = models.CharField(max_length=150, blank=True)
     species_cultured    = models.CharField(max_length=100)
+    species_cultured_other_specify = models.CharField(max_length=150, blank=True)
     area_hectares       = models.DecimalField(max_digits=10, decimal_places=2)
     fingerlings_stocked = models.PositiveIntegerField()
     production_volume_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -203,6 +205,7 @@ class CaptureRecord(models.Model):
     fisherfolk                  = models.OneToOneField(Fisherfolk, on_delete=models.CASCADE, related_name='capture_record')
     vessel_type                 = models.CharField(max_length=20, choices=VesselType.choices)
     vessel_material             = models.CharField(max_length=20, choices=VesselMaterial.choices, blank=True, null=True)
+    vessel_material_other_specify = models.CharField(max_length=150, blank=True)
     vessel_registration_number  = models.CharField(max_length=100, blank=True)
     fishing_gear_type           = models.CharField(max_length=100)
     fishing_ground              = models.CharField(max_length=100)
@@ -221,6 +224,7 @@ class VendorRecord(models.Model):
 
     fisherfolk             = models.OneToOneField(Fisherfolk, on_delete=models.CASCADE, related_name='vendor_record')
     location_type          = models.CharField(max_length=30, choices=LocationType.choices, default=LocationType.FIXED_STALL)
+    location_type_other_specify = models.CharField(max_length=150, blank=True)
     stall_location         = models.CharField(max_length=150, blank=True, null=True)
     type_of_products_sold  = models.CharField(max_length=150, verbose_name='Commodity')
     source_of_fish         = models.CharField(max_length=150)

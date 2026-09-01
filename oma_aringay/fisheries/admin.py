@@ -29,17 +29,17 @@ class FisherfolkAdmin(admin.ModelAdmin):
 
 @admin.register(AquacultureRecord)
 class AquacultureRecordAdmin(admin.ModelAdmin):
-    list_display = ['fisherfolk', 'culture_type', 'species_cultured', 'area_hectares']
+    list_display = ['fisherfolk', 'culture_type', 'culture_type_other_specify', 'species_cultured', 'species_cultured_other_specify', 'area_hectares']
 
 
 @admin.register(CaptureRecord)
 class CaptureRecordAdmin(admin.ModelAdmin):
-    list_display = ['fisherfolk', 'vessel_type', 'fishing_gear_type', 'fishing_ground']
+    list_display = ['fisherfolk', 'vessel_type', 'fishing_gear_type', 'fishing_ground', 'vessel_material_other_specify']
 
 
 @admin.register(VendorRecord)
 class VendorRecordAdmin(admin.ModelAdmin):
-    list_display = ['fisherfolk', 'location_type', 'type_of_products_sold']
+    list_display = ['fisherfolk', 'location_type', 'location_type_other_specify', 'type_of_products_sold']
 
 
 @admin.register(SpeciesCategory)

@@ -45,35 +45,54 @@ def validate_contact_format(value):
 class AquacultureSerializer(serializers.ModelSerializer):
     class Meta:
         model  = AquacultureRecord
-        fields = ['id', 'fisherfolk', 'culture_type', 'species_cultured', 'area_hectares', 'fingerlings_stocked', 'production_volume_kg']
+        fields = [
+            'id', 'fisherfolk', 'culture_type', 'culture_type_other_specify',
+            'species_cultured', 'species_cultured_other_specify',
+            'area_hectares', 'fingerlings_stocked', 'production_volume_kg',
+        ]
         read_only_fields = ['id']
+
+    def validate(self, data):
+        if data.get('culture_type') == 'Other' and not (data.get('culture_type_other_specify') or '').strip():
+            raise serializers.ValidationError({'culture_type_other_specify': 'Please specify the culture type.'})
+        if data.get('species_cultured') == 'Other' and not (data.get('species_cultured_other_specify') or '').strip():
+            raise serializers.ValidationError({'species_cultured_other_specify': 'Please specify the species cultured.'})
+        return data
 
 
 class CaptureSerializer(serializers.ModelSerializer):
     class Meta:
         model  = CaptureRecord
-        fields = ['id', 'fisherfolk', 'vessel_type', 'vessel_material', 'vessel_registration_number', 'fishing_gear_type', 'fishing_ground', 'average_catch_per_trip_kg']
+        fields = [
+            'id', 'fisherfolk', 'vessel_type', 'vessel_material', 'vessel_material_other_specify',
+            'vessel_registration_number', 'fishing_gear_type', 'fishing_ground', 'average_catch_per_trip_kg',
+        ]
         read_only_fields = ['id']
 
     def validate(self, data):
         vessel_type = data.get('vessel_type')
         if vessel_type == 'Motorized' and not data.get('vessel_material'):
             raise serializers.ValidationError({'vessel_material': 'Vessel material is required for motorized vessels.'})
+        if vessel_type == 'Motorized' and data.get('vessel_material') == 'Other' and not (data.get('vessel_material_other_specify') or '').strip():
+            raise serializers.ValidationError({'vessel_material_other_specify': 'Please specify the vessel material.'})
         if vessel_type != 'Motorized':
             data['vessel_material'] = None
+            data['vessel_material_other_specify'] = ''
         return data
 
 
 class VendorSerializer(serializers.ModelSerializer):
     class Meta:
         model  = VendorRecord
-        fields = ['id', 'fisherfolk', 'location_type', 'stall_location', 'type_of_products_sold', 'source_of_fish']
+        fields = ['id', 'fisherfolk', 'location_type', 'location_type_other_specify', 'stall_location', 'type_of_products_sold', 'source_of_fish']
         read_only_fields = ['id']
 
     def validate(self, data):
         if data.get('location_type') != 'Ambulant / No Fixed Location':
             if not (data.get('stall_location') or '').strip():
                 raise serializers.ValidationError({'stall_location': 'Stall location is required for this location type.'})
+        if data.get('location_type') == 'Other' and not (data.get('location_type_other_specify') or '').strip():
+            raise serializers.ValidationError({'location_type_other_specify': 'Please specify the location type.'})
         return data
 
 
@@ -197,7 +216,9 @@ class FisherfolkDetailSerializer(serializers.ModelSerializer):
 class FisherfolkCreateSerializer(serializers.ModelSerializer):
     # Aquaculture fields
     culture_type         = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    culture_type_other_specify = serializers.CharField(required=False, allow_blank=True, write_only=True)
     species_cultured     = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    species_cultured_other_specify = serializers.CharField(required=False, allow_blank=True, write_only=True)
     area_hectares        = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, write_only=True)
     fingerlings_stocked  = serializers.IntegerField(required=False, write_only=True)
     production_volume_kg = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, allow_null=True, write_only=True)
@@ -205,6 +226,7 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
     # Capture fields
     vessel_type                = serializers.CharField(required=False, allow_blank=True, write_only=True)
     vessel_material            = serializers.CharField(required=False, allow_blank=True, allow_null=True, write_only=True)
+    vessel_material_other_specify = serializers.CharField(required=False, allow_blank=True, write_only=True)
     vessel_registration_number = serializers.CharField(required=False, allow_blank=True, write_only=True)
     fishing_gear_type          = serializers.CharField(required=False, allow_blank=True, write_only=True)
     fishing_ground             = serializers.CharField(required=False, allow_blank=True, write_only=True)
@@ -212,6 +234,7 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
 
     # Vendor fields
     location_type         = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    location_type_other_specify = serializers.CharField(required=False, allow_blank=True, write_only=True)
     stall_location        = serializers.CharField(required=False, allow_blank=True, write_only=True)
     type_of_products_sold = serializers.CharField(required=False, allow_blank=True, write_only=True)
     source_of_fish        = serializers.CharField(required=False, allow_blank=True, write_only=True)
@@ -244,10 +267,12 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
             'is_pwd', 'is_4ps_beneficiary', 'is_icc_ip_member', 'icc_ip_name', 'is_senior_citizen',
             'fisherfolk_organization', 'organization_position',
             'is_active', 'date_registered', 'registered_by',
-            'culture_type', 'species_cultured', 'area_hectares', 'fingerlings_stocked', 'production_volume_kg',
-            'vessel_type', 'vessel_material', 'vessel_registration_number',
+            'culture_type', 'culture_type_other_specify',
+            'species_cultured', 'species_cultured_other_specify',
+            'area_hectares', 'fingerlings_stocked', 'production_volume_kg',
+            'vessel_type', 'vessel_material', 'vessel_material_other_specify', 'vessel_registration_number',
             'fishing_gear_type', 'fishing_ground', 'average_catch_per_trip_kg',
-            'location_type', 'stall_location', 'type_of_products_sold', 'source_of_fish',
+            'location_type', 'location_type_other_specify', 'stall_location', 'type_of_products_sold', 'source_of_fish',
             'facility_location', 'pond_area_ha', 'number_of_ponds', 'water_source',
             'number_of_cages', 'cage_dimensions',
             'boat_registration_number', 'has_vessel',
@@ -289,15 +314,25 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
         fisherfolk_type = data.get('fisherfolk_type', '')
         if not data.get('has_vessel', True):
             data['boat_registration_number'] = ''
+        if fisherfolk_type in ('Aquaculture', 'Mariculture'):
+            if data.get('culture_type') == 'Other' and not (data.get('culture_type_other_specify') or '').strip():
+                raise serializers.ValidationError({'culture_type_other_specify': 'Please specify the culture type.'})
+            if data.get('species_cultured') == 'Other' and not (data.get('species_cultured_other_specify') or '').strip():
+                raise serializers.ValidationError({'species_cultured_other_specify': 'Please specify the species cultured.'})
         if fisherfolk_type in ('Capture', 'Inland'):
             if data.get('vessel_type') == 'Motorized' and not (data.get('vessel_material') or '').strip():
                 raise serializers.ValidationError({'vessel_material': 'Vessel material is required for motorized vessels.'})
+            if data.get('vessel_type') == 'Motorized' and data.get('vessel_material') == 'Other' and not (data.get('vessel_material_other_specify') or '').strip():
+                raise serializers.ValidationError({'vessel_material_other_specify': 'Please specify the vessel material.'})
             if data.get('vessel_type') != 'Motorized':
                 data['vessel_material'] = None
+                data['vessel_material_other_specify'] = ''
         if fisherfolk_type == 'Vendor':
             if data.get('location_type') != 'Ambulant / No Fixed Location':
                 if not (data.get('stall_location') or '').strip():
                     raise serializers.ValidationError({'stall_location': 'Stall location is required for this location type.'})
+            if data.get('location_type') == 'Other' and not (data.get('location_type_other_specify') or '').strip():
+                raise serializers.ValidationError({'location_type_other_specify': 'Please specify the location type.'})
 
         return data
 
@@ -309,7 +344,9 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         aquaculture_data = {
             'culture_type':         validated_data.pop('culture_type', ''),
+            'culture_type_other_specify': validated_data.pop('culture_type_other_specify', ''),
             'species_cultured':     validated_data.pop('species_cultured', ''),
+            'species_cultured_other_specify': validated_data.pop('species_cultured_other_specify', ''),
             'area_hectares':        validated_data.pop('area_hectares', 0),
             'fingerlings_stocked':  validated_data.pop('fingerlings_stocked', 0),
             'production_volume_kg': validated_data.pop('production_volume_kg', None),
@@ -317,6 +354,7 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
         capture_data = {
             'vessel_type':                validated_data.pop('vessel_type', ''),
             'vessel_material':            validated_data.pop('vessel_material', None),
+            'vessel_material_other_specify': validated_data.pop('vessel_material_other_specify', ''),
             'vessel_registration_number': validated_data.pop('vessel_registration_number', ''),
             'fishing_gear_type':          validated_data.pop('fishing_gear_type', ''),
             'fishing_ground':             validated_data.pop('fishing_ground', ''),
@@ -324,6 +362,7 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
         }
         vendor_data = {
             'location_type':         validated_data.pop('location_type', 'Fixed Stall'),
+            'location_type_other_specify': validated_data.pop('location_type_other_specify', ''),
             'stall_location':        validated_data.pop('stall_location', ''),
             'type_of_products_sold': validated_data.pop('type_of_products_sold', ''),
             'source_of_fish':        validated_data.pop('source_of_fish', ''),

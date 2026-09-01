@@ -79,6 +79,8 @@ function Field({ label, value }) {
   )
 }
 
+const otherLabel = (value, specify) => (value === 'Other' && specify ? `Other — ${specify}` : value)
+
 function AssistanceHistoryModal({ history, isLoading, error, onClose }) {
   return (
     <ModalShell title="Assistance History" onClose={onClose} maxWidth="max-w-3xl">
@@ -94,8 +96,8 @@ function AquacultureSection({ record }) {
     <section className="rounded-2xl border border-slate-100 bg-white p-6">
       <h2 className="mb-4 text-sm font-medium text-slate-400 uppercase tracking-wide">Aquaculture Record</h2>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Culture Type" value={record.culture_type} />
-        <Field label="Species Cultured" value={record.species_cultured} />
+        <Field label="Culture Type" value={otherLabel(record.culture_type, record.culture_type_other_specify)} />
+        <Field label="Species Cultured" value={otherLabel(record.species_cultured, record.species_cultured_other_specify)} />
         <Field label="Area (ha)" value={record.area_hectares} />
         <Field label="Fingerlings Stocked" value={record.fingerlings_stocked} />
         <Field label="Production Volume (kg)" value={record.production_volume_kg} />
@@ -129,7 +131,7 @@ function CaptureSection({ record }) {
       <h2 className="mb-4 text-sm font-medium text-slate-400 uppercase tracking-wide">Capture Record</h2>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Vessel Type" value={record.vessel_type} />
-        {record.vessel_type === 'Motorized' && <Field label="Vessel Material" value={record.vessel_material} />}
+        {record.vessel_type === 'Motorized' && <Field label="Vessel Material" value={otherLabel(record.vessel_material, record.vessel_material_other_specify)} />}
         <Field label="Vessel Reg. Number" value={record.vessel_registration_number} />
         <Field label="Fishing Gear Type" value={record.fishing_gear_type} />
         <Field label="Fishing Ground" value={record.fishing_ground} />
@@ -144,7 +146,7 @@ function VendorSection({ record }) {
     <section className="rounded-2xl border border-slate-100 bg-white p-6">
       <h2 className="mb-4 text-sm font-medium text-slate-400 uppercase tracking-wide">Vendor Record</h2>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Location Type" value={record.location_type} />
+        <Field label="Location Type" value={otherLabel(record.location_type, record.location_type_other_specify)} />
         {record.location_type !== 'Ambulant / No Fixed Location' && (
           <Field label="Stall Location" value={record.stall_location} />
         )}
