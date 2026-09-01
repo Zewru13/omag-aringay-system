@@ -543,7 +543,6 @@ class Command(BaseCommand):
                 fishing_ground=TRIP_GROUNDS[i % len(TRIP_GROUNDS)],
                 gear_used=TRIP_GEAR[i % len(TRIP_GEAR)],
                 hours_at_sea=Decimal(str(round(random.uniform(4, 10), 2))),
-                fuel_consumption_liters=Decimal(str(round(random.uniform(5, 25), 2))),
                 remarks=SEED_TAG,
                 recorded_by=admin_user,
             )

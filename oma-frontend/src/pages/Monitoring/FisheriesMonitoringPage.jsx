@@ -32,7 +32,6 @@ const CATCH_COLUMNS = [
   { key: 'total_catch_kg',    label: 'Catch (kg)' },
   { key: 'top_species_cell',  label: 'Top Species' },
   { key: 'hours_at_sea_fmt',  label: 'Hrs at Sea' },
-  { key: 'fuel_liters_fmt',   label: 'Fuel (L)' },
   { key: 'actions_cell',      label: 'Actions' },
 ]
 
@@ -199,7 +198,6 @@ function EditCatchModal({ record, onClose, onSaved }) {
     gear_used: record.gear_used || '',
     total_catch_kg: record.total_catch_kg != null ? String(record.total_catch_kg) : '',
     hours_at_sea: record.hours_at_sea != null ? String(record.hours_at_sea) : '',
-    fuel_consumption_liters: record.fuel_consumption_liters != null ? String(record.fuel_consumption_liters) : '',
     remarks: record.remarks || '',
   }
   const [form, setForm] = useState(originalData)
@@ -222,7 +220,6 @@ function EditCatchModal({ record, onClose, onSaved }) {
         gear_used: form.gear_used,
         total_catch_kg: form.total_catch_kg !== '' ? parseFloat(form.total_catch_kg) : null,
         hours_at_sea: form.hours_at_sea !== '' ? parseFloat(form.hours_at_sea) : null,
-        fuel_consumption_liters: form.fuel_consumption_liters !== '' ? parseFloat(form.fuel_consumption_liters) : null,
         remarks: form.remarks,
       })
       showToast('Catch log updated.', 'success')
@@ -279,10 +276,6 @@ function EditCatchModal({ record, onClose, onSaved }) {
             <FormField label="Hours at Sea">
               <input type="number" step="0.1" min="0" className={baseInputClasses} value={form.hours_at_sea}
                 onChange={(e) => set('hours_at_sea', e.target.value)} />
-            </FormField>
-            <FormField label="Fuel Consumption (L)">
-              <input type="number" step="0.1" min="0" className={baseInputClasses} value={form.fuel_consumption_liters}
-                onChange={(e) => set('fuel_consumption_liters', e.target.value)} />
             </FormField>
           </div>
           <FormField label="Remarks">
@@ -562,7 +555,6 @@ export default function FisheriesMonitoringPage() {
         </span>
       ) : '—',
       hours_at_sea_fmt: c.hours_at_sea != null ? `${Number(c.hours_at_sea).toFixed(1)} h` : '—',
-      fuel_liters_fmt: c.fuel_consumption_liters != null ? `${Number(c.fuel_consumption_liters).toFixed(1)} L` : '—',
       actions_cell: (
         <TableActionsMenu
           onViewDetails={() => setViewingDetail({
@@ -573,7 +565,7 @@ export default function FisheriesMonitoringPage() {
               ['Trip Date', formatDate(c.trip_date)], ['Return Date', formatDate(c.return_date)],
               ['Fishing Ground', c.fishing_ground], ['Gear Used', c.gear_used],
               ['Total Catch (kg)', c.total_catch_kg], ['Species Logged', c.species_count],
-              ['Hours at Sea', c.hours_at_sea], ['Fuel (L)', c.fuel_consumption_liters],
+              ['Hours at Sea', c.hours_at_sea],
               ['Remarks', c.remarks || '—'],
             ],
           })}

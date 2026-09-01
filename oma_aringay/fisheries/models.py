@@ -1054,7 +1054,6 @@ class FishingTripLog(models.Model):
     gear_used = models.CharField(max_length=150)
     total_catch_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     hours_at_sea = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
-    fuel_consumption_liters = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
     remarks = models.TextField(blank=True)
     recorded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

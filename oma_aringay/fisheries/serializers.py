@@ -989,7 +989,7 @@ class FishingTripLogSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'fisherfolk', 'fisherfolk_name', 'fisherfolk_type', 'fisherfolk_barangay',
             'trip_date', 'return_date', 'fishing_ground', 'gear_used',
-            'total_catch_kg', 'hours_at_sea', 'fuel_consumption_liters',
+            'total_catch_kg', 'hours_at_sea',
             'remarks', 'recorded_by', 'date_recorded',
             'species_entries', 'top_species', 'species_count',
         ]
