@@ -9,9 +9,12 @@ from django.utils import timezone
 from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+
+from core.validators import validate_uploaded_image
 
 from .permissions import IsAdmin, IsAdminOrEvaluator
 from .serializers import (
@@ -304,6 +307,50 @@ class MeView(APIView):
         serializer.is_valid(raise_exception=True)
         updated_user = serializer.save()
         return Response(UserSerializer(updated_user).data)
+
+
+class MyProfileImageUploadView(APIView):
+    """
+    POST multipart with `image`. Replaces the caller's OWN profile_picture.
+
+    Staff/Admin equivalent of core.profile_self_service.ProfileImageUploadView
+    (which only ever operates on a CITIZEN's linked Farmer/Fisherfolk/
+    Organization record). ADMIN/EVALUATOR accounts have no linked record —
+    the picture lives directly on the User row — so this is a separate view
+    rather than a branch of that one, but reuses the same validator so the
+    two accept identical files by the identical rule.
+    """
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        upload = request.FILES.get('image')
+        if upload is None:
+            return Response({'image': ['No file was submitted.']},
+                             status=status.HTTP_400_BAD_REQUEST)
+        try:
+            validate_uploaded_image(upload)
+        except Exception as exc:
+            msgs = getattr(exc, 'messages', None) or [str(exc)]
+            return Response({'image': msgs}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        if user.profile_picture:
+            user.profile_picture.delete(save=False)
+        user.profile_picture = upload
+        user.save(update_fields=['profile_picture'])
+
+        return Response({
+            'image_url': user.profile_picture.url if user.profile_picture else None,
+        })
+
+    def delete(self, request):
+        user = request.user
+        if user.profile_picture:
+            user.profile_picture.delete(save=False)
+            user.profile_picture = None
+            user.save(update_fields=['profile_picture'])
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ChangePasswordView(APIView):

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Hourglass, KeyRound, Phone, SquarePen } from 'lucide-react'
+import { ChevronRight, HelpCircle, Hourglass, KeyRound, Phone, SquarePen } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -61,7 +61,7 @@ function PendingNote({ pending }) {
   )
 }
 
-export default function CitizenProfileScreen({ record, recordType, onBack, tabBar, bare = false }) {
+export default function CitizenProfileScreen({ record, recordType, onBack, onHelp, tabBar, bare = false }) {
   const P = labels.ffNew.profile
   const { showToast } = useToast()
   const { logout } = useAuth()
@@ -401,6 +401,19 @@ export default function CitizenProfileScreen({ record, recordType, onBack, tabBa
           </div>
           <p className="mt-3 text-[12px] leading-[1.5] text-cz-text-muted">{P.govIdsNote}</p>
         </div>
+      )}
+
+      {/* TULONG — always last, matches every reference frame's ordering. */}
+      {onHelp && (
+        <button
+          type="button"
+          onClick={onHelp}
+          className={`${CARD} flex w-full items-center gap-2.5 text-left transition-colors hover:bg-cz-page`}
+        >
+          <HelpCircle size={18} className="shrink-0 text-cz-text-2" aria-hidden="true" />
+          <span className="flex-1 text-[14px] font-medium text-cz-text">{P.helpRowLabel}</span>
+          <ChevronRight size={17} className="shrink-0 text-cz-text-muted" aria-hidden="true" />
+        </button>
       )}
     </div>
   )

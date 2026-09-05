@@ -37,6 +37,12 @@ class User(AbstractUser):
     full_name = models.CharField(max_length=150, blank=True, default='')
     suffix = models.CharField(max_length=10, blank=True, default='')
     contact_number = models.CharField(max_length=20, blank=True)
+    # Staff/Admin profile photo -- the citizen-facing records (Farmer/
+    # Fisherfolk/*Organization) already have their own profile_picture/logo
+    # field; ADMIN/EVALUATOR accounts had none until the profile page's
+    # rebuild against the reference mockup, which draws a real photo-upload
+    # affordance for this account type too.
+    profile_picture = models.ImageField(upload_to='profile_pictures/staff/', null=True, blank=True)
     must_change_password = models.BooleanField(
         default=False,
         help_text='Forces the user to a change-password screen on next login.',

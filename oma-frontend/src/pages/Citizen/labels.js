@@ -355,6 +355,8 @@ export const labels = {
       footerLine1: 'Para sa mga katanungan, makipag-ugnayan po sa',
       footerLine2: 'Office of the Municipal Agriculturist · Aringay, La Union',
 
+      helpRowLabel: 'Tulong',
+
       // Edit sheet. The reference draws the entry point but has no frame for
       // the sheet itself, so it is kept to exactly what the backend already
       // supports and says plainly which changes are instant and which need
@@ -1256,6 +1258,125 @@ export const labels = {
         a: 'Sa Impormasyon ng Organisasyon, ang logo at contact number ay agad na nagbabago pagka-save. Ang pangalan at address naman ay dumadaan sa pagsusuri ng opisina — pindutin ang "Humiling ng Pagbabago", ilagay ang bagong halaga, at ipapakita ang status na "Nakabinbin sa pagsusuri" hanggang sa maaprubahan o hindi ng opisina.',
       },
     ],
+  },
+
+  // ── Farmer/Fisherfolk individual Help ("Tulong") screens ───────────────
+  // Desktop and mobile share this content but NOT the same layout: desktop
+  // shows a "Field Behaviors" legend card the mobile version omits in favor
+  // of a Mag-logout row — see FarmerHelpScreen/FisherfolkHelpScreen render
+  // logic, not a difference to "fix" into one shape.
+  farmerHelp: {
+    title: 'Tulong',
+    subtitle: 'Mga sagot sa mga karaniwang katanungan tungkol sa inyong account at sa paggamit ng sistema.',
+    faqHeading: 'MGA MADALAS NA TANONG',
+    faq: [
+      {
+        key: 'log-activity',
+        q: 'Paano mag-log ng crop activity?',
+        a: 'Sa Home, pindutin ang "Mag-log" at piliin ang uri ng aktibidad (hal. pagdidilig, pag-aabono, pag-spray). Piliin ang bukid at petsa, pagkatapos ay i-save. Makikita ang aktibidad sa Kasaysayan ng napiling bukid.',
+      },
+      {
+        key: 'record-harvest',
+        q: "Paano mag-record ng ani, at bakit may 50% duration gate?",
+        a: 'Sa bukid na gusto ninyong i-record, pindutin ang "Mag-record ng Ani". Hindi ito available hangga\'t hindi pa umaabot sa kalahati ng inaasahang tagal ng cycle — ito ang 50% duration gate, para hindi maitala ang isang ani bago pa man ito makatwirang mangyari.',
+      },
+      {
+        key: 'report-disaster',
+        q: 'Paano mag-report ng disaster sa isang crop, at paano gumagana ang recovery?',
+        a: 'Piliin ang apektadong bukid at pindutin ang "Mag-ulat ng Sakuna". Ilagay ang uri ng sakuna at antas ng pinsala. Kapag na-recover na ang bukid, babalik ito sa normal na status at magpapatuloy ang cycle nito.',
+      },
+      {
+        key: 'yield-variance',
+        q: "Ano ang Yield Variance Analysis, at ano ang ibig sabihin ng 'possible contributing factors'?",
+        a: 'Inihahambing nito ang aktwal na ani laban sa inaasahang ani batay sa nakaraang mga cycle. Ang "possible contributing factors" ay mga mungkahing dahilan (hal. panahon, sakuna, huling pag-aani) batay sa mga naitalang aktibidad — hindi ito kumpirmadong sanhi, kundi gabay lamang para sa pagsusuri.',
+      },
+      {
+        key: 'request-change',
+        q: "Paano humiling ng pagbabago sa pangalan o barangay, at ano ang 'Nakabinbin sa pagsusuri'?",
+        a: 'Sa Aking Profile, ilagay ang bagong halaga sa field at pindutin ang "Humiling". Ang katayuang "Nakabinbin sa pagsusuri" ay nangangahulugang naghihintay pa ito ng desisyon ng staff — hindi ito agad nalalapat.',
+      },
+      {
+        key: 'instant-vs-request',
+        q: 'Ano ang pagkakaiba ng instant-edit at request-a-change na fields?',
+        a: 'Ang mga instant-edit field (larawan, contact number) ay agad na nalalapat pagka-save. Ang mga request-a-change field (pangalan, barangay) ay kailangan munang suriin at aprubahan ng staff bago ito magbago sa rehistro.',
+      },
+    ],
+    contactHeading: 'MAKIPAG-UGNAYAN SA OMAG ARINGAY',
+    contactPlaceholderNote: 'Ang sumusunod na detalye ay placeholder — hindi pa pinal ang opisyal na impormasyon.',
+    contactOfficeLabel: 'Opisina',
+    contactOfficeValue: '[Pangalan ng Opisina — placeholder]',
+    contactAddressLabel: 'Adres',
+    contactAddressValue: '[Kumpletong Adres ng Opisina — placeholder]',
+    contactPhoneLabel: 'Telepono',
+    contactPhoneValue: '[Numero ng Telepono — placeholder]',
+    contactHoursLabel: 'Oras ng Opisina',
+    contactHoursValue: '[Araw at Oras ng Opisina — placeholder]',
+    behaviorsHeading: 'FIELD BEHAVIORS',
+    behaviorInstantLabel: 'Instant edit',
+    behaviorInstantDesc: 'Photo, contact number — agad na mailalapat',
+    behaviorRequestLabel: 'Request-a-change',
+    behaviorRequestDesc: 'Pangalan, barangay — kailangan ng pag-apruba ng staff',
+    behaviorReadonlyLabel: 'Read-only',
+    behaviorReadonlyDesc: 'RSBSA number, reference info — hindi mababago',
+    logoutCta: 'Mag-logout',
+    backToProfile: 'Bumalik sa Profile',
+  },
+
+  fisherfolkHelp: {
+    title: 'Tulong',
+    subtitle: 'Mga sagot sa mga karaniwang katanungan tungkol sa inyong account at sa paggamit ng sistema.',
+    faqHeading: 'MGA MADALAS NA TANONG',
+    faq: [
+      {
+        key: 'log-feeding',
+        q: "Paano mag-log ng pakain ngayon, at paano gumagana ang 'Ulitin ang pakain kahapon'?",
+        a: 'Piliin ang pond, pagkatapos ay pindutin ang "Mag-log ng Pakain". Ilagay ang uri at dami ng feed. Ang "Ulitin ang pakain kahapon" ay agad na kokopyahin ang huling entry ninyo para sa parehong pond, para hindi na kailangang ulit-ulitin ang paglalagay kapag pareho lang ang pakain araw-araw.',
+      },
+      {
+        key: 'record-harvest',
+        q: 'Paano mag-record ng harvest para sa isang pond?',
+        a: 'Sa napiling pond, pindutin ang "Mag-record ng Harvest". Ilagay ang nahuling dami at petsa, pagkatapos ay i-save. Makikita ito sa Kasaysayan ng pond na iyon.',
+      },
+      {
+        key: 'report-disaster',
+        q: 'Paano mag-report ng disaster (kasama ang fish kill), at paano gumagana ang recovery?',
+        a: 'Piliin ang apektadong pond at pindutin ang "Mag-ulat ng Sakuna". Kasama rito ang fish kill bilang isang uri ng sakuna. Kapag na-recover na ang pond, babalik ito sa normal na status.',
+      },
+      {
+        key: 'log-mortality',
+        q: 'Paano mag-log ng sakit o mortality, at bakit general care guidance lang ang ipinapakita?',
+        a: 'Sa pond na apektado, pindutin ang "Mag-log ng Sakit/Mortality" at ilagay ang detalye. General care guidance lamang ang ipinapakita dahil hindi ito kapalit ng aktwal na diagnosis ng beterinaryo o BFAR — panimulang gabay lang ito habang naghihintay ng propesyonal na tulong.',
+      },
+      {
+        key: 'request-change',
+        q: 'Paano humiling ng pagbabago sa pangalan o barangay?',
+        a: 'Sa Aking Profile, ilagay ang bagong halaga sa field at pindutin ang "Humiling". Naghihintay ito ng pag-apruba ng staff bago ito magbago sa rehistro.',
+      },
+      {
+        key: 'instant-vs-request',
+        q: 'Ano ang pagkakaiba ng instant-edit at request-a-change na fields?',
+        a: 'Ang mga instant-edit field (larawan, contact number) ay agad na nalalapat pagka-save. Ang mga request-a-change field (pangalan, barangay) ay kailangan munang suriin at aprubahan ng staff bago ito magbago sa rehistro.',
+      },
+    ],
+    contactHeading: 'MAKIPAG-UGNAYAN SA OMAG ARINGAY',
+    contactPlaceholderNote: 'Ang sumusunod na detalye ay placeholder — hindi pa pinal ang opisyal na impormasyon.',
+    contactOfficeLabel: 'Opisina',
+    contactOfficeValue: '[Pangalan ng Opisina — placeholder]',
+    contactAddressLabel: 'Adres',
+    contactAddressValue: '[Kumpletong Adres ng Opisina — placeholder]',
+    contactPhoneLabel: 'Telepono',
+    contactPhoneValue: '[Numero ng Telepono — placeholder]',
+    contactHoursLabel: 'Oras ng Opisina',
+    contactHoursValue: '[Araw at Oras ng Opisina — placeholder]',
+    behaviorsHeading: 'FIELD BEHAVIORS',
+    behaviorInstantLabel: 'Instant edit',
+    behaviorInstantDesc: 'Photo, contact number — agad na mailalapat',
+    behaviorRequestLabel: 'Request-a-change',
+    behaviorRequestDesc: 'Pangalan, barangay — kailangan ng pag-apruba ng staff',
+    behaviorReadonlyLabel: 'Read-only',
+    behaviorReadonlyDesc: 'RSBSA number, reference info — hindi mababago',
+    logoutCta: 'Mag-logout',
+    backToProfile: 'Bumalik sa Profile',
   },
 
   // ── Batch 2: Organization dashboard ────────────────────────────────────

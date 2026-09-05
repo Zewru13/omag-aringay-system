@@ -23,14 +23,21 @@ class UserSerializer(serializers.ModelSerializer):
     # frontend's post-login citizen page (Step 6); reuses /accounts/me/
     # rather than a new endpoint since AuthContext already calls it on load.
     linked_record = serializers.SerializerMethodField()
+    # Profile mockup parity: the reference draws Username as its own
+    # read-only row (distinct from Email) on the Staff/Admin profile. The
+    # field already exists on AbstractUser; it just was never exposed here.
+    profile_picture_url = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
-            'id', 'email', 'full_name', 'suffix', 'contact_number', 'role',
+            'id', 'email', 'username', 'full_name', 'suffix', 'contact_number', 'role',
             'is_active', 'must_change_password', 'is_email_verified', 'date_joined',
-            'linked_record_type', 'linked_record',
+            'linked_record_type', 'linked_record', 'profile_picture_url',
         ]
+
+    def get_profile_picture_url(self, obj):
+        return obj.profile_picture.url if obj.profile_picture else None
 
     def get_linked_record(self, obj):
         record = obj.get_linked_record()

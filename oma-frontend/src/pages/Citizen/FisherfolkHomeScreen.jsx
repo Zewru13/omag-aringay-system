@@ -12,6 +12,7 @@ import CitizenAniScreen from './CitizenAniScreen.jsx'
 import CitizenDisasterScreen from './CitizenDisasterScreen.jsx'
 import CitizenHealthLogScreen from './CitizenHealthLogScreen.jsx'
 import CitizenProfileScreen from './CitizenProfileScreen.jsx'
+import CitizenHelpScreen from './CitizenHelpScreen.jsx'
 import MyYieldAnalysisSection from './MyYieldAnalysisSection.jsx'
 import { CitizenAssistanceList, DesktopKaramdamanForm } from './CitizenDesktopScreens.jsx'
 import {
@@ -286,7 +287,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
       name: record.label,
       roleLabel: labels.home.recordTypeLabels.FISHERFOLK || 'Mangingisda',
       onProfile: () => { setLogScreen(null); setDisasterScreen(null); setView({ kind: 'profile' }) },
-      onHelp: () => { setLogScreen(null); setDisasterScreen(null); setView({ kind: 'assistance' }) },
+      onHelp: () => { setLogScreen(null); setDisasterScreen(null); setView({ kind: 'help' }) },
       onLogout,
     }
 
@@ -437,8 +438,18 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
       return (
         <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} title={D.accountProfile} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
           <div className="px-6 py-5">
-            <CitizenProfileScreen record={record} recordType="FISHERFOLK" bare />
+            <CitizenProfileScreen record={record} recordType="FISHERFOLK" onHelp={accountProps.onHelp} bare />
           </div>
+        </DesktopShell>
+      )
+    }
+
+    // ── Tulong (Help) ────────────────────────────────────────────────────
+    if (view.kind === 'help') {
+      const H = labels.fisherfolkHelp
+      return (
+        <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} title={H.title} subtitle={H.subtitle} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
+          <CitizenHelpScreen theme={FISH_THEME} L={H} bare />
         </DesktopShell>
       )
     }
@@ -620,7 +631,19 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
         recordType="FISHERFOLK"
         theme={FISH_THEME}
         onBack={() => setView({ kind: 'home' })}
+        onHelp={() => setView({ kind: 'help' })}
         tabBar={tabBar('myInfo')}
+      />
+    )
+  }
+
+  if (view.kind === 'help') {
+    return (
+      <CitizenHelpScreen
+        theme={FISH_THEME}
+        L={labels.fisherfolkHelp}
+        onBack={() => setView({ kind: 'profile' })}
+        tabBar={tabBar(null)}
       />
     )
   }

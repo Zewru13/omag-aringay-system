@@ -11,6 +11,7 @@ import CitizenDisasterScreen from './CitizenDisasterScreen.jsx'
 import CitizenAniScreen from './CitizenAniScreen.jsx'
 import CitizenFarmerActivityScreen from './CitizenFarmerActivityScreen.jsx'
 import CitizenProfileScreen from './CitizenProfileScreen.jsx'
+import CitizenHelpScreen from './CitizenHelpScreen.jsx'
 import FarmerCropHistoryView from './FarmerCropHistoryView.jsx'
 import { CitizenAssistanceList } from './CitizenDesktopScreens.jsx'
 import {
@@ -150,7 +151,7 @@ export default function FarmerHomeScreen({ record, onLogout }) {
       name: record.label,
       roleLabel: labels.home.recordTypeLabels.FARMER || 'Magsasaka',
       onProfile: () => { setDisasterScreen(null); setView({ kind: 'profile' }) },
-      onHelp: () => { setDisasterScreen(null); setView({ kind: 'assistance' }) },
+      onHelp: () => { setDisasterScreen(null); setView({ kind: 'help' }) },
       onLogout,
     }
 
@@ -252,8 +253,18 @@ export default function FarmerHomeScreen({ record, onLogout }) {
       return (
         <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={CROP_THEME} title={D.accountProfile} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
           <div className="px-6 py-5">
-            <CitizenProfileScreen record={record} recordType="FARMER" bare />
+            <CitizenProfileScreen record={record} recordType="FARMER" onHelp={accountProps.onHelp} bare />
           </div>
+        </DesktopShell>
+      )
+    }
+
+    // ── Tulong (Help) ────────────────────────────────────────────────────
+    if (view.kind === 'help') {
+      const H = labels.farmerHelp
+      return (
+        <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={CROP_THEME} title={H.title} subtitle={H.subtitle} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
+          <CitizenHelpScreen theme={CROP_THEME} L={H} bare />
         </DesktopShell>
       )
     }
@@ -511,7 +522,19 @@ export default function FarmerHomeScreen({ record, onLogout }) {
         recordType="FARMER"
         theme={CROP_THEME}
         onBack={() => setView({ kind: 'home' })}
+        onHelp={() => setView({ kind: 'help' })}
         tabBar={tabBar('myInfo')}
+      />
+    )
+  }
+
+  if (view.kind === 'help') {
+    return (
+      <CitizenHelpScreen
+        theme={CROP_THEME}
+        L={labels.farmerHelp}
+        onBack={() => setView({ kind: 'profile' })}
+        tabBar={tabBar(null)}
       />
     )
   }
