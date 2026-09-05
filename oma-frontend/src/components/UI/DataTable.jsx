@@ -79,9 +79,9 @@ function DataTable({ columns, data, isLoading, loading, onRowClick, emptyState }
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
                   {column.label}
                 </p>
-                <p className="mt-0.5 text-[13px] text-text-primary">
+                <div className="mt-0.5 text-[13px] text-text-primary">
                   {row[column.key] ?? '—'}
-                </p>
+                </div>
               </div>
             ))}
             {onRowClick && (
