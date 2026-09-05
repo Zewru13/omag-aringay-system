@@ -323,26 +323,58 @@ export const labels = {
       fullName: 'BUONG PANGALAN',
       barangay: 'BARANGAY',
       contact: 'CONTACT NUMBER',
+      identityNameEyebrow: 'PANGALAN',
 
-      extraHeading: 'Government IDs at Impormasyon ng Account',
-      fishr: 'FISHR NUMBER',
-      lguReg: 'LGU REGISTRATION',
       // Reference labels this row differently per domain: "Fishery" for
       // fisherfolk, "Uri" for farmer -- kept as two keys rather than one
       // shared string so each side reads exactly as drawn.
       activityTypeMiniFisherfolk: 'FISHERY',
       activityTypeMiniFarmer: 'URI',
-      activityTypeFullFisherfolk: 'FISHERY ACTIVITY',
-      activityTypeFullFarmer: 'URI NG MAGSASAKA',
-      govIdsNote: 'Para sa pagwawasto ng alinmang ID number, makipag-ugnayan sa OMAg o BFAR.',
       farmLaborer: 'Manggagawang Bukid',
       regularFarmer: 'Magsasaka',
 
-      contactCardHeading: 'Contact Number — Agad Nababago',
-      contactSaveCta: 'Baguhin',
-      requestCardHeading: 'Mga Field na Nangangailangan ng Kahilingan',
-      requestCta: 'Humiling',
-      barangayFieldLabel: 'BARANGAY / TIRAHAN',
+      // Role pill in the identity card cover — English, per reference
+      // ("Farmer" / "Fisherfolk" badge + Tagalog subtitle underneath).
+      roleBadgeFarmer: 'Farmer',
+      roleBadgeFisherfolk: 'Fisherfolk',
+      roleSubtitleFarmer: 'Magsasaka',
+      roleSubtitleFisherfolk: 'Mangingisda',
+
+      // Field-status legend, matching PROFILE REFERENCE!.docx's own
+      // wording exactly (verbatim Tagalog, three fixed states). This is
+      // deliberately its own copy from labels.farmerHelp.behaviors* --
+      // that block is the Help screen's English-labeled legend, a
+      // different frame with different wording; this is the profile
+      // screen's own legend bar sitting directly under the identity row.
+      legendInstant: 'Instant na Pagbabago',
+      legendApproval: 'Kailangan ng Pag-apruba',
+      legendLocked: 'Hindi Mababago',
+
+      personalInfoHeading: 'Personal na Impormasyon',
+      // Reference draws this card's own title in English even though the
+      // rest of the screen is Tagalog -- kept verbatim, not "fixed" to
+      // match the surrounding language.
+      referenceInfoHeading: 'Reference Information',
+      referenceInfoReadOnlyNote: 'Reference Information (Read-only)',
+      birthdateLabel: 'Petsa ng Kapanganakan',
+      civilStatusLabel: 'Katayuang Sibil',
+      educationLabelDesktop: 'Antas ng Edukasyon',
+      educationLabelMobile: 'Pinakamataas na Antas ng Edukasyon',
+      statusFlagsLabel: 'Mga Status Flag',
+      pwdLabel: 'PWD',
+      fourPsLabel: '4Ps Beneficiary',
+      civilStatusOptions: {
+        Single: 'Walang Asawa',
+        Married: 'May Asawa',
+        Widowed: 'Balo',
+        Separated: 'Hiwalay',
+      },
+
+      requestModalCurrentLabel: 'Kasalukuyan',
+      requestModalNewLabel: 'Bagong halaga',
+      requestModalSubmit: 'Isumite ang hiling',
+      contactEditSave: 'I-save',
+      contactEditCancel: 'Kanselahin',
 
       // Pending-change panel. ProfileChangeRequest has existed since the
       // profile self-service batch and has never been surfaced anywhere;
@@ -1208,6 +1240,11 @@ export const labels = {
     typeBadgeFisherfolk: 'Fisherfolk Organization',
     samahanSubtitleFarmers: 'Samahan ng mga Magsasaka',
     samahanSubtitleFisherfolk: 'Samahan ng mga Mangingisda',
+    identificationHeading: 'Pagkakakilanlan',
+    identificationRegNumber: 'Reg. Number',
+    identificationAgency: 'Ahensya',
+    identificationRegistered: 'Nagrehistro',
+    identificationOrganized: 'Pag-oorganisa',
     groups: {
       registeredDetails: 'Rehistradong Impormasyon',
       identity: 'Pangalan at Address',

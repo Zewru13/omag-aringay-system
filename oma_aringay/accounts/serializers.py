@@ -63,6 +63,12 @@ class UserSerializer(serializers.ModelSerializer):
                 'civil_status': record.civil_status,
                 'contact_number': record.contact_number,
                 'highest_education': record.highest_education,
+                # Profile Reference batch: the "Reference Information" card
+                # (birthdate, PWD/4Ps status) needs these three, previously
+                # never exposed to the citizen's own /accounts/me/ payload.
+                'birthdate': record.birthdate,
+                'is_pwd': record.is_pwd,
+                'is_4ps_beneficiary': record.is_4ps_beneficiary,
             }
             if obj.linked_record_type == User.LinkedRecordType.FISHERFOLK:
                 # Fisherfolk-only identifiers. Deliberately not mirrored onto

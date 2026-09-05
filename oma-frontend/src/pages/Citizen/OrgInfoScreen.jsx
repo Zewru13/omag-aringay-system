@@ -5,6 +5,7 @@ import api from '../../api/axiosInstance.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { OrgScreen } from './OrgDashboardParts.jsx'
+import { EditLegend } from './citizenUI.jsx'
 import { labels } from './labels.js'
 
 // Rebuilt against PROFILE REFERENCE!.docx (images 4/5/8/11 — "Impormasyon
@@ -56,6 +57,21 @@ function ReadOnlyRow({ label, value }) {
         <p className="mt-0.5 truncate text-[14px] font-medium text-cz-text">{value}</p>
       </div>
       <Lock size={13} className="shrink-0 text-cz-text-muted" aria-hidden="true" />
+    </div>
+  )
+}
+
+// Reference draws REHISTRADONG IMPORMASYON and CONTACT's read-only pairs
+// two-up on desktop (single column below sm) rather than one full-width
+// row per field — this is that 2-up variant, used only for those two cards.
+function ReadOnlyGridRow({ label, value }) {
+  return (
+    <div className="flex items-start justify-between gap-2 py-2.5">
+      <div className="min-w-0">
+        <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{label}</p>
+        <p className="mt-0.5 truncate text-[14px] font-medium text-cz-text">{value}</p>
+      </div>
+      <Lock size={13} className="mt-0.5 shrink-0 text-cz-text-muted" aria-hidden="true" />
     </div>
   )
 }
@@ -254,6 +270,31 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
               </div>
 
               {isUploading && <p className="mt-2.5 text-[12px] text-cz-text-2">{labels.profileEdit.uploading}</p>}
+
+              {/* PAGKAKAKILANLAN — the identity card's own compact 2x2
+                  identification summary, distinct from the fuller
+                  REHISTRADONG IMPORMASYON card on the right. */}
+              <div className="mt-4 border-t-[0.5px] border-cz-border pt-3">
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{L.identificationHeading}</p>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.04em] text-cz-text-2">{L.identificationRegNumber}</p>
+                    <p className="mt-0.5 truncate text-[13px] font-semibold text-cz-text">{record?.registration_number || labels.common.unknown}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.04em] text-cz-text-2">{L.identificationAgency}</p>
+                    <p className="mt-0.5 truncate text-[13px] font-semibold text-cz-text">{record?.registration_agency || labels.common.unknown}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.04em] text-cz-text-2">{L.identificationRegistered}</p>
+                    <p className="mt-0.5 truncate text-[13px] font-semibold text-cz-text">{labels.common.formatDate(record?.date_registered)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.04em] text-cz-text-2">{L.identificationOrganized}</p>
+                    <p className="mt-0.5 truncate text-[13px] font-semibold text-cz-text">{labels.common.formatDate(record?.date_organized)}</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
 
@@ -264,6 +305,8 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
         </div>
 
         <div className="mt-4 space-y-4 lg:mt-0">
+          <EditLegend theme={theme} />
+
           {errorMessage && (
             <p className="rounded-[8px] border-[0.5px] border-cz-danger-border bg-cz-danger-bg px-3 py-2 text-[13px] text-cz-danger-body">
               {errorMessage}
@@ -274,9 +317,9 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
           {registeredInfoRows.length > 0 && (
             <section className={CARD}>
               <CardHeader theme={theme}>{L.groups.registeredDetails}</CardHeader>
-              <div className="px-4">
+              <div className="grid grid-cols-1 gap-x-4 px-4 sm:grid-cols-2">
                 {registeredInfoRows.map(([field, value]) => (
-                  <ReadOnlyRow key={field} label={L.readonlyFieldLabels[field]} value={value} />
+                  <ReadOnlyGridRow key={field} label={L.readonlyFieldLabels[field]} value={value} />
                 ))}
               </div>
             </section>
@@ -287,11 +330,13 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
           <section className={CARD}>
             <CardHeader theme={theme}>{L.groups.contact}</CardHeader>
             <div className="px-4">
-              {contactReadonlyRows.map(([field, value]) => (
-                <ReadOnlyRow key={field} label={L.readonlyFieldLabels[field]} value={value} />
-              ))}
+              <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-2">
+                {contactReadonlyRows.map(([field, value]) => (
+                  <ReadOnlyGridRow key={field} label={L.readonlyFieldLabels[field]} value={value} />
+                ))}
+              </div>
 
-              <div className="py-2.5">
+              <div className="py-2.5 border-t-[0.5px] border-cz-border">
                 <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{labels.profileEdit.contactLabel}</p>
                 {editingContact ? (
                   <div className="mt-1.5 flex gap-2">
@@ -336,11 +381,11 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
           <section className={CARD}>
             <CardHeader theme={theme}>{L.groups.identity}</CardHeader>
             <div className="px-4 py-3">
-              <div className="space-y-1">
+              <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-2">
                 {REQUESTABLE.map((field) => {
                   const pending = pendingFor(field)
                   return (
-                    <div key={field} className="py-2 border-b-[0.5px] border-cz-border last:border-0">
+                    <div key={field} className="py-2 border-b-[0.5px] border-cz-border sm:border-0">
                       <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{labels.profileEdit.fieldLabels[field]}</p>
                       <div className="mt-0.5 flex items-center justify-between gap-3">
                         <p className="min-w-0 flex-1 truncate text-[14px] font-medium text-cz-text">

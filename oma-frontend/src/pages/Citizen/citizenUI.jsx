@@ -1,4 +1,4 @@
-import { ChevronRight, LogOut } from 'lucide-react'
+import { ChevronRight, LogOut, Lock, Pencil, RefreshCw } from 'lucide-react'
 import { labels } from './labels.js'
 
 // Shared primitives for the citizen self-service screens, built to the
@@ -272,6 +272,39 @@ export function CitizenCardGrid({ children }) {
 // SecondaryRows divider, which needs no label).
 export function QuickLinksHeading({ children }) {
   return <h2 className="mb-1 text-[13px] font-medium text-cz-text-2">{children}</h2>
+}
+
+// ─── Field-status legend ─────────────────────────────────────────────────
+// Shared by CitizenProfileScreen (Farmer/Fisherfolk) and OrgInfoScreen
+// (both org types) — PROFILE REFERENCE!.docx draws the identical bar on
+// every self-service profile frame: green pencil = saves instantly, orange
+// refresh = goes through a staff-reviewed change request, gray lock = never
+// editable by the citizen. One component so the three colors/icons/order
+// can't drift between the two screens that both need it.
+export function EditLegend({ theme }) {
+  const P = labels.ffNew.profile
+  return (
+    <div className={`mb-4 flex flex-wrap items-center gap-x-5 gap-y-2 rounded-[12px] border-[0.5px] border-cz-border px-4 py-3 ${theme.tileSelectedBg}`}>
+      <span className="flex items-center gap-1.5 text-[12.5px] text-cz-text">
+        <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${theme.solidBtn}`}>
+          <Pencil size={11} aria-hidden="true" />
+        </span>
+        {P.legendInstant}
+      </span>
+      <span className="flex items-center gap-1.5 text-[12.5px] text-cz-text">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full" style={{ backgroundColor: 'var(--color-cz-warn-accent)' }}>
+          <RefreshCw size={11} className="text-white" aria-hidden="true" />
+        </span>
+        {P.legendApproval}
+      </span>
+      <span className="flex items-center gap-1.5 text-[12.5px] text-cz-text">
+        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-cz-text-muted/20">
+          <Lock size={11} className="text-cz-text-muted" aria-hidden="true" />
+        </span>
+        {P.legendLocked}
+      </span>
+    </div>
+  )
 }
 
 // ─── Sub-view header (back arrow + title) ───────────────────────────────

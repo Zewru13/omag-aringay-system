@@ -1,39 +1,34 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronRight, HelpCircle, Hourglass, KeyRound, Phone, SquarePen } from 'lucide-react'
+import { Camera, Check, ChevronRight, Clock, HelpCircle, KeyRound, Lock, Pencil, RefreshCw } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { labels } from './labels.js'
-import { CROP_THEME, CitizenBody, CitizenScreen, CitizenSubHeader, FISH_THEME } from './citizenUI.jsx'
+import { CROP_THEME, CitizenBody, CitizenScreen, CitizenSubHeader, EditLegend, FISH_THEME } from './citizenUI.jsx'
 
-// ─── Aking Profile (frames 3, 8) ───────────────────────────────────────────
-// Everything shown comes from /accounts/me/'s `linked_record`, which only
-// ever resolves the caller's own record, so this screen adds no new data
-// access. Re-built against the Desktop POV reference's actual layout: an
-// identity card, a Contact Number card that saves instantly, a change-
-// request card with inline "Humiling" actions per field (replacing the
-// previous floating-button + bottom-sheet pattern, which had no frame of
-// its own), and a read-only Government IDs card.
+// ─── Aking Profile (Farmer/Fisherfolk) ─────────────────────────────────────
+// Rebuilt against PROFILE REFERENCE!.docx frames 2-5 (own-profile, both
+// breakpoints): an identity card with a role pill and Barangay/Contact mini
+// fields, a field-status legend bar, one merged "Personal na Impormasyon"
+// card whose rows each carry their own status icon (green pencil = instant,
+// orange refresh = needs approval, gray lock = read-only), a "Reference
+// Information" card for the demographic fields the previous version never
+// surfaced at all (birthdate, civil status, education, PWD/4Ps), and a
+// collapsed-by-default password card — matching OrgInfoScreen.jsx's proven
+// pattern for the same three field behaviors, rather than three separate
+// cards named after what kind of edit they allow.
 //
-// NAME is one box in the reference ("Buong Pangalan") but the backend's
-// ProfileChangeRequest.REQUESTABLE_FIELDS only ever accepts the three real
-// model fields (first_name/middle_name/last_name) -- an aggregate
-// "full_name" would fail server-side validation and, if it somehow didn't,
-// the approval path's `setattr(record, field_name, value)` has no such
-// attribute to set. So this keeps three inputs under one "Buong Pangalan"
-// heading and one Humiling action that submits whichever parts changed --
-// visually one field, mechanically the three the backend actually has.
+// NAME stays three inputs under one "Buong Pangalan" request (see the
+// modal below) for the same reason the previous version kept them: the
+// backend's ProfileChangeRequest.REQUESTABLE_FIELDS only accepts the real
+// model fields (first_name/middle_name/last_name), not a composed
+// full_name -- an aggregate field would fail server-side validation.
 //
-// HIDE-EMPTY RULE, kept from the previous version: a field renders only when
-// its value is real. 'Unspecified' is a stored choice meaning "not
-// determined from the import source", not a person's answer, so it counts as
-// empty. civil_status is 'Unspecified' for 3556 of 3568 farmers and
-// highest_education is blank for essentially everyone -- rendering
-// placeholders would bury the two or three fields that ARE real.
-// (This rule now only governs the read-only Government IDs card; the
-// editable identity fields always render since a citizen must always be
-// able to request a correction, even from an empty value.)
+// HIDE-EMPTY RULE, kept from the previous version: a read-only field
+// renders only when its value is real. 'Unspecified' is a stored choice
+// meaning "not determined from the import source", not a person's answer,
+// so it counts as empty alongside '' and null.
 
 const BLANK = new Set(['', 'Unspecified'])
 const hasValue = (v) => v !== null && v !== undefined && !BLANK.has(String(v).trim())
@@ -44,19 +39,25 @@ const initialsOf = (rec) => {
   return (a + b).toUpperCase() || '—'
 }
 
-const CARD = 'rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface px-4 py-4'
-const INPUT = 'min-w-0 flex-1 rounded-[8px] border-[0.5px] border-cz-border-strong bg-cz-page px-3 py-[10px] text-[14px] text-cz-text focus:border-cz-text-2 focus:outline-none disabled:opacity-50'
+const CARD = 'overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface'
 
-function PendingNote({ pending }) {
-  const P = labels.ffNew.profile
-  if (!pending) return null
+function CardHeader({ theme, children, note }) {
   return (
-    <div className="mt-2 rounded-[8px] border-[0.5px] border-cz-warn-accent/30 bg-cz-warn-bg px-3 py-2.5">
-      <p className="flex items-center gap-1.5 text-[12.5px] font-semibold text-cz-warn-accent">
-        <Hourglass size={12} aria-hidden="true" />
-        {P.pendingHeading}
-      </p>
-      <p className="mt-0.5 text-[12.5px] leading-[1.5] text-cz-text">{P.pendingRequested(pending.requested_value)}</p>
+    <div className={`px-4 py-3 border-b-[0.5px] border-cz-border ${theme.tileSelectedBg}`}>
+      <p className={`text-[11px] font-semibold uppercase tracking-[0.06em] ${theme.tileSelectedText}`}>{children}</p>
+      {note && <p className="mt-0.5 text-[10.5px] text-cz-text-muted sm:hidden">{note}</p>}
+    </div>
+  )
+}
+
+function ReadOnlyRow({ label, value }) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-2.5 border-b-[0.5px] border-cz-border last:border-0">
+      <div className="min-w-0">
+        <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{label}</p>
+        <p className="mt-0.5 truncate text-[14px] font-medium text-cz-text">{value}</p>
+      </div>
+      <Lock size={13} className="shrink-0 text-cz-text-muted" aria-hidden="true" />
     </div>
   )
 }
@@ -68,24 +69,29 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
   const navigate = useNavigate()
   const isFisherfolk = recordType === 'FISHERFOLK'
   const theme = isFisherfolk ? FISH_THEME : CROP_THEME
+  const fileRef = useRef(null)
+
+  const [photoUrl, setPhotoUrl] = useState(record?.profile_picture_url || null)
+  const [isUploading, setIsUploading] = useState(false)
 
   const [requests, setRequests] = useState([])
   const [reloadKey, setReloadKey] = useState(0)
 
-  const [contactValue, setContactValue] = useState(record?.contact_number || '')
+  const [contact, setContact] = useState(record?.contact_number || '')
+  const [editingContact, setEditingContact] = useState(false)
+  const [contactDraft, setContactDraft] = useState(contact)
   const [savingContact, setSavingContact] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+
+  const [requestField, setRequestField] = useState(null) // 'fullName' | 'barangay' | null
+  const [nameDraft, setNameDraft] = useState({ first_name: '', middle_name: '', last_name: '' })
+  const [barangayDraft, setBarangayDraft] = useState('')
+  const [isBusy, setIsBusy] = useState(false)
 
   const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' })
   const [passwordError, setPasswordError] = useState('')
   const [changingPassword, setChangingPassword] = useState(false)
-
-  const [nameForm, setNameForm] = useState({
-    first_name: record?.first_name || '',
-    middle_name: record?.middle_name || '',
-    last_name: record?.last_name || '',
-  })
-  const [barangayValue, setBarangayValue] = useState(record?.barangay || '')
-  const [submittingGroup, setSubmittingGroup] = useState(null) // 'name' | 'barangay' | null
+  const [showPasswordForm, setShowPasswordForm] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -103,21 +109,53 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
   const NAME_FIELDS = ['first_name', 'middle_name', 'last_name']
   const pendingName = NAME_FIELDS.map(pendingFor).find(Boolean) || null
   const pendingBarangay = pendingFor('barangay')
-  const namePending = Boolean(pendingName)
-  const barangayPending = Boolean(pendingBarangay)
 
   const fullName = [record?.first_name, record?.middle_name, record?.last_name]
     .filter(Boolean).join(' ') || record?.label || labels.common.unknown
 
-  const saveContact = async () => {
-    if (contactValue === (record?.contact_number || '')) return
-    setSavingContact(true)
+  // Farmer has no "type" field on the backend; is_farm_laborer is the
+  // closest real distinction, so the identity card's mini "Uri" row is
+  // derived from that boolean rather than a field that doesn't exist.
+  const farmerTypeLabel = record?.is_farm_laborer ? P.farmLaborer : P.regularFarmer
+
+  const civilStatusDisplay = P.civilStatusOptions[record?.civil_status] || record?.civil_status
+  const hasReferenceInfo = hasValue(record?.birthdate) || hasValue(civilStatusDisplay)
+    || hasValue(record?.highest_education) || record?.is_pwd || record?.is_4ps_beneficiary
+
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setIsUploading(true)
+    setErrorMessage('')
     try {
-      await api.patch('/profile/contact-number/', { contact_number: contactValue })
+      const fd = new FormData()
+      fd.append('image', file)
+      const r = await api.post('/profile/image/', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      setPhotoUrl(r.data.image_url)
+      showToast(labels.profileEdit.uploadSuccess, 'success')
+    } catch (err) {
+      const d = err?.response?.data
+      const first = d && typeof d === 'object' ? Object.values(d).flat()[0] : null
+      setErrorMessage(first || labels.profileEdit.uploadFailed)
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
+  const saveContact = async () => {
+    setSavingContact(true)
+    setErrorMessage('')
+    try {
+      const r = await api.patch('/profile/contact-number/', { contact_number: contactDraft })
+      setContact(r.data.contact_number)
+      setEditingContact(false)
       showToast(P.editContactSaved, 'success')
     } catch (err) {
       const d = err?.response?.data
-      showToast(typeof d === 'string' ? d : Object.values(d || {}).flat().join(' ') || labels.common.genericSaveError, 'error')
+      setErrorMessage(typeof d === 'string' ? d : Object.values(d || {}).flat().join(' ') || labels.common.genericSaveError)
     } finally {
       setSavingContact(false)
     }
@@ -151,87 +189,116 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
     }
   }
 
-  const requestNameChange = async () => {
-    const changed = NAME_FIELDS.filter((f) => (nameForm[f] || '') !== (record?.[f] || ''))
+  const openNameRequest = () => {
+    setNameDraft({
+      first_name: record?.first_name || '',
+      middle_name: record?.middle_name || '',
+      last_name: record?.last_name || '',
+    })
+    setErrorMessage('')
+    setRequestField('fullName')
+  }
+
+  const openBarangayRequest = () => {
+    setBarangayDraft(record?.barangay || '')
+    setErrorMessage('')
+    setRequestField('barangay')
+  }
+
+  const submitNameRequest = async () => {
+    const changed = NAME_FIELDS.filter((f) => (nameDraft[f] || '') !== (record?.[f] || ''))
     if (changed.length === 0) { showToast(P.editNothing, 'info'); return }
-    setSubmittingGroup('name')
+    setIsBusy(true)
+    setErrorMessage('')
     try {
       for (const f of changed) {
-        await api.post('/profile/change-requests/', { field_name: f, requested_value: nameForm[f] })
+        await api.post('/profile/change-requests/', { field_name: f, requested_value: nameDraft[f] })
       }
       showToast(P.editSubmitted, 'success')
+      setRequestField(null)
       setReloadKey((k) => k + 1)
     } catch (err) {
       const d = err?.response?.data
-      showToast(typeof d === 'string' ? d : Object.values(d || {}).flat().join(' ') || labels.common.genericSaveError, 'error')
+      setErrorMessage(typeof d === 'string' ? d : Object.values(d || {}).flat().join(' ') || labels.common.genericSaveError)
     } finally {
-      setSubmittingGroup(null)
+      setIsBusy(false)
     }
   }
 
-  const requestBarangayChange = async () => {
-    if (barangayValue === (record?.barangay || '')) { showToast(P.editNothing, 'info'); return }
-    setSubmittingGroup('barangay')
+  const submitBarangayRequest = async () => {
+    if (barangayDraft === (record?.barangay || '')) { showToast(P.editNothing, 'info'); return }
+    setIsBusy(true)
+    setErrorMessage('')
     try {
-      await api.post('/profile/change-requests/', { field_name: 'barangay', requested_value: barangayValue })
+      await api.post('/profile/change-requests/', { field_name: 'barangay', requested_value: barangayDraft })
       showToast(P.editSubmitted, 'success')
+      setRequestField(null)
       setReloadKey((k) => k + 1)
     } catch (err) {
       const d = err?.response?.data
-      showToast(typeof d === 'string' ? d : Object.values(d || {}).flat().join(' ') || labels.common.genericSaveError, 'error')
+      setErrorMessage(typeof d === 'string' ? d : Object.values(d || {}).flat().join(' ') || labels.common.genericSaveError)
     } finally {
-      setSubmittingGroup(null)
+      setIsBusy(false)
     }
   }
-
-  // Farmer has no "type" field on the backend; is_farm_laborer is the
-  // closest real distinction, so the reference's "Uri ng Magsasaka" row
-  // is derived from that boolean rather than a field that doesn't exist.
-  const farmerTypeLabel = record?.is_farm_laborer ? P.farmLaborer : P.regularFarmer
-
-  const govIds = isFisherfolk
-    ? [[P.rsbsa, record?.rsbsa_number], [P.fishr, record?.fishr_number], [P.lguReg, record?.lgu_registration_number],
-       [P.barangay, record?.barangay], [P.activityTypeFullFisherfolk, record?.fisherfolk_type]]
-    : [[P.rsbsa, record?.rsbsa_number], [P.barangay, record?.barangay], [P.activityTypeFullFarmer, farmerTypeLabel]]
 
   const identityCard = (
     <div className="w-full shrink-0 lg:w-[280px]">
-      <div className={`overflow-hidden rounded-[12px] border-[0.5px] border-cz-border`}>
-        <div className={`${theme.header} px-4 pb-5 pt-4`}>
-          <div className={`flex h-[56px] w-[56px] items-center justify-center overflow-hidden rounded-[10px] bg-white/15`}>
-            {record?.profile_picture_url
-              ? <img src={record.profile_picture_url} alt="" className="h-full w-full object-cover" />
-              : <span className="text-[18px] font-bold text-white">{initialsOf(record)}</span>}
+      <div className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface">
+        <div className={`h-20 ${theme.header}`} />
+        <div className="px-4 pb-4 -mt-8">
+          <div className="relative h-16 w-16">
+            <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-[14px] border-2 border-cz-surface bg-cz-surface text-[18px] font-semibold text-cz-text shadow-sm">
+              {photoUrl ? <img src={photoUrl} alt="" className="h-full w-full object-cover" /> : initialsOf(record)}
+            </div>
+            <input
+              ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp"
+              onChange={handleFile} className="hidden"
+            />
+            <button
+              type="button"
+              disabled={isUploading}
+              aria-label={labels.profileEdit.changePhoto}
+              onClick={() => fileRef.current?.click()}
+              className={`absolute -bottom-1 -left-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-cz-surface ${theme.solidBtn} shadow-md transition-transform press-scale hover:scale-105 disabled:opacity-50`}
+            >
+              <Camera size={13} aria-hidden="true" />
+            </button>
           </div>
-          <p className="mt-3 text-[17px] font-bold leading-[1.2] text-white">{fullName}</p>
-          <p className={`text-[13px] ${theme.name}`}>{isFisherfolk ? P.verifiedFisherfolk : P.verifiedFarmer}</p>
-        </div>
-        <div className="space-y-2 bg-cz-surface px-4 py-3.5">
-          {hasValue(record?.barangay) && (
-            <div className="flex items-center justify-between gap-3 text-[13px]">
-              <span className="text-cz-text-2">{P.barangay}</span>
-              <span className="font-medium text-cz-text">{record.barangay}</span>
+
+          <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-cz-text-2">{P.identityNameEyebrow}</p>
+          <h1 className="mt-0.5 text-[17px] font-bold leading-[1.2] text-cz-text">{fullName}</h1>
+          <div className="mt-1.5 flex items-center gap-2">
+            <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${theme.tileSelectedBg} ${theme.tileSelectedText}`}>
+              {isFisherfolk ? P.roleBadgeFisherfolk : P.roleBadgeFarmer}
+            </span>
+            <span className="text-[12px] text-cz-text-2">{isFisherfolk ? P.roleSubtitleFisherfolk : P.roleSubtitleFarmer}</span>
+          </div>
+
+          {(hasValue(record?.barangay) || hasValue(contact)) && (
+            <div className="mt-3 grid grid-cols-2 gap-3 border-t-[0.5px] border-cz-border pt-3">
+              <div>
+                <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{P.barangay}</p>
+                <p className="mt-0.5 truncate text-[13.5px] font-medium text-cz-text">{record?.barangay || labels.common.unknown}</p>
+              </div>
+              <div>
+                <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{P.contact}</p>
+                <p className="mt-0.5 truncate text-[13.5px] font-medium text-cz-text">{contact || labels.common.unknown}</p>
+              </div>
             </div>
           )}
-          {hasValue(record?.contact_number) && (
-            <div className="flex items-center justify-between gap-3 text-[13px]">
-              <span className="text-cz-text-2">{P.contact}</span>
-              <span className="font-medium text-cz-text">{record.contact_number}</span>
-            </div>
-          )}
-          {(isFisherfolk ? hasValue(record?.fisherfolk_type) : true) && (
-            <div className="flex items-center justify-between gap-3 text-[13px]">
-              <span className="text-cz-text-2">{isFisherfolk ? P.activityTypeMiniFisherfolk : P.activityTypeMiniFarmer}</span>
-              <span className="font-medium text-cz-text">{isFisherfolk ? record.fisherfolk_type : farmerTypeLabel}</span>
-            </div>
-          )}
+
+          {isUploading && <p className="mt-2.5 text-[12px] text-cz-text-2">{labels.profileEdit.uploading}</p>}
         </div>
       </div>
 
       {hasValue(record?.rsbsa_number) && (
-        <div className={`${CARD} mt-3`}>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{P.rsbsa}</p>
-          <p className="mt-1 text-[15px] font-semibold text-cz-text">{record.rsbsa_number}</p>
+        <div className={`mt-3 rounded-[12px] border-[0.5px] border-cz-border px-4 py-3 ${theme.tileSelectedBg}`}>
+          <p className={`text-[11px] font-semibold uppercase tracking-[0.06em] ${theme.tileSelectedText}`}>{P.rsbsa}</p>
+          <p className="mt-1 flex items-center gap-1.5 text-[14px] font-semibold text-cz-text">
+            <Lock size={12} className="shrink-0 text-cz-text-muted" aria-hidden="true" />
+            {record.rsbsa_number}
+          </p>
           <p className="mt-1 text-[12px] leading-[1.5] text-cz-text-muted">{P.rsbsaNote}</p>
         </div>
       )}
@@ -240,175 +307,220 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
 
   const detailCards = (
     <div className="min-w-0 flex-1 space-y-4">
-      {/* CONTACT NUMBER — saves instantly, no review. */}
-      <div className={CARD}>
-        <p className="mb-2 flex items-center gap-1.5 text-[13px] font-semibold text-cz-text">
-          <span className={`h-[10px] w-[3px] rounded-full ${theme.header}`} aria-hidden="true" />
-          {P.contactCardHeading}
+      {errorMessage && (
+        <p className="rounded-[8px] border-[0.5px] border-cz-danger-border bg-cz-danger-bg px-3 py-2 text-[13px] text-cz-danger-body">
+          {errorMessage}
         </p>
-        <div className="flex items-center gap-2">
-          <span className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[8px] bg-cz-page">
-            <Phone size={16} className="text-cz-text-2" aria-hidden="true" />
-          </span>
-          <input
-            type="tel"
-            value={contactValue}
-            onChange={(e) => setContactValue(e.target.value)}
-            className={INPUT}
-          />
-          <button
-            type="button"
-            onClick={saveContact}
-            disabled={savingContact}
-            className="shrink-0 rounded-[8px] border-[0.5px] border-cz-border-strong bg-cz-surface px-3.5 py-[10px] text-[13px] font-medium text-cz-text transition-colors hover:bg-cz-page disabled:opacity-50"
-          >
-            {P.contactSaveCta}
-          </button>
+      )}
+
+      {/* PERSONAL NA IMPORMASYON — every editable field in one card, each
+          row carrying its own status icon rather than being grouped by
+          which kind of edit it allows. */}
+      <section className={CARD}>
+        <CardHeader theme={theme}>{P.personalInfoHeading}</CardHeader>
+        <div className="px-4">
+          <div className="py-2.5 border-b-[0.5px] border-cz-border">
+            <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{P.fullName}</p>
+            <div className="mt-0.5 flex items-center justify-between gap-3">
+              <p className="min-w-0 flex-1 truncate text-[14px] font-medium text-cz-text">{fullName}</p>
+              {pendingName ? (
+                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-cz-tile-amber-bg px-2.5 py-1 text-[11px] font-medium text-cz-tile-amber-fg">
+                  <Clock size={12} aria-hidden="true" />
+                  {labels.profileEdit.pendingReview}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={openNameRequest}
+                  aria-label={labels.profileEdit.requestChange}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+                  style={{ backgroundColor: 'var(--color-cz-warn-accent)' }}
+                >
+                  <RefreshCw size={12} className="text-white" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+            {pendingName && (
+              <p className="mt-1 text-[12px] text-cz-text-2">{labels.profileEdit.pendingNote(pendingName.requested_value)}</p>
+            )}
+          </div>
+
+          <div className="py-2.5 border-b-[0.5px] border-cz-border">
+            <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{P.barangay}</p>
+            <div className="mt-0.5 flex items-center justify-between gap-3">
+              <p className="min-w-0 flex-1 truncate text-[14px] font-medium text-cz-text">{record?.barangay || labels.common.unknown}</p>
+              {pendingBarangay ? (
+                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-cz-tile-amber-bg px-2.5 py-1 text-[11px] font-medium text-cz-tile-amber-fg">
+                  <Clock size={12} aria-hidden="true" />
+                  {labels.profileEdit.pendingReview}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={openBarangayRequest}
+                  aria-label={labels.profileEdit.requestChange}
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+                  style={{ backgroundColor: 'var(--color-cz-warn-accent)' }}
+                >
+                  <RefreshCw size={12} className="text-white" aria-hidden="true" />
+                </button>
+              )}
+            </div>
+            {pendingBarangay && (
+              <p className="mt-1 text-[12px] text-cz-text-2">{labels.profileEdit.pendingNote(pendingBarangay.requested_value)}</p>
+            )}
+          </div>
+
+          <div className="py-2.5">
+            <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{P.contact}</p>
+            {editingContact ? (
+              <div className="mt-1.5 flex gap-2">
+                <input
+                  type="tel" value={contactDraft}
+                  onChange={(e) => setContactDraft(e.target.value)}
+                  className="min-h-[40px] flex-1 rounded-[8px] border-[0.5px] border-cz-border-strong px-3 text-[14px] text-cz-text outline-none"
+                />
+                <button
+                  type="button" disabled={savingContact} onClick={saveContact}
+                  className={`min-h-[40px] rounded-[8px] px-3 ${theme.solidBtn} disabled:opacity-50`}
+                >
+                  <span className="text-[13px] font-medium">{P.contactEditSave}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setEditingContact(false); setContactDraft(contact); setErrorMessage('') }}
+                  className="min-h-[40px] rounded-[8px] border-[0.5px] border-cz-border-strong px-3"
+                >
+                  <span className="text-[13px] text-cz-text-2">{P.contactEditCancel}</span>
+                </button>
+              </div>
+            ) : (
+              <div className="mt-0.5 flex items-center justify-between gap-3">
+                <p className="text-[14px] font-medium text-cz-text">{contact || labels.common.unknown}</p>
+                <button
+                  type="button"
+                  onClick={() => { setContactDraft(contact); setEditingContact(true) }}
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${theme.solidBtn}`}
+                  aria-label={labels.profileEdit.editAction}
+                >
+                  <Pencil size={12} aria-hidden="true" />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-        <p className="mt-1.5 text-[12px] text-cz-text-muted">{P.editContactNote}</p>
-      </div>
+      </section>
 
-      {/* PASSWORD — voluntary self-service, not a forced first-login step.
-          Staff already generated and relayed the first password in person
-          via "Set Up Account"; this just makes changing it later a real,
-          reachable option instead of something only staff can do. */}
-      <div className={CARD}>
-        <p className="mb-2 flex items-center gap-1.5 text-[13px] font-semibold text-cz-text">
-          <span className={`h-[10px] w-[3px] rounded-full ${theme.header}`} aria-hidden="true" />
-          {P.passwordCardHeading}
-        </p>
-        <div className="space-y-2">
-          <input
-            type="password"
-            autoComplete="current-password"
-            placeholder={P.passwordCurrentLabel}
-            value={passwordForm.current}
-            onChange={(e) => setPasswordForm((f) => ({ ...f, current: e.target.value }))}
-            className={INPUT}
-          />
-          <input
-            type="password"
-            autoComplete="new-password"
-            placeholder={P.passwordNewLabel}
-            value={passwordForm.next}
-            onChange={(e) => setPasswordForm((f) => ({ ...f, next: e.target.value }))}
-            className={INPUT}
-          />
-          <input
-            type="password"
-            autoComplete="new-password"
-            placeholder={P.passwordConfirmLabel}
-            value={passwordForm.confirm}
-            onChange={(e) => setPasswordForm((f) => ({ ...f, confirm: e.target.value }))}
-            className={INPUT}
-          />
-        </div>
-        {passwordError && <p className="mt-1.5 text-[12px] font-medium text-rose-600">{passwordError}</p>}
-        <button
-          type="button"
-          onClick={changePassword}
-          disabled={changingPassword || !passwordForm.current || !passwordForm.next || !passwordForm.confirm}
-          className="mt-2 flex items-center gap-1.5 rounded-[8px] border-[0.5px] border-cz-border-strong bg-cz-surface px-3.5 py-2 text-[13px] font-medium text-cz-text transition-colors hover:bg-cz-page disabled:opacity-50"
-        >
-          <KeyRound size={13} aria-hidden="true" />
-          {P.passwordChangeCta}
-        </button>
-        <p className="mt-1.5 text-[12px] text-cz-text-muted">{P.passwordCardNote}</p>
-      </div>
+      {/* REFERENCE INFORMATION — read-only demographic data the previous
+          version never displayed at all. */}
+      {hasReferenceInfo && (
+        <section className={CARD}>
+          <CardHeader theme={theme} note={P.referenceInfoReadOnlyNote}>{P.referenceInfoHeading}</CardHeader>
+          <div className="px-4">
+            {hasValue(record?.birthdate) && (
+              <ReadOnlyRow label={P.birthdateLabel} value={labels.common.formatDate(record.birthdate)} />
+            )}
+            {hasValue(civilStatusDisplay) && (
+              <ReadOnlyRow label={P.civilStatusLabel} value={civilStatusDisplay} />
+            )}
+            {hasValue(record?.highest_education) && (
+              <ReadOnlyRow
+                label={<>
+                  <span className="hidden sm:inline">{P.educationLabelDesktop}</span>
+                  <span className="sm:hidden">{P.educationLabelMobile}</span>
+                </>}
+                value={record.highest_education}
+              />
+            )}
+            {(record?.is_pwd || record?.is_4ps_beneficiary) && (
+              <div className="py-2.5">
+                <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{P.statusFlagsLabel}</p>
+                <div className="mt-1.5 flex flex-wrap gap-2">
+                  {record?.is_pwd && (
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold ${theme.tileSelectedBg} ${theme.tileSelectedText}`}>
+                      {P.pwdLabel}
+                    </span>
+                  )}
+                  {record?.is_4ps_beneficiary && (
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[12px] font-semibold ${theme.tileSelectedBg} ${theme.tileSelectedText}`}>
+                      {P.fourPsLabel}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
-      {/* FIELDS REQUIRING A REQUEST — name and barangay go through staff
-          review; each Humiling action submits only what actually changed. */}
-      <div className={CARD}>
-        <p className="mb-3 text-[13px] font-semibold text-cz-text">{P.requestCardHeading}</p>
-
-        <div className="mb-4">
-          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{P.fullName}</p>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            <input
-              type="text"
-              value={nameForm.first_name}
-              disabled={namePending}
-              onChange={(e) => setNameForm((f) => ({ ...f, first_name: e.target.value }))}
-              placeholder={P.editFirstName}
-              className={INPUT}
-            />
-            <input
-              type="text"
-              value={nameForm.middle_name}
-              disabled={namePending}
-              onChange={(e) => setNameForm((f) => ({ ...f, middle_name: e.target.value }))}
-              placeholder={P.editMiddleName}
-              className={INPUT}
-            />
-            <input
-              type="text"
-              value={nameForm.last_name}
-              disabled={namePending}
-              onChange={(e) => setNameForm((f) => ({ ...f, last_name: e.target.value }))}
-              placeholder={P.editLastName}
-              className={INPUT}
-            />
+      {/* PASSWORD — collapsed summary row, expands in place. Voluntary
+          self-service, not a forced first-login step. */}
+      <section className={CARD}>
+        <div className="flex items-center gap-3 p-4">
+          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] ${theme.solidBtn}`}>
+            <KeyRound size={16} aria-hidden="true" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[13.5px] font-semibold text-cz-text">{P.passwordChangeCta}</p>
+            <p className="mt-0.5 text-[12px] text-cz-text-2">{P.passwordCardNote}</p>
           </div>
           <button
             type="button"
-            onClick={requestNameChange}
-            disabled={namePending || submittingGroup === 'name'}
-            className="mt-2 flex items-center gap-1.5 rounded-[8px] border-[0.5px] border-cz-border-strong bg-cz-surface px-3.5 py-2 text-[13px] font-medium text-cz-text transition-colors hover:bg-cz-page disabled:opacity-50"
+            onClick={() => setShowPasswordForm((v) => !v)}
+            className={`shrink-0 rounded-[8px] px-3.5 py-2 text-[13px] font-medium ${theme.solidBtn}`}
           >
-            <SquarePen size={13} aria-hidden="true" />
-            {P.requestCta}
+            {showPasswordForm ? labels.common.cancel : labels.common.edit}
           </button>
-          <PendingNote pending={pendingName} />
         </div>
 
-        <div>
-          <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{P.barangayFieldLabel}</p>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={barangayValue}
-              disabled={barangayPending}
-              onChange={(e) => setBarangayValue(e.target.value)}
-              className={INPUT}
-            />
+        {showPasswordForm && (
+          <div className="border-t-[0.5px] border-cz-border p-4">
+            <div className="space-y-2">
+              <input
+                type="password"
+                autoComplete="current-password"
+                placeholder={P.passwordCurrentLabel}
+                value={passwordForm.current}
+                onChange={(e) => setPasswordForm((f) => ({ ...f, current: e.target.value }))}
+                className="min-h-[40px] w-full rounded-[8px] border-[0.5px] border-cz-border-strong px-3 text-[14px] text-cz-text outline-none"
+              />
+              <input
+                type="password"
+                autoComplete="new-password"
+                placeholder={P.passwordNewLabel}
+                value={passwordForm.next}
+                onChange={(e) => setPasswordForm((f) => ({ ...f, next: e.target.value }))}
+                className="min-h-[40px] w-full rounded-[8px] border-[0.5px] border-cz-border-strong px-3 text-[14px] text-cz-text outline-none"
+              />
+              <input
+                type="password"
+                autoComplete="new-password"
+                placeholder={P.passwordConfirmLabel}
+                value={passwordForm.confirm}
+                onChange={(e) => setPasswordForm((f) => ({ ...f, confirm: e.target.value }))}
+                className="min-h-[40px] w-full rounded-[8px] border-[0.5px] border-cz-border-strong px-3 text-[14px] text-cz-text outline-none"
+              />
+            </div>
+            {passwordError && <p className="mt-1.5 text-[12px] font-medium text-rose-600">{passwordError}</p>}
             <button
               type="button"
-              onClick={requestBarangayChange}
-              disabled={barangayPending || submittingGroup === 'barangay'}
-              className="shrink-0 flex items-center gap-1.5 rounded-[8px] border-[0.5px] border-cz-border-strong bg-cz-surface px-3.5 py-[10px] text-[13px] font-medium text-cz-text transition-colors hover:bg-cz-page disabled:opacity-50"
+              onClick={changePassword}
+              disabled={changingPassword || !passwordForm.current || !passwordForm.next || !passwordForm.confirm}
+              className={`mt-2 flex w-full items-center justify-center gap-1.5 rounded-[8px] px-3.5 py-2.5 text-[13px] font-medium ${theme.solidBtn} disabled:opacity-50`}
             >
-              <SquarePen size={13} aria-hidden="true" />
-              {P.requestCta}
+              <KeyRound size={13} aria-hidden="true" />
+              {P.passwordChangeCta}
             </button>
           </div>
-          <PendingNote pending={pendingBarangay} />
-        </div>
-
-        <p className="mt-3 text-[12px] leading-[1.5] text-cz-text-muted">{P.editReviewNote}</p>
-      </div>
-
-      {/* GOVERNMENT IDs — read-only, hide-empty. */}
-      {govIds.some(([, v]) => hasValue(v)) && (
-        <div className={CARD}>
-          <p className="mb-3 text-[13px] font-semibold text-cz-text">{P.extraHeading}</p>
-          <div className="grid grid-cols-2 gap-3">
-            {govIds.filter(([, v]) => hasValue(v)).map(([label, value]) => (
-              <div key={label}>
-                <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{label}</p>
-                <p className="mt-0.5 text-[14.5px] font-semibold text-cz-text">{value}</p>
-              </div>
-            ))}
-          </div>
-          <p className="mt-3 text-[12px] leading-[1.5] text-cz-text-muted">{P.govIdsNote}</p>
-        </div>
-      )}
+        )}
+      </section>
 
       {/* TULONG — always last, matches every reference frame's ordering. */}
       {onHelp && (
         <button
           type="button"
           onClick={onHelp}
-          className={`${CARD} flex w-full items-center gap-2.5 text-left transition-colors hover:bg-cz-page`}
+          className={`${CARD} flex w-full items-center gap-2.5 px-4 py-3.5 text-left transition-colors hover:bg-cz-page`}
         >
           <HelpCircle size={18} className="shrink-0 text-cz-text-2" aria-hidden="true" />
           <span className="flex-1 text-[14px] font-medium text-cz-text">{P.helpRowLabel}</span>
@@ -420,9 +532,12 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
 
   const body = (
     <div className={bare ? '' : `${theme.header} px-4 pb-6 pt-4 sm:px-6`}>
-      <div className={bare ? 'flex items-start gap-5' : 'flex flex-col gap-4 rounded-[12px] bg-cz-page p-4 lg:flex-row lg:items-start sm:p-5'}>
-        {identityCard}
-        {detailCards}
+      <div className={bare ? '' : 'rounded-[12px] bg-cz-page p-4 sm:p-5'}>
+        <EditLegend theme={theme} />
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+          {identityCard}
+          {detailCards}
+        </div>
       </div>
       <p className="mt-6 text-center text-[12.5px] leading-[1.6] text-cz-text-muted">
         {P.footerLine1}
@@ -432,7 +547,72 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
     </div>
   )
 
-  if (bare) return body
+  const modal = requestField && (
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center">
+      <div className="w-full max-w-[440px] rounded-t-[16px] bg-cz-surface p-5 sm:rounded-[16px]">
+        <h2 className="text-[17px] font-semibold text-cz-text">
+          {labels.profileEdit.requestTitle(requestField === 'fullName' ? P.fullName : P.barangay)}
+        </h2>
+
+        {requestField === 'fullName' ? (
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <input
+              type="text" value={nameDraft.first_name}
+              onChange={(e) => setNameDraft((f) => ({ ...f, first_name: e.target.value }))}
+              placeholder={P.editFirstName}
+              className="min-h-[44px] w-full rounded-[8px] border-[0.5px] border-cz-border-strong px-3 text-[14px] text-cz-text outline-none"
+            />
+            <input
+              type="text" value={nameDraft.middle_name}
+              onChange={(e) => setNameDraft((f) => ({ ...f, middle_name: e.target.value }))}
+              placeholder={P.editMiddleName}
+              className="min-h-[44px] w-full rounded-[8px] border-[0.5px] border-cz-border-strong px-3 text-[14px] text-cz-text outline-none"
+            />
+            <input
+              type="text" value={nameDraft.last_name}
+              onChange={(e) => setNameDraft((f) => ({ ...f, last_name: e.target.value }))}
+              placeholder={P.editLastName}
+              className="min-h-[44px] w-full rounded-[8px] border-[0.5px] border-cz-border-strong px-3 text-[14px] text-cz-text outline-none"
+            />
+          </div>
+        ) : (
+          <>
+            <p className="mt-2 text-[12px] text-cz-text-2">
+              {P.requestModalCurrentLabel}: {record?.barangay || labels.common.unknown}
+            </p>
+            <label className="mt-3 block text-[12px] font-medium text-cz-text-2">{P.requestModalNewLabel}</label>
+            <input
+              type="text" value={barangayDraft}
+              onChange={(e) => setBarangayDraft(e.target.value)}
+              className="mt-1 min-h-[44px] w-full rounded-[8px] border-[0.5px] border-cz-border-strong px-3 text-[14px] text-cz-text outline-none"
+            />
+          </>
+        )}
+
+        {errorMessage && (
+          <p className="mt-2 rounded-[8px] bg-cz-danger-bg px-3 py-2 text-[13px] text-cz-danger-body">{errorMessage}</p>
+        )}
+
+        <button
+          type="button" disabled={isBusy}
+          onClick={requestField === 'fullName' ? submitNameRequest : submitBarangayRequest}
+          className={`mt-4 flex min-h-[44px] w-full items-center justify-center gap-2 rounded-[8px] ${theme.solidBtn} disabled:opacity-50`}
+        >
+          <Check size={16} aria-hidden="true" />
+          <span className="text-[15px] font-medium">{P.requestModalSubmit}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => { setRequestField(null); setErrorMessage('') }}
+          className="mt-2 flex min-h-[44px] w-full items-center justify-center rounded-[8px] border-[0.5px] border-cz-border-strong"
+        >
+          <span className="text-[14px] text-cz-text-2">{labels.common.cancel}</span>
+        </button>
+      </div>
+    </div>
+  )
+
+  if (bare) return <>{body}{modal}</>
 
   return (
     <CitizenScreen hasTabBar>
@@ -444,6 +624,7 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
       />
       <CitizenBody className="!px-0 !pt-0">{body}</CitizenBody>
       {tabBar}
+      {modal}
     </CitizenScreen>
   )
 }
