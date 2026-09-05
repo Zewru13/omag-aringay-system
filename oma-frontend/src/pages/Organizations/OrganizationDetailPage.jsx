@@ -895,13 +895,22 @@ function OrganizationDetailPage() {
       <div className="space-y-4">
         {/* Batch A: was hardcoded to /organizations, which has no route (404) —
             the real destination is the type-specific hub's Organizations tab. */}
-        <Link
-          className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#4A5E4A] hover:text-[#1A2B1A] transition-colors"
-          to={type === "farmers" ? "/farmers?tab=organizations" : "/fisherfolk?tab=organizations"}
-        >
-          <ArrowLeft size={15} />
-          Back to Organizations
-        </Link>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Link
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#4A5E4A] hover:text-[#1A2B1A] transition-colors"
+            to={type === "farmers" ? "/farmers?tab=organizations" : "/fisherfolk?tab=organizations"}
+          >
+            <ArrowLeft size={15} />
+            Back to Organizations
+          </Link>
+          {!isLoading && organization && (isAdmin || isEvaluator) && (
+            <ActivateCitizenAccountButton
+              citizenAccount={organization.citizen_account}
+              personLabel={organization.name}
+              onActivated={() => setRefreshKey((k) => k + 1)}
+            />
+          )}
+        </div>
 
         {error && (
           <div className="rounded-lg bg-rose-50 px-4 py-3 text-[13px] font-medium text-rose-700">
@@ -923,76 +932,80 @@ function OrganizationDetailPage() {
               const themeBg = type === "farmers" ? "#EBF5EE" : "#EAF1F5";
               return (
                 <div className="grid gap-4 lg:grid-cols-[320px_1fr] lg:items-start">
-                  <section className="rounded-xl border border-[#E2E8E2] bg-white overflow-hidden">
-                    <div className="h-16" style={{ backgroundColor: themeColor }} />
-                    <div className="px-5 pb-5 -mt-8">
-                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white text-[18px] font-semibold shadow-sm" style={{ color: themeColor }}>
-                        {initialsOf(organization.name)}
-                      </div>
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <h1 className="text-[16px] font-semibold text-[#1A2B1A]">
+                  <div>
+                    <section className="rounded-xl border border-[#E2E8E2] bg-white overflow-hidden">
+                      <div className="h-20" style={{ backgroundColor: themeColor }} />
+                      <div className="px-5 pb-5 -mt-8">
+                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 bg-white text-[18px] font-semibold" style={{ color: themeColor, borderColor: themeColor }}>
+                          {initialsOf(organization.name)}
+                        </div>
+                        <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8]">Organization Name</p>
+                        <h1 className="mt-0.5 text-[16px] font-semibold text-[#1A2B1A]">
                           {organization.name}
                         </h1>
-                        <StatusPill tone={organization.is_active ? "green" : "slate"}>
-                          {organization.is_active ? "Active" : "Inactive"}
-                        </StatusPill>
-                      </div>
-                      <p className="mt-1 text-[12px] text-[#7A8E7A]">{typeLabel} Organization</p>
-
-                      {(isAdmin || isEvaluator) && (
-                        <div className="mt-4">
-                          <ActivateCitizenAccountButton
-                            citizenAccount={organization.citizen_account}
-                            personLabel={organization.name}
-                            onActivated={() => setRefreshKey((k) => k + 1)}
-                          />
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          <StatusPill tone={organization.is_active ? "green" : "slate"}>
+                            {organization.is_active ? "Active" : "Inactive"}
+                          </StatusPill>
                         </div>
-                      )}
-                    </div>
-                  </section>
+                        <p className="mt-1.5 text-[12px] text-[#7A8E7A]">{typeLabel} Organization</p>
+                      </div>
+                    </section>
 
-                  <section className="rounded-xl border border-[#E2E8E2] bg-white overflow-hidden">
-                    <div className="px-5 py-3.5 border-b border-[#E2E8E2]" style={{ backgroundColor: themeBg }}>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.06em]" style={{ color: themeColor }}>
-                        Organization Information
-                      </p>
+                    <div className="mt-3 rounded-xl border border-[#E2E8E2] px-4 py-3" style={{ backgroundColor: themeBg }}>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.06em]" style={{ color: themeColor }}>Registration Number</p>
+                      <p className="mt-1 text-[13px] font-semibold text-[#1A2B1A]">{organization.registration_number}</p>
                     </div>
-                    <div className="p-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-                      <Field label="Barangay" value={organization.barangay} />
-                      <Field
-                        label="Registration Number"
-                        value={organization.registration_number}
-                      />
-                      <Field
-                        label="Date Established"
-                        value={formatDate(organization.date_established)}
-                      />
-                      <Field
-                        label="Contact Person"
-                        value={organization.contact_person}
-                      />
-                      <Field
-                        label="Contact Number"
-                        value={organization.contact_number}
-                      />
-                      <Field
-                        label="Date Created"
-                        value={formatDate(organization.date_created)}
-                      />
-                      {organization.dole_registration_number != null && (
+                  </div>
+
+                  <div className="space-y-4">
+                    <section className="rounded-xl border border-[#E2E8E2] bg-white overflow-hidden">
+                      <div className="px-5 py-3.5 border-b border-[#E2E8E2]" style={{ backgroundColor: themeBg }}>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.06em]" style={{ color: themeColor }}>
+                          Registered Information
+                        </p>
+                      </div>
+                      <div className="p-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
                         <Field
-                          label="DOLE Registration No."
-                          value={organization.dole_registration_number || "—"}
+                          label="Registration Number"
+                          value={organization.registration_number}
                         />
-                      )}
-                      {organization.bir_number != null && (
                         <Field
-                          label="BIR Number"
-                          value={organization.bir_number || "—"}
+                          label="Date Established"
+                          value={formatDate(organization.date_established)}
                         />
-                      )}
-                    </div>
-                  </section>
+                        <Field
+                          label="Date Created"
+                          value={formatDate(organization.date_created)}
+                        />
+                        {organization.dole_registration_number != null && (
+                          <Field
+                            label="DOLE Registration No."
+                            value={organization.dole_registration_number || "—"}
+                          />
+                        )}
+                        {organization.bir_number != null && (
+                          <Field
+                            label="BIR Number"
+                            value={organization.bir_number || "—"}
+                          />
+                        )}
+                      </div>
+                    </section>
+
+                    <section className="rounded-xl border border-[#E2E8E2] bg-white overflow-hidden">
+                      <div className="px-5 py-3.5 border-b border-[#E2E8E2]" style={{ backgroundColor: themeBg }}>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.06em]" style={{ color: themeColor }}>
+                          Contact
+                        </p>
+                      </div>
+                      <div className="p-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+                        <Field label="Contact Person" value={organization.contact_person} />
+                        <Field label="Contact Number" value={organization.contact_number} />
+                        <Field label="Barangay" value={organization.barangay} />
+                      </div>
+                    </section>
+                  </div>
                 </div>
               );
             })()}
