@@ -1,23 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Camera, Check, Clock, HelpCircle, KeyRound, LogOut, Pencil, SquarePen } from 'lucide-react'
+import { AlertTriangle, Camera, Check, Clock, HelpCircle, KeyRound, Lock, Pencil, RefreshCw } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { OrgScreen } from './OrgDashboardParts.jsx'
 import { labels } from './labels.js'
 
-const INPUT = 'min-w-0 flex-1 rounded-[8px] border-[0.5px] border-cz-border-strong bg-cz-page px-3 py-[10px] text-[14px] text-cz-text focus:border-cz-text-2 focus:outline-none disabled:opacity-50'
-const CARD = 'rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)]'
-const FIELD_LABEL = 'text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2'
-
-// Batch: the Organization equivalent of Farmer/Fisherfolk's "My Profile" —
-// the home for the profile self-editing backend committed in ab07388.
-// Restyle batch: same data/logic, reorganized into the same clear-card
-// hierarchy CitizenProfileScreen.jsx already established for this exact
-// kind of screen — a card heading (13px, sentence case, colour tick) over
-// field rows (11px uppercase muted label + value), one card per real group
-// of data rather than one long stack of same-weight sections.
+// Rebuilt against PROFILE REFERENCE!.docx (images 4/5/8/11 — "Impormasyon
+// ng Samahan"): a cover-banner identity card + registration-number
+// highlight box, matching CitizenProfileScreen.jsx's proven-correct
+// pattern for Farmer/Fisherfolk, adapted for an organization's field set
+// (logo instead of a person's photo, a type badge instead of a role, a
+// colored change-request history log). The previous version of this file
+// predated that reference entirely — a plain single-column, uncolored
+// card stack with no cover, no history-status badges, and no institutional-
+// account warning styled to match. All state/handlers below are unchanged
+// from that version; only the JSX changed.
 //
 // THREE field behaviours live on this screen, and each keeps its own
 // consistent affordance rather than three ad-hoc styles:
@@ -34,34 +33,39 @@ const FIELD_LABEL = 'text-[11px] font-semibold uppercase tracking-[0.05em] text-
 //                        greyed out")
 
 const REQUESTABLE = ['name', 'barangay', 'street_address']
-// Pure read-only facts, grouped by what they're about — no change-request
-// path exists for any of these; the office's own registry is the record of
-// truth for them.
 const REGISTERED_INFO_FIELDS = ['registration_number', 'date_organized', 'date_registered', 'registration_agency']
 const CONTACT_READONLY_FIELDS = ['contact_person', 'email_address']
 
 const hasValue = (v) => v !== null && v !== undefined && String(v).trim() !== ''
 
-function CardHeading({ theme, children }) {
+const CARD = 'overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface'
+
+function CardHeader({ theme, children }) {
   return (
-    <p className="mb-3 flex items-center gap-1.5 text-[13px] font-semibold text-cz-text">
-      <span className={`h-[10px] w-[3px] rounded-full ${theme.header}`} aria-hidden="true" />
-      {children}
-    </p>
+    <div className={`px-4 py-3 border-b-[0.5px] border-cz-border ${theme.tileSelectedBg}`}>
+      <p className={`text-[11px] font-semibold uppercase tracking-[0.06em] ${theme.tileSelectedText}`}>{children}</p>
+    </div>
   )
 }
 
 function ReadOnlyRow({ label, value }) {
   return (
-    <div>
-      <p className={FIELD_LABEL}>{label}</p>
-      <p className="mt-1 truncate text-[15px] text-cz-text">{value}</p>
+    <div className="flex items-center justify-between py-2.5 border-b-[0.5px] border-cz-border last:border-0">
+      <div className="min-w-0">
+        <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{label}</p>
+        <p className="mt-0.5 truncate text-[14px] font-medium text-cz-text">{value}</p>
+      </div>
+      <Lock size={13} className="shrink-0 text-cz-text-muted" aria-hidden="true" />
     </div>
   )
 }
 
 export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecordChanged, active, onNav, railCollapsed, onToggleRail }) {
   const theme = domain.theme
+  const isFisherfolk = domain.personLabel === 'Fisherfolk'
+  const L = labels.orgInfo
+  const typeBadge = isFisherfolk ? L.typeBadgeFisherfolk : L.typeBadgeFarmers
+  const samahanSubtitle = isFisherfolk ? L.samahanSubtitleFisherfolk : L.samahanSubtitleFarmers
   const { showToast } = useToast()
   const { logout } = useAuth()
   const navigate = useNavigate()
@@ -81,6 +85,7 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
   const [passwordForm, setPasswordForm] = useState({ current: '', next: '', confirm: '' })
   const [passwordError, setPasswordError] = useState('')
   const [changingPassword, setChangingPassword] = useState(false)
+  const [showPasswordForm, setShowPasswordForm] = useState(false)
 
   const loadRequests = useCallback(() => {
     api.get('/profile/change-requests/')
@@ -206,275 +211,297 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
     .map((field) => [field, readonlyValue(field)])
     .filter(([, v]) => hasValue(v))
 
+  const initials = (record?.label || record?.name || '?').trim()[0]?.toUpperCase() || '?'
+
   return (
     <OrgScreen
-      title={labels.orgInfo.title} chipLabel={record?.label} onBack={onBack} theme={theme} tabBar={tabBar}
+      title={L.title} chipLabel={record?.label} onBack={onBack} theme={theme} tabBar={tabBar}
       active={active} onNav={onNav} railCollapsed={railCollapsed} onToggleRail={onToggleRail}
+      wide
     >
-      <div className="mx-auto max-w-[560px] space-y-4">
-
-        {/* Logo — instant. Camera badge sits ON the image, lower-left,
-            always visible (not just as an empty-state placeholder), so
-            "how do I change this" never depends on whether one is set. */}
-        <section className={`${CARD} text-center`}>
-          <div className="relative mx-auto h-24 w-24">
-            <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-cz-tile-slate-bg">
-              {logoUrl
-                ? <img src={logoUrl} alt="" className="h-full w-full object-cover" />
-                : <Camera size={28} className="text-cz-text-muted" aria-hidden="true" />}
-            </div>
-            <input
-              ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp"
-              onChange={handleFile} className="hidden"
-            />
-            <button
-              type="button"
-              disabled={isUploading}
-              aria-label={labels.profileEdit.changeLogo}
-              onClick={() => fileRef.current?.click()}
-              className={`absolute -bottom-1 -left-1 flex h-9 w-9 items-center justify-center rounded-full border-2 border-cz-surface ${theme.solidBtn} shadow-md transition-transform press-scale hover:scale-105 disabled:opacity-50`}
-            >
-              <Camera size={15} aria-hidden="true" />
-            </button>
-          </div>
-          {isUploading && <p className="mt-2.5 text-[12px] text-cz-text-2">{labels.profileEdit.uploading}</p>}
-          <p className="mt-2.5 text-[11px] text-cz-text-muted">{labels.profileEdit.photoHint}</p>
-        </section>
-
-        {errorMessage && (
-          <p className="rounded-[8px] border-[0.5px] border-cz-danger-border bg-cz-danger-bg px-3 py-2 text-[13px] text-cz-danger-body">
-            {errorMessage}
-          </p>
-        )}
-
-        {/* Rehistradong Impormasyon — pure read-only facts, dense 2-col
-            grid (same treatment as CitizenProfileScreen's Government IDs
-            card: 10.5px labels, 14.5px bold values). Hide-empty: a field
-            with nothing behind it doesn't render a blank row. */}
-        {registeredInfoRows.length > 0 && (
+      <div className="lg:grid lg:grid-cols-[320px_1fr] lg:items-start lg:gap-4">
+        {/* Identity card + registration number box */}
+        <div>
           <section className={CARD}>
-            <CardHeading theme={theme}>{labels.orgInfo.groups.registeredDetails}</CardHeading>
-            <div className="grid grid-cols-2 gap-3">
-              {registeredInfoRows.map(([field, value]) => (
-                <div key={field}>
-                  <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">
-                    {labels.orgInfo.readonlyFieldLabels[field]}
-                  </p>
-                  <p className="mt-0.5 text-[14.5px] font-semibold text-cz-text">{value}</p>
+            <div className={`h-20 ${theme.header}`} />
+            <div className="px-4 pb-4 -mt-8">
+              <div className="relative h-16 w-16">
+                <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-[14px] border-2 border-cz-surface bg-cz-surface text-[18px] font-semibold text-cz-text shadow-sm">
+                  {logoUrl ? <img src={logoUrl} alt="" className="h-full w-full object-cover" /> : initials}
                 </div>
-              ))}
+                <input
+                  ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp"
+                  onChange={handleFile} className="hidden"
+                />
+                <button
+                  type="button"
+                  disabled={isUploading}
+                  aria-label={labels.profileEdit.changeLogo}
+                  onClick={() => fileRef.current?.click()}
+                  className={`absolute -bottom-1 -left-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-cz-surface ${theme.solidBtn} shadow-md transition-transform press-scale hover:scale-105 disabled:opacity-50`}
+                >
+                  <Camera size={13} aria-hidden="true" />
+                </button>
+              </div>
+
+              <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-cz-text-2">{labels.profileEdit.fieldLabels.name}</p>
+              <h1 className="mt-0.5 text-[16px] font-semibold text-cz-text">{record?.label || record?.name}</h1>
+              <p className="mt-0.5 text-[12px] text-cz-text-2">{samahanSubtitle}</p>
+              <div className="mt-1.5">
+                <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${theme.tileSelectedBg} ${theme.tileSelectedText}`}>
+                  {typeBadge}
+                </span>
+              </div>
+
+              {isUploading && <p className="mt-2.5 text-[12px] text-cz-text-2">{labels.profileEdit.uploading}</p>}
             </div>
           </section>
-        )}
 
-        {/* Contact — contact person and email are plain read-only; contact
-            number is the one instantly-editable field here, so it's the
-            only row carrying the Pencil affordance. */}
-        <section className={CARD}>
-          <CardHeading theme={theme}>{labels.orgInfo.groups.contact}</CardHeading>
-          <div className="space-y-3">
-            {contactReadonlyRows.map(([field, value]) => (
-              <ReadOnlyRow key={field} label={labels.orgInfo.readonlyFieldLabels[field]} value={value} />
-            ))}
+          <div className={`mt-3 rounded-[12px] border-[0.5px] border-cz-border px-4 py-3 ${theme.tileSelectedBg}`}>
+            <p className={`text-[11px] font-semibold uppercase tracking-[0.06em] ${theme.tileSelectedText}`}>{L.registrationNumber}</p>
+            <p className="mt-1 text-[14px] font-semibold text-cz-text">{record?.registration_number}</p>
+          </div>
+        </div>
 
-            <div>
-              <p className={FIELD_LABEL}>{labels.profileEdit.contactLabel}</p>
-              {editingContact ? (
-                <div className="mt-2 flex gap-2">
-                  <input
-                    type="tel" value={contactDraft}
-                    onChange={(e) => setContactDraft(e.target.value)}
-                    placeholder={labels.profileEdit.contactPlaceholder}
-                    className="min-h-[42px] flex-1 rounded-[8px] border-[0.5px] border-cz-border-strong px-3 text-[14px] text-cz-text outline-none"
-                  />
-                  <button
-                    type="button" disabled={isBusy} onClick={saveContact}
-                    className={`min-h-[42px] rounded-[8px] px-3 ${theme.solidBtn} disabled:opacity-50`}
-                  >
-                    <span className="text-[13px] font-medium">{labels.profileEdit.contactSave}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setEditingContact(false); setContactDraft(contact); setErrorMessage('') }}
-                    className="min-h-[42px] rounded-[8px] border-[0.5px] border-cz-border-strong px-3"
-                  >
-                    <span className="text-[13px] text-cz-text-2">{labels.profileEdit.contactCancel}</span>
-                  </button>
-                </div>
-              ) : (
-                <div className="mt-1 flex items-center justify-between gap-3">
-                  <p className="text-[15px] text-cz-text">{contact || labels.common.unknown}</p>
-                  <button
-                    type="button"
-                    onClick={() => { setContactDraft(contact); setEditingContact(true) }}
-                    className={`inline-flex shrink-0 items-center gap-1.5 text-[13px] font-medium ${theme.accentText}`}
-                  >
-                    <Pencil size={13} aria-hidden="true" /> {labels.profileEdit.editAction}
-                  </button>
-                </div>
-              )}
+        <div className="mt-4 space-y-4 lg:mt-0">
+          {errorMessage && (
+            <p className="rounded-[8px] border-[0.5px] border-cz-danger-border bg-cz-danger-bg px-3 py-2 text-[13px] text-cz-danger-body">
+              {errorMessage}
+            </p>
+          )}
+
+          {/* Rehistradong Impormasyon — pure read-only facts */}
+          {registeredInfoRows.length > 0 && (
+            <section className={CARD}>
+              <CardHeader theme={theme}>{L.groups.registeredDetails}</CardHeader>
+              <div className="px-4">
+                {registeredInfoRows.map(([field, value]) => (
+                  <ReadOnlyRow key={field} label={L.readonlyFieldLabels[field]} value={value} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Contact — contact person and email are plain read-only; contact
+              number is the one instantly-editable field here. */}
+          <section className={CARD}>
+            <CardHeader theme={theme}>{L.groups.contact}</CardHeader>
+            <div className="px-4">
+              {contactReadonlyRows.map(([field, value]) => (
+                <ReadOnlyRow key={field} label={L.readonlyFieldLabels[field]} value={value} />
+              ))}
+
+              <div className="py-2.5">
+                <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{labels.profileEdit.contactLabel}</p>
+                {editingContact ? (
+                  <div className="mt-1.5 flex gap-2">
+                    <input
+                      type="tel" value={contactDraft}
+                      onChange={(e) => setContactDraft(e.target.value)}
+                      placeholder={labels.profileEdit.contactPlaceholder}
+                      className="min-h-[40px] flex-1 rounded-[8px] border-[0.5px] border-cz-border-strong px-3 text-[14px] text-cz-text outline-none"
+                    />
+                    <button
+                      type="button" disabled={isBusy} onClick={saveContact}
+                      className={`min-h-[40px] rounded-[8px] px-3 ${theme.solidBtn} disabled:opacity-50`}
+                    >
+                      <span className="text-[13px] font-medium">{labels.profileEdit.contactSave}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setEditingContact(false); setContactDraft(contact); setErrorMessage('') }}
+                      className="min-h-[40px] rounded-[8px] border-[0.5px] border-cz-border-strong px-3"
+                    >
+                      <span className="text-[13px] text-cz-text-2">{labels.profileEdit.contactCancel}</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-0.5 flex items-center justify-between gap-3">
+                    <p className="text-[14px] font-medium text-cz-text">{contact || labels.common.unknown}</p>
+                    <button
+                      type="button"
+                      onClick={() => { setContactDraft(contact); setEditingContact(true) }}
+                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${theme.solidBtn}`}
+                      aria-label={labels.profileEdit.editAction}
+                    >
+                      <Pencil size={12} aria-hidden="true" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+
+          {/* Pangalan at Address — request-based fields, plus request history */}
+          <section className={CARD}>
+            <CardHeader theme={theme}>{L.groups.identity}</CardHeader>
+            <div className="px-4 py-3">
+              <div className="space-y-1">
+                {REQUESTABLE.map((field) => {
+                  const pending = pendingFor(field)
+                  return (
+                    <div key={field} className="py-2 border-b-[0.5px] border-cz-border last:border-0">
+                      <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{labels.profileEdit.fieldLabels[field]}</p>
+                      <div className="mt-0.5 flex items-center justify-between gap-3">
+                        <p className="min-w-0 flex-1 truncate text-[14px] font-medium text-cz-text">
+                          {currentValue(field) || labels.common.unknown}
+                        </p>
+                        {pending ? (
+                          <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-cz-tile-amber-bg px-2.5 py-1 text-[11px] font-medium text-cz-tile-amber-fg">
+                            <Clock size={12} aria-hidden="true" />
+                            {labels.profileEdit.pendingReview}
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRequestField(field)
+                              setRequestDraft(currentValue(field))
+                              setErrorMessage('')
+                            }}
+                            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+                            style={{ backgroundColor: 'var(--color-cz-warn-accent)' }}
+                            aria-label={labels.profileEdit.requestChange}
+                          >
+                            <RefreshCw size={12} className="text-white" aria-hidden="true" />
+                          </button>
+                        )}
+                      </div>
+                      {pending && (
+                        <p className="mt-1 text-[12px] text-cz-text-2">
+                          {labels.profileEdit.pendingNote(pending.requested_value)}
+                        </p>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div className="mt-3 border-t-[0.5px] border-cz-border pt-3">
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{L.historyHeading}</p>
+                {requests.length === 0 ? (
+                  <p className="text-[12.5px] italic text-cz-text-muted">{labels.profileEdit.historyEmpty}</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {requests.map((r) => {
+                      const tone = r.status === 'APPROVED'
+                        ? { border: 'border-cz-border', bg: 'bg-cz-badge-green/20', pill: 'bg-cz-badge-green text-[#15803D]' }
+                        : r.status === 'REJECTED'
+                          ? { border: 'border-cz-danger-border', bg: 'bg-cz-danger-bg', pill: 'bg-cz-danger-bg text-cz-danger-accent' }
+                          : { border: 'border-cz-border', bg: 'bg-cz-page', pill: 'bg-cz-tile-amber-bg text-cz-tile-amber-fg' }
+                      return (
+                        <li key={r.id} className={`rounded-[10px] border-[0.5px] px-3 py-2.5 ${tone.border} ${tone.bg}`}>
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="min-w-0 flex-1 truncate text-[13px] font-semibold text-cz-text">
+                              {labels.profileEdit.fieldLabels[r.field_name] || r.field_name}
+                            </p>
+                            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${tone.pill}`}>
+                              {r.status === 'APPROVED' ? labels.profileEdit.statusApproved
+                                : r.status === 'REJECTED' ? labels.profileEdit.statusRejected
+                                  : labels.profileEdit.statusPending}
+                            </span>
+                          </div>
+                          <p className="mt-0.5 text-[12.5px] text-cz-text-2">
+                            <span className="line-through">{r.old_value}</span> → {r.requested_value}
+                          </p>
+                          {r.status === 'REJECTED' && r.rejection_reason && (
+                            <p className="mt-0.5 text-[12px] text-cz-text-2">
+                              {labels.profileEdit.rejectionReason(r.rejection_reason)}
+                            </p>
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </section>
+
+          {/* Institutional-account warning + password */}
+          <div className="rounded-[12px] border border-[#F5E0A3] bg-cz-alert-bg px-4 py-3.5">
+            <div className="flex gap-2.5">
+              <AlertTriangle size={16} className="mt-0.5 shrink-0 text-cz-alert-accent" aria-hidden="true" />
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold text-cz-alert-title">{L.institutionalAccountTitle}</p>
+                <p className="mt-0.5 text-[12.5px] leading-[1.5] text-cz-alert-title/80">{L.institutionalAccountBody}</p>
+              </div>
             </div>
           </div>
-        </section>
 
-        {/* Pangalan at Address — request-based fields, plus their own
-            request history right beneath (every past/pending request here
-            is about one of these three fields, so it reads as one topic,
-            not a separate unrelated section). */}
-        <section className={CARD}>
-          <CardHeading theme={theme}>{labels.orgInfo.groups.identity}</CardHeading>
-          <p className="mb-3 rounded-[8px] border-[0.5px] border-cz-warn-border bg-cz-warn-bg px-3 py-2 text-[12px] leading-[1.5] text-cz-warn-body">
-            {labels.profileEdit.reviewNotice}
-          </p>
-          <div className="space-y-3">
-            {REQUESTABLE.map((field) => {
-              const pending = pendingFor(field)
-              return (
-                <div key={field}>
-                  <p className={FIELD_LABEL}>{labels.profileEdit.fieldLabels[field]}</p>
-                  <div className="mt-1 flex items-center justify-between gap-3">
-                    <p className="min-w-0 flex-1 truncate text-[15px] text-cz-text">
-                      {currentValue(field) || labels.common.unknown}
-                    </p>
-                    {pending ? (
-                      // Deliberately NOT a disabled button: a pending field
-                      // must not read as "editable but greyed out".
-                      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-cz-tile-amber-bg px-2.5 py-1 text-[11px] font-medium text-cz-tile-amber-fg">
-                        <Clock size={12} aria-hidden="true" />
-                        {labels.profileEdit.pendingReview}
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRequestField(field)
-                          setRequestDraft(currentValue(field))
-                          setErrorMessage('')
-                        }}
-                        className={`inline-flex shrink-0 items-center gap-1.5 text-[13px] font-medium ${theme.accentText}`}
-                      >
-                        <SquarePen size={13} aria-hidden="true" /> {labels.profileEdit.requestChange}
-                      </button>
-                    )}
-                  </div>
-                  {pending && (
-                    <p className="mt-1 text-[12px] text-cz-text-2">
-                      {labels.profileEdit.pendingNote(pending.requested_value)}
-                    </p>
-                  )}
+          <section className={CARD}>
+            <div className="flex items-center gap-3 p-4">
+              <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] ${theme.solidBtn}`}>
+                <KeyRound size={16} aria-hidden="true" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[13.5px] font-semibold text-cz-text">{labels.profileEdit.passwordChangeCta}</p>
+                <p className="mt-0.5 text-[12px] text-cz-text-2">{L.passwordForInstitutional}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPasswordForm((v) => !v)}
+                className={`shrink-0 rounded-[8px] px-3.5 py-2 text-[13px] font-medium ${theme.solidBtn}`}
+              >
+                {showPasswordForm ? labels.common.cancel : 'Baguhin'}
+              </button>
+            </div>
+
+            {showPasswordForm && (
+              <div className="border-t-[0.5px] border-cz-border p-4">
+                <p className="mb-2 rounded-[8px] border-[0.5px] border-cz-warn-border bg-cz-warn-bg px-3 py-2 text-[12px] leading-[1.5] text-cz-warn-body">
+                  {labels.profileEdit.passwordSharedAccountNote}
+                </p>
+                <div className="space-y-2">
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    placeholder={labels.profileEdit.passwordCurrentLabel}
+                    value={passwordForm.current}
+                    onChange={(e) => setPasswordForm((f) => ({ ...f, current: e.target.value }))}
+                    className="min-h-[40px] w-full rounded-[8px] border-[0.5px] border-cz-border-strong px-3 text-[14px] text-cz-text outline-none"
+                  />
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder={labels.profileEdit.passwordNewLabel}
+                    value={passwordForm.next}
+                    onChange={(e) => setPasswordForm((f) => ({ ...f, next: e.target.value }))}
+                    className="min-h-[40px] w-full rounded-[8px] border-[0.5px] border-cz-border-strong px-3 text-[14px] text-cz-text outline-none"
+                  />
+                  <input
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder={labels.profileEdit.passwordConfirmLabel}
+                    value={passwordForm.confirm}
+                    onChange={(e) => setPasswordForm((f) => ({ ...f, confirm: e.target.value }))}
+                    className="min-h-[40px] w-full rounded-[8px] border-[0.5px] border-cz-border-strong px-3 text-[14px] text-cz-text outline-none"
+                  />
                 </div>
-              )
-            })}
-          </div>
-
-          <div className="mt-4 border-t-[0.5px] border-cz-border pt-3">
-            <p className="mb-2 text-[11.5px] font-semibold text-cz-text-2">{labels.profileEdit.historyTitle}</p>
-            {requests.length === 0 ? (
-              <p className="text-[12.5px] italic text-cz-text-muted">{labels.profileEdit.historyEmpty}</p>
-            ) : (
-              <ul className="space-y-2.5">
-                {requests.map((r) => (
-                  <li key={r.id}>
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="min-w-0 flex-1 truncate text-[13px] text-cz-text">
-                        {labels.profileEdit.fieldLabels[r.field_name] || r.field_name}: {r.requested_value}
-                      </p>
-                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                        r.status === 'APPROVED' ? 'bg-cz-badge-green text-[#15803D]'
-                          : r.status === 'REJECTED' ? 'bg-cz-danger-bg text-cz-danger-accent'
-                            : 'bg-cz-tile-amber-bg text-cz-tile-amber-fg'}`}
-                      >
-                        {r.status === 'APPROVED' ? labels.profileEdit.statusApproved
-                          : r.status === 'REJECTED' ? labels.profileEdit.statusRejected
-                            : labels.profileEdit.statusPending}
-                      </span>
-                    </div>
-                    {r.status === 'REJECTED' && r.rejection_reason && (
-                      <p className="mt-0.5 text-[12px] text-cz-text-2">
-                        {labels.profileEdit.rejectionReason(r.rejection_reason)}
-                      </p>
-                    )}
-                  </li>
-                ))}
-              </ul>
+                {passwordError && <p className="mt-1.5 text-[12px] font-medium text-rose-600">{passwordError}</p>}
+                <button
+                  type="button"
+                  onClick={changePassword}
+                  disabled={changingPassword || !passwordForm.current || !passwordForm.next || !passwordForm.confirm}
+                  className={`mt-2 flex w-full items-center justify-center gap-1.5 rounded-[8px] px-3.5 py-2.5 text-[13px] font-medium ${theme.solidBtn} disabled:opacity-50`}
+                >
+                  <KeyRound size={13} aria-hidden="true" />
+                  {labels.profileEdit.passwordChangeCta}
+                </button>
+              </div>
             )}
-          </div>
-        </section>
+          </section>
 
-        {/* Password — voluntary self-service, mirrors the Farmer/
-            Fisherfolk card (CitizenProfileScreen.jsx), same endpoint. One
-            real addition: this account is shared/institutional, not
-            personal — passwordSharedAccountNote says so explicitly so
-            whichever officer is changing it understands the blast
-            radius, rather than reusing copy written for a single owner. */}
-        <section className={CARD}>
-          <CardHeading theme={theme}>{labels.orgInfo.groups.password}</CardHeading>
-          <p className="mb-2 rounded-[8px] border-[0.5px] border-cz-warn-border bg-cz-warn-bg px-3 py-2 text-[12px] leading-[1.5] text-cz-warn-body">
-            {labels.profileEdit.passwordSharedAccountNote}
-          </p>
-          <div className="space-y-2">
-            <input
-              type="password"
-              autoComplete="current-password"
-              placeholder={labels.profileEdit.passwordCurrentLabel}
-              value={passwordForm.current}
-              onChange={(e) => setPasswordForm((f) => ({ ...f, current: e.target.value }))}
-              className={INPUT}
-            />
-            <input
-              type="password"
-              autoComplete="new-password"
-              placeholder={labels.profileEdit.passwordNewLabel}
-              value={passwordForm.next}
-              onChange={(e) => setPasswordForm((f) => ({ ...f, next: e.target.value }))}
-              className={INPUT}
-            />
-            <input
-              type="password"
-              autoComplete="new-password"
-              placeholder={labels.profileEdit.passwordConfirmLabel}
-              value={passwordForm.confirm}
-              onChange={(e) => setPasswordForm((f) => ({ ...f, confirm: e.target.value }))}
-              className={INPUT}
-            />
-          </div>
-          {passwordError && <p className="mt-1.5 text-[12px] font-medium text-rose-600">{passwordError}</p>}
+          {/* Tulong — matches Farmer/Fisherfolk's own profile screen row */}
           <button
             type="button"
-            onClick={changePassword}
-            disabled={changingPassword || !passwordForm.current || !passwordForm.next || !passwordForm.confirm}
-            className={`mt-2 flex items-center gap-1.5 rounded-[8px] px-3.5 py-2 text-[13px] font-medium ${theme.solidBtn} disabled:opacity-50`}
+            onClick={() => onNav?.('help')}
+            className={`${CARD} flex w-full items-center gap-2.5 px-4 py-3.5 text-left transition-colors hover:bg-cz-page`}
           >
-            <KeyRound size={13} aria-hidden="true" />
-            {labels.profileEdit.passwordChangeCta}
+            <HelpCircle size={18} className="shrink-0 text-cz-text-2" aria-hidden="true" />
+            <span className="flex-1 text-[14px] font-medium text-cz-text">{labels.orgHome.accountHelp}</span>
           </button>
-          <p className="mt-1.5 text-[12px] text-cz-text-muted">{labels.profileEdit.passwordCardNote}</p>
-        </section>
-
-        {/* Account actions — Logout, Help. Deliberately NOT styled as a
-            data card: a top divider and looser spacing mark this as
-            navigation, not another fact about the organization. */}
-        <section className="border-t-[0.5px] border-cz-border pt-4">
-          <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-muted">
-            {labels.orgInfo.groups.actions}
-          </p>
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => onNav?.('help')}
-              className="flex min-h-[48px] items-center justify-center gap-2 rounded-[10px] border-[0.5px] border-cz-border-strong bg-cz-surface text-[14px] font-medium text-cz-text transition-colors press-scale hover:bg-cz-org-panel"
-            >
-              <HelpCircle size={16} className="text-cz-text-2" aria-hidden="true" /> {labels.orgHome.accountHelp}
-            </button>
-            <button
-              type="button"
-              onClick={() => { logout(); navigate('/login') }}
-              className="flex min-h-[48px] items-center justify-center gap-2 rounded-[10px] border-[0.5px] border-cz-danger-border bg-cz-danger-bg text-[14px] font-medium text-cz-danger-accent transition-colors press-scale hover:opacity-90"
-            >
-              <LogOut size={16} aria-hidden="true" /> {labels.orgHome.accountLogout}
-            </button>
-          </div>
-        </section>
+        </div>
       </div>
 
       {requestField && (

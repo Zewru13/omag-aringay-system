@@ -1178,8 +1178,8 @@ export const labels = {
       middle_name: 'Gitnang pangalan',
       last_name: 'Apelyido',
       barangay: 'Barangay',
-      name: 'Pangalan ng organisasyon',
-      street_address: 'Address',
+      name: 'Pangalan ng Samahan',
+      street_address: 'Barangay / Street Address',
     },
 
     // Password card — same mechanics as the Farmer/Fisherfolk version
@@ -1201,9 +1201,13 @@ export const labels = {
 
   // ── Batch: Organization Info screen ────────────────────────────────────
   orgInfo: {
-    title: 'Impormasyon ng organisasyon',
-    registrationNumber: 'Registration no.',
-    contactPerson: 'Contact person',
+    title: 'Impormasyon ng Samahan',
+    registrationNumber: 'Registration Number',
+    contactPerson: 'Contact Person',
+    typeBadgeFarmers: 'Farmers Organization',
+    typeBadgeFisherfolk: 'Fisherfolk Organization',
+    samahanSubtitleFarmers: 'Samahan ng mga Magsasaka',
+    samahanSubtitleFisherfolk: 'Samahan ng mga Mangingisda',
     groups: {
       registeredDetails: 'Rehistradong Impormasyon',
       identity: 'Pangalan at Address',
@@ -1212,13 +1216,17 @@ export const labels = {
       actions: 'Account',
     },
     readonlyFieldLabels: {
-      registration_number: 'Registration number',
-      contact_person: 'Contact person',
-      date_organized: 'Petsa ng pag-organisa',
-      date_registered: 'Petsa ng pagpaparehistro',
-      registration_agency: 'Ahensyang nagparehistro',
-      email_address: 'Email address',
+      registration_number: 'Registration Number',
+      contact_person: 'Contact Person',
+      date_organized: 'Petsa ng Pag-oorganisa',
+      date_registered: 'Petsa ng Pagpaparehistro',
+      registration_agency: 'Ahensya ng Pagpaparehistro',
+      email_address: 'Email',
     },
+    historyHeading: 'Kasaysayan ng mga Kahilingan',
+    institutionalAccountTitle: 'Shared / Institutional Account',
+    institutionalAccountBody: 'Ang password ng account na ito ay ginagamit ng opisyal na kasalukuyang hawak ng credentials. Ang pagbabago ng password ay makakaapekto sa lahat ng gumagamit ng account na ito — hindi lang sa inyo. Tiyaking ipaabot sa inyong organisasyon ang bagong password bago mag-update.',
+    passwordForInstitutional: 'Para sa institutional account',
   },
 
   // ── Org parity batch: Help screen ───────────────────────────────────────
