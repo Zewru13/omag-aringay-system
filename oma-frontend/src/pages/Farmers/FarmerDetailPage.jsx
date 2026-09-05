@@ -39,6 +39,18 @@ function Field({ label, value }) {
   )
 }
 
+// Rebuilt against the same reference (PROFILE BASIS.docx / screenshots) used
+// for the Staff/Admin profile and the citizen "Aking Profile" screens:
+// cover-banner identity card + a separate colored-header info card. Farmer
+// and Fisherfolk detail pages share this exact structure -- see FisherfolkDetailPage
+// for the identical pattern in blue (--color-cz-fish-header, #1B4457) instead
+// of this green. Staff-specific action buttons (Edit, Generate Report, etc.)
+// have no equivalent in the citizen reference, so they sit in the identity
+// card where "Edit Profile" sits on the Admin/Staff profile page.
+function initialsOf(fullName) {
+  return (fullName || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0].toUpperCase()).join('') || '?'
+}
+
 const HISTORY_COLUMNS = [
   { key: 'assistance_type', label: 'Assistance Type' },
   { key: 'source_agency', label: 'Source Agency' },
@@ -367,104 +379,115 @@ function FarmerDetailPage() {
         )}
 
         {!isLoadingFarmer && farmer && (
-          <div className="bg-white border border-[#E2E8E2] rounded-xl p-6">
-            {/* Farmer header */}
-            <div className="mb-5 flex flex-col gap-3 border-b border-[#E2E8E2] pb-5 lg:flex-row lg:items-start lg:justify-between">
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-[20px] font-semibold text-[#1A2B1A]">{farmer.full_name}</h1>
+          <div className="grid gap-4 lg:grid-cols-[320px_1fr] lg:items-start">
+            {/* Identity card */}
+            <section className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+              <div className="h-16 bg-[#1B4D2E]" />
+              <div className="px-5 pb-5 -mt-8">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white text-[18px] font-semibold text-[#1B4D2E] shadow-sm">
+                  {initialsOf(farmer.full_name)}
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <h1 className="text-[16px] font-semibold text-[#1A2B1A]">{farmer.full_name}</h1>
                   <StatusPill tone={farmer.is_active ? 'green' : 'rose'}>
                     {farmer.is_active ? 'Active' : 'Inactive'}
                   </StatusPill>
-                  {farmer.is_senior_citizen && (
-                    <StatusPill tone="amber">Senior Citizen</StatusPill>
-                  )}
-                  {farmer.is_affected_by_disaster && (
-                    <StatusPill tone="rose">Affected by Disaster</StatusPill>
-                  )}
                 </div>
-                <p className="mt-1 text-[13px] font-medium text-[#4A5E4A]">
+                {(farmer.is_senior_citizen || farmer.is_affected_by_disaster) && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {farmer.is_senior_citizen && <StatusPill tone="amber">Senior Citizen</StatusPill>}
+                    {farmer.is_affected_by_disaster && <StatusPill tone="rose">Affected by Disaster</StatusPill>}
+                  </div>
+                )}
+                <p className="mt-3 text-[12px] font-medium text-[#4A5E4A] border-t border-[#F0F4F0] pt-3">
                   RSBSA Number: {farmer.rsbsa_number}
                 </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button icon={ClipboardList} onClick={openHistory} variant="outline">
-                  View Assistance History
-                </Button>
-                <Button icon={FileText} onClick={handleGenerateReport} variant="outline" isLoading={isGeneratingReport}>
-                  Generate Report
-                </Button>
 
-                {(isAdmin || isEvaluator) && (
-                  <Button icon={Plus} onClick={() => setIsParcelModalOpen(true)} variant="primary">
-                    Add Farm Parcel
+                <div className="mt-4 flex flex-col gap-2">
+                  {(isAdmin || isEvaluator) && (
+                    <Button icon={Edit} onClick={() => setIsEditModalOpen(true)} variant="primary" className="w-full">
+                      Edit Farmer
+                    </Button>
+                  )}
+                  {(isAdmin || isEvaluator) && (
+                    <Button icon={Plus} onClick={() => setIsParcelModalOpen(true)} variant="outline" className="w-full">
+                      Add Farm Parcel
+                    </Button>
+                  )}
+                  <Button icon={ClipboardList} onClick={openHistory} variant="outline" className="w-full">
+                    View Assistance History
                   </Button>
-                )}
-                {(isAdmin || isEvaluator) && (
-                  <Button icon={Edit} onClick={() => setIsEditModalOpen(true)} variant="outline">
-                    Edit Farmer
+                  <Button icon={FileText} onClick={handleGenerateReport} variant="outline" isLoading={isGeneratingReport} className="w-full">
+                    Generate Report
                   </Button>
-                )}
-                {(isAdmin || isEvaluator) && (
-                  <ActivateCitizenAccountButton
-                    citizenAccount={farmer.citizen_account}
-                    personLabel={farmer.full_name}
-                    onActivated={fetchFarmer}
-                  />
+                  {(isAdmin || isEvaluator) && (
+                    <ActivateCitizenAccountButton
+                      citizenAccount={farmer.citizen_account}
+                      personLabel={farmer.full_name}
+                      onActivated={fetchFarmer}
+                    />
+                  )}
+                </div>
+              </div>
+            </section>
+
+            {/* Personal Information card */}
+            <section className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+              <div className="px-5 py-3.5 bg-[#EBF5EE] border-b border-[#E2E8E2]">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#1B4D2E]">Personal Information</p>
+              </div>
+              <div className="p-5">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {farmer.prefix && <Field label="Prefix" value={farmer.prefix} />}
+                  <Field label="First Name" value={farmer.first_name} />
+                  <Field label="Last Name" value={farmer.last_name} />
+                  <Field label="Middle Name" value={farmer.middle_name} />
+                  <Field label="Gender" value={farmer.gender} />
+                  <Field label="Birthdate" value={formatDate(farmer.birthdate)} />
+                  <Field label="Contact Number" value={farmer.contact_number} />
+                  <Field label="Barangay" value={farmer.barangay} />
+                  <Field label="Municipality" value={farmer.municipality} />
+                  <Field label="Province" value={farmer.province} />
+                  <Field label="Civil Status" value={farmer.civil_status} />
+                  <Field label="Highest Education" value={farmer.highest_education} />
+                  <Field label="Date Registered" value={formatDate(farmer.date_registered)} />
+                  {farmer.philsys_number && (
+                    <Field label="PhilSys / National ID No." value={farmer.philsys_number} />
+                  )}
+                </div>
+
+                {/* RSBSA Classification badges */}
+                {(farmer.is_pwd || farmer.is_4ps_beneficiary || farmer.is_icc_ip_member || farmer.is_senior_citizen || farmer.is_farm_laborer) && (
+                  <div className="mt-5 flex flex-wrap gap-2 border-t border-[#F0F4F0] pt-4">
+                    {farmer.is_pwd && (
+                      <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[12px] font-medium text-blue-700 ring-1 ring-blue-200">
+                        Person with Disability (PWD)
+                      </span>
+                    )}
+                    {farmer.is_4ps_beneficiary && (
+                      <span className="inline-flex items-center rounded-full bg-green-50 px-3 py-1 text-[12px] font-medium text-green-700 ring-1 ring-green-200">
+                        4Ps Beneficiary
+                      </span>
+                    )}
+                    {farmer.is_icc_ip_member && (
+                      <span className="inline-flex items-center rounded-full bg-purple-50 px-3 py-1 text-[12px] font-medium text-purple-700 ring-1 ring-purple-200">
+                        ICC/IP Member{farmer.icc_ip_name ? ` — ${farmer.icc_ip_name}` : ''}
+                      </span>
+                    )}
+                    {farmer.is_senior_citizen && (
+                      <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-[12px] font-medium text-amber-700 ring-1 ring-amber-200">
+                        Senior Citizen
+                      </span>
+                    )}
+                    {farmer.is_farm_laborer && (
+                      <span className="inline-flex items-center rounded-full bg-orange-50 px-3 py-1 text-[12px] font-medium text-orange-700 ring-1 ring-orange-200">
+                        Farm Laborer
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
-            </div>
-
-            {/* Info grid */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {farmer.prefix && <Field label="Prefix" value={farmer.prefix} />}
-              <Field label="First Name" value={farmer.first_name} />
-              <Field label="Last Name" value={farmer.last_name} />
-              <Field label="Middle Name" value={farmer.middle_name} />
-              <Field label="Gender" value={farmer.gender} />
-              <Field label="Birthdate" value={formatDate(farmer.birthdate)} />
-              <Field label="Contact Number" value={farmer.contact_number} />
-              <Field label="Barangay" value={farmer.barangay} />
-              <Field label="Municipality" value={farmer.municipality} />
-              <Field label="Province" value={farmer.province} />
-              <Field label="Civil Status" value={farmer.civil_status} />
-              <Field label="Highest Education" value={farmer.highest_education} />
-              <Field label="Date Registered" value={formatDate(farmer.date_registered)} />
-              {farmer.philsys_number && (
-                <Field label="PhilSys / National ID No." value={farmer.philsys_number} />
-              )}
-            </div>
-
-            {/* RSBSA Classification badges */}
-            {(farmer.is_pwd || farmer.is_4ps_beneficiary || farmer.is_icc_ip_member || farmer.is_senior_citizen || farmer.is_farm_laborer) && (
-              <div className="mt-5 flex flex-wrap gap-2">
-                {farmer.is_pwd && (
-                  <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[12px] font-medium text-blue-700 ring-1 ring-blue-200">
-                    Person with Disability (PWD)
-                  </span>
-                )}
-                {farmer.is_4ps_beneficiary && (
-                  <span className="inline-flex items-center rounded-full bg-green-50 px-3 py-1 text-[12px] font-medium text-green-700 ring-1 ring-green-200">
-                    4Ps Beneficiary
-                  </span>
-                )}
-                {farmer.is_icc_ip_member && (
-                  <span className="inline-flex items-center rounded-full bg-purple-50 px-3 py-1 text-[12px] font-medium text-purple-700 ring-1 ring-purple-200">
-                    ICC/IP Member{farmer.icc_ip_name ? ` — ${farmer.icc_ip_name}` : ''}
-                  </span>
-                )}
-                {farmer.is_senior_citizen && (
-                  <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-[12px] font-medium text-amber-700 ring-1 ring-amber-200">
-                    Senior Citizen
-                  </span>
-                )}
-                {farmer.is_farm_laborer && (
-                  <span className="inline-flex items-center rounded-full bg-orange-50 px-3 py-1 text-[12px] font-medium text-orange-700 ring-1 ring-orange-200">
-                    Farm Laborer
-                  </span>
-                )}
-              </div>
-            )}
+            </section>
           </div>
         )}
 

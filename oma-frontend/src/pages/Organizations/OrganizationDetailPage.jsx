@@ -760,6 +760,17 @@ function Field({ label, value }) {
   );
 }
 
+// Same identity-card + info-card structure as FarmerDetailPage/FisherfolkDetailPage
+// (see FarmerDetailPage's own comment for the reference this is built against).
+// Farmers Org gets the farmer green, Fisherfolk Org gets the same fisheries
+// blue used everywhere else for that domain (--color-cz-fish-header) --
+// same idea, different color.
+const FISH_BLUE = "#1B4457";
+
+function initialsOf(name) {
+  return (name || "").trim().split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0].toUpperCase()).join("") || "?";
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 function OrganizationDetailPage() {
@@ -906,61 +917,85 @@ function OrganizationDetailPage() {
 
         {!isLoading && organization && (
           <>
-            {/* Organization Info */}
-            <div className="bg-white border border-[#E2E8E2] rounded-xl p-6">
-              <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-[#F0F4F0] pb-4">
-                <div className="flex flex-wrap items-center gap-3">
-                  <h1 className="text-[18px] font-semibold text-[#1A2B1A]">
-                    {organization.name}
-                  </h1>
-                  <StatusPill tone={organization.is_active ? "green" : "slate"}>
-                    {organization.is_active ? "Active" : "Inactive"}
-                  </StatusPill>
+            {/* Identity + Organization Information */}
+            {(() => {
+              const themeColor = type === "farmers" ? "#1B4D2E" : FISH_BLUE;
+              const themeBg = type === "farmers" ? "#EBF5EE" : "#EAF1F5";
+              return (
+                <div className="grid gap-4 lg:grid-cols-[320px_1fr] lg:items-start">
+                  <section className="rounded-xl border border-[#E2E8E2] bg-white overflow-hidden">
+                    <div className="h-16" style={{ backgroundColor: themeColor }} />
+                    <div className="px-5 pb-5 -mt-8">
+                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white text-[18px] font-semibold shadow-sm" style={{ color: themeColor }}>
+                        {initialsOf(organization.name)}
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <h1 className="text-[16px] font-semibold text-[#1A2B1A]">
+                          {organization.name}
+                        </h1>
+                        <StatusPill tone={organization.is_active ? "green" : "slate"}>
+                          {organization.is_active ? "Active" : "Inactive"}
+                        </StatusPill>
+                      </div>
+                      <p className="mt-1 text-[12px] text-[#7A8E7A]">{typeLabel} Organization</p>
+
+                      {(isAdmin || isEvaluator) && (
+                        <div className="mt-4">
+                          <ActivateCitizenAccountButton
+                            citizenAccount={organization.citizen_account}
+                            personLabel={organization.name}
+                            onActivated={() => setRefreshKey((k) => k + 1)}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </section>
+
+                  <section className="rounded-xl border border-[#E2E8E2] bg-white overflow-hidden">
+                    <div className="px-5 py-3.5 border-b border-[#E2E8E2]" style={{ backgroundColor: themeBg }}>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.06em]" style={{ color: themeColor }}>
+                        Organization Information
+                      </p>
+                    </div>
+                    <div className="p-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+                      <Field label="Barangay" value={organization.barangay} />
+                      <Field
+                        label="Registration Number"
+                        value={organization.registration_number}
+                      />
+                      <Field
+                        label="Date Established"
+                        value={formatDate(organization.date_established)}
+                      />
+                      <Field
+                        label="Contact Person"
+                        value={organization.contact_person}
+                      />
+                      <Field
+                        label="Contact Number"
+                        value={organization.contact_number}
+                      />
+                      <Field
+                        label="Date Created"
+                        value={formatDate(organization.date_created)}
+                      />
+                      {organization.dole_registration_number != null && (
+                        <Field
+                          label="DOLE Registration No."
+                          value={organization.dole_registration_number || "—"}
+                        />
+                      )}
+                      {organization.bir_number != null && (
+                        <Field
+                          label="BIR Number"
+                          value={organization.bir_number || "—"}
+                        />
+                      )}
+                    </div>
+                  </section>
                 </div>
-                {(isAdmin || isEvaluator) && (
-                  <ActivateCitizenAccountButton
-                    citizenAccount={organization.citizen_account}
-                    personLabel={organization.name}
-                    onActivated={() => setRefreshKey((k) => k + 1)}
-                  />
-                )}
-              </div>
-              <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-                <Field label="Barangay" value={organization.barangay} />
-                <Field
-                  label="Registration Number"
-                  value={organization.registration_number}
-                />
-                <Field
-                  label="Date Established"
-                  value={formatDate(organization.date_established)}
-                />
-                <Field
-                  label="Contact Person"
-                  value={organization.contact_person}
-                />
-                <Field
-                  label="Contact Number"
-                  value={organization.contact_number}
-                />
-                <Field
-                  label="Date Created"
-                  value={formatDate(organization.date_created)}
-                />
-                {organization.dole_registration_number != null && (
-                  <Field
-                    label="DOLE Registration No."
-                    value={organization.dole_registration_number || "—"}
-                  />
-                )}
-                {organization.bir_number != null && (
-                  <Field
-                    label="BIR Number"
-                    value={organization.bir_number || "—"}
-                  />
-                )}
-              </div>
-            </div>
+              );
+            })()}
 
             {/* Members & Equipment */}
             <div className="bg-white border border-[#E2E8E2] rounded-xl p-6">

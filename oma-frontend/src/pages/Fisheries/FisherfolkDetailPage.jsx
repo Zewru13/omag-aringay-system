@@ -79,6 +79,16 @@ function Field({ label, value }) {
   )
 }
 
+// Same identity-card + info-card structure as FarmerDetailPage (see its own
+// comment for the reference this is built against), in the fisheries blue
+// (#1B4457) already used for this domain in the citizen portal
+// (--color-cz-fish-header) -- same idea, different color, as intended.
+const FISH_BLUE = '#1B4457'
+
+function initialsOf(fullName) {
+  return (fullName || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0].toUpperCase()).join('') || '?'
+}
+
 const otherLabel = (value, specify) => (value === 'Other' && specify ? `Other — ${specify}` : value)
 
 function AssistanceHistoryModal({ history, isLoading, error, onClose }) {
@@ -325,72 +335,83 @@ function FisherfolkDetailPage() {
 
         {!isLoading && fisherfolk && (
           <>
-            {/* Profile section */}
-            <section className="rounded-2xl border border-slate-100 bg-white p-6">
-              <div className="mb-6 flex flex-col gap-3 border-b border-slate-100 pb-5 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h1 className="text-xl font-semibold text-slate-900">{fisherfolk.full_name}</h1>
+            {/* Identity + Personal Information */}
+            <div className="grid gap-4 lg:grid-cols-[320px_1fr] lg:items-start">
+              <section className="rounded-2xl border border-slate-100 bg-white overflow-hidden">
+                <div className="h-16" style={{ backgroundColor: FISH_BLUE }} />
+                <div className="px-5 pb-5 -mt-8">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white text-[18px] font-semibold shadow-sm" style={{ color: FISH_BLUE }}>
+                    {initialsOf(fisherfolk.full_name)}
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <h1 className="text-[16px] font-semibold text-slate-900">{fisherfolk.full_name}</h1>
                     <StatusPill tone={fisherfolk.is_active ? 'green' : 'rose'}>
                       {fisherfolk.is_active ? 'Active' : 'Inactive'}
                     </StatusPill>
-                    {fisherfolk.is_senior_citizen && <StatusPill tone="amber">Senior Citizen</StatusPill>}
-                    {(fisherfolk.fisherfolk_type === 'Capture' || fisherfolk.fisherfolk_type === 'Mariculture') && (
-                      fisherfolk.has_vessel
-                        ? <StatusPill tone="green">With Vessel</StatusPill>
-                        : <StatusPill tone="slate">No Vessel</StatusPill>
-                    )}
-                    {fisherfolk.is_affected_by_disaster && (
-                      <StatusPill tone="rose">Affected by Disaster</StatusPill>
-                    )}
                   </div>
-                  <p className="mt-1 text-sm font-medium text-slate-600">
+                  {(fisherfolk.is_senior_citizen || fisherfolk.is_affected_by_disaster || fisherfolk.fisherfolk_type === 'Capture' || fisherfolk.fisherfolk_type === 'Mariculture') && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {fisherfolk.is_senior_citizen && <StatusPill tone="amber">Senior Citizen</StatusPill>}
+                      {(fisherfolk.fisherfolk_type === 'Capture' || fisherfolk.fisherfolk_type === 'Mariculture') && (
+                        fisherfolk.has_vessel
+                          ? <StatusPill tone="green">With Vessel</StatusPill>
+                          : <StatusPill tone="slate">No Vessel</StatusPill>
+                      )}
+                      {fisherfolk.is_affected_by_disaster && <StatusPill tone="rose">Affected by Disaster</StatusPill>}
+                    </div>
+                  )}
+                  <p className="mt-3 text-xs font-medium text-slate-600 border-t border-slate-100 pt-3">
                     LGU Registration Number: {fisherfolk.lgu_registration_number}
                   </p>
-                  <p className="mt-0.5 text-sm text-slate-500">Type: {fisherfolk.fisherfolk_type}</p>
-                </div>
+                  <p className="mt-0.5 text-xs text-slate-500">Type: {fisherfolk.fisherfolk_type}</p>
 
-                <div className="flex flex-wrap gap-2">
-                  <Button icon={ClipboardList} onClick={openHistory} variant="outline">
-                    View Assistance History
-                  </Button>
-                  <Button icon={FileText} onClick={handleGenerateReport} variant="outline" isLoading={isGeneratingReport}>
-                    Generate Report
-                  </Button>
-                  {(isAdmin || isEvaluator) && (
-                    <Button icon={Edit} onClick={() => setIsEditModalOpen(true)} variant="outline">
-                      Edit Profile
+                  <div className="mt-4 flex flex-col gap-2">
+                    {(isAdmin || isEvaluator) && (
+                      <Button icon={Edit} onClick={() => setIsEditModalOpen(true)} variant="primary" className="w-full">
+                        Edit Profile
+                      </Button>
+                    )}
+                    <Button icon={ClipboardList} onClick={openHistory} variant="outline" className="w-full">
+                      View Assistance History
                     </Button>
+                    <Button icon={FileText} onClick={handleGenerateReport} variant="outline" isLoading={isGeneratingReport} className="w-full">
+                      Generate Report
+                    </Button>
+                    {(isAdmin || isEvaluator) && (
+                      <ActivateCitizenAccountButton
+                        citizenAccount={fisherfolk.citizen_account}
+                        personLabel={fisherfolk.full_name}
+                        onActivated={fetchFisherfolk}
+                      />
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-slate-100 bg-white overflow-hidden">
+                <div className="px-5 py-3.5 border-b border-slate-100" style={{ backgroundColor: '#EAF1F5' }}>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.06em]" style={{ color: FISH_BLUE }}>Personal Information</p>
+                </div>
+                <div className="p-5 grid gap-4 sm:grid-cols-2">
+                  {fisherfolk.prefix && <Field label="Prefix" value={fisherfolk.prefix} />}
+                  <Field label="First Name" value={fisherfolk.first_name} />
+                  <Field label="Last Name" value={fisherfolk.last_name} />
+                  <Field label="Middle Name" value={fisherfolk.middle_name} />
+                  <Field label="Gender" value={fisherfolk.gender} />
+                  <Field label="Birthdate" value={formatDate(fisherfolk.birthdate)} />
+                  <Field label="Contact Number" value={fisherfolk.contact_number} />
+                  <Field label="Barangay" value={fisherfolk.barangay} />
+                  <Field label="Municipality" value={fisherfolk.municipality} />
+                  <Field label="Date Registered" value={formatDate(fisherfolk.date_registered)} />
+                  {fisherfolk.fish_registration_number && (
+                    <Field label="Fish Registration No. (Fish-R)" value={fisherfolk.fish_registration_number} />
                   )}
-                  {(isAdmin || isEvaluator) && (
-                    <ActivateCitizenAccountButton
-                      citizenAccount={fisherfolk.citizen_account}
-                      personLabel={fisherfolk.full_name}
-                      onActivated={fetchFisherfolk}
-                    />
+                  {fisherfolk.boat_registration_number && (
+                    <Field label="Boat Registration No. (Boat-R)" value={fisherfolk.boat_registration_number} />
                   )}
                 </div>
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                {fisherfolk.prefix && <Field label="Prefix" value={fisherfolk.prefix} />}
-                <Field label="First Name" value={fisherfolk.first_name} />
-                <Field label="Last Name" value={fisherfolk.last_name} />
-                <Field label="Middle Name" value={fisherfolk.middle_name} />
-                <Field label="Gender" value={fisherfolk.gender} />
-                <Field label="Birthdate" value={formatDate(fisherfolk.birthdate)} />
-                <Field label="Contact Number" value={fisherfolk.contact_number} />
-                <Field label="Barangay" value={fisherfolk.barangay} />
-                <Field label="Municipality" value={fisherfolk.municipality} />
-                <Field label="Date Registered" value={formatDate(fisherfolk.date_registered)} />
-                {fisherfolk.fish_registration_number && (
-                  <Field label="Fish Registration No. (Fish-R)" value={fisherfolk.fish_registration_number} />
-                )}
-                {fisherfolk.boat_registration_number && (
-                  <Field label="Boat Registration No. (Boat-R)" value={fisherfolk.boat_registration_number} />
-                )}
-              </div>
-            </section>
+              </section>
+            </div>
 
             {fisherfolk.aquaculture_record && <AquacultureSection record={fisherfolk.aquaculture_record} />}
             {(fisherfolk.fisherfolk_type === 'Aquaculture' || fisherfolk.fisherfolk_type === 'Mariculture') && (
