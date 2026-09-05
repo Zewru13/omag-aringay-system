@@ -119,8 +119,6 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
   const farmerTypeLabel = record?.is_farm_laborer ? P.farmLaborer : P.regularFarmer
 
   const civilStatusDisplay = P.civilStatusOptions[record?.civil_status] || record?.civil_status
-  const hasReferenceInfo = hasValue(record?.birthdate) || hasValue(civilStatusDisplay)
-    || hasValue(record?.highest_education) || record?.is_pwd || record?.is_4ps_beneficiary
 
   const handleFile = async (e) => {
     const file = e.target.files?.[0]
@@ -412,10 +410,11 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
       </section>
 
       {/* REFERENCE INFORMATION — read-only demographic data the previous
-          version never displayed at all. */}
-      {hasReferenceInfo && (
-        <section className={CARD}>
-          <CardHeader theme={theme} note={P.referenceInfoReadOnlyNote}>{P.referenceInfoHeading}</CardHeader>
+          version never displayed at all. Always rendered (never gated on
+          hasValue like its individual rows) because organization
+          membership must always show, even a "not a member" state. */}
+      <section className={CARD}>
+        <CardHeader theme={theme} note={P.referenceInfoReadOnlyNote}>{P.referenceInfoHeading}</CardHeader>
           <div className="px-4">
             {hasValue(record?.birthdate) && (
               <ReadOnlyRow label={P.birthdateLabel} value={labels.common.formatDate(record.birthdate)} />
@@ -432,6 +431,18 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
                 value={record.highest_education}
               />
             )}
+            {/* Organization membership — always rendered, never silently
+                omitted, unlike the fields above. A fisherfolk can belong to
+                more than one organization at once (unlike Farmer), so this
+                joins whatever organization_names the backend resolved. */}
+            <ReadOnlyRow
+              label={P.organizationLabel}
+              value={
+                record?.organization_names?.length > 0
+                  ? record.organization_names.join(', ')
+                  : <span className="italic text-cz-text-muted">{P.organizationNone}</span>
+              }
+            />
             {(record?.is_pwd || record?.is_4ps_beneficiary) && (
               <div className="py-2.5">
                 <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{P.statusFlagsLabel}</p>
@@ -450,8 +461,7 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
               </div>
             )}
           </div>
-        </section>
-      )}
+      </section>
 
       {/* PASSWORD — collapsed summary row, expands in place. Voluntary
           self-service, not a forced first-login step. */}

@@ -123,6 +123,14 @@ class FisherfolkDetailSerializer(serializers.ModelSerializer):
     is_senior_citizen = serializers.SerializerMethodField()
     citizen_account   = serializers.SerializerMethodField()
     is_affected_by_disaster = serializers.SerializerMethodField()
+    # Batch: organization_names resolves REAL current membership from
+    # FisherfolkOrganizationMember (is_active=True rows), not the
+    # fisherfolk_organization FK below -- that field is write-only/legacy,
+    # set once at registration and never kept in sync with actual
+    # membership (see interventions/models.py's resolution-order comment).
+    # A list, not a single value, because unlike Farmer a fisherfolk may
+    # belong to more than one organization at once.
+    organization_names = serializers.SerializerMethodField()
 
     class Meta:
         model  = Fisherfolk
@@ -133,7 +141,7 @@ class FisherfolkDetailSerializer(serializers.ModelSerializer):
             'civil_status', 'highest_education', 'philsys_number',
             'fisherfolk_type',
             'is_pwd', 'is_4ps_beneficiary', 'is_icc_ip_member', 'icc_ip_name', 'is_senior_citizen',
-            'fisherfolk_organization', 'organization_position',
+            'fisherfolk_organization', 'organization_position', 'organization_names',
             'is_active', 'date_registered', 'registered_by',
             'aquaculture_record', 'capture_record',
             'facility_location', 'pond_area_ha', 'number_of_ponds', 'water_source',
@@ -144,10 +152,16 @@ class FisherfolkDetailSerializer(serializers.ModelSerializer):
             'is_affected_by_disaster',
             'citizen_account',
         ]
-        read_only_fields = ['id', 'date_registered', 'registered_by', 'aquaculture_record', 'capture_record', 'citizen_account', 'is_affected_by_disaster']
+        read_only_fields = ['id', 'date_registered', 'registered_by', 'aquaculture_record', 'capture_record', 'citizen_account', 'is_affected_by_disaster', 'organization_names']
 
     def get_citizen_account(self, obj):
         return citizen_account_info(User.LinkedRecordType.FISHERFOLK, obj.id)
+
+    def get_organization_names(self, obj):
+        return list(
+            obj.fisherfolk_organizations.filter(is_active=True)
+            .values_list('organization__name', flat=True)
+        )
 
     def get_is_affected_by_disaster(self, obj):
         return _is_fisherfolk_affected_by_disaster(obj)

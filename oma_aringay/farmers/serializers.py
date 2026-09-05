@@ -172,9 +172,10 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
             'farm_parcels',
             'farmers_organization',
             'farmers_organization_name',
+            'is_org_membership_active',
             'citizen_account',
         ]
-        read_only_fields = ['id', 'date_registered', 'registered_by', 'farm_parcels', 'farmers_organization_name', 'citizen_account', 'is_affected_by_disaster']
+        read_only_fields = ['id', 'date_registered', 'registered_by', 'farm_parcels', 'farmers_organization_name', 'is_org_membership_active', 'citizen_account', 'is_affected_by_disaster']
 
     def get_is_affected_by_disaster(self, obj):
         return obj.crop_monitoring_records.filter(disaster_reports__status='Active').exists()

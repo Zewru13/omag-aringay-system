@@ -363,6 +363,11 @@ export const labels = {
       statusFlagsLabel: 'Mga Status Flag',
       pwdLabel: 'PWD',
       fourPsLabel: '4Ps Beneficiary',
+      // Always shown, even when empty -- see CitizenProfileScreen's
+      // Reference Information card, which renders this row unconditionally
+      // rather than hiding it under the hide-empty rule the other rows use.
+      organizationLabel: 'Organisasyon',
+      organizationNone: 'Hindi kasapi ng anumang organisasyon',
       civilStatusOptions: {
         Single: 'Walang Asawa',
         Married: 'May Asawa',

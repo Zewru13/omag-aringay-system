@@ -478,6 +478,21 @@ function FarmerDetailPage() {
                     {farmer.philsys_number && (
                       <Field label="PhilSys / National ID No." value={farmer.philsys_number} />
                     )}
+                    <div>
+                      <p className="text-[12px] text-[#7A8E7A] mb-0.5">Organization</p>
+                      {farmer.farmers_organization_name ? (
+                        <p className="text-[14px] font-medium text-[#1A2B1A]">
+                          {farmer.farmers_organization_name}
+                          {!farmer.is_org_membership_active && (
+                            <span className="ml-1.5 inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500 align-middle">
+                              Inactive
+                            </span>
+                          )}
+                        </p>
+                      ) : (
+                        <p className="text-[14px] font-medium italic text-[#A8BCA8]">Not part of any organization</p>
+                      )}
+                    </div>
                   </div>
 
                   {/* RSBSA Classification badges */}

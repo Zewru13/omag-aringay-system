@@ -432,6 +432,28 @@ function FisherfolkDetailPage() {
                     {fisherfolk.boat_registration_number && (
                       <Field label="Boat Registration No. (Boat-R)" value={fisherfolk.boat_registration_number} />
                     )}
+                    <div>
+                      <p className="text-[12px] text-[#7A8E7A] mb-0.5">Organization</p>
+                      {/* A fisherfolk may belong to more than one organization
+                          at once (unlike Farmer), so this is a list, not a
+                          single value -- see FisherfolkDetailSerializer's
+                          organization_names. */}
+                      {fisherfolk.organization_names?.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {fisherfolk.organization_names.map((name) => (
+                            <span
+                              key={name}
+                              className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[12px] font-medium"
+                              style={{ backgroundColor: '#EAF1F5', color: FISH_BLUE }}
+                            >
+                              {name}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[14px] font-medium italic text-slate-400">Not part of any organization</p>
+                      )}
+                    </div>
                   </div>
                 </section>
               </div>
