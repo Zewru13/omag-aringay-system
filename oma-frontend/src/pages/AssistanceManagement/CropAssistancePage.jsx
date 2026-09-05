@@ -9,6 +9,7 @@ import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
+import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
@@ -551,28 +552,27 @@ export default function CropAssistancePage({ asTab = false }) {
         ))}
       </div>
 
-      <div className="flex flex-wrap items-end gap-3">
+      <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={() => setShowDistribute(true)}>
+          <Users size={15} className="mr-1" /> Distribute to Organization
+        </Button>
+        <Button onClick={() => setShowAdd(true)}>
+          <Plus size={15} className="mr-1" /> Log Crop Assistance
+        </Button>
+      </div>
+
+      <FilterPanel activeCount={[barangay, year].filter(Boolean).length}>
         <div className="w-48">
           <BarangaySelect value={barangay} onChange={(e) => setBarangay(e.target.value)} includeAllOption />
         </div>
-        <div>
-          <select
-            className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-[#1E4620] focus:outline-none"
-            value={year} onChange={(e) => setYear(e.target.value)}
-          >
-            <option value="">All Years</option>
-            {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </div>
-        <div className="ml-auto flex gap-2">
-          <Button variant="outline" onClick={() => setShowDistribute(true)}>
-            <Users size={15} className="mr-1" /> Distribute to Organization
-          </Button>
-          <Button onClick={() => setShowAdd(true)}>
-            <Plus size={15} className="mr-1" /> Log Crop Assistance
-          </Button>
-        </div>
-      </div>
+        <select
+          className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-[#1E4620] focus:outline-none"
+          value={year} onChange={(e) => setYear(e.target.value)}
+        >
+          <option value="">All Years</option>
+          {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+        </select>
+      </FilterPanel>
 
       {error ? <ErrorMessage message={error} /> : <DataTable columns={COLUMNS} data={rows} isLoading={isLoading} />}
 

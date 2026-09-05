@@ -6,6 +6,7 @@ import LoadingSpinner from '../../components/UI/LoadingSpinner.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
+import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 
 const MODEL_OPTIONS = [
@@ -92,73 +93,71 @@ function AuditLogPage() {
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
 
-  const hasFilters = modelName || action || dateFrom || dateTo
+  const activeFilterCount = [modelName, action, dateFrom, dateTo].filter(Boolean).length
 
   return (
     <PageLayout title="Audit Log" subtitle="Track all user actions and system activity">
       <div className="space-y-5">
-        {/* Filter bar */}
-        <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <label className="text-[12px] font-medium text-[#4A5E4A]">Model</label>
-              <select
-                className={baseInputClasses}
-                value={modelName}
-                onChange={(e) => setModelName(e.target.value)}
-              >
-                {MODEL_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-            </div>
+        {/* Filters — no free-text search field exists for this list, so the
+            panel is filters-only (see FilterPanel's optional search box). */}
+        <FilterPanel activeCount={activeFilterCount}>
+          <label className="flex items-center gap-1.5 text-[13px] text-[#4A5E4A]">
+            Model
+            <select
+              className={baseInputClasses}
+              value={modelName}
+              onChange={(e) => setModelName(e.target.value)}
+            >
+              {MODEL_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </label>
 
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <label className="text-[12px] font-medium text-[#4A5E4A]">Action</label>
-              <select
-                className={baseInputClasses}
-                value={action}
-                onChange={(e) => setAction(e.target.value)}
-              >
-                {ACTION_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-            </div>
+          <label className="flex items-center gap-1.5 text-[13px] text-[#4A5E4A]">
+            Action
+            <select
+              className={baseInputClasses}
+              value={action}
+              onChange={(e) => setAction(e.target.value)}
+            >
+              {ACTION_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          </label>
 
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <label className="text-[12px] font-medium text-[#4A5E4A]">Date From</label>
-              <input
-                className={baseInputClasses}
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-              />
-            </div>
+          <label className="flex items-center gap-1.5 text-[13px] text-[#4A5E4A]">
+            Date From
+            <input
+              className={baseInputClasses}
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+            />
+          </label>
 
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <label className="text-[12px] font-medium text-[#4A5E4A]">Date To</label>
-              <input
-                className={baseInputClasses}
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-              />
-            </div>
+          <label className="flex items-center gap-1.5 text-[13px] text-[#4A5E4A]">
+            Date To
+            <input
+              className={baseInputClasses}
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+            />
+          </label>
 
-            {hasFilters && (
-              <Button
-                className="self-end"
-                onClick={() => { setModelName(''); setAction(''); setDateFrom(''); setDateTo('') }}
-                size="sm"
-                type="button"
-                variant="ghost"
-              >
-                Clear filters
-              </Button>
-            )}
-          </div>
-        </div>
+          {activeFilterCount > 0 && (
+            <Button
+              onClick={() => { setModelName(''); setAction(''); setDateFrom(''); setDateTo('') }}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              Clear filters
+            </Button>
+          )}
+        </FilterPanel>
 
         {isLoading && <LoadingSpinner message="Loading audit log..." />}
         {!isLoading && error && <ErrorMessage message={error} onRetry={() => load(page)} />}

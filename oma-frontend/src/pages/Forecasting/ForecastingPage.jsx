@@ -676,56 +676,46 @@ function YieldAnalysisTab() {
       {viewMode === 'analysis' && <DisclaimerBanner />}
 
       {/* Filters */}
-      <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
-        <p className="text-[13px] font-semibold text-[#1A2B1A] mb-4">Filter Options</p>
-        <div className="flex flex-wrap gap-3">
-          <div className="w-44">
-            <label className={filterLabelCls}>Crop Type</label>
-            <select className={baseInputClasses} value={filters.crop_type} onChange={e => set('crop_type', e.target.value)}>
-              <option value="">All Crops</option>
-              {cropTypes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          </div>
-          <div className="w-44">
-            <label className={filterLabelCls}>Barangay</label>
-            <BarangaySelect value={filters.barangay} onChange={e => set('barangay', e.target.value)} includeAllOption />
-          </div>
-          <div className="w-32">
-            <label className={filterLabelCls}>Season</label>
-            <select className={baseInputClasses} value={filters.season} onChange={e => set('season', e.target.value)}>
-              <option value="">All Seasons</option>
-              <option value="Dry">Dry</option>
-              <option value="Wet">Wet</option>
-            </select>
-          </div>
-          <div className="w-28">
-            <label className={filterLabelCls}>Year</label>
-            <input
-              type="number"
-              placeholder="e.g. 2026"
-              className={baseInputClasses}
-              value={filters.year}
-              onChange={e => set('year', e.target.value)}
-            />
-          </div>
-          <div className="w-56">
-            <label className={filterLabelCls}>Farmer</label>
-            <FarmerFilterInput selected={farmerFilter} onSelect={setFarmerFilter} />
-          </div>
-          <div className="w-56">
-            <label className={filterLabelCls}>Search</label>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#A8BCA8] pointer-events-none" />
-              <input
-                className={`${baseInputClasses} pl-7`}
-                placeholder="Crop, farmer, or barangay..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
-            </div>
-          </div>
+      <FilterPanel
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Crop, farmer, or barangay..."
+        activeCount={[filters.crop_type, filters.barangay, filters.season, filters.year, farmerFilter?.id].filter(Boolean).length}
+      >
+        <div className="w-44">
+          <label className={filterLabelCls}>Crop Type</label>
+          <select className={baseInputClasses} value={filters.crop_type} onChange={e => set('crop_type', e.target.value)}>
+            <option value="">All Crops</option>
+            {cropTypes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
         </div>
-      </div>
+        <div className="w-44">
+          <label className={filterLabelCls}>Barangay</label>
+          <BarangaySelect value={filters.barangay} onChange={e => set('barangay', e.target.value)} includeAllOption />
+        </div>
+        <div className="w-32">
+          <label className={filterLabelCls}>Season</label>
+          <select className={baseInputClasses} value={filters.season} onChange={e => set('season', e.target.value)}>
+            <option value="">All Seasons</option>
+            <option value="Dry">Dry</option>
+            <option value="Wet">Wet</option>
+          </select>
+        </div>
+        <div className="w-28">
+          <label className={filterLabelCls}>Year</label>
+          <input
+            type="number"
+            placeholder="e.g. 2026"
+            className={baseInputClasses}
+            value={filters.year}
+            onChange={e => set('year', e.target.value)}
+          />
+        </div>
+        <div className="w-56">
+          <label className={filterLabelCls}>Farmer</label>
+          <FarmerFilterInput selected={farmerFilter} onSelect={setFarmerFilter} />
+        </div>
+      </FilterPanel>
 
       {viewMode === 'grouped' ? (
         <GroupedForecast

@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
+import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
@@ -330,9 +331,8 @@ function HarvestedCropTab() {
   return (
     <div className="space-y-5">
       {/* Filters */}
-      <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 print:hidden">
-        <p className="text-[13px] font-semibold text-[#1A2B1A] mb-4">Filter Options</p>
-        <div className="flex flex-wrap gap-3">
+      <div className="print:hidden">
+        <FilterPanel activeCount={Object.values(filters).filter(Boolean).length}>
           <div>
             <label className={labelCls}>Harvest Start Date</label>
             <input type="date" className={baseInputClasses} value={filters.start_date} onChange={e => set('start_date', e.target.value)} />
@@ -368,7 +368,7 @@ function HarvestedCropTab() {
               <option value="below">Below Average (&lt;90%)</option>
             </select>
           </div>
-        </div>
+        </FilterPanel>
       </div>
 
       {/* Yield Analysis */}
@@ -484,9 +484,8 @@ function OrganizationListTab() {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 print:hidden">
-        <p className="text-[13px] font-semibold text-[#1A2B1A] mb-4">Filter Options</p>
-        <div className="flex flex-wrap gap-3">
+      <div className="print:hidden">
+        <FilterPanel activeCount={[filters.barangay, filters.type !== 'all'].filter(Boolean).length}>
           <div className="w-44">
             <label className={labelCls}>Barangay</label>
             <BarangaySelect value={filters.barangay} onChange={e => set('barangay', e.target.value)} includeAllOption />
@@ -499,7 +498,7 @@ function OrganizationListTab() {
               <option value="fisherfolk">Fisherfolk Only</option>
             </select>
           </div>
-        </div>
+        </FilterPanel>
       </div>
 
       <ActionButtons
@@ -601,9 +600,8 @@ function CropOptionsTab() {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 print:hidden">
-        <p className="text-[13px] font-semibold text-[#1A2B1A] mb-4">Filter Options</p>
-        <div className="flex flex-wrap gap-3">
+      <div className="print:hidden">
+        <FilterPanel activeCount={Object.values(filters).filter(Boolean).length}>
           <div>
             <label className={labelCls}>Category</label>
             <select
@@ -627,7 +625,7 @@ function CropOptionsTab() {
               {filteredSubcats.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
-        </div>
+        </FilterPanel>
       </div>
 
       <ActionButtons
@@ -740,9 +738,8 @@ function FisheriesProductionTab() {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 print:hidden">
-        <p className="text-[13px] font-semibold text-[#1A2B1A] mb-4">Filter Options</p>
-        <div className="flex flex-wrap gap-3">
+      <div className="print:hidden">
+        <FilterPanel activeCount={Object.values(filters).filter(Boolean).length}>
           <div>
             <label className={labelCls}>Harvest Start Date</label>
             <input type="date" className={baseInputClasses} value={filters.start_date} onChange={e => set('start_date', e.target.value)} />
@@ -778,7 +775,7 @@ function FisheriesProductionTab() {
               <option value="Pen">Pen</option>
             </select>
           </div>
-        </div>
+        </FilterPanel>
       </div>
 
       <ActionButtons
@@ -984,9 +981,8 @@ function FarmerCropHistoryTab() {
   return (
     <div className="space-y-5">
       {/* Filters */}
-      <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5 print:hidden">
-        <p className="text-[13px] font-semibold text-[#1A2B1A] mb-4">Filter Options</p>
-        <div className="flex flex-wrap gap-3">
+      <div className="print:hidden">
+        <FilterPanel activeCount={[farmer.id, ...Object.values(filters)].filter(Boolean).length}>
           <div className="w-56">
             <FarmerFilterSearch selected={farmer} onSelect={setFarmer} />
           </div>
@@ -1019,7 +1015,7 @@ function FarmerCropHistoryTab() {
               onChange={e => set('year', e.target.value)}
             />
           </div>
-        </div>
+        </FilterPanel>
       </div>
 
       {/* Summary */}

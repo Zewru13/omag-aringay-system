@@ -7,6 +7,7 @@ import StatusPill from "../../components/UI/StatusPill.jsx"
 import Tabs from "../../components/UI/Tabs.jsx"
 import ProductionAnalyticsTab from "./ProductionAnalyticsTab.jsx"
 import { baseInputClasses } from "../../components/UI/FormField.jsx"
+import FilterPanel from "../../components/UI/FilterPanel.jsx"
 import api from "../../api/axiosInstance.js"
 import { useAuth } from "../../context/AuthContext.jsx"
 import RecordHarvestModal from "./RecordHarvestModal.jsx"
@@ -208,24 +209,24 @@ function ProductionPage() {
         {/* Harvest tab */}
         {activeTab === "harvest" && (
           <>
-            <div className="flex flex-col gap-3 md:flex-row md:items-end">
-              <div className="flex-1">
+            <FilterPanel activeCount={[harvestBarangay].filter(Boolean).length}>
+              <div className="w-32">
                 <label className={labelCls}>Year</label>
                 <select className={baseInputClasses} value={harvestYear} onChange={(e) => setHarvestYear(e.target.value)}>
                   {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
                 </select>
               </div>
-              <div className="flex-1">
+              <div className="w-32">
                 <label className={labelCls}>Season</label>
                 <select className={baseInputClasses} value={harvestSeason} onChange={(e) => setHarvestSeason(e.target.value)}>
                   <option value="Dry">Dry</option>
                   <option value="Wet">Wet</option>
                 </select>
               </div>
-              <div className="flex-1">
+              <div className="w-48">
                 <BarangaySelect includeAllOption label="Barangay" value={harvestBarangay} onChange={(e) => setHarvestBarangay(e.target.value)} />
               </div>
-            </div>
+            </FilterPanel>
             <DataTable columns={harvestColumns} data={harvestTableData} isLoading={isLoadingHarvests} />
             {!isLoadingHarvests && harvestTableData.length > 0 && (
               <div className="flex flex-wrap gap-6 rounded-2xl border-2 border-slate-200 bg-slate-50 px-6 py-4 text-sm font-semibold text-slate-900">
@@ -240,14 +241,14 @@ function ProductionPage() {
         {/* Planting tab */}
         {activeTab === "planting" && (
           <>
-            <div className="flex flex-col gap-3 md:flex-row md:items-end">
-              <div className="flex-1">
+            <FilterPanel activeCount={[plantingSeason, plantingBarangay].filter(Boolean).length}>
+              <div className="w-32">
                 <label className={labelCls}>Year</label>
                 <select className={baseInputClasses} value={plantingYear} onChange={(e) => setPlantingYear(e.target.value)}>
                   {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
                 </select>
               </div>
-              <div className="flex-1">
+              <div className="w-32">
                 <label className={labelCls}>Season</label>
                 <select className={baseInputClasses} value={plantingSeason} onChange={(e) => setPlantingSeason(e.target.value)}>
                   <option value="">All</option>
@@ -255,10 +256,10 @@ function ProductionPage() {
                   <option value="Wet">Wet</option>
                 </select>
               </div>
-              <div className="flex-1">
+              <div className="w-48">
                 <BarangaySelect includeAllOption label="Barangay" value={plantingBarangay} onChange={(e) => setPlantingBarangay(e.target.value)} />
               </div>
-            </div>
+            </FilterPanel>
             <DataTable columns={plantingColumns} data={plantingTableData} isLoading={isLoadingPlantings} />
           </>
         )}
@@ -266,15 +267,15 @@ function ProductionPage() {
         {/* Damage tab */}
         {activeTab === "damage" && (
           <>
-            <div className="flex flex-col gap-3 md:flex-row md:items-end">
-              <div className="flex-1">
+            <FilterPanel activeCount={[damageYear, damageSeason, damageBarangay].filter(Boolean).length}>
+              <div className="w-32">
                 <label className={labelCls}>Year</label>
                 <select className={baseInputClasses} value={damageYear} onChange={(e) => setDamageYear(e.target.value)}>
                   <option value="">All</option>
                   {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
                 </select>
               </div>
-              <div className="flex-1">
+              <div className="w-32">
                 <label className={labelCls}>Season</label>
                 <select className={baseInputClasses} value={damageSeason} onChange={(e) => setDamageSeason(e.target.value)}>
                   <option value="">All</option>
@@ -282,10 +283,10 @@ function ProductionPage() {
                   <option value="Wet">Wet</option>
                 </select>
               </div>
-              <div className="flex-1">
+              <div className="w-48">
                 <BarangaySelect includeAllOption label="Barangay" value={damageBarangay} onChange={(e) => setDamageBarangay(e.target.value)} />
               </div>
-            </div>
+            </FilterPanel>
             <DataTable columns={damageColumns} data={damageTableData} isLoading={isLoadingDamages} />
           </>
         )}

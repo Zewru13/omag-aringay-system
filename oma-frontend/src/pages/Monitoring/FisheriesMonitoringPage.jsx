@@ -9,6 +9,7 @@ import Button from '../../components/UI/Button.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
+import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
@@ -607,21 +608,8 @@ export default function FisheriesMonitoringPage() {
       <div className="space-y-5">
         {/* Filters + Actions — not applicable to Stocking & Culture, which has its own filter bar */}
         {subTab !== 'stocking' && (
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="w-48">
-              <BarangaySelect value={barangay} onChange={(e) => setBarangay(e.target.value)} includeAllOption />
-            </div>
-            <div>
-              <select
-                className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-[#1E4620] focus:outline-none"
-                value={year}
-                onChange={(e) => setYear(e.target.value)}
-              >
-                <option value="">All Years</option>
-                {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-              </select>
-            </div>
-            <div className="ml-auto flex gap-2">
+          <>
+            <div className="flex justify-end gap-2">
               {subTab === 'capture' && (
                 <>
                   <Button variant="outline" onClick={() => setShowFisheriesHistory(true)}>
@@ -638,7 +626,21 @@ export default function FisheriesMonitoringPage() {
                 </Button>
               )}
             </div>
-          </div>
+
+            <FilterPanel activeCount={[barangay, year].filter(Boolean).length}>
+              <div className="w-48">
+                <BarangaySelect value={barangay} onChange={(e) => setBarangay(e.target.value)} includeAllOption />
+              </div>
+              <select
+                className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-[#1E4620] focus:outline-none"
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
+              >
+                <option value="">All Years</option>
+                {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </FilterPanel>
+          </>
         )}
 
         <SubTabBar
