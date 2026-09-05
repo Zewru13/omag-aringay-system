@@ -212,13 +212,22 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
 
 class MeUpdateSerializer(serializers.ModelSerializer):
+    # Staff self-service profile popup batch: email and username are now
+    # self-editable here (previously read-only on this endpoint — Admin/
+    # Focal Person could only have staff-management change them via
+    # UserUpdateSerializer). Deliberately independent fields, not mirrored
+    # to each other: LoginView's _resolve_login_identifier() accepts EITHER
+    # as a real, separate login identifier, unlike UserUpdateSerializer's
+    # admin-editing-someone-else convenience default of keeping username in
+    # sync with email.
     class Meta:
         model = User
-        fields = ['full_name', 'contact_number', 'email']
+        fields = ['full_name', 'contact_number', 'email', 'username']
         extra_kwargs = {
             'full_name': {'required': False},
             'contact_number': {'required': False},
             'email': {'required': False},
+            'username': {'required': False},
         }
 
     def validate_contact_number(self, value):
@@ -233,10 +242,27 @@ class MeUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('This email address is already in use.')
         return value
 
-    def update(self, instance, validated_data):
-        if 'email' in validated_data:
-            instance.username = validated_data['email']
-        return super().update(instance, validated_data)
+    def validate_username(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError('Username cannot be blank.')
+        qs = User.objects.filter(username__iexact=value)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError('This username is already in use.')
+        return value
+
+    # NOTE: deliberately NO update() override mirroring username to email.
+    # A pre-existing override here did exactly that (inherited from when
+    # only email was self-editable and username wasn't exposed at all), and
+    # it silently changed username as a side effect of an email-only edit —
+    # caught live while verifying this batch: submitting just a new email
+    # rewrote username to match it even though username was never touched
+    # in the request. That directly contradicts these two being independent
+    # fields (see the class comment above), so it's removed rather than
+    # kept "for compatibility" — the old behavior was never correct once
+    # username became independently visible/editable.
 
 
 class ChangePasswordSerializer(serializers.Serializer):

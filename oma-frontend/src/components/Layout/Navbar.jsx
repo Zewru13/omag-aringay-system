@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { ChevronDown, HelpCircle, History, LogOut, Menu, User } from 'lucide-react'
+import { ChevronDown, HelpCircle, History, LogOut, Menu } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import ConfirmDialog from '../UI/ConfirmDialog.jsx'
@@ -59,11 +59,16 @@ function Navbar({ onToggleSidebar, isCollapsed }) {
         {/* Right: notifications + user dropdown */}
         <div className="flex items-center gap-1">
           <NotificationBell variant="staff" />
-          <div className="relative" ref={dropdownRef}>
-          <button
-            type="button"
-            className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-surface-2 transition-colors"
-            onClick={() => setDropdownOpen((v) => !v)}
+          <div className="relative flex items-center" ref={dropdownRef}>
+          {/* Split button: the chip itself (avatar + name) navigates
+              straight to /profile — clicking a profile chip and landing on
+              a dropdown instead of the profile page is the dead-end this
+              specifically avoids. The chevron is the separate control that
+              still opens the dropdown for Help/Logout (and Activity Log for
+              Admin), since "My Profile" no longer needs to live in there. */}
+          <Link
+            to="/profile"
+            className="flex items-center gap-2 pl-3 pr-1.5 py-1.5 rounded-l-lg hover:bg-surface-2 transition-colors"
           >
             {/* Avatar circle with initial */}
             <div className="w-7 h-7 rounded-full bg-primary-light flex items-center justify-center flex-shrink-0">
@@ -77,6 +82,14 @@ function Navbar({ onToggleSidebar, isCollapsed }) {
               </p>
               <p className="text-[11px] text-text-muted leading-tight">{formatDate(today)}</p>
             </div>
+          </Link>
+          <button
+            type="button"
+            aria-label="Open account menu"
+            aria-expanded={dropdownOpen}
+            className="flex h-8 w-7 items-center justify-center rounded-r-lg hover:bg-surface-2 transition-colors"
+            onClick={() => setDropdownOpen((v) => !v)}
+          >
             <ChevronDown size={14} className="text-text-muted" />
           </button>
 
@@ -94,15 +107,6 @@ function Navbar({ onToggleSidebar, isCollapsed }) {
                   <p className="text-[11px] text-text-muted leading-tight capitalize">{user?.role?.toLowerCase()}</p>
                 </div>
               </div>
-
-              <Link
-                to="/profile"
-                className="flex items-center gap-2 px-3 py-2 rounded-[var(--radius-sm)] text-[13px] text-text-primary hover:bg-surface-2 transition-colors"
-                onClick={() => setDropdownOpen(false)}
-              >
-                <User size={14} className="text-text-muted" aria-hidden="true" />
-                My Profile
-              </Link>
 
               {user?.role === 'ADMIN' && (
                 <Link

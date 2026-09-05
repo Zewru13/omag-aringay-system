@@ -299,6 +299,25 @@ class MeView(APIView):
         return Response(UserSerializer(request.user).data)
 
     def patch(self, request):
+        # Staff self-service profile popup batch: changing email or
+        # username now goes through this same-account endpoint (previously
+        # both were read-only here), so a lightweight safeguard is added —
+        # confirm the caller's current password before either takes effect.
+        # Not required for full_name/contact_number, which carry no
+        # account-identity or verification/reset consequence.
+        if 'email' in request.data or 'username' in request.data:
+            current_password = request.data.get('current_password')
+            if not current_password:
+                return Response(
+                    {'current_password': ['Current password is required to change email or username.']},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if not request.user.check_password(current_password):
+                return Response(
+                    {'current_password': ['Current password is incorrect.']},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         serializer = MeUpdateSerializer(
             request.user,
             data=request.data,
