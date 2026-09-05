@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronRight, ChevronLeft, HelpCircle, LogOut, User } from 'lucide-react'
+import NotificationBell from '../../components/Layout/NotificationBell.jsx'
 import { labels } from './labels.js'
 
 // ─── Desktop shell primitives (UI Base Desktop POV) ───────────────────────
@@ -188,7 +189,14 @@ export function DesktopTopbar({ theme, title, subtitle, onBack, greetingName, me
           )}
         </div>
       </div>
-      <DesktopAccountMenu theme={theme} {...account} />
+      {/* Farmer/Fisherfolk parity batch: this desktop topbar previously had
+          no bell at all. `light` is the cz-* dark-on-light treatment this
+          component's own bg-cz-surface (white) background calls for —
+          NotificationBell's 'dark' default would render white-on-white. */}
+      <div className="flex items-center gap-2">
+        <NotificationBell variant="light" />
+        <DesktopAccountMenu theme={theme} {...account} />
+      </div>
     </header>
   )
 }

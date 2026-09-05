@@ -1,4 +1,5 @@
 import { ChevronRight, LogOut, Lock, Pencil, RefreshCw } from 'lucide-react'
+import NotificationBell from '../../components/Layout/NotificationBell.jsx'
 import { labels } from './labels.js'
 
 // Shared primitives for the citizen self-service screens, built to the
@@ -200,14 +201,21 @@ export function CitizenHomeHeader({ theme, name, metaLine, onLogout }) {
         <span className={`text-[12px] tracking-[0.04em] ${theme.brand}`}>
           {labels.header.appName}
         </span>
-        <button
-          type="button"
-          onClick={onLogout}
-          aria-label={labels.header.logOut}
-          className={`-m-[13px] flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${theme.iconBtn} transition-colors hover:bg-white/10 lg:hidden`}
-        >
-          <LogOut size={18} aria-hidden="true" />
-        </button>
+        {/* Farmer/Fisherfolk parity batch: previously excluded from having a
+            bell at all — Organization and Staff already had one. Grouped
+            with the logout button the same way Organization's header groups
+            its bell next to the account chip. */}
+        <div className="-m-[13px] flex items-center gap-1 lg:hidden">
+          <NotificationBell />
+          <button
+            type="button"
+            onClick={onLogout}
+            aria-label={labels.header.logOut}
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${theme.iconBtn} transition-colors hover:bg-white/10`}
+          >
+            <LogOut size={18} aria-hidden="true" />
+          </button>
+        </div>
       </div>
 
       {/* >=1024px: greeting+name left, identity right. Below that this is a
@@ -220,14 +228,17 @@ export function CitizenHomeHeader({ theme, name, metaLine, onLogout }) {
         </div>
         <div className="flex items-end gap-3">
           <p className={`mt-1 text-[12px] lg:mt-0 lg:text-right ${theme.meta}`}>{metaLine}</p>
-          <button
-            type="button"
-            onClick={onLogout}
-            aria-label={labels.header.logOut}
-            className={`hidden shrink-0 items-center justify-center rounded-lg ${theme.iconBtn} transition-colors hover:bg-white/10 lg:-mb-1 lg:flex lg:h-11 lg:w-11`}
-          >
-            <LogOut size={18} aria-hidden="true" />
-          </button>
+          <div className="hidden items-center gap-1 lg:-mb-1 lg:flex">
+            <NotificationBell />
+            <button
+              type="button"
+              onClick={onLogout}
+              aria-label={labels.header.logOut}
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${theme.iconBtn} transition-colors hover:bg-white/10`}
+            >
+              <LogOut size={18} aria-hidden="true" />
+            </button>
+          </div>
         </div>
       </div>
     </header>
@@ -324,6 +335,7 @@ export function CitizenSubHeader({ theme, title, subtitle, onBack }) {
         <p className={`truncate text-[16px] font-medium ${theme.name}`}>{title}</p>
         {subtitle && <p className={`truncate text-[12px] ${theme.meta}`}>{subtitle}</p>}
       </div>
+      <NotificationBell />
     </header>
   )
 }
