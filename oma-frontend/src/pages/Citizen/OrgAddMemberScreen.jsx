@@ -1,34 +1,29 @@
 import { useState } from 'react'
-import { AlertTriangle, Search } from 'lucide-react'
+import { AlertTriangle, Info, Search } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import OrgAvatar from './OrgAvatar.jsx'
 import { labels } from './labels.js'
-import { OrgScreen } from './OrgDashboardParts.jsx'
+import { OrgPageHeader, OrgShell } from './OrgDashboardParts.jsx'
+import { ARINGAY_BARANGAYS } from '../../constants/barangays.js'
 
-// Batch 2: Add Member. Search -> select -> add, against Batch 1's
-// domain-scoped candidate endpoint (2-char minimum, 20-row cap, name /
-// barangay / current-org only).
-//
-// REASSIGNMENT: a Farmers Organization membership is a single-valued FK,
-// so adding someone who already belongs elsewhere REMOVES them from that
-// other organization. The warning is raised here, from the search result's
-// own current_organization_name, so the user sees it before anything is
-// sent. The server's 409 is still handled below as a backstop — the two
-// checks are independent, and only the server's is authoritative if the
-// person's membership changed between the search and the submit.
-//
-// Fisherfolk Organizations use a real join table, so multi-membership is
-// legitimate and there is no warning branch at all for them (their
-// domain's candidateCurrentOrgName returns null by construction).
+// Organization Reference rebuild — Magdagdag ng Kasapi (image4/15): Pangalan
+// input + Barangay dropdown + an explicit "Hanapin" button (search-on-
+// click, not live/incremental search), and the blue info notice about
+// single-org membership. Same search endpoint, reassignment warning, and
+// 409 backstop as before — only the search interaction changed.
 
 const MIN_SEARCH_LENGTH = 2
+const ALL_BARANGAYS = 'Lahat ng Barangay'
 
 export default function OrgAddMemberScreen({
-  domain, orgId, orgName, existingMemberIds, onBack, onSuccess,
+  domain, orgId, orgName, existingMemberIds, onBack, onNav, onSuccess,
 }) {
   const { showToast } = useToast()
+  const theme = domain.dashboardTheme
   const [term, setTerm] = useState('')
+  const [barangay, setBarangay] = useState('')
+  const [hasSearched, setHasSearched] = useState(false)
   const [results, setResults] = useState([])
   const [isSearching, setIsSearching] = useState(false)
   const [pendingReassign, setPendingReassign] = useState(null)
@@ -37,19 +32,21 @@ export default function OrgAddMemberScreen({
 
   const memberIdSet = new Set(existingMemberIds || [])
 
-  const runSearch = async (value) => {
-    setTerm(value)
+  const runSearch = async (e) => {
+    e.preventDefault()
     setErrorMessage('')
-    if (value.trim().length < MIN_SEARCH_LENGTH) {
+    setHasSearched(true)
+    if (term.trim().length < MIN_SEARCH_LENGTH) {
       setResults([])
       return
     }
     setIsSearching(true)
     try {
       const r = await api.get(domain.addCandidateSearchUrl(orgId), {
-        params: { search: value.trim() },
+        params: { search: term.trim() },
       })
-      setResults(Array.isArray(r.data) ? r.data : (r.data?.results || []))
+      const rows = Array.isArray(r.data) ? r.data : (r.data?.results || [])
+      setResults(barangay ? rows.filter((c) => c.barangay === barangay) : rows)
     } catch {
       setResults([])
       setErrorMessage(labels.orgAddMember.addFailed)
@@ -97,39 +94,65 @@ export default function OrgAddMemberScreen({
     submitAdd(candidate, false)
   }
 
-  const tooShort = term.trim().length > 0 && term.trim().length < MIN_SEARCH_LENGTH
+  const fieldBox = `min-h-[46px] w-full rounded-[10px] border-[0.5px] border-cz-border-strong bg-white px-3.5 text-[14px] text-cz-text outline-none ${theme.focusBorder}`
+  const fieldLabel = 'mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-cz-text-2'
 
   return (
-    <OrgScreen title={labels.orgAddMember.title} chipLabel={orgName} onBack={onBack} theme={domain.theme}>
-      {/* image4's search-first empty state: one white pill-radius field on
-          the panel ground, then a centred muted sentence and nothing else
-          until the search actually returns something. */}
-      <div className="flex items-center gap-2.5 rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface px-3.5 shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-        <Search size={17} className="shrink-0 text-cz-text-muted" aria-hidden="true" />
-        <input
-          type="text"
-          value={term}
-          onChange={(e) => runSearch(e.target.value)}
-          placeholder={labels.orgAddMember.searchPlaceholder}
-          aria-label={labels.orgAddMember.searchPlaceholder}
-          className="min-h-[46px] w-full bg-transparent text-[14px] text-cz-text outline-none placeholder:text-cz-text-muted"
-        />
-      </div>
+    <OrgShell theme={theme} chipLabel={orgName} active="home" onNav={(key) => (key === 'home' ? onBack() : onNav(key))} wide={false}>
+      <OrgPageHeader title={labels.orgAddMember.title} subtitle={labels.orgAddMember.hint(domain.registryName)} onBack={onBack} />
 
-      <div className="mt-4 space-y-3">
-        {term.trim().length === 0 && (
-          <p className="px-6 pt-2 text-center text-[13px] leading-[1.55] text-cz-text-2">
-            {labels.orgAddMember.hint(domain.personLabel.toLowerCase())}
+      <form onSubmit={runSearch} className="max-w-lg space-y-4">
+        <div>
+          <label className={fieldLabel} htmlFor="add-member-name">{labels.orgAddMember.nameFieldLabel}</label>
+          <div className="relative">
+            <Search size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-cz-text-muted" aria-hidden="true" />
+            <input
+              id="add-member-name"
+              type="text"
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+              placeholder={labels.orgAddMember.searchPlaceholder}
+              className={`${fieldBox} pl-10`}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className={fieldLabel} htmlFor="add-member-barangay">{labels.orgAddMember.barangayFieldLabel}</label>
+          <select
+            id="add-member-barangay"
+            className={fieldBox}
+            value={barangay}
+            onChange={(e) => setBarangay(e.target.value)}
+          >
+            <option value="">{ALL_BARANGAYS}</option>
+            {ARINGAY_BARANGAYS.map((b) => <option key={b} value={b}>{b}</option>)}
+          </select>
+        </div>
+
+        <button
+          type="submit"
+          className={`flex min-h-[46px] w-full items-center justify-center rounded-[10px] text-[14px] font-semibold text-white transition-opacity hover:opacity-90 ${theme.solidBtn}`}
+        >
+          {labels.orgAddMember.searchButton}
+        </button>
+
+        <div className="flex gap-2.5 rounded-[10px] border-[0.5px] border-cz-tile-blue-fg/30 bg-cz-tile-blue-bg px-3.5 py-3">
+          <Info size={16} className="mt-px shrink-0 text-cz-tile-blue-fg" aria-hidden="true" />
+          <p className="text-[12.5px] leading-[1.5] text-cz-tile-blue-fg">
+            <span className="font-semibold">{labels.orgAddMember.noticeLabel}:</span>{' '}
+            {domain.key === 'farmers_org' ? labels.orgAddMember.noticeFarmers : labels.orgAddMember.noticeFisherfolk}
           </p>
+        </div>
+      </form>
+
+      <div className="mt-5 max-w-lg space-y-3">
+        {isSearching && <p className="text-[13px] italic text-cz-text-2">{labels.orgAddMember.searching}</p>}
+        {!isSearching && hasSearched && term.trim().length < MIN_SEARCH_LENGTH && (
+          <p className="text-[13px] text-cz-text-2">{labels.orgAddMember.minChars}</p>
         )}
-        {tooShort && (
-          <p className="px-6 pt-2 text-center text-[13px] text-cz-text-2">{labels.orgAddMember.minChars}</p>
-        )}
-        {isSearching && (
-          <p className="text-[13px] italic text-cz-text-2">{labels.orgAddMember.searching}</p>
-        )}
-        {!isSearching && !tooShort && term.trim().length >= MIN_SEARCH_LENGTH && results.length === 0 && (
-          <p className="rounded-[12px] border-[0.5px] border-cz-border-strong bg-cz-surface p-6 text-center text-[13px] italic text-cz-text-muted">
+        {!isSearching && hasSearched && term.trim().length >= MIN_SEARCH_LENGTH && results.length === 0 && (
+          <p className="rounded-[12px] border-[0.5px] border-cz-border-strong bg-white p-6 text-center text-[13px] italic text-cz-text-muted">
             {labels.orgAddMember.noResults}
           </p>
         )}
@@ -141,16 +164,14 @@ export default function OrgAddMemberScreen({
         )}
 
         {results.length > 0 && (
-          <ul className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+          <ul className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
             {results.map((cand, i) => {
               const already = memberIdSet.has(cand.id)
               const membershipNote = domain.candidateMembershipNote(cand)
               return (
                 <li
                   key={cand.id}
-                  className={`flex items-center gap-3 px-4 py-3 ${
-                    i === results.length - 1 ? '' : 'border-b-[0.5px] border-cz-border'
-                  }`}
+                  className={`flex items-center gap-3 px-4 py-3 ${i === results.length - 1 ? '' : 'border-b-[0.5px] border-cz-border'}`}
                 >
                   <OrgAvatar name={cand.full_name} id={cand.id} size={38} />
                   <div className="min-w-0 flex-1">
@@ -169,7 +190,7 @@ export default function OrgAddMemberScreen({
                       type="button"
                       disabled={busyId === cand.id}
                       onClick={() => handleAdd(cand)}
-                      className={`min-h-[38px] shrink-0 rounded-[9px] ${domain.theme.header} px-3.5 text-white transition-opacity hover:opacity-90 disabled:opacity-50`}
+                      className={`min-h-[38px] shrink-0 rounded-[9px] px-3.5 text-white transition-opacity hover:opacity-90 disabled:opacity-50 ${theme.solidBtn}`}
                     >
                       <span className="text-[13px] font-semibold">{labels.orgAddMember.addButton}</span>
                     </button>
@@ -187,7 +208,7 @@ export default function OrgAddMemberScreen({
 
       {pendingReassign && (
         <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center">
-          <div className="w-full max-w-[440px] rounded-t-[16px] bg-cz-surface p-5 sm:rounded-[16px]">
+          <div className="w-full max-w-[440px] rounded-t-[16px] bg-white p-5 sm:rounded-[16px]">
             <div className="flex gap-2">
               <AlertTriangle size={18} className="mt-px shrink-0 text-cz-warn-accent" aria-hidden="true" />
               <div>
@@ -207,7 +228,7 @@ export default function OrgAddMemberScreen({
               type="button"
               disabled={busyId === pendingReassign.candidate.id}
               onClick={() => submitAdd(pendingReassign.candidate, true)}
-              className={`mt-4 flex min-h-[46px] w-full items-center justify-center rounded-[10px] ${domain.theme.header} text-white transition-opacity hover:opacity-90 disabled:opacity-50`}
+              className={`mt-4 flex min-h-[46px] w-full items-center justify-center rounded-[10px] text-white transition-opacity hover:opacity-90 disabled:opacity-50 ${theme.solidBtn}`}
             >
               <span className="text-[15px] font-semibold">{labels.orgAddMember.reassignConfirm}</span>
             </button>
@@ -221,6 +242,6 @@ export default function OrgAddMemberScreen({
           </div>
         </div>
       )}
-    </OrgScreen>
+    </OrgShell>
   )
 }

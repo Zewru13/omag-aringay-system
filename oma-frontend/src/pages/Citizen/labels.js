@@ -1112,7 +1112,17 @@ export const labels = {
   // Reference images 5-8. Copy is the mockup's own, verbatim where it is
   // legible, including the English technical terms it mixes in.
   orgReportAssistance: {
-    title: 'I-report ang Tulong',
+    title: 'Mag-report ng Tulong',
+    chooserSubtitle: 'Piliin kung para sa isang miyembro o sa buong organisasyon.',
+    chooseMemberTitle: 'Para sa Isang Miyembro',
+    chooseMemberBody: 'I-log ang tulong na natanggap ng isang partikular na kasapi.',
+    chooseOrgTitle: 'I-distribute sa Buong Organisasyon',
+    chooseOrgBody: (n) => `I-distribute ang tulong sa lahat ng ${n} kasapi ng organisasyon.`,
+    memberFormTitle: 'Para sa Isang Miyembro',
+    memberFormSubtitle: 'Punan ang detalye ng tulong para sa isang kasapi.',
+    orgFormTitle: 'I-distribute sa Organisasyon',
+    memberFieldLabel: 'KASAPI',
+    memberPlaceholder: 'Pumili ng kasapi...',
     typeHeading: 'URI NG TULONG',
     quantity: 'DAMI',
     unit: 'YUNIT',
@@ -1136,12 +1146,16 @@ export const labels = {
 
   // Reference image9.
   orgReportHistory: {
-    title: 'History ng Reporting',
+    title: 'Kasaysayan ng Reporting',
+    countLine: (n) => `${n} distribusyon`,
     latest: 'PINAKABAGO',
     perMember: (amount) => `${amount} bawat kasapi`,
-    givenTo: (n) => `Ibinigay sa ${n} kasapi`,
+    givenTo: (n) => `${n} kasapi`,
     reportedBy: (name) => `I-report ni ${name}`,
     viewRecipients: (n) => `Tingnan ang ${n} tatanggap`,
+    showRecipients: 'Tatanggap',
+    hideRecipients: 'Itago',
+    recipientsHeading: (n) => `MGA TATANGGAP (${n})`,
     notReceivedReason: (reason) => `Dahilan: ${reason}`,
   },
 
@@ -1436,6 +1450,11 @@ export const labels = {
     // "registered farmer/fisherfolk"), which are how the mockup reads and
     // how these terms are actually said locally.
     appName: 'OMAG ARINGAY',
+    // Mixed-case, matching the Organization Reference rebuild's sidebar/top
+    // bar exactly (image1 etc. all show "OMAg Aringay", not the all-caps
+    // `appName` above) — a separate key rather than editing `appName`
+    // itself, since OrgInfoScreen.jsx's untouched old chrome reads that one.
+    appNameDisplay: 'OMAg Aringay',
     dashboardTitle: 'Dashboard ng Organisasyon',
     typeBadgeFarmers: 'Farmers Organization',
     typeBadgeFisherfolk: 'Fisherfolk Organization',
@@ -1443,6 +1462,9 @@ export const labels = {
 
     statMembers: 'KASAPI',
     statPositions: 'POSISYON',
+    viewMembers: 'Tingnan >',
+    vacantCount: (n) => `${n} bakante`,
+    officerRosterCardTitle: 'Mga Opisyal',
 
     vacancyTitle: 'May bakanteng posisyon',
     vacancyBody: (positions) => `${positions} — kailangang italaga`,
@@ -1462,6 +1484,7 @@ export const labels = {
 
     membersHeading: 'Mga Kasapi',
     membersCount: (n) => `MGA KASAPI — ${n} TOTAL`,
+    membersCountLine: (total, shown) => (total === shown ? `${total} kasapi · ${shown} nakita` : `${total} kasapi · ${shown} nakita`),
     membersEmpty: 'Wala pang kasapi ang organisasyong ito.',
     membersLoading: 'Kinukuha ang mga kasapi...',
     loadFailed: 'Hindi makuha ang datos ng organisasyon.',
@@ -1489,15 +1512,26 @@ export const labels = {
   // ── Batch 2: Add Member ────────────────────────────────────────────────
   orgAddMember: {
     title: 'Magdagdag ng Kasapi',
+    nameFieldLabel: 'PANGALAN',
+    barangayFieldLabel: 'BARANGAY',
+    searchButton: 'Hanapin',
+    noticeLabel: 'Paalala',
+    // Genuinely different rules per domain, not just different wording:
+    // a Farmer is single-org (adding them elsewhere reassigns them, hence
+    // the warning), a Fisherfolk can belong to several organizations at
+    // once — see orgDomainConfig.js's candidateCurrentOrgName/
+    // candidateMembershipNote, which already encode this same split.
+    noticeFarmers: 'Ang bawat kasapi ay maaari lang maging miyembro ng isang Farmers Organization. Kung miyembro na sila ng ibang organisasyon, ililipat sila.',
+    noticeFisherfolk: 'Maaaring maging kasapi ang isang mangingisda ng higit sa isang Fisherfolk Organization nang sabay.',
     // image4's placeholder reads "pangalan, RSBSA number, o barangay". The
     // search endpoint deliberately does NOT match on RSBSA/FishR/LGU numbers
     // (unnecessary disclosure for this use case, decided in Batch 1), so the
     // placeholder promises only what the endpoint actually does.
-    searchPlaceholder: 'Maghanap ng pangalan o barangay',
+    searchPlaceholder: 'Pangalan ng kasapi...',
     // The 2-character minimum is a real server rule, not a UI nicety — the
     // endpoint returns nothing below it. Say so rather than showing an
     // empty-looking result.
-    hint: (personLabelLower) => `Maghanap ng pangalan ng rehistradong ${personLabelLower} para idagdag sa organisasyon.`,
+    hint: (registryName) => `Hanapin muna ang kasapi sa ${registryName} registry bago idagdag.`,
     minChars: 'Magpasok po ng hindi bababa sa 2 letra.',
     searching: 'Naghahanap...',
     noResults: 'Walang nakitang tugma.',
@@ -1544,8 +1578,12 @@ export const labels = {
 
   // ── Batch 2: Assign Officer ────────────────────────────────────────────
   orgAssignOfficer: {
-    title: 'Italaga ang Opisyal',
-    pickPosition: 'Pumili ng posisyon para italaga:',
+    title: 'Mag-assign ng Opisyal',
+    pickPosition: 'Pumili ng posisyon at ng kasaping ito-itakda. Mga miyembro lamang ng inyong organisasyon ang maaaring italaga.',
+    positionFieldLabel: 'POSISYON',
+    positionPlaceholder: 'Pumili ng posisyon...',
+    memberFieldLabel: 'KASAPI',
+    memberPlaceholder: 'Pumili ng kasapi...',
     pickMember: 'Pumili ng kasapi para sa posisyong ito:',
     currentHolder: (name) => `Ngayon: ${name}`,
     positionHeld: (name) => `Hawak pa ni ${name} ang posisyong ito. Kailangan munang tapusin ng staff ang kanilang termino bago magtalaga ng bago.`,

@@ -8,6 +8,173 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import OrgAvatar from './OrgAvatar.jsx'
 import { labels } from './labels.js'
 
+// ═══════════════════════════════════════════════════════════════════════
+// ORGANIZATION REFERENCE REBUILD — new shell (OrgShell/OrgSidebar/OrgTopBar
+// below), used by every rebuilt screen (Home, Members, Assign Officer, Add
+// Member, Report Assistance, History) plus OrgHelpScreen/
+// OrgOfficerHistoryScreen for chrome consistency (their own content is
+// unchanged — the reference doesn't show either, so only their wrapper
+// moved). Deliberately NOT a modification of OrgScreen/OrgAppBar/OrgNavRail
+// below — those stay byte-for-byte as they were because OrgInfoScreen.jsx
+// depends on them and is explicitly out of scope for this batch.
+//
+// Structurally different from the old shell on purpose, matching the
+// reference exactly rather than reskinning the old one:
+//   - Sidebar is plain white, always expanded, no collapse toggle (the
+//     reference never shows one — below 640px the existing CitizenTabBar
+//     already covers navigation, so there is nothing to collapse INTO).
+//   - The colored top bar is STATIC ("OMAg Aringay", always) — it never
+//     carries a page title or back button. Per-page title + "< Bumalik"
+//     back-link live in the plain content area as ordinary dark text,
+//     exactly where the reference draws them (image3/4/6/7 all show this).
+// ═══════════════════════════════════════════════════════════════════════
+
+const ORG_SIDEBAR_ITEMS = [
+  { key: 'home', labelKey: 'home', icon: Home },
+  { key: 'history', labelKey: 'reportingHistory', icon: FileText },
+  { key: 'orgInfo', labelKey: 'orgInfoRow', icon: Info },
+]
+
+export function OrgSidebar({ theme, active, onNav }) {
+  return (
+    <nav
+      className="sticky top-0 hidden h-screen w-[220px] shrink-0 flex-col border-r-[0.5px] border-cz-border bg-white sm:flex"
+      aria-label={labels.orgHome.navRailLabel}
+    >
+      <div className="flex h-14 items-center border-b-[0.5px] border-cz-border px-4">
+        <p className={`truncate text-[14px] font-bold ${theme.accentText}`}>{labels.orgHome.appNameDisplay}</p>
+      </div>
+      <ul className="space-y-1 px-3 py-3">
+        {ORG_SIDEBAR_ITEMS.map((item) => {
+          const isActive = item.key === active
+          const Icon = item.icon
+          const label = item.labelKey === 'home' ? labels.tabBar.home
+            : item.labelKey === 'reportingHistory' ? labels.orgHome.reportingHistory
+              : labels.orgHome.orgInfoRow
+          return (
+            <li key={item.key}>
+              <button
+                type="button"
+                onClick={() => onNav(item.key)}
+                aria-current={isActive ? 'page' : undefined}
+                className={`flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-left text-[14px] transition-colors ${
+                  isActive ? `${theme.activeNavBg} font-semibold ${theme.activeNavText}` : 'text-cz-text-2 hover:bg-cz-page'
+                }`}
+              >
+                <Icon size={18} className="shrink-0" aria-hidden="true" />
+                <span className="truncate">{label}</span>
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </nav>
+  )
+}
+
+// Static app-title bar — never carries a page title, matching every one of
+// the reference's frames (image1 through image24 all show the identical
+// "OMAg Aringay" header regardless of which screen is open underneath it).
+export function OrgTopBar({ theme, chipLabel, onNav }) {
+  return (
+    <header className={`flex h-14 shrink-0 items-center justify-between px-4 sm:px-6 ${theme.header}`}>
+      <p className="truncate text-[15px] font-bold text-white">{labels.orgHome.appNameDisplay}</p>
+      <div className="flex items-center gap-1.5">
+        <NotificationBell />
+        {onNav ? (
+          <OrgAccountMenu chipLabel={chipLabel} onNav={onNav} />
+        ) : (
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20" aria-hidden="true">
+            <User size={15} className="text-white" />
+          </span>
+        )}
+      </div>
+    </header>
+  )
+}
+
+// The screen shell every rebuilt Organization screen mounts through — the
+// nav rail (>=640px) + static top bar + fluid content column + mobile tab
+// bar. `active` drives the sidebar highlight; `onNav` navigates between the
+// three sidebar destinations (Home is always reached via the dashboard's
+// own `view` state, so onNav here only ever needs to cover that one case
+// from a sub-screen).
+export function OrgShell({ theme, chipLabel, active, onNav, tabBar, wide = false, children }) {
+  return (
+    <div className="flex min-h-screen w-full bg-[#F6F5F1]">
+      <OrgSidebar theme={theme} active={active} onNav={onNav} />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <OrgTopBar theme={theme} chipLabel={chipLabel} onNav={onNav} />
+        <main className={`mx-auto w-full flex-1 ${wide ? 'max-w-[1240px]' : 'max-w-[820px]'} px-4 pb-[calc(72px+env(safe-area-inset-bottom))] pt-5 sm:px-6 sm:pb-10`}>
+          {children}
+        </main>
+      </div>
+      {tabBar}
+    </div>
+  )
+}
+
+// A page-level "< Bumalik" back-link + title, in plain dark text directly
+// in the content area — exactly where the reference draws it (never inside
+// the colored bar). `onBack` is optional: the Home dashboard itself has no
+// back-link, only its sub-screens do.
+export function OrgPageHeader({ title, subtitle, onBack }) {
+  return (
+    <div className="mb-4">
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="mb-3 flex items-center gap-1 text-[13px] font-medium text-cz-text-2 transition-colors hover:text-cz-text"
+        >
+          <ChevronRight size={15} className="rotate-180" aria-hidden="true" />
+          {labels.orgHome.backToDashboard}
+        </button>
+      )}
+      <h1 className="text-[22px] font-bold text-cz-text">{title}</h1>
+      {subtitle && <p className="mt-0.5 text-[13px] text-cz-text-2">{subtitle}</p>}
+    </div>
+  )
+}
+
+// ── New stat card (Kasapi / Posisyon) — two of these sit side-by-side on
+// the reference's Home, replacing the old merged hero card's inline stats.
+export function OrgStatCard({ value, label, sub, isLoading, onClick, tone }) {
+  const Comp = onClick ? 'button' : 'div'
+  return (
+    <Comp
+      type={onClick ? 'button' : undefined}
+      onClick={onClick}
+      className={`rounded-[14px] border-[0.5px] p-4 text-left transition-colors ${
+        tone === 'warn' ? 'border-cz-alert-accent/40 bg-cz-alert-bg' : 'border-cz-border bg-white'
+      } ${onClick ? 'hover:bg-cz-page' : ''}`}
+    >
+      <p className={`text-[26px] font-bold leading-none tabular-nums ${tone === 'warn' ? 'text-cz-alert-title' : 'text-cz-text'}`}>
+        {isLoading ? '—' : value}
+      </p>
+      <p className="mt-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-cz-text-2">{label}</p>
+      {sub && <p className={`mt-0.5 text-[12px] font-medium ${tone === 'warn' ? 'text-cz-alert-accent' : 'text-cz-text-2'}`}>{sub}</p>}
+    </Comp>
+  )
+}
+
+// ── Quick-action square tile — "Mabilis na Aksyon" (image1/image14/16),
+// icon centered on top, label below, unlike the old horizontal ActionRow.
+export function OrgActionTile({ icon: Icon, title, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex flex-col items-center gap-2 rounded-[12px] border-[0.5px] border-cz-border bg-white p-4 text-center transition-colors hover:bg-cz-page"
+    >
+      <span className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-cz-tile-blue-bg text-cz-tile-blue-fg" aria-hidden="true">
+        <Icon size={19} />
+      </span>
+      <span className="text-[13px] font-semibold leading-[1.25] text-cz-text">{title}</span>
+    </button>
+  )
+}
+
 // Batch: presentational pieces of the Organization dashboard, extracted so
 // the screen file stays readable and so the same pieces can be reused by the
 // Organization Info screen.

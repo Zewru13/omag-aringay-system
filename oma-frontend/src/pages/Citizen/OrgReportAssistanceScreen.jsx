@@ -3,33 +3,31 @@ import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import { labels } from './labels.js'
-import { OrgScreen, OrgSectionLabel } from './OrgDashboardParts.jsx'
-import OrgAvatar from './OrgAvatar.jsx'
+import { OrgPageHeader, OrgShell } from './OrgDashboardParts.jsx'
 import { todayISO } from '../../utils/localDate.js'
 
-// Reference images 5-8, built as ONE component with conditional rendering.
-// The four drawn states are not four screens — they are this screen with a
-// different assistance type selected:
+// Organization Reference rebuild — Mag-report ng Tulong (image5-7, 17, 19,
+// 20). This screen now consolidates what used to be THREE separate code
+// paths (this screen's own org-wide-only form, CitizenReportAssistanceModal
+// via the Members screen's Gift icon, and MyOrgReportingSection's inline
+// search-and-report section) into one real entry point: a chooser
+// ("Para sa Isang Miyembro" / "I-distribute sa Buong Organisasyon"), then
+// one focused form per choice.
 //
-//   image8  Fertilizer      -> DAMI + YUNIT, unit list "bags (50 kg)" ...
-//   image7  Equipment       -> DAMI + YUNIT, unit list "unit / set / piece"
-//   image5  Training        -> DAMI + YUNIT, unit list "session / day"
-//   image6  Cash Assistance -> HALAGA BAWAT KASAPI, no unit, live preview
+// FIELDS: the reference's own screenshots of both forms show only a type
+// dropdown and a date — but BeneficiaryRecord actually stores quantity,
+// source agency, description, and season too (real, backend-required
+// columns), same as this screen's previous version. Per explicit
+// confirmation, those stay; only the STEP STRUCTURE was rebuilt to match
+// the reference's chooser -> focused-form flow.
 //
-// The type list is the DOMAIN'S REAL ONE from orgDomainConfig, not the
-// mockup's: a Fisherfolk Organization offers Fishing Gear / Boat-Vessel /
-// Fingerlings-Seeds / Feed, which the mockup (drawn for a farmers org) never
-// shows. Seven/eight types where the mockup draws five.
-//
-// RECIPIENTS: option (b), as agreed. The mockup draws a checkbox per member;
-// real per-recipient subsets are a backend change that has not been made, so
-// rather than draw checkboxes that would silently do nothing, this renders
-// the select-all row (which IS what the endpoint does) and lists the members
-// read-only so the user can still see exactly who is included.
-//
-// The submit path is untouched: the same dry_run preview -> mandatory
-// confirmation -> real POST against domain.distributeUrl that Batch 12
-// shipped. Only its presentation changed.
+// REMOVED CAPABILITY, flagged rather than silently dropped: the old
+// MyOrgReportingSection also had an inline "edit a past entry" action
+// (reusing CitizenReportAssistanceModal in edit mode). The reference's own
+// Kasaysayan ng Reporting screen (OrgReportHistoryScreen.jsx) has no edit
+// affordance anywhere, and this consolidation removes the only UI path
+// that reached it. The backend PATCH endpoint (domain.detailUrl) still
+// exists; there is simply no button wired to it anymore.
 
 const SOURCE_AGENCY_OPTIONS = [
   'LGU - Aringay',
@@ -39,10 +37,10 @@ const SOURCE_AGENCY_OPTIONS = [
   'Non-Government Organization (NGO)',
 ]
 
-// Per-type unit lists. These are presentation, not backend choices — the
-// record's `quantity` is a free-text CharField, and the chosen unit is
-// composed into it ("2 bags (50 kg)"), which is exactly the shape image9's
-// history entries read back in.
+// Per-type unit lists. Presentation only — quantity is a free-text
+// CharField server-side; the chosen unit is composed into it
+// ("2 bags (50 kg)"), which is exactly the shape the history screen reads
+// back in.
 const UNIT_OPTIONS = {
   Fertilizer: ['bags (50 kg)', 'kg', 'sako'],
   Seeds: ['kg', 'bags', 'packs'],
@@ -58,57 +56,225 @@ const unitsFor = (type) => UNIT_OPTIONS[type] || DEFAULT_UNITS
 
 const L = labels.distributeAssistance
 const R = labels.orgReportAssistance
+const RA = labels.reportAssistance
 
 const FIELD_LABEL = 'mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-cz-text-2'
-// Base only — the focus-border colour is domain-specific (Field green vs
-// Tide navy), so `fieldBox` below appends domain.theme.focusBorder per render.
-const FIELD_BOX_BASE = 'min-h-[46px] w-full rounded-[10px] border-[0.5px] border-cz-border-strong bg-cz-surface px-3.5 text-[14px] text-cz-text outline-none'
-const CARD = 'rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)]'
+const CARD = 'rounded-[12px] border-[0.5px] border-cz-border bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)]'
+
+function AssistanceTypeAndAmountFields({ theme, domain, form, set, fieldBox }) {
+  const isCash = form.assistance_type === 'Cash Assistance'
+  const isOtherType = form.assistance_type === 'Other'
+  return (
+    <>
+      <div>
+        <p className={FIELD_LABEL}>{R.typeHeading}</p>
+        <div className="flex flex-wrap gap-2">
+          {domain.assistanceTypeOptions.map((type) => {
+            const active = form.assistance_type === type
+            return (
+              <button
+                key={type}
+                type="button"
+                aria-pressed={active}
+                onClick={() => set('typeChange', type)}
+                className={`min-h-[42px] rounded-[10px] px-4 text-[14px] font-semibold transition-colors ${
+                  active ? `${theme.solidBtn}` : 'border-[0.5px] border-cz-border bg-white text-cz-text hover:bg-[#F6F5F1]'
+                }`}
+              >
+                {type}
+              </button>
+            )
+          })}
+        </div>
+        {isOtherType && (
+          <input
+            type="text"
+            value={form.assistance_type_other}
+            onChange={(e) => set('assistance_type_other', e.target.value)}
+            placeholder={R.otherTypePlaceholder}
+            className={`${fieldBox} mt-3`}
+          />
+        )}
+      </div>
+
+      <div className={CARD}>
+        {isCash ? (
+          <>
+            <label className={FIELD_LABEL} htmlFor="cash-amount">{R.cashPerMember}</label>
+            <div className={`flex items-center gap-2 rounded-[10px] border-[0.5px] border-cz-border-strong bg-white px-3.5 ${theme.focusWithinBorder}`}>
+              <span className="text-[14px] text-cz-text-2" aria-hidden="true">₱</span>
+              <input
+                id="cash-amount"
+                type="number" step="0.01" min="0.01"
+                value={form.cash_amount}
+                onChange={(e) => set('cash_amount', e.target.value)}
+                placeholder="0"
+                className="min-h-[46px] w-full bg-transparent text-[14px] text-cz-text outline-none"
+              />
+            </div>
+            {form.cash_amount && Number(form.cash_amount) > 0 && (
+              <p className="mt-2.5 rounded-[8px] bg-cz-tile-blue-bg px-3 py-2 text-[13px] font-semibold text-cz-tile-blue-fg">
+                {R.cashPreview(Number(form.cash_amount).toLocaleString('en-PH'))}
+              </p>
+            )}
+          </>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={FIELD_LABEL} htmlFor="qty">{R.quantity}</label>
+              <input
+                id="qty" type="text"
+                value={form.quantity}
+                onChange={(e) => set('quantity', e.target.value)}
+                placeholder="0"
+                className={fieldBox}
+              />
+            </div>
+            <div>
+              <label className={FIELD_LABEL} htmlFor="unit">{R.unit}</label>
+              <select id="unit" value={form.unit} onChange={(e) => set('unit', e.target.value)} className={fieldBox}>
+                {unitsFor(form.assistance_type).map((u) => <option key={u} value={u}>{u}</option>)}
+              </select>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
+function DateSourceSeasonDescriptionFields({ domain, form, set, fieldBox }) {
+  return (
+    <div className={`${CARD} space-y-3`}>
+      <div>
+        <label className={FIELD_LABEL} htmlFor="date-given">{L.fields.dateGiven}</label>
+        <input id="date-given" type="date" value={form.date_given} onChange={(e) => set('date_given', e.target.value)} className={fieldBox} />
+        <p className="mt-1.5 text-[12px] text-cz-text-2">{R.futureDateHint}</p>
+      </div>
+      <div>
+        <label className={FIELD_LABEL} htmlFor="source-agency">{L.fields.sourceAgency}</label>
+        <ComboboxWithOther
+          options={SOURCE_AGENCY_OPTIONS}
+          value={form.source_agency}
+          otherValue={form.source_agency_other}
+          onChange={(v) => set('source_agency', v)}
+          onOtherChange={(v) => set('source_agency_other', v)}
+          otherLabel={R.other}
+          placeholder={R.notSpecified}
+          inputClassName={fieldBox}
+        />
+      </div>
+      {domain.seasonOptions && (
+        <div>
+          <label className={FIELD_LABEL} htmlFor="season">{L.fields.season}</label>
+          <select id="season" value={form.season} onChange={(e) => set('season', e.target.value)} className={fieldBox}>
+            {domain.seasonOptions.map((s) => <option key={s} value={s}>{labels.harvest.seasonOptions?.[s] || s}</option>)}
+          </select>
+        </div>
+      )}
+      <div>
+        <label className={FIELD_LABEL} htmlFor="description">{L.fields.description}</label>
+        <textarea id="description" rows={2} value={form.description} onChange={(e) => set('description', e.target.value)} className={`${fieldBox} py-2.5`} />
+      </div>
+    </div>
+  )
+}
+
+const emptyForm = (domain) => ({
+  assistance_type: domain.assistanceTypeOptions[0],
+  assistance_type_other: '',
+  source_agency: '',
+  source_agency_other: '',
+  date_given: todayISO(),
+  quantity: '',
+  unit: unitsFor(domain.assistanceTypeOptions[0])[0],
+  cash_amount: '',
+  description: '',
+  season: domain.seasonOptions ? domain.seasonOptions[0] : '',
+})
 
 export default function OrgReportAssistanceScreen({
-  domain, orgId, orgName, members, onBack, tabBar,
+  domain, orgId, orgName, members, onBack, tabBar, onSuccess,
 }) {
-  const fieldBox = `${FIELD_BOX_BASE} ${domain.theme.focusBorder}`
-  const [step, setStep] = useState('form') // 'form' | 'confirm' | 'result'
-  const [form, setForm] = useState({
-    assistance_type: domain.assistanceTypeOptions[0],
-    assistance_type_other: '',
-    source_agency: '',
-    source_agency_other: '',
-    date_given: todayISO(),
-    quantity: '',
-    unit: unitsFor(domain.assistanceTypeOptions[0])[0],
-    cash_amount: '',
-    description: '',
-    season: domain.seasonOptions ? domain.seasonOptions[0] : '',
-  })
+  const theme = domain.dashboardTheme
+  const fieldBox = `min-h-[46px] w-full rounded-[10px] border-[0.5px] border-cz-border-strong bg-white px-3.5 text-[14px] text-cz-text outline-none ${theme.focusBorder}`
+
+  const [step, setStep] = useState('chooser') // 'chooser' | 'memberForm' | 'orgForm' | 'confirm' | 'result'
+  const [memberId, setMemberId] = useState('')
+  const [form, setForm] = useState(emptyForm(domain))
   const [preview, setPreview] = useState(null)
   const [finalResult, setFinalResult] = useState(null)
   const [isBusy, setIsBusy] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
 
-  const set = (field, value) => setForm((f) => ({ ...f, [field]: value }))
-
-  // Switching type re-seeds the unit, so the unit shown always belongs to
-  // the type shown — "session" can never linger over Fertilizer.
-  const selectType = (type) => {
-    setErrorMessage('')
-    setForm((f) => ({ ...f, assistance_type: type, unit: unitsFor(type)[0] }))
+  const set = (field, value) => {
+    if (field === 'typeChange') {
+      setForm((f) => ({ ...f, assistance_type: value, unit: unitsFor(value)[0] }))
+      return
+    }
+    setForm((f) => ({ ...f, [field]: value }))
   }
 
   const isCash = form.assistance_type === 'Cash Assistance'
   const isOtherType = form.assistance_type === 'Other'
-  // Display-only — the confirm screen shows the actual free-text type the
-  // org typed, not the literal word "Other".
   const resolvedType = isOtherType ? form.assistance_type_other.trim() : form.assistance_type
 
-  // BeneficiaryRecord.assistance_type is a fixed TextChoices column
-  // (Fertilizer/Seeds/.../Other) — it rejects anything outside that set.
-  // A prior version of this screen sent the free-text specify value AS
-  // assistance_type when "Other" was picked, which the server 400s on
-  // every time. The literal choice always goes in assistance_type; the
-  // free text is folded into description instead, where it survives.
-  const buildPayload = (dryRun) => {
+  const extractError = (err) => {
+    const data = err?.response?.data
+    return (data && typeof data === 'object' ? Object.values(data).flat()[0] : null) || data?.detail || null
+  }
+
+  const resetToChooser = () => {
+    setStep('chooser')
+    setMemberId('')
+    setForm(emptyForm(domain))
+    setPreview(null)
+    setFinalResult(null)
+    setErrorMessage('')
+  }
+
+  // ── "Para sa Isang Miyembro" — single save, no preview step, matching
+  // image6/19 exactly (a plain "I-save" button, not a two-step flow).
+  const submitMemberForm = async (e) => {
+    e.preventDefault()
+    setErrorMessage('')
+    if (!memberId) { setErrorMessage(RA.errors.requiredFields); return }
+    if (!form.assistance_type || !form.date_given) { setErrorMessage(RA.errors.requiredFields); return }
+    if (isOtherType && !form.assistance_type_other.trim()) { setErrorMessage(RA.errors.specifyAssistanceType); return }
+    if (form.source_agency === 'Other' && !form.source_agency_other.trim()) { setErrorMessage(RA.errors.specifySourceAgency); return }
+    if (isCash ? (!form.cash_amount || Number(form.cash_amount) <= 0) : !form.quantity.trim()) {
+      setErrorMessage(isCash ? RA.errors.invalidCashAmount : RA.errors.requiredFields)
+      return
+    }
+    const row = members.find((m) => String(domain.rowPersonId(m)) === String(memberId))
+    setIsBusy(true)
+    try {
+      const sourceAgency = form.source_agency === 'Other' ? form.source_agency_other.trim() : form.source_agency
+      const quantity = isCash ? `₱${form.cash_amount} per head` : [form.quantity, form.unit].filter(Boolean).join(' ')
+      const otherNote = isOtherType && form.assistance_type_other.trim() ? `Other: ${form.assistance_type_other.trim()}` : ''
+      const remarks = [otherNote, form.description.trim()].filter(Boolean).join(' — ')
+      await api.post(domain.createUrl, {
+        assistance_type: form.assistance_type,
+        source_agency: sourceAgency,
+        quantity,
+        date_given: form.date_given,
+        season: form.season,
+        remarks,
+        year: new Date(form.date_given).getFullYear(),
+        [domain.personField]: domain.rowPersonId(row),
+      })
+      onSuccess?.()
+      onBack()
+    } catch (err) {
+      setErrorMessage(extractError(err) || RA.errors.genericSaveError)
+    } finally {
+      setIsBusy(false)
+    }
+  }
+
+  // ── "I-distribute sa Organisasyon" — unchanged dry_run -> confirm ->
+  // submit contract, just restructured under the chooser.
+  const buildOrgPayload = (dryRun) => {
     const sourceAgency = form.source_agency === 'Other' ? form.source_agency_other.trim() : form.source_agency
     const quantity = isCash
       ? (form.cash_amount ? `₱${form.cash_amount} per head` : '')
@@ -126,11 +292,6 @@ export default function OrgReportAssistanceScreen({
     }
   }
 
-  const extractError = (err) => {
-    const data = err?.response?.data
-    return (data && typeof data === 'object' ? Object.values(data).flat()[0] : null) || data?.detail || null
-  }
-
   const handlePreview = async (e) => {
     e.preventDefault()
     setErrorMessage('')
@@ -140,7 +301,7 @@ export default function OrgReportAssistanceScreen({
     if (isCash && (!form.cash_amount || Number(form.cash_amount) <= 0)) { setErrorMessage(L.errors.invalidCashAmount); return }
     setIsBusy(true)
     try {
-      const r = await api.post(domain.distributeUrl(orgId), buildPayload(true))
+      const r = await api.post(domain.distributeUrl(orgId), buildOrgPayload(true))
       setPreview(r.data)
       setStep('confirm')
     } catch (err) {
@@ -154,9 +315,10 @@ export default function OrgReportAssistanceScreen({
     setIsBusy(true)
     setErrorMessage('')
     try {
-      const r = await api.post(domain.distributeUrl(orgId), buildPayload(false))
+      const r = await api.post(domain.distributeUrl(orgId), buildOrgPayload(false))
       setFinalResult(r.data)
       setStep('result')
+      onSuccess?.()
     } catch (err) {
       setErrorMessage(extractError(err) || L.errors.distributeFailed)
     } finally {
@@ -168,48 +330,140 @@ export default function OrgReportAssistanceScreen({
   const flagged = (preview?.results || []).filter((r) => r.note)
 
   const statusBadge = (status) => {
-    if (status === 'created') {
-      return <span className="inline-flex shrink-0 items-center gap-1 text-[12px] font-semibold text-[#15803D]"><CheckCircle2 size={13} /> {L.statusCreated}</span>
-    }
-    if (status === 'skipped') {
-      return <span className="inline-flex shrink-0 items-center gap-1 text-[12px] font-semibold text-cz-tile-amber-fg"><AlertTriangle size={13} /> {L.statusSkipped}</span>
-    }
+    if (status === 'created') return <span className="inline-flex shrink-0 items-center gap-1 text-[12px] font-semibold text-[#15803D]"><CheckCircle2 size={13} /> {L.statusCreated}</span>
+    if (status === 'skipped') return <span className="inline-flex shrink-0 items-center gap-1 text-[12px] font-semibold text-cz-tile-amber-fg"><AlertTriangle size={13} /> {L.statusSkipped}</span>
     return <span className="inline-flex shrink-0 items-center gap-1 text-[12px] font-semibold text-cz-danger-accent"><XCircle size={13} /> {L.statusError}</span>
   }
 
-  const primaryBtn = `flex min-h-[48px] w-full items-center justify-center rounded-[10px] ${domain.theme.header} text-[15px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50`
-  const ghostBtn = 'flex min-h-[46px] w-full items-center justify-center rounded-[10px] border-[0.5px] border-cz-border-strong text-[14px] text-cz-text-2 transition-colors hover:bg-cz-org-panel'
+  const primaryBtn = `flex min-h-[48px] w-full items-center justify-center rounded-[10px] text-[15px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 ${theme.solidBtn}`
+  const ghostBtn = 'flex min-h-[46px] w-full items-center justify-center rounded-[10px] border-[0.5px] border-cz-border-strong text-[14px] text-cz-text-2 transition-colors hover:bg-[#F6F5F1]'
 
-  // ── Confirmation (unchanged dry_run contract, restyled) ──────────────
+  const shellNav = (key) => (key === 'home' ? onBack() : onBack())
+
+  // ── Chooser (image7/17) ────────────────────────────────────────────
+  if (step === 'chooser') {
+    return (
+      <OrgShell theme={theme} chipLabel={orgName} active="home" onNav={shellNav} tabBar={tabBar} wide={false}>
+        <OrgPageHeader title={R.title} subtitle={R.chooserSubtitle} onBack={onBack} />
+        <div className="max-w-lg space-y-3">
+          <button
+            type="button"
+            onClick={() => { setForm(emptyForm(domain)); setStep('memberForm') }}
+            className={`${CARD} w-full text-left transition-colors hover:bg-[#F6F5F1]`}
+          >
+            <p className={`text-[15px] font-semibold ${theme.accentText}`}>{R.chooseMemberTitle}</p>
+            <p className="mt-1 text-[13px] leading-[1.45] text-cz-text-2">{R.chooseMemberBody}</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => { setForm(emptyForm(domain)); setStep('orgForm') }}
+            className={`${CARD} w-full text-left transition-colors hover:bg-[#F6F5F1]`}
+          >
+            <p className={`text-[15px] font-semibold ${theme.accentText}`}>{R.chooseOrgTitle}</p>
+            <p className="mt-1 text-[13px] leading-[1.45] text-cz-text-2">{R.chooseOrgBody(members.length)}</p>
+          </button>
+        </div>
+      </OrgShell>
+    )
+  }
+
+  // ── Para sa Isang Miyembro (image6/19) ──────────────────────────────
+  if (step === 'memberForm') {
+    return (
+      <OrgShell theme={theme} chipLabel={orgName} active="home" onNav={shellNav} tabBar={tabBar} wide={false}>
+        <OrgPageHeader title={R.memberFormTitle} subtitle={R.memberFormSubtitle} onBack={resetToChooser} />
+        <form onSubmit={submitMemberForm} className="max-w-lg space-y-4">
+          <div>
+            <label className={FIELD_LABEL} htmlFor="member-select">{R.memberFieldLabel}</label>
+            <select id="member-select" value={memberId} onChange={(e) => setMemberId(e.target.value)} className={fieldBox}>
+              <option value="">{R.memberPlaceholder}</option>
+              {members.map((m) => (
+                <option key={m.id} value={domain.rowPersonId(m)}>{domain.rowName(m)}</option>
+              ))}
+            </select>
+          </div>
+
+          <AssistanceTypeAndAmountFields theme={theme} domain={domain} form={form} set={set} fieldBox={fieldBox} />
+          <DateSourceSeasonDescriptionFields domain={domain} form={form} set={set} fieldBox={fieldBox} />
+
+          {errorMessage && (
+            <p className="rounded-[10px] border-[0.5px] border-cz-danger-border bg-cz-danger-bg px-3.5 py-2.5 text-[13px] text-cz-danger-body">{errorMessage}</p>
+          )}
+
+          <div className="flex gap-3">
+            <button type="button" onClick={resetToChooser} className={ghostBtn}>{labels.common.cancel}</button>
+            <button type="submit" disabled={isBusy} className={primaryBtn}>{labels.common.save}</button>
+          </div>
+        </form>
+      </OrgShell>
+    )
+  }
+
+  // ── I-distribute sa Organisasyon, step 1 (image5/20) ────────────────
+  if (step === 'orgForm') {
+    return (
+      <OrgShell theme={theme} chipLabel={orgName} active="home" onNav={shellNav} tabBar={tabBar} wide={false}>
+        <OrgPageHeader title={R.orgFormTitle} subtitle={R.chooseOrgBody(members.length)} onBack={resetToChooser} />
+        <form onSubmit={handlePreview} className="max-w-lg space-y-4">
+          <AssistanceTypeAndAmountFields theme={theme} domain={domain} form={form} set={set} fieldBox={fieldBox} />
+          <DateSourceSeasonDescriptionFields domain={domain} form={form} set={set} fieldBox={fieldBox} />
+
+          <div>
+            <p className={FIELD_LABEL}>{R.recipientsHeading}</p>
+            <div className={CARD}>
+              <div className="flex items-start gap-3">
+                <span className={`mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] text-white ${theme.solidBtn}`} aria-hidden="true">
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="3.4">
+                    <path d="M4 12.5l5.5 5.5L20 7" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[15px] font-semibold text-cz-text">{R.allMembers}</p>
+                  <p className="mt-0.5 text-[13px] text-cz-text-2">{R.memberCount(members.length)}</p>
+                </div>
+              </div>
+              <p className="mt-2.5 border-t-[0.5px] border-cz-border pt-2.5 text-[12px] leading-[1.45] text-cz-text-2">{R.allMembersNote}</p>
+            </div>
+          </div>
+
+          {errorMessage && (
+            <p className="rounded-[10px] border-[0.5px] border-cz-danger-border bg-cz-danger-bg px-3.5 py-2.5 text-[13px] text-cz-danger-body">{errorMessage}</p>
+          )}
+
+          <div className="flex gap-3">
+            <button type="button" onClick={resetToChooser} className={ghostBtn}>{labels.common.cancel}</button>
+            <button type="submit" disabled={isBusy || members.length === 0} className={primaryBtn}>{R.previewButton}</button>
+          </div>
+        </form>
+      </OrgShell>
+    )
+  }
+
+  // ── Confirmation (unchanged dry_run contract) ───────────────────────
   if (step === 'confirm' && preview) {
     return (
-      <OrgScreen title={R.confirmTitle} chipLabel={orgName} onBack={() => setStep('form')} tabBar={tabBar} theme={domain.theme}>
-        <div className={`${CARD} space-y-1.5`}>
-          <p className="text-[13px] text-cz-text-2">
-            <span className="font-semibold text-cz-text">{L.organizationLabel}:</span> {preview.organization_name}
-          </p>
-          <p className="text-[13px] text-cz-text-2">
-            <span className="font-semibold text-cz-text">{L.currentMembers}:</span> {preview.member_count}
-          </p>
+      <OrgShell theme={theme} chipLabel={orgName} active="home" onNav={shellNav} tabBar={tabBar} wide={false}>
+        <OrgPageHeader title={R.confirmTitle} onBack={() => setStep('orgForm')} />
+        <div className={`${CARD} max-w-lg space-y-1.5`}>
+          <p className="text-[13px] text-cz-text-2"><span className="font-semibold text-cz-text">{L.organizationLabel}:</span> {preview.organization_name}</p>
+          <p className="text-[13px] text-cz-text-2"><span className="font-semibold text-cz-text">{L.currentMembers}:</span> {preview.member_count}</p>
           <p className="text-[13px] text-cz-text-2">
             <span className="font-semibold text-cz-text">{L.assistanceSummary}:</span>{' '}
-            {resolvedType}
-            {isCash ? L.perHeadSummary(form.cash_amount) : (form.quantity ? ` — ${form.quantity} ${form.unit}` : '')}
+            {resolvedType}{isCash ? L.perHeadSummary(form.cash_amount) : (form.quantity ? ` — ${form.quantity} ${form.unit}` : '')}
             {L.onDate(labels.common.formatDate(form.date_given))}
           </p>
         </div>
 
         {skipped.length > 0 && (
-          <div className="mt-3 rounded-[12px] border border-[#F5E0A3] bg-cz-alert-bg p-3.5">
+          <div className="mt-3 max-w-lg rounded-[12px] border border-[#F5E0A3] bg-cz-alert-bg p-3.5">
             <p className="text-[13px] font-semibold text-cz-alert-title">{L.willSkip(skipped.length)}</p>
             <ul className="mt-1 space-y-0.5 text-[12px] text-cz-alert-title/80">
               {skipped.map((r) => <li key={r.person_id}>{r.name} — {r.reason}</li>)}
             </ul>
           </div>
         )}
-
         {flagged.length > 0 && (
-          <div className="mt-3 rounded-[12px] border-[0.5px] border-cz-tile-blue-fg/30 bg-cz-tile-blue-bg p-3.5">
+          <div className="mt-3 max-w-lg rounded-[12px] border-[0.5px] border-cz-tile-blue-fg/30 bg-cz-tile-blue-bg p-3.5">
             <p className="text-[13px] font-semibold text-cz-tile-blue-fg">{L.willFlag(flagged.length)}</p>
             <ul className="mt-1 space-y-0.5 text-[12px] text-cz-tile-blue-fg">
               {flagged.map((r) => <li key={r.person_id}>{r.name} — {r.note}</li>)}
@@ -217,21 +471,17 @@ export default function OrgReportAssistanceScreen({
           </div>
         )}
 
-        <p className="mt-3 text-[13px] text-cz-text-2">{L.willReceive(preview.member_count - skipped.length)}</p>
+        <p className="mt-3 max-w-lg text-[13px] text-cz-text-2">{L.willReceive(preview.member_count - skipped.length)}</p>
 
         {errorMessage && (
-          <p className="mt-3 rounded-[10px] border-[0.5px] border-cz-danger-border bg-cz-danger-bg px-3.5 py-2.5 text-[13px] text-cz-danger-body">
-            {errorMessage}
-          </p>
+          <p className="mt-3 max-w-lg rounded-[10px] border-[0.5px] border-cz-danger-border bg-cz-danger-bg px-3.5 py-2.5 text-[13px] text-cz-danger-body">{errorMessage}</p>
         )}
 
-        <div className="mt-4 space-y-2">
-          <button type="button" disabled={isBusy} onClick={handleConfirm} className={primaryBtn}>
-            {L.confirmButton}
-          </button>
-          <button type="button" onClick={() => setStep('form')} className={ghostBtn}>{L.back}</button>
+        <div className="mt-4 max-w-lg space-y-2">
+          <button type="button" disabled={isBusy} onClick={handleConfirm} className={primaryBtn}>{L.confirmButton}</button>
+          <button type="button" onClick={() => setStep('orgForm')} className={ghostBtn}>{L.back}</button>
         </div>
-      </OrgScreen>
+      </OrgShell>
     )
   }
 
@@ -239,23 +489,17 @@ export default function OrgReportAssistanceScreen({
   if (step === 'result' && finalResult) {
     const created = finalResult.results.filter((r) => r.status === 'created').length
     return (
-      <OrgScreen title={R.resultTitle} chipLabel={orgName} onBack={onBack} tabBar={tabBar} theme={domain.theme}>
-        <div className={CARD}>
+      <OrgShell theme={theme} chipLabel={orgName} active="home" onNav={shellNav} tabBar={tabBar} wide={false}>
+        <OrgPageHeader title={R.resultTitle} onBack={onBack} />
+        <div className={`${CARD} max-w-lg`}>
           <p className="text-[15px] font-semibold text-cz-text">{finalResult.organization_name}</p>
           <p className="mt-0.5 text-[13px] text-cz-text-2">
-            {L.resultSummary(
-              created,
-              finalResult.results.filter((r) => r.status === 'skipped').length,
-              finalResult.results.filter((r) => r.status === 'error').length,
-            )}
+            {L.resultSummary(created, finalResult.results.filter((r) => r.status === 'skipped').length, finalResult.results.filter((r) => r.status === 'error').length)}
           </p>
         </div>
-        <ul className="mt-3 overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+        <ul className="mt-3 max-w-lg overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
           {finalResult.results.map((r, i) => (
-            <li
-              key={r.person_id}
-              className={`px-4 py-3 ${i === finalResult.results.length - 1 ? '' : 'border-b-[0.5px] border-cz-border'}`}
-            >
+            <li key={r.person_id} className={`px-4 py-3 ${i === finalResult.results.length - 1 ? '' : 'border-b-[0.5px] border-cz-border'}`}>
               <div className="flex items-center justify-between gap-2">
                 <span className="min-w-0 truncate text-[14px] text-cz-text">{r.name}</span>
                 {statusBadge(r.status)}
@@ -264,209 +508,10 @@ export default function OrgReportAssistanceScreen({
             </li>
           ))}
         </ul>
-        <button type="button" onClick={onBack} className={`${primaryBtn} mt-4`}>{L.done}</button>
-      </OrgScreen>
+        <button type="button" onClick={onBack} className={`${primaryBtn} mt-4 max-w-lg`}>{L.done}</button>
+      </OrgShell>
     )
   }
 
-  // ── Form (images 5-8) ────────────────────────────────────────────────
-  return (
-    <OrgScreen title={R.title} chipLabel={orgName} onBack={onBack} tabBar={tabBar} theme={domain.theme}>
-      <form onSubmit={handlePreview}>
-        {/* URI NG TULONG — segmented pills, real per-domain type list */}
-        <OrgSectionLabel>{R.typeHeading}</OrgSectionLabel>
-        <div className="flex flex-wrap gap-2">
-          {domain.assistanceTypeOptions.map((type) => {
-            const active = form.assistance_type === type
-            return (
-              <button
-                key={type}
-                type="button"
-                aria-pressed={active}
-                onClick={() => selectType(type)}
-                className={`min-h-[42px] rounded-[10px] px-4 text-[14px] font-semibold transition-colors ${
-                  active
-                    ? `${domain.theme.header} text-white`
-                    : 'border-[0.5px] border-cz-border bg-cz-surface text-cz-text hover:bg-cz-org-panel'
-                }`}
-              >
-                {type}
-              </button>
-            )
-          })}
-        </div>
-
-        {isOtherType && (
-          <input
-            type="text"
-            value={form.assistance_type_other}
-            onChange={(e) => set('assistance_type_other', e.target.value)}
-            placeholder={R.otherTypePlaceholder}
-            aria-label={R.otherTypePlaceholder}
-            className={`${fieldBox} mt-3`}
-          />
-        )}
-
-        {/* Amount block — the one part that genuinely differs by type */}
-        <div className={`${CARD} mt-4`}>
-          {isCash ? (
-            <>
-              <label className={FIELD_LABEL} htmlFor="org-cash">{R.cashPerMember}</label>
-              <div className={`flex items-center gap-2 rounded-[10px] border-[0.5px] border-cz-border-strong bg-cz-surface px-3.5 ${domain.theme.focusWithinBorder}`}>
-                <span className="text-[14px] text-cz-text-2" aria-hidden="true">₱</span>
-                <input
-                  id="org-cash"
-                  type="number" step="0.01" min="0.01"
-                  value={form.cash_amount}
-                  onChange={(e) => set('cash_amount', e.target.value)}
-                  placeholder="0"
-                  className="min-h-[46px] w-full bg-transparent text-[14px] text-cz-text outline-none"
-                />
-              </div>
-              {/* Live preview, exactly as image6 draws it */}
-              {form.cash_amount && Number(form.cash_amount) > 0 && (
-                <p className="mt-2.5 rounded-[8px] bg-cz-tile-blue-bg px-3 py-2 text-[13px] font-semibold text-cz-tile-blue-fg">
-                  {R.cashPreview(Number(form.cash_amount).toLocaleString('en-PH'))}
-                </p>
-              )}
-            </>
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={FIELD_LABEL} htmlFor="org-qty">{R.quantity}</label>
-                <input
-                  id="org-qty"
-                  type="text"
-                  value={form.quantity}
-                  onChange={(e) => set('quantity', e.target.value)}
-                  placeholder="0"
-                  className={fieldBox}
-                />
-              </div>
-              <div>
-                <label className={FIELD_LABEL} htmlFor="org-unit">{R.unit}</label>
-                <select
-                  id="org-unit"
-                  value={form.unit}
-                  onChange={(e) => set('unit', e.target.value)}
-                  className={fieldBox}
-                >
-                  {unitsFor(form.assistance_type).map((u) => <option key={u} value={u}>{u}</option>)}
-                </select>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Remaining real fields the record needs. The mockup stops at the
-            amount; these are not optional extras invented here — date and
-            source agency are what the beneficiary record actually stores. */}
-        <div className={`${CARD} mt-3 space-y-3`}>
-          <div>
-            <label className={FIELD_LABEL} htmlFor="org-date">{L.fields.dateGiven}</label>
-            {/* No max: a future date is the deliberate trigger for the
-                scheduled-distribution lifecycle (PENDING -> Awaiting
-                Confirmation) — blocking it here would make that feature
-                unreachable from this screen. */}
-            <input
-              id="org-date" type="date"
-              value={form.date_given}
-              onChange={(e) => set('date_given', e.target.value)}
-              className={fieldBox}
-            />
-            <p className="mt-1.5 text-[12px] text-cz-text-2">{R.futureDateHint}</p>
-          </div>
-          <div>
-            <label className={FIELD_LABEL} htmlFor="org-agency">{L.fields.sourceAgency}</label>
-            <ComboboxWithOther
-              options={SOURCE_AGENCY_OPTIONS}
-              value={form.source_agency}
-              otherValue={form.source_agency_other}
-              onChange={(v) => set('source_agency', v)}
-              onOtherChange={(v) => set('source_agency_other', v)}
-              otherLabel={R.other}
-              placeholder={R.notSpecified}
-              inputClassName={fieldBox}
-            />
-          </div>
-          {domain.seasonOptions && (
-            <div>
-              <label className={FIELD_LABEL} htmlFor="org-season">{L.fields.season}</label>
-              <select
-                id="org-season" value={form.season}
-                onChange={(e) => set('season', e.target.value)}
-                className={fieldBox}
-              >
-                {domain.seasonOptions.map((s) => <option key={s} value={s}>{labels.harvest.seasonOptions?.[s] || s}</option>)}
-              </select>
-            </div>
-          )}
-          <div>
-            <label className={FIELD_LABEL} htmlFor="org-desc">{L.fields.description}</label>
-            <textarea
-              id="org-desc" rows={2}
-              value={form.description}
-              onChange={(e) => set('description', e.target.value)}
-              className={`${fieldBox} py-2.5`}
-            />
-          </div>
-        </div>
-
-        {/* MGA TATANGGAP — select-all row, then the real member list read-only */}
-        <div className="mt-5">
-          <OrgSectionLabel>{R.recipientsHeading}</OrgSectionLabel>
-          <div className={CARD}>
-            <div className="flex items-start gap-3">
-              <span
-                className={`mt-0.5 flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] ${domain.theme.header} text-white`}
-                aria-hidden="true"
-              >
-                <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="3.4">
-                  <path d="M4 12.5l5.5 5.5L20 7" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </span>
-              <div className="min-w-0">
-                <p className="text-[15px] font-semibold text-cz-text">{R.allMembers}</p>
-                <p className="mt-0.5 text-[13px] text-cz-text-2">{R.memberCount(members.length)}</p>
-              </div>
-            </div>
-            <p className="mt-2.5 border-t-[0.5px] border-cz-border pt-2.5 text-[12px] leading-[1.45] text-cz-text-2">
-              {R.allMembersNote}
-            </p>
-          </div>
-
-          {members.length > 0 && (
-            <ul className="mt-2 overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
-              {members.map((m, i) => (
-                <li
-                  key={m.id}
-                  className={`flex items-center gap-3 px-4 py-2.5 ${
-                    i === members.length - 1 ? '' : 'border-b-[0.5px] border-cz-border'
-                  }`}
-                >
-                  <OrgAvatar name={domain.rowName(m)} id={domain.rowPersonId(m)} size={32} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[14px] text-cz-text">{domain.rowName(m)}</p>
-                    <p className="truncate text-[12px] text-cz-text-2">
-                      {domain.rowBarangay(m) ? `Brgy. ${domain.rowBarangay(m)}` : labels.common.unknown}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {errorMessage && (
-          <p className="mt-4 rounded-[10px] border-[0.5px] border-cz-danger-border bg-cz-danger-bg px-3.5 py-2.5 text-[13px] text-cz-danger-body">
-            {errorMessage}
-          </p>
-        )}
-
-        <button type="submit" disabled={isBusy || members.length === 0} className={`${primaryBtn} mt-4`}>
-          {R.previewButton}
-        </button>
-      </form>
-    </OrgScreen>
-  )
+  return null
 }

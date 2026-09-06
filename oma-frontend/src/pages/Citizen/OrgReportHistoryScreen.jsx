@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { labels } from './labels.js'
-import { OrgScreen } from './OrgDashboardParts.jsx'
+import { OrgPageHeader, OrgShell } from './OrgDashboardParts.jsx'
 
 // Reference image9. The endpoint returns ONE ROW PER PERSON — a distribution
 // to seven members is seven beneficiary records — but the reference reads
@@ -59,7 +59,7 @@ const STATUS_LABELS = {
 // of a doubled "per head bawat kasapi".
 const stripPerHead = (amount) => amount.replace(/\s*per head\s*$/i, '').trim()
 
-export default function OrgReportHistoryScreen({ domain, orgName, onBack, tabBar, active, onNav, railCollapsed, onToggleRail }) {
+export default function OrgReportHistoryScreen({ domain, orgName, onBack, tabBar, active, onNav }) {
   const [rows, setRows] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
@@ -101,12 +101,12 @@ export default function OrgReportHistoryScreen({ domain, orgName, onBack, tabBar
   }, [rows, domain.key])
 
   const H = labels.orgReportHistory
+  const theme = domain.dashboardTheme
 
   return (
-    <OrgScreen
-      title={H.title} chipLabel={orgName} onBack={onBack} tabBar={tabBar} theme={domain.theme}
-      active={active} onNav={onNav} railCollapsed={railCollapsed} onToggleRail={onToggleRail}
-    >
+    <OrgShell theme={theme} chipLabel={orgName} active={active} onNav={(key) => (key === 'home' ? onBack() : onNav(key))} tabBar={tabBar} wide>
+      <OrgPageHeader title={H.title} subtitle={H.countLine(groups.length)} onBack={onBack} />
+
       {isLoading && <p className="text-[13px] italic text-cz-text-2">{labels.orgReporting.loading}</p>}
 
       {!isLoading && hasError && (
@@ -116,7 +116,7 @@ export default function OrgReportHistoryScreen({ domain, orgName, onBack, tabBar
       )}
 
       {!isLoading && !hasError && groups.length === 0 && (
-        <p className="rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface p-6 text-center text-[13px] italic text-cz-text-muted">
+        <p className="rounded-[12px] border-[0.5px] border-cz-border bg-white p-6 text-center text-[13px] italic text-cz-text-muted">
           {labels.orgReporting.historyEmpty}
         </p>
       )}
@@ -130,69 +130,61 @@ export default function OrgReportHistoryScreen({ domain, orgName, onBack, tabBar
             return (
               <article
                 key={g.key}
-                className="rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
+                className="rounded-[12px] border-[0.5px] border-cz-border bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     <span className={`${PILL} ${BADGE[g.type] || BADGE_FALLBACK}`}>{g.type}</span>
                     {isLatest && <span className={`${PILL} ${LATEST_BADGE}`}>{H.latest}</span>}
+                    <h3 className="text-[16px] font-bold leading-[1.3] text-cz-text">
+                      {g.amount ? H.perMember(stripPerHead(g.amount)) : g.type}
+                    </h3>
                   </div>
-                  <span className="shrink-0 pt-0.5 text-[12px] text-cz-text-2">
-                    {labels.common.formatDate(g.dateGiven)}
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setOpenKey(isOpen ? null : g.key)}
+                    aria-expanded={isOpen}
+                    className="flex shrink-0 items-center gap-1 rounded-[8px] border-[0.5px] border-cz-border px-2.5 py-1 text-[12px] font-medium text-cz-text-2 transition-colors hover:bg-[#F6F5F1]"
+                  >
+                    {isOpen ? <ChevronUp size={14} aria-hidden="true" /> : <ChevronDown size={14} aria-hidden="true" />}
+                    {isOpen ? H.hideRecipients : H.showRecipients}
+                  </button>
                 </div>
 
-                <h3 className="mt-2.5 text-[17px] font-bold leading-[1.3] text-cz-text">
-                  {g.amount ? H.perMember(stripPerHead(g.amount)) : g.type}
-                </h3>
-
-                <p className="mt-1 text-[13px] text-cz-text-2">
-                  {H.givenTo(g.recipients.length)}
+                <p className="mt-1.5 text-[13px] text-cz-text-2">
+                  {H.givenTo(g.recipients.length)} · {labels.common.formatDate(g.dateGiven)}
                   {g.reporter ? ` · ${H.reportedBy(g.reporter)}` : ''}
                 </p>
 
-                <button
-                  type="button"
-                  onClick={() => setOpenKey(isOpen ? null : g.key)}
-                  aria-expanded={isOpen}
-                  className="mt-2 flex items-center gap-1 text-[13px] font-medium text-cz-tile-blue-fg"
-                >
-                  <ChevronRight
-                    size={15}
-                    className={`transition-transform ${isOpen ? 'rotate-90' : ''}`}
-                    aria-hidden="true"
-                  />
-                  {H.viewRecipients(g.recipients.length)}
-                </button>
-
                 {isOpen && (
-                  <ul className="mt-2 space-y-1.5 border-t-[0.5px] border-cz-border pt-2">
-                    {g.recipients.map((r, n) => (
-                      <li
-                        key={`${g.key}-${n}`}
-                        className="stagger-item text-[13px] text-cz-text"
-                        style={{ '--stagger-index': n }}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span>{r.name}</span>
-                          <span className={`${PILL} ${STATUS_PILL[r.status] || STATUS_PILL.CONFIRMED}`}>
-                            {STATUS_LABELS[r.status] || r.status}
-                          </span>
+                  <div className="mt-3 border-t-[0.5px] border-cz-border pt-3">
+                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">
+                      {H.recipientsHeading(g.recipients.length)}
+                    </p>
+                    <div className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+                      {g.recipients.map((r, n) => (
+                        <div key={`${g.key}-${n}`} className="stagger-item" style={{ '--stagger-index': n }}>
+                          <div className="flex items-center justify-between gap-2 text-[13px] text-cz-text">
+                            <span className="truncate">{r.name}</span>
+                            <span className={`${PILL} ${STATUS_PILL[r.status] || STATUS_PILL.CONFIRMED}`}>
+                              {STATUS_LABELS[r.status] || r.status}
+                            </span>
+                          </div>
+                          {r.status === 'NOT_RECEIVED' && r.reason && (
+                            <p className="mt-0.5 text-[12px] italic leading-[1.4] text-cz-text-2">
+                              {H.notReceivedReason(r.reason)}
+                            </p>
+                          )}
                         </div>
-                        {r.status === 'NOT_RECEIVED' && r.reason && (
-                          <p className="mt-0.5 text-[12px] leading-[1.4] text-cz-text-2">
-                            {H.notReceivedReason(r.reason)}
-                          </p>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </article>
             )
           })}
         </div>
       )}
-    </OrgScreen>
+    </OrgShell>
   )
 }

@@ -22,6 +22,62 @@
 
 import { CROP_THEME, FISH_THEME } from './citizenUI.jsx'
 
+// ── Organization Reference rebuild: dedicated theme tokens ─────────────────
+// "Cultivated Ground" (Farmers Org) / "Tide" (Fisherfolk Org) — the exact
+// palette specified for this rebuild, matching Staff/Admin's own established
+// green (#1B4D2E, hardcoded the same way across every Staff page — e.g.
+// ProfilePage.jsx, CropAssistancePage.jsx) rather than the individual-
+// citizen CROP_THEME (#2F5233). Arbitrary-value Tailwind classes, matching
+// that same established convention, not new named utilities — the existing
+// --color-forest/--color-milk tokens in index.css sit in a plain :root, not
+// the @theme block, so bg-forest etc. would silently generate no CSS.
+//
+// Used ONLY by `dashboardTheme` below (Home, Members, Assign Officer, Add
+// Member, Report Assistance, History) — `theme` above stays CROP_THEME/
+// FISH_THEME, untouched, because OrgInfoScreen.jsx reads `domain.theme` and
+// is explicitly out of scope for this batch.
+const ORG_FARMERS_THEME = {
+  header: 'bg-[#1B4D2E]',
+  brand: 'text-[#C8E6D0]',
+  name: 'text-white',
+  meta: 'text-[#C8E6D0]',
+  iconBtn: 'text-white',
+  accentText: 'text-[#1B4D2E]',
+  solidBtn: 'bg-[#1B4D2E] text-white',
+  tileSelectedBg: 'bg-[#EBF5EE]',
+  tileSelectedText: 'text-[#163318]',
+  dot: 'bg-[#C8E6D0]',
+  border: 'border-[#1B4D2E]',
+  focusBorder: 'focus:border-[#1B4D2E]',
+  focusWithinBorder: 'focus-within:border-[#1B4D2E]',
+  heroGradient: 'bg-gradient-to-b from-[#1B4D2E] to-[#163318]',
+  mutedOn: 'text-[#C8E6D0]',
+  activeNavBg: 'bg-[#EBF5EE]',
+  activeNavText: 'text-[#1B4D2E]',
+  cta: 'bg-[#B45309] text-white',
+}
+
+const ORG_FISHERFOLK_THEME = {
+  header: 'bg-[#155E82]',
+  brand: 'text-[#93C2D8]',
+  name: 'text-white',
+  meta: 'text-[#93C2D8]',
+  iconBtn: 'text-white',
+  accentText: 'text-[#155E82]',
+  solidBtn: 'bg-[#155E82] text-white',
+  tileSelectedBg: 'bg-[#EAF3F7]',
+  tileSelectedText: 'text-[#0E3C56]',
+  dot: 'bg-[#93C2D8]',
+  border: 'border-[#155E82]',
+  focusBorder: 'focus:border-[#155E82]',
+  focusWithinBorder: 'focus-within:border-[#155E82]',
+  heroGradient: 'bg-gradient-to-b from-[#155E82] to-[#0E3C56]',
+  mutedOn: 'text-[#93C2D8]',
+  activeNavBg: 'bg-[#EAF3F7]',
+  activeNavText: 'text-[#155E82]',
+  cta: 'bg-[#B45309] text-white',
+}
+
 // Mirrors OrganizationOfficer.POSITION_CHOICES /
 // FisherfolkOrganizationOfficer.POSITION_CHOICES on the backend — currently
 // identical for both domains, but kept per-domain here so they can diverge
@@ -36,10 +92,13 @@ const OFFICER_POSITIONS = [
 export const FARMERS_ORG_DOMAIN = {
   key: 'farmers_org',
   personLabel: 'Farmer',
+  registryName: 'RSBSA',
   // Organizations take the SAME domain colour as the rest of the app —
   // Farmers Organization is crop green, Fisherfolk Organization is fish
   // teal. No separate organization identity.
   theme: CROP_THEME,
+  // Organization Reference rebuild — see ORG_FARMERS_THEME's own comment.
+  dashboardTheme: ORG_FARMERS_THEME,
   officerPositions: OFFICER_POSITIONS,
 
   // ── Batch 2: member + officer management ──
@@ -85,7 +144,10 @@ export const FARMERS_ORG_DOMAIN = {
 export const FISHERFOLK_ORG_DOMAIN = {
   key: 'fisherfolk_org',
   personLabel: 'Fisherfolk',
+  registryName: 'FishR',
   theme: FISH_THEME,
+  // Organization Reference rebuild — see ORG_FISHERFOLK_THEME's own comment.
+  dashboardTheme: ORG_FISHERFOLK_THEME,
   officerPositions: OFFICER_POSITIONS,
 
   // ── Batch 2: member + officer management ──
