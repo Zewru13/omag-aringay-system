@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, ChevronLeft, HelpCircle, LogOut, User } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronLeft, HelpCircle, LogOut, Menu, User } from 'lucide-react'
 import NotificationBell from '../../components/Layout/NotificationBell.jsx'
+import omagLogo from '../../assets/LOGO OMAg.jpg'
 import { labels } from './labels.js'
 
 // ─── Desktop shell primitives (UI Base Desktop POV) ───────────────────────
@@ -25,10 +26,45 @@ import { labels } from './labels.js'
 // citizen screen rather than introducing new tokens to chase a mockup's
 // empty-state rendering.
 
-export function DesktopShell({ sidebar, topbar, children }) {
+// Phase 3 (2026-09-07): persisted collapse state, matching Staff/Admin's own
+// PageLayout.jsx localStorage pattern exactly (same key convention, same
+// collapsed-width) — a distinct key so a citizen collapsing their own
+// sidebar never affects a staff session on the same browser profile.
+export function useSidebarCollapsed() {
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('citizen_sidebar_collapsed') === 'true'
+    } catch {
+      return false
+    }
+  })
+  const toggle = () => {
+    setCollapsed((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem('citizen_sidebar_collapsed', String(next))
+      } catch {
+        // ignore
+      }
+      return next
+    })
+  }
+  return [collapsed, toggle]
+}
+
+export function DesktopShell({ sidebar, topbar, children, collapsed }) {
   return (
     <div className="flex min-h-screen w-full bg-cz-page">
-      <aside className="flex w-[220px] shrink-0 flex-col">{sidebar}</aside>
+      <aside
+        className="flex shrink-0 flex-col transition-[width] duration-200 ease-out"
+        // 64px collapsed matches Admin/Staff's Sidebar.jsx/PageLayout.jsx
+        // exactly (Phase 3 asked for the same pattern, not just an
+        // independently-invented width) — confirmed via direct comparison,
+        // not assumed.
+        style={{ width: collapsed ? 64 : 220 }}
+      >
+        {sidebar}
+      </aside>
       <div className="flex min-w-0 flex-1 flex-col">
         {topbar}
         <div className="min-w-0 flex-1">{children}</div>
@@ -49,17 +85,23 @@ export function DesktopBody({ children, rail }) {
   )
 }
 
-export function DesktopSidebar({ theme, brandIcon: BrandIcon, brandName, brandSub, activeKey, navItems, pinnedItem }) {
+export function DesktopSidebar({ theme, brandName, brandSub, activeKey, navItems, pinnedItem, collapsed }) {
   return (
     <nav className={`flex h-full flex-col ${theme.header} px-3 py-4`}>
-      <div className="mb-6 flex items-center gap-2.5 px-2">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] bg-white/15">
-          <BrandIcon size={17} className="text-white" aria-hidden="true" />
+      <div className={`mb-6 flex items-center gap-2.5 px-2 ${collapsed ? 'justify-center px-0' : ''}`}>
+        {/* Phase 4 (2026-09-07): the real OMAg seal, same asset and rounded-
+            tile treatment as Admin/Staff's own Sidebar.jsx, replacing the
+            domain Lucide glyph (Sprout/Fish) that used to sit here — the
+            logo is municipality branding, not a per-domain icon. */}
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-[8px] bg-white/15" title={collapsed ? brandName : undefined}>
+          <img src={omagLogo} alt="OMAg" className="h-full w-full object-cover" />
         </span>
-        <div className="min-w-0">
-          <p className="truncate text-[13px] font-semibold leading-[1.2] text-white">{brandName}</p>
-          <p className={`truncate text-[11px] leading-[1.2] ${theme.brand}`}>{brandSub}</p>
-        </div>
+        {!collapsed && (
+          <div className="min-w-0">
+            <p className="truncate text-[13px] font-semibold leading-[1.2] text-white">{brandName}</p>
+            <p className={`truncate text-[11px] leading-[1.2] ${theme.brand}`}>{brandSub}</p>
+          </div>
+        )}
       </div>
 
       <ul className="space-y-[2px]">
@@ -72,12 +114,19 @@ export function DesktopSidebar({ theme, brandIcon: BrandIcon, brandName, brandSu
                 type="button"
                 onClick={item.onClick}
                 aria-current={isActive ? 'page' : undefined}
-                className={`flex w-full items-center gap-2.5 rounded-[8px] px-3 py-2.5 text-left text-[13.5px] transition-colors ${
+                title={collapsed ? item.label : undefined}
+                className={`flex w-full items-center gap-2.5 rounded-[8px] py-2.5 text-left text-[13.5px] transition-colors ${collapsed ? 'justify-center px-0' : 'px-3'} ${
                   isActive ? 'bg-white/15 font-semibold text-white' : `${theme.brand} hover:bg-white/10 hover:text-white`
                 }`}
               >
                 <Icon size={16} className="shrink-0" aria-hidden="true" />
-                <span className="truncate">{item.label}</span>
+                {/* Phase 5 (2026-09-07): fade instead of an instant mount/
+                    unmount snap, matching the old OrgNavRail's established
+                    collapse-label treatment — feedback for the width change
+                    just triggered, not decorative. */}
+                <span className={`truncate transition-opacity duration-150 ${collapsed ? 'w-0 opacity-0' : 'opacity-100'}`}>
+                  {item.label}
+                </span>
               </button>
             </li>
           )
@@ -88,10 +137,13 @@ export function DesktopSidebar({ theme, brandIcon: BrandIcon, brandName, brandSu
         <button
           type="button"
           onClick={pinnedItem.onClick}
-          className={`flex w-full items-center gap-2.5 rounded-[8px] px-3 py-2.5 text-left text-[13.5px] transition-colors ${theme.brand} hover:bg-white/10 hover:text-white`}
+          title={collapsed ? pinnedItem.label : undefined}
+          className={`flex w-full items-center gap-2.5 rounded-[8px] py-2.5 text-left text-[13.5px] transition-colors ${collapsed ? 'justify-center px-0' : 'px-3'} ${theme.brand} hover:bg-white/10 hover:text-white`}
         >
           <pinnedItem.icon size={16} className="shrink-0" aria-hidden="true" />
-          <span className="truncate">{pinnedItem.label}</span>
+          <span className={`truncate transition-opacity duration-150 ${collapsed ? 'w-0 opacity-0' : 'opacity-100'}`}>
+            {pinnedItem.label}
+          </span>
         </button>
       </div>
     </nav>
@@ -161,10 +213,20 @@ function DesktopAccountMenu({ theme, initials, name, roleLabel, onProfile, onHel
 
 // title+subtitle mode (every sub-screen) when `title` is given; otherwise
 // greeting mode (home only) using `greetingName`+`metaLine`.
-export function DesktopTopbar({ theme, title, subtitle, onBack, greetingName, metaLine, account }) {
+export function DesktopTopbar({ theme, title, subtitle, onBack, greetingName, metaLine, account, onToggleSidebar }) {
   return (
     <header className="flex min-h-[64px] items-center justify-between border-b-[0.5px] border-cz-border bg-cz-surface px-6 py-3">
       <div className="flex min-w-0 items-center gap-3">
+        {onToggleSidebar && (
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            aria-label={labels.common.toggleSidebar}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] text-cz-text-2 transition-colors hover:bg-cz-page"
+          >
+            <Menu size={18} aria-hidden="true" />
+          </button>
+        )}
         {onBack && (
           <button
             type="button"

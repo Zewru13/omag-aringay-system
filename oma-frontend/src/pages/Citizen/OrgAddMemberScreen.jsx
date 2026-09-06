@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AlertTriangle, Info, Search } from 'lucide-react'
+import { AlertTriangle, Search } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import OrgAvatar from './OrgAvatar.jsx'
@@ -137,8 +137,7 @@ export default function OrgAddMemberScreen({
           {labels.orgAddMember.searchButton}
         </button>
 
-        <div className="flex gap-2.5 rounded-[10px] border-[0.5px] border-cz-tile-blue-fg/30 bg-cz-tile-blue-bg px-3.5 py-3">
-          <Info size={16} className="mt-px shrink-0 text-cz-tile-blue-fg" aria-hidden="true" />
+        <div className="rounded-[10px] border-[0.5px] border-cz-tile-blue-fg/30 bg-cz-tile-blue-bg px-3.5 py-3">
           <p className="text-[12.5px] leading-[1.5] text-cz-tile-blue-fg">
             <span className="font-semibold">{labels.orgAddMember.noticeLabel}:</span>{' '}
             {domain.key === 'farmers_org' ? labels.orgAddMember.noticeFarmers : labels.orgAddMember.noticeFisherfolk}
@@ -173,7 +172,7 @@ export default function OrgAddMemberScreen({
                   key={cand.id}
                   className={`flex items-center gap-3 px-4 py-3 ${i === results.length - 1 ? '' : 'border-b-[0.5px] border-cz-border'}`}
                 >
-                  <OrgAvatar name={cand.full_name} id={cand.id} size={38} />
+                  <OrgAvatar name={cand.full_name} theme={theme} size={38} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[15px] font-semibold text-cz-text">{cand.full_name}</p>
                     <p className="mt-0.5 truncate text-[13px] text-cz-text-2">

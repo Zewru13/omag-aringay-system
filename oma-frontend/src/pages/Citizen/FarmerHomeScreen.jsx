@@ -16,7 +16,7 @@ import FarmerCropHistoryView from './FarmerCropHistoryView.jsx'
 import { CitizenAssistanceList } from './CitizenDesktopScreens.jsx'
 import {
   DesktopBody, DesktopQuickActions, DesktopRailCard, DesktopShell, DesktopSidebar,
-  DesktopStatGrid, DesktopTopbar,
+  DesktopStatGrid, DesktopTopbar, useSidebarCollapsed,
 } from './CitizenDesktopUI.jsx'
 import { labels } from './labels.js'
 import {
@@ -34,6 +34,7 @@ import {
 export default function FarmerHomeScreen({ record, onLogout }) {
   const { showToast } = useToast()
   const isDesktop = useIsDesktop()
+  const [sidebarCollapsed, toggleSidebar] = useSidebarCollapsed()
   const [records, setRecords] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [tasksByRecord, setTasksByRecord] = useState({}) // recordId -> [{...suggestion}]
@@ -132,7 +133,7 @@ export default function FarmerHomeScreen({ record, onLogout }) {
     const sidebar = (
       <DesktopSidebar
         theme={CROP_THEME}
-        brandIcon={Sprout}
+        collapsed={sidebarCollapsed}
         brandName={D.appNameFarmer}
         brandSub={D.municipality}
         activeKey={activeKey}
@@ -159,8 +160,9 @@ export default function FarmerHomeScreen({ record, onLogout }) {
     if (disasterScreen) {
       return (
         <DesktopShell
+          collapsed={sidebarCollapsed}
           sidebar={sidebar}
-          topbar={<DesktopTopbar theme={CROP_THEME} title={D.navSakuna} onBack={() => setDisasterScreen(null)} account={accountProps} />}
+          topbar={<DesktopTopbar theme={CROP_THEME} onToggleSidebar={toggleSidebar} title={D.navSakuna} onBack={() => setDisasterScreen(null)} account={accountProps} />}
         >
           <DesktopBody
             rail={
@@ -198,7 +200,7 @@ export default function FarmerHomeScreen({ record, onLogout }) {
     // ── Ani ──────────────────────────────────────────────────────────
     if (view.kind === 'yield') {
       return (
-        <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={CROP_THEME} title={D.navAni} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
+        <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<DesktopTopbar theme={CROP_THEME} onToggleSidebar={toggleSidebar} title={D.navAni} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
           <DesktopBody>
             <CitizenAniScreen endpoint="/production/yield-analysis/" bare />
           </DesktopBody>
@@ -209,7 +211,7 @@ export default function FarmerHomeScreen({ record, onLogout }) {
     // ── Mag-log ──────────────────────────────────────────────────────
     if (view.kind === 'activity') {
       return (
-        <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={CROP_THEME} title={D.navLog} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
+        <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<DesktopTopbar theme={CROP_THEME} onToggleSidebar={toggleSidebar} title={D.navLog} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
           <DesktopBody
             rail={
               <>
@@ -240,7 +242,7 @@ export default function FarmerHomeScreen({ record, onLogout }) {
     // ── Tulong Natanggap ───────────────────────────────────────────────
     if (view.kind === 'assistance') {
       return (
-        <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={CROP_THEME} title={D.helpAssistance} subtitle={D.helpAssistanceSubtitle} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
+        <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<DesktopTopbar theme={CROP_THEME} onToggleSidebar={toggleSidebar} title={D.helpAssistance} subtitle={D.helpAssistanceSubtitle} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
           <div className="px-6 py-5">
             <CitizenAssistanceList endpoint="/interventions/my-beneficiary-history/" />
           </div>
@@ -251,7 +253,7 @@ export default function FarmerHomeScreen({ record, onLogout }) {
     // ── Aking Profile ────────────────────────────────────────────────
     if (view.kind === 'profile') {
       return (
-        <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={CROP_THEME} title={D.accountProfile} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
+        <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<DesktopTopbar theme={CROP_THEME} onToggleSidebar={toggleSidebar} title={D.accountProfile} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
           <div className="px-6 py-5">
             <CitizenProfileScreen record={record} recordType="FARMER" onHelp={accountProps.onHelp} bare />
           </div>
@@ -263,7 +265,7 @@ export default function FarmerHomeScreen({ record, onLogout }) {
     if (view.kind === 'help') {
       const H = labels.farmerHelp
       return (
-        <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={CROP_THEME} title={H.title} subtitle={H.subtitle} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
+        <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<DesktopTopbar theme={CROP_THEME} onToggleSidebar={toggleSidebar} title={H.title} subtitle={H.subtitle} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
           <CitizenHelpScreen theme={CROP_THEME} L={H} bare />
         </DesktopShell>
       )
@@ -278,10 +280,12 @@ export default function FarmerHomeScreen({ record, onLogout }) {
       // ── Simula (home) ─────────────────────────────────────────────
       return (
         <DesktopShell
+          collapsed={sidebarCollapsed}
           sidebar={sidebar}
           topbar={
             <DesktopTopbar
               theme={CROP_THEME}
+              onToggleSidebar={toggleSidebar}
               greetingName={D.greeting(record.label)}
               metaLine={`Brgy. ${record.barangay || labels.common.unknown} · ${new Date().toLocaleDateString('fil-PH', { year: 'numeric', month: 'long', day: 'numeric' })}`}
               account={accountProps}

@@ -129,21 +129,33 @@
      the floor to trust). Text-on-header therefore always uses -100
      (Field 7.48:1, Tide 8.83:1), matching the reasoning the previous
      palette already used for the same reason — -300 is decorative only. */
-  --color-cz-crop-header: #2F5233;
+  /* Phase 2 color-consistency fix (2026-09-07): header/deep/deeper realigned
+     to the "Cultivated Ground" / "Tide" hex values already shipped on every
+     Organization dashboard screen (ORG_FARMERS_THEME/ORG_FISHERFOLK_THEME in
+     orgDomainConfig.js) — Farmer and Farmers Organization, Fisherfolk and
+     Fisherfolk Organization, are meant to be the SAME domain palette, and
+     these three citizen-wide tokens were the one place still on the old,
+     slightly different shade (#2F5233/#1B4457). `pale`/`100`/`300` (the
+     text-on-header tints) and `fill` (the progress-bar accent) are left
+     untouched: they have no literally-specified replacement, they still
+     read correctly against the new header shade (both are dark greens/
+     navies of similar depth), and touching them would risk the AA contrast
+     math documented above for no requested benefit. */
+  --color-cz-crop-header: #1B4D2E;
   --color-cz-crop-pale:   #E4EFE5;
   --color-cz-crop-100:    #E4EFE5;
   --color-cz-crop-300:    #9FC2A4;
   --color-cz-crop-fill:   #4F7A57;
-  --color-cz-crop-deep:   #2F5233;
-  --color-cz-crop-deeper: #16382A;
+  --color-cz-crop-deep:   #1B4D2E;
+  --color-cz-crop-deeper: #163318;
 
-  --color-cz-fish-header: #1B4457;
+  --color-cz-fish-header: #155E82;
   --color-cz-fish-pale:   #E3EEF1;
   --color-cz-fish-100:    #E3EEF1;
   --color-cz-fish-300:    #9BC1CF;
-  --color-cz-fish-fill:   #3E6C82;
-  --color-cz-fish-deep:   #1B4457;
-  --color-cz-fish-deeper: #10293A;
+  --color-cz-fish-fill:   #4E93B0;
+  --color-cz-fish-deep:   #155E82;
+  --color-cz-fish-deeper: #0E3C56;
 
   /* Danger — overdue */
   --color-cz-danger-bg:     #FCEBEB;

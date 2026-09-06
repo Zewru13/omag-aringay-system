@@ -6,6 +6,8 @@ import { useNavigate } from 'react-router-dom'
 import NotificationBell from '../../components/Layout/NotificationBell.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import OrgAvatar from './OrgAvatar.jsx'
+import { useSidebarCollapsed } from './CitizenDesktopUI.jsx'
+import omagLogo from '../../assets/LOGO OMAg.jpg'
 import { labels } from './labels.js'
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -20,13 +22,25 @@ import { labels } from './labels.js'
 //
 // Structurally different from the old shell on purpose, matching the
 // reference exactly rather than reskinning the old one:
-//   - Sidebar is plain white, always expanded, no collapse toggle (the
-//     reference never shows one — below 640px the existing CitizenTabBar
-//     already covers navigation, so there is nothing to collapse INTO).
+//   - Sidebar is plain white. Below 640px the existing CitizenTabBar already
+//     covers navigation, so there is nothing to collapse INTO there — the
+//     toggle only appears at >=640px, same breakpoint the sidebar itself
+//     uses (`sm:flex`).
 //   - The colored top bar is STATIC ("OMAg Aringay", always) — it never
 //     carries a page title or back button. Per-page title + "< Bumalik"
 //     back-link live in the plain content area as ordinary dark text,
 //     exactly where the reference draws them (image3/4/6/7 all show this).
+//
+// Phase 3 (2026-09-07): a real collapse toggle was added — matching Admin/
+// Staff's own hamburger pattern exactly (Menu icon, localStorage-persisted,
+// icon-only collapsed state) — after finding neither Farmer, Fisherfolk, nor
+// this shell actually had one, despite the reference showing a hamburger
+// icon in every one of its frames. `useSidebarCollapsed` (CitizenDesktopUI)
+// is shared with Farmer/Fisherfolk's own desktop shell so all three collapse
+// under one persisted key, self-contained inside OrgShell below rather than
+// threaded through every calling screen — OrgShell (unlike Farmer/
+// Fisherfolk's DesktopShell) already owns the sidebar/topbar construction
+// itself, so no call-site changes were needed anywhere else.
 // ═══════════════════════════════════════════════════════════════════════
 
 const ORG_SIDEBAR_ITEMS = [
@@ -35,34 +49,48 @@ const ORG_SIDEBAR_ITEMS = [
   { key: 'orgInfo', labelKey: 'orgInfoRow', icon: Info },
 ]
 
-export function OrgSidebar({ theme, active, onNav }) {
+export function OrgSidebar({ theme, active, onNav, collapsed }) {
   return (
     <nav
-      className="sticky top-0 hidden h-screen w-[220px] shrink-0 flex-col border-r-[0.5px] border-cz-border bg-white sm:flex"
+      className="sticky top-0 hidden h-screen shrink-0 flex-col border-r-[0.5px] border-cz-border bg-white transition-[width] duration-200 ease-out sm:flex"
+      // 64px collapsed matches Admin/Staff's Sidebar.jsx/PageLayout.jsx and
+      // Farmer/Fisherfolk's own new DesktopShell exactly — confirmed via
+      // direct comparison, not assumed. (The OLD OrgNavRail below, used only
+      // by out-of-scope OrgInfoScreen/OrgHelpScreen/OrgOfficerHistoryScreen,
+      // pre-dates this and still collapses to 68px — untouched, since
+      // changing it would be a structural edit to an out-of-scope screen.)
+      style={{ width: collapsed ? 64 : 220 }}
       aria-label={labels.orgHome.navRailLabel}
     >
-      <div className="flex h-14 items-center border-b-[0.5px] border-cz-border px-4">
-        <p className={`truncate text-[14px] font-bold ${theme.accentText}`}>{labels.orgHome.appNameDisplay}</p>
+      <div className={`flex h-14 items-center gap-2 border-b-[0.5px] border-cz-border ${collapsed ? 'justify-center px-0' : 'px-4'}`}>
+        {/* Phase 4 (2026-09-07): the real OMAg seal — previously text-only. */}
+        <img src={omagLogo} alt="OMAg" className="h-6 w-6 shrink-0 rounded-[6px] object-cover" title={collapsed ? labels.orgHome.appNameDisplay : undefined} />
+        {!collapsed && <p className={`truncate text-[14px] font-bold ${theme.accentText}`}>{labels.orgHome.appNameDisplay}</p>}
       </div>
       <ul className="space-y-1 px-3 py-3">
         {ORG_SIDEBAR_ITEMS.map((item) => {
           const isActive = item.key === active
           const Icon = item.icon
-          const label = item.labelKey === 'home' ? labels.tabBar.home
-            : item.labelKey === 'reportingHistory' ? labels.orgHome.reportingHistory
-              : labels.orgHome.orgInfoRow
+          const label = item.labelKey === 'home' ? labels.orgHome.homeNav
+            : item.labelKey === 'reportingHistory' ? labels.orgHome.historyNav
+              : labels.orgHome.orgInfoNav
           return (
             <li key={item.key}>
               <button
                 type="button"
                 onClick={() => onNav(item.key)}
                 aria-current={isActive ? 'page' : undefined}
-                className={`flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-left text-[14px] transition-colors ${
+                title={collapsed ? label : undefined}
+                className={`flex w-full items-center gap-3 rounded-[10px] py-2.5 text-left text-[14px] transition-colors ${collapsed ? 'justify-center px-0' : 'px-3'} ${
                   isActive ? `${theme.activeNavBg} font-semibold ${theme.activeNavText}` : 'text-cz-text-2 hover:bg-cz-page'
                 }`}
               >
                 <Icon size={18} className="shrink-0" aria-hidden="true" />
-                <span className="truncate">{label}</span>
+                {/* Phase 5 (2026-09-07): fade instead of an instant snap,
+                    matching the old OrgNavRail's own collapse treatment. */}
+                <span className={`truncate transition-opacity duration-150 ${collapsed ? 'w-0 opacity-0' : 'opacity-100'}`}>
+                  {label}
+                </span>
               </button>
             </li>
           )
@@ -75,14 +103,29 @@ export function OrgSidebar({ theme, active, onNav }) {
 // Static app-title bar — never carries a page title, matching every one of
 // the reference's frames (image1 through image24 all show the identical
 // "OMAg Aringay" header regardless of which screen is open underneath it).
-export function OrgTopBar({ theme, chipLabel, onNav }) {
+// The hamburger toggle (Phase 3) sits at the far left, same position as
+// Admin/Staff's own Navbar.jsx.
+export function OrgTopBar({ theme, chipLabel, onNav, onToggleSidebar }) {
   return (
     <header className={`flex h-14 shrink-0 items-center justify-between px-4 sm:px-6 ${theme.header}`}>
-      <p className="truncate text-[15px] font-bold text-white">{labels.orgHome.appNameDisplay}</p>
+      <div className="flex items-center gap-2">
+        {onToggleSidebar && (
+          <button
+            type="button"
+            onClick={onToggleSidebar}
+            aria-label={labels.common.toggleSidebar}
+            className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-[8px] text-white transition-colors hover:bg-white/10 sm:flex"
+          >
+            <Menu size={18} aria-hidden="true" />
+          </button>
+        )}
+        <img src={omagLogo} alt="OMAg" className="h-6 w-6 shrink-0 rounded-[6px] object-cover" />
+        <p className="truncate text-[15px] font-bold text-white">{labels.orgHome.appNameDisplay}</p>
+      </div>
       <div className="flex items-center gap-1.5">
         <NotificationBell />
         {onNav ? (
-          <OrgAccountMenu chipLabel={chipLabel} onNav={onNav} />
+          <OrgAccountBadge chipLabel={chipLabel} onNav={onNav} />
         ) : (
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20" aria-hidden="true">
             <User size={15} className="text-white" />
@@ -98,13 +141,15 @@ export function OrgTopBar({ theme, chipLabel, onNav }) {
 // bar. `active` drives the sidebar highlight; `onNav` navigates between the
 // three sidebar destinations (Home is always reached via the dashboard's
 // own `view` state, so onNav here only ever needs to cover that one case
-// from a sub-screen).
+// from a sub-screen). Collapse state (Phase 3) is self-contained here via
+// `useSidebarCollapsed`, so no calling screen needs to know about it.
 export function OrgShell({ theme, chipLabel, active, onNav, tabBar, wide = false, children }) {
+  const [collapsed, toggleCollapsed] = useSidebarCollapsed()
   return (
     <div className="flex min-h-screen w-full bg-[#F6F5F1]">
-      <OrgSidebar theme={theme} active={active} onNav={onNav} />
+      <OrgSidebar theme={theme} active={active} onNav={onNav} collapsed={collapsed} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <OrgTopBar theme={theme} chipLabel={chipLabel} onNav={onNav} />
+        <OrgTopBar theme={theme} chipLabel={chipLabel} onNav={onNav} onToggleSidebar={toggleCollapsed} />
         <main className={`mx-auto w-full flex-1 ${wide ? 'max-w-[1240px]' : 'max-w-[820px]'} px-4 pb-[calc(72px+env(safe-area-inset-bottom))] pt-5 sm:px-6 sm:pb-10`}>
           {children}
         </main>
@@ -128,7 +173,7 @@ export function OrgPageHeader({ title, subtitle, onBack }) {
           className="mb-3 flex items-center gap-1 text-[13px] font-medium text-cz-text-2 transition-colors hover:text-cz-text"
         >
           <ChevronRight size={15} className="rotate-180" aria-hidden="true" />
-          {labels.orgHome.backToDashboard}
+          {labels.orgHome.backLink}
         </button>
       )}
       <h1 className="text-[22px] font-bold text-cz-text">{title}</h1>
@@ -139,19 +184,27 @@ export function OrgPageHeader({ title, subtitle, onBack }) {
 
 // ── New stat card (Kasapi / Posisyon) — two of these sit side-by-side on
 // the reference's Home, replacing the old merged hero card's inline stats.
-export function OrgStatCard({ value, label, sub, isLoading, onClick, tone }) {
+export function OrgStatCard({ theme, value, label, sub, isLoading, onClick, tone }) {
   const Comp = onClick ? 'button' : 'div'
   return (
     <Comp
       type={onClick ? 'button' : undefined}
       onClick={onClick}
-      className={`rounded-[14px] border-[0.5px] p-4 text-left transition-colors ${
-        tone === 'warn' ? 'border-cz-alert-accent/40 bg-cz-alert-bg' : 'border-cz-border bg-white'
+      className={`rounded-[14px] border p-4 text-left transition-colors ${
+        tone === 'warn' ? 'border-cz-alert-accent/40 bg-cz-alert-bg' : `${theme.border} bg-white`
       } ${onClick ? 'hover:bg-cz-page' : ''}`}
     >
-      <p className={`text-[26px] font-bold leading-none tabular-nums ${tone === 'warn' ? 'text-cz-alert-title' : 'text-cz-text'}`}>
-        {isLoading ? '—' : value}
-      </p>
+      {isLoading ? (
+        // Phase 5 (2026-09-07): the app's existing skeleton-shimmer utility
+        // (index.css) was already built for exactly this — a loading dash
+        // reads as "the value is a dash," a shimmer reads as "still
+        // loading" — but nothing in the citizen app used it yet.
+        <span className="skeleton-shimmer block h-[26px] w-12 rounded-[6px]" aria-hidden="true" />
+      ) : (
+        <p className={`text-[26px] font-bold leading-none tabular-nums ${tone === 'warn' ? 'text-cz-alert-title' : theme.accentText}`}>
+          {value}
+        </p>
+      )}
       <p className="mt-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-cz-text-2">{label}</p>
       {sub && <p className={`mt-0.5 text-[12px] font-medium ${tone === 'warn' ? 'text-cz-alert-accent' : 'text-cz-text-2'}`}>{sub}</p>}
     </Comp>
@@ -160,14 +213,14 @@ export function OrgStatCard({ value, label, sub, isLoading, onClick, tone }) {
 
 // ── Quick-action square tile — "Mabilis na Aksyon" (image1/image14/16),
 // icon centered on top, label below, unlike the old horizontal ActionRow.
-export function OrgActionTile({ icon: Icon, title, onClick }) {
+export function OrgActionTile({ theme, icon: Icon, title, onClick }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className="flex flex-col items-center gap-2 rounded-[12px] border-[0.5px] border-cz-border bg-white p-4 text-center transition-colors hover:bg-cz-page"
     >
-      <span className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-cz-tile-blue-bg text-cz-tile-blue-fg" aria-hidden="true">
+      <span className={`flex h-10 w-10 items-center justify-center rounded-[10px] ${theme.tileSelectedBg} ${theme.accentText}`} aria-hidden="true">
         <Icon size={19} />
       </span>
       <span className="text-[13px] font-semibold leading-[1.25] text-cz-text">{title}</span>
@@ -189,6 +242,74 @@ export function OrgActionTile({ icon: Icon, title, onClick }) {
 // new Org Help screen, Logout via AuthContext directly — this is the one
 // global action every screen needs identically, so it lives here rather
 // than being threaded as a prop through every OrgScreen caller.
+// Two-letter initials from an org name ("Basca Integrated Farmers
+// Cooperative" -> "BI") — the reference's compact top-bar badge, not the
+// full name + chevron the OLD shell's account chip (below) still uses.
+function orgInitials(name) {
+  const words = (name || '').trim().split(/\s+/).filter(Boolean)
+  return words.slice(0, 2).map((w) => w[0].toUpperCase()).join('') || '?'
+}
+
+// NEW-shell trigger only (OrgTopBar) — a compact initials badge, matching
+// every reference frame's "BI" chip exactly. Kept as a separate component
+// from OrgAccountMenu (below) rather than a shared prop-toggle, since
+// OrgAccountMenu is also used by the OLD OrgAppBar for OrgInfoScreen.jsx/
+// OrgHelpScreen.jsx/OrgOfficerHistoryScreen.jsx — out of scope, must not
+// change even its trigger's visual shape.
+function OrgAccountBadge({ chipLabel, onNav }) {
+  const [open, setOpen] = useState(false)
+  const { logout } = useAuth()
+  const navigate = useNavigate()
+  const ref = useRef(null)
+
+  const close = () => setOpen(false)
+  const doLogout = () => { close(); logout(); navigate('/login') }
+
+  return (
+    <div className="relative hidden sm:block" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-label={chipLabel}
+        title={chipLabel}
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-[13px] font-semibold text-white transition-colors hover:bg-white/30 press-scale"
+      >
+        {orgInitials(chipLabel)}
+      </button>
+
+      {open && (
+        <>
+          <button type="button" aria-label={labels.common.close} className="fixed inset-0 z-40 cursor-default" onClick={close} />
+          <div className="modal-content absolute right-0 top-[calc(100%+8px)] z-50 w-[210px] origin-top-right overflow-hidden rounded-[10px] border-[0.5px] border-cz-border bg-cz-surface shadow-lg">
+            <button
+              type="button"
+              onClick={() => { close(); onNav('orgInfo') }}
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] text-cz-text transition-colors hover:bg-cz-org-panel"
+            >
+              <User size={15} className="shrink-0 text-cz-text-muted" aria-hidden="true" /> {labels.orgHome.accountProfile}
+            </button>
+            <button
+              type="button"
+              onClick={() => { close(); onNav('help') }}
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] text-cz-text transition-colors hover:bg-cz-org-panel"
+            >
+              <HelpCircle size={15} className="shrink-0 text-cz-text-muted" aria-hidden="true" /> {labels.orgHome.accountHelp}
+            </button>
+            <button
+              type="button"
+              onClick={doLogout}
+              className="flex w-full items-center gap-2.5 border-t-[0.5px] border-cz-border px-3.5 py-2.5 text-left text-[13px] text-cz-danger-accent transition-colors hover:bg-cz-danger-bg"
+            >
+              <LogOut size={15} className="shrink-0" aria-hidden="true" /> {labels.orgHome.accountLogout}
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function OrgAccountMenu({ chipLabel, onNav }) {
   const [open, setOpen] = useState(false)
   const { logout } = useAuth()

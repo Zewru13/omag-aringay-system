@@ -1,5 +1,6 @@
 import { ChevronRight, LogOut, Lock, Pencil, RefreshCw } from 'lucide-react'
 import NotificationBell from '../../components/Layout/NotificationBell.jsx'
+import omagLogo from '../../assets/LOGO OMAg.jpg'
 import { labels } from './labels.js'
 
 // Shared primitives for the citizen self-service screens, built to the
@@ -198,8 +199,13 @@ export function CitizenHomeHeader({ theme, name, metaLine, onLogout }) {
   return (
     <header className={`${theme.header} ${CITIZEN_GUTTER} pt-4 pb-[18px] lg:py-[18px]`}>
       <div className="mb-[14px] flex items-start justify-between lg:mb-0">
-        <span className={`text-[12px] tracking-[0.04em] ${theme.brand}`}>
-          {labels.header.appName}
+        {/* Phase 4 (2026-09-07): the real OMAg seal, added consistently
+            alongside the wordmark — previously text-only here. */}
+        <span className="flex items-center gap-1.5">
+          <img src={omagLogo} alt="OMAg" className="h-4 w-4 shrink-0 rounded-[3px] object-cover" />
+          <span className={`text-[12px] tracking-[0.04em] ${theme.brand}`}>
+            {labels.header.appName}
+          </span>
         </span>
         {/* Farmer/Fisherfolk parity batch: previously excluded from having a
             bell at all — Organization and Staff already had one. Grouped

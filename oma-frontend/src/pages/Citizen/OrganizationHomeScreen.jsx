@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ClipboardList, Hash, Home, MapPin, UserCog, UserPlus, Users as UsersIcon } from 'lucide-react'
+import { ClipboardList, Hash, History, Home, MapPin, Package, UserCog, UserPlus, Users as UsersIcon } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import OrgHelpScreen from './OrgHelpScreen.jsx'
 import OrgReportAssistanceScreen from './OrgReportAssistanceScreen.jsx'
@@ -12,7 +12,6 @@ import OrgInfoScreen from './OrgInfoScreen.jsx'
 import {
   OrgActionTile, OrgAlertBanner, OrgShell, OrgStatCard,
 } from './OrgDashboardParts.jsx'
-import OrgAvatar from './OrgAvatar.jsx'
 import { labels } from './labels.js'
 import { CitizenTabBar } from './citizenUI.jsx'
 
@@ -89,9 +88,9 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
       theme={theme}
       active={active}
       items={[
-        { key: 'home', icon: Home, label: labels.tabBar.home, onClick: () => setView('home') },
-        { key: 'history', icon: ClipboardList, label: labels.orgHome.reportingHistory, onClick: () => setView('history') },
-        { key: 'orgInfo', icon: UsersIcon, label: labels.orgHome.orgInfoRow, onClick: () => setView('orgInfo') },
+        { key: 'home', icon: Home, label: labels.orgHome.homeNav, onClick: () => setView('home') },
+        { key: 'history', icon: ClipboardList, label: labels.orgHome.historyNav, onClick: () => setView('history') },
+        { key: 'orgInfo', icon: UsersIcon, label: labels.orgHome.orgInfoNav, onClick: () => setView('orgInfo') },
       ]}
     />
   )
@@ -250,6 +249,7 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
   const statCards = (
     <div className="mt-4 grid grid-cols-2 gap-3">
       <OrgStatCard
+        theme={theme}
         value={members.length}
         label={labels.orgHome.statMembers}
         sub={labels.orgHome.viewMembers}
@@ -257,6 +257,7 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
         onClick={() => setView('members')}
       />
       <OrgStatCard
+        theme={theme}
         value={`${filledPositions.length}/${domain.officerPositions.length}`}
         label={labels.orgHome.statPositions}
         sub={vacantPositions.length > 0 ? labels.orgHome.vacantCount(vacantPositions.length) : undefined}
@@ -270,9 +271,9 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
     <section className="mt-4">
       <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-cz-text-2">{labels.orgHome.actionsHeading}</p>
       <div className="grid grid-cols-3 gap-2.5">
-        <OrgActionTile icon={UserPlus} title={labels.orgHome.addMember} onClick={() => setView('addMember')} />
-        <OrgActionTile icon={UserCog} title={labels.orgHome.assignOfficer} onClick={() => setView('assignOfficer')} />
-        <OrgActionTile icon={ClipboardList} title={labels.orgHome.distribute} onClick={() => setView('assistance')} />
+        <OrgActionTile theme={theme} icon={UserPlus} title={labels.orgHome.addMember} onClick={() => setView('addMember')} />
+        <OrgActionTile theme={theme} icon={UserCog} title={labels.orgHome.assignOfficer} onClick={() => setView('assignOfficer')} />
+        <OrgActionTile theme={theme} icon={Package} title={labels.orgHome.distribute} onClick={() => setView('assistance')} />
       </div>
     </section>
   )
@@ -289,26 +290,34 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
           return (
             <li
               key={position}
-              className={`flex items-center gap-3 px-4 py-3 ${i === domain.officerPositions.length - 1 ? '' : 'border-b-[0.5px] border-cz-border'}`}
+              className={`flex items-center justify-between gap-3 px-4 py-3 ${i === domain.officerPositions.length - 1 ? '' : 'border-b-[0.5px] border-cz-border'}`}
             >
+              <p className="text-[13px] text-cz-text-2">{position}</p>
               {o ? (
-                <OrgAvatar name={o.full_name} id={domain.officerPersonId(o)} size={36} />
+                <p className="truncate text-[14px] font-semibold text-cz-text">{o.full_name}</p>
               ) : (
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-[1.5px] border-dashed border-cz-alert-accent text-[16px] leading-none text-cz-alert-accent" aria-hidden="true">+</span>
+                <span className="inline-block rounded-full bg-cz-tile-amber-bg px-2 py-0.5 text-[10px] font-bold tracking-[0.02em] text-cz-tile-amber-fg">{labels.orgHome.vacant}</span>
               )}
-              <div className="min-w-0 flex-1">
-                <p className="text-[13px] text-cz-text-2">{position}</p>
-                {o ? (
-                  <p className="truncate text-[14px] font-semibold text-cz-text">{o.full_name}</p>
-                ) : (
-                  <span className="mt-0.5 inline-block rounded-full bg-cz-tile-amber-bg px-2 py-0.5 text-[10px] font-bold tracking-[0.02em] text-cz-tile-amber-fg">{labels.orgHome.vacant}</span>
-                )}
-              </div>
             </li>
           )
         })}
       </ul>
     </section>
+  )
+
+  // Mobile-only in-content shortcut (image14/16) — a plain link to the
+  // History screen that sits between the action tiles and the officer
+  // roster. The reference never draws this on desktop; the sidebar's own
+  // "Kasaysayan" item already covers that width.
+  const historyLink = (
+    <button
+      type="button"
+      onClick={() => setView('history')}
+      className={`mt-4 flex items-center gap-2 text-[13px] font-medium ${theme.accentText} lg:hidden`}
+    >
+      <History size={15} aria-hidden="true" />
+      {labels.orgHome.historyLinkLabel}
+    </button>
   )
 
   return (
@@ -329,6 +338,7 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
             <div className="mt-4"><OrgAlertBanner positions={vacantPositions.join(', ')} /></div>
           )}
           {actionsSection}
+          {historyLink}
           <div className="lg:hidden">{rosterCard}</div>
         </div>
         <div className="hidden lg:block">{rosterCard}</div>

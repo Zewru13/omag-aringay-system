@@ -38,6 +38,7 @@ export const labels = {
     saveChanges: 'I-save ang binago',
     edit: 'I-edit',
     close: 'Isara',
+    toggleSidebar: 'I-toggle ang sidebar',
     unknown: '—',
     loggedByStaff: 'Nilagay ng staff',
     // The caller renders the locker's name in its own <strong> tag, so
@@ -1121,6 +1122,12 @@ export const labels = {
     memberFormTitle: 'Para sa Isang Miyembro',
     memberFormSubtitle: 'Punan ang detalye ng tulong para sa isang kasapi.',
     orgFormTitle: 'I-distribute sa Organisasyon',
+    // Shorter than chooseOrgBody above — the reference uses two different
+    // phrasings for the same fact: the chooser card's longer body text
+    // (image7) vs. the form step's short subtitle (image5: "Ibibigay sa
+    // lahat ng 12 kasapi.").
+    orgFormSubtitle: (n) => `Ibibigay sa lahat ng ${n} kasapi.`,
+    step1NextButton: 'Susunod: I-preview',
     memberFieldLabel: 'KASAPI',
     memberPlaceholder: 'Pumili ng kasapi...',
     typeHeading: 'URI NG TULONG',
@@ -1456,8 +1463,8 @@ export const labels = {
     // itself, since OrgInfoScreen.jsx's untouched old chrome reads that one.
     appNameDisplay: 'OMAg Aringay',
     dashboardTitle: 'Dashboard ng Organisasyon',
-    typeBadgeFarmers: 'Farmers Organization',
-    typeBadgeFisherfolk: 'Fisherfolk Organization',
+    typeBadgeFarmers: 'Farmers Org',
+    typeBadgeFisherfolk: 'Fisherfolk Org',
     addressLine: (barangay) => `Brgy. ${barangay}, Aringay, La Union`,
 
     statMembers: 'KASAPI',
@@ -1469,12 +1476,12 @@ export const labels = {
     vacancyTitle: 'May bakanteng posisyon',
     vacancyBody: (positions) => `${positions} — kailangang italaga`,
 
-    actionsHeading: 'MGA AKSYON',
+    actionsHeading: 'MABILIS NA AKSYON',
     addMember: 'Magdagdag ng Kasapi',
     addMemberSub: 'Maghanap at magdagdag ng registered farmer/fisherfolk',
-    assignOfficer: 'Italaga ang Opisyal',
+    assignOfficer: 'Mag-assign ng Opisyal',
     assignOfficerSub: 'Pumili ng kasapi para sa isang posisyon',
-    distribute: 'I-report ang Tulong',
+    distribute: 'Mag-report ng Tulong',
     distributeSub: 'I-record ang naibigay na government assistance',
 
     officerRosterHeading: 'ROSTER NG OPISYAL',
@@ -1485,10 +1492,31 @@ export const labels = {
     membersHeading: 'Mga Kasapi',
     membersCount: (n) => `MGA KASAPI — ${n} TOTAL`,
     membersCountLine: (total, shown) => (total === shown ? `${total} kasapi · ${shown} nakita` : `${total} kasapi · ${shown} nakita`),
+    // Short button label for the Members screen's own "+Magdagdag" — the
+    // action-tile label above (`addMember`) stays the long form, matching
+    // the reference's two different lengths for the same action in two
+    // different places (image1's tile vs image2's list-header button).
+    addMemberShort: 'Magdagdag',
+    membersSearchPlaceholder: 'Hanapin ayon sa pangalan o barangay...',
     membersEmpty: 'Wala pang kasapi ang organisasyong ito.',
     membersLoading: 'Kinukuha ang mga kasapi...',
     loadFailed: 'Hindi makuha ang datos ng organisasyon.',
     retry: 'Subukan ulit',
+
+    // Short nav-only labels — the reference's sidebar (desktop) and bottom
+    // tab bar (mobile) both read "Home / Kasaysayan / Impormasyon", distinct
+    // from the longer strings above/below used as page titles or the
+    // mobile-only in-content "History ng Reporting" shortcut link.
+    homeNav: 'Home',
+    historyNav: 'Kasaysayan',
+    orgInfoNav: 'Impormasyon',
+    historyLinkLabel: 'History ng Reporting',
+    // Short back-link for the NEW shell only (OrgPageHeader) — matching the
+    // reference's "< Bumalik" everywhere. Deliberately a separate key from
+    // backToDashboard below, which the OLD shell's OrgAppBar aria-label still
+    // uses — OrgInfoScreen/OrgHelpScreen/OrgOfficerHistoryScreen are out of
+    // scope and must not change even invisibly.
+    backLink: 'Bumalik',
 
     reportingHistory: 'History ng Reporting',
     reportingHistorySub: 'Tingnan ang mga nakaraang rekord',
@@ -1588,7 +1616,7 @@ export const labels = {
     currentHolder: (name) => `Ngayon: ${name}`,
     positionHeld: (name) => `Hawak pa ni ${name} ang posisyong ito. Kailangan munang tapusin ng staff ang kanilang termino bago magtalaga ng bago.`,
     noMembers: 'Walang kasapi na maitatalaga. Magdagdag po muna ng kasapi.',
-    assignButton: 'Italaga',
+    assignButton: 'I-assign ang Opisyal',
     success: (name, position) => `Si ${name} na po ang ${position}.`,
     failed: 'Hindi maitalaga ang opisyal.',
   },

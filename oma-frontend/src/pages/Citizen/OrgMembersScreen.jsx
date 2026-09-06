@@ -41,7 +41,10 @@ export default function OrgMembersScreen({
 
   return (
     <OrgShell theme={theme} chipLabel={orgName} active="home" onNav={onNav} tabBar={tabBar} wide>
-      <OrgPageHeader title={labels.orgHome.membersHeading} onBack={onBack} />
+      {/* Reference (image2) shows no back-link on this screen — reached via
+          the "Tingnan >" stat card, it behaves like a sibling destination,
+          not a sub-form; Home nav (sidebar/tab bar) already covers "back". */}
+      <OrgPageHeader title={labels.orgHome.membersHeading} />
 
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-[13px] text-cz-text-2">{labels.orgHome.membersCountLine(members.length, filtered.length)}</p>
@@ -50,7 +53,7 @@ export default function OrgMembersScreen({
           onClick={() => onNav('addMember')}
           className={`flex min-h-[40px] items-center gap-1.5 rounded-[10px] px-4 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 ${theme.solidBtn}`}
         >
-          <Plus size={16} aria-hidden="true" /> {labels.orgHome.addMember}
+          <Plus size={16} aria-hidden="true" /> {labels.orgHome.addMemberShort}
         </button>
       </div>
 
@@ -60,7 +63,7 @@ export default function OrgMembersScreen({
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder={labels.orgAddMember.searchPlaceholder}
+          placeholder={labels.orgHome.membersSearchPlaceholder}
           className={`min-h-[46px] w-full rounded-[12px] border-[0.5px] border-cz-border-strong bg-white pl-10 pr-3.5 text-[14px] text-cz-text outline-none ${theme.focusBorder}`}
         />
       </div>
@@ -84,13 +87,11 @@ export default function OrgMembersScreen({
                   type="button"
                   onClick={() => setActiveTarget({ row: m, targetActive: !isActive })}
                   title={isActive ? labels.orgMemberActive.deactivateAction : labels.orgMemberActive.activateAction}
-                  className={`absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
-                    isActive ? 'text-cz-danger-accent hover:bg-cz-danger-bg' : 'text-cz-tile-blue-fg hover:bg-cz-tile-blue-bg'
-                  }`}
+                  className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-cz-text-muted transition-colors hover:bg-cz-page"
                 >
                   <Power size={15} aria-hidden="true" />
                 </button>
-                <OrgAvatar name={domain.rowName(m)} id={personId} size={44} />
+                <OrgAvatar name={domain.rowName(m)} theme={theme} size={44} />
                 <p className="mt-2.5 truncate text-[15px] font-semibold text-cz-text">
                   {domain.rowName(m)}
                   {!isActive && (
@@ -103,7 +104,7 @@ export default function OrgMembersScreen({
                   {domain.rowBarangay(m) ? `Brgy. ${domain.rowBarangay(m)}` : labels.common.unknown}
                 </p>
                 {position && (
-                  <span className="mt-2 inline-block rounded-[5px] bg-cz-role-bg px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] text-cz-role-fg">
+                  <span className={`mt-2 inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] ${theme.tileSelectedBg} ${theme.tileSelectedText}`}>
                     {position}
                   </span>
                 )}

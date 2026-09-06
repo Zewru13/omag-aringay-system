@@ -26,16 +26,22 @@ import { CROP_THEME, FISH_THEME } from './citizenUI.jsx'
 // "Cultivated Ground" (Farmers Org) / "Tide" (Fisherfolk Org) — the exact
 // palette specified for this rebuild, matching Staff/Admin's own established
 // green (#1B4D2E, hardcoded the same way across every Staff page — e.g.
-// ProfilePage.jsx, CropAssistancePage.jsx) rather than the individual-
-// citizen CROP_THEME (#2F5233). Arbitrary-value Tailwind classes, matching
-// that same established convention, not new named utilities — the existing
-// --color-forest/--color-milk tokens in index.css sit in a plain :root, not
-// the @theme block, so bg-forest etc. would silently generate no CSS.
+// ProfilePage.jsx, CropAssistancePage.jsx). Arbitrary-value Tailwind classes,
+// matching that same established convention, not new named utilities — the
+// existing --color-forest/--color-milk tokens in index.css sit in a plain
+// :root, not the @theme block, so bg-forest etc. would silently generate no
+// CSS.
 //
-// Used ONLY by `dashboardTheme` below (Home, Members, Assign Officer, Add
-// Member, Report Assistance, History) — `theme` above stays CROP_THEME/
-// FISH_THEME, untouched, because OrgInfoScreen.jsx reads `domain.theme` and
-// is explicitly out of scope for this batch.
+// Used by `dashboardTheme` below (Home, Members, Assign Officer, Add Member,
+// Report Assistance, History). `theme` above stays CROP_THEME/FISH_THEME —
+// OrgInfoScreen.jsx now reads `dashboardTheme` instead (Phase 2 color fix,
+// 2026-09-07), so the distinction is no longer load-bearing for this file,
+// but `theme` is kept for CitizenProfileScreen.jsx's own dashboard-summary
+// hero, which still legitimately wants the individual-citizen shell colour.
+// CROP_THEME/FISH_THEME's own hex values (index.css) were realigned to
+// these same #1B4D2E/#155E82 tokens in that same fix, so `theme` and
+// `dashboardTheme` now render identically in colour — only the class
+// mechanism (named CSS token vs. arbitrary value) differs between them.
 const ORG_FARMERS_THEME = {
   header: 'bg-[#1B4D2E]',
   brand: 'text-[#C8E6D0]',

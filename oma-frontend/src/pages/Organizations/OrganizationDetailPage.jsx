@@ -764,8 +764,9 @@ function Field({ label, value }) {
 // (see FarmerDetailPage's own comment for the reference this is built against).
 // Farmers Org gets the farmer green, Fisherfolk Org gets the same fisheries
 // blue used everywhere else for that domain (--color-cz-fish-header) --
-// same idea, different color.
-const FISH_BLUE = "#1B4457";
+// same idea, different color. Realigned to #155E82 (Phase 2 color fix,
+// 2026-09-07) to match --color-cz-fish-header's corrected value.
+const FISH_BLUE = "#155E82";
 
 function initialsOf(name) {
   return (name || "").trim().split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0].toUpperCase()).join("") || "?";

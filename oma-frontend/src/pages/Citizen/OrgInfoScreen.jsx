@@ -77,7 +77,13 @@ function ReadOnlyGridRow({ label, value }) {
 }
 
 export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecordChanged, active, onNav, railCollapsed, onToggleRail }) {
-  const theme = domain.theme
+  // Phase 2 color-consistency fix (2026-09-07): this screen used to read
+  // `domain.theme` (CROP_THEME/FISH_THEME, the individual-citizen palette),
+  // which drifted from the Cultivated Ground/Tide palette every other
+  // Organization screen already uses. `dashboardTheme` has the identical
+  // shape (same keys), so this is a pure colour-source swap — no layout,
+  // content, or structural change to this screen.
+  const theme = domain.dashboardTheme
   const isFisherfolk = domain.personLabel === 'Fisherfolk'
   const L = labels.orgInfo
   const typeBadge = isFisherfolk ? L.typeBadgeFisherfolk : L.typeBadgeFarmers

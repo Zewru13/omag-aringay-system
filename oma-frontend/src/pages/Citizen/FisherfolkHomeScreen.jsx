@@ -17,7 +17,7 @@ import MyYieldAnalysisSection from './MyYieldAnalysisSection.jsx'
 import { CitizenAssistanceList, DesktopKaramdamanForm } from './CitizenDesktopScreens.jsx'
 import {
   DesktopBody, DesktopQuickActions, DesktopRailCard, DesktopShell, DesktopSidebar,
-  DesktopStatGrid, DesktopTopbar,
+  DesktopStatGrid, DesktopTopbar, useSidebarCollapsed,
 } from './CitizenDesktopUI.jsx'
 import { labels } from './labels.js'
 import {
@@ -46,6 +46,7 @@ const FEEDING_ACTIVITY = 'Feed Monitoring'
 export default function FisherfolkHomeScreen({ record, onLogout }) {
   const { showToast } = useToast()
   const isDesktop = useIsDesktop()
+  const [sidebarCollapsed, toggleSidebar] = useSidebarCollapsed()
   const [ponds, setPonds] = useState([])
   const [stockingRecords, setStockingRecords] = useState([])
   const [lastFeedingByRecord, setLastFeedingByRecord] = useState({}) // recordId -> log | null
@@ -267,7 +268,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
     const sidebar = (
       <DesktopSidebar
         theme={FISH_THEME}
-        brandIcon={Fish}
+        collapsed={sidebarCollapsed}
         brandName={D.appNameFisherfolk}
         brandSub={D.municipality}
         activeKey={activeKey}
@@ -294,7 +295,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
     // ── Sakuna ─────────────────────────────────────────────────────
     if (disasterScreen) {
       return (
-        <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} title={D.navSakuna} onBack={() => setDisasterScreen(null)} account={accountProps} />}>
+        <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} onToggleSidebar={toggleSidebar} title={D.navSakuna} onBack={() => setDisasterScreen(null)} account={accountProps} />}>
           <DesktopBody
             rail={
               <>
@@ -334,7 +335,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
       const isDisasterMode = pondPickerMode === 'disaster'
       if (!logScreen) {
         return (
-          <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} title={isDisasterMode ? D.navSakuna : D.navLog} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
+          <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} onToggleSidebar={toggleSidebar} title={isDisasterMode ? D.navSakuna : D.navLog} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
             <div className="px-6 py-5">
               {activePonds.length === 0 ? (
                 <p className="rounded-[10px] border-[0.5px] border-cz-border bg-cz-surface px-4 py-6 text-center text-[13px] italic text-cz-text-muted">
@@ -367,7 +368,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
         )
       }
       return (
-        <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} title={D.navLog} onBack={() => setLogScreen(null)} account={accountProps} />}>
+        <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} onToggleSidebar={toggleSidebar} title={D.navLog} onBack={() => setLogScreen(null)} account={accountProps} />}>
           <DesktopBody
             rail={
               <>
@@ -403,7 +404,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
     // ── Karamdaman / Namamatay ─────────────────────────────────────────
     if (view.kind === 'health') {
       return (
-        <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} title={D.karamdamanTitle} subtitle={D.karamdamanSubtitle} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
+        <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} onToggleSidebar={toggleSidebar} title={D.karamdamanTitle} subtitle={D.karamdamanSubtitle} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
           <div className="px-6 py-5">
             <DesktopKaramdamanForm records={stockingRecords} onSaved={fetchAll} />
           </div>
@@ -414,7 +415,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
     // ── Ani ──────────────────────────────────────────────────────────
     if (view.kind === 'yield') {
       return (
-        <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} title={D.navAni} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
+        <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} onToggleSidebar={toggleSidebar} title={D.navAni} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
           <DesktopBody>
             <CitizenAniScreen endpoint="/fisheries/yield-analysis/" bare />
           </DesktopBody>
@@ -425,7 +426,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
     // ── Tulong Natanggap ───────────────────────────────────────────────
     if (view.kind === 'assistance') {
       return (
-        <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} title={D.helpAssistance} subtitle={D.helpAssistanceSubtitle} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
+        <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} onToggleSidebar={toggleSidebar} title={D.helpAssistance} subtitle={D.helpAssistanceSubtitle} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
           <div className="px-6 py-5">
             <CitizenAssistanceList endpoint="/interventions/my-fisherfolk-beneficiary-history/" />
           </div>
@@ -436,7 +437,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
     // ── Aking Profile ────────────────────────────────────────────────
     if (view.kind === 'profile') {
       return (
-        <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} title={D.accountProfile} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
+        <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} onToggleSidebar={toggleSidebar} title={D.accountProfile} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
           <div className="px-6 py-5">
             <CitizenProfileScreen record={record} recordType="FISHERFOLK" onHelp={accountProps.onHelp} bare />
           </div>
@@ -448,7 +449,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
     if (view.kind === 'help') {
       const H = labels.fisherfolkHelp
       return (
-        <DesktopShell sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} title={H.title} subtitle={H.subtitle} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
+        <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} onToggleSidebar={toggleSidebar} title={H.title} subtitle={H.subtitle} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
           <CitizenHelpScreen theme={FISH_THEME} L={H} bare />
         </DesktopShell>
       )
@@ -459,10 +460,12 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
       return (
         <>
         <DesktopShell
+          collapsed={sidebarCollapsed}
           sidebar={sidebar}
           topbar={
             <DesktopTopbar
               theme={FISH_THEME}
+              onToggleSidebar={toggleSidebar}
               greetingName={D.greeting(record.label)}
               metaLine={`Brgy. ${record.barangay || labels.common.unknown} · ${new Date().toLocaleDateString('fil-PH', { year: 'numeric', month: 'long', day: 'numeric' })}`}
               account={accountProps}

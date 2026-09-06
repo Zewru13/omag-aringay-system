@@ -81,9 +81,10 @@ function Field({ label, value }) {
 
 // Same identity-card + info-card structure as FarmerDetailPage (see its own
 // comment for the reference this is built against), in the fisheries blue
-// (#1B4457) already used for this domain in the citizen portal
-// (--color-cz-fish-header) -- same idea, different color, as intended.
-const FISH_BLUE = '#1B4457'
+// already used for this domain in the citizen portal (--color-cz-fish-header)
+// -- same idea, different color, as intended. Realigned to #155E82 (Phase 2
+// color fix, 2026-09-07) to match --color-cz-fish-header's corrected value.
+const FISH_BLUE = '#155E82'
 
 function initialsOf(fullName) {
   return (fullName || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0].toUpperCase()).join('') || '?'

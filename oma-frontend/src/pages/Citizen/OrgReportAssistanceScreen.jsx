@@ -61,88 +61,149 @@ const RA = labels.reportAssistance
 const FIELD_LABEL = 'mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-cz-text-2'
 const CARD = 'rounded-[12px] border-[0.5px] border-cz-border bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)]'
 
-function AssistanceTypeAndAmountFields({ theme, domain, form, set, fieldBox }) {
-  const isCash = form.assistance_type === 'Cash Assistance'
+// Type selector alone (image5/6/20's "URI NG TULONG" dropdown) — split out
+// from the amount fields below so the org-wide flow can show just this +
+// the date on its own first wizard step, matching the reference exactly,
+// while the member form still renders type+amount together in one step.
+function AssistanceTypeField({ domain, form, set, fieldBox }) {
   const isOtherType = form.assistance_type === 'Other'
   return (
-    <>
-      <div>
-        <p className={FIELD_LABEL}>{R.typeHeading}</p>
-        <div className="flex flex-wrap gap-2">
-          {domain.assistanceTypeOptions.map((type) => {
-            const active = form.assistance_type === type
-            return (
-              <button
-                key={type}
-                type="button"
-                aria-pressed={active}
-                onClick={() => set('typeChange', type)}
-                className={`min-h-[42px] rounded-[10px] px-4 text-[14px] font-semibold transition-colors ${
-                  active ? `${theme.solidBtn}` : 'border-[0.5px] border-cz-border bg-white text-cz-text hover:bg-[#F6F5F1]'
-                }`}
-              >
-                {type}
-              </button>
-            )
-          })}
-        </div>
-        {isOtherType && (
-          <input
-            type="text"
-            value={form.assistance_type_other}
-            onChange={(e) => set('assistance_type_other', e.target.value)}
-            placeholder={R.otherTypePlaceholder}
-            className={`${fieldBox} mt-3`}
-          />
-        )}
-      </div>
+    <div>
+      <label className={FIELD_LABEL} htmlFor="assistance-type">{R.typeHeading}</label>
+      <select
+        id="assistance-type"
+        value={form.assistance_type}
+        onChange={(e) => set('typeChange', e.target.value)}
+        className={fieldBox}
+      >
+        {domain.assistanceTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
+      </select>
+      {isOtherType && (
+        <input
+          type="text"
+          value={form.assistance_type_other}
+          onChange={(e) => set('assistance_type_other', e.target.value)}
+          placeholder={R.otherTypePlaceholder}
+          className={`${fieldBox} mt-3`}
+        />
+      )}
+    </div>
+  )
+}
 
-      <div className={CARD}>
-        {isCash ? (
-          <>
-            <label className={FIELD_LABEL} htmlFor="cash-amount">{R.cashPerMember}</label>
-            <div className={`flex items-center gap-2 rounded-[10px] border-[0.5px] border-cz-border-strong bg-white px-3.5 ${theme.focusWithinBorder}`}>
-              <span className="text-[14px] text-cz-text-2" aria-hidden="true">₱</span>
-              <input
-                id="cash-amount"
-                type="number" step="0.01" min="0.01"
-                value={form.cash_amount}
-                onChange={(e) => set('cash_amount', e.target.value)}
-                placeholder="0"
-                className="min-h-[46px] w-full bg-transparent text-[14px] text-cz-text outline-none"
-              />
-            </div>
-            {form.cash_amount && Number(form.cash_amount) > 0 && (
-              <p className="mt-2.5 rounded-[8px] bg-cz-tile-blue-bg px-3 py-2 text-[13px] font-semibold text-cz-tile-blue-fg">
-                {R.cashPreview(Number(form.cash_amount).toLocaleString('en-PH'))}
-              </p>
-            )}
-          </>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={FIELD_LABEL} htmlFor="qty">{R.quantity}</label>
-              <input
-                id="qty" type="text"
-                value={form.quantity}
-                onChange={(e) => set('quantity', e.target.value)}
-                placeholder="0"
-                className={fieldBox}
-              />
-            </div>
-            <div>
-              <label className={FIELD_LABEL} htmlFor="unit">{R.unit}</label>
-              <select id="unit" value={form.unit} onChange={(e) => set('unit', e.target.value)} className={fieldBox}>
-                {unitsFor(form.assistance_type).map((u) => <option key={u} value={u}>{u}</option>)}
-              </select>
-            </div>
+// Quantity/unit (or cash amount) — the real backend-required fields the
+// reference's own screenshots don't show on this step, kept per earlier
+// explicit instruction. Split from the type selector for the same reason.
+function AssistanceAmountFields({ theme, form, set }) {
+  const isCash = form.assistance_type === 'Cash Assistance'
+  return (
+    <div className={CARD}>
+      {isCash ? (
+        <>
+          <label className={FIELD_LABEL} htmlFor="cash-amount">{R.cashPerMember}</label>
+          <div className={`flex items-center gap-2 rounded-[10px] border-[0.5px] border-cz-border-strong bg-white px-3.5 ${theme.focusWithinBorder}`}>
+            <span className="text-[14px] text-cz-text-2" aria-hidden="true">₱</span>
+            <input
+              id="cash-amount"
+              type="number" step="0.01" min="0.01"
+              value={form.cash_amount}
+              onChange={(e) => set('cash_amount', e.target.value)}
+              placeholder="0"
+              className="min-h-[46px] w-full bg-transparent text-[14px] text-cz-text outline-none"
+            />
           </div>
-        )}
-      </div>
+          {form.cash_amount && Number(form.cash_amount) > 0 && (
+            <p className="mt-2.5 rounded-[8px] bg-cz-tile-blue-bg px-3 py-2 text-[13px] font-semibold text-cz-tile-blue-fg">
+              {R.cashPreview(Number(form.cash_amount).toLocaleString('en-PH'))}
+            </p>
+          )}
+        </>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={FIELD_LABEL} htmlFor="qty">{R.quantity}</label>
+            <input
+              id="qty" type="text"
+              value={form.quantity}
+              onChange={(e) => set('quantity', e.target.value)}
+              placeholder="0"
+              className="min-h-[46px] w-full rounded-[10px] border-[0.5px] border-cz-border-strong bg-white px-3.5 text-[14px] text-cz-text outline-none"
+            />
+          </div>
+          <div>
+            <label className={FIELD_LABEL} htmlFor="unit">{R.unit}</label>
+            <select id="unit" value={form.unit} onChange={(e) => set('unit', e.target.value)} className="min-h-[46px] w-full rounded-[10px] border-[0.5px] border-cz-border-strong bg-white px-3.5 text-[14px] text-cz-text outline-none">
+              {unitsFor(form.assistance_type).map((u) => <option key={u} value={u}>{u}</option>)}
+            </select>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Combines the two above, in order — the member form (image6/19) isn't
+// wizard-split, so it renders type+amount together in one step exactly as
+// this function did before the org-wide flow's step split.
+function AssistanceTypeAndAmountFields({ theme, domain, form, set, fieldBox }) {
+  return (
+    <>
+      <AssistanceTypeField domain={domain} form={form} set={set} fieldBox={fieldBox} />
+      <AssistanceAmountFields theme={theme} form={form} set={set} />
     </>
   )
 }
 
+// Date alone (image5/20 step 1's "PETSA NG DISTRIBUSYON").
+function DateField({ form, set, fieldBox }) {
+  return (
+    <div className={CARD}>
+      <label className={FIELD_LABEL} htmlFor="date-given">{L.fields.dateGiven}</label>
+      <input id="date-given" type="date" value={form.date_given} onChange={(e) => set('date_given', e.target.value)} className={fieldBox} />
+      <p className="mt-1.5 text-[12px] text-cz-text-2">{R.futureDateHint}</p>
+    </div>
+  )
+}
+
+// Source/season/description — the real required fields the reference never
+// shows for the org-wide flow (its screenshots stop at type+date). Rendered
+// on the org-wide wizard's SECOND step, alongside the amount fields.
+function SourceSeasonDescriptionFields({ domain, form, set, fieldBox }) {
+  return (
+    <div className={`${CARD} space-y-3`}>
+      <div>
+        <label className={FIELD_LABEL} htmlFor="source-agency">{L.fields.sourceAgency}</label>
+        <ComboboxWithOther
+          options={SOURCE_AGENCY_OPTIONS}
+          value={form.source_agency}
+          otherValue={form.source_agency_other}
+          onChange={(v) => set('source_agency', v)}
+          onOtherChange={(v) => set('source_agency_other', v)}
+          otherLabel={R.other}
+          placeholder={R.notSpecified}
+          inputClassName={fieldBox}
+        />
+      </div>
+      {domain.seasonOptions && (
+        <div>
+          <label className={FIELD_LABEL} htmlFor="season">{L.fields.season}</label>
+          <select id="season" value={form.season} onChange={(e) => set('season', e.target.value)} className={fieldBox}>
+            {domain.seasonOptions.map((s) => <option key={s} value={s}>{labels.harvest.seasonOptions?.[s] || s}</option>)}
+          </select>
+        </div>
+      )}
+      <div>
+        <label className={FIELD_LABEL} htmlFor="description">{L.fields.description}</label>
+        <textarea id="description" rows={2} value={form.description} onChange={(e) => set('description', e.target.value)} className={`${fieldBox} py-2.5`} />
+      </div>
+    </div>
+  )
+}
+
+// Member form (image6/19) keeps date+source+season+description together in
+// ONE card, unchanged from before this rewrite — only the org-wide flow is
+// wizard-split (DateField / SourceSeasonDescriptionFields above, rendered
+// as two separate steps with their own card each).
 function DateSourceSeasonDescriptionFields({ domain, form, set, fieldBox }) {
   return (
     <div className={`${CARD} space-y-3`}>
@@ -199,7 +260,7 @@ export default function OrgReportAssistanceScreen({
   const theme = domain.dashboardTheme
   const fieldBox = `min-h-[46px] w-full rounded-[10px] border-[0.5px] border-cz-border-strong bg-white px-3.5 text-[14px] text-cz-text outline-none ${theme.focusBorder}`
 
-  const [step, setStep] = useState('chooser') // 'chooser' | 'memberForm' | 'orgForm' | 'confirm' | 'result'
+  const [step, setStep] = useState('chooser') // 'chooser' | 'memberForm' | 'orgForm' | 'orgFormDetails' | 'confirm' | 'result'
   const [memberId, setMemberId] = useState('')
   const [form, setForm] = useState(emptyForm(domain))
   const [preview, setPreview] = useState(null)
@@ -290,6 +351,18 @@ export default function OrgReportAssistanceScreen({
       season: form.season,
       ...(dryRun ? { dry_run: true } : {}),
     }
+  }
+
+  // ── Org-wide wizard step 1 -> 2 (image5/20's "Susunod: I-preview").
+  // Only validates what step 1 actually collects — type + date — the rest
+  // (quantity/source/season/description) is validated by handlePreview once
+  // the user reaches step 2 and actually previews.
+  const handleOrgStep1Next = (e) => {
+    e.preventDefault()
+    setErrorMessage('')
+    if (!form.assistance_type || !form.date_given) { setErrorMessage(L.errors.requiredFields); return }
+    if (isOtherType && !form.assistance_type_other.trim()) { setErrorMessage(L.errors.specifyAssistanceType); return }
+    setStep('orgFormDetails')
   }
 
   const handlePreview = async (e) => {
@@ -399,14 +472,43 @@ export default function OrgReportAssistanceScreen({
     )
   }
 
-  // ── I-distribute sa Organisasyon, step 1 (image5/20) ────────────────
+  // ── I-distribute sa Organisasyon, step 1 (image5/20) — type + date only,
+  // matching the reference's own two fields and "Susunod: I-preview" button
+  // exactly. The rest of the real fields live on step 2 below, which the
+  // reference doesn't show (its screenshots stop here).
   if (step === 'orgForm') {
     return (
       <OrgShell theme={theme} chipLabel={orgName} active="home" onNav={shellNav} tabBar={tabBar} wide={false}>
-        <OrgPageHeader title={R.orgFormTitle} subtitle={R.chooseOrgBody(members.length)} onBack={resetToChooser} />
+        <OrgPageHeader title={R.orgFormTitle} subtitle={R.orgFormSubtitle(members.length)} onBack={resetToChooser} />
+        <form onSubmit={handleOrgStep1Next} className="max-w-lg space-y-4">
+          <AssistanceTypeField domain={domain} form={form} set={set} fieldBox={fieldBox} />
+          <DateField form={form} set={set} fieldBox={fieldBox} />
+
+          {errorMessage && (
+            <p className="rounded-[10px] border-[0.5px] border-cz-danger-border bg-cz-danger-bg px-3.5 py-2.5 text-[13px] text-cz-danger-body">{errorMessage}</p>
+          )}
+
+          <div className="flex gap-3">
+            <button type="button" onClick={resetToChooser} className={ghostBtn}>{labels.common.cancel}</button>
+            <button type="submit" disabled={members.length === 0} className={primaryBtn}>{R.step1NextButton}</button>
+          </div>
+        </form>
+      </OrgShell>
+    )
+  }
+
+  // ── I-distribute sa Organisasyon, step 2 — the real required fields the
+  // reference's screenshots don't reach (quantity/cash, source, season,
+  // description), plus the recipients summary, ending in the actual preview
+  // trigger. Not shown in the reference; organized to match its own card
+  // patterns since there is nothing here to match literally.
+  if (step === 'orgFormDetails') {
+    return (
+      <OrgShell theme={theme} chipLabel={orgName} active="home" onNav={shellNav} tabBar={tabBar} wide={false}>
+        <OrgPageHeader title={R.orgFormTitle} subtitle={R.orgFormSubtitle(members.length)} onBack={() => setStep('orgForm')} />
         <form onSubmit={handlePreview} className="max-w-lg space-y-4">
-          <AssistanceTypeAndAmountFields theme={theme} domain={domain} form={form} set={set} fieldBox={fieldBox} />
-          <DateSourceSeasonDescriptionFields domain={domain} form={form} set={set} fieldBox={fieldBox} />
+          <AssistanceAmountFields theme={theme} form={form} set={set} />
+          <SourceSeasonDescriptionFields domain={domain} form={form} set={set} fieldBox={fieldBox} />
 
           <div>
             <p className={FIELD_LABEL}>{R.recipientsHeading}</p>
@@ -431,7 +533,7 @@ export default function OrgReportAssistanceScreen({
           )}
 
           <div className="flex gap-3">
-            <button type="button" onClick={resetToChooser} className={ghostBtn}>{labels.common.cancel}</button>
+            <button type="button" onClick={() => setStep('orgForm')} className={ghostBtn}>{labels.common.cancel}</button>
             <button type="submit" disabled={isBusy || members.length === 0} className={primaryBtn}>{R.previewButton}</button>
           </div>
         </form>
@@ -443,7 +545,7 @@ export default function OrgReportAssistanceScreen({
   if (step === 'confirm' && preview) {
     return (
       <OrgShell theme={theme} chipLabel={orgName} active="home" onNav={shellNav} tabBar={tabBar} wide={false}>
-        <OrgPageHeader title={R.confirmTitle} onBack={() => setStep('orgForm')} />
+        <OrgPageHeader title={R.confirmTitle} onBack={() => setStep('orgFormDetails')} />
         <div className={`${CARD} max-w-lg space-y-1.5`}>
           <p className="text-[13px] text-cz-text-2"><span className="font-semibold text-cz-text">{L.organizationLabel}:</span> {preview.organization_name}</p>
           <p className="text-[13px] text-cz-text-2"><span className="font-semibold text-cz-text">{L.currentMembers}:</span> {preview.member_count}</p>
@@ -479,7 +581,7 @@ export default function OrgReportAssistanceScreen({
 
         <div className="mt-4 max-w-lg space-y-2">
           <button type="button" disabled={isBusy} onClick={handleConfirm} className={primaryBtn}>{L.confirmButton}</button>
-          <button type="button" onClick={() => setStep('orgForm')} className={ghostBtn}>{L.back}</button>
+          <button type="button" onClick={() => setStep('orgFormDetails')} className={ghostBtn}>{L.back}</button>
         </div>
       </OrgShell>
     )

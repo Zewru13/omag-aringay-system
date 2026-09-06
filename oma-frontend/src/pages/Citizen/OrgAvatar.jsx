@@ -5,32 +5,14 @@
 // Fast Refresh for that module (react-refresh/only-export-components), and
 // three screens import this.
 //
-// The tint is DETERMINISTIC — the same person always gets the same colour,
-// on every render and every device. A random pick would reshuffle whenever
-// the list re-rendered, which reads as a glitch rather than as identity.
-//
-// These seven hexes are SAMPLED from the Organization reference images
-// (image10's officer roster and member grid), replacing the approximate
-// six-colour set this file shipped with. They are a categorical identity
-// palette, deliberately not cz-* theme tokens: they must stay
-// distinguishable from each other and they carry no status meaning.
-const AVATAR_TINTS = [
-  'bg-[#7B341E] text-white',  // MS
-  'bg-[#0B3D52] text-white',  // RC
-  'bg-[#0E6B8A] text-white',  // ER
-  'bg-[#0C7A6B] text-white',  // JD
-  'bg-[#2D5A27] text-white',  // AF
-  'bg-[#6B3FA0] text-white',  // PB
-  'bg-[#8B4513] text-white',  // LM
-]
-
-function tintFor(key) {
-  const s = String(key ?? '')
-  let h = 0
-  for (let i = 0; i < s.length; i += 1) h = (h * 31 + s.charCodeAt(i)) >>> 0
-  return AVATAR_TINTS[h % AVATAR_TINTS.length]
-}
-
+// Phase 1 re-verification (2026-09-07) against the actual reference images
+// found every avatar in image2/9/10 uses ONE uniform domain tint (light
+// green bg, dark green text for Farmers) — never a rotating rainbow. The
+// previous rainbow AVATAR_TINTS palette this file shipped with was not
+// actually sampled from the reference correctly; replaced with the same
+// `theme.tileSelectedBg`/`tileSelectedText` pair every other domain-tinted
+// surface already uses, so member identity comes from the initials alone,
+// same as the reference.
 function initialsOf(fullName) {
   const parts = String(fullName || '').trim().split(/\s+/).filter(Boolean)
   if (parts.length === 0) return '?'
@@ -38,10 +20,10 @@ function initialsOf(fullName) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
-export default function Avatar({ name, id, size = 40 }) {
+export default function Avatar({ name, theme, size = 40 }) {
   return (
     <span
-      className={`inline-flex shrink-0 items-center justify-center rounded-full text-[13px] font-medium ${tintFor(id ?? name)}`}
+      className={`inline-flex shrink-0 items-center justify-center rounded-full text-[13px] font-medium ${theme.tileSelectedBg} ${theme.tileSelectedText}`}
       style={{ width: size, height: size }}
       aria-hidden="true"
     >
