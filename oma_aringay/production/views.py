@@ -2099,11 +2099,20 @@ class ForecastingTemplateView(APIView):
 
 
 class ForecastingImportView(APIView):
+    """Identity for duplicate detection is (organization, crop_type,
+    date_planted) — exactly the three fields this import reads that
+    together identify "this planting", since the import never captures a
+    farm_parcel to disambiguate further. Two passes: first parse every row
+    and group by that identity to catch same-file collisions (every row in
+    a colliding group is flagged, none of them created — the system never
+    guesses which one is "right"); rows that are unique within the file are
+    then checked against the database before being created."""
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     parser_classes = [MultiPartParser]
 
     def post(self, request):
         import datetime as dt
+        from collections import defaultdict
 
         from openpyxl import load_workbook
 
@@ -2119,8 +2128,9 @@ class ForecastingImportView(APIView):
         except Exception as exc:
             return Response({'error': f'Invalid Excel file: {exc}'}, status=400)
 
-        created = 0
         errors = []
+        ready = []  # rows that parsed cleanly: {row_num, assoc, crop_type, date_planted, area, key}
+        groups = defaultdict(list)  # identity key -> [row_num, ...]
 
         for row_num, row in enumerate(ws.iter_rows(min_row=3, values_only=True), start=3):
             if not any(cell for cell in row if cell is not None):
@@ -2165,6 +2175,49 @@ class ForecastingImportView(APIView):
                 errors.append({'row': row_num, 'error': f'Invalid area value "{area_str}".'})
                 continue
 
+            key = (assoc.id, crop_type.id, date_planted)
+            ready.append({
+                'row_num': row_num, 'assoc': assoc, 'crop_type': crop_type,
+                'date_planted': date_planted, 'area': area, 'key': key,
+            })
+            groups[key].append(row_num)
+
+        created = 0
+        duplicates = []
+
+        for item in ready:
+            row_num, key = item['row_num'], item['key']
+            assoc, crop_type, date_planted = item['assoc'], item['crop_type'], item['date_planted']
+
+            colliding_rows = [r for r in groups[key] if r != row_num]
+            if colliding_rows:
+                duplicates.append({
+                    'row': row_num,
+                    'reason': 'in_file',
+                    'error': (
+                        f'Duplicate of row(s) {", ".join(str(r) for r in colliding_rows)} in this file '
+                        f'(same Organization "{assoc.name}", Crop "{crop_type.name}", Date Planted {date_planted.isoformat()}). '
+                        f'None of the colliding rows were created — resolve the conflict and re-upload.'
+                    ),
+                    'colliding_rows': colliding_rows,
+                })
+                continue
+
+            existing = CropMonitoringRecord.objects.filter(
+                farmers_organization=assoc, crop_type=crop_type, date_planted=date_planted,
+            ).first()
+            if existing:
+                duplicates.append({
+                    'row': row_num,
+                    'reason': 'database',
+                    'error': (
+                        f'A record already exists for Organization "{assoc.name}", Crop "{crop_type.name}", '
+                        f'Date Planted {date_planted.isoformat()} (record #{existing.id}). Not created again.'
+                    ),
+                    'existing_record_id': existing.id,
+                })
+                continue
+
             try:
                 month = date_planted.month
                 season = 'Wet' if 5 <= month <= 10 else 'Dry'
@@ -2172,7 +2225,7 @@ class ForecastingImportView(APIView):
                     farmers_organization=assoc,
                     crop_type=crop_type,
                     date_planted=date_planted,
-                    area_planted_ha=area,
+                    area_planted_ha=item['area'],
                     season=season,
                     year=date_planted.year,
                     recorded_by=request.user,
@@ -2181,4 +2234,4 @@ class ForecastingImportView(APIView):
             except Exception as exc:
                 errors.append({'row': row_num, 'error': str(exc)})
 
-        return Response({'created': created, 'errors': errors})
+        return Response({'created': created, 'errors': errors, 'duplicates': duplicates})

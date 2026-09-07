@@ -584,18 +584,28 @@ class StockingForecastingTemplateView(APIView):
 
 
 class StockingForecastingImportView(APIView):
-    """Mirrors ForecastingImportView (production/views.py) exactly: parses
-    the uploaded Excel row by row (data starts row 3, same as crop's
-    template), creates one StockingRecord per valid row directly via
-    .objects.create() (not the serializer — same as crop), collects
-    per-row errors without rolling back earlier successful rows (crop's
-    Excel import is deliberately not atomic; the bulk-create tabular form
-    is the atomic path, unaffected by this)."""
+    """Mirrors ForecastingImportView (production/views.py) exactly, including
+    its duplicate-detection shape: parses the uploaded Excel row by row (data
+    starts row 3, same as crop's template), creates one StockingRecord per
+    valid non-duplicate row directly via .objects.create() (not the
+    serializer — same as crop), collects per-row errors without rolling back
+    earlier successful rows (crop's Excel import is deliberately not atomic;
+    the bulk-create tabular form is the atomic path, unaffected by this).
+
+    Identity for duplicate detection is (fisherfolk, species, date_stocked)
+    — the three fields that together identify "this stocking event" from
+    what the import actually captures; culture_type/fingerlings/etc. are
+    details of the event, not part of what makes two rows "the same event".
+    Two passes: first parse every row and group by that identity to catch
+    same-file collisions (every row in a colliding group is flagged, none
+    created); rows unique within the file are then checked against the
+    database before being created."""
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     parser_classes = [MultiPartParser]
 
     def post(self, request):
         import datetime as dt
+        from collections import defaultdict
 
         from openpyxl import load_workbook
 
@@ -609,9 +619,10 @@ class StockingForecastingImportView(APIView):
         except Exception as exc:
             return Response({'error': f'Invalid Excel file: {exc}'}, status=400)
 
-        created = 0
         errors = []
         valid_culture_types = {c.lower(): c for c in dict(StockingRecord.CULTURE_TYPE_CHOICES)}
+        ready = []  # rows that parsed cleanly
+        groups = defaultdict(list)  # identity key -> [row_num, ...]
 
         for row_num, row in enumerate(ws.iter_rows(min_row=3, values_only=True), start=3):
             if not any(cell for cell in row if cell is not None):
@@ -666,6 +677,52 @@ class StockingForecastingImportView(APIView):
                 errors.append({'row': row_num, 'error': f'Invalid culture type "{culture_type_str}". Use Pond, Cage, or Pen.'})
                 continue
 
+            key = (fisherfolk.id, species.id, date_stocked)
+            ready.append({
+                'row_num': row_num, 'fisherfolk': fisherfolk, 'species': species,
+                'date_stocked': date_stocked, 'number_of_fingerlings': number_of_fingerlings,
+                'culture_type': culture_type, 'key': key,
+            })
+            groups[key].append(row_num)
+
+        created = 0
+        duplicates = []
+
+        for item in ready:
+            row_num, key = item['row_num'], item['key']
+            fisherfolk, species, date_stocked = item['fisherfolk'], item['species'], item['date_stocked']
+
+            colliding_rows = [r for r in groups[key] if r != row_num]
+            if colliding_rows:
+                duplicates.append({
+                    'row': row_num,
+                    'reason': 'in_file',
+                    'error': (
+                        f'Duplicate of row(s) {", ".join(str(r) for r in colliding_rows)} in this file '
+                        f'(same Fisherfolk RSBSA "{fisherfolk.rsbsa_number}", Species "{species.species_name}", '
+                        f'Date Stocked {date_stocked.isoformat()}). None of the colliding rows were created — '
+                        f'resolve the conflict and re-upload.'
+                    ),
+                    'colliding_rows': colliding_rows,
+                })
+                continue
+
+            existing = StockingRecord.objects.filter(
+                fisherfolk=fisherfolk, species=species, date_stocked=date_stocked,
+            ).first()
+            if existing:
+                duplicates.append({
+                    'row': row_num,
+                    'reason': 'database',
+                    'error': (
+                        f'A record already exists for Fisherfolk RSBSA "{fisherfolk.rsbsa_number}", '
+                        f'Species "{species.species_name}", Date Stocked {date_stocked.isoformat()} '
+                        f'(record #{existing.id}). Not created again.'
+                    ),
+                    'existing_record_id': existing.id,
+                })
+                continue
+
             try:
                 month = date_stocked.month
                 season = 'Wet' if 5 <= month <= 10 else 'Dry'
@@ -673,8 +730,8 @@ class StockingForecastingImportView(APIView):
                     fisherfolk=fisherfolk,
                     species=species,
                     date_stocked=date_stocked,
-                    number_of_fingerlings=number_of_fingerlings,
-                    culture_type=culture_type,
+                    number_of_fingerlings=item['number_of_fingerlings'],
+                    culture_type=item['culture_type'],
                     season=season,
                     year=date_stocked.year,
                     recorded_by=request.user,
@@ -683,7 +740,7 @@ class StockingForecastingImportView(APIView):
             except Exception as exc:
                 errors.append({'row': row_num, 'error': str(exc)})
 
-        return Response({'created': created, 'errors': errors})
+        return Response({'created': created, 'errors': errors, 'duplicates': duplicates})
 
 
 class StockingHistoryView(generics.ListAPIView):

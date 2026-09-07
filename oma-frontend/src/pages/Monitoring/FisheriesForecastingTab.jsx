@@ -157,7 +157,8 @@ const labelCls = 'text-[10px] font-semibold uppercase tracking-[0.06em] text-[#A
 
 // ── Import Errors Modal (mirrors ImportErrorsModal in crop's ForecastingPage.jsx) ──
 
-function StockingImportErrorsModal({ errors, created, onClose }) {
+function StockingImportErrorsModal({ errors, duplicates = [], created, onClose }) {
+  const hasIssues = errors.length > 0 || duplicates.length > 0
   return (
     <ModalShell
       title="Import Results"
@@ -166,17 +167,34 @@ function StockingImportErrorsModal({ errors, created, onClose }) {
       onClose={onClose}
       maxWidth="max-w-lg"
     >
-      {errors.length === 0 ? (
+      {!hasIssues ? (
         <p className="text-sm text-[#1B4D2E] font-medium py-2">All rows imported successfully.</p>
       ) : (
-        <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-          <p className="text-[12px] text-[#7A8E7A] mb-2">{errors.length} row{errors.length !== 1 ? 's' : ''} had errors:</p>
-          {errors.map((e, i) => (
-            <div key={i} className="flex items-start gap-2 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2">
-              <span className="text-xs font-semibold text-rose-600 shrink-0">Row {e.row}</span>
-              <span className="text-xs text-rose-700">{e.error}</span>
+        <div className="space-y-4 max-h-72 overflow-y-auto pr-1">
+          {duplicates.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[12px] text-[#7A8E7A]">
+                {duplicates.length} row{duplicates.length !== 1 ? 's' : ''} skipped as duplicate{duplicates.length !== 1 ? 's' : ''} — not created:
+              </p>
+              {duplicates.map((d, i) => (
+                <div key={i} className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                  <span className="text-xs font-semibold text-amber-700 shrink-0">Row {d.row}</span>
+                  <span className="text-xs text-amber-800">{d.error}</span>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
+          {errors.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[12px] text-[#7A8E7A]">{errors.length} row{errors.length !== 1 ? 's' : ''} had errors:</p>
+              {errors.map((e, i) => (
+                <div key={i} className="flex items-start gap-2 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2">
+                  <span className="text-xs font-semibold text-rose-600 shrink-0">Row {e.row}</span>
+                  <span className="text-xs text-rose-700">{e.error}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
       <div className="flex justify-end pt-4 border-t border-[#F0F4F0] mt-4">
@@ -1080,6 +1098,7 @@ export default function ForecastingTab({ asTab = false }) {
         <StockingImportErrorsModal
           created={fcImportResults.created}
           errors={fcImportResults.errors}
+          duplicates={fcImportResults.duplicates}
           onClose={() => setFcImportResults(null)}
         />
       )}
