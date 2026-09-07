@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Camera, Check, ChevronRight, Clock, HelpCircle, KeyRound, Lock, Pencil, RefreshCw } from 'lucide-react'
+import { Camera, Check, ChevronRight, Clock, HelpCircle, KeyRound, Lock, LogOut, Pencil, RefreshCw } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import { ARINGAY_BARANGAYS } from '../../constants/barangays.js'
+import { sanitizePhoneDigits, validatePhone } from '../../utils/validation.js'
 import { labels } from './labels.js'
 import { CROP_THEME, CitizenBody, CitizenScreen, CitizenSubHeader, EditLegend, FISH_THEME } from './citizenUI.jsx'
 
@@ -241,12 +243,14 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
   }
 
   const identityCard = (
-    <div className="w-full shrink-0 lg:w-[280px]">
+    <div className="w-full shrink-0 lg:sticky lg:top-20 lg:w-[280px]">
       <div className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface">
-        <div className={`h-20 ${theme.header}`} />
-        <div className="px-4 pb-4 -mt-8">
-          <div className="relative h-16 w-16">
-            <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-[14px] border-2 border-cz-surface bg-cz-surface text-[18px] font-semibold text-cz-text shadow-sm">
+        {/* Name now lives IN the photo header, beside the avatar — not
+            below it (2026-09-07 direct request) — so the banner grows to
+            fit both rather than staying a fixed decorative strip. */}
+        <div className={`flex items-center gap-3 px-4 py-4 ${theme.header}`}>
+          <div className="relative h-14 w-14 shrink-0">
+            <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-[14px] border-2 border-white/40 bg-white text-[16px] font-semibold text-cz-text shadow-sm">
               {photoUrl ? <img src={photoUrl} alt="" className="h-full w-full object-cover" /> : initialsOf(record)}
             </div>
             <input
@@ -258,34 +262,28 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
               disabled={isUploading}
               aria-label={labels.profileEdit.changePhoto}
               onClick={() => fileRef.current?.click()}
-              className={`absolute -bottom-1 -left-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-cz-surface ${theme.solidBtn} shadow-md transition-transform press-scale hover:scale-105 disabled:opacity-50`}
+              className={`absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white ${theme.solidBtn} shadow-md transition-transform press-scale hover:scale-105 disabled:opacity-50`}
             >
-              <Camera size={13} aria-hidden="true" />
+              <Camera size={11} aria-hidden="true" />
             </button>
           </div>
-
-          <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-cz-text-2">{P.identityNameEyebrow}</p>
-          <h1 className="mt-0.5 text-[17px] font-bold leading-[1.2] text-cz-text">{fullName}</h1>
-          <div className="mt-1.5 flex items-center gap-2">
+          <div className="min-w-0">
+            <p className={`text-[10.5px] font-semibold uppercase tracking-[0.06em] ${theme.brand}`}>{P.identityNameEyebrow}</p>
+            <h1 className="mt-0.5 truncate text-[16px] font-bold leading-[1.2] text-white">{fullName}</h1>
+          </div>
+        </div>
+        <div className="px-4 pb-4 pt-3">
+          <div className="flex items-center gap-2">
             <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${theme.tileSelectedBg} ${theme.tileSelectedText}`}>
               {isFisherfolk ? P.roleBadgeFisherfolk : P.roleBadgeFarmer}
             </span>
             <span className="text-[12px] text-cz-text-2">{isFisherfolk ? P.roleSubtitleFisherfolk : P.roleSubtitleFarmer}</span>
           </div>
 
-          {(hasValue(record?.barangay) || hasValue(contact)) && (
-            <div className="mt-3 grid grid-cols-2 gap-3 border-t-[0.5px] border-cz-border pt-3">
-              <div>
-                <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{P.barangay}</p>
-                <p className="mt-0.5 truncate text-[13.5px] font-medium text-cz-text">{record?.barangay || labels.common.unknown}</p>
-              </div>
-              <div>
-                <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{P.contact}</p>
-                <p className="mt-0.5 truncate text-[13.5px] font-medium text-cz-text">{contact || labels.common.unknown}</p>
-              </div>
-            </div>
-          )}
-
+          {/* Barangay/Contact used to repeat here in a compact mini-grid AND
+              again below in the full "Personal na Impormasyon" card — removed
+              (2026-09-07) since that card already shows both, with edit
+              affordances this read-only summary didn't have. */}
           {isUploading && <p className="mt-2.5 text-[12px] text-cz-text-2">{labels.profileEdit.uploading}</p>}
         </div>
       </div>
@@ -304,7 +302,7 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
   )
 
   const detailCards = (
-    <div className="min-w-0 flex-1 space-y-4">
+    <div className="min-w-0 flex-1 space-y-4 lg:sticky lg:top-20">
       {errorMessage && (
         <p className="rounded-[8px] border-[0.5px] border-cz-danger-border bg-cz-danger-bg px-3 py-2 text-[13px] text-cz-danger-body">
           {errorMessage}
@@ -372,25 +370,31 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
           <div className="py-2.5">
             <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{P.contact}</p>
             {editingContact ? (
-              <div className="mt-1.5 flex gap-2">
-                <input
-                  type="tel" value={contactDraft}
-                  onChange={(e) => setContactDraft(e.target.value)}
-                  className="min-h-[40px] flex-1 rounded-[8px] border-[0.5px] border-cz-border-strong px-3 text-[14px] text-cz-text outline-none"
-                />
-                <button
-                  type="button" disabled={savingContact} onClick={saveContact}
-                  className={`min-h-[40px] rounded-[8px] px-3 ${theme.solidBtn} disabled:opacity-50`}
-                >
-                  <span className="text-[13px] font-medium">{P.contactEditSave}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setEditingContact(false); setContactDraft(contact); setErrorMessage('') }}
-                  className="min-h-[40px] rounded-[8px] border-[0.5px] border-cz-border-strong px-3"
-                >
-                  <span className="text-[13px] text-cz-text-2">{P.contactEditCancel}</span>
-                </button>
+              <div className="mt-1.5">
+                <div className="flex gap-2">
+                  <input
+                    type="tel" inputMode="numeric" value={contactDraft}
+                    placeholder={labels.profileEdit.contactPlaceholder}
+                    onChange={(e) => setContactDraft(sanitizePhoneDigits(e.target.value))}
+                    className="min-h-[40px] flex-1 rounded-[8px] border-[0.5px] border-cz-border-strong px-3 text-[14px] text-cz-text outline-none"
+                  />
+                  <button
+                    type="button" disabled={savingContact || !!validatePhone(contactDraft)} onClick={saveContact}
+                    className={`min-h-[40px] rounded-[8px] px-3 ${theme.solidBtn} disabled:opacity-50`}
+                  >
+                    <span className="text-[13px] font-medium">{P.contactEditSave}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setEditingContact(false); setContactDraft(contact); setErrorMessage('') }}
+                    className="min-h-[40px] rounded-[8px] border-[0.5px] border-cz-border-strong px-3"
+                  >
+                    <span className="text-[13px] text-cz-text-2">{P.contactEditCancel}</span>
+                  </button>
+                </div>
+                {validatePhone(contactDraft) && (
+                  <p className="mt-1 text-[12px] text-cz-danger-accent">{labels.profileEdit.contactInvalid}</p>
+                )}
               </div>
             ) : (
               <div className="mt-0.5 flex items-center justify-between gap-3">
@@ -530,19 +534,31 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
         <button
           type="button"
           onClick={onHelp}
-          className={`${CARD} flex w-full items-center gap-2.5 px-4 py-3.5 text-left transition-colors hover:bg-cz-page`}
+          className={`${CARD} press-scale flex w-full items-center gap-2.5 px-4 py-3.5 text-left transition-colors hover:bg-cz-page`}
         >
           <HelpCircle size={18} className="shrink-0 text-cz-text-2" aria-hidden="true" />
           <span className="flex-1 text-[14px] font-medium text-cz-text">{P.helpRowLabel}</span>
           <ChevronRight size={17} className="shrink-0 text-cz-text-muted" aria-hidden="true" />
         </button>
       )}
+
+      {/* MAG-LOG OUT — moved here from the header (2026-09-07 direct
+          request): the header no longer carries a logout icon at all, so
+          this is now the only place to sign out on mobile. */}
+      <button
+        type="button"
+        onClick={() => { logout(); navigate('/login') }}
+        className={`${CARD} press-scale flex w-full items-center gap-2.5 px-4 py-3.5 text-left text-cz-danger-accent transition-colors hover:bg-cz-danger-bg`}
+      >
+        <LogOut size={18} className="shrink-0" aria-hidden="true" />
+        <span className="flex-1 text-[14px] font-medium">{labels.header.logOut}</span>
+      </button>
     </div>
   )
 
   const body = (
-    <div className={bare ? '' : `${theme.header} px-4 pb-6 pt-4 sm:px-6`}>
-      <div className={bare ? '' : 'rounded-[12px] bg-cz-page p-4 sm:p-5'}>
+    <div className={bare ? '' : 'bg-white px-4 pb-6 pt-4 sm:px-6'}>
+      <div className={bare ? '' : 'rounded-[12px] bg-white p-4 sm:p-5'}>
         <EditLegend theme={theme} />
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
           {identityCard}
@@ -591,11 +607,14 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
               {P.requestModalCurrentLabel}: {record?.barangay || labels.common.unknown}
             </p>
             <label className="mt-3 block text-[12px] font-medium text-cz-text-2">{P.requestModalNewLabel}</label>
-            <input
-              type="text" value={barangayDraft}
+            <select
+              value={barangayDraft}
               onChange={(e) => setBarangayDraft(e.target.value)}
-              className="mt-1 min-h-[44px] w-full rounded-[8px] border-[0.5px] border-cz-border-strong px-3 text-[14px] text-cz-text outline-none"
-            />
+              className="mt-1 min-h-[44px] w-full rounded-[8px] border-[0.5px] border-cz-border-strong bg-cz-surface px-3 text-[14px] text-cz-text outline-none"
+            >
+              <option value="" disabled>{labels.profileEdit.barangaySelectPlaceholder}</option>
+              {ARINGAY_BARANGAYS.map((b) => <option key={b} value={b}>{b}</option>)}
+            </select>
           </>
         )}
 

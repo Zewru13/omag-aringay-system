@@ -63,6 +63,7 @@ export const labels = {
     appName: 'OMAg Aringay',
     tagline: 'Sariling Account',
     logOut: 'Mag-log out',
+    profileNav: 'Aking Profile',
   },
 
   // ── Mobile tab bar (< 640px only) ──────────────────────────────────────
@@ -1209,7 +1210,9 @@ export const labels = {
     contactSuccess: 'Na-update na ang contact number.',
     contactFailed: 'Hindi na-update ang contact number.',
     contactPlaceholder: '09XXXXXXXXX',
+    contactInvalid: 'Dapat magsimula sa 09 at eksaktong 11 na numero.',
     editAction: 'I-edit',
+    barangaySelectPlaceholder: 'Piliin ang barangay',
 
     requestChange: 'Humiling ng Pagbabago',
     pendingReview: 'Nakabinbin sa pagsusuri',

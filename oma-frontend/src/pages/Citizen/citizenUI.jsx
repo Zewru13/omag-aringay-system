@@ -1,7 +1,16 @@
-import { ChevronRight, LogOut, Lock, Pencil, RefreshCw } from 'lucide-react'
+import { createContext, useContext } from 'react'
+import { ChevronRight, Lock, Pencil, RefreshCw, User } from 'lucide-react'
 import NotificationBell from '../../components/Layout/NotificationBell.jsx'
 import omagLogo from '../../assets/LOGO OMAg.jpg'
 import { labels } from './labels.js'
+
+// One profile-icon destination for every mobile header (Home's and every
+// sub-screen's alike) without threading an onProfile prop through every
+// intermediate screen file — FarmerHomeScreen/FisherfolkHomeScreen provide
+// this once, at the top, and CitizenHomeHeader/CitizenSubHeader below both
+// just read it (2026-09-07: "Profile" removed from the bottom tab bar,
+// replaced by a header icon everywhere).
+export const CitizenNavContext = createContext({ onProfile: () => {} })
 
 // Shared primitives for the citizen self-service screens, built to the
 // exact visual specification for those screens (phone-shaped column,
@@ -117,7 +126,7 @@ export const FISH_THEME = {
 // below 640px, which is what the layout rule requires.
 export const CITIZEN_GUTTER = 'px-4 sm:px-6'
 
-export function CitizenScreen({ children, hasTabBar = false }) {
+export function CitizenScreen({ children, hasTabBar = false, onProfile }) {
   // EVERY citizen screen gets this identical container — home screens and
   // sub-views alike. That uniformity is the point: if Profile capped at
   // 720px while Home ran to 1100px, the tinted header bar would change
@@ -130,16 +139,22 @@ export function CitizenScreen({ children, hasTabBar = false }) {
   // underneath it. Above 640px the bar is not rendered at all and the
   // padding collapses to zero, which is what keeps the breakpoint
   // transition free of dead space at the bottom of the page.
+  //
+  // `onProfile` (2026-09-07) is provided once here rather than threaded
+  // through every screen that renders a CitizenSubHeader — the header's
+  // profile icon reads it via CitizenNavContext instead.
   return (
-    <div className="min-h-screen w-full bg-cz-page">
+    <CitizenNavContext.Provider value={{ onProfile: onProfile || (() => {}) }}>
+    <div className="min-h-screen w-full bg-white">
       <div
-        className={`mx-auto w-full bg-cz-page sm:max-w-[720px] lg:max-w-[1100px] ${
+        className={`mx-auto w-full bg-white sm:max-w-[720px] lg:max-w-[1100px] ${
           hasTabBar ? 'pb-[calc(60px+env(safe-area-inset-bottom))] sm:pb-0' : ''
         }`}
       >
         {children}
       </div>
     </div>
+    </CitizenNavContext.Provider>
   )
 }
 
@@ -169,17 +184,17 @@ export function CitizenTabBar({ theme, active, items }) {
               type="button"
               onClick={item.onClick}
               aria-current={isActive ? 'page' : undefined}
-              className="flex min-h-[56px] flex-1 flex-col items-center justify-center gap-[3px] px-1 py-1.5 transition-colors"
+              className="press-scale flex min-h-[56px] flex-1 flex-col items-center justify-center gap-[3px] px-1 py-1.5"
             >
               <Icon
                 size={20}
-                className={isActive ? theme.accentText : 'text-cz-text-muted'}
+                className={`transition-colors ${isActive ? theme.accentText : 'text-cz-text-muted'}`}
                 aria-hidden="true"
               />
               {/* Weight, not colour alone, carries the active state — the
                   same icon+text+weight rule the rest of these screens use. */}
               <span
-                className={`text-[11px] ${
+                className={`text-[11px] transition-colors ${
                   isActive ? `font-semibold ${theme.accentText}` : 'text-cz-text-muted'
                 }`}
               >
@@ -193,61 +208,64 @@ export function CitizenTabBar({ theme, active, items }) {
   )
 }
 
-// ─── Home header ────────────────────────────────────────────────────────
-
-export function CitizenHomeHeader({ theme, name, metaLine, onLogout }) {
+// ─── Static header bar ──────────────────────────────────────────────────
+// 2026-09-07 direct request: the header must be IDENTICAL on every screen
+// (both cellphone and — see DesktopTopbar — windows POV), not swap between
+// a greeting and a per-page title. So this is the only header content Home
+// and every sub-screen render: the OMAg seal + wordmark (smaller than the
+// old logo-in-sidebar treatment) and a single profile icon that always goes
+// to Aking Profile — no name, no RSBSA, no per-page title. A page's own
+// title/back-link now lives in the content below (see CitizenPageHeader).
+function StaticHeaderBar({ theme }) {
+  const { onProfile } = useContext(CitizenNavContext)
   return (
-    <header className={`${theme.header} ${CITIZEN_GUTTER} pt-4 pb-[18px] lg:py-[18px]`}>
-      <div className="mb-[14px] flex items-start justify-between lg:mb-0">
-        {/* Phase 4 (2026-09-07): the real OMAg seal, added consistently
-            alongside the wordmark — previously text-only here. */}
-        <span className="flex items-center gap-1.5">
-          <img src={omagLogo} alt="OMAg" className="h-4 w-4 shrink-0 rounded-[3px] object-cover" />
-          <span className={`text-[12px] tracking-[0.04em] ${theme.brand}`}>
-            {labels.header.appName}
-          </span>
-        </span>
-        {/* Farmer/Fisherfolk parity batch: previously excluded from having a
-            bell at all — Organization and Staff already had one. Grouped
-            with the logout button the same way Organization's header groups
-            its bell next to the account chip. */}
-        <div className="-m-[13px] flex items-center gap-1 lg:hidden">
-          <NotificationBell />
-          <button
-            type="button"
-            onClick={onLogout}
-            aria-label={labels.header.logOut}
-            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${theme.iconBtn} transition-colors hover:bg-white/10`}
-          >
-            <LogOut size={18} aria-hidden="true" />
-          </button>
-        </div>
+    <div className="flex items-center justify-between">
+      <span className="flex items-center gap-1.5">
+        <img src={omagLogo} alt="OMAg" className="h-5 w-5 shrink-0 rounded-[4px] object-cover" />
+        <span className="text-[13px] font-semibold text-white">{labels.header.appName}</span>
+      </span>
+      <div className="flex items-center gap-1">
+        <NotificationBell />
+        <button
+          type="button"
+          onClick={onProfile}
+          aria-label={labels.header.profileNav}
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${theme.iconBtn} transition-colors hover:bg-white/10`}
+        >
+          <User size={18} aria-hidden="true" />
+        </button>
       </div>
+    </div>
+  )
+}
 
-      {/* >=1024px: greeting+name left, identity right. Below that this is a
-          plain stack and the two blocks simply follow each other, which is
-          exactly the pre-existing mobile order. */}
-      <div className="lg:flex lg:items-end lg:justify-between lg:gap-6">
-        <div className="min-w-0">
-          <p className={`mb-[2px] text-[13px] ${theme.greeting}`}>{labels.farmerHome.headerGreeting}</p>
-          <h1 className={`text-[21px] font-medium leading-[1.3] ${theme.name}`}>{name}</h1>
-        </div>
-        <div className="flex items-end gap-3">
-          <p className={`mt-1 text-[12px] lg:mt-0 lg:text-right ${theme.meta}`}>{metaLine}</p>
-          <div className="hidden items-center gap-1 lg:-mb-1 lg:flex">
-            <NotificationBell />
-            <button
-              type="button"
-              onClick={onLogout}
-              aria-label={labels.header.logOut}
-              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${theme.iconBtn} transition-colors hover:bg-white/10`}
-            >
-              <LogOut size={18} aria-hidden="true" />
-            </button>
-          </div>
-        </div>
-      </div>
+export function CitizenHomeHeader({ theme }) {
+  return (
+    <header className={`sticky top-0 z-30 ${theme.header} ${CITIZEN_GUTTER} py-3`}>
+      <StaticHeaderBar theme={theme} />
     </header>
+  )
+}
+
+// Plain, non-sticky "< Bumalik" + title, in the content area — exactly the
+// pattern OrgPageHeader already established for Organization, now shared
+// by Farmer/Fisherfolk too so the sticky bar above never has to change.
+export function CitizenPageHeader({ title, subtitle, onBack }) {
+  return (
+    <div className={`${CITIZEN_GUTTER} pt-4 pb-1`}>
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="press-scale -ml-1 mb-2 flex items-center gap-1 text-[13px] font-medium text-cz-text-2 transition-colors hover:text-cz-text"
+        >
+          <ChevronRight size={16} className="rotate-180" aria-hidden="true" />
+          {labels.farmerHome.secondary.backToHome}
+        </button>
+      )}
+      <h1 className="text-[19px] font-semibold text-cz-text">{title}</h1>
+      {subtitle && <p className="mt-0.5 text-[13px] text-cz-text-2">{subtitle}</p>}
+    </div>
   )
 }
 
@@ -257,10 +275,10 @@ export function CitizenHomeHeader({ theme, name, metaLine, onLogout }) {
 
 export function CitizenHomeBody({ children, aside }) {
   return (
-    <div className={`${CITIZEN_GUTTER} pt-4 pb-1.5 lg:flex lg:gap-5 lg:py-5`}>
-      <div className="min-w-0 lg:flex-[1.4]">{children}</div>
+    <div className={`${CITIZEN_GUTTER} pt-4 pb-1.5 lg:flex lg:items-start lg:gap-5 lg:py-5`}>
+      <div className="min-w-0 lg:sticky lg:top-20 lg:flex-[1.4]">{children}</div>
       {aside && (
-        <aside className="hidden lg:block lg:flex-1 lg:border-l-[0.5px] lg:border-cz-border lg:pl-5">
+        <aside className="hidden lg:sticky lg:top-20 lg:block lg:flex-1 lg:border-l-[0.5px] lg:border-cz-border lg:pl-5">
           {aside}
         </aside>
       )}
@@ -326,23 +344,20 @@ export function EditLegend({ theme }) {
 
 // ─── Sub-view header (back arrow + title) ───────────────────────────────
 
+// Kept as one component with the SAME props every call site already passes
+// (theme/title/subtitle/onBack) so no sub-screen needed to change — but it
+// now renders the identical static bar Home uses (2026-09-07: "the header
+// is always the header"), with the page's own title/back-link moved into
+// the content area below it via CitizenPageHeader, matching Organization's
+// already-established OrgTopBar/OrgPageHeader split.
 export function CitizenSubHeader({ theme, title, subtitle, onBack }) {
   return (
-    <header className={`${theme.header} ${CITIZEN_GUTTER} flex items-center gap-[10px] py-[14px]`}>
-      <button
-        type="button"
-        onClick={onBack}
-        aria-label={labels.farmerHome.secondary.backToHome}
-        className={`-m-3 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg ${theme.iconBtn} transition-colors hover:bg-white/10`}
-      >
-        <ChevronRight size={20} className="rotate-180" aria-hidden="true" />
-      </button>
-      <div className="min-w-0 flex-1">
-        <p className={`truncate text-[16px] font-medium ${theme.name}`}>{title}</p>
-        {subtitle && <p className={`truncate text-[12px] ${theme.meta}`}>{subtitle}</p>}
-      </div>
-      <NotificationBell />
-    </header>
+    <>
+      <header className={`sticky top-0 z-30 ${theme.header} ${CITIZEN_GUTTER} py-3`}>
+        <StaticHeaderBar theme={theme} />
+      </header>
+      <CitizenPageHeader title={title} subtitle={subtitle} onBack={onBack} />
+    </>
   )
 }
 
@@ -425,7 +440,7 @@ export function StatusCard({
         type="button"
         onClick={onCardClick}
         aria-label={cardActionLabel ? `${title} — ${cardActionLabel}` : title}
-        className={`mb-[10px] flex w-full items-center gap-3 rounded-[12px] border-[0.5px] p-[14px] text-left transition-opacity hover:opacity-90 ${t.card}`}
+        className={`press-scale mb-[10px] flex w-full items-center gap-3 rounded-[12px] border-[0.5px] p-[14px] text-left transition-opacity hover:opacity-90 ${t.card}`}
       >
         <span className="min-w-0 flex-1">{body}</span>
         <ChevronRight size={18} className={`shrink-0 ${t.accent}`} aria-hidden="true" />
@@ -441,7 +456,7 @@ export function StatusCard({
         <button
           type="button"
           onClick={onAction}
-          className={`mt-3 flex w-full items-center justify-center gap-1.5 rounded-[8px] px-3 py-[13px] transition-opacity hover:opacity-90 ${t.button}`}
+          className={`press-scale mt-3 flex w-full items-center justify-center gap-1.5 rounded-[8px] px-3 py-[13px] transition-opacity hover:opacity-90 ${t.button}`}
         >
           {ActionIcon && <ActionIcon size={16} aria-hidden="true" />}
           <span className="text-[15px] font-medium">{actionLabel}</span>
@@ -496,7 +511,7 @@ export function SecondaryRow({ icon: Icon, label, onClick, isLast = false, hideC
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full items-center gap-3 px-0.5 py-[14px] text-left transition-colors hover:bg-black/[0.02] ${
+      className={`press-scale flex w-full items-center gap-3 px-0.5 py-[14px] text-left transition-colors hover:bg-black/[0.02] ${
         isLast ? '' : 'border-b-[0.5px] border-cz-border'
       }`}
     >

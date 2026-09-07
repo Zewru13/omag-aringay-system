@@ -143,7 +143,6 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
           onClick: () => setView({ kind: 'health' }) },
         { key: 'report', icon: AlertTriangle, label: labels.tabBar.fishReport,
           onClick: () => { setPondPickerMode('disaster'); setView({ kind: 'pondPicker' }) } },
-        { key: 'myInfo', icon: User, label: labels.tabBar.profile, onClick: () => setView({ kind: 'profile' }) },
       ]}
     />
   )
@@ -602,7 +601,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
   if (view.kind === 'yield' || view.kind === 'assistance') {
     const isYield = view.kind === 'yield'
     return (
-      <CitizenScreen hasTabBar>
+      <CitizenScreen hasTabBar onProfile={() => setView({ kind: 'profile' })}>
         <CitizenSubHeader
           theme={FISH_THEME}
           title={isYield ? labels.yieldAnalysis.title : labels.farmerHome.secondary.assistanceTitle}
@@ -690,7 +689,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
     const isDisasterMode = pondPickerMode === 'disaster'
     const isPlainLog = pondPickerMode === 'log'
     return (
-      <CitizenScreen hasTabBar>
+      <CitizenScreen hasTabBar onProfile={() => setView({ kind: 'profile' })}>
         <CitizenSubHeader
           theme={FISH_THEME}
           title={
@@ -776,13 +775,8 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
   )
 
   return (
-    <CitizenScreen hasTabBar>
-      <CitizenHomeHeader
-        theme={FISH_THEME}
-        name={record.label}
-        metaLine={`${labels.farmerHome.rsbsaPrefix} ${record.rsbsa_number || labels.common.unknown} · ${record.barangay || labels.common.unknown}`}
-        onLogout={onLogout}
-      />
+    <CitizenScreen hasTabBar onProfile={() => setView({ kind: 'profile' })}>
+      <CitizenHomeHeader theme={FISH_THEME} />
 
       <CitizenHomeBody aside={isLoading ? null : quickLinksAside}>
         {isLoading ? (

@@ -54,13 +54,15 @@ export function useSidebarCollapsed() {
 
 export function DesktopShell({ sidebar, topbar, children, collapsed }) {
   return (
-    <div className="flex min-h-screen w-full bg-cz-page">
+    <div className="flex min-h-screen w-full bg-white">
       <aside
-        className="flex shrink-0 flex-col transition-[width] duration-200 ease-out"
+        className="sticky top-0 flex h-screen shrink-0 flex-col overflow-y-auto transition-[width] duration-200 ease-out"
         // 64px collapsed matches Admin/Staff's Sidebar.jsx/PageLayout.jsx
         // exactly (Phase 3 asked for the same pattern, not just an
         // independently-invented width) — confirmed via direct comparison,
-        // not assumed.
+        // not assumed. `sticky top-0 h-screen` (2026-09-07) keeps it pinned
+        // to the viewport while the content column scrolls, matching
+        // Admin/Staff's own fixed sidebar behavior.
         style={{ width: collapsed ? 64 : 220 }}
       >
         {sidebar}
@@ -79,20 +81,22 @@ export function DesktopShell({ sidebar, topbar, children, collapsed }) {
 export function DesktopBody({ children, rail }) {
   return (
     <div className="flex items-start gap-5 px-6 py-5">
-      <div className="min-w-0 flex-1">{children}</div>
-      {rail && <div className="w-[280px] shrink-0 space-y-4">{rail}</div>}
+      <div className="sticky top-20 min-w-0 flex-1">{children}</div>
+      {rail && <div className="sticky top-20 w-[280px] shrink-0 space-y-4">{rail}</div>}
     </div>
   )
 }
 
 export function DesktopSidebar({ theme, brandName, brandSub, activeKey, navItems, pinnedItem, collapsed }) {
   return (
-    <nav className={`flex h-full flex-col ${theme.header} px-3 py-4`}>
+    <nav className={`flex h-full flex-col ${theme.header} px-3 py-4 ${collapsed ? 'items-center' : ''}`}>
       <div className={`mb-6 flex items-center gap-2.5 px-2 ${collapsed ? 'justify-center px-0' : ''}`}>
-        {/* Phase 4 (2026-09-07): the real OMAg seal, same asset and rounded-
-            tile treatment as Admin/Staff's own Sidebar.jsx, replacing the
-            domain Lucide glyph (Sprout/Fish) that used to sit here — the
-            logo is municipality branding, not a per-domain icon. */}
+        {/* Real OMAg seal, same asset and rounded-tile treatment as Admin/
+            Staff's own Sidebar.jsx — the logo is municipality branding, not
+            a per-domain icon. Sidebar carries the domain color (2026-09-07
+            direct request — the header itself went white, matching Admin/
+            Staff, but the sidebar takes the color the header used to have,
+            not white-to-match-header as an earlier pass mistakenly read it). */}
         <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-[8px] bg-white/15" title={collapsed ? brandName : undefined}>
           <img src={omagLogo} alt="OMAg" className="h-full w-full object-cover" />
         </span>
@@ -116,7 +120,7 @@ export function DesktopSidebar({ theme, brandName, brandSub, activeKey, navItems
                 aria-current={isActive ? 'page' : undefined}
                 title={collapsed ? item.label : undefined}
                 className={`flex w-full items-center gap-2.5 rounded-[8px] py-2.5 text-left text-[13.5px] transition-colors ${collapsed ? 'justify-center px-0' : 'px-3'} ${
-                  isActive ? 'bg-white/15 font-semibold text-white' : `${theme.brand} hover:bg-white/10 hover:text-white`
+                  isActive ? 'bg-white/18 font-semibold text-white' : `${theme.brand} hover:bg-white/10 hover:text-white`
                 }`}
               >
                 <Icon size={16} className="shrink-0" aria-hidden="true" />
@@ -211,55 +215,62 @@ function DesktopAccountMenu({ theme, initials, name, roleLabel, onProfile, onHel
   )
 }
 
-// title+subtitle mode (every sub-screen) when `title` is given; otherwise
-// greeting mode (home only) using `greetingName`+`metaLine`.
-export function DesktopTopbar({ theme, title, subtitle, onBack, greetingName, metaLine, account, onToggleSidebar }) {
+// 2026-09-07 direct request: "the header on Home is always the header" — on
+// desktop too, not just cellphone. The sticky bar itself no longer varies
+// (no greeting, no per-page title swap); it always shows the same brand +
+// bell + account menu. A page's own title/back-link, when it has one, now
+// renders as a plain non-sticky row in the content below — same split
+// Organization's OrgTopBar/OrgPageHeader and the mobile shell now both use.
+// Kept as one component with the same props every call site already
+// passes, so no sub-screen needed to change.
+export function DesktopTopbar({ theme, title, subtitle, onBack, account, onToggleSidebar }) {
   return (
-    <header className="flex min-h-[64px] items-center justify-between border-b-[0.5px] border-cz-border bg-cz-surface px-6 py-3">
-      <div className="flex min-w-0 items-center gap-3">
-        {onToggleSidebar && (
-          <button
-            type="button"
-            onClick={onToggleSidebar}
-            aria-label={labels.common.toggleSidebar}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] text-cz-text-2 transition-colors hover:bg-cz-page"
-          >
-            <Menu size={18} aria-hidden="true" />
-          </button>
-        )}
-        {onBack && (
-          <button
-            type="button"
-            onClick={onBack}
-            aria-label={labels.farmerHome.secondary.backToHome}
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] text-cz-text-2 transition-colors hover:bg-cz-page"
-          >
-            <ChevronLeft size={18} aria-hidden="true" />
-          </button>
-        )}
-        <div className="min-w-0">
-          {title ? (
-            <>
-              <h1 className="truncate text-[16px] font-semibold text-cz-text">{title}</h1>
-              {subtitle && <p className="truncate text-[12.5px] text-cz-text-2">{subtitle}</p>}
-            </>
-          ) : (
-            <>
-              <h1 className="truncate text-[16px] font-semibold text-cz-text">{greetingName}</h1>
-              {metaLine && <p className="truncate text-[12.5px] text-cz-text-2">{metaLine}</p>}
-            </>
+    <>
+      <header className="sticky top-0 z-30 flex min-h-[64px] items-center justify-between border-b-[0.5px] border-cz-border bg-cz-surface px-6 py-3">
+        <div className="flex min-w-0 items-center gap-3">
+          {onToggleSidebar && (
+            <button
+              type="button"
+              onClick={onToggleSidebar}
+              aria-label={labels.common.toggleSidebar}
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] text-cz-text-2 transition-colors hover:bg-cz-page"
+            >
+              <Menu size={18} aria-hidden="true" />
+            </button>
           )}
+          <span className="flex items-center gap-1.5">
+            <img src={omagLogo} alt="OMAg" className="h-5 w-5 shrink-0 rounded-[4px] object-cover" />
+            <span className="text-[13px] font-semibold text-cz-text">{labels.header.appName}</span>
+          </span>
         </div>
-      </div>
-      {/* Farmer/Fisherfolk parity batch: this desktop topbar previously had
-          no bell at all. `light` is the cz-* dark-on-light treatment this
-          component's own bg-cz-surface (white) background calls for —
-          NotificationBell's 'dark' default would render white-on-white. */}
-      <div className="flex items-center gap-2">
-        <NotificationBell variant="light" />
-        <DesktopAccountMenu theme={theme} {...account} />
-      </div>
-    </header>
+        {/* Farmer/Fisherfolk parity batch: this desktop topbar previously had
+            no bell at all. `light` is the cz-* dark-on-light treatment this
+            component's own bg-cz-surface (white) background calls for —
+            NotificationBell's 'dark' default would render white-on-white. */}
+        <div className="flex items-center gap-2">
+          <NotificationBell variant="light" />
+          <DesktopAccountMenu theme={theme} {...account} />
+        </div>
+      </header>
+      {title && (
+        <div className="flex items-center gap-3 border-b-[0.5px] border-cz-border px-6 py-3">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              aria-label={labels.farmerHome.secondary.backToHome}
+              className="press-scale flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] text-cz-text-2 transition-colors hover:bg-cz-page"
+            >
+              <ChevronLeft size={18} aria-hidden="true" />
+            </button>
+          )}
+          <div className="min-w-0">
+            <h1 className="truncate text-[16px] font-semibold text-cz-text">{title}</h1>
+            {subtitle && <p className="truncate text-[12.5px] text-cz-text-2">{subtitle}</p>}
+          </div>
+        </div>
+      )}
+    </>
   )
 }
 

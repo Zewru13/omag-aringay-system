@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, Camera, Check, Clock, HelpCircle, KeyRound, Lock, Pencil, RefreshCw } from 'lucide-react'
+import { AlertTriangle, Camera, Check, Clock, HelpCircle, KeyRound, Lock, LogOut, Pencil, RefreshCw } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
-import { OrgScreen } from './OrgDashboardParts.jsx'
+import { ARINGAY_BARANGAYS } from '../../constants/barangays.js'
+import { sanitizePhoneDigits, validatePhone } from '../../utils/validation.js'
+import { OrgPageHeader, OrgShell } from './OrgDashboardParts.jsx'
 import { EditLegend } from './citizenUI.jsx'
 import { labels } from './labels.js'
 
@@ -76,7 +78,7 @@ function ReadOnlyGridRow({ label, value }) {
   )
 }
 
-export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecordChanged, active, onNav, railCollapsed, onToggleRail }) {
+export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecordChanged, active, onNav }) {
   // Phase 2 color-consistency fix (2026-09-07): this screen used to read
   // `domain.theme` (CROP_THEME/FISH_THEME, the individual-citizen palette),
   // which drifted from the Cultivated Ground/Tide palette every other
@@ -236,19 +238,18 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
   const initials = (record?.label || record?.name || '?').trim()[0]?.toUpperCase() || '?'
 
   return (
-    <OrgScreen
-      title={L.title} chipLabel={record?.label} onBack={onBack} theme={theme} tabBar={tabBar}
-      active={active} onNav={onNav} railCollapsed={railCollapsed} onToggleRail={onToggleRail}
-      wide
-    >
+    <OrgShell theme={theme} chipLabel={record?.label} active={active} onNav={onNav} tabBar={tabBar} wide>
+      <OrgPageHeader title={L.title} onBack={onBack} />
       <div className="lg:grid lg:grid-cols-[320px_1fr] lg:items-start lg:gap-4">
         {/* Identity card + registration number box */}
-        <div>
+        <div className="lg:sticky lg:top-20">
           <section className={CARD}>
-            <div className={`h-20 ${theme.header}`} />
-            <div className="px-4 pb-4 -mt-8">
-              <div className="relative h-16 w-16">
-                <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-[14px] border-2 border-cz-surface bg-cz-surface text-[18px] font-semibold text-cz-text shadow-sm">
+            {/* Name now lives IN the logo header, beside the mark — not
+                below it (2026-09-07, matching CitizenProfileScreen's same
+                change for Farmer/Fisherfolk). */}
+            <div className={`flex items-center gap-3 px-4 py-4 ${theme.header}`}>
+              <div className="relative h-14 w-14 shrink-0">
+                <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-[14px] border-2 border-white/40 bg-white text-[16px] font-semibold text-cz-text shadow-sm">
                   {logoUrl ? <img src={logoUrl} alt="" className="h-full w-full object-cover" /> : initials}
                 </div>
                 <input
@@ -260,15 +261,18 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
                   disabled={isUploading}
                   aria-label={labels.profileEdit.changeLogo}
                   onClick={() => fileRef.current?.click()}
-                  className={`absolute -bottom-1 -left-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-cz-surface ${theme.solidBtn} shadow-md transition-transform press-scale hover:scale-105 disabled:opacity-50`}
+                  className={`absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white ${theme.solidBtn} shadow-md transition-transform press-scale hover:scale-105 disabled:opacity-50`}
                 >
-                  <Camera size={13} aria-hidden="true" />
+                  <Camera size={11} aria-hidden="true" />
                 </button>
               </div>
-
-              <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-cz-text-2">{labels.profileEdit.fieldLabels.name}</p>
-              <h1 className="mt-0.5 text-[16px] font-semibold text-cz-text">{record?.label || record?.name}</h1>
-              <p className="mt-0.5 text-[12px] text-cz-text-2">{samahanSubtitle}</p>
+              <div className="min-w-0">
+                <p className={`text-[10.5px] font-semibold uppercase tracking-[0.06em] ${theme.brand}`}>{labels.profileEdit.fieldLabels.name}</p>
+                <h1 className="mt-0.5 truncate text-[15px] font-semibold text-white">{record?.label || record?.name}</h1>
+              </div>
+            </div>
+            <div className="px-4 pb-4 pt-3">
+              <p className="text-[12px] text-cz-text-2">{samahanSubtitle}</p>
               <div className="mt-1.5">
                 <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${theme.tileSelectedBg} ${theme.tileSelectedText}`}>
                   {typeBadge}
@@ -276,41 +280,23 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
               </div>
 
               {isUploading && <p className="mt-2.5 text-[12px] text-cz-text-2">{labels.profileEdit.uploading}</p>}
-
-              {/* PAGKAKAKILANLAN — the identity card's own compact 2x2
-                  identification summary, distinct from the fuller
-                  REHISTRADONG IMPORMASYON card on the right. */}
-              <div className="mt-4 border-t-[0.5px] border-cz-border pt-3">
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{L.identificationHeading}</p>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-2">
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.04em] text-cz-text-2">{L.identificationRegNumber}</p>
-                    <p className="mt-0.5 truncate text-[13px] font-semibold text-cz-text">{record?.registration_number || labels.common.unknown}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.04em] text-cz-text-2">{L.identificationAgency}</p>
-                    <p className="mt-0.5 truncate text-[13px] font-semibold text-cz-text">{record?.registration_agency || labels.common.unknown}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.04em] text-cz-text-2">{L.identificationRegistered}</p>
-                    <p className="mt-0.5 truncate text-[13px] font-semibold text-cz-text">{labels.common.formatDate(record?.date_registered)}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.04em] text-cz-text-2">{L.identificationOrganized}</p>
-                    <p className="mt-0.5 truncate text-[13px] font-semibold text-cz-text">{labels.common.formatDate(record?.date_organized)}</p>
-                  </div>
-                </div>
-              </div>
             </div>
           </section>
 
+          {/* Registration-number highlight — the one fact worth surfacing
+              here even though REHISTRADONG IMPORMASYON (right column) also
+              lists it; the rest of that card's fields (agency, dates) used
+              to be duplicated in a "PAGKAKAKILANLAN" mini-grid right below
+              the identity card too — removed (2026-09-07) since it repeated
+              the exact same 4 fields the right column already shows, with
+              nothing distinguishing the two beyond layout. */}
           <div className={`mt-3 rounded-[12px] border-[0.5px] border-cz-border px-4 py-3 ${theme.tileSelectedBg}`}>
             <p className={`text-[11px] font-semibold uppercase tracking-[0.06em] ${theme.tileSelectedText}`}>{L.registrationNumber}</p>
             <p className="mt-1 text-[14px] font-semibold text-cz-text">{record?.registration_number}</p>
           </div>
         </div>
 
-        <div className="mt-4 space-y-4 lg:mt-0">
+        <div className="mt-4 space-y-4 lg:sticky lg:top-20 lg:mt-0">
           <EditLegend theme={theme} />
 
           {errorMessage && (
@@ -345,26 +331,31 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
               <div className="py-2.5 border-t-[0.5px] border-cz-border">
                 <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{labels.profileEdit.contactLabel}</p>
                 {editingContact ? (
-                  <div className="mt-1.5 flex gap-2">
-                    <input
-                      type="tel" value={contactDraft}
-                      onChange={(e) => setContactDraft(e.target.value)}
-                      placeholder={labels.profileEdit.contactPlaceholder}
-                      className="min-h-[40px] flex-1 rounded-[8px] border-[0.5px] border-cz-border-strong px-3 text-[14px] text-cz-text outline-none"
-                    />
-                    <button
-                      type="button" disabled={isBusy} onClick={saveContact}
-                      className={`min-h-[40px] rounded-[8px] px-3 ${theme.solidBtn} disabled:opacity-50`}
-                    >
-                      <span className="text-[13px] font-medium">{labels.profileEdit.contactSave}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setEditingContact(false); setContactDraft(contact); setErrorMessage('') }}
-                      className="min-h-[40px] rounded-[8px] border-[0.5px] border-cz-border-strong px-3"
-                    >
-                      <span className="text-[13px] text-cz-text-2">{labels.profileEdit.contactCancel}</span>
-                    </button>
+                  <div className="mt-1.5">
+                    <div className="flex gap-2">
+                      <input
+                        type="tel" inputMode="numeric" value={contactDraft}
+                        onChange={(e) => setContactDraft(sanitizePhoneDigits(e.target.value))}
+                        placeholder={labels.profileEdit.contactPlaceholder}
+                        className="min-h-[40px] flex-1 rounded-[8px] border-[0.5px] border-cz-border-strong px-3 text-[14px] text-cz-text outline-none"
+                      />
+                      <button
+                        type="button" disabled={isBusy || !!validatePhone(contactDraft)} onClick={saveContact}
+                        className={`min-h-[40px] rounded-[8px] px-3 ${theme.solidBtn} disabled:opacity-50`}
+                      >
+                        <span className="text-[13px] font-medium">{labels.profileEdit.contactSave}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setEditingContact(false); setContactDraft(contact); setErrorMessage('') }}
+                        className="min-h-[40px] rounded-[8px] border-[0.5px] border-cz-border-strong px-3"
+                      >
+                        <span className="text-[13px] text-cz-text-2">{labels.profileEdit.contactCancel}</span>
+                      </button>
+                    </div>
+                    {validatePhone(contactDraft) && (
+                      <p className="mt-1 text-[12px] text-cz-danger-accent">{labels.profileEdit.contactInvalid}</p>
+                    )}
                   </div>
                 ) : (
                   <div className="mt-0.5 flex items-center justify-between gap-3">
@@ -547,10 +538,23 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
           <button
             type="button"
             onClick={() => onNav?.('help')}
-            className={`${CARD} flex w-full items-center gap-2.5 px-4 py-3.5 text-left transition-colors hover:bg-cz-page`}
+            className={`${CARD} press-scale flex w-full items-center gap-2.5 px-4 py-3.5 text-left transition-colors hover:bg-cz-page`}
           >
             <HelpCircle size={18} className="shrink-0 text-cz-text-2" aria-hidden="true" />
             <span className="flex-1 text-[14px] font-medium text-cz-text">{labels.orgHome.accountHelp}</span>
+          </button>
+
+          {/* Mag-log out — mobile's only logout affordance now that OrgTopBar's
+              mobile icon goes straight to this screen instead of a dropdown
+              (2026-09-07 direct request). Desktop keeps OrgAccountBadge's own
+              dropdown logout, untouched. */}
+          <button
+            type="button"
+            onClick={() => { logout(); navigate('/login') }}
+            className={`${CARD} press-scale flex w-full items-center gap-2.5 px-4 py-3.5 text-left text-cz-danger-accent transition-colors hover:bg-cz-danger-bg`}
+          >
+            <LogOut size={18} className="shrink-0" aria-hidden="true" />
+            <span className="flex-1 text-[14px] font-medium">{labels.orgHome.accountLogout}</span>
           </button>
         </div>
       </div>
@@ -567,11 +571,22 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
             <label className="mt-3 block text-[12px] font-medium text-cz-text-2">
               {labels.profileEdit.requestNew}
             </label>
-            <input
-              type="text" value={requestDraft}
-              onChange={(e) => setRequestDraft(e.target.value)}
-              className="mt-1 min-h-[44px] w-full rounded-[8px] border-[0.5px] border-cz-border-strong px-3 text-[14px] text-cz-text outline-none"
-            />
+            {requestField === 'barangay' ? (
+              <select
+                value={requestDraft}
+                onChange={(e) => setRequestDraft(e.target.value)}
+                className="mt-1 min-h-[44px] w-full rounded-[8px] border-[0.5px] border-cz-border-strong bg-cz-surface px-3 text-[14px] text-cz-text outline-none"
+              >
+                <option value="" disabled>{labels.profileEdit.barangaySelectPlaceholder}</option>
+                {ARINGAY_BARANGAYS.map((b) => <option key={b} value={b}>{b}</option>)}
+              </select>
+            ) : (
+              <input
+                type="text" value={requestDraft}
+                onChange={(e) => setRequestDraft(e.target.value)}
+                className="mt-1 min-h-[44px] w-full rounded-[8px] border-[0.5px] border-cz-border-strong px-3 text-[14px] text-cz-text outline-none"
+              />
+            )}
             {errorMessage && (
               <p className="mt-2 rounded-[8px] bg-cz-danger-bg px-3 py-2 text-[13px] text-cz-danger-body">
                 {errorMessage}
@@ -594,6 +609,6 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
           </div>
         </div>
       )}
-    </OrgScreen>
+    </OrgShell>
   )
 }

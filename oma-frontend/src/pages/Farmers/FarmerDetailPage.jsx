@@ -410,7 +410,7 @@ function FarmerDetailPage() {
         {!isLoadingFarmer && farmer && (
           <div className="grid gap-4 lg:grid-cols-[320px_1fr] lg:items-start">
             {/* Identity card */}
-            <div>
+            <div className="lg:sticky lg:top-20">
               <section className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
                 <div className="h-20 bg-[#1B4D2E]" />
                 <div className="px-5 pb-5 -mt-8">
@@ -445,7 +445,7 @@ function FarmerDetailPage() {
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-4 lg:sticky lg:top-20">
               {/* Personal Information card */}
               <section className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
                 <div className="px-5 py-3.5 bg-[#EBF5EE] border-b border-[#E2E8E2]">

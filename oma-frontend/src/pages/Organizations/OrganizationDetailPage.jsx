@@ -933,7 +933,7 @@ function OrganizationDetailPage() {
               const themeBg = type === "farmers" ? "#EBF5EE" : "#EAF1F5";
               return (
                 <div className="grid gap-4 lg:grid-cols-[320px_1fr] lg:items-start">
-                  <div>
+                  <div className="lg:sticky lg:top-20">
                     <section className="rounded-xl border border-[#E2E8E2] bg-white overflow-hidden">
                       <div className="h-20" style={{ backgroundColor: themeColor }} />
                       <div className="px-5 pb-5 -mt-8">
@@ -959,7 +959,7 @@ function OrganizationDetailPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="space-y-4 lg:sticky lg:top-20">
                     <section className="rounded-xl border border-[#E2E8E2] bg-white overflow-hidden">
                       <div className="px-5 py-3.5 border-b border-[#E2E8E2]" style={{ backgroundColor: themeBg }}>
                         <p className="text-[11px] font-semibold uppercase tracking-[0.06em]" style={{ color: themeColor }}>

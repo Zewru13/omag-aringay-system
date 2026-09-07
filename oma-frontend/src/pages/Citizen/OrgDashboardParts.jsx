@@ -52,7 +52,7 @@ const ORG_SIDEBAR_ITEMS = [
 export function OrgSidebar({ theme, active, onNav, collapsed }) {
   return (
     <nav
-      className="sticky top-0 hidden h-screen shrink-0 flex-col border-r-[0.5px] border-cz-border bg-white transition-[width] duration-200 ease-out sm:flex"
+      className={`sticky top-0 hidden h-screen shrink-0 flex-col transition-[width] duration-200 ease-out sm:flex ${theme.header}`}
       // 64px collapsed matches Admin/Staff's Sidebar.jsx/PageLayout.jsx and
       // Farmer/Fisherfolk's own new DesktopShell exactly — confirmed via
       // direct comparison, not assumed. (The OLD OrgNavRail below, used only
@@ -62,10 +62,12 @@ export function OrgSidebar({ theme, active, onNav, collapsed }) {
       style={{ width: collapsed ? 64 : 220 }}
       aria-label={labels.orgHome.navRailLabel}
     >
-      <div className={`flex h-14 items-center gap-2 border-b-[0.5px] border-cz-border ${collapsed ? 'justify-center px-0' : 'px-4'}`}>
-        {/* Phase 4 (2026-09-07): the real OMAg seal — previously text-only. */}
+      <div className={`flex h-14 items-center gap-2 border-b-[0.5px] border-white/15 ${collapsed ? 'justify-center px-0' : 'px-4'}`}>
+        {/* The real OMAg seal — sidebar carries the domain color (2026-09-07
+            direct request: the header went white like Admin/Staff, but the
+            sidebar takes the color the header used to have). */}
         <img src={omagLogo} alt="OMAg" className="h-6 w-6 shrink-0 rounded-[6px] object-cover" title={collapsed ? labels.orgHome.appNameDisplay : undefined} />
-        {!collapsed && <p className={`truncate text-[14px] font-bold ${theme.accentText}`}>{labels.orgHome.appNameDisplay}</p>}
+        {!collapsed && <p className="truncate text-[14px] font-bold text-white">{labels.orgHome.appNameDisplay}</p>}
       </div>
       <ul className="space-y-1 px-3 py-3">
         {ORG_SIDEBAR_ITEMS.map((item) => {
@@ -82,7 +84,7 @@ export function OrgSidebar({ theme, active, onNav, collapsed }) {
                 aria-current={isActive ? 'page' : undefined}
                 title={collapsed ? label : undefined}
                 className={`flex w-full items-center gap-3 rounded-[10px] py-2.5 text-left text-[14px] transition-colors ${collapsed ? 'justify-center px-0' : 'px-3'} ${
-                  isActive ? `${theme.activeNavBg} font-semibold ${theme.activeNavText}` : 'text-cz-text-2 hover:bg-cz-page'
+                  isActive ? 'bg-white/18 font-semibold text-white' : `${theme.mutedOn} hover:bg-white/10 hover:text-white`
                 }`}
               >
                 <Icon size={18} className="shrink-0" aria-hidden="true" />
@@ -106,29 +108,49 @@ export function OrgSidebar({ theme, active, onNav, collapsed }) {
 // The hamburger toggle (Phase 3) sits at the far left, same position as
 // Admin/Staff's own Navbar.jsx.
 export function OrgTopBar({ theme, chipLabel, onNav, onToggleSidebar }) {
+  // Cellphone POV keeps the domain color; only the desktop shell (sm:+,
+  // matching OrgSidebar's own sm:flex cutoff) goes white like Admin/Staff
+  // (2026-09-07 direct request). One shared component for both breakpoints
+  // here — unlike Farmer/Fisherfolk's separate mobile/desktop component
+  // trees — so the color swap and the two NotificationBell variants below
+  // are both done with responsive classes rather than a second component.
   return (
-    <header className={`flex h-14 shrink-0 items-center justify-between px-4 sm:px-6 ${theme.header}`}>
+    <header className={`sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b-[0.5px] border-white/15 px-4 sm:border-cz-border sm:bg-white sm:px-6 ${theme.header}`}>
       <div className="flex items-center gap-2">
         {onToggleSidebar && (
           <button
             type="button"
             onClick={onToggleSidebar}
             aria-label={labels.common.toggleSidebar}
-            className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-[8px] text-white transition-colors hover:bg-white/10 sm:flex"
+            className="hidden h-8 w-8 shrink-0 items-center justify-center rounded-[8px] text-cz-text-2 transition-colors hover:bg-cz-page sm:flex"
           >
             <Menu size={18} aria-hidden="true" />
           </button>
         )}
-        <img src={omagLogo} alt="OMAg" className="h-6 w-6 shrink-0 rounded-[6px] object-cover" />
-        <p className="truncate text-[15px] font-bold text-white">{labels.orgHome.appNameDisplay}</p>
+        <p className="truncate text-[15px] font-bold text-white sm:text-cz-text">{labels.orgHome.appNameDisplay}</p>
       </div>
       <div className="flex items-center gap-1.5">
-        <NotificationBell />
+        <span className="sm:hidden"><NotificationBell /></span>
+        <span className="hidden sm:block"><NotificationBell variant="light" /></span>
+        {onNav && (
+          // Mobile-only profile icon (2026-09-07 direct request) — replaces
+          // the "Impormasyon" bottom tab; goes straight to the org's own
+          // profile screen, no dropdown. OrgAccountBadge (desktop, sm:+)
+          // already has its own Profile/Help/Logout menu, untouched.
+          <button
+            type="button"
+            onClick={() => onNav('orgInfo')}
+            aria-label={labels.orgHome.orgInfoNav}
+            className="press-scale flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white transition-colors hover:bg-white/30 sm:hidden"
+          >
+            <User size={15} aria-hidden="true" />
+          </button>
+        )}
         {onNav ? (
-          <OrgAccountBadge chipLabel={chipLabel} onNav={onNav} />
+          <OrgAccountBadge theme={theme} chipLabel={chipLabel} onNav={onNav} />
         ) : (
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20" aria-hidden="true">
-            <User size={15} className="text-white" />
+          <span className={`flex h-8 w-8 items-center justify-center rounded-full ${theme.tileSelectedBg}`} aria-hidden="true">
+            <User size={15} className={theme.tileSelectedText} />
           </span>
         )}
       </div>
@@ -146,7 +168,7 @@ export function OrgTopBar({ theme, chipLabel, onNav, onToggleSidebar }) {
 export function OrgShell({ theme, chipLabel, active, onNav, tabBar, wide = false, children }) {
   const [collapsed, toggleCollapsed] = useSidebarCollapsed()
   return (
-    <div className="flex min-h-screen w-full bg-[#F6F5F1]">
+    <div className="flex min-h-screen w-full bg-white">
       <OrgSidebar theme={theme} active={active} onNav={onNav} collapsed={collapsed} />
       <div className="flex min-w-0 flex-1 flex-col">
         <OrgTopBar theme={theme} chipLabel={chipLabel} onNav={onNav} onToggleSidebar={toggleCollapsed} />
@@ -218,7 +240,7 @@ export function OrgActionTile({ theme, icon: Icon, title, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex flex-col items-center gap-2 rounded-[12px] border-[0.5px] border-cz-border bg-white p-4 text-center transition-colors hover:bg-cz-page"
+      className="press-scale flex flex-col items-center gap-2 rounded-[12px] border-[0.5px] border-cz-border bg-white p-4 text-center transition-colors hover:bg-cz-page"
     >
       <span className={`flex h-10 w-10 items-center justify-center rounded-[10px] ${theme.tileSelectedBg} ${theme.accentText}`} aria-hidden="true">
         <Icon size={19} />
@@ -256,7 +278,7 @@ function orgInitials(name) {
 // OrgAccountMenu is also used by the OLD OrgAppBar for OrgInfoScreen.jsx/
 // OrgHelpScreen.jsx/OrgOfficerHistoryScreen.jsx — out of scope, must not
 // change even its trigger's visual shape.
-function OrgAccountBadge({ chipLabel, onNav }) {
+function OrgAccountBadge({ theme, chipLabel, onNav }) {
   const [open, setOpen] = useState(false)
   const { logout } = useAuth()
   const navigate = useNavigate()
@@ -273,7 +295,7 @@ function OrgAccountBadge({ chipLabel, onNav }) {
         aria-expanded={open}
         aria-label={chipLabel}
         title={chipLabel}
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-[13px] font-semibold text-white transition-colors hover:bg-white/30 press-scale"
+        className={`flex h-9 w-9 items-center justify-center rounded-full text-[13px] font-semibold transition-opacity hover:opacity-80 press-scale ${theme.tileSelectedBg} ${theme.tileSelectedText}`}
       >
         {orgInitials(chipLabel)}
       </button>

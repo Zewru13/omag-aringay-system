@@ -220,7 +220,7 @@ export default function StaffDashboard({ user }) {
 
       {/* ── Two-column body ─────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] lg:items-start">
-        <div className="space-y-5 min-w-0">
+        <div className="space-y-5 min-w-0 lg:sticky lg:top-20">
           {/* Needs attention — activity overdue */}
           <div className={CARD}>
             <div className="flex items-center justify-between gap-3 px-5 py-3 bg-[color:var(--color-semantic-warning-bg)] border-b border-border flex-wrap">
@@ -437,7 +437,7 @@ export default function StaffDashboard({ user }) {
         </div>
 
         {/* ── Right column ──────────────────────────────────────────────── */}
-        <div className="space-y-5 min-w-0">
+        <div className="space-y-5 min-w-0 lg:sticky lg:top-20">
           <div className={CARD}>
             <PanelHead
               title="Pending Change Requests" count={requests.length}

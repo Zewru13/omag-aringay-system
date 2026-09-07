@@ -44,6 +44,12 @@ export const validatePhone = (value) => {
   return null;
 };
 
+// Keeps a phone input honest as the user types: digits only, and never more
+// than the 11 characters a 09XXXXXXXXX number can hold.
+export const sanitizePhoneDigits = (value) => {
+  return (value || "").replace(/\D/g, "").slice(0, 11);
+};
+
 export const validateEmail = (value) => {
   if (!value) {
     return null; // Optional field

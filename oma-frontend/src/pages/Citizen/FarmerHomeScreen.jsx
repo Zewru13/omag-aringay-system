@@ -112,7 +112,6 @@ export default function FarmerHomeScreen({ record, onLogout }) {
         { key: 'activity', icon: FileText, label: labels.tabBar.farmerActivity, onClick: () => pickRecordFor('log') },
         { key: 'disaster', icon: AlertTriangle, label: labels.tabBar.farmerDisaster, onClick: () => pickRecordFor('disaster') },
         { key: 'harvests', icon: BarChart3, label: labels.tabBar.farmerHarvest, onClick: () => setView({ kind: 'yield' }) },
-        { key: 'myInfo', icon: User, label: labels.tabBar.profile, onClick: () => setView({ kind: 'profile' }) },
       ]}
     />
   )
@@ -464,7 +463,7 @@ export default function FarmerHomeScreen({ record, onLogout }) {
   if (view.kind === 'picker') {
     const isLog = view.intent === 'log'
     return (
-      <CitizenScreen hasTabBar>
+      <CitizenScreen hasTabBar onProfile={() => setView({ kind: 'profile' })}>
         <CitizenSubHeader
           theme={CROP_THEME}
           title={isLog ? labels.tabBar.farmerActivity : labels.tabBar.farmerDisaster}
@@ -548,7 +547,7 @@ export default function FarmerHomeScreen({ record, onLogout }) {
   // reference frame of its own and is reached from Quick Links, not a tab.
   if (view.kind === 'assistance') {
     return (
-      <CitizenScreen hasTabBar>
+      <CitizenScreen hasTabBar onProfile={() => setView({ kind: 'profile' })}>
         <CitizenSubHeader
           theme={CROP_THEME}
           title={labels.farmerHome.secondary.assistanceTitle}
@@ -590,13 +589,8 @@ export default function FarmerHomeScreen({ record, onLogout }) {
   )
 
   return (
-    <CitizenScreen hasTabBar>
-      <CitizenHomeHeader
-        theme={CROP_THEME}
-        name={record.label}
-        metaLine={`${labels.farmerHome.rsbsaPrefix} ${record.rsbsa_number || labels.common.unknown} · ${record.barangay || labels.common.unknown}`}
-        onLogout={onLogout}
-      />
+    <CitizenScreen hasTabBar onProfile={() => setView({ kind: 'profile' })}>
+      <CitizenHomeHeader theme={CROP_THEME} />
 
       <CitizenHomeBody aside={isLoading ? null : quickLinksAside}>
         {isLoading ? (

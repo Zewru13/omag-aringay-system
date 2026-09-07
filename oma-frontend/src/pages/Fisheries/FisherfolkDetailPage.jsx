@@ -362,7 +362,7 @@ function FisherfolkDetailPage() {
           <>
             {/* Identity + Personal Information */}
             <div className="grid gap-4 lg:grid-cols-[320px_1fr] lg:items-start">
-              <div>
+              <div className="lg:sticky lg:top-20">
                 <section className="rounded-2xl border border-slate-100 bg-white overflow-hidden">
                   <div className="h-20" style={{ backgroundColor: FISH_BLUE }} />
                   <div className="px-5 pb-5 -mt-8">
@@ -403,7 +403,7 @@ function FisherfolkDetailPage() {
                 </div>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-4 lg:sticky lg:top-20">
                 <section className="rounded-2xl border border-slate-100 bg-white overflow-hidden">
                   <div className="px-5 py-3.5 border-b border-slate-100" style={{ backgroundColor: '#EAF1F5' }}>
                     <p className="text-[11px] font-semibold uppercase tracking-[0.06em]" style={{ color: FISH_BLUE }}>Personal Information</p>

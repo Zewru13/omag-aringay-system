@@ -38,11 +38,14 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
-  // Preserved exactly for OrgInfoScreen.jsx/OrgOfficerHistoryScreen.jsx/
-  // OrgHelpScreen.jsx, which still use the OLD OrgScreen/OrgNavRail shell
-  // (out of scope for this batch) — that shell's hamburger toggle needs
-  // real state here, not a no-op, or their existing collapse behavior
-  // would silently stop working when reached from the rebuilt Home.
+  // Preserved for OrgOfficerHistoryScreen.jsx/OrgHelpScreen.jsx, which still
+  // use the OLD OrgScreen/OrgNavRail shell (out of scope) — that shell's
+  // hamburger toggle needs real state here, not a no-op, or their existing
+  // collapse behavior would silently stop working when reached from the
+  // rebuilt Home. OrgInfoScreen.jsx moved onto the new OrgShell (2026-09-07,
+  // matching Home's white sidebar + green header per direct user request)
+  // and no longer needs this — it manages its own collapse via OrgShell's
+  // internal useSidebarCollapsed, same as every other rebuilt screen.
   const [railCollapsed, setRailCollapsed] = useState(false)
 
   const refresh = useCallback(() => setReloadKey((k) => k + 1), [])
@@ -81,8 +84,10 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
   }, [officers])
 
   // Below 640px: bottom tab bar. At 640px+: sidebar (OrgShell renders it
-  // when `onNav` is supplied) — both read the exact same 3 destinations and
-  // the same `view` state, so they can never drift apart.
+  // when `onNav` is supplied) — both used to read the exact same 3
+  // destinations; "Impormasyon" was dropped from the MOBILE bar only
+  // (2026-09-07 direct request — replaced by OrgTopBar's mobile profile
+  // icon), so the two nav surfaces now deliberately differ by one entry.
   const tabBar = (active) => (
     <CitizenTabBar
       theme={theme}
@@ -90,7 +95,6 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
       items={[
         { key: 'home', icon: Home, label: labels.orgHome.homeNav, onClick: () => setView('home') },
         { key: 'history', icon: ClipboardList, label: labels.orgHome.historyNav, onClick: () => setView('history') },
-        { key: 'orgInfo', icon: UsersIcon, label: labels.orgHome.orgInfoNav, onClick: () => setView('orgInfo') },
       ]}
     />
   )
@@ -157,8 +161,6 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
         onRecordChanged={refresh}
         active="orgInfo"
         onNav={goHomeOrNav}
-        railCollapsed={railCollapsed}
-        onToggleRail={() => setRailCollapsed((v) => !v)}
       />
     )
   }
@@ -322,8 +324,8 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
 
   return (
     <OrgShell theme={theme} chipLabel={record?.label} active="home" onNav={goHomeOrNav} tabBar={tabBar('home')} wide>
-      <div className="lg:grid lg:grid-cols-[1fr_360px] lg:gap-5">
-        <div className="min-w-0">
+      <div className="lg:grid lg:grid-cols-[1fr_360px] lg:items-start lg:gap-5">
+        <div className="min-w-0 lg:sticky lg:top-20">
           {identityCard}
           {statCards}
           {hasError && (
@@ -341,7 +343,7 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
           {historyLink}
           <div className="lg:hidden">{rosterCard}</div>
         </div>
-        <div className="hidden lg:block">{rosterCard}</div>
+        <div className="hidden lg:sticky lg:top-20 lg:block">{rosterCard}</div>
       </div>
     </OrgShell>
   )
