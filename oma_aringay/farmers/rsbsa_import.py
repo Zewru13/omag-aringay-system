@@ -9,9 +9,33 @@ check, barangay normalization, and farmer/farmworker/fisherfolk
 classification rules rather than re-deriving them — the one-time command now
 imports from here instead of defining them itself.
 
-EXPECTED_HEADERS is deliberately still the original 21-column RSBSA/BFAR
-export shape — a fresh RSBSA export for the update-import feature is expected
-to carry the same columns, since it's the same government data source.
+Two known export shapes, both real:
+  EXPECTED_HEADERS_V1 — the original 21-column shape Batch 8 was built
+    against (an .xlsx, `date_updated` as one column).
+  EXPECTED_HEADERS_V2 — the real 2026 RSBSA refresh's 23-column .csv shape:
+    adds `verified_area(for_testing)` after `crop_area`, and splits the old
+    `date_updated` into `kyc_updated`/`parcel_updated`. Confirmed against
+    all 6 real 2026 export files (Aringay-{HVC,corn,fisherfolk,rice,
+    tobacco-natice,tobacco-virginia}.csv) — identical header row, byte for
+    byte, across every one of them.
+  EXPECTED_HEADERS still exists as the "current default" alias (V2 — that's
+  the shape a fresh export actually arrives in now), kept for any code that
+  imports that exact name; detect_header_version() is what actually decides
+  whether a given header row is acceptable, checking both shapes.
+
+  `verified_area(for_testing)`, like `cropname`/`crop_area` before it, is
+  read into every row dict (so callers CAN see it) but deliberately never
+  parsed into a typed value or written anywhere — this pipeline creates
+  Farmer/Fisherfolk registry rows only (see import_rsbsa_bfar_data.py's own
+  docstring: "does NOT create any CropMonitoringRecord, FarmParcel, or
+  StockingRecord from cropname/crop_area"), and neither Farmer nor
+  Fisherfolk has anywhere to put a per-crop area figure — that's
+  CropMonitoringRecord/FarmParcel territory, out of scope for this import by
+  the same standing decision that already excludes crop_area. It is real
+  data (a re-verified area measurement, present on 60-70% of crop rows in
+  most of the 2026 files, 'null' otherwise) — not garbage — but there is
+  nowhere on the target models to record it, so it stays unread past this
+  module exactly like crop_area does.
 """
 import re
 from datetime import date, datetime
@@ -20,12 +44,37 @@ from core.constants import BARANGAY_CHOICES
 
 IMPORT_SYSTEM_USER_EMAIL = 'rsbsa-bfar-import@system.local'
 
-EXPECTED_HEADERS = [
+EXPECTED_HEADERS_V1 = [
     'rsbsa_no', 'control_no', 'first_name', 'middle_name', 'last_name', 'ext_name',
     'farmer_address_bgy', 'farmer_address_mun', 'farmer_address_prv', 'birthday',
     'gender', 'contact_num', 'cropname', 'crop_area', 'farmer', 'farmworker',
     'fisherfolk', 'agency', 'farm_type', 'date_created', 'date_updated',
 ]
+
+EXPECTED_HEADERS_V2 = [
+    'rsbsa_no', 'control_no', 'first_name', 'middle_name', 'last_name', 'ext_name',
+    'farmer_address_bgy', 'farmer_address_mun', 'farmer_address_prv', 'birthday',
+    'gender', 'contact_num', 'cropname', 'crop_area', 'verified_area(for_testing)',
+    'farmer', 'farmworker', 'fisherfolk', 'agency', 'farm_type', 'date_created',
+    'kyc_updated', 'parcel_updated',
+]
+
+EXPECTED_HEADERS = EXPECTED_HEADERS_V2
+
+KNOWN_HEADER_VERSIONS = {
+    'v1': EXPECTED_HEADERS_V1,
+    'v2': EXPECTED_HEADERS_V2,
+}
+
+
+def detect_header_version(actual_headers):
+    """Returns 'v1', 'v2', or None — whichever known RSBSA/BFAR export
+    header shape actual_headers matches exactly, if any."""
+    actual = list(actual_headers)
+    for version, expected in KNOWN_HEADER_VERSIONS.items():
+        if actual == expected:
+            return version
+    return None
 
 BGY_NORMALIZE = {
     'PANGAO AOAN EAST': 'Pangao-aoan East',
@@ -63,7 +112,17 @@ def normalize_contact(raw):
 
 
 def parse_birthday(raw):
-    return datetime.strptime(raw.strip(), '%d/%m/%Y').date()
+    """The original (V1, .xlsx-era) export wrote birthday as DD/MM/YYYY
+    text. The real 2026 refresh (V2, .csv) writes it ISO (YYYY-MM-DD).
+    Both are real, live formats — V1 for whatever historical files still
+    carry it, V2 for every current export — so both are tried rather than
+    picking one; ISO first since that's what a fresh export actually is."""
+    v = raw.strip()
+    try:
+        return datetime.strptime(v, '%Y-%m-%d').date()
+    except ValueError:
+        pass
+    return datetime.strptime(v, '%d/%m/%Y').date()
 
 
 def normalize_name_part(raw):
@@ -109,7 +168,8 @@ def parse_rsbsa_xlsx(fileobj):
     helpers above work unchanged against either source.
 
     Raises ValueError (caller turns this into a 400) if the header row
-    doesn't match EXPECTED_HEADERS exactly, or the file has no rows at all.
+    doesn't match a known RSBSA/BFAR export shape (see
+    detect_header_version), or the file has no rows at all.
     """
     import openpyxl
 
@@ -123,18 +183,22 @@ def parse_rsbsa_xlsx(fileobj):
         raise ValueError('The file is empty.')
 
     actual_headers = [str(h).strip() if h is not None else '' for h in header_row]
-    if actual_headers != EXPECTED_HEADERS:
+    version = detect_header_version(actual_headers)
+    if version is None:
         raise ValueError(
-            f'File headers do not match the expected RSBSA/BFAR export format.\n'
-            f'Expected: {EXPECTED_HEADERS}\nActual: {actual_headers}'
+            f'File headers do not match a known RSBSA/BFAR export format.\n'
+            f'Expected (current): {EXPECTED_HEADERS_V2}\n'
+            f'Expected (older): {EXPECTED_HEADERS_V1}\n'
+            f'Actual: {actual_headers}'
         )
+    headers = KNOWN_HEADER_VERSIONS[version]
 
     rows = []
     for raw_row in rows_iter:
         if raw_row is None or all(cell is None for cell in raw_row):
             continue  # skip fully blank trailing rows
         row = {}
-        for i, key in enumerate(EXPECTED_HEADERS):
+        for i, key in enumerate(headers):
             value = raw_row[i] if i < len(raw_row) else None
             if value is None:
                 row[key] = ''
@@ -153,5 +217,50 @@ def parse_rsbsa_xlsx(fileobj):
             else:
                 row[key] = str(value).strip()
         rows.append(row)
+
+    return rows
+
+
+def parse_rsbsa_csv(fileobj):
+    """
+    Read an uploaded RSBSA/BFAR .csv export into a list of dict rows. The
+    real 2026 refresh arrives this way (not .xlsx) — see this module's
+    docstring.
+
+    Unlike parse_rsbsa_xlsx, no positional remapping is needed: a CSV
+    already carries its own header row, and csv.DictReader keys every row
+    by it directly. classify_row()/_build_incoming() only ever look up a
+    fixed handful of field names (rsbsa_no, farmer, farmworker, fisherfolk,
+    farmer_address_bgy, gender, birthday, contact_num, first_name,
+    middle_name, last_name, ext_name), and those names are identical across
+    every known header version — only the columns nobody reads
+    (verified_area(for_testing), kyc_updated/parcel_updated vs.
+    date_updated) differ between versions, so this function doesn't need to
+    care which version it got beyond validating the header row is one of
+    them at all.
+
+    Raises ValueError (caller turns this into a 400) if the header row
+    doesn't match a known RSBSA/BFAR export shape, or the file has no data
+    rows.
+    """
+    import csv
+    import io
+
+    raw = fileobj.read()
+    text = raw.decode('utf-8-sig') if isinstance(raw, bytes) else raw
+    reader = csv.DictReader(io.StringIO(text))
+
+    actual_headers = reader.fieldnames or []
+    if detect_header_version(actual_headers) is None:
+        raise ValueError(
+            f'File headers do not match a known RSBSA/BFAR export format.\n'
+            f'Expected (current): {EXPECTED_HEADERS_V2}\n'
+            f'Expected (older): {EXPECTED_HEADERS_V1}\n'
+            f'Actual: {actual_headers}'
+        )
+
+    rows = [row for row in reader if any((v or '').strip() for v in row.values())]
+    if not rows:
+        raise ValueError('The file has a valid header row but no data rows.')
 
     return rows

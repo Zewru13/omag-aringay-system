@@ -26,10 +26,12 @@ from django.db import transaction
 
 from farmers.models import Farmer
 from farmers.rsbsa_import import (
-    EXPECTED_HEADERS,
+    EXPECTED_HEADERS_V1,
+    EXPECTED_HEADERS_V2,
     IMPORT_SYSTEM_USER_EMAIL,
     build_last_name,
     classify_row,
+    detect_header_version,
     normalize_barangay,
     normalize_contact,
     normalize_name_part,
@@ -60,10 +62,13 @@ class Command(BaseCommand):
         except FileNotFoundError:
             raise CommandError(f'File not found: {csv_path}')
 
-        actual_headers = rows[0].keys() if rows else []
-        if list(actual_headers) != EXPECTED_HEADERS:
+        actual_headers = list(rows[0].keys()) if rows else []
+        if detect_header_version(actual_headers) is None:
             raise CommandError(
-                f'CSV headers do not match expected spec.\nExpected: {EXPECTED_HEADERS}\nActual: {list(actual_headers)}'
+                f'CSV headers do not match a known RSBSA/BFAR export format.\n'
+                f'Expected (current): {EXPECTED_HEADERS_V2}\n'
+                f'Expected (older): {EXPECTED_HEADERS_V1}\n'
+                f'Actual: {actual_headers}'
             )
 
         self.stdout.write(f'Loaded {len(rows)} rows from {csv_path}')

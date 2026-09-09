@@ -36,6 +36,7 @@ from farmers.rsbsa_import import (
     normalize_contact,
     normalize_name_part,
     parse_birthday,
+    parse_rsbsa_csv,
     parse_rsbsa_xlsx,
 )
 from fisheries.models import Fisherfolk
@@ -119,10 +120,18 @@ def _build_incoming(row):
 
 class RsbsaUpdateImportPreviewView(APIView):
     """
-    POST a .xlsx RSBSA/BFAR export (multipart, field name 'file'). Parses,
-    classifies every row with the same rules the one-time import used, and
-    for rows that classify as IMPORT-FARMER/IMPORT-FISHERFOLK, looks up an
-    existing record by rsbsa_number.
+    POST a .csv or .xlsx RSBSA/BFAR export (multipart, field name 'file').
+    Parses, classifies every row with the same rules the one-time import
+    used, and for rows that classify as IMPORT-FARMER/IMPORT-FISHERFOLK,
+    looks up an existing record by rsbsa_number.
+
+    .csv accepted alongside .xlsx (not instead of it) because the real 2026
+    RSBSA refresh arrives as .csv — the same shape import_rsbsa_bfar_data.py
+    already reads directly via csv.DictReader — while .xlsx stays supported
+    for anyone who re-saves an export through Excel first; nothing forces
+    either format exclusively, so there was no reason to drop one for the
+    other. Either format is accepted under either known header shape (see
+    farmers.rsbsa_import.detect_header_version).
 
     This is an UPDATE mechanism, not a re-run of the original import: a row
     with no matching existing record is reported as 'unmatched', never
@@ -136,11 +145,17 @@ class RsbsaUpdateImportPreviewView(APIView):
         upload = request.FILES.get('file')
         if not upload:
             return Response({'detail': 'No file was uploaded.'}, status=400)
-        if not upload.name.lower().endswith('.xlsx'):
-            return Response({'detail': 'Only .xlsx files are supported.'}, status=400)
+
+        name_lower = upload.name.lower()
+        if name_lower.endswith('.xlsx'):
+            parser = parse_rsbsa_xlsx
+        elif name_lower.endswith('.csv'):
+            parser = parse_rsbsa_csv
+        else:
+            return Response({'detail': 'Only .csv or .xlsx files are supported.'}, status=400)
 
         try:
-            rows = parse_rsbsa_xlsx(upload)
+            rows = parser(upload)
         except ValueError as exc:
             return Response({'detail': str(exc)}, status=400)
         except openpyxl.utils.exceptions.InvalidFileException:
