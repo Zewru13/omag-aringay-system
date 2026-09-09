@@ -211,23 +211,30 @@ class RsbsaUpdateImportPreviewView(APIView):
                 continue
             parsed.append({'row': row, 'row_number': i, 'disposition': disposition, 'reason': None, 'incoming': incoming})
 
-        # ── Bulk-fetch every matchable rsbsa_number in one query per domain,
-        # rather than one query per row. ──
-        farmer_rsbsa = [
-            p['row']['rsbsa_no'].strip() for p in parsed if p['disposition'] == 'IMPORT-FARMER'
-        ]
-        fisherfolk_rsbsa = [
-            p['row']['rsbsa_no'].strip() for p in parsed if p['disposition'] == 'IMPORT-FISHERFOLK'
+        # ── Bulk-fetch every matchable rsbsa_number against BOTH tables, not
+        # just the one matching each row's file classification. A row's
+        # farmer/farmworker/fisherfolk flags say what the FILE thinks this
+        # person is, but that can be wrong for someone already registered
+        # under the other table — checking only the "expected" table then
+        # silently reports them "unmatched" even though their real record
+        # exists, one query away, in the other one. See the
+        # classification_mismatch handling below, which surfaces this to
+        # staff instead of resolving it invisibly. ──
+        matchable_rsbsa = [
+            p['row']['rsbsa_no'].strip() for p in parsed if p['disposition'] != 'HOLD-BACK'
         ]
         farmers_by_rsbsa = {
-            f.rsbsa_number: f for f in Farmer.objects.filter(rsbsa_number__in=farmer_rsbsa)
+            f.rsbsa_number: f for f in Farmer.objects.filter(rsbsa_number__in=matchable_rsbsa)
         }
         fisherfolk_by_rsbsa = {
-            f.rsbsa_number: f for f in Fisherfolk.objects.filter(rsbsa_number__in=fisherfolk_rsbsa)
+            f.rsbsa_number: f for f in Fisherfolk.objects.filter(rsbsa_number__in=matchable_rsbsa)
         }
 
         result_rows = []
-        summary = {'matched_with_changes': 0, 'matched_no_changes': 0, 'unmatched': 0, 'invalid': 0}
+        summary = {
+            'matched_with_changes': 0, 'matched_no_changes': 0,
+            'classification_mismatch': 0, 'unmatched': 0, 'invalid': 0,
+        }
 
         for p in parsed:
             row, row_number, disposition, reason = p['row'], p['row_number'], p['disposition'], p['reason']
@@ -244,6 +251,8 @@ class RsbsaUpdateImportPreviewView(APIView):
                     'matched_record_id': None,
                     'matched_record_type': None,
                     'matched_record_name': None,
+                    'classification_mismatch': False,
+                    'mismatch_note': None,
                     'changes': [],
                     'incoming_values': None,
                     'current_values': None,
@@ -251,8 +260,20 @@ class RsbsaUpdateImportPreviewView(APIView):
                 continue
 
             is_farmer = disposition == 'IMPORT-FARMER'
-            record = (farmers_by_rsbsa if is_farmer else fisherfolk_by_rsbsa).get(rsbsa)
-            field_specs = FARMER_FIELDS if is_farmer else FISHERFOLK_FIELDS
+            primary_dict, primary_table = (farmers_by_rsbsa, 'FARMER') if is_farmer else (fisherfolk_by_rsbsa, 'FISHERFOLK')
+            other_dict, other_table = (fisherfolk_by_rsbsa, 'FISHERFOLK') if is_farmer else (farmers_by_rsbsa, 'FARMER')
+
+            record = primary_dict.get(rsbsa)
+            matched_table = primary_table
+            classification_mismatch = False
+            if record is None:
+                fallback = other_dict.get(rsbsa)
+                if fallback is not None:
+                    record = fallback
+                    matched_table = other_table
+                    classification_mismatch = True
+
+            field_specs = FARMER_FIELDS if matched_table == 'FARMER' else FISHERFOLK_FIELDS
 
             if record is None:
                 summary['unmatched'] += 1
@@ -265,6 +286,8 @@ class RsbsaUpdateImportPreviewView(APIView):
                     'matched_record_id': None,
                     'matched_record_type': None,
                     'matched_record_name': None,
+                    'classification_mismatch': False,
+                    'mismatch_note': None,
                     'changes': [],
                     # No existing record to diff against — this is
                     # everything RsbsaUpdateImportCommitView needs to
@@ -276,8 +299,22 @@ class RsbsaUpdateImportPreviewView(APIView):
                 continue
 
             changes = _diff_fields(record, p['incoming'], field_specs)
-            status_key = 'matched_with_changes' if changes else 'matched_no_changes'
-            summary[status_key] += 1
+
+            if classification_mismatch:
+                status_key = 'classification_mismatch'
+                summary[status_key] += 1
+                file_role = 'Farmer/Farmworker' if is_farmer else 'Fisherfolk'
+                mismatch_note = (
+                    f"Classification mismatch: the file's flags classify this row as "
+                    f"{file_role}, but RSBSA number {rsbsa} matches an existing "
+                    f"{matched_table.title()} record instead (not {primary_table.title()}, "
+                    f"as the file's classification would expect). Review before committing."
+                )
+            else:
+                status_key = 'matched_with_changes' if changes else 'matched_no_changes'
+                summary[status_key] += 1
+                mismatch_note = None
+
             result_rows.append({
                 'row_number': row_number,
                 'rsbsa_number': rsbsa,
@@ -285,12 +322,14 @@ class RsbsaUpdateImportPreviewView(APIView):
                 'status': status_key,
                 'hold_back_reason': None,
                 'matched_record_id': record.id,
-                'matched_record_type': 'FARMER' if is_farmer else 'FISHERFOLK',
+                'matched_record_type': matched_table,
                 'matched_record_name': record.full_name,
                 # The one real "has this been touched locally" signal staff
                 # have to weigh a flagged change against — see updated_at's
                 # own model-field comment for why it's not a full history.
                 'matched_record_updated_at': record.updated_at,
+                'classification_mismatch': classification_mismatch,
+                'mismatch_note': mismatch_note,
                 'changes': changes,
                 # Raw (not display-formatted) values backing `changes` above,
                 # for RsbsaUpdateImportCommitView — `changes[].current`/
