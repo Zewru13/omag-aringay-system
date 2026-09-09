@@ -91,7 +91,7 @@ const GROUPS = [
   },
   {
     key: "fisheries-management",
-    label: "Fisheries",
+    label: "Fisheries Management",
     icon: Waves,
     items: [
       { to: "/fisheries-monitoring", icon: Activity, label: "Fisheries Monitoring" },

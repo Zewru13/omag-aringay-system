@@ -9,12 +9,14 @@ import {
   Plus,
   Search,
   Trash2,
+  Upload,
   User,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import BarangaySelect from "../../components/UI/BarangaySelect.jsx";
 import ComboboxWithOther from "../../components/UI/ComboboxWithOther.jsx";
 import api from "../../api/axiosInstance.js";
+import ImportFileModal from "../../components/ImportFileModal.jsx";
 import PageLayout from "../../components/Layout/PageLayout.jsx";
 import RowActions from "../../components/UI/RowActions.jsx";
 import ConfirmDialog from "../../components/UI/ConfirmDialog.jsx";
@@ -1014,6 +1016,7 @@ export default function CropInformationPage() {
   const [editingRec, setEditingRec] = useState(null);
   const [viewingRec, setViewingRec] = useState(null);
   const [deletingRec, setDeletingRec] = useState(null);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   const fetchRecords = useCallback(
     async (pageNum = 1) => {
@@ -1126,13 +1129,22 @@ export default function CropInformationPage() {
       title="Crop Information Management"
       subtitle="Monitor and manage crop records and activities."
       action={
-        <button
-          type="button"
-          className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors"
-          onClick={() => navigate("/crop-records/add")}
-        >
-          <Plus size={15} /> Add Crop
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="flex items-center gap-1.5 rounded-lg border border-[#E2E8E2] px-4 py-2 text-[13px] font-medium text-[#1B4D2E] hover:bg-[#F0F4F0] transition-colors"
+            onClick={() => setShowImportModal(true)}
+          >
+            <Upload size={15} /> Import File
+          </button>
+          <button
+            type="button"
+            className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors"
+            onClick={() => navigate("/crop-records/add")}
+          >
+            <Plus size={15} /> Add Crop
+          </button>
+        </div>
       }
     >
       <div className="space-y-4">
@@ -1282,6 +1294,19 @@ export default function CropInformationPage() {
             setDeletingRec(null);
             fetchRecords(page);
           }}
+        />
+      )}
+
+      {showImportModal && (
+        <ImportFileModal
+          title="Import Crop Records"
+          subtitle="Upload a spreadsheet to log multiple crop plantings at once."
+          importUrl="/production/forecasting/import/"
+          templateUrl="/production/forecasting/template/"
+          templateFilename="forecasting_template.xlsx"
+          helpText="Each row logs one crop planting for an organization. Organization + Crop + Date Planted identifies duplicates."
+          onClose={() => setShowImportModal(false)}
+          onImported={() => fetchRecords(page)}
         />
       )}
     </PageLayout>

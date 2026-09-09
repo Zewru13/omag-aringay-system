@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { CheckCircle2, Pencil, Plus, Search, Trash2, User, Users } from 'lucide-react'
+import { CheckCircle2, Pencil, Plus, Search, Trash2, Upload, User, Users } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
+import ImportFileModal from '../../components/ImportFileModal.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import Button from '../../components/UI/Button.jsx'
@@ -492,6 +493,7 @@ export default function CropAssistancePage({ asTab = false }) {
   const [year, setYear] = useState('')
   const [view, setView] = useState(searchParams.get('tab') === 'needs-follow-up' ? 'needs-follow-up' : 'all')
   const [showAdd, setShowAdd] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   const [showDistribute, setShowDistribute] = useState(false)
   const [editing, setEditing] = useState(null)
   const [resolving, setResolving] = useState(null)
@@ -553,6 +555,9 @@ export default function CropAssistancePage({ asTab = false }) {
       </div>
 
       <div className="flex justify-end gap-2">
+        <Button variant="outline" onClick={() => setShowImport(true)}>
+          <Upload size={15} className="mr-1" /> Import File
+        </Button>
         <Button variant="outline" onClick={() => setShowDistribute(true)}>
           <Users size={15} className="mr-1" /> Distribute to Organization
         </Button>
@@ -577,6 +582,18 @@ export default function CropAssistancePage({ asTab = false }) {
       {error ? <ErrorMessage message={error} /> : <DataTable columns={COLUMNS} data={rows} isLoading={isLoading} />}
 
       {showAdd && <AddAssistanceModal onClose={() => setShowAdd(false)} onSuccess={fetchAll} />}
+      {showImport && (
+        <ImportFileModal
+          title="Import Crop Assistance"
+          subtitle="Upload a spreadsheet to log assistance given to many farmers at once."
+          importUrl="/interventions/beneficiaries/adhoc/import/"
+          templateUrl="/interventions/beneficiaries/adhoc/import/template/"
+          templateFilename="crop_assistance_import_template.xlsx"
+          helpText="Each row logs one assistance-given event, matched to a farmer by RSBSA number."
+          onClose={() => setShowImport(false)}
+          onImported={fetchAll}
+        />
+      )}
       {showDistribute && (
         <DistributeAssistanceModal
           domain={FARMER_DISTRIBUTION_DOMAIN}

@@ -599,7 +599,14 @@ class StockingForecastingImportView(APIView):
     Two passes: first parse every row and group by that identity to catch
     same-file collisions (every row in a colliding group is flagged, none
     created); rows unique within the file are then checked against the
-    database before being created."""
+    database before being created.
+
+    `dry_run` (any of "1"/"true"/"yes", multipart form field alongside
+    `file`) makes this a preview-only call — see ForecastingImportView's
+    matching docstring (production/views.py) for the full rationale; this
+    view mirrors it exactly, including the added `dry_run`/`summary`/`rows`
+    response fields alongside the unchanged {created, errors, duplicates}
+    the Fisheries Forecasting page already depends on."""
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     parser_classes = [MultiPartParser]
 
@@ -612,6 +619,7 @@ class StockingForecastingImportView(APIView):
         file = request.FILES.get('file')
         if not file:
             return Response({'error': 'No file uploaded.'}, status=400)
+        dry_run = str(request.data.get('dry_run', '')).strip().lower() in ('1', 'true', 'yes')
 
         try:
             wb = load_workbook(file, data_only=True)
@@ -620,9 +628,14 @@ class StockingForecastingImportView(APIView):
             return Response({'error': f'Invalid Excel file: {exc}'}, status=400)
 
         errors = []
+        rows = []
         valid_culture_types = {c.lower(): c for c in dict(StockingRecord.CULTURE_TYPE_CHOICES)}
         ready = []  # rows that parsed cleanly
         groups = defaultdict(list)  # identity key -> [row_num, ...]
+
+        def invalid(row_num, msg):
+            errors.append({'row': row_num, 'error': msg})
+            rows.append({'row': row_num, 'status': 'invalid', 'label': f'Row {row_num}', 'detail': msg})
 
         for row_num, row in enumerate(ws.iter_rows(min_row=3, values_only=True), start=3):
             if not any(cell for cell in row if cell is not None):
@@ -635,46 +648,43 @@ class StockingForecastingImportView(APIView):
             culture_type_str = str(row[4]).strip() if row[4] is not None else ''
 
             if not rsbsa or not species_name or not date_str or not fingerlings_str or not culture_type_str:
-                errors.append({
-                    'row': row_num,
-                    'error': 'Fisherfolk RSBSA Number, Species Name, Date Stocked, Number of Fingerlings, '
-                             'and Culture Type are required.',
-                })
+                invalid(row_num, 'Fisherfolk RSBSA Number, Species Name, Date Stocked, Number of Fingerlings, '
+                                 'and Culture Type are required.')
                 continue
 
             try:
                 fisherfolk = Fisherfolk.objects.filter(rsbsa_number__iexact=rsbsa).first()
                 if not fisherfolk:
-                    errors.append({'row': row_num, 'error': f'Fisherfolk with RSBSA number "{rsbsa}" not found.'})
+                    invalid(row_num, f'Fisherfolk with RSBSA number "{rsbsa}" not found.')
                     continue
             except Exception as exc:
-                errors.append({'row': row_num, 'error': str(exc)})
+                invalid(row_num, str(exc))
                 continue
 
             try:
                 species = SpeciesOption.objects.filter(species_name__iexact=species_name).first()
                 if not species:
-                    errors.append({'row': row_num, 'error': f'Species "{species_name}" not found.'})
+                    invalid(row_num, f'Species "{species_name}" not found.')
                     continue
             except Exception as exc:
-                errors.append({'row': row_num, 'error': str(exc)})
+                invalid(row_num, str(exc))
                 continue
 
             try:
                 date_stocked = dt.date.fromisoformat(date_str[:10])
             except ValueError:
-                errors.append({'row': row_num, 'error': f'Invalid date "{date_str}". Use YYYY-MM-DD.'})
+                invalid(row_num, f'Invalid date "{date_str}". Use YYYY-MM-DD.')
                 continue
 
             try:
                 number_of_fingerlings = int(float(fingerlings_str))
             except ValueError:
-                errors.append({'row': row_num, 'error': f'Invalid number of fingerlings "{fingerlings_str}".'})
+                invalid(row_num, f'Invalid number of fingerlings "{fingerlings_str}".')
                 continue
 
             culture_type = valid_culture_types.get(culture_type_str.lower())
             if not culture_type:
-                errors.append({'row': row_num, 'error': f'Invalid culture type "{culture_type_str}". Use Pond, Cage, or Pen.'})
+                invalid(row_num, f'Invalid culture type "{culture_type_str}". Use Pond, Cage, or Pen.')
                 continue
 
             key = (fisherfolk.id, species.id, date_stocked)
@@ -691,42 +701,41 @@ class StockingForecastingImportView(APIView):
         for item in ready:
             row_num, key = item['row_num'], item['key']
             fisherfolk, species, date_stocked = item['fisherfolk'], item['species'], item['date_stocked']
+            label = f'{fisherfolk.full_name} — {species.species_name} ({date_stocked.isoformat()})'
 
             colliding_rows = [r for r in groups[key] if r != row_num]
             if colliding_rows:
-                duplicates.append({
-                    'row': row_num,
-                    'reason': 'in_file',
-                    'error': (
-                        f'Duplicate of row(s) {", ".join(str(r) for r in colliding_rows)} in this file '
-                        f'(same Fisherfolk RSBSA "{fisherfolk.rsbsa_number}", Species "{species.species_name}", '
-                        f'Date Stocked {date_stocked.isoformat()}). None of the colliding rows were created — '
-                        f'resolve the conflict and re-upload.'
-                    ),
-                    'colliding_rows': colliding_rows,
-                })
+                detail = (
+                    f'Duplicate of row(s) {", ".join(str(r) for r in colliding_rows)} in this file '
+                    f'(same Fisherfolk RSBSA "{fisherfolk.rsbsa_number}", Species "{species.species_name}", '
+                    f'Date Stocked {date_stocked.isoformat()}). None of the colliding rows were created — '
+                    f'resolve the conflict and re-upload.'
+                )
+                duplicates.append({'row': row_num, 'reason': 'in_file', 'error': detail, 'colliding_rows': colliding_rows})
+                rows.append({'row': row_num, 'status': 'duplicate_in_file', 'label': label, 'detail': detail, 'colliding_rows': colliding_rows})
                 continue
 
             existing = StockingRecord.objects.filter(
                 fisherfolk=fisherfolk, species=species, date_stocked=date_stocked,
             ).first()
             if existing:
-                duplicates.append({
-                    'row': row_num,
-                    'reason': 'database',
-                    'error': (
-                        f'A record already exists for Fisherfolk RSBSA "{fisherfolk.rsbsa_number}", '
-                        f'Species "{species.species_name}", Date Stocked {date_stocked.isoformat()} '
-                        f'(record #{existing.id}). Not created again.'
-                    ),
-                    'existing_record_id': existing.id,
-                })
+                detail = (
+                    f'A record already exists for Fisherfolk RSBSA "{fisherfolk.rsbsa_number}", '
+                    f'Species "{species.species_name}", Date Stocked {date_stocked.isoformat()} '
+                    f'(record #{existing.id}). Not created again.'
+                )
+                duplicates.append({'row': row_num, 'reason': 'database', 'error': detail, 'existing_record_id': existing.id})
+                rows.append({'row': row_num, 'status': 'duplicate_in_database', 'label': label, 'detail': detail, 'existing_record_id': existing.id})
+                continue
+
+            if dry_run:
+                rows.append({'row': row_num, 'status': 'ready', 'label': label, 'detail': 'Will be created.'})
                 continue
 
             try:
                 month = date_stocked.month
                 season = 'Wet' if 5 <= month <= 10 else 'Dry'
-                StockingRecord.objects.create(
+                record = StockingRecord.objects.create(
                     fisherfolk=fisherfolk,
                     species=species,
                     date_stocked=date_stocked,
@@ -737,10 +746,20 @@ class StockingForecastingImportView(APIView):
                     recorded_by=request.user,
                 )
                 created += 1
+                rows.append({'row': row_num, 'status': 'ready', 'label': label, 'detail': f'Created (record #{record.id}).'})
             except Exception as exc:
-                errors.append({'row': row_num, 'error': str(exc)})
+                invalid(row_num, str(exc))
 
-        return Response({'created': created, 'errors': errors, 'duplicates': duplicates})
+        summary = {
+            'ready': sum(1 for r in rows if r['status'] == 'ready'),
+            'duplicate_in_file': sum(1 for r in rows if r['status'] == 'duplicate_in_file'),
+            'duplicate_in_database': sum(1 for r in rows if r['status'] == 'duplicate_in_database'),
+            'invalid': sum(1 for r in rows if r['status'] == 'invalid'),
+        }
+        return Response({
+            'created': created, 'errors': errors, 'duplicates': duplicates,
+            'dry_run': dry_run, 'summary': summary, 'rows': rows,
+        })
 
 
 class StockingHistoryView(generics.ListAPIView):

@@ -6,6 +6,8 @@ from .views import (
     FarmersOrganizationDistributeAssistanceView,
     FarmersOrganizationEquipmentAddView,
     FarmersOrganizationEquipmentRemoveView,
+    FarmersOrganizationImportTemplateView,
+    FarmersOrganizationImportView,
     FarmersOrganizationListCreateView,
     FarmersOrganizationMemberAddView,
     FarmersOrganizationMemberRemoveView,
@@ -15,6 +17,8 @@ from .views import (
     FisherfolkOrganizationDistributeAssistanceView,
     FisherfolkOrganizationEquipmentAddView,
     FisherfolkOrganizationEquipmentRemoveView,
+    FisherfolkOrganizationImportTemplateView,
+    FisherfolkOrganizationImportView,
     FisherfolkOrganizationListCreateView,
     FisherfolkOrganizationMemberAddView,
     FisherfolkOrganizationMemberOrgScopedSetActiveView,
@@ -27,6 +31,8 @@ from .views import (
 
 urlpatterns = [
     # ── Farmers organizations ───────────────────────────────────────
+    path('farmers/import/', FarmersOrganizationImportView.as_view()),
+    path('farmers/import/template/', FarmersOrganizationImportTemplateView.as_view()),
     path('farmers/', FarmersOrganizationListCreateView.as_view()),
     path('farmers/<int:pk>/', FarmersOrganizationDetailView.as_view()),
     path('farmers/<int:pk>/members/', FarmersOrganizationMemberAddView.as_view()),
@@ -39,6 +45,8 @@ urlpatterns = [
     path('farmers/<int:pk>/officers/', OrganizationOfficerListCreateView.as_view()),
     path('farmers/officers/<int:officer_id>/end-term/', OrganizationOfficerEndTermView.as_view()),
     # ── Fisherfolk organizations ────────────────────────────────────
+    path('fisherfolk/import/', FisherfolkOrganizationImportView.as_view()),
+    path('fisherfolk/import/template/', FisherfolkOrganizationImportTemplateView.as_view()),
     path('fisherfolk/', FisherfolkOrganizationListCreateView.as_view()),
     path('fisherfolk/<int:pk>/', FisherfolkOrganizationDetailView.as_view()),
     path('fisherfolk/<int:pk>/members/', FisherfolkOrganizationMemberAddView.as_view()),

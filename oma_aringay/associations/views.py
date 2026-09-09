@@ -1,10 +1,12 @@
-from datetime import timedelta
+from datetime import date, timedelta
+from io import BytesIO
 
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, serializers, status
+from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -13,6 +15,7 @@ from accounts.models import User
 from accounts.permissions import IsAdminOrEvaluator, IsOwnOrgOrStaff
 from accounts.utils import create_inactive_citizen_shell
 from farmers.models import Farmer
+from farmers.rsbsa_import import normalize_barangay
 from fisheries.models import Fisherfolk
 from interventions.models import BeneficiaryRecord, FisherfolkBeneficiaryRecord
 from interventions.serializers import OrganizationDistributionRequestSerializer
@@ -783,3 +786,268 @@ class FisherfolkOrganizationDistributeAssistanceView(APIView):
             'member_count': len(members),
             'results': results,
         }, status=status.HTTP_200_OK)
+
+
+# ─── Organization Excel import (create-new-organizations) ──────────────────
+# "Import File" on the Farmers/Fisherfolk Organizations pages — a distinct
+# feature from the RSBSA update-import (farmers/rsbsa_import_views.py),
+# which only ever UPDATES existing Farmer/Fisherfolk records and never
+# creates one. This one creates new FarmersOrganization/FisherfolkOrganization
+# rows — the registration entities themselves, never membership-linkage rows
+# (Farmer.farmers_organization is a direct FK set from the farmer's own
+# profile, not an import concern; FisherfolkOrganizationMember is a separate
+# join table with its own add-member flow) — see the investigation that
+# preceded this feature for why the two domains' membership can't share one
+# import shape.
+#
+# Follows the same dry_run convention as _run_organization_distribution
+# above (one endpoint, `dry_run` truthy => preview only, falsy => commit) and
+# the same two-pass in-file-then-database duplicate detection already
+# shipped for Crop/Fisheries Forecasting's imports (production/views.py
+# ForecastingImportView, fisheries/views.py StockingForecastingImportView).
+# Identity is the organization's own `registration_number` — already
+# unique=True on both models. blank=True on FisherfolkOrganization means the
+# model itself would allow a blank value, but this import requires a
+# non-blank one anyway: it's the only reliable identity for duplicate
+# detection, and it's also what the citizen-account shell created below
+# needs to be worth anything (an org with no registration number can never
+# log in — see FarmersOrganization.registration_number's own comment).
+
+ORG_TEMPLATE_HEADERS = [
+    'Name', 'Barangay', 'Street Address', 'Date Organized (YYYY-MM-DD)',
+    'Date Registered (YYYY-MM-DD)', 'Registration Number', 'Registration Agency',
+    'Email Address', 'Contact Person', 'Contact Number',
+]
+ORG_TEMPLATE_COL_WIDTHS = [30, 20, 28, 24, 24, 22, 20, 28, 22, 18]
+
+
+def _org_import_template_response(filename, sample_row, agency_note):
+    from django.http import HttpResponse
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Organization Import'
+
+    green_fill = PatternFill(start_color='1E4620', end_color='1E4620', fill_type='solid')
+    white_font = Font(color='FFFFFF', bold=True)
+    for col, (header, width) in enumerate(zip(ORG_TEMPLATE_HEADERS, ORG_TEMPLATE_COL_WIDTHS), 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.fill = green_fill
+        cell.font = white_font
+        ws.column_dimensions[cell.column_letter].width = width
+
+    for col, value in enumerate(sample_row, 1):
+        ws.cell(row=2, column=col, value=value)
+    ws.cell(row=4, column=1, value=agency_note)
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    response = HttpResponse(
+        buf.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+def _parse_org_import_row(row, agency_choices):
+    """Parses one raw Excel row (10 columns, matching ORG_TEMPLATE_HEADERS)
+    into a dict of cleaned values ready to hand to the model's own
+    DetailSerializer. Raises ValueError (caller buckets that row as invalid)
+    on a malformed date, an unrecognized barangay, or an unrecognized
+    registration agency code — everything else (which fields are actually
+    *required*, contact number format, future-date checks) is left to that
+    serializer, exactly as the manual "Add Organization" modal already gets,
+    rather than re-deriving those rules by hand here."""
+    def s(i):
+        v = row[i] if i < len(row) else None
+        return str(v).strip() if v is not None else ''
+
+    def parse_date(raw):
+        if not raw:
+            return None
+        if isinstance(raw, date):
+            return raw
+        try:
+            return date.fromisoformat(str(raw)[:10])
+        except ValueError:
+            raise ValueError(f'Invalid date "{raw}". Use YYYY-MM-DD.')
+
+    barangay_raw = s(1)
+    barangay = normalize_barangay(barangay_raw) if barangay_raw else ''
+    if barangay_raw and not barangay:
+        raise ValueError(f'Barangay "{barangay_raw}" does not match any known Aringay barangay.')
+
+    agency_raw = s(6)
+    agency = ''
+    if agency_raw:
+        agency_map = {code.upper(): code for code, _ in agency_choices}
+        agency = agency_map.get(agency_raw.upper())
+        if not agency:
+            valid = '/'.join(code for code, _ in agency_choices)
+            raise ValueError(f'Invalid registration agency "{agency_raw}". Use one of: {valid}.')
+
+    payload = {
+        'name': s(0),
+        'barangay': barangay,
+        'street_address': s(2),
+        'registration_number': s(5),
+        'registration_agency': agency,
+        'email_address': s(7),
+        'contact_person': s(8),
+        'contact_number': s(9),
+    }
+    date_organized = parse_date(row[3] if len(row) > 3 else None)
+    date_registered = parse_date(row[4] if len(row) > 4 else None)
+    if date_organized is not None:
+        payload['date_organized'] = date_organized
+    if date_registered is not None:
+        payload['date_registered'] = date_registered
+    return payload
+
+
+def _run_organization_import(model, serializer_class, linked_record_type, agency_choices, file, dry_run, user):
+    from collections import defaultdict
+
+    from openpyxl import load_workbook
+
+    try:
+        wb = load_workbook(file, data_only=True)
+        ws = wb.active
+    except Exception as exc:
+        return Response({'error': f'Invalid Excel file: {exc}'}, status=400)
+
+    errors = []
+    rows_out = []
+    ready = []
+    groups = defaultdict(list)
+
+    def invalid(row_num, msg):
+        errors.append({'row': row_num, 'error': msg})
+        rows_out.append({'row': row_num, 'status': 'invalid', 'label': f'Row {row_num}', 'detail': msg})
+
+    for row_num, row in enumerate(ws.iter_rows(min_row=3, values_only=True), start=3):
+        if not any(cell for cell in row if cell is not None):
+            continue
+
+        try:
+            parsed = _parse_org_import_row(row, agency_choices)
+        except ValueError as exc:
+            invalid(row_num, str(exc))
+            continue
+
+        reg_number = parsed['registration_number']
+        if not reg_number:
+            invalid(row_num, 'Registration Number is required for import — it is how duplicate rows/records are '
+                             'detected and how the organization\'s citizen account gets linked.')
+            continue
+
+        key = reg_number.lower()
+        ready.append({'row_num': row_num, 'parsed': parsed, 'key': key})
+        groups[key].append(row_num)
+
+    created = 0
+    for item in ready:
+        row_num, parsed, key = item['row_num'], item['parsed'], item['key']
+        reg_number = parsed['registration_number']
+        label = f'{parsed["name"] or "(no name)"} — {reg_number}'
+
+        colliding_rows = [r for r in groups[key] if r != row_num]
+        if colliding_rows:
+            detail = (
+                f'Duplicate Registration Number "{reg_number}" also appears in row(s) '
+                f'{", ".join(str(r) for r in colliding_rows)} of this file. None of the colliding rows were created — '
+                f'resolve the conflict and re-upload.'
+            )
+            rows_out.append({'row': row_num, 'status': 'duplicate_in_file', 'label': label, 'detail': detail, 'colliding_rows': colliding_rows})
+            continue
+
+        existing = model.objects.filter(registration_number__iexact=reg_number).first()
+        if existing:
+            detail = f'An organization with Registration Number "{reg_number}" already exists (record #{existing.id}, "{existing.name}"). Not created again.'
+            rows_out.append({'row': row_num, 'status': 'duplicate_in_database', 'label': label, 'detail': detail, 'existing_record_id': existing.id})
+            continue
+
+        serializer = serializer_class(data=parsed)
+        if not serializer.is_valid():
+            detail = '; '.join(f'{field}: {"; ".join(str(m) for m in msgs)}' for field, msgs in serializer.errors.items())
+            invalid(row_num, detail or 'Invalid row.')
+            continue
+
+        if dry_run:
+            rows_out.append({'row': row_num, 'status': 'ready', 'label': label, 'detail': 'Will be created.'})
+            continue
+
+        with transaction.atomic():
+            instance = serializer.save()
+            create_inactive_citizen_shell(linked_record_type, instance)
+        created += 1
+        rows_out.append({'row': row_num, 'status': 'ready', 'label': label, 'detail': f'Created (record #{instance.id}).'})
+
+    summary = {
+        'ready': sum(1 for r in rows_out if r['status'] == 'ready'),
+        'duplicate_in_file': sum(1 for r in rows_out if r['status'] == 'duplicate_in_file'),
+        'duplicate_in_database': sum(1 for r in rows_out if r['status'] == 'duplicate_in_database'),
+        'invalid': sum(1 for r in rows_out if r['status'] == 'invalid'),
+    }
+    return Response({
+        'created': created, 'errors': errors, 'dry_run': dry_run, 'summary': summary, 'rows': rows_out,
+    })
+
+
+class FarmersOrganizationImportTemplateView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request):
+        return _org_import_template_response(
+            'farmers_organizations_import_template.xlsx',
+            ['Aringay Farmers Alliance', 'Poblacion', 'Purok 1', '2020-03-15', '2020-06-01',
+             'FA-2020-001', 'CDA', 'org@example.com', 'Juan Dela Cruz', '09171234567'],
+            'Registration Agency must be one of: SEC / CDA / DOLE',
+        )
+
+
+class FarmersOrganizationImportView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    parser_classes = [MultiPartParser]
+
+    def post(self, request):
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'No file uploaded.'}, status=400)
+        dry_run = str(request.data.get('dry_run', '')).strip().lower() in ('1', 'true', 'yes')
+        return _run_organization_import(
+            FarmersOrganization, FarmersOrganizationDetailSerializer, User.LinkedRecordType.FARMERS_ORG,
+            FarmersOrganization.REGISTRATION_AGENCY_CHOICES, file, dry_run, request.user,
+        )
+
+
+class FisherfolkOrganizationImportTemplateView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request):
+        return _org_import_template_response(
+            'fisherfolk_organizations_import_template.xlsx',
+            ['Aringay Fisherfolk Alliance', 'Santa Cecilia', 'Purok 2', '2021-01-10', '2021-04-20',
+             'FF-2021-001', 'BFAR', 'org@example.com', 'Maria Santos', '09181234567'],
+            'Registration Agency must be one of: SEC / CDA / DOLE / BFAR',
+        )
+
+
+class FisherfolkOrganizationImportView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    parser_classes = [MultiPartParser]
+
+    def post(self, request):
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'No file uploaded.'}, status=400)
+        dry_run = str(request.data.get('dry_run', '')).strip().lower() in ('1', 'true', 'yes')
+        return _run_organization_import(
+            FisherfolkOrganization, FisherfolkOrganizationDetailSerializer, User.LinkedRecordType.FISHERFOLK_ORG,
+            FisherfolkOrganization.REGISTRATION_AGENCY_CHOICES, file, dry_run, request.user,
+        )

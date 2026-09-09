@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Pencil, Plus } from 'lucide-react'
+import { Pencil, Plus, Upload } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
+import ImportFileModal from '../../components/ImportFileModal.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
@@ -27,6 +28,7 @@ function FisherfolkOrganizationsPage({ asTab = false }) {
   const [isLoading,         setIsLoading]         = useState(false)
   const [searchQuery,       setSearchQuery]       = useState('')
   const [showCreateModal,   setShowCreateModal]   = useState(false)
+  const [showImportModal,   setShowImportModal]   = useState(false)
   const [editOrganization,   setEditOrganization]   = useState(null)
   const [refreshKey,        setRefreshKey]        = useState(0)
 
@@ -84,13 +86,22 @@ function FisherfolkOrganizationsPage({ asTab = false }) {
   }))
 
   const actionBtn = (isAdmin || isEvaluator) ? (
-    <button
-      className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
-      onClick={() => setShowCreateModal(true)}
-    >
-      <Plus size={16} />
-      Add Organization
-    </button>
+    <div className="flex items-center gap-2">
+      <button
+        className="flex items-center gap-1.5 border border-[#E2E8E2] hover:bg-[#F0F4F0] text-[#1B4D2E] text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
+        onClick={() => setShowImportModal(true)}
+      >
+        <Upload size={16} />
+        Import File
+      </button>
+      <button
+        className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
+        onClick={() => setShowCreateModal(true)}
+      >
+        <Plus size={16} />
+        Add Organization
+      </button>
+    </div>
   ) : null
 
   const innerContent = (
@@ -133,6 +144,19 @@ function FisherfolkOrganizationsPage({ asTab = false }) {
           type="fisherfolk"
           onClose={() => setEditOrganization(null)}
           onSuccess={() => { setEditOrganization(null); setRefreshKey((k) => k + 1) }}
+        />
+      )}
+
+      {showImportModal && (
+        <ImportFileModal
+          title="Import Fisherfolk Organizations"
+          subtitle="Upload a spreadsheet to register multiple organizations at once."
+          importUrl="/organizations/fisherfolk/import/"
+          templateUrl="/organizations/fisherfolk/import/template/"
+          templateFilename="fisherfolk_organizations_import_template.xlsx"
+          helpText="Each row creates one new Fisherfolk Organization. Registration Number identifies duplicates, so it's required for every row."
+          onClose={() => setShowImportModal(false)}
+          onImported={() => setRefreshKey((k) => k + 1)}
         />
       )}
     </>

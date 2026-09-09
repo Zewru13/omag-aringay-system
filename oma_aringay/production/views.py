@@ -2106,7 +2106,18 @@ class ForecastingImportView(APIView):
     and group by that identity to catch same-file collisions (every row in
     a colliding group is flagged, none of them created — the system never
     guesses which one is "right"); rows that are unique within the file are
-    then checked against the database before being created."""
+    then checked against the database before being created.
+
+    `dry_run` (any of "1"/"true"/"yes", multipart form field alongside
+    `file`) makes this a preview-only call: every row is still classified
+    (ready/duplicate_in_file/duplicate_in_database/invalid) and reported in
+    `rows`, but nothing is written. The Forecasting page never sends this
+    field, so its existing create-immediately behavior — and its
+    {created, errors, duplicates} response shape — is unchanged; the newer
+    Crop Records "Import File" flow calls this same endpoint twice, once
+    with dry_run to preview and once without to commit, mirroring
+    associations._run_organization_distribution's established dry_run
+    convention rather than inventing a second endpoint."""
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     parser_classes = [MultiPartParser]
 
@@ -2121,6 +2132,7 @@ class ForecastingImportView(APIView):
         file = request.FILES.get('file')
         if not file:
             return Response({'error': 'No file uploaded.'}, status=400)
+        dry_run = str(request.data.get('dry_run', '')).strip().lower() in ('1', 'true', 'yes')
 
         try:
             wb = load_workbook(file, data_only=True)
@@ -2129,8 +2141,13 @@ class ForecastingImportView(APIView):
             return Response({'error': f'Invalid Excel file: {exc}'}, status=400)
 
         errors = []
+        rows = []
         ready = []  # rows that parsed cleanly: {row_num, assoc, crop_type, date_planted, area, key}
         groups = defaultdict(list)  # identity key -> [row_num, ...]
+
+        def invalid(row_num, msg):
+            errors.append({'row': row_num, 'error': msg})
+            rows.append({'row': row_num, 'status': 'invalid', 'label': f'Row {row_num}', 'detail': msg})
 
         for row_num, row in enumerate(ws.iter_rows(min_row=3, values_only=True), start=3):
             if not any(cell for cell in row if cell is not None):
@@ -2142,37 +2159,37 @@ class ForecastingImportView(APIView):
             area_str   = str(row[3]).strip() if row[3] is not None else ''
 
             if not assoc_name or not crop_name or not date_str:
-                errors.append({'row': row_num, 'error': 'Organization Name, Crop Name, and Date Planted are required.'})
+                invalid(row_num, 'Organization Name, Crop Name, and Date Planted are required.')
                 continue
 
             try:
                 assoc = FarmersOrganization.objects.filter(name__iexact=assoc_name).first()
                 if not assoc:
-                    errors.append({'row': row_num, 'error': f'Organization "{assoc_name}" not found.'})
+                    invalid(row_num, f'Organization "{assoc_name}" not found.')
                     continue
             except Exception as exc:
-                errors.append({'row': row_num, 'error': str(exc)})
+                invalid(row_num, str(exc))
                 continue
 
             try:
                 crop_type = CropType.objects.filter(name__iexact=crop_name).first()
                 if not crop_type:
-                    errors.append({'row': row_num, 'error': f'Crop type "{crop_name}" not found.'})
+                    invalid(row_num, f'Crop type "{crop_name}" not found.')
                     continue
             except Exception as exc:
-                errors.append({'row': row_num, 'error': str(exc)})
+                invalid(row_num, str(exc))
                 continue
 
             try:
                 date_planted = dt.date.fromisoformat(date_str[:10])
             except ValueError:
-                errors.append({'row': row_num, 'error': f'Invalid date "{date_str}". Use YYYY-MM-DD.'})
+                invalid(row_num, f'Invalid date "{date_str}". Use YYYY-MM-DD.')
                 continue
 
             try:
                 area = float(area_str) if area_str else None
             except ValueError:
-                errors.append({'row': row_num, 'error': f'Invalid area value "{area_str}".'})
+                invalid(row_num, f'Invalid area value "{area_str}".')
                 continue
 
             key = (assoc.id, crop_type.id, date_planted)
@@ -2188,40 +2205,39 @@ class ForecastingImportView(APIView):
         for item in ready:
             row_num, key = item['row_num'], item['key']
             assoc, crop_type, date_planted = item['assoc'], item['crop_type'], item['date_planted']
+            label = f'{assoc.name} — {crop_type.name} ({date_planted.isoformat()})'
 
             colliding_rows = [r for r in groups[key] if r != row_num]
             if colliding_rows:
-                duplicates.append({
-                    'row': row_num,
-                    'reason': 'in_file',
-                    'error': (
-                        f'Duplicate of row(s) {", ".join(str(r) for r in colliding_rows)} in this file '
-                        f'(same Organization "{assoc.name}", Crop "{crop_type.name}", Date Planted {date_planted.isoformat()}). '
-                        f'None of the colliding rows were created — resolve the conflict and re-upload.'
-                    ),
-                    'colliding_rows': colliding_rows,
-                })
+                detail = (
+                    f'Duplicate of row(s) {", ".join(str(r) for r in colliding_rows)} in this file '
+                    f'(same Organization "{assoc.name}", Crop "{crop_type.name}", Date Planted {date_planted.isoformat()}). '
+                    f'None of the colliding rows were created — resolve the conflict and re-upload.'
+                )
+                duplicates.append({'row': row_num, 'reason': 'in_file', 'error': detail, 'colliding_rows': colliding_rows})
+                rows.append({'row': row_num, 'status': 'duplicate_in_file', 'label': label, 'detail': detail, 'colliding_rows': colliding_rows})
                 continue
 
             existing = CropMonitoringRecord.objects.filter(
                 farmers_organization=assoc, crop_type=crop_type, date_planted=date_planted,
             ).first()
             if existing:
-                duplicates.append({
-                    'row': row_num,
-                    'reason': 'database',
-                    'error': (
-                        f'A record already exists for Organization "{assoc.name}", Crop "{crop_type.name}", '
-                        f'Date Planted {date_planted.isoformat()} (record #{existing.id}). Not created again.'
-                    ),
-                    'existing_record_id': existing.id,
-                })
+                detail = (
+                    f'A record already exists for Organization "{assoc.name}", Crop "{crop_type.name}", '
+                    f'Date Planted {date_planted.isoformat()} (record #{existing.id}). Not created again.'
+                )
+                duplicates.append({'row': row_num, 'reason': 'database', 'error': detail, 'existing_record_id': existing.id})
+                rows.append({'row': row_num, 'status': 'duplicate_in_database', 'label': label, 'detail': detail, 'existing_record_id': existing.id})
+                continue
+
+            if dry_run:
+                rows.append({'row': row_num, 'status': 'ready', 'label': label, 'detail': 'Will be created.'})
                 continue
 
             try:
                 month = date_planted.month
                 season = 'Wet' if 5 <= month <= 10 else 'Dry'
-                CropMonitoringRecord.objects.create(
+                record = CropMonitoringRecord.objects.create(
                     farmers_organization=assoc,
                     crop_type=crop_type,
                     date_planted=date_planted,
@@ -2231,7 +2247,17 @@ class ForecastingImportView(APIView):
                     recorded_by=request.user,
                 )
                 created += 1
+                rows.append({'row': row_num, 'status': 'ready', 'label': label, 'detail': f'Created (record #{record.id}).'})
             except Exception as exc:
-                errors.append({'row': row_num, 'error': str(exc)})
+                invalid(row_num, str(exc))
 
-        return Response({'created': created, 'errors': errors, 'duplicates': duplicates})
+        summary = {
+            'ready': sum(1 for r in rows if r['status'] == 'ready'),
+            'duplicate_in_file': sum(1 for r in rows if r['status'] == 'duplicate_in_file'),
+            'duplicate_in_database': sum(1 for r in rows if r['status'] == 'duplicate_in_database'),
+            'invalid': sum(1 for r in rows if r['status'] == 'invalid'),
+        }
+        return Response({
+            'created': created, 'errors': errors, 'duplicates': duplicates,
+            'dry_run': dry_run, 'summary': summary, 'rows': rows,
+        })

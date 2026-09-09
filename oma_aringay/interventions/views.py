@@ -3,6 +3,7 @@ from django.utils import timezone
 from rest_framework import generics
 from rest_framework import status as drf_status
 from rest_framework.exceptions import ValidationError
+from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -425,3 +426,259 @@ class FisherfolkBeneficiaryMarkResolvedView(APIView):
         record.follow_up_notes = notes
         record.save()
         return Response(FisherfolkBeneficiaryRecordCreateSerializer(record).data)
+
+
+# ─── Assistance Excel import ─────────────────────────────────────────────────
+# "Import File" on the Crop/Fisheries Assistance pages — logs many
+# assistance-given events from a spreadsheet instead of one at a time
+# through AddAssistanceModal/LogGovernmentAssistanceModal. Shares the same
+# dry_run convention as associations._run_organization_distribution and the
+# same two-pass in-file-then-database duplicate detection as Crop/Fisheries
+# Forecasting's imports (production/views.py ForecastingImportView,
+# fisheries/views.py StockingForecastingImportView, associations/views.py
+# _run_organization_import) — see any of those for the full rationale.
+#
+# Identity is (person, assistance_type, date_given): the three facts that
+# together answer "is this the same assistance-giving event" from what this
+# import captures. quantity/source_agency/remarks are details of the event,
+# not part of what makes two rows "the same event" — same reasoning as
+# excluding number_of_fingerlings from StockingRecord's identity.
+
+ASSISTANCE_TEMPLATE_HEADERS = [
+    'RSBSA Number', 'Assistance Type', 'Source Agency', 'Quantity',
+    'Date Given (YYYY-MM-DD)', 'Season', 'Description / Remarks',
+]
+ASSISTANCE_TEMPLATE_COL_WIDTHS = [28, 20, 24, 18, 22, 12, 40]
+
+
+def _assistance_import_template_response(filename, id_label, sample_row, type_note):
+    from io import BytesIO
+
+    from django.http import HttpResponse
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Assistance Import'
+
+    headers = list(ASSISTANCE_TEMPLATE_HEADERS)
+    headers[0] = id_label
+    green_fill = PatternFill(start_color='1E4620', end_color='1E4620', fill_type='solid')
+    white_font = Font(color='FFFFFF', bold=True)
+    for col, (header, width) in enumerate(zip(headers, ASSISTANCE_TEMPLATE_COL_WIDTHS), 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.fill = green_fill
+        cell.font = white_font
+        ws.column_dimensions[cell.column_letter].width = width
+
+    for col, value in enumerate(sample_row, 1):
+        ws.cell(row=2, column=col, value=value)
+    ws.cell(row=4, column=1, value=type_note)
+
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    response = HttpResponse(
+        buf.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+def _run_assistance_import(person_model, record_model, serializer_class, person_field, text_field, file, dry_run, user):
+    """
+    person_model/record_model: e.g. Farmer/BeneficiaryRecord.
+    person_field: 'farmer' or 'fisherfolk' — both the serializer's FK field
+    name and the record_model's own field name for it.
+    text_field: 'remarks' (BeneficiaryRecord) or 'description'
+    (FisherfolkBeneficiaryRecord) — mirrors OrganizationDistributionRequestSerializer's
+    same per-model mapping in associations/views.py.
+    """
+    import datetime as dt
+    from collections import defaultdict
+
+    from openpyxl import load_workbook
+
+    try:
+        wb = load_workbook(file, data_only=True)
+        ws = wb.active
+    except Exception as exc:
+        return Response({'error': f'Invalid Excel file: {exc}'}, status=400)
+
+    valid_types = {label.upper(): value for value, label in record_model.AssistanceType.choices}
+
+    errors = []
+    rows_out = []
+    ready = []
+    groups = defaultdict(list)
+
+    def invalid(row_num, msg):
+        errors.append({'row': row_num, 'error': msg})
+        rows_out.append({'row': row_num, 'status': 'invalid', 'label': f'Row {row_num}', 'detail': msg})
+
+    def s(row, i):
+        v = row[i] if i < len(row) else None
+        return str(v).strip() if v is not None else ''
+
+    for row_num, row in enumerate(ws.iter_rows(min_row=3, values_only=True), start=3):
+        if not any(cell for cell in row if cell is not None):
+            continue
+
+        id_number = s(row, 0)
+        type_raw = s(row, 1)
+        source_agency = s(row, 2)
+        quantity = s(row, 3)
+        date_str = s(row, 4)
+        season = s(row, 5)
+        text_value = s(row, 6)
+
+        if not id_number or not type_raw or not date_str:
+            invalid(row_num, 'RSBSA Number, Assistance Type, and Date Given are required.')
+            continue
+
+        person = person_model.objects.filter(rsbsa_number__iexact=id_number).first()
+        if not person:
+            invalid(row_num, f'No record found with RSBSA number "{id_number}".')
+            continue
+
+        assistance_type = valid_types.get(type_raw.upper())
+        if not assistance_type:
+            valid_list = ', '.join(v for v, _ in record_model.AssistanceType.choices)
+            invalid(row_num, f'Invalid Assistance Type "{type_raw}". Use one of: {valid_list}.')
+            continue
+
+        try:
+            date_given = dt.date.fromisoformat(date_str[:10])
+        except ValueError:
+            invalid(row_num, f'Invalid date "{date_str}". Use YYYY-MM-DD.')
+            continue
+
+        key = (person.id, assistance_type, date_given)
+        ready.append({
+            'row_num': row_num, 'person': person, 'assistance_type': assistance_type,
+            'source_agency': source_agency, 'quantity': quantity, 'date_given': date_given,
+            'season': season, 'text_value': text_value, 'key': key,
+        })
+        groups[key].append(row_num)
+
+    created = 0
+    for item in ready:
+        row_num, key = item['row_num'], item['key']
+        person, assistance_type, date_given = item['person'], item['assistance_type'], item['date_given']
+        label = f'{person.full_name} — {assistance_type} ({date_given.isoformat()})'
+
+        colliding_rows = [r for r in groups[key] if r != row_num]
+        if colliding_rows:
+            detail = (
+                f'Duplicate of row(s) {", ".join(str(r) for r in colliding_rows)} in this file '
+                f'(same person, Assistance Type "{assistance_type}", Date Given {date_given.isoformat()}). '
+                f'None of the colliding rows were created — resolve the conflict and re-upload.'
+            )
+            rows_out.append({'row': row_num, 'status': 'duplicate_in_file', 'label': label, 'detail': detail, 'colliding_rows': colliding_rows})
+            continue
+
+        existing = record_model.objects.filter(
+            **{person_field: person, 'assistance_type': assistance_type, 'date_given': date_given},
+        ).first()
+        if existing:
+            detail = (
+                f'A record already exists for {person.full_name}, Assistance Type "{assistance_type}", '
+                f'Date Given {date_given.isoformat()} (record #{existing.id}). Not created again.'
+            )
+            rows_out.append({'row': row_num, 'status': 'duplicate_in_database', 'label': label, 'detail': detail, 'existing_record_id': existing.id})
+            continue
+
+        payload = {
+            person_field: person.id,
+            'assistance_type': assistance_type,
+            'source_agency': item['source_agency'],
+            'quantity': item['quantity'],
+            'date_given': date_given,
+            'season': item['season'],
+            text_field: item['text_value'],
+        }
+        serializer = serializer_class(data=payload)
+        if not serializer.is_valid():
+            detail = '; '.join(f'{field}: {"; ".join(str(m) for m in msgs)}' for field, msgs in serializer.errors.items())
+            invalid(row_num, detail or 'Invalid row.')
+            continue
+
+        if dry_run:
+            rows_out.append({'row': row_num, 'status': 'ready', 'label': label, 'detail': 'Will be created.'})
+            continue
+
+        record = serializer.save(recorded_by=user)
+        created += 1
+        rows_out.append({'row': row_num, 'status': 'ready', 'label': label, 'detail': f'Created (record #{record.id}).'})
+
+    summary = {
+        'ready': sum(1 for r in rows_out if r['status'] == 'ready'),
+        'duplicate_in_file': sum(1 for r in rows_out if r['status'] == 'duplicate_in_file'),
+        'duplicate_in_database': sum(1 for r in rows_out if r['status'] == 'duplicate_in_database'),
+        'invalid': sum(1 for r in rows_out if r['status'] == 'invalid'),
+    }
+    return Response({
+        'created': created, 'errors': errors, 'dry_run': dry_run, 'summary': summary, 'rows': rows_out,
+    })
+
+
+class CropAssistanceImportTemplateView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request):
+        return _assistance_import_template_response(
+            'crop_assistance_import_template.xlsx',
+            'Farmer RSBSA Number',
+            ['01-33-02-014-058212', 'Seeds', 'Office of the Municipal Agriculturist', '5 sacks',
+             '2026-01-15', 'Dry', 'Certified rice seeds distribution'],
+            'Assistance Type must be one of: Fertilizer / Seeds / Equipment / Cash Assistance / Training / Other',
+        )
+
+
+class CropAssistanceImportView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    parser_classes = [MultiPartParser]
+
+    def post(self, request):
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'No file uploaded.'}, status=400)
+        dry_run = str(request.data.get('dry_run', '')).strip().lower() in ('1', 'true', 'yes')
+        from farmers.models import Farmer
+        return _run_assistance_import(
+            Farmer, BeneficiaryRecord, BeneficiaryRecordCreateSerializer,
+            'farmer', 'remarks', file, dry_run, request.user,
+        )
+
+
+class FisheriesAssistanceImportTemplateView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request):
+        return _assistance_import_template_response(
+            'fisheries_assistance_import_template.xlsx',
+            'Fisherfolk RSBSA Number',
+            ['01-33-02-999-000001', 'Fingerlings/Seeds', 'BFAR', '500 pcs',
+             '2026-01-15', 'Dry', 'Bangus fingerlings distribution'],
+            'Assistance Type must be one of: Fishing Gear / Boat/Vessel / Fingerlings/Seeds / Feed / '
+            'Equipment / Cash Assistance / Training / Other',
+        )
+
+
+class FisheriesAssistanceImportView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    parser_classes = [MultiPartParser]
+
+    def post(self, request):
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'No file uploaded.'}, status=400)
+        dry_run = str(request.data.get('dry_run', '')).strip().lower() in ('1', 'true', 'yes')
+        from fisheries.models import Fisherfolk
+        return _run_assistance_import(
+            Fisherfolk, FisherfolkBeneficiaryRecord, FisherfolkBeneficiaryRecordCreateSerializer,
+            'fisherfolk', 'description', file, dry_run, request.user,
+        )

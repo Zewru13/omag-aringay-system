@@ -7,12 +7,16 @@ from .views import (
     BeneficiaryMarkResolvedView,
     BeneficiaryRecordDetailView,
     BeneficiaryReportNotReceivedView,
+    CropAssistanceImportTemplateView,
+    CropAssistanceImportView,
     FisherfolkBeneficiaryAdHocDetailView,
     FisherfolkBeneficiaryAdHocListCreateView,
     FisherfolkBeneficiaryConfirmReceivedView,
     FisherfolkBeneficiaryMarkResolvedView,
     FisherfolkBeneficiaryRecordDetailView,
     FisherfolkBeneficiaryReportNotReceivedView,
+    FisheriesAssistanceImportTemplateView,
+    FisheriesAssistanceImportView,
     MyBeneficiaryHistoryView,
     MyFisherfolkBeneficiaryHistoryView,
     MyOrgBeneficiaryHistoryView,
@@ -56,6 +60,16 @@ urlpatterns = [
     # "adhoc" segment is a naming holdover from when program-based records
     # also lived in this app — every BeneficiaryRecord is this shape now.
     path(
+        'beneficiaries/adhoc/import/',
+        CropAssistanceImportView.as_view(),
+        name='beneficiaries-adhoc-import',
+    ),
+    path(
+        'beneficiaries/adhoc/import/template/',
+        CropAssistanceImportTemplateView.as_view(),
+        name='beneficiaries-adhoc-import-template',
+    ),
+    path(
         'beneficiaries/adhoc/',
         BeneficiaryAdHocListCreateView.as_view(),
         name='beneficiaries-adhoc-list-create',
@@ -64,6 +78,16 @@ urlpatterns = [
         'beneficiaries/adhoc/<int:id>/',
         BeneficiaryAdHocDetailView.as_view(),
         name='beneficiaries-adhoc-detail',
+    ),
+    path(
+        'fisherfolk-beneficiaries/adhoc/import/',
+        FisheriesAssistanceImportView.as_view(),
+        name='fisherfolk-beneficiaries-adhoc-import',
+    ),
+    path(
+        'fisherfolk-beneficiaries/adhoc/import/template/',
+        FisheriesAssistanceImportTemplateView.as_view(),
+        name='fisherfolk-beneficiaries-adhoc-import-template',
     ),
     path(
         'fisherfolk-beneficiaries/adhoc/',
