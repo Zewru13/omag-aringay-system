@@ -41,6 +41,7 @@ import re
 from datetime import date, datetime
 
 from core.constants import BARANGAY_CHOICES
+from core.validators import RSBSA_RE_E
 
 IMPORT_SYSTEM_USER_EMAIL = 'rsbsa-bfar-import@system.local'
 
@@ -92,6 +93,8 @@ def normalize_barangay(raw):
 
 def is_corrupted_rsbsa(value):
     v = value.strip()
+    if RSBSA_RE_E.match(v):
+        return False
     body = v[3:] if v.startswith('BF-') else v
     return any(not seg.isdigit() for seg in body.split('-'))
 

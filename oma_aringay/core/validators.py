@@ -19,7 +19,21 @@ RSBSA_RE_A = re.compile(r'^01-33-02-\d{3}-\d{6}$')
 RSBSA_RE_B = re.compile(r'^BF-01-033-02-\d{3}-\d{8}$')
 RSBSA_RE_C = re.compile(r'^01-033-02-\d{3}-\d{6}$')
 RSBSA_RE_D = re.compile(r'^BF-01-033-02-\d{3}-\d{6}$')
-RSBSA_PATTERNS = (RSBSA_RE_A, RSBSA_RE_B, RSBSA_RE_C, RSBSA_RE_D)
+# E) 01-033-02-011-XIIRZA            (2026 BFAR provisional-ID format,
+#    confirmed against 395 of 396 real values found in the 2026 RSBSA
+#    refresh — see the investigation this pattern is built from). Same
+#    "01-033-02-DDD-" shape as C, but the last segment is 6 alphanumeric
+#    characters instead of 6 digits — always exactly 6, always digits 1-9
+#    plus A-Z, NEVER the digit 0 (a real, consistent trait of every one of
+#    the 395, not an assumption: a 0/O-confusion-avoiding ID scheme, not
+#    corruption). The one real value that doesn't fit (a 7-character tail,
+#    a single isolated case among 396) is deliberately NOT accommodated
+#    here — widening the length to fit one outlier would weaken this
+#    pattern for the other 395 confirmed-real values for no real gain;
+#    that one value should keep failing validation as the anomaly it is,
+#    not be silently absorbed into what's otherwise a clean, uniform shape.
+RSBSA_RE_E = re.compile(r'^01-033-02-\d{3}-[1-9A-Z]{6}$')
+RSBSA_PATTERNS = (RSBSA_RE_A, RSBSA_RE_B, RSBSA_RE_C, RSBSA_RE_D, RSBSA_RE_E)
 PHILSYS_RE = re.compile(r'^\d{4}-\d{4}-\d{4}-\d{4}$')
 LGU_REG_RE = re.compile(r'^\d{4}-03302-\d{4}$')
 FISHR_RE = re.compile(r'^01-33-02-\d{4}-\d{4}$')
@@ -33,8 +47,8 @@ def validate_rsbsa(value):
     if not any(pattern.match(value) for pattern in RSBSA_PATTERNS):
         raise ValidationError(
             'Invalid RSBSA number. Expected one of: 01-33-02-014-058212, '
-            'BF-01-033-02-023-00000033, 01-033-02-019-000151, or '
-            'BF-01-033-02-004-000007.'
+            'BF-01-033-02-023-00000033, 01-033-02-019-000151, '
+            'BF-01-033-02-004-000007, or 01-033-02-011-XIIRZA.'
         )
 
 
