@@ -1,13 +1,33 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AlertTriangle, ArrowLeft, ChevronDown, ChevronRight, Plus, Search, Trash2, User } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CheckCircle2, Info, Plus, Search, Trash2, User } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import BARANGAYS from '../../constants/barangays.js'
-import { bulkCellInputClasses, bulkSubLabelClasses, bulkTdClasses, bulkThClasses, bulkThCenterClasses } from '../../components/UI/bulkEntryStyles.js'
+import { bulkCellInputClasses, bulkThClasses, bulkThCenterClasses } from '../../components/UI/bulkEntryStyles.js'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
-import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
+import Button from '../../components/UI/Button.jsx'
+import ModalShell from '../../components/UI/ModalShell.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+
+// Fixed pixel width per column, shared by every <th>/<td> in that column so
+// header and body can never drift out of alignment (table-fixed sizes every
+// column from these, not from cell content — an input can no longer force
+// its column, or its neighbor's, to grow past what's declared here).
+const COL_WIDTH = {
+  index: 44,
+  barangay: 150,
+  landStatus: 140,
+  cropType: 190,
+  datePlanted: 160,
+  area: 110,
+  season: 110,
+  variety: 170,
+  seedSource: 160,
+  qtySeeds: 130,
+  farmParcel: 170,
+  remove: 56,
+}
 
 function detectSeason(dateStr) {
   if (!dateStr) return 'Wet'
@@ -32,6 +52,31 @@ const makeRecord = (n) => ({
   seed_quantity_unit: 'kg',
   farm_parcel: '',
 })
+
+// ── Required / Optional legend — mirrors the reference form's key so staff
+// don't have to guess which of the now-always-visible columns are optional. ──
+
+function RequiredOptionalLegend() {
+  return (
+    <div className="flex flex-wrap items-center gap-4 text-[12px] text-[#4A5E4A]">
+      <span className="flex items-center gap-1">
+        <span className="text-rose-500">*</span> Required field
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-[#4A5E4A] text-white">opt</span>
+        Optional — leave blank if not applicable
+      </span>
+    </div>
+  )
+}
+
+function OptBadge() {
+  return (
+    <span className="ml-1.5 inline-flex items-center rounded px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide bg-white/20 text-white align-middle">
+      opt
+    </span>
+  )
+}
 
 // ── Farmer Search (top-level, shared) ─────────────────────────────────────────
 
@@ -172,9 +217,9 @@ function useCropDuplicateCheck(farmerId, cropTypeId) {
   return { duplicates, isChecking }
 }
 
-// ── Crop Record Row (tabular) ─────────────────────────────────────────────────
+// ── Crop Record Row (tabular, every field flat — no expand/collapse) ─────────
 
-function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, farmerId, farmerParcels, error, expanded, onToggleExpand, onUpdate, onRemove }) {
+function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, farmerId, showParcelColumn, farmerParcels, error, onUpdate, onRemove }) {
   const set = (field, value) => onUpdate(rec._id, field, value)
   const { duplicates, isChecking } = useCropDuplicateCheck(farmerId, rec.crop_type)
 
@@ -184,14 +229,19 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
 
   const selectedCropType = cropTypes.find(c => String(c.id) === String(rec.crop_type))
   const hasDuplicates = !isChecking && duplicates.length > 0
+  const duplicateTitle = hasDuplicates
+    ? `Active record${duplicates.length > 1 ? 's' : ''} already exist for this crop: ${duplicates.map(d => `${d.date_planted || '—'} (${d.area_planted_ha} ha)`).join(', ')}`
+    : undefined
+
+  const colCount = 11 + (showParcelColumn ? 1 : 0)
 
   return (
     <>
-      <tr className={`border-b border-[#F0F4F0] ${error ? 'bg-rose-50/40' : ''}`}>
-        <td className={`${bulkTdClasses} text-center text-[13px] text-[#7A8E7A]`}>{index + 1}</td>
-        <td className={`${bulkTdClasses} min-w-[160px]`}>
+      <tr className={`border-b border-[#F0F4F0] align-top ${error ? 'bg-rose-50/40' : ''}`}>
+        <td className="px-3 py-3 text-center text-[13px] text-[#7A8E7A]" style={{ width: COL_WIDTH.index }}>{index + 1}</td>
+        <td className="px-3 py-3 overflow-hidden" style={{ width: COL_WIDTH.barangay }}>
           <select
-            className={bulkCellInputClasses}
+            className={`${bulkCellInputClasses} w-full`}
             value={rec.farm_location_barangay}
             onChange={e => set('farm_location_barangay', e.target.value)}
           >
@@ -199,7 +249,7 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
             {BARANGAYS.map(b => <option key={b} value={b}>{b}</option>)}
           </select>
         </td>
-        <td className={`${bulkTdClasses} min-w-[150px]`}>
+        <td className="px-3 py-3 overflow-hidden" style={{ width: COL_WIDTH.landStatus }}>
           <ComboboxWithOther
             options={['Owner', 'Lessee', 'Tenant']}
             value={rec.land_status}
@@ -211,8 +261,8 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
             chevronSize={13}
           />
         </td>
-        <td className={`${bulkTdClasses} min-w-[190px]`}>
-          <select className={bulkCellInputClasses} value={rec.crop_type}
+        <td className="px-3 py-3 overflow-hidden" style={{ width: COL_WIDTH.cropType }}>
+          <select className={`${bulkCellInputClasses} w-full`} value={rec.crop_type}
             onChange={e => set('crop_type', e.target.value)}>
             <option value="">Select crop…</option>
             {cropTypes.map(ct => (
@@ -220,20 +270,20 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
             ))}
           </select>
           {hasDuplicates && (
-            <p className="mt-1.5 flex items-center gap-1 text-[11px] text-amber-700" title="An active record already exists for this crop — you may still proceed.">
+            <p className="mt-1.5 flex items-center gap-1 truncate text-[11px] text-amber-700" title={duplicateTitle}>
               <AlertTriangle size={11} className="shrink-0" /> Active record exists
             </p>
           )}
         </td>
-        <td className={`${bulkTdClasses} min-w-[160px]`}>
-          <input type="date" className={bulkCellInputClasses} value={rec.date_planted}
+        <td className="px-3 py-3 overflow-hidden" style={{ width: COL_WIDTH.datePlanted }}>
+          <input type="date" className={`${bulkCellInputClasses} w-full`} value={rec.date_planted}
             max={new Date().toISOString().split('T')[0]}
             onChange={e => {
               set('date_planted', e.target.value)
               set('season', detectSeason(e.target.value))
             }} />
           {selectedCropType && rec.date_planted && (
-            <p className="mt-1.5 text-[11px] text-[#7A8E7A]">
+            <p className="mt-1.5 truncate text-[11px] text-[#7A8E7A]">
               Harvest ~{(() => {
                 const d = new Date(rec.date_planted + 'T00:00:00')
                 d.setDate(d.getDate() + selectedCropType.days_to_harvest)
@@ -242,30 +292,66 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
             </p>
           )}
         </td>
-        <td className={`${bulkTdClasses} min-w-[110px]`}>
-          <input type="number" step="0.01" min="0" className={bulkCellInputClasses}
+        <td className="px-3 py-3 overflow-hidden" style={{ width: COL_WIDTH.area }}>
+          <input type="number" step="0.01" min="0" className={`${bulkCellInputClasses} w-full`}
             placeholder="0.00"
             value={rec.area_planted_ha}
             onChange={e => set('area_planted_ha', e.target.value)} />
         </td>
-        <td className={`${bulkTdClasses} min-w-[120px]`}>
-          <select className={bulkCellInputClasses} value={rec.season}
+        <td className="px-3 py-3 overflow-hidden" style={{ width: COL_WIDTH.season }}>
+          <select className={`${bulkCellInputClasses} w-full`} value={rec.season}
             onChange={e => set('season', e.target.value)}>
             <option value="Wet">Wet</option>
             <option value="Dry">Dry</option>
           </select>
         </td>
-        <td className={`${bulkTdClasses} text-center`}>
-          <button
-            type="button"
-            onClick={() => onToggleExpand(rec._id)}
-            title="More fields (variety, seed source, parcel)"
-            className="inline-flex items-center gap-0.5 rounded-md px-1.5 py-1.5 text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors"
-          >
-            {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          </button>
+        <td className="px-3 py-3 overflow-hidden" style={{ width: COL_WIDTH.variety }}>
+          <ComboboxWithOther
+            options={relevantVarieties.map(v => v.name)}
+            value={rec.variety_used_is_other ? 'Other' : rec.variety_used}
+            otherValue={rec.variety_used}
+            onChange={(v) => {
+              if (v === 'Other') { set('variety_used_is_other', true); set('variety_used', '') }
+              else { set('variety_used_is_other', false); set('variety_used', v) }
+            }}
+            onOtherChange={(v) => set('variety_used', v)}
+            placeholder="e.g. NSIC Rc222"
+            inputClassName={bulkCellInputClasses}
+            chevronSize={13}
+          />
         </td>
-        <td className={`${bulkTdClasses} text-center`}>
+        <td className="px-3 py-3 overflow-hidden" style={{ width: COL_WIDTH.seedSource }}>
+          <ComboboxWithOther
+            options={seedSources.filter(s => s.is_active).map(s => s.name)}
+            value={rec.seed_source}
+            otherValue={rec.seed_source_other_specify}
+            onChange={(v) => set('seed_source', v)}
+            onOtherChange={(v) => set('seed_source_other_specify', v)}
+            placeholder="Select source"
+            inputClassName={bulkCellInputClasses}
+            chevronSize={13}
+          />
+        </td>
+        <td className="px-3 py-3 overflow-hidden" style={{ width: COL_WIDTH.qtySeeds }}>
+          <input type="number" step="0.01" min="0" className={`${bulkCellInputClasses} w-full`}
+            placeholder="0"
+            value={rec.quantity_of_seeds}
+            onChange={e => set('quantity_of_seeds', e.target.value)} />
+        </td>
+        {showParcelColumn && (
+          <td className="px-3 py-3 overflow-hidden" style={{ width: COL_WIDTH.farmParcel }}>
+            <select className={`${bulkCellInputClasses} w-full`} value={rec.farm_parcel}
+              onChange={e => set('farm_parcel', e.target.value)}>
+              <option value="">Not linked</option>
+              {farmerParcels.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.parcel_number ? `Parcel ${p.parcel_number}` : `Parcel #${p.id}`} — {p.barangay}
+                </option>
+              ))}
+            </select>
+          </td>
+        )}
+        <td className="px-3 py-3 text-center" style={{ width: COL_WIDTH.remove }}>
           {total > 1 && (
             <button type="button" onClick={() => onRemove(rec._id)} title="Remove row"
               className="inline-flex items-center rounded-md p-1.5 text-rose-500 hover:bg-rose-50 transition-colors">
@@ -275,94 +361,80 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
         </td>
       </tr>
       {error && (
-        <tr className="border-b border-[#F0F4F0]">
+        <tr className="border-b border-[#F0F4F0] bg-rose-50/40">
           <td />
-          <td colSpan={8} className="px-3 pb-3 -mt-1 text-[12px] text-rose-600">{error}</td>
-        </tr>
-      )}
-      {expanded && (
-        <tr className="border-b border-[#F0F4F0] bg-[#F9FAF9]">
-          <td />
-          <td colSpan={8} className="px-3 py-4">
-            <div className="grid gap-4 sm:grid-cols-4">
-              <div>
-                <p className={bulkSubLabelClasses}>Variety (optional)</p>
-                <ComboboxWithOther
-                  options={relevantVarieties.map(v => v.name)}
-                  value={rec.variety_used_is_other ? 'Other' : rec.variety_used}
-                  otherValue={rec.variety_used}
-                  onChange={(v) => {
-                    if (v === 'Other') { set('variety_used_is_other', true); set('variety_used', '') }
-                    else { set('variety_used_is_other', false); set('variety_used', v) }
-                  }}
-                  onOtherChange={(v) => set('variety_used', v)}
-                  placeholder="Select variety"
-                  inputClassName={bulkCellInputClasses}
-                  chevronSize={13}
-                />
-              </div>
-              <div>
-                <p className={bulkSubLabelClasses}>Seed Source (optional)</p>
-                <ComboboxWithOther
-                  options={seedSources.filter(s => s.is_active).map(s => s.name)}
-                  value={rec.seed_source}
-                  otherValue={rec.seed_source_other_specify}
-                  onChange={(v) => set('seed_source', v)}
-                  onOtherChange={(v) => set('seed_source_other_specify', v)}
-                  placeholder="Select source"
-                  inputClassName={bulkCellInputClasses}
-                  chevronSize={13}
-                />
-              </div>
-              <div>
-                <p className={bulkSubLabelClasses}>Quantity of Seeds (optional)</p>
-                <div className="flex gap-2">
-                  <input type="number" step="0.01" min="0" className={bulkCellInputClasses}
-                    placeholder="e.g. 25"
-                    value={rec.quantity_of_seeds}
-                    onChange={e => set('quantity_of_seeds', e.target.value)} />
-                  <select className={`${bulkCellInputClasses} w-28 shrink-0`} value={rec.seed_quantity_unit}
-                    onChange={e => set('seed_quantity_unit', e.target.value)}>
-                    <option value="kg">kg</option>
-                    <option value="bags">bags</option>
-                    <option value="pcs">pcs</option>
-                    <option value="bundles">bundles</option>
-                  </select>
-                </div>
-              </div>
-              {farmerParcels.length > 0 && (
-                <div>
-                  <p className={bulkSubLabelClasses}>Farm Parcel (optional)</p>
-                  <select className={bulkCellInputClasses} value={rec.farm_parcel}
-                    onChange={e => set('farm_parcel', e.target.value)}>
-                    <option value="">Not linked</option>
-                    {farmerParcels.map(p => (
-                      <option key={p.id} value={p.id}>
-                        {p.parcel_number ? `Parcel ${p.parcel_number}` : `Parcel #${p.id}`} — {p.barangay}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              {isChecking && (
-                <p className="col-span-full text-[11px] text-slate-400 italic">Checking for active duplicates…</p>
-              )}
-              {hasDuplicates && (
-                <div className="col-span-full rounded-lg border border-amber-300 bg-amber-50 px-3 py-2">
-                  <ul className="space-y-0.5">
-                    {duplicates.map(d => (
-                      <li key={d.id} className="text-[11px] text-amber-700">
-                        Planted: {d.date_planted || '—'} · Area: {d.area_planted_ha} ha
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </td>
+          <td colSpan={colCount - 1} className="px-3 pb-2.5 -mt-1 text-[12px] text-rose-600">{error}</td>
         </tr>
       )}
     </>
+  )
+}
+
+// ── Confirm Submission — review step before the actual save ──────────────────
+
+function ConfirmSubmissionModal({ records, cropTypes, farmerFullName, isSubmitting, onConfirm, onCancel }) {
+  const period = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  const cropName = (id) => cropTypes.find(c => String(c.id) === String(id))?.name || '—'
+
+  return (
+    <ModalShell
+      title="Confirm Submission"
+      subtitle={`Crop Monitoring Records · ${period}`}
+      icon={CheckCircle2}
+      iconBg="bg-emerald-100"
+      iconColor="text-emerald-700"
+      onClose={onCancel}
+      maxWidth="max-w-lg"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onCancel}>Go Back &amp; Review</Button>
+          <Button type="button" isLoading={isSubmitting} onClick={onConfirm}>Confirm &amp; Submit</Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+          <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-emerald-800" aria-hidden="true" />
+          <div>
+            <p className="text-[13px] font-semibold text-emerald-800">
+              {records.length} record{records.length === 1 ? '' : 's'} will be added
+            </p>
+            <p className="mt-0.5 text-[13px] text-emerald-700">
+              Crop monitoring · for {farmerFullName}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+          <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-700" aria-hidden="true" />
+          <p className="text-[13px] text-amber-800">
+            <span className="font-semibold">All-or-nothing:</span> if any row fails server-side validation, none of
+            the {records.length} record{records.length === 1 ? '' : 's'} will be saved. Review all entries before confirming.
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-[#E2E8E2] bg-white">
+          <p className="border-b border-[#E2E8E2] px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-[#7A8E7A]">
+            Row Summary
+          </p>
+          <div className="max-h-64 divide-y divide-[#F0F4F0] overflow-y-auto">
+            {records.map((rec, i) => (
+              <div key={rec._id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+                <div className="min-w-0">
+                  <p className="text-[13px] font-medium text-[#1A2B1A]">
+                    #{i + 1} {rec.farm_location_barangay || '—'}
+                  </p>
+                  <p className="truncate text-[12px] text-[#7A8E7A]">
+                    {cropName(rec.crop_type)}{rec.variety_used ? ` — ${rec.variety_used}` : ''}
+                  </p>
+                </div>
+                <p className="shrink-0 text-[13px] text-[#4A5A4C]">{rec.area_planted_ha || '0'} ha</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </ModalShell>
   )
 }
 
@@ -375,8 +447,12 @@ export default function AddCropMonitoringPage() {
   const [seedSources,  setSeedSources]  = useState([])
   const [varieties,    setVarieties]    = useState([])
   const [records,      setRecords]      = useState([makeRecord(1)])
-  const [nextId,       setNextId]       = useState(2)
-  const [expandedIds,  setExpandedIds]  = useState(() => new Set())
+  // Ref, not state: two addRecord() calls in the same tick (e.g. a fast
+  // double-click) must never read the same "next id" — a state variable
+  // updated via setNextId(n => n + 1) doesn't advance until the next
+  // render, so both calls would build a row with the same _id, giving React
+  // two list children with duplicate keys.
+  const nextIdRef = useRef(2)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showConfirm,  setShowConfirm]  = useState(false)
   const [error,        setError]        = useState('')
@@ -411,23 +487,17 @@ export default function AddCropMonitoringPage() {
       .catch(() => setFarmerParcels([]))
   }, [farmerInfo.farmer_id])
 
+  const showParcelColumn = farmerParcels.length > 0
+
   const addRecord = () => {
-    setRecords(r => [...r, makeRecord(nextId)])
-    setNextId(n => n + 1)
+    const id = nextIdRef.current++
+    setRecords(r => [...r, makeRecord(id)])
   }
 
   const removeRecord = (id) => setRecords(r => r.filter(x => x._id !== id))
 
   const updateRecord = (id, field, value) => {
     setRecords(r => r.map(x => x._id === id ? { ...x, [field]: value } : x))
-  }
-
-  const toggleExpand = (id) => {
-    setExpandedIds(prev => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id); else next.add(id)
-      return next
-    })
   }
 
   const buildPayload = (rec) => {
@@ -483,13 +553,14 @@ export default function AddCropMonitoringPage() {
   }
 
   const handleConfirmed = async () => {
-    setShowConfirm(false)
     setIsSubmitting(true)
     try {
       await api.post('/production/monitoring/bulk/', records.map(buildPayload))
+      setShowConfirm(false)
       showToast(`${records.length} crop monitoring record${records.length > 1 ? 's' : ''} added.`, 'success')
       navigate('/crop-records')
     } catch (err) {
+      setShowConfirm(false)
       const data = err?.response?.data
       if (data?.errors && Array.isArray(data.errors)) {
         const nextRowErrors = {}
@@ -511,7 +582,10 @@ export default function AddCropMonitoringPage() {
   }
 
   return (
-    <PageLayout title="Add New Crop" subtitle="Enter one row per crop record — all rows save together.">
+    <PageLayout
+      title="Add Crop Monitoring Records"
+      subtitle="Each row is one crop record for this reporting period. Fill all required fields before submitting."
+    >
       <button
         type="button"
         onClick={goBack}
@@ -521,7 +595,11 @@ export default function AddCropMonitoringPage() {
       </button>
 
       <form onSubmit={handleSubmit} className="space-y-5">
-        {/* Farmer (entered once) */}
+        <RequiredOptionalLegend />
+
+        {/* Farmer (entered once, kept from the previous design — every row in
+            this batch is still attributed to one farmer, unlike the barangay-
+            only paper-form reference this redesign otherwise follows). */}
         <div className="rounded-xl bg-slate-50 border border-slate-200 p-4">
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400 mb-3">
             Farmer Information
@@ -543,20 +621,31 @@ export default function AddCropMonitoringPage() {
           )}
         </div>
 
-        {/* Crop records — horizontal table, one row per record */}
+        <div className="flex items-start gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3">
+          <Info size={16} className="mt-0.5 shrink-0 text-sky-800" aria-hidden="true" />
+          <p className="text-[13px] text-sky-800">
+            <span className="font-semibold">All-or-nothing submission:</span> every row must pass validation before
+            any record is saved. An error in one row prevents all rows from saving.
+          </p>
+        </div>
+
+        {/* Crop records — horizontal table, every field visible (no expand toggle) */}
         <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white">
-          <table className="min-w-full text-sm">
+          <table className="table-fixed text-sm">
             <thead className="bg-[#1B4D2E] text-white">
               <tr>
-                <th className={bulkThCenterClasses}>#</th>
-                <th className={bulkThClasses}>Barangay <span className="text-white/70">*</span></th>
-                <th className={bulkThClasses}>Land Status <span className="text-white/70">*</span></th>
-                <th className={bulkThClasses}>Crop Type <span className="text-white/70">*</span></th>
-                <th className={bulkThClasses}>Date Planted <span className="text-white/70">*</span></th>
-                <th className={bulkThClasses}>Area (ha) <span className="text-white/70">*</span></th>
-                <th className={bulkThClasses}>Season</th>
-                <th className={bulkThCenterClasses}>More</th>
-                <th className={bulkThCenterClasses}></th>
+                <th className={`${bulkThCenterClasses} overflow-hidden`} style={{ width: COL_WIDTH.index }}>#</th>
+                <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.barangay }}>Barangay <span className="text-white/70">*</span></th>
+                <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.landStatus }}>Land Status <span className="text-white/70">*</span></th>
+                <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.cropType }}>Crop Type <span className="text-white/70">*</span></th>
+                <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.datePlanted }}>Date Planted <span className="text-white/70">*</span></th>
+                <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.area }}>Area (ha) <span className="text-white/70">*</span></th>
+                <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.season }}>Season<OptBadge /></th>
+                <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.variety }}>Variety<OptBadge /></th>
+                <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.seedSource }}>Seed Source<OptBadge /></th>
+                <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.qtySeeds }}>Qty of Seeds (kg)<OptBadge /></th>
+                {showParcelColumn && <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.farmParcel }}>Farm Parcel<OptBadge /></th>}
+                <th className={bulkThCenterClasses} style={{ width: COL_WIDTH.remove }}></th>
               </tr>
             </thead>
             <tbody>
@@ -570,10 +659,9 @@ export default function AddCropMonitoringPage() {
                   seedSources={seedSources}
                   varieties={varieties}
                   farmerId={farmerInfo.farmer_id}
+                  showParcelColumn={showParcelColumn}
                   farmerParcels={farmerParcels}
                   error={rowErrors[rec._id]}
-                  expanded={expandedIds.has(rec._id)}
-                  onToggleExpand={toggleExpand}
                   onUpdate={updateRecord}
                   onRemove={removeRecord}
                 />
@@ -582,13 +670,16 @@ export default function AddCropMonitoringPage() {
           </table>
         </div>
 
-        <button
-          type="button"
-          onClick={addRecord}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#C8D5C8] py-3 text-sm font-medium text-[#4A5E4A] hover:border-[#1B4D2E] hover:text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors"
-        >
-          <Plus size={14} /> Add Another Row
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={addRecord}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3.5 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors"
+          >
+            <Plus size={14} /> Add Row
+          </button>
+          <span className="text-[12.5px] text-[#7A8E7A]">{records.length} row{records.length === 1 ? '' : 's'}</span>
+        </div>
 
         {error && (
           <p className="rounded-xl bg-rose-50 border border-rose-200 px-4 py-3 text-sm text-rose-600">
@@ -603,16 +694,17 @@ export default function AddCropMonitoringPage() {
           </button>
           <button type="submit" disabled={isSubmitting}
             className="rounded-lg bg-[#1B4D2E] px-5 py-2 text-sm font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-60">
-            {isSubmitting ? 'Saving…' : `Save ${records.length > 1 ? `${records.length} Records` : 'Record'}`}
+            {isSubmitting ? 'Submitting…' : `Submit ${records.length > 1 ? `${records.length} Records` : 'Record'}`}
           </button>
         </div>
       </form>
 
       {showConfirm && (
-        <ConfirmDialog
-          title="Confirm Add Crop"
-          message={`Add ${records.length} crop monitoring record${records.length > 1 ? 's' : ''} for ${farmerInfo.farmer_full_name}?`}
-          confirmLabel="Confirm"
+        <ConfirmSubmissionModal
+          records={records}
+          cropTypes={cropTypes}
+          farmerFullName={farmerInfo.farmer_full_name}
+          isSubmitting={isSubmitting}
           onConfirm={handleConfirmed}
           onCancel={() => setShowConfirm(false)}
         />

@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ChevronDown } from 'lucide-react'
 import { baseInputClasses } from './FormField.jsx'
 
@@ -62,6 +63,10 @@ function ComboboxWithOther({
 
   const [isOpen, setIsOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
+  // Portal-positioning: the listbox renders into document.body (see below
+  // for why), so its position has to be computed from the trigger's own
+  // on-screen rect rather than inherited from normal document flow.
+  const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 0, openUpward: false })
 
   const rootRef = useRef(null)
   const triggerRef = useRef(null)
@@ -73,11 +78,50 @@ function ComboboxWithOther({
 
   useEffect(() => {
     function handleOutside(e) {
-      if (rootRef.current && !rootRef.current.contains(e.target)) setIsOpen(false)
+      const insideTrigger = rootRef.current && rootRef.current.contains(e.target)
+      const insideList = listRef.current && listRef.current.contains(e.target)
+      if (!insideTrigger && !insideList) setIsOpen(false)
     }
     document.addEventListener('mousedown', handleOutside)
     return () => document.removeEventListener('mousedown', handleOutside)
   }, [])
+
+  // Every table/scrollable-card usage of this component (bulk-entry tables,
+  // modal bodies, etc.) used to clip the option list the moment it needed
+  // to extend past that ancestor's own overflow:hidden/auto — the listbox
+  // was a normal absolutely-positioned child, so it was clipped exactly
+  // like any other overflowing content. Portaling to <body> with
+  // position:fixed, positioned from the trigger's live getBoundingClientRect,
+  // escapes every such ancestor; recomputing on scroll/resize keeps it
+  // glued to the trigger while open, and flipping above the trigger when
+  // there isn't room below keeps it fully visible near the bottom of the
+  // viewport instead of running off-screen.
+  useLayoutEffect(() => {
+    if (!isOpen) return
+    const MAX_LIST_HEIGHT = 208 // matches max-h-52
+
+    const reposition = () => {
+      const trigger = rootRef.current
+      if (!trigger) return
+      const rect = trigger.getBoundingClientRect()
+      const spaceBelow = window.innerHeight - rect.bottom
+      const openUpward = spaceBelow < MAX_LIST_HEIGHT && rect.top > spaceBelow
+      setDropPos({
+        top: openUpward ? rect.top : rect.bottom,
+        left: rect.left,
+        width: rect.width,
+        openUpward,
+      })
+    }
+
+    reposition()
+    window.addEventListener('resize', reposition)
+    window.addEventListener('scroll', reposition, true)
+    return () => {
+      window.removeEventListener('resize', reposition)
+      window.removeEventListener('scroll', reposition, true)
+    }
+  }, [isOpen])
 
   // Focus the text box the instant Other mode is entered — "the SAME box
   // becomes an editable text field immediately, focused and ready to type".
@@ -196,7 +240,7 @@ function ComboboxWithOther({
           onKeyDown={handleTriggerKeyDown}
           className={`${inputClassName} flex items-center justify-between gap-2 text-left disabled:opacity-50 disabled:cursor-not-allowed`}
         >
-          <span className={displayLabel ? '' : 'text-[#A8BCA8]'}>
+          <span className={`min-w-0 flex-1 truncate ${displayLabel ? '' : 'text-[#A8BCA8]'}`}>
             {displayLabel || placeholder}
           </span>
           <ChevronDown
@@ -241,46 +285,57 @@ function ComboboxWithOther({
         </div>
       )}
 
-      {/* Kept mounted (not conditionally rendered) so the opacity/scale
+      {/* Portaled to <body> — see the useLayoutEffect above for why — and
+          kept mounted (not conditionally rendered) so the opacity/scale
           toggle below is an actual CSS transition rather than an instant
           mount/unmount — motion-reduce:transition-none zeroes it out for
           users who asked for reduced motion. aria-hidden keeps it out of
           the accessibility tree while closed; nothing ever needs to focus
           into it since the trigger owns aria-activedescendant. */}
-      <ul
-        ref={listRef}
-        id={listboxId}
-        role="listbox"
-        aria-hidden={!isOpen}
-        className={`absolute z-50 mt-1 w-full max-h-52 overflow-y-auto rounded-xl border border-[#E2E8E2] bg-white py-1 shadow-lg origin-top
-          transition-[opacity,transform] duration-100 ease-out motion-reduce:transition-none ${
-            isOpen ? 'opacity-100 scale-100 visible' : 'opacity-0 scale-95 invisible pointer-events-none'
-          }`}
-      >
-        {allOptions.map((opt, i) => {
-          const isSelected = value === opt.value
-          const isActive = i === activeIndex
-          return (
-            <li
-              key={opt.value}
-              id={optionId(i)}
-              role="option"
-              aria-selected={isSelected}
-              onMouseDown={(e) => { e.preventDefault(); selectOption(opt) }}
-              onMouseEnter={() => setActiveIndex(i)}
-              className={`cursor-pointer px-3 py-2 text-[13px] transition-colors motion-reduce:transition-none ${
-                isSelected
-                  ? 'bg-[#EBF5EE] font-semibold text-[#1B4D2E]'
-                  : isActive
-                    ? 'bg-[#F5F7F5] text-[#1A2B1A]'
-                    : 'text-[#1A2B1A]'
-              }`}
-            >
-              {opt.label}
-            </li>
-          )
-        })}
-      </ul>
+      {createPortal(
+        <ul
+          ref={listRef}
+          id={listboxId}
+          role="listbox"
+          aria-hidden={!isOpen}
+          style={{
+            position: 'fixed',
+            top: dropPos.openUpward ? undefined : dropPos.top,
+            bottom: dropPos.openUpward ? window.innerHeight - dropPos.top : undefined,
+            left: dropPos.left,
+            width: dropPos.width,
+          }}
+          className={`z-[1000] max-h-52 overflow-y-auto rounded-xl border border-[#E2E8E2] bg-white py-1 shadow-lg ${dropPos.openUpward ? 'origin-bottom mb-1' : 'origin-top mt-1'}
+            transition-[opacity,transform] duration-100 ease-out motion-reduce:transition-none ${
+              isOpen ? 'opacity-100 scale-100 visible' : 'opacity-0 scale-95 invisible pointer-events-none'
+            }`}
+        >
+          {allOptions.map((opt, i) => {
+            const isSelected = value === opt.value
+            const isActive = i === activeIndex
+            return (
+              <li
+                key={opt.value}
+                id={optionId(i)}
+                role="option"
+                aria-selected={isSelected}
+                onMouseDown={(e) => { e.preventDefault(); selectOption(opt) }}
+                onMouseEnter={() => setActiveIndex(i)}
+                className={`cursor-pointer px-3 py-2 text-[13px] transition-colors motion-reduce:transition-none ${
+                  isSelected
+                    ? 'bg-[#EBF5EE] font-semibold text-[#1B4D2E]'
+                    : isActive
+                      ? 'bg-[#F5F7F5] text-[#1A2B1A]'
+                      : 'text-[#1A2B1A]'
+                }`}
+              >
+                {opt.label}
+              </li>
+            )
+          })}
+        </ul>,
+        document.body,
+      )}
 
       {error && (
         <p className="text-[12px] text-[#C0392B] mt-1">{error}</p>
