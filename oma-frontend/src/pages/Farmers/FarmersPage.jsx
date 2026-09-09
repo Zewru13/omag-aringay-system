@@ -275,7 +275,10 @@ function FarmersPage({ asTab = false }) {
       )}
 
       {isImportModalOpen && (
-        <RsbsaImportModal onClose={() => setIsImportModalOpen(false)} />
+        <RsbsaImportModal
+          onClose={() => setIsImportModalOpen(false)}
+          onCommitted={() => fetchFarmers(1)}
+        />
       )}
     </>
   )

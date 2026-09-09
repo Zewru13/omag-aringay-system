@@ -287,7 +287,10 @@ function FisherfolkPage({ asTab = false }) {
       )}
 
       {showImport && (
-        <RsbsaImportModal onClose={() => setShowImport(false)} />
+        <RsbsaImportModal
+          onClose={() => setShowImport(false)}
+          onCommitted={() => fetchFisherfolk(1)}
+        />
       )}
     </>
   )

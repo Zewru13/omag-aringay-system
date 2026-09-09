@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .rsbsa_import_views import RsbsaUpdateImportPreviewView
+from .rsbsa_import_views import RsbsaUpdateImportCommitView, RsbsaUpdateImportPreviewView
 from .views import (
     FarmCropDeleteView,
     FarmCropListCreateView,
@@ -20,6 +20,7 @@ urlpatterns = [
     path('', FarmerListView.as_view(), name='farmers-list'),
     path('check-duplicate/', FarmerDuplicateCheckView.as_view(), name='farmers-check-duplicate'),
     path('rsbsa-import/preview/', RsbsaUpdateImportPreviewView.as_view(), name='rsbsa-import-preview'),
+    path('rsbsa-import/commit/', RsbsaUpdateImportCommitView.as_view(), name='rsbsa-import-commit'),
     path('create/', FarmerCreateView.as_view(), name='farmers-create'),
     path('<int:id>/', FarmerDetailView.as_view(), name='farmers-detail'),
     path('<int:id>/delete/', FarmerDeleteView.as_view(), name='farmers-delete'),

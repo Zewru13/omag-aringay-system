@@ -333,3 +333,52 @@ def on_crop_save(sender, instance, **kwargs):
 @receiver(post_delete, sender=FarmCrop)
 def on_crop_delete(sender, instance, **kwargs):
     instance.farm_parcel.update_commodity()
+
+
+class RsbsaImportChangeLog(models.Model):
+    """
+    Field-level trail for RsbsaUpdateImportCommitView — the piece
+    auditlog.AuditLogEntry does NOT provide. That signal-based log already
+    fires automatically for every Farmer/Fisherfolk .save() (including ones
+    this commit view makes), but only records {action, model_name,
+    object_repr} — no field name, no old value, no new value, for any
+    model, not just these two. This is a separate, purpose-built log
+    alongside it (not a replacement, and not a schema change to the shared
+    AuditLogEntry table other models also use), storing exactly the
+    old-value/new-value/per-field/per-record trail this feature needs.
+
+    One row per field actually changed by one commit. batch_id groups every
+    row written by a single "Commit Selected" click, so "what did this
+    import run change" is one filter away.
+    """
+    class RecordType(models.TextChoices):
+        FARMER = 'FARMER', 'Farmer'
+        FISHERFOLK = 'FISHERFOLK', 'Fisherfolk'
+
+    class Action(models.TextChoices):
+        CREATE = 'CREATE', 'Create'
+        UPDATE = 'UPDATE', 'Update'
+
+    batch_id = models.UUIDField(db_index=True)
+    performed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='rsbsa_import_changes',
+    )
+    timestamp = models.DateTimeField(auto_now_add=True)
+    record_type = models.CharField(max_length=10, choices=RecordType.choices)
+    record_id = models.PositiveIntegerField()
+    rsbsa_number = models.CharField(max_length=50)
+    record_name = models.CharField(max_length=255)
+    action = models.CharField(max_length=10, choices=Action.choices)
+    field_name = models.CharField(max_length=50)
+    field_label = models.CharField(max_length=100)
+    old_value = models.TextField(blank=True, default='')
+    new_value = models.TextField(blank=True, default='')
+
+    class Meta:
+        ordering = ['-timestamp']
+        indexes = [models.Index(fields=['record_type', 'record_id'])]
+
+    def __str__(self):
+        return f'[{self.timestamp:%Y-%m-%d %H:%M}] {self.action} {self.record_type} #{self.record_id}: {self.field_name}'
