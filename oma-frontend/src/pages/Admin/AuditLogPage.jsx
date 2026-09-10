@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Bot } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import EmptyState from '../../components/UI/EmptyState.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
@@ -28,6 +29,20 @@ const ACTION_OPTIONS = [
 ]
 
 const ACTION_TONE = { CREATE: 'green', UPDATE: 'blue', DELETE: 'rose' }
+
+// Entries attributed to the shared system/automation account (a real save
+// that happened outside a real HTTP request — a management command, a
+// shell script — so there was no logged-in staff member to attribute it
+// to). Icon + text, not color alone, matching how the rest of the app
+// marks anything that needs to read as unmistakably distinct at a glance.
+function SystemUserBadge() {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-[#F0F4F0] px-2.5 py-1 text-[12px] font-medium text-[#5A6B5C]">
+      <Bot size={13} aria-hidden="true" />
+      System / Automation
+    </span>
+  )
+}
 
 function formatTimestamp(ts) {
   return new Intl.DateTimeFormat('en-PH', {
@@ -183,11 +198,11 @@ function AuditLogPage() {
                   <p className="mt-2 text-[13px] font-semibold text-[#1A2B1A]">{entry.object_repr}</p>
                   <div className="mt-2 space-y-0.5 text-[12px] text-[#4A5E4A]">
                     <p><span className="font-medium">Model:</span> {entry.model_name}</p>
-                    <p>
-                      <span className="font-medium">User:</span>{' '}
-                      {entry.user
-                        ? (entry.user.full_name || entry.user.email)
-                        : <span className="italic text-[#A8BCA8]">System</span>
+                    <p className="flex items-center gap-1.5">
+                      <span className="font-medium">User:</span>
+                      {entry.user?.is_system
+                        ? <SystemUserBadge />
+                        : (entry.user?.full_name || entry.user?.email || <span className="italic text-[#A8BCA8]">System</span>)
                       }
                     </p>
                   </div>
@@ -215,7 +230,9 @@ function AuditLogPage() {
                           {formatTimestamp(entry.timestamp)}
                         </td>
                         <td className="px-4 py-[13px]">
-                          {entry.user ? (
+                          {entry.user?.is_system ? (
+                            <SystemUserBadge />
+                          ) : entry.user ? (
                             <>
                               <p className="text-[13px] font-medium text-[#1A2B1A]">
                                 {entry.user.full_name}

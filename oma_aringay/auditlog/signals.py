@@ -3,6 +3,7 @@ from django.dispatch import receiver
 
 from auditlog.middleware import get_current_user
 from auditlog.models import AuditLogEntry
+from auditlog.system_user import get_system_user
 
 from accounts.models import User
 from farmers.models import Farmer, FarmParcel
@@ -15,9 +16,14 @@ from production.models import HarvestRecord
 
 
 def _log(action, model_name, object_repr):
-    user = get_current_user()
-    if user is None:
-        return
+    # Outside a real HTTP request (a management command, a shell script, a
+    # one-off investigation script) there's no thread-local user to read —
+    # this used to just return here, silently losing the entry entirely.
+    # Falling back to the shared system account instead means every save
+    # this signal covers gets a real entry, always correctly attributed
+    # either to who actually did it (a real request) or to the fact that
+    # it happened outside the app (the system account) — never neither.
+    user = get_current_user() or get_system_user()
     AuditLogEntry.objects.create(
         user=user,
         action=action,
