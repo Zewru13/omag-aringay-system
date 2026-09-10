@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, FileText, Fish, PackageX, Sprout } from 'lucide-react'
+import { AlertTriangle, Fish, PackageX, Sprout } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 
 // The admin/evaluator dashboard, built to the approved staff reference
@@ -185,19 +185,9 @@ export default function StaffDashboard({ user }) {
   return (
     <div className="space-y-5">
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-[24px] font-bold leading-tight text-text-primary">What needs attention today</h1>
-          <p className="mt-1 text-[13px] text-text-muted">{today} · {roleLabel} · Aringay, La Union</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => navigate('/reports')}
-          className="press-scale flex shrink-0 items-center gap-2 rounded-[var(--radius-sm)] border border-border-strong bg-surface px-4 py-2.5 transition-colors hover:bg-surface-2 cursor-pointer"
-        >
-          <FileText size={15} className="text-text-secondary" aria-hidden="true" />
-          <span className="text-[13px] font-semibold text-text-primary">Generate Report</span>
-        </button>
+      <div className="min-w-0">
+        <h1 className="text-[24px] font-bold leading-tight text-text-primary">What needs attention today</h1>
+        <p className="mt-1 text-[13px] text-text-muted">{today} · {roleLabel} · Aringay, La Union</p>
       </div>
 
       {/* ── Sector cards ────────────────────────────────────────────────── */}
