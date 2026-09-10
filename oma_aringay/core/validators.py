@@ -22,17 +22,18 @@ RSBSA_RE_D = re.compile(r'^BF-01-033-02-\d{3}-\d{6}$')
 # E) 01-033-02-011-XIIRZA            (2026 BFAR provisional-ID format,
 #    confirmed against 395 of 396 real values found in the 2026 RSBSA
 #    refresh — see the investigation this pattern is built from). Same
-#    "01-033-02-DDD-" shape as C, but the last segment is 6 alphanumeric
-#    characters instead of 6 digits — always exactly 6, always digits 1-9
-#    plus A-Z, NEVER the digit 0 (a real, consistent trait of every one of
-#    the 395, not an assumption: a 0/O-confusion-avoiding ID scheme, not
-#    corruption). The one real value that doesn't fit (a 7-character tail,
-#    a single isolated case among 396) is deliberately NOT accommodated
-#    here — widening the length to fit one outlier would weaken this
-#    pattern for the other 395 confirmed-real values for no real gain;
-#    that one value should keep failing validation as the anomaly it is,
-#    not be silently absorbed into what's otherwise a clean, uniform shape.
-RSBSA_RE_E = re.compile(r'^01-033-02-\d{3}-[1-9A-Z]{6}$')
+#    "01-033-02-DDD-" shape as C, but the last segment is alphanumeric
+#    instead of digits — always digits 1-9 plus A-Z, NEVER the digit 0 (a
+#    real, consistent trait of every one of the 395, not an assumption: a
+#    0/O-confusion-avoiding ID scheme, not corruption). Tail length is 6-or-7
+#    characters: 395 of the 396 real values are 6 characters; the one
+#    remaining real anomaly (Benidicto Malicay, 01-033-02-005-FEEMJKX) is
+#    7 — a deliberate, later decision to widen this pattern in place (same
+#    prefix rules, same character set, just one more allowed tail length)
+#    rather than leave that single real, confirmed person permanently
+#    unmatchable. Not widened further than 7 — an 8+ character tail has
+#    never been observed and would just as easily be padding/corruption.
+RSBSA_RE_E = re.compile(r'^01-033-02-\d{3}-[1-9A-Z]{6,7}$')
 RSBSA_PATTERNS = (RSBSA_RE_A, RSBSA_RE_B, RSBSA_RE_C, RSBSA_RE_D, RSBSA_RE_E)
 PHILSYS_RE = re.compile(r'^\d{4}-\d{4}-\d{4}-\d{4}$')
 LGU_REG_RE = re.compile(r'^\d{4}-03302-\d{4}$')
