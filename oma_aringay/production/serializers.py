@@ -382,7 +382,7 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
             'farm_location_barangay', 'land_status', 'land_status_other_specify',
             'farmer_name', 'farmer_barangay', 'parcel_number', 'organization_name',
             'crop_type', 'crop_type_name', 'crop_suggested_activities', 'crop_allowed_units', 'season', 'year',
-            'date_planted', 'area_planted_ha',
+            'date_planted', 'date_planted_is_estimated', 'area_planted_ha',
             'expected_harvest_date', 'actual_harvest_date',
             'status', 'current_growth_stage',
             'estimated_yield_kg', 'actual_yield_kg',

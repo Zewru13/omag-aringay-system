@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  AlertTriangle, Bug, CheckCircle, CheckCircle2, Eye, FileText, Leaf, Lock, MapPin, Pencil, Trash2, Unlock, User, Wheat,
+  AlertTriangle, Bug, CheckCircle, CheckCircle2, Eye, FileText, HelpCircle, Leaf, Lock, MapPin, Pencil, Trash2, Unlock, User, Wheat,
 } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
@@ -135,6 +135,7 @@ function SuggestionsModal({ record, onClose, onApply }) {
   const daysElapsed   = data?.days_elapsed ?? 0
   const totalDays     = data?.total_days ?? 0
   const progressPct   = totalDays > 0 ? Math.min(100, Math.round((daysElapsed / totalDays) * 100)) : 0
+  const isEstimated   = data?.date_planted_is_estimated ?? false
 
   return (
     <ModalShell title={`Activity Suggestions — ${record.crop_type_name}`} onClose={onClose} maxWidth="max-w-lg">
@@ -145,6 +146,18 @@ function SuggestionsModal({ record, onClose, onApply }) {
         </div>
       ) : (
         <div className="space-y-5">
+          {isEstimated ? (
+            <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <HelpCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-800">
+                <strong>Estimated planting date.</strong> This record's planting date was imported from a
+                registry record-creation date, not a confirmed field date, so day-based activity
+                suggestions can't be calculated reliably. A staff member needs to confirm or correct the
+                real planting date first.
+              </p>
+            </div>
+          ) : (
+            <>
           {/* Progress bar */}
           <div className="bg-slate-50 rounded-xl p-4">
             <div className="flex items-center justify-between mb-2">
@@ -210,8 +223,12 @@ function SuggestionsModal({ record, onClose, onApply }) {
               </div>
             )
           })}
+            </>
+          )}
 
-          {/* Disaster response — grouped by active disaster */}
+          {/* Disaster response — grouped by active disaster (independent of
+              date_planted, so still shown even when the planting date is
+              only an estimate). */}
           {disasterRules.length > 0 && (
             <div>
               <h4 className="text-xs font-semibold uppercase tracking-wide mb-2 text-rose-700">
@@ -341,7 +358,7 @@ function SuggestionsModal({ record, onClose, onApply }) {
             </div>
           )}
 
-          {suggestions.length === 0 && disasterRules.length === 0 && (
+          {!isEstimated && suggestions.length === 0 && disasterRules.length === 0 && (
             <p className="text-center text-sm text-slate-400 py-8">No activity stages defined for this crop type.</p>
           )}
         </div>
@@ -1649,10 +1666,19 @@ function isNearHarvest(row) {
   return diffDays <= 14
 }
 
-// Mirrors core.utils.harvest_gate_status on the backend (the real
-// enforcement — this is client-side UX only, to explain the gate before
-// the user even opens the modal rather than after a rejected submit).
+// Mirrors core.utils.harvest_gate_status AND HarvestRecordCreateView.create()'s
+// date_planted_is_estimated block on the backend (the real enforcement — this
+// is client-side UX only, to explain the gate before the user even opens the
+// modal rather than after a rejected submit).
 function harvestGateInfo(row) {
+  if (row.date_planted_is_estimated) {
+    return {
+      gated: true,
+      message: 'This record’s planting date is an estimate (imported from a registry record, ' +
+        'not a confirmed field date). Harvest cannot be recorded until a staff member confirms or ' +
+        'corrects the real planting date.',
+    }
+  }
   if (!row.date_planted || !row.expected_harvest_date) return { gated: false, message: null }
   const planted = new Date(row.date_planted + 'T00:00:00')
   const expected = new Date(row.expected_harvest_date + 'T00:00:00')
@@ -1792,6 +1818,17 @@ export default function CropMonitoringPage() {
       ? <span className="flex items-center gap-1 text-[#1A2B1A]"><User className="w-3 h-3 text-[#7A8E7A] flex-shrink-0" />{rec.farmer_name || rec.farmer_full_name}</span>
       : <span className="text-[#A8BCA8]">—</span>,
     organization_col: rec.organization_name || '—',
+    date_planted: rec.date_planted_is_estimated ? (
+      <span className="flex flex-col gap-0.5">
+        <span>{rec.date_planted}</span>
+        <span
+          className="inline-flex w-fit items-center gap-0.5 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5 whitespace-nowrap"
+          title="Imported from a registry record-creation date, not a confirmed field date."
+        >
+          <HelpCircle className="w-2.5 h-2.5" /> Estimated
+        </span>
+      </span>
+    ) : (rec.date_planted || '—'),
     location_col: (rec.farm_location_barangay || rec.farmer_barangay)
       ? <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-[#7A8E7A] flex-shrink-0" />{rec.farm_location_barangay || rec.farmer_barangay}</span>
       : <span className="text-[#A8BCA8]">—</span>,

@@ -119,6 +119,23 @@ class HarvestRecordCreateView(generics.CreateAPIView):
                         {'detail': 'Cannot record harvest for a Total Loss record — the crop was completely destroyed.'},
                         status=drf_status.HTTP_400_BAD_REQUEST,
                     )
+                # date_planted is only an approximation for records imported
+                # from a registry timestamp (see the field's own comment) —
+                # the 50%-duration math below would be measuring against a
+                # made-up start date, so this blocks outright rather than
+                # gating by a duration that means nothing yet. Same pattern as
+                # FishingTripLog.clean()'s block on an unclassified fisherfolk_type:
+                # the record needs a real confirmed value before this action
+                # is meaningful at all.
+                if record.date_planted_is_estimated:
+                    return Response(
+                        {'detail': (
+                            'This record\'s planting date is an estimate (imported from a registry '
+                            'record, not a confirmed field date). Harvest cannot be recorded until '
+                            'a staff member confirms or corrects the real planting date.'
+                        )},
+                        status=drf_status.HTTP_400_BAD_REQUEST,
+                    )
                 is_gated, message = harvest_gate_status(record.date_planted, record.expected_harvest_date)
                 if is_gated:
                     return Response({'detail': message}, status=drf_status.HTTP_400_BAD_REQUEST)
@@ -887,7 +904,12 @@ class CropActivitySuggestionsView(APIView):
         is_total_loss = record.status == CropMonitoringRecord.Status.TOTAL_LOSS
 
         suggestions = []
-        if not is_total_loss:
+        # An estimated date_planted (see the field's own comment) has no real
+        # relationship to when activities are actually due — every
+        # occurrence_day would be measured against a made-up start date, which
+        # is pure noise, not a suggestion. Suppressed entirely rather than
+        # shown-but-wrong.
+        if not is_total_loss and not record.date_planted_is_estimated:
             for stage in stages:
                 days_list = stage.application_days if stage.application_days else [stage.day_after_planting]
                 for occurrence_day in days_list:
@@ -980,6 +1002,7 @@ class CropActivitySuggestionsView(APIView):
             'days_elapsed': days_elapsed,
             'total_days': total_days,
             'is_total_loss': is_total_loss,
+            'date_planted_is_estimated': record.date_planted_is_estimated,
             'suggestions': suggestions,
             'disaster_response': disaster_response,
         })

@@ -200,6 +200,22 @@ class CropMonitoringRecord(models.Model):
     season = models.CharField(max_length=10, choices=[('Dry', 'Dry'), ('Wet', 'Wet')])
     year = models.PositiveIntegerField()
     date_planted = models.DateField()
+    # Batch: set only by the crop-record import (production/crop_record_import.py),
+    # which has no real planting date to work with — its source files (the RSBSA/
+    # BFAR registry export) carry only a record-registration timestamp
+    # (date_created), used here as the closest available approximation. False by
+    # default so every hand-entered/pre-existing record is unaffected. Wherever a
+    # day-based computation treats date_planted as a real event date (the Activity
+    # Suggestion Engine, its dashboard aggregation, the Record Harvest 50%-duration
+    # gate, Forecasting's date_planted/expected_harvest_date display), this flag
+    # must be checked — see save()'s Near-Harvest auto-transition guard below,
+    # dashboard_activity.crop_activity_status()'s exclude(), CropActivitySuggestionsView,
+    # and HarvestRecordCreateView.create() for the enforcement points.
+    date_planted_is_estimated = models.BooleanField(
+        default=False,
+        help_text='True when date_planted is an approximation (e.g. imported from a '
+                   'registry record-creation timestamp), not a confirmed real planting date.',
+    )
     area_planted_ha = models.DecimalField(max_digits=10, decimal_places=2)
     expected_harvest_date = models.DateField(null=True, blank=True)
     actual_harvest_date = models.DateField(null=True, blank=True)
@@ -273,8 +289,12 @@ class CropMonitoringRecord(models.Model):
             # kept being reported against a yield that was no longer there.
             self.yield_variance_kg = None
             self.yield_variance_pct = None
-        # Auto-transition: Planted → Near Harvest when within 7 days of expected harvest
-        if self.expected_harvest_date and self.status == self.Status.PLANTED:
+        # Auto-transition: Planted → Near Harvest when within 7 days of expected harvest.
+        # Skipped when date_planted is only an estimate — expected_harvest_date is
+        # derived from it, so a stale/approximate date would flip the record to
+        # "Near Harvest" based on a date nobody has confirmed, contradicting the
+        # Record Harvest gate below (which blocks these records outright).
+        if self.expected_harvest_date and self.status == self.Status.PLANTED and not self.date_planted_is_estimated:
             days_remaining = (self.expected_harvest_date - date.today()).days
             if days_remaining <= 7:
                 self.status = self.Status.NEAR_HARVEST
@@ -288,7 +308,7 @@ class CropMonitoringRecord(models.Model):
         """Pick the correct status for this record after total-loss reversal."""
         if self.harvest_records.exists():
             return self.Status.HARVESTED
-        if self.expected_harvest_date:
+        if self.expected_harvest_date and not self.date_planted_is_estimated:
             days_remaining = (self.expected_harvest_date - date.today()).days
             if days_remaining <= 7:
                 return self.Status.NEAR_HARVEST

@@ -1,5 +1,6 @@
 from django.urls import path
 
+from .crop_record_import_views import CropRecordImportCommitView, CropRecordImportPreviewView
 from .views import (
     ActivityTypeDetailView,
     ActivityTypeListCreateView,
@@ -85,6 +86,8 @@ urlpatterns = [
     path('varieties/<int:pk>/', CropVarietyDetailView.as_view(), name='crop-variety-detail'),
     path('forecasting/template/', ForecastingTemplateView.as_view(), name='forecasting-template'),
     path('forecasting/import/', ForecastingImportView.as_view(), name='forecasting-import'),
+    path('crop-record-import/preview/', CropRecordImportPreviewView.as_view(), name='crop-record-import-preview'),
+    path('crop-record-import/commit/', CropRecordImportCommitView.as_view(), name='crop-record-import-commit'),
     path('monitoring/check-duplicate/', CropDuplicateCheckView.as_view(), name='crop-duplicate-check'),
     path('monitoring/bulk/', CropMonitoringBulkCreateView.as_view(), name='monitoring-bulk-create'),
     path('monitoring/', CropMonitoringListCreateView.as_view(), name='monitoring-list-create'),

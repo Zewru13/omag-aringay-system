@@ -109,6 +109,11 @@ def crop_activity_status():
 
     records = list(
         Record.objects.exclude(status__in=_CLOSED)
+        # An estimated date_planted (see the field's own comment) is not a
+        # real event date — including these would generate overdue/due/
+        # upcoming noise across the whole municipality dashboard based on
+        # dates nobody has confirmed. Same exclusion as CropActivitySuggestionsView.
+        .exclude(date_planted_is_estimated=True)
         .only('id', 'crop_type_id', 'date_planted', 'farm_location_barangay')
     )
     stages_by_key = defaultdict(list)
