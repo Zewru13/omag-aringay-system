@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, CheckCircle2, Eye, Lock, Pencil, Plus, Trash2, Unlock, Upload, Wheat } from 'lucide-react'
+import { AlertTriangle, Eye, Lock, Pencil, Plus, Trash2, Unlock, Upload, Wheat } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import ImportFileModal from '../../components/ImportFileModal.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
+import DisasterIndicator from '../../components/UI/DisasterIndicator.jsx'
 import HarvestVarianceBadge from '../../components/UI/HarvestVarianceBadge.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
@@ -640,16 +641,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
     species_name_cell: (
       <span className="flex items-center gap-1.5">
         <span className="font-medium">{rec.species_name}</span>
-        {rec.disaster_count > 0 && (
-          <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-full px-1.5 py-0.5 whitespace-nowrap">
-            <AlertTriangle className="w-2.5 h-2.5" /> {rec.disaster_count > 1 ? rec.disaster_count : 'Disaster'}
-          </span>
-        )}
-        {rec.disaster_count === 0 && rec.has_recovered_disaster && (
-          <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-slate-500 bg-slate-100 border border-slate-200 rounded-full px-1.5 py-0.5 whitespace-nowrap">
-            <CheckCircle2 className="w-2.5 h-2.5" /> Recovered
-          </span>
-        )}
+        <DisasterIndicator disastersCount={rec.disaster_count} hasRecoveredDisaster={rec.has_recovered_disaster} />
         {lockStatuses[rec.id] && (
           <span
             className="inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5 whitespace-nowrap"
