@@ -13,6 +13,7 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
+import StatusPill from '../../components/UI/StatusPill.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -1696,6 +1697,40 @@ function harvestGateInfo(row) {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
+// Mirrors FisheriesRecordsPage's own STATUS_TONES exactly (Stocked/Planted
+// both green as the initial active state) so the two domains' status
+// columns read as one consistent system, not two independently-invented ones.
+const STATUS_TONES = {
+  Planted:        'green',
+  'Near Harvest': 'amber',
+  Harvested:      'blue',
+  'Total Loss':   'rose',
+}
+
+// Compact, icon-only — deliberately no text, so it costs almost no table
+// width. Renders nothing at all (not a neutral placeholder) when a record
+// has no disaster history, so it never asks the eye to interpret an empty
+// icon. Active takes precedence over a past recovery: a record currently
+// mid-disaster is the one that needs attention, not its own history.
+function DisasterIndicator({ disastersCount, hasRecoveredDisaster }) {
+  if (disastersCount > 0) {
+    const label = `${disastersCount} active disaster${disastersCount > 1 ? 's' : ''} reported`
+    return (
+      <span title={label} aria-label={label} className="inline-flex flex-shrink-0">
+        <AlertTriangle className="w-4 h-4 text-rose-600" aria-hidden="true" />
+      </span>
+    )
+  }
+  if (hasRecoveredDisaster) {
+    return (
+      <span title="Recovered from a past disaster" aria-label="Recovered from a past disaster" className="inline-flex flex-shrink-0">
+        <CheckCircle2 className="w-4 h-4 text-emerald-600" aria-hidden="true" />
+      </span>
+    )
+  }
+  return null
+}
+
 const COLUMNS = [
   { key: 'crop_cell',       label: 'CROP' },
   { key: 'farmer_col',      label: 'FARMER' },
@@ -1703,6 +1738,7 @@ const COLUMNS = [
   { key: 'location_col',    label: 'BARANGAY' },
   { key: 'date_planted',    label: 'DATE PLANTED' },
   { key: 'logs_cell',       label: 'LOGS', center: true },
+  { key: 'status_cell',     label: 'STATUS' },
   { key: 'actions',         label: 'ACTIONS' },
 ]
 
@@ -1789,21 +1825,6 @@ export default function CropMonitoringPage() {
     crop_cell: (
       <span className="flex items-center gap-1.5">
         <span className="font-medium">{rec.crop_type_name}</span>
-        {rec.disasters_count > 0 && (
-          <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-full px-1.5 py-0.5 whitespace-nowrap">
-            <AlertTriangle className="w-2.5 h-2.5" /> {rec.disasters_count > 1 ? rec.disasters_count : 'Disaster'}
-          </span>
-        )}
-        {rec.disasters_count === 0 && rec.has_recovered_disaster && (
-          <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-slate-500 bg-slate-100 border border-slate-200 rounded-full px-1.5 py-0.5 whitespace-nowrap">
-            <CheckCircle2 className="w-2.5 h-2.5" /> Recovered
-          </span>
-        )}
-        {rec.status === 'Harvested' && (
-          <span className="inline-flex text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-1.5 py-0.5 whitespace-nowrap">
-            Harvested
-          </span>
-        )}
         {lockStatuses[rec.id] && (
           <span
             className="inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5 whitespace-nowrap"
@@ -1812,6 +1833,12 @@ export default function CropMonitoringPage() {
             <Lock className="w-2.5 h-2.5" /> {lockStatuses[rec.id].locked_by?.name}
           </span>
         )}
+      </span>
+    ),
+    status_cell: (
+      <span className="flex items-center gap-1.5">
+        <StatusPill tone={STATUS_TONES[rec.status] || 'slate'}>{rec.status}</StatusPill>
+        <DisasterIndicator disastersCount={rec.disasters_count} hasRecoveredDisaster={rec.has_recovered_disaster} />
       </span>
     ),
     farmer_col: rec.farmer_name || rec.farmer_full_name
