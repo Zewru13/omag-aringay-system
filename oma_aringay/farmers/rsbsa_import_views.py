@@ -28,6 +28,35 @@ incoming sheet value differ from the record's CURRENT value, for any
 updatable field. Every such difference is surfaced as a flagged change for
 staff to decide on, never silently applied.
 
+Known structural limitation — same-person conflicting historical rows
+(confirmed real case, not hypothetical): the source RSBSA/BFAR exports
+carry no timestamp or recency field of their own to say which row for a
+given person is "current" — `date_created`/`kyc_updated`/`parcel_updated`
+describe the row's own record-keeping history, not which of two rows'
+field values should win. A person who appears more than once — across
+different crop files, or more than once within the same file (one row per
+crop/parcel) — can carry two genuinely different values for the same
+field (e.g. an old and a new contact number), both equally "real" as far
+as this importer can tell. Whichever value is committed, the OTHER row's
+value will keep showing up as a fresh `matched_with_changes` diff on the
+next preview, because the diff is always just "does this row's value
+differ from the record's current live value" with no concept of most-
+recent-wins. This means such a person can permanently oscillate between
+two `matched_with_changes` states no matter which value staff pick to
+commit — that is NOT a bug in this view or in the drift check, and is not
+fixable by re-running the commit again (doing so just flips which of the
+two rows now looks "pending"). Confirmed real example: Rogie Mercado
+Santiago (Farmer #3415, RSBSA 01-033-02-022-000004) — `Aringay-corn.csv`
+and `Aringay-rice.csv` each contain both his old contact number
+('09186398950') and his new one ('09397215139') in separate rows; after
+committing the newer value, the older row still legitimately flags as a
+pending change, indefinitely. A future session re-running this import and
+seeing an old case like this "regress" or "never clear" should not
+diagnose it as newly broken and should not try to silently resolve it by
+picking whichever value happens to commit last — the two source rows are
+genuinely in disagreement and that disagreement should stay visible to
+staff, not be paved over.
+
 `updated_at`'s own caveat (still true, re-confirmed against the live model
 comment on Farmer.updated_at / Fisherfolk.updated_at): it's auto_now, so it
 updates on every real save from here on — but a record that has never been
