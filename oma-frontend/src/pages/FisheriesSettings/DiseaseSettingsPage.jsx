@@ -7,6 +7,7 @@ import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 
@@ -173,14 +174,10 @@ export default function DiseaseSettingsPage({ asTab = false }) {
                         <span className="text-[11px] italic text-slate-400">No recommended treatment configured</span>
                       )}
                     </button>
-                    <span className="flex items-center gap-1">
-                      <button type="button" className="text-[#1B4D2E] p-1.5 rounded-lg hover:bg-[#EBF5EE]" onClick={() => { setEditingType(dt); setShowTypeModal(true) }} title="Edit disease type">
-                        <Pencil size={14} />
-                      </button>
-                      <button type="button" className="text-rose-500 p-1.5 rounded-lg hover:bg-rose-50" onClick={() => setDeletingType(dt)} title="Delete disease type">
-                        <Trash2 size={14} />
-                      </button>
-                    </span>
+                    <RowActions actions={[
+                      { key: 'edit', label: 'Edit disease type', icon: Pencil, onClick: () => { setEditingType(dt); setShowTypeModal(true) } },
+                      { key: 'delete', label: 'Delete disease type', icon: Trash2, onClick: () => setDeletingType(dt), tone: 'rose' },
+                    ]} />
                   </div>
                   {isOpen && (
                     <div className="mt-2 ml-6 rounded-lg bg-[#F9FAF9] border border-[#E2E8E2] px-3 py-2">

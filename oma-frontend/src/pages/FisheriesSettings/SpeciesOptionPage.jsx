@@ -8,6 +8,7 @@ import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 
 const PAGE_SIZE = 10
@@ -549,24 +550,10 @@ export default function SpeciesOptionPage({ asTab = false }) {
                     {s.default_avg_body_weight_kg ? Number(s.default_avg_body_weight_kg).toFixed(3) : '—'}
                   </td>
                   <td className="px-4 py-[11px]">
-                    <span className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        className="text-[#1B4D2E] p-1.5 rounded-lg hover:bg-[#EBF5EE] transition-colors"
-                        onClick={() => { setEditSpecies(s); setShowModal(true) }}
-                        title="Edit"
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        type="button"
-                        className="text-rose-500 p-1.5 rounded-lg hover:bg-rose-50 transition-colors"
-                        onClick={() => setDeletingSpec(s)}
-                        title="Delete"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </span>
+                    <RowActions actions={[
+                      { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => { setEditSpecies(s); setShowModal(true) } },
+                      { key: 'delete', label: 'Delete', icon: Trash2, onClick: () => setDeletingSpec(s), tone: 'rose' },
+                    ]} />
                   </td>
                 </tr>
               ))

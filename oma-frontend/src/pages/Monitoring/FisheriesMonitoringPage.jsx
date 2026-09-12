@@ -80,11 +80,10 @@ function SubTabBar({ options, value, onChange }) {
 
 // ─── Table Row Actions: View Details / Edit ────────────────────────────────────
 // Delete lives inside each Edit modal now, not as a standalone icon — Batch 5.
-// onViewDetails is optional — Assistance Records had its View Details
-// dropped (Batch B: the modal was near-redundant with the table row),
-// leaving just Edit for that table. At most 2 actions
-// either way, both roles, always — the action-count rule (Batch B) means
-// this stays plain icons, never a ⋮ (RowActions makes that call automatically).
+// onViewDetails is optional (kept for callers that only need Edit), but
+// both call sites below always pass it alongside onEdit, so both tables
+// always offer exactly 2 actions — RowActions' own action-count rule
+// renders that as the ⋮ menu, not plain icons.
 
 function TableActionsMenu({ onViewDetails, onEdit }) {
   const actions = [

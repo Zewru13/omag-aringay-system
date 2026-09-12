@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, MailWarning, Pencil, RotateCcw } from 'lucid
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
+import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import CreateUserModal from './CreateUserModal.jsx'
@@ -126,49 +127,22 @@ export default function UserManagementPage() {
       </span>
     ),
     actions: (
-      <div className="flex items-center gap-0.5">
-        {u.is_active ? (
-          <button
-            type="button"
-            className="rounded-lg p-1.5 text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors"
-            onClick={() => setEditUser(u)}
-            title="Edit user"
-          >
-            <Pencil size={14} />
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="rounded-lg p-1.5 text-[#C8D5C8] cursor-not-allowed"
-            disabled
-            title="Deactivated accounts can't be edited"
-          >
-            <Pencil size={14} />
-          </button>
-        )}
-        {!u.is_active && (
-          <button
-            type="button"
-            className="rounded-lg p-1.5 text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors disabled:opacity-50"
-            onClick={() => handleReactivate(u)}
-            disabled={reactivatingId === u.id}
-            title="Reactivate account"
-          >
-            <RotateCcw size={14} />
-          </button>
-        )}
-        {!u.is_email_verified && (
-          <button
-            type="button"
-            className="rounded-lg p-1.5 text-amber-600 hover:bg-amber-50 transition-colors disabled:opacity-50"
-            onClick={() => handleResendVerification(u)}
-            disabled={resendingId === u.id}
-            title="Resend verification email"
-          >
-            <MailWarning size={14} />
-          </button>
-        )}
-      </div>
+      <RowActions actions={[
+        // Deactivated accounts simply don't offer Edit at all (matching
+        // how every other table here omits an inapplicable action rather
+        // than showing it disabled), so an active user's own most common
+        // state — nothing else applicable — is a real single action, not
+        // a disabled decoy sitting next to it.
+        u.is_active && { key: 'edit', label: 'Edit user', icon: Pencil, onClick: () => setEditUser(u) },
+        !u.is_active && {
+          key: 'reactivate', label: 'Reactivate account', icon: RotateCcw,
+          onClick: () => handleReactivate(u), disabled: reactivatingId === u.id,
+        },
+        !u.is_email_verified && {
+          key: 'resend', label: 'Resend verification email', icon: MailWarning, tone: 'amber',
+          onClick: () => handleResendVerification(u), disabled: resendingId === u.id,
+        },
+      ]} />
     ),
   }))
 

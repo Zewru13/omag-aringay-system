@@ -8,6 +8,7 @@ import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 
 const PAGE_SIZE = 10
@@ -152,24 +153,10 @@ export default function CropVarietyPage({ asTab = false }) {
       </span>
     ),
     actions: (
-      <span className="flex items-center gap-1">
-        <button
-          type="button"
-          className="text-[#1B4D2E] p-1.5 rounded-lg hover:bg-[#EBF5EE] transition-colors"
-          onClick={() => { setEditVariety(v); setShowModal(true) }}
-          title="Edit"
-        >
-          <Pencil size={14} />
-        </button>
-        <button
-          type="button"
-          className="text-rose-500 p-1.5 rounded-lg hover:bg-rose-50 transition-colors"
-          onClick={() => setDeletingVariety(v)}
-          title="Delete"
-        >
-          <Trash2 size={14} />
-        </button>
-      </span>
+      <RowActions actions={[
+        { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => { setEditVariety(v); setShowModal(true) } },
+        { key: 'delete', label: 'Delete', icon: Trash2, onClick: () => setDeletingVariety(v), tone: 'rose' },
+      ]} />
     ),
   }))
 

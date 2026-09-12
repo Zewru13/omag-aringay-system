@@ -7,6 +7,7 @@ import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 
 const PAGE_SIZE = 10
@@ -505,26 +506,14 @@ export default function CropOptionPage({ asTab = false }) {
         </span>
       ),
       actions: (
-        <span className="flex items-center gap-1">
-          <button
-            type="button"
-            className="text-[#1B4D2E] p-1.5 rounded-lg hover:bg-[#EBF5EE] transition-colors"
-            onClick={() => { setEditCrop(c); setShowModal(true) }}
-            title="Edit"
-          >
-            <Pencil size={14} />
-          </button>
-          <button
-            type="button"
-            className={`p-1.5 rounded-lg transition-colors ${
-              isActive ? 'text-rose-500 hover:bg-rose-50' : 'text-[#1B4D2E] hover:bg-[#EBF5EE]'
-            }`}
-            onClick={() => setTogglingCrop({ id: c.id, name: c.name, targetActive: !isActive })}
-            title={isActive ? 'Deactivate' : 'Activate'}
-          >
-            <Power size={14} />
-          </button>
-        </span>
+        <RowActions actions={[
+          { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => { setEditCrop(c); setShowModal(true) } },
+          {
+            key: 'toggle', label: isActive ? 'Deactivate' : 'Activate', icon: Power,
+            onClick: () => setTogglingCrop({ id: c.id, name: c.name, targetActive: !isActive }),
+            tone: isActive ? 'rose' : 'default',
+          },
+        ]} />
       ),
     }
   })

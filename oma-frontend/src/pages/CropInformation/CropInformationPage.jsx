@@ -981,9 +981,9 @@ function DeleteCropModal({ record, onClose, onDeleted }) {
 }
 
 // ─── Row Actions: View Details / Edit / Remarks / Delete ──────────────────────
-// Action-count rule (Batch B): Admin sees up to 4 (always ⋮); Evaluator sees
-// up to 3, but only 2 (View Details + Remarks) once the record is Harvested —
-// RowActions renders plain icons for that case instead of a pointless ⋮.
+// Admin sees up to 4 (always ⋮); Evaluator sees up to 3, or 2 (View Details +
+// Remarks) once the record is Harvested — RowActions' own action-count rule
+// still renders that 2-action case as a ⋮, same as every other row here.
 
 function CropRowActionsMenu({ rec, isAdmin, onViewDetails, onEdit, onRemarks, onDelete }) {
   const canEdit = rec.status !== "Harvested";

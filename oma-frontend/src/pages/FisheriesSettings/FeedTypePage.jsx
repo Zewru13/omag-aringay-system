@@ -8,6 +8,7 @@ import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 
@@ -116,14 +117,10 @@ export default function FeedTypePage({ asTab = false }) {
       : <span className="text-[12px] text-slate-400">Any stage</span>,
     status_pill: <StatusPill tone={ft.is_active ? 'green' : 'slate'}>{ft.is_active ? 'Active' : 'Inactive'}</StatusPill>,
     actions: (
-      <span className="flex items-center gap-1">
-        <button type="button" className="text-[#1B4D2E] p-1.5 rounded-lg hover:bg-[#EBF5EE]" onClick={() => { setEditing(ft); setShowModal(true) }} title="Edit">
-          <Pencil size={14} />
-        </button>
-        <button type="button" className="text-rose-500 p-1.5 rounded-lg hover:bg-rose-50" onClick={() => setDeleting(ft)} title="Delete">
-          <Trash2 size={14} />
-        </button>
-      </span>
+      <RowActions actions={[
+        { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => { setEditing(ft); setShowModal(true) } },
+        { key: 'delete', label: 'Delete', icon: Trash2, onClick: () => setDeleting(ft), tone: 'rose' },
+      ]} />
     ),
   }))
 

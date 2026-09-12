@@ -8,6 +8,7 @@ import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 
 const COLUMNS = [
@@ -97,24 +98,10 @@ export default function SpeciesCategoryPage({ asTab = false }) {
   const rows = categories.map(c => ({
     ...c,
     actions: (
-      <span className="flex items-center gap-1">
-        <button
-          type="button"
-          className="text-[#1B4D2E] p-1.5 rounded-lg hover:bg-[#EBF5EE] transition-colors"
-          onClick={() => { setEditCat(c); setShowModal(true) }}
-          title="Edit"
-        >
-          <Pencil size={14} />
-        </button>
-        <button
-          type="button"
-          className="text-rose-500 p-1.5 rounded-lg hover:bg-rose-50 transition-colors"
-          onClick={() => setDeletingCat(c)}
-          title="Delete"
-        >
-          <Trash2 size={14} />
-        </button>
-      </span>
+      <RowActions actions={[
+        { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => { setEditCat(c); setShowModal(true) } },
+        { key: 'delete', label: 'Delete', icon: Trash2, onClick: () => setDeletingCat(c), tone: 'rose' },
+      ]} />
     ),
   }))
 

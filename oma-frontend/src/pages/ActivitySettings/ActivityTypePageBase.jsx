@@ -8,6 +8,7 @@ import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 
 const PAGE_SIZE = 10
@@ -151,26 +152,14 @@ export default function ActivityTypePageBase({ asTab = false, endpoint, dropdown
         </span>
       ),
       actions: (
-        <span className="flex items-center gap-1">
-          <button
-            type="button"
-            className="text-[#1B4D2E] p-1.5 rounded-lg hover:bg-[#EBF5EE] transition-colors"
-            onClick={() => { setEditType(t); setShowModal(true) }}
-            title="Edit"
-          >
-            <Pencil size={14} />
-          </button>
-          <button
-            type="button"
-            className={`p-1.5 rounded-lg transition-colors ${
-              isActive ? 'text-rose-500 hover:bg-rose-50' : 'text-[#1B4D2E] hover:bg-[#EBF5EE]'
-            }`}
-            onClick={() => setTogglingType({ id: t.id, name: t.name, targetActive: !isActive })}
-            title={isActive ? 'Deactivate' : 'Activate'}
-          >
-            <Power size={14} />
-          </button>
-        </span>
+        <RowActions actions={[
+          { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => { setEditType(t); setShowModal(true) } },
+          {
+            key: 'toggle', label: isActive ? 'Deactivate' : 'Activate', icon: Power,
+            onClick: () => setTogglingType({ id: t.id, name: t.name, targetActive: !isActive }),
+            tone: isActive ? 'rose' : 'default',
+          },
+        ]} />
       ),
     }
   })

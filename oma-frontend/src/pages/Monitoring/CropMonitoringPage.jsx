@@ -1860,11 +1860,10 @@ export default function CropMonitoringPage() {
       ? <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-[#7A8E7A] flex-shrink-0" />{rec.farm_location_barangay || rec.farmer_barangay}</span>
       : <span className="text-[#A8BCA8]">—</span>,
     logs_cell: rec.log_count ?? 0,
-    // Action-count rule (Batch B): most rows offer 3 (View Logs, Record
-    // Harvest, Report Disaster) -> RowActions collapses to a ⋮. Once
-    // Harvested/Total Loss, Record Harvest drops out and it's back to 2
-    // plain icons (View Logs, Report Disaster), same per-row logic as
-    // CropInformationPage's row menu.
+    // Most rows offer 3 (View Logs, Record Harvest, Report Disaster) -> ⋮.
+    // Once Harvested/Total Loss, Record Harvest drops out, leaving 2 (View
+    // Logs, Report Disaster) — RowActions' own action-count rule still
+    // renders that as a ⋮, same per-row logic as CropInformationPage's menu.
     actions: (
       <RowActions
         actions={[
