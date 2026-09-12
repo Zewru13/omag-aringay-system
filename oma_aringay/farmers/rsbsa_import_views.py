@@ -47,6 +47,7 @@ import uuid
 from datetime import date
 
 import openpyxl
+import xlrd
 from django.db import transaction
 from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -175,12 +176,12 @@ class RsbsaUpdateImportPreviewView(APIView):
             return Response({'detail': 'No file was uploaded.'}, status=400)
 
         name_lower = upload.name.lower()
-        if name_lower.endswith('.xlsx'):
+        if name_lower.endswith('.xlsx') or name_lower.endswith('.xls'):
             parser = parse_rsbsa_xlsx
         elif name_lower.endswith('.csv'):
             parser = parse_rsbsa_csv
         else:
-            return Response({'detail': 'Only .csv or .xlsx files are supported.'}, status=400)
+            return Response({'detail': 'Only .csv, .xlsx, or .xls files are supported.'}, status=400)
 
         try:
             rows = parser(upload)
@@ -188,6 +189,8 @@ class RsbsaUpdateImportPreviewView(APIView):
             return Response({'detail': str(exc)}, status=400)
         except openpyxl.utils.exceptions.InvalidFileException:
             return Response({'detail': 'The file could not be read as an Excel workbook.'}, status=400)
+        except xlrd.biffh.XLRDError:
+            return Response({'detail': 'The file could not be read as a legacy Excel (.xls) workbook.'}, status=400)
 
         if not rows:
             return Response({'detail': 'The file has a valid header row but no data rows.'}, status=400)

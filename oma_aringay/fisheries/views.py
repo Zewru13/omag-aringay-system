@@ -614,7 +614,7 @@ class StockingForecastingImportView(APIView):
         import datetime as dt
         from collections import defaultdict
 
-        from openpyxl import load_workbook
+        from core.utils import UnsupportedFileType, iter_spreadsheet_rows
 
         file = request.FILES.get('file')
         if not file:
@@ -622,10 +622,11 @@ class StockingForecastingImportView(APIView):
         dry_run = str(request.data.get('dry_run', '')).strip().lower() in ('1', 'true', 'yes')
 
         try:
-            wb = load_workbook(file, data_only=True)
-            ws = wb.active
+            rows_iter = list(iter_spreadsheet_rows(file, file.name, min_row=3))
+        except UnsupportedFileType as exc:
+            return Response({'error': str(exc)}, status=400)
         except Exception as exc:
-            return Response({'error': f'Invalid Excel file: {exc}'}, status=400)
+            return Response({'error': f'Invalid file: {exc}'}, status=400)
 
         errors = []
         rows = []
@@ -637,15 +638,18 @@ class StockingForecastingImportView(APIView):
             errors.append({'row': row_num, 'error': msg})
             rows.append({'row': row_num, 'status': 'invalid', 'label': f'Row {row_num}', 'detail': msg})
 
-        for row_num, row in enumerate(ws.iter_rows(min_row=3, values_only=True), start=3):
-            if not any(cell for cell in row if cell is not None):
+        def cell(row, i):
+            return row[i] if i < len(row) else None
+
+        for row_num, row in enumerate(rows_iter, start=3):
+            if not any(c for c in row if c is not None):
                 continue
 
-            rsbsa            = str(row[0]).strip() if row[0] is not None else ''
-            species_name     = str(row[1]).strip() if row[1] is not None else ''
-            date_str         = str(row[2]).strip() if row[2] is not None else ''
-            fingerlings_str  = str(row[3]).strip() if row[3] is not None else ''
-            culture_type_str = str(row[4]).strip() if row[4] is not None else ''
+            rsbsa            = str(cell(row, 0)).strip() if cell(row, 0) is not None else ''
+            species_name     = str(cell(row, 1)).strip() if cell(row, 1) is not None else ''
+            date_str         = str(cell(row, 2)).strip() if cell(row, 2) is not None else ''
+            fingerlings_str  = str(cell(row, 3)).strip() if cell(row, 3) is not None else ''
+            culture_type_str = str(cell(row, 4)).strip() if cell(row, 4) is not None else ''
 
             if not rsbsa or not species_name or not date_str or not fingerlings_str or not culture_type_str:
                 invalid(row_num, 'Fisherfolk RSBSA Number, Species Name, Date Stocked, Number of Fingerlings, '

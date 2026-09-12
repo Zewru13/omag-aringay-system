@@ -500,13 +500,14 @@ def _run_assistance_import(person_model, record_model, serializer_class, person_
     import datetime as dt
     from collections import defaultdict
 
-    from openpyxl import load_workbook
+    from core.utils import UnsupportedFileType, iter_spreadsheet_rows
 
     try:
-        wb = load_workbook(file, data_only=True)
-        ws = wb.active
+        rows_iter = list(iter_spreadsheet_rows(file, file.name, min_row=3))
+    except UnsupportedFileType as exc:
+        return Response({'error': str(exc)}, status=400)
     except Exception as exc:
-        return Response({'error': f'Invalid Excel file: {exc}'}, status=400)
+        return Response({'error': f'Invalid file: {exc}'}, status=400)
 
     valid_types = {label.upper(): value for value, label in record_model.AssistanceType.choices}
 
@@ -523,7 +524,7 @@ def _run_assistance_import(person_model, record_model, serializer_class, person_
         v = row[i] if i < len(row) else None
         return str(v).strip() if v is not None else ''
 
-    for row_num, row in enumerate(ws.iter_rows(min_row=3, values_only=True), start=3):
+    for row_num, row in enumerate(rows_iter, start=3):
         if not any(cell for cell in row if cell is not None):
             continue
 

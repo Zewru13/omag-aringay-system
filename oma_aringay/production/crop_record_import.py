@@ -79,11 +79,11 @@ def parse_crop_record_file(upload):
     2026 files. Raises ValueError (caller turns this into a 400) on an
     unrecognized extension or an unrecognized header shape."""
     name_lower = (upload.name or '').lower()
-    if name_lower.endswith('.xlsx'):
+    if name_lower.endswith('.xlsx') or name_lower.endswith('.xls'):
         return parse_rsbsa_xlsx(upload)
     if name_lower.endswith('.csv'):
         return parse_rsbsa_csv(upload)
-    raise ValueError('Only .csv or .xlsx files are supported.')
+    raise ValueError('Only .csv, .xlsx, or .xls files are supported.')
 
 
 def build_crop_type_cache():

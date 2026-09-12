@@ -964,7 +964,7 @@ export default function ForecastingTab({ asTab = false }) {
         <input
           ref={fcFileInputRef}
           type="file"
-          accept=".xlsx,.xls"
+          accept=".xlsx,.xls,.csv"
           className="hidden"
           onChange={handleFcImportFile}
         />

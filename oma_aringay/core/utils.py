@@ -1,8 +1,72 @@
+import csv
 import datetime
+import io
 import math
 from decimal import Decimal
 
 from django.utils import timezone
+
+
+class UnsupportedFileType(ValueError):
+    """Raised by iter_spreadsheet_rows for anything but .xlsx/.xls/.csv."""
+
+
+def iter_spreadsheet_rows(fileobj, filename, *, min_row=1):
+    """Yield row tuples (raw cell values) from an uploaded .xlsx, .xls, or
+    .csv file, skipping every row before `min_row` (1-indexed) — the same
+    convention openpyxl's own `ws.iter_rows(min_row=N, values_only=True)`
+    already uses, so this is a drop-in replacement for it regardless of
+    which of the three formats the upload actually is. Every real import
+    feature in this project used to hand-roll its own openpyxl-only
+    handling (several with no extension check at all, silently rejecting
+    .xls/.csv via whatever exception openpyxl happened to raise); this is
+    the one place that logic now lives, reused by all of them, rather than
+    a per-feature copy of the same three-way dispatch.
+
+    Genuine Excel date cells — in EITHER .xlsx or .xls — come back as real
+    `datetime` objects, matching openpyxl's own behavior, not a raw Excel
+    serial number. Every existing `str(value)[:10]` / direct-index
+    consumer already written against openpyxl's rows keeps working
+    unchanged no matter which of the three formats was actually uploaded.
+
+    Raises UnsupportedFileType for anything else.
+    """
+    name = (filename or '').lower()
+
+    if name.endswith('.xlsx') or name.endswith('.xlsm'):
+        import openpyxl
+        wb = openpyxl.load_workbook(fileobj, read_only=True, data_only=True)
+        ws = wb.active
+        yield from ws.iter_rows(min_row=min_row, values_only=True)
+        return
+
+    if name.endswith('.xls'):
+        import xlrd
+        fileobj.seek(0)
+        book = xlrd.open_workbook(file_contents=fileobj.read())
+        sheet = book.sheet_by_index(0)
+        for row_idx in range(min_row - 1, sheet.nrows):
+            values = []
+            for col_idx in range(sheet.ncols):
+                cell = sheet.cell(row_idx, col_idx)
+                if cell.ctype == xlrd.XL_CELL_DATE:
+                    values.append(xlrd.xldate_as_datetime(cell.value, book.datemode))
+                else:
+                    values.append(cell.value)
+            yield tuple(values)
+        return
+
+    if name.endswith('.csv'):
+        fileobj.seek(0)
+        raw = fileobj.read()
+        text = raw.decode('utf-8-sig') if isinstance(raw, bytes) else raw
+        for i, row in enumerate(csv.reader(io.StringIO(text)), start=1):
+            if i < min_row:
+                continue
+            yield tuple(row)
+        return
+
+    raise UnsupportedFileType('Only .xlsx, .xls, or .csv files are supported.')
 
 
 def harvest_gate_status(start_date, expected_date):

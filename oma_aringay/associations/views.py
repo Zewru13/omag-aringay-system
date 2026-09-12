@@ -913,13 +913,14 @@ def _parse_org_import_row(row, agency_choices):
 def _run_organization_import(model, serializer_class, linked_record_type, agency_choices, file, dry_run, user):
     from collections import defaultdict
 
-    from openpyxl import load_workbook
+    from core.utils import UnsupportedFileType, iter_spreadsheet_rows
 
     try:
-        wb = load_workbook(file, data_only=True)
-        ws = wb.active
+        rows_iter = list(iter_spreadsheet_rows(file, file.name, min_row=3))
+    except UnsupportedFileType as exc:
+        return Response({'error': str(exc)}, status=400)
     except Exception as exc:
-        return Response({'error': f'Invalid Excel file: {exc}'}, status=400)
+        return Response({'error': f'Invalid file: {exc}'}, status=400)
 
     errors = []
     rows_out = []
@@ -930,7 +931,7 @@ def _run_organization_import(model, serializer_class, linked_record_type, agency
         errors.append({'row': row_num, 'error': msg})
         rows_out.append({'row': row_num, 'status': 'invalid', 'label': f'Row {row_num}', 'detail': msg})
 
-    for row_num, row in enumerate(ws.iter_rows(min_row=3, values_only=True), start=3):
+    for row_num, row in enumerate(rows_iter, start=3):
         if not any(cell for cell in row if cell is not None):
             continue
 

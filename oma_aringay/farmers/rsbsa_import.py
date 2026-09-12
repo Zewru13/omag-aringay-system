@@ -164,22 +164,23 @@ def classify_row(row):
     return 'HOLD-BACK', 'all_flags_no'
 
 
-def parse_rsbsa_xlsx(fileobj):
+def parse_rsbsa_xlsx(fileobj, filename=None):
     """
-    Read an uploaded .xlsx RSBSA/BFAR export into a list of dict rows shaped
-    exactly like csv.DictReader's output, so classify_row() and the other
-    helpers above work unchanged against either source.
+    Read an uploaded .xlsx or legacy .xls RSBSA/BFAR export into a list of
+    dict rows shaped exactly like csv.DictReader's output, so classify_row()
+    and the other helpers above work unchanged against either source.
+    `filename` picks .xlsx (openpyxl) vs .xls (xlrd) via
+    core.utils.iter_spreadsheet_rows — defaults to the upload's own `.name`
+    when not passed explicitly.
 
     Raises ValueError (caller turns this into a 400) if the header row
     doesn't match a known RSBSA/BFAR export shape (see
     detect_header_version), or the file has no rows at all.
     """
-    import openpyxl
+    from core.utils import iter_spreadsheet_rows
 
-    wb = openpyxl.load_workbook(fileobj, read_only=True, data_only=True)
-    ws = wb.active
-
-    rows_iter = ws.iter_rows(values_only=True)
+    filename = filename or getattr(fileobj, 'name', '') or '.xlsx'
+    rows_iter = iter_spreadsheet_rows(fileobj, filename)
     try:
         header_row = next(rows_iter)
     except StopIteration:

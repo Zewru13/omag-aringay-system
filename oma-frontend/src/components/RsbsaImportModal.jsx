@@ -199,10 +199,10 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
             <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#D8E2D8] bg-[#F9FAF9] px-6 py-8 text-center transition-colors hover:bg-[#F0F4F0]">
               <Upload size={22} className="text-[#7A8E7A]" aria-hidden="true" />
               <span className="text-[13px] font-medium text-[#1A2B1A]">
-                {file ? file.name : 'Click to choose a .csv or .xlsx file'}
+                {file ? file.name : 'Click to choose a .csv, .xlsx, or .xls file'}
               </span>
-              <span className="text-[11px] text-[#7A8E7A]">The real RSBSA/BFAR export format (.csv) or the older .xlsx shape</span>
-              <input type="file" accept=".csv,.xlsx" className="hidden" onChange={handleFileChange} />
+              <span className="text-[11px] text-[#7A8E7A]">The real RSBSA/BFAR export format (.csv) or the older .xlsx/.xls shape</span>
+              <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileChange} />
             </label>
           </div>
 

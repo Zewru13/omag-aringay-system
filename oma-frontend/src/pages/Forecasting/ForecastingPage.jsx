@@ -1020,7 +1020,7 @@ export default function ForecastingPage() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".xlsx,.xls"
+                accept=".xlsx,.xls,.csv"
                 className="hidden"
                 onChange={handleImportFile}
               />
