@@ -1,10 +1,11 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import {
-  AlertTriangle, BarChart2, ChevronDown, ChevronRight, Download, FileText,
+  AlertTriangle, BarChart2, ChevronDown, ChevronRight, Download, FileSpreadsheet, FileText,
   Info, Plus, Search, TrendingUp, Upload, User,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
+import CropRecordImportModal from '../../components/CropRecordImportModal.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import BARANGAYS from '../../constants/barangays.js'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
@@ -847,6 +848,7 @@ export default function ForecastingPage() {
   const [detailRecord,  setDetailRecord]  = useState(null)
   const [isImporting,   setIsImporting]   = useState(false)
   const [importResults, setImportResults] = useState(null)
+  const [showRsbsaImportModal, setShowRsbsaImportModal] = useState(false)
   const [forecastView,  setForecastView]  = useState('flat') // 'flat' | 'grouped'
   const [grouped,       setGrouped]       = useState([])
   const [isLoadingGrouped, setIsLoadingGrouped] = useState(false)
@@ -1016,7 +1018,7 @@ export default function ForecastingPage() {
 
         {activeTab === 'forecast' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-end gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -1043,6 +1045,15 @@ export default function ForecastingPage() {
                   : <Upload className="h-3.5 w-3.5" />
                 }
                 {isImporting ? 'Importing…' : 'Import Excel'}
+              </button>
+              <button
+                type="button"
+                title="Create crop records for individual farmers, matched by RSBSA number - no Organization required."
+                onClick={() => setShowRsbsaImportModal(true)}
+                className="flex items-center gap-1.5 rounded-lg border border-[#C8D5C8] px-3 py-[5px] text-[12px] font-medium text-[#4A5E4A] transition-colors hover:bg-[#F5F7F5]"
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5" />
+                Import RSBSA Records
               </button>
               <button
                 type="button"
@@ -1130,6 +1141,13 @@ export default function ForecastingPage() {
           errors={importResults.errors}
           duplicates={importResults.duplicates}
           onClose={() => setImportResults(null)}
+        />
+      )}
+
+      {showRsbsaImportModal && (
+        <CropRecordImportModal
+          onClose={() => setShowRsbsaImportModal(false)}
+          onCommitted={() => fetchRecords(page)}
         />
       )}
     </PageLayout>

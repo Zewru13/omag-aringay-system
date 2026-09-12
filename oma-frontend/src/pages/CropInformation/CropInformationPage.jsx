@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Eye,
+  FileSpreadsheet,
   FileText,
   MessageCircle,
   Pencil,
@@ -14,6 +15,7 @@ import { useNavigate } from "react-router-dom";
 import BarangaySelect from "../../components/UI/BarangaySelect.jsx";
 import ComboboxWithOther from "../../components/UI/ComboboxWithOther.jsx";
 import api from "../../api/axiosInstance.js";
+import CropRecordImportModal from "../../components/CropRecordImportModal.jsx";
 import ImportFileModal from "../../components/ImportFileModal.jsx";
 import PageLayout from "../../components/Layout/PageLayout.jsx";
 import RowActions from "../../components/UI/RowActions.jsx";
@@ -1015,6 +1017,7 @@ export default function CropInformationPage() {
   const [viewingRec, setViewingRec] = useState(null);
   const [deletingRec, setDeletingRec] = useState(null);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showRsbsaImportModal, setShowRsbsaImportModal] = useState(false);
 
   const fetchRecords = useCallback(
     async (pageNum = 1) => {
@@ -1117,13 +1120,21 @@ export default function CropInformationPage() {
       title="Crop Information Management"
       subtitle="Monitor and manage crop records and activities."
       action={
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             className="flex items-center gap-1.5 rounded-lg border border-[#E2E8E2] px-4 py-2 text-[13px] font-medium text-[#1B4D2E] hover:bg-[#F0F4F0] transition-colors"
             onClick={() => setShowImportModal(true)}
           >
             <Upload size={15} /> Import File
+          </button>
+          <button
+            type="button"
+            title="Create crop records for individual farmers, matched by RSBSA number - no Organization required."
+            className="flex items-center gap-1.5 rounded-lg border border-[#E2E8E2] px-4 py-2 text-[13px] font-medium text-[#1B4D2E] hover:bg-[#F0F4F0] transition-colors"
+            onClick={() => setShowRsbsaImportModal(true)}
+          >
+            <FileSpreadsheet size={15} /> Import RSBSA Records
           </button>
           <button
             type="button"
@@ -1295,6 +1306,13 @@ export default function CropInformationPage() {
           helpText="Each row logs one crop planting for an organization. Organization + Crop + Date Planted identifies duplicates."
           onClose={() => setShowImportModal(false)}
           onImported={() => fetchRecords(page)}
+        />
+      )}
+
+      {showRsbsaImportModal && (
+        <CropRecordImportModal
+          onClose={() => setShowRsbsaImportModal(false)}
+          onCommitted={() => fetchRecords(page)}
         />
       )}
     </PageLayout>

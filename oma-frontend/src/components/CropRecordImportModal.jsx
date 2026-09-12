@@ -1,0 +1,443 @@
+import { useMemo, useState } from 'react'
+import { AlertTriangle, CheckCircle2, FileSpreadsheet, HelpCircle, Upload } from 'lucide-react'
+import api from '../api/axiosInstance.js'
+import Button from './UI/Button.jsx'
+import ModalShell from './UI/ModalShell.jsx'
+import StatTile from './UI/StatTile.jsx'
+import StatusPill from './UI/StatusPill.jsx'
+import StepIndicator from './UI/StepIndicator.jsx'
+import { useToast } from '../context/ToastContext.jsx'
+
+const STEPS = [
+  { key: 'upload', label: 'Upload File' },
+  { key: 'preview', label: 'Preview Rows' },
+  { key: 'confirm', label: 'Confirm Commit' },
+  { key: 'result', label: 'Commit Results' },
+]
+const STEP_INDEX = { upload: 0, preview: 1, confirm: 2, result: 3 }
+
+const STATUS_TONE = {
+  ready: 'green',
+  duplicate_in_file: 'amber',
+  duplicate_in_database: 'amber',
+  farmer_not_found: 'rose',
+  matched_wrong_domain: 'rose',
+  invalid: 'rose',
+}
+const STATUS_LABEL = {
+  ready: 'Will Create',
+  duplicate_in_file: 'Duplicate In File',
+  duplicate_in_database: 'Already Exists',
+  farmer_not_found: 'Farmer Not Found',
+  matched_wrong_domain: 'Wrong Domain',
+  invalid: 'Invalid',
+}
+
+const PAGE_SIZE = 25
+
+// This importer never updates an existing record — it only ever creates a
+// new CropMonitoringRecord — so unlike RsbsaImportModal (update-or-create),
+// exactly one status is ever committable, matching the backend's own
+// CropRecordImportCommitView refusal of anything else.
+const isCommittable = (r) => r.status === 'ready'
+
+// Upload -> Preview -> Confirm -> Result, mirroring RsbsaImportModal.jsx's
+// structure exactly (see that file for the pattern this is built from).
+// Preview and commit are two separate real endpoints
+// (CropRecordImportPreviewView / CropRecordImportCommitView) — commit is
+// handed back the EXACT row objects the preview returned for whichever
+// rows staff checked, never a re-upload or re-interpretation of the file
+// (see crop_record_import_views.py's module docstring). Every row this
+// import can ever create gets date_planted_is_estimated=True (Decision 2
+// from that same build) — the Confirm step below warns about this
+// explicitly, before commit, not after.
+export default function CropRecordImportModal({ onClose, onCommitted }) {
+  const { showToast } = useToast()
+  const [step, setStep] = useState('upload')
+  const [file, setFile] = useState(null)
+  const [isBusy, setIsBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [preview, setPreview] = useState(null)
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [page, setPage] = useState(1)
+  const [selectedRows, setSelectedRows] = useState(() => new Set())
+  const [commitResult, setCommitResult] = useState(null)
+
+  const handleFileChange = (e) => {
+    const f = e.target.files?.[0] || null
+    setFile(f)
+    setError('')
+  }
+
+  const handlePreview = async () => {
+    if (!file) { showToast('Choose a file first.', 'error'); return }
+    setIsBusy(true)
+    setError('')
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const r = await api.post('/production/crop-record-import/preview/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      setPreview(r.data)
+      setStatusFilter('all')
+      setPage(1)
+      setSelectedRows(new Set())
+      setStep('preview')
+    } catch (err) {
+      setError(err?.response?.data?.detail || 'Failed to preview the file.')
+    } finally {
+      setIsBusy(false)
+    }
+  }
+
+  const handleStartOver = () => {
+    setFile(null)
+    setPreview(null)
+    setSelectedRows(new Set())
+    setCommitResult(null)
+    setError('')
+    setStep('upload')
+  }
+
+  const toggleRow = (rowNumber) => {
+    setSelectedRows((prev) => {
+      const next = new Set(prev)
+      if (next.has(rowNumber)) next.delete(rowNumber)
+      else next.add(rowNumber)
+      return next
+    })
+  }
+
+  const FILTER_TABS = preview ? [
+    { key: 'all', label: `All ${preview.total_rows}` },
+    { key: 'ready', label: `${preview.summary.ready} Will Create` },
+    { key: 'duplicate_in_file', label: `${preview.summary.duplicate_in_file} In-File Dupe` },
+    { key: 'duplicate_in_database', label: `${preview.summary.duplicate_in_database} Already Exists` },
+    { key: 'farmer_not_found', label: `${preview.summary.farmer_not_found} Farmer Not Found` },
+    { key: 'matched_wrong_domain', label: `${preview.summary.matched_wrong_domain} Wrong Domain` },
+    { key: 'invalid', label: `${preview.summary.invalid} Invalid` },
+  ].filter((t) => t.key === 'all' || !t.label.startsWith('0 ')) : []
+
+  const filteredRows = useMemo(() => {
+    if (!preview) return []
+    return statusFilter === 'all'
+      ? preview.rows
+      : preview.rows.filter((r) => r.status === statusFilter)
+  }, [preview, statusFilter])
+
+  const committableVisible = filteredRows.filter(isCommittable)
+  const allVisibleSelected = committableVisible.length > 0 && committableVisible.every((r) => selectedRows.has(r.row_number))
+
+  const toggleSelectAllVisible = () => {
+    setSelectedRows((prev) => {
+      const next = new Set(prev)
+      if (allVisibleSelected) {
+        committableVisible.forEach((r) => next.delete(r.row_number))
+      } else {
+        committableVisible.forEach((r) => next.add(r.row_number))
+      }
+      return next
+    })
+  }
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE))
+  const paginatedRows = filteredRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  const selectedRowObjects = useMemo(
+    () => (preview ? preview.rows.filter((r) => selectedRows.has(r.row_number)) : []),
+    [preview, selectedRows],
+  )
+
+  const goToConfirm = () => {
+    if (selectedRowObjects.length === 0) { showToast('Select at least one row to commit.', 'error'); return }
+    setError('')
+    setStep('confirm')
+  }
+
+  const handleCommit = async () => {
+    setIsBusy(true)
+    setError('')
+    try {
+      const r = await api.post('/production/crop-record-import/commit/', { rows: selectedRowObjects })
+      setCommitResult(r.data)
+      setStep('result')
+      onCommitted?.()
+    } catch (err) {
+      setError(err?.response?.data?.detail || 'Failed to commit the selected rows. Nothing was saved.')
+    } finally {
+      setIsBusy(false)
+    }
+  }
+
+  return (
+    <ModalShell
+      title="Import Crop Records by RSBSA"
+      subtitle="Upload a per-commodity RSBSA/BFAR export to create crop planting records for individual farmers — no Organization required."
+      icon={FileSpreadsheet}
+      onClose={onClose}
+      maxWidth="max-w-4xl"
+    >
+      <StepIndicator steps={STEPS} currentIndex={STEP_INDEX[step]} />
+
+      {step === 'upload' && (
+        <div className="stagger-item mt-6 space-y-4">
+          <div className="rounded-2xl border border-[#E2E8E2] bg-white p-5">
+            <p className="mb-3 text-[13px] text-[#4A5A4C]">
+              Each row logs one crop planting for an individual farmer, matched by RSBSA number — this is the
+              real RSBSA/BFAR per-commodity export shape (corn, rice, tobacco-native, tobacco-virginia, etc.),
+              not the Organization-based template. Nothing is written here; the next screen only ever shows
+              what would be created, and you choose exactly which rows to commit.
+            </p>
+            <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#D8E2D8] bg-[#F9FAF9] px-6 py-8 text-center transition-colors hover:bg-[#F0F4F0]">
+              <Upload size={22} className="text-[#7A8E7A]" aria-hidden="true" />
+              <span className="text-[13px] font-medium text-[#1A2B1A]">
+                {file ? file.name : 'Click to choose a .csv, .xlsx, or .xls file'}
+              </span>
+              <span className="text-[11px] text-[#7A8E7A]">The real RSBSA/BFAR per-commodity export format</span>
+              <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileChange} />
+            </label>
+          </div>
+
+          {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
+
+          <div className="flex justify-end gap-2 pt-1">
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="button" isLoading={isBusy} onClick={handlePreview} disabled={!file}>
+              Preview Rows
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {step === 'preview' && preview && (
+        <div className="stagger-item mt-6 space-y-4">
+          <div className="flex items-start gap-3 rounded-2xl border border-sky-200 bg-sky-50 p-4">
+            <AlertTriangle size={18} className="mt-0.5 shrink-0 text-sky-800" aria-hidden="true" />
+            <div>
+              <p className="text-[13px] font-semibold text-sky-800">Preview only — nothing has been created</p>
+              <p className="mt-0.5 text-[13px] text-sky-700">
+                Check the rows you want to commit below, then continue to confirm exactly what will be created.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <StatTile value={preview.summary.ready} label="Will Create" />
+            <StatTile value={preview.summary.duplicate_in_file} label="Duplicate In File" />
+            <StatTile value={preview.summary.duplicate_in_database} label="Already Exists" />
+            <StatTile value={preview.summary.farmer_not_found} label="Farmer Not Found" />
+            <StatTile value={preview.summary.matched_wrong_domain} label="Wrong Domain" />
+            <StatTile value={preview.summary.invalid} label="Invalid Rows" />
+          </div>
+
+          <div className="rounded-2xl border border-[#E2E8E2] bg-white p-5">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap gap-1.5">
+                {FILTER_TABS.map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => { setStatusFilter(t.key); setPage(1) }}
+                    className={
+                      'rounded-full px-3 py-1 text-[11px] font-semibold transition-colors ' +
+                      (statusFilter === t.key ? 'bg-[#1B4D2E] text-white' : 'bg-[#F0F4F0] text-[#5A6B5C] hover:bg-[#E2E8E2]')
+                    }
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              {committableVisible.length > 0 && (
+                <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[12px] font-medium text-[#4A5E4A]">
+                  <input type="checkbox" checked={allVisibleSelected} onChange={toggleSelectAllVisible}
+                    className="h-3.5 w-3.5 rounded border-[#C8D5C8] text-[#1B4D2E] focus:ring-[#1B4D2E]/30" />
+                  Select all shown ({committableVisible.length})
+                </label>
+              )}
+            </div>
+
+            <div className="-mx-5 divide-y divide-[#F0F4F0]">
+              {paginatedRows.length === 0 && (
+                <p className="px-5 py-8 text-center text-[13px] text-[#7A8E7A]">No rows in this category.</p>
+              )}
+              {paginatedRows.map((r) => {
+                const committable = isCommittable(r)
+                return (
+                  <div key={r.row_number} className={`flex items-center gap-3 px-5 py-3 ${selectedRows.has(r.row_number) ? 'bg-[#F5FAF6]' : ''}`}>
+                    <div className="w-5 shrink-0">
+                      {committable && (
+                        <input
+                          type="checkbox"
+                          checked={selectedRows.has(r.row_number)}
+                          onChange={() => toggleRow(r.row_number)}
+                          aria-label={`Select row ${r.row_number} for commit`}
+                          className="h-3.5 w-3.5 rounded border-[#C8D5C8] text-[#1B4D2E] focus:ring-[#1B4D2E]/30"
+                        />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-medium text-[#1A2B1A]">
+                        {r.farmer_name || r.fisherfolk_name || r.rsbsa_number || `Row ${r.row_number}`}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-[#A8BCA8]">
+                        Row {r.row_number} · {r.rsbsa_number || '(blank RSBSA no.)'}
+                        {r.crop_type_name ? ` · ${r.crop_type_name}${r.variety_used ? ` (${r.variety_used})` : ''}` : ''}
+                        {r.date_planted ? ` · ${r.date_planted}` : ''}
+                      </p>
+                      {r.status === 'ready' && r.date_planted_is_estimated && (
+                        <p className="mt-0.5 flex items-center gap-1 text-[11px] font-medium text-amber-700">
+                          <HelpCircle className="h-3 w-3" aria-hidden="true" /> Planting date is estimated (see warning before commit)
+                        </p>
+                      )}
+                      <p className="mt-0.5 text-[12px] text-[#5A6B5C]">{r.detail}</p>
+                    </div>
+                    <StatusPill tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</StatusPill>
+                  </div>
+                )
+              })}
+            </div>
+
+            {totalPages > 1 && (
+              <div className="mt-4 flex items-center justify-between">
+                <p className="text-[12px] text-[#7A8E7A]">
+                  Showing {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, filteredRows.length)} of {filteredRows.length}
+                </p>
+                <div className="flex items-center gap-1">
+                  <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
+                    className="rounded-lg border border-[#E2E8E2] px-2.5 py-1 text-[12px] text-[#4A5E4A] hover:bg-[#F5F7F5] disabled:opacity-40">
+                    Previous
+                  </button>
+                  <span className="px-2 text-[12px] font-medium text-[#1A2B1A]">{page} / {totalPages}</span>
+                  <button type="button" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                    className="rounded-lg border border-[#E2E8E2] px-2.5 py-1 text-[12px] text-[#4A5E4A] hover:bg-[#F5F7F5] disabled:opacity-40">
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
+
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <Button type="button" variant="outline" onClick={handleStartOver}>Upload a Different File</Button>
+            <div className="flex items-center gap-3">
+              <span className="text-[12.5px] text-[#7A8E7A]">{selectedRows.size} row{selectedRows.size === 1 ? '' : 's'} selected</span>
+              <Button type="button" onClick={goToConfirm} disabled={selectedRows.size === 0}>
+                Continue to Confirm
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {step === 'confirm' && (
+        <div className="stagger-item mt-6 space-y-4">
+          <div className="rounded-2xl bg-[#1B4D2E] p-6 text-white">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#9DC2A8]">You Are About to Create</p>
+            <p className="mt-2 text-[26px] font-semibold leading-tight">
+              {selectedRowObjects.length} crop record{selectedRowObjects.length === 1 ? '' : 's'}
+            </p>
+            <div className="my-4 border-t border-white/15" />
+            <p className="text-[13px] text-[#B7CBBB]">
+              Every one of these is a brand-new record — this importer never updates an existing one.
+            </p>
+          </div>
+
+          <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <HelpCircle size={18} className="mt-0.5 shrink-0 text-amber-700" aria-hidden="true" />
+            <div>
+              <p className="text-[13px] font-semibold text-amber-800">
+                Planting date will be marked "Estimated" on all {selectedRowObjects.length} record{selectedRowObjects.length === 1 ? '' : 's'}
+              </p>
+              <p className="mt-0.5 text-[13px] text-amber-800">
+                This import has no real field-confirmed planting date — the date shown is taken from the
+                registry's own record-creation timestamp. Every record created here gets
+                {' '}<span className="font-semibold">date_planted_is_estimated = True</span>, which already
+                blocks the Activity Suggestion Engine, the 50%-duration harvest gate, and the automatic
+                Planted → Near Harvest transition until staff confirms or corrects the real planting date on
+                that record later.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4">
+            <AlertTriangle size={18} className="mt-0.5 shrink-0 text-rose-700" aria-hidden="true" />
+            <p className="text-[13px] text-rose-800">
+              <span className="font-semibold">All-or-nothing:</span> if any selected row fails (e.g. a matching
+              record was created since this preview was generated), none of the {selectedRowObjects.length}{' '}
+              row{selectedRowObjects.length === 1 ? '' : 's'} will be saved.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-[#E2E8E2] bg-white">
+            <p className="border-b border-[#E2E8E2] px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-[#7A8E7A]">
+              Rows to Commit
+            </p>
+            <div className="max-h-72 divide-y divide-[#F0F4F0] overflow-y-auto">
+              {selectedRowObjects.map((r) => (
+                <div key={r.row_number} className="px-4 py-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="min-w-0 truncate text-[13px] font-medium text-[#1A2B1A]">
+                      {r.farmer_name || r.rsbsa_number}
+                    </p>
+                    <StatusPill tone="green">Register New</StatusPill>
+                  </div>
+                  <p className="mt-0.5 text-[12px] text-[#7A8E7A]">
+                    Row {r.row_number} · {r.crop_type_name}{r.variety_used ? ` (${r.variety_used})` : ''} · {r.date_planted} (estimated)
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
+
+          <div className="flex items-center justify-between pt-1">
+            <button type="button" onClick={() => setStep('preview')} className="text-[13px] font-medium text-[#7A8E7A] hover:text-[#1A2B1A] transition-colors">
+              Back to Review
+            </button>
+            <Button type="button" isLoading={isBusy} onClick={handleCommit}>Confirm &amp; Create</Button>
+          </div>
+        </div>
+      )}
+
+      {step === 'result' && commitResult && (
+        <div className="stagger-item mt-6 space-y-4">
+          <div className="flex items-start gap-3 rounded-2xl border border-[#BFE3CC] bg-[#EBF5EE] p-4">
+            <CheckCircle2 size={20} className="mt-0.5 shrink-0 text-[#1E5637]" aria-hidden="true" />
+            <div>
+              <p className="text-[14px] font-semibold text-[#1E5637]">Commit Complete</p>
+              <p className="mt-0.5 text-[13px] text-[#1A2B1A]">
+                <span className="font-semibold">{commitResult.committed}</span> record{commitResult.committed === 1 ? '' : 's'} created.
+              </p>
+              <p className="mt-1 text-[11px] text-[#5A6B5C]">Batch ID: {commitResult.batch_id}</p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-[#E2E8E2] bg-white p-5">
+            <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-[#7A8E7A]">Records Created</p>
+            <div className="-mx-5 divide-y divide-[#F0F4F0]">
+              {commitResult.results.map((r) => (
+                <div key={r.row_number} className="flex items-center gap-3 px-5 py-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-medium text-[#1A2B1A]">{r.farmer_name}</p>
+                    <p className="mt-0.5 text-[11px] text-[#7A8E7A]">
+                      Row {r.row_number} · {r.crop_type_name}{r.variety_used ? ` (${r.variety_used})` : ''} · {r.date_planted}
+                    </p>
+                  </div>
+                  <StatusPill tone="green">Created</StatusPill>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-1">
+            <Button type="button" onClick={onClose}>Close</Button>
+          </div>
+        </div>
+      )}
+    </ModalShell>
+  )
+}
