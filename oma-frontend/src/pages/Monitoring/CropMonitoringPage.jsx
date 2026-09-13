@@ -1701,11 +1701,34 @@ function harvestGateInfo(row) {
 // Mirrors FisheriesRecordsPage's own STATUS_TONES exactly (Stocked/Planted
 // both green as the initial active state) so the two domains' status
 // columns read as one consistent system, not two independently-invented ones.
+// 'Due Harvest'/'Ready for Harvest' are NOT real backend status values —
+// see getCropDisplayStatus below — but need their own tone entries since
+// the pill renders whatever that function returns, never the raw
+// 'Near Harvest' string directly.
 const STATUS_TONES = {
-  Planted:        'green',
-  'Near Harvest': 'amber',
-  Harvested:      'blue',
-  'Total Loss':   'rose',
+  Planted:             'green',
+  'Near Harvest':      'amber',
+  'Due Harvest':       'amber',
+  'Ready for Harvest': 'rose',
+  Harvested:           'blue',
+  'Total Loss':        'rose',
+}
+
+// Display-only reinterpretation of the real 'Near Harvest' backend status —
+// the backend enum, model, and stored value are untouched; this only
+// decides which of two words the pill shows for a record already inside
+// that existing ≤7-day window. Every other status (Planted/Harvested/Total
+// Loss) passes through unchanged. Boundary is a single `<= 0` test, so
+// every day maps to exactly one of the two labels — day 0 (expected_
+// harvest_date is today) reads 'Ready for Harvest', matching "the harvest
+// date has arrived," not "still due."
+function getCropDisplayStatus(rec) {
+  if (rec.status !== 'Near Harvest' || !rec.expected_harvest_date) return rec.status
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const expected = new Date(rec.expected_harvest_date + 'T00:00:00')
+  const diffDays = Math.round((expected - today) / (1000 * 60 * 60 * 24))
+  return diffDays <= 0 ? 'Ready for Harvest' : 'Due Harvest'
 }
 
 const COLUMNS = [
@@ -1748,7 +1771,14 @@ export default function CropMonitoringPage() {
   const fetchRecords = useCallback(async (pageNum = 1) => {
     setIsLoading(true); setError('')
     try {
-      const params = statusFilter === 'all' ? { page: pageNum } : { status: statusFilter, page: pageNum }
+      // 'Due Harvest'/'Ready for Harvest' aren't real backend values (see
+      // getCropDisplayStatus) — both are display-only splits of the single
+      // real 'Near Harvest' status, so both query the backend for that and
+      // the split itself is applied client-side below, on whatever page of
+      // 'Near Harvest' rows comes back.
+      const backendStatus = (statusFilter === 'Due Harvest' || statusFilter === 'Ready for Harvest')
+        ? 'Near Harvest' : statusFilter
+      const params = backendStatus === 'all' ? { page: pageNum } : { status: backendStatus, page: pageNum }
       if (seasonFilter)   params.season   = seasonFilter
       if (yearFilter)     params.year     = yearFilter
       if (barangayFilter) params.barangay = barangayFilter
@@ -1790,12 +1820,24 @@ export default function CropMonitoringPage() {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
-    return records.filter(rec =>
-      !q
-      || rec.crop_type_name?.toLowerCase().includes(q)
-      || rec.organization_name?.toLowerCase().includes(q)
-    )
-  }, [records, search])
+    return records.filter(rec => {
+      const matchesSearch = !q
+        || rec.crop_type_name?.toLowerCase().includes(q)
+        || rec.organization_name?.toLowerCase().includes(q)
+      if (!matchesSearch) return false
+      // Client-side half of the Due/Ready split — the fetched page already
+      // contains only real 'Near Harvest' rows for these two filter values
+      // (see fetchRecords), so this narrows it further to the one the user
+      // actually picked. Note: totalCount/pagination below still reflect
+      // the full Near-Harvest count, not this narrower client-side split —
+      // acceptable since that window is already small in practice, but a
+      // real limitation of doing this without a backend change.
+      if (statusFilter === 'Due Harvest' || statusFilter === 'Ready for Harvest') {
+        return getCropDisplayStatus(rec) === statusFilter
+      }
+      return true
+    })
+  }, [records, search, statusFilter])
 
   const rows = filtered.map(rec => ({
     ...rec,
@@ -1814,7 +1856,7 @@ export default function CropMonitoringPage() {
     ),
     status_cell: (
       <span className="flex items-center gap-1.5">
-        <StatusPill tone={STATUS_TONES[rec.status] || 'slate'}>{rec.status}</StatusPill>
+        <StatusPill tone={STATUS_TONES[getCropDisplayStatus(rec)] || 'slate'}>{getCropDisplayStatus(rec)}</StatusPill>
         <DisasterIndicator disastersCount={rec.disasters_count} hasRecoveredDisaster={rec.has_recovered_disaster} />
       </span>
     ),
@@ -1877,6 +1919,8 @@ export default function CropMonitoringPage() {
           <select className={filterSelectCls} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
             <option value="Planted,Near Harvest">Active Crops</option>
             <option value="Near Harvest">Near Harvest</option>
+            <option value="Due Harvest">Due Harvest</option>
+            <option value="Ready for Harvest">Ready for Harvest</option>
             <option value="Harvested">Harvested</option>
             <option value="Total Loss">Total Loss</option>
             <option value="all">All Status</option>
