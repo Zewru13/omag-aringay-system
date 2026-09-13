@@ -47,6 +47,58 @@ def generate_default_password():
     return secrets.token_urlsafe(16)
 
 
+def existing_citizen_shell_for_rsbsa(rsbsa_number, exclude_record_type=None):
+    """
+    Dual-registration support: a real person can legitimately hold both a
+    Farmer and a Fisherfolk record under the exact same RSBSA number (e.g.
+    someone who genuinely farms AND fishes) — confirmed real cases: Edmar
+    Picar, Christopher Villanueva, Venerando Obra, each already registered
+    as Fisherfolk before also turning up as Farmer/Farmworker in the crop
+    registry under the same number. That is NOT a data error and the second
+    domain's record is real and should be created. What must never happen
+    is a SECOND citizen login for the same person, for a structural reason
+    that has nothing to do with database uniqueness: create_inactive_citizen_
+    shell()'s username is '{record_type}-{record.id}' (e.g. 'farmer-4020' vs
+    'fisherfolk-654'), so two shells for the same person would never collide
+    at the database level — no IntegrityError would ever be raised. The real
+    risk is in accounts.views._resolve_login_identifier, which resolves an
+    RSBSA-number login by checking Farmer before Fisherfolk, UNCONDITIONALLY,
+    regardless of which shell is older or already active. A second shell
+    would either become permanently unreachable by RSBSA-number login, or —
+    worse, if the newer shell happens to be the one checked first — silently
+    steal the login route away from the person's real, possibly already-
+    activated existing account. Either way, the person must end up with
+    exactly one reachable citizen login, no matter how many domain records
+    they hold.
+
+    Returns the existing User already linked to a Farmer or Fisherfolk
+    record with this exact rsbsa_number, checking both domains (skipping
+    `exclude_record_type`'s table, since a brand-new record being created
+    right now is by definition the only row for its own rsbsa_number in its
+    own table — nothing there yet to find), or None if neither domain has a
+    shell for it. General by construction: keyed purely on rsbsa_number, so
+    it applies identically to any future person found via this same pattern,
+    not just the three named above.
+    """
+    from accounts.models import User
+    from farmers.models import Farmer
+    from fisheries.models import Fisherfolk
+
+    for model, rtype in (
+        (Farmer, User.LinkedRecordType.FARMER),
+        (Fisherfolk, User.LinkedRecordType.FISHERFOLK),
+    ):
+        if rtype == exclude_record_type:
+            continue
+        other = model.objects.filter(rsbsa_number=rsbsa_number).first()
+        if other is None:
+            continue
+        shell = User.objects.filter(linked_record_type=rtype, linked_record_id=other.id).first()
+        if shell is not None:
+            return shell
+    return None
+
+
 def create_inactive_citizen_shell(record_type, record, email=None):
     """
     Creates an inactive, unusable-password CITIZEN account shell for a
@@ -64,8 +116,24 @@ def create_inactive_citizen_shell(record_type, record, email=None):
     `email` is optional — these accounts still have no required email
     (RSBSA/registration number is the login identifier either way), but if
     the person gave one during enrollment it's worth keeping on the account.
+
+    Returns the new User, or None if no shell was created — which happens
+    only for FARMER/FISHERFOLK records whose rsbsa_number already has a
+    reachable citizen shell under the other domain (see
+    existing_citizen_shell_for_rsbsa's own docstring for exactly why a
+    second one is unsafe, not just redundant). Every existing caller treats
+    this as a bare statement and never used the return value, so returning
+    None here is not a breaking change for any of them; a caller that DOES
+    want to report "no new login" (e.g. the RSBSA/crop importers' dual-
+    registration commit paths) can now check it explicitly.
     """
     from accounts.models import User
+
+    rsbsa_number = getattr(record, 'rsbsa_number', None)
+    if rsbsa_number and record_type in (User.LinkedRecordType.FARMER, User.LinkedRecordType.FISHERFOLK):
+        if existing_citizen_shell_for_rsbsa(rsbsa_number, exclude_record_type=record_type) is not None:
+            return None
+
     full_name = getattr(record, 'full_name', None) or getattr(record, 'name', '')
     user = User(
         username=f'{record_type.lower()}-{record.id}',
