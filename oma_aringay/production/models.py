@@ -120,6 +120,22 @@ class CropVariety(models.Model):
         help_text='Leave blank for a general variety not tied to a specific crop.',
     )
     is_active = models.BooleanField(default=True)
+    # Optional override of the crop type's own days_to_harvest — real
+    # cultivars can mature meaningfully faster or slower than their crop's
+    # general figure (e.g. Sweet Corn Hybrid ~70 days vs Corn (Mais)'s own
+    # 90-day default). Null means "no variety-specific figure" and the crop
+    # type's days_to_harvest is used exactly as before — this is the default
+    # for every variety whose real maturity wasn't confirmed against a
+    # credible source, and for every generic "Native (X)" entry, which has
+    # no single figure to represent by definition. See migration
+    # 0041_add_cropvariety_days_to_harvest's own docstring for exactly which
+    # varieties got a real value here, and why the rest were deliberately
+    # left null.
+    days_to_harvest = models.IntegerField(
+        null=True, blank=True,
+        help_text='Overrides the crop type\'s own days_to_harvest for this specific variety. '
+                   'Leave blank to use the crop type\'s figure unchanged.',
+    )
 
     class Meta:
         verbose_name_plural = 'Crop Varieties'
@@ -272,7 +288,22 @@ class CropMonitoringRecord(models.Model):
         if self.date_planted and self.crop_type_id:
             try:
                 ct = self.crop_type if hasattr(self, '_crop_type_cache') else CropType.objects.get(pk=self.crop_type_id)
-                self.expected_harvest_date = self.date_planted + timedelta(days=ct.days_to_harvest)
+                # A named variety can mature meaningfully faster or slower
+                # than its crop type's own general figure (e.g. Sweet Corn
+                # Hybrid vs Corn (Mais)). variety_used is free text, not an
+                # FK, so this is a best-effort case-insensitive match against
+                # CropVariety scoped to the same crop type — falls straight
+                # through to the crop type's own days_to_harvest, exactly as
+                # before, whenever there's no match or no override set.
+                days_to_harvest = ct.days_to_harvest
+                if self.variety_used:
+                    variety = CropVariety.objects.filter(
+                        crop_type_id=self.crop_type_id, name__iexact=self.variety_used,
+                        days_to_harvest__isnull=False,
+                    ).first()
+                    if variety:
+                        days_to_harvest = variety.days_to_harvest
+                self.expected_harvest_date = self.date_planted + timedelta(days=days_to_harvest)
                 if ct.yield_per_ha_kg is not None and self.area_planted_ha is not None:
                     raw = Decimal(str(ct.yield_per_ha_kg)) * Decimal(str(self.area_planted_ha))
                     self.estimated_yield_kg = raw.quantize(Decimal('0.01'))

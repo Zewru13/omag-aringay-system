@@ -16,6 +16,7 @@ const PAGE_SIZE = 10
 const COLUMNS = [
   { key: 'name',           label: 'VARIETY NAME' },
   { key: 'crop_type_disp', label: 'CROP' },
+  { key: 'days_to_harvest_disp', label: 'GROWTH DURATION (DAYS)' },
   { key: 'status',         label: 'STATUS' },
   { key: 'actions',        label: 'ACTIONS' },
 ]
@@ -27,6 +28,7 @@ function CropVarietyModal({ variety, cropTypes, onClose, onSaved }) {
     name: variety?.name || '',
     crop_type: variety?.crop_type || '',
     is_active: variety?.is_active ?? true,
+    days_to_harvest: variety?.days_to_harvest ?? '',
   }
   const [form, setForm] = useState(original)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -43,7 +45,11 @@ function CropVarietyModal({ variety, cropTypes, onClose, onSaved }) {
     if (!form.name.trim()) { showToast('Variety name is required.', 'error'); return }
     setIsSubmitting(true)
     try {
-      const payload = { ...form, crop_type: form.crop_type || null }
+      const payload = {
+        ...form,
+        crop_type: form.crop_type || null,
+        days_to_harvest: form.days_to_harvest === '' ? null : parseInt(form.days_to_harvest, 10),
+      }
       if (isEdit) {
         await api.patch(`/production/varieties/${variety.id}/`, payload)
       } else {
@@ -86,6 +92,19 @@ function CropVarietyModal({ variety, cropTypes, onClose, onSaved }) {
             <option value="">— General (not crop-specific) —</option>
             {cropTypes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
+        </FormField>
+        <FormField
+          label="Growth Duration Override (Days)"
+          hint="Leave blank to use the crop's own growth duration unchanged. Only set this when this specific variety genuinely matures faster or slower."
+        >
+          <input
+            className={baseInputClasses}
+            type="number"
+            min="1"
+            value={form.days_to_harvest}
+            onChange={e => set('days_to_harvest', e.target.value)}
+            placeholder="e.g. 70"
+          />
         </FormField>
         <label className="flex items-center gap-2 cursor-pointer">
           <input
@@ -145,6 +164,9 @@ export default function CropVarietyPage({ asTab = false }) {
   const rows = paginated.map(v => ({
     ...v,
     crop_type_disp: v.crop_type_name || '— General —',
+    days_to_harvest_disp: v.days_to_harvest != null
+      ? <span className="font-medium text-[#1A2B1A]">{v.days_to_harvest}</span>
+      : <span className="text-[#A8BCA8]">— (uses crop's own)</span>,
     status: (
       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
         v.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'

@@ -32,7 +32,7 @@ class CropVarietySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CropVariety
-        fields = ['id', 'name', 'crop_type', 'crop_type_name', 'is_active']
+        fields = ['id', 'name', 'crop_type', 'crop_type_name', 'is_active', 'days_to_harvest']
         read_only_fields = ['id', 'crop_type_name']
         # DRF auto-adds a UniqueTogetherValidator from the model's
         # unique_together=[['crop_type', 'name']] — it runs before our own
