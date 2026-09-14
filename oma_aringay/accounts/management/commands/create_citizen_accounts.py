@@ -35,9 +35,17 @@ class Command(BaseCommand):
         )
 
     def _existing_linked_ids(self, record_type):
+        # Switchable-identity Phase 2: query through UserLinkedRecord — a
+        # database .filter() can't be satisfied by a Python property, which
+        # is what linked_record_type/id remain for every other (attribute-
+        # read) caller. Not restricted to is_active here on purpose: this
+        # command's whole idempotency guarantee is "skip any record that
+        # already has A shell, active domain or not" — a record with an
+        # inactive link still has a real shell and must never get a second
+        # one from this backfill.
         return set(
-            User.objects.filter(linked_record_type=record_type)
-            .values_list('linked_record_id', flat=True)
+            User.objects.filter(linked_records__record_type=record_type)
+            .values_list('linked_records__record_id', flat=True)
         )
 
     def _create_for(self, record_type, queryset):

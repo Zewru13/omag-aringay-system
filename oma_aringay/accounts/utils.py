@@ -23,8 +23,17 @@ def citizen_account_info(linked_record_type, record_id):
     time-based expiry.
     """
     from accounts.models import User
+    # Switchable-identity Phase 2: queries THROUGH UserLinkedRecord rather
+    # than the old linked_record_type/id columns directly — those columns
+    # are a Python-level property shim wherever the majority of this app
+    # still reads them, but this is a database-level .filter(), which a
+    # property can never satisfy (Django can't turn a Python property into
+    # a SQL WHERE clause). Restricted to the ACTIVE link specifically, so a
+    # dual-linked citizen's inactive domain never surfaces here.
     account = User.objects.filter(
-        linked_record_type=linked_record_type, linked_record_id=record_id,
+        linked_records__record_type=linked_record_type,
+        linked_records__record_id=record_id,
+        linked_records__is_active=True,
     ).only('id', 'is_active', 'last_login').first()
     if account is None:
         return None
@@ -93,7 +102,13 @@ def existing_citizen_shell_for_rsbsa(rsbsa_number, exclude_record_type=None):
         other = model.objects.filter(rsbsa_number=rsbsa_number).first()
         if other is None:
             continue
-        shell = User.objects.filter(linked_record_type=rtype, linked_record_id=other.id).first()
+        # Switchable-identity Phase 2: query through UserLinkedRecord, not
+        # the old columns — same reasoning as citizen_account_info() above
+        # (a database .filter() can't be satisfied by a Python property).
+        shell = User.objects.filter(
+            linked_records__record_type=rtype, linked_records__record_id=other.id,
+            linked_records__is_active=True,
+        ).first()
         if shell is not None:
             return shell
     return None
@@ -127,7 +142,7 @@ def create_inactive_citizen_shell(record_type, record, email=None):
     want to report "no new login" (e.g. the RSBSA/crop importers' dual-
     registration commit paths) can now check it explicitly.
     """
-    from accounts.models import User
+    from accounts.models import User, UserLinkedRecord
 
     rsbsa_number = getattr(record, 'rsbsa_number', None)
     if rsbsa_number and record_type in (User.LinkedRecordType.FARMER, User.LinkedRecordType.FISHERFOLK):
@@ -135,6 +150,11 @@ def create_inactive_citizen_shell(record_type, record, email=None):
             return None
 
     full_name = getattr(record, 'full_name', None) or getattr(record, 'name', '')
+    # Phase 3: linked_record_type/linked_record_id are no longer real
+    # constructor kwargs — they're read-only properties now (see
+    # accounts.models.User), so they're never passed here. The
+    # UserLinkedRecord row created below is the ONLY place this link is
+    # established; it's what those properties read.
     user = User(
         username=f'{record_type.lower()}-{record.id}',
         email=email or None,
@@ -142,11 +162,12 @@ def create_inactive_citizen_shell(record_type, record, email=None):
         role=User.Roles.CITIZEN,
         is_active=False,
         must_change_password=False,
-        linked_record_type=record_type,
-        linked_record_id=record.id,
     )
     user.set_unusable_password()
     user.save()
+    UserLinkedRecord.objects.create(
+        user=user, record_type=record_type, record_id=record.id, is_active=True,
+    )
     return user
 
 

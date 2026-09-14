@@ -113,10 +113,20 @@ def resolve_owner_user(farmer_id=None, farmers_organization_id=None, fisherfolk_
     """
     User = get_user_model()
 
+    # Switchable-identity Phase 2: each block below queries through
+    # UserLinkedRecord (linked_records__...) rather than the old columns —
+    # a database .filter() can't be satisfied by a Python property. Two
+    # DIFFERENT "is_active" concepts collide here on purpose, kept as two
+    # separate conditions: User.is_active (the account itself has been
+    # activated — unchanged, this gate already existed) and
+    # linked_records__is_active (THIS is the record the user currently has
+    # active — new). A dual-linked citizen must only be notified about a
+    # domain's event while that domain is the one they're actually using.
     if farmer_id:
         user = User.objects.filter(
-            linked_record_type=User.LinkedRecordType.FARMER,
-            linked_record_id=farmer_id,
+            linked_records__record_type=User.LinkedRecordType.FARMER,
+            linked_records__record_id=farmer_id,
+            linked_records__is_active=True,
             is_active=True,
         ).first()
         if user is not None:
@@ -124,8 +134,9 @@ def resolve_owner_user(farmer_id=None, farmers_organization_id=None, fisherfolk_
 
     if farmers_organization_id:
         user = User.objects.filter(
-            linked_record_type=User.LinkedRecordType.FARMERS_ORG,
-            linked_record_id=farmers_organization_id,
+            linked_records__record_type=User.LinkedRecordType.FARMERS_ORG,
+            linked_records__record_id=farmers_organization_id,
+            linked_records__is_active=True,
             is_active=True,
         ).first()
         if user is not None:
@@ -133,8 +144,9 @@ def resolve_owner_user(farmer_id=None, farmers_organization_id=None, fisherfolk_
 
     if fisherfolk_id:
         user = User.objects.filter(
-            linked_record_type=User.LinkedRecordType.FISHERFOLK,
-            linked_record_id=fisherfolk_id,
+            linked_records__record_type=User.LinkedRecordType.FISHERFOLK,
+            linked_records__record_id=fisherfolk_id,
+            linked_records__is_active=True,
             is_active=True,
         ).first()
         if user is not None:
@@ -142,8 +154,9 @@ def resolve_owner_user(farmer_id=None, farmers_organization_id=None, fisherfolk_
 
     if fisherfolk_organization_id:
         return User.objects.filter(
-            linked_record_type=User.LinkedRecordType.FISHERFOLK_ORG,
-            linked_record_id=fisherfolk_organization_id,
+            linked_records__record_type=User.LinkedRecordType.FISHERFOLK_ORG,
+            linked_records__record_id=fisherfolk_organization_id,
+            linked_records__is_active=True,
             is_active=True,
         ).first()
 

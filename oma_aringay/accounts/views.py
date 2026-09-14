@@ -67,8 +67,15 @@ def _deactivate_other_admins(exclude_user_id=None):
 
 
 def _linked_user_for(record_type, record_id):
+    # Switchable-identity Phase 2: query through UserLinkedRecord — a
+    # database .filter() can't be satisfied by a Python property, which is
+    # what linked_record_type/id remain for every other (attribute-read)
+    # caller. Restricted to the active link, so an RSBSA/registration-number
+    # login always resolves to whichever domain a dual-linked citizen
+    # currently has active, never a dormant second one.
     return User.objects.filter(
-        linked_record_type=record_type, linked_record_id=record_id,
+        linked_records__record_type=record_type, linked_records__record_id=record_id,
+        linked_records__is_active=True,
     ).first()
 
 
