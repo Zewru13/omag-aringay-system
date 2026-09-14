@@ -45,22 +45,33 @@ function fmtLong(v) {
   }).format(new Date(v + "T00:00:00"));
 }
 
+// Recomputes against expected_harvest_date for BOTH raw "Planted" and raw
+// "Near Harvest" records (not just Planted) — either one can go stale if
+// nobody ever records a real harvest, and daysLeft has no lower bound: a
+// record thousands of days overdue used to read identically to one due
+// tomorrow (both satisfied `daysLeft <= 7`). Overdue is its own distinct
+// display state so a genuinely-forgotten record doesn't misreport as
+// "about to be harvested."
 function getDisplayStatus(rec) {
   if (rec.status === "Total Loss") return "Total Loss";
   if (rec.status === "Harvested") return "Harvested";
-  if (rec.status === "Near Harvest") return "Near Harvest";
   if (rec.expected_harvest_date) {
     const today = new Date();
     const harvest = new Date(rec.expected_harvest_date + "T00:00:00");
     const daysLeft = Math.ceil((harvest - today) / (1000 * 60 * 60 * 24));
+    if (daysLeft < 0) return "Overdue";
     if (daysLeft <= 7) return "Near Harvest";
   }
+  if (rec.status === "Near Harvest") return "Near Harvest";
   return "Planted";
 }
 
 const STATUS_TONES = {
   Planted: "green",
   "Near Harvest": "amber",
+  // Matches this system's established convention (see components/UI/
+  // StatusPill.jsx's own STATUS_MAP: OVERDUE already maps to rose there).
+  Overdue: "rose",
   Harvested: "blue",
   "Total Loss": "rose",
 };
@@ -83,6 +94,7 @@ const STATUS_FILTER_OPTIONS = [
   "All Status",
   "Planted",
   "Near Harvest",
+  "Overdue",
   "Harvested",
   "Total Loss",
 ];
@@ -1024,10 +1036,16 @@ export default function CropInformationPage() {
         const params = new URLSearchParams({ page: pageNum });
         if (seasonFilter) params.set("season", seasonFilter);
         if (yearFilter) params.set("year", yearFilter);
-        // "Near Harvest" is partly client-derived (see getDisplayStatus) from
-        // records still stored as "Planted" whose expected_harvest_date has
-        // crept close — don't filter it server-side or those go missing.
-        if (statusFilter && statusFilter !== "All Status" && statusFilter !== "Near Harvest") {
+        // "Near Harvest" and "Overdue" are both partly client-derived (see
+        // getDisplayStatus) from records still stored as "Planted" or "Near
+        // Harvest" whose expected_harvest_date has crept close or passed —
+        // don't filter either server-side or those records go missing.
+        if (
+          statusFilter &&
+          statusFilter !== "All Status" &&
+          statusFilter !== "Near Harvest" &&
+          statusFilter !== "Overdue"
+        ) {
           params.set("status", statusFilter);
         }
         const r = await api.get(`/production/monitoring/?${params.toString()}`);
