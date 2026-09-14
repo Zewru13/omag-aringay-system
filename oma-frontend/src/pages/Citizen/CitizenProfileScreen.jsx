@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Camera, Check, ChevronRight, Clock, HelpCircle, KeyRound, Lock, LogOut, Pencil, RefreshCw } from 'lucide-react'
+import { ArrowLeftRight, Camera, Check, ChevronRight, Clock, HelpCircle, KeyRound, Lock, LogOut, Pencil, RefreshCw } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -67,11 +67,48 @@ function ReadOnlyRow({ label, value }) {
 export default function CitizenProfileScreen({ record, recordType, onBack, onHelp, tabBar, bare = false }) {
   const P = labels.ffNew.profile
   const { showToast } = useToast()
-  const { logout } = useAuth()
+  const { logout, user } = useAuth()
   const navigate = useNavigate()
   const isFisherfolk = recordType === 'FISHERFOLK'
   const theme = isFisherfolk ? FISH_THEME : CROP_THEME
   const fileRef = useRef(null)
+
+  // Switchable-identity feature, Phase 4: other_linked_records is a real,
+  // server-computed field (accounts.serializers.UserSerializer) — empty for
+  // every single-domain citizen, so this chip renders for NOBODY else. Only
+  // one other domain is possible today (Farmer<->Fisherfolk), so [0] is the
+  // whole list for now; the backend already supports more than one row per
+  // user if that ever changes.
+  const otherLink = user?.other_linked_records?.[0] || null
+  const otherTheme = otherLink?.record_type === 'FISHERFOLK' ? FISH_THEME : CROP_THEME
+  const [isSwitching, setIsSwitching] = useState(false)
+
+  const handleSwitchDomain = async () => {
+    if (!otherLink || isSwitching) return
+    setIsSwitching(true)
+    try {
+      await api.post('/accounts/me/switch-domain/', { record_type: otherLink.record_type })
+      // Full page reload, not an in-place context update (confirmed
+      // design) — the next /accounts/me/ fetch on load re-resolves
+      // linked_record_type fresh against the row this call just activated
+      // (Phase 3), and CitizenHomePage routes off that exact same value,
+      // so this never becomes a second, driftable routing decision.
+      //
+      // '/my-account' specifically, NOT '/' — found live while testing
+      // this: bare '/' renders App.jsx's HomeRedirect, which checks
+      // isAuthenticated without waiting for AuthContext's isLoading flag
+      // first, so a hard reload lands there mid-session-restore and
+      // bounces even a valid session to /login. ProtectedRoute (what
+      // '/my-account' actually uses) already waits for isLoading
+      // correctly — this sidesteps a real, pre-existing bug rather than
+      // working around it in place, since fixing HomeRedirect itself is
+      // unrelated to this feature.
+      window.location.href = '/my-account'
+    } catch {
+      showToast(labels.common.genericSaveError, 'error')
+      setIsSwitching(false)
+    }
+  }
 
   const [photoUrl, setPhotoUrl] = useState(record?.profile_picture_url || null)
   const [isUploading, setIsUploading] = useState(false)
@@ -279,6 +316,23 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
             </span>
             <span className="text-[12px] text-cz-text-2">{isFisherfolk ? P.roleSubtitleFisherfolk : P.roleSubtitleFarmer}</span>
           </div>
+
+          {/* Switchable-identity chip — only ever rendered when
+              other_linked_records is non-empty (see otherLink above), so
+              this is invisible for every single-domain citizen. Styled in
+              the OTHER domain's theme, not this one, as a visual preview of
+              what tapping it switches to. */}
+          {otherLink && (
+            <button
+              type="button"
+              onClick={handleSwitchDomain}
+              disabled={isSwitching}
+              className={`mt-2 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold ${otherTheme.tileSelectedBg} ${otherTheme.tileSelectedText} disabled:opacity-50`}
+            >
+              <ArrowLeftRight size={11} aria-hidden="true" />
+              {isSwitching ? P.switchDomainSwitching : P.switchDomainCta(otherLink.label)}
+            </button>
+          )}
 
           {/* Barangay/Contact used to repeat here in a compact mini-grid AND
               again below in the full "Personal na Impormasyon" card — removed

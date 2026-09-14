@@ -27,17 +27,31 @@ class UserSerializer(serializers.ModelSerializer):
     # read-only row (distinct from Email) on the Staff/Admin profile. The
     # field already exists on AbstractUser; it just was never exposed here.
     profile_picture_url = serializers.SerializerMethodField()
+    # Switchable-identity feature, Phase 4: every OTHER (inactive)
+    # UserLinkedRecord this account has, besides the one linked_record_type
+    # above already reflects. Empty list for every single-domain citizen —
+    # this is exactly what the frontend switcher gates its own visibility
+    # on (render nothing when this list is empty), so it doubles as the one
+    # real, server-computed answer to "does this account have more than one
+    # linked record" — no separate client-side guess.
+    other_linked_records = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
             'id', 'email', 'username', 'full_name', 'suffix', 'contact_number', 'role',
             'is_active', 'must_change_password', 'is_email_verified', 'date_joined',
-            'linked_record_type', 'linked_record', 'profile_picture_url',
+            'linked_record_type', 'linked_record', 'other_linked_records', 'profile_picture_url',
         ]
 
     def get_profile_picture_url(self, obj):
         return obj.profile_picture.url if obj.profile_picture else None
+
+    def get_other_linked_records(self, obj):
+        return [
+            {'record_type': link.record_type, 'label': User.LinkedRecordType(link.record_type).label}
+            for link in obj.linked_records.exclude(is_active=True).order_by('id')
+        ]
 
     def get_linked_record(self, obj):
         record = obj.get_linked_record()

@@ -342,6 +342,11 @@ export const labels = {
       roleSubtitleFarmer: 'Magsasaka',
       roleSubtitleFisherfolk: 'Mangingisda',
 
+      // Switchable-identity chip — only ever shown to a dual-linked
+      // citizen (see CitizenProfileScreen's otherLink).
+      switchDomainCta: (otherLabel) => `Switch to ${otherLabel}`,
+      switchDomainSwitching: 'Switching…',
+
       // Field-status legend, matching PROFILE REFERENCE!.docx's own
       // wording exactly (verbatim Tagalog, three fixed states). This is
       // deliberately its own copy from labels.farmerHelp.behaviors* --
