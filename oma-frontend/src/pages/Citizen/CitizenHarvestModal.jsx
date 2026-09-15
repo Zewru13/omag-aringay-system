@@ -10,6 +10,44 @@ import { labels } from './labels.js'
 import { todayISO } from '../../utils/localDate.js'
 
 
+// Live "am I meeting the estimated yield or not" comparison — same idea as
+// the expected-harvest-date banner above, for the quantity fields instead.
+// estimatedKg comes straight off the record (crop_type.yield_per_ha_kg ×
+// area_planted_ha for crops, species-based for ponds); enteredKg is
+// whichever quantity field this domain's form uses (volume_kg / quantity_kg).
+function EstimatedYieldComparison({ estimatedKg, enteredKg }) {
+  if (estimatedKg == null) return null
+  const entered = parseFloat(enteredKg)
+  const hasEntry = enteredKg !== '' && !isNaN(entered)
+  const diff = hasEntry ? entered - parseFloat(estimatedKg) : null
+  const pct = hasEntry && estimatedKg != 0 ? Math.abs((diff / parseFloat(estimatedKg)) * 100) : 0
+  const meetsOrExceeds = hasEntry && diff >= 0
+  return (
+    <div className={`rounded-xl border px-3 py-2 text-xs ${
+      !hasEntry
+        ? 'border-slate-200 bg-slate-50 text-slate-600'
+        : meetsOrExceeds
+          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+          : 'border-amber-200 bg-amber-50 text-amber-700'
+    }`}>
+      <p>
+        {labels.harvest.estimatedYieldLabel}: <span className="font-medium">
+          {Number(estimatedKg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg
+        </span>
+      </p>
+      {hasEntry && (
+        <p className="mt-1 font-medium">
+          {Math.abs(diff) < 0.01
+            ? labels.harvest.estimatedYieldOnTarget
+            : diff > 0
+              ? labels.harvest.estimatedYieldAbove(diff.toFixed(2), pct.toFixed(0))
+              : labels.harvest.estimatedYieldBelow(Math.abs(diff).toFixed(2), pct.toFixed(0))}
+        </p>
+      )}
+    </div>
+  )
+}
+
 const UNIT_OPTIONS = [
   { value: 'kg', label: labels.harvest.unitOptions.kg },
   { value: 'bags', label: labels.harvest.unitOptions.bags },
@@ -62,6 +100,25 @@ export default function CitizenHarvestModal({ domain, record, harvest, onClose, 
 
   const set = (field, value) => setForm((f) => ({ ...f, [field]: value }))
 
+  // Same expected_harvest_date the staff-side Record Harvest modals already
+  // show (RecordHarvestFromMonitoringModal / RecordStockingHarvestModal) —
+  // this is the one place a citizen fills this form, for both domains,
+  // since they share this modal.
+  const expectedHarvestDate = record.expected_harvest_date || null
+  const daysFromNowToExpected = expectedHarvestDate
+    ? Math.round((new Date(expectedHarvestDate + 'T00:00:00') - new Date(new Date().toDateString())) / 86400000)
+    : null
+  // Live comparison against whichever harvest-date field this domain uses —
+  // both default to today (see the form's own useState above), so this
+  // shows immediately on open too, the same "am I meeting the estimate"
+  // answer the staff-side forms give, not just a static target date.
+  const enteredHarvestDate = isCrop ? form.harvest_start_date : form.harvest_date
+  const harvestVarianceDays = (expectedHarvestDate && enteredHarvestDate)
+    ? Math.round((new Date(enteredHarvestDate + 'T00:00:00') - new Date(expectedHarvestDate + 'T00:00:00')) / 86400000)
+    : null
+  const isEarly = harvestVarianceDays !== null && harvestVarianceDays < -7
+  const isLate = harvestVarianceDays !== null && harvestVarianceDays > 7
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setErrorMessage('')
@@ -107,6 +164,31 @@ export default function CitizenHarvestModal({ domain, record, harvest, onClose, 
         </div>
       )}
       <form className="space-y-4" onSubmit={handleSubmit}>
+        {expectedHarvestDate && (
+          <div className={`rounded-xl border px-3 py-2 text-xs ${
+            harvestVarianceDays === null
+              ? 'border-slate-200 bg-slate-50 text-slate-600'
+              : (isEarly || isLate)
+                ? 'border-rose-200 bg-rose-50 text-rose-700'
+                : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+          }`}>
+            <p>
+              {labels.harvest.expectedHarvestLabel}: <span className="font-medium">{expectedHarvestDate}</span>{' '}
+              ({daysFromNowToExpected >= 0
+                ? labels.harvest.expectedHarvestDaysFromNow(daysFromNowToExpected)
+                : labels.harvest.expectedHarvestDaysAgo(Math.abs(daysFromNowToExpected))})
+            </p>
+            {harvestVarianceDays !== null && (
+              <p className="mt-1 font-medium">
+                {harvestVarianceDays === 0
+                  ? labels.harvest.expectedHarvestOnTime
+                  : harvestVarianceDays < 0
+                    ? labels.harvest.expectedHarvestEarly(Math.abs(harvestVarianceDays))
+                    : labels.harvest.expectedHarvestLate(harvestVarianceDays)}
+              </p>
+            )}
+          </div>
+        )}
         <fieldset disabled={blockedByOther} className="space-y-4">
           {isCrop ? (
             <>
@@ -155,6 +237,7 @@ export default function CitizenHarvestModal({ domain, record, harvest, onClose, 
                   </select>
                 </FormField>
               </div>
+              <EstimatedYieldComparison estimatedKg={record.estimated_yield_kg} enteredKg={form.volume_kg} />
             </>
           ) : (
             <>
@@ -169,6 +252,7 @@ export default function CitizenHarvestModal({ domain, record, harvest, onClose, 
                   <input type="number" step="0.001" className={baseInputClasses} value={form.avg_body_weight_kg} onChange={(e) => set('avg_body_weight_kg', e.target.value)} />
                 </FormField>
               </div>
+              <EstimatedYieldComparison estimatedKg={record.estimated_harvest_kg} enteredKg={form.quantity_kg} />
               <FormField label={labels.harvest.fields.areaOrUnits} hint={labels.harvest.fields.areaOrUnitsHint}>
                 <input type="text" className={baseInputClasses} value={form.area_or_units_harvested} onChange={(e) => set('area_or_units_harvested', e.target.value)} />
               </FormField>

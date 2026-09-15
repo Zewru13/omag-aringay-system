@@ -1415,11 +1415,32 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
           ))}
 
           {expectedHarvestDate && (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-              Expected harvest: <span className="font-medium text-slate-800">{expectedHarvestDate}</span>{' '}
-              ({daysFromNowToExpected >= 0
-                ? `${daysFromNowToExpected} day${daysFromNowToExpected !== 1 ? 's' : ''} from now`
-                : `${Math.abs(daysFromNowToExpected)} day${Math.abs(daysFromNowToExpected) !== 1 ? 's' : ''} ago`})
+            <div className={`rounded-xl border px-3 py-2 text-xs ${
+              harvestVarianceDays === null
+                ? 'border-slate-200 bg-slate-50 text-slate-600'
+                : reasonRequired
+                  ? 'border-rose-200 bg-rose-50 text-rose-700'
+                  : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+            }`}>
+              <p>
+                Expected harvest: <span className="font-medium">{expectedHarvestDate}</span>{' '}
+                ({daysFromNowToExpected >= 0
+                  ? `${daysFromNowToExpected} day${daysFromNowToExpected !== 1 ? 's' : ''} from now`
+                  : `${Math.abs(daysFromNowToExpected)} day${Math.abs(daysFromNowToExpected) !== 1 ? 's' : ''} ago`})
+              </p>
+              {/* Live comparison against Harvest Date below — updates as it's
+                  picked (it defaults to today, so this shows immediately on
+                  open too), not just once the >7-day mandatory-reason
+                  threshold is crossed. */}
+              {harvestVarianceDays !== null && (
+                <p className="mt-1 font-medium">
+                  {harvestVarianceDays === 0
+                    ? '✓ Right on the expected harvest date.'
+                    : harvestVarianceDays < 0
+                      ? `${Math.abs(harvestVarianceDays)} day${Math.abs(harvestVarianceDays) !== 1 ? 's' : ''} earlier than expected.`
+                      : `${harvestVarianceDays} day${harvestVarianceDays !== 1 ? 's' : ''} later than expected.`}
+                </p>
+              )}
             </div>
           )}
 
@@ -1460,6 +1481,37 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
               onChange={e => { setQuantityKg(e.target.value); setQuantityError(validateQuantity(e.target.value)) }}
               placeholder="e.g. 500" />
             {quantityError && <p className="mt-1 text-xs text-rose-600">{quantityError}</p>}
+            {/* Estimated harvest (species.default_avg_body_weight_kg ×
+                survival-adjusted fingerling count, computed server-side and
+                already on the record) — same live "meeting the estimate or
+                not" comparison as the harvest date above. */}
+            {record.estimated_harvest_kg != null && (
+              <div className={`mt-2 rounded-xl border px-3 py-2 text-xs ${
+                !quantityKg
+                  ? 'border-slate-200 bg-slate-50 text-slate-600'
+                  : parseFloat(quantityKg) >= parseFloat(record.estimated_harvest_kg)
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : 'border-amber-200 bg-amber-50 text-amber-700'
+              }`}>
+                <p>
+                  Estimated harvest: <span className="font-medium">
+                    {Number(record.estimated_harvest_kg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg
+                  </span>
+                </p>
+                {quantityKg && !isNaN(parseFloat(quantityKg)) && (
+                  <p className="mt-1 font-medium">
+                    {(() => {
+                      const diff = parseFloat(quantityKg) - parseFloat(record.estimated_harvest_kg)
+                      const pct = record.estimated_harvest_kg != 0 ? Math.abs((diff / parseFloat(record.estimated_harvest_kg)) * 100) : 0
+                      if (Math.abs(diff) < 0.01) return '✓ Right at the estimated harvest.'
+                      return diff > 0
+                        ? `${diff.toFixed(2)} kg above estimate (${pct.toFixed(0)}% more).`
+                        : `${Math.abs(diff).toFixed(2)} kg below estimate (${pct.toFixed(0)}% less).`
+                    })()}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">

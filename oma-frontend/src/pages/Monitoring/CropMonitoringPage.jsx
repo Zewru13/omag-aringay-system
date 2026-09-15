@@ -1540,11 +1540,33 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
           ))}
 
           {expectedHarvestDate && (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-              Expected harvest: <span className="font-medium text-slate-800">{expectedHarvestDate}</span>{' '}
-              ({daysFromNowToExpected >= 0
-                ? `${daysFromNowToExpected} day${daysFromNowToExpected !== 1 ? 's' : ''} from now`
-                : `${Math.abs(daysFromNowToExpected)} day${Math.abs(daysFromNowToExpected) !== 1 ? 's' : ''} ago`})
+            <div className={`rounded-xl border px-3 py-2 text-xs ${
+              harvestVarianceDays === null
+                ? 'border-slate-200 bg-slate-50 text-slate-600'
+                : reasonRequired
+                  ? 'border-rose-200 bg-rose-50 text-rose-700'
+                  : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+            }`}>
+              <p>
+                Expected harvest: <span className="font-medium">{expectedHarvestDate}</span>{' '}
+                ({daysFromNowToExpected >= 0
+                  ? `${daysFromNowToExpected} day${daysFromNowToExpected !== 1 ? 's' : ''} from now`
+                  : `${Math.abs(daysFromNowToExpected)} day${Math.abs(daysFromNowToExpected) !== 1 ? 's' : ''} ago`})
+              </p>
+              {/* Live comparison against the Harvest Start Date below — updates
+                  as it's picked (it defaults to today, so this shows immediately
+                  on open too), not just once the >7-day mandatory-reason
+                  threshold is crossed. This is the actual "am I meeting the
+                  estimate" answer the static date alone doesn't give. */}
+              {harvestVarianceDays !== null && (
+                <p className="mt-1 font-medium">
+                  {harvestVarianceDays === 0
+                    ? '✓ Right on the expected harvest date.'
+                    : harvestVarianceDays < 0
+                      ? `${Math.abs(harvestVarianceDays)} day${Math.abs(harvestVarianceDays) !== 1 ? 's' : ''} earlier than expected.`
+                      : `${harvestVarianceDays} day${harvestVarianceDays !== 1 ? 's' : ''} later than expected.`}
+                </p>
+              )}
             </div>
           )}
 
@@ -1621,6 +1643,42 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
               onChange={e => { setQuantityHarvested(e.target.value); setQuantityError(validateQuantity(e.target.value)) }}
               placeholder="e.g. 500" />
             {quantityError && <p className="mt-1 text-xs text-rose-600">{quantityError}</p>}
+            {/* Estimated yield (crop_type.yield_per_ha_kg × area_planted_ha,
+                computed server-side and already on the record) — same live
+                "meeting the estimate or not" comparison as the harvest date
+                above, against what's actually typed here. The rest of this
+                app already treats a Quantity Harvested entry as a raw kg
+                figure regardless of the Unit of Measure label chosen (see
+                HarvestRecordCreateSerializer/volume_kg — no unit conversion
+                happens anywhere before it's summed), so this compares
+                directly without converting either. */}
+            {record.estimated_yield_kg != null && (
+              <div className={`mt-2 rounded-xl border px-3 py-2 text-xs ${
+                !quantityHarvested
+                  ? 'border-slate-200 bg-slate-50 text-slate-600'
+                  : parseFloat(quantityHarvested) >= parseFloat(record.estimated_yield_kg)
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : 'border-amber-200 bg-amber-50 text-amber-700'
+              }`}>
+                <p>
+                  Estimated yield: <span className="font-medium">
+                    {Number(record.estimated_yield_kg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg
+                  </span>
+                </p>
+                {quantityHarvested && !isNaN(parseFloat(quantityHarvested)) && (
+                  <p className="mt-1 font-medium">
+                    {(() => {
+                      const diff = parseFloat(quantityHarvested) - parseFloat(record.estimated_yield_kg)
+                      const pct = record.estimated_yield_kg != 0 ? Math.abs((diff / parseFloat(record.estimated_yield_kg)) * 100) : 0
+                      if (Math.abs(diff) < 0.01) return '✓ Right at the estimated yield.'
+                      return diff > 0
+                        ? `${diff.toFixed(2)} kg above estimate (${pct.toFixed(0)}% more).`
+                        : `${Math.abs(diff).toFixed(2)} kg below estimate (${pct.toFixed(0)}% less).`
+                    })()}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div>
@@ -1755,6 +1813,7 @@ const COLUMNS = [
   { key: 'organization_col', label: 'ORGANIZATION' },
   { key: 'location_col',    label: 'BARANGAY' },
   { key: 'date_planted',    label: 'DATE PLANTED' },
+  { key: 'expected_harvest_cell', label: 'EXPECTED HARVEST' },
   { key: 'logs_cell',       label: 'LOGS', center: true },
   { key: 'status_cell',     label: 'STATUS' },
   { key: 'actions',         label: 'ACTIONS' },
@@ -1895,6 +1954,7 @@ export default function CropMonitoringPage() {
         </span>
       </span>
     ) : (rec.date_planted || '—'),
+    expected_harvest_cell: rec.expected_harvest_date || '—',
     location_col: (rec.farm_location_barangay || rec.farmer_barangay)
       ? <span className="flex items-center gap-1"><MapPin className="w-3 h-3 text-[#7A8E7A] flex-shrink-0" />{rec.farm_location_barangay || rec.farmer_barangay}</span>
       : <span className="text-[#A8BCA8]">—</span>,

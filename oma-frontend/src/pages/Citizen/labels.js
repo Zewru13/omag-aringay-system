@@ -939,6 +939,25 @@ export const labels = {
   harvest: {
     titleNew: 'Itala ang ani',
     titleEdit: 'I-edit ang ani',
+    // Shown when record.expected_harvest_date exists, for both domains
+    // (crop and pond share this one modal) — same "N araw" phrasing already
+    // established elsewhere (see overdueDays/daysLeft), not new wording.
+    expectedHarvestLabel: 'Inaasahang ani',
+    expectedHarvestDaysFromNow: (n) => `${n} araw pa`,
+    expectedHarvestDaysAgo: (n) => `${n} araw na nalagpas`,
+    // Live comparison against whichever harvest-date field is currently
+    // filled in — updates as it's picked, not just a static target date.
+    expectedHarvestOnTime: '✓ Tugma sa inaasahang petsa ng ani.',
+    expectedHarvestEarly: (n) => `${n} araw na mas maaga kaysa inaasahan.`,
+    expectedHarvestLate: (n) => `${n} araw na mas huli kaysa inaasahan.`,
+    // Same idea, for the estimated YIELD/quantity (not just the date) —
+    // crop_type.yield_per_ha_kg × area_planted_ha for crops,
+    // species.default_avg_body_weight_kg-based for ponds, both already on
+    // the record.
+    estimatedYieldLabel: 'Inaasahang dami ng ani',
+    estimatedYieldOnTarget: '✓ Tugma sa inaasahang dami.',
+    estimatedYieldAbove: (kg, pct) => `${kg} kg higit pa sa inaasahan (${pct}% mas marami).`,
+    estimatedYieldBelow: (kg, pct) => `${kg} kg mas kulang sa inaasahan (${pct}% mas kaunti).`,
     fields: {
       season: 'Season',
       year: 'Taon',
