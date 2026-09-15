@@ -265,8 +265,21 @@ class RsbsaUpdateImportPreviewView(APIView):
         result_rows = []
         summary = {
             'matched_with_changes': 0, 'matched_no_changes': 0,
-            'classification_mismatch': 0, 'unmatched': 0, 'invalid': 0,
+            'classification_mismatch': 0, 'unmatched': 0, 'duplicate_in_file': 0, 'invalid': 0,
         }
+        # Real bug this fixes: without this check, two rows for the same
+        # RSBSA number (one person appearing more than once in the file —
+        # e.g. one row per crop/parcel) were both independently previewed
+        # as committable. If staff selected both, RsbsaUpdateImportCommitView
+        # processes rows in order inside ONE transaction — the first row's
+        # write is already live by the time the second row's drift check
+        # re-fetches the record, so it always sees "changed since this
+        # preview was generated" even though nothing external touched it;
+        # the row's own sibling in the same batch did. Flagging every row
+        # after the first occurrence as duplicate_in_file (same pattern
+        # CropRecordImportPreviewView already uses) makes only one row per
+        # person selectable at all, so this self-collision can't happen.
+        seen_rsbsa_rows = {}
 
         for p in parsed:
             row, row_number, disposition, reason = p['row'], p['row_number'], p['disposition'], p['reason']
@@ -290,6 +303,35 @@ class RsbsaUpdateImportPreviewView(APIView):
                     'current_values': None,
                 })
                 continue
+
+            first_seen_row = seen_rsbsa_rows.get(rsbsa)
+            if first_seen_row is not None:
+                summary['duplicate_in_file'] += 1
+                result_rows.append({
+                    'row_number': row_number,
+                    'rsbsa_number': rsbsa,
+                    'classification': disposition,
+                    'status': 'duplicate_in_file',
+                    'hold_back_reason': None,
+                    'matched_record_id': None,
+                    'matched_record_type': None,
+                    'matched_record_name': None,
+                    'classification_mismatch': False,
+                    'mismatch_note': None,
+                    'changes': [],
+                    'incoming_values': None,
+                    'current_values': None,
+                    'detail': (
+                        f'RSBSA number {rsbsa} also appears in row {first_seen_row} of this same '
+                        f'file. Only one row per person can be committed per upload — committing '
+                        f'both would make this row\'s own drift check fail against row '
+                        f'{first_seen_row}\'s just-applied change. Pick whichever row has the '
+                        f'correct values and leave the other unselected, or fix the source file '
+                        f'and re-upload.'
+                    ),
+                })
+                continue
+            seen_rsbsa_rows[rsbsa] = row_number
 
             is_farmer = disposition == 'IMPORT-FARMER'
             primary_dict, primary_table = (farmers_by_rsbsa, 'FARMER') if is_farmer else (fisherfolk_by_rsbsa, 'FISHERFOLK')

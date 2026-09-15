@@ -14,6 +14,25 @@ import useRecordLock from '../../hooks/useRecordLock.js'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
+// DRF's default validation-error shape is {field: [message, ...]}, not
+// {detail: message} — a plain `.detail` fallback (the pattern used
+// elsewhere in this file) silently swallows every field-level rejection
+// (future date, harvest before stocking, missing early/late reason) behind
+// a generic "Failed" toast, with no way for the user to know which fired.
+function extractErrorMessage(err, fallback) {
+  const data = err?.response?.data
+  if (data?.detail) return data.detail
+  if (data && typeof data === 'object') {
+    const firstKey = Object.keys(data)[0]
+    const firstVal = data[firstKey]
+    if (firstKey && firstVal) {
+      const msg = Array.isArray(firstVal) ? firstVal[0] : firstVal
+      return msg
+    }
+  }
+  return fallback
+}
+
 function formatMMSS(totalSeconds) {
   const s = Math.max(0, totalSeconds || 0)
   const m = Math.floor(s / 60)
@@ -1378,7 +1397,7 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
       onSuccess()
       onClose()
     } catch (err) {
-      showToast(err?.response?.data?.detail || 'Failed to record harvest.', 'error')
+      showToast(extractErrorMessage(err, 'Failed to record harvest.'), 'error')
     } finally { setIsSubmitting(false) }
   }
 

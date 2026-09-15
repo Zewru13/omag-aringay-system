@@ -20,12 +20,14 @@ const STATUS_TONE = {
   matched_with_changes: 'amber',
   matched_no_changes: 'green',
   unmatched: 'slate',
+  duplicate_in_file: 'rose',
   invalid: 'rose',
 }
 const STATUS_LABEL = {
   matched_with_changes: 'Changes Found',
   matched_no_changes: 'No Changes',
   unmatched: 'Unmatched',
+  duplicate_in_file: 'Duplicate In File',
   invalid: 'Invalid',
 }
 const HOLD_BACK_REASON_TEXT = {
@@ -122,6 +124,7 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
     { key: 'matched_with_changes', label: `${preview.summary.matched_with_changes} Changes Found` },
     { key: 'matched_no_changes', label: `${preview.summary.matched_no_changes} No Changes` },
     { key: 'unmatched', label: `${preview.summary.unmatched} Unmatched` },
+    { key: 'duplicate_in_file', label: `${preview.summary.duplicate_in_file} Duplicate In File` },
     { key: 'invalid', label: `${preview.summary.invalid} Invalid` },
   ] : []
 
@@ -229,10 +232,11 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             <StatTile value={preview.summary.matched_with_changes} label="Changes Found" />
             <StatTile value={preview.summary.matched_no_changes} label="No Changes" />
             <StatTile value={preview.summary.unmatched} label="Unmatched" />
+            <StatTile value={preview.summary.duplicate_in_file} label="Duplicate In File" />
             <StatTile value={preview.summary.invalid} label="Invalid Rows" />
           </div>
 
@@ -310,6 +314,9 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
                           )}
                           {r.status === 'unmatched' && (
                             <p className="mt-0.5 text-[12px] text-[#5A6B5C]">Not yet in the system — commit will register this person as new.</p>
+                          )}
+                          {r.status === 'duplicate_in_file' && (
+                            <p className="mt-0.5 text-[12px] text-rose-600">{r.detail}</p>
                           )}
                           {r.status === 'matched_with_changes' && (
                             <>

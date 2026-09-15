@@ -130,11 +130,11 @@ class CropRecordImportPreviewView(APIView):
         for p in parsed:
             if p['status'] is not None:
                 continue
-            farmer, wrong_domain, fisherfolk = resolve_farmer(p['rsbsa'], farmers_by_rsbsa, fisherfolk_by_rsbsa)
+            farmer, is_dual_citizen, fisherfolk = resolve_farmer(p['rsbsa'], farmers_by_rsbsa, fisherfolk_by_rsbsa)
             p['farmer'] = farmer
-            p['wrong_domain_fisherfolk'] = fisherfolk
+            p['dual_citizen_fisherfolk'] = fisherfolk
             if farmer is None:
-                p['status'] = 'matched_wrong_domain' if wrong_domain else 'farmer_not_found'
+                p['status'] = 'dual_citizen' if is_dual_citizen else 'farmer_not_found'
                 continue
             inc = p['incoming']
             key = (farmer.id, inc['crop_type'].id, inc['variety_used'], inc['date_planted'])
@@ -154,7 +154,7 @@ class CropRecordImportPreviewView(APIView):
                 existing_by_key[(rec.farmer_id, rec.crop_type_id, rec.variety_used, rec.date_planted)] = rec.id
 
         result_rows = []
-        summary = {'ready': 0, 'duplicate_in_file': 0, 'duplicate_in_database': 0, 'farmer_not_found': 0, 'matched_wrong_domain': 0, 'invalid': 0}
+        summary = {'ready': 0, 'duplicate_in_file': 0, 'duplicate_in_database': 0, 'farmer_not_found': 0, 'dual_citizen': 0, 'invalid': 0}
 
         for p in parsed:
             row_number, rsbsa, status = p['row_number'], p['rsbsa'], p['status']
@@ -193,10 +193,10 @@ class CropRecordImportPreviewView(APIView):
                 })
                 continue
 
-            if status == 'matched_wrong_domain':
-                ff = p['wrong_domain_fisherfolk']
+            if status == 'dual_citizen':
+                ff = p['dual_citizen_fisherfolk']
                 inc = p['incoming']
-                summary['matched_wrong_domain'] += 1
+                summary['dual_citizen'] += 1
                 # Treated as a legitimate dual registration, not a data
                 # error: this row's own person-registration fields (same
                 # row shape farmers/rsbsa_import_views.py's _build_incoming
@@ -213,7 +213,7 @@ class CropRecordImportPreviewView(APIView):
                     create_incoming_values = None
                     create_blocked_reason = f'Cannot auto-register a Farmer record for this row: {exc}'
                 result_rows.append({
-                    'row_number': row_number, 'rsbsa_number': rsbsa, 'status': 'matched_wrong_domain',
+                    'row_number': row_number, 'rsbsa_number': rsbsa, 'status': 'dual_citizen',
                     'hold_back_reason': None,
                     'detail': (
                         f'RSBSA number {rsbsa} matches an existing Fisherfolk record (#{ff.id} {ff.full_name}), '
@@ -288,9 +288,9 @@ class CropRecordImportPreviewView(APIView):
 
 
 class CropRecordImportCommitView(APIView):
-    """POST {"rows": [<'ready'/'matched_wrong_domain' row dicts from
+    """POST {"rows": [<'ready'/'dual_citizen' row dicts from
     CropRecordImportPreviewView's response, exactly as returned — only the
-    ones staff selected>]}. Writes ONLY 'ready' and 'matched_wrong_domain'
+    ones staff selected>]}. Writes ONLY 'ready' and 'dual_citizen'
     rows — any other status is refused, matching the preview view's own
     committability. Every row's uniqueness is re-checked live (farmer,
     crop_type, variety_used, date_planted) before creating, in case
@@ -298,7 +298,7 @@ class CropRecordImportCommitView(APIView):
     batch rather than silently creating a duplicate. One transaction: every
     row succeeds or none do.
 
-    'matched_wrong_domain' rows are a dual registration: the RSBSA number
+    'dual_citizen' rows are a dual registration: the RSBSA number
     only matches an existing Fisherfolk, but CropMonitoringRecord.farmer is
     Farmer-only, so the missing Farmer record is created first (same
     rsbsa_number, this row's own person fields, never touching the existing
@@ -343,13 +343,13 @@ class CropRecordImportCommitView(APIView):
         row_number = row.get('row_number')
         status = row.get('status')
 
-        if status == 'matched_wrong_domain':
+        if status == 'dual_citizen':
             return self._commit_dual_registration(row, row_number, batch_id, user, log_entries)
 
         if status != 'ready':
             raise _CommitRowError(
                 row_number,
-                f'status "{status}" is not committable — only ready and matched_wrong_domain rows can be.',
+                f'status "{status}" is not committable — only ready and dual_citizen rows can be.',
             )
 
         farmer_id = row.get('farmer_id')
@@ -363,7 +363,7 @@ class CropRecordImportCommitView(APIView):
         return self._create_crop_record(row, row_number, farmer, user)
 
     def _commit_dual_registration(self, row, row_number, batch_id, user, log_entries):
-        """A `matched_wrong_domain` row: RSBSA matches an existing
+        """A `dual_citizen` row: RSBSA matches an existing
         Fisherfolk, not a Farmer, but CropMonitoringRecord.farmer is
         Farmer-only. Treated as a legitimate dual registration (the same
         real person, genuinely active in both farming and fishing) —

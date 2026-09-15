@@ -35,7 +35,7 @@ class FarmerListView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         from django.utils.timezone import now
-        queryset = Farmer.objects.all().order_by('-date_registered')
+        queryset = Farmer.objects.all().order_by('-date_registered', '-id')
         search = self.request.query_params.get('search')
         status_filter = self.request.query_params.get('status')
         gender_filter = self.request.query_params.get('gender')
@@ -59,6 +59,14 @@ class FarmerListView(generics.ListCreateAPIView):
 
         if gender_filter:
             queryset = queryset.filter(gender__iexact=gender_filter)
+
+        # farm_type lives on FarmParcel (a farmer can have several), not
+        # Farmer itself — matches "has at least one parcel of this type".
+        # distinct() guards against a farmer with 2+ matching parcels
+        # otherwise appearing once per match through the join.
+        farm_type_filter = self.request.query_params.get('farm_type')
+        if farm_type_filter:
+            queryset = queryset.filter(farm_parcels__farm_type__iexact=farm_type_filter).distinct()
 
         if is_senior and is_senior.lower() == 'true':
             today = now().date()

@@ -107,6 +107,12 @@ class Farmer(models.Model):
     # membership, or vice versa.
     is_org_membership_active = models.BooleanField(default=True)
 
+    class Meta:
+        # Backstop matching FarmerListView's own explicit
+        # -date_registered, -id ordering — see
+        # production.models.CropMonitoringRecord.Meta for why -id tie-breaks.
+        ordering = ['-date_registered', '-id']
+
     @property
     def full_name(self):
         names = [self.first_name, self.middle_name, self.last_name]

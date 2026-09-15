@@ -58,7 +58,7 @@ class FarmersOrganizationListCreateView(generics.ListCreateAPIView):
         return FarmersOrganizationDetailSerializer if self.request.method == 'POST' else FarmersOrganizationListSerializer
 
     def get_queryset(self):
-        qs = FarmersOrganization.objects.all().order_by('-date_created')
+        qs = FarmersOrganization.objects.all().order_by('-date_created', '-id')
         search = self.request.query_params.get('search', '').strip()
         if search:
             qs = qs.filter(Q(name__icontains=search) | Q(barangay__icontains=search))
@@ -358,7 +358,7 @@ class FisherfolkOrganizationListCreateView(generics.ListCreateAPIView):
         return FisherfolkOrganizationDetailSerializer if self.request.method == 'POST' else FisherfolkOrganizationListSerializer
 
     def get_queryset(self):
-        qs = FisherfolkOrganization.objects.all().order_by('-date_created')
+        qs = FisherfolkOrganization.objects.all().order_by('-date_created', '-id')
         search = self.request.query_params.get('search', '').strip()
         if search:
             qs = qs.filter(Q(name__icontains=search) | Q(barangay__icontains=search))

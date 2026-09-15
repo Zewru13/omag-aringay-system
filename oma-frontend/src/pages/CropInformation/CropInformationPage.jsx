@@ -78,6 +78,7 @@ const STATUS_TONES = {
 
 const COLUMNS = [
   { key: "crop_type_name", label: "CROP" },
+  { key: "farmer_col", label: "FARMER" },
   { key: "area_ha_fmt", label: "AREA PLANTED (HA)" },
   { key: "date_planted_fmt", label: "DATE PLANTED" },
   { key: "expected_harvest_fmt", label: "ESTIMATED HARVEST DATE" },
@@ -542,6 +543,7 @@ function EditCropModal({ record, onClose, onSaved }) {
         land_status: form.land_status,
         land_status_other_specify: form.land_status === "Other" ? form.land_status_other_specify : "",
         date_planted: form.date_planted,
+        date_planted_is_estimated: false,
         area_planted_ha: form.area_planted_ha || null,
         season: form.season,
         variety_used: form.variety_used,
@@ -710,6 +712,12 @@ function EditCropModal({ record, onClose, onSaved }) {
               value={form.area_planted_ha}
               onChange={(e) => set("area_planted_ha", e.target.value)}
             />
+            {record.date_planted_is_estimated && (
+              <p className="mt-1.5 text-[11px] text-amber-700">
+                This date is an estimate imported from a registry record. Saving this form
+                confirms it as the real planting date and unblocks Record Harvest for this crop.
+              </p>
+            )}
           </div>
         </div>
 
@@ -1090,6 +1098,7 @@ export default function CropInformationPage() {
       area_ha_fmt: rec.area_planted_ha
         ? Number(rec.area_planted_ha).toFixed(2)
         : "—",
+      farmer_col: rec.farmer_name || rec.farmer_full_name || "—",
       date_planted_fmt: fmtShort(rec.date_planted),
       expected_harvest_fmt: fmtShort(rec.expected_harvest_date),
       est_yield_fmt:

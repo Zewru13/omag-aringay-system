@@ -40,8 +40,8 @@ same bulk two-table fetch + fallback approach RsbsaUpdateImportPreviewView's
 classification_mismatch handling proved (see farmers/rsbsa_import_views.py)
 — not to attach a Fisherfolk record here (the model can't hold one), but so
 a person who IS really registered, just under Fisherfolk, is reported as
-that specific, distinct problem (`matched_wrong_domain`) instead of the
-misleading "not found at all" a Farmer-only lookup would otherwise show —
+that specific, legitimate case (`dual_citizen`) instead of the misleading
+"not found at all" a Farmer-only lookup would otherwise show —
 exactly the silent-mismatch failure mode already confirmed for Picar/
 Villanueva/Obra, who appear in these exact crop files.
 """
@@ -173,7 +173,7 @@ def resolve_farmer(rsbsa, farmers_by_rsbsa, fisherfolk_by_rsbsa):
     """Farmer-only resolution with a Fisherfolk fallback used purely to tell
     "not registered at all" apart from "registered, but as Fisherfolk — this
     import can't attach a crop record to that". Returns (farmer_or_None,
-    matched_wrong_domain: bool, fisherfolk_or_None).
+    is_dual_citizen: bool, fisherfolk_or_None).
     CropMonitoringRecord.farmer has no Fisherfolk equivalent, so the second
     case is never committable — it's reported, not silently resolved."""
     farmer = farmers_by_rsbsa.get(rsbsa)

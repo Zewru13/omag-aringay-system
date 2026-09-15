@@ -22,6 +22,44 @@ import useRecordLock from '../../hooks/useRecordLock.js'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
+// DRF's default validation-error shape is {field: [message, ...]}, not
+// {detail: message} — a plain `.detail` fallback (the pattern used
+// elsewhere in this file) silently swallows every field-level rejection
+// from HarvestRecordCreateSerializer's validate() (future date, harvest
+// before planting, missing early/late reason) behind a generic "Failed"
+// toast, with no way for the user to know which of those actually fired.
+// Real kg-per-unit conversion, for the units that genuinely have one — kg
+// (trivial), Metric Ton (1000kg, universal), Cavan (50kg, the standard
+// Philippine grain-trade unit, already self-documented in that exact
+// allowed_units label). Sack/Bundle/Piece/Hand/Crate are deliberately left
+// unconverted (null) — checked directly against DA's own price-monitoring
+// bulletins, which price these strictly per kg, never per sack/bundle/
+// piece: there is no official standard weight for them, it varies by crop,
+// vendor, and region. Returning null here means the comparison below falls
+// back to treating the entered number as already-kg, same as this form's
+// original (pre-conversion) behavior, rather than applying a guessed factor.
+function unitToKgFactor(unit) {
+  const normalized = (unit || '').trim().toLowerCase()
+  if (normalized === 'kg') return 1
+  if (normalized === 'metric ton') return 1000
+  if (normalized.startsWith('cavan')) return 50
+  return null
+}
+
+function extractErrorMessage(err, fallback) {
+  const data = err?.response?.data
+  if (data?.detail) return data.detail
+  if (data && typeof data === 'object') {
+    const firstKey = Object.keys(data)[0]
+    const firstVal = data[firstKey]
+    if (firstKey && firstVal) {
+      const msg = Array.isArray(firstVal) ? firstVal[0] : firstVal
+      return msg
+    }
+  }
+  return fallback
+}
+
 const filterSelectCls =
   'rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[7px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none'
 
@@ -1503,7 +1541,7 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
       onSuccess()
       onClose()
     } catch (err) {
-      showToast(err?.response?.data?.detail || 'Failed to record harvest.', 'error')
+      showToast(extractErrorMessage(err, 'Failed to record harvest.'), 'error')
     } finally { setIsSubmitting(false) }
   }
 
@@ -1646,39 +1684,53 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
             {/* Estimated yield (crop_type.yield_per_ha_kg × area_planted_ha,
                 computed server-side and already on the record) — same live
                 "meeting the estimate or not" comparison as the harvest date
-                above, against what's actually typed here. The rest of this
-                app already treats a Quantity Harvested entry as a raw kg
-                figure regardless of the Unit of Measure label chosen (see
-                HarvestRecordCreateSerializer/volume_kg — no unit conversion
-                happens anywhere before it's summed), so this compares
-                directly without converting either. */}
-            {record.estimated_yield_kg != null && (
-              <div className={`mt-2 rounded-xl border px-3 py-2 text-xs ${
-                !quantityHarvested
-                  ? 'border-slate-200 bg-slate-50 text-slate-600'
-                  : parseFloat(quantityHarvested) >= parseFloat(record.estimated_yield_kg)
-                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                    : 'border-amber-200 bg-amber-50 text-amber-700'
-              }`}>
-                <p>
-                  Estimated yield: <span className="font-medium">
-                    {Number(record.estimated_yield_kg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg
-                  </span>
-                </p>
-                {quantityHarvested && !isNaN(parseFloat(quantityHarvested)) && (
-                  <p className="mt-1 font-medium">
-                    {(() => {
-                      const diff = parseFloat(quantityHarvested) - parseFloat(record.estimated_yield_kg)
-                      const pct = record.estimated_yield_kg != 0 ? Math.abs((diff / parseFloat(record.estimated_yield_kg)) * 100) : 0
-                      if (Math.abs(diff) < 0.01) return '✓ Right at the estimated yield.'
-                      return diff > 0
-                        ? `${diff.toFixed(2)} kg above estimate (${pct.toFixed(0)}% more).`
-                        : `${Math.abs(diff).toFixed(2)} kg below estimate (${pct.toFixed(0)}% less).`
-                    })()}
+                above, against what's actually typed here, converted to kg
+                first via unitToKgFactor whenever the selected Unit of
+                Measure has a real, unambiguous kg equivalent (kg itself,
+                Metric Ton, Cavan). The rest of this app still treats
+                Quantity Harvested as a raw kg figure regardless of unit
+                (see HarvestRecordCreateSerializer/volume_kg) — this
+                comparison is display-only and doesn't change what gets
+                submitted. */}
+            {record.estimated_yield_kg != null && (() => {
+              const kgFactor = unitToKgFactor(unitOfMeasure)
+              const enteredKg = quantityHarvested && !isNaN(parseFloat(quantityHarvested))
+                ? parseFloat(quantityHarvested) * (kgFactor ?? 1)
+                : null
+              return (
+                <div className={`mt-2 rounded-xl border px-3 py-2 text-xs ${
+                  enteredKg === null
+                    ? 'border-slate-200 bg-slate-50 text-slate-600'
+                    : enteredKg >= parseFloat(record.estimated_yield_kg)
+                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                      : 'border-amber-200 bg-amber-50 text-amber-700'
+                }`}>
+                  <p>
+                    Estimated yield: <span className="font-medium">
+                      {Number(record.estimated_yield_kg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg
+                    </span>
                   </p>
-                )}
-              </div>
-            )}
+                  {kgFactor === null && unitOfMeasure !== 'kg' && (
+                    <p className="mt-1 text-slate-500">
+                      No standard kg conversion exists for "{unitOfMeasure}" — this comparison assumes the number
+                      entered is already in kg.
+                    </p>
+                  )}
+                  {enteredKg !== null && (
+                    <p className="mt-1 font-medium">
+                      {(() => {
+                        const diff = enteredKg - parseFloat(record.estimated_yield_kg)
+                        const pct = record.estimated_yield_kg != 0 ? Math.abs((diff / parseFloat(record.estimated_yield_kg)) * 100) : 0
+                        if (Math.abs(diff) < 0.01) return '✓ Right at the estimated yield.'
+                        return diff > 0
+                          ? `${diff.toFixed(2)} kg above estimate (${pct.toFixed(0)}% more).`
+                          : `${Math.abs(diff).toFixed(2)} kg below estimate (${pct.toFixed(0)}% less).`
+                      })()}
+                    </p>
+                  )}
+                </div>
+              )
+            })()}
           </div>
 
           <div>

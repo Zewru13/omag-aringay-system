@@ -142,6 +142,12 @@ class Fisherfolk(models.Model):
     boat_registration_number = models.CharField(max_length=20, blank=True)
     has_vessel          = models.BooleanField(default=True)
 
+    class Meta:
+        # Backstop matching FisherfolkListView's own explicit
+        # -date_registered, -id ordering — see
+        # production.models.CropMonitoringRecord.Meta for why -id tie-breaks.
+        ordering = ['-date_registered', '-id']
+
     @property
     def full_name(self):
         return ' '.join(n for n in [self.first_name, self.middle_name, self.last_name] if n).strip()
@@ -428,7 +434,10 @@ class Pond(models.Model):
     date_created = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['fisherfolk_id', 'date_created']
+        # -id tie-breaks -date_created: real ponds created in the same
+        # request/batch share one identical second-precision timestamp
+        # (confirmed against live data).
+        ordering = ['-date_created', '-id']
 
     def save(self, *args, **kwargs):
         if not self.name and self.fisherfolk_id:
@@ -521,6 +530,9 @@ class StockingRecord(models.Model):
     date_recorded = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        # Backstop matching StockingListCreateView's own explicit
+        # -date_recorded, -id ordering — see CropMonitoringRecord.Meta for why.
+        ordering = ['-date_recorded', '-id']
         indexes = [
             models.Index(fields=['status']),
             models.Index(fields=['expected_harvest_date']),
@@ -791,7 +803,10 @@ class FisheriesActivityLog(models.Model):
     )
 
     class Meta:
-        ordering = ['-date_of_activity']
+        # -id tie-breaks -date_of_activity (a plain DateField — day
+        # precision): logging several activities for the same real day is
+        # routine, not an edge case.
+        ordering = ['-date_of_activity', '-id']
 
     def __str__(self):
         return f'{self.activity} on {self.date_of_activity}'
@@ -868,7 +883,9 @@ class FisheriesDisasterReport(models.Model):
     date_reported       = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['-date_of_occurrence']
+        # -id tie-breaks -date_of_occurrence (a plain DateField — day
+        # precision) since two disasters reported the same day are common.
+        ordering = ['-date_of_occurrence', '-id']
 
     @property
     def owner_fisherfolk(self):

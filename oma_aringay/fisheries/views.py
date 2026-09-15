@@ -72,7 +72,7 @@ class FisherfolkListView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         from django.utils.timezone import now
-        qs = Fisherfolk.objects.all().order_by('-date_registered')
+        qs = Fisherfolk.objects.all().order_by('-date_registered', '-id')
         params = self.request.query_params
         search = params.get('search', '').strip()
         if search:
@@ -379,7 +379,13 @@ class PondListCreateView(generics.ListCreateAPIView):
             return None
 
     def get_queryset(self):
-        return Pond.objects.filter(fisherfolk_id=self.kwargs['fisherfolk_id']).order_by('date_created')
+        # Newest-first, matching every other list in this app (Farmers,
+        # Fisherfolk, Organizations, Stocking/Harvest/Crop records, Audit
+        # Log) — this used to sort oldest-first, the one real exception.
+        # -id tie-breaks -date_created: confirmed against real data that
+        # ponds created in the same request/batch share one identical
+        # second-precision timestamp (e.g. fisherfolk #18's 4 ponds).
+        return Pond.objects.filter(fisherfolk_id=self.kwargs['fisherfolk_id']).order_by('-date_created', '-id')
 
     def perform_create(self, serializer):
         serializer.save(fisherfolk_id=self.kwargs['fisherfolk_id'])
@@ -447,7 +453,7 @@ class StockingListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         qs = StockingRecord.objects.select_related(
             'fisherfolk', 'species', 'species__category', 'recorded_by',
-        ).prefetch_related('logs', 'disaster_reports', 'harvests').order_by('-date_recorded')
+        ).prefetch_related('logs', 'disaster_reports', 'harvests').order_by('-date_recorded', '-id')
 
         if self.request.user.role == 'CITIZEN':
             fisherfolk_id = self.request.user.get_linked_fisherfolk_id()
@@ -867,9 +873,12 @@ class StockingActivityLogListCreateView(generics.ListCreateAPIView):
             return None
 
     def get_queryset(self):
+        # -id tie-breaks -date_of_activity (a plain DateField — day
+        # precision): logging several activities for the same real day is
+        # routine, not an edge case.
         return FisheriesActivityLog.objects.filter(
             stocking_record_id=self.kwargs['stocking_id']
-        ).order_by('-date_of_activity')
+        ).order_by('-date_of_activity', '-id')
 
     def perform_create(self, serializer):
         stocking_id = self.kwargs.get('stocking_id')
@@ -947,7 +956,7 @@ class StockingDisasterReportListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         return FisheriesDisasterReport.objects.filter(
             stocking_record_id=self.kwargs['stocking_id']
-        ).order_by('-date_of_occurrence')
+        ).order_by('-date_of_occurrence', '-id')
 
     def perform_create(self, serializer):
         stocking_id = self.kwargs['stocking_id']
@@ -1090,7 +1099,7 @@ class GeneralDisasterReportListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         qs = FisheriesDisasterReport.objects.filter(
             stocking_record__isnull=True,
-        ).select_related('fisherfolk').order_by('-date_of_occurrence')
+        ).select_related('fisherfolk').order_by('-date_of_occurrence', '-id')
         params = self.request.query_params
         if params.get('fisherfolk'):
             qs = qs.filter(fisherfolk_id=params['fisherfolk'])

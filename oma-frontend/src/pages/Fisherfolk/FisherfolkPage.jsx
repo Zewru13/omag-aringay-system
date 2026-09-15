@@ -204,7 +204,10 @@ function FisherfolkPage({ asTab = false }) {
         <select className={filterSelectCls} value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
           <option value="all">All Types</option>
           <option value="Aquaculture">Aquaculture</option>
-          <option value="Capture">Capture</option>
+          <option value="Capture">Capture Fishery</option>
+          <option value="Mariculture">Mariculture</option>
+          <option value="Inland">Inland Fishery</option>
+          <option value="Unspecified">Not Yet Classified</option>
         </select>
         <label className="flex items-center gap-2 text-[13px] text-[#4A5E4A] cursor-pointer">
           <input

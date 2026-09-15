@@ -137,6 +137,12 @@ class BeneficiaryRecord(models.Model):
     non_receipt_reason = models.TextField(blank=True)
     follow_up_notes = models.TextField(blank=True)
 
+    class Meta:
+        # Backstop matching every real BeneficiaryRecord queryset's own
+        # explicit -date_given, -id ordering — see CropMonitoringRecord.Meta
+        # (production/models.py) for why.
+        ordering = ['-date_given', '-id']
+
     def save(self, *args, **kwargs):
         if self.farmer_id:
             farmer = self.farmer
@@ -216,6 +222,12 @@ class FisherfolkBeneficiaryRecord(models.Model):
     confirmed_at = models.DateTimeField(null=True, blank=True)
     non_receipt_reason = models.TextField(blank=True)
     follow_up_notes = models.TextField(blank=True)
+
+    class Meta:
+        # Backstop matching every real FisherfolkBeneficiaryRecord
+        # queryset's own explicit -date_given, -id ordering — see
+        # BeneficiaryRecord.Meta above for why.
+        ordering = ['-date_given', '-id']
 
     def save(self, *args, **kwargs):
         if self.fisherfolk_id:

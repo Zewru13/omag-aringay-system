@@ -49,6 +49,12 @@ class FarmersOrganization(models.Model):
     is_active = models.BooleanField(default=True)
     date_created = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        # Backstop matching FarmersOrganizationListCreateView's own
+        # explicit -date_created, -id ordering — see CropMonitoringRecord.Meta
+        # (production/models.py) for why.
+        ordering = ['-date_created', '-id']
+
     def __str__(self):
         return self.name
 
@@ -208,6 +214,12 @@ class FisherfolkOrganization(models.Model):
     logo                = models.ImageField(upload_to='logos/fisherfolk_orgs/', null=True, blank=True)
     is_active           = models.BooleanField(default=True)
     date_created        = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # Backstop matching FisherfolkOrganizationListCreateView's own
+        # explicit -date_created, -id ordering — see CropMonitoringRecord.Meta
+        # (production/models.py) for why.
+        ordering = ['-date_created', '-id']
 
     def __str__(self):
         return self.name

@@ -958,6 +958,10 @@ export const labels = {
     estimatedYieldOnTarget: '✓ Tugma sa inaasahang dami.',
     estimatedYieldAbove: (kg, pct) => `${kg} kg higit pa sa inaasahan (${pct}% mas marami).`,
     estimatedYieldBelow: (kg, pct) => `${kg} kg mas kulang sa inaasahan (${pct}% mas kaunti).`,
+    // Shown when the chosen Unit of Measure has no real, standard kg
+    // conversion (e.g. "sacks", "bundles") — the comparison above falls
+    // back to treating the entered number as kg already.
+    estimatedYieldNoConversion: (unit) => `Walang standard na kg conversion para sa "${unit}" — ipinapalagay ng paghahambing na ito na kg na ang inyong inilagay.`,
     fields: {
       season: 'Season',
       year: 'Taon',

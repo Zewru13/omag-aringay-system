@@ -69,7 +69,7 @@ class HarvestRecordListView(generics.ListAPIView):
             'farm_parcel',
             'farm_parcel__farmer',
             'recorded_by',
-        ).order_by('-date_recorded')
+        ).order_by('-date_recorded', '-id')
 
         year = self.request.query_params.get('year')
         season = self.request.query_params.get('season')
@@ -742,9 +742,15 @@ class CropMonitoringListCreateView(generics.ListCreateAPIView):
         return [IsAuthenticated(), IsAdminOrEvaluator()]
 
     def get_queryset(self):
+        # -id tie-breaks -date_recorded: real bulk imports/seeds routinely
+        # create several rows in the same request, sharing one
+        # auto_now_add second-precision timestamp — confirmed against live
+        # data (multiple real date_recorded values shared by 2-3 rows).
+        # Without -id, ties fall back to undefined DB order instead of
+        # staying newest-inserted-first.
         qs = CropMonitoringRecord.objects.select_related(
             'farm_parcel', 'farm_parcel__farmer', 'farmer', 'crop_type', 'recorded_by', 'farmers_organization',
-        ).prefetch_related('activity_logs', 'labor_logs', 'harvest_records').order_by('-date_recorded')
+        ).prefetch_related('activity_logs', 'labor_logs', 'harvest_records').order_by('-date_recorded', '-id')
         qs = qs.annotate(
             has_disaster=Exists(
                 CropDisasterReport.objects.filter(
@@ -1256,9 +1262,12 @@ class CropActivityLogListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         monitoring_id = self.kwargs.get('monitoring_id')
+        # -id tie-breaks -date_of_activity (a plain DateField — day
+        # precision): logging several activities for the same real day is
+        # routine, not an edge case, so ties here are common in practice.
         return CropActivityLog.objects.filter(
             monitoring_record_id=monitoring_id,
-        ).order_by('-date_of_activity')
+        ).order_by('-date_of_activity', '-id')
 
     def perform_create(self, serializer):
         monitoring_id = self.kwargs.get('monitoring_id')

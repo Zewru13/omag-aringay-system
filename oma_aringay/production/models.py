@@ -284,6 +284,13 @@ class CropMonitoringRecord(models.Model):
     )
     date_recorded = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        # Backstop matching CropMonitoringListCreateView's own explicit
+        # -date_recorded, -id ordering, so any other/future query against
+        # this model defaults to newest-first too, the same convention
+        # every other real record table in this app already follows.
+        ordering = ['-date_recorded', '-id']
+
     def save(self, *args, **kwargs):
         if self.date_planted and self.crop_type_id:
             try:
@@ -445,6 +452,13 @@ class CropActivityLog(models.Model):
         related_name='crop_activity_logs',
     )
 
+    class Meta:
+        # Backstop matching CropActivityLogListCreateView's own explicit
+        # -date_of_activity, -id ordering — see CropMonitoringRecord.Meta
+        # for why -id tie-breaks (here even more likely: logging several
+        # activities on the same real day is routine).
+        ordering = ['-date_of_activity', '-id']
+
     def __str__(self):
         return f'{self.activity_type} on {self.date_of_activity}'
 
@@ -508,7 +522,10 @@ class CropDisasterReport(models.Model):
     date_reported = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        ordering = ['-date_of_occurrence']
+        # -id tie-breaks -date_of_occurrence (a plain DateField — day
+        # precision, not datetime) since two disasters reported the same
+        # day are common and would otherwise fall back to undefined order.
+        ordering = ['-date_of_occurrence', '-id']
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
@@ -601,6 +618,11 @@ class HarvestRecord(models.Model):
     )
     date_recorded = models.DateTimeField(auto_now_add=True)
     remarks = models.TextField(blank=True)
+
+    class Meta:
+        # Backstop matching HarvestRecordListView's own explicit
+        # -date_recorded, -id ordering — see CropMonitoringRecord.Meta for why.
+        ordering = ['-date_recorded', '-id']
 
     def clean(self):
         if self.harvest_start_date and self.harvest_end_date:

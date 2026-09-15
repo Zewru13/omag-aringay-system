@@ -10,16 +10,41 @@ import { labels } from './labels.js'
 import { todayISO } from '../../utils/localDate.js'
 
 
+// Real kg-per-unit conversion, for the units that genuinely have one — kg
+// (trivial), and bags/cavan, both already self-declared as 50kg in this
+// exact form's own unit labels (labels.harvest.unitOptions: "Bag (50 kg/
+// bag)", "Kaban (50 kg/kaban)") — using the figure this app already commits
+// to in its own UI text, not a new guess. sacks/pieces/bundles/boxes/other
+// are deliberately left unconverted (null) — no equivalent self-declared
+// weight exists for them, and checked directly against DA's own price-
+// monitoring bulletins, which price fresh produce strictly per kg, never
+// per sack/piece/bundle: there is no official standard weight for them, it
+// varies by crop, vendor, and region. Returning null means the comparison
+// below falls back to treating the entered number as already-kg, same as
+// this form's original (pre-conversion) behavior, rather than applying a
+// guessed factor.
+function unitToKgFactor(unit) {
+  const normalized = (unit || '').trim().toLowerCase()
+  if (normalized === 'kg') return 1
+  if (normalized === 'bags' || normalized === 'cavan') return 50
+  return null
+}
+
 // Live "am I meeting the estimated yield or not" comparison — same idea as
 // the expected-harvest-date banner above, for the quantity fields instead.
 // estimatedKg comes straight off the record (crop_type.yield_per_ha_kg ×
 // area_planted_ha for crops, species-based for ponds); enteredKg is
 // whichever quantity field this domain's form uses (volume_kg / quantity_kg).
-function EstimatedYieldComparison({ estimatedKg, enteredKg }) {
+// unit is only ever passed for the crop side — the pond side has no Unit of
+// Measure field at all (quantity_kg is always kg), so it's optional and
+// defaults to a no-op (factor 1, no note).
+function EstimatedYieldComparison({ estimatedKg, enteredKg, unit }) {
   if (estimatedKg == null) return null
+  const kgFactor = unit != null ? unitToKgFactor(unit) : 1
   const entered = parseFloat(enteredKg)
   const hasEntry = enteredKg !== '' && !isNaN(entered)
-  const diff = hasEntry ? entered - parseFloat(estimatedKg) : null
+  const enteredAsKg = hasEntry ? entered * (kgFactor ?? 1) : null
+  const diff = hasEntry ? enteredAsKg - parseFloat(estimatedKg) : null
   const pct = hasEntry && estimatedKg != 0 ? Math.abs((diff / parseFloat(estimatedKg)) * 100) : 0
   const meetsOrExceeds = hasEntry && diff >= 0
   return (
@@ -35,6 +60,11 @@ function EstimatedYieldComparison({ estimatedKg, enteredKg }) {
           {Number(estimatedKg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg
         </span>
       </p>
+      {kgFactor === null && unit && unit !== 'kg' && (
+        <p className="mt-1 text-slate-500">
+          {labels.harvest.estimatedYieldNoConversion(labels.harvest.unitOptions[unit] || unit)}
+        </p>
+      )}
       {hasEntry && (
         <p className="mt-1 font-medium">
           {Math.abs(diff) < 0.01
@@ -237,7 +267,7 @@ export default function CitizenHarvestModal({ domain, record, harvest, onClose, 
                   </select>
                 </FormField>
               </div>
-              <EstimatedYieldComparison estimatedKg={record.estimated_yield_kg} enteredKg={form.volume_kg} />
+              <EstimatedYieldComparison estimatedKg={record.estimated_yield_kg} enteredKg={form.volume_kg} unit={form.unit_of_measure} />
             </>
           ) : (
             <>
