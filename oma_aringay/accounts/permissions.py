@@ -151,16 +151,19 @@ def _person_is_org_member(linked_record_type, org_id, person_id):
     attributed_fisherfolk_organization (interventions.models), which can
     legitimately point at a DIFFERENT organization than the one doing the
     reporting — that's exactly the scenario this batch exists to get right.
-      - FARMERS_ORG: Farmer.farmers_organization is the only live
-        mechanism (FarmersOrganizationMember confirmed dormant, 0 rows).
-      - FISHERFOLK_ORG: FisherfolkOrganizationMember join rows — the live,
-        genuinely-multi-membership mechanism for this domain.
+
+    Batch (Phase B): both domains now go through the identical real,
+    genuinely-multi-membership mechanism — FarmersOrganizationMember /
+    FisherfolkOrganizationMember join rows (Farmer.farmers_organization no
+    longer exists).
     """
     if org_id is None or person_id is None:
         return False
     if linked_record_type == 'FARMERS_ORG':
-        from farmers.models import Farmer
-        return Farmer.objects.filter(id=person_id, farmers_organization_id=org_id).exists()
+        from associations.models import FarmersOrganizationMember
+        return FarmersOrganizationMember.objects.filter(
+            farmer_id=person_id, organization_id=org_id,
+        ).exists()
     if linked_record_type == 'FISHERFOLK_ORG':
         from associations.models import FisherfolkOrganizationMember
         return FisherfolkOrganizationMember.objects.filter(

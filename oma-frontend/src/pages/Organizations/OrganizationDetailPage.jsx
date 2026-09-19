@@ -294,9 +294,12 @@ function MemberSearchInput({ type, organizationId, onSelect, selected }) {
   const debounceRef = useRef(null);
   const wrapperRef = useRef(null);
 
-  const getId = (item) => (type === "farmers" ? item.id : item.fisherfolk);
-  const getName = (item) => (type === "farmers" ? item.full_name : item.fisherfolk_full_name);
-  const getBarangay = (item) => (type === "farmers" ? item.barangay : item.fisherfolk_barangay);
+  // Batch (Phase B): both domains' member-search results are real join
+  // rows now — `item.id` is the JOIN ROW id, not the person's, on either
+  // side (matches the Members tab shape below).
+  const getId = (item) => (type === "farmers" ? item.farmer : item.fisherfolk);
+  const getName = (item) => (type === "farmers" ? item.farmer_full_name : item.fisherfolk_full_name);
+  const getBarangay = (item) => (type === "farmers" ? item.farmer_barangay : item.fisherfolk_barangay);
 
   const doSearch = useCallback(
     async (q) => {
@@ -794,11 +797,11 @@ function OrganizationDetailPage() {
   // heldPosition only matters when deactivating (targetActive === false),
   // sourced from the same officer roster the roster tab already renders.
   const [confirmSetMemberActive, setConfirmSetMemberActive] = useState(null);
+  const [deactivateReason, setDeactivateReason] = useState("");
   const [confirmRemoveEquipment, setConfirmRemoveEquipment] = useState(null);
   const [endTermOfficer, setEndTermOfficer] = useState(null);
   const [showAssignOfficer, setShowAssignOfficer] = useState(false);
   const [showOfficerHistory, setShowOfficerHistory] = useState(false);
-  const [members, setMembers] = useState([]);
 
   const typeLabel = type === "farmers" ? "Farmers" : "Fisherfolk";
   const memberIdLabel = type === "farmers" ? "RSBSA Number" : "LGU Number";
@@ -809,15 +812,14 @@ function OrganizationDetailPage() {
 
   // Toggle-not-delete batch: which officer position (if any) a member row
   // currently holds, so the deactivate confirmation can warn about it —
-  // same warning the citizen-side flow already gives. Farmers members ARE
-  // Farmer rows (m.id is the farmer id, matching officer.farmer_id
-  // directly); Fisherfolk members are join rows (m.id is the join-row id,
-  // but officer.fisherfolk_id is the PERSON's id — m.fisherfolk is the
-  // field that actually matches it).
+  // same warning the citizen-side flow already gives. Batch (Phase B):
+  // both domains' members are now join rows the same shape — m[farmer|
+  // fisherfolk] is the PERSON's id (m.id is the join row's own id), which
+  // is what officer.farmer_id / officer.fisherfolk_id actually match.
   const heldPositionFor = (m) => {
     const officers = organization?.officers || [];
     const officer = type === "farmers"
-      ? officers.find((o) => o.farmer_id === m.id)
+      ? officers.find((o) => o.farmer_id === m.farmer)
       : officers.find((o) => o.fisherfolk_id === m.fisherfolk);
     return officer ? officer.position : null;
   };
@@ -842,33 +844,40 @@ function OrganizationDetailPage() {
     };
   }, [type, id, refreshKey]);
 
-  useEffect(() => {
-    if (type !== "farmers") return;
-    api.get(`/farmers/?farmers_organization=${id}`)
-      .then(r => setMembers(r.data.results || r.data))
-      .catch(console.error);
-  }, [type, id, refreshKey]);
-
   // Toggle-not-delete batch: was a hard DELETE (Farmers: nulled
   // Farmer.farmers_organization; Fisherfolk: deleted the join row). Both
   // sides now PATCH {is_active} on the exact same URLs instead — the
   // member's record and history stay intact either way, and this same
-  // action run again with the opposite target reverses it.
+  // action run again with the opposite target reverses it. Batch (Phase B):
+  // both domains now use the identical staff-only URL shape.
   const handleSetMemberActive = async () => {
     if (!confirmSetMemberActive) return;
     const { id: memberId, targetActive } = confirmSetMemberActive;
+    const payload = targetActive
+      ? { is_active: targetActive }
+      : { is_active: targetActive, reason: deactivateReason.trim() };
     try {
-      if (type === "farmers") {
-        await api.patch(`/organizations/farmers/${id}/members/${memberId}/`, { is_active: targetActive });
-      } else {
-        await api.patch(`/organizations/${type}/members/${memberId}/`, { is_active: targetActive });
-      }
+      await api.patch(`/organizations/${type}/members/${memberId}/`, payload);
       showToast(targetActive ? "Member reactivated." : "Member deactivated.", "success");
       setRefreshKey((k) => k + 1);
     } catch (err) {
       showToast(err.response?.data?.detail || "Unable to update member.", "error");
     } finally {
       setConfirmSetMemberActive(null);
+      setDeactivateReason("");
+    }
+  };
+
+  // Batch (Phase B): explicit "make this the main organization" override —
+  // low-risk/reversible (just re-run on a different membership), so no
+  // confirmation dialog, matching how lightweight the action actually is.
+  const handleSetMain = async (memberId) => {
+    try {
+      await api.post(`/organizations/${type}/${id}/members/${memberId}/set-main/`);
+      showToast("Main organization updated.", "success");
+      setRefreshKey((k) => k + 1);
+    } catch (err) {
+      showToast(err.response?.data?.detail || "Unable to update main organization.", "error");
     }
   };
 
@@ -1019,7 +1028,7 @@ function OrganizationDetailPage() {
                   tabs={sectionTabs}
                   onChange={setActiveSection}
                 />
-                {(isAdmin || isEvaluator) && type !== "farmers" &&
+                {(isAdmin || isEvaluator) &&
                   (activeSection === "members" ? (
                     <button
                       className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
@@ -1039,80 +1048,11 @@ function OrganizationDetailPage() {
                   ))}
               </div>
 
-              {/* Members tab — farmers (auto-populated from farmer profiles) */}
-              {activeSection === "members" && type === "farmers" && (
-                <div className="rounded-xl border border-[#E2E8E2] overflow-hidden">
-                  <div className="flex items-center justify-between px-5 py-4 border-b border-[#F0F4F0]">
-                    <div>
-                      <h3 className="text-[14px] font-semibold text-[#1A2B1A]">Organization Members</h3>
-                      <p className="text-[12px] text-[#7A8E7A] mt-0.5">Farmers registered under this organization</p>
-                    </div>
-                    <span className="text-[12px] font-medium bg-[#EBF5EE] text-[#1B4D2E] px-2.5 py-1 rounded-full">
-                      {members.length} members
-                    </span>
-                  </div>
-                  {members.length === 0 ? (
-                    <div className="text-center py-10 px-6">
-                      <Users className="w-10 h-10 text-[#C8D5C8] mx-auto mb-2" />
-                      <p className="text-[13px] text-[#7A8E7A]">No members yet</p>
-                      <p className="text-[12px] text-[#7A8E7A] mt-1">
-                        Farmers can be linked to this organization through their profile registration or edit.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="bg-[#1B4D2E]">
-                            <th className="text-white text-[11px] font-semibold uppercase tracking-wider px-4 py-[11px] text-left">Name</th>
-                            <th className="text-white text-[11px] font-semibold uppercase tracking-wider px-4 py-[11px] text-left">Barangay</th>
-                            <th className="text-white text-[11px] font-semibold uppercase tracking-wider px-4 py-[11px] text-left">RSBSA No.</th>
-                            <th className="text-white text-[11px] font-semibold uppercase tracking-wider px-4 py-[11px] text-left">Status</th>
-                            {(isAdmin || isEvaluator) && (
-                              <th className="px-4 py-[11px]" />
-                            )}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {members.map(m => {
-                            const isActive = m.is_org_membership_active !== false;
-                            return (
-                            <tr key={m.id} className={`border-b border-[#F0F4F0] hover:bg-[#F9FAF9] transition-colors ${isActive ? '' : 'opacity-60'}`}>
-                              <td className="px-4 py-[13px] text-[13px] font-medium text-[#1A2B1A]">{m.full_name}</td>
-                              <td className="px-4 py-[13px] text-[13px] text-[#4A5E4A]">{m.barangay}</td>
-                              <td className="px-4 py-[13px] text-[13px] text-[#4A5E4A]">{m.rsbsa_number}</td>
-                              <td className="px-4 py-[13px]">
-                                <StatusPill tone={isActive ? 'green' : 'slate'}>{isActive ? 'Active' : 'Inactive'}</StatusPill>
-                              </td>
-                              {(isAdmin || isEvaluator) && (
-                                <td className="px-4 py-[13px]">
-                                  <Button
-                                    className={isActive ? '!text-rose-600' : '!text-[#1B4D2E]'}
-                                    icon={Power}
-                                    onClick={() => setConfirmSetMemberActive({
-                                      id: m.id, name: m.full_name, targetActive: !isActive,
-                                      heldPosition: heldPositionFor(m),
-                                    })}
-                                    size="sm"
-                                    type="button"
-                                    variant="ghost"
-                                  >
-                                    {isActive ? 'Deactivate' : 'Activate'}
-                                  </Button>
-                                </td>
-                              )}
-                            </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Members tab — fisherfolk (manual add/remove) */}
-              {activeSection === "members" && type !== "farmers" &&
+              {/* Members tab — Batch (Phase B): both domains are real join
+                  rows now (organization.members, from
+                  Farmers/FisherfolkOrganizationMemberSerializer), so this is
+                  one shared table shape instead of two near-duplicates. */}
+              {activeSection === "members" &&
                 (organization.members.length === 0 ? (
                   <p className="rounded-lg bg-[#F5F7F5] px-4 py-3 text-[13px] text-[#7A8E7A]">
                     No members recorded.
@@ -1127,6 +1067,7 @@ function OrganizationDetailPage() {
                             <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">{memberIdLabel}</th>
                             <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Position</th>
                             <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Date Joined</th>
+                            <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Main</th>
                             <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Status</th>
                             {(isAdmin || isEvaluator) && (
                               <th className="px-4 py-[11px]" />
@@ -1153,7 +1094,24 @@ function OrganizationDetailPage() {
                                 {formatDate(m.date_joined)}
                               </td>
                               <td className="px-4 py-[13px]">
-                                <StatusPill tone={isActive ? 'green' : 'slate'}>{isActive ? 'Active' : 'Inactive'}</StatusPill>
+                                {m.is_main ? (
+                                  <StatusPill tone="green">Main</StatusPill>
+                                ) : isActive && (isAdmin || isEvaluator) ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSetMain(m.id)}
+                                    className="text-[12px] font-medium text-[#7A8E7A] hover:text-[#1B4D2E] transition-colors underline decoration-dotted underline-offset-2"
+                                  >
+                                    Set as main
+                                  </button>
+                                ) : (
+                                  <span className="text-[12px] text-[#A8BCA8]">—</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-[13px]">
+                                <span title={!isActive ? m.deactivation_reason || '' : undefined}>
+                                  <StatusPill tone={isActive ? 'green' : 'slate'}>{isActive ? 'Active' : 'Inactive'}</StatusPill>
+                                </span>
                               </td>
                               {(isAdmin || isEvaluator) && (
                                 <td className="px-4 py-[13px]">
@@ -1327,7 +1285,7 @@ function OrganizationDetailPage() {
         )}
       </div>
 
-      {showAddMember && type !== "farmers" && (
+      {showAddMember && (
         <AddMemberModal
           type={type}
           organizationId={id}
@@ -1370,8 +1328,12 @@ function OrganizationDetailPage() {
           }
           confirmLabel={confirmSetMemberActive.targetActive ? "Reactivate" : "Deactivate"}
           danger={!confirmSetMemberActive.targetActive}
+          showReasonInput={!confirmSetMemberActive.targetActive}
+          reasonValue={deactivateReason}
+          onReasonChange={setDeactivateReason}
+          reasonPlaceholder="Why is this member being deactivated? (optional)"
           onConfirm={handleSetMemberActive}
-          onCancel={() => setConfirmSetMemberActive(null)}
+          onCancel={() => { setConfirmSetMemberActive(null); setDeactivateReason(""); }}
         />
       )}
 

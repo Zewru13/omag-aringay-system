@@ -45,8 +45,8 @@ function formatDateLong(iso) {
   return new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).format(new Date(iso + 'T00:00:00'))
 }
 
-const STATUS_TONE = { created: 'green', skipped: 'slate', error: 'rose' }
-const STATUS_LABEL = { created: 'Created', skipped: 'Skipped', error: 'Error' }
+const STATUS_TONE = { created: 'green', skipped: 'slate', blocked: 'rose', error: 'rose' }
+const STATUS_LABEL = { created: 'Created', skipped: 'Skipped', blocked: 'Blocked', error: 'Error' }
 
 // New capability alongside the existing one-by-one "Report/Log Assistance"
 // flow (AddAssistanceModal / LogGovernmentAssistanceModal) — creates ONE
@@ -158,8 +158,8 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
   }
 
   const skippedInPreview = (preview?.results || []).filter((r) => r.status === 'skipped')
-  const flaggedInPreview = (preview?.results || []).filter((r) => r.note)
-  const eligibleCount = preview ? preview.member_count - skippedInPreview.length : 0
+  const blockedInPreview = (preview?.results || []).filter((r) => r.status === 'would_block')
+  const eligibleCount = preview ? preview.member_count - skippedInPreview.length - blockedInPreview.length : 0
 
   const assistanceTypeDisplay = form.assistance_type === 'Other' ? form.assistance_type_other.trim() : form.assistance_type
   const quantityDisplay = isCashAssistance ? `₱${form.cash_amount} per head` : (form.quantity || '—')
@@ -167,19 +167,18 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
   const createdResults = (finalResult?.results || []).filter((r) => r.status === 'created')
   const skippedResults = (finalResult?.results || []).filter((r) => r.status === 'skipped')
   const errorResults   = (finalResult?.results || []).filter((r) => r.status === 'error')
-  const flaggedResults = (finalResult?.results || []).filter((r) => r.note)
+  const blockedResults = (finalResult?.results || []).filter((r) => r.status === 'blocked')
 
   const RESULT_TABS = finalResult ? [
     { key: 'all',     label: `All ${finalResult.results.length}` },
     { key: 'created', label: `${createdResults.length} Created` },
     ...(skippedResults.length ? [{ key: 'skipped', label: `${skippedResults.length} Skipped` }] : []),
-    ...(flaggedResults.length ? [{ key: 'flagged', label: `${flaggedResults.length} Flagged` }] : []),
+    ...(blockedResults.length ? [{ key: 'blocked', label: `${blockedResults.length} Blocked` }] : []),
     ...(errorResults.length ? [{ key: 'error', label: `${errorResults.length} Error` }] : []),
   ] : []
 
   const visibleResults = !finalResult ? [] : finalResult.results.filter((r) => {
     if (resultFilter === 'all') return true
-    if (resultFilter === 'flagged') return !!r.note
     return r.status === resultFilter
   })
 
@@ -338,7 +337,7 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
           <div className="grid grid-cols-3 gap-3">
             <StatTile value={preview.member_count} label="Total members" />
             <StatTile value={eligibleCount} label="Eligible recipients" />
-            <StatTile value={flaggedInPreview.length} label="Flagged / needs review" />
+            <StatTile value={blockedInPreview.length} label="Blocked — already received" />
           </div>
 
           {skippedInPreview.length > 0 && (
@@ -355,20 +354,22 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
             </div>
           )}
 
-          {flaggedInPreview.length > 0 && (
-            <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4">
+          {blockedInPreview.length > 0 && (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
               <div className="flex items-center gap-2">
-                <AlertTriangle size={16} className="text-sky-800" aria-hidden="true" />
-                <p className="text-[13px] font-semibold text-sky-800">{flaggedInPreview.length} member(s) flagged for review</p>
+                <AlertTriangle size={16} className="text-rose-700" aria-hidden="true" />
+                <p className="text-[13px] font-semibold text-rose-700">{blockedInPreview.length} member(s) will be blocked</p>
               </div>
-              <p className="mt-1.5 text-[13px] text-sky-700">
-                These members will still receive their record automatically — the flag is a note for staff, in case the same assistance was already given elsewhere recently.
+              <p className="mt-1.5 text-[13px] text-rose-700">
+                These members will NOT receive a record — they already received this assistance type from
+                another organization within the last 30 days. Only one organization's distribution counts
+                per person in that window.
               </p>
               <div className="mt-3 space-y-2">
-                {flaggedInPreview.map((r) => (
+                {blockedInPreview.map((r) => (
                   <div key={r.person_id} className="rounded-xl bg-white p-3">
                     <p className="text-[13px] font-medium text-[#1A2B1A]">{r.name}</p>
-                    <p className="mt-0.5 text-[12px] text-sky-700">{r.note}</p>
+                    <p className="mt-0.5 text-[12px] text-rose-700">{r.reason}</p>
                   </div>
                 ))}
               </div>
@@ -379,8 +380,8 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
             <p className="mb-2 text-[13px] font-semibold text-[#1A2B1A]">Summary of what will happen:</p>
             <ul className="space-y-1 text-[13px] text-[#4A5A4C]">
               <li><span className="font-semibold text-[#1E5637]">{eligibleCount} record(s) created</span> — assistance logged for {eligibleCount} member{eligibleCount === 1 ? '' : 's'}</li>
-              {flaggedInPreview.length > 0 && (
-                <li><span className="font-semibold text-sky-700">{flaggedInPreview.length} flagged with a note</span> — already counted above, staff should review</li>
+              {blockedInPreview.length > 0 && (
+                <li><span className="font-semibold text-rose-700">{blockedInPreview.length} blocked</span> — already received this assistance type from another organization within 30 days</li>
               )}
               <li>
                 <span className={skippedInPreview.length ? 'font-semibold text-[#8A5207]' : 'font-semibold text-[#7A8E7A]'}>{skippedInPreview.length} record(s) skipped</span>
@@ -409,7 +410,7 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
               <p className="mt-0.5 text-[13px] text-[#1A2B1A]">
                 <span className="font-semibold">{createdResults.length}</span> record{createdResults.length === 1 ? '' : 's'} created,{' '}
                 <span className="font-semibold">{skippedResults.length}</span> skipped,{' '}
-                <span className="font-semibold text-sky-700">{flaggedResults.length}</span> flagged for review
+                <span className="font-semibold text-rose-700">{blockedResults.length}</span> blocked
               </p>
               <p className="mt-1 text-[11px] text-[#5A6B5C]">{finalResult.organization_name}</p>
             </div>
@@ -441,8 +442,8 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[13px] font-medium text-[#1A2B1A]">{r.name}</p>
                     {r.id_number && <p className="text-[11px] text-[#A8BCA8]">{r.id_number}</p>}
-                    {(r.reason || r.note) && (
-                      <p className={`mt-0.5 text-[12px] ${r.status === 'error' ? 'text-rose-600' : r.reason ? 'text-[#8A5207]' : 'text-sky-700'}`}>{r.reason || r.note}</p>
+                    {r.reason && (
+                      <p className={`mt-0.5 text-[12px] ${r.status === 'error' || r.status === 'blocked' ? 'text-rose-600' : 'text-[#8A5207]'}`}>{r.reason}</p>
                     )}
                   </div>
                   <StatusPill tone={STATUS_TONE[r.status] || 'slate'}>{STATUS_LABEL[r.status] || r.status}</StatusPill>

@@ -30,7 +30,7 @@ from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.db.models import Q
 
-from associations.models import OrganizationOfficer, FarmersOrganization
+from associations.models import FarmersOrganizationMember, OrganizationOfficer, FarmersOrganization
 from farmers.models import Farmer
 from production.models import (
     CropActivityLog,
@@ -336,10 +336,18 @@ class Command(BaseCommand):
                     'is_icc_ip_member':    icc,
                     'is_4ps_beneficiary':  fourps,
                     'is_senior_citizen':   is_senior,
-                    'farmers_organization': assoc_by_barangay.get(barangay),
                     'is_active':           True,
                 },
             )
+            # Batch (Phase B): membership is a real FarmersOrganizationMember
+            # row now, not a field on Farmer — is_main=True since this is
+            # necessarily the seeded farmer's only organization.
+            org = assoc_by_barangay.get(barangay)
+            if was_created and org is not None:
+                FarmersOrganizationMember.objects.get_or_create(
+                    organization=org, farmer=farmer,
+                    defaults={'date_joined': today, 'is_main': True},
+                )
             created.append(farmer)
             if was_created:
                 self.stdout.write(f'  Created farmer: {farmer.full_name}')
@@ -363,9 +371,10 @@ class Command(BaseCommand):
             land_status = random.choice(['Owner', 'Lessee', 'Tenant'])
             season = 'Wet' if date_planted.month in (6, 7, 8, 9, 10, 11) else 'Dry'
 
+            main_membership = farmer.farmer_organizations.filter(is_active=True, is_main=True).first()
             rec = CropMonitoringRecord(
                 farmer=farmer,
-                farmers_organization=farmer.farmers_organization,
+                farmers_organization=main_membership.organization if main_membership else None,
                 farm_location_barangay=farmer.barangay,
                 land_status=land_status,
                 crop_type=ct,

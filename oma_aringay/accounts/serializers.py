@@ -71,18 +71,15 @@ class UserSerializer(serializers.ModelSerializer):
             # registry actually holds rather than a prettified stand-in.
             # Organization-membership batch: a single shape for both record
             # types (always a list) so the shared citizen profile screen
-            # doesn't need to branch on record type to read it. Farmer has
-            # at most one current membership, gated on
-            # is_org_membership_active because that FK is never cleared when
-            # membership lapses (see Farmer model). Fisherfolk can genuinely
-            # have several, resolved the same way FisherfolkDetailSerializer
-            # does — from the real FisherfolkOrganizationMember join rows,
-            # not the write-only fisherfolk_organization FK.
+            # doesn't need to branch on record type to read it. Batch
+            # (Phase B): Farmer can now genuinely have several memberships
+            # too, resolved the same way as Fisherfolk — from the real
+            # FarmersOrganizationMember join rows (Farmer.farmers_organization
+            # no longer exists).
             if obj.linked_record_type == User.LinkedRecordType.FARMER:
-                organization_names = (
-                    [record.farmers_organization.name]
-                    if record.farmers_organization and record.is_org_membership_active
-                    else []
+                organization_names = list(
+                    record.farmer_organizations.filter(is_active=True)
+                    .values_list('organization__name', flat=True)
                 )
             else:
                 organization_names = list(

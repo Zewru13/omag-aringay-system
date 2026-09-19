@@ -479,18 +479,37 @@ function FarmerDetailPage() {
                       <Field label="PhilSys / National ID No." value={farmer.philsys_number} />
                     )}
                     <div>
-                      <p className="text-[12px] text-[#7A8E7A] mb-0.5">Organization</p>
-                      {farmer.farmers_organization_name ? (
-                        <p className="text-[14px] font-medium text-[#1A2B1A]">
-                          {farmer.farmers_organization_name}
-                          {!farmer.is_org_membership_active && (
-                            <span className="ml-1.5 inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500 align-middle">
-                              Inactive
-                            </span>
-                          )}
-                        </p>
-                      ) : (
+                      {/* Batch (Phase B): a farmer can belong to several
+                          organizations at once — shows every membership,
+                          the main one marked, inactive ones muted. */}
+                      <p className="text-[12px] text-[#7A8E7A] mb-0.5">
+                        {(farmer.organizations || []).length > 1 ? 'Organizations' : 'Organization'}
+                      </p>
+                      {(farmer.organizations || []).length === 0 ? (
                         <p className="text-[14px] font-medium italic text-[#A8BCA8]">Not part of any organization</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-1.5">
+                          {farmer.organizations.map(o => (
+                            <span
+                              key={o.membership_id}
+                              className={`inline-flex items-center gap-1 text-[14px] font-medium ${
+                                o.is_active ? 'text-[#1A2B1A]' : 'text-[#A8BCA8]'
+                              }`}
+                            >
+                              {o.organization_name}
+                              {o.is_main && o.is_active && (
+                                <span className="inline-flex items-center rounded-full bg-[#EBF5EE] px-2 py-0.5 text-[11px] font-medium text-[#1B4D2E] align-middle">
+                                  Main
+                                </span>
+                              )}
+                              {!o.is_active && (
+                                <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500 align-middle">
+                                  Inactive
+                                </span>
+                              )}
+                            </span>
+                          ))}
+                        </div>
                       )}
                     </div>
                   </div>

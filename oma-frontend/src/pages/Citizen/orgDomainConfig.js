@@ -1,22 +1,25 @@
 // Batch 12: shared per-domain config for the ORGANIZATION-role citizen's
 // "Report Assistance" flow — mirrors citizenDomainConfig.js's shape (Batch
-// 11) but for the two organization types. The member-search endpoints
-// return genuinely different shapes per domain (Farmer rows directly vs.
-// FisherfolkOrganizationMember join rows nesting fisherfolk), which is why
-// memberIdOf/memberLabel/memberSubtitle exist as accessors rather than
-// assuming a common field name.
+// 11) but for the two organization types.
 //
 // Batch 2 (org dashboard) extends this with everything the new member /
-// officer management screens need. The two domains diverge more than they
-// look like they should, so nothing below is guessed — each accessor was
-// written against a captured live response:
+// officer management screens need. Batch (Phase B — multi-org membership)
+// converged the two domains onto one identical shape: both members
+// endpoints now return real join-table rows, so memberIdOf/memberLabel/
+// memberSubtitle/rowIsMain etc. read the same field names on both sides —
+// kept as accessors rather than inlined field names purely so this file
+// still reads the same way it always has, not because the shapes diverge
+// any more:
 //
-//   farmers members    [{id, full_name, barangay, rsbsa_number}]
-//                      `id` IS the farmer id; removal addresses the farmer.
+//   farmers members    [{id, farmer, farmer_full_name, farmer_barangay,
+//                        farmer_rsbsa_number, position, date_joined,
+//                        is_active, deactivation_reason, is_main}]
 //   fisherfolk members [{id, fisherfolk, fisherfolk_full_name,
-//                        fisherfolk_barangay, position, date_joined, ...}]
-//                      `id` is the JOIN ROW id; removal addresses that row,
-//                      not the person.
+//                        fisherfolk_barangay, fisherfolk_lgu_number,
+//                        position, date_joined, is_active,
+//                        deactivation_reason, is_main}]
+//   `id` is the JOIN ROW id on both — removal/set-active/set-main address
+//   that row, not the person, on both sides now.
 //   farmers officers   [{id, position, full_name, farmer_id, ...}]
 //   fisherfolk officers[{id, position, full_name, fisherfolk_id, ...}]
 
@@ -108,36 +111,45 @@ export const FARMERS_ORG_DOMAIN = {
   officerPositions: OFFICER_POSITIONS,
 
   // ── Batch 2: member + officer management ──
+  // Batch (Phase B — multi-org membership): mirrors the fisherfolk side's
+  // shape exactly now — FarmersOrganizationMember is a real join row, so
+  // there is no reassignment concept any more, and `id`/rowIsActive/
+  // memberIdOf all address the JOIN ROW, not the farmer directly.
   membersUrl: (orgId) => `/organizations/farmers/${orgId}/members/`,
   officersUrl: (orgId) => `/organizations/farmers/${orgId}/officers/`,
   addCandidateSearchUrl: (orgId) => `/organizations/farmers/${orgId}/member-search/`,
-  addMemberBody: (personId, confirm) => ({
+  addMemberBody: (personId) => ({
     farmer: personId,
-    ...(confirm ? { confirm_reassignment: true } : {}),
+    date_joined: new Date().toISOString().split('T')[0],
   }),
-  // Farmers active/inactive is addressed by FARMER id (the membership link
-  // is a field on Farmer, not a row) — same URL the old hard-remove used,
-  // now PATCHed with {is_active} instead of DELETEd.
+  // Farmers active/inactive is addressed by the JOIN ROW id now, same as
+  // fisherfolk — PATCHed with {is_active}.
   setMemberActiveUrl: (orgId, row) => `/organizations/farmers/${orgId}/members/${row.id}/`,
+  setMainUrl: (orgId, row) => `/organizations/farmers/${orgId}/members/${row.id}/set-main/`,
   assignOfficerBody: (position, personId) => ({ position, farmer: personId }),
 
   // Row accessors for the MEMBER LIST shape (not the search shape).
-  rowPersonId: (row) => row.id,
-  rowName: (row) => row.full_name,
-  rowBarangay: (row) => row.barangay,
-  rowIsActive: (row) => row.is_org_membership_active !== false,
+  rowPersonId: (row) => row.farmer,
+  rowName: (row) => row.farmer_full_name,
+  rowBarangay: (row) => row.farmer_barangay,
+  rowIsActive: (row) => row.is_active !== false,
+  rowIsMain: (row) => row.is_main === true,
   officerPersonId: (o) => o.farmer_id,
-  // Farmers are single-org, so a search hit already in another org means a
-  // reassignment is about to happen.
-  candidateCurrentOrgName: (cand) => cand.current_organization_name,
-  // Same value, used purely as context on the row. Kept separate from the
-  // warning accessor because the fisherfolk side has memberships worth
-  // SHOWING but nothing to warn about.
-  candidateMembershipNote: (cand) => cand.current_organization_name || null,
+  // Multi-org is legitimate here now, so there is never a reassignment
+  // warning — this stays null and the Add Member screen skips that branch,
+  // same as the fisherfolk side.
+  candidateCurrentOrgName: () => null,
+  // ...but existing memberships are still worth SHOWING, so an officer can
+  // see at a glance that someone already belongs elsewhere. Informational
+  // only: adding them takes nothing away from those organizations.
+  candidateMembershipNote: (cand) => {
+    const names = (cand.current_organizations || []).map((o) => o.name)
+    return names.length > 0 ? names.join(', ') : null
+  },
   memberSearchUrl: (orgId) => `/organizations/farmers/${orgId}/members/`,
-  memberIdOf: (m) => m.id,
-  memberLabel: (m) => m.full_name,
-  memberSubtitle: (m) => [m.rsbsa_number, m.barangay].filter(Boolean).join(' · '),
+  memberIdOf: (m) => m.farmer,
+  memberLabel: (m) => m.farmer_full_name,
+  memberSubtitle: (m) => [m.farmer_rsbsa_number, m.farmer_barangay].filter(Boolean).join(' · '),
   createUrl: '/interventions/beneficiaries/adhoc/',
   detailUrl: (id) => `/interventions/beneficiaries/${id}/detail/`,
   historyUrl: '/interventions/my-org-beneficiary-history/',
@@ -160,8 +172,8 @@ export const FISHERFOLK_ORG_DOMAIN = {
   membersUrl: (orgId) => `/organizations/fisherfolk/${orgId}/members/`,
   officersUrl: (orgId) => `/organizations/fisherfolk/${orgId}/officers/`,
   addCandidateSearchUrl: (orgId) => `/organizations/fisherfolk/${orgId}/member-search/`,
-  // date_joined is required by the join-table serializer; the farmers side
-  // has nowhere to put it (direct FK) and so omits it entirely.
+  // date_joined is required by the join-table serializer — both domains
+  // send it now that farmers is also a real join row (Batch Phase B).
   addMemberBody: (personId) => ({
     fisherfolk: personId,
     date_joined: new Date().toISOString().split('T')[0],
@@ -170,12 +182,14 @@ export const FISHERFOLK_ORG_DOMAIN = {
   // person's — same URL the old hard-remove used, now PATCHed with
   // {is_active} instead of DELETEd.
   setMemberActiveUrl: (orgId, row) => `/organizations/fisherfolk/${orgId}/members/${row.id}/`,
+  setMainUrl: (orgId, row) => `/organizations/fisherfolk/${orgId}/members/${row.id}/set-main/`,
   assignOfficerBody: (position, personId) => ({ position, fisherfolk: personId }),
 
   rowPersonId: (row) => row.fisherfolk,
   rowName: (row) => row.fisherfolk_full_name,
   rowBarangay: (row) => row.fisherfolk_barangay,
   rowIsActive: (row) => row.is_active !== false,
+  rowIsMain: (row) => row.is_main === true,
   officerPersonId: (o) => o.fisherfolk_id,
   // Multi-org is legitimate here, so there is never a reassignment warning —
   // this stays null and the Add Member screen skips the whole branch.

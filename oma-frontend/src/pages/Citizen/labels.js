@@ -569,7 +569,11 @@ export const labels = {
       noIllnessTypes: 'Wala pang nakatalang uri ng sakit. Makipag-ugnayan po sa OMAg.',
 
       guideHeading: 'PANGKALAHATANG MUNGKAHI SA PAG-AALAGA',
-      guideDisclaimer: 'Pangkalahatang gabay lamang ito — hindi ito nagbibigay ng tiyak na gamot o dosis. Kumonsulta sa beterinaryo o BFAR para sa tamang paggamot.',
+      // No veterinary/BFAR-referral language — this is containment/
+      // husbandry guidance (isolate stock, check water, harvest early to
+      // limit spread), not a treatment protocol needing professional
+      // sign-off, so the disclaimer no longer points to one.
+      guideDisclaimer: 'Pangkalahatang gabay lamang ito, hindi ito tiyak na paggamot.',
 
       observationDate: 'PETSA NG OBSERBASYON',
       affectedPortion: 'TINATAYANG BAHAGI NG POND NA APEKTADO',
@@ -1337,7 +1341,7 @@ export const labels = {
       {
         key: 'add-member',
         q: 'Paano magdagdag ng kasapi?',
-        a: 'Sa Home, pindutin ang "Magdagdag ng Kasapi". Maghanap gamit ang pangalan o barangay ng rehistradong farmer o fisherfolk, pagkatapos ay pindutin ang "Idagdag". Kung ang taong hinahanap ninyo ay kasapi na ng ibang Farmers Organization, may makikitang babala bago matuloy — awtomatiko silang matatanggal doon kapag idinagdag dito. Walang ganitong babala sa Fisherfolk Organization dahil pwede talagang kasapi ng higit sa isang organisasyon.',
+        a: 'Sa Home, pindutin ang "Magdagdag ng Kasapi". Maghanap gamit ang pangalan o barangay ng rehistradong farmer o fisherfolk, pagkatapos ay pindutin ang "Idagdag". Pwede talagang kasapi ang isang farmer o fisherfolk ng higit sa isang organisasyon nang sabay-sabay — kung kasapi na sila sa ibang organisasyon, makikita lang ito bilang impormasyon, hindi babala; hindi sila awtomatikong matatanggal doon.',
       },
       {
         key: 'assign-officer',
@@ -1706,7 +1710,7 @@ export const labels = {
     perHeadSummary: (amount) => ` — ₱${amount} bawat kasapi`,
     onDate: (formatted) => ` noong ${formatted}`,
     willSkip: (count) => `${count} miyembro ang lalaktawan`,
-    willFlag: (count) => `${count} miyembro ang naka-flag para suriin`,
+    willBlock: (count) => `${count} miyembro ang mahaharang — nakatanggap na sila ng parehong tulong sa ibang organisasyon sa nakaraang 30 araw`,
     willReceive: (count) => `${count} miyembro ang makakatanggap ng bagong record. Hindi po ito awtomatikong mababawi — suriin pong mabuti bago kumpirmahin.`,
     fields: {
       assistanceType: 'Uri ng tulong',
@@ -1725,9 +1729,10 @@ export const labels = {
       previewFailed: 'Hindi ma-preview ang ipamamahagi.',
       distributeFailed: 'Hindi naipamahagi ang tulong.',
     },
-    resultSummary: (created, skipped, errors) => `${created} nagawa · ${skipped} nilaktawan · ${errors} error`,
+    resultSummary: (created, skipped, blocked, errors) => `${created} nagawa · ${skipped} nilaktawan · ${blocked} naharang · ${errors} error`,
     statusCreated: 'Nagawa',
     statusSkipped: 'Nilaktawan',
+    statusBlocked: 'Naharang',
     statusError: 'Error',
     // Batch: richer 3-step wizard layout (step indicator, org context card,
     // big "about to distribute" summary, stat tiles, per-member outcome

@@ -18,18 +18,6 @@ from .models import (
 )
 
 
-class FarmerOrganizationMemberSearchSerializer(serializers.ModelSerializer):
-    """Read-only shape for the officer-assignment search-select AND the
-    Members list display: this organization's own Farmer members only (see
-    FarmersOrganizationMember's docstring — membership here is
-    Farmer.farmers_organization, not a join table). is_org_membership_active
-    is included (toggle-not-delete batch) so the Members screen can show
-    deactivated members muted rather than hiding them outright."""
-    class Meta:
-        model = Farmer
-        fields = ['id', 'full_name', 'barangay', 'rsbsa_number', 'is_org_membership_active']
-
-
 # ─── Batch 1: add-member candidate search (citizen-reachable) ──────────────
 # These two are deliberately NOT the serializers above. The ones above
 # describe people who are ALREADY this organization's members; these
@@ -50,17 +38,20 @@ class FarmerOrganizationMemberSearchSerializer(serializers.ModelSerializer):
 # enumerate the whole registry.
 
 class FarmerAddCandidateSerializer(serializers.ModelSerializer):
-    current_organization_id = serializers.IntegerField(
-        source='farmers_organization_id', read_only=True,
-    )
-    current_organization_name = serializers.CharField(
-        source='farmers_organization.name', read_only=True, default=None,
-    )
+    # Batch (Phase B): mirrors FisherfolkAddCandidateSerializer exactly now
+    # that Farmer membership is also a real, multi-capable join table — no
+    # more single current_organization_id/name, no more reassignment concept.
+    current_organizations = serializers.SerializerMethodField()
 
     class Meta:
         model = Farmer
-        fields = ['id', 'full_name', 'barangay',
-                  'current_organization_id', 'current_organization_name']
+        fields = ['id', 'full_name', 'barangay', 'current_organizations']
+
+    def get_current_organizations(self, obj):
+        return [
+            {'id': m.organization_id, 'name': m.organization.name}
+            for m in obj.farmer_organizations.filter(is_active=True).select_related('organization')
+        ]
 
 
 class FisherfolkAddCandidateSerializer(serializers.ModelSerializer):
@@ -99,16 +90,15 @@ class OrganizationOfficerSerializer(serializers.ModelSerializer):
 
     def validate_farmer(self, value):
         organization_id = self.context['view'].kwargs.get('pk')
-        if str(value.farmers_organization_id) != str(organization_id):
+        # Batch (Phase B): membership is now FarmersOrganizationMember, not
+        # a direct field on Farmer — same check shape as
+        # FisherfolkOrganizationOfficerSerializer.validate below.
+        is_member = FarmersOrganizationMember.objects.filter(
+            organization_id=organization_id, farmer=value, is_active=True,
+        ).exists()
+        if not is_member:
             raise serializers.ValidationError(
-                'This farmer is not a member of this organization.'
-            )
-        # Toggle-not-delete batch: an inactive membership can't hold an
-        # officer position — deactivating already clears any existing one,
-        # this is the mirror-image guard on assignment.
-        if not value.is_org_membership_active:
-            raise serializers.ValidationError(
-                "This farmer's membership in this organization is inactive."
+                'This farmer is not a member of this organization, or their membership is inactive.'
             )
         return value
 
@@ -143,8 +133,16 @@ class FarmersOrganizationMemberSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'organization', 'farmer', 'farmer_full_name',
             'farmer_rsbsa_number', 'farmer_barangay', 'position', 'date_joined',
+            'is_active', 'deactivation_reason', 'is_main',
         ]
-        read_only_fields = ['organization']
+        # is_active/deactivation_reason are never written through the
+        # generic create/list path (toggle-not-delete batch) — only the
+        # dedicated set-active view changes them, same discipline as
+        # FisherfolkOrganizationMemberSerializer. is_main is likewise never
+        # written directly here — only through the dedicated set-main view
+        # (or the create-time auto-resolution) — see
+        # associations/views.py's _resolve_and_assign_main.
+        read_only_fields = ['organization', 'is_active', 'deactivation_reason', 'is_main']
 
     def validate_date_joined(self, value):
         validate_not_future_date(value, 'Date joined')
@@ -234,12 +232,16 @@ class FisherfolkOrganizationMemberSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'organization', 'fisherfolk', 'fisherfolk_full_name',
             'fisherfolk_lgu_number', 'fisherfolk_barangay', 'position', 'date_joined',
-            'is_active',
+            'is_active', 'deactivation_reason', 'is_main',
         ]
         # is_active is never written through the generic create/list path
         # (toggle-not-delete batch) — only the dedicated set-active views
         # below change it, same discipline as everywhere else in this app.
-        read_only_fields = ['organization', 'is_active']
+        # deactivation_reason follows the same discipline. is_main is only
+        # ever written through the dedicated set-main view (or create-time
+        # auto-resolution) — see associations/views.py's
+        # _resolve_and_assign_main.
+        read_only_fields = ['organization', 'is_active', 'deactivation_reason', 'is_main']
 
     def validate_date_joined(self, value):
         validate_not_future_date(value, 'Date joined')

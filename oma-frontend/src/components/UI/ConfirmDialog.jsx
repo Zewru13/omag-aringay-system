@@ -5,6 +5,8 @@ function ConfirmDialog({
   title, message, onConfirm, onCancel, confirmLabel = 'Confirm', cancelLabel = 'Cancel',
   danger = false, variant = 'danger', details = null,
   requireTypedConfirmation = false, typedConfirmationText = 'DELETE',
+  showReasonInput = false, reasonValue = '', onReasonChange, reasonLabel = 'Reason (optional)',
+  reasonPlaceholder = '',
 }) {
   const isDanger = danger || variant === 'danger'
   const [typedValue, setTypedValue] = useState('')
@@ -33,6 +35,19 @@ function ConfirmDialog({
         {details && (
           <div className="mx-6 mt-1 rounded-lg bg-[#FDF2F2] border border-[#F5D5D0] px-3 py-2">
             <p className="text-[12px] text-[#8A3B32]">{details}</p>
+          </div>
+        )}
+
+        {showReasonInput && (
+          <div className="px-6 mt-3">
+            <label className="text-[12px] text-[#7A8E7A]">{reasonLabel}</label>
+            <textarea
+              rows={2}
+              value={reasonValue}
+              onChange={(e) => onReasonChange?.(e.target.value)}
+              className="mt-1 w-full px-3 py-2 text-[13px] rounded-lg border border-[#C8D5C8] focus:outline-none focus:ring-2 focus:ring-[#1B4D2E]/20 resize-none"
+              placeholder={reasonPlaceholder}
+            />
           </div>
         )}
 

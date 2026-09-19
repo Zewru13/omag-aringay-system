@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { UserCog } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ModalShell from '../../components/UI/ModalShell.jsx'
@@ -60,7 +60,6 @@ const getMaxBirthdate = () => {
 function EditFarmerModal({ farmer, onClose, onSuccess }) {
   const { isAdmin } = useAuth()
   const { showToast } = useToast()
-  const [organizations, setOrganizations] = useState([])
 
   const original = {
     prefix: farmer.prefix || '',
@@ -79,7 +78,6 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
     is_4ps_beneficiary: farmer.is_4ps_beneficiary || false,
     is_icc_ip_member: farmer.is_icc_ip_member || false,
     icc_ip_name: farmer.icc_ip_name || '',
-    farmers_organization: farmer.farmers_organization || null,
   }
 
   const [form, setForm] = useState(original)
@@ -92,12 +90,6 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
 
   const normalize = (v) => (v === null || v === undefined ? '' : String(v))
   const isDirty = Object.keys(original).some(k => normalize(form[k]) !== normalize(original[k]))
-
-  useEffect(() => {
-    api.get('/organizations/farmers/')
-      .then(r => setOrganizations(r.data.results || r.data))
-      .catch(console.error)
-  }, [])
 
   const updateField = (field, value) => {
     if (field === 'philsys_number') {
@@ -350,21 +342,31 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
           )}
         </div>
 
-        {/* Farmer Organization */}
+        {/* Farmer Organization — Batch (Phase B): a farmer can belong to
+            several organizations now, managed from each organization's own
+            Members tab (Add Member / Deactivate / Set Main), not from this
+            form — this is a read-only summary only. */}
         <div>
-          <FormLabel>Farmer Organization</FormLabel>
-          <select
-            className={baseInputClasses}
-            value={form.farmers_organization || ''}
-            onChange={e => updateField('farmers_organization', e.target.value || null)}
-          >
-            <option value="">— Not a member of any organization</option>
-            {organizations.map(a => (
-              <option key={a.id} value={a.id}>{a.name}</option>
-            ))}
-          </select>
+          <FormLabel hideIndicator>Organizations</FormLabel>
+          {(farmer.organizations || []).length === 0 ? (
+            <p className="text-[13px] text-[#7A8E7A]">Not a member of any organization.</p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {farmer.organizations.map(o => (
+                <span
+                  key={o.membership_id}
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-medium ${
+                    o.is_active ? 'bg-[#EBF5EE] text-[#1B4D2E]' : 'bg-[#F0F4F0] text-[#7A8E7A] line-through'
+                  }`}
+                >
+                  {o.organization_name}
+                  {o.is_main && o.is_active && <span className="font-semibold">· Main</span>}
+                </span>
+              ))}
+            </div>
+          )}
           <p className="text-[12px] text-[#7A8E7A] mt-1">
-            Leave blank if the farmer is not part of any organization. This can be updated later by editing the farmer profile.
+            Manage this farmer's organization memberships from each organization's own Members tab.
           </p>
         </div>
 

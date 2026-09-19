@@ -2,7 +2,7 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
-from associations.models import FarmersOrganization, FisherfolkOrganization, FisherfolkOrganizationMember
+from associations.models import FarmersOrganization, FarmersOrganizationMember, FisherfolkOrganization, FisherfolkOrganizationMember
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk
 
@@ -43,18 +43,25 @@ def _resolve_attributed_organization(candidates, own_barangay):
     Batch 7: shared resolution algorithm for BOTH BeneficiaryRecord and
     FisherfolkBeneficiaryRecord, applied to whichever list of organizations
     is that person's actual live membership set:
-      - farmers: [Farmer.farmers_organization] if set, else [] — a farmer
-        can never have more than one entry here (single direct FK is the
-        only live membership mechanism; FarmersOrganizationMember, the join
-        table, is confirmed dormant — see its model docstring). The 2+
-        branches below are therefore unreachable for farmers today, but are
-        shared rather than special-cased away so both domains run one
-        tested code path.
+      - farmers: every FarmersOrganization from that farmer's active
+        FarmersOrganizationMember rows (Batch Phase B — this used to be at
+        most one, from the single Farmer.farmers_organization FK, which
+        made the 2+ branches below unreachable for farmers; farmers can now
+        genuinely belong to more than one organization, same as fisherfolk).
       - fisherfolk: every FisherfolkOrganization from that fisherfolk's
-        FisherfolkOrganizationMember rows — this IS the live, unconstrained
-        multi-membership mechanism (OrganizationDetailPage's manual
-        add/remove), so 2+ is a real possibility here even though current
-        data has none.
+        active FisherfolkOrganizationMember rows.
+    Both domains run the identical resolution below on the identical shape
+    of input, so they can never drift.
+
+    NOTE: this is a live best-guess, not a source of truth — see
+    FarmersOrganizationMember.is_main / FisherfolkOrganizationMember.is_main
+    for the real, staff-confirmed "main organization" a person has, which
+    this function does not consult (it predates is_main and is kept as the
+    general-purpose attribution guess used for reporting/notifications; the
+    30-day cross-org duplicate-assistance check in associations/views.py
+    deliberately does NOT rely on this function's output to decide "is this
+    my own record" — see _run_organization_distribution's own comment for
+    why, and distributed_by_organization below for the fix).
     Resolution:
       0 candidates       -> None
       1 candidate        -> that one (barangay irrelevant)
@@ -123,6 +130,25 @@ class BeneficiaryRecord(models.Model):
         blank=True,
         related_name='attributed_beneficiary_records',
     )
+    # Batch (Phase B — Phase A gap fix): set ONLY by
+    # associations.views._run_organization_distribution, to the real
+    # organization object that ran THAT bulk-distribution request — durable,
+    # never recomputed, and independent of attributed_organization (which is
+    # a live barangay-match guess that can name a DIFFERENT organization
+    # than the one whose button was actually clicked). The 30-day cross-org
+    # duplicate check keys off this field when present, exactly so a record
+    # created by org Y's distribution can never be mistaken for org X's own
+    # past record just because attribution happened to resolve to X. Null
+    # for every record created outside that one bulk-distribution flow
+    # (individual "Report/Log Assistance" entries) — those still fall back
+    # to attributed_organization in the duplicate check, unchanged.
+    distributed_by_organization = models.ForeignKey(
+        FarmersOrganization,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='direct_distributed_beneficiary_records',
+    )
 
     # Scheduled distribution + confirmation lifecycle. status is server-
     # computed on CREATE only (see save() below) — never a writable API
@@ -146,7 +172,10 @@ class BeneficiaryRecord(models.Model):
     def save(self, *args, **kwargs):
         if self.farmer_id:
             farmer = self.farmer
-            candidates = [farmer.farmers_organization] if farmer.farmers_organization_id else []
+            candidates = [
+                m.organization for m in
+                FarmersOrganizationMember.objects.filter(farmer_id=self.farmer_id, is_active=True).select_related('organization')
+            ]
             self.attributed_organization = _resolve_attributed_organization(candidates, farmer.barangay)
         else:
             self.attributed_organization = None
@@ -213,6 +242,16 @@ class FisherfolkBeneficiaryRecord(models.Model):
         blank=True,
         related_name='attributed_beneficiary_records',
     )
+    # Batch (Phase B — Phase A gap fix): see BeneficiaryRecord.
+    # distributed_by_organization's comment — identical field and purpose,
+    # fisherfolk side.
+    distributed_by_organization = models.ForeignKey(
+        FisherfolkOrganization,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='direct_distributed_beneficiary_records',
+    )
 
     # Same lifecycle as BeneficiaryRecord — see DistributionStatus and that
     # model's save() comment for the exact reasoning, shared verbatim here.
@@ -234,7 +273,7 @@ class FisherfolkBeneficiaryRecord(models.Model):
             fisherfolk = self.fisherfolk
             candidates = [
                 m.organization for m in
-                FisherfolkOrganizationMember.objects.filter(fisherfolk_id=self.fisherfolk_id).select_related('organization')
+                FisherfolkOrganizationMember.objects.filter(fisherfolk_id=self.fisherfolk_id, is_active=True).select_related('organization')
             ]
             self.attributed_fisherfolk_organization = _resolve_attributed_organization(candidates, fisherfolk.barangay)
         else:

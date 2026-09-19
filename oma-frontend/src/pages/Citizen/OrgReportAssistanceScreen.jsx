@@ -400,11 +400,12 @@ export default function OrgReportAssistanceScreen({
   }
 
   const skipped = (preview?.results || []).filter((r) => r.status === 'skipped')
-  const flagged = (preview?.results || []).filter((r) => r.note)
+  const blocked = (preview?.results || []).filter((r) => r.status === 'would_block')
 
   const statusBadge = (status) => {
     if (status === 'created') return <span className="inline-flex shrink-0 items-center gap-1 text-[12px] font-semibold text-[#15803D]"><CheckCircle2 size={13} /> {L.statusCreated}</span>
     if (status === 'skipped') return <span className="inline-flex shrink-0 items-center gap-1 text-[12px] font-semibold text-cz-tile-amber-fg"><AlertTriangle size={13} /> {L.statusSkipped}</span>
+    if (status === 'blocked') return <span className="inline-flex shrink-0 items-center gap-1 text-[12px] font-semibold text-cz-danger-accent"><XCircle size={13} /> {L.statusBlocked}</span>
     return <span className="inline-flex shrink-0 items-center gap-1 text-[12px] font-semibold text-cz-danger-accent"><XCircle size={13} /> {L.statusError}</span>
   }
 
@@ -564,16 +565,16 @@ export default function OrgReportAssistanceScreen({
             </ul>
           </div>
         )}
-        {flagged.length > 0 && (
-          <div className="mt-3 max-w-lg rounded-[12px] border-[0.5px] border-cz-tile-blue-fg/30 bg-cz-tile-blue-bg p-3.5">
-            <p className="text-[13px] font-semibold text-cz-tile-blue-fg">{L.willFlag(flagged.length)}</p>
-            <ul className="mt-1 space-y-0.5 text-[12px] text-cz-tile-blue-fg">
-              {flagged.map((r) => <li key={r.person_id}>{r.name} — {r.note}</li>)}
+        {blocked.length > 0 && (
+          <div className="mt-3 max-w-lg rounded-[12px] border-[0.5px] border-cz-danger-border bg-cz-danger-bg p-3.5">
+            <p className="text-[13px] font-semibold text-cz-danger-body">{L.willBlock(blocked.length)}</p>
+            <ul className="mt-1 space-y-0.5 text-[12px] text-cz-danger-body">
+              {blocked.map((r) => <li key={r.person_id}>{r.name} — {r.reason}</li>)}
             </ul>
           </div>
         )}
 
-        <p className="mt-3 max-w-lg text-[13px] text-cz-text-2">{L.willReceive(preview.member_count - skipped.length)}</p>
+        <p className="mt-3 max-w-lg text-[13px] text-cz-text-2">{L.willReceive(preview.member_count - skipped.length - blocked.length)}</p>
 
         {errorMessage && (
           <p className="mt-3 max-w-lg rounded-[10px] border-[0.5px] border-cz-danger-border bg-cz-danger-bg px-3.5 py-2.5 text-[13px] text-cz-danger-body">{errorMessage}</p>
@@ -596,7 +597,12 @@ export default function OrgReportAssistanceScreen({
         <div className={`${CARD} max-w-lg`}>
           <p className="text-[15px] font-semibold text-cz-text">{finalResult.organization_name}</p>
           <p className="mt-0.5 text-[13px] text-cz-text-2">
-            {L.resultSummary(created, finalResult.results.filter((r) => r.status === 'skipped').length, finalResult.results.filter((r) => r.status === 'error').length)}
+            {L.resultSummary(
+              created,
+              finalResult.results.filter((r) => r.status === 'skipped').length,
+              finalResult.results.filter((r) => r.status === 'blocked').length,
+              finalResult.results.filter((r) => r.status === 'error').length,
+            )}
           </p>
         </div>
         <ul className="mt-3 max-w-lg overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
@@ -606,7 +612,7 @@ export default function OrgReportAssistanceScreen({
                 <span className="min-w-0 truncate text-[14px] text-cz-text">{r.name}</span>
                 {statusBadge(r.status)}
               </div>
-              {(r.reason || r.note) && <p className="mt-0.5 text-[12px] text-cz-text-2">{r.reason || r.note}</p>}
+              {r.reason && <p className="mt-0.5 text-[12px] text-cz-text-2">{r.reason}</p>}
             </li>
           ))}
         </ul>

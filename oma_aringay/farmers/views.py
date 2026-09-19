@@ -81,9 +81,18 @@ class FarmerListView(generics.ListCreateAPIView):
         if is_pwd is not None:
             queryset = queryset.filter(is_pwd=(is_pwd.lower() in ('true', '1')))
 
+        # Batch (Phase B): farmers_organization is no longer a field on
+        # Farmer — filters through the real join table instead. distinct()
+        # since a farmer could theoretically match via more than one active
+        # membership row for the same org id (shouldn't happen given the
+        # model's unique_together, but the join can still produce dup rows
+        # without it if this filter is ever combined with another join).
         organization_filter = self.request.query_params.get('farmers_organization')
         if organization_filter is not None:
-            queryset = queryset.filter(farmers_organization_id=organization_filter)
+            queryset = queryset.filter(
+                farmer_organizations__organization_id=organization_filter,
+                farmer_organizations__is_active=True,
+            ).distinct()
 
         registered_from = self.request.query_params.get('registered_from')
         if registered_from:

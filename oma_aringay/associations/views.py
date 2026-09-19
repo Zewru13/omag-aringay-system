@@ -33,7 +33,6 @@ from .models import (
 )
 from .serializers import (
     FarmerAddCandidateSerializer,
-    FarmerOrganizationMemberSearchSerializer,
     FisherfolkAddCandidateSerializer,
     FarmersOrganizationDetailSerializer,
     FarmersOrganizationEquipmentSerializer,
@@ -46,6 +45,94 @@ from .serializers import (
     FisherfolkOrganizationOfficerSerializer,
     OrganizationOfficerSerializer,
 )
+
+
+# ─── Phase B: shared is_main resolution/enforcement ─────────────────────────
+# Used by both domains' add-member and set-active views. A person's "main"
+# organization is a real, stored field (FarmersOrganizationMember.is_main /
+# FisherfolkOrganizationMember.is_main) — not the live barangay-match guess
+# _resolve_attributed_organization computes (interventions/models.py), which
+# predates this and is kept only as a general-purpose attribution fallback.
+
+def _resolve_and_assign_main(member, other_active_qs, person_barangay, explicit_is_main):
+    """
+    `member`: a freshly created, already-saved membership row with
+    is_main still at its default (False) — decide its real value here.
+    `other_active_qs`: queryset of every OTHER currently-active membership
+    this same person holds (never including `member` itself).
+    `explicit_is_main`: True/False if the caller passed a real choice,
+    None if they didn't specify one at all.
+
+    Rule:
+      - No other active memberships exist (this is the person's first ever)
+        -> always main; there is nothing to choose between.
+      - Explicit choice given -> honored. True clears is_main on every
+        other membership (enforcing "at most one main at a time" by
+        construction); False leaves this one non-main.
+      - No explicit choice, and exactly one candidate among this new
+        membership + the others barangay-matches the person's own
+        barangay, and that candidate IS this new membership -> becomes
+        main (the auto-suggestion). An existing match among the OTHERS is
+        left alone — joining a new organization never silently steals main
+        status from an already-established one.
+      - No explicit choice, ambiguous/no unique match, and the person
+        already has a main among the others -> leave this one non-main;
+        nothing to decide.
+      - No explicit choice, ambiguous/no unique match, and the person has
+        NO main among the others (their very first resolvable membership,
+        or one left mainless by a deactivation with no promotion
+        candidate) -> require an explicit choice.
+    """
+    others = list(other_active_qs.select_related('organization'))
+    if not others:
+        member.is_main = True
+        member.save(update_fields=['is_main'])
+        return
+
+    if explicit_is_main is not None:
+        if explicit_is_main:
+            other_active_qs.update(is_main=False)
+            member.is_main = True
+        else:
+            member.is_main = False
+        member.save(update_fields=['is_main'])
+        return
+
+    matches = [m for m in (others + [member]) if m.organization.barangay == person_barangay]
+    if len(matches) == 1 and matches[0].pk == member.pk:
+        other_active_qs.update(is_main=False)
+        member.is_main = True
+        member.save(update_fields=['is_main'])
+        return
+
+    if any(m.is_main for m in others):
+        member.is_main = False
+        member.save(update_fields=['is_main'])
+        return
+
+    raise serializers.ValidationError({
+        'is_main': (
+            "This person has no main organization yet, and this organization's barangay does not "
+            "uniquely match theirs — please explicitly choose whether this should be their main organization."
+        ),
+    })
+
+
+def _promote_main_after_deactivation(other_active_qs, person_barangay):
+    """Called right after a person's is_main=True membership was
+    deactivated. `other_active_qs`: every OTHER still-active membership for
+    this person (already excludes the one just deactivated). Promotes one
+    to main only if exactly one barangay-matches; otherwise leaves the
+    person without a main — surfaced/required the next time this matters
+    (the same explicit-choice requirement _resolve_and_assign_main enforces
+    for a person with no main), rather than guessing."""
+    others = list(other_active_qs.select_related('organization'))
+    if not others:
+        return
+    matches = [m for m in others if m.organization.barangay == person_barangay]
+    if len(matches) == 1:
+        matches[0].is_main = True
+        matches[0].save(update_fields=['is_main'])
 
 
 # ─── Farmers Organization ──────────────────────────────────────────────────────
@@ -89,182 +176,165 @@ class FarmersOrganizationDetailView(generics.RetrieveUpdateAPIView):
 class FarmersOrganizationMemberAddView(generics.ListCreateAPIView):
     """
     GET: search THIS organization's own members — used by the officer
-    assignment search-select. Sourced from Farmer.farmers_organization (the
-    real membership link for Farmers Organizations; see
-    FarmersOrganizationMember's docstring), not the join table.
-    Batch 12: GET also opens to the FARMERS_ORG citizen who IS this
-    organization — the member picker for their own "Report Assistance"
-    flow reuses this exact endpoint rather than a parallel one.
+    assignment search-select. Batch 12: GET also opens to the FARMERS_ORG
+    citizen who IS this organization (member picker for their own "Report
+    Assistance" flow).
+    POST: "add member" (join-table row).
 
-    Batch 1 (org member management): POST opens to that same citizen, and
-    now writes the membership link that is actually read everywhere else —
-    Farmer.farmers_organization — instead of a FarmersOrganizationMember
-    join row. The join table has 0 rows and nothing reads it (see its model
-    docstring); the direct FK is what the Members tab, the officer
-    "is a member" validation, bulk distribution, and the remove endpoint
-    all use. Writing the join row left "added" members invisible to every
-    one of those, so this is the write half finally matching the read half.
-
-    Because the FK is single-valued, adding a farmer who already belongs to
-    a DIFFERENT organization is a REASSIGNMENT, not an addition. That is
-    destructive to the other organization's roster, so it requires an
-    explicit `confirm_reassignment: true` in the body; without it the
-    request is refused with 409 and the current organization's name so the
-    caller can warn first. Reassignment also drops any officer position the
-    farmer held in the OLD organization, for the same reason member removal
-    does (associations.serializers enforces "officers must be members", and
-    leaving a stale officer row would violate that invariant silently).
+    Batch (Phase B — multi-org membership): FarmersOrganizationMember is now
+    the real, live, multi-capable membership mechanism — mirrors
+    FisherfolkOrganizationMemberAddView exactly. Deliberately NO
+    reassignment concept any more: adding a farmer already in another
+    organization just creates a second row and takes nothing away from
+    anyone, same as the fisherfolk side always worked.
     """
     org_linked_record_type = 'FARMERS_ORG'
+    serializer_class = FarmersOrganizationMemberSerializer
     pagination_class = None
     permission_classes = [IsAuthenticated, IsOwnOrgOrStaff]
 
-    def get_serializer_class(self):
-        if self.request.method == 'GET':
-            return FarmerOrganizationMemberSearchSerializer
-        return FarmersOrganizationMemberSerializer
-
     def get_queryset(self):
+        qs = FarmersOrganizationMember.objects.filter(
+            organization_id=self.kwargs['pk'],
+        ).select_related('farmer')
+        # Toggle-not-delete batch: officer assignment's search-select opts
+        # into this filter (an inactive membership can't hold an officer
+        # position, enforced in the serializer already) — Report
+        # Assistance's reuse of this same endpoint deliberately does NOT
+        # pass it, since reporting to an inactive member can still be
+        # legitimate.
+        if self.request.method == 'GET' and self.request.query_params.get('active_only') in ('1', 'true', 'True'):
+            qs = qs.filter(is_active=True)
+        search = self.request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(
+                Q(farmer__first_name__icontains=search)
+                | Q(farmer__last_name__icontains=search)
+                | Q(farmer__middle_name__icontains=search)
+            )
+        return qs
+
+    @transaction.atomic
+    def perform_create(self, serializer):
         organization_id = self.kwargs['pk']
-        if self.request.method == 'GET':
-            qs = Farmer.objects.filter(farmers_organization_id=organization_id)
-            # Toggle-not-delete batch: officer assignment's search-select opts
-            # into this filter (an inactive membership can't hold an officer
-            # position, enforced in the serializer already) — Report
-            # Assistance's reuse of this same endpoint deliberately does NOT
-            # pass it, since reporting to an inactive member can still be
-            # legitimate.
-            if self.request.query_params.get('active_only') in ('1', 'true', 'True'):
-                qs = qs.filter(is_org_membership_active=True)
-            search = self.request.query_params.get('search', '').strip()
-            if search:
-                qs = qs.filter(
-                    Q(first_name__icontains=search)
-                    | Q(last_name__icontains=search)
-                    | Q(middle_name__icontains=search)
-                )
-            return qs.order_by('last_name', 'first_name')
-        return FarmersOrganizationMember.objects.filter(organization_id=organization_id)
-
-    def create(self, request, *args, **kwargs):
-        organization_id = int(self.kwargs['pk'])
-        organization = get_object_or_404(FarmersOrganization, pk=organization_id)
-        farmer_id = request.data.get('farmer')
-        if not farmer_id:
-            raise serializers.ValidationError({'farmer': 'This field is required.'})
-        farmer = get_object_or_404(Farmer, pk=farmer_id)
-
-        current_id = farmer.farmers_organization_id
-        if current_id == organization_id:
+        farmer = serializer.validated_data['farmer']
+        if FarmersOrganizationMember.objects.filter(organization_id=organization_id, farmer=farmer).exists():
             raise serializers.ValidationError(
                 {'detail': 'This farmer is already a member of this organization.'}
             )
-
-        if current_id is not None:
-            if str(request.data.get('confirm_reassignment')).lower() not in ('true', '1'):
-                current = FarmersOrganization.objects.filter(pk=current_id).first()
-                # 409, not 400: the request is well-formed and the caller is
-                # allowed to do this — it conflicts with existing state, and
-                # becomes valid once resubmitted with the confirmation flag.
-                return Response(
-                    {
-                        'detail': 'requires_reassignment_confirmation',
-                        'message': (
-                            f'{farmer.full_name} is currently a member of '
-                            f'{current.name if current else "another organization"}. '
-                            f'Adding them here will remove them from that organization.'
-                        ),
-                        'farmer_id': farmer.id,
-                        'farmer_name': farmer.full_name,
-                        'current_organization_id': current_id,
-                        'current_organization_name': current.name if current else None,
-                    },
-                    status=status.HTTP_409_CONFLICT,
-                )
-
-        with transaction.atomic():
-            if current_id is not None:
-                # Same auto-clear as FarmersOrganizationMemberSetActiveView:
-                # they are leaving that organization, so they cannot stay an
-                # officer of it. Batch: officer terms are never deleted on
-                # any exit — mark ended instead of the old .delete().
-                OrganizationOfficer.objects.filter(
-                    organization_id=current_id, farmer_id=farmer.id, is_active=True,
-                ).update(
-                    is_active=False,
-                    term_end_date=timezone.localdate(),
-                    early_exit_reason='Reassigned to a different organization.',
-                )
-            farmer.farmers_organization = organization
-            # Toggle-not-delete batch: a reassignment is a fresh membership
-            # in the NEW organization, regardless of whatever active/inactive
-            # state this farmer was left in at their old one.
-            farmer.is_org_membership_active = True
-            farmer.save(update_fields=['farmers_organization', 'is_org_membership_active'])
-
-        return Response(
-            {
-                'farmer_id': farmer.id,
-                'full_name': farmer.full_name,
-                'barangay': farmer.barangay,
-                'organization_id': organization_id,
-                'organization_name': organization.name,
-                'reassigned_from_organization_id': current_id,
-            },
-            status=status.HTTP_201_CREATED,
+        member = serializer.save(organization_id=organization_id)
+        explicit_is_main = self.request.data.get('is_main')
+        if explicit_is_main is not None:
+            explicit_is_main = str(explicit_is_main).lower() in ('true', '1')
+        _resolve_and_assign_main(
+            member,
+            FarmersOrganizationMember.objects.filter(farmer_id=farmer.id, is_active=True).exclude(pk=member.pk),
+            farmer.barangay,
+            explicit_is_main,
         )
 
 
-class FarmersOrganizationMemberRemoveView(generics.DestroyAPIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    queryset = FarmersOrganizationMember.objects.all()
-    lookup_url_kwarg = 'member_id'
+def _set_farmer_member_active(member, is_active, reason=''):
+    """Shared by both the staff-only and org-scoped set-active views below.
+    Mirrors _set_fisherfolk_member_active exactly (Toggle-not-delete batch:
+    deactivating still auto-clears any officer position held via this
+    membership row) plus is_main handling: deactivating a MAIN membership
+    tries to promote another active one via the same barangay-match rule
+    used at join time (_promote_main_after_deactivation) — a person's main
+    can lapse to "none" if nothing uniquely matches, same as a first-ever
+    join with no match would require an explicit choice."""
+    reason = (reason or '').strip()
+    was_main = False
+    if not is_active:
+        member.deactivation_reason = reason
+        OrganizationOfficer.objects.filter(
+            organization_id=member.organization_id, farmer_id=member.farmer_id, is_active=True,
+        ).update(
+            is_active=False,
+            term_end_date=timezone.localdate(),
+            early_exit_reason=reason or 'Organization membership deactivated.',
+        )
+        was_main = member.is_main
+        member.is_main = False
+    else:
+        member.deactivation_reason = ''
+    member.is_active = is_active
+    member.save(update_fields=['is_active', 'deactivation_reason', 'is_main'])
+    if was_main:
+        _promote_main_after_deactivation(
+            FarmersOrganizationMember.objects.filter(farmer_id=member.farmer_id, is_active=True),
+            member.farmer.barangay,
+        )
 
 
 class FarmersOrganizationMemberSetActiveView(APIView):
+    """Staff-only. Its URL carries no organization id, so IsOwnOrgOrStaff
+    (which resolves ownership from the `pk` kwarg) cannot gate it — the
+    org-scoped citizen route is the sibling view below. Mirrors
+    FisherfolkOrganizationMemberSetActiveView."""
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def patch(self, request, member_id):
+        member = get_object_or_404(FarmersOrganizationMember, pk=member_id)
+        is_active = request.data.get('is_active')
+        if is_active is None:
+            return Response({'detail': 'is_active is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        _set_farmer_member_active(member, str(is_active).lower() in ('true', '1'), request.data.get('reason'))
+        return Response({
+            'id': member.id, 'is_active': member.is_active,
+            'deactivation_reason': member.deactivation_reason, 'is_main': member.is_main,
+        })
+
+
+class FarmersOrganizationMemberOrgScopedSetActiveView(APIView):
     """
-    Toggle-not-delete batch: replaces the old hard "remove member" action
-    (which nulled Farmer.farmers_organization) with an active/inactive flip
-    on Farmer.is_org_membership_active. The FK itself is never touched here
-    — the farmer stays linked to this organization, just marked inactive,
-    so their full history (assistance records, past officer terms) stays
-    attributed correctly and reactivation is a plain flip back.
-
-    Deactivating still auto-clears any officer position this farmer holds
-    in this organization first — same behavior the old delete() had, still
-    unconditional (fires for every caller, staff or citizen), just moved
-    into the deactivate branch since there's no FK-null/row-delete left to
-    hang it off of.
-
-    Opened to the FARMERS_ORG citizen who IS this organization, same as
-    the flow it replaces.
+    Org-scoped active/inactive flip for Farmers Organization membership,
+    mirroring the fisherfolk side's `<pk>/members/<id>/` shape so
+    IsOwnOrgOrStaff has a `pk` to check. Sibling of the staff-only route
+    above. get_queryset-equivalent filters by the organization from the
+    URL, so a member id belonging to some other organization 404s instead
+    of being toggled.
     """
     permission_classes = [IsAuthenticated, IsOwnOrgOrStaff]
     org_linked_record_type = 'FARMERS_ORG'
 
-    def patch(self, request, pk, farmer_id):
-        farmer = get_object_or_404(Farmer, pk=farmer_id, farmers_organization_id=pk)
+    def patch(self, request, pk, member_id):
+        member = get_object_or_404(
+            FarmersOrganizationMember, pk=member_id, organization_id=pk,
+        )
         is_active = request.data.get('is_active')
         if is_active is None:
             return Response({'detail': 'is_active is required.'}, status=status.HTTP_400_BAD_REQUEST)
-        is_active = str(is_active).lower() in ('true', '1')
-        if not is_active:
-            # Batch: mark ended instead of deleting — see
-            # FarmersOrganizationMemberAddView.create() above.
-            OrganizationOfficer.objects.filter(
-                organization_id=pk, farmer_id=farmer_id, is_active=True,
-            ).update(
-                is_active=False,
-                term_end_date=timezone.localdate(),
-                early_exit_reason='Organization membership deactivated.',
-            )
-        farmer.is_org_membership_active = is_active
-        farmer.save(update_fields=['is_org_membership_active'])
+        _set_farmer_member_active(member, str(is_active).lower() in ('true', '1'), request.data.get('reason'))
         return Response({
-            'id': farmer.id,
-            'full_name': farmer.full_name,
-            'is_org_membership_active': farmer.is_org_membership_active,
+            'id': member.id, 'is_active': member.is_active,
+            'deactivation_reason': member.deactivation_reason, 'is_main': member.is_main,
         })
+
+
+class FarmersOrganizationMemberSetMainView(APIView):
+    """
+    Batch (Phase B): explicit override — make this ACTIVE membership the
+    farmer's main organization, clearing is_main on every other membership
+    they hold (see _resolve_and_assign_main's docstring for the invariant
+    this enforces). Mirrors FisherfolkOrganizationMemberSetMainView.
+    """
+    permission_classes = [IsAuthenticated, IsOwnOrgOrStaff]
+    org_linked_record_type = 'FARMERS_ORG'
+
+    def post(self, request, pk, member_id):
+        member = get_object_or_404(FarmersOrganizationMember, pk=member_id, organization_id=pk)
+        if not member.is_active:
+            return Response(
+                {'detail': 'An inactive membership cannot be set as main.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        FarmersOrganizationMember.objects.filter(
+            farmer_id=member.farmer_id, is_active=True,
+        ).exclude(pk=member.pk).update(is_main=False)
+        member.is_main = True
+        member.save(update_fields=['is_main'])
+        return Response({'id': member.id, 'is_main': member.is_main})
 
 
 class FarmersOrganizationEquipmentAddView(generics.CreateAPIView):
@@ -421,6 +491,7 @@ class FisherfolkOrganizationMemberAddView(generics.ListCreateAPIView):
             )
         return qs
 
+    @transaction.atomic
     def perform_create(self, serializer):
         organization_id = self.kwargs['pk']
         fisherfolk = serializer.validated_data['fisherfolk']
@@ -428,25 +499,55 @@ class FisherfolkOrganizationMemberAddView(generics.ListCreateAPIView):
             raise serializers.ValidationError(
                 {'detail': 'This fisherfolk is already a member of this organization.'}
             )
-        serializer.save(organization_id=organization_id)
+        member = serializer.save(organization_id=organization_id)
+        explicit_is_main = self.request.data.get('is_main')
+        if explicit_is_main is not None:
+            explicit_is_main = str(explicit_is_main).lower() in ('true', '1')
+        _resolve_and_assign_main(
+            member,
+            FisherfolkOrganizationMember.objects.filter(fisherfolk_id=fisherfolk.id, is_active=True).exclude(pk=member.pk),
+            fisherfolk.barangay,
+            explicit_is_main,
+        )
 
 
-def _set_fisherfolk_member_active(member, is_active):
+def _set_fisherfolk_member_active(member, is_active, reason=''):
     """Shared by both the staff-only and org-scoped set-active views below.
     Toggle-not-delete batch: deactivating still auto-clears any officer
     position held via this membership row — the CASCADE that used to do
     this automatically only fires on a real row delete, and this path no
-    longer deletes the row, so it's explicit here instead."""
+    longer deletes the row, so it's explicit here instead.
+
+    Optional-but-encouraged reason (Batch: reason field) — stored on this
+    row directly (deactivation_reason) since it's a real per-membership
+    row, unlike Farmer's inline flag. Falls back to the same generic text
+    as before on the auto-cleared officer row when none is given.
+
+    Batch (Phase B): is_main handling mirrors _set_farmer_member_active
+    exactly — deactivating a MAIN membership tries to promote another
+    active one via the same barangay-match rule used at join time."""
+    reason = (reason or '').strip()
+    was_main = False
     if not is_active:
+        member.deactivation_reason = reason
         # Batch: mark ended instead of deleting — see
         # FarmersOrganizationMemberAddView.create() above.
         FisherfolkOrganizationOfficer.objects.filter(member=member, is_active=True).update(
             is_active=False,
             term_end_date=timezone.localdate(),
-            early_exit_reason='Organization membership deactivated.',
+            early_exit_reason=reason or 'Organization membership deactivated.',
         )
+        was_main = member.is_main
+        member.is_main = False
+    else:
+        member.deactivation_reason = ''
     member.is_active = is_active
-    member.save(update_fields=['is_active'])
+    member.save(update_fields=['is_active', 'deactivation_reason', 'is_main'])
+    if was_main:
+        _promote_main_after_deactivation(
+            FisherfolkOrganizationMember.objects.filter(fisherfolk_id=member.fisherfolk_id, is_active=True),
+            member.fisherfolk.barangay,
+        )
 
 
 class FisherfolkOrganizationMemberSetActiveView(APIView):
@@ -460,8 +561,11 @@ class FisherfolkOrganizationMemberSetActiveView(APIView):
         is_active = request.data.get('is_active')
         if is_active is None:
             return Response({'detail': 'is_active is required.'}, status=status.HTTP_400_BAD_REQUEST)
-        _set_fisherfolk_member_active(member, str(is_active).lower() in ('true', '1'))
-        return Response({'id': member.id, 'is_active': member.is_active})
+        _set_fisherfolk_member_active(member, str(is_active).lower() in ('true', '1'), request.data.get('reason'))
+        return Response({
+            'id': member.id, 'is_active': member.is_active,
+            'deactivation_reason': member.deactivation_reason, 'is_main': member.is_main,
+        })
 
 
 class FisherfolkOrganizationMemberOrgScopedSetActiveView(APIView):
@@ -484,8 +588,32 @@ class FisherfolkOrganizationMemberOrgScopedSetActiveView(APIView):
         is_active = request.data.get('is_active')
         if is_active is None:
             return Response({'detail': 'is_active is required.'}, status=status.HTTP_400_BAD_REQUEST)
-        _set_fisherfolk_member_active(member, str(is_active).lower() in ('true', '1'))
-        return Response({'id': member.id, 'is_active': member.is_active})
+        _set_fisherfolk_member_active(member, str(is_active).lower() in ('true', '1'), request.data.get('reason'))
+        return Response({
+            'id': member.id, 'is_active': member.is_active,
+            'deactivation_reason': member.deactivation_reason, 'is_main': member.is_main,
+        })
+
+
+class FisherfolkOrganizationMemberSetMainView(APIView):
+    """Batch (Phase B): explicit override — mirrors
+    FarmersOrganizationMemberSetMainView exactly."""
+    permission_classes = [IsAuthenticated, IsOwnOrgOrStaff]
+    org_linked_record_type = 'FISHERFOLK_ORG'
+
+    def post(self, request, pk, member_id):
+        member = get_object_or_404(FisherfolkOrganizationMember, pk=member_id, organization_id=pk)
+        if not member.is_active:
+            return Response(
+                {'detail': 'An inactive membership cannot be set as main.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        FisherfolkOrganizationMember.objects.filter(
+            fisherfolk_id=member.fisherfolk_id, is_active=True,
+        ).exclude(pk=member.pk).update(is_main=False)
+        member.is_main = True
+        member.save(update_fields=['is_main'])
+        return Response({'id': member.id, 'is_main': member.is_main})
 
 
 class FisherfolkOrganizationEquipmentAddView(generics.CreateAPIView):
@@ -597,7 +725,7 @@ class FarmersOrganizationAddCandidateSearchView(_AddCandidateSearchBase):
                 | Q(last_name__icontains=search)
                 | Q(middle_name__icontains=search)
             )
-            .select_related('farmers_organization')
+            .prefetch_related('farmer_organizations__organization')
             .order_by('last_name', 'first_name')[:MAX_RESULTS]
         )
 
@@ -643,8 +771,46 @@ def _run_organization_distribution(record_model, person_field, organization, mem
 
     commit=False (Step 3's confirmation-screen preview) runs the exact same
     30-day cross-org check — read-only — but never calls .create(). Statuses
-    are reported as 'would_create' instead of 'created' so the frontend
-    can't mistake a preview for a completed distribution.
+    are reported as 'would_create'/'would_block' instead of 'created'/
+    'blocked' so the frontend can't mistake a preview for a completed
+    distribution.
+
+    Batch: the 30-day cross-org check was previously informational only
+    (every member still got a record, just flagged with a note). Now a
+    hard block — whichever organization distributes a given assistance_type
+    to a given person first within the rolling 30-day window is the one
+    that counts; this naturally falls out of the query below unchanged
+    (it already looked back from the NEW date_given, so an earlier
+    distribution from another org always blocks a later one, regardless of
+    which org is "first" in any other sense). A later attempt from the
+    SAME organization is still deliberately excluded here, same as before
+    — re-distributing is a different concern this check was never meant to
+    catch, and remains unblocked.
+
+    Batch (Phase B — Phase A gap fix): "is this a prior record from the SAME
+    organization now distributing" used to be decided by comparing the
+    prior record's attributed_organization (a live, independently-recomputed
+    barangay-match guess — see _resolve_attributed_organization) against
+    `organization.id`. That guess is NOT the organization that actually ran
+    a given bulk distribution — a non-main organization distributing FIRST
+    still produces a record whose attribution resolves to the person's
+    barangay-matching (main) organization, because attribution is computed
+    from the person's current memberships, not from who clicked the button.
+    That let a later, genuinely-different, main-organization attempt slip
+    through unblocked, since the prior record's attribution already equaled
+    the main organization's own id — indistinguishable from "I'm just
+    re-distributing my own prior record." Live-tested and confirmed capable
+    of double-distributing (see Phase A/Phase B reports).
+
+    Fixed by keying "is this mine" off `distributed_by_organization`, set
+    below to the real, durable, never-recomputed organization running THIS
+    request — for any prior record that has one (i.e. came from this same
+    bulk-distribution flow, before or after this fix shipped isn't relevant
+    — old rows simply have it null and fall back to the line below). Only
+    when a prior record has NO distributed_by_organization (an individual
+    "Report/Log Assistance" entry, never a bulk-distribution action) does
+    the check fall back to the old attributed_organization comparison —
+    unchanged behavior for that path, which this fix does not touch.
     """
     assistance_type = data['assistance_type']
     date_given = data['date_given']
@@ -662,22 +828,44 @@ def _run_organization_distribution(record_model, person_field, organization, mem
         # Fisherfolk's LGU registration number, whichever the model has.
         id_number = getattr(person, 'rsbsa_number', None) or getattr(person, 'lgu_registration_number', None)
 
-        # Safeguard (non-blocking): same assistance_type from a DIFFERENT
-        # organization within the last 30 days. Flagged in the result, never
-        # silently allowed or silently blocked.
+        # Safeguard (blocking): same assistance_type already delivered to
+        # this person within the last 30 days, by a DIFFERENT organization.
+        # "Different" is decided off distributed_by_organization when a
+        # prior record has one (the real, durable acting org — see this
+        # function's own docstring for the bug this fixes), falling back to
+        # the live-guessed attributed_organization only for prior records
+        # that have no distributed_by_organization at all (individual log
+        # entries, never a bulk-distribution action).
         prior = (
             record_model.objects
             .filter(assistance_type=assistance_type, date_given__gte=cutoff, date_given__lte=date_given, **person_filter)
-            .exclude(**{f'{attributed_field}_id': organization.id})
-            .exclude(**{f'{attributed_field}__isnull': True})
-            .select_related(attributed_field)
+            .exclude(
+                Q(distributed_by_organization_id=organization.id)
+                | Q(distributed_by_organization__isnull=True, **{f'{attributed_field}_id': organization.id})
+                | Q(distributed_by_organization__isnull=True, **{f'{attributed_field}__isnull': True})
+            )
+            .select_related(attributed_field, 'distributed_by_organization')
             .order_by('-date_given')
             .first()
         )
-        note = None
+        block_reason = None
         if prior:
-            other_org = getattr(prior, attributed_field)
-            note = f'Also received {prior.assistance_type} from {other_org.name} on {prior.date_given}.'
+            other_org = prior.distributed_by_organization or getattr(prior, attributed_field)
+            block_reason = (
+                f'Already received {prior.assistance_type} from {other_org.name} on '
+                f'{prior.date_given} — within the last 30 days. Only one organization\'s '
+                f'distribution of the same assistance type counts per person in that window.'
+            )
+
+        if block_reason:
+            results.append({
+                'person_id': person.id,
+                'name': person.full_name,
+                'id_number': id_number,
+                'status': 'would_block' if not commit else 'blocked',
+                'reason': block_reason,
+            })
+            continue
 
         if not commit:
             results.append({
@@ -685,7 +873,6 @@ def _run_organization_distribution(record_model, person_field, organization, mem
                 'name': person.full_name,
                 'id_number': id_number,
                 'status': 'would_create',
-                'note': note,
             })
             continue
 
@@ -699,6 +886,12 @@ def _run_organization_distribution(record_model, person_field, organization, mem
                     season=data.get('season', ''),
                     year=date_given.year,
                     recorded_by=user,
+                    # Batch (Phase B — Phase A gap fix): the real, durable
+                    # acting organization — see this function's own
+                    # docstring and distributed_by_organization's model
+                    # comment for why this can't be reconstructed later
+                    # from attributed_organization.
+                    distributed_by_organization=organization,
                     **{person_field: person, text_field: data.get('description', '')},
                 )
             results.append({
@@ -707,7 +900,6 @@ def _run_organization_distribution(record_model, person_field, organization, mem
                 'id_number': id_number,
                 'status': 'created',
                 'record_id': record.id,
-                'note': note,
             })
         except Exception as exc:
             results.append({
@@ -742,8 +934,15 @@ class FarmersOrganizationDistributeAssistanceView(APIView):
 
         # Snapshot at distribution time — resolved once, here, before any
         # writes. Members added after this point never retroactively receive
-        # this distribution.
-        members = list(Farmer.objects.filter(farmers_organization_id=pk))
+        # this distribution. Batch (Phase B): sourced from the join table
+        # now (mirrors the fisherfolk side below) — a farmer can belong to
+        # several organizations, so this must be THIS org's roster
+        # specifically, not "the" org on the farmer's own record (there is
+        # no longer such a thing).
+        members = [
+            m.farmer for m in
+            FarmersOrganizationMember.objects.filter(organization_id=pk).select_related('farmer')
+        ]
 
         results = _run_organization_distribution(
             BeneficiaryRecord, 'farmer', organization, members, data, request.user,

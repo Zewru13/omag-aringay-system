@@ -89,23 +89,16 @@ class Farmer(models.Model):
         blank=True,
         related_name='registered_farmers',
     )
-    farmers_organization = models.ForeignKey(
-        'associations.FarmersOrganization',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='member_farmers',
-        help_text="Organization this farmer belongs to (optional)",
-    )
-    # Toggle-not-delete batch: Farmers Organization membership has no join
-    # row (it IS farmers_organization above), so "removing" a member can't
-    # flip a status flag on a row the way Fisherfolk's join table can — this
-    # flag lives on Farmer instead, representing whether the membership
-    # itself is currently active. Deliberately separate from `is_active`
-    # above (whole-record registry status, unrelated to org membership) —
-    # a farmer can be a fully active registrant with an inactive org
-    # membership, or vice versa.
-    is_org_membership_active = models.BooleanField(default=True)
+    # Batch (Phase B — multi-org membership): the direct farmers_organization
+    # FK, is_org_membership_active, and org_membership_deactivation_reason
+    # fields that used to live here were removed — a single FK cannot
+    # represent a farmer belonging to more than one organization at once.
+    # Farmers Organization membership is now tracked exactly like
+    # Fisherfolk's: through the real associations.FarmersOrganizationMember
+    # join table (see that model — organization, farmer, is_active,
+    # deactivation_reason, is_main). Query farmer.farmer_organizations for a
+    # farmer's memberships, or FarmersOrganizationMember.objects.filter(
+    # organization_id=...) for an organization's roster.
 
     class Meta:
         # Backstop matching FarmerListView's own explicit

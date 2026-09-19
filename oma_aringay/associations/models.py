@@ -7,13 +7,22 @@ from fisheries.models import Fisherfolk
 from core.constants import BARANGAY_CHOICES
 
 
-def _plus_two_years(d):
-    """term_start_date + 2 years, landing on Feb 28 if term_start_date was a
-    Feb 29 that doesn't recur two years later."""
+def _plus_three_years(d):
+    """term_start_date + 3 years, landing on Feb 28 if term_start_date was a
+    Feb 29 that doesn't recur three years later.
+
+    Changed from 2 to 3 years (term length policy update) — deliberately
+    applies to NEW assignments only, never existing ones: term_end_date is
+    only ever computed here when it's still None (see both save() methods
+    below), so an already-saved officer row's real, historically-granted
+    term_end_date is never touched by this function changing. Confirmed
+    against live data before this change: every real officer row already
+    has a non-null term_end_date, so this is not a retroactive rewrite of
+    anyone's actual term."""
     try:
-        return d.replace(year=d.year + 2)
+        return d.replace(year=d.year + 3)
     except ValueError:
-        return d.replace(year=d.year + 2, day=28)
+        return d.replace(year=d.year + 3, day=28)
 
 
 class FarmersOrganization(models.Model):
@@ -90,7 +99,9 @@ class OrganizationOfficer(models.Model):
     position  = models.CharField(max_length=50, choices=POSITION_CHOICES)
     full_name = models.CharField(max_length=200)
 
-    # Batch: 2-year officer terms with full history. A row is never deleted
+    # Batch: 3-year officer terms with full history (was 2 years — see
+    # _plus_three_years' own docstring for why the change is new-assignment-
+    # only). A row is never deleted
     # or overwritten on any kind of exit (early end, natural completion,
     # reassignment, membership deactivation) — is_active=False plus the
     # term_end_date/early_exit_reason it ended with IS the historical
@@ -109,7 +120,7 @@ class OrganizationOfficer(models.Model):
 
     def save(self, *args, **kwargs):
         if self.term_end_date is None and self.term_start_date:
-            self.term_end_date = _plus_two_years(self.term_start_date)
+            self.term_end_date = _plus_three_years(self.term_start_date)
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -118,13 +129,12 @@ class OrganizationOfficer(models.Model):
 
 class FarmersOrganizationMember(models.Model):
     """
-    NOTE (Batch 4): live Farmers Organization membership is actually tracked
-    via Farmer.farmers_organization (a direct FK, set from the farmer's own
-    profile) — that's what OrganizationDetailPage's Members tab and the
-    officer-assignment search both read from. This join table exists but is
-    currently unused by the frontend (0 real rows); left in place/dormant
-    rather than removed, matching this project's convention of not deleting
-    infrastructure that might be wired up later.
+    Batch (Phase B — multi-org membership): this is now the real, live
+    Farmers Organization membership mechanism — a farmer can hold one row
+    per organization simultaneously, mirroring FisherfolkOrganizationMember
+    exactly (this model previously mirrored it in shape only; the direct
+    Farmer.farmers_organization FK was the actual live mechanism and forced
+    exclusive single-org membership — that FK is now removed).
     """
     class Position(models.TextChoices):
         PRESIDENT = 'President', 'President'
@@ -142,6 +152,27 @@ class FarmersOrganizationMember(models.Model):
     farmer = models.ForeignKey(Farmer, on_delete=models.CASCADE, related_name='farmer_organizations')
     position = models.CharField(max_length=20, choices=Position.choices, default=Position.MEMBER)
     date_joined = models.DateField()
+    # Toggle-not-delete batch: "removing" a member deactivates this row
+    # instead of deleting it — see FisherfolkOrganizationMember.is_active,
+    # which this mirrors exactly now that membership is a real join row.
+    is_active = models.BooleanField(default=True)
+    # Optional-but-encouraged reason captured on deactivation — mirrors
+    # FisherfolkOrganizationMember.deactivation_reason.
+    deactivation_reason = models.TextField(blank=True, default='')
+    # Batch (Phase B): exactly one of a farmer's ACTIVE memberships may be
+    # is_main=True at a time — enforced in code (associations/views.py's
+    # _resolve_and_assign_main), not a DB constraint (MariaDB has no
+    # partial/conditional unique index — see OrganizationOfficer's own
+    # comment on the same limitation). Barangay match against the farmer's
+    # own barangay auto-suggests main at join time when it uniquely
+    # resolves; otherwise an explicit choice is required the first time a
+    # farmer has no main at all, and left alone (default False) once they
+    # already have one. This is also the field the cross-org duplicate-
+    # assistance check (interventions/associations) was originally meant to
+    # lean on, and the fix for that check's Phase A gap does NOT change it
+    # to prefer is_main — first-come-first-served stays the rule; is_main
+    # is about attribution/display, not distribution priority.
+    is_main = models.BooleanField(default=False)
 
     class Meta:
         unique_together = [['organization', 'farmer']]
@@ -257,7 +288,7 @@ class FisherfolkOrganizationOfficer(models.Model):
     position  = models.CharField(max_length=50, choices=POSITION_CHOICES)
     full_name = models.CharField(max_length=200)
 
-    # Batch: 2-year officer terms with full history — see
+    # Batch: 3-year officer terms with full history (was 2 years) — see
     # OrganizationOfficer's identical fields/comment above.
     term_start_date = models.DateField(default=timezone.localdate)
     term_end_date = models.DateField(null=True, blank=True)
@@ -269,7 +300,7 @@ class FisherfolkOrganizationOfficer(models.Model):
 
     def save(self, *args, **kwargs):
         if self.term_end_date is None and self.term_start_date:
-            self.term_end_date = _plus_two_years(self.term_start_date)
+            self.term_end_date = _plus_three_years(self.term_start_date)
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -300,6 +331,16 @@ class FisherfolkOrganizationMember(models.Model):
     # membership-in-this-org status, not the org's or the person's own
     # whole-record status, which are independent.
     is_active = models.BooleanField(default=True)
+    # Optional-but-encouraged reason captured on the same deactivation that
+    # flips is_active False — mirrors this row's own early_exit_reason
+    # equivalent on OrganizationOfficer (required there; optional here, same
+    # reasoning as FarmersOrganizationMember.deactivation_reason). Cleared
+    # back to '' on reactivation for the same reason that field is.
+    deactivation_reason = models.TextField(blank=True, default='')
+    # Batch (Phase B): see FarmersOrganizationMember.is_main's comment — same
+    # field, same invariant (exactly one active membership is_main=True per
+    # person), same resolution rule, shared helper in associations/views.py.
+    is_main = models.BooleanField(default=False)
 
     class Meta:
         unique_together = [['organization', 'fisherfolk']]
