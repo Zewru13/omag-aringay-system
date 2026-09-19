@@ -499,6 +499,18 @@ class StockingRecord(models.Model):
     culture_type            = models.CharField(max_length=10, choices=CULTURE_TYPE_CHOICES)
     species                 = models.ForeignKey(SpeciesOption, on_delete=models.PROTECT, related_name='stocking_records')
     date_stocked            = models.DateField()
+    # Mirrors CropMonitoringRecord.date_planted_is_estimated exactly (see that
+    # field's own comment) — False by default so every hand-entered/pre-existing
+    # record is unaffected. Wherever a day-based computation treats date_stocked
+    # as a real event date (the Activity Suggestion Engine, dashboard aggregation,
+    # the Record Harvest gate) this flag must be checked — see save()'s
+    # Near-Harvest auto-transition guard below, dashboard_activity.py's
+    # fisheries_activity_status() exclude(), FisheriesActivitySuggestionsView, and
+    # StockingHarvestListCreateView.create() for the enforcement points.
+    date_stocked_is_estimated = models.BooleanField(
+        default=False,
+        help_text='True when date_stocked is an approximation, not a confirmed real stocking date.',
+    )
     area_hectares           = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
     number_of_fingerlings   = models.IntegerField()
     survival_rate_pct       = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
@@ -575,8 +587,10 @@ class StockingRecord(models.Model):
                 * Decimal(str(self.avg_body_weight_kg))
             ).quantize(Decimal('0.01'))
 
-        # Auto-transition: Stocked → Near Harvest when within 7 days of expected harvest
-        if self.expected_harvest_date and self.status == self.Status.STOCKED:
+        # Auto-transition: Stocked → Near Harvest when within 7 days of expected harvest.
+        # Skipped when date_stocked is only an estimate — see date_stocked_is_estimated's
+        # own comment, and CropMonitoringRecord.save()'s identical guard.
+        if self.expected_harvest_date and self.status == self.Status.STOCKED and not self.date_stocked_is_estimated:
             days_remaining = (self.expected_harvest_date - date.today()).days
             if days_remaining <= 7:
                 self.status = self.Status.NEAR_HARVEST
@@ -609,7 +623,7 @@ class StockingRecord(models.Model):
         """Pick the correct status for this record after total-loss reversal."""
         if self.harvests.exists():
             return self.Status.HARVESTED
-        if self.expected_harvest_date:
+        if self.expected_harvest_date and not self.date_stocked_is_estimated:
             days_remaining = (self.expected_harvest_date - date.today()).days
             if days_remaining <= 7:
                 return self.Status.NEAR_HARVEST

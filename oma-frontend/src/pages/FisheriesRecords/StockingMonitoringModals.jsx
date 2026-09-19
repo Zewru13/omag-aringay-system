@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  AlertTriangle, Bug, CheckCircle, CheckCircle2, Fish, Lock, Wheat,
+  AlertTriangle, Bug, CheckCircle, CheckCircle2, Fish, HelpCircle, Lock, Wheat,
 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
@@ -113,6 +113,7 @@ export function StockingSuggestionsModal({ record, onClose, onApply }) {
   const daysElapsed   = data?.days_elapsed ?? 0
   const totalDays     = data?.total_days ?? 0
   const progressPct   = totalDays > 0 ? Math.min(100, Math.round((daysElapsed / totalDays) * 100)) : 0
+  const isEstimated   = data?.date_stocked_is_estimated ?? false
 
   return (
     <ModalShell title={`Activity Suggestions — ${record.species_name}`} onClose={onClose} maxWidth="max-w-lg">
@@ -123,6 +124,17 @@ export function StockingSuggestionsModal({ record, onClose, onApply }) {
         </div>
       ) : (
         <div className="space-y-5">
+          {isEstimated ? (
+            <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <HelpCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-800">
+                <strong>Estimated stocking date.</strong> This record's stocking date is not a confirmed
+                field date, so day-based activity suggestions can't be calculated reliably. A staff
+                member needs to confirm or correct the real stocking date first.
+              </p>
+            </div>
+          ) : (
+            <>
           {/* Progress bar */}
           <div className="bg-slate-50 rounded-xl p-4">
             <div className="flex items-center justify-between mb-2">
@@ -188,8 +200,12 @@ export function StockingSuggestionsModal({ record, onClose, onApply }) {
               </div>
             )
           })}
+            </>
+          )}
 
-          {/* Disaster response — grouped by active disaster */}
+          {/* Disaster response — grouped by active disaster (independent of
+              date_stocked, so still shown even when the stocking date is
+              only an estimate). */}
           {disasterRules.length > 0 && (
             <div>
               <h4 className="text-xs font-semibold uppercase tracking-wide mb-2 text-rose-700">
@@ -851,10 +867,10 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
                 {diseaseTypeName && diseaseTypeName !== 'Other' && (
                   <div className="mb-2 rounded-lg bg-white border border-rose-200 px-3 py-2">
                     {isLoadingGuide ? (
-                      <p className="text-[11px] text-slate-400">Checking for a recommended treatment…</p>
+                      <p className="text-[11px] text-slate-400">Checking for a recommended response…</p>
                     ) : responseGuide?.recommended_treatment ? (
                       <>
-                        <p className="text-[11px] font-semibold text-rose-700 mb-0.5">Suggested treatment (not required — log what was actually applied below)</p>
+                        <p className="text-[11px] font-semibold text-rose-700 mb-0.5">Recommended response (not required — log what was actually applied below)</p>
                         <p className="text-[12px] text-slate-700 mb-1">{responseGuide.recommended_treatment}</p>
                         {responseGuide.notes && (
                           <p className="text-[10px] italic text-slate-400">{responseGuide.notes}</p>
@@ -862,7 +878,7 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
                       </>
                     ) : (
                       <p className="text-[11px] italic text-slate-500">
-                        No recommended treatment configured — log what was actually applied.
+                        No recommended response configured — log what was actually applied.
                       </p>
                     )}
                   </div>
@@ -870,7 +886,7 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
                 <div className="mb-2">
                   <label className="text-xs font-medium text-slate-700 mb-1 block">Treatment Applied</label>
                   <input type="text" value={treatmentApplied} onChange={e => setTreatmentApplied(e.target.value)}
-                    placeholder="e.g. Salt bath, isolated affected stock" className={baseInputClasses} />
+                    placeholder="e.g. Harvested early, isolated affected stock" className={baseInputClasses} />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-slate-700 mb-1 block">Outcome</label>

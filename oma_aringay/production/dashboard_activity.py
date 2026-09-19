@@ -142,6 +142,10 @@ def fisheries_activity_status():
 
     records = list(
         Record.objects.exclude(status__in=_CLOSED)
+        # Same exclusion as crop_activity_status() above — an estimated
+        # date_stocked is not a real event date. Same exclusion as
+        # FisheriesActivitySuggestionsView.
+        .exclude(date_stocked_is_estimated=True)
         .only('id', 'species_id', 'date_stocked', 'pond_location_barangay')
     )
     stages_by_key = defaultdict(list)

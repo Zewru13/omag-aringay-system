@@ -800,7 +800,7 @@ class StockingRecordSerializer(serializers.ModelSerializer):
             'pond', 'pond_name',
             'pond_location_barangay', 'land_status', 'land_status_other_specify', 'culture_type',
             'species', 'species_name', 'category_name',
-            'date_stocked', 'area_hectares', 'number_of_fingerlings',
+            'date_stocked', 'date_stocked_is_estimated', 'area_hectares', 'number_of_fingerlings',
             'survival_rate_pct', 'avg_body_weight_kg',
             'water_source', 'water_source_other_specify', 'number_of_units', 'unit_dimensions',
             'fingerling_source', 'fingerling_source_other_specify', 'avg_fingerling_size',
