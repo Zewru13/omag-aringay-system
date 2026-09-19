@@ -28,7 +28,31 @@ const COLUMNS = [
   { key: 'actions',          label: 'ACTIONS',                sortable: false },
 ]
 
-const EMPTY_FORM = { name: '', days_to_harvest: '', yield_per_ha_kg: '', category: '', subcategory: '', allowed_units: [] }
+const EMPTY_FORM = {
+  name: '', days_to_harvest: '', yield_per_ha_kg: '', category: '', subcategory: '', allowed_units: [],
+  vegetative_start_day: '', flowering_start_day: '', fruiting_start_day: '', maturity_start_day: '',
+}
+
+// Real Philippine sources investigated for Corn (Mais)'s growth-stage day
+// thresholds (2026-09-19) — they disagree with each other by variety/region,
+// so no value is pre-filled anywhere in this form; a human with real local
+// agronomic knowledge sets these deliberately per crop type.
+const GROWTH_STAGE_SOURCES_NOTE = (
+  <>
+    Real sources checked for Corn (Mais) disagree by variety/region — don't copy a
+    number from just one of these. DA Regional Field Office No. 2 (Cagayan Valley),
+    <em> Corn Production Technoguide</em>, Rev. Ed. 2012: OPV varieties mature in
+    92–101 days (closest match to this crop's own Growth Duration), but gives no
+    flowering/fruiting day breakdown for that class. Transon et al. (2017),{' '}
+    <em>Corn Crops in Bukidnon, Philippines</em> (citing Jamago 2017 &amp; Narreto
+    2016): a Bukidnon DAP calendar — flowering at DAP 40–60 — but for a 110–120 DAP
+    (full-season) crop, longer than this crop's own figure. Amba et al.,{' '}
+    <em>Growth and Yield of Open Pollinated Young Corn... with Mykovam® Bio-fertilizer</em>
+    {' '}(<em>IJSBAR</em>): a real OPV field trial showing tasseling/silking at DAP
+    57–69 — later than Transon et al.'s own window. Set this value deliberately for
+    your actual crop/variety, or leave it blank.
+  </>
+)
 
 // ── Unit Chip Input ────────────────────────────────────────────────────────────
 
@@ -279,6 +303,10 @@ function CropTypeModal({ crop, categories, subcategories, onClose, onSaved }) {
         category:        crop.category        || '',
         subcategory:     crop.subcategory     || '',
         allowed_units:   crop.allowed_units    || [],
+        vegetative_start_day: crop.vegetative_start_day ?? '',
+        flowering_start_day:  crop.flowering_start_day  ?? '',
+        fruiting_start_day:   crop.fruiting_start_day   ?? '',
+        maturity_start_day:   crop.maturity_start_day   ?? '',
       }
     : EMPTY_FORM
   const [form, setForm] = useState(originalForm)
@@ -300,12 +328,27 @@ function CropTypeModal({ crop, categories, subcategories, onClose, onSaved }) {
     e.preventDefault()
     if (!form.name.trim())     { showToast('Crop name is required.', 'error'); return }
     if (!form.days_to_harvest) { showToast('Growth duration is required.', 'error'); return }
+    const stageDays = [form.vegetative_start_day, form.flowering_start_day, form.fruiting_start_day, form.maturity_start_day]
+    const stageDaysSet = stageDays.filter(d => d !== '')
+    if (stageDaysSet.length > 0 && stageDaysSet.length < 4) {
+      showToast('Set all four growth-stage days, or leave all four blank.', 'error'); return
+    }
+    if (stageDaysSet.length === 4) {
+      const [veg, flo, fru, mat] = stageDaysSet.map(Number)
+      if (!(veg < flo && flo < fru && fru < mat)) {
+        showToast('Growth-stage days must increase: Vegetative < Flowering < Fruiting < Maturity.', 'error'); return
+      }
+    }
     setPendingPayload({
       ...form,
       category:        form.category        || null,
       subcategory:     form.subcategory     || null,
       yield_per_ha_kg: form.yield_per_ha_kg || null,
       allowed_units:   form.allowed_units,
+      vegetative_start_day: form.vegetative_start_day === '' ? null : form.vegetative_start_day,
+      flowering_start_day:  form.flowering_start_day  === '' ? null : form.flowering_start_day,
+      fruiting_start_day:   form.fruiting_start_day   === '' ? null : form.fruiting_start_day,
+      maturity_start_day:   form.maturity_start_day   === '' ? null : form.maturity_start_day,
     })
   }
 
@@ -397,6 +440,35 @@ function CropTypeModal({ crop, categories, subcategories, onClose, onSaved }) {
           <FormField label="Allowed Units of Measure">
             <UnitChipInput units={form.allowed_units} onChange={units => set('allowed_units', units)} />
           </FormField>
+
+          <div className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] p-3">
+            <p className="mb-1 text-[12px] font-semibold text-[#1A2B1A]">Growth Stage Days (for input recommendation)</p>
+            <p className="mb-2 text-[11px] text-[#7A8E7A]">
+              Day after planting each stage begins. Leave all four blank if not yet known — growth-stage input
+              recommendation just won't be offered for this crop until they're set.
+            </p>
+            <p className="mb-2 text-[11px] leading-[1.5] text-[#7A8E7A] italic">
+              {GROWTH_STAGE_SOURCES_NOTE}
+            </p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <FormField label="Vegetative">
+                <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 10"
+                  value={form.vegetative_start_day} onChange={e => set('vegetative_start_day', e.target.value)} />
+              </FormField>
+              <FormField label="Flowering">
+                <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 40"
+                  value={form.flowering_start_day} onChange={e => set('flowering_start_day', e.target.value)} />
+              </FormField>
+              <FormField label="Fruiting">
+                <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 60"
+                  value={form.fruiting_start_day} onChange={e => set('fruiting_start_day', e.target.value)} />
+              </FormField>
+              <FormField label="Maturity">
+                <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 80"
+                  value={form.maturity_start_day} onChange={e => set('maturity_start_day', e.target.value)} />
+              </FormField>
+            </div>
+          </div>
 
           <div className="flex justify-end gap-2 pt-1">
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>

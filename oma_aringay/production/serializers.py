@@ -7,7 +7,7 @@ from farmers.models import FarmParcel
 
 from .models import (
     ActivityType, BarangayCropSummary, CropActivityLog, CropActivityStage,
-    CropCategory, CropDisasterReport, CropMonitoringRecord, CropRemark, CropSubcategory,
+    CropCategory, CropDisasterReport, CropInputType, CropMonitoringRecord, CropRemark, CropSubcategory,
     CropType, CropVariety, DamageReport, FarmInputLog, HarvestRecord, LaborOperationLog,
     PestDiseaseReport, PlantingRecord, SeedSource,
 )
@@ -32,7 +32,10 @@ class CropVarietySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CropVariety
-        fields = ['id', 'name', 'crop_type', 'crop_type_name', 'is_active', 'days_to_harvest']
+        fields = [
+            'id', 'name', 'crop_type', 'crop_type_name', 'is_active', 'days_to_harvest',
+            'vegetative_start_day', 'flowering_start_day', 'fruiting_start_day', 'maturity_start_day',
+        ]
         read_only_fields = ['id', 'crop_type_name']
         # DRF auto-adds a UniqueTogetherValidator from the model's
         # unique_together=[['crop_type', 'name']] — it runs before our own
@@ -55,6 +58,22 @@ class CropVarietySerializer(serializers.ModelSerializer):
                     'name': f"A variety named '{name}' already exists for {crop_label}.",
                 })
             data['name'] = name
+
+        # Same all-or-nothing growth-stage-day rule as CropTypeSerializer.
+        veg = data.get('vegetative_start_day', getattr(self.instance, 'vegetative_start_day', None))
+        flo = data.get('flowering_start_day', getattr(self.instance, 'flowering_start_day', None))
+        fru = data.get('fruiting_start_day', getattr(self.instance, 'fruiting_start_day', None))
+        mat = data.get('maturity_start_day', getattr(self.instance, 'maturity_start_day', None))
+        values = [veg, flo, fru, mat]
+        set_count = sum(1 for v in values if v is not None)
+        if 0 < set_count < 4:
+            raise serializers.ValidationError({
+                'vegetative_start_day': 'Set all four growth-stage days, or leave all four blank.',
+            })
+        if set_count == 4 and not (veg < flo < fru < mat):
+            raise serializers.ValidationError({
+                'vegetative_start_day': 'Growth-stage days must increase: Vegetative < Flowering < Fruiting < Maturity.',
+            })
         return data
 
 
@@ -85,6 +104,7 @@ class CropTypeSerializer(serializers.ModelSerializer):
             'id', 'name', 'days_to_harvest', 'yield_per_ha_kg',
             'category', 'category_name', 'subcategory', 'subcategory_name',
             'suggested_activities', 'allowed_units', 'remarks', 'is_active',
+            'vegetative_start_day', 'flowering_start_day', 'fruiting_start_day', 'maturity_start_day',
         ]
         # DRF auto-adds a UniqueValidator to `name` from the model's
         # unique=True — it's case-sensitive-looking but MySQL's default
@@ -102,6 +122,26 @@ class CropTypeSerializer(serializers.ModelSerializer):
         if qs.exists():
             raise serializers.ValidationError(f"A crop type named '{name}' already exists.")
         return name
+
+    def validate(self, data):
+        # All-or-nothing, same rule and same reasoning as
+        # SpeciesOptionSerializer.validate() on the fisheries side: a partial
+        # set of growth-stage days can't be ordered meaningfully.
+        veg = data.get('vegetative_start_day', getattr(self.instance, 'vegetative_start_day', None))
+        flo = data.get('flowering_start_day', getattr(self.instance, 'flowering_start_day', None))
+        fru = data.get('fruiting_start_day', getattr(self.instance, 'fruiting_start_day', None))
+        mat = data.get('maturity_start_day', getattr(self.instance, 'maturity_start_day', None))
+        values = [veg, flo, fru, mat]
+        set_count = sum(1 for v in values if v is not None)
+        if 0 < set_count < 4:
+            raise serializers.ValidationError({
+                'vegetative_start_day': 'Set all four growth-stage days, or leave all four blank.',
+            })
+        if set_count == 4 and not (veg < flo < fru < mat):
+            raise serializers.ValidationError({
+                'vegetative_start_day': 'Growth-stage days must increase: Vegetative < Flowering < Fruiting < Maturity.',
+            })
+        return data
 
     def get_remarks(self, obj):
         return CropRemarkSerializer(obj.remarks.order_by('-date_recorded'), many=True).data
@@ -134,6 +174,13 @@ class CropActivityStageSerializer(serializers.ModelSerializer):
             if not isinstance(d, int) or d < 1:
                 raise serializers.ValidationError('Each day must be a positive integer.')
         return sorted(set(value))
+
+
+class CropInputTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CropInputType
+        fields = ['id', 'name', 'description', 'is_active', 'crop_types', 'input_type', 'growth_stage']
+        read_only_fields = ['id']
 
     def create(self, validated_data):
         days = validated_data.get('application_days', [])
@@ -373,6 +420,9 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
     harvest_count          = serializers.SerializerMethodField()
     disaster_report_count  = serializers.SerializerMethodField()
     harvest_variance_days  = serializers.SerializerMethodField()
+    growth_stage           = serializers.SerializerMethodField()
+    recommended_input_type_id   = serializers.SerializerMethodField()
+    recommended_input_type_name = serializers.SerializerMethodField()
 
     class Meta:
         model = CropMonitoringRecord
@@ -394,6 +444,7 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
             'has_disaster', 'disasters_count', 'has_recovered_disaster',
             'has_harvest', 'harvest_record_id', 'harvest_count', 'disaster_report_count',
             'harvest_variance_days',
+            'growth_stage', 'recommended_input_type_id', 'recommended_input_type_name',
         ]
         read_only_fields = [
             'id', 'farmer_name', 'farmer_barangay', 'farmer_full_name', 'farmer_organization_name',
@@ -406,6 +457,7 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
             'has_disaster', 'disasters_count', 'has_recovered_disaster',
             'has_harvest', 'harvest_record_id', 'harvest_count', 'disaster_report_count',
             'harvest_variance_days',
+            'growth_stage', 'recommended_input_type_id', 'recommended_input_type_name',
         ]
         extra_kwargs = {
             'farm_location_barangay': {'required': True, 'allow_blank': False},
@@ -430,9 +482,13 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
         return None
 
     def get_farmer_organization_name(self, obj):
-        if obj.farmer and hasattr(obj.farmer, 'farmers_organization') and obj.farmer.farmers_organization:
-            return obj.farmer.farmers_organization.name
-        return None
+        # Batch (Phase B): Farmer.farmers_organization no longer exists —
+        # resolves the farmer's real, stored MAIN organization membership
+        # instead (associations.models.FarmersOrganizationMember.is_main).
+        if not obj.farmer_id:
+            return None
+        main = obj.farmer.farmer_organizations.filter(is_active=True, is_main=True).select_related('organization').first()
+        return main.organization.name if main else None
 
     def get_farmer_barangay(self, obj):
         if obj.farm_location_barangay:
@@ -493,6 +549,17 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
     def get_harvest_variance_days(self, obj):
         hr = obj.harvest_records.first()
         return hr.harvest_variance_days if hr else None
+
+    def get_growth_stage(self, obj):
+        return obj.compute_growth_stage()
+
+    def get_recommended_input_type_id(self, obj):
+        input_type = obj.compute_recommended_input()
+        return input_type.id if input_type else None
+
+    def get_recommended_input_type_name(self, obj):
+        input_type = obj.compute_recommended_input()
+        return input_type.name if input_type else None
 
     def validate_date_planted(self, value):
         validate_not_future_date(value, 'Date planted')

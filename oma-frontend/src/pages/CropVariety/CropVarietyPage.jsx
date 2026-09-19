@@ -13,6 +13,23 @@ import { useToast } from '../../context/ToastContext.jsx'
 
 const PAGE_SIZE = 10
 
+// Same real-source disagreement this project found for CropType's own
+// growth-stage days (2026-09-19 research pass, Corn (Mais)) — the caution
+// applies to any crop/variety here too: don't copy a number from a source
+// that wasn't checked against this specific variety's real local behavior.
+const GROWTH_STAGE_SOURCES_NOTE = (
+  <>
+    The one crop this project has real sourced research for so far (Corn (Mais)) shows real
+    sources disagreeing by variety/region: DA Regional Field Office No. 2 (Cagayan Valley),
+    <em> Corn Production Technoguide</em>, Rev. Ed. 2012; Transon et al. (2017),{' '}
+    <em>Corn Crops in Bukidnon, Philippines</em> (citing Jamago 2017 &amp; Narreto 2016); and
+    Amba et al., <em>Growth and Yield of Open Pollinated Young Corn... with Mykovam® Bio-fertilizer</em>
+    {' '}(<em>IJSBAR</em>) gave three different day-ranges for the same crop. The same caution
+    applies to this variety's own override — set it deliberately from real local knowledge of
+    this specific variety, or leave it blank and let the crop type's own thresholds apply.
+  </>
+)
+
 const COLUMNS = [
   { key: 'name',           label: 'VARIETY NAME' },
   { key: 'crop_type_disp', label: 'CROP' },
@@ -29,6 +46,10 @@ function CropVarietyModal({ variety, cropTypes, onClose, onSaved }) {
     crop_type: variety?.crop_type || '',
     is_active: variety?.is_active ?? true,
     days_to_harvest: variety?.days_to_harvest ?? '',
+    vegetative_start_day: variety?.vegetative_start_day ?? '',
+    flowering_start_day:  variety?.flowering_start_day  ?? '',
+    fruiting_start_day:   variety?.fruiting_start_day   ?? '',
+    maturity_start_day:   variety?.maturity_start_day   ?? '',
   }
   const [form, setForm] = useState(original)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -43,12 +64,27 @@ function CropVarietyModal({ variety, cropTypes, onClose, onSaved }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.name.trim()) { showToast('Variety name is required.', 'error'); return }
+    const stageDays = [form.vegetative_start_day, form.flowering_start_day, form.fruiting_start_day, form.maturity_start_day]
+    const stageDaysSet = stageDays.filter(d => d !== '')
+    if (stageDaysSet.length > 0 && stageDaysSet.length < 4) {
+      showToast('Set all four growth-stage days, or leave all four blank.', 'error'); return
+    }
+    if (stageDaysSet.length === 4) {
+      const [veg, flo, fru, mat] = stageDaysSet.map(Number)
+      if (!(veg < flo && flo < fru && fru < mat)) {
+        showToast('Growth-stage days must increase: Vegetative < Flowering < Fruiting < Maturity.', 'error'); return
+      }
+    }
     setIsSubmitting(true)
     try {
       const payload = {
         ...form,
         crop_type: form.crop_type || null,
         days_to_harvest: form.days_to_harvest === '' ? null : parseInt(form.days_to_harvest, 10),
+        vegetative_start_day: form.vegetative_start_day === '' ? null : form.vegetative_start_day,
+        flowering_start_day:  form.flowering_start_day  === '' ? null : form.flowering_start_day,
+        fruiting_start_day:   form.fruiting_start_day   === '' ? null : form.fruiting_start_day,
+        maturity_start_day:   form.maturity_start_day   === '' ? null : form.maturity_start_day,
       }
       if (isEdit) {
         await api.patch(`/production/varieties/${variety.id}/`, payload)
@@ -106,6 +142,36 @@ function CropVarietyModal({ variety, cropTypes, onClose, onSaved }) {
             placeholder="e.g. 70"
           />
         </FormField>
+
+        <div className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] p-3">
+          <p className="mb-1 text-[12px] font-semibold text-[#1A2B1A]">Growth Stage Days Override (for input recommendation)</p>
+          <p className="mb-2 text-[11px] text-[#7A8E7A]">
+            Overrides the crop type's own growth-stage days for this variety. Leave all four blank to use the
+            crop type's own thresholds unchanged.
+          </p>
+          <p className="mb-2 text-[11px] leading-[1.5] text-[#7A8E7A] italic">
+            {GROWTH_STAGE_SOURCES_NOTE}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <FormField label="Vegetative">
+              <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 10"
+                value={form.vegetative_start_day} onChange={e => set('vegetative_start_day', e.target.value)} />
+            </FormField>
+            <FormField label="Flowering">
+              <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 40"
+                value={form.flowering_start_day} onChange={e => set('flowering_start_day', e.target.value)} />
+            </FormField>
+            <FormField label="Fruiting">
+              <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 60"
+                value={form.fruiting_start_day} onChange={e => set('fruiting_start_day', e.target.value)} />
+            </FormField>
+            <FormField label="Maturity">
+              <input type="number" min="0" className={baseInputClasses} placeholder="e.g. 80"
+                value={form.maturity_start_day} onChange={e => set('maturity_start_day', e.target.value)} />
+            </FormField>
+          </div>
+        </div>
+
         <label className="flex items-center gap-2 cursor-pointer">
           <input
             type="checkbox"

@@ -74,8 +74,55 @@ class CropType(models.Model):
     # type name regardless of this flag.
     is_active = models.BooleanField(default=True)
 
+    # Growth-stage day thresholds for input (fertilizer/pesticide) recommendation
+    # — mirrors SpeciesOption.fingerling_start_day/juvenile_start_day/adult_start_day
+    # exactly. NULL until OMAg staff configure them; nothing is fabricated as a
+    # default, same discipline as SpeciesOption's own thresholds and
+    # DiseaseResponseGuide being seeded empty of content. Real Philippine sources
+    # investigated for Corn (Mais) (DA-RFO2's 2012 Corn Production Technoguide,
+    # Transon et al. 2017's Bukidnon DAP calendar, and Amba et al.'s Mykovam OPV
+    # trial) disagree with each other by variety/region — see the help text on
+    # these fields in CropOptionPage.jsx — so no value is seeded here even for
+    # Corn (Mais); a human with real local agronomic knowledge sets it.
+    vegetative_start_day = models.PositiveIntegerField(
+        null=True, blank=True, help_text='Day after planting the Vegetative stage begins',
+    )
+    flowering_start_day = models.PositiveIntegerField(
+        null=True, blank=True, help_text='Day after planting the Flowering stage begins',
+    )
+    fruiting_start_day = models.PositiveIntegerField(
+        null=True, blank=True, help_text='Day after planting the Fruiting stage begins',
+    )
+    maturity_start_day = models.PositiveIntegerField(
+        null=True, blank=True, help_text='Day after planting the Maturity stage begins',
+    )
+
     def __str__(self):
         return self.name
+
+    def growth_stage_for_day(self, days_since_planting):
+        """None if days_since_planting is unknown or the four thresholds aren't
+        all configured — a partial configuration can't be trusted to order
+        correctly, so it's treated the same as unconfigured. Mirrors
+        SpeciesOption.growth_stage_for_day() exactly, mapped onto the 4
+        day-threshold-classifiable stages of CropMonitoringRecord's existing
+        GROWTH_STAGE_CHOICES (Land Preparation/Planted/Near Harvest/Harvested
+        stay event-driven, not day-threshold-driven)."""
+        if days_since_planting is None:
+            return None
+        thresholds = (self.vegetative_start_day, self.flowering_start_day,
+                      self.fruiting_start_day, self.maturity_start_day)
+        if None in thresholds:
+            return None
+        if days_since_planting >= self.maturity_start_day:
+            return 'Maturity'
+        if days_since_planting >= self.fruiting_start_day:
+            return 'Fruiting'
+        if days_since_planting >= self.flowering_start_day:
+            return 'Flowering'
+        if days_since_planting >= self.vegetative_start_day:
+            return 'Vegetative'
+        return None
 
 
 class SeedSource(models.Model):
@@ -136,6 +183,47 @@ class CropVariety(models.Model):
         help_text='Overrides the crop type\'s own days_to_harvest for this specific variety. '
                    'Leave blank to use the crop type\'s figure unchanged.',
     )
+    # Same override-or-fall-through relationship to CropType's own
+    # vegetative/flowering/fruiting/maturity_start_day as days_to_harvest above
+    # has to CropType.days_to_harvest — null means "use the crop type's own
+    # thresholds unchanged." See CropMonitoringRecord.compute_growth_stage().
+    vegetative_start_day = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text='Overrides the crop type\'s own Vegetative-stage start day for this variety.',
+    )
+    flowering_start_day = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text='Overrides the crop type\'s own Flowering-stage start day for this variety.',
+    )
+    fruiting_start_day = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text='Overrides the crop type\'s own Fruiting-stage start day for this variety.',
+    )
+    maturity_start_day = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text='Overrides the crop type\'s own Maturity-stage start day for this variety.',
+    )
+
+    def growth_stage_for_day(self, days_since_planting, crop_type):
+        """Mirrors CropType.growth_stage_for_day(), consulting this variety's
+        own thresholds first (all 4 must be set) and falling through to the
+        crop type's thresholds otherwise — same fallback order as
+        days_to_harvest above."""
+        thresholds = (self.vegetative_start_day, self.flowering_start_day,
+                      self.fruiting_start_day, self.maturity_start_day)
+        if None not in thresholds:
+            if days_since_planting is None:
+                return None
+            if days_since_planting >= self.maturity_start_day:
+                return 'Maturity'
+            if days_since_planting >= self.fruiting_start_day:
+                return 'Fruiting'
+            if days_since_planting >= self.flowering_start_day:
+                return 'Flowering'
+            if days_since_planting >= self.vegetative_start_day:
+                return 'Vegetative'
+            return None
+        return crop_type.growth_stage_for_day(days_since_planting)
 
     class Meta:
         verbose_name_plural = 'Crop Varieties'
@@ -147,6 +235,52 @@ class CropVariety(models.Model):
         # case-insensitive too, but the serializer gives a clear message
         # instead of a raw IntegrityError).
         unique_together = [['crop_type', 'name']]
+
+    def __str__(self):
+        return self.name
+
+
+# ─── Crop Input Type (growth-stage input recommendation) ────────────────────
+# Mirrors fisheries.models.FeedType exactly. Seeded with ZERO rows — no
+# fabricated fertilizer/pesticide specifics — same discipline as FeedType
+# itself (which ships only 2 "PROVISIONAL generic" starters, not real
+# per-species formulations) and SpeciesOption's own growth-stage thresholds.
+# OMAg/DA staff populate this with real, locally-confirmed recommendations.
+
+class CropInputType(models.Model):
+    GROWTH_STAGE_CHOICES = [
+        ('Vegetative', 'Vegetative'),
+        ('Flowering',  'Flowering'),
+        ('Fruiting',   'Fruiting'),
+        ('Maturity',   'Maturity'),
+    ]
+    # Reuses FarmInputLog.INPUT_TYPE_CHOICES rather than inventing a new
+    # vocabulary — that model already establishes the real category taxonomy
+    # this app uses for crop inputs.
+    INPUT_TYPE_CHOICES = [
+        ('Fertilizer', 'Fertilizer'),
+        ('Pesticide',  'Pesticide'),
+        ('Herbicide',  'Herbicide'),
+        ('Fungicide',  'Fungicide'),
+        ('Other',      'Other'),
+    ]
+
+    name        = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+    is_active   = models.BooleanField(default=True)
+    crop_types  = models.ManyToManyField(
+        CropType, blank=True, related_name='input_types',
+        help_text='Crop types this input applies to. Blank = suitable for any crop type.',
+    )
+    input_type = models.CharField(max_length=20, choices=INPUT_TYPE_CHOICES)
+    # Blank means "suitable for any stage" — mirrors FeedType.growth_stage.
+    growth_stage = models.CharField(
+        max_length=15, choices=GROWTH_STAGE_CHOICES, blank=True,
+        help_text='Growth stage this input is recommended for. Blank = suitable for any stage.',
+    )
+
+    class Meta:
+        ordering = ['name']
 
     def __str__(self):
         return self.name
@@ -351,6 +485,43 @@ class CropMonitoringRecord(models.Model):
             if days_remaining <= 7:
                 return self.Status.NEAR_HARVEST
         return self.Status.PLANTED
+
+    @property
+    def days_since_planting(self):
+        """Mirrors StockingRecord.days_since_stocking."""
+        if not self.date_planted:
+            return None
+        return (date.today() - self.date_planted).days
+
+    def compute_growth_stage(self):
+        """Vegetative/Flowering/Fruiting/Maturity, or None if neither this
+        record's variety nor its crop type has stage thresholds configured
+        yet. Mirrors StockingRecord.compute_growth_stage(); consults a
+        matching CropVariety override first (same case-insensitive
+        variety_used match save() already uses for days_to_harvest), then
+        falls through to the crop type's own thresholds."""
+        if not self.crop_type_id:
+            return None
+        if self.variety_used:
+            variety = CropVariety.objects.filter(
+                crop_type_id=self.crop_type_id, name__iexact=self.variety_used,
+            ).first()
+            if variety:
+                return variety.growth_stage_for_day(self.days_since_planting, self.crop_type)
+        return self.crop_type.growth_stage_for_day(self.days_since_planting)
+
+    def compute_recommended_input(self):
+        """The active CropInputType tagged for this record's current growth
+        stage and linked to its crop type; falls back to a stage-agnostic
+        (blank growth_stage) input type for the crop type if no
+        stage-specific one is configured. None if the stage itself is
+        unknown (see compute_growth_stage) or nothing matches. Mirrors
+        StockingRecord.compute_recommended_feed_type()."""
+        stage = self.compute_growth_stage()
+        if not stage or not self.crop_type_id:
+            return None
+        candidates = self.crop_type.input_types.filter(is_active=True)
+        return candidates.filter(growth_stage=stage).first() or candidates.filter(growth_stage='').first()
 
 
 class CropActivityLog(models.Model):

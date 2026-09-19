@@ -28,6 +28,7 @@ from .models import (
     ActivityType,
     BarangayCropSummary,
     CropActivityLog, CropActivityStage, CropCategory, CropDisasterReport,
+    CropInputType,
     CropMonitoringRecord, CropRemark,
     CropSubcategory, CropType, CropVariety, DamageReport, DisasterResponseRule,
     FarmInputLog, HarvestRecord, LaborOperationLog, PestDiseaseReport, PlantingRecord,
@@ -40,6 +41,7 @@ from .serializers import (
     CropActivityStageSerializer,
     CropCategorySerializer,
     CropDisasterReportSerializer,
+    CropInputTypeSerializer,
     CropMonitoringDetailSerializer,
     CropMonitoringRecordSerializer,
     CropRemarkSerializer,
@@ -2019,6 +2021,36 @@ class CropVarietyDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = CropVarietySerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     queryset = CropVariety.objects.select_related('crop_type').all()
+
+
+# ─── Crop Input Type ────────────────────────────────────────────────────────
+# Mirrors fisheries' FeedTypeListCreateView/FeedTypeDetailView exactly.
+
+class CropInputTypeListCreateView(generics.ListCreateAPIView):
+    serializer_class = CropInputTypeSerializer
+    pagination_class = None
+
+    def get_permissions(self):
+        # GET widened to any authenticated user — CropInputType is shared
+        # reference data with no per-record owner, needed so a citizen's
+        # activity-log form can offer a crop-type-scoped input recommendation.
+        # Write access (POST/PATCH/DELETE) stays staff-only.
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsAdminOrEvaluator()]
+
+    def get_queryset(self):
+        qs = CropInputType.objects.order_by('name')
+        crop_type_id = self.request.query_params.get('crop_type')
+        if crop_type_id:
+            qs = qs.filter(crop_types__id=crop_type_id)
+        return qs
+
+
+class CropInputTypeDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = CropInputTypeSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    queryset = CropInputType.objects.all()
 
 
 # ─── CropRemark ──────────────────────────────────────────────────────────────

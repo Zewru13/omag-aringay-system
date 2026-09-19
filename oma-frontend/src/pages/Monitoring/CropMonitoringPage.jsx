@@ -783,6 +783,12 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
                   <label className="text-xs font-medium text-slate-700 mb-1 block">Type of Fertilizer</label>
                   <input type="text" value={fertilizerType} onChange={e => setFertilizerType(e.target.value)}
                     placeholder="e.g. 14-14-14 NPK, Urea 46-0-0, Organic" className={baseInputClasses} />
+                  {record.growth_stage && record.recommended_input_type_name && fertilizerType !== record.recommended_input_type_name && (
+                    <p className="mt-1 text-[11px] text-[#1B4D2E]">
+                      {record.growth_stage} stage — recommended: <strong>{record.recommended_input_type_name}</strong>{' '}
+                      <button type="button" className="underline" onClick={() => setFertilizerType(record.recommended_input_type_name)}>Use this</button>
+                    </p>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>

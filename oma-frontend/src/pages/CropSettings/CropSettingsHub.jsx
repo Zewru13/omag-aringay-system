@@ -4,12 +4,14 @@ import CropOptionPage from '../CropOption/CropOptionPage.jsx'
 import CropCategoryPage from '../CropCategory/CropCategoryPage.jsx'
 import SeedSourcePage from '../SeedSource/SeedSourcePage.jsx'
 import CropVarietyPage from '../CropVariety/CropVarietyPage.jsx'
+import CropInputTypePage from './CropInputTypePage.jsx'
 
 const TABS = [
   { value: 'options',     label: 'Crop Options' },
   { value: 'categories',  label: 'Categories' },
   { value: 'seedsources', label: 'Seed Sources' },
   { value: 'varieties',   label: 'Varieties' },
+  { value: 'input-types', label: 'Input Types' },
 ]
 
 function CropSettingsHub() {
@@ -41,10 +43,11 @@ function CropSettingsHub() {
         ))}
       </div>
 
-      {activeTab === 'options'     && <CropOptionPage    asTab />}
-      {activeTab === 'categories'  && <CropCategoryPage  asTab />}
-      {activeTab === 'seedsources' && <SeedSourcePage    asTab />}
-      {activeTab === 'varieties'   && <CropVarietyPage   asTab />}
+      {activeTab === 'options'     && <CropOptionPage     asTab />}
+      {activeTab === 'categories'  && <CropCategoryPage   asTab />}
+      {activeTab === 'seedsources' && <SeedSourcePage     asTab />}
+      {activeTab === 'varieties'   && <CropVarietyPage    asTab />}
+      {activeTab === 'input-types' && <CropInputTypePage  asTab />}
     </PageLayout>
   )
 }
