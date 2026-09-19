@@ -438,7 +438,11 @@ export default function SpeciesOptionPage({ asTab = false }) {
   const [showModal,     setShowModal]     = useState(false)
   const [editSpecies,   setEditSpecies]   = useState(null)
   const [deletingSpec,  setDeletingSpec]  = useState(null)
-  const [sortKey,       setSortKey]       = useState('species_name')
+  // No default sort key — see CropOptionPage.jsx's identical fix. Until
+  // staff click a column header, the table shows the backend's own order
+  // (newest-first); defaulting this to 'species_name' used to force
+  // alphabetical order on every load, silently defeating that.
+  const [sortKey,       setSortKey]       = useState(null)
   const [sortAsc,       setSortAsc]       = useState(true)
   const [page,          setPage]          = useState(1)
 
@@ -470,13 +474,15 @@ export default function SpeciesOptionPage({ asTab = false }) {
     let list = species.filter(s =>
       !q || s.species_name?.toLowerCase().includes(q) || s.category_name?.toLowerCase().includes(q)
     )
-    list = [...list].sort((a, b) => {
-      const av = a[sortKey] ?? ''
-      const bv = b[sortKey] ?? ''
-      if (av < bv) return sortAsc ? -1 : 1
-      if (av > bv) return sortAsc ? 1 : -1
-      return 0
-    })
+    if (sortKey) {
+      list = [...list].sort((a, b) => {
+        const av = a[sortKey] ?? ''
+        const bv = b[sortKey] ?? ''
+        if (av < bv) return sortAsc ? -1 : 1
+        if (av > bv) return sortAsc ? 1 : -1
+        return 0
+      })
+    }
     return list
   }, [species, search, sortKey, sortAsc])
 

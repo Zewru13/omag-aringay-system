@@ -181,7 +181,8 @@ class SpeciesCategoryListCreateView(generics.ListCreateAPIView):
     serializer_class = SpeciesCategorySerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     pagination_class = None
-    queryset = SpeciesCategory.objects.order_by('name')
+    # Newest-first — see production.views.CropTypeListView's own comment.
+    queryset = SpeciesCategory.objects.order_by('-id')
 
 
 class SpeciesCategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -195,7 +196,8 @@ class SpeciesCategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
 class FisheriesActivityTypeListCreateView(generics.ListCreateAPIView):
     serializer_class = FisheriesActivityTypeSerializer
     pagination_class = None
-    queryset = FisheriesActivityType.objects.all().order_by('name')
+    # Newest-first — see production.views.CropTypeListView's own comment.
+    queryset = FisheriesActivityType.objects.all().order_by('-id')
 
     def get_permissions(self):
         # GET is read by every activity-logging surface, staff and citizen
@@ -222,7 +224,10 @@ class SpeciesOptionListCreateView(generics.ListCreateAPIView):
     pagination_class = None
 
     def get_queryset(self):
-        qs = SpeciesOption.objects.select_related('category').prefetch_related('stages').order_by('species_name')
+        # Newest-first, matching every other list in this app — see
+        # production.views.CropTypeListView's own comment (this table had
+        # the same alphabetical-order omission).
+        qs = SpeciesOption.objects.select_related('category').prefetch_related('stages').order_by('-id')
         category_id = self.request.query_params.get('category_id')
         if category_id:
             qs = qs.filter(category_id=category_id)
@@ -276,7 +281,8 @@ class FeedTypeListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         # Same species-scoping pattern as DiseaseTypeListCreateView (Batch C).
-        qs = FeedType.objects.order_by('name')
+        # Newest-first — see production.views.CropTypeListView's own comment.
+        qs = FeedType.objects.order_by('-id')
         species_id = self.request.query_params.get('species')
         if species_id:
             qs = qs.filter(species_options__id=species_id)
@@ -306,7 +312,8 @@ class DiseaseTypeListCreateView(generics.ListCreateAPIView):
         return [IsAuthenticated()]
 
     def get_queryset(self):
-        qs = DiseaseType.objects.order_by('name')
+        # Newest-first — see production.views.CropTypeListView's own comment.
+        qs = DiseaseType.objects.order_by('-id')
         species_id = self.request.query_params.get('species')
         if species_id:
             qs = qs.filter(species_options__id=species_id)
@@ -334,7 +341,15 @@ class DiseaseResponseGuideListCreateView(generics.ListCreateAPIView):
         return [IsAuthenticated()]
 
     def get_queryset(self):
-        qs = DiseaseResponseGuide.objects.select_related('disease_type').order_by('disease_type__name')
+        # Newest-first for consistency with every other reference-data list
+        # in this app — see production.views.CropTypeListView's own comment.
+        # Every real consumer (DiseaseSettingsPage.jsx, CitizenHealthLogScreen.jsx,
+        # StockingMonitoringModals.jsx) either looks this up by disease_type id
+        # or scopes the query to one disease_type (at most 1 real row), so this
+        # ordering has no observable effect today — changed anyway so the
+        # queryset doesn't silently rely on alphabetical order if a multi-row
+        # consumer is ever added.
+        qs = DiseaseResponseGuide.objects.select_related('disease_type').order_by('-id')
         disease_type_id = self.request.query_params.get('disease_type')
         if disease_type_id:
             qs = qs.filter(disease_type_id=disease_type_id)
@@ -1186,6 +1201,21 @@ class StockingHarvestListCreateView(generics.ListCreateAPIView):
                     {'detail': 'Cannot record harvest for a Total Loss record — the stock was completely destroyed.'},
                     status=drf_status.HTTP_400_BAD_REQUEST,
                 )
+            # date_stocked is only an approximation for records with
+            # date_stocked_is_estimated=True (see the field's own comment) —
+            # the 50%-duration math below would be measuring against a
+            # made-up start date, so this blocks outright rather than gating
+            # by a duration that means nothing yet. Mirrors
+            # HarvestRecordCreateView.create()'s identical block on the crop side.
+            if record.date_stocked_is_estimated:
+                return Response(
+                    {'detail': (
+                        'This record\'s stocking date is an estimate, not a confirmed field date. '
+                        'Harvest cannot be recorded until a staff member confirms or corrects the '
+                        'real stocking date.'
+                    )},
+                    status=drf_status.HTTP_400_BAD_REQUEST,
+                )
             is_gated, message = harvest_gate_status(record.date_stocked, record.expected_harvest_date)
             if is_gated:
                 return Response({'detail': message}, status=drf_status.HTTP_400_BAD_REQUEST)
@@ -1295,7 +1325,10 @@ class FisheriesActivitySuggestionsView(APIView):
         is_total_loss = record.status == StockingRecord.Status.TOTAL_LOSS
 
         suggestions = []
-        if not is_total_loss:
+        # Skipped when date_stocked is only an estimate — day-based due dates
+        # would be measured against a made-up start date. Same exclusion as
+        # CropActivitySuggestionsView's date_planted_is_estimated guard.
+        if not is_total_loss and not record.date_stocked_is_estimated:
             for stage in stages:
                 days_list = stage.application_days if stage.application_days else [stage.day_after_stocking]
                 for occurrence_day in days_list:
@@ -1388,6 +1421,7 @@ class FisheriesActivitySuggestionsView(APIView):
             'days_elapsed': days_elapsed,
             'total_days': total_days,
             'is_total_loss': is_total_loss,
+            'date_stocked_is_estimated': record.date_stocked_is_estimated,
             'suggestions': suggestions,
             'disaster_response': disaster_response,
         })

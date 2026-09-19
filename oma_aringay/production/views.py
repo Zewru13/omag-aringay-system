@@ -711,7 +711,10 @@ class CropTypeListView(generics.ListCreateAPIView):
     serializer_class = CropTypeSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     pagination_class = None
-    queryset = CropType.objects.all().order_by('name')
+    # Newest-first, matching every other list in this app (Farmers,
+    # Fisherfolk, Organizations, Stocking/Harvest/Crop records, Audit Log,
+    # CropVariety, SeedSource) — this was the one real exception.
+    queryset = CropType.objects.all().order_by('-id')
 
 
 class CropTypeDetailView(generics.RetrieveUpdateAPIView):
@@ -1926,7 +1929,8 @@ class CropCategoryListCreateView(generics.ListCreateAPIView):
     serializer_class = CropCategorySerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     pagination_class = None
-    queryset = CropCategory.objects.order_by('name')
+    # Newest-first — see CropTypeListView's own comment.
+    queryset = CropCategory.objects.order_by('-id')
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
@@ -1944,7 +1948,8 @@ class CropSubcategoryListCreateView(generics.ListCreateAPIView):
     pagination_class = None
 
     def get_queryset(self):
-        qs = CropSubcategory.objects.select_related('category').order_by('name')
+        # Newest-first — see CropTypeListView's own comment.
+        qs = CropSubcategory.objects.select_related('category').order_by('-id')
         category_id = self.request.query_params.get('category_id')
         if category_id:
             qs = qs.filter(category_id=category_id)
@@ -1980,7 +1985,8 @@ class SeedSourceDetailView(generics.RetrieveUpdateDestroyAPIView):
 class ActivityTypeListCreateView(generics.ListCreateAPIView):
     serializer_class = ActivityTypeSerializer
     pagination_class = None
-    queryset = ActivityType.objects.all().order_by('name')
+    # Newest-first — see CropTypeListView's own comment.
+    queryset = ActivityType.objects.all().order_by('-id')
 
     def get_permissions(self):
         # GET is read by every activity-logging surface, staff and citizen
@@ -2040,7 +2046,8 @@ class CropInputTypeListCreateView(generics.ListCreateAPIView):
         return [IsAuthenticated(), IsAdminOrEvaluator()]
 
     def get_queryset(self):
-        qs = CropInputType.objects.order_by('name')
+        # Newest-first — see CropTypeListView's own comment.
+        qs = CropInputType.objects.order_by('-id')
         crop_type_id = self.request.query_params.get('crop_type')
         if crop_type_id:
             qs = qs.filter(crop_types__id=crop_type_id)

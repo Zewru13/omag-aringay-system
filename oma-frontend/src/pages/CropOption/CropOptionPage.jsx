@@ -507,7 +507,11 @@ export default function CropOptionPage({ asTab = false }) {
   const [showModal,     setShowModal]     = useState(false)
   const [editCrop,      setEditCrop]      = useState(null)
   const [togglingCrop,  setTogglingCrop]  = useState(null)
-  const [sortKey,       setSortKey]       = useState('name')
+  // No default sort key — until staff click a column header, the table
+  // shows the backend's own order (newest-first, matching every other list
+  // in this app). Defaulting this to 'name' used to force alphabetical
+  // order on every load, silently defeating that newest-first ordering.
+  const [sortKey,       setSortKey]       = useState(null)
   const [sortAsc,       setSortAsc]       = useState(true)
   const [page,          setPage]          = useState(1)
 
@@ -548,6 +552,7 @@ export default function CropOptionPage({ asTab = false }) {
   }, [crops, search])
 
   const sortedCrops = useMemo(() => {
+    if (!sortKey) return filteredCrops
     return [...filteredCrops].sort((a, b) => {
       let aVal = a[sortKey] ?? ''
       let bVal = b[sortKey] ?? ''
