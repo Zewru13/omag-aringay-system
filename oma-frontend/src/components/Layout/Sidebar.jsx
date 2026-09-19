@@ -51,6 +51,7 @@ const REPORTS_GROUP = {
     { to: "/reports?tab=crop_options", icon: Leaf, label: "Crop Options" },
     { to: "/reports?tab=fisheries", icon: Fish, label: "Fisheries Production" },
     { to: "/reports?tab=farmer_crop_history", icon: History, label: "Farmer Crop History" },
+    { to: "/reports?tab=fisherfolk_stocking_history", icon: Fish, label: "Fisherfolk Stocking History" },
   ],
 };
 

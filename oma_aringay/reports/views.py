@@ -2517,6 +2517,220 @@ class FarmerCropHistoryReport(APIView):
         return response
 
 
+class FisherfolkStockingHistoryReport(APIView):
+    """Mirrors FarmerCropHistoryReport above exactly, sourced from
+    fisheries StockingRecord instead of CropMonitoringRecord. See
+    docs/superpowers/specs/2026-09-19-fisheries-harvest-split-and-history-report-design.md."""
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request):
+        from django.http import JsonResponse
+        from fisheries.models import StockingRecord
+
+        today = _today()
+
+        fisherfolk_id = request.query_params.get('fisherfolk', '')
+        species       = request.query_params.get('species', '')
+        barangay      = request.query_params.get('barangay', '')
+        season        = request.query_params.get('season', '')
+        year          = request.query_params.get('year', '')
+        fmt           = request.query_params.get('format', 'excel')
+
+        qs = StockingRecord.objects.select_related(
+            'fisherfolk', 'species',
+        ).prefetch_related('logs', 'harvests').order_by('-date_stocked')
+
+        if fisherfolk_id:
+            qs = qs.filter(fisherfolk_id=fisherfolk_id)
+        if species:
+            qs = qs.filter(species_id=species)
+        if barangay:
+            qs = qs.filter(pond_location_barangay__iexact=barangay)
+        if season:
+            qs = qs.filter(season=season)
+        if year:
+            qs = qs.filter(year=year)
+
+        records = list(qs)
+
+        def _fisherfolk_name(rec):
+            return fmt_field(rec.fisherfolk.full_name) if rec.fisherfolk else '—'
+
+        def _barangay(rec):
+            if rec.pond_location_barangay:
+                return fmt_field(rec.pond_location_barangay)
+            return fmt_field(rec.fisherfolk.barangay) if rec.fisherfolk else '—'
+
+        def _activities(rec):
+            return sorted(rec.logs.all(), key=lambda l: l.date_of_activity)
+
+        def _harvests(rec):
+            return sorted(
+                rec.harvests.all(),
+                key=lambda h: h.harvest_date or h.date_recorded.date(),
+            )
+
+        def _timeline_text(rec):
+            logs = _activities(rec)
+            if not logs:
+                return '—'
+            return '; '.join(
+                f'Act {i + 1}: {l.activity} ({fmt_date(l.date_of_activity)})'
+                for i, l in enumerate(logs)
+            )
+
+        def _harvest_text(rec):
+            harvests = _harvests(rec)
+            if not harvests:
+                return '—'
+            parts = []
+            for h in harvests:
+                d = fmt_date(h.harvest_date) if h.harvest_date else '—'
+                parts.append(f'{d}: {fmt_field(h.quantity_kg)} kg')
+            return '; '.join(parts)
+
+        def row_data(rec):
+            logs     = _activities(rec)
+            harvests = _harvests(rec)
+            return [
+                _fisherfolk_name(rec),
+                _barangay(rec),
+                fmt_field(rec.species.species_name),
+                fmt_field(rec.culture_type) if rec.culture_type else '—',
+                fmt_date(rec.date_stocked),
+                rec.status,
+                len(logs),
+                fmt_date(logs[0].date_of_activity) if logs else '—',
+                fmt_date(logs[-1].date_of_activity) if logs else '—',
+                len(harvests),
+            ]
+
+        headers = [
+            'Fisherfolk', 'Barangay', 'Species', 'Culture Type', 'Date Stocked', 'Status',
+            '# Act', 'First Activity', 'Last Activity', '# Harvests',
+        ]
+
+        if fmt == 'json':
+            data = []
+            for rec in records:
+                logs     = _activities(rec)
+                harvests = _harvests(rec)
+                data.append({
+                    'id': rec.id,
+                    'fisherfolk': _fisherfolk_name(rec),
+                    'barangay': _barangay(rec),
+                    'species': fmt_field(rec.species.species_name),
+                    'culture_type': rec.culture_type or '—',
+                    'land_status': rec.land_status or '—',
+                    'date_stocked': str(rec.date_stocked),
+                    'expected_harvest_date': str(rec.expected_harvest_date) if rec.expected_harvest_date else None,
+                    'status': rec.status,
+                    'is_total_loss': rec.status == 'Total Loss',
+                    'activities': [
+                        {
+                            'label': f'Act {i + 1}',
+                            'activity_type': l.activity,
+                            'date': str(l.date_of_activity),
+                        }
+                        for i, l in enumerate(logs)
+                    ],
+                    'activity_count': len(logs),
+                    'first_activity_date': str(logs[0].date_of_activity) if logs else None,
+                    'last_activity_date': str(logs[-1].date_of_activity) if logs else None,
+                    'harvests': [
+                        {
+                            'harvest_start_date': str(h.harvest_date) if h.harvest_date else None,
+                            'harvest_end_date': None,
+                            'volume_kg': str(h.quantity_kg),
+                            'unit_of_measure': 'kg',
+                        }
+                        for h in harvests
+                    ],
+                    'harvest_count': len(harvests),
+                })
+
+            summary = {
+                'total_stockings': len(records),
+                'total_harvests': sum(len(_harvests(r)) for r in records),
+            }
+            if fisherfolk_id and records:
+                summary['fisherfolk_total_activities']    = sum(len(_activities(r)) for r in records)
+                summary['fisherfolk_stockings_harvested'] = len([r for r in records if r.status == 'Harvested'])
+
+            return JsonResponse({'count': len(data), 'records': data, 'summary': summary})
+
+        if fmt == 'pdf':
+            return self._build_pdf(records, headers, row_data, today, _sig_params(request))
+        return self._build_excel(records, headers, row_data, today, _timeline_text, _harvest_text)
+
+    def _build_pdf(self, records, headers, row_data_fn, today, sig=None):
+        sig = sig or {}
+        buf, doc = _make_doc()
+        story = []
+        story += build_official_header(LOGO_PATH, 'Fisherfolk Stocking History Report')
+        story.append(build_stats_row([
+            ('Total Stocking Records', len(records)),
+            ('Date Generated', str(today)),
+        ], page_width=PAGE_WIDTH))
+        story.append(Spacer(1, 14))
+        col_widths = [65, 50, 55, 45, 45, 45, 28, 45, 45, 45]
+        rows = [row_data_fn(r) for r in records]
+        story.append(build_ledger_table(headers, rows, col_widths=col_widths))
+        story.append(Spacer(1, 30))
+        story.append(build_signature_block(
+            left_label='Prepared by',
+            left_name=sig.get('prepared_by') or None,
+            left_role=sig.get('position') or 'OMAg Records Officer',
+            reviewed_by=sig.get('reviewed_by') or None,
+            reviewed_role=sig.get('reviewed_role') or None,
+            noted_by=sig.get('noted_by') or None,
+            noted_role=sig.get('noted_role') or None,
+            page_width=PAGE_WIDTH,
+        ))
+        doc.build(story, canvasmaker=NumberedCanvas)
+        return _finish_pdf(buf, f'fisherfolk_stocking_history_report_{today}.pdf')
+
+    def _build_excel(self, records, headers, row_data_fn, today, timeline_fn, harvest_fn):
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'Fisherfolk Stocking History'
+
+        hdr_fill = PatternFill('solid', fgColor='1E4620')
+        hdr_font = Font(bold=True, color='FFFFFF', size=10)
+
+        ws.append(['Republic of the Philippines'])
+        ws.append(['Office of the Municipal Agriculturist — Aringay, La Union'])
+        ws.append(['Fisherfolk Stocking History Report'])
+        ws.append([f'Date Generated: {today}'])
+        ws.append([])
+
+        full_headers = headers + ['Activity Timeline', 'Harvest Details']
+        ws.append(full_headers)
+        for cell in ws[6]:
+            cell.fill = hdr_fill
+            cell.font = hdr_font
+            cell.alignment = Alignment(horizontal='center')
+
+        for rec in records:
+            ws.append(row_data_fn(rec) + [timeline_fn(rec), harvest_fn(rec)])
+
+        for col_letter in ('K', 'L'):
+            ws.column_dimensions[col_letter].width = 60
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        response = HttpResponse(
+            buf.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        response['Content-Disposition'] = f'attachment; filename="fisherfolk_stocking_history_report_{today}.xlsx"'
+        return response
+
+
 # ─── Yield Analysis Report (descriptive harvest-performance analysis) ───────
 #
 # Exports the same descriptive comparison shown on the Forecasting page's

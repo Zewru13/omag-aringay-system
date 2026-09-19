@@ -19,6 +19,7 @@ const TABS = [
   { id: 'crop_options',        icon: Leaf,      label: 'Crop Options Report' },
   { id: 'fisheries',           icon: Fish,      label: 'Fisheries Production Report' },
   { id: 'farmer_crop_history', icon: History,   label: 'Farmer Crop History' },
+  { id: 'fisherfolk_stocking_history', icon: Fish, label: 'Fisherfolk Stocking History' },
 ]
 
 // ── Signature Modal ────────────────────────────────────────────────────────────
@@ -1141,6 +1142,346 @@ function FarmerCropHistoryTab() {
   )
 }
 
+// ── Fisherfolk Stocking History Tab ─────────────────────────────────────────────
+// Mirrors Farmer Crop History Tab above exactly — see
+// docs/superpowers/specs/2026-09-19-fisheries-harvest-split-and-history-report-design.md.
+
+function FisherfolkFilterSearch({ selected, onSelect }) {
+  const [query,     setQuery]     = useState('')
+  const [results,   setResults]   = useState([])
+  const [searching, setSearching] = useState(false)
+  const [showDrop,  setShowDrop]  = useState(false)
+  const debounceRef = useRef(null)
+  const wrapperRef  = useRef(null)
+
+  const doSearch = useCallback(async (q) => {
+    if (!q.trim()) { setResults([]); return }
+    setSearching(true)
+    try {
+      const r = await api.get('/fisheries/fisherfolk/', { params: { search: q } })
+      const list = Array.isArray(r.data) ? r.data : (r.data.results || [])
+      setResults(list.slice(0, 8))
+    } catch { setResults([]) }
+    finally { setSearching(false) }
+  }, [])
+
+  const handleChange = (e) => {
+    const v = e.target.value
+    setQuery(v)
+    setShowDrop(true)
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => doSearch(v), 300)
+  }
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setShowDrop(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const handleSelect = (fisherfolk) => {
+    onSelect({ id: fisherfolk.id, name: fisherfolk.full_name })
+    setQuery(fisherfolk.full_name)
+    setShowDrop(false)
+  }
+
+  const handleClear = () => {
+    setQuery('')
+    onSelect({ id: null, name: '' })
+    setResults([])
+  }
+
+  const displayValue = selected.id ? selected.name : query
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <label className={labelCls}>Fisherfolk</label>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#A8BCA8] pointer-events-none" />
+        <input
+          type="text"
+          placeholder="Search by name…"
+          value={displayValue}
+          onChange={handleChange}
+          onFocus={() => { if (results.length > 0) setShowDrop(true) }}
+          className={`${baseInputClasses} pl-8 ${selected.id ? 'pr-16' : ''}`}
+        />
+        {selected.id && (
+          <button
+            type="button"
+            onClick={handleClear}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-rose-500 hover:text-rose-700 px-1"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+      {showDrop && (
+        <div className="absolute z-50 mt-1 w-full rounded-xl border border-[#E2E8E2] bg-white shadow-lg max-h-52 overflow-y-auto">
+          {searching ? (
+            <p className="px-4 py-3 text-xs text-[#7A8E7A]">Searching…</p>
+          ) : results.length === 0 ? (
+            <p className="px-4 py-3 text-xs text-[#7A8E7A]">{query.trim() ? 'No fisherfolk found.' : 'Type to search fisherfolk.'}</p>
+          ) : (
+            results.map(f => (
+              <button
+                key={f.id}
+                type="button"
+                onMouseDown={() => handleSelect(f)}
+                className="flex items-start gap-3 w-full px-4 py-2.5 text-left hover:bg-[#F5F7F5] transition-colors"
+              >
+                <User className="w-3.5 h-3.5 mt-0.5 text-[#A8BCA8] shrink-0" />
+                <div>
+                  <p className="text-xs font-semibold text-[#1A2B1A]">{f.full_name}</p>
+                  <p className="text-[11px] text-[#7A8E7A]">{f.barangay || ''}</p>
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FisherfolkStockingHistoryTab() {
+  const { showToast } = useToast()
+  const [speciesList,   setSpeciesList]   = useState([])
+  const [records,       setRecords]       = useState([])
+  const [summary,       setSummary]       = useState({ total_stockings: 0, total_harvests: 0 })
+  const [isLoading,     setIsLoading]     = useState(true)
+  const [isDownloading, setIsDownloading] = useState(false)
+  const [showSig,       setShowSig]       = useState(false)
+  const [sigPurpose,    setSigPurpose]    = useState('pdf')
+  const [expanded,      setExpanded]      = useState(() => new Set())
+  const [fisherfolk, setFisherfolk] = useState({ id: null, name: '' })
+  const [filters, setFilters] = useState({ species: '', barangay: '', season: '', year: '' })
+  const set = (k, v) => setFilters(f => ({ ...f, [k]: v }))
+
+  useEffect(() => {
+    api.get('/fisheries/species/').then(r => {
+      setSpeciesList(Array.isArray(r.data) ? r.data : (r.data.results || []))
+    }).catch(() => {})
+  }, [])
+
+  const buildParams = () => {
+    const p = {}
+    if (fisherfolk.id)       p.fisherfolk = fisherfolk.id
+    if (filters.species)     p.species    = filters.species
+    if (filters.barangay)    p.barangay   = filters.barangay
+    if (filters.season)      p.season     = filters.season
+    if (filters.year)        p.year       = filters.year
+    return p
+  }
+
+  useEffect(() => {
+    setIsLoading(true)
+    api.get('/reports/fisherfolk-stocking-history/', { params: { ...buildParams(), format: 'json' } })
+      .then(r => {
+        setRecords(r.data.records || [])
+        setSummary(r.data.summary || { total_stockings: 0, total_harvests: 0 })
+      })
+      .catch(() => showToast('Failed to load preview data.', 'error'))
+      .finally(() => setIsLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fisherfolk.id, filters.species, filters.barangay, filters.season, filters.year])
+
+  const toggleExpand = (id) => {
+    setExpanded(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  const totalHarvested = (rec) => (rec.harvests || []).reduce((sum, h) => sum + (parseFloat(h.volume_kg) || 0), 0)
+
+  const buildUrl = (fmt) => {
+    const p = new URLSearchParams({ ...buildParams(), format: fmt })
+    return `/reports/fisherfolk-stocking-history/?${p}`
+  }
+
+  const handleGenerate = async (sigData) => {
+    setShowSig(false)
+    setIsDownloading(true)
+    const fmt  = sigPurpose === 'pdf' ? 'pdf' : 'excel'
+    const file = sigPurpose === 'pdf' ? 'fisherfolk_stocking_history_report.pdf' : 'fisherfolk_stocking_history_report.xlsx'
+    try {
+      let url = buildUrl(fmt)
+      if (sigData.prepared_by) url += `&prepared_by=${encodeURIComponent(sigData.prepared_by)}&prepared_role=${encodeURIComponent(sigData.position)}`
+      if (sigData.reviewed_by) url += `&reviewed_by=${encodeURIComponent(sigData.reviewed_by)}`
+      if (sigData.noted_by)    url += `&noted_by=${encodeURIComponent(sigData.noted_by)}`
+      await downloadFile(api, url, file)
+    } catch {
+      showToast(`Failed to generate ${sigPurpose === 'pdf' ? 'PDF' : 'Excel'}.`, 'error')
+    } finally { setIsDownloading(false) }
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Filters */}
+      <div className="print:hidden">
+        <FilterPanel activeCount={[fisherfolk.id, ...Object.values(filters)].filter(Boolean).length}>
+          <div className="w-56">
+            <FisherfolkFilterSearch selected={fisherfolk} onSelect={setFisherfolk} />
+          </div>
+          <div className="w-44">
+            <label className={labelCls}>Species</label>
+            <select className={baseInputClasses} value={filters.species} onChange={e => set('species', e.target.value)}>
+              <option value="">All Species</option>
+              {speciesList.map(s => <option key={s.id} value={s.id}>{s.species_name}</option>)}
+            </select>
+          </div>
+          <div className="w-44">
+            <label className={labelCls}>Barangay</label>
+            <BarangaySelect value={filters.barangay} onChange={e => set('barangay', e.target.value)} includeAllOption />
+          </div>
+          <div className="w-32">
+            <label className={labelCls}>Season</label>
+            <select className={baseInputClasses} value={filters.season} onChange={e => set('season', e.target.value)}>
+              <option value="">All Seasons</option>
+              <option value="Dry">Dry</option>
+              <option value="Wet">Wet</option>
+            </select>
+          </div>
+          <div className="w-28">
+            <label className={labelCls}>Year</label>
+            <input
+              type="number"
+              placeholder="e.g. 2026"
+              className={baseInputClasses}
+              value={filters.year}
+              onChange={e => set('year', e.target.value)}
+            />
+          </div>
+        </FilterPanel>
+      </div>
+
+      {/* Summary */}
+      <div>
+        <p className="text-[13px] font-semibold text-[#1A2B1A] mb-3">Summary</p>
+        <div className={`grid gap-3 ${fisherfolk.id ? 'grid-cols-4' : 'grid-cols-2'}`}>
+          <div className="bg-[#EBF5EE] rounded-xl p-4">
+            <p className="text-[11px] font-medium text-[#4A5E4A]">Stocking Records in Scope</p>
+            <p className="text-[20px] font-bold text-[#1B4D2E] mt-1">{summary.total_stockings}</p>
+          </div>
+          <div className="bg-[#EBF5EE] rounded-xl p-4">
+            <p className="text-[11px] font-medium text-[#4A5E4A]">Total Harvests</p>
+            <p className="text-[20px] font-bold text-[#1B4D2E] mt-1">{summary.total_harvests}</p>
+          </div>
+          {fisherfolk.id && (
+            <>
+              <div className="bg-[#EBF5EE] rounded-xl p-4">
+                <p className="text-[11px] font-medium text-[#4A5E4A]">{fisherfolk.name}'s Total Activities</p>
+                <p className="text-[20px] font-bold text-[#1B4D2E] mt-1">{summary.fisherfolk_total_activities ?? 0}</p>
+              </div>
+              <div className="bg-[#EBF5EE] rounded-xl p-4">
+                <p className="text-[11px] font-medium text-[#4A5E4A]">Stockings Harvested</p>
+                <p className="text-[20px] font-bold text-[#1B4D2E] mt-1">{summary.fisherfolk_stockings_harvested ?? 0}</p>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Action Buttons */}
+      <ActionButtons
+        onPdf={() => { setSigPurpose('pdf'); setShowSig(true) }}
+        onExcel={() => { setSigPurpose('excel'); setShowSig(true) }}
+        isDownloading={isDownloading}
+      />
+
+      {/* Preview Table */}
+      <div>
+        <p className="text-[13px] font-semibold text-[#1A2B1A]">Preview: Fisherfolk Stocking History</p>
+        <p className="text-[12px] text-[#7A8E7A] mb-3">Click a row to see the full activity timeline and harvest detail.</p>
+        <div className="overflow-x-auto print:overflow-visible rounded-xl border border-[#E2E8E2] print:border-slate-300 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] print:shadow-none">
+          <table className="min-w-full text-sm print:w-full print:table-fixed">
+            <thead className="bg-[#1B4D2E] text-white">
+              <tr>
+                {['', 'FISHERFOLK', 'BARANGAY', 'SPECIES', 'CULTURE TYPE', 'DATE STOCKED', 'STATUS', '# ACT', 'FIRST ACT', 'LAST ACT', '# HARVESTS', 'TOTAL HARVESTED (KG)'].map((h, i) => (
+                  <th key={i} className="px-3 py-[11px] text-left text-[11px] font-semibold uppercase tracking-[0.06em] whitespace-nowrap print:whitespace-normal print:text-[9px] print:px-2 print:py-1">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr><td colSpan={12} className="py-8 text-center text-[13px] text-[#7A8E7A]">Loading…</td></tr>
+              ) : records.length === 0 ? (
+                <tr><td colSpan={12} className="py-8 text-center text-[13px] text-[#7A8E7A]">No stocking records found.</td></tr>
+              ) : records.map(rec => (
+                <Fragment key={rec.id}>
+                  <tr
+                    onClick={() => toggleExpand(rec.id)}
+                    className="border-b border-[#F0F4F0] hover:bg-[#F9FAF9] cursor-pointer"
+                  >
+                    <td className="px-3 py-[11px] text-[#7A8E7A]">
+                      {expanded.has(rec.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    </td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap print:whitespace-normal print:text-[9px] print:px-2 print:py-1 print:break-words">{rec.fisherfolk}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap print:whitespace-normal print:text-[9px] print:px-2 print:py-1 print:break-words">{rec.barangay}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap print:whitespace-normal print:text-[9px] print:px-2 print:py-1 print:break-words">{rec.species}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap print:whitespace-normal print:text-[9px] print:px-2 print:py-1 print:break-words">{rec.culture_type}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap print:whitespace-normal print:text-[9px] print:px-2 print:py-1 print:break-words">{rec.date_stocked}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap print:whitespace-normal print:text-[9px] print:px-2 print:py-1 print:break-words">{rec.status}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap print:whitespace-normal print:text-[9px] print:px-2 print:py-1 print:break-words">{rec.activity_count}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap print:whitespace-normal print:text-[9px] print:px-2 print:py-1 print:break-words">{rec.first_activity_date || '—'}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap print:whitespace-normal print:text-[9px] print:px-2 print:py-1 print:break-words">{rec.last_activity_date || '—'}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap print:whitespace-normal print:text-[9px] print:px-2 print:py-1 print:break-words">{rec.harvest_count}</td>
+                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap print:whitespace-normal print:text-[9px] print:px-2 print:py-1 print:break-words">{totalHarvested(rec).toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+                  </tr>
+                  {expanded.has(rec.id) && (
+                    <tr key={`${rec.id}-detail`} className="border-b border-[#F0F4F0] bg-[#F9FAF9]">
+                      <td colSpan={12} className="px-6 py-4">
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <div>
+                            <p className="text-[12px] font-semibold text-[#1A2B1A] mb-2">Activity Timeline</p>
+                            {rec.activities.length === 0 ? (
+                              <p className="text-[12px] text-[#7A8E7A]">No activity logs recorded.</p>
+                            ) : (
+                              <ol className="space-y-1">
+                                {rec.activities.map(a => (
+                                  <li key={a.label} className="text-[12px] text-[#4A5E4A]">
+                                    <span className="font-medium text-[#1A2B1A]">{a.label}:</span> {a.activity_type} — {a.date}
+                                  </li>
+                                ))}
+                              </ol>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-[12px] font-semibold text-[#1A2B1A] mb-2">Harvest Records</p>
+                            {rec.harvests.length === 0 ? (
+                              <p className="text-[12px] text-[#7A8E7A]">No harvests recorded.</p>
+                            ) : (
+                              <ol className="space-y-1">
+                                {rec.harvests.map((h, i) => (
+                                  <li key={i} className="text-[12px] text-[#4A5E4A]">
+                                    {h.harvest_start_date}{h.harvest_end_date && h.harvest_end_date !== h.harvest_start_date ? ` to ${h.harvest_end_date}` : ''} — {h.volume_kg} {h.unit_of_measure}
+                                  </li>
+                                ))}
+                              </ol>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {showSig && (
+        <SignatureModal purpose={sigPurpose} onClose={() => setShowSig(false)} onGenerate={handleGenerate} />
+      )}
+    </div>
+  )
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 // Batch A: the sidebar's Reports entry now deep-links directly to each
@@ -1184,6 +1525,7 @@ export default function ReportsPage() {
         {activeTab === 'crop_options'        && <CropOptionsTab />}
         {activeTab === 'fisheries'           && <FisheriesProductionTab />}
         {activeTab === 'farmer_crop_history' && <FarmerCropHistoryTab />}
+        {activeTab === 'fisherfolk_stocking_history' && <FisherfolkStockingHistoryTab />}
       </div>
     </PageLayout>
   )

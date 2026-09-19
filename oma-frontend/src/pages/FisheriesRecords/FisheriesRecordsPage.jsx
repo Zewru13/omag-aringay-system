@@ -30,11 +30,48 @@ const filterSelectCls =
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
+// 'Due Harvest'/'Ready for Harvest'/'Overdue' are NOT real backend status
+// values — see getStockingDisplayStatus below — but need their own tone
+// entries since the pill renders whatever that function returns, never the
+// raw 'Near Harvest' string directly. 'Overdue' shares 'rose' with 'Ready
+// for Harvest'/'Total Loss' rather than inventing a new hue — mirrors
+// CropMonitoringPage.jsx's own getCropDisplayStatus/STATUS_TONES exactly.
 const STATUS_TONES = {
-  Stocked:         'green',
-  'Near Harvest':  'amber',
-  Harvested:       'blue',
-  'Total Loss':    'rose',
+  Stocked:             'green',
+  'Near Harvest':      'amber',
+  'Due Harvest':        'amber',
+  'Ready for Harvest':  'rose',
+  Overdue:              'rose',
+  Harvested:            'blue',
+  'Total Loss':         'rose',
+}
+
+// Display-only reinterpretation of the real 'Near Harvest' backend status —
+// the backend enum, model, and stored value are untouched; this only
+// decides which of three words the pill shows for a record already inside
+// that existing ≤7-day-or-later window. Every other status (Stocked/
+// Harvested/Total Loss) passes through unchanged. Mirrors
+// CropMonitoringPage.jsx's own getCropDisplayStatus exactly — same
+// thresholds, same gating, kept as an independent per-domain copy rather
+// than a shared util (this codebase's established convention).
+//
+// Two boundaries, both single `<`/`<=` tests so every day maps to exactly
+// one label:
+//   diffDays >  0        -> 'Due Harvest'       (still counting down)
+//   -7 <= diffDays <= 0  -> 'Ready for Harvest'  (day 0 = harvest date has
+//                           arrived, through a week past — still "just
+//                           became ready", not yet neglected)
+//   diffDays < -7        -> 'Overdue'            (more than a week past due
+//                           with no harvest recorded — mirrors the width of
+//                           the existing 7-day Near-Harvest window itself)
+function getStockingDisplayStatus(rec) {
+  if (rec.status !== 'Near Harvest' || !rec.expected_harvest_date) return rec.status
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const expected = new Date(rec.expected_harvest_date + 'T00:00:00')
+  const diffDays = Math.round((expected - today) / (1000 * 60 * 60 * 24))
+  if (diffDays < -7) return 'Overdue'
+  return diffDays <= 0 ? 'Ready for Harvest' : 'Due Harvest'
 }
 
 const COLUMNS = [
@@ -583,10 +620,18 @@ export default function FisheriesRecordsPage({ asTab = false }) {
     setIsLoading(true); setError('')
     try {
       const params = new URLSearchParams({ page: pageNum })
-      if (statusFilter === 'All Status') {
+      // 'Due Harvest'/'Ready for Harvest'/'Overdue' aren't real backend
+      // values (see getStockingDisplayStatus) — all three are display-only
+      // splits of the single real 'Near Harvest' status, so all three query
+      // the backend for that and the split itself is applied client-side
+      // below, on whatever page of 'Near Harvest' rows comes back.
+      const backendStatus = (
+        statusFilter === 'Due Harvest' || statusFilter === 'Ready for Harvest' || statusFilter === 'Overdue'
+      ) ? 'Near Harvest' : statusFilter
+      if (backendStatus === 'All Status') {
         params.set('status', 'Stocked,Near Harvest,Harvested')
-      } else if (statusFilter !== 'All Status') {
-        params.set('status', statusFilter)
+      } else {
+        params.set('status', backendStatus)
       }
       if (seasonFilter) params.set('season', seasonFilter)
       if (yearFilter)   params.set('year', yearFilter)
@@ -628,13 +673,26 @@ export default function FisheriesRecordsPage({ asTab = false }) {
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase()
-    return records.filter(rec =>
-      !q
-      || rec.species_name?.toLowerCase().includes(q)
-      || rec.fisherfolk_name?.toLowerCase().includes(q)
-      || rec.pond_location_barangay?.toLowerCase().includes(q)
-    )
-  }, [records, search])
+    return records.filter(rec => {
+      const matchesSearch = !q
+        || rec.species_name?.toLowerCase().includes(q)
+        || rec.fisherfolk_name?.toLowerCase().includes(q)
+        || rec.pond_location_barangay?.toLowerCase().includes(q)
+      if (!matchesSearch) return false
+      // Client-side half of the Due/Ready/Overdue split — the fetched page
+      // already contains only real 'Near Harvest' rows for these three
+      // filter values (see fetchRecords), so this narrows it further to the
+      // one the user actually picked. Note: totalCount/pagination below
+      // still reflect the full Near-Harvest count, not this narrower
+      // client-side split — acceptable since that window is already small
+      // in practice, but a real limitation of doing this without a backend
+      // change (same as CropMonitoringPage.jsx's own equivalent).
+      if (statusFilter === 'Due Harvest' || statusFilter === 'Ready for Harvest' || statusFilter === 'Overdue') {
+        return getStockingDisplayStatus(rec) === statusFilter
+      }
+      return true
+    })
+  }, [records, search, statusFilter])
 
   const rows = filtered.map(rec => ({
     ...rec,
@@ -665,7 +723,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
     pond_location: rec.pond_location_barangay || '—',
     status_cell: (
       <span className="flex items-center gap-1.5">
-        <StatusPill tone={STATUS_TONES[rec.status] || 'slate'}>{rec.status}</StatusPill>
+        <StatusPill tone={STATUS_TONES[getStockingDisplayStatus(rec)] || 'slate'}>{getStockingDisplayStatus(rec)}</StatusPill>
         <HarvestVarianceBadge days={rec.harvest_variance_days} />
       </span>
     ),
@@ -716,6 +774,9 @@ export default function FisheriesRecordsPage({ asTab = false }) {
             <option value="All Status">All Status</option>
             <option value="Stocked">Stocked</option>
             <option value="Near Harvest">Near Harvest</option>
+            <option value="Due Harvest">Due Harvest</option>
+            <option value="Ready for Harvest">Ready for Harvest</option>
+            <option value="Overdue">Overdue</option>
             <option value="Harvested">Harvested</option>
             <option value="Total Loss">Total Loss</option>
           </select>
