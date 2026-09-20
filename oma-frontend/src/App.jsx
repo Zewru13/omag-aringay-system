@@ -58,10 +58,12 @@ function App() {
             path="/change-password"
             element={
               // ADMIN/EVALUATOR accounts start must_change_password=True
-              // (UserCreateView) — ProtectedRoute redirects them here on
-              // their first authenticated request. CITIZEN is still allowed
-              // through this route for completeness, but ProtectedRoute
-              // never forces a CITIZEN here — see its own comment.
+              // (UserCreateView), and CITIZEN accounts (Farmer/Fisherfolk/
+              // Organization) do too as of their first "Set Up Account"
+              // activation (SetCitizenPasswordView) — ProtectedRoute
+              // redirects any of them here on their first authenticated
+              // request. See ProtectedRoute's own comment for why this
+              // never re-fires after that first login.
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR", "CITIZEN"]}>
                 <ForceChangePasswordPage />
               </ProtectedRoute>

@@ -586,10 +586,20 @@ class SetCitizenPasswordView(APIView):
     same way enrollment does. Generates a strong random password
     server-side, activates the account with it immediately, and returns it
     once for staff to read aloud — never typed by the citizen, never
-    stored or relayed any other way. No must_change_password flag is set:
-    the account is fully usable as soon as it's relayed, and the person can
-    change the password later at their own discretion (ChangePasswordView),
-    not on a forced first-login screen.
+    stored or relayed any other way.
+
+    must_change_password is set True here — same forced-change-on-first-
+    login flow ADMIN/EVALUATOR accounts already get from UserCreateView,
+    now applied uniformly to every CITIZEN account type (Farmer, Fisherfolk,
+    FarmersOrganization, FisherfolkOrganization all go through this one
+    view). This only ever runs once per account: the is_active guard right
+    below means this exact code path can never execute a second time for
+    the same account, so this is genuinely a one-time "first login ever"
+    gate, not something that re-fires on a later credential reissue —
+    RegenerateCitizenPasswordView (below) is the deliberately separate path
+    for that (e.g. an Organization's officer handoff, or a citizen who lost
+    the one-time password reveal), and does NOT set this flag, so it does
+    not force another change-password screen.
     """
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
@@ -603,6 +613,7 @@ class SetCitizenPasswordView(APIView):
 
         generated_password = generate_default_password()
         user.set_password(generated_password)
+        user.must_change_password = True
         user.is_active = True
         user.save()
 
