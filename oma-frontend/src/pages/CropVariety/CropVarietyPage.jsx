@@ -208,7 +208,11 @@ export default function CropVarietyPage({ asTab = false }) {
     try {
       const [varRes, cropRes] = await Promise.all([
         api.get('/production/varieties/'),
-        api.get('/production/crop-types/'),
+        // is_active=true: this crop-types list only ever feeds the Add/Edit
+        // Variety modal's crop-type select (a real choice for new/ongoing
+        // work) — never a display or filter list — so a retired crop type
+        // shouldn't be offered here.
+        api.get('/production/crop-types/', { params: { is_active: 'true' } }),
       ])
       setVarieties(Array.isArray(varRes.data) ? varRes.data : (varRes.data.results || []))
       setCropTypes(Array.isArray(cropRes.data) ? cropRes.data : (cropRes.data.results || []))

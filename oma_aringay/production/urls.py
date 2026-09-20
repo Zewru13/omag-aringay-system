@@ -2,6 +2,7 @@ from django.urls import path
 
 from .crop_record_import_views import CropRecordImportCommitView, CropRecordImportPreviewView
 from .views import (
+    ActivityStageNameSuggestionsView,
     ActivityTypeDetailView,
     ActivityTypeListCreateView,
     AgriDashboardView,
@@ -80,6 +81,7 @@ urlpatterns = [
     path('crop-types/<int:pk>/', CropTypeDetailView.as_view(), name='crop-type-detail'),
     path('crop-types/<int:crop_type_id>/stages/', CropActivityStageListCreateView.as_view(), name='crop-type-stages'),
     path('stages/<int:pk>/', CropActivityStageDeleteView.as_view(), name='stage-delete'),
+    path('activity-stage-names/', ActivityStageNameSuggestionsView.as_view(), name='activity-stage-names'),
     path('seed-sources/', SeedSourceListCreateView.as_view(), name='seed-sources'),
     path('seed-sources/<int:pk>/', SeedSourceDetailView.as_view(), name='seed-source-detail'),
     path('activity-types/', ActivityTypeListCreateView.as_view(), name='activity-types'),

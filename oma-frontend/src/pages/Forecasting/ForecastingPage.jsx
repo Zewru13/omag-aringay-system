@@ -519,7 +519,12 @@ function YieldAnalysisTab() {
   const set = (k, v) => setFilters(f => ({ ...f, [k]: v }))
 
   useEffect(() => {
-    api.get('/production/crop-types/').then(r => {
+    // is_active=true: this crop-types list feeds the crop-type filter
+    // dropdown here, which scopes the Yield Analysis / forecast VIEW —
+    // not a historical report export — so a retired crop type shouldn't
+    // clutter the choices (matches the same reasoning as the Add Crop and
+    // Add/Edit Variety crop-type selects).
+    api.get('/production/crop-types/', { params: { is_active: 'true' } }).then(r => {
       setCropTypes(Array.isArray(r.data) ? r.data : (r.data.results || []))
     }).catch(() => {})
   }, [])
@@ -801,7 +806,8 @@ export default function ForecastingPage() {
   const { showToast } = useToast()
 
   useEffect(() => {
-    api.get('/production/crop-types/').then(r => {
+    // is_active=true — see the flat-view crop-types fetch above for why.
+    api.get('/production/crop-types/', { params: { is_active: 'true' } }).then(r => {
       setCropTypes(Array.isArray(r.data) ? r.data : (r.data.results || []))
     }).catch(() => {})
   }, [])

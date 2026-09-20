@@ -107,13 +107,18 @@ def parse_crop_record_file(upload):
 
 def build_crop_type_cache():
     """CropType.name (case/whitespace-normalized) -> CropType instance, for
-    every CropType in the database. Covers both CROPNAME_MAPPING's fixed
-    translation targets and classify_crop_row's direct-match fallback for a
-    raw cropname that already IS a real CropType.name verbatim. One query,
-    reused across every row in the file — built fresh per request (never
-    memoized across requests), so a CropType added or renamed in Crop
-    Settings is picked up on the very next import."""
-    return {ct.name.strip().lower(): ct for ct in CropType.objects.all()}
+    every ACTIVE CropType in the database. Covers both CROPNAME_MAPPING's
+    fixed translation targets and classify_crop_row's direct-match fallback
+    for a raw cropname that already IS a real CropType.name verbatim. One
+    query, reused across every row in the file — built fresh per request
+    (never memoized across requests), so a CropType added or renamed in Crop
+    Settings is picked up on the very next import.
+
+    is_active=True only: a bulk import must not silently attribute new
+    monitoring records to a retired crop type — a row whose name only
+    matches an inactive CropType falls through to classify_crop_row's own
+    'crop_type_not_found' HOLD-BACK, same as a genuinely unmapped name."""
+    return {ct.name.strip().lower(): ct for ct in CropType.objects.filter(is_active=True)}
 
 
 def classify_crop_row(row, crop_type_cache):

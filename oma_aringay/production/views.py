@@ -711,10 +711,21 @@ class CropTypeListView(generics.ListCreateAPIView):
     serializer_class = CropTypeSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     pagination_class = None
-    # Newest-first, matching every other list in this app (Farmers,
-    # Fisherfolk, Organizations, Stocking/Harvest/Crop records, Audit Log,
-    # CropVariety, SeedSource) — this was the one real exception.
-    queryset = CropType.objects.all().order_by('-id')
+
+    def get_queryset(self):
+        # Newest-first, matching every other list in this app (Farmers,
+        # Fisherfolk, Organizations, Stocking/Harvest/Crop records, Audit
+        # Log, CropVariety, SeedSource) — this was the one real exception.
+        qs = CropType.objects.all().order_by('-id')
+        # ?is_active=true opts a caller into active-only — same convention
+        # CropVarietyListCreateView already uses (is_active=True kicks in
+        # only once a crop_type param is given). Default stays unfiltered
+        # so Crop Settings keeps showing inactive crops (staff need to see
+        # them there to reactivate), while every other screen that offers
+        # CropType as a choice for new/ongoing work opts in explicitly.
+        if self.request.query_params.get('is_active') == 'true':
+            qs = qs.filter(is_active=True)
+        return qs
 
 
 class CropTypeDetailView(generics.RetrieveUpdateAPIView):
@@ -2139,6 +2150,31 @@ class CropActivityStageDeleteView(generics.DestroyAPIView):
     queryset = CropActivityStage.objects.all()
 
 
+class ActivityStageNameSuggestionsView(APIView):
+    """Distinct CropActivityStage.stage_name values used across EVERY crop
+    type, each with one representative recommendation — powers the Add
+    Activity combobox on Crop Settings (CropOptionPage.jsx's
+    SuggestionsSection), so staff adding e.g. "Land Preparation" to a new
+    crop can pick the name already used for 19 other crops instead of
+    retyping it, and get a starting-point recommendation to edit rather
+    than write from scratch. Real data (2026-09-20): 200 stages across 20
+    crop types, "Fertilizer Application" alone repeated 26 times."""
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request):
+        # Newest row per name wins (order_by('-id') + setdefault keeps the
+        # FIRST one seen) — most likely to reflect current phrasing/practice
+        # for that activity, not necessarily accurate for every crop's own
+        # rates/technique (recommendation stays freely editable after
+        # autofill precisely because it won't always fit as-is).
+        seen = {}
+        rows = CropActivityStage.objects.order_by('-id').values('stage_name', 'recommendation')
+        for row in rows:
+            seen.setdefault(row['stage_name'], row['recommendation'])
+        data = [{'stage_name': name, 'recommendation': rec} for name, rec in sorted(seen.items())]
+        return Response(data)
+
+
 # ─── Forecasting Template & Import ───────────────────────────────────────────
 
 class ForecastingTemplateView(APIView):
@@ -2258,7 +2294,13 @@ class ForecastingImportView(APIView):
                 continue
 
             try:
-                crop_type = CropType.objects.filter(name__iexact=crop_name).first()
+                # is_active=True: an import row must not silently attribute
+                # a brand-new record to a retired crop type — same principle
+                # as every dropdown that offers CropType for new work (see
+                # CropTypeListView's own ?is_active=true opt-in). A name that
+                # only matches an inactive crop type is reported as not
+                # found, same as a genuinely unmapped name.
+                crop_type = CropType.objects.filter(name__iexact=crop_name, is_active=True).first()
                 if not crop_type:
                     invalid(row_num, f'Crop type "{crop_name}" not found.')
                     continue

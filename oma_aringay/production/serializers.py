@@ -175,6 +175,16 @@ class CropActivityStageSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError('Each day must be a positive integer.')
         return sorted(set(value))
 
+    def create(self, validated_data):
+        # day_after_planting is read-only (staff pick it implicitly via
+        # application_days, not as its own field) but the model column is
+        # NOT NULL with no default — nothing was ever setting it on create,
+        # so every real POST to this endpoint 500'd with an IntegrityError.
+        # Derived as the earliest day, same value CropMonitoringSubSection's
+        # own day-based expansion already treats as "when this stage starts".
+        validated_data['day_after_planting'] = min(validated_data['application_days'])
+        return super().create(validated_data)
+
 
 class CropInputTypeSerializer(serializers.ModelSerializer):
     class Meta:

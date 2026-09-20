@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Leaf, Pencil, Plus, Power, X } from 'lucide-
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
+import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
@@ -157,10 +158,17 @@ function SuggestionsSection({ cropId }) {
   const { showToast } = useToast()
   const [stages,      setStages]      = useState([])
   const [isLoading,   setIsLoading]   = useState(true)
-  const [stageForm,   setStageForm]   = useState({ stage_name: '', priority: 'MEDIUM', recommendation: '' })
+  const [stageForm,   setStageForm]   = useState({ stage_name: '', stage_name_other: '', priority: 'MEDIUM', recommendation: '' })
   const [appDays,     setAppDays]     = useState([])
   const [stageError,  setStageError]  = useState('')
   const [addingStage, setAddingStage] = useState(false)
+  // Names already used across EVERY crop type (not just this one), each
+  // with one representative recommendation — lets staff pick "Fertilizer
+  // Application" etc. instead of retyping it per crop, and auto-fills a
+  // starting-point recommendation on selection (real data: that name alone
+  // is repeated 26 times across 20 crop types). "Other" reveals the same
+  // free-text entry this field always was.
+  const [nameSuggestions, setNameSuggestions] = useState([])
 
   const fetchStages = useCallback(async () => {
     setIsLoading(true)
@@ -173,21 +181,50 @@ function SuggestionsSection({ cropId }) {
 
   useEffect(() => { fetchStages() }, [fetchStages])
 
+  useEffect(() => {
+    api.get('/production/activity-stage-names/')
+      .then(r => setNameSuggestions(Array.isArray(r.data) ? r.data : []))
+      .catch(() => setNameSuggestions([]))
+  }, [])
+
+  const handleSelectStageName = (value) => {
+    setStageForm(prev => {
+      const next = { ...prev, stage_name: value }
+      if (value !== 'Other') {
+        // Autofill only — the textarea stays a normal, editable field
+        // below; this just saves retyping recommendation text that's
+        // often (not always) a reasonable starting point for another crop.
+        const match = nameSuggestions.find(s => s.stage_name === value)
+        if (match) next.recommendation = match.recommendation || ''
+      }
+      return next
+    })
+    setStageError('')
+  }
+
   const handleAddStage = async () => {
-    if (!stageForm.stage_name.trim()) { setStageError('Activity name is required.'); return }
-    if (appDays.length === 0)         { setStageError('At least one day is required.'); return }
+    const resolvedName = stageForm.stage_name === 'Other'
+      ? stageForm.stage_name_other.trim()
+      : stageForm.stage_name.trim()
+    if (!resolvedName)        { setStageError('Activity name is required.'); return }
+    if (appDays.length === 0) { setStageError('At least one day is required.'); return }
     setAddingStage(true)
     setStageError('')
     try {
       const res = await api.post(`/production/crop-types/${cropId}/stages/`, {
-        stage_name:      stageForm.stage_name.trim(),
+        stage_name:      resolvedName,
         priority:        stageForm.priority,
         recommendation:  stageForm.recommendation.trim(),
         application_days: appDays,
       })
       setStages(prev => [...prev, res.data])
-      setStageForm({ stage_name: '', priority: 'MEDIUM', recommendation: '' })
+      setStageForm({ stage_name: '', stage_name_other: '', priority: 'MEDIUM', recommendation: '' })
       setAppDays([])
+      // A brand-new name typed via "Other" is itself worth suggesting to
+      // the next crop this session touches, without waiting on a refetch.
+      if (!nameSuggestions.some(s => s.stage_name === resolvedName)) {
+        setNameSuggestions(prev => [...prev, { stage_name: resolvedName, recommendation: res.data.recommendation }])
+      }
     } catch {
       setStageError('Failed to add suggestion. Please try again.')
     } finally {
@@ -247,12 +284,14 @@ function SuggestionsSection({ cropId }) {
 
       {/* Inline add form */}
       <div className="bg-[#F9FAF9] border border-[#E2E8E2] rounded-lg p-3 space-y-2">
-        <input
-          type="text"
+        <ComboboxWithOther
+          options={nameSuggestions.map(s => s.stage_name)}
           value={stageForm.stage_name}
-          onChange={e => setStageForm(prev => ({ ...prev, stage_name: e.target.value }))}
+          otherValue={stageForm.stage_name_other}
+          onChange={handleSelectStageName}
+          onOtherChange={v => setStageForm(prev => ({ ...prev, stage_name_other: v }))}
+          otherLabel="Other (type a new activity name)"
           placeholder="Activity Name (e.g. Apply Basal Fertilizer)"
-          className={baseInputClasses}
         />
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-[#7A8E7A] mb-1">Application Days</p>
