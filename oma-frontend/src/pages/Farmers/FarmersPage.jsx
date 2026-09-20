@@ -56,7 +56,7 @@ function FarmersPage({ asTab = false }) {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('all')
   const [gender, setGender] = useState('all')
-  const [farmType, setFarmType] = useState('all')
+  const [farmerType, setFarmerType] = useState('all')
   const [seniorOnly, setSeniorOnly] = useState(false)
   const [filterICC, setFilterICC] = useState(false)
   const [filterPWD, setFilterPWD] = useState(false)
@@ -77,7 +77,7 @@ function FarmersPage({ asTab = false }) {
       if (search.trim())    params.set('search', search.trim())
       if (status !== 'all') params.set('status', status)
       if (gender !== 'all') params.set('gender', gender)
-      if (farmType !== 'all') params.set('farm_type', farmType)
+      if (farmerType !== 'all') params.set('is_farm_laborer', farmerType)
       if (seniorOnly)       params.set('is_senior', 'true')
       if (filterICC)        params.set('is_icc_ip', 'true')
       if (filterPWD)        params.set('is_pwd', 'true')
@@ -97,7 +97,7 @@ function FarmersPage({ asTab = false }) {
   useEffect(() => {
     setPage(1)
     fetchFarmers(1)
-  }, [search, status, gender, farmType, seniorOnly, filterICC, filterPWD, registeredFrom, registeredTo])
+  }, [search, status, gender, farmerType, seniorOnly, filterICC, filterPWD, registeredFrom, registeredTo])
 
   useEffect(() => {
     fetchFarmers(page)
@@ -106,7 +106,7 @@ function FarmersPage({ asTab = false }) {
   const activeFilterCount = [
     status !== 'all',
     gender !== 'all',
-    farmType !== 'all',
+    farmerType !== 'all',
     seniorOnly,
     filterICC,
     filterPWD,
@@ -197,12 +197,10 @@ function FarmersPage({ asTab = false }) {
           <option value="Male">Male</option>
           <option value="Female">Female</option>
         </select>
-        <select className={filterSelectCls} onChange={(e) => setFarmType(e.target.value)} value={farmType}>
-          <option value="all">All Farm Types</option>
-          <option value="Irrigated">Irrigated</option>
-          <option value="Rainfed Upland">Rainfed Upland</option>
-          <option value="Rainfed Lowland">Rainfed Lowland</option>
-          <option value="Urban or Peri-Urban">Urban or Peri-Urban</option>
+        <select className={filterSelectCls} onChange={(e) => setFarmerType(e.target.value)} value={farmerType}>
+          <option value="all">All Farmer Types</option>
+          <option value="false">Farm Operator</option>
+          <option value="true">Farm Laborer</option>
         </select>
         <label className="flex items-center gap-2 text-[13px] text-[#4A5E4A] cursor-pointer">
           <input

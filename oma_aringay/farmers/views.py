@@ -60,13 +60,16 @@ class FarmerListView(generics.ListCreateAPIView):
         if gender_filter:
             queryset = queryset.filter(gender__iexact=gender_filter)
 
-        # farm_type lives on FarmParcel (a farmer can have several), not
-        # Farmer itself — matches "has at least one parcel of this type".
-        # distinct() guards against a farmer with 2+ matching parcels
-        # otherwise appearing once per match through the join.
-        farm_type_filter = self.request.query_params.get('farm_type')
-        if farm_type_filter:
-            queryset = queryset.filter(farm_parcels__farm_type__iexact=farm_type_filter).distinct()
+        # Replaces the old FarmParcel.farm_type-based filter (Irrigated/
+        # Rainfed/etc.) — that field lives on FarmParcel, not Farmer, and is
+        # blank on every real parcel (confirmed against live data), so the
+        # old filter never actually narrowed anything. is_farm_laborer is a
+        # real Farmer field with real variation in live data (RSBSA/BFAR
+        # import's farmworker=YES vs farmer!=YES — see the model's own
+        # comment) and already drives this same page's "Farmer Type" badge.
+        farmer_type_filter = self.request.query_params.get('is_farm_laborer')
+        if farmer_type_filter is not None:
+            queryset = queryset.filter(is_farm_laborer=(farmer_type_filter.lower() in ('true', '1')))
 
         if is_senior and is_senior.lower() == 'true':
             today = now().date()
