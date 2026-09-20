@@ -64,7 +64,26 @@ from production.models import CropType
 # Decision 1 (fixed — do not infer or extend without a new explicit decision):
 # source cropname -> (CropType.name, variety_used). variety_used is blank for
 # Corn/Rice — the source cropname carries no distinguishing variety beyond
-# what crop_type already captures.
+# what crop_type already captures. This table exists ONLY because these 4
+# source values do NOT match any real CropType.name (confirmed 100%
+# mismatch across 5,605 real rows — see this module's own docstring); it is
+# not a general crop-name registry.
+#
+# Investigated 2026-09-20: a re-uploaded file with cropname changed to
+# "Ginger" (a real, active CropType.name already in Crop Settings) still
+# hit unmapped_cropname. Root cause was NOT a stale cache (build_crop_type_
+# cache() is called fresh per request, never memoized) and NOT a case/
+# whitespace mismatch (CropType.name is "Ginger", 6 bytes, plain ASCII —
+# confirmed byte-for-byte identical to the file's raw value). The real
+# cause: classify_crop_row() only ever consulted this fixed dict, with no
+# fallback for a cropname that already IS a real CropType.name verbatim —
+# so any crop outside this original 4 was rejected regardless of whether a
+# matching CropType existed. Fixed below by adding a direct-match fallback
+# for that specific, narrow case (raw cropname == a real CropType.name,
+# case/whitespace aside) — not a guess, since it only ever fires on an
+# exact, already-real match. A cropname that DOESN'T exactly match any
+# CropType.name still requires a new explicit CROPNAME_MAPPING entry here,
+# same as Corn/Rice/Tobacco did.
 CROPNAME_MAPPING = {
     'Corn': ('Corn (Mais)', ''),
     'Rice/Palay': ('Palay (Rice)', ''),
@@ -87,10 +106,14 @@ def parse_crop_record_file(upload):
 
 
 def build_crop_type_cache():
-    """CropType.name -> CropType instance, for every name CROPNAME_MAPPING
-    can ever produce. One query, reused across every row in the file."""
-    names = {name for name, _variety in CROPNAME_MAPPING.values()}
-    return {ct.name: ct for ct in CropType.objects.filter(name__in=names)}
+    """CropType.name (case/whitespace-normalized) -> CropType instance, for
+    every CropType in the database. Covers both CROPNAME_MAPPING's fixed
+    translation targets and classify_crop_row's direct-match fallback for a
+    raw cropname that already IS a real CropType.name verbatim. One query,
+    reused across every row in the file — built fresh per request (never
+    memoized across requests), so a CropType added or renamed in Crop
+    Settings is picked up on the very next import."""
+    return {ct.name.strip().lower(): ct for ct in CropType.objects.all()}
 
 
 def classify_crop_row(row, crop_type_cache):
@@ -103,9 +126,10 @@ def classify_crop_row(row, crop_type_cache):
     row's presence in a corn/rice/tobacco file is itself the fact that
     matters for crop import, independent of which RSBSA classification flag
     the row carries. Two crop-import-specific HOLD-BACK reasons:
-    'unmapped_cropname' (not in CROPNAME_MAPPING) and 'crop_type_not_found'
-    (mapped name has no matching CropType row in this database — a real gap
-    a fixed mapping can surface but can't fix by itself).
+    'unmapped_cropname' (not in CROPNAME_MAPPING and no real CropType shares
+    its exact name) and 'crop_type_not_found' (mapped name has no matching
+    CropType row in this database — a real gap a fixed mapping can surface
+    but can't fix by itself).
     """
     disposition, reason = classify_row(row)
     if disposition == 'HOLD-BACK':
@@ -113,15 +137,22 @@ def classify_crop_row(row, crop_type_cache):
 
     cropname = (row.get('cropname') or '').strip()
     mapping = CROPNAME_MAPPING.get(cropname)
-    if mapping is None:
-        return 'HOLD-BACK', 'unmapped_cropname', None, None
+    if mapping is not None:
+        crop_type_name, variety_used = mapping
+        crop_type = crop_type_cache.get(crop_type_name.strip().lower())
+        if crop_type is None:
+            return 'HOLD-BACK', 'crop_type_not_found', None, None
+        return 'READY', None, crop_type, variety_used
 
-    crop_type_name, variety_used = mapping
-    crop_type = crop_type_cache.get(crop_type_name)
-    if crop_type is None:
-        return 'HOLD-BACK', 'crop_type_not_found', None, None
+    # Direct-match fallback (see CROPNAME_MAPPING's own comment): a raw
+    # cropname that already IS a real CropType.name verbatim needs no
+    # manual translation entry — this only ever fires on an exact,
+    # already-real match, never a guess.
+    direct_match = crop_type_cache.get(cropname.lower())
+    if direct_match is not None:
+        return 'READY', None, direct_match, ''
 
-    return 'READY', None, crop_type, variety_used
+    return 'HOLD-BACK', 'unmapped_cropname', None, None
 
 
 def parse_date_created(raw):
