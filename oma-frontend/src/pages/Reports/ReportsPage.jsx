@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Building2, ChevronDown, ChevronRight, Download, FileText, Fish, History, Leaf, Printer, Search, User, Wheat } from 'lucide-react'
+import { Building2, ChevronDown, ChevronRight, Download, FileText, Fish, History, Leaf, Printer, Search, User, UserCheck, Wheat } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
@@ -20,6 +20,7 @@ const TABS = [
   { id: 'fisheries',           icon: Fish,      label: 'Fisheries Production Report' },
   { id: 'farmer_crop_history', icon: History,   label: 'Farmer Crop History' },
   { id: 'fisherfolk_stocking_history', icon: Fish, label: 'Fisherfolk Stocking History' },
+  { id: 'beneficiary_confirmations', icon: UserCheck, label: 'On-Behalf-Of Confirmations' },
 ]
 
 // ── Signature Modal ────────────────────────────────────────────────────────────
@@ -1482,6 +1483,185 @@ function FisherfolkStockingHistoryTab() {
   )
 }
 
+// ── On-Behalf-Of Confirmations Report (Piece 3) ────────────────────────────────
+// Same structure as FisherfolkStockingHistoryTab above: FilterPanel, summary
+// tiles, ActionButtons (Print/PDF/Excel via SignatureModal + downloadFile),
+// preview table sourced from the report's own ?format=json. Filters use
+// date_from/date_to (a real range, matching this record type's own shape —
+// see reports/views.py's BeneficiaryConfirmationReport docstring) rather
+// than the year/season filters this tab's sibling uses, plus status and
+// type (Farmers Org / Fisherfolk Org — both domains are merged into one
+// report; see that same docstring for why).
+const STATUS_BADGE = {
+  PENDING:  'bg-cz-tile-slate-bg text-cz-tile-slate-fg',
+  APPROVED: 'bg-[#EBF5EE] text-[#15803D]',
+  REJECTED: 'bg-[#FEF2F2] text-[#B91C1C]',
+}
+
+function BeneficiaryConfirmationsTab() {
+  const { showToast } = useToast()
+  const [records,       setRecords]       = useState([])
+  const [summary,       setSummary]       = useState({ total: 0, pending: 0, approved: 0, rejected: 0, with_photo: 0 })
+  const [isLoading,     setIsLoading]     = useState(true)
+  const [isDownloading, setIsDownloading] = useState(false)
+  const [showSig,       setShowSig]       = useState(false)
+  const [sigPurpose,    setSigPurpose]    = useState('pdf')
+  const [filters, setFilters] = useState({ date_from: '', date_to: '', status: '', type: '' })
+  const set = (k, v) => setFilters(f => ({ ...f, [k]: v }))
+
+  const buildParams = () => {
+    const p = {}
+    if (filters.date_from) p.date_from = filters.date_from
+    if (filters.date_to)   p.date_to   = filters.date_to
+    if (filters.status)    p.status    = filters.status
+    if (filters.type)      p.type      = filters.type
+    return p
+  }
+
+  useEffect(() => {
+    setIsLoading(true)
+    api.get('/reports/beneficiary-confirmations/', { params: { ...buildParams(), format: 'json' } })
+      .then(r => {
+        setRecords(r.data.records || [])
+        setSummary(r.data.summary || { total: 0, pending: 0, approved: 0, rejected: 0, with_photo: 0 })
+      })
+      .catch(() => showToast('Failed to load preview data.', 'error'))
+      .finally(() => setIsLoading(false))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.date_from, filters.date_to, filters.status, filters.type])
+
+  const buildUrl = (fmt) => {
+    const p = new URLSearchParams({ ...buildParams(), format: fmt })
+    return `/reports/beneficiary-confirmations/?${p}`
+  }
+
+  const handleGenerate = async (sigData) => {
+    setShowSig(false)
+    setIsDownloading(true)
+    const fmt  = sigPurpose === 'pdf' ? 'pdf' : 'excel'
+    const file = sigPurpose === 'pdf' ? 'on_behalf_of_confirmations_report.pdf' : 'on_behalf_of_confirmations_report.xlsx'
+    try {
+      let url = buildUrl(fmt)
+      if (sigData.prepared_by) url += `&prepared_by=${encodeURIComponent(sigData.prepared_by)}&prepared_role=${encodeURIComponent(sigData.position)}`
+      if (sigData.reviewed_by) url += `&reviewed_by=${encodeURIComponent(sigData.reviewed_by)}`
+      if (sigData.noted_by)    url += `&noted_by=${encodeURIComponent(sigData.noted_by)}`
+      await downloadFile(api, url, file)
+    } catch {
+      showToast(`Failed to generate ${sigPurpose === 'pdf' ? 'PDF' : 'Excel'}.`, 'error')
+    } finally { setIsDownloading(false) }
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* Filters */}
+      <div className="print:hidden">
+        <FilterPanel activeCount={Object.values(filters).filter(Boolean).length}>
+          <div className="w-40">
+            <label className={labelCls}>From</label>
+            <input type="date" className={baseInputClasses} value={filters.date_from} onChange={e => set('date_from', e.target.value)} />
+          </div>
+          <div className="w-40">
+            <label className={labelCls}>To</label>
+            <input type="date" className={baseInputClasses} value={filters.date_to} onChange={e => set('date_to', e.target.value)} />
+          </div>
+          <div className="w-40">
+            <label className={labelCls}>Status</label>
+            <select className={baseInputClasses} value={filters.status} onChange={e => set('status', e.target.value)}>
+              <option value="">All Statuses</option>
+              <option value="PENDING">Pending</option>
+              <option value="APPROVED">Approved</option>
+              <option value="REJECTED">Rejected</option>
+            </select>
+          </div>
+          <div className="w-44">
+            <label className={labelCls}>Type</label>
+            <select className={baseInputClasses} value={filters.type} onChange={e => set('type', e.target.value)}>
+              <option value="">All Types</option>
+              <option value="farmer">Farmers Org</option>
+              <option value="fisherfolk">Fisherfolk Org</option>
+            </select>
+          </div>
+        </FilterPanel>
+      </div>
+
+      {/* Summary */}
+      <div>
+        <p className="text-[13px] font-semibold text-[#1A2B1A] mb-3">Summary</p>
+        <div className="grid gap-3 grid-cols-4">
+          <div className="bg-[#EBF5EE] rounded-xl p-4">
+            <p className="text-[11px] font-medium text-[#4A5E4A]">Total Records</p>
+            <p className="text-[20px] font-bold text-[#1B4D2E] mt-1">{summary.total}</p>
+          </div>
+          <div className="bg-[#EBF5EE] rounded-xl p-4">
+            <p className="text-[11px] font-medium text-[#4A5E4A]">Approved</p>
+            <p className="text-[20px] font-bold text-[#1B4D2E] mt-1">{summary.approved}</p>
+          </div>
+          <div className="bg-[#EBF5EE] rounded-xl p-4">
+            <p className="text-[11px] font-medium text-[#4A5E4A]">Rejected</p>
+            <p className="text-[20px] font-bold text-[#1B4D2E] mt-1">{summary.rejected}</p>
+          </div>
+          <div className="bg-[#EBF5EE] rounded-xl p-4">
+            <p className="text-[11px] font-medium text-[#4A5E4A]">With Photo Attached</p>
+            <p className="text-[20px] font-bold text-[#1B4D2E] mt-1">{summary.with_photo}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Action Buttons */}
+      <ActionButtons
+        onPdf={() => { setSigPurpose('pdf'); setShowSig(true) }}
+        onExcel={() => { setSigPurpose('excel'); setShowSig(true) }}
+        isDownloading={isDownloading}
+      />
+
+      {/* Preview Table */}
+      <div>
+        <p className="text-[13px] font-semibold text-[#1A2B1A]">Preview: On-Behalf-Of Confirmations</p>
+        <p className="text-[12px] text-[#7A8E7A] mb-3">The full PDF embeds the confirmation photo for approved entries; this preview shows whether one was attached.</p>
+        <div className="overflow-x-auto print:overflow-visible rounded-xl border border-[#E2E8E2] print:border-slate-300 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] print:shadow-none">
+          <table className="min-w-full text-sm print:w-full print:table-fixed">
+            <thead className="bg-[#1B4D2E] text-white">
+              <tr>
+                {['TYPE', 'ORGANIZATION', 'BENEFICIARY', 'ASSISTANCE', 'QUANTITY', 'SUBMITTED', 'DECIDED', 'DECIDED BY', 'STATUS', 'PHOTO'].map((h, i) => (
+                  <th key={i} className="px-3 py-[11px] text-left text-[11px] font-semibold uppercase tracking-[0.06em] whitespace-nowrap print:whitespace-normal print:text-[9px] print:px-2 print:py-1">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr><td colSpan={10} className="py-8 text-center text-[13px] text-[#7A8E7A]">Loading…</td></tr>
+              ) : records.length === 0 ? (
+                <tr><td colSpan={10} className="py-8 text-center text-[13px] text-[#7A8E7A]">No on-behalf-of confirmations found.</td></tr>
+              ) : records.map(rec => (
+                <tr key={`${rec.type}-${rec.id}`} className="border-b border-[#F0F4F0] hover:bg-[#F9FAF9]">
+                  <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.type}</td>
+                  <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.organization}</td>
+                  <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.beneficiary}</td>
+                  <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.assistance_type}</td>
+                  <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.quantity}</td>
+                  <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.submitted_at}</td>
+                  <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.reviewed_at || '—'}</td>
+                  <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.reviewed_by || '—'}</td>
+                  <td className="px-3 py-[11px] text-[13px] whitespace-nowrap">
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS_BADGE[rec.status] || ''}`}>
+                      {rec.status}
+                    </span>
+                  </td>
+                  <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.has_photo ? 'Yes' : 'No'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {showSig && (
+        <SignatureModal purpose={sigPurpose} onClose={() => setShowSig(false)} onGenerate={handleGenerate} />
+      )}
+    </div>
+  )
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 // Batch A: the sidebar's Reports entry now deep-links directly to each
@@ -1526,6 +1706,7 @@ export default function ReportsPage() {
         {activeTab === 'fisheries'           && <FisheriesProductionTab />}
         {activeTab === 'farmer_crop_history' && <FarmerCropHistoryTab />}
         {activeTab === 'fisherfolk_stocking_history' && <FisherfolkStockingHistoryTab />}
+        {activeTab === 'beneficiary_confirmations' && <BeneficiaryConfirmationsTab />}
       </div>
     </PageLayout>
   )
