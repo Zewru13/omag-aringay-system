@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, Fish, PackageX, Sprout } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
+import { resolveMediaUrl } from '../../utils/mediaUrl.js'
 
 // The admin/evaluator dashboard, built to the approved staff reference
 // ("New Dashboard base.docx", three frames).
@@ -134,6 +135,7 @@ export default function StaffDashboard({ user }) {
   const navigate = useNavigate()
   const [board, setBoard] = useState(null)
   const [requests, setRequests] = useState([])
+  const [confirmationRequests, setConfirmationRequests] = useState([])
   const [activity, setActivity] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [busyId, setBusyId] = useState(null)
@@ -143,6 +145,33 @@ export default function StaffDashboard({ user }) {
     api.get('/staff/change-requests/', { params: { status: 'PENDING' } })
       .then((r) => setRequests(Array.isArray(r.data) ? r.data : r.data?.results || []))
       .catch(() => setRequests([]))
+  }, [])
+
+  // Accountless-beneficiary on-behalf-of confirmation (Piece 2). Two
+  // separate models/endpoints (BeneficiaryConfirmationRequest and its
+  // fisherfolk mirror — see interventions/models.py's own comment for why
+  // this is two mirrored models rather than one polymorphic one, matching
+  // this codebase's dominant per-domain convention), merged into ONE queue
+  // here so it can sit as ONE panel next to Pending Change Requests rather
+  // than two separate ones — each row keeps a `domain` tag so the decide
+  // action below knows which endpoint pair it belongs to.
+  const loadConfirmationRequests = useCallback(() => {
+    Promise.allSettled([
+      api.get('/interventions/beneficiary-confirmation-requests/', { params: { status: 'PENDING' } }),
+      api.get('/interventions/fisherfolk-beneficiary-confirmation-requests/', { params: { status: 'PENDING' } }),
+    ]).then(([farmerRes, ffRes]) => {
+      const farmerRows = farmerRes.status === 'fulfilled'
+        ? (Array.isArray(farmerRes.value.data) ? farmerRes.value.data : farmerRes.value.data?.results || [])
+        : []
+      const ffRows = ffRes.status === 'fulfilled'
+        ? (Array.isArray(ffRes.value.data) ? ffRes.value.data : ffRes.value.data?.results || [])
+        : []
+      const merged = [
+        ...farmerRows.map((r) => ({ ...r, domain: 'farmer', personName: r.farmer_full_name })),
+        ...ffRows.map((r) => ({ ...r, domain: 'fisherfolk', personName: r.fisherfolk_full_name })),
+      ].sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at))
+      setConfirmationRequests(merged)
+    })
   }, [])
 
   useEffect(() => {
@@ -156,8 +185,9 @@ export default function StaffDashboard({ user }) {
       if (a.status === 'fulfilled') setActivity(a.value.data?.results || [])
     }).finally(() => { if (!cancelled) setIsLoading(false) })
     loadRequests()
+    loadConfirmationRequests()
     return () => { cancelled = true }
-  }, [loadRequests])
+  }, [loadRequests, loadConfirmationRequests])
 
   const decide = async (req, action) => {
     setBusyId(req.id)
@@ -165,6 +195,18 @@ export default function StaffDashboard({ user }) {
       const body = action === 'reject' ? { rejection_reason: 'Rejected from dashboard review.' } : {}
       await api.post(`/staff/change-requests/${req.id}/${action}/`, body)
       loadRequests()
+    } finally { setBusyId(null) }
+  }
+
+  const decideConfirmation = async (req, action) => {
+    setBusyId(`confirmation-${req.id}`)
+    try {
+      const base = req.domain === 'farmer'
+        ? '/interventions/beneficiary-confirmation-requests/'
+        : '/interventions/fisherfolk-beneficiary-confirmation-requests/'
+      const body = action === 'reject' ? { rejection_reason: 'Rejected from dashboard review.' } : {}
+      await api.post(`${base}${req.id}/${action}/`, body)
+      loadConfirmationRequests()
     } finally { setBusyId(null) }
   }
 
@@ -464,6 +506,76 @@ export default function StaffDashboard({ user }) {
                           <span className="text-[12px] font-semibold text-[color:var(--color-semantic-safe)]">Approve</span>
                         </button>
                         <button type="button" disabled={busyId === r.id} onClick={() => decide(r, 'reject')}
+                          className="rounded-[6px] border border-border-strong px-3 py-1.5 transition-colors hover:bg-surface-2 disabled:opacity-50 cursor-pointer">
+                          <span className="text-[12px] font-semibold text-text-secondary">Reject</span>
+                        </button>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Accountless-beneficiary on-behalf-of confirmation (Piece 2) —
+              same placement convention as Pending Change Requests above:
+              next to it, not a new location. Shows the submitting
+              organization, beneficiary, assistance details, submission
+              timestamp, and the actual photo (not a yes/no flag) so staff
+              can review responsibly. */}
+          <div className={CARD}>
+            <PanelHead
+              title="Pending On-Behalf-Of Confirmations" count={confirmationRequests.length}
+            />
+            {confirmationRequests.length === 0 ? (
+              <p className="px-5 py-8 text-center text-[13px] italic text-text-muted">
+                No on-behalf-of confirmations waiting for review.
+              </p>
+            ) : (
+              <ul>
+                {confirmationRequests.map((r, i) => (
+                  <li key={`${r.domain}-${r.id}`} className={`px-5 py-3.5 ${i === confirmationRequests.length - 1 ? '' : 'border-b border-border'}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-[14px] font-semibold text-text-primary truncate">
+                        {r.personName || `Request #${r.id}`}
+                      </p>
+                      <span className="text-[12px] text-text-muted shrink-0 tabular-nums">
+                        {r.submitted_at ? new Date(r.submitted_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-[12.5px] text-text-muted">
+                      Submitted by <span className="font-medium text-text-secondary">{r.submitted_by_organization_name}</span>
+                    </p>
+                    <div className="mt-2 flex items-start justify-between gap-3 flex-wrap">
+                      <div className="flex min-w-0 items-start gap-3">
+                        {r.photo_url ? (
+                          <a href={resolveMediaUrl(r.photo_url)} target="_blank" rel="noreferrer" className="shrink-0">
+                            <img
+                              src={resolveMediaUrl(r.photo_url)}
+                              alt=""
+                              className="h-16 w-16 rounded-[8px] border border-border object-cover transition-opacity hover:opacity-80"
+                            />
+                          </a>
+                        ) : (
+                          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[8px] border border-dashed border-border-strong text-[10px] text-text-muted">
+                            No photo
+                          </span>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-[13px] text-[color:var(--color-semantic-info)]">
+                            {r.assistance_type || 'Assistance'}
+                          </p>
+                          <p className="mt-0.5 text-[12.5px] text-text-muted">
+                            {new Date(r.date_given).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <button type="button" disabled={busyId === `confirmation-${r.id}`} onClick={() => decideConfirmation(r, 'approve')}
+                          className="rounded-[6px] border border-[color:var(--color-semantic-safe)] px-3 py-1.5 transition-colors hover:bg-[color:var(--color-semantic-safe-bg)] disabled:opacity-50 cursor-pointer">
+                          <span className="text-[12px] font-semibold text-[color:var(--color-semantic-safe)]">Approve</span>
+                        </button>
+                        <button type="button" disabled={busyId === `confirmation-${r.id}`} onClick={() => decideConfirmation(r, 'reject')}
                           className="rounded-[6px] border border-border-strong px-3 py-1.5 transition-colors hover:bg-surface-2 disabled:opacity-50 cursor-pointer">
                           <span className="text-[12px] font-semibold text-text-secondary">Reject</span>
                         </button>

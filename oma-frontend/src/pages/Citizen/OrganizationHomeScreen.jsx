@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ClipboardList, Hash, History, Home, MapPin, Package, UserCog, UserPlus, Users as UsersIcon } from 'lucide-react'
+import { ClipboardList, Hash, History, Home, MapPin, Package, UserCheck, UserCog, UserPlus, Users as UsersIcon } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import OrgHelpScreen from './OrgHelpScreen.jsx'
 import OrgReportAssistanceScreen from './OrgReportAssistanceScreen.jsx'
 import OrgReportHistoryScreen from './OrgReportHistoryScreen.jsx'
+import OrgAccountlessConfirmablesScreen from './OrgAccountlessConfirmablesScreen.jsx'
 import OrgAddMemberScreen from './OrgAddMemberScreen.jsx'
 import OrgAssignOfficerScreen from './OrgAssignOfficerScreen.jsx'
 import OrgOfficerHistoryScreen from './OrgOfficerHistoryScreen.jsx'
@@ -192,6 +193,19 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
     )
   }
 
+  if (view === 'confirmables') {
+    return (
+      <OrgAccountlessConfirmablesScreen
+        domain={domain}
+        orgName={record?.label}
+        onBack={() => setView('home')}
+        tabBar={tabBar(null)}
+        active={null}
+        onNav={goHomeOrNav}
+      />
+    )
+  }
+
   if (view === 'help') {
     return (
       <OrgHelpScreen
@@ -272,10 +286,11 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
   const actionsSection = (
     <section className="mt-4">
       <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-cz-text-2">{labels.orgHome.actionsHeading}</p>
-      <div className="grid grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-2 gap-2.5">
         <OrgActionTile theme={theme} icon={UserPlus} title={labels.orgHome.addMember} onClick={() => setView('addMember')} />
         <OrgActionTile theme={theme} icon={UserCog} title={labels.orgHome.assignOfficer} onClick={() => setView('assignOfficer')} />
         <OrgActionTile theme={theme} icon={Package} title={labels.orgHome.distribute} onClick={() => setView('assistance')} />
+        <OrgActionTile theme={theme} icon={UserCheck} title={labels.orgHome.confirmOnBehalf} onClick={() => setView('confirmables')} />
       </div>
     </section>
   )

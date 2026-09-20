@@ -1220,6 +1220,32 @@ export const labels = {
     },
   },
 
+  // ── Accountless-beneficiary on-behalf-of confirmation (Piece 2) ────────
+  // A DISTINCT screen from orgReportHistory above on purpose — that one is
+  // display-only (recorded_by=self, no confirm action); this one is for
+  // members with no working account at all, sourced from a different,
+  // eligibility-gated endpoint. The backend list already only returns
+  // eligible rows, so there is no "ineligible, here's why" state to word
+  // here — a row simply isn't in the list.
+  orgConfirmables: {
+    title: 'Kumpirmahin Para sa Kasapi',
+    subtitle: 'Mga kasaping walang aktibong account — maaari ninyong kumpirmahin sa kanilang ngalan.',
+    countLine: (n) => `${n} kailangang kumpirmahin`,
+    loading: 'Naglo-load...',
+    loadFailed: 'Hindi makuha ang listahan.',
+    empty: 'Walang kasaping kailangang kumpirmahin sa ngayon.',
+    confirmButton: 'Kumpirmahin sa Ngalan Niya',
+    pendingBadge: 'Nakabinbin sa pagsusuri',
+    rejectedReason: (reason) => `Tinanggihan ng opisina: ${reason}`,
+    modalTitle: 'Kumpirmahin ang Pagtanggap',
+    modalSubtitle: (name) => `Para kay ${name}`,
+    photoLabel: 'Larawan (opsyonal)',
+    photoHint: 'JPG, PNG, o WEBP, hanggang 5 MB.',
+    submit: 'Isumite',
+    submitSuccess: 'Naisumite na — hinihintay ang pag-apruba ng opisina.',
+    submitFailed: 'Hindi naisumite ang kumpirmasyon.',
+  },
+
   // ── Batch: profile self-editing ────────────────────────────────────────
   // Two tiers, and the copy has to make the difference obvious: some edits
   // land immediately, others go to the office for review.
@@ -1518,6 +1544,8 @@ export const labels = {
     assignOfficerSub: 'Pumili ng kasapi para sa isang posisyon',
     distribute: 'Mag-report ng Tulong',
     distributeSub: 'I-record ang naibigay na government assistance',
+    confirmOnBehalf: 'Kumpirmahin Para sa Kasapi',
+    confirmOnBehalfSub: 'Para sa kasaping walang aktibong account',
 
     officerRosterHeading: 'ROSTER NG OPISYAL',
     vacant: 'VACANT',

@@ -199,19 +199,27 @@ class AccountlessConfirmableSerializer(serializers.ModelSerializer):
     farmer_full_name = serializers.CharField(source='farmer.full_name', read_only=True)
     farmer_barangay = serializers.CharField(source='farmer.barangay', read_only=True)
     latest_request_status = serializers.SerializerMethodField()
+    latest_request_reason = serializers.SerializerMethodField()
 
     class Meta:
         model = BeneficiaryRecord
         fields = [
             'id', 'farmer', 'farmer_full_name', 'farmer_barangay',
             'assistance_type', 'source_agency', 'quantity', 'season', 'year',
-            'date_given', 'latest_request_status',
+            'date_given', 'latest_request_status', 'latest_request_reason',
         ]
         read_only_fields = fields
 
+    def _latest(self, obj):
+        return obj.confirmation_requests.order_by('-submitted_at').first()
+
     def get_latest_request_status(self, obj):
-        latest = obj.confirmation_requests.order_by('-submitted_at').first()
+        latest = self._latest(obj)
         return latest.status if latest else None
+
+    def get_latest_request_reason(self, obj):
+        latest = self._latest(obj)
+        return latest.rejection_reason if latest and latest.status == 'REJECTED' else ''
 
 
 class FisherfolkAccountlessConfirmableSerializer(serializers.ModelSerializer):
@@ -219,19 +227,27 @@ class FisherfolkAccountlessConfirmableSerializer(serializers.ModelSerializer):
     fisherfolk_full_name = serializers.CharField(source='fisherfolk.full_name', read_only=True)
     fisherfolk_barangay = serializers.CharField(source='fisherfolk.barangay', read_only=True)
     latest_request_status = serializers.SerializerMethodField()
+    latest_request_reason = serializers.SerializerMethodField()
 
     class Meta:
         model = FisherfolkBeneficiaryRecord
         fields = [
             'id', 'fisherfolk', 'fisherfolk_full_name', 'fisherfolk_barangay',
             'assistance_type', 'source_agency', 'quantity', 'season', 'year',
-            'date_given', 'latest_request_status',
+            'date_given', 'latest_request_status', 'latest_request_reason',
         ]
         read_only_fields = fields
 
+    def _latest(self, obj):
+        return obj.confirmation_requests.order_by('-submitted_at').first()
+
     def get_latest_request_status(self, obj):
-        latest = obj.confirmation_requests.order_by('-submitted_at').first()
+        latest = self._latest(obj)
         return latest.status if latest else None
+
+    def get_latest_request_reason(self, obj):
+        latest = self._latest(obj)
+        return latest.rejection_reason if latest and latest.status == 'REJECTED' else ''
 
 
 class BeneficiaryConfirmationRequestSerializer(serializers.ModelSerializer):

@@ -157,6 +157,14 @@ export const FARMERS_ORG_DOMAIN = {
   personField: 'farmer',
   assistanceTypeOptions: ['Fertilizer', 'Seeds', 'Equipment', 'Cash Assistance', 'Training', 'Other'],
   seasonOptions: ['Dry', 'Wet'],
+
+  // Accountless-beneficiary on-behalf-of confirmation (Piece 2). The list
+  // endpoint already only returns records the org may act on (AWAITING_
+  // CONFIRMATION, for a current member with no working account) — the
+  // frontend trusts that entirely rather than re-deriving eligibility.
+  accountlessConfirmablesUrl: '/interventions/my-org-accountless-confirmables/',
+  confirmOnBehalfUrl: (recordId) => `/interventions/beneficiaries/${recordId}/confirm-on-behalf/`,
+  confirmableName: (row) => row.farmer_full_name,
 }
 
 export const FISHERFOLK_ORG_DOMAIN = {
@@ -213,4 +221,10 @@ export const FISHERFOLK_ORG_DOMAIN = {
   personField: 'fisherfolk',
   assistanceTypeOptions: ['Fishing Gear', 'Boat/Vessel', 'Fingerlings/Seeds', 'Feed', 'Equipment', 'Cash Assistance', 'Training', 'Other'],
   seasonOptions: null, // FisherfolkBeneficiaryRecord.season is a free CharField, not a fixed choice set
+
+  // Accountless-beneficiary on-behalf-of confirmation (Piece 2) — see the
+  // farmers domain's own comment above.
+  accountlessConfirmablesUrl: '/interventions/my-org-fisherfolk-accountless-confirmables/',
+  confirmOnBehalfUrl: (recordId) => `/interventions/fisherfolk-beneficiaries/${recordId}/confirm-on-behalf/`,
+  confirmableName: (row) => row.fisherfolk_full_name,
 }
