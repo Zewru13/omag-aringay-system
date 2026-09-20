@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ClipboardList, Hash, History, Home, MapPin, Package, UserCheck, UserCog, UserPlus, Users as UsersIcon } from 'lucide-react'
+import { ClipboardList, History, Home, Package, UserCheck, UserCog, UserPlus, Users as UsersIcon } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import OrgHelpScreen from './OrgHelpScreen.jsx'
 import OrgReportAssistanceScreen from './OrgReportAssistanceScreen.jsx'
@@ -11,7 +11,7 @@ import OrgOfficerHistoryScreen from './OrgOfficerHistoryScreen.jsx'
 import OrgMembersScreen from './OrgMembersScreen.jsx'
 import OrgInfoScreen from './OrgInfoScreen.jsx'
 import {
-  OrgActionTile, OrgAlertBanner, OrgShell, OrgStatCard,
+  OrgActionTile, OrgAlertBanner, OrgPageHeader, OrgShell, OrgStatCard,
 } from './OrgDashboardParts.jsx'
 import { labels } from './labels.js'
 import { CitizenTabBar } from './citizenUI.jsx'
@@ -28,9 +28,8 @@ import { CitizenTabBar } from './citizenUI.jsx'
 // list's length and POSISYON is the officer list measured against the
 // domain's actual position set — seven, where the mockup draws five.
 
-export default function OrganizationHomeScreen({ record, recordType, domain }) {
+export default function OrganizationHomeScreen({ record, domain }) {
   const theme = domain.dashboardTheme
-  const isFisherfolk = recordType === 'FISHERFOLK_ORG'
   const orgId = record?.id
 
   const [view, setView] = useState('home')
@@ -237,29 +236,27 @@ export default function OrganizationHomeScreen({ record, recordType, domain }) {
   }
 
   // ── Dashboard ────────────────────────────────────────────────────────
+  // Trial (2026-09-20, one page only — see conversation): plain title +
+  // subtitle, reusing OrgPageHeader exactly as every org sub-screen already
+  // does, in place of the bordered white identity card (name + type-badge
+  // pill + MapPin/Hash icon rows) that was here before. Org type moved from
+  // a colored pill into the subtitle as plain text — same existing label
+  // (labels.orgHome.typeBadgeFarmers/Fisherfolk) the pill used to show,
+  // just reused as text instead of a badge now. domain.key (already a
+  // clean farmers_org/fisherfolk_org discriminator — see orgDomainConfig.js)
+  // stands in for the recordType prop removed in the trial, rather than
+  // bringing that prop back just to re-derive the same thing.
+  const orgTypeLabel = domain.key === 'farmers_org'
+    ? labels.orgHome.typeBadgeFarmers
+    : labels.orgHome.typeBadgeFisherfolk
   const identityCard = (
-    <section className="rounded-[14px] border-[0.5px] border-cz-border bg-white p-5">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <h2 className="text-[20px] font-bold leading-[1.2] text-cz-text sm:text-[24px]">
-          {record?.label || labels.common.unknown}
-        </h2>
-        <span className={`inline-flex shrink-0 items-center rounded-full px-3 py-1 text-[12px] font-semibold ${theme.tileSelectedBg} ${theme.tileSelectedText}`}>
-          {isFisherfolk ? labels.orgHome.typeBadgeFisherfolk : labels.orgHome.typeBadgeFarmers}
-        </span>
-      </div>
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-[13px] text-cz-text-2">
-        <span className="inline-flex items-center gap-1">
-          <MapPin size={13} className="shrink-0 text-cz-text-muted" aria-hidden="true" />
-          {labels.orgHome.addressLine(record?.barangay || labels.common.unknown)}
-        </span>
-        {record?.registration_number && (
-          <span className="inline-flex items-center gap-1">
-            <Hash size={13} className="shrink-0 text-cz-text-muted" aria-hidden="true" />
-            {record.registration_number}
-          </span>
-        )}
-      </div>
-    </section>
+    <OrgPageHeader
+      title={record?.label || labels.common.unknown}
+      subtitle={
+        `${orgTypeLabel} · ${labels.orgHome.addressLine(record?.barangay || labels.common.unknown)}`
+        + (record?.registration_number ? ` · ${record.registration_number}` : '')
+      }
+    />
   )
 
   const statCards = (
