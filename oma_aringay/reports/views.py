@@ -10,6 +10,7 @@ from django.utils import timezone
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import (
     HRFlowable,
+    Image,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
@@ -20,10 +21,15 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
 from accounts.permissions import IsAdminOrEvaluator
-from core.utils import accumulate_yield_group, new_yield_group, possible_factors_text
+from core.utils import accumulate_yield_group, day_range_bounds, new_yield_group, possible_factors_text
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk, FishingTripLog, Pond, StockingRecord, TripSpeciesEntry
-from interventions.models import BeneficiaryRecord, FisherfolkBeneficiaryRecord
+from interventions.models import (
+    BeneficiaryConfirmationRequest,
+    BeneficiaryRecord,
+    FisherfolkBeneficiaryConfirmationRequest,
+    FisherfolkBeneficiaryRecord,
+)
 from production.models import (
     BarangayCropSummary,
     CropMonitoringRecord,
@@ -3189,4 +3195,249 @@ class FisheriesYieldAnalysisReport(APIView):
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         )
         response['Content-Disposition'] = f'attachment; filename="fisheries_yield_analysis_report_{today}.xlsx"'
+        return response
+
+
+# ─── On-Behalf-Of Confirmations Report ───────────────────────────────────────
+# Accountless-beneficiary on-behalf-of confirmation (Piece 3) — printable/
+# exportable record of every BeneficiaryConfirmationRequest /
+# FisherfolkBeneficiaryConfirmationRequest, reusing pdf_utils.py's building
+# blocks exactly, same as every other report here.
+#
+# MERGED across both domains into ONE report, deliberately NOT split like
+# most other reports (HarvestedCropReport vs FisheriesProductionReport,
+# FarmerCropHistoryReport vs FisherfolkStockingHistoryReport). Those splits
+# exist because each domain's own report needs real domain-specific columns
+# (species/culture type vs crop type/variety) and carries real volume. This
+# record type has neither: its columns are the same shape in both domains
+# (organization / beneficiary / assistance / dates / deciding admin /
+# status), and it is inherently low-volume — a compliance reviewer wants ONE
+# list to review, not two mostly-empty tabs. A "Type" column distinguishes
+# rows instead, matching how the admin dashboard's own approval queue
+# (Piece 2, StaffDashboard.jsx) already merges these two models into one
+# panel for the identical reason.
+#
+# Filters use date_from/date_to — auditlog/views.py's own real date-RANGE
+# convention (parse_date + __gte/__lte), not the year/season discrete
+# filters FisherfolkStockingHistoryReport/FarmerCropHistoryReport use. Those
+# two exist for planting/stocking CYCLES, which genuinely align to a
+# season/year. This record type is a chronological log of discrete decision
+# events (submitted_at/reviewed_at) — much closer in shape to the audit log
+# than to a growing cycle — so its real date-range filter is reused here
+# instead of forcing year/season onto data that doesn't have a season.
+
+
+def _photo_thumbnail(photo_field, max_dim=42):
+    """
+    reportlab Image flowable for an uploaded confirmation photo, sized to
+    fit within a max_dim x max_dim box with the source's REAL aspect ratio
+    preserved — unlike build_official_header's fixed-size logo Image (a
+    known-good 64x64 square asset), an uploaded photo can be any aspect
+    ratio, and forcing width=height on a non-square photo would visibly
+    distort it. Returns None (renders as 'N/A' via build_ledger_table's own
+    fmt_field fallback) when there's no photo, or the file can't actually be
+    opened — same defensive try/except precedent build_official_header's
+    own logo handling already uses for a missing/corrupt file.
+    """
+    if not photo_field:
+        return None
+    try:
+        from PIL import Image as PILImage
+        path = photo_field.path
+        with PILImage.open(path) as im:
+            w, h = im.size
+        if w >= h:
+            draw_w, draw_h = max_dim, max_dim * h / w
+        else:
+            draw_w, draw_h = max_dim * w / h, max_dim
+        return Image(path, width=draw_w, height=draw_h)
+    except Exception:
+        return None
+
+
+class BeneficiaryConfirmationReport(APIView):
+    """See this module's own comment block above for why this report is
+    merged across both domains and uses a date_from/date_to range filter."""
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request):
+        from django.http import JsonResponse
+
+        today = _today()
+        date_from     = request.query_params.get('date_from', '')
+        date_to       = request.query_params.get('date_to', '')
+        status_filter = request.query_params.get('status', '')
+        record_type   = request.query_params.get('type', '')  # 'farmer' | 'fisherfolk' | ''
+        fmt           = request.query_params.get('format', 'excel')
+
+        farmer_qs = BeneficiaryConfirmationRequest.objects.select_related(
+            'beneficiary_record__farmer', 'submitted_by_organization', 'reviewed_by',
+        ).order_by('-submitted_at')
+        ff_qs = FisherfolkBeneficiaryConfirmationRequest.objects.select_related(
+            'beneficiary_record__fisherfolk', 'submitted_by_organization', 'reviewed_by',
+        ).order_by('-submitted_at')
+
+        # date_from/date_to compare against explicit local-midnight UTC-aware
+        # bounds (core.utils.day_range_bounds) rather than using
+        # submitted_at__date__gte/lte. That __date lookup compiles to
+        # MySQL's CONVERT_TZ(...) under USE_TZ=True + a named TIME_ZONE
+        # (Asia/Manila) — found, while live-testing this filter, to
+        # silently match ZERO rows on this database: mysql.time_zone_name
+        # has no rows loaded (a real, pre-existing environment gap; see
+        # auditlog/views.py, which had the identical bug and was fixed the
+        # same way). day_range_bounds() sidesteps CONVERT_TZ entirely by
+        # comparing plain datetimes.
+        if date_from:
+            start = day_range_bounds(date_from)
+            if start:
+                farmer_qs = farmer_qs.filter(submitted_at__gte=start)
+                ff_qs = ff_qs.filter(submitted_at__gte=start)
+        if date_to:
+            end = day_range_bounds(date_to, end_of_day=True)
+            if end:
+                farmer_qs = farmer_qs.filter(submitted_at__lte=end)
+                ff_qs = ff_qs.filter(submitted_at__lte=end)
+        if status_filter:
+            farmer_qs = farmer_qs.filter(status=status_filter)
+            ff_qs = ff_qs.filter(status=status_filter)
+        if record_type == 'farmer':
+            ff_qs = ff_qs.none()
+        elif record_type == 'fisherfolk':
+            farmer_qs = farmer_qs.none()
+
+        entries = (
+            [{'type': 'Farmers Org', 'req': r, 'beneficiary_name': r.beneficiary_record.farmer.full_name} for r in farmer_qs]
+            + [{'type': 'Fisherfolk Org', 'req': r, 'beneficiary_name': r.beneficiary_record.fisherfolk.full_name} for r in ff_qs]
+        )
+        entries.sort(key=lambda e: e['req'].submitted_at, reverse=True)
+
+        def row_data(e):
+            r = e['req']
+            return [
+                e['type'],
+                fmt_field(r.submitted_by_organization.name),
+                fmt_field(e['beneficiary_name']),
+                fmt_field(r.beneficiary_record.assistance_type),
+                fmt_field(r.beneficiary_record.quantity),
+                r.submitted_at.strftime('%b %d, %Y'),
+                r.reviewed_at.strftime('%b %d, %Y') if r.reviewed_at else '—',
+                fmt_field(r.reviewed_by.full_name) if r.reviewed_by else '—',
+                r.status,
+            ]
+
+        headers = [
+            'Type', 'Organization', 'Beneficiary', 'Assistance Type', 'Quantity',
+            'Submitted Date', 'Decided Date', 'Decided By', 'Status',
+        ]
+
+        if fmt == 'json':
+            data = []
+            for e in entries:
+                r = e['req']
+                data.append({
+                    'id': r.id,
+                    'type': e['type'],
+                    'organization': r.submitted_by_organization.name,
+                    'beneficiary': e['beneficiary_name'],
+                    'assistance_type': r.beneficiary_record.assistance_type or '—',
+                    'quantity': r.beneficiary_record.quantity or '—',
+                    'submitted_at': str(r.submitted_at.date()),
+                    'reviewed_at': str(r.reviewed_at.date()) if r.reviewed_at else None,
+                    'reviewed_by': r.reviewed_by.full_name if r.reviewed_by else None,
+                    'status': r.status,
+                    'rejection_reason': r.rejection_reason,
+                    'has_photo': bool(r.photo),
+                })
+            summary = {
+                'total': len(entries),
+                'pending': sum(1 for e in entries if e['req'].status == 'PENDING'),
+                'approved': sum(1 for e in entries if e['req'].status == 'APPROVED'),
+                'rejected': sum(1 for e in entries if e['req'].status == 'REJECTED'),
+                'with_photo': sum(1 for e in entries if e['req'].photo),
+            }
+            return JsonResponse({'count': len(data), 'records': data, 'summary': summary})
+
+        if fmt == 'pdf':
+            return self._build_pdf(entries, headers, row_data, today, _sig_params(request))
+        return self._build_excel(entries, headers, row_data, today)
+
+    def _build_pdf(self, entries, headers, row_data_fn, today, sig=None):
+        sig = sig or {}
+        buf, doc = _make_doc()
+        story = []
+        story += build_official_header(LOGO_PATH, 'On-Behalf-Of Confirmations Report')
+        approved = sum(1 for e in entries if e['req'].status == 'APPROVED')
+        rejected = sum(1 for e in entries if e['req'].status == 'REJECTED')
+        pending = sum(1 for e in entries if e['req'].status == 'PENDING')
+        story.append(build_stats_row([
+            ('Total Records', len(entries)),
+            ('Approved', approved),
+            ('Rejected', rejected),
+            ('Pending', pending),
+        ], page_width=PAGE_WIDTH))
+        story.append(Spacer(1, 14))
+
+        # Photo column appended to the ledger table only here (not part of
+        # the shared `headers`/row_data_fn used by json/excel) — a Flowable
+        # cell, per build_ledger_table's own documented support for one.
+        pdf_headers = headers + ['Photo']
+        col_widths = [45, 62, 58, 52, 36, 42, 42, 42, 42, 47]
+        rows = []
+        for e in entries:
+            r = e['req']
+            photo_cell = _photo_thumbnail(r.photo) if r.status == 'APPROVED' else None
+            rows.append(row_data_fn(e) + [photo_cell])
+        story.append(build_ledger_table(pdf_headers, rows, col_widths=col_widths))
+        story.append(Spacer(1, 30))
+        story.append(build_signature_block(
+            left_label='Prepared by',
+            left_name=sig.get('prepared_by') or None,
+            left_role=sig.get('position') or 'OMAg Records Officer',
+            reviewed_by=sig.get('reviewed_by') or None,
+            reviewed_role=sig.get('reviewed_role') or None,
+            noted_by=sig.get('noted_by') or None,
+            noted_role=sig.get('noted_role') or None,
+            page_width=PAGE_WIDTH,
+        ))
+        doc.build(story, canvasmaker=NumberedCanvas)
+        return _finish_pdf(buf, f'on_behalf_of_confirmations_report_{today}.pdf')
+
+    def _build_excel(self, entries, headers, row_data_fn, today):
+        import openpyxl
+        from openpyxl.styles import Alignment, Font, PatternFill
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'On-Behalf-Of Confirmations'
+
+        hdr_fill = PatternFill('solid', fgColor='1E4620')
+        hdr_font = Font(bold=True, color='FFFFFF', size=10)
+
+        ws.append(['Republic of the Philippines'])
+        ws.append(['Office of the Municipal Agriculturist — Aringay, La Union'])
+        ws.append(['On-Behalf-Of Confirmations Report'])
+        ws.append([f'Date Generated: {today}'])
+        ws.append([])
+
+        full_headers = headers + ['Photo Attached', 'Rejection Reason']
+        ws.append(full_headers)
+        for cell in ws[6]:
+            cell.fill = hdr_fill
+            cell.font = hdr_font
+            cell.alignment = Alignment(horizontal='center')
+
+        for e in entries:
+            r = e['req']
+            ws.append(row_data_fn(e) + ['Yes' if r.photo else 'No', r.rejection_reason or ''])
+
+        ws.column_dimensions['K'].width = 50
+
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        response = HttpResponse(
+            buf.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        response['Content-Disposition'] = f'attachment; filename="on_behalf_of_confirmations_report_{today}.xlsx"'
         return response
