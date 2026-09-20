@@ -4,6 +4,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
 from django.db import transaction
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status
@@ -472,17 +473,34 @@ class ChangePasswordView(APIView):
 
 
 class UserListView(generics.ListAPIView):
+    """User Management (staff-only screen) — Admin/Evaluator accounts alone.
+    CITIZEN accounts (Farmer/Fisherfolk/Organization self-service logins,
+    the overwhelming majority of this table — 4,671 of 4,685 real rows)
+    are managed from Farmers/Fisherfolk/Organizations, never from here.
+    Previously unfiltered: every citizen account showed up in this list
+    too, silently mislabeled 'Focal Person' by the frontend's role_pill
+    (any role != ADMIN rendered that way, not just EVALUATOR), and pushed
+    real staff accounts dozens of pages deep in the default -date_joined
+    ordering — old admin/evaluator accounts especially, unreachable by the
+    page-scoped client-side search that only ever looked at whichever page
+    happened to be loaded.
+    """
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated, IsAdmin]
 
     def get_queryset(self):
-        qs = User.objects.all().order_by('-date_joined')
+        qs = User.objects.filter(
+            role__in=[User.Roles.ADMIN, User.Roles.EVALUATOR],
+        ).order_by('-date_joined')
         role = self.request.query_params.get('role')
         is_active = self.request.query_params.get('is_active')
+        search = self.request.query_params.get('search')
         if role:
             qs = qs.filter(role=role)
         if is_active is not None:
             qs = qs.filter(is_active=is_active.lower() == 'true')
+        if search:
+            qs = qs.filter(Q(full_name__icontains=search) | Q(email__icontains=search))
         return qs
 
 

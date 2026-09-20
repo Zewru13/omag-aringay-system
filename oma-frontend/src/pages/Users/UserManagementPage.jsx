@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight, MailWarning, Pencil, RotateCcw } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
@@ -65,10 +65,18 @@ export default function UserManagementPage() {
     }
   }
 
-  const fetchUsers = useCallback(async (pageNum = 1) => {
+  // search/role are sent to the backend and refetched, not filtered
+  // client-side — this table was previously filtering only whichever
+  // single page happened to be loaded, so searching for a user who wasn't
+  // on that page (e.g. an old account sorted deep into -date_joined order)
+  // silently found nothing, indistinguishable from a genuine no-match.
+  const fetchUsers = useCallback(async (pageNum = 1, searchTerm = '', role = 'All') => {
     setIsLoading(true)
     try {
-      const r = await api.get(`/accounts/users/?page=${pageNum}`)
+      const params = { page: pageNum }
+      if (searchTerm) params.search = searchTerm
+      if (role !== 'All') params.role = role
+      const r = await api.get('/accounts/users/', { params })
       setUsers(Array.isArray(r.data) ? r.data : (r.data?.results || []))
       setTotalCount(typeof r.data?.count === 'number' ? r.data.count : 0)
     } catch {
@@ -79,21 +87,10 @@ export default function UserManagementPage() {
     }
   }, [])
 
-  useEffect(() => { fetchUsers(page) }, [fetchUsers, page])
-
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase()
-    return users.filter(u => {
-      const matchSearch = !q
-        || u.full_name?.toLowerCase().includes(q)
-        || u.email?.toLowerCase().includes(q)
-      const matchRole = roleFilter === 'All' || u.role === roleFilter
-      return matchSearch && matchRole
-    })
-  }, [users, search, roleFilter])
+  useEffect(() => { fetchUsers(page, search, roleFilter) }, [fetchUsers, page, search, roleFilter])
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
-  const paginated  = filtered
+  const paginated  = users
 
   const rows = paginated.map(u => ({
     ...u,
@@ -102,9 +99,12 @@ export default function UserManagementPage() {
         {u.full_name}{u.suffix ? ` ${u.suffix}` : ''}
       </span>
     ),
+    // Explicit per role rather than "anything not Admin" — this table is
+    // staff-only server-side now (UserListView), but a defensive label
+    // beats silently mislabeling anything unexpected as Focal Person again.
     role_pill: (
-      <StatusPill tone={u.role === 'ADMIN' ? 'green' : 'blue'}>
-        {u.role === 'ADMIN' ? 'Admin' : 'Focal Person'}
+      <StatusPill tone={u.role === 'ADMIN' ? 'green' : u.role === 'EVALUATOR' ? 'blue' : 'slate'}>
+        {u.role === 'ADMIN' ? 'Admin' : u.role === 'EVALUATOR' ? 'Focal Person' : u.role}
       </StatusPill>
     ),
     status_pill: (
