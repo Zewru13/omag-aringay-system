@@ -1,4 +1,3 @@
-from django.utils.dateparse import parse_date
 from rest_framework.generics import ListAPIView
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
@@ -6,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from accounts.permissions import IsAdmin
 from auditlog.models import AuditLogEntry
 from auditlog.serializers import AuditLogEntrySerializer
+from core.utils import day_range_bounds
 
 
 class AuditLogPagination(PageNumberPagination):
@@ -35,12 +35,12 @@ class AuditLogListView(ListAPIView):
         if user_id:
             qs = qs.filter(user_id=user_id)
         if date_from:
-            parsed = parse_date(date_from)
-            if parsed:
-                qs = qs.filter(timestamp__date__gte=parsed)
+            bound = day_range_bounds(date_from)
+            if bound:
+                qs = qs.filter(timestamp__gte=bound)
         if date_to:
-            parsed = parse_date(date_to)
-            if parsed:
-                qs = qs.filter(timestamp__date__lte=parsed)
+            bound = day_range_bounds(date_to, end_of_day=True)
+            if bound:
+                qs = qs.filter(timestamp__lte=bound)
 
         return qs
