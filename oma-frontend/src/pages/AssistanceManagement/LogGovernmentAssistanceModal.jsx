@@ -5,6 +5,10 @@ import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import { SourceAgencyMultiSelect, TypeConditionalFields } from './sharedAssistanceFields.jsx'
+import {
+  EMPTY_TYPE_CONDITIONAL_FIELDS, buildTypeConditionalPayload, validateTrainingDuration, isTrainingType,
+} from './assistanceFieldHelpers.js'
 
 // Must match interventions.models.FisherfolkBeneficiaryRecord.AssistanceType exactly
 // (Batch 6: absorbed from fisheries.models.FisheriesAssistanceRecord) — this is a
@@ -18,20 +22,6 @@ const ASSISTANCE_TYPE_OPTIONS = [
   'Equipment',
   'Training',
   'Other',
-]
-
-// Batch C — a shared, reconciled choice set (minus 'Other', which
-// ComboboxWithOther appends) used consistently across every assistance
-// logging screen. source_agency itself is still a free CharField on the
-// backend (no choices= constraint), so this is a frontend-only UX
-// reconciliation; existing stored values that don't match this list are
-// left as-is, not coerced.
-const SOURCE_OPTIONS = [
-  'LGU - Aringay',
-  'Office of the Provincial Agriculturist',
-  'Department of Agriculture (DA)',
-  'Department of Agrarian Reform (DAR)',
-  'Non-Government Organization (NGO)',
 ]
 
 const UNIT_OPTIONS = [
@@ -64,8 +54,7 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
   const [form, setForm] = useState({
     assistance_type: '',
     assistance_type_other: '',
-    source_of_assistance: '',
-    source_of_assistance_other: '',
+    source_agencies: [],
     date_received: '',
     quantity: '',
     unit: '',
@@ -73,6 +62,7 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
     status: 'Pending',
     remarks: '',
     description: '',
+    ...EMPTY_TYPE_CONDITIONAL_FIELDS,
   })
 
   useEffect(() => {
@@ -116,8 +106,10 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
   }, [ffResults, searchTerm])
 
   const isCashType = form.assistance_type === 'Cash Assistance'
+  const isTraining = isTrainingType(form.assistance_type)
 
   const set = (k, v) => setForm((p) => ({ ...p, [k]: v }))
+  const setAssistanceType = (v) => setForm((p) => ({ ...p, assistance_type: v, quantity: '', unit: '', unit_other: '', ...EMPTY_TYPE_CONDITIONAL_FIELDS }))
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -127,7 +119,7 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
       return
     }
 
-    if (!form.assistance_type || !form.source_of_assistance || !form.quantity || !form.status) {
+    if (!form.assistance_type || !form.status) {
       showToast('Fill in all required fields.', 'error')
       return
     }
@@ -137,17 +129,12 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
       return
     }
 
-    if (isCashType && (!form.quantity || Number(form.quantity) <= 0)) {
-      showToast('Cash assistance requires a valid amount received.', 'error')
+    if (!isTraining && (!form.quantity || Number(form.quantity) <= 0)) {
+      showToast(isCashType ? 'Cash assistance requires a valid amount received.' : 'Quantity / Amount must be greater than 0.', 'error')
       return
     }
 
-    if (!isCashType && (!form.quantity || Number(form.quantity) <= 0)) {
-      showToast('Quantity / Amount must be greater than 0.', 'error')
-      return
-    }
-
-    if (!isCashType && !form.unit) {
+    if (!isCashType && !isTraining && !form.unit) {
       showToast('Unit is required.', 'error')
       return
     }
@@ -157,18 +144,15 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
       return
     }
 
-    if (form.source_of_assistance === 'Other' && !form.source_of_assistance_other.trim()) {
-      showToast('Specify Source of Assistance.', 'error')
-      return
-    }
-
-    if (!isCashType && form.unit === 'Other' && !form.unit_other.trim()) {
+    if (!isCashType && !isTraining && form.unit === 'Other' && !form.unit_other.trim()) {
       showToast('Specify Unit.', 'error')
       return
     }
 
+    const trainingError = validateTrainingDuration(form.assistance_type, form)
+    if (trainingError) { showToast(trainingError, 'error'); return }
+
     const assistanceType = form.assistance_type === 'Other' ? form.assistance_type_other.trim() : form.assistance_type
-    const source = form.source_of_assistance === 'Other' ? form.source_of_assistance_other.trim() : form.source_of_assistance
     const unit = isCashType ? 'PHP' : (form.unit === 'Other' ? form.unit_other.trim() : form.unit)
 
     const selectedYear = new Date(form.date_received).getFullYear()
@@ -176,25 +160,26 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
     // This model has no dedicated unit/status fields — folded into remarks
     // below so the info the clerk entered isn't silently discarded (Batch 6:
     // was fisheries.FisheriesAssistanceRecord).
-    const unitNote = !isCashType && unit ? `Unit: ${unit}` : ''
+    const unitNote = !isCashType && !isTraining && unit ? `Unit: ${unit}` : ''
     const statusNote = form.status ? `Status: ${form.status}` : ''
     const combinedRemarks = [statusNote, unitNote, form.remarks].filter(Boolean).join(' | ')
 
     const payload = {
       fisherfolk: selectedFisherfolk.id,
       assistance_type: assistanceType,
-      source_agency: source,
+      source_agencies: form.source_agencies,
       date_given: form.date_received,
       year: selectedYear,
-      quantity: form.quantity,
+      quantity: isTraining ? '' : form.quantity,
       description: form.description || '',
       remarks: combinedRemarks,
+      ...buildTypeConditionalPayload(form.assistance_type, form, { allowSeedFertilizer: false }),
     }
 
     setIsSubmitting(true)
     try {
       await api.post('/interventions/fisherfolk-beneficiaries/adhoc/', payload)
-      showToast('Government assistance logged successfully.')
+      showToast('Assistance logged successfully.')
       onSuccess?.()
       onClose?.()
     } catch (error) {
@@ -202,7 +187,7 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
       console.log('BACKEND ERROR:', error.response?.data)
 
       const backendData = error.response?.data
-      let message = 'Failed to log government assistance.'
+      let message = 'Failed to log assistance.'
 
       if (typeof backendData === 'string') {
         message = backendData
@@ -224,7 +209,7 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
   }
 
   return (
-    <ModalShell title="Log Government Assistance" onClose={onClose} widthClassName="max-w-4xl">
+    <ModalShell title="Log Individual Assistance" onClose={onClose} widthClassName="max-w-4xl">
       <form className="space-y-4" onSubmit={handleSubmit}>
         <div className="relative z-10">
           <label className="block text-xs text-slate-500 mb-1">
@@ -290,35 +275,26 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
               options={ASSISTANCE_TYPE_OPTIONS.filter(o => o !== 'Other')}
               value={form.assistance_type}
               otherValue={form.assistance_type_other}
-              onChange={(v) => set('assistance_type', v)}
+              onChange={setAssistanceType}
               onOtherChange={(v) => set('assistance_type_other', v)}
               placeholder="Select Assistance Type"
             />
           </FormField>
 
-          <FormField label="Source of Assistance" required>
-            <ComboboxWithOther
-              options={SOURCE_OPTIONS}
-              value={form.source_of_assistance}
-              otherValue={form.source_of_assistance_other}
-              onChange={(v) => set('source_of_assistance', v)}
-              onOtherChange={(v) => set('source_of_assistance_other', v)}
-              placeholder="Select Source"
-            />
-          </FormField>
+          {!isTraining && (
+            <FormField label={isCashType ? 'Amount Received (₱)' : 'Quantity / Amount'} required>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                className={baseInputClasses}
+                value={form.quantity}
+                onChange={(e) => set('quantity', e.target.value)}
+              />
+            </FormField>
+          )}
 
-          <FormField label={isCashType ? 'Amount Received (₱)' : 'Quantity / Amount'} required>
-            <input
-              type="number"
-              step="0.01"
-              min="0.01"
-              className={baseInputClasses}
-              value={form.quantity}
-              onChange={(e) => set('quantity', e.target.value)}
-            />
-          </FormField>
-
-          {!isCashType && (
+          {!isCashType && !isTraining && (
             <FormField label="Unit" required>
               <ComboboxWithOther
                 options={UNIT_OPTIONS}
@@ -331,6 +307,8 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
             </FormField>
           )}
 
+          <TypeConditionalFields assistanceType={form.assistance_type} form={form} set={set} allowSeedFertilizer={false} />
+
           <FormField label="Status" required>
             <select
               className={baseInputClasses}
@@ -341,6 +319,10 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
             </select>
           </FormField>
         </div>
+
+        <FormField label="Source of Assistance">
+          <SourceAgencyMultiSelect value={form.source_agencies} onChange={(v) => set('source_agencies', v)} />
+        </FormField>
 
         <FormField label="Description">
           <textarea

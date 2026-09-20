@@ -10,7 +10,6 @@ import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
-import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
@@ -20,6 +19,10 @@ import { useToast } from '../../context/ToastContext.jsx'
 import LogGovernmentAssistanceModal from './LogGovernmentAssistanceModal.jsx'
 import DistributeAssistanceModal from './DistributeAssistanceModal.jsx'
 import { FISHERFOLK_DISTRIBUTION_DOMAIN } from './distributionDomains.js'
+import { SourceAgencyMultiSelect, TypeConditionalFields } from './sharedAssistanceFields.jsx'
+import {
+  EMPTY_TYPE_CONDITIONAL_FIELDS, buildTypeConditionalPayload, validateTrainingDuration, isTrainingType,
+} from './assistanceFieldHelpers.js'
 
 // interventions.models.DistributionStatus — see CropAssistancePage.jsx's
 // identical comment; same lifecycle, fisherfolk domain.
@@ -42,17 +45,6 @@ function extractErrorMessage(err, fallback) {
 // Must match interventions.models.FisherfolkBeneficiaryRecord.AssistanceType exactly
 // (Batch 6: absorbed from fisheries.models.FisheriesAssistanceRecord).
 const ASSISTANCE_TYPE_OPTIONS = ['Fishing Gear', 'Boat/Vessel', 'Fingerlings/Seeds', 'Feed', 'Cash Assistance', 'Equipment', 'Training', 'Other']
-// Batch C — reconciled to a shared, real choice set (was a bare select with
-// a dead 'Others' sentinel — no companion field ever existed for it, so
-// picking it silently did nothing; see Batch B's audit). Now a proper
-// ComboboxWithOther like every other source_agency field.
-const SOURCE_OPTIONS = [
-  'LGU - Aringay',
-  'Office of the Provincial Agriculturist',
-  'Department of Agriculture (DA)',
-  'Department of Agrarian Reform (DAR)',
-  'Non-Government Organization (NGO)',
-]
 const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - i)
 
@@ -96,12 +88,13 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
   const { showToast } = useToast()
   const originalData = {
     assistance_type: record.assistance_type || '',
-    source_agency: record.source_agency || '',
-    source_agency_other: '',
+    source_agencies: record.source_agencies || [],
     date_received: record.date_given || '',
     quantity: record.quantity != null ? String(record.quantity) : '',
     description: record.description || '',
     remarks: record.remarks || '',
+    training_duration_days: record.training_duration_days != null ? String(record.training_duration_days) : '',
+    equipment_type: record.equipment_type || '',
   }
   const [form, setForm] = useState(originalData)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -110,22 +103,22 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
   const [isDeleting, setIsDeleting] = useState(false)
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+  const setAssistanceType = (v) => setForm((f) => ({ ...f, assistance_type: v, quantity: '', ...EMPTY_TYPE_CONDITIONAL_FIELDS }))
   const isDirty = JSON.stringify(form) !== JSON.stringify(originalData)
+  const isTraining = isTrainingType(form.assistance_type)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (form.source_agency === 'Other' && !form.source_agency_other.trim()) {
-      showToast('Please specify the source of assistance.', 'error'); return
-    }
+    const trainingError = validateTrainingDuration(form.assistance_type, form)
+    if (trainingError) { showToast(trainingError, 'error'); return }
     setError(''); setIsSubmitting(true)
     try {
-      const { date_received, source_agency_other, ...rest } = form
-      const sourceAgency = form.source_agency === 'Other' ? source_agency_other.trim() : form.source_agency
+      const { date_received, quantity, ...rest } = form
       await api.patch(`/interventions/fisherfolk-beneficiaries/adhoc/${record.id}/`, {
         ...rest,
-        source_agency: sourceAgency,
         date_given: date_received,
-        quantity: form.quantity !== '' ? parseFloat(form.quantity) : null,
+        quantity: isTraining ? null : (quantity !== '' ? parseFloat(quantity) : null),
+        ...buildTypeConditionalPayload(form.assistance_type, form, { allowSeedFertilizer: false }),
       })
       showToast('Assistance record updated.', 'success')
       onSaved()
@@ -162,26 +155,22 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
             </FormField>
             <FormField label="Assistance Type" required>
               <select className={baseInputClasses} value={form.assistance_type}
-                onChange={(e) => set('assistance_type', e.target.value)}>
+                onChange={(e) => setAssistanceType(e.target.value)}>
                 <option value="">Select Assistance Type</option>
                 {ASSISTANCE_TYPE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
               </select>
             </FormField>
-            <FormField label="Source of Assistance" required>
-              <ComboboxWithOther
-                options={SOURCE_OPTIONS}
-                value={form.source_agency}
-                otherValue={form.source_agency_other}
-                onChange={(v) => set('source_agency', v)}
-                onOtherChange={(v) => set('source_agency_other', v)}
-                placeholder="Select Source"
-              />
-            </FormField>
-            <FormField label="Quantity / Amount" required>
-              <input type="number" step="0.01" min="0" className={baseInputClasses} value={form.quantity}
-                onChange={(e) => set('quantity', e.target.value)} />
-            </FormField>
+            {!isTraining && (
+              <FormField label="Quantity / Amount" required>
+                <input type="number" step="0.01" min="0" className={baseInputClasses} value={form.quantity}
+                  onChange={(e) => set('quantity', e.target.value)} />
+              </FormField>
+            )}
+            <TypeConditionalFields assistanceType={form.assistance_type} form={form} set={set} allowSeedFertilizer={false} />
           </div>
+          <FormField label="Source of Assistance">
+            <SourceAgencyMultiSelect value={form.source_agencies} onChange={(v) => set('source_agencies', v)} />
+          </FormField>
           <FormField label="Description">
             <textarea className={baseInputClasses} rows={2} value={form.description}
               onChange={(e) => set('description', e.target.value)} />
@@ -329,6 +318,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
 
   const rows = useMemo(() => assistance.map((a) => ({
     ...a,
+    source_agency: (a.source_agencies || []).join(', '),
     quantity: a.quantity || '—',
     date_received_fmt: formatDate(a.date_given),
     status_cell: a.status ? <StatusPill status={a.status}>{STATUS_LABELS[a.status] || a.status}</StatusPill> : '—',
@@ -371,7 +361,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
             <Users size={15} className="mr-1" /> Distribute to Organization
           </Button>
           <Button onClick={() => setShowLog(true)}>
-            <Plus size={15} className="mr-1" /> Log Government Assistance
+            <Plus size={15} className="mr-1" /> Log Individual Assistance
           </Button>
         </div>
       </div>

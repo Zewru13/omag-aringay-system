@@ -12,14 +12,11 @@ import StatusPill from '../../components/UI/StatusPill.jsx'
 import StepIndicator from '../../components/UI/StepIndicator.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { todayISO } from '../../utils/localDate.js'
-
-const SOURCE_AGENCY_OPTIONS = [
-  'LGU - Aringay',
-  'Office of the Provincial Agriculturist',
-  'Department of Agriculture (DA)',
-  'Department of Agrarian Reform (DAR)',
-  'Non-Government Organization (NGO)',
-]
+import { SourceAgencyMultiSelect, TypeConditionalFields } from './sharedAssistanceFields.jsx'
+import {
+  EMPTY_TYPE_CONDITIONAL_FIELDS, buildTypeConditionalPayload, validateTrainingDuration,
+  isTrainingType, isEquipmentType, isSeedsType, isFertilizerType,
+} from './assistanceFieldHelpers.js'
 
 const STEPS = [
   { key: 'form',    label: 'Distribution Details' },
@@ -31,13 +28,15 @@ const STEP_INDEX = { form: 0, confirm: 1, result: 2 }
 const EMPTY_FORM = (domain) => ({
   assistance_type: '',
   assistance_type_other: '',
-  source_agency: '',
-  source_agency_other: '',
+  source_agencies: [],
   date_given: todayISO(),
   quantity: '',
   cash_amount: '',
   description: '',
   season: domain.seasonOptions ? domain.seasonOptions[0] : '',
+  // Type-conditional fields — only the one matching the selected
+  // assistance_type is ever shown/submitted; see sharedAssistanceFields.jsx.
+  ...EMPTY_TYPE_CONDITIONAL_FIELDS,
 })
 
 function formatDateLong(iso) {
@@ -81,22 +80,44 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
     return () => clearTimeout(handle)
   }, [orgSearch, domain.orgSearchUrl])
 
+  // Resetting type-conditional fields on type change avoids stale hidden-
+  // field values lingering in state if the user switches types back and
+  // forth — buildPayload below also only ever sends the field matching
+  // the CURRENT type regardless, so this is belt-and-suspenders, not the
+  // only guard.
+  const setAssistanceType = (v) => setForm((f) => ({
+    ...f,
+    assistance_type: v,
+    quantity: '',
+    cash_amount: '',
+    training_duration_days: '',
+    equipment_type: '',
+    seed_type: '',
+    fertilizer_type: '',
+  }))
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
   const isCashAssistance = form.assistance_type === 'Cash Assistance'
+  const isTraining       = isTrainingType(form.assistance_type)
+  const isEquipment      = isEquipmentType(form.assistance_type)
+  const isSeeds          = isSeedsType(form.assistance_type)
+  const isFertilizer     = isFertilizerType(form.assistance_type)
 
   const buildPayload = (dryRun) => {
-    const sourceAgency = form.source_agency === 'Other' ? form.source_agency_other.trim() : form.source_agency
     const assistanceType = form.assistance_type === 'Other' ? form.assistance_type_other.trim() : form.assistance_type
     const quantity = isCashAssistance
       ? (form.cash_amount ? `₱${form.cash_amount} per head` : '')
-      : form.quantity
+      : isTraining ? '' : form.quantity
     return {
       assistance_type: assistanceType,
-      source_agency: sourceAgency,
+      source_agencies: form.source_agencies,
       date_given: form.date_given,
       quantity,
       description: form.description,
       season: form.season,
+      // Only the field matching the CURRENT type is ever sent — even if
+      // something stale slipped past the reset above, it never reaches
+      // the request for the wrong type.
+      ...buildTypeConditionalPayload(form.assistance_type, form),
       ...(dryRun ? { dry_run: true } : {}),
     }
   }
@@ -111,12 +132,11 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
     if (form.assistance_type === 'Other' && !form.assistance_type_other.trim()) {
       showToast('Please specify the assistance type.', 'error'); return
     }
-    if (form.source_agency === 'Other' && !form.source_agency_other.trim()) {
-      showToast('Please specify the source agency.', 'error'); return
-    }
     if (isCashAssistance && (!form.cash_amount || Number(form.cash_amount) <= 0)) {
       showToast('Enter a valid cash amount per head.', 'error'); return
     }
+    const trainingError = validateTrainingDuration(form.assistance_type, form)
+    if (trainingError) { showToast(trainingError, 'error'); return }
     setIsBusy(true)
     try {
       const r = await api.post(domain.distributeUrl(org.id), buildPayload(true))
@@ -162,7 +182,12 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
   const eligibleCount = preview ? preview.member_count - skippedInPreview.length - blockedInPreview.length : 0
 
   const assistanceTypeDisplay = form.assistance_type === 'Other' ? form.assistance_type_other.trim() : form.assistance_type
-  const quantityDisplay = isCashAssistance ? `₱${form.cash_amount} per head` : (form.quantity || '—')
+  const typeFieldDisplay = isEquipment ? form.equipment_type : isSeeds ? form.seed_type : isFertilizer ? form.fertilizer_type : ''
+  const quantityDisplay = isCashAssistance
+    ? `₱${form.cash_amount} per head`
+    : isTraining
+      ? `${form.training_duration_days || '—'} day${form.training_duration_days === '1' ? '' : 's'}`
+      : (form.quantity || '—') + (typeFieldDisplay ? ` — ${typeFieldDisplay}` : '')
 
   const createdResults = (finalResult?.results || []).filter((r) => r.status === 'created')
   const skippedResults = (finalResult?.results || []).filter((r) => r.status === 'skipped')
@@ -255,38 +280,45 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
                 options={domain.assistanceTypeOptions.filter((o) => o !== 'Other')}
                 value={form.assistance_type}
                 otherValue={form.assistance_type_other}
-                onChange={(v) => set('assistance_type', v)}
+                onChange={setAssistanceType}
                 onOtherChange={(v) => set('assistance_type_other', v)}
                 placeholder="Select Assistance Type"
               />
             </FormField>
 
+            <FormField label="Source Agency" pillLabel>
+              <SourceAgencyMultiSelect value={form.source_agencies} onChange={(v) => set('source_agencies', v)} />
+            </FormField>
+
+            {/* Type-conditional fields — exactly one quantity-shaped field
+                (Amount for Cash, Duration for Training, Quantity for
+                everything else) plus, for Equipment/Seeds/Fertilizer only,
+                a second field naming what kind. */}
             <div className="grid gap-4 sm:grid-cols-2">
-              <FormField label="Source Agency" pillLabel>
-                <ComboboxWithOther
-                  options={SOURCE_AGENCY_OPTIONS}
-                  value={form.source_agency}
-                  otherValue={form.source_agency_other}
-                  onChange={(v) => set('source_agency', v)}
-                  onOtherChange={(v) => set('source_agency_other', v)}
-                  placeholder="Select source agency…"
-                />
-              </FormField>
-              {isCashAssistance ? (
+              {isCashAssistance && (
                 <FormField label="Amount per Member (₱)" required pillLabel>
                   <input type="number" step="0.01" min="0.01" className={baseInputClasses} value={form.cash_amount}
                     onChange={(e) => set('cash_amount', e.target.value)} placeholder="e.g. 500.00" />
                 </FormField>
-              ) : (
+              )}
+              {isTraining && (
+                <FormField label="Duration of Training (days)" required pillLabel>
+                  <input type="number" min="1" max="3" step="1" className={baseInputClasses} value={form.training_duration_days}
+                    onChange={(e) => set('training_duration_days', e.target.value)} placeholder="1–3 days" />
+                </FormField>
+              )}
+              {!isCashAssistance && !isTraining && (
                 <FormField label="Quantity per Member" pillLabel>
                   <input className={baseInputClasses} value={form.quantity} onChange={(e) => set('quantity', e.target.value)} placeholder="e.g. 1 sack" />
                 </FormField>
               )}
+              <TypeConditionalFields assistanceType={form.assistance_type} form={form} set={set} pillLabel />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
               <FormField label="Distribution Date" required pillLabel>
-                <input type="date" className={baseInputClasses} value={form.date_given} max={todayISO()} onChange={(e) => set('date_given', e.target.value)} />
+                <input type="date" className={baseInputClasses} value={form.date_given} onChange={(e) => set('date_given', e.target.value)} />
+                <p className="mt-1 text-[11px] text-[#7A8E7A]">A future date schedules the distribution — it stays Pending until that date arrives.</p>
               </FormField>
               {domain.seasonOptions ? (
                 <FormField label="Season" pillLabel>
