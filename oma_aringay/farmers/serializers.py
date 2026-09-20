@@ -180,7 +180,6 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
     org_membership_deactivation_reason = serializers.SerializerMethodField()
     organizations = serializers.SerializerMethodField()
     citizen_account = serializers.SerializerMethodField()
-    is_affected_by_disaster = serializers.SerializerMethodField()
 
     class Meta:
         model = Farmer
@@ -207,7 +206,6 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
             'icc_ip_name',
             'is_senior_citizen',
             'is_farm_laborer',
-            'is_affected_by_disaster',
             'is_active',
             'date_registered',
             'registered_by',
@@ -222,11 +220,8 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
         read_only_fields = [
             'id', 'date_registered', 'registered_by', 'farm_parcels',
             'farmers_organization', 'farmers_organization_name', 'is_org_membership_active',
-            'org_membership_deactivation_reason', 'organizations', 'citizen_account', 'is_affected_by_disaster',
+            'org_membership_deactivation_reason', 'organizations', 'citizen_account',
         ]
-
-    def get_is_affected_by_disaster(self, obj):
-        return obj.crop_monitoring_records.filter(disaster_reports__status='Active').exists()
 
     def get_citizen_account(self, obj):
         return citizen_account_info(User.LinkedRecordType.FARMER, obj.id)

@@ -269,13 +269,16 @@ function FarmerDetailPage() {
   const [parcels, setParcels] = useState([])
   const [history, setHistory] = useState([])
   const [visitHistory, setVisitHistory] = useState([])
+  const [cropRecords, setCropRecords] = useState([])
   const [isLoadingFarmer, setIsLoadingFarmer] = useState(true)
   const [isLoadingParcels, setIsLoadingParcels] = useState(true)
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [isLoadingVisits, setIsLoadingVisits] = useState(false)
+  const [isLoadingCrops, setIsLoadingCrops] = useState(true)
   const [farmerError, setFarmerError] = useState('')
   const [parcelError, setParcelError] = useState('')
   const [historyError, setHistoryError] = useState('')
+  const [cropError, setCropError] = useState('')
   const [isParcelModalOpen, setIsParcelModalOpen] = useState(false)
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
@@ -332,10 +335,38 @@ function FarmerDetailPage() {
     finally { setIsLoadingVisits(false) }
   }
 
+  // Queried directly by farmer_id — NOT derived from `parcels` (unlike the
+  // per-parcel CropMonitoringSubSection above, nested under each parcel's
+  // own "Details" expansion). A crop monitoring record's farm_parcel link
+  // is optional, so a farmer with real crop records but zero registered
+  // parcels previously had no code path on this page that could ever show
+  // them, even though the main Crop Records list (which queries by status/
+  // season/barangay, not by parcel) found them fine.
+  const fetchCropRecords = async () => {
+    setIsLoadingCrops(true)
+    setCropError('')
+    try {
+      // Explicit full status list, not omitted: an omitted `status` makes
+      // the backend default to excluding Total Loss (right for the
+      // operational Crop Records list, wrong for a farmer's own complete
+      // history — a total-loss record is still part of what happened on
+      // this farmer's land).
+      const r = await api.get('/production/monitoring/', {
+        params: { farmer: id, status: 'Planted,Near Harvest,Harvested,Total Loss' },
+      })
+      setCropRecords(Array.isArray(r.data) ? r.data : (r.data.results || []))
+    } catch {
+      setCropError('Unable to load crop monitoring records.')
+    } finally {
+      setIsLoadingCrops(false)
+    }
+  }
+
   useEffect(() => {
     fetchFarmer()
     fetchParcels()
     fetchVisits()
+    fetchCropRecords()
   }, [id])
 
   const openHistory = () => {
@@ -424,7 +455,6 @@ function FarmerDetailPage() {
                       {farmer.is_active ? 'Active' : 'Inactive'}
                     </StatusPill>
                     {farmer.is_senior_citizen && <StatusPill tone="amber">Senior Citizen</StatusPill>}
-                    {farmer.is_affected_by_disaster && <StatusPill tone="rose">Affected by Disaster</StatusPill>}
                   </div>
                 </div>
               </section>
@@ -575,6 +605,60 @@ function FarmerDetailPage() {
                   {parcels.map((parcel) => (
                     <ParcelRow key={parcel.id} parcel={parcel} />
                   ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Crop Monitoring Records — this farmer's complete crop history,
+            queried directly by farmer_id (not nested per-parcel like the
+            table inside each Farm Parcel row's "Details" expansion above,
+            which only ever shows records that have a farm_parcel link). */}
+        <div className="bg-white border border-[#E2E8E2] rounded-xl p-6">
+          <h2 className="text-[14px] font-semibold text-[#1A2B1A] mb-4">Crop Monitoring Records</h2>
+
+          {cropError && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-medium text-red-700">
+              {cropError}
+            </div>
+          )}
+
+          {isLoadingCrops ? (
+            <div className="flex min-h-24 items-center justify-center">
+              <LoadingSpinner size={24} />
+            </div>
+          ) : cropRecords.length === 0 ? (
+            <p className="rounded-lg border border-[#E2E8E2] bg-[#EBF5EE]/30 px-4 py-3 text-[13px] text-[#4A5E4A]">
+              No crop monitoring records for this farmer.
+            </p>
+          ) : (
+            <div className="overflow-hidden rounded-lg border border-[#E2E8E2]">
+              <table className="min-w-full text-left text-sm">
+                <thead className="bg-[#1B4D2E] text-xs font-semibold uppercase tracking-wide text-white">
+                  <tr>
+                    {['Crop', 'Season/Year', 'Date Planted', 'Exp. Harvest', 'Status', 'Est. Yield (kg)', 'Act. Yield (kg)'].map((h) => (
+                      <th key={h} className="px-4 py-2.5 text-left">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F0F4F0]">
+                  {cropRecords.map((r, i) => {
+                    const fmt = (v) => v ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(v)) : '—'
+                    return (
+                      <tr key={r.id} className={i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAF9]'}>
+                        <td className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{r.crop_type_name}</td>
+                        <td className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{r.season} {r.year}</td>
+                        <td className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{fmt(r.date_planted)}</td>
+                        <td className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{fmt(r.expected_harvest_date)}</td>
+                        <td className="px-4 py-2.5">
+                          <StatusPill tone={MONITORING_STATUS_TONES[r.status] || 'slate'}>{r.status}</StatusPill>
+                        </td>
+                        <td className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{r.estimated_yield_kg ? parseFloat(r.estimated_yield_kg).toLocaleString() : '—'}</td>
+                        <td className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{r.actual_yield_kg ? parseFloat(r.actual_yield_kg).toLocaleString() : '—'}</td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

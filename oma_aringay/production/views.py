@@ -746,6 +746,16 @@ class CropMonitoringListCreateView(generics.ListCreateAPIView):
             return [IsAuthenticated()]
         return [IsAuthenticated(), IsAdminOrEvaluator()]
 
+    def paginate_queryset(self, queryset):
+        # A ?farmer= request is FarmerDetailPage.jsx asking for one
+        # farmer's complete crop history (mirrors FarmParcelListView's own
+        # pagination_class = None for the same per-farmer detail-page use
+        # case) — real pagination stays on for the general, actively-paged
+        # Crop Records list, which is the only other caller of this view.
+        if self.request.query_params.get('farmer'):
+            return None
+        return super().paginate_queryset(queryset)
+
     def get_queryset(self):
         # -id tie-breaks -date_recorded: real bulk imports/seeds routinely
         # create several rows in the same request, sharing one
@@ -788,6 +798,8 @@ class CropMonitoringListCreateView(generics.ListCreateAPIView):
             qs = qs.exclude(status=CropMonitoringRecord.Status.TOTAL_LOSS)
         if params.get('farm_parcel'):
             qs = qs.filter(farm_parcel_id=params['farm_parcel'])
+        if params.get('farmer'):
+            qs = qs.filter(farmer_id=params['farmer'])
         return qs
 
     def perform_create(self, serializer):
