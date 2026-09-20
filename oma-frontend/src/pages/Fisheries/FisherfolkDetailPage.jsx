@@ -384,16 +384,6 @@ function FisherfolkDetailPage() {
                       )}
                       {fisherfolk.is_affected_by_disaster && <StatusPill tone="rose">Affected by Disaster</StatusPill>}
                     </div>
-                    <div className="mt-3 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3">
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-400">Barangay</p>
-                        <p className="mt-0.5 text-[13px] text-slate-900">{fisherfolk.barangay || '—'}</p>
-                      </div>
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-400">Contact</p>
-                        <p className="mt-0.5 text-[13px] text-slate-900">{fisherfolk.contact_number || '—'}</p>
-                      </div>
-                    </div>
                   </div>
                 </section>
 

@@ -426,16 +426,6 @@ function FarmerDetailPage() {
                     {farmer.is_senior_citizen && <StatusPill tone="amber">Senior Citizen</StatusPill>}
                     {farmer.is_affected_by_disaster && <StatusPill tone="rose">Affected by Disaster</StatusPill>}
                   </div>
-                  <div className="mt-3 grid grid-cols-2 gap-3 border-t border-[#F0F4F0] pt-3">
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8]">Barangay</p>
-                      <p className="mt-0.5 text-[13px] text-[#1A2B1A]">{farmer.barangay || '—'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8]">Contact</p>
-                      <p className="mt-0.5 text-[13px] text-[#1A2B1A]">{farmer.contact_number || '—'}</p>
-                    </div>
-                  </div>
                 </div>
               </section>
 
