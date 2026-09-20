@@ -1,6 +1,11 @@
 from rest_framework import serializers
 
-from .models import BeneficiaryRecord, FisherfolkBeneficiaryRecord
+from .models import (
+    BeneficiaryConfirmationRequest,
+    BeneficiaryRecord,
+    FisherfolkBeneficiaryConfirmationRequest,
+    FisherfolkBeneficiaryRecord,
+)
 
 
 class BeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
@@ -178,3 +183,100 @@ class OrganizationDistributionRequestSerializer(serializers.Serializer):
     # individual-report path; _run_organization_distribution's raw
     # record_model.objects.create() calls go through the model's save(),
     # so this needs no separate handling here.
+
+
+# ─── Accountless-beneficiary confirmation ──────────────────────────────────
+
+class AccountlessConfirmableSerializer(serializers.ModelSerializer):
+    """
+    Read-only shape for MyOrgAccountlessConfirmablesView's list — a
+    BeneficiaryRecord that is AWAITING_CONFIRMATION for a farmer the caller's
+    organization can act for, annotated with whether a confirmation request
+    already exists for it (has_pending_request/latest_request_status), so
+    the frontend can show "Pending Review" instead of a submit button for a
+    row already in flight, without a second request.
+    """
+    farmer_full_name = serializers.CharField(source='farmer.full_name', read_only=True)
+    farmer_barangay = serializers.CharField(source='farmer.barangay', read_only=True)
+    latest_request_status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BeneficiaryRecord
+        fields = [
+            'id', 'farmer', 'farmer_full_name', 'farmer_barangay',
+            'assistance_type', 'source_agency', 'quantity', 'season', 'year',
+            'date_given', 'latest_request_status',
+        ]
+        read_only_fields = fields
+
+    def get_latest_request_status(self, obj):
+        latest = obj.confirmation_requests.order_by('-submitted_at').first()
+        return latest.status if latest else None
+
+
+class FisherfolkAccountlessConfirmableSerializer(serializers.ModelSerializer):
+    """Fisherfolk equivalent of AccountlessConfirmableSerializer above."""
+    fisherfolk_full_name = serializers.CharField(source='fisherfolk.full_name', read_only=True)
+    fisherfolk_barangay = serializers.CharField(source='fisherfolk.barangay', read_only=True)
+    latest_request_status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FisherfolkBeneficiaryRecord
+        fields = [
+            'id', 'fisherfolk', 'fisherfolk_full_name', 'fisherfolk_barangay',
+            'assistance_type', 'source_agency', 'quantity', 'season', 'year',
+            'date_given', 'latest_request_status',
+        ]
+        read_only_fields = fields
+
+    def get_latest_request_status(self, obj):
+        latest = obj.confirmation_requests.order_by('-submitted_at').first()
+        return latest.status if latest else None
+
+
+class BeneficiaryConfirmationRequestSerializer(serializers.ModelSerializer):
+    farmer_full_name = serializers.CharField(source='beneficiary_record.farmer.full_name', read_only=True)
+    assistance_type = serializers.CharField(source='beneficiary_record.assistance_type', read_only=True)
+    date_given = serializers.DateField(source='beneficiary_record.date_given', read_only=True)
+    submitted_by_organization_name = serializers.CharField(source='submitted_by_organization.name', read_only=True)
+    submitted_by_name = serializers.CharField(source='submitted_by.full_name', read_only=True, default=None)
+    reviewed_by_name = serializers.CharField(source='reviewed_by.full_name', read_only=True, default=None)
+    photo_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BeneficiaryConfirmationRequest
+        fields = [
+            'id', 'beneficiary_record', 'farmer_full_name', 'assistance_type', 'date_given',
+            'submitted_by_organization', 'submitted_by_organization_name',
+            'submitted_by', 'submitted_by_name', 'photo_url',
+            'status', 'submitted_at', 'reviewed_by', 'reviewed_by_name',
+            'reviewed_at', 'rejection_reason',
+        ]
+        read_only_fields = fields
+
+    def get_photo_url(self, obj):
+        return obj.photo.url if obj.photo else None
+
+
+class FisherfolkBeneficiaryConfirmationRequestSerializer(serializers.ModelSerializer):
+    fisherfolk_full_name = serializers.CharField(source='beneficiary_record.fisherfolk.full_name', read_only=True)
+    assistance_type = serializers.CharField(source='beneficiary_record.assistance_type', read_only=True)
+    date_given = serializers.DateField(source='beneficiary_record.date_given', read_only=True)
+    submitted_by_organization_name = serializers.CharField(source='submitted_by_organization.name', read_only=True)
+    submitted_by_name = serializers.CharField(source='submitted_by.full_name', read_only=True, default=None)
+    reviewed_by_name = serializers.CharField(source='reviewed_by.full_name', read_only=True, default=None)
+    photo_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = FisherfolkBeneficiaryConfirmationRequest
+        fields = [
+            'id', 'beneficiary_record', 'fisherfolk_full_name', 'assistance_type', 'date_given',
+            'submitted_by_organization', 'submitted_by_organization_name',
+            'submitted_by', 'submitted_by_name', 'photo_url',
+            'status', 'submitted_at', 'reviewed_by', 'reviewed_by_name',
+            'reviewed_at', 'rejection_reason',
+        ]
+        read_only_fields = fields
+
+    def get_photo_url(self, obj):
+        return obj.photo.url if obj.photo else None

@@ -3,6 +3,9 @@ from django.urls import path
 from .views import (
     BeneficiaryAdHocDetailView,
     BeneficiaryAdHocListCreateView,
+    BeneficiaryConfirmationRequestDecisionView,
+    BeneficiaryConfirmationRequestListView,
+    BeneficiaryConfirmOnBehalfView,
     BeneficiaryConfirmReceivedView,
     BeneficiaryMarkResolvedView,
     BeneficiaryRecordDetailView,
@@ -11,6 +14,9 @@ from .views import (
     CropAssistanceImportView,
     FisherfolkBeneficiaryAdHocDetailView,
     FisherfolkBeneficiaryAdHocListCreateView,
+    FisherfolkBeneficiaryConfirmationRequestDecisionView,
+    FisherfolkBeneficiaryConfirmationRequestListView,
+    FisherfolkBeneficiaryConfirmOnBehalfView,
     FisherfolkBeneficiaryConfirmReceivedView,
     FisherfolkBeneficiaryMarkResolvedView,
     FisherfolkBeneficiaryRecordDetailView,
@@ -19,7 +25,9 @@ from .views import (
     FisheriesAssistanceImportView,
     MyBeneficiaryHistoryView,
     MyFisherfolkBeneficiaryHistoryView,
+    MyOrgAccountlessConfirmablesView,
     MyOrgBeneficiaryHistoryView,
+    MyOrgFisherfolkAccountlessConfirmablesView,
     MyOrgFisherfolkBeneficiaryHistoryView,
 )
 
@@ -129,5 +137,46 @@ urlpatterns = [
         'fisherfolk-beneficiaries/<int:pk>/mark-resolved/',
         FisherfolkBeneficiaryMarkResolvedView.as_view(),
         name='fisherfolk-beneficiaries-mark-resolved',
+    ),
+    # ─── Accountless-beneficiary confirmation ────────────────────────────────
+    path(
+        'my-org-accountless-confirmables/',
+        MyOrgAccountlessConfirmablesView.as_view(),
+        name='my-org-accountless-confirmables',
+    ),
+    path(
+        'my-org-fisherfolk-accountless-confirmables/',
+        MyOrgFisherfolkAccountlessConfirmablesView.as_view(),
+        name='my-org-fisherfolk-accountless-confirmables',
+    ),
+    path(
+        'beneficiaries/<int:pk>/confirm-on-behalf/',
+        BeneficiaryConfirmOnBehalfView.as_view(),
+        name='beneficiaries-confirm-on-behalf',
+    ),
+    path(
+        'fisherfolk-beneficiaries/<int:pk>/confirm-on-behalf/',
+        FisherfolkBeneficiaryConfirmOnBehalfView.as_view(),
+        name='fisherfolk-beneficiaries-confirm-on-behalf',
+    ),
+    path(
+        'beneficiary-confirmation-requests/',
+        BeneficiaryConfirmationRequestListView.as_view(),
+        name='beneficiary-confirmation-requests',
+    ),
+    path(
+        'beneficiary-confirmation-requests/<int:pk>/<str:action>/',
+        BeneficiaryConfirmationRequestDecisionView.as_view(),
+        name='beneficiary-confirmation-requests-decision',
+    ),
+    path(
+        'fisherfolk-beneficiary-confirmation-requests/',
+        FisherfolkBeneficiaryConfirmationRequestListView.as_view(),
+        name='fisherfolk-beneficiary-confirmation-requests',
+    ),
+    path(
+        'fisherfolk-beneficiary-confirmation-requests/<int:pk>/<str:action>/',
+        FisherfolkBeneficiaryConfirmationRequestDecisionView.as_view(),
+        name='fisherfolk-beneficiary-confirmation-requests-decision',
     ),
 ]

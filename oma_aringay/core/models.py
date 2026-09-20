@@ -75,7 +75,17 @@ class Notification(models.Model):
         related_name='+',
     )
     verb = models.CharField(max_length=100)
-    record_type = models.CharField(max_length=20, blank=True)
+    # Widened from 20 to 50 (hardening batch): every current value is a
+    # descriptive snake_case tag and the old ceiling left almost no margin —
+    # 'fisherfolk_disaster' (19 chars) and 'ff_beneficiary_obo' (18 chars)
+    # were already within 1-2 chars of it, which is exactly why this field
+    # has twice silently truncated/failed a real notification. Free-text
+    # (no choices=), and its only consumer — NotificationBell.jsx's
+    # RECORD_TYPE_ROUTES[n.record_type] — is a plain string-keyed dict
+    # lookup, completely length-insensitive. Not to be confused with
+    # RecordLock.record_type above, a separate, choices-constrained field on
+    # an unrelated model, deliberately left untouched.
+    record_type = models.CharField(max_length=50, blank=True)
     record_id = models.PositiveIntegerField(null=True, blank=True)
     record_label = models.CharField(
         max_length=255, blank=True,

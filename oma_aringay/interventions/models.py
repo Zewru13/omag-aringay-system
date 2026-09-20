@@ -287,3 +287,122 @@ class FisherfolkBeneficiaryRecord(models.Model):
 
     def __str__(self):
         return f'{self.assistance_type or "Ad-hoc"} - {self.fisherfolk.full_name}'
+
+
+# ─── Accountless-beneficiary confirmation ──────────────────────────────────
+# Lets an ORGANIZATION confirm receipt on behalf of a member who genuinely
+# has no working citizen account (no shell, or a shell that has never been
+# activated — see accounts.utils.citizen_account_info, the same signal
+# already driving the "Activate Account" button). Never available for a
+# beneficiary who could self-confirm through BeneficiaryConfirmReceivedView
+# — enforced at submission time in BeneficiaryConfirmOnBehalfView
+# (interventions/views.py), not here.
+#
+# Deliberately a SEPARATE model from BeneficiaryRecord, not new fields on
+# it: DistributionStatus stays exactly as documented above ("one lifecycle")
+# and never learns about a 6th state. The underlying record simply stays
+# AWAITING_CONFIRMATION until an admin approves a request here, at which
+# point the approval view flips it to CONFIRMED in one atomic transaction —
+# additive to that lifecycle, not a replacement of any part of it.
+#
+# Deliberately TWO mirrored models (this one + FisherfolkBeneficiaryConfirmationRequest
+# below), not one polymorphic model spanning both domains the way
+# core.models.ProfileChangeRequest does — every other farmer/fisherfolk-pair
+# feature in this codebase (FarmersOrganizationMember/FisherfolkOrganizationMember,
+# the *ConfirmReceivedView pair, the two *OrganizationDistributeAssistanceView
+# classes) is two mirrored models/views rather than one shared polymorphic
+# one, and this follows that established convention instead of ProfileChangeRequest's
+# (justified there by spanning 4 record types with near-identical logic — a
+# reason that doesn't apply to a 2-domain feature like this one).
+#
+# What IS reused verbatim from ProfileChangeRequest is the SHAPE: status
+# (PENDING/APPROVED/REJECTED), submitted_by/at, reviewed_by/at/rejection_reason,
+# and the same approve-writes-through-atomically / reject-leaves-the-real-
+# record-alone behavior (see interventions.views' decision view).
+
+class BeneficiaryConfirmationRequest(models.Model):
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        APPROVED = 'APPROVED', 'Approved'
+        REJECTED = 'REJECTED', 'Rejected'
+
+    beneficiary_record = models.ForeignKey(
+        BeneficiaryRecord, on_delete=models.CASCADE,
+        related_name='confirmation_requests',
+    )
+    submitted_by_organization = models.ForeignKey(
+        FarmersOrganization, on_delete=models.CASCADE,
+        related_name='beneficiary_confirmation_requests',
+    )
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+        related_name='submitted_beneficiary_confirmation_requests',
+    )
+    # Optional evidence photo — same validate_uploaded_image contract as
+    # CropDisasterReport.photo / FisheriesDisasterReport.photo (5 MB cap,
+    # jpg/png/webp only, actually decoded to confirm it's a real image).
+    photo = models.ImageField(
+        upload_to='beneficiary_confirmations/farmers/', null=True, blank=True,
+    )
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='reviewed_beneficiary_confirmation_requests',
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ['-submitted_at']
+        indexes = [
+            models.Index(fields=['status', 'submitted_at']),
+            models.Index(fields=['beneficiary_record', 'status']),
+        ]
+
+    def __str__(self):
+        return f'On-behalf-of confirmation #{self.pk} for BeneficiaryRecord #{self.beneficiary_record_id}'
+
+
+class FisherfolkBeneficiaryConfirmationRequest(models.Model):
+    """Fisherfolk equivalent of BeneficiaryConfirmationRequest above — same
+    shape, same reasoning, mirrored per this codebase's established
+    farmer/fisherfolk-pair convention."""
+    class Status(models.TextChoices):
+        PENDING = 'PENDING', 'Pending'
+        APPROVED = 'APPROVED', 'Approved'
+        REJECTED = 'REJECTED', 'Rejected'
+
+    beneficiary_record = models.ForeignKey(
+        FisherfolkBeneficiaryRecord, on_delete=models.CASCADE,
+        related_name='confirmation_requests',
+    )
+    submitted_by_organization = models.ForeignKey(
+        FisherfolkOrganization, on_delete=models.CASCADE,
+        related_name='beneficiary_confirmation_requests',
+    )
+    submitted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
+        related_name='submitted_fisherfolk_beneficiary_confirmation_requests',
+    )
+    photo = models.ImageField(
+        upload_to='beneficiary_confirmations/fisherfolk/', null=True, blank=True,
+    )
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
+    submitted_at = models.DateTimeField(auto_now_add=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='reviewed_fisherfolk_beneficiary_confirmation_requests',
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ['-submitted_at']
+        indexes = [
+            models.Index(fields=['status', 'submitted_at']),
+            models.Index(fields=['beneficiary_record', 'status']),
+        ]
+
+    def __str__(self):
+        return f'On-behalf-of confirmation #{self.pk} for FisherfolkBeneficiaryRecord #{self.beneficiary_record_id}'

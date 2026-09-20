@@ -44,6 +44,37 @@ def citizen_account_info(linked_record_type, record_id):
     }
 
 
+def accountless_or_unactivated_ids(linked_record_type, record_ids):
+    """
+    Subset of `record_ids` (Farmer or Fisherfolk pks, per `linked_record_type`)
+    that have NO working citizen account — no linked shell at all, or one that
+    exists but has never been activated (User.is_active False). This is the
+    exact eligibility signal for an organization's on-behalf-of assistance
+    confirmation (interventions.models.BeneficiaryConfirmationRequest /
+    FisherfolkBeneficiaryConfirmationRequest): a beneficiary with a real,
+    active account can always self-confirm through BeneficiaryConfirmReceivedView
+    and must never be offered this path instead.
+
+    Same "active UserLinkedRecord" scoping citizen_account_info() already
+    uses for the single-record "Activate Account" button — batched into one
+    query here instead of one query per record, for list views.
+    """
+    from accounts.models import User
+
+    record_ids = set(record_ids)
+    if not record_ids:
+        return set()
+    active_account_ids = set(
+        User.objects.filter(
+            linked_records__record_type=linked_record_type,
+            linked_records__record_id__in=record_ids,
+            linked_records__is_active=True,
+            is_active=True,
+        ).values_list('linked_records__record_id', flat=True)
+    )
+    return record_ids - active_account_ids
+
+
 def generate_default_password():
     """~22 url-safe characters — well over the 15-char policy minimum, and
     random enough to never collide with the common-password or local

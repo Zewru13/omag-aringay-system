@@ -67,3 +67,56 @@ def advance_due_distributions(user):
             record_label=f'{record.assistance_type or "Assistance"} — {record.date_given}',
             detail='Please confirm you received this, or report that you did not.',
         )
+
+
+def advance_due_distributions_for_org(org_linked_type, org_id):
+    """
+    Accountless-beneficiary counterpart to advance_due_distributions above.
+    That function only ever advances a record when the RECIPIENT's own
+    account calls in (MeView / MyBeneficiaryHistoryView) — which a genuinely
+    accountless beneficiary (see accounts.utils.accountless_or_unactivated_ids)
+    structurally never can. Without this, a future-scheduled distribution
+    for such a person would sit at PENDING forever once its date arrived,
+    never reaching AWAITING_CONFIRMATION — the precondition
+    BeneficiaryConfirmOnBehalfView requires.
+
+    Called instead from MyOrgAccountlessConfirmablesView /
+    MyOrgFisherfolkAccountlessConfirmablesView (interventions/views.py) —
+    the org's own equivalent of "the one screen that displays these
+    records" advancing them lazily, same philosophy as the citizen path,
+    just for the case that path cannot reach. Strictly scoped to THIS
+    organization's own current, accountless members only — never advances a
+    record for someone who could self-confirm, or who belongs to a
+    different organization. No notify_user() here (there is no recipient
+    account to notify); the org simply sees it appear on its next fetch.
+    """
+    from accounts.utils import accountless_or_unactivated_ids
+
+    today = timezone.localdate()
+
+    if org_linked_type == 'FARMERS_ORG':
+        candidates = list(BeneficiaryRecord.objects.filter(
+            status=DistributionStatus.PENDING,
+            date_given__lte=today,
+            farmer__farmer_organizations__organization_id=org_id,
+            farmer__farmer_organizations__is_active=True,
+        ).distinct())
+        person_field, record_type = 'farmer_id', 'FARMER'
+    elif org_linked_type == 'FISHERFOLK_ORG':
+        candidates = list(FisherfolkBeneficiaryRecord.objects.filter(
+            status=DistributionStatus.PENDING,
+            date_given__lte=today,
+            fisherfolk__fisherfolk_organizations__organization_id=org_id,
+            fisherfolk__fisherfolk_organizations__is_active=True,
+        ).distinct())
+        person_field, record_type = 'fisherfolk_id', 'FISHERFOLK'
+    else:
+        return
+
+    if not candidates:
+        return
+    eligible_ids = accountless_or_unactivated_ids(record_type, [getattr(r, person_field) for r in candidates])
+    for record in candidates:
+        if getattr(record, person_field) in eligible_ids:
+            record.status = DistributionStatus.AWAITING_CONFIRMATION
+            record.save()
