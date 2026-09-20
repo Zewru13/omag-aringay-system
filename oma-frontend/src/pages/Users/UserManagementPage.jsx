@@ -22,13 +22,41 @@ const COLUMNS = [
 
 const PAGE_SIZE = 10
 
+// Every account shares one User table, but role alone can't tell Admin/
+// Focal Person apart from Farmer/Fisherfolk/Organization — all three of
+// the latter share role=CITIZEN, distinguished by linked_record_type
+// (UserSerializer already resolves this from the account's active
+// UserLinkedRecord — see accounts/views.py's UserListView docstring).
+// FARMERS_ORG and FISHERFOLK_ORG both collapse to plain "Organization",
+// matching the single filter option this screen offers for either.
+function describeRole(u) {
+  if (u.role === 'ADMIN') return { label: 'Admin', tone: 'green' }
+  if (u.role === 'EVALUATOR') return { label: 'Focal Person', tone: 'teal' }
+  if (u.linked_record_type === 'FARMER') return { label: 'Farmer', tone: 'amber' }
+  if (u.linked_record_type === 'FISHERFOLK') return { label: 'Fisherfolk', tone: 'slate' }
+  if (u.linked_record_type === 'FARMERS_ORG' || u.linked_record_type === 'FISHERFOLK_ORG') {
+    return { label: 'Organization', tone: 'rose' }
+  }
+  // Real edge case in the data: a CITIZEN account with no active linked
+  // record at all (e.g. leftover test accounts) — honest fallback rather
+  // than a silent mislabel.
+  return { label: u.role, tone: 'slate' }
+}
+
 export default function UserManagementPage() {
   const { showToast } = useToast()
   const [users,           setUsers]           = useState([])
   const [totalCount,      setTotalCount]      = useState(0)
   const [isLoading,       setIsLoading]       = useState(false)
   const [search,          setSearch]          = useState('')
-  const [roleFilter,      setRoleFilter]      = useState('All')
+  // '' (not 'All') is the real initial/default state — before the user has
+  // touched this filter at all, matching no <option>'s value so the select
+  // renders with nothing visibly chosen. Distinct from 'All' (an explicit,
+  // real choice the user can make to see every account) precisely so the
+  // two can send different things to the backend: '' omits the role param
+  // entirely (UserListView's own default, staff-only), 'All' sends
+  // role=All explicitly (every account, on purpose).
+  const [roleFilter,      setRoleFilter]      = useState('')
   const [page,            setPage]            = useState(1)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editUser,        setEditUser]        = useState(null)
@@ -70,12 +98,14 @@ export default function UserManagementPage() {
   // single page happened to be loaded, so searching for a user who wasn't
   // on that page (e.g. an old account sorted deep into -date_joined order)
   // silently found nothing, indistinguishable from a genuine no-match.
-  const fetchUsers = useCallback(async (pageNum = 1, searchTerm = '', role = 'All') => {
+  const fetchUsers = useCallback(async (pageNum = 1, searchTerm = '', role = '') => {
     setIsLoading(true)
     try {
       const params = { page: pageNum }
       if (searchTerm) params.search = searchTerm
-      if (role !== 'All') params.role = role
+      // role is only omitted when '' (the untouched default) — 'All' is
+      // sent through as a real param value, same as every other choice.
+      if (role) params.role = role
       const r = await api.get('/accounts/users/', { params })
       setUsers(Array.isArray(r.data) ? r.data : (r.data?.results || []))
       setTotalCount(typeof r.data?.count === 'number' ? r.data.count : 0)
@@ -99,13 +129,8 @@ export default function UserManagementPage() {
         {u.full_name}{u.suffix ? ` ${u.suffix}` : ''}
       </span>
     ),
-    // Explicit per role rather than "anything not Admin" — this table is
-    // staff-only server-side now (UserListView), but a defensive label
-    // beats silently mislabeling anything unexpected as Focal Person again.
     role_pill: (
-      <StatusPill tone={u.role === 'ADMIN' ? 'green' : u.role === 'EVALUATOR' ? 'blue' : 'slate'}>
-        {u.role === 'ADMIN' ? 'Admin' : u.role === 'EVALUATOR' ? 'Focal Person' : u.role}
-      </StatusPill>
+      <StatusPill tone={describeRole(u).tone}>{describeRole(u).label}</StatusPill>
     ),
     status_pill: (
       <span className="flex items-center gap-1.5">
@@ -165,16 +190,29 @@ export default function UserManagementPage() {
           search={search}
           onSearchChange={(v) => { setSearch(v); setPage(1) }}
           searchPlaceholder="Search by name or email..."
-          activeCount={roleFilter !== 'All' ? 1 : 0}
+          activeCount={(roleFilter && roleFilter !== 'All') ? 1 : 0}
         >
           <select
             className={filterSelectCls}
             value={roleFilter}
             onChange={e => { setRoleFilter(e.target.value); setPage(1) }}
           >
+            {/* Real placeholder for the untouched default (value="" — see
+                roleFilter's own state comment), not a 6th filter category:
+                disabled so it's never a choice the user picks back into,
+                only ever the honest label for "nothing selected yet".
+                Without this, a <select> whose value matches no <option>
+                falls back to visually showing the FIRST option as if
+                selected — "All Roles" — while the table is actually
+                staff-only, exactly the misleading default this was asked
+                to avoid. */}
+            <option value="" disabled>Staff (default)</option>
             <option value="All">All Roles</option>
             <option value="ADMIN">Admin</option>
             <option value="EVALUATOR">Focal Person</option>
+            <option value="FARMER">Farmer</option>
+            <option value="FISHERFOLK">Fisherfolk</option>
+            <option value="ORGANIZATION">Organization</option>
           </select>
         </FilterPanel>
 

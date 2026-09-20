@@ -473,30 +473,52 @@ class ChangePasswordView(APIView):
 
 
 class UserListView(generics.ListAPIView):
-    """User Management (staff-only screen) — Admin/Evaluator accounts alone.
-    CITIZEN accounts (Farmer/Fisherfolk/Organization self-service logins,
-    the overwhelming majority of this table — 4,671 of 4,685 real rows)
-    are managed from Farmers/Fisherfolk/Organizations, never from here.
-    Previously unfiltered: every citizen account showed up in this list
-    too, silently mislabeled 'Focal Person' by the frontend's role_pill
-    (any role != ADMIN rendered that way, not just EVALUATOR), and pushed
-    real staff accounts dozens of pages deep in the default -date_joined
-    ordering — old admin/evaluator accounts especially, unreachable by the
-    page-scoped client-side search that only ever looked at whichever page
-    happened to be loaded.
+    """User Management. Every account type lives on this one User table,
+    but "role" alone can't tell Admin/Focal Person apart from Farmer/
+    Fisherfolk/Organization — all three of the latter share role=CITIZEN,
+    distinguished only by UserLinkedRecord.record_type on their currently
+    ACTIVE link (a citizen can hold more than one; is_active marks which
+    one a request resolves against — see UserLinkedRecord's own docstring).
+    `?role=` here accepts 5 real, human-facing categories, not just the
+    3 raw role values: ADMIN and EVALUATOR filter role directly; FARMER
+    and FISHERFOLK filter role=CITIZEN + the matching active link type;
+    ORGANIZATION filters role=CITIZEN + an active link type of EITHER org
+    kind (FARMERS_ORG or FISHERFOLK_ORG) — one filter option, not two,
+    matching how the frontend offers a single "Organization" choice.
+
+    No `role` param at all (the frontend's own initial landing state,
+    before the user has touched the filter) defaults to staff-only —
+    same as the app's original single-purpose "manage staff accounts"
+    intent, without re-introducing the wall of 4,671 citizen rows on
+    first load. `?role=All` is the one explicit, real way to ask for
+    every account regardless of type — distinct from the param being
+    absent, not the same request.
     """
     serializer_class = UserSerializer
     permission_classes = [IsAuthenticated, IsAdmin]
 
+    CITIZEN_TYPE_FILTERS = {
+        'FARMER': [User.LinkedRecordType.FARMER],
+        'FISHERFOLK': [User.LinkedRecordType.FISHERFOLK],
+        'ORGANIZATION': [User.LinkedRecordType.FARMERS_ORG, User.LinkedRecordType.FISHERFOLK_ORG],
+    }
+
     def get_queryset(self):
-        qs = User.objects.filter(
-            role__in=[User.Roles.ADMIN, User.Roles.EVALUATOR],
-        ).order_by('-date_joined')
+        qs = User.objects.all().order_by('-date_joined')
         role = self.request.query_params.get('role')
         is_active = self.request.query_params.get('is_active')
         search = self.request.query_params.get('search')
-        if role:
+        if role in (User.Roles.ADMIN, User.Roles.EVALUATOR):
             qs = qs.filter(role=role)
+        elif role in self.CITIZEN_TYPE_FILTERS:
+            qs = qs.filter(
+                role=User.Roles.CITIZEN,
+                linked_records__is_active=True,
+                linked_records__record_type__in=self.CITIZEN_TYPE_FILTERS[role],
+            )
+        elif not role:
+            qs = qs.filter(role__in=[User.Roles.ADMIN, User.Roles.EVALUATOR])
+        # role == 'All': no further filtering — every account, explicitly requested.
         if is_active is not None:
             qs = qs.filter(is_active=is_active.lower() == 'true')
         if search:
