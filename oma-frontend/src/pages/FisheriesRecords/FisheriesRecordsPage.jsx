@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Eye, Lock, Pencil, Plus, Trash2, Unlock, Upload, Wheat } from 'lucide-react'
+import { AlertTriangle, Eye, HelpCircle, Lock, Pencil, Plus, Trash2, Unlock, Upload, Wheat } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import ImportFileModal from '../../components/ImportFileModal.jsx'
@@ -175,6 +175,7 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
         land_status_other_specify: form.land_status === 'Other' ? form.land_status_other_specify : '',
         culture_type:           form.culture_type,
         date_stocked:           form.date_stocked,
+        date_stocked_is_estimated: false,
         area_hectares:          form.area_hectares !== '' ? parseFloat(form.area_hectares) : null,
         number_of_fingerlings:  parseInt(form.number_of_fingerlings),
         survival_rate_pct:      form.survival_rate_pct !== '' ? parseFloat(form.survival_rate_pct) : null,
@@ -206,7 +207,7 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
       subtitle="Update stocking record details."
       icon={Pencil}
       onClose={onClose}
-      maxWidth="max-w-lg"
+      maxWidth="max-w-3xl"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Species info — read-only */}
@@ -272,6 +273,12 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
             <input type="date" className={baseInputClasses} value={form.date_stocked}
               max={new Date().toISOString().split('T')[0]}
               onChange={e => { set('date_stocked', e.target.value); if (!form.season) set('season', detectSeason(e.target.value)) }} />
+            {record.date_stocked_is_estimated && (
+              <p className="mt-1.5 text-[11px] text-amber-700">
+                This date is an estimate. Saving this form confirms it as the real stocking date and
+                unblocks Record Harvest for this stock.
+              </p>
+            )}
           </div>
         </div>
 
@@ -534,6 +541,13 @@ function StockingDetailModal({ record, onClose }) {
 // enforcement — this is client-side UX only, to explain the gate before
 // the user even opens the modal rather than after a rejected submit).
 function harvestGateInfo(rec) {
+  if (rec.date_stocked_is_estimated) {
+    return {
+      gated: true,
+      message: 'This record’s stocking date is an estimate, not a confirmed field date. Harvest ' +
+        'cannot be recorded until a staff member confirms or corrects the real stocking date.',
+    }
+  }
   if (!rec.date_stocked || !rec.expected_harvest_date) return { gated: false, message: null }
   const stocked = new Date(rec.date_stocked + 'T00:00:00')
   const expected = new Date(rec.expected_harvest_date + 'T00:00:00')
@@ -712,7 +726,17 @@ export default function FisheriesRecordsPage({ asTab = false }) {
     ),
     fisherfolk_cell:      rec.fisherfolk_name || '—',
     cycle_cell:           rec.production_cycle_no ? `#${rec.production_cycle_no}` : '—',
-    date_stocked_fmt:     fmtShort(rec.date_stocked),
+    date_stocked_fmt:     rec.date_stocked_is_estimated ? (
+      <span className="flex flex-col gap-0.5">
+        <span>{fmtShort(rec.date_stocked)}</span>
+        <span
+          className="inline-flex w-fit items-center gap-0.5 text-[10px] font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5 whitespace-nowrap"
+          title="Not a confirmed field date."
+        >
+          <HelpCircle className="w-2.5 h-2.5" /> Estimated
+        </span>
+      </span>
+    ) : fmtShort(rec.date_stocked),
     expected_harvest_fmt: fmtShort(rec.expected_harvest_date),
     est_harvest_kg_fmt:   rec.status === 'Harvested' && rec.total_harvested_kg
       ? <span className="text-slate-400">{Number(rec.total_harvested_kg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>

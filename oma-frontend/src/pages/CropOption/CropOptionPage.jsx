@@ -422,7 +422,7 @@ function CropTypeModal({ crop, categories, subcategories, onClose, onSaved }) {
         subtitle={isEdit ? `Update details for ${crop.name}` : 'Enter crop information below'}
         icon={Leaf}
         onClose={onClose}
-        maxWidth="max-w-md"
+        maxWidth="max-w-3xl"
       >
         <form onSubmit={handleSubmit} className="space-y-3">
           <FormField label="Crop Name" required error={nameError}>
