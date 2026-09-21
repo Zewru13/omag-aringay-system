@@ -3,6 +3,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
+from django.contrib.auth.hashers import UNUSABLE_PASSWORD_PREFIX
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
@@ -504,7 +505,27 @@ class UserListView(generics.ListAPIView):
     }
 
     def get_queryset(self):
-        qs = User.objects.all().order_by('-date_joined')
+        # Never-activated CITIZEN accounts (an unusable-password shell
+        # nobody has ever run through "Set Up Account" /
+        # SetCitizenPasswordView) are hidden here entirely — this table
+        # manages usable accounts, activation itself happens on the
+        # Farmer/Fisherfolk/Organization detail page. Deliberately keyed
+        # on password usability, not is_active: is_active=False also
+        # covers a citizen who WAS active and got deactivated
+        # (UserUpdateView never touches password on deactivation), and
+        # hiding those rows too would make Reactivate unreachable from
+        # this exact table. Gated to role=CITIZEN specifically (not every
+        # row) — real data has ADMIN accounts with an unusable password by
+        # design (auditlog.system_user.get_system_user(), the RSBSA/BFAR
+        # import's own system account), which must stay visible under
+        # Admin/All exactly as today; only a citizen shell nobody has
+        # activated is the thing this is meant to hide. One exclude at the
+        # base queryset (rather than duplicated per role branch below)
+        # so it applies consistently whether the request asks for one
+        # specific citizen type or role=All.
+        qs = User.objects.exclude(
+            Q(role=User.Roles.CITIZEN) & Q(password__startswith=UNUSABLE_PASSWORD_PREFIX)
+        ).order_by('-date_joined')
         role = self.request.query_params.get('role')
         is_active = self.request.query_params.get('is_active')
         search = self.request.query_params.get('search')
