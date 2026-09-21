@@ -139,8 +139,34 @@ function AddRemarkModal({ record, onClose, onSuccess }) {
 
   return (
     <>
-      <ModalShell title="Add Remark" onClose={onClose} maxWidth="max-w-sm">
-        <form onSubmit={handleSubmit} className="space-y-4">
+      <ModalShell
+        title="Add Remark"
+        onClose={onClose}
+        maxWidth="max-w-sm"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg px-4 py-2 text-[13px] font-medium text-[#4A5E4A] border border-[#C8D5C8] hover:bg-[#F5F7F5] transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="add-remark-form"
+              disabled={isSubmitting || !content.trim()}
+              className="flex items-center gap-2 rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] disabled:opacity-60 transition-colors"
+            >
+              {isSubmitting && (
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              )}
+              Save Remark
+            </button>
+          </>
+        }
+      >
+        <form id="add-remark-form" onSubmit={handleSubmit} className="space-y-4">
           <FormField label="Custom Status">
             <input
               className={baseInputClasses}
@@ -163,25 +189,6 @@ function AddRemarkModal({ record, onClose, onSuccess }) {
               {error}
             </p>
           )}
-          <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg px-4 py-2 text-[13px] font-medium text-[#4A5E4A] border border-[#C8D5C8] hover:bg-[#F5F7F5] transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting || !content.trim()}
-              className="flex items-center gap-2 rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] disabled:opacity-60 transition-colors"
-            >
-              {isSubmitting && (
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              )}
-              Save Remark
-            </button>
-          </div>
         </form>
       </ModalShell>
 
@@ -570,8 +577,27 @@ function EditCropModal({ record, onClose, onSaved }) {
       icon={Pencil}
       onClose={onClose}
       maxWidth="max-w-lg"
+      footer={
+        <>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form="edit-crop-record-form"
+            disabled={isSubmitting || !isDirty}
+            className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50"
+          >
+            {isSubmitting ? "Saving…" : "Save Changes"}
+          </button>
+        </>
+      }
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form id="edit-crop-record-form" onSubmit={handleSubmit} className="space-y-4">
         {/* Farmer Search */}
         <div ref={farmerWrapperRef} className="relative">
           <label className={editLabelCls}>
@@ -847,22 +873,6 @@ function EditCropModal({ record, onClose, onSaved }) {
           </p>
         )}
 
-        <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={isSubmitting || !isDirty}
-            className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50"
-          >
-            {isSubmitting ? "Saving…" : "Save Changes"}
-          </button>
-        </div>
       </form>
     </ModalShell>
   );

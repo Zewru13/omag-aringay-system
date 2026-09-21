@@ -186,6 +186,14 @@ export default function CitizenHarvestModal({ domain, record, harvest, onClose, 
       icon={Tractor}
       onClose={onClose}
       maxWidth="max-w-2xl"
+      footer={
+        <>
+          <Button onClick={onClose} type="button" variant="ghost">{labels.common.cancel}</Button>
+          <Button isLoading={isSubmitting} type="submit" form="citizen-harvest-form" variant="primary" disabled={blockedByOther}>
+            {isEdit ? labels.harvest.submitEdit : labels.harvest.submitNew}
+          </Button>
+        </>
+      }
     >
       {blockedByOther && (
         <div className="mb-4 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-[12px] text-amber-800">
@@ -193,7 +201,7 @@ export default function CitizenHarvestModal({ domain, record, harvest, onClose, 
           {recordLock.secondsRemaining ? labels.common.lockedByOtherMinutes(Math.ceil(recordLock.secondsRemaining / 60)) : ''}.
         </div>
       )}
-      <form className="space-y-4" onSubmit={handleSubmit}>
+      <form id="citizen-harvest-form" className="space-y-4" onSubmit={handleSubmit}>
         {expectedHarvestDate && (
           <div className={`rounded-xl border px-3 py-2 text-xs ${
             harvestVarianceDays === null
@@ -305,12 +313,6 @@ export default function CitizenHarvestModal({ domain, record, harvest, onClose, 
           <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">{errorMessage}</p>
         )}
 
-        <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
-          <Button onClick={onClose} type="button" variant="ghost">{labels.common.cancel}</Button>
-          <Button isLoading={isSubmitting} type="submit" variant="primary" disabled={blockedByOther}>
-            {isEdit ? labels.harvest.submitEdit : labels.harvest.submitNew}
-          </Button>
-        </div>
       </form>
     </ModalShell>
   )

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Check, Copy, UserPlus } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
@@ -26,7 +26,38 @@ const ROLE_OPTIONS = [
 
 // ── Step 1: Role ──────────────────────────────────────────────────────────────
 
-function StepRole({ selectedRole, onSelect, onNext, onCancel }) {
+function StepRole({ selectedRole, onSelect, onNext, onCancel, setFooter }) {
+  // Refs so the footer effect only needs to depend on `selectedRole` (what
+  // actually changes the footer's disabled state) — onNext/onCancel are
+  // fresh closures from the parent every render, and depending on them
+  // directly would re-fire this effect (and its setFooter call) every
+  // single render, which would loop forever since setFooter's own
+  // re-render recreates those same closures again. Synced in an effect
+  // (not during render) since writing to a ref's .current outside an
+  // effect/event-handler is a render-phase side effect React disallows.
+  const onNextRef = useRef(onNext)
+  const onCancelRef = useRef(onCancel)
+  useEffect(() => {
+    onNextRef.current = onNext
+    onCancelRef.current = onCancel
+  })
+
+  useEffect(() => {
+    setFooter(
+      <>
+        <button type="button" onClick={() => onCancelRef.current()}
+          className="rounded-lg px-4 py-2 text-[13px] font-medium text-[#4A5E4A] border border-[#C8D5C8] hover:bg-[#F5F7F5] transition-colors">
+          Cancel
+        </button>
+        <button type="button" disabled={!selectedRole} onClick={() => onNextRef.current()}
+          className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38] disabled:opacity-50">
+          Next
+        </button>
+      </>
+    )
+    return () => setFooter(null)
+  }, [selectedRole, setFooter])
+
   return (
     <div className="space-y-4">
       <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#7A8E7A]">Step 1 of 3 — Select Role</p>
@@ -46,34 +77,61 @@ function StepRole({ selectedRole, onSelect, onNext, onCancel }) {
           </div>
         ))}
       </div>
-      <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4">
-        <button type="button" onClick={onCancel}
-          className="rounded-lg px-4 py-2 text-[13px] font-medium text-[#4A5E4A] border border-[#C8D5C8] hover:bg-[#F5F7F5] transition-colors">
-          Cancel
-        </button>
-        <button type="button" disabled={!selectedRole} onClick={onNext}
-          className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38] disabled:opacity-50">
-          Next
-        </button>
-      </div>
     </div>
   )
 }
 
 // ── Step 2: Details ───────────────────────────────────────────────────────────
 
-function StepDetails({ role, formData, onChange, onBack, onNext, onCancel }) {
+function StepDetails({ role, formData, onChange, onBack, onNext, onCancel, setFooter }) {
   const [error, setError] = useState('')
 
   const set = (field, value) => onChange({ ...formData, [field]: value })
 
+  // Refs so handleNext (and the footer effect that references it) stay
+  // stable — see StepRole's comment for why this avoids a render loop, and
+  // why the sync happens in an effect rather than during render.
+  const formDataRef = useRef(formData)
+  const onNextRef = useRef(onNext)
+  const onBackRef = useRef(onBack)
+  const onCancelRef = useRef(onCancel)
+  useEffect(() => {
+    formDataRef.current = formData
+    onNextRef.current = onNext
+    onBackRef.current = onBack
+    onCancelRef.current = onCancel
+  })
+
   const handleNext = () => {
-    if (!formData.lastName.trim())  { setError('Last name is required.'); return }
-    if (!formData.firstName.trim()) { setError('First name is required.'); return }
-    if (!formData.email.trim())     { setError('Email is required.'); return }
+    const fd = formDataRef.current
+    if (!fd.lastName.trim())  { setError('Last name is required.'); return }
+    if (!fd.firstName.trim()) { setError('First name is required.'); return }
+    if (!fd.email.trim())     { setError('Email is required.'); return }
     setError('')
-    onNext()
+    onNextRef.current()
   }
+
+  useEffect(() => {
+    setFooter(
+      <div className="flex w-full items-center justify-between">
+        <button type="button" onClick={() => onBackRef.current()}
+          className="rounded-lg px-4 py-2 text-[13px] font-medium text-[#4A5E4A] border border-[#C8D5C8] hover:bg-[#F5F7F5] transition-colors">
+          ← Back
+        </button>
+        <div className="flex gap-2">
+          <button type="button" onClick={() => onCancelRef.current()}
+            className="rounded-lg px-4 py-2 text-[13px] font-medium text-[#4A5E4A] border border-[#C8D5C8] hover:bg-[#F5F7F5] transition-colors">
+            Cancel
+          </button>
+          <button type="button" onClick={handleNext}
+            className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38]">
+            Next
+          </button>
+        </div>
+      </div>
+    )
+    return () => setFooter(null)
+  }, [setFooter])
 
   return (
     <div className="space-y-4">
@@ -121,30 +179,13 @@ function StepDetails({ role, formData, onChange, onBack, onNext, onCancel }) {
       </div>
 
       {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
-
-      <div className="flex justify-between border-t border-[#F0F4F0] pt-4">
-        <button type="button" onClick={onBack}
-          className="rounded-lg px-4 py-2 text-[13px] font-medium text-[#4A5E4A] border border-[#C8D5C8] hover:bg-[#F5F7F5] transition-colors">
-          ← Back
-        </button>
-        <div className="flex gap-2">
-          <button type="button" onClick={onCancel}
-            className="rounded-lg px-4 py-2 text-[13px] font-medium text-[#4A5E4A] border border-[#C8D5C8] hover:bg-[#F5F7F5] transition-colors">
-            Cancel
-          </button>
-          <button type="button" onClick={handleNext}
-            className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38]">
-            Next
-          </button>
-        </div>
-      </div>
     </div>
   )
 }
 
 // ── Step 3: Review ────────────────────────────────────────────────────────────
 
-function StepReview({ role, formData, onBack, onCancel, onSuccess }) {
+function StepReview({ role, formData, onBack, onCancel, onSuccess, setFooter }) {
   const { showToast } = useToast()
   // Display label only — the raw `role` value (ADMIN/EVALUATOR) is what's
   // actually submitted below; this just keeps the Review step and confirm
@@ -159,6 +200,10 @@ function StepReview({ role, formData, onBack, onCancel, onSuccess }) {
   const [copiedField,    setCopiedField]    = useState('')
 
   const fullName = `${formData.lastName}, ${formData.firstName}${formData.suffix ? ' ' + formData.suffix : ''}`
+
+  const onBackRef = useRef(onBack)
+  const onCancelRef = useRef(onCancel)
+  const onSuccessRef = useRef(onSuccess)
 
   const openConfirm = async () => {
     if (role === 'ADMIN') {
@@ -214,6 +259,49 @@ function StepReview({ role, formData, onBack, onCancel, onSuccess }) {
     } catch { /* clipboard unavailable — value is still visible to copy manually */ }
   }
 
+  // Ref so the footer effect below can call the latest openConfirm without
+  // needing it (freshly recreated every render) in its dependency array.
+  // Synced in an effect, not during render — see StepRole's comment.
+  const openConfirmRef = useRef(openConfirm)
+  useEffect(() => {
+    onBackRef.current = onBack
+    onCancelRef.current = onCancel
+    onSuccessRef.current = onSuccess
+    openConfirmRef.current = openConfirm
+  })
+
+  useEffect(() => {
+    if (result) {
+      setFooter(
+        <button type="button" onClick={() => onSuccessRef.current()}
+          className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38]">
+          Done
+        </button>
+      )
+    } else {
+      setFooter(
+        <div className="flex w-full items-center justify-between">
+          <button type="button" onClick={() => onBackRef.current()}
+            className="rounded-lg px-4 py-2 text-[13px] font-medium text-[#4A5E4A] border border-[#C8D5C8] hover:bg-[#F5F7F5] transition-colors">
+            ← Back
+          </button>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => onCancelRef.current()}
+              className="rounded-lg px-4 py-2 text-[13px] font-medium text-[#4A5E4A] border border-[#C8D5C8] hover:bg-[#F5F7F5] transition-colors">
+              Cancel
+            </button>
+            <button type="button" disabled={isSubmitting} onClick={() => openConfirmRef.current()}
+              className="flex items-center gap-2 rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38] disabled:opacity-60">
+              {isSubmitting && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
+              Add User
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return () => setFooter(null)
+  }, [result, isSubmitting, setFooter])
+
   const Row = ({ label, value }) => (
     <div className="flex items-start justify-between gap-4 rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-4 py-3">
       <span className="text-[12px] font-medium text-[#7A8E7A]">{label}</span>
@@ -266,12 +354,6 @@ function StepReview({ role, formData, onBack, onCancel, onSuccess }) {
           </p>
         </div>
         <p className="text-[11px] text-[#A8BCA8]">Relay both to {formData.email} directly — they will not be shown again.</p>
-        <div className="flex justify-end border-t border-[#F0F4F0] pt-4">
-          <button type="button" onClick={onSuccess}
-            className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38]">
-            Done
-          </button>
-        </div>
       </div>
     )
   }
@@ -299,24 +381,6 @@ function StepReview({ role, formData, onBack, onCancel, onSuccess }) {
 
       {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
 
-      <div className="flex justify-between border-t border-[#F0F4F0] pt-4">
-        <button type="button" onClick={onBack}
-          className="rounded-lg px-4 py-2 text-[13px] font-medium text-[#4A5E4A] border border-[#C8D5C8] hover:bg-[#F5F7F5] transition-colors">
-          ← Back
-        </button>
-        <div className="flex gap-2">
-          <button type="button" onClick={onCancel}
-            className="rounded-lg px-4 py-2 text-[13px] font-medium text-[#4A5E4A] border border-[#C8D5C8] hover:bg-[#F5F7F5] transition-colors">
-            Cancel
-          </button>
-          <button type="button" disabled={isSubmitting} onClick={openConfirm}
-            className="flex items-center gap-2 rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38] disabled:opacity-60">
-            {isSubmitting && <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />}
-            Add User
-          </button>
-        </div>
-      </div>
-
       {showConfirm && (
         <ConfirmDialog
           title={role === 'ADMIN' ? 'Deactivate Current Administrator?' : 'Confirm Action'}
@@ -340,6 +404,7 @@ export default function CreateUserModal({ onClose, onSuccess }) {
   const [formData, setFormData] = useState({
     lastName: '', firstName: '', suffix: '', email: '',
   })
+  const [footer, setFooter] = useState(null)
 
   const handleSuccess = () => {
     // Whoever has permission to create an ADMIN is, by definition, the sole
@@ -359,9 +424,10 @@ export default function CreateUserModal({ onClose, onSuccess }) {
       icon={UserPlus}
       onClose={onClose}
       maxWidth="max-w-md"
+      footer={footer}
     >
       {step === 1 && (
-        <StepRole selectedRole={role} onSelect={setRole} onNext={() => setStep(2)} onCancel={onClose} />
+        <StepRole selectedRole={role} onSelect={setRole} onNext={() => setStep(2)} onCancel={onClose} setFooter={setFooter} />
       )}
       {step === 2 && (
         <StepDetails
@@ -371,6 +437,7 @@ export default function CreateUserModal({ onClose, onSuccess }) {
           onBack={() => setStep(1)}
           onNext={() => setStep(3)}
           onCancel={onClose}
+          setFooter={setFooter}
         />
       )}
       {step === 3 && (
@@ -380,6 +447,7 @@ export default function CreateUserModal({ onClose, onSuccess }) {
           onBack={() => setStep(2)}
           onCancel={onClose}
           onSuccess={handleSuccess}
+          setFooter={setFooter}
         />
       )}
     </ModalShell>

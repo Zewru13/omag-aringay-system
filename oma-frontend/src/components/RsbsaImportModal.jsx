@@ -181,6 +181,39 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
     }
   }
 
+  const footerContent = {
+    upload: (
+      <>
+        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+        <Button type="button" isLoading={isBusy} onClick={handlePreview} disabled={!file}>
+          Preview Changes
+        </Button>
+      </>
+    ),
+    preview: preview ? (
+      <div className="flex w-full items-center justify-between gap-2">
+        <Button type="button" variant="outline" onClick={handleStartOver}>Upload a Different File</Button>
+        <div className="flex items-center gap-3">
+          <span className="text-[12.5px] text-[#7A8E7A]">{selectedRows.size} row{selectedRows.size === 1 ? '' : 's'} selected</span>
+          <Button type="button" onClick={goToConfirm} disabled={selectedRows.size === 0}>
+            Continue to Confirm
+          </Button>
+        </div>
+      </div>
+    ) : null,
+    confirm: (
+      <div className="flex w-full items-center justify-between">
+        <button type="button" onClick={() => setStep('preview')} className="text-[13px] font-medium text-[#7A8E7A] hover:text-[#1A2B1A] transition-colors">
+          Back to Review
+        </button>
+        <Button type="button" isLoading={isBusy} onClick={handleCommit}>Confirm &amp; Commit</Button>
+      </div>
+    ),
+    result: commitResult ? (
+      <Button type="button" onClick={onClose}>Close</Button>
+    ) : null,
+  }[step]
+
   return (
     <ModalShell
       title="Import RSBSA File"
@@ -188,6 +221,7 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
       icon={FileSpreadsheet}
       onClose={onClose}
       maxWidth="max-w-4xl"
+      footer={footerContent}
     >
       <StepIndicator steps={STEPS} currentIndex={STEP_INDEX[step]} />
 
@@ -210,13 +244,6 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
           </div>
 
           {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
-
-          <div className="flex justify-end gap-2 pt-1">
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="button" isLoading={isBusy} onClick={handlePreview} disabled={!file}>
-              Preview Changes
-            </Button>
-          </div>
         </div>
       )}
 
@@ -380,16 +407,6 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
           </div>
 
           {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
-
-          <div className="flex items-center justify-between gap-2 pt-1">
-            <Button type="button" variant="outline" onClick={handleStartOver}>Upload a Different File</Button>
-            <div className="flex items-center gap-3">
-              <span className="text-[12.5px] text-[#7A8E7A]">{selectedRows.size} row{selectedRows.size === 1 ? '' : 's'} selected</span>
-              <Button type="button" onClick={goToConfirm} disabled={selectedRows.size === 0}>
-                Continue to Confirm
-              </Button>
-            </div>
-          </div>
         </div>
       )}
 
@@ -441,13 +458,6 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
           </div>
 
           {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
-
-          <div className="flex items-center justify-between pt-1">
-            <button type="button" onClick={() => setStep('preview')} className="text-[13px] font-medium text-[#7A8E7A] hover:text-[#1A2B1A] transition-colors">
-              Back to Review
-            </button>
-            <Button type="button" isLoading={isBusy} onClick={handleCommit}>Confirm &amp; Commit</Button>
-          </div>
         </div>
       )}
 
@@ -479,10 +489,6 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
                 </div>
               ))}
             </div>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-1">
-            <Button type="button" onClick={onClose}>Close</Button>
           </div>
         </div>
       )}

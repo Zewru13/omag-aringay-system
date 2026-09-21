@@ -56,8 +56,14 @@ export default function ConfirmOnBehalfModal({ domain, record, onClose, onSucces
       icon={UserCheck}
       onClose={onClose}
       maxWidth="max-w-md"
+      footer={
+        <>
+          <Button onClick={onClose} type="button" variant="ghost">{labels.common.cancel}</Button>
+          <Button isLoading={isSubmitting} type="submit" form="confirm-on-behalf-form" variant="primary">{L.submit}</Button>
+        </>
+      }
     >
-      <form className="space-y-4" onSubmit={handleSubmit}>
+      <form id="confirm-on-behalf-form" className="space-y-4" onSubmit={handleSubmit}>
         <FormField label={L.photoLabel}>
           <input
             type="file"
@@ -72,10 +78,6 @@ export default function ConfirmOnBehalfModal({ domain, record, onClose, onSucces
           <p className="rounded-[8px] bg-cz-danger-bg px-3 py-2 text-[13px] font-medium text-cz-danger-body">{errorMessage}</p>
         )}
 
-        <div className="flex justify-end gap-3 border-t border-cz-border pt-4">
-          <Button onClick={onClose} type="button" variant="ghost">{labels.common.cancel}</Button>
-          <Button isLoading={isSubmitting} type="submit" variant="primary">{L.submit}</Button>
-        </div>
       </form>
     </ModalShell>
   )

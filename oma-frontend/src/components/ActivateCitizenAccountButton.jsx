@@ -163,6 +163,16 @@ export default function ActivateCitizenAccountButton({ citizenAccount, personLab
           subtitle={personLabel}
           onClose={handleClose}
           maxWidth="max-w-lg"
+          footer={!result ? (
+            <>
+              <Button type="button" variant="outline" onClick={handleClose}>Cancel</Button>
+              <Button type="button" variant="primary" isLoading={isSubmitting} onClick={handleSubmit}>
+                {isActive ? 'Regenerate' : 'Generate & Activate'}
+              </Button>
+            </>
+          ) : (
+            <Button type="button" variant="primary" onClick={handleClose}>Done</Button>
+          )}
         >
           {!result ? (
             <div className="space-y-4">
@@ -177,12 +187,6 @@ export default function ActivateCitizenAccountButton({ citizenAccount, personLab
                 </p>
               </div>
               {error && <p className="text-[12px] text-red-600">{error}</p>}
-              <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-3">
-                <Button type="button" variant="outline" onClick={handleClose}>Cancel</Button>
-                <Button type="button" variant="primary" isLoading={isSubmitting} onClick={handleSubmit}>
-                  {isActive ? 'Regenerate' : 'Generate & Activate'}
-                </Button>
-              </div>
             </div>
           ) : (
             <div className="space-y-4">
@@ -213,9 +217,6 @@ export default function ActivateCitizenAccountButton({ citizenAccount, personLab
                 <p className="mt-1.5 text-[11px] text-[#7A8E7A]">
                   This stays recoverable on this screen for 15 minutes, or until {personLabel || 'they'} first log in — whichever comes first.
                 </p>
-              </div>
-              <div className="flex justify-end border-t border-[#F0F4F0] pt-3">
-                <Button type="button" variant="primary" onClick={handleClose}>Done</Button>
               </div>
             </div>
           )}

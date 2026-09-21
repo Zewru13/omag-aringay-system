@@ -127,8 +127,28 @@ export default function ImportFileModal({
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE))
   const paginatedRows = filteredRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
+  const footerContent = step === 'upload' ? (
+    <>
+      <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+      <Button type="button" isLoading={isBusy} onClick={() => runImport(true)} disabled={!file}>
+        Preview Import
+      </Button>
+    </>
+  ) : result ? (
+    <>
+      <Button type="button" variant="outline" onClick={handleStartOver}>Upload a Different File</Button>
+      {step === 'preview' ? (
+        <Button type="button" isLoading={isBusy} disabled={result.summary.ready === 0} onClick={() => runImport(false)}>
+          Confirm Import ({result.summary.ready})
+        </Button>
+      ) : (
+        <Button type="button" onClick={onClose}>Close</Button>
+      )}
+    </>
+  ) : null
+
   return (
-    <ModalShell title={title} subtitle={subtitle} icon={FileSpreadsheet} onClose={onClose} maxWidth="max-w-4xl">
+    <ModalShell title={title} subtitle={subtitle} icon={FileSpreadsheet} onClose={onClose} maxWidth="max-w-4xl" footer={footerContent}>
       <StepIndicator steps={STEPS} currentIndex={STEP_INDEX[step]} />
 
       {step === 'upload' && (
@@ -155,13 +175,6 @@ export default function ImportFileModal({
           </div>
 
           {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
-
-          <div className="flex justify-end gap-2 pt-1">
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="button" isLoading={isBusy} onClick={() => runImport(true)} disabled={!file}>
-              Preview Import
-            </Button>
-          </div>
         </div>
       )}
 
@@ -252,17 +265,6 @@ export default function ImportFileModal({
           </div>
 
           {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
-
-          <div className="flex justify-end gap-2 pt-1">
-            <Button type="button" variant="outline" onClick={handleStartOver}>Upload a Different File</Button>
-            {step === 'preview' ? (
-              <Button type="button" isLoading={isBusy} disabled={result.summary.ready === 0} onClick={() => runImport(false)}>
-                Confirm Import ({result.summary.ready})
-              </Button>
-            ) : (
-              <Button type="button" onClick={onClose}>Close</Button>
-            )}
-          </div>
         </div>
       )}
     </ModalShell>
