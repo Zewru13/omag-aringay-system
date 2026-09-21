@@ -423,8 +423,16 @@ function CropTypeModal({ crop, categories, subcategories, onClose, onSaved }) {
         icon={Leaf}
         onClose={onClose}
         maxWidth="max-w-3xl"
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" form="crop-option-form" isLoading={isSubmitting} disabled={isSubmitting || !hasChanges}>
+              {isEdit ? 'Update Crop' : '+ Add Crop'}
+            </Button>
+          </>
+        }
       >
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <form id="crop-option-form" onSubmit={handleSubmit} className="space-y-3">
           <FormField label="Crop Name" required error={nameError}>
             <input
               className={baseInputClasses}
@@ -509,12 +517,6 @@ function CropTypeModal({ crop, categories, subcategories, onClose, onSaved }) {
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-1">
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit" isLoading={isSubmitting} disabled={isSubmitting || !hasChanges}>
-              {isEdit ? 'Update Crop' : '+ Add Crop'}
-            </Button>
-          </div>
         </form>
 
         {isEdit && <SuggestionsSection cropId={crop.id} />}

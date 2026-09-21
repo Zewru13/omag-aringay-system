@@ -57,8 +57,14 @@ function FeedTypeModal({ feedType, onClose, onSaved }) {
       icon={Wheat}
       onClose={onClose}
       maxWidth="max-w-sm"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="feed-type-form" isLoading={isSubmitting}>{isEdit ? 'Save Changes' : '+ Add Feed Type'}</Button>
+        </>
+      }
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form id="feed-type-form" onSubmit={handleSubmit} className="space-y-4">
         <FormField label="Name *">
           <input className={baseInputClasses} value={name} onChange={e => setName(e.target.value)} autoFocus />
         </FormField>
@@ -78,10 +84,6 @@ function FeedTypeModal({ feedType, onClose, onSaved }) {
           <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
           Active
         </label>
-        <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit" isLoading={isSubmitting}>{isEdit ? 'Save Changes' : '+ Add Feed Type'}</Button>
-        </div>
       </form>
     </ModalShell>
   )

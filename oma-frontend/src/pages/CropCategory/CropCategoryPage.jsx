@@ -56,8 +56,16 @@ function CategoryModal({ category, onClose, onSaved }) {
       icon={Leaf}
       onClose={onClose}
       maxWidth="max-w-xs"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="crop-category-form" isLoading={isSubmitting} disabled={isSubmitting || !hasChanges}>
+            {isEdit ? 'Update Category' : '+ Add Category'}
+          </Button>
+        </>
+      }
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form id="crop-category-form" onSubmit={handleSubmit} className="space-y-4">
         <FormField label="Category Name *">
           <input
             className={baseInputClasses}
@@ -67,12 +75,6 @@ function CategoryModal({ category, onClose, onSaved }) {
             placeholder="e.g. Cereals"
           />
         </FormField>
-        <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit" isLoading={isSubmitting} disabled={isSubmitting || !hasChanges}>
-            {isEdit ? 'Update Category' : '+ Add Category'}
-          </Button>
-        </div>
       </form>
     </ModalShell>
   )
@@ -118,8 +120,16 @@ function SubcategoryModal({ subcategory, categories, onClose, onSaved }) {
       icon={Tag}
       onClose={onClose}
       maxWidth="max-w-sm"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="crop-subcategory-form" isLoading={isSubmitting} disabled={isSubmitting || !hasChanges}>
+            {isEdit ? '+ Update Subcategory' : '+ Add Subcategory'}
+          </Button>
+        </>
+      }
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form id="crop-subcategory-form" onSubmit={handleSubmit} className="space-y-4">
         <FormField label="Parent Category" required>
           <select className={baseInputClasses} value={form.category} onChange={e => set('category', e.target.value)}>
             <option value="">— Select —</option>
@@ -135,12 +145,6 @@ function SubcategoryModal({ subcategory, categories, onClose, onSaved }) {
             placeholder="e.g. Rice"
           />
         </FormField>
-        <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit" isLoading={isSubmitting} disabled={isSubmitting || !hasChanges}>
-            {isEdit ? '+ Update Subcategory' : '+ Add Subcategory'}
-          </Button>
-        </div>
       </form>
     </ModalShell>
   )

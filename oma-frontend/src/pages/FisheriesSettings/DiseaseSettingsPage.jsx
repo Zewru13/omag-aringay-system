@@ -37,8 +37,19 @@ function DiseaseTypeModal({ diseaseType, onClose, onSaved }) {
   }
 
   return (
-    <ModalShell title={isEdit ? 'Edit Disease Type' : 'Add Disease Type'} icon={Bug} onClose={onClose} maxWidth="max-w-sm">
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <ModalShell
+      title={isEdit ? 'Edit Disease Type' : 'Add Disease Type'}
+      icon={Bug}
+      onClose={onClose}
+      maxWidth="max-w-sm"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="disease-type-form" isLoading={isSubmitting}>{isEdit ? 'Save Changes' : '+ Add Disease Type'}</Button>
+        </>
+      }
+    >
+      <form id="disease-type-form" onSubmit={handleSubmit} className="space-y-4">
         <FormField label="Name *">
           <input className={baseInputClasses} value={name} onChange={e => setName(e.target.value)} autoFocus />
         </FormField>
@@ -49,10 +60,6 @@ function DiseaseTypeModal({ diseaseType, onClose, onSaved }) {
           <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
           Active
         </label>
-        <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit" isLoading={isSubmitting}>{isEdit ? 'Save Changes' : '+ Add Disease Type'}</Button>
-        </div>
       </form>
     </ModalShell>
   )
@@ -82,8 +89,20 @@ function ResponseGuideModal({ diseaseType, guide, onClose, onSaved }) {
   }
 
   return (
-    <ModalShell title={`Response Guide — ${diseaseType.name}`} subtitle="Shown as a suggestion when this disease is selected while logging an activity." icon={Bug} onClose={onClose} maxWidth="max-w-md">
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <ModalShell
+      title={`Response Guide — ${diseaseType.name}`}
+      subtitle="Shown as a suggestion when this disease is selected while logging an activity."
+      icon={Bug}
+      onClose={onClose}
+      maxWidth="max-w-md"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="disease-response-guide-form" isLoading={isSubmitting}>Save Guide</Button>
+        </>
+      }
+    >
+      <form id="disease-response-guide-form" onSubmit={handleSubmit} className="space-y-4">
         <FormField label="Recommended Treatment (optional)">
           <textarea rows={4} className={`${baseInputClasses} resize-none`} value={recommendedTreatment}
             onChange={e => setRecommendedTreatment(e.target.value)}
@@ -92,10 +111,6 @@ function ResponseGuideModal({ diseaseType, guide, onClose, onSaved }) {
         <FormField label="Notes (optional)">
           <textarea rows={2} className={`${baseInputClasses} resize-none`} value={notes} onChange={e => setNotes(e.target.value)} />
         </FormField>
-        <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit" isLoading={isSubmitting}>Save Guide</Button>
-        </div>
       </form>
     </ModalShell>
   )

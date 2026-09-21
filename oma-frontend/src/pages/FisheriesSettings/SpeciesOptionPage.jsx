@@ -314,8 +314,16 @@ function SpeciesModal({ species, categories, onClose, onSaved }) {
         icon={Fish}
         onClose={onClose}
         maxWidth="max-w-md"
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            <Button type="submit" form="species-option-form" isLoading={isSubmitting} disabled={isSubmitting || !hasChanges}>
+              {isEdit ? 'Update Species' : '+ Add Species'}
+            </Button>
+          </>
+        }
       >
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <form id="species-option-form" onSubmit={handleSubmit} className="space-y-3">
           <FormField label="Species Name" required error={nameError}>
             <input
               className={baseInputClasses}
@@ -402,12 +410,6 @@ function SpeciesModal({ species, categories, onClose, onSaved }) {
             </FormField>
           </div>
 
-          <div className="flex justify-end gap-2 pt-1">
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit" isLoading={isSubmitting} disabled={isSubmitting || !hasChanges}>
-              {isEdit ? 'Update Species' : '+ Add Species'}
-            </Button>
-          </div>
         </form>
 
         {isEdit && <SuggestionsSection speciesId={species.id} />}

@@ -55,8 +55,16 @@ function SeedSourceModal({ source, onClose, onSaved }) {
       icon={Droplets}
       onClose={onClose}
       maxWidth="max-w-xs"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="seed-source-form" isLoading={isSubmitting} disabled={isSubmitting || !hasChanges}>
+            {isEdit ? 'Update Source' : '+ Add Source'}
+          </Button>
+        </>
+      }
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form id="seed-source-form" onSubmit={handleSubmit} className="space-y-4">
         <FormField label="Seed Source Name" required>
           <input
             className={baseInputClasses}
@@ -75,12 +83,6 @@ function SeedSourceModal({ source, onClose, onSaved }) {
           />
           <span className="text-[13px] text-[#1A2B1A]">Active (visible in Add Crop dropdown)</span>
         </label>
-        <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit" isLoading={isSubmitting} disabled={isSubmitting || !hasChanges}>
-            {isEdit ? 'Update Source' : '+ Add Source'}
-          </Button>
-        </div>
       </form>
     </ModalShell>
   )

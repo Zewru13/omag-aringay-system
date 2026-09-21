@@ -62,8 +62,14 @@ function CropInputTypeModal({ inputType, onClose, onSaved }) {
       icon={Sprout}
       onClose={onClose}
       maxWidth="max-w-sm"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="crop-input-type-form" isLoading={isSubmitting}>{isEdit ? 'Save Changes' : '+ Add Input Type'}</Button>
+        </>
+      }
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form id="crop-input-type-form" onSubmit={handleSubmit} className="space-y-4">
         <FormField label="Name *">
           <input className={baseInputClasses} value={name} onChange={e => setName(e.target.value)} autoFocus />
         </FormField>
@@ -89,10 +95,6 @@ function CropInputTypeModal({ inputType, onClose, onSaved }) {
           <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
           Active
         </label>
-        <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit" isLoading={isSubmitting}>{isEdit ? 'Save Changes' : '+ Add Input Type'}</Button>
-        </div>
       </form>
     </ModalShell>
   )

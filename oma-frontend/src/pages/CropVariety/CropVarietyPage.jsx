@@ -112,8 +112,16 @@ function CropVarietyModal({ variety, cropTypes, onClose, onSaved }) {
       icon={Sprout}
       onClose={onClose}
       maxWidth="max-w-sm"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="crop-variety-form" isLoading={isSubmitting} disabled={isSubmitting || !hasChanges}>
+            {isEdit ? 'Update Variety' : '+ Add Variety'}
+          </Button>
+        </>
+      }
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form id="crop-variety-form" onSubmit={handleSubmit} className="space-y-4">
         <FormField label="Variety Name" required error={nameError}>
           <input
             className={baseInputClasses}
@@ -181,12 +189,6 @@ function CropVarietyModal({ variety, cropTypes, onClose, onSaved }) {
           />
           <span className="text-[13px] text-[#1A2B1A]">Active (visible in Add Crop dropdown)</span>
         </label>
-        <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit" isLoading={isSubmitting} disabled={isSubmitting || !hasChanges}>
-            {isEdit ? 'Update Variety' : '+ Add Variety'}
-          </Button>
-        </div>
       </form>
     </ModalShell>
   )

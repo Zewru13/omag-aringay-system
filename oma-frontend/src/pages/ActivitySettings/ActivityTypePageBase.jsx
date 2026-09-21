@@ -60,8 +60,16 @@ function ActivityTypeModal({ endpoint, dropdownLabel, activityType, onClose, onS
       icon={ListChecks}
       onClose={onClose}
       maxWidth="max-w-sm"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="activity-type-form" isLoading={isSubmitting} disabled={isSubmitting || !hasChanges}>
+            {isEdit ? 'Update Type' : '+ Add Type'}
+          </Button>
+        </>
+      }
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form id="activity-type-form" onSubmit={handleSubmit} className="space-y-4">
         <FormField label="Activity Type Name" required error={nameError}>
           <input
             className={baseInputClasses}
@@ -86,12 +94,6 @@ function ActivityTypeModal({ endpoint, dropdownLabel, activityType, onClose, onS
             built-in types listed below have specialized fields.
           </p>
         )}
-        <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit" isLoading={isSubmitting} disabled={isSubmitting || !hasChanges}>
-            {isEdit ? 'Update Type' : '+ Add Type'}
-          </Button>
-        </div>
       </form>
     </ModalShell>
   )

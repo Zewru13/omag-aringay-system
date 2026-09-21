@@ -50,8 +50,16 @@ function CategoryModal({ category, onClose, onSaved }) {
       icon={Fish}
       onClose={onClose}
       maxWidth="max-w-xs"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="species-category-form" isLoading={isSubmitting} disabled={isSubmitting || !hasChanges}>
+            {isEdit ? 'Update Category' : '+ Add Category'}
+          </Button>
+        </>
+      }
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form id="species-category-form" onSubmit={handleSubmit} className="space-y-4">
         <FormField label="Category Name *">
           <input
             className={baseInputClasses}
@@ -61,12 +69,6 @@ function CategoryModal({ category, onClose, onSaved }) {
             placeholder="e.g. Finfish"
           />
         </FormField>
-        <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit" isLoading={isSubmitting} disabled={isSubmitting || !hasChanges}>
-            {isEdit ? 'Update Category' : '+ Add Category'}
-          </Button>
-        </div>
       </form>
     </ModalShell>
   )
