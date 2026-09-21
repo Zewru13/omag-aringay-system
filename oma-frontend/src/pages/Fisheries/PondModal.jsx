@@ -63,8 +63,14 @@ function PondModal({ fisherfolkId, pond, onClose, onSuccess }) {
       icon={Waves}
       onClose={onClose}
       maxWidth="max-w-md"
+      footer={
+        <>
+          <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="pond-form" isLoading={isSubmitting}>{isEdit ? 'Save Changes' : 'Add Pond'}</Button>
+        </>
+      }
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form id="pond-form" onSubmit={handleSubmit} className="space-y-4">
         <FormField label="Pond Name (optional)">
           <input
             type="text"
@@ -102,10 +108,6 @@ function PondModal({ fisherfolkId, pond, onClose, onSuccess }) {
           <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] font-medium text-red-700">{error}</p>
         )}
 
-        <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4">
-          <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button type="submit" isLoading={isSubmitting}>{isEdit ? 'Save Changes' : 'Add Pond'}</Button>
-        </div>
       </form>
     </ModalShell>
   )

@@ -1209,6 +1209,18 @@ export function StockingDisasterReportModal({ record, onClose, onSuccess }) {
         iconColor="text-rose-600"
         onClose={onClose}
         maxWidth="max-w-md"
+        footer={
+          <>
+            <button type="button" onClick={onClose}
+              className="rounded-xl px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-100 transition-colors">
+              Cancel
+            </button>
+            <button type="button" onClick={handleSubmitClick} disabled={isSubmitting}
+              className="bg-rose-600 hover:bg-rose-700 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-60 transition-colors">
+              {isSubmitting ? 'Saving…' : 'Report Disaster'}
+            </button>
+          </>
+        }
       >
         <div className="space-y-3">
           <GrowthProgressBar
@@ -1293,17 +1305,6 @@ export function StockingDisasterReportModal({ record, onClose, onSuccess }) {
             <input type="file" accept="image/jpeg,image/png,image/webp" className={baseInputClasses}
               onChange={e => setPhoto(e.target.files?.[0] || null)} />
             <p className="mt-1 text-xs text-slate-400">JPG, PNG, or WEBP, up to 5 MB.</p>
-          </div>
-
-          <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
-            <button type="button" onClick={onClose}
-              className="rounded-xl px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-100 transition-colors">
-              Cancel
-            </button>
-            <button type="button" onClick={handleSubmitClick} disabled={isSubmitting}
-              className="bg-rose-600 hover:bg-rose-700 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-60 transition-colors">
-              {isSubmitting ? 'Saving…' : 'Report Disaster'}
-            </button>
           </div>
         </div>
       </ModalShell>
@@ -1427,6 +1428,19 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
         iconColor="text-amber-600"
         onClose={onClose}
         maxWidth="max-w-md"
+        footer={
+          <>
+            <button type="button" onClick={onClose}
+              className="rounded-xl px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-100 transition-colors">
+              Cancel
+            </button>
+            <button type="button" onClick={handleSubmitClick}
+              disabled={isSubmitting || (reasonRequired && !earlyLateReason.trim())}
+              className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-60 transition-colors">
+              {isSubmitting ? 'Saving…' : 'Save Harvest Record'}
+            </button>
+          </>
+        }
       >
         <div className="space-y-3">
           {visibleResolvableDisasters.map(d => (
@@ -1571,18 +1585,6 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
             <textarea rows={2} className={`${baseInputClasses} resize-none`} value={notes}
               onChange={e => setNotes(e.target.value)}
               placeholder="Any additional harvest notes or observations" />
-          </div>
-
-          <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
-            <button type="button" onClick={onClose}
-              className="rounded-xl px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-100 transition-colors">
-              Cancel
-            </button>
-            <button type="button" onClick={handleSubmitClick}
-              disabled={isSubmitting || (reasonRequired && !earlyLateReason.trim())}
-              className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-60 transition-colors">
-              {isSubmitting ? 'Saving…' : 'Save Harvest Record'}
-            </button>
           </div>
         </div>
       </ModalShell>

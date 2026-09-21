@@ -81,8 +81,14 @@ function BulkPondModal({ fisherfolkId, existingPondCount, onClose, onSuccess }) 
       icon={Layers}
       onClose={onClose}
       maxWidth="max-w-2xl"
+      footer={
+        <>
+          <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="bulk-pond-form" isLoading={isSubmitting}>Create {rows.length} Pond{rows.length === 1 ? '' : 's'}</Button>
+        </>
+      }
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form id="bulk-pond-form" onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-4 max-h-[55vh] overflow-y-auto pr-1">
           {rows.map((row, i) => (
             <div key={i} className="rounded-lg border border-[#E2E8E2] p-3">
@@ -151,10 +157,6 @@ function BulkPondModal({ fisherfolkId, existingPondCount, onClose, onSuccess }) 
           <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] font-medium text-red-700">{formError}</p>
         )}
 
-        <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4">
-          <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button type="submit" isLoading={isSubmitting}>Create {rows.length} Pond{rows.length === 1 ? '' : 's'}</Button>
-        </div>
       </form>
     </ModalShell>
   )

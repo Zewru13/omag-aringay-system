@@ -80,6 +80,15 @@ function StockingForecastDetailModal({ record, onClose, onUpdated }) {
       icon={TrendingUp}
       onClose={onClose}
       maxWidth="max-w-md"
+      footer={
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] transition-colors hover:bg-[#F5F7F5]"
+        >
+          Close
+        </button>
+      }
     >
       <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
@@ -138,16 +147,6 @@ function StockingForecastDetailModal({ record, onClose, onUpdated }) {
             </button>
           </div>
         </div>
-
-        <div className="flex justify-end border-t border-[#F0F4F0] pt-3">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] transition-colors hover:bg-[#F5F7F5]"
-          >
-            Close
-          </button>
-        </div>
       </div>
     </ModalShell>
   )
@@ -166,6 +165,15 @@ function StockingImportErrorsModal({ errors, duplicates = [], created, onClose }
       icon={AlertTriangle}
       onClose={onClose}
       maxWidth="max-w-lg"
+      footer={
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38]"
+        >
+          Close
+        </button>
+      }
     >
       {!hasIssues ? (
         <p className="text-sm text-[#1B4D2E] font-medium py-2">All rows imported successfully.</p>
@@ -197,15 +205,6 @@ function StockingImportErrorsModal({ errors, duplicates = [], created, onClose }
           )}
         </div>
       )}
-      <div className="flex justify-end pt-4 border-t border-[#F0F4F0] mt-4">
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38]"
-        >
-          Close
-        </button>
-      </div>
     </ModalShell>
   )
 }
@@ -291,7 +290,25 @@ function YASignatureModal({ purpose, onClose, onGenerate }) {
   const title = isPdf ? 'Enter Signature Information for PDF Preview' : 'Enter Signature Information for Excel Download'
 
   return (
-    <ModalShell title={title} onClose={onClose} maxWidth="max-w-sm">
+    <ModalShell
+      title={title}
+      onClose={onClose}
+      maxWidth="max-w-sm"
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={() => onGenerate({ prepared_by: preparedBy, position, reviewed_by: showReviewer ? reviewerName : '', noted_by: showNotedBy ? notedByName : '' })}
+            className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors"
+          >
+            {isPdf ? 'Generate PDF' : 'Generate Excel'}
+          </button>
+        </>
+      }
+    >
       <p className="text-[12px] text-[#7A8E7A] text-center mb-4">
         Please provide the names and positions for the signature section of the PDF report.
       </p>
@@ -339,18 +356,6 @@ function YASignatureModal({ purpose, onClose, onGenerate }) {
         )}
       </div>
 
-      <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4 mt-3">
-        <button type="button" onClick={onClose} className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={() => onGenerate({ prepared_by: preparedBy, position, reviewed_by: showReviewer ? reviewerName : '', noted_by: showNotedBy ? notedByName : '' })}
-          className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors"
-        >
-          {isPdf ? 'Generate PDF' : 'Generate Excel'}
-        </button>
-      </div>
     </ModalShell>
   )
 }

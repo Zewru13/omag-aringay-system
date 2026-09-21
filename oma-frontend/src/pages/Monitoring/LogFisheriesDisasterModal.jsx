@@ -110,8 +110,18 @@ function LogFisheriesDisasterModal({ onClose, onSuccess }) {
   }
 
   return (
-    <ModalShell title="Log Fisheries Disaster Report" onClose={onClose} maxWidth="max-w-2xl">
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <ModalShell
+      title="Log Fisheries Disaster Report"
+      onClose={onClose}
+      maxWidth="max-w-2xl"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="log-fisheries-disaster-form" isLoading={isSubmitting}>Submit Report</Button>
+        </>
+      }
+    >
+      <form id="log-fisheries-disaster-form" onSubmit={handleSubmit} className="space-y-4">
         <FormField label="Fisherfolk">
           <SearchBar value={ffSearch} onChange={handleFfSearch} placeholder="Search fisherfolk…" />
           {ffResults.length > 0 && (
@@ -180,10 +190,6 @@ function LogFisheriesDisasterModal({ onClose, onSuccess }) {
           </FormField>
         </div>
 
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit" isLoading={isSubmitting}>Submit Report</Button>
-        </div>
       </form>
     </ModalShell>
   )

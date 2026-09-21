@@ -234,8 +234,18 @@ function LogCatchModal({ onClose, onSuccess }) {
   }
 
   return (
-    <ModalShell title="Log Fishing Trip / Catch" onClose={onClose} maxWidth="max-w-2xl">
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <ModalShell
+      title="Log Fishing Trip / Catch"
+      onClose={onClose}
+      maxWidth="max-w-2xl"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="log-catch-form" isLoading={isSubmitting}>Save Log</Button>
+        </>
+      }
+    >
+      <form id="log-catch-form" onSubmit={handleSubmit} className="space-y-4">
         <FormField label="Fisherfolk (Capture / Inland Fishery)">
           <SearchBar
             value={ffSearch}
@@ -386,10 +396,6 @@ function LogCatchModal({ onClose, onSuccess }) {
           />
         </FormField>
 
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit" isLoading={isSubmitting}>Save Log</Button>
-        </div>
       </form>
     </ModalShell>
   )

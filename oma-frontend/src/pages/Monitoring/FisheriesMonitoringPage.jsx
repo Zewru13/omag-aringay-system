@@ -97,7 +97,19 @@ function TableActionsMenu({ onViewDetails, onEdit }) {
 
 function DetailModal({ title, subtitle, rows, onClose }) {
   return (
-    <ModalShell title={title} subtitle={subtitle} icon={Eye} onClose={onClose} maxWidth="max-w-lg">
+    <ModalShell
+      title={title}
+      subtitle={subtitle}
+      icon={Eye}
+      onClose={onClose}
+      maxWidth="max-w-lg"
+      footer={
+        <button type="button" onClick={onClose}
+          className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
+          Close
+        </button>
+      }
+    >
       <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
         {rows.map(([label, value]) => (
           <div key={label} className="flex items-start justify-between gap-4 border-b border-[#F0F4F0] pb-2">
@@ -105,12 +117,6 @@ function DetailModal({ title, subtitle, rows, onClose }) {
             <span className="text-right text-[13px] font-semibold text-[#1A2B1A]">{value ?? '—'}</span>
           </div>
         ))}
-      </div>
-      <div className="flex justify-end pt-4 mt-2 border-t border-[#F0F4F0]">
-        <button type="button" onClick={onClose}
-          className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
-          Close
-        </button>
       </div>
     </ModalShell>
   )
@@ -248,8 +254,26 @@ function EditCatchModal({ record, onClose, onSaved }) {
 
   return (
     <>
-      <ModalShell title="Edit Catch Log" subtitle={record.fisherfolk_name} icon={Pencil} onClose={onClose} maxWidth="max-w-xl">
-        <form onSubmit={handleSubmit} className="space-y-4">
+      <ModalShell
+        title="Edit Catch Log"
+        subtitle={record.fisherfolk_name}
+        icon={Pencil}
+        onClose={onClose}
+        maxWidth="max-w-xl"
+        footer={
+          <>
+            <button type="button" onClick={onClose}
+              className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
+              Cancel
+            </button>
+            <button type="submit" form="edit-catch-log-form" disabled={isSubmitting || !isDirty}
+              className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50">
+              {isSubmitting ? 'Saving…' : 'Save Changes'}
+            </button>
+          </>
+        }
+      >
+        <form id="edit-catch-log-form" onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <FormField label="Trip Date" required>
               <input type="date" className={baseInputClasses} value={form.trip_date}
@@ -292,17 +316,6 @@ function EditCatchModal({ record, onClose, onSaved }) {
             description="Permanently delete this catch log and its species entries."
             onDeleteClick={() => setShowDeleteConfirm(true)}
           />
-
-          <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-3">
-            <button type="button" onClick={onClose}
-              className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
-              Cancel
-            </button>
-            <button type="submit" disabled={isSubmitting || !isDirty}
-              className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50">
-              {isSubmitting ? 'Saving…' : 'Save Changes'}
-            </button>
-          </div>
         </form>
       </ModalShell>
 
@@ -388,8 +401,26 @@ function EditDisasterModal({ record, onClose, onSaved }) {
 
   return (
     <>
-      <ModalShell title="Edit Disaster Report" subtitle={record.fisherfolk_name} icon={Pencil} onClose={onClose} maxWidth="max-w-xl">
-        <form onSubmit={handleSubmit} className="space-y-4">
+      <ModalShell
+        title="Edit Disaster Report"
+        subtitle={record.fisherfolk_name}
+        icon={Pencil}
+        onClose={onClose}
+        maxWidth="max-w-xl"
+        footer={
+          <>
+            <button type="button" onClick={onClose}
+              className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
+              Cancel
+            </button>
+            <button type="submit" form="edit-disaster-report-form" disabled={isSubmitting || !isDirty}
+              className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50">
+              {isSubmitting ? 'Saving…' : 'Save Changes'}
+            </button>
+          </>
+        }
+      >
+        <form id="edit-disaster-report-form" onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <FormField label="Date of Occurrence" required>
               <input type="date" className={baseInputClasses} value={form.date_of_occurrence}
@@ -438,17 +469,6 @@ function EditDisasterModal({ record, onClose, onSaved }) {
             description="Permanently delete this disaster report."
             onDeleteClick={() => setShowDeleteConfirm(true)}
           />
-
-          <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-3">
-            <button type="button" onClick={onClose}
-              className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
-              Cancel
-            </button>
-            <button type="submit" disabled={isSubmitting || !isDirty}
-              className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50">
-              {isSubmitting ? 'Saving…' : 'Save Changes'}
-            </button>
-          </div>
         </form>
       </ModalShell>
 
