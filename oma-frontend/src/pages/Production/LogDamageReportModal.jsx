@@ -68,8 +68,20 @@ function LogDamageReportModal({ onClose, onSuccess }) {
   }
 
   return (
-    <ModalShell title="Log Calamity Damage Report" onClose={onClose} maxWidth="max-w-2xl">
-      <form className="space-y-4" onSubmit={handleSubmit}>
+    <ModalShell
+      title="Log Calamity Damage Report"
+      onClose={onClose}
+      maxWidth="max-w-2xl"
+      footer={
+        <>
+          <Button onClick={onClose} type="button" variant="outline">Cancel</Button>
+          <Button isLoading={isSubmitting} type="submit" form="log-damage-report-form" variant="primary">
+            {isSubmitting ? 'Saving...' : 'Save Report'}
+          </Button>
+        </>
+      }
+    >
+      <form id="log-damage-report-form" className="space-y-4" onSubmit={handleSubmit}>
         {error && (
           <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
         )}
@@ -179,12 +191,6 @@ function LogDamageReportModal({ onClose, onSuccess }) {
           />
         </FormField>
 
-        <div className="flex justify-end gap-2 pt-2">
-          <Button onClick={onClose} type="button" variant="outline">Cancel</Button>
-          <Button isLoading={isSubmitting} type="submit" variant="primary">
-            {isSubmitting ? 'Saving...' : 'Save Report'}
-          </Button>
-        </div>
       </form>
     </ModalShell>
   )

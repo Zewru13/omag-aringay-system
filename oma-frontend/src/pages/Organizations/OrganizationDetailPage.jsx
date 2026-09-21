@@ -167,8 +167,21 @@ function AddMemberModal({ type, organizationId, onClose, onSuccess }) {
   };
 
   return (
-    <ModalShell title="Add Member" onClose={onClose}>
-      <form className="space-y-5" onSubmit={handleSubmit}>
+    <ModalShell
+      title="Add Member"
+      onClose={onClose}
+      footer={
+        <>
+          <Button onClick={onClose} type="button" variant="secondary">
+            Cancel
+          </Button>
+          <Button isLoading={isSubmitting} type="submit" form="add-member-form" variant="primary">
+            Add Member
+          </Button>
+        </>
+      }
+    >
+      <form id="add-member-form" className="space-y-5" onSubmit={handleSubmit}>
         {/* Search */}
         <div>
           <label className={labelCls}>
@@ -271,14 +284,6 @@ function AddMemberModal({ type, organizationId, onClose, onSuccess }) {
           </p>
         )}
 
-        <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4">
-          <Button onClick={onClose} type="button" variant="secondary">
-            Cancel
-          </Button>
-          <Button isLoading={isSubmitting} type="submit" variant="primary">
-            Add Member
-          </Button>
-        </div>
       </form>
     </ModalShell>
   );
@@ -428,8 +433,27 @@ function AssignOfficerModal({ type, organizationId, existingOfficers, onClose, o
   };
 
   return (
-    <ModalShell title="Assign Officer" onClose={onClose}>
-      <form className="space-y-5" onSubmit={handleSubmit}>
+    <ModalShell
+      title="Assign Officer"
+      onClose={onClose}
+      footer={
+        <>
+          <Button onClick={onClose} type="button" variant="secondary">
+            Cancel
+          </Button>
+          <Button
+            isLoading={isSubmitting}
+            disabled={positionFilled}
+            type="submit"
+            form="assign-officer-form"
+            variant="primary"
+          >
+            Assign Officer
+          </Button>
+        </>
+      }
+    >
+      <form id="assign-officer-form" className="space-y-5" onSubmit={handleSubmit}>
         <div>
           <label className={labelCls}>Position</label>
           <select
@@ -477,19 +501,6 @@ function AssignOfficerModal({ type, organizationId, existingOfficers, onClose, o
           </p>
         )}
 
-        <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4">
-          <Button onClick={onClose} type="button" variant="secondary">
-            Cancel
-          </Button>
-          <Button
-            isLoading={isSubmitting}
-            disabled={positionFilled}
-            type="submit"
-            variant="primary"
-          >
-            Assign Officer
-          </Button>
-        </div>
       </form>
     </ModalShell>
   );
@@ -527,8 +538,27 @@ function EndTermModal({ type, officer, onClose, onSuccess }) {
   };
 
   return (
-    <ModalShell title="End Term Early" onClose={onClose}>
-      <form className="space-y-5" onSubmit={handleSubmit}>
+    <ModalShell
+      title="End Term Early"
+      onClose={onClose}
+      footer={
+        <>
+          <Button onClick={onClose} type="button" variant="secondary">
+            Cancel
+          </Button>
+          <Button
+            isLoading={isSubmitting}
+            disabled={!reason.trim()}
+            type="submit"
+            form="end-term-form"
+            variant="primary"
+          >
+            End Term
+          </Button>
+        </>
+      }
+    >
+      <form id="end-term-form" className="space-y-5" onSubmit={handleSubmit}>
         <p className="text-[13px] text-[#4A5E4A]">
           End {officer.name}'s term as {officer.position}? This does not remove their organization
           membership — the position becomes vacant and can be assigned to someone new. Their term
@@ -552,19 +582,6 @@ function EndTermModal({ type, officer, onClose, onSuccess }) {
           </p>
         )}
 
-        <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4">
-          <Button onClick={onClose} type="button" variant="secondary">
-            Cancel
-          </Button>
-          <Button
-            isLoading={isSubmitting}
-            disabled={!reason.trim()}
-            type="submit"
-            variant="primary"
-          >
-            End Term
-          </Button>
-        </div>
       </form>
     </ModalShell>
   );
@@ -659,8 +676,21 @@ function AddEquipmentModal({ type, organizationId, onClose, onSuccess }) {
   };
 
   return (
-    <ModalShell title="Add Equipment" onClose={onClose}>
-      <form className="space-y-4" onSubmit={handleSubmit}>
+    <ModalShell
+      title="Add Equipment"
+      onClose={onClose}
+      footer={
+        <>
+          <Button onClick={onClose} type="button" variant="secondary">
+            Cancel
+          </Button>
+          <Button isLoading={isSubmitting} type="submit" form="add-equipment-form" variant="primary">
+            Add Equipment
+          </Button>
+        </>
+      }
+    >
+      <form id="add-equipment-form" className="space-y-4" onSubmit={handleSubmit}>
         {/* Equipment Name */}
         <div>
           <label className={labelCls}>Equipment Name</label>
@@ -739,14 +769,6 @@ function AddEquipmentModal({ type, organizationId, onClose, onSuccess }) {
           </p>
         )}
 
-        <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4">
-          <Button onClick={onClose} type="button" variant="secondary">
-            Cancel
-          </Button>
-          <Button isLoading={isSubmitting} type="submit" variant="primary">
-            Add Equipment
-          </Button>
-        </div>
       </form>
     </ModalShell>
   );

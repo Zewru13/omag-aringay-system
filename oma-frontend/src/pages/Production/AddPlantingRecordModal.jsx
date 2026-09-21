@@ -120,8 +120,22 @@ function AddPlantingRecordModal({ onClose, onSuccess }) {
   }
 
   return (
-    <ModalShell title="Add Planting Record" subtitle="Record a new crop planting for a farmer" icon={Sprout} onClose={onClose} maxWidth="max-w-2xl">
-      <form className="space-y-4" onSubmit={handleSubmit}>
+    <ModalShell
+      title="Add Planting Record"
+      subtitle="Record a new crop planting for a farmer"
+      icon={Sprout}
+      onClose={onClose}
+      maxWidth="max-w-2xl"
+      footer={
+        <>
+          <Button onClick={onClose} type="button" variant="outline">Cancel</Button>
+          <Button isLoading={isSubmitting} type="submit" form="add-planting-record-form" variant="primary">
+            {isSubmitting ? 'Saving...' : 'Save Record'}
+          </Button>
+        </>
+      }
+    >
+      <form id="add-planting-record-form" className="space-y-4" onSubmit={handleSubmit}>
         {error && (
           <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
         )}
@@ -291,12 +305,6 @@ function AddPlantingRecordModal({ onClose, onSuccess }) {
           />
         </FormField>
 
-        <div className="flex justify-end gap-2 pt-2">
-          <Button onClick={onClose} type="button" variant="outline">Cancel</Button>
-          <Button isLoading={isSubmitting} type="submit" variant="primary">
-            {isSubmitting ? 'Saving...' : 'Save Record'}
-          </Button>
-        </div>
       </form>
     </ModalShell>
   )

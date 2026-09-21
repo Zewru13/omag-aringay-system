@@ -119,8 +119,14 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
         icon={Building2}
         onClose={onClose}
         maxWidth="max-w-lg"
+        footer={
+          <>
+            <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
+            <Button isLoading={isSubmitting} type="submit" form="create-organization-form">+ Add Organization</Button>
+          </>
+        }
       >
-        <form className="space-y-4" onSubmit={handleSubmitClick}>
+        <form id="create-organization-form" className="space-y-4" onSubmit={handleSubmitClick}>
           {/* Organization Name */}
           <div>
             <label className={labelCls}>
@@ -244,10 +250,6 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
             </p>
           )}
 
-          <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4">
-            <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
-            <Button isLoading={isSubmitting} type="submit">+ Add Organization</Button>
-          </div>
         </form>
       </ModalShell>
 

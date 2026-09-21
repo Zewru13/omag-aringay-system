@@ -130,8 +130,14 @@ export default function EditOrganizationModal({ organization, type, onClose, onS
         icon={Pencil}
         onClose={onClose}
         maxWidth="max-w-lg"
+        footer={
+          <>
+            <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
+            <Button isLoading={isSubmitting} disabled={isSubmitting || !hasChanges} type="submit" form="edit-organization-form">Update Organization</Button>
+          </>
+        }
       >
-        <form className="space-y-4" onSubmit={handleSubmitClick}>
+        <form id="edit-organization-form" className="space-y-4" onSubmit={handleSubmitClick}>
           {/* Organization Name */}
           <div>
             <label className={labelCls}>
@@ -254,10 +260,6 @@ export default function EditOrganizationModal({ organization, type, onClose, onS
             </p>
           )}
 
-          <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4">
-            <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
-            <Button isLoading={isSubmitting} disabled={isSubmitting || !hasChanges} type="submit">Update Organization</Button>
-          </div>
         </form>
       </ModalShell>
 

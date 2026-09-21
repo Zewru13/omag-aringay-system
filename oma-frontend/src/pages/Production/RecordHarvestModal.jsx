@@ -139,8 +139,24 @@ function RecordHarvestModal({ onClose, onSuccess }) {
   for (let y = 2022; y <= currentYear; y++) yearOptions.push(y.toString())
 
   return (
-    <ModalShell title="Record Harvest" subtitle="Log harvest data for a farmer's parcel" icon={Tractor} onClose={onClose} maxWidth="max-w-2xl">
-      <form className="space-y-4" onSubmit={handleSubmit}>
+    <ModalShell
+      title="Record Harvest"
+      subtitle="Log harvest data for a farmer's parcel"
+      icon={Tractor}
+      onClose={onClose}
+      maxWidth="max-w-2xl"
+      footer={
+        <>
+          <Button onClick={onClose} type="button" variant="ghost">
+            Cancel
+          </Button>
+          <Button isLoading={isSubmitting} type="submit" form="record-harvest-form" variant="primary">
+            Record Harvest
+          </Button>
+        </>
+      }
+    >
+      <form id="record-harvest-form" className="space-y-4" onSubmit={handleSubmit}>
         <div>
           <label className={labelCls}>Select Farmer</label>
           <input
@@ -333,14 +349,6 @@ function RecordHarvestModal({ onClose, onSuccess }) {
           </p>
         )}
 
-        <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
-          <Button onClick={onClose} type="button" variant="ghost">
-            Cancel
-          </Button>
-          <Button isLoading={isSubmitting} type="submit" variant="primary">
-            Record Harvest
-          </Button>
-        </div>
       </form>
     </ModalShell>
   )
