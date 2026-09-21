@@ -8,6 +8,7 @@ import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import CreateUserModal from './CreateUserModal.jsx'
 import EditUserModal from './EditUserModal.jsx'
+import { describeRole } from './userRoleHelpers.js'
 
 const filterSelectCls =
   'border border-[#E2E8E2] rounded-lg px-3 py-[7px] text-[13px] bg-[#F9FAF9] text-[#1A2B1A] focus:outline-none focus:border-[#1B4D2E] focus:ring-2 focus:ring-[#1B4D2E]/10 transition-colors'
@@ -21,27 +22,6 @@ const COLUMNS = [
 ]
 
 const PAGE_SIZE = 10
-
-// Every account shares one User table, but role alone can't tell Admin/
-// Focal Person apart from Farmer/Fisherfolk/Organization — all three of
-// the latter share role=CITIZEN, distinguished by linked_record_type
-// (UserSerializer already resolves this from the account's active
-// UserLinkedRecord — see accounts/views.py's UserListView docstring).
-// FARMERS_ORG and FISHERFOLK_ORG both collapse to plain "Organization",
-// matching the single filter option this screen offers for either.
-function describeRole(u) {
-  if (u.role === 'ADMIN') return { label: 'Admin', tone: 'green' }
-  if (u.role === 'EVALUATOR') return { label: 'Focal Person', tone: 'teal' }
-  if (u.linked_record_type === 'FARMER') return { label: 'Farmer', tone: 'amber' }
-  if (u.linked_record_type === 'FISHERFOLK') return { label: 'Fisherfolk', tone: 'slate' }
-  if (u.linked_record_type === 'FARMERS_ORG' || u.linked_record_type === 'FISHERFOLK_ORG') {
-    return { label: 'Organization', tone: 'rose' }
-  }
-  // Real edge case in the data: a CITIZEN account with no active linked
-  // record at all (e.g. leftover test accounts) — honest fallback rather
-  // than a silent mislabel.
-  return { label: u.role, tone: 'slate' }
-}
 
 export default function UserManagementPage() {
   const { showToast } = useToast()

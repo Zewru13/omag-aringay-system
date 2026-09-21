@@ -4,6 +4,7 @@ import api from '../../api/axiosInstance.js'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { describeRole } from './userRoleHelpers.js'
 
 const labelCls = 'block text-[12px] font-medium text-[#4A5E4A] mb-1'
 
@@ -31,6 +32,12 @@ const validateContact = (value) => {
 }
 
 export default function EditUserModal({ user, onClose, onSuccess }) {
+  // Farmer/Fisherfolk/Organization all share role=CITIZEN on the raw
+  // account — their real type is fixed by how the account was created
+  // (which record it's linked to), never something staff pick here, so
+  // ADMIN/FOCAL PERSON never applies and role is never sent for them.
+  const isCitizen = user.role === 'CITIZEN'
+
   const originalData = {
     email:          user.email || '',
     full_name:      user.full_name || '',
@@ -74,7 +81,9 @@ export default function EditUserModal({ user, onClose, onSuccess }) {
         full_name:      fullName,
         suffix,
         contact_number: contact,
-        role,
+        // Never send role for a citizen account — it isn't editable here
+        // and must never be overwritten to ADMIN/EVALUATOR by accident.
+        ...(isCitizen ? {} : { role }),
         is_active:      isActive,
       })
       onSuccess()
@@ -122,25 +131,34 @@ export default function EditUserModal({ user, onClose, onSuccess }) {
             {contactError && <p className="mt-1 text-[12px] text-[#C0392B]">{contactError}</p>}
           </div>
 
-          {/* Role — cards */}
+          {/* Role — cards for staff; fixed, read-only type for citizens */}
           <div>
-            <label className={labelCls}>Role</label>
-            <div className="mt-1.5 space-y-2">
-              {ROLE_OPTIONS.map(opt => (
-                <div
-                  key={opt.value}
-                  onClick={() => setRole(opt.value)}
-                  className={`cursor-pointer rounded-lg border-2 p-3 transition-all ${
-                    role === opt.value
-                      ? 'border-[#1B4D2E] bg-[#EBF5EE]'
-                      : 'border-[#E2E8E2] bg-white hover:border-[#C8D5C8]'
-                  }`}
-                >
-                  <p className="text-[13px] font-semibold text-[#1A2B1A]">{opt.label}</p>
-                  <p className="text-[12px] text-[#7A8E7A]">{opt.desc}</p>
-                </div>
-              ))}
-            </div>
+            <label className={labelCls}>{isCitizen ? 'Account Type' : 'Role'}</label>
+            {isCitizen ? (
+              <input
+                disabled
+                readOnly
+                value={describeRole(user).label}
+                className={`${baseInputClasses} mt-1.5 cursor-not-allowed bg-[#F5F7F5] text-[#7A8E7A]`}
+              />
+            ) : (
+              <div className="mt-1.5 space-y-2">
+                {ROLE_OPTIONS.map(opt => (
+                  <div
+                    key={opt.value}
+                    onClick={() => setRole(opt.value)}
+                    className={`cursor-pointer rounded-lg border-2 p-3 transition-all ${
+                      role === opt.value
+                        ? 'border-[#1B4D2E] bg-[#EBF5EE]'
+                        : 'border-[#E2E8E2] bg-white hover:border-[#C8D5C8]'
+                    }`}
+                  >
+                    <p className="text-[13px] font-semibold text-[#1A2B1A]">{opt.label}</p>
+                    <p className="text-[12px] text-[#7A8E7A]">{opt.desc}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Status */}
