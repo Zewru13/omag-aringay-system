@@ -209,8 +209,18 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
   }
 
   return (
-    <ModalShell title="Log Individual Assistance" onClose={onClose} widthClassName="max-w-4xl">
-      <form className="space-y-4" onSubmit={handleSubmit}>
+    <ModalShell
+      title="Log Individual Assistance"
+      onClose={onClose}
+      maxWidth="max-w-4xl"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="log-government-assistance-form" isLoading={isSubmitting}>Save Log</Button>
+        </>
+      }
+    >
+      <form id="log-government-assistance-form" className="space-y-4" onSubmit={handleSubmit}>
         <div className="relative z-10">
           <label className="block text-xs text-slate-500 mb-1">
             Find Fisherfolk <span className="text-red-500">*</span>
@@ -341,11 +351,6 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
             onChange={(e) => set('remarks', e.target.value)}
           />
         </FormField>
-
-        <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit" isLoading={isSubmitting}>Save Log</Button>
-        </div>
       </form>
     </ModalShell>
   )

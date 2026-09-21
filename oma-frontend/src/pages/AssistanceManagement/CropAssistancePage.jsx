@@ -220,8 +220,19 @@ function AddAssistanceModal({ onClose, onSuccess }) {
   }
 
   return (
-    <ModalShell title="Log Individual Assistance" subtitle="Record assistance given to a farmer." onClose={onClose} maxWidth="max-w-xl">
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <ModalShell
+      title="Log Individual Assistance"
+      subtitle="Record assistance given to a farmer."
+      onClose={onClose}
+      maxWidth="max-w-xl"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="add-assistance-form" isLoading={isSubmitting}>Save Record</Button>
+        </>
+      }
+    >
+      <form id="add-assistance-form" onSubmit={handleSubmit} className="space-y-4">
         <FarmerSearchInput onSelect={setFarmer} selected={farmer} />
         {farmer.id && <p className="text-[11px] text-[#7A8E7A] -mt-2">Barangay: {farmer.barangay || '—'}</p>}
 
@@ -269,11 +280,6 @@ function AddAssistanceModal({ onClose, onSuccess }) {
         </FormField>
 
         {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
-
-        <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-3">
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit" isLoading={isSubmitting}>Save Record</Button>
-        </div>
       </form>
     </ModalShell>
   )
@@ -347,8 +353,26 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
 
   return (
     <>
-      <ModalShell title="Edit Assistance Record" subtitle={record.farmer_full_name} icon={Pencil} onClose={onClose} maxWidth="max-w-xl">
-        <form onSubmit={handleSubmit} className="space-y-4">
+      <ModalShell
+        title="Edit Assistance Record"
+        subtitle={record.farmer_full_name}
+        icon={Pencil}
+        onClose={onClose}
+        maxWidth="max-w-xl"
+        footer={
+          <>
+            <button type="button" onClick={onClose}
+              className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
+              Cancel
+            </button>
+            <button type="submit" form="edit-assistance-form" disabled={isSubmitting || !isDirty}
+              className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50">
+              {isSubmitting ? 'Saving…' : 'Save Changes'}
+            </button>
+          </>
+        }
+      >
+        <form id="edit-assistance-form" onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <FormField label="Assistance Type" required>
               <select className={baseInputClasses} value={form.assistance_type} onChange={(e) => setAssistanceType(e.target.value)}>
@@ -397,17 +421,6 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
               </button>
             </div>
           )}
-
-          <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-3">
-            <button type="button" onClick={onClose}
-              className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
-              Cancel
-            </button>
-            <button type="submit" disabled={isSubmitting || !isDirty}
-              className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50">
-              {isSubmitting ? 'Saving…' : 'Save Changes'}
-            </button>
-          </div>
         </form>
       </ModalShell>
 
@@ -453,8 +466,20 @@ function MarkResolvedModal({ record, onClose, onResolved }) {
   }
 
   return (
-    <ModalShell title="Mark Resolved" subtitle={record.farmer_full_name} icon={CheckCircle2} onClose={onClose} maxWidth="max-w-lg">
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <ModalShell
+      title="Mark Resolved"
+      subtitle={record.farmer_full_name}
+      icon={CheckCircle2}
+      onClose={onClose}
+      maxWidth="max-w-lg"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="mark-resolved-form" isLoading={isSubmitting}>Mark Resolved</Button>
+        </>
+      }
+    >
+      <form id="mark-resolved-form" onSubmit={handleSubmit} className="space-y-4">
         <div className="rounded-xl border border-[#FBE3E0] bg-[#FDF3F2] px-4 py-3 text-[13px] text-[#8A1F16]">
           <p className="font-semibold">Reason recipient gave: </p>
           <p className="mt-0.5">{record.non_receipt_reason || '—'}</p>
@@ -469,10 +494,6 @@ function MarkResolvedModal({ record, onClose, onResolved }) {
           />
         </FormField>
         {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
-        <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-3">
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit" isLoading={isSubmitting}>Mark Resolved</Button>
-        </div>
       </form>
     </ModalShell>
   )

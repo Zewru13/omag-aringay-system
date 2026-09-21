@@ -207,6 +207,32 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
     return r.status === resultFilter
   })
 
+  // Each step has its own footer shape — 'form'/'result' are a plain
+  // trailing button pair (matches ModalShell's own justify-end footer),
+  // 'confirm' is a Back link on the left plus a primary action on the
+  // right, so that one content wraps itself in a full-width row to get
+  // justify-between despite the footer slot's own justify-end.
+  const footerContent = step === 'form' ? (
+    <>
+      <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+      <Button type="submit" form="distribute-assistance-form" isLoading={isBusy}>
+        Review Distribution <ArrowRight size={14} className="ml-0.5" aria-hidden="true" />
+      </Button>
+    </>
+  ) : step === 'confirm' ? (
+    <div className="flex w-full items-center justify-between">
+      <button type="button" onClick={() => setStep('form')} className="inline-flex items-center gap-1 text-[13px] font-medium text-[#7A8E7A] hover:text-[#1A2B1A] transition-colors">
+        <ArrowLeft size={14} aria-hidden="true" /> Back to Edit
+      </button>
+      <Button type="button" isLoading={isBusy} onClick={handleConfirm}>Confirm and Distribute</Button>
+    </div>
+  ) : (
+    <>
+      <Button type="button" variant="outline" onClick={onClose}>Close</Button>
+      <Button type="button" onClick={handleStartNew}>Start New Distribution</Button>
+    </>
+  )
+
   return (
     <ModalShell
       title="Distribute to Organization"
@@ -214,11 +240,12 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
       icon={Users}
       onClose={onClose}
       maxWidth="max-w-3xl"
+      footer={footerContent}
     >
       <StepIndicator steps={STEPS} currentIndex={STEP_INDEX[step]} />
 
       {step === 'form' && (
-        <form onSubmit={handlePreview} className="stagger-item mt-6 space-y-4">
+        <form id="distribute-assistance-form" onSubmit={handlePreview} className="stagger-item mt-6 space-y-4">
           <div className="rounded-2xl border border-[#E2E8E2] bg-white p-5">
             <SectionEyebrow>Target Organization</SectionEyebrow>
             <FormField label={domain.orgLabel} required pillLabel>
@@ -340,13 +367,6 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
           </div>
 
           {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
-
-          <div className="flex justify-end gap-2 pt-1">
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit" isLoading={isBusy}>
-              Review Distribution <ArrowRight size={14} className="ml-0.5" aria-hidden="true" />
-            </Button>
-          </div>
         </form>
       )}
 
@@ -423,13 +443,6 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
           </div>
 
           {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
-
-          <div className="flex items-center justify-between pt-1">
-            <button type="button" onClick={() => setStep('form')} className="inline-flex items-center gap-1 text-[13px] font-medium text-[#7A8E7A] hover:text-[#1A2B1A] transition-colors">
-              <ArrowLeft size={14} aria-hidden="true" /> Back to Edit
-            </button>
-            <Button type="button" isLoading={isBusy} onClick={handleConfirm}>Confirm and Distribute</Button>
-          </div>
         </div>
       )}
 
@@ -485,11 +498,6 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
           </div>
 
           {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
-
-          <div className="flex justify-end gap-2 pt-1">
-            <Button type="button" variant="outline" onClick={onClose}>Close</Button>
-            <Button type="button" onClick={handleStartNew}>Start New Distribution</Button>
-          </div>
         </div>
       )}
     </ModalShell>
