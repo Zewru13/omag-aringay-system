@@ -180,9 +180,21 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
 
   return (
     <>
-      <ModalShell title="Edit Fisherfolk" subtitle="Update the fisherfolk's profile information" icon={Fish} onClose={onClose} maxWidth="max-w-2xl">
+      <ModalShell
+        title="Edit Fisherfolk"
+        subtitle="Update the fisherfolk's profile information"
+        icon={Fish}
+        onClose={onClose}
+        maxWidth="max-w-2xl"
+        footer={
+          <>
+            <Button onClick={onClose} type="button" variant="ghost">Cancel</Button>
+            <Button isLoading={isSubmitting} type="submit" form="edit-fisherfolk-form" variant="primary">Save Changes</Button>
+          </>
+        }
+      >
         <p className="mb-4 text-sm text-slate-500">{fisherfolk.lgu_registration_number || 'No LGU number assigned'}</p>
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form id="edit-fisherfolk-form" onSubmit={handleSubmit} className="space-y-5">
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <FormLabel className={labelCls}>Prefix</FormLabel>
@@ -365,10 +377,6 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
             </p>
           )}
 
-          <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
-            <Button onClick={onClose} type="button" variant="ghost">Cancel</Button>
-            <Button isLoading={isSubmitting} type="submit" variant="primary">Save Changes</Button>
-          </div>
         </form>
       </ModalShell>
     </>

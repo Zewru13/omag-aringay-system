@@ -243,8 +243,20 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
   ]
 
   return (
-    <ModalShell title="Register Fisherfolk" subtitle="Fill in the fisherfolk's details below" icon={Fish} onClose={onClose} maxWidth="max-w-3xl">
-      <form onSubmit={handleSubmit} className="space-y-5">
+    <ModalShell
+      title="Register Fisherfolk"
+      subtitle="Fill in the fisherfolk's details below"
+      icon={Fish}
+      onClose={onClose}
+      maxWidth="max-w-3xl"
+      footer={
+        <>
+          <Button onClick={onClose} type="button" variant="ghost">Cancel</Button>
+          <Button isLoading={isSubmitting} type="submit" form="add-fisherfolk-form" variant="primary">Save Fisherfolk</Button>
+        </>
+      }
+    >
+      <form id="add-fisherfolk-form" onSubmit={handleSubmit} className="space-y-5">
         <Section title="Personal Information">
           <div className="grid gap-4 md:grid-cols-2">
             <div>
@@ -592,10 +604,6 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
           </div>
         )}
 
-        <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4">
-          <Button onClick={onClose} type="button" variant="ghost">Cancel</Button>
-          <Button isLoading={isSubmitting} type="submit" variant="primary">Save Fisherfolk</Button>
-        </div>
       </form>
     </ModalShell>
   )

@@ -583,8 +583,21 @@ function AddFarmParcelModal({ farmerId, onClose, onSuccess }) {
 
   return (
     <>
-      <ModalShell title="Add Farm Parcel(s)" subtitle="Add one or more parcels in a single submission" onClose={onClose} maxWidth="max-w-2xl">
-        <form onSubmit={handleSubmit} className="space-y-5">
+      <ModalShell
+        title="Add Farm Parcel(s)"
+        subtitle="Add one or more parcels in a single submission"
+        onClose={onClose}
+        maxWidth="max-w-2xl"
+        footer={
+          <>
+            <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+            <Button type="submit" form="add-farm-parcel-form" isLoading={isSaving}>
+              Save {parcels.length} Parcel{parcels.length > 1 ? 's' : ''}
+            </Button>
+          </>
+        }
+      >
+        <form id="add-farm-parcel-form" onSubmit={handleSubmit} className="space-y-5">
           {parcels.map((p, i) => (
             <ParcelSection
               key={p._id}
@@ -606,12 +619,6 @@ function AddFarmParcelModal({ farmerId, onClose, onSuccess }) {
             <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-medium text-red-700">{error}</p>
           )}
 
-          <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4">
-            <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-            <Button type="submit" isLoading={isSaving}>
-              Save {parcels.length} Parcel{parcels.length > 1 ? 's' : ''}
-            </Button>
-          </div>
         </form>
       </ModalShell>
 

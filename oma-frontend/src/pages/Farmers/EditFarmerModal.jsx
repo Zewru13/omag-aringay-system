@@ -169,8 +169,20 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
   }
 
   return (
-    <ModalShell title="Edit Farmer" subtitle="Update the farmer's profile information" icon={UserCog} onClose={onClose} maxWidth="max-w-3xl">
-      <form onSubmit={handleSubmit} className="space-y-5">
+    <ModalShell
+      title="Edit Farmer"
+      subtitle="Update the farmer's profile information"
+      icon={UserCog}
+      onClose={onClose}
+      maxWidth="max-w-3xl"
+      footer={
+        <>
+          <Button onClick={onClose} type="button" variant="ghost">Cancel</Button>
+          <Button isLoading={isSubmitting} disabled={isSubmitting || !isDirty} type="submit" form="edit-farmer-form" variant="primary">Save Changes</Button>
+        </>
+      }
+    >
+      <form id="edit-farmer-form" onSubmit={handleSubmit} className="space-y-5">
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <FormLabel>Prefix</FormLabel>
@@ -376,10 +388,6 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
           </p>
         )}
 
-        <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4">
-          <Button onClick={onClose} type="button" variant="ghost">Cancel</Button>
-          <Button isLoading={isSubmitting} disabled={isSubmitting || !isDirty} type="submit" variant="primary">Save Changes</Button>
-        </div>
       </form>
     </ModalShell>
   )
