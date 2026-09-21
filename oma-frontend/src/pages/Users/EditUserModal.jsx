@@ -98,7 +98,25 @@ export default function EditUserModal({ user, onClose, onSuccess }) {
 
   return (
     <>
-      <ModalShell title="Edit User" subtitle={user.full_name} icon={Pencil} onClose={onClose} maxWidth="max-w-md">
+      <ModalShell
+        title="Edit User"
+        subtitle={user.full_name}
+        icon={Pencil}
+        onClose={onClose}
+        maxWidth="max-w-md"
+        footer={
+          <>
+            <button type="button" onClick={onClose}
+              className="rounded-lg px-4 py-2 text-[13px] font-medium text-[#4A5E4A] border border-[#C8D5C8] hover:bg-[#F5F7F5] transition-colors">
+              Cancel
+            </button>
+            <button type="button" disabled={isSubmitting || !hasChanges} onClick={() => setShowConfirm(true)}
+              className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38] disabled:opacity-50">
+              Save Changes
+            </button>
+          </>
+        }
+      >
         <div className="space-y-4">
           {/* Email */}
           <div>
@@ -176,17 +194,6 @@ export default function EditUserModal({ user, onClose, onSuccess }) {
               {error}
             </p>
           )}
-
-          <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4">
-            <button type="button" onClick={onClose}
-              className="rounded-lg px-4 py-2 text-[13px] font-medium text-[#4A5E4A] border border-[#C8D5C8] hover:bg-[#F5F7F5] transition-colors">
-              Cancel
-            </button>
-            <button type="button" disabled={isSubmitting || !hasChanges} onClick={() => setShowConfirm(true)}
-              className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38] disabled:opacity-50">
-              Save Changes
-            </button>
-          </div>
         </div>
       </ModalShell>
 
