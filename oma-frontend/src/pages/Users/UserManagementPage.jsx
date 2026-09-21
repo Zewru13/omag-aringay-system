@@ -85,7 +85,7 @@ export default function UserManagementPage() {
     try {
       await api.post(`/accounts/users/${u.id}/reactivate/`)
       showToast(`${u.full_name} reactivated.`, 'success')
-      fetchUsers(page)
+      fetchUsers(page, search, roleFilter)
     } catch (err) {
       showToast(err.response?.data?.detail || 'Failed to reactivate user.', 'error')
     } finally {
@@ -290,14 +290,14 @@ export default function UserManagementPage() {
       {showCreateModal && (
         <CreateUserModal
           onClose={() => setShowCreateModal(false)}
-          onSuccess={() => { setShowCreateModal(false); fetchUsers() }}
+          onSuccess={() => { setShowCreateModal(false); fetchUsers(page, search, roleFilter) }}
         />
       )}
       {editUser && (
         <EditUserModal
           user={editUser}
           onClose={() => setEditUser(null)}
-          onSuccess={() => { setEditUser(null); fetchUsers() }}
+          onSuccess={() => { setEditUser(null); fetchUsers(page, search, roleFilter) }}
         />
       )}
     </PageLayout>
