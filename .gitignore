@@ -19,5 +19,10 @@ skills-lock.json
 # Local pre-migration DB dumps (mysqldump backups, not source)
 db_backups/
 
+# Any database dump/export anywhere in the tree, not just db_backups/ —
+# catches loose exports left in the repo root (found unprotected during the
+# 2026-09-25 pre-push security audit) as well as future ones.
+*.sql
+
 # User-uploaded media (Django MEDIA_ROOT) — runtime content, not source
 oma_aringay/media/

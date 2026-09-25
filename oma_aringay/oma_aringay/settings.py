@@ -12,7 +12,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # not configured", not a crash.
 load_dotenv(BASE_DIR / '.env')
 
-SECRET_KEY = 'django-insecure-4-+29wh_&-=7i%8549bzd*5j2d(mvjvjfk6@-4-49v%63)8-0l'
+# Security remediation (2026-09-26): was a hardcoded, auto-generated
+# "django-insecure-" dev key, committed since the project's first commit.
+# Read from the environment now, same as DB_BACKEND/SUPABASE_DB_* below —
+# no insecure fallback here, since unlike those a missing SECRET_KEY has no
+# safe default to fall back to (it signs sessions, CSRF tokens, and
+# password-reset tokens). Set a fresh one via
+# django.core.management.utils.get_random_secret_key() in oma_aringay/.env.
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    raise RuntimeError(
+        'SECRET_KEY is not set. Generate one with '
+        '`python -c "from django.core.management.utils import get_random_secret_key; '
+        'print(get_random_secret_key())"` and add it to oma_aringay/.env.'
+    )
 
 DEBUG = True
 
