@@ -12,6 +12,20 @@ from core.constants import BARANGAY_CHOICES
 from core.validators import validate_fishr, validate_lgu_reg, validate_rsbsa
 
 
+def calculate_estimated_harvest_kg(number_of_fingerlings, survival_rate_pct, avg_body_weight_kg):
+    """The single estimated-harvest formula (StockingRecord.estimated_harvest_kg and the
+    Production Cycle's Estimated Harvest Biomass both use it):
+    fingerlings x (survival rate % / 100) x average body weight (kg), rounded to 0.01.
+    Returns None when any input is missing - nothing is guessed."""
+    if number_of_fingerlings is None or survival_rate_pct is None or avg_body_weight_kg is None:
+        return None
+    return (
+        Decimal(str(number_of_fingerlings))
+        * (Decimal(str(survival_rate_pct)) / Decimal('100'))
+        * Decimal(str(avg_body_weight_kg))
+    ).quantize(Decimal('0.01'))
+
+
 # ─── Fisherfolk ───────────────────────────────────────────────────────────────
 
 class Fisherfolk(models.Model):
@@ -265,6 +279,13 @@ class SpeciesOption(models.Model):
     category                  = models.ForeignKey(SpeciesCategory, on_delete=models.CASCADE, related_name='species')
     culture_environment       = models.CharField(max_length=20, choices=CultureEnvironment.choices)
     culture_duration_days     = models.IntegerField()
+    # DEPRECATED / UNUSED: Recommended Stocking Density was removed from the application (not in any
+    # serializer or form). The nullable column stays in the schema so no migration is needed.
+    recommended_stocking_density = models.DecimalField(
+        max_digits=8, decimal_places=2, null=True, blank=True,
+        help_text='Recommended fingerlings per square meter for this species. NULL until configured '
+                  '- production-cycle forms show no recommendation for a species without one.',
+    )
     default_survival_rate_pct = models.DecimalField(max_digits=5, decimal_places=2)
     default_avg_body_weight_kg = models.DecimalField(max_digits=8, decimal_places=3)
     # Batch 4 — PROVISIONAL generic default (every species defaults to daily
@@ -289,6 +310,14 @@ class SpeciesOption(models.Model):
 
     def __str__(self):
         return self.species_name
+
+    def estimate_harvest_kg(self, fingerlings):
+        """Estimate for a NEW stocking of `fingerlings` of this species: the species' configured
+        default survival rate and average body weight - exactly what StockingRecord.save()
+        copies onto a new record. Same shared formula."""
+        return calculate_estimated_harvest_kg(
+            fingerlings, self.default_survival_rate_pct, self.default_avg_body_weight_kg,
+        )
 
     def growth_stage_for_day(self, days_since_stocking):
         """None if days_since_stocking is unknown or the three thresholds
@@ -493,6 +522,13 @@ class StockingRecord(models.Model):
                    'water_source below stay the source of truth for reads; when pond is set, save() '
                    'overwrites them from the Pond so they never drift out of sync.',
     )
+    # NEW (not part of the restored 4da000a0 code): optional link to the restored
+    # monitoring.AquacultureProductionCycle. Nullable so every existing record is
+    # untouched; SET_NULL so deleting a cycle never deletes stocking data.
+    production_cycle        = models.ForeignKey(
+        'monitoring.AquacultureProductionCycle', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='stocking_records',
+    )
     pond_location_barangay  = models.CharField(max_length=100, blank=True, default='')
     land_status             = models.CharField(max_length=20, choices=LAND_STATUS_CHOICES, blank=True)
     land_status_other_specify = models.CharField(max_length=150, blank=True)
@@ -578,14 +614,11 @@ class StockingRecord(models.Model):
                 pass
 
         # Compute estimated_harvest_kg
-        if (self.number_of_fingerlings is not None
-                and self.survival_rate_pct is not None
-                and self.avg_body_weight_kg is not None):
-            self.estimated_harvest_kg = (
-                Decimal(str(self.number_of_fingerlings))
-                * (Decimal(str(self.survival_rate_pct)) / Decimal('100'))
-                * Decimal(str(self.avg_body_weight_kg))
-            ).quantize(Decimal('0.01'))
+        estimate = calculate_estimated_harvest_kg(
+            self.number_of_fingerlings, self.survival_rate_pct, self.avg_body_weight_kg,
+        )
+        if estimate is not None:
+            self.estimated_harvest_kg = estimate
 
         # Auto-transition: Stocked → Near Harvest when within 7 days of expected harvest.
         # Skipped when date_stocked is only an estimate — see date_stocked_is_estimated's
@@ -619,9 +652,39 @@ class StockingRecord(models.Model):
         ).count()
         return prior + 1
 
+    def _harvested_unit_ids(self):
+        from monitoring.models import AquacultureProductionUnit
+        return set(AquacultureProductionUnit.objects.filter(harvest_records__stocking_record=self).values_list('id', flat=True))
+
+    def harvest_units(self):
+        """For the linked production cycle's ponds/cages: is each under Force Harvest (from ITS OWN
+        Health Log), why, and has it already been harvested (listed on a harvest record)."""
+        if not self.production_cycle_id:
+            return []
+        from monitoring.models import AquacultureProductionUnit, cycle_force_status
+        force, _ = cycle_force_status(self.production_cycle_id)
+        harvested = self._harvested_unit_ids()
+        return [
+            {
+                'id': u.id, 'label': f'{u.get_unit_type_display()} {u.unit_number}',
+                'force_harvest': u.id in force, 'reasons': force.get(u.id, []), 'harvested': u.id in harvested,
+            }
+            for u in AquacultureProductionUnit.objects.filter(production_cycle_id=self.production_cycle_id).order_by('unit_number')
+        ]
+
+    def has_pending_force_harvest(self):
+        """True while a mortality/disease condition still awaits harvest: an affected unit not yet
+        harvested, or a legacy log not tied to any unit (cycle-level behaviour, as before)."""
+        if not self.production_cycle_id:
+            return False
+        from monitoring.models import cycle_force_status
+        force, unassigned = cycle_force_status(self.production_cycle_id)
+        return unassigned or any(uid not in self._harvested_unit_ids() for uid in force)
+
     def determine_status(self):
         """Pick the correct status for this record after total-loss reversal."""
-        if self.harvests.exists():
+        # Only a FINAL harvest closes the record - a partial (e.g. force-harvest of some ponds) does not.
+        if self.harvests.filter(is_final=True).exists():
             return self.Status.HARVESTED
         if self.expected_harvest_date and not self.date_stocked_is_estimated:
             days_remaining = (self.expected_harvest_date - date.today()).days
@@ -1003,6 +1066,11 @@ class FisheriesHarvestRecord(models.Model):
         help_text='Days early (negative) or late (positive) vs. expected harvest date — final harvest only',
     )
     early_late_reason       = models.CharField(max_length=255, blank=True)
+    # Force Harvest: the affected ponds/cages this ONE harvest covers (quantity_kg is their combined
+    # total). Empty for a normal harvest, which keeps working exactly as before.
+    production_units        = models.ManyToManyField(
+        'monitoring.AquacultureProductionUnit', blank=True, related_name='harvest_records',
+    )
     notes                   = models.TextField(blank=True)
     recorded_by             = models.ForeignKey(
         settings.AUTH_USER_MODEL,

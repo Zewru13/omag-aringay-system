@@ -8,7 +8,6 @@ import {
   FileBarChart,
   Fish,
   HandHeart,
-  HeartPulse,
   History,
   LayoutDashboard,
   Leaf,
@@ -51,7 +50,6 @@ const REPORTS_GROUP = {
     { to: "/reports?tab=crop_options", icon: Leaf, label: "Crop Options" },
     { to: "/reports?tab=fisheries", icon: Fish, label: "Fisheries Production" },
     { to: "/reports?tab=farmer_crop_history", icon: History, label: "Farmer Crop History" },
-    { to: "/reports?tab=fisherfolk_stocking_history", icon: Fish, label: "Fisherfolk Stocking History" },
   ],
 };
 
@@ -96,7 +94,6 @@ const GROUPS = [
     icon: Waves,
     items: [
       { to: "/fisheries-monitoring", icon: Activity, label: "Fisheries Monitoring" },
-      { to: "/fisheries-health-monitoring", icon: HeartPulse, label: "Health & Feeding Monitoring" },
     ],
   },
   {
@@ -128,7 +125,7 @@ const ADMIN_GROUP = {
     { to: "/crop-settings", icon: Leaf, label: "Crop Settings" },
     { to: "/fisheries-settings", icon: Settings2, label: "Fisheries Settings" },
     { to: "/activity-settings", icon: Activity, label: "Activity Settings" },
-    { to: "/users", icon: UserCog, label: "User Management" },
+    { to: "/users", icon: UserCog, label: "Users" },
   ],
 };
 

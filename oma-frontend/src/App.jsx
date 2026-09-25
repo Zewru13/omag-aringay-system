@@ -28,7 +28,6 @@ import CropSettingsHub from "./pages/CropSettings/CropSettingsHub.jsx";
 import ActivitySettingsHub from "./pages/ActivitySettings/ActivitySettingsHub.jsx";
 import UserManagementPage from "./pages/Users/UserManagementPage.jsx";
 import HelpPage from "./pages/Help/HelpPage.jsx";
-import HealthMonitoringPage from "./pages/HealthMonitoring/HealthMonitoringPage.jsx";
 import CropAssistancePage from "./pages/AssistanceManagement/CropAssistancePage.jsx";
 import FisheriesAssistancePage from "./pages/AssistanceManagement/FisheriesAssistancePage.jsx";
 import CitizenHomePage from "./pages/Citizen/CitizenHomePage.jsx";
@@ -58,12 +57,10 @@ function App() {
             path="/change-password"
             element={
               // ADMIN/EVALUATOR accounts start must_change_password=True
-              // (UserCreateView), and CITIZEN accounts (Farmer/Fisherfolk/
-              // Organization) do too as of their first "Set Up Account"
-              // activation (SetCitizenPasswordView) — ProtectedRoute
-              // redirects any of them here on their first authenticated
-              // request. See ProtectedRoute's own comment for why this
-              // never re-fires after that first login.
+              // (UserCreateView) — ProtectedRoute redirects them here on
+              // their first authenticated request. CITIZEN is still allowed
+              // through this route for completeness, but ProtectedRoute
+              // never forces a CITIZEN here — see its own comment.
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR", "CITIZEN"]}>
                 <ForceChangePasswordPage />
               </ProtectedRoute>
@@ -181,15 +178,6 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
                 <AddStockingPage />
-              </ProtectedRoute>
-            }
-          />
-          {/* Health & Feeding Monitoring (Batch 4) */}
-          <Route
-            path="/fisheries-health-monitoring"
-            element={
-              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
-                <HealthMonitoringPage />
               </ProtectedRoute>
             }
           />

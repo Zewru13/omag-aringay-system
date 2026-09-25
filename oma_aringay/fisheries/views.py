@@ -50,7 +50,6 @@ from .serializers import (
     FisheriesHarvestRecordSerializer,
     FishingTripLogSerializer,
     GeneralDisasterReportSerializer,
-    HealthMonitoringSerializer,
     PondSerializer,
     SpeciesActivityStageSerializer,
     SpeciesCategorySerializer,
@@ -181,8 +180,7 @@ class SpeciesCategoryListCreateView(generics.ListCreateAPIView):
     serializer_class = SpeciesCategorySerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     pagination_class = None
-    # Newest-first — see production.views.CropTypeListView's own comment.
-    queryset = SpeciesCategory.objects.order_by('-id')
+    queryset = SpeciesCategory.objects.order_by('name')
 
 
 class SpeciesCategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -196,8 +194,7 @@ class SpeciesCategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
 class FisheriesActivityTypeListCreateView(generics.ListCreateAPIView):
     serializer_class = FisheriesActivityTypeSerializer
     pagination_class = None
-    # Newest-first — see production.views.CropTypeListView's own comment.
-    queryset = FisheriesActivityType.objects.all().order_by('-id')
+    queryset = FisheriesActivityType.objects.all().order_by('name')
 
     def get_permissions(self):
         # GET is read by every activity-logging surface, staff and citizen
@@ -218,16 +215,30 @@ class FisheriesActivityTypeDetailView(generics.RetrieveUpdateAPIView):
 
 # ─── Species Option ───────────────────────────────────────────────────────────
 
+class StockingFormOptionsView(APIView):
+    """Read-only Pond Location / Water Source options for the Start Production Cycle form.
+
+    Serves the backend's own authoritative lists - core.constants.BARANGAY_CHOICES and
+    fisheries.models.WATER_SOURCE_CHOICES - i.e. exactly the values StockingRecord validates
+    against, so the dropdowns can never offer something the backend rejects."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from core.constants import BARANGAY_CHOICES
+        from .models import WATER_SOURCE_CHOICES
+        return Response({
+            'barangays': [value for value, _ in BARANGAY_CHOICES],
+            'water_sources': [value for value, _ in WATER_SOURCE_CHOICES],
+        })
+
+
 class SpeciesOptionListCreateView(generics.ListCreateAPIView):
     serializer_class = SpeciesOptionSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     pagination_class = None
 
     def get_queryset(self):
-        # Newest-first, matching every other list in this app — see
-        # production.views.CropTypeListView's own comment (this table had
-        # the same alphabetical-order omission).
-        qs = SpeciesOption.objects.select_related('category').prefetch_related('stages').order_by('-id')
+        qs = SpeciesOption.objects.select_related('category').prefetch_related('stages').order_by('species_name')
         category_id = self.request.query_params.get('category_id')
         if category_id:
             qs = qs.filter(category_id=category_id)
@@ -281,8 +292,7 @@ class FeedTypeListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         # Same species-scoping pattern as DiseaseTypeListCreateView (Batch C).
-        # Newest-first — see production.views.CropTypeListView's own comment.
-        qs = FeedType.objects.order_by('-id')
+        qs = FeedType.objects.order_by('name')
         species_id = self.request.query_params.get('species')
         if species_id:
             qs = qs.filter(species_options__id=species_id)
@@ -312,8 +322,7 @@ class DiseaseTypeListCreateView(generics.ListCreateAPIView):
         return [IsAuthenticated()]
 
     def get_queryset(self):
-        # Newest-first — see production.views.CropTypeListView's own comment.
-        qs = DiseaseType.objects.order_by('-id')
+        qs = DiseaseType.objects.order_by('name')
         species_id = self.request.query_params.get('species')
         if species_id:
             qs = qs.filter(species_options__id=species_id)
@@ -341,15 +350,7 @@ class DiseaseResponseGuideListCreateView(generics.ListCreateAPIView):
         return [IsAuthenticated()]
 
     def get_queryset(self):
-        # Newest-first for consistency with every other reference-data list
-        # in this app — see production.views.CropTypeListView's own comment.
-        # Every real consumer (DiseaseSettingsPage.jsx, CitizenHealthLogScreen.jsx,
-        # StockingMonitoringModals.jsx) either looks this up by disease_type id
-        # or scopes the query to one disease_type (at most 1 real row), so this
-        # ordering has no observable effect today — changed anyway so the
-        # queryset doesn't silently rely on alphabetical order if a multi-row
-        # consumer is ever added.
-        qs = DiseaseResponseGuide.objects.select_related('disease_type').order_by('-id')
+        qs = DiseaseResponseGuide.objects.select_related('disease_type').order_by('disease_type__name')
         disease_type_id = self.request.query_params.get('disease_type')
         if disease_type_id:
             qs = qs.filter(disease_type_id=disease_type_id)
@@ -467,7 +468,8 @@ class StockingListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         qs = StockingRecord.objects.select_related(
-            'fisherfolk', 'species', 'species__category', 'recorded_by',
+            'fisherfolk', 'species', 'species__category', 'recorded_by', 'production_cycle',
+            'production_cycle__organization',
         ).prefetch_related('logs', 'disaster_reports', 'harvests').order_by('-date_recorded', '-id')
 
         if self.request.user.role == 'CITIZEN':
@@ -491,6 +493,8 @@ class StockingListCreateView(generics.ListCreateAPIView):
             qs = qs.filter(year=params['year'])
         if params.get('fisherfolk'):
             qs = qs.filter(fisherfolk_id=params['fisherfolk'])
+        if params.get('species'):
+            qs = qs.filter(species_id=params['species'])
         if params.get('barangay'):
             qs = qs.filter(pond_location_barangay__iexact=params['barangay'])
         if params.get('search'):
@@ -815,35 +819,11 @@ class StockingHistoryView(generics.ListAPIView):
         return qs
 
 
-class HealthMonitoringListView(generics.ListAPIView):
-    """Batch 4 — active stocking records with a health/feeding summary for
-    the Health & Feeding Monitoring table. Reuses HealthMonitoringSerializer
-    (built on StockingRecordSerializer, no new storage) — full per-record
-    history is the existing stocking/<id>/logs/ endpoint, same data
-    ViewStockingLogsModal already reads."""
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    serializer_class = HealthMonitoringSerializer
-    pagination_class = None
-
-    def get_queryset(self):
-        qs = StockingRecord.objects.filter(
-            status__in=[StockingRecord.Status.STOCKED, StockingRecord.Status.NEAR_HARVEST],
-        ).select_related('fisherfolk', 'pond', 'species').prefetch_related('logs').order_by(
-            'fisherfolk__last_name', 'fisherfolk__first_name', '-date_stocked',
-        )
-        params = self.request.query_params
-        if params.get('fisherfolk'):
-            qs = qs.filter(fisherfolk_id=params['fisherfolk'])
-        if params.get('barangay'):
-            qs = qs.filter(pond_location_barangay__iexact=params['barangay'])
-        return qs
-
-
 class StockingDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     queryset = StockingRecord.objects.select_related(
         'fisherfolk', 'species', 'species__category', 'recorded_by',
-    ).prefetch_related('logs', 'disaster_reports', 'harvests')
+    ).prefetch_related('logs', 'disaster_reports', 'harvests', 'harvests__production_units')
 
     def get_serializer_class(self):
         if self.request.method == 'GET':
@@ -1201,6 +1181,12 @@ class StockingHarvestListCreateView(generics.ListCreateAPIView):
                     {'detail': 'Cannot record harvest for a Total Loss record — the stock was completely destroyed.'},
                     status=drf_status.HTTP_400_BAD_REQUEST,
                 )
+            # A cycle is harvested once: no further harvest (partial or final) after the final one.
+            if record.status == StockingRecord.Status.HARVESTED or record.harvests.filter(is_final=True).exists():
+                return Response(
+                    {'detail': 'This production cycle has already been harvested. A harvest cannot be recorded twice.'},
+                    status=drf_status.HTTP_400_BAD_REQUEST,
+                )
             # date_stocked is only an approximation for records with
             # date_stocked_is_estimated=True (see the field's own comment) —
             # the 50%-duration math below would be measuring against a
@@ -1216,9 +1202,20 @@ class StockingHarvestListCreateView(generics.ListCreateAPIView):
                     )},
                     status=drf_status.HTTP_400_BAD_REQUEST,
                 )
+            # Force Harvest (an affected pond/cage still awaiting harvest, per the cycle's Health Log)
+            # lifts only this waiting rule, so it can be recorded before half the culture duration.
+            # A request naming ponds/cages is checked unit by unit in the serializer, which only accepts
+            # affected, not-yet-harvested units of this cycle.
             is_gated, message = harvest_gate_status(record.date_stocked, record.expected_harvest_date)
-            if is_gated:
-                return Response({'detail': message}, status=drf_status.HTTP_400_BAD_REQUEST)
+            names_units = bool(request.data.get('production_units'))
+            if is_gated and not names_units:
+                # Force Harvest is unit-specific: one affected pond must NOT unlock a normal harvest of the
+                # whole cycle before 50%. The only exception is the legacy case of a mortality/disease log
+                # that was never tied to any pond/cage (cycle-level behaviour, as before).
+                from monitoring.models import cycle_force_status
+                _, legacy_unassigned_force = cycle_force_status(record.production_cycle_id)
+                if not legacy_unassigned_force:
+                    return Response({'detail': message}, status=drf_status.HTTP_400_BAD_REQUEST)
         except StockingRecord.DoesNotExist:
             pass
         assert_not_locked_by_other(request.user, 'stocking', stocking_id)
