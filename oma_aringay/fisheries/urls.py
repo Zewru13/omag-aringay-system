@@ -18,10 +18,10 @@ from .views import (
     FisheriesHistoricalTimelineView,
     FisheriesYieldAnalysisView,
     FisheriesYieldAnalysisSummaryView,
-    StockingFormOptionsView,
     FishingTripLogDetailView,
     FishingTripLogListCreateView,
     FishingTripSummaryView,
+    HealthMonitoringListView,
     PondBulkCreateView,
     PondDetailView,
     PondListCreateView,
@@ -84,12 +84,12 @@ urlpatterns = [
     path('disease-response-guides/<int:pk>/', DiseaseResponseGuideDetailView.as_view(), name='disease-response-guide-detail'),
 
     # ── Stocking records ────────────────────────────────────────────────────
-    path('stocking/form-options/', StockingFormOptionsView.as_view(), name='stocking-form-options'),
     path('stocking/', StockingListCreateView.as_view(), name='stocking-list'),
     path('stocking/bulk/', StockingBulkCreateView.as_view(), name='stocking-bulk-create'),
     path('stocking/forecasting/template/', StockingForecastingTemplateView.as_view(), name='stocking-forecasting-template'),
     path('stocking/forecasting/import/', StockingForecastingImportView.as_view(), name='stocking-forecasting-import'),
     path('stocking/history/', StockingHistoryView.as_view(), name='stocking-history'),
+    path('health-monitoring/', HealthMonitoringListView.as_view(), name='health-monitoring-list'),
     path('stocking/<int:pk>/', StockingDetailView.as_view(), name='stocking-detail'),
 
     # ── Nested stocking sub-resources ───────────────────────────────────────

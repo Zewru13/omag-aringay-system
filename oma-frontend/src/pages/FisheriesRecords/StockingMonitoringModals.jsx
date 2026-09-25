@@ -1306,7 +1306,6 @@ export function StockingDisasterReportModal({ record, onClose, onSuccess }) {
               onChange={e => setPhoto(e.target.files?.[0] || null)} />
             <p className="mt-1 text-xs text-slate-400">JPG, PNG, or WEBP, up to 5 MB.</p>
           </div>
-
         </div>
       </ModalShell>
 
@@ -1327,19 +1326,10 @@ export function StockingDisasterReportModal({ record, onClose, onSuccess }) {
 
 export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
   const { showToast } = useToast()
-  // Force Harvest is unit-aware: only the ponds/cages affected by fish mortality or disease (per the
-  // cycle's Health Log) and not yet harvested are included. Unaffected units are never harvested.
-  const harvestUnits = record.harvest_units || []
-  const forceUnits = harvestUnits.filter(u => u.force_harvest && !u.harvested)
-  const unitMode = forceUnits.length > 0
-  const notIncludedUnits = harvestUnits.filter(u => !forceUnits.includes(u))
-  const forceUnitNames = forceUnits.map(u => u.label).join(', ')
-  // The reason comes from the Health Log condition(s) - never typed again.
-  const forceReason = [...new Set(forceUnits.flatMap(u => u.reasons))].join('; ')
   const [harvestDate,       setHarvestDate]       = useState(todayISO())
   const [quantityKg,        setQuantityKg]        = useState('')
   const [avgBodyWeightKg,   setAvgBodyWeightKg]   = useState('')
-  const [areaOrUnits,       setAreaOrUnits]       = useState(unitMode ? forceUnitNames : '')
+  const [areaOrUnits,       setAreaOrUnits]       = useState('')
   const [notes,             setNotes]             = useState('')
   const [earlyLateReason,   setEarlyLateReason]   = useState('')
   const [showConfirm,       setShowConfirm]       = useState(false)
@@ -1384,14 +1374,14 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
     : null
   const isEarly = harvestVarianceDays !== null && harvestVarianceDays < -7
   const isLate = harvestVarianceDays !== null && harvestVarianceDays > 7
-  const reasonRequired = !unitMode && (isEarly || isLate)
+  const reasonRequired = isEarly || isLate
   const EARLY_REASONS = ['Emergency harvest — disaster damage', 'Buyer demand', 'Crop matured early', 'Other']
   const LATE_REASONS = ['Delayed field visit', 'Weather', 'Labor unavailable', 'Other']
 
   const validateQuantity = (val) => {
-    if (!val) return 'Actual harvest (kg) is required.'
+    if (!val) return 'Quantity harvested is required.'
     const n = parseFloat(val)
-    if (isNaN(n) || n <= 0) return 'Actual harvest must be greater than 0.'
+    if (isNaN(n) || n <= 0) return 'Quantity must be greater than 0.'
     return ''
   }
 
@@ -1416,11 +1406,8 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
         quantity_kg:             parseFloat(quantityKg),
         avg_body_weight_kg:      avgBodyWeightKg !== '' ? parseFloat(avgBodyWeightKg) : null,
         area_or_units_harvested: areaOrUnits,
-        // One record for all the affected units together; quantity_kg is their combined total.
-        // The backend decides whether it is final (only when every unit of the cycle is harvested).
-        ...(unitMode
-          ? { production_units: forceUnits.map(u => u.id), early_late_reason: forceReason }
-          : { is_final: true, early_late_reason: reasonRequired ? earlyLateReason.trim() : '' }),
+        is_final:                true,
+        early_late_reason:       reasonRequired ? earlyLateReason.trim() : '',
         notes,
       })
       showToast('Harvest recorded successfully!', 'success')
@@ -1450,37 +1437,12 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
             <button type="button" onClick={handleSubmitClick}
               disabled={isSubmitting || (reasonRequired && !earlyLateReason.trim())}
               className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-60 transition-colors">
-              {isSubmitting ? 'Saving…' : 'Record Harvest'}
+              {isSubmitting ? 'Saving…' : 'Save Harvest Record'}
             </button>
           </>
         }
       >
         <div className="space-y-3">
-          {unitMode && (
-            <div className="rounded-xl border border-rose-300 bg-rose-50 px-3 py-2.5" data-testid="force-harvest-warning">
-              <p className="text-sm font-bold text-rose-700">⚠ FORCE HARVEST</p>
-              <p className="mt-0.5 text-xs font-semibold text-rose-700">{forceUnits.length > 1 ? 'Affected Ponds/Cages' : 'Affected Pond/Cage'}:</p>
-              <ul className="mt-1 space-y-0.5" data-testid="force-units">
-                {forceUnits.map(u => (
-                  <li key={u.id} className="text-sm font-semibold text-rose-800">✓ {u.label} — {u.reasons.join(', ')}</li>
-                ))}
-              </ul>
-              <p className="mt-1.5 text-xs text-rose-700">Unaffected production units are not included.</p>
-              {notIncludedUnits.length > 0 && (
-                <p className="mt-0.5 text-xs text-slate-600" data-testid="not-included">
-                  Not included: {notIncludedUnits.map(u => (u.harvested ? `${u.label} (already harvested)` : u.label)).join(', ')}
-                </p>
-              )}
-            </div>
-          )}
-          {record.force_harvest && !unitMode && (
-            <div className="rounded-xl border border-rose-300 bg-rose-50 px-3 py-2.5" data-testid="force-harvest-warning">
-              <p className="text-sm font-bold text-rose-700">⚠ FORCE HARVEST</p>
-              <p className="mt-0.5 text-xs text-rose-700">
-                Fish mortality or disease has been recorded for this production cycle. Please record the actual harvested quantity.
-              </p>
-            </div>
-          )}
           {visibleResolvableDisasters.map(d => (
             <div key={d.disaster_id} className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
               <p className="text-xs text-emerald-800 mb-2">
@@ -1501,7 +1463,7 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
             </div>
           ))}
 
-          {expectedHarvestDate && !unitMode && (
+          {expectedHarvestDate && (
             <div className={`rounded-xl border px-3 py-2 text-xs ${
               harvestVarianceDays === null
                 ? 'border-slate-200 bg-slate-50 text-slate-600'
@@ -1538,16 +1500,6 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
               onChange={e => setHarvestDate(e.target.value)} />
           </div>
 
-          {unitMode && (
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Reason for Early Harvest</label>
-              <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-800" data-testid="force-reason">
-                {forceReason}
-              </p>
-              <p className="mt-1 text-xs text-slate-500">Filled in automatically from the Health Log.</p>
-            </div>
-          )}
-
           {reasonRequired && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
               <p className="text-xs font-medium text-amber-800 mb-2">
@@ -1571,23 +1523,18 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
           )}
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">Actual Harvest (kg) *</label>
+            <label className="mb-1 block text-xs font-medium text-slate-700">Quantity Harvested (kg) *</label>
             <input type="number" step="0.01"
               className={`${baseInputClasses} ${quantityError ? 'border-rose-400' : ''}`}
               value={quantityKg}
               onChange={e => { setQuantityKg(e.target.value); setQuantityError(validateQuantity(e.target.value)) }}
               placeholder="e.g. 500" />
             {quantityError && <p className="mt-1 text-xs text-rose-600">{quantityError}</p>}
-            {unitMode && (
-              <p className="mt-1 text-xs text-slate-500" data-testid="total-note">
-                Total harvested weight of the affected production units listed above ({forceUnitNames}).
-              </p>
-            )}
             {/* Estimated harvest (species.default_avg_body_weight_kg ×
                 survival-adjusted fingerling count, computed server-side and
                 already on the record) — same live "meeting the estimate or
                 not" comparison as the harvest date above. */}
-            {record.estimated_harvest_kg != null && !unitMode && (
+            {record.estimated_harvest_kg != null && (
               <div className={`mt-2 rounded-xl border px-3 py-2 text-xs ${
                 !quantityKg
                   ? 'border-slate-200 bg-slate-50 text-slate-600'
@@ -1639,16 +1586,13 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
               onChange={e => setNotes(e.target.value)}
               placeholder="Any additional harvest notes or observations" />
           </div>
-
         </div>
       </ModalShell>
 
       {showConfirm && (
         <ConfirmDialog
           title="Confirm Harvest Record"
-          message={unitMode
-            ? `Record this force harvest for ${forceUnitNames} only? Unaffected ponds/cages are not harvested.`
-            : `Are you sure you want to record the harvest for ${speciesName}? This will mark the cycle as Harvested.`}
+          message={`Are you sure you want to record the harvest for ${speciesName}? This will mark the cycle as Harvested.`}
           confirmLabel="Yes, Record Harvest"
           onConfirm={handleConfirmed}
           onCancel={() => setShowConfirm(false)}
