@@ -29,10 +29,14 @@ class BeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
             'recorded_by',
             'recorded_by_name',
             'assistance_type',
-            'source_agency',
+            'source_agencies',
             'quantity',
             'season',
             'year',
+            'training_duration_days',
+            'equipment_type',
+            'seed_type',
+            'fertilizer_type',
             'attributed_organization_name',
             # Scheduled distribution + confirmation lifecycle — read-only
             # here. status is server-computed on create (see
@@ -110,11 +114,13 @@ class FisherfolkBeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
             'recorded_by',
             'recorded_by_name',
             'assistance_type',
-            'source_agency',
+            'source_agencies',
             'quantity',
             'description',
             'season',
             'year',
+            'training_duration_days',
+            'equipment_type',
             'attributed_fisherfolk_organization_name',
             'status',
             'confirmed_at',
@@ -163,11 +169,27 @@ class OrganizationDistributionRequestSerializer(serializers.Serializer):
     FisherfolkBeneficiaryRecord (which has both remarks and description).
     """
     assistance_type = serializers.CharField()
-    source_agency = serializers.CharField(required=False, allow_blank=True, default='')
+    # Was a single CharField — see BeneficiaryRecord.source_agencies' own
+    # model-level comment for why this is a plain list, not a new join
+    # table. Empty list, not '', is the "nothing entered" default here.
+    source_agencies = serializers.ListField(
+        child=serializers.CharField(allow_blank=True), required=False, default=list,
+    )
     date_given = serializers.DateField()
     quantity = serializers.CharField(required=False, allow_blank=True, default='')
     description = serializers.CharField(required=False, allow_blank=True, default='')
     season = serializers.CharField(required=False, allow_blank=True, default='')
+    # Type-conditional fields (frontend shows/requires only the one
+    # matching the selected assistance_type) — all optional here; the view
+    # only ever writes seed_type/fertilizer_type for BeneficiaryRecord
+    # (see _run_organization_distribution), since neither exists on
+    # FisherfolkBeneficiaryRecord.
+    training_duration_days = serializers.IntegerField(
+        required=False, allow_null=True, default=None, min_value=1, max_value=3,
+    )
+    equipment_type = serializers.CharField(required=False, allow_blank=True, default='')
+    seed_type = serializers.CharField(required=False, allow_blank=True, default='')
+    fertilizer_type = serializers.CharField(required=False, allow_blank=True, default='')
 
     def validate_assistance_type(self, value):
         valid_choices = dict(self.context['model'].AssistanceType.choices)
@@ -205,7 +227,7 @@ class AccountlessConfirmableSerializer(serializers.ModelSerializer):
         model = BeneficiaryRecord
         fields = [
             'id', 'farmer', 'farmer_full_name', 'farmer_barangay',
-            'assistance_type', 'source_agency', 'quantity', 'season', 'year',
+            'assistance_type', 'source_agencies', 'quantity', 'season', 'year',
             'date_given', 'latest_request_status', 'latest_request_reason',
         ]
         read_only_fields = fields
@@ -233,7 +255,7 @@ class FisherfolkAccountlessConfirmableSerializer(serializers.ModelSerializer):
         model = FisherfolkBeneficiaryRecord
         fields = [
             'id', 'fisherfolk', 'fisherfolk_full_name', 'fisherfolk_barangay',
-            'assistance_type', 'source_agency', 'quantity', 'season', 'year',
+            'assistance_type', 'source_agencies', 'quantity', 'season', 'year',
             'date_given', 'latest_request_status', 'latest_request_reason',
         ]
         read_only_fields = fields

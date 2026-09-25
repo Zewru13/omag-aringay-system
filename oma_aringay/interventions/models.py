@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils import timezone
 
@@ -116,10 +117,31 @@ class BeneficiaryRecord(models.Model):
 
     # Absorbed from production.models.CropAssistanceRecord (Batch 6).
     assistance_type = models.CharField(max_length=30, choices=AssistanceType.choices, blank=True)
-    source_agency = models.CharField(max_length=150, blank=True)
+    # Batch (type-conditional distribution form): was a single CharField —
+    # a distribution can genuinely involve more than one source agency
+    # (e.g. LGU-matched DA seed stock), and nothing in this app ever
+    # filtered/grouped by the old single value (confirmed: reports only
+    # ever displayed it verbatim). A list, not a new join table — no
+    # existing "Source Agency" master-data model to attach one to, and
+    # nothing today needs per-agency querying.
+    source_agencies = models.JSONField(default=list, blank=True)
     quantity = models.CharField(max_length=100, blank=True)
     season = models.CharField(max_length=10, choices=Season.choices, blank=True)
     year = models.PositiveIntegerField(null=True, blank=True)
+
+    # Batch (type-conditional distribution form): shown/required only for
+    # their one matching AssistanceType on the frontend form — real DB
+    # columns so they're queryable/reportable, not folded into `remarks`.
+    # Duration of Training: 1-3 days per the approved proposal.
+    training_duration_days = models.PositiveSmallIntegerField(
+        null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(3)],
+    )
+    equipment_type = models.CharField(max_length=150, blank=True)
+    # Farmer-only: Seeds/Fertilizer aren't Fisherfolk AssistanceType values
+    # (fisherfolk's closest analog, Fingerlings/Seeds, is one combined type,
+    # not split) — no FisherfolkBeneficiaryRecord equivalent by design.
+    seed_type = models.CharField(max_length=150, blank=True)
+    fertilizer_type = models.CharField(max_length=150, blank=True)
 
     # Batch 7: computed at save() time, not exposed as a writable API field —
     # see _resolve_attributed_organization's docstring above for the algorithm.
@@ -224,11 +246,22 @@ class FisherfolkBeneficiaryRecord(models.Model):
 
     # Absorbed from fisheries.models.FisheriesAssistanceRecord (Batch 6).
     assistance_type = models.CharField(max_length=30, choices=AssistanceType.choices, blank=True)
-    source_agency = models.CharField(max_length=150, blank=True)
+    # Batch (type-conditional distribution form): see BeneficiaryRecord's
+    # own source_agencies comment — identical reasoning, fisherfolk side.
+    source_agencies = models.JSONField(default=list, blank=True)
     quantity = models.CharField(max_length=100, blank=True)
     description = models.CharField(max_length=300, blank=True)
     season = models.CharField(max_length=20, blank=True)
     year = models.PositiveIntegerField(null=True, blank=True)
+
+    # Batch (type-conditional distribution form): see BeneficiaryRecord's
+    # own comment — identical fields, Training/Equipment exist on both
+    # domains. No seed_type/fertilizer_type here — see BeneficiaryRecord's
+    # own comment for why those stay farmer-only.
+    training_duration_days = models.PositiveSmallIntegerField(
+        null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(3)],
+    )
+    equipment_type = models.CharField(max_length=150, blank=True)
 
     # Batch 7: computed at save() time from FisherfolkOrganizationMember —
     # the live, genuinely-multi-capable membership mechanism for fisherfolk

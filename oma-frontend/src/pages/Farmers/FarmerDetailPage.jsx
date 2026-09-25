@@ -318,7 +318,12 @@ function FarmerDetailPage() {
 
     try {
       const response = await api.get('/interventions/beneficiaries/adhoc/', { params: { farmer: id } })
-      setHistory(Array.isArray(response.data) ? response.data : (response.data.results || []))
+      const rows = Array.isArray(response.data) ? response.data : (response.data.results || [])
+      // source_agency was a single string; is now source_agencies (a list)
+      // on the API — DataTable does a raw row[column.key] lookup with no
+      // render-function support, so the join happens here, keyed back onto
+      // the same 'source_agency' column name HISTORY_COLUMNS already uses.
+      setHistory(rows.map((r) => ({ ...r, source_agency: (r.source_agencies || []).join(', ') })))
     } catch {
       setHistoryError('Unable to load assistance history.')
     } finally {

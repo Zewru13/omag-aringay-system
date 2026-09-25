@@ -412,7 +412,10 @@ class FarmerProfileReport(APIView):
             for r in asst_records:
                 asst_rows.append([
                     fmt_field(r.assistance_type),
-                    fmt_field(r.source_agency),
+                    # source_agencies is a list now (was a single string) —
+                    # join for display; fmt_field's own str(value) would
+                    # otherwise render the raw Python list repr.
+                    fmt_field(', '.join(r.source_agencies)),
                     fmt_field(r.quantity),
                     fmt_field(r.season),
                     fmt_field(r.year),
@@ -654,7 +657,10 @@ class FisherfolkProfileReport(APIView):
             for r in asst_records:
                 asst_rows.append([
                     fmt_field(r.assistance_type),
-                    fmt_field(r.source_agency),
+                    # source_agencies is a list now (was a single string) —
+                    # join for display; fmt_field's own str(value) would
+                    # otherwise render the raw Python list repr.
+                    fmt_field(', '.join(r.source_agencies)),
                     fmt_field(r.quantity),
                     fmt_field(r.season),
                     fmt_field(r.year),

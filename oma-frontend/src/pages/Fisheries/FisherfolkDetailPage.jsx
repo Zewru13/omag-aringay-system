@@ -194,7 +194,11 @@ function FisherfolkDetailPage() {
     setHistoryError('')
     try {
       const response = await api.get('/interventions/fisherfolk-beneficiaries/adhoc/', { params: { fisherfolk: id } })
-      setHistory(Array.isArray(response.data) ? response.data : (response.data.results || []))
+      const rows = Array.isArray(response.data) ? response.data : (response.data.results || [])
+      // See FarmerDetailPage.jsx's own identical comment — source_agency ->
+      // source_agencies, joined here since DataTable has no render-function
+      // support, keyed back onto the same column name.
+      setHistory(rows.map((r) => ({ ...r, source_agency: (r.source_agencies || []).join(', ') })))
     } catch {
       setHistoryError('Unable to load assistance history.')
     } finally {

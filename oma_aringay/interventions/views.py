@@ -967,7 +967,11 @@ def _run_assistance_import(person_model, record_model, serializer_class, person_
         payload = {
             person_field: person.id,
             'assistance_type': assistance_type,
-            'source_agency': item['source_agency'],
+            # Import file still has one Source Agency column — wrapped into
+            # a one-item list to match source_agencies' new shape, same
+            # single-value-to-list conversion the data migration applies to
+            # existing rows.
+            'source_agencies': [item['source_agency']] if item['source_agency'] else [],
             'quantity': item['quantity'],
             'date_given': date_given,
             'season': item['season'],

@@ -42,7 +42,10 @@ export function CitizenAssistanceList({ endpoint }) {
 
   if (records === null) return <p className="text-[13px] italic text-cz-text-2">{labels.common.loading}</p>
 
-  const sources = [...new Set(records.map((r) => r.source_agency).filter(Boolean))]
+  // source_agency was a single string; is now source_agencies (a list per
+  // record) — flatMap to get one distinct set across every record's own
+  // (possibly several) agencies, same summary-rail purpose as before.
+  const sources = [...new Set(records.flatMap((r) => r.source_agencies || []))]
 
   const confirmReceived = async (rec) => {
     setBusyId(rec.id)
@@ -90,7 +93,7 @@ export function CitizenAssistanceList({ endpoint }) {
                   {rec.assistance_type || labels.common.unknown}
                   {rec.quantity ? ` — ${rec.quantity}` : ''}
                 </p>
-                <p className="truncate text-[12.5px] text-cz-text-2">{rec.source_agency || labels.common.unknown}</p>
+                <p className="truncate text-[12.5px] text-cz-text-2">{(rec.source_agencies || []).join(', ') || labels.common.unknown}</p>
               </div>
               <p className="shrink-0 text-[12px] text-cz-text-muted">{labels.common.formatDate(rec.date_given)}</p>
             </div>

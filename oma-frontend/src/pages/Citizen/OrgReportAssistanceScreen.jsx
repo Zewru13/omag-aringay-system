@@ -316,7 +316,10 @@ export default function OrgReportAssistanceScreen({
       const remarks = [otherNote, form.description.trim()].filter(Boolean).join(' — ')
       await api.post(domain.createUrl, {
         assistance_type: form.assistance_type,
-        source_agency: sourceAgency,
+        // This screen's own single-select UI is unchanged — wrapped into a
+        // one-item list to match source_agencies' new shape on the model,
+        // same conversion the data migration applied to existing rows.
+        source_agencies: sourceAgency ? [sourceAgency] : [],
         quantity,
         date_given: form.date_given,
         season: form.season,
@@ -344,7 +347,8 @@ export default function OrgReportAssistanceScreen({
     const description = [otherNote, form.description.trim()].filter(Boolean).join(' — ')
     return {
       assistance_type: form.assistance_type,
-      source_agency: sourceAgency,
+      // See handleSubmit's own identical comment above.
+      source_agencies: sourceAgency ? [sourceAgency] : [],
       date_given: form.date_given,
       quantity,
       description,

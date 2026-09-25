@@ -587,7 +587,7 @@ class Command(BaseCommand):
                 description=f'{spec["atype"]} support provided under the LGU fisheries assistance program.',
                 quantity=random.choice(['1 set', '2 sacks', '50 kg', '1 unit']),
                 date_given=date_received,
-                source_agency=ASSISTANCE_SOURCES[i % len(ASSISTANCE_SOURCES)],
+                source_agencies=[ASSISTANCE_SOURCES[i % len(ASSISTANCE_SOURCES)]],
                 season=_season_for(date_received),
                 year=date_received.year,
                 remarks=SEED_TAG,
