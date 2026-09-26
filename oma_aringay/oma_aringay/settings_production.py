@@ -1,5 +1,6 @@
 from datetime import timedelta
 from pathlib import Path
+from urllib.parse import urlparse
 import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -7,8 +8,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Production hardening
 DEBUG = False
 
-# Load SECRET_KEY from environment variable
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "CHANGE_ME_IN_ENV_FOR_PRODUCTION")
+# 2026-09-26: removed the "CHANGE_ME_IN_ENV_FOR_PRODUCTION" placeholder
+# fallback — a missing SECRET_KEY has no safe default (it signs sessions,
+# CSRF tokens, and password-reset tokens), so this fails loudly instead of
+# silently running with a known, public value. Exact same pattern as the
+# real dev settings.py. Renamed the env var from DJANGO_SECRET_KEY to
+# SECRET_KEY to match the name actually used in oma_aringay/.env and
+# .env.example everywhere else in this project.
+SECRET_KEY = os.environ.get('SECRET_KEY')
+if not SECRET_KEY:
+    raise RuntimeError(
+        'SECRET_KEY is not set. Generate one with '
+        '`python -c "from django.core.management.utils import get_random_secret_key; '
+        'print(get_random_secret_key())"` and add it to oma_aringay/.env.'
+    )
 
 # Server local IP or hostname (set this to your OMA Aringay server IP)
 ALLOWED_HOSTS = [
@@ -36,6 +49,7 @@ INSTALLED_APPS = [
     'reports',
     'associations',
     'auditlog.apps.AuditlogConfig',
+    'storages',
 ]
 
 MIDDLEWARE = [
@@ -69,8 +83,14 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'oma_aringay.wsgi.application'
 
-# MySQL (MariaDB via XAMPP)
-DATABASES = {
+# 2026-09-26: mirrors the real dev settings.py's DB_BACKEND toggle exactly —
+# this file was still hardcoded to local MySQL only, predating the Phase 5
+# Postgres cutover. Defaults to 'postgres' (Supabase), same as dev settings.py.
+#   DB_BACKEND=mysql    -> real MySQL (oma_aringay_db)
+#   DB_BACKEND=postgres -> real Supabase (default)
+DB_BACKEND = os.environ.get('DB_BACKEND', 'postgres')
+
+_DATABASES_MYSQL = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': os.environ.get("MYSQL_DATABASE", "oma_aringay_db"),
@@ -83,6 +103,37 @@ DATABASES = {
         },
     }
 }
+
+_DATABASES_POSTGRES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('SUPABASE_DB_NAME', ''),
+        'USER': os.environ.get('SUPABASE_DB_USER', ''),
+        'PASSWORD': os.environ.get('SUPABASE_DB_PASSWORD', ''),
+        'HOST': os.environ.get('SUPABASE_DB_HOST', ''),
+        'PORT': os.environ.get('SUPABASE_DB_PORT', ''),
+        'OPTIONS': {
+            'sslmode': 'require',
+        },
+    }
+}
+
+if DB_BACKEND == 'mysql':
+    DATABASES = _DATABASES_MYSQL
+elif DB_BACKEND == 'postgres':
+    _missing_db = [
+        name for name in
+        ('SUPABASE_DB_HOST', 'SUPABASE_DB_PORT', 'SUPABASE_DB_NAME', 'SUPABASE_DB_USER', 'SUPABASE_DB_PASSWORD')
+        if not os.environ.get(name)
+    ]
+    if _missing_db:
+        raise RuntimeError(
+            f'DB_BACKEND=postgres but missing required environment variable(s) {_missing_db} '
+            f'in oma_aringay/.env. Set DB_BACKEND=mysql to use the MySQL fallback instead.'
+        )
+    DATABASES = _DATABASES_POSTGRES
+else:
+    raise RuntimeError(f"DB_BACKEND must be 'mysql' or 'postgres', got {DB_BACKEND!r}")
 
 # Passphrase-friendly policy: length + denylist, no forced composition rules
 # (no mandatory symbol/number/uppercase) and no periodic/expiry logic anywhere
@@ -118,6 +169,43 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
+
+# 2026-09-26: mirrors the real dev settings.py's Supabase Storage config
+# exactly — this file previously still pointed at local MEDIA_ROOT, which
+# predates the Phase 6 media-storage migration and would silently lose every
+# uploaded file (disaster report photos, beneficiary-confirmation photos,
+# profile pictures) on an ephemeral-filesystem host's first restart/redeploy.
+# Uses django-storages' S3Boto3Storage against Supabase's S3-compatible
+# endpoint. See settings.py for the full reasoning (package choice, the
+# custom-domain URL fix for Supabase's public-object path, ACL handling).
+AWS_ACCESS_KEY_ID = os.environ.get('SUPABASE_STORAGE_ACCESS_KEY')
+AWS_SECRET_ACCESS_KEY = os.environ.get('SUPABASE_STORAGE_SECRET_KEY')
+AWS_STORAGE_BUCKET_NAME = os.environ.get('SUPABASE_STORAGE_BUCKET')
+AWS_S3_ENDPOINT_URL = os.environ.get('SUPABASE_STORAGE_ENDPOINT')
+AWS_S3_REGION_NAME = os.environ.get('SUPABASE_STORAGE_REGION')
+if not all([AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_STORAGE_BUCKET_NAME, AWS_S3_ENDPOINT_URL, AWS_S3_REGION_NAME]):
+    raise RuntimeError(
+        'Supabase Storage is not configured. Set SUPABASE_STORAGE_ACCESS_KEY, '
+        'SUPABASE_STORAGE_SECRET_KEY, SUPABASE_STORAGE_BUCKET, '
+        'SUPABASE_STORAGE_ENDPOINT, and SUPABASE_STORAGE_REGION in oma_aringay/.env '
+        '(see .env.example).'
+    )
+AWS_QUERYSTRING_AUTH = False
+AWS_S3_CUSTOM_DOMAIN = (
+    f'{urlparse(AWS_S3_ENDPOINT_URL).netloc}/storage/v1/object/public/{AWS_STORAGE_BUCKET_NAME}'
+)
+AWS_DEFAULT_ACL = None
+AWS_S3_ADDRESSING_STYLE = 'path'
+AWS_S3_FILE_OVERWRITE = False
+STORAGES = {
+    'default': {
+        'BACKEND': 'storages.backends.s3boto3.S3Boto3Storage',
+    },
+    'staticfiles': {
+        'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+    },
+}
+
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
@@ -212,3 +300,13 @@ FRONTEND_BASE_URL = os.environ.get('FRONTEND_BASE_URL', '').rstrip('/')
 # How long an email-verification token stays valid.
 EMAIL_VERIFICATION_TOKEN_HOURS = int(os.environ.get('EMAIL_VERIFICATION_TOKEN_HOURS', '72'))
 
+# ── Deliberately NOT set here yet — open questions for real deployment ────
+# These are standard Django production-hardening settings (SECURE_SSL_REDIRECT,
+# SESSION_COOKIE_SECURE, CSRF_COOKIE_SECURE, SECURE_HSTS_SECONDS, and related
+# X_FRAME_OPTIONS/SECURE_PROXY_SSL_HEADER settings). Deliberately left out of
+# this update rather than guessed at — the right values depend on the real
+# deployment shape that doesn't exist yet: whether TLS terminates at this
+# Django process directly or at a reverse proxy in front of it, whether the
+# LAN deployment even uses HTTPS at all, and what header a proxy would set to
+# signal the original scheme. Decide and add these explicitly when that
+# deployment shape is actually known — not before.
