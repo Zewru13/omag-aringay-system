@@ -1,6 +1,7 @@
 import os
 from datetime import timedelta
 from pathlib import Path
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 
@@ -51,6 +52,7 @@ INSTALLED_APPS = [
     'reports',
     'associations',
     'auditlog.apps.AuditlogConfig',
+    'storages',
 ]
 
 MIDDLEWARE = [
@@ -175,6 +177,57 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = 'static/'
+
+# Media storage migration (2026-09-26): real uploaded files (disaster report
+# photos, beneficiary-confirmation photos, profile pictures) now live in
+# Supabase Storage (an S3-compatible gateway), not local disk — almost every
+# hosting platform has an ephemeral filesystem, so local MEDIA_ROOT would
+# silently lose every uploaded file on the first restart/redeploy. Uses
+# django-storages' S3Boto3Storage (NOT the smaller, explicitly-unfinished
+# django-storage-supabase package) — S3Boto3Storage is the mature, actively
+# maintained backend, and Supabase Storage's S3-compatible endpoint works
+# with it directly via a long-lived Access Key/Secret Key pair (generated
+# from the Supabase dashboard's Storage > S3 Configuration page), not the
+# JWT/session-token auth flow that has known compatibility issues with some
+# AWS SDK versions.
+AWS_ACCESS_KEY_ID = os.environ.get('SUPABASE_STORAGE_ACCESS_KEY')
+AWS_SECRET_ACCESS_KEY = os.environ.get('SUPABASE_STORAGE_SECRET_KEY')
+AWS_STORAGE_BUCKET_NAME = os.environ.get('SUPABASE_STORAGE_BUCKET')
+AWS_S3_ENDPOINT_URL = os.environ.get('SUPABASE_STORAGE_ENDPOINT')
+AWS_S3_REGION_NAME = os.environ.get('SUPABASE_STORAGE_REGION')
+if not all([AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_STORAGE_BUCKET_NAME, AWS_S3_ENDPOINT_URL, AWS_S3_REGION_NAME]):
+    raise RuntimeError(
+        'Supabase Storage is not configured. Set SUPABASE_STORAGE_ACCESS_KEY, '
+        'SUPABASE_STORAGE_SECRET_KEY, SUPABASE_STORAGE_BUCKET, '
+        'SUPABASE_STORAGE_ENDPOINT, and SUPABASE_STORAGE_REGION in oma_aringay/.env '
+        '(see .env.example).'
+    )
+# Bucket is public (matches local-disk MEDIA_URL's own always-unauthenticated
+# serving today) — plain object URLs, no per-request query-string signing.
+AWS_QUERYSTRING_AUTH = False
+# S3Boto3Storage.url() builds URLs from AWS_S3_ENDPOINT_URL by default —
+# Supabase's S3 gateway (/storage/v1/s3/...) rejects unsigned GETs there
+# with 403 AccessDenied ("Missing signature"), confirmed by a real request.
+# Public objects are served from a DIFFERENT path instead:
+# /storage/v1/object/public/<bucket>/<key> — confirmed working (200, exact
+# content match). AWS_S3_CUSTOM_DOMAIN redirects .url() to build URLs there.
+AWS_S3_CUSTOM_DOMAIN = (
+    f'{urlparse(AWS_S3_ENDPOINT_URL).netloc}/storage/v1/object/public/{AWS_STORAGE_BUCKET_NAME}'
+)
+# Supabase's S3 gateway rejects the ACL header S3Boto3Storage sends by
+# default; bucket-level public access already covers read access, so no
+# per-object ACL is needed.
+AWS_DEFAULT_ACL = None
+AWS_S3_ADDRESSING_STYLE = 'path'
+AWS_S3_FILE_OVERWRITE = False
+STORAGES = {
+    'default': {
+        'BACKEND': 'storages.backends.s3boto3.S3Boto3Storage',
+    },
+    'staticfiles': {
+        'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+    },
+}
 
 MEDIA_URL = 'media/'
 
