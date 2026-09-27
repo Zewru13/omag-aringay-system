@@ -73,18 +73,11 @@ function fmtShort(v) {
 function Field({ label, value }) {
   return (
     <div>
-      <p className="text-xs font-medium text-slate-400">{label}</p>
-      <p className="mt-1 text-sm text-slate-900">{value || '-'}</p>
+      <p className="text-[12px] text-[#7A8E7A] mb-0.5">{label}</p>
+      <p className="text-[14px] font-medium text-[#1A2B1A]">{value || '-'}</p>
     </div>
   )
 }
-
-// Same identity-card + info-card structure as FarmerDetailPage (see its own
-// comment for the reference this is built against), in the fisheries blue
-// already used for this domain in the citizen portal (--color-cz-fish-header)
-// -- same idea, different color, as intended. Realigned to #155E82 (Phase 2
-// color fix, 2026-09-07) to match --color-cz-fish-header's corrected value.
-const FISH_BLUE = '#155E82'
 
 function initialsOf(fullName) {
   return (fullName || '').trim().split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0].toUpperCase()).join('') || '?'
@@ -104,8 +97,8 @@ function AssistanceHistoryModal({ history, isLoading, error, onClose }) {
 
 function AquacultureSection({ record }) {
   return (
-    <section className="rounded-2xl border border-slate-100 bg-white p-6">
-      <h2 className="mb-4 text-sm font-medium text-slate-400 uppercase tracking-wide">Aquaculture Record</h2>
+    <section className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-6">
+      <h2 className="mb-4 text-[14px] font-semibold text-[#1A2B1A]">Aquaculture Record</h2>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Culture Type" value={otherLabel(record.culture_type, record.culture_type_other_specify)} />
         <Field label="Species Cultured" value={otherLabel(record.species_cultured, record.species_cultured_other_specify)} />
@@ -122,8 +115,8 @@ function FacilitySection({ fisherfolk }) {
     fisherfolk.water_source || fisherfolk.number_of_cages || fisherfolk.cage_dimensions
   if (!hasAny) return null
   return (
-    <section className="rounded-2xl border border-slate-100 bg-white p-6">
-      <h2 className="mb-4 text-sm font-medium text-slate-400 uppercase tracking-wide">Facility Profile</h2>
+    <section className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-6">
+      <h2 className="mb-4 text-[14px] font-semibold text-[#1A2B1A]">Facility Profile</h2>
       <div className="grid gap-4 sm:grid-cols-2">
         {fisherfolk.facility_location && <Field label="Facility Location" value={fisherfolk.facility_location} />}
         {fisherfolk.pond_area_ha && <Field label="Pond Area (ha)" value={fisherfolk.pond_area_ha} />}
@@ -138,8 +131,8 @@ function FacilitySection({ fisherfolk }) {
 
 function CaptureSection({ record }) {
   return (
-    <section className="rounded-2xl border border-slate-100 bg-white p-6">
-      <h2 className="mb-4 text-sm font-medium text-slate-400 uppercase tracking-wide">Capture Record</h2>
+    <section className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-6">
+      <h2 className="mb-4 text-[14px] font-semibold text-[#1A2B1A]">Capture Record</h2>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Vessel Type" value={record.vessel_type} />
         {record.vessel_type === 'Motorized' && <Field label="Vessel Material" value={otherLabel(record.vessel_material, record.vessel_material_other_specify)} />}
@@ -320,10 +313,10 @@ function FisherfolkDetailPage() {
       <div className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Link
-            className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700"
+            className="inline-flex items-center gap-1 text-[13px] text-[#155E82] hover:underline"
             to="/fisherfolk"
           >
-            <ArrowLeft size={16} />
+            <ArrowLeft size={14} />
             Back to Fisherfolk Registry
           </Link>
           {!isLoading && fisherfolk && (
@@ -357,8 +350,8 @@ function FisherfolkDetailPage() {
         )}
 
         {isLoading && (
-          <div className="flex min-h-56 items-center justify-center rounded-2xl border border-slate-100 bg-white">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-green-100 border-t-[#16a34a]" />
+          <div className="flex min-h-56 items-center justify-center rounded-xl border border-[#E2E8E2] bg-white">
+            <LoadingSpinner size={28} />
           </div>
         )}
 
@@ -367,15 +360,15 @@ function FisherfolkDetailPage() {
             {/* Identity + Personal Information */}
             <div className="grid gap-4 lg:grid-cols-[320px_1fr] lg:items-start">
               <div className="lg:sticky lg:top-20">
-                <section className="rounded-2xl border border-slate-100 bg-white overflow-hidden">
-                  <div className="h-20" style={{ backgroundColor: FISH_BLUE }} />
+                <section className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+                  <div className="h-20 bg-[#155E82]" />
                   <div className="px-5 pb-5 -mt-8">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 bg-white text-[18px] font-semibold" style={{ color: FISH_BLUE, borderColor: FISH_BLUE }}>
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 border-[#155E82] bg-white text-[18px] font-semibold text-[#155E82]">
                       {initialsOf(fisherfolk.full_name)}
                     </div>
-                    <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-slate-400">Name</p>
-                    <h1 className="mt-0.5 text-[16px] font-semibold text-slate-900">{fisherfolk.full_name}</h1>
-                    <p className="mt-0.5 text-xs text-slate-500">{fisherfolk.fisherfolk_type}</p>
+                    <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8]">Name</p>
+                    <h1 className="mt-0.5 text-[16px] font-semibold text-[#1A2B1A]">{fisherfolk.full_name}</h1>
+                    <p className="mt-0.5 text-xs text-[#7A8E7A]">{fisherfolk.fisherfolk_type}</p>
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
                       <StatusPill tone={fisherfolk.is_active ? 'green' : 'rose'}>
                         {fisherfolk.is_active ? 'Active' : 'Inactive'}
@@ -391,16 +384,16 @@ function FisherfolkDetailPage() {
                   </div>
                 </section>
 
-                <div className="mt-3 rounded-2xl border border-slate-100 px-4 py-3" style={{ backgroundColor: '#EAF1F5' }}>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.06em]" style={{ color: FISH_BLUE }}>LGU Registration Number</p>
-                  <p className="mt-1 text-[13px] font-semibold text-slate-900">{fisherfolk.lgu_registration_number}</p>
+                <div className="mt-3 rounded-xl border border-[#E2E8E2] bg-[#EAF1F5] px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#155E82]">LGU Registration Number</p>
+                  <p className="mt-1 text-[13px] font-semibold text-[#1A2B1A]">{fisherfolk.lgu_registration_number}</p>
                 </div>
               </div>
 
               <div className="space-y-4 lg:sticky lg:top-20">
-                <section className="rounded-2xl border border-slate-100 bg-white overflow-hidden">
-                  <div className="px-5 py-3.5 border-b border-slate-100" style={{ backgroundColor: '#EAF1F5' }}>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.06em]" style={{ color: FISH_BLUE }}>Personal Information</p>
+                <section className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+                  <div className="px-5 py-3.5 bg-[#EAF1F5] border-b border-[#E2E8E2]">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#155E82]">Personal Information</p>
                   </div>
                   <div className="p-5 grid gap-4 sm:grid-cols-2">
                     {fisherfolk.prefix && <Field label="Prefix" value={fisherfolk.prefix} />}
@@ -415,9 +408,9 @@ function FisherfolkDetailPage() {
                   </div>
                 </section>
 
-                <section className="rounded-2xl border border-slate-100 bg-white overflow-hidden">
-                  <div className="px-5 py-3.5 border-b border-slate-100" style={{ backgroundColor: '#EAF1F5' }}>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.06em]" style={{ color: FISH_BLUE }}>Reference Information</p>
+                <section className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
+                  <div className="px-5 py-3.5 bg-[#EAF1F5] border-b border-[#E2E8E2]">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#155E82]">Reference Information</p>
                   </div>
                   <div className="p-5 grid gap-4 sm:grid-cols-2">
                     <Field label="Date Registered" value={formatDate(fisherfolk.date_registered)} />
@@ -438,15 +431,14 @@ function FisherfolkDetailPage() {
                           {fisherfolk.organization_names.map((name) => (
                             <span
                               key={name}
-                              className="inline-flex items-center rounded-full px-2.5 py-0.5 text-[12px] font-medium"
-                              style={{ backgroundColor: '#EAF1F5', color: FISH_BLUE }}
+                              className="inline-flex items-center rounded-full bg-[#EAF1F5] px-2.5 py-0.5 text-[12px] font-medium text-[#155E82]"
                             >
                               {name}
                             </span>
                           ))}
                         </div>
                       ) : (
-                        <p className="text-[14px] font-medium italic text-slate-400">Not part of any organization</p>
+                        <p className="text-[14px] font-medium italic text-[#A8BCA8]">Not part of any organization</p>
                       )}
                     </div>
                   </div>
@@ -462,25 +454,29 @@ function FisherfolkDetailPage() {
 
             {/* Stocking Records — aquaculture / mariculture only */}
             {(fisherfolk.fisherfolk_type === 'Aquaculture' || fisherfolk.fisherfolk_type === 'Mariculture') && (
-              <section className="rounded-2xl border border-slate-100 bg-white p-6">
-                <h2 className="mb-4 text-sm font-medium uppercase tracking-wide text-slate-400">
+              <section className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-6">
+                <h2 className="mb-4 text-[14px] font-semibold text-[#1A2B1A]">
                   Stocking Records
                 </h2>
                 {isLoadingStocking ? (
                   <LoadingSpinner />
                 ) : stockingRecords.length === 0 ? (
-                  <p className="py-3 text-sm italic text-slate-400">No stocking records on file.</p>
+                  <p className="rounded-lg border border-[#E2E8E2] bg-[#EAF1F5]/30 px-4 py-3 text-[13px] text-[#4A5E4A]">
+                    No stocking records on file.
+                  </p>
                 ) : (
-                  <DataTable columns={STOCKING_COLUMNS} data={stockingData} isLoading={false} />
+                  <div className="[&_thead_tr]:!bg-[#155E82]">
+                    <DataTable columns={STOCKING_COLUMNS} data={stockingData} isLoading={false} />
+                  </div>
                 )}
               </section>
             )}
 
             {/* Ponds — aquaculture / mariculture only (Batch 3) */}
             {(fisherfolk.fisherfolk_type === 'Aquaculture' || fisherfolk.fisherfolk_type === 'Mariculture') && (
-              <section className="rounded-2xl border border-slate-100 bg-white p-6">
+              <section className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-6">
                 <div className="mb-4 flex items-center justify-between">
-                  <h2 className="text-sm font-medium uppercase tracking-wide text-slate-400">Ponds</h2>
+                  <h2 className="text-[14px] font-semibold text-[#1A2B1A]">Ponds</h2>
                   {(isAdmin || isEvaluator) && (
                     <div className="flex gap-2">
                       <Button icon={Layers} size="sm" onClick={() => setIsBulkPondModalOpen(true)} variant="secondary">
@@ -495,9 +491,13 @@ function FisherfolkDetailPage() {
                 {isLoadingPonds ? (
                   <LoadingSpinner />
                 ) : ponds.length === 0 ? (
-                  <p className="py-3 text-sm italic text-slate-400">No ponds on file.</p>
+                  <p className="rounded-lg border border-[#E2E8E2] bg-[#EAF1F5]/30 px-4 py-3 text-[13px] text-[#4A5E4A]">
+                    No ponds on file.
+                  </p>
                 ) : (
-                  <DataTable columns={POND_COLUMNS} data={pondsData} isLoading={false} />
+                  <div className="[&_thead_tr]:!bg-[#155E82]">
+                    <DataTable columns={POND_COLUMNS} data={pondsData} isLoading={false} />
+                  </div>
                 )}
               </section>
             )}
