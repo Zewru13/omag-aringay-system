@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 from accounts.permissions import IsAdminOrEvaluator
 from accounts.models import User
 from accounts.utils import create_inactive_citizen_shell
-from core.utils import day_range_bounds
+from core.utils import build_name_search_q, day_range_bounds
 
 from .models import Farmer, FarmCrop, FarmMachinery, FarmParcel
 from .serializers import (
@@ -42,10 +42,15 @@ class FarmerListView(generics.ListCreateAPIView):
         is_senior = self.request.query_params.get('is_senior')
 
         if search:
+            # Full-name search fix: a single field's icontains against the
+            # whole search string can never match "First Last" against
+            # separate first_name/last_name columns — build_name_search_q
+            # splits on whitespace and requires every token to hit some name
+            # field, so "Juan dela Cruz" correctly matches first_name="Juan"
+            # + last_name="Dela Cruz". rsbsa_number/barangay stay whole-
+            # string OR alternatives alongside the name match, unchanged.
             queryset = queryset.filter(
-                Q(first_name__icontains=search)
-                | Q(last_name__icontains=search)
-                | Q(middle_name__icontains=search)
+                build_name_search_q(search, ['first_name', 'middle_name', 'last_name'])
                 | Q(rsbsa_number__icontains=search)
                 | Q(barangay__icontains=search)
             )

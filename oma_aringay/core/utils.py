@@ -4,11 +4,41 @@ import io
 import math
 from decimal import Decimal
 
+from django.db.models import Q
 from django.utils import timezone
 
 
 class UnsupportedFileType(ValueError):
     """Raised by iter_spreadsheet_rows for anything but .xlsx/.xls/.csv."""
+
+
+def build_name_search_q(search, field_names):
+    """Q object matching a person-name search across split first/middle/last
+    name columns, correctly handling a full-name query like "Juan dela Cruz"
+    that a plain single-field icontains against `search` as one string can
+    never match (no single column holds the whole name together).
+
+    Splits `search` on whitespace and requires EVERY resulting token to
+    match at least one of `field_names` (icontains) — AND across tokens, OR
+    across fields per token. A one-word search behaves exactly as a plain
+    icontains across the given fields always did; "Juan dela Cruz" now
+    additionally requires "Juan", "dela", and "Cruz" each match some name
+    field, which a first_name="Juan"/last_name="Dela Cruz" row satisfies.
+
+    Returns Q() (matches everything) for a blank search — callers should
+    still guard the call with `if search:` for their own no-op-when-blank
+    behavior, same as before this helper existed.
+    """
+    tokens = search.split()
+    if not tokens:
+        return Q()
+    combined = Q()
+    for token in tokens:
+        token_q = Q()
+        for field_name in field_names:
+            token_q |= Q(**{f'{field_name}__icontains': token})
+        combined &= token_q
+    return combined
 
 
 def iter_spreadsheet_rows(fileobj, filename, *, min_row=1):

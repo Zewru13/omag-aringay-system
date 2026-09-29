@@ -26,14 +26,8 @@ const filterLabelCls = 'block text-[12px] font-medium text-[#4A5E4A] mb-1'
 const filterSelectCls =
   'rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[7px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none'
 
-// Fisheries Forecasting "Forecast" tab scope: today <= expected_harvest_date
-// <= today + FORECAST_WINDOW_DAYS. 7 was not picked arbitrarily for
-// fisheries — it's the exact number crop's own Planted -> Near Harvest
-// auto-transition already uses (CropMonitoringRecord.save(),
-// production/models.py), and StockingRecord.save() independently already
-// uses the same 7-day Stocked -> Near Harvest transition. Reusing it here
-// keeps the two domains' notion of "upcoming" consistent.
-const FORECAST_WINDOW_DAYS = 7
+// Fisheries Forecasting "Forecast" tab scope: every active Fisheries Monitoring stocking record
+// (the /fisheries/stocking/ default: not Harvested, not Total Loss) - no date window.
 
 function fmtMDY(v) {
   if (!v) return '—'
@@ -80,15 +74,6 @@ function StockingForecastDetailModal({ record, onClose, onUpdated }) {
       icon={TrendingUp}
       onClose={onClose}
       maxWidth="max-w-md"
-      footer={
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] transition-colors hover:bg-[#F5F7F5]"
-        >
-          Close
-        </button>
-      }
     >
       <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
@@ -147,6 +132,16 @@ function StockingForecastDetailModal({ record, onClose, onUpdated }) {
             </button>
           </div>
         </div>
+
+        <div className="flex justify-end border-t border-[#F0F4F0] pt-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] transition-colors hover:bg-[#F5F7F5]"
+          >
+            Close
+          </button>
+        </div>
       </div>
     </ModalShell>
   )
@@ -165,15 +160,6 @@ function StockingImportErrorsModal({ errors, duplicates = [], created, onClose }
       icon={AlertTriangle}
       onClose={onClose}
       maxWidth="max-w-lg"
-      footer={
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38]"
-        >
-          Close
-        </button>
-      }
     >
       {!hasIssues ? (
         <p className="text-sm text-[#1B4D2E] font-medium py-2">All rows imported successfully.</p>
@@ -205,6 +191,15 @@ function StockingImportErrorsModal({ errors, duplicates = [], created, onClose }
           )}
         </div>
       )}
+      <div className="flex justify-end pt-4 border-t border-[#F0F4F0] mt-4">
+        <button
+          type="button"
+          onClick={onClose}
+          className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38]"
+        >
+          Close
+        </button>
+      </div>
     </ModalShell>
   )
 }
@@ -290,25 +285,7 @@ function YASignatureModal({ purpose, onClose, onGenerate }) {
   const title = isPdf ? 'Enter Signature Information for PDF Preview' : 'Enter Signature Information for Excel Download'
 
   return (
-    <ModalShell
-      title={title}
-      onClose={onClose}
-      maxWidth="max-w-sm"
-      footer={
-        <>
-          <button type="button" onClick={onClose} className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={() => onGenerate({ prepared_by: preparedBy, position, reviewed_by: showReviewer ? reviewerName : '', noted_by: showNotedBy ? notedByName : '' })}
-            className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors"
-          >
-            {isPdf ? 'Generate PDF' : 'Generate Excel'}
-          </button>
-        </>
-      }
-    >
+    <ModalShell title={title} onClose={onClose} maxWidth="max-w-sm">
       <p className="text-[12px] text-[#7A8E7A] text-center mb-4">
         Please provide the names and positions for the signature section of the PDF report.
       </p>
@@ -356,6 +333,18 @@ function YASignatureModal({ purpose, onClose, onGenerate }) {
         )}
       </div>
 
+      <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-4 mt-3">
+        <button type="button" onClick={onClose} className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={() => onGenerate({ prepared_by: preparedBy, position, reviewed_by: showReviewer ? reviewerName : '', noted_by: showNotedBy ? notedByName : '' })}
+          className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors"
+        >
+          {isPdf ? 'Generate PDF' : 'Generate Excel'}
+        </button>
+      </div>
     </ModalShell>
   )
 }
@@ -536,6 +525,7 @@ export default function ForecastingTab({ asTab = false }) {
   const [fcLoading,        setFcLoading]        = useState(true)
   const [fcError,          setFcError]          = useState('')
   const [fcSearch,         setFcSearch]         = useState('')
+  const [fcSearchDebounced, setFcSearchDebounced] = useState('')
   const [fcDetail,         setFcDetail]         = useState(null)
   const [fcImporting,      setFcImporting]      = useState(false)
   const [fcImportResults,  setFcImportResults]  = useState(null)
@@ -549,13 +539,12 @@ export default function ForecastingTab({ asTab = false }) {
   const fetchForecastRecords = useCallback(async (pageNum = 1, isCancelled = () => false) => {
     setFcLoading(true); setFcError('')
     try {
-      const today = new Date()
-      const to = new Date(today)
-      to.setDate(to.getDate() + FORECAST_WINDOW_DAYS)
-      const fmtISO = (d) => d.toISOString().slice(0, 10)
-      const params = { date_from: fmtISO(today), date_to: fmtISO(to), page: pageNum }
+      // All active (not yet harvested / not total-loss) Fisheries Monitoring records: the endpoint's
+      // default status scope. Search is applied server-side so it spans every page.
+      const params = { page: pageNum }
       if (fcBarangayFilter) params.barangay = fcBarangayFilter
       if (fcSpeciesFilter)  params.species  = fcSpeciesFilter
+      if (fcSearchDebounced.trim()) params.search = fcSearchDebounced.trim()
       const r = await api.get('/fisheries/stocking/', { params })
       if (isCancelled()) return
       setFcRecords(Array.isArray(r.data) ? r.data : (r.data.results || []))
@@ -566,9 +555,13 @@ export default function ForecastingTab({ asTab = false }) {
       if (!isCancelled()) setFcLoading(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fcBarangayFilter, fcSpeciesFilter])
+  }, [fcBarangayFilter, fcSpeciesFilter, fcSearchDebounced])
 
-  useEffect(() => { setFcPage(1) }, [fcBarangayFilter, fcSpeciesFilter])
+  useEffect(() => {
+    const t = setTimeout(() => setFcSearchDebounced(fcSearch), 300)
+    return () => clearTimeout(t)
+  }, [fcSearch])
+  useEffect(() => { setFcPage(1) }, [fcBarangayFilter, fcSpeciesFilter, fcSearchDebounced])
   useEffect(() => {
     let cancelled = false
     fetchForecastRecords(fcPage, () => cancelled)
@@ -644,23 +637,30 @@ export default function ForecastingTab({ asTab = false }) {
     }
   }
 
-  const fcQ = fcSearch.toLowerCase()
-  const fcFiltered = fcRecords.filter(rec =>
+  // Flat rows are already searched server-side; the grouped list is unpaginated, so it is searched here.
+  const fcQ = fcSearch.trim().toLowerCase()
+  const fcFiltered = fcRecords
+  const fcGroupedFiltered = fcGrouped.filter(g =>
     !fcQ
-    || rec.species_name?.toLowerCase().includes(fcQ)
-    || rec.fisherfolk_name?.toLowerCase().includes(fcQ)
+    || g.commodity?.toLowerCase().includes(fcQ)
+    || g.person?.toLowerCase().includes(fcQ)
   )
 
   const FC_COLUMNS = [
     { key: 'species_name',      label: 'SPECIES' },
+    { key: 'fisherfolk_name',   label: 'FISHERFOLK' },
+    { key: 'culture_type',      label: 'CULTURE TYPE' },
+    { key: 'stocked_cell',      label: 'DATE STOCKED' },
     { key: 'fingerlings_cell',  label: 'FINGERLINGS' },
     { key: 'yield_cell',        label: 'ESTIMATED HARVEST YIELD (KG)' },
     { key: 'harvest_date_cell', label: 'ESTIMATED HARVEST DATE' },
+    { key: 'status',            label: 'STATUS' },
     { key: 'actions',           label: 'DETAILS' },
   ]
 
   const fcRows = fcFiltered.map(rec => ({
     ...rec,
+    stocked_cell: fmtMDY(rec.date_stocked),
     fingerlings_cell: rec.number_of_fingerlings ? Number(rec.number_of_fingerlings).toLocaleString() : '—',
     harvest_date_cell: fmtMDY(rec.expected_harvest_date),
     yield_cell: rec.estimated_harvest_kg
@@ -1052,7 +1052,7 @@ export default function ForecastingTab({ asTab = false }) {
         </>
       ) : (
         <GroupedForecast
-          records={fcGrouped}
+          records={fcGroupedFiltered}
           isLoading={fcGroupedLoading}
           personLabel="Fisherfolk"
           commodityLabel="Species"

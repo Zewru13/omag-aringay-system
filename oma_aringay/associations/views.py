@@ -432,6 +432,12 @@ class FisherfolkOrganizationListCreateView(generics.ListCreateAPIView):
         search = self.request.query_params.get('search', '').strip()
         if search:
             qs = qs.filter(Q(name__icontains=search) | Q(barangay__icontains=search))
+        # Only organizations this fisherfolk is an active member of (the real join table).
+        fisherfolk_id = self.request.query_params.get('fisherfolk', '').strip()
+        if fisherfolk_id:
+            if not fisherfolk_id.isdigit():
+                return qs.none()
+            qs = qs.filter(members__fisherfolk_id=fisherfolk_id, members__is_active=True).distinct()
         return qs
 
     def perform_create(self, serializer):

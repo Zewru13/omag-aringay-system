@@ -2,11 +2,16 @@ import { useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 
 function ConfirmDialog({
-  title, message, onConfirm, onCancel, confirmLabel = 'Confirm', cancelLabel = 'Cancel',
+  title, message, subtitle, onConfirm, onCancel, confirmLabel = 'Confirm', cancelLabel = 'Cancel',
   danger = false, variant = 'danger', details = null,
   requireTypedConfirmation = false, typedConfirmationText = 'DELETE',
   showReasonInput = false, reasonValue = '', onReasonChange, reasonLabel = 'Reason (optional)',
   reasonPlaceholder = '',
+  // Optional icon override — every existing caller omits these and keeps
+  // today's amber AlertTriangle look. Added for non-destructive confirms
+  // (e.g. "Confirm Save") that want a different icon/color, without forking
+  // this component or touching any of its other 28 call sites.
+  icon: Icon = AlertTriangle, iconBg = '#FEF3C7', iconColor = '#D97706',
 }) {
   const isDanger = danger || variant === 'danger'
   const [typedValue, setTypedValue] = useState('')
@@ -23,10 +28,13 @@ function ConfirmDialog({
       >
         {/* Icon area */}
         <div className="flex flex-col items-center pt-6 pb-2">
-          <div className="w-12 h-12 rounded-full bg-[#FEF3C7] flex items-center justify-center">
-            <AlertTriangle size={22} color="#D97706" />
+          <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: iconBg }}>
+            <Icon size={22} color={iconColor} />
           </div>
           <h3 className="text-[15px] font-semibold text-[#1A2B1A] text-center mt-3">{title}</h3>
+          {subtitle && (
+            <p className="text-[12px] text-[#7A8E7A] text-center mt-1 px-6">{subtitle}</p>
+          )}
           {message && (
             <p className="text-[13px] text-[#7A8E7A] text-center mt-2 px-6">{message}</p>
           )}
