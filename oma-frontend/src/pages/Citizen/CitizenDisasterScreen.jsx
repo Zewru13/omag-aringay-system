@@ -6,6 +6,8 @@ import { useToast } from '../../context/ToastContext.jsx'
 import useRecordLock from '../../hooks/useRecordLock.js'
 import { labels } from './labels.js'
 import { CitizenScreen, CitizenSubHeader } from './citizenUI.jsx'
+import FarmerDisasterList from './FarmerDisasterList.jsx'
+import FarmerDisasterReportForm from './FarmerDisasterReportForm.jsx'
 import { todayISO, yesterdayISO } from '../../utils/localDate.js'
 
 // Same control geometry as CitizenActivityLogModal — hairline border, 8px
@@ -70,7 +72,10 @@ function FieldBlock({ label, required, error, hint, children }) {
 // unticked recommendation row opens the activity log prefilled with that
 // rule's response activity. Without it the rows render as plain read-only
 // status, which is still correct — they were never toggles.
-export default function CitizenDisasterScreen({ domain, theme, recordId, record, onClose, onSuccess, onLogResponse, bare = false }) {
+// `variant="farmer"` swaps in the redesigned Farmer report form and list layout
+// (UPDATED FARMER CITIZEN UI.docx). Without it — Fisherfolk — nothing here
+// changes. `tabBar` is only used by that variant, for the phone tab bar.
+export default function CitizenDisasterScreen({ domain, theme, recordId, record, onClose, onSuccess, onLogResponse, variant, tabBar, bare = false }) {
   const { showToast } = useToast()
   const isCrop = domain.key === 'crop'
   // Lands on the report form by default, matching the reference exactly —
@@ -248,6 +253,27 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
       <span className="inline-flex items-center gap-1 rounded-full bg-cz-warn-bg px-2 py-[3px] text-[11px] font-medium text-cz-warn-accent">
         <AlertCircle size={11} aria-hidden="true" /> {labels.disaster.statusActive}
       </span>
+    )
+  }
+
+  if (mode === 'create' && variant === 'farmer') {
+    return (
+      <FarmerDisasterReportForm
+        domain={domain}
+        recordId={recordId}
+        record={record}
+        recordLock={recordLock}
+        onCancel={onClose}
+        onReported={() => {
+          setJustReported(true)
+          setMode('list')
+          setReloadKey((k) => k + 1)
+          onSuccess?.()
+        }}
+        onViewReported={() => setMode('list')}
+        tabBar={tabBar}
+        bare={bare}
+      />
     )
   }
 
@@ -461,6 +487,26 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
         <CitizenSubHeader theme={theme} title={labels.disaster.reportButton} onBack={onClose} />
         {formBody}
       </CitizenScreen>
+    )
+  }
+
+  if (variant === 'farmer') {
+    return (
+      <FarmerDisasterList
+        domain={domain}
+        record={record}
+        disasters={disasters}
+        responseByDisaster={responseByDisaster}
+        isLoading={isLoading}
+        hasError={hasError}
+        justReported={justReported}
+        onReportNew={() => { setJustReported(false); setMode('create') }}
+        onRetry={() => setReloadKey((k) => k + 1)}
+        onChanged={() => { setReloadKey((k) => k + 1); onSuccess?.() }}
+        onLogResponse={onLogResponse}
+        tabBar={tabBar}
+        bare={bare}
+      />
     )
   }
 

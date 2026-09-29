@@ -92,6 +92,96 @@ export const labels = {
     myInfo: 'Impormasyon',
   },
 
+  // Farmer citizen redesign (2026-09-29): chrome copy taken verbatim from
+  // UPDATED FARMER CITIZEN UI.docx, including the parts it leaves in English.
+  farmerChrome: {
+    tabs: {
+      home: 'Home',
+      activity: 'Mag-ulat ng aktibidad',
+      disaster: 'Mag-ulat ng sakuna',
+      results: 'Resulta ng ani',
+      assistance: 'Tulong',
+    },
+    nav: {
+      home: 'Simula',
+      log: 'Mag-log',
+      disaster: 'Sakuna',
+      results: 'Ani',
+      assistance: 'Assistance',
+    },
+    menu: {
+      viewProfile: 'View Profile',
+      help: 'Help',
+      logout: 'Log-out',
+    },
+  },
+
+  // Farmer Sakuna form addition: the reference ends this label with a full stop.
+  farmerDisaster: {
+    totalLoss: 'Total loss po ito.',
+    reportNew: '+ I-report ang kalamidad',
+    affectedMeta: (date, ha, crop) => [date, `${ha} ha na tinamaan`, crop].filter(Boolean).join(' · '),
+  },
+
+  // Farmer Ani (results) screen additions, verbatim from the reference.
+  farmerAni: {
+    none: 'Wala',
+    viewHistory: 'Tingnan ang history',
+  },
+
+  // Farmer Home screen, verbatim from the reference.
+  farmerHomeNew: {
+    statParcels: 'Farm parcels',
+    statActiveCrops: 'Aktibong pananim',
+    statArea: 'Kabuuang lawak',
+    statHarvestsThisMonth: 'Aani ngayong buwan',
+    attentionTitle: (n) => `${n} pananim ang kailangan ng atensyon`,
+    attentionBody: 'May mga nakatakdang gawain ngayong araw.',
+    attentionCta: 'Tingnan',
+    active: 'Active',
+    parcel: (n) => `Parcel ${n}`,
+    suggestionsTitle: 'Activity Suggestions',
+    suggestionNext: (activity) => `${activity} is recommended next.`,
+    logThis: 'Log this',
+  },
+
+  // Farmer Tulong (assistance) screen, verbatim from the reference.
+  farmerAssistance: {
+    awaitingHeading: 'Awaiting your confirmation',
+    upcomingHeading: 'Upcoming',
+    receivedHeading: 'Received',
+    awaitingPill: 'Awaiting Confirmation',
+    upcomingPill: 'Upcoming',
+    confirmedPill: 'Confirmed',
+    notReceivedPill: 'Not Received',
+    resolvedPill: 'Resolved',
+    confirmCta: 'Kumpirmahin kung natanggap',
+    notReceivedCta: 'Hindi natanggap',
+    expectedOn: (d) => `Expected on ${d}`,
+    confirmedOn: (d) => `Confirmed ${d}`,
+    days: (n) => `${n} day${Number(n) === 1 ? '' : 's'}`,
+    confirmTitle: 'Kumpirmahin ang tulong',
+    proofPhoto: 'Proof photo (optional)',
+    note: 'Note',
+    cancel: 'Cancel',
+    confirm: 'Kumpirmahin',
+    reportTitle: 'Hindi natanggap',
+    reason: 'Reason',
+    submit: 'Isumite',
+  },
+
+  // Farmer crop history screen, verbatim from the reference.
+  farmerHistory: {
+    back: 'Bumalik sa resulta',
+    activities: 'Mga aktibidad',
+    logActivity: 'Mag-log ng gawain',
+    disasters: 'Mga kalamidad',
+    lastHarvest: 'Huling ani',
+    edit: 'I-edit',
+    recordHarvest: 'Itala ang ani',
+    harvestMeta: (date, mt) => `${date} · ${mt} MT`,
+  },
+
   // New farmer/fisheries reference — copy verbatim from the 33 frames.
   ffNew: {
     greetingMorning: 'Magandang umaga,',
@@ -477,10 +567,10 @@ export const labels = {
     // and a collapsible history at the bottom.
     farmerLog: {
       title: 'I-log ang Aktibidad',
-      cropHeading: 'TANIMAN',
+      cropHeading: 'Taniman',
       cropOption: (name, ha, brgy) => `${name} — ${ha} ha, Brgy. ${brgy}`,
 
-      activityHeading: 'URI NG AKTIBIDAD',
+      activityHeading: 'Uri ng Aktibidad',
       // Keys are the values actually stored in activity_type. Three of the
       // four are already in live data and in the serializer's own
       // special-casing ('Pest Control', 'Disease Control'); the citizen form
@@ -499,20 +589,21 @@ export const labels = {
       // live use and the four tiles cover only three of them.
       otherPlaceholder: 'Ilarawan ang uri ng aktibidad…',
 
-      dateHeading: 'PETSA NG AKTIBIDAD',
+      dateHeading: 'Petsa ng aktibidad',
       dateToday: 'Ngayon',
       dateYesterday: 'Kahapon',
       dateOther: 'Iba pang petsa',
 
-      fertilizerType: 'URI NG ABONO',
+      fertilizerType: 'Uri ng abono',
       // The reference draws a select but never opens it, and the column
       // holds no real data to source from, so the options are the model's
       // own documented examples (CropActivityLog.fertilizer_type help_text)
       // with a free-text fallback rather than an invented catalogue.
       fertilizerOptions: ['14-14-14 NPK', 'Urea (46-0-0)', 'Organic / Compost'],
-      quantityKg: 'DAMI (KG)',
+      quantityKg: 'Dami',
+      unit: 'Unit',
       quantityPlaceholder: 'hal. 25',
-      applicationMethod: 'PARAAN NG PAGLAGAY',
+      applicationMethod: 'Paraan ng paglagay',
       methodOptions: {
         Broadcast: 'Broadcast (isabog)',
         Basal: 'Basal (sa tanim)',
@@ -521,25 +612,25 @@ export const labels = {
         Fertigation: 'Fertigation (sa tubig)',
       },
 
-      pestName: 'PANGALAN NG PESTE',
+      pestName: 'Pangalan ng peste',
       pestPlaceholder: 'hal. Stem Borer, Brown Plant Hopper',
-      pestTreatment: 'GAMOT / LUNAS NA GINAMIT',
+      pestTreatment: 'Gamot / lunas na ginamit',
       pestTreatmentPlaceholder: 'hal. Chlorpyrifos, Fipronil',
 
-      diseaseName: 'URI NG SAKIT',
+      diseaseName: 'Uri ng sakit',
       diseasePlaceholder: 'hal. Blast, Tungro, Bacterial Leaf Blight',
-      diseaseTreatment: 'FUNGICIDE / GAMOT NA GINAMIT',
+      diseaseTreatment: 'Fungicide / gamot na ginamit',
       diseaseTreatmentPlaceholder: 'hal. Mancozeb, Tricyclazole',
 
-      damageLevel: 'ANTAS NG PINSALA',
+      damageLevel: 'Antas ng pinsala',
       damageOptions: { Low: 'Mababa', Medium: 'Katamtaman', High: 'Mataas' },
 
-      plantCondition: 'KALAGAYAN NG HALAMAN',
-      conditionOptions: { Good: 'Mabuti', Fair: 'Katamtaman', Poor: 'Mahina' },
-      waterQuality: 'KALIDAD NG TUBIG',
+      plantCondition: 'Kalagayan ng halaman',
+      conditionOptions: { Good: 'Maganda', Fair: 'Katamtaman', Poor: 'Mahina' },
+      waterQuality: 'Kalidad ng tubig',
       waterOptions: { Good: 'Mabuti', Fair: 'Katamtaman', Poor: 'Mahina' },
 
-      notes: 'MGA TALA / OBSERBASYON',
+      notes: 'Mga tala / observasyon',
       notesOptional: '(opsyonal)',
       notesPlaceholder: 'Ano pa ang napansin ninyo sa taniman ngayon?',
 
@@ -1050,6 +1141,7 @@ export const labels = {
       areaAffectedRequired: 'Kailangan po ang lawak na tinamaan.',
       areaAffectedInvalid: 'Ang lawak na tinamaan ay dapat mas mataas sa 0.',
       areaAffectedExceeds: (recordArea) => `Hindi po pwedeng lumagpas ang lawak sa ${recordArea} ha na nakatala.`,
+      severityRequired: 'Kailangan po ang antas ng pinsala.',
       lockedByOther: 'May ibang naglo-log nito ngayon. Maghintay po muna.',
       genericSaveError: 'Hindi ma-save ang report ng kalamidad.',
       recoveryNoteRequired: 'Kailangan po ng note tungkol sa pagbawi kung hindi pa tapos lahat ng inirerekomendang tugon.',

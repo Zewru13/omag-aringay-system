@@ -1,28 +1,20 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, ChevronRight, Pencil, Plus } from 'lucide-react'
+import { AlertTriangle, ChevronRight, Leaf } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
-import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { CROP_DOMAIN } from './citizenDomainConfig.js'
-import CitizenActivityLogScreen from './CitizenActivityLogModal.jsx'
 import CitizenDisasterScreen from './CitizenDisasterScreen.jsx'
 import CitizenHarvestModal from './CitizenHarvestModal.jsx'
+import { dayFirstLong, dayFirstShort } from './farmerDates.js'
 import { labels } from './labels.js'
-import {
-  CROP_THEME, CitizenBody, CitizenScreen, CitizenSubHeader, SectionHeading,
-} from './citizenUI.jsx'
+import { CROP_THEME, CitizenBody, CitizenHomeHeader, CitizenScreen } from './citizenUI.jsx'
 
-// Batch E added this as the "View history" destination for one crop
-// record; the visual-spec revision swapped log editing from a modal to a
-// full screen. Evaluator-parity batch: every entry now shows Edit
-// regardless of who logged it — get_object_creator_id is no longer part
-// of the backend's IsStaffOrOwnRecordCitizen check for CITIZEN (see
-// accounts/permissions.py), so the frontend's own-entry gate would just be
-// a UI lie if left in place. Ownership of the RECORD itself (not the
-// entry) is still the real boundary, enforced server-side and untouched —
-// this screen can only ever be reached for the citizen's own record to
-// begin with. Also adds a Disasters section, opening the new
-// CitizenDisasterScreen (report + status-track + recover) for this record.
+// "View history" destination for one crop record, reached from a results card.
+// Every entry keeps its Edit action regardless of who logged it: ownership of
+// the RECORD (not the entry) is the real boundary, enforced server-side
+// (IsStaffOrOwnRecordCitizen), and this screen can only be reached for the
+// citizen's own record.
+//
 // Mirrors core.utils.harvest_gate_status on the backend (the real
 // enforcement — this is client-side UX only, to explain the gate before
 // the citizen even opens the modal rather than after a rejected submit).
@@ -42,14 +34,17 @@ function harvestGateInfo(record) {
   }
 }
 
-export default function FarmerCropHistoryView({ record, onBack, onRecordChanged }) {
-  const { user } = useAuth()
+const H = labels.farmerHistory
+
+// Reference layout: one card — crop band, activity rows, a disasters row, and
+// the last harvest. Activity edits open the Farmer Log-activity screen
+// (onEditLog) rather than the older full-screen editor.
+export default function FarmerCropHistoryView({ record, onBack, onRecordChanged, onEditLog, tabBar, bare = false }) {
   const { showToast } = useToast()
   const [logs, setLogs] = useState([])
   const [harvests, setHarvests] = useState([])
   const [disasterCount, setDisasterCount] = useState(null) // { active, total } | null while loading
   const [isLoading, setIsLoading] = useState(true)
-  const [logScreen, setLogScreen] = useState(null)   // { entry } — full screen
   const [harvestModal, setHarvestModal] = useState(null) // { entry } — overlay
   const [disasterScreen, setDisasterScreen] = useState(false) // full screen
 
@@ -87,178 +82,150 @@ export default function FarmerCropHistoryView({ record, onBack, onRecordChanged 
     onRecordChanged?.()
   }
 
-  if (logScreen) {
-    return (
-      <CitizenActivityLogScreen
-        domain={CROP_DOMAIN}
-        theme={CROP_THEME}
-        recordId={record.id}
-        record={record}
-        log={logScreen.entry}
-        onClose={() => setLogScreen(null)}
-        onSuccess={refreshAfterChange}
-      />
-    )
-  }
-
   if (disasterScreen) {
     return (
       <CitizenDisasterScreen
+        variant="farmer"
         domain={CROP_DOMAIN}
         theme={CROP_THEME}
         recordId={record.id}
         record={record}
+        tabBar={tabBar}
         onClose={() => setDisasterScreen(false)}
         onSuccess={refreshAfterChange}
+        bare={bare}
       />
     )
   }
 
-  const addButton = (onClick) => (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex min-h-[44px] items-center gap-1.5 rounded-[8px] border-[0.5px] border-cz-border-strong px-3 py-2 text-cz-text transition-colors hover:bg-cz-page"
-    >
-      <Plus size={15} aria-hidden="true" />
-      <span className="text-[13px] font-medium">{labels.farmerHome.history.logActivity}</span>
-    </button>
-  )
+  const harvest = harvests[0] || null
+  const gate = harvestGateInfo(record)
+  const openHarvest = () => {
+    if (!harvest && gate.gated) { showToast(gate.message, 'error'); return }
+    setHarvestModal({ entry: harvest })
+  }
 
-  // Evaluator-parity batch: Edit shows on every row now, staff-logged or
-  // not — `isStaffLogged` only drives the small "Logged by staff" tag next
-  // to it, informational rather than gating. The actual permission is
-  // enforced server-side (IsStaffOrOwnRecordCitizen, own-record-only), so
-  // there is nothing left for the frontend to block on here.
-  const entryRow = (key, title, meta, isStaffLogged, onEdit) => (
-    <li key={key} className="flex items-center gap-3 border-b-[0.5px] border-cz-border px-[14px] py-[13px] last:border-b-0">
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[15px] font-medium text-cz-text">{title}</p>
-        <p className="text-[12px] text-cz-text-2">
-          {meta}
-        </p>
-        <span
-          className={`mt-1 inline-block rounded-[5px] px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.03em] ${
-            isStaffLogged
-              ? 'bg-[color:var(--color-semantic-warning-bg)] text-[color:var(--color-semantic-warning)]'
-              : 'bg-[color:var(--color-semantic-safe-bg)] text-[color:var(--color-semantic-safe)]'
-          }`}
-        >
-          {isStaffLogged ? labels.ffNew.loggedByStaff : labels.ffNew.loggedByYou}
+  const card = (
+    <div className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface">
+      <div className="flex items-center gap-3 bg-cz-crop-pale px-[15px] py-[14px]">
+        <span className="flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-[10px] bg-white/70">
+          <Leaf size={20} className="text-cz-crop-header" aria-hidden="true" />
         </span>
+        <div className="min-w-0">
+          <p className="truncate text-[17px] font-semibold text-cz-text">{record.crop_type_name || labels.yieldAnalysis.cropCropLabel}</p>
+          <p className="mt-0.5 truncate text-[12.5px] text-cz-text-2">
+            {record.area_planted_ha ?? labels.common.unknown} ha · Brgy. {record.farm_location_barangay || labels.common.unknown}
+          </p>
+        </div>
       </div>
-      <button
-        type="button"
-        onClick={onEdit}
-        className={`-my-2 flex min-h-[44px] shrink-0 items-center gap-1 px-2 ${CROP_THEME.accentText}`}
-      >
-        <Pencil size={14} aria-hidden="true" />
-        <span className="text-[13px] font-medium">{labels.common.edit}</span>
-      </button>
-    </li>
-  )
 
-  return (
-    <CitizenScreen>
-      <CitizenSubHeader
-        theme={CROP_THEME}
-        title={labels.farmerHome.history.title(CROP_DOMAIN.recordTitle(record))}
-        subtitle={record.farm_location_barangay || undefined}
-        onBack={onBack}
-      />
-
-      <CitizenBody>
-        {isLoading ? (
-          <p className="text-[15px] italic text-cz-text-2">{labels.farmerHome.history.loading}</p>
-        ) : (
-          <>
-            <div className="mb-[10px] flex items-center justify-between">
-              <SectionHeading>{labels.farmerHome.history.activityLogTitle}</SectionHeading>
-              <div className="-mt-[10px]">{addButton(() => setLogScreen({ entry: null }))}</div>
+      {isLoading ? (
+        <p className="px-[15px] py-4 text-[14px] italic text-cz-text-2">{labels.farmerHome.history.loading}</p>
+      ) : (
+        <>
+          <div className="px-[15px] py-[14px]">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-[15px] font-semibold text-cz-text">{H.activities}</p>
+              <button
+                type="button"
+                onClick={() => onEditLog(null)}
+                className="shrink-0 rounded-[8px] border-[0.5px] border-cz-border-strong bg-cz-surface px-3 py-[9px] transition-colors hover:bg-cz-page"
+              >
+                <span className="whitespace-nowrap text-[12px] font-semibold text-cz-text">{H.logActivity}</span>
+              </button>
             </div>
             {logs.length === 0 ? (
-              <p className="mb-4 text-[14px] italic text-cz-text-muted">{labels.farmerHome.history.noActivity}</p>
+              <p className="mt-3 text-[13px] italic text-cz-text-muted">{labels.farmerHome.history.noActivity}</p>
             ) : (
-              <ul className="mb-4 overflow-hidden rounded-[12px] border-[0.5px] border-cz-border-strong bg-cz-surface">
-                {logs.map((log) => entryRow(
-                  log.id,
-                  log[CROP_DOMAIN.activityField],
-                  `${log.date_of_activity}${log.is_late ? labels.farmerHome.history.lateSuffix : ''}`,
-                  log[CROP_DOMAIN.creatorField] !== user?.id,
-                  () => setLogScreen({ entry: log }),
+              <ul className="mt-3 space-y-2">
+                {logs.map((log) => (
+                  <li key={log.id} className="flex items-center justify-between gap-3 rounded-[10px] border-[0.5px] border-cz-border px-3.5 py-3">
+                    <span className="min-w-0 text-[13.5px] text-cz-text">
+                      {log[CROP_DOMAIN.activityField]} · {dayFirstShort(log.date_of_activity)}
+                      {log.is_late ? labels.farmerHome.history.lateSuffix : ''}
+                    </span>
+                    <button type="button" onClick={() => onEditLog(log.id)} className="shrink-0 py-1">
+                      <span className="text-[13.5px] font-bold text-cz-crop-header">{H.edit}</span>
+                    </button>
+                  </li>
                 ))}
               </ul>
             )}
+          </div>
 
-            <div className="mb-[10px] flex items-center justify-between">
-              <SectionHeading>{labels.farmerHome.history.harvestTitle}</SectionHeading>
-              {!record.harvest_record_id && (
-                <div className="-mt-[10px]">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const gate = harvestGateInfo(record)
-                      if (gate.gated) { showToast(gate.message, 'error'); return }
-                      setHarvestModal({ entry: null })
-                    }}
-                    className="flex min-h-[44px] items-center gap-1.5 rounded-[8px] border-[0.5px] border-cz-border-strong px-3 py-2 text-cz-text transition-colors hover:bg-cz-page"
-                  >
-                    <Plus size={15} aria-hidden="true" />
-                    <span className="text-[13px] font-medium">{labels.farmerHome.history.recordHarvest}</span>
-                  </button>
-                </div>
-              )}
-            </div>
-            {harvestGateInfo(record).gated && harvests.length === 0 && (
-              <p className="mb-3 rounded-[10px] border border-[#F5E0A3] bg-cz-alert-bg px-3.5 py-2.5 text-[13px] leading-[1.45] text-cz-alert-title">
-                {harvestGateInfo(record).message}
+          <button
+            type="button"
+            onClick={() => setDisasterScreen(true)}
+            className="flex w-full items-center justify-between gap-2 border-t-[0.5px] border-cz-border px-[15px] py-[18px] text-left transition-colors hover:bg-cz-page"
+          >
+            <span className="flex items-center gap-3">
+              <AlertTriangle size={17} className={disasterCount?.active ? 'text-cz-danger-accent' : 'text-cz-text'} aria-hidden="true" />
+              <span className="text-[14.5px] text-cz-text">{H.disasters}</span>
+            </span>
+            <ChevronRight size={16} className="text-cz-text-muted" aria-hidden="true" />
+          </button>
+
+          {!harvest && gate.gated && (
+            <p className="mx-[15px] mb-3 rounded-[10px] border border-cz-alert-border bg-cz-alert-bg px-3.5 py-2.5 text-[12.5px] leading-[1.45] text-cz-alert-title">
+              {gate.message}
+            </p>
+          )}
+          <div className="flex items-center justify-between gap-3 border-t-[0.5px] border-cz-border px-[15px] py-[14px]">
+            <div className="min-w-0">
+              <p className="text-[15px] font-semibold text-cz-text">{H.lastHarvest}</p>
+              <p className="mt-1 text-[12px] text-cz-text-2">
+                {harvest
+                  ? H.harvestMeta(dayFirstLong(harvest.harvest_start_date), (Number(harvest.volume_kg) / 1000).toFixed(2))
+                  : labels.farmerHome.history.noHarvest}
               </p>
-            )}
-            {harvests.length === 0 ? (
-              <p className="text-[14px] italic text-cz-text-muted">{labels.farmerHome.history.noHarvest}</p>
-            ) : (
-              <ul className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border-strong bg-cz-surface">
-                {harvests.map((h) => entryRow(
-                  h.id,
-                  `${h.volume_kg} kg`,
-                  h.harvest_start_date,
-                  h[CROP_DOMAIN.creatorField] !== user?.id,
-                  () => setHarvestModal({ entry: h }),
-                ))}
-              </ul>
-            )}
-
-            <div className="mb-[10px] flex items-center justify-between">
-              <SectionHeading>{labels.farmerHome.history.disasterTitle}</SectionHeading>
             </div>
             <button
               type="button"
-              onClick={() => setDisasterScreen(true)}
-              className="flex min-h-[44px] w-full items-center justify-between gap-2 rounded-[12px] border-[0.5px] border-cz-border-strong bg-cz-surface px-[14px] py-[13px] text-left transition-colors hover:bg-cz-page"
+              onClick={openHarvest}
+              className="shrink-0 rounded-[8px] bg-cz-crop-header px-4 py-[10px] transition-opacity hover:opacity-90"
             >
-              <span className="flex items-center gap-2">
-                <AlertTriangle size={16} className={disasterCount?.active ? 'text-cz-danger-accent' : 'text-cz-text-muted'} aria-hidden="true" />
-                <span className="text-[14px] text-cz-text">
-                  {disasterCount?.active
-                    ? labels.farmerHome.history.activeDisasterCount(disasterCount.active)
-                    : labels.farmerHome.history.manageDisasters}
-                </span>
-              </span>
-              <ChevronRight size={16} className="text-cz-text-muted" aria-hidden="true" />
+              <span className="whitespace-nowrap text-[12px] font-semibold text-white">{harvest ? H.edit : H.recordHarvest}</span>
             </button>
-          </>
-        )}
-      </CitizenBody>
-
-      {harvestModal && (
-        <CitizenHarvestModal
-          domain={CROP_DOMAIN}
-          record={record}
-          harvest={harvestModal.entry}
-          onClose={() => setHarvestModal(null)}
-          onSuccess={refreshAfterChange}
-        />
+          </div>
+        </>
       )}
+    </div>
+  )
+
+  const content = (
+    <>
+      <button type="button" onClick={onBack} className="mb-4 text-cz-crop-header">
+        <span className="border-b border-cz-crop-header pb-px text-[12.5px]">‹ {H.back}</span>
+      </button>
+      {card}
+    </>
+  )
+
+  const modal = harvestModal && (
+    <CitizenHarvestModal
+      domain={CROP_DOMAIN}
+      record={record}
+      harvest={harvestModal.entry}
+      onClose={() => setHarvestModal(null)}
+      onSuccess={refreshAfterChange}
+    />
+  )
+
+  if (bare) {
+    return (
+      <div className="mx-auto w-full max-w-[718px] px-6 py-5">
+        {content}
+        {modal}
+      </div>
+    )
+  }
+
+  return (
+    <CitizenScreen hasTabBar>
+      <CitizenHomeHeader theme={CROP_THEME} />
+      <CitizenBody className="!px-3 !pt-4">{content}</CitizenBody>
+      {tabBar}
+      {modal}
     </CitizenScreen>
   )
 }

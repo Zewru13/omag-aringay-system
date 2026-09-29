@@ -1,10 +1,11 @@
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics
 from rest_framework import status as drf_status
 from rest_framework.exceptions import ValidationError
-from rest_framework.parsers import MultiPartParser
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -298,6 +299,9 @@ def _check_recipient_permission(request, owner_linked_type, owner_id):
 
 class BeneficiaryConfirmReceivedView(APIView):
     permission_classes = [IsAuthenticated]
+    # Multipart so the recipient can attach an optional proof photo; JSON still
+    # works for the bare confirm the older clients send.
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def post(self, request, pk):
         record = get_object_or_404(BeneficiaryRecord.objects.select_related('farmer'), pk=pk)
@@ -309,10 +313,19 @@ class BeneficiaryConfirmReceivedView(APIView):
                 {'detail': f'This record is not awaiting confirmation (current status: {record.get_status_display()}).'},
                 status=400,
             )
+        note = (request.data.get('confirmation_note') or '').strip()
+        photo = request.FILES.get('confirmation_photo')
+        if photo is not None:
+            try:
+                validate_uploaded_image(photo)
+            except DjangoValidationError as exc:
+                return Response({'confirmation_photo': exc.messages}, status=400)
+            record.confirmation_photo = photo
+        record.confirmation_note = note
         record.status = DistributionStatus.CONFIRMED
         record.confirmed_at = timezone.now()
         record.save()
-        return Response(BeneficiaryRecordCreateSerializer(record).data)
+        return Response(BeneficiaryRecordCreateSerializer(record, context={'request': request}).data)
 
 
 class BeneficiaryReportNotReceivedView(APIView):

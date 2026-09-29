@@ -197,6 +197,11 @@
   --color-cz-soft-danger:   #FDF4F3;
   --color-cz-soft-warn:     #FDF8EF;
   --color-cz-soft-info:     #E4EEF5;
+  /* Farmer citizen redesign (2026-09-29): the pale green fill behind the
+     fertilizer box, the per-crop Activity Suggestions strip and the Home
+     attention banner. Sampled as #F6F9F6 (strip/box) and #F3F8F3 (banner) —
+     3 levels apart, same role, so one token. */
+  --color-cz-soft-crop:     #F6F9F6;
 
   /* Status badges — SEMANTIC and domain-free, sampled as bg/fg PAIRS from
      the basis ("Harvested", "Above estimate", "Total Loss", "Overdue",
@@ -244,6 +249,7 @@
   --color-cz-alert-bg:       #FFFBEB;
   --color-cz-alert-accent:   #EBA626;
   --color-cz-alert-title:    #973C00;
+  --color-cz-alert-border:   #F5E0A3;
 
   /* History category badges (image9). One per assistance-type family;
      the component falls back to the slate tile for anything unmapped

@@ -1,29 +1,25 @@
 import { useEffect, useState } from 'react'
-import {
-  AlertCircle, AlertTriangle, BarChart3, ChevronRight, Clock, FileText, Gift, Home,
-  SquarePen, Sprout, User, Wheat,
-} from 'lucide-react'
+import { AlertTriangle, FileText, HelpCircle, Home, Leaf } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import useIsDesktop from '../../hooks/useIsDesktop.js'
 import { CROP_DOMAIN } from './citizenDomainConfig.js'
 import CitizenDisasterScreen from './CitizenDisasterScreen.jsx'
-import CitizenAniScreen from './CitizenAniScreen.jsx'
+import FarmerAniScreen from './FarmerAniScreen.jsx'
+import FarmerAssistanceList from './FarmerAssistanceList.jsx'
+import FarmerCropPicker from './FarmerCropPicker.jsx'
+import FarmerHomeView from './FarmerHomeView.jsx'
 import CitizenFarmerActivityScreen from './CitizenFarmerActivityScreen.jsx'
 import CitizenProfileScreen from './CitizenProfileScreen.jsx'
 import CitizenHelpScreen from './CitizenHelpScreen.jsx'
 import FarmerCropHistoryView from './FarmerCropHistoryView.jsx'
-import { CitizenAssistanceList } from './CitizenDesktopScreens.jsx'
+import { DesktopShell, useSidebarCollapsed } from './CitizenDesktopUI.jsx'
+import { FarmerChromeContext } from './farmerChromeContext.js'
 import {
-  DesktopBody, DesktopQuickActions, DesktopRailCard, DesktopShell, DesktopSidebar,
-  DesktopStatGrid, DesktopTopbar, useSidebarCollapsed,
-} from './CitizenDesktopUI.jsx'
+  FarmerDesktopBody, FarmerDesktopSidebar, FarmerDesktopTopbar, FarmerRailCard, FarmerTabBar,
+} from './FarmerChrome.jsx'
 import { labels } from './labels.js'
-import {
-  CROP_THEME, CitizenBody, CitizenCardGrid, CitizenEmptyState, CitizenHomeBody,
-  CitizenHomeHeader, CitizenScreen, CitizenSubHeader, CitizenTabBar, ProgressTrack,
-  QuickLinksHeading, SectionHeading, SecondaryRow, SecondaryRows, StatusCard, cycleProgress,
-} from './citizenUI.jsx'
+import { CROP_THEME } from './citizenUI.jsx'
 
 // Batch E built this task-first Farmer home screen; this revision re-skins
 // it to the citizen visual specification (phone-shaped column at every
@@ -41,6 +37,8 @@ export default function FarmerHomeScreen({ record, onLogout }) {
 
   const [view, setView] = useState({ kind: 'home' }) // 'home' | 'yield' | 'assistance' | { kind: 'history', record }
   const [disasterScreen, setDisasterScreen] = useState(null) // { record }
+  // Which crop the AKTIBIDAD form currently points at; the desktop rail card names it.
+  const [activityRecordId, setActivityRecordId] = useState(null)
 
   const fetchRecords = async () => {
     setIsLoading(true)
@@ -77,14 +75,26 @@ export default function FarmerHomeScreen({ record, onLogout }) {
       .map((s) => ({ ...s, record: rec })),
   ).sort((a, b) => (a.status === b.status ? 0 : a.status === 'overdue' ? -1 : 1))
 
-  // Buod ng Bukid figures (frames 1, 4) -- computed once here rather than
-  // inside the desktop branch below, so the mobile Home can show the same
-  // summary the reference draws instead of omitting it just because
-  // mobile has no sidebar rail to put it in.
+  // Home summary tiles. Citizens cannot list their parcels directly, so the
+  // parcel count is the distinct parcels behind their own crop records.
   const activeCrops = records.filter((r) => r.status && r.status !== 'Harvested' && r.status !== 'Total Loss')
   const totalArea = records.reduce((sum, r) => sum + (Number(r.area_planted_ha) || 0), 0)
-  const thisYear = new Date().getFullYear()
-  const plantedThisYear = records.filter((r) => r.date_planted && new Date(r.date_planted).getFullYear() === thisYear).length
+  const now = new Date()
+  const harvestsThisMonth = records.filter((r) => {
+    const d = r.actual_harvest_date ? new Date(r.actual_harvest_date) : null
+    return d && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
+  }).length
+  const parcelCount = new Set(records.map((r) => r.farm_parcel).filter(Boolean)).size
+
+  // One suggestion per crop card: the most pressing not-yet-done activity
+  // (overdue, then due now, then the next upcoming one). Nothing is shown when
+  // the backend returns none, e.g. an estimated planting date.
+  const SUGGESTION_ORDER = { overdue: 0, due_now: 1, upcoming: 2 }
+  const suggestionFor = (rec) => (tasksByRecord[rec.id] || [])
+    .filter((s) => s.status in SUGGESTION_ORDER)
+    .sort((x, y) => SUGGESTION_ORDER[x.status] - SUGGESTION_ORDER[y.status] || x.day_after_planting - y.day_after_planting)[0]
+
+  const attentionCount = new Set(needsAttention.map((t) => t.record.id)).size
 
   const handleLogSuccess = () => { fetchRecords() }
 
@@ -99,22 +109,75 @@ export default function FarmerHomeScreen({ record, onLogout }) {
     setView({ kind: 'picker', intent })
   }
 
+  const pickCrop = (rec) => {
+    setView({ kind: 'home' })
+    setDisasterScreen({ record: rec })
+  }
+
+  // Results cards link to that crop's history. The analysis row is not the
+  // monitoring record the history screen needs, and citizens cannot fetch a
+  // single record by id, so it is looked up in the citizen's own list — with
+  // every status, since a total-loss crop is left out of the default list.
+  const openCropHistory = async (analysisRow) => {
+    let full = records.find((r) => r.id === analysisRow.id)
+    if (!full) {
+      try {
+        const r = await api.get(CROP_DOMAIN.recordsUrl, { params: { status: 'Planted,Near Harvest,Harvested,Total Loss' } })
+        const rows = Array.isArray(r.data) ? r.data : (r.data?.results || [])
+        full = rows.find((x) => x.id === analysisRow.id)
+      } catch { /* falls through to the toast below */ }
+    }
+    if (!full) {
+      showToast(labels.farmerHome.history.loadError(CROP_DOMAIN.recordLabel.toLowerCase()), 'error')
+      return
+    }
+    setDisasterScreen(null)
+    setView({ kind: 'history', record: full, from: 'yield' })
+  }
+
   // Mobile-only tab bar. Declared before the early-returning sub-views so
   // each of them can render it; `active` is null on screens that aren't one
   // of the three destinations, which leaves no tab lit rather than lighting
   // a wrong one.
+  const accountInitials = (record.label || '').split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '—'
+  const T = labels.farmerChrome.tabs
   const tabBar = (active) => (
-    <CitizenTabBar
-      theme={CROP_THEME}
+    <FarmerTabBar
       active={active}
       items={[
-        { key: 'home', icon: Home, label: labels.tabBar.home, onClick: () => setView({ kind: 'home' }) },
-        { key: 'activity', icon: FileText, label: labels.tabBar.farmerActivity, onClick: () => pickRecordFor('log') },
-        { key: 'disaster', icon: AlertTriangle, label: labels.tabBar.farmerDisaster, onClick: () => pickRecordFor('disaster') },
-        { key: 'harvests', icon: BarChart3, label: labels.tabBar.farmerHarvest, onClick: () => setView({ kind: 'yield' }) },
+        { key: 'home', icon: Home, label: T.home, onClick: () => { setDisasterScreen(null); setView({ kind: 'home' }) } },
+        { key: 'activity', icon: FileText, label: T.activity, onClick: () => { setDisasterScreen(null); pickRecordFor('log') } },
+        { key: 'disaster', icon: AlertTriangle, label: T.disaster, onClick: () => pickRecordFor('disaster') },
+        { key: 'harvests', icon: Leaf, label: T.results, onClick: () => { setDisasterScreen(null); setView({ kind: 'yield' }) } },
+        { key: 'assistance', icon: HelpCircle, label: T.assistance, onClick: () => { setDisasterScreen(null); setView({ kind: 'assistance' }) } },
       ]}
     />
   )
+
+  // History "I-edit" / "Mag-log ng gawain": both open the Farmer Log-activity
+  // screen on this crop; an entry id opens that entry for editing.
+  const editLog = (rec) => (logId) => setView({
+    kind: 'activity', recordId: String(rec.id), logId: logId ? String(logId) : undefined,
+  })
+
+  const homeProps = {
+    isLoading,
+    records,
+    suggestionFor,
+    stats: {
+      parcels: parcelCount,
+      activeCrops: activeCrops.length,
+      area: `${totalArea.toFixed(totalArea % 1 === 0 ? 0 : 1)} ha`,
+      harvestsThisMonth,
+    },
+    attentionCount,
+    onSeeAttention: () => {
+      const first = needsAttention[0]
+      if (first) setView({ kind: 'activity', recordId: String(first.record.id), activity: first.activity_name })
+    },
+    onLog: (rec, activity) => setView({ kind: 'activity', recordId: String(rec.id), activity }),
+    onDisaster: (rec) => setDisasterScreen({ record: rec }),
+  }
 
   // ── Desktop POV (UI Base Desktop POV.pdf) ───────────────────────────
   // A genuinely different information architecture from the mobile
@@ -124,32 +187,30 @@ export default function FarmerHomeScreen({ record, onLogout }) {
   // single-sourced above this branch; only the returned markup differs.
   if (isDesktop) {
     const D = labels.ffNew.desktop
+    const N = labels.farmerChrome.nav
     const activeKey = view.kind === 'activity' ? 'log'
       : disasterScreen || view.kind === 'picker' ? 'disaster'
-        : view.kind === 'yield' ? 'yield'
-          : view.kind === 'profile' ? 'profile' : 'home'
+        : view.kind === 'yield' || view.kind === 'history' ? 'yield'
+          : view.kind === 'assistance' ? 'assistance' : view.kind === 'home' ? 'home' : null
 
     const sidebar = (
-      <DesktopSidebar
-        theme={CROP_THEME}
+      <FarmerDesktopSidebar
         collapsed={sidebarCollapsed}
-        brandName={D.appNameFarmer}
-        brandSub={D.municipality}
         activeKey={activeKey}
         navItems={[
-          { key: 'home', icon: Home, label: D.navHome, onClick: () => { setDisasterScreen(null); setView({ kind: 'home' }) } },
-          { key: 'log', icon: SquarePen, label: D.navLog, onClick: () => { setDisasterScreen(null); setView({ kind: 'activity' }) } },
-          { key: 'disaster', icon: AlertTriangle, label: D.navSakuna, onClick: () => pickRecordFor('disaster') },
-          { key: 'yield', icon: BarChart3, label: D.navAni, onClick: () => { setDisasterScreen(null); setView({ kind: 'yield' }) } },
+          { key: 'home', icon: Home, label: N.home, onClick: () => { setDisasterScreen(null); setView({ kind: 'home' }) } },
+          { key: 'log', icon: FileText, label: N.log, onClick: () => { setDisasterScreen(null); setView({ kind: 'activity' }) } },
+          { key: 'disaster', icon: AlertTriangle, label: N.disaster, onClick: () => pickRecordFor('disaster') },
+          { key: 'yield', icon: Leaf, label: N.results, onClick: () => { setDisasterScreen(null); setView({ kind: 'yield' }) } },
+          { key: 'assistance', icon: HelpCircle, label: N.assistance, onClick: () => { setDisasterScreen(null); setView({ kind: 'assistance' }) } },
         ]}
-        pinnedItem={{ icon: Gift, label: D.navTulong, onClick: () => { setDisasterScreen(null); setView({ kind: 'assistance' }) } }}
       />
     )
 
     const accountProps = {
-      initials: (record.label || '').split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '—',
+      initials: accountInitials,
       name: record.label,
-      roleLabel: labels.home.recordTypeLabels.FARMER || 'Magsasaka',
+      roleLabel: labels.home.recordTypeLabelsCapitalized.FARMER,
       onProfile: () => { setDisasterScreen(null); setView({ kind: 'profile' }) },
       onHelp: () => { setDisasterScreen(null); setView({ kind: 'help' }) },
       onLogout,
@@ -158,40 +219,30 @@ export default function FarmerHomeScreen({ record, onLogout }) {
     // ── Sakuna (disaster) ──────────────────────────────────────────────
     if (disasterScreen) {
       return (
-        <DesktopShell
-          collapsed={sidebarCollapsed}
-          sidebar={sidebar}
-          topbar={<DesktopTopbar theme={CROP_THEME} onToggleSidebar={toggleSidebar} title={D.navSakuna} onBack={() => setDisasterScreen(null)} account={accountProps} />}
-        >
-          <DesktopBody
-            rail={
-              <>
-                <DesktopRailCard title={D.selectedCrop}>
-                  <p className="text-[14px] font-semibold text-cz-text">
-                    {disasterScreen.record.crop_type_name || labels.yieldAnalysis.cropCropLabel}
-                  </p>
-                  <p className="mt-0.5 text-[12.5px] text-cz-text-2">{D.selectedCropHint}</p>
-                </DesktopRailCard>
-                <DesktopRailCard title={D.cropInsuranceHeading}>
-                  <p className="text-[12.5px] leading-[1.55] text-cz-text-2">{D.cropInsuranceBody}</p>
-                </DesktopRailCard>
-              </>
-            }
-          >
-            <CitizenDisasterScreen
-              domain={CROP_DOMAIN}
-              theme={CROP_THEME}
-              recordId={disasterScreen.record.id}
-              record={disasterScreen.record}
-              onClose={() => setDisasterScreen(null)}
-              onSuccess={handleLogSuccess}
-              onLogResponse={({ rule }) => {
-                setDisasterScreen(null)
-                setView({ kind: 'activity', recordId: String(disasterScreen.record.id), activity: rule.activity_name })
-              }}
-              bare
-            />
-          </DesktopBody>
+        <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<FarmerDesktopTopbar onToggleSidebar={toggleSidebar} account={accountProps} />}>
+          <CitizenDisasterScreen
+            variant="farmer"
+            domain={CROP_DOMAIN}
+            theme={CROP_THEME}
+            recordId={disasterScreen.record.id}
+            record={disasterScreen.record}
+            onClose={() => setDisasterScreen(null)}
+            onSuccess={handleLogSuccess}
+            onLogResponse={({ rule }) => {
+              setDisasterScreen(null)
+              setView({ kind: 'activity', recordId: String(disasterScreen.record.id), activity: rule.activity_name })
+            }}
+            bare
+          />
+        </DesktopShell>
+      )
+    }
+
+    // ── Crop picker (Sakuna with several crops) ────────────────────────
+    if (view.kind === 'picker') {
+      return (
+        <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<FarmerDesktopTopbar onToggleSidebar={toggleSidebar} account={accountProps} />}>
+          <FarmerCropPicker records={records} onPick={pickCrop} bare />
         </DesktopShell>
       )
     }
@@ -199,30 +250,40 @@ export default function FarmerHomeScreen({ record, onLogout }) {
     // ── Ani ──────────────────────────────────────────────────────────
     if (view.kind === 'yield') {
       return (
-        <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<DesktopTopbar theme={CROP_THEME} onToggleSidebar={toggleSidebar} title={D.navAni} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
-          <DesktopBody>
-            <CitizenAniScreen endpoint="/production/yield-analysis/" bare />
-          </DesktopBody>
+        <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<FarmerDesktopTopbar onToggleSidebar={toggleSidebar} account={accountProps} />}>
+          <FarmerAniScreen bare onViewHistory={openCropHistory} />
         </DesktopShell>
       )
     }
 
     // ── Mag-log ──────────────────────────────────────────────────────
     if (view.kind === 'activity') {
+      const railRecord = records.find((r) => String(r.id) === String(activityRecordId))
       return (
-        <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<DesktopTopbar theme={CROP_THEME} onToggleSidebar={toggleSidebar} title={D.navLog} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
-          <DesktopBody
+        <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<FarmerDesktopTopbar onToggleSidebar={toggleSidebar} account={accountProps} />}>
+          <FarmerDesktopBody
             rail={
               <>
-                <DesktopRailCard title={D.selectedCrop}>
-                  <p className="text-[13px] text-cz-text-2">{D.selectedCropHint}</p>
-                </DesktopRailCard>
-                <DesktopRailCard title={D.tandaanHeading}>
-                  <ul className="space-y-2 text-[12.5px] leading-[1.5] text-cz-text-2">
+                <FarmerRailCard title={D.selectedCrop}>
+                  {railRecord ? (
+                    <>
+                      <p className="text-[15px] font-semibold text-cz-text">
+                        {railRecord.crop_type_name || labels.yieldAnalysis.cropCropLabel}
+                      </p>
+                      <p className="mt-1.5 text-[12px] text-cz-text-2">
+                        {railRecord.area_planted_ha ?? labels.common.unknown} ha · Brgy. {railRecord.farm_location_barangay || labels.common.unknown}
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-[12px] text-cz-text-2">{D.selectedCropHint}</p>
+                  )}
+                </FarmerRailCard>
+                <FarmerRailCard title={D.tandaanHeading}>
+                  <ul className="space-y-3 pl-[22px] text-[12px] leading-[1.55] text-cz-text-2">
                     <li>{D.tandaanEditable}</li>
                     <li>{D.tandaanDateDefault}</li>
                   </ul>
-                </DesktopRailCard>
+                </FarmerRailCard>
               </>
             }
           >
@@ -230,21 +291,21 @@ export default function FarmerHomeScreen({ record, onLogout }) {
               records={records}
               initialRecordId={view.recordId}
               initialActivity={view.activity}
+              initialLogId={view.logId}
+              onRecordChange={setActivityRecordId}
               onSaved={fetchRecords}
               bare
             />
-          </DesktopBody>
+          </FarmerDesktopBody>
         </DesktopShell>
       )
     }
 
-    // ── Tulong Natanggap ───────────────────────────────────────────────
+    // ── Tulong ───────────────────────────────────────────────────────
     if (view.kind === 'assistance') {
       return (
-        <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<DesktopTopbar theme={CROP_THEME} onToggleSidebar={toggleSidebar} title={D.helpAssistance} subtitle={D.helpAssistanceSubtitle} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
-          <div className="px-6 py-5">
-            <CitizenAssistanceList endpoint="/interventions/my-beneficiary-history/" />
-          </div>
+        <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<FarmerDesktopTopbar onToggleSidebar={toggleSidebar} account={accountProps} />}>
+          <FarmerAssistanceList bare />
         </DesktopShell>
       )
     }
@@ -252,7 +313,7 @@ export default function FarmerHomeScreen({ record, onLogout }) {
     // ── Aking Profile ────────────────────────────────────────────────
     if (view.kind === 'profile') {
       return (
-        <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<DesktopTopbar theme={CROP_THEME} onToggleSidebar={toggleSidebar} title={D.accountProfile} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
+        <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<FarmerDesktopTopbar onToggleSidebar={toggleSidebar} title={D.accountProfile} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
           <div className="px-6 py-5">
             <CitizenProfileScreen record={record} recordType="FARMER" onHelp={accountProps.onHelp} bare />
           </div>
@@ -264,165 +325,55 @@ export default function FarmerHomeScreen({ record, onLogout }) {
     if (view.kind === 'help') {
       const H = labels.farmerHelp
       return (
-        <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<DesktopTopbar theme={CROP_THEME} onToggleSidebar={toggleSidebar} title={H.title} subtitle={H.subtitle} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
+        <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<FarmerDesktopTopbar onToggleSidebar={toggleSidebar} title={H.title} subtitle={H.subtitle} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
           <CitizenHelpScreen theme={CROP_THEME} L={H} bare />
         </DesktopShell>
       )
     }
 
-    // ── Picker (disaster, multiple crops) / History fall back to the
-    // existing mobile-built screens for now -- both are secondary paths
-    // with no dedicated desktop frame in the reference.
-    if (view.kind === 'picker' || view.kind === 'history') {
-      // fall through to the mobile branches below unchanged
-    } else {
-      // ── Simula (home) ─────────────────────────────────────────────
+    // ── Crop history (from an Ani card) ──────────────────────────────
+    if (view.kind === 'history') {
       return (
-        <DesktopShell
-          collapsed={sidebarCollapsed}
-          sidebar={sidebar}
-          topbar={
-            <DesktopTopbar
-              theme={CROP_THEME}
-              onToggleSidebar={toggleSidebar}
-              greetingName={D.greeting(record.label)}
-              metaLine={`Brgy. ${record.barangay || labels.common.unknown} · ${new Date().toLocaleDateString('fil-PH', { year: 'numeric', month: 'long', day: 'numeric' })}`}
-              account={accountProps}
-            />
-          }
-        >
-          {isLoading ? (
-            <p className="px-6 py-5 text-[14px] italic text-cz-text-2">{labels.farmerHome.loading}</p>
-          ) : (
-            <DesktopBody
-              rail={
-                <>
-                  <div>
-                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{D.quickActions}</p>
-                    <DesktopQuickActions
-                      items={[
-                        { icon: AlertTriangle, label: D.qaSakuna, sublabel: D.qaSakunaSub, onClick: () => pickRecordFor('disaster') },
-                        { icon: BarChart3, label: D.qaAni, sublabel: D.qaAniSub, onClick: () => setView({ kind: 'yield' }) },
-                        { icon: Gift, label: D.qaTulong, sublabel: D.qaTulongSub, onClick: () => setView({ kind: 'assistance' }) },
-                      ]}
-                    />
-                  </div>
-                  <DesktopStatGrid
-                    title={D.farmSummary}
-                    items={[
-                      { value: activeCrops.length, label: D.farmSummaryActiveCrops },
-                      { value: needsAttention.length, label: D.farmSummaryNeedsAttention },
-                      { value: `${totalArea.toFixed(totalArea % 1 === 0 ? 0 : 2)} ha`, label: D.farmSummaryArea },
-                      { value: plantedThisYear, label: D.farmSummaryPlantedThisYear },
-                    ]}
-                  />
-                </>
-              }
-            >
-              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{D.needsAttention}</p>
-              {needsAttention.length === 0 ? (
-                <p className="mb-6 rounded-[10px] border-[0.5px] border-cz-border bg-cz-surface px-4 py-4 text-[13px] italic text-cz-text-muted">
-                  {labels.farmerHome.needsAttention.emptyBody}
-                </p>
-              ) : (
-                <div className="mb-6 space-y-2">
-                  {needsAttention.map((task) => {
-                    const isOverdue = task.status === 'overdue'
-                    return (
-                      <div
-                        key={`${task.record.id}-${task.occurrence_key}`}
-                        className={`flex items-center gap-3 rounded-[10px] border-l-[3px] px-4 py-3 ${
-                          isOverdue ? 'border-cz-danger-accent bg-cz-danger-bg' : 'border-cz-warn-accent bg-cz-warn-bg'
-                        }`}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className={`text-[14px] font-semibold ${isOverdue ? 'text-cz-danger-title' : 'text-cz-warn-title'}`}>
-                            {task.activity_name}
-                            <span className="ml-2 text-[12px] font-normal">
-                              {isOverdue ? D.overdueTag(Math.abs(task.days_diff ?? 0)) : D.dueNowTag}
-                            </span>
-                          </p>
-                          <p className="text-[12.5px] text-cz-text-2">
-                            {task.record.crop_type_name || labels.yieldAnalysis.cropCropLabel} · {task.record.area_planted_ha ?? labels.common.unknown} ha · Brgy. {task.record.farm_location_barangay || labels.common.unknown}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setView({ kind: 'activity', recordId: String(task.record.id), activity: task.activity_name })}
-                          className={`shrink-0 rounded-[8px] px-4 py-2 text-[13px] font-semibold text-white transition-opacity hover:opacity-90 ${
-                            isOverdue ? 'bg-cz-danger-accent' : 'bg-cz-warn-accent'
-                          }`}
-                        >
-                          {D.logCta}
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-
-              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{D.activeCrops}</p>
-              {records.length === 0 ? (
-                <p className="rounded-[10px] border-[0.5px] border-cz-border bg-cz-surface px-4 py-4 text-[13px] italic text-cz-text-muted">
-                  {labels.farmerHome.myCrops.empty}
-                </p>
-              ) : (
-                <div className="space-y-2.5">
-                  {records.map((rec) => {
-                    const progress = cycleProgress(rec.date_planted, rec.expected_harvest_date)
-                    return (
-                      <div key={rec.id} className="rounded-[10px] border-[0.5px] border-cz-border bg-cz-surface px-4 py-3.5">
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-[14.5px] font-semibold text-cz-text">
-                              {rec.crop_type_name || labels.yieldAnalysis.cropCropLabel}
-                            </p>
-                            <p className="truncate text-[12.5px] text-cz-text-2">
-                              {rec.area_planted_ha ?? labels.common.unknown} ha · Brgy. {rec.farm_location_barangay || labels.common.unknown} · Itanim: {labels.common.formatDate(rec.date_planted)}
-                            </p>
-                          </div>
-                          <p className="shrink-0 text-right text-[12.5px] text-cz-text-2">
-                            {D.expectedHarvest}
-                            <br />
-                            <span className="font-medium text-cz-text">{labels.common.formatDate(rec.expected_harvest_date)}</span>
-                          </p>
-                        </div>
-                        {progress && (
-                          <div className="mt-2.5 flex items-center gap-3">
-                            <div className="h-[6px] flex-1 overflow-hidden rounded-full bg-cz-track">
-                              <div className="h-full rounded-full bg-cz-crop-fill" style={{ width: `${Math.min(100, progress.pct)}%` }} />
-                            </div>
-                            <span className="shrink-0 text-[12px] font-semibold tabular-nums text-cz-crop-header">{Math.round(progress.pct)}%</span>
-                          </div>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => setView({ kind: 'activity', recordId: String(rec.id) })}
-                          className="mt-3 text-[13px] font-semibold text-cz-crop-header hover:underline"
-                        >
-                          {D.logActivityInline}
-                        </button>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </DesktopBody>
-          )}
+        <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<FarmerDesktopTopbar onToggleSidebar={toggleSidebar} account={accountProps} />}>
+          <FarmerCropHistoryView
+            bare
+            record={view.record}
+            onBack={() => setView({ kind: view.from || 'home' })}
+            onRecordChanged={fetchRecords}
+            onEditLog={editLog(view.record)}
+          />
         </DesktopShell>
       )
     }
+
+    // ── Simula (home) ─────────────────────────────────────────────
+    return (
+      <DesktopShell
+        collapsed={sidebarCollapsed}
+        sidebar={sidebar}
+        topbar={<FarmerDesktopTopbar onToggleSidebar={toggleSidebar} account={accountProps} />}
+      >
+        <FarmerHomeView bare {...homeProps} />
+      </DesktopShell>
+    )
   }
 
+  // Everything below is the phone/tablet render tree (and the desktop
+  // picker/history fall-through). Wrapped so one provider can hand the
+  // Farmer header — including to Profile and Help, which this file does not
+  // modify — its avatar-menu handlers.
+  const renderMobile = () => {
   // ── Full-screen sub-views ────────────────────────────────────────────
 
   if (disasterScreen) {
     return (
       <CitizenDisasterScreen
+        variant="farmer"
         domain={CROP_DOMAIN}
         theme={CROP_THEME}
         recordId={disasterScreen.record.id}
         record={disasterScreen.record}
+        tabBar={tabBar('disaster')}
         onClose={() => setDisasterScreen(null)}
         onSuccess={handleLogSuccess}
         onLogResponse={({ rule }) => {
@@ -439,9 +390,8 @@ export default function FarmerHomeScreen({ record, onLogout }) {
   // inside the generic secondary-view shell the old 'yield' branch used.
   if (view.kind === 'yield') {
     return (
-      <CitizenAniScreen
-        endpoint="/production/yield-analysis/"
-        onBack={() => setView({ kind: 'home' })}
+      <FarmerAniScreen
+        onViewHistory={openCropHistory}
         tabBar={tabBar('harvests')}
       />
     )
@@ -453,7 +403,7 @@ export default function FarmerHomeScreen({ record, onLogout }) {
         records={records}
         initialRecordId={view.recordId}
         initialActivity={view.activity}
-        onBack={() => setView({ kind: 'home' })}
+        initialLogId={view.logId}
         onSaved={fetchRecords}
         tabBar={tabBar('activity')}
       />
@@ -461,59 +411,17 @@ export default function FarmerHomeScreen({ record, onLogout }) {
   }
 
   if (view.kind === 'picker') {
-    const isLog = view.intent === 'log'
-    return (
-      <CitizenScreen hasTabBar onProfile={() => setView({ kind: 'profile' })}>
-        <CitizenSubHeader
-          theme={CROP_THEME}
-          title={isLog ? labels.tabBar.farmerActivity : labels.tabBar.farmerDisaster}
-          subtitle={labels.ffNew.activeCrops}
-          onBack={() => setView({ kind: 'home' })}
-        />
-        <CitizenBody>
-          {records.length === 0 ? (
-            <p className="px-1 py-8 text-center text-[13px] italic text-cz-text-muted">{labels.ffNew.noCrops}</p>
-          ) : (
-            <ul className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface">
-              {records.map((rec, i) => (
-                <li key={rec.id} className={i === records.length - 1 ? '' : 'border-b-[0.5px] border-cz-border'}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (isLog) setView({ kind: 'activity', recordId: String(rec.id) })
-                      else setDisasterScreen({ record: rec })
-                    }}
-                    className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-cz-page"
-                  >
-                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${CROP_THEME.circleBg}`}>
-                      <Wheat size={17} className={CROP_THEME.circleIcon} aria-hidden="true" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[15px] font-semibold text-cz-text">
-                        {rec.crop_type_name || labels.yieldAnalysis.cropCropLabel}
-                      </span>
-                      <span className="mt-0.5 block truncate text-[13px] text-cz-text-2">
-                        {rec.area_planted_ha ?? labels.common.unknown} ha · Brgy. {rec.farm_location_barangay || labels.common.unknown}
-                      </span>
-                    </span>
-                    <ChevronRight size={18} className="shrink-0 text-cz-text-muted" aria-hidden="true" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CitizenBody>
-        {tabBar(isLog ? 'activity' : 'disaster')}
-      </CitizenScreen>
-    )
+    return <FarmerCropPicker records={records} onPick={pickCrop} tabBar={tabBar('disaster')} />
   }
 
   if (view.kind === 'history') {
     return (
       <FarmerCropHistoryView
         record={view.record}
-        onBack={() => setView({ kind: 'home' })}
+        onBack={() => setView({ kind: view.from || 'home' })}
         onRecordChanged={fetchRecords}
+        onEditLog={editLog(view.record)}
+        tabBar={tabBar('harvests')}
       />
     )
   }
@@ -542,241 +450,24 @@ export default function FarmerHomeScreen({ record, onLogout }) {
     )
   }
 
-  // 'yield' is handled above by CitizenAniScreen, so this branch is now
-  // assistance only -- the shared shell is kept because assistance has no
-  // reference frame of its own and is reached from Quick Links, not a tab.
   if (view.kind === 'assistance') {
-    return (
-      <CitizenScreen hasTabBar onProfile={() => setView({ kind: 'profile' })}>
-        <CitizenSubHeader
-          theme={CROP_THEME}
-          title={labels.farmerHome.secondary.assistanceTitle}
-          onBack={() => setView({ kind: 'home' })}
-        />
-        <CitizenBody>
-          <CitizenAssistanceList endpoint="/interventions/my-beneficiary-history/" />
-        </CitizenBody>
-        {tabBar(null)}
-      </CitizenScreen>
-    )
+    return <FarmerAssistanceList tabBar={tabBar('assistance')} />
   }
 
   // ── Home ─────────────────────────────────────────────────────────────
+  return <FarmerHomeView {...homeProps} tabBar={tabBar('home')} />
+  }
 
-  // One definition, two presentations: the mobile SecondaryRows list and the
-  // >=1024px Quick Links sidebar render from this same array, so the two can
-  // never drift out of sync as entries are added.
-  const quickLinks = [
-    { icon: User, label: labels.farmerHome.secondary.profileTitle, onClick: () => setView({ kind: 'profile' }) },
-    { icon: BarChart3, label: labels.farmerHome.secondary.harvestResultsTitle, onClick: () => setView({ kind: 'yield' }) },
-    { icon: Gift, label: labels.farmerHome.secondary.assistanceTitle, onClick: () => setView({ kind: 'assistance' }) },
-  ]
-
-  const quickLinksAside = (
-    <>
-      <QuickLinksHeading>{labels.farmerHome.secondary.quickLinksTitle}</QuickLinksHeading>
-      {quickLinks.map((l, i) => (
-        <SecondaryRow
-          key={l.label}
-          icon={l.icon}
-          label={l.label}
-          onClick={l.onClick}
-          isLast={i === quickLinks.length - 1}
-          hideChevron
-        />
-      ))}
-    </>
-  )
+  const chrome = {
+    initials: accountInitials,
+    onProfile: () => { setDisasterScreen(null); setView({ kind: 'profile' }) },
+    onHelp: () => { setDisasterScreen(null); setView({ kind: 'help' }) },
+    onLogout,
+  }
 
   return (
-    <CitizenScreen hasTabBar onProfile={() => setView({ kind: 'profile' })}>
-      <CitizenHomeHeader theme={CROP_THEME} />
-
-      <CitizenHomeBody aside={isLoading ? null : quickLinksAside}>
-        {isLoading ? (
-          <p className="text-[15px] italic text-cz-text-2">{labels.farmerHome.loading}</p>
-        ) : (
-          <>
-            {/* BUOD NG BUKID — the reference keeps this in the desktop
-                sidebar rail; mobile has no rail, so it renders as a
-                compact card here instead of being dropped entirely. */}
-            <div className="mb-4 grid grid-cols-2 gap-2.5">
-              {[
-                [activeCrops.length, labels.ffNew.desktop.farmSummaryActiveCrops],
-                [needsAttention.length, labels.ffNew.desktop.farmSummaryNeedsAttention],
-                [`${totalArea.toFixed(totalArea % 1 === 0 ? 0 : 2)} ha`, labels.ffNew.desktop.farmSummaryArea],
-                [plantedThisYear, labels.ffNew.desktop.farmSummaryPlantedThisYear],
-              ].map(([value, label]) => (
-                <div key={label} className="rounded-[10px] border-[0.5px] border-cz-border bg-cz-surface px-3 py-2.5">
-                  <p className="text-[18px] font-bold leading-none text-cz-text">{value}</p>
-                  <p className="mt-1 text-[11px] leading-[1.3] text-cz-text-2">{label}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* NEEDS ATTENTION */}
-            <SectionHeading>{labels.farmerHome.needsAttention.title}</SectionHeading>
-            {needsAttention.length === 0 ? (
-              <CitizenEmptyState
-                icon={Sprout}
-                iconClass="text-cz-crop-fill"
-                title={labels.farmerHome.needsAttention.emptyTitle}
-                body={labels.farmerHome.needsAttention.emptyBody}
-              />
-            ) : (
-              needsAttention.map((task) => {
-                const isOverdue = task.status === 'overdue'
-                return (
-                  // UI-basis pass: the card itself is now the tap target with
-                  // a trailing chevron, replacing the explicit "Log this
-                  // activity" button. The DESTINATION is unchanged — it opens
-                  // the same log screen, prefilled with the same activity, via
-                  // the same setLogScreen call the button used to make. The
-                  // accessible name still says what tapping does, so the
-                  // affordance is only visually implicit, not unlabelled.
-                  <StatusCard
-                    key={`${task.record.id}-${task.occurrence_key}`}
-                    tone={isOverdue ? 'danger' : 'warning'}
-                    badgeIcon={isOverdue ? AlertCircle : Clock}
-                    badgeText={isOverdue
-                      ? labels.farmerHome.needsAttention.overdueBadgeDays(Math.abs(task.days_diff ?? 0))
-                      : labels.farmerHome.needsAttention.dueTodayBadge}
-                    title={task.activity_name}
-                    context={labels.farmerHome.needsAttention.contextLine(
-                      task.record.crop_type_name || labels.yieldAnalysis.cropCropLabel,
-                      task.record.farm_location_barangay || labels.common.unknown,
-                      task.record.area_planted_ha ?? labels.common.unknown,
-                    )}
-                    onCardClick={() => setView({ kind: 'activity', recordId: String(task.record.id), activity: task.activity_name })}
-                    cardActionLabel={labels.farmerHome.needsAttention.actionLabel}
-                  />
-                )
-              })
-            )}
-
-            {/* MY CROPS */}
-            <div className="mt-4">
-              <SectionHeading>{labels.ffNew.activeCrops}</SectionHeading>
-            </div>
-            {records.length === 0 ? (
-              <CitizenEmptyState
-                icon={Wheat}
-                iconClass="text-cz-text-muted"
-                title={labels.farmerHome.myCrops.title}
-                body={labels.farmerHome.myCrops.empty}
-              />
-            ) : (
-              <CitizenCardGrid>
-              {records.map((rec) => {
-                const progress = cycleProgress(rec.date_planted, rec.expected_harvest_date)
-                return (
-                  <div
-                    key={rec.id}
-                    className="mb-[10px] rounded-[12px] border-[0.5px] border-cz-border-strong bg-cz-surface p-[14px] sm:mb-0"
-                  >
-                    <div className="flex items-center gap-[10px]">
-                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${CROP_THEME.circleBg}`}>
-                        <Wheat size={20} className={CROP_THEME.circleIcon} aria-hidden="true" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="truncate text-[16px] font-semibold text-cz-text">
-                            {rec.crop_type_name || labels.yieldAnalysis.cropCropLabel}
-                          </p>
-                          {rec.status && rec.status !== 'Harvested' && rec.status !== 'Total Loss' && (
-                            <span className="shrink-0 rounded-full border-[0.5px] border-cz-crop-header/25 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] text-cz-crop-header">
-                              {labels.ffNew.activePill}
-                            </span>
-                          )}
-                        </div>
-                        <p className="truncate text-[12px] text-cz-text-2">
-                          {labels.farmerHome.myCrops.cardMeta(
-                            rec.farm_location_barangay || labels.common.unknown,
-                            rec.area_planted_ha ?? labels.common.unknown,
-                            // Display-only lookup on the stored value; falls
-                            // back to the raw value if it isn't one of the
-                            // two known choices, so an unexpected season
-                            // still shows rather than vanishing.
-                            labels.harvest.seasonOptions[rec.season] || rec.season || labels.common.unknown,
-                          )}
-                        </p>
-                      </div>
-                    </div>
-
-                    {progress && (
-                      <>
-                        <div className="mt-3 flex items-baseline justify-between gap-2">
-                          <span className="text-[12.5px] text-cz-text-2">{labels.ffNew.cropProgress}</span>
-                          <span className="text-[15px] font-bold tabular-nums text-cz-crop-header">
-                            {Math.round(progress.pct)}%
-                          </span>
-                        </div>
-                        <div className="mt-1.5">
-                          <ProgressTrack theme={CROP_THEME} pct={progress.pct} height={8} />
-                        </div>
-                        <p className="mt-1.5 text-[12px] text-cz-text-2">
-                          {labels.ffNew.daysLeft(
-                            Math.max(0, progress.total - progress.elapsed),
-                            labels.farmerHome.myCrops.harvestShort(rec.expected_harvest_date),
-                          )}
-                        </p>
-                      </>
-                    )}
-
-                    <div className="mt-3 flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setView({ kind: 'activity', recordId: String(rec.id) })}
-                        className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-[8px] bg-cz-crop-header px-2 py-[11px] text-white transition-opacity hover:opacity-90"
-                      >
-                        <FileText size={15} aria-hidden="true" />
-                        <span className="text-[14px] font-semibold">{labels.ffNew.logActivity}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDisasterScreen({ record: rec })}
-                        aria-label={labels.ffNew.reportDisaster}
-                        className="flex min-h-[44px] w-[46px] shrink-0 items-center justify-center rounded-[8px] border-[0.5px] border-cz-border-strong text-cz-text-2 transition-colors hover:bg-cz-page"
-                      >
-                        <AlertTriangle size={16} aria-hidden="true" />
-                      </button>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setView({ kind: 'history', record: rec })}
-                      className="mt-2 w-full text-center text-cz-text-2 transition-colors hover:text-cz-text"
-                    >
-                      <span className="text-[13px]">{labels.farmerHome.myCrops.viewHistory}</span>
-                    </button>
-                  </div>
-                )
-              })}
-              </CitizenCardGrid>
-            )}
-
-            <p className="mt-5 text-center text-[12px] text-cz-text-muted">
-              {labels.ffNew.footer(new Date().toLocaleDateString('fil-PH', { year: 'numeric', month: 'long', day: 'numeric' }))}
-            </p>
-
-            {/* SECONDARY ROWS — mobile/tablet only; at >=1024px these same
-                entries render in the Quick Links sidebar instead. */}
-            <div className="lg:hidden">
-              <SecondaryRows>
-                {quickLinks.map((l, i) => (
-                  <SecondaryRow
-                    key={l.label}
-                    icon={l.icon}
-                    label={l.label}
-                    onClick={l.onClick}
-                    isLast={i === quickLinks.length - 1}
-                  />
-                ))}
-              </SecondaryRows>
-            </div>
-          </>
-        )}
-      </CitizenHomeBody>
-      {tabBar('home')}
-    </CitizenScreen>
+    <FarmerChromeContext.Provider value={chrome}>
+      {renderMobile()}
+    </FarmerChromeContext.Provider>
   )
 }

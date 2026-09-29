@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { ChevronDown, ChevronUp, FileText, SquarePen } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
@@ -7,62 +7,37 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { CROP_DOMAIN } from './citizenDomainConfig.js'
 import { labels } from './labels.js'
 import { todayISO, yesterdayISO } from '../../utils/localDate.js'
-import { CROP_THEME, CitizenBody, CitizenScreen, CitizenSubHeader } from './citizenUI.jsx'
+import { CROP_THEME, CitizenBody, CitizenHomeHeader, CitizenScreen } from './citizenUI.jsx'
+import { dayFirstLong, dayFirstShort } from './farmerDates.js'
+import { Block, Choice, FIELD, SoftBox } from './farmerFormParts.jsx'
 
-// ─── Farmer AKTIBIDAD (frames 21-26) ──────────────────────────────────────
-// The farmer log is NOT the fisherfolk log with different colours. The
-// reference gives it its own structure: a TANIMAN dropdown instead of record
-// cards, a 2x2 grid of Tagalog activity pills instead of icon rows, three
-// date pills where the third reveals a picker, a different conditional field
-// set per activity, and a collapsible activity history at the bottom of the
-// same screen rather than a separate view.
+// Farmer AKTIBIDAD form, rebuilt to UPDATED FARMER CITIZEN UI.docx: one white
+// card holding the form and the collapsible history, a green-tinted box for
+// the activity's own fields, solid-green choice pills, and history rows whose
+// I-edit sits under the details.
 //
-// Because TANIMAN is a dropdown, this screen needs no record-picker step --
-// the AKTIBIDAD tab opens straight into it with every active crop listed.
+// Same endpoints and payload keys as before. What is new on the wire: the
+// plant-condition pills are always offered (the backend already stored
+// plant_condition on every activity log) and the fertilizer unit is chosen
+// instead of being fixed at kg.
 //
-// Editing happens in place: tapping I-edit on a history row loads that log
-// back into the form above, which is why there is one screen and not two.
-
-const FIELD = 'w-full rounded-[10px] border-[0.5px] border-cz-border-strong bg-cz-surface px-3.5 py-[13px] text-[15px] text-cz-text placeholder:text-cz-text-muted focus:border-cz-crop-deep focus:outline-none disabled:opacity-50'
+// Editing happens in place: I-edit loads that log back into the form above,
+// which is why there is one screen and not two. Every row is editable, staff
+// entries included — the backend only requires that the record is the
+// citizen's own, and the rail card says so.
 
 const F = () => labels.ffNew.farmerLog
 
-function Label({ children, optional }) {
-  return (
-    <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">
-      {children}
-      {optional && <span className="ml-1.5 font-normal normal-case tracking-normal text-cz-text-muted">{optional}</span>}
-    </p>
-  )
-}
-
-// Pale-tint selection, which is how the reference marks a chosen pill on the
-// FARMER side -- the fisherfolk side uses a solid navy fill instead. Both are
-// deliberate and both are copied as drawn.
-function Pill({ selected, onClick, children, className = '' }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={selected}
-      className={`rounded-[10px] border-[0.5px] px-3.5 py-3 text-[14px] leading-[1.3] transition-colors ${
-        selected
-          ? 'border-cz-crop-deep bg-cz-crop-pale font-semibold text-cz-crop-deeper'
-          : 'border-cz-border bg-cz-surface text-cz-text-2 hover:bg-cz-page'
-      } ${className}`}
-    >
-      {children}
-    </button>
-  )
-}
-
-const BLANK = {
+// A fresh object per call: the default date must be today when the form is
+// opened or reset, not the day the bundle was loaded.
+const blank = () => ({
   activity_type: 'Fertilizer Application',
   activity_type_other_specify: '',
   date_of_activity: todayISO(),
   fertilizer_type: '',
   fertilizer_type_other: '',
   quantity_applied: '',
+  quantity_unit: 'kg',
   application_method: '',
   pest_disease_name: '',
   severity: '',
@@ -70,9 +45,9 @@ const BLANK = {
   plant_condition: '',
   water_quality: '',
   notes: '',
-}
+})
 
-export default function CitizenFarmerActivityScreen({ records, initialRecordId, initialActivity, onBack, onSaved, tabBar, bare = false }) {
+export default function CitizenFarmerActivityScreen({ records, initialRecordId, initialActivity, initialLogId, onRecordChange, onSaved, tabBar, bare = false }) {
   const { showToast } = useToast()
   const { user } = useAuth()
   const t = F()
@@ -80,12 +55,10 @@ export default function CitizenFarmerActivityScreen({ records, initialRecordId, 
   const [recordId, setRecordId] = useState(
     initialRecordId || (records[0] ? String(records[0].id) : ''),
   )
-  // Real ActivityType rows for the crop domain, fetched from the
-  // admin-managed Activity Settings master data (same source as every other
-  // activity-type consumer) rather than the four-entry labels.js dict this
-  // screen used to be limited to. ComboboxWithOther falls back to displaying
-  // an unmatched value verbatim, so a name not yet loaded (or a historical
-  // value no longer offered) still renders correctly instead of breaking.
+  // Real ActivityType rows for the crop domain, from the admin-managed
+  // Activity Settings master data. ComboboxWithOther displays an unmatched
+  // value verbatim, so a name not yet loaded (or a historical value no longer
+  // offered) still renders correctly.
   const [activityTypeOptions, setActivityTypeOptions] = useState([])
 
   useEffect(() => {
@@ -100,33 +73,23 @@ export default function CitizenFarmerActivityScreen({ records, initialRecordId, 
     return () => { cancelled = true }
   }, [])
 
-  // A suggestion task or a disaster response rule arrives naming an
-  // activity — that name is stored directly now that the dropdown offers
-  // the real master-data list, rather than being lumped into 'Iba pa' with
-  // the name preserved only as free text.
+  // The desktop rail card names the crop being logged against.
+  useEffect(() => { onRecordChange?.(recordId) }, [recordId, onRecordChange])
+
+  // A suggestion task or a disaster response rule arrives naming an activity;
+  // that name is stored directly since the dropdown offers the real list.
   const [form, setForm] = useState(() => {
-    if (!initialActivity) return BLANK
-    return { ...BLANK, activity_type: initialActivity, activity_type_other_specify: '' }
+    if (!initialActivity) return blank()
+    return { ...blank(), activity_type: initialActivity }
   })
   const [editingId, setEditingId] = useState(null)
+  const appliedLogId = useRef(null)
   const [saving, setSaving] = useState(false)
   const [logs, setLogs] = useState([])
   const [historyOpen, setHistoryOpen] = useState(false)
   const [dateMode, setDateMode] = useState('today')
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
-
-  useEffect(() => {
-    if (!recordId) return undefined
-    let cancelled = false
-    api.get(`/production/monitoring/${recordId}/logs/`)
-      .then((r) => {
-        if (cancelled) return
-        setLogs(Array.isArray(r.data) ? r.data : (r.data?.results || []))
-      })
-      .catch(() => { if (!cancelled) setLogs([]) })
-    return () => { cancelled = true }
-  }, [recordId, saving])
 
   const activity = form.activity_type
   const isFert = activity === 'Fertilizer Application'
@@ -135,7 +98,7 @@ export default function CitizenFarmerActivityScreen({ records, initialRecordId, 
   const isWater = activity === 'Water Quality Check'
   const isOther = activity === 'Other'
 
-  const resetForm = () => { setForm(BLANK); setEditingId(null); setDateMode('today') }
+  const resetForm = () => { setForm(blank()); setEditingId(null); setDateMode('today') }
 
   const loadForEdit = (log) => {
     setEditingId(log.id)
@@ -144,13 +107,14 @@ export default function CitizenFarmerActivityScreen({ records, initialRecordId, 
         : log.date_of_activity === yesterdayISO() ? 'yesterday' : 'custom',
     )
     setForm({
-      ...BLANK,
+      ...blank(),
       activity_type: log.activity_type || 'Other',
       activity_type_other_specify: log.activity_type === 'Other' ? (log.activity_type_other_specify || '') : '',
       date_of_activity: log.date_of_activity,
       fertilizer_type: t.fertilizerOptions.includes(log.fertilizer_type) ? log.fertilizer_type : (log.fertilizer_type ? 'Other' : ''),
       fertilizer_type_other: t.fertilizerOptions.includes(log.fertilizer_type) ? '' : (log.fertilizer_type || ''),
       quantity_applied: log.quantity_applied ?? '',
+      quantity_unit: log.quantity_unit || 'kg',
       application_method: log.application_method || '',
       pest_disease_name: log.pest_disease_name || '',
       severity: log.severity || '',
@@ -162,6 +126,26 @@ export default function CitizenFarmerActivityScreen({ records, initialRecordId, 
     setHistoryOpen(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
+
+  useEffect(() => {
+    if (!recordId) return undefined
+    let cancelled = false
+    api.get(`/production/monitoring/${recordId}/logs/`)
+      .then((r) => {
+        if (cancelled) return
+        const rows = Array.isArray(r.data) ? r.data : (r.data?.results || [])
+        setLogs(rows)
+        // Arriving from a crop's history "I-edit": open that entry for editing
+        // once, on the first load — never again after a save reloads the list.
+        if (initialLogId && appliedLogId.current !== initialLogId) {
+          const log = rows.find((l) => String(l.id) === String(initialLogId))
+          if (log) { appliedLogId.current = initialLogId; loadForEdit(log) }
+        }
+      })
+      .catch(() => { if (!cancelled) setLogs([]) })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recordId, saving])
 
   const submit = async () => {
     if (!recordId) return
@@ -176,12 +160,12 @@ export default function CitizenFarmerActivityScreen({ records, initialRecordId, 
         date_of_activity: form.date_of_activity,
         fertilizer_type: isFert ? fert : '',
         quantity_applied: isFert && form.quantity_applied !== '' ? form.quantity_applied : null,
-        quantity_unit: isFert ? 'kg' : '',
+        quantity_unit: isFert ? form.quantity_unit : '',
         application_method: isFert ? form.application_method : '',
         pest_disease_name: isPest || isDisease ? form.pest_disease_name : '',
         severity: isPest || isDisease ? form.severity : '',
         treatment_used: isPest || isDisease ? form.treatment_used : '',
-        plant_condition: isWater ? form.plant_condition : '',
+        plant_condition: form.plant_condition,
         water_quality: isWater ? form.water_quality : '',
         notes: form.notes,
       }
@@ -209,291 +193,285 @@ export default function CitizenFarmerActivityScreen({ records, initialRecordId, 
     { key: 'custom', text: t.dateOther, value: null },
   ]
 
-  const body = (
-    <>
-        {records.length === 0 ? (
-          <p className="px-1 py-8 text-center text-[13px] italic text-cz-text-muted">{t.noCrops}</p>
-        ) : (
-          <>
-            <div className="mb-[18px]">
-              <Label>{t.cropHeading}</Label>
-              <select
-                value={recordId}
-                onChange={(e) => { setRecordId(e.target.value); resetForm() }}
-                className={FIELD}
-              >
-                {records.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {t.cropOption(
-                      r.crop_type_name || labels.yieldAnalysis.cropCropLabel,
-                      r.area_planted_ha ?? labels.common.unknown,
-                      r.farm_location_barangay || labels.common.unknown,
-                    )}
-                  </option>
-                ))}
-              </select>
-            </div>
+  const card = (
+    <div className="rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface p-[14px]">
+      {records.length === 0 ? (
+        <p className="px-1 py-8 text-center text-[13px] italic text-cz-text-muted">{t.noCrops}</p>
+      ) : (
+        <>
+          <Block label={t.cropHeading}>
+            <select
+              value={recordId}
+              onChange={(e) => { setRecordId(e.target.value); resetForm() }}
+              className={FIELD}
+            >
+              {records.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {t.cropOption(
+                    r.crop_type_name || labels.yieldAnalysis.cropCropLabel,
+                    r.area_planted_ha ?? labels.common.unknown,
+                    r.farm_location_barangay || labels.common.unknown,
+                  )}
+                </option>
+              ))}
+            </select>
+          </Block>
 
-            <div className="mb-[18px]">
-              <Label>{t.activityHeading}</Label>
-              <ComboboxWithOther
-                options={activityTypeOptions.map((name) => ({ value: name, label: t.types[name] || name }))}
-                value={activity}
-                otherValue={form.activity_type_other_specify}
-                onChange={(v) => set('activity_type', v)}
-                onOtherChange={(v) => set('activity_type_other_specify', v)}
-                otherLabel={t.types.Other}
-                placeholder={t.selectPlaceholder}
-                inputClassName={FIELD}
-                chevronSize={18}
+          <Block label={t.activityHeading} required>
+            <ComboboxWithOther
+              options={activityTypeOptions}
+              value={activity}
+              otherValue={form.activity_type_other_specify}
+              onChange={(v) => set('activity_type', v)}
+              onOtherChange={(v) => set('activity_type_other_specify', v)}
+              otherLabel={t.types.Other}
+              placeholder={t.selectPlaceholder}
+              inputClassName={FIELD}
+              chevronSize={18}
+            />
+          </Block>
+
+          <Block label={t.dateHeading} required>
+            <div className="grid grid-cols-3 gap-2">
+              {dateOptions.map((opt) => (
+                <Choice
+                  key={opt.key}
+                  selected={dateMode === opt.key}
+                  onClick={() => {
+                    setDateMode(opt.key)
+                    if (opt.value) set('date_of_activity', opt.value)
+                  }}
+                >
+                  {opt.text}
+                </Choice>
+              ))}
+            </div>
+            {dateMode === 'custom' && (
+              <input
+                type="date"
+                value={form.date_of_activity}
+                max={todayISO()}
+                onChange={(e) => set('date_of_activity', e.target.value)}
+                className={`${FIELD} mt-2`}
               />
-            </div>
+            )}
+            <p className="mt-1.5 text-[12px] text-cz-text-2">{dayFirstLong(form.date_of_activity)}</p>
+          </Block>
 
-            <div className="mb-[18px]">
-              <Label>{t.dateHeading}</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {dateOptions.map((opt) => (
-                  <Pill
-                    key={opt.key}
-                    selected={dateMode === opt.key}
-                    onClick={() => {
-                      setDateMode(opt.key)
-                      if (opt.value) set('date_of_activity', opt.value)
-                    }}
-                  >
-                    {opt.text}
-                  </Pill>
-                ))}
-              </div>
-              {dateMode === 'custom' && (
-                <input
-                  type="date"
-                  value={form.date_of_activity}
-                  max={todayISO()}
-                  onChange={(e) => set('date_of_activity', e.target.value)}
-                  className={`${FIELD} mt-2`}
+          {isFert && (
+            <SoftBox>
+              <Block label={t.fertilizerType}>
+                <ComboboxWithOther
+                  options={t.fertilizerOptions}
+                  value={form.fertilizer_type}
+                  otherValue={form.fertilizer_type_other}
+                  onChange={(v) => set('fertilizer_type', v)}
+                  onOtherChange={(v) => set('fertilizer_type_other', v)}
+                  otherLabel={t.types.Other}
+                  placeholder={t.selectPlaceholder}
+                  inputClassName={FIELD}
+                  chevronSize={18}
                 />
-              )}
-            </div>
-
-            {isFert && (
-              <>
-                <div className="mb-[18px]">
-                  <Label>{t.fertilizerType}</Label>
-                  <ComboboxWithOther
-                    options={t.fertilizerOptions}
-                    value={form.fertilizer_type}
-                    otherValue={form.fertilizer_type_other}
-                    onChange={(v) => set('fertilizer_type', v)}
-                    onOtherChange={(v) => set('fertilizer_type_other', v)}
-                    otherLabel={t.types.Other}
-                    placeholder={t.selectPlaceholder}
-                    inputClassName={FIELD}
-                    chevronSize={18}
-                  />
-                </div>
-                <div className="mb-[18px]">
-                  <Label>{t.quantityKg}</Label>
+              </Block>
+              <div className="mb-[18px] grid grid-cols-[3fr_2fr] gap-2.5">
+                <Block label={t.quantityKg} last>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
+                    inputMode="decimal"
                     value={form.quantity_applied}
                     onChange={(e) => set('quantity_applied', e.target.value)}
                     placeholder={t.quantityPlaceholder}
                     className={FIELD}
                   />
-                </div>
-                <div className="mb-[18px]">
-                  <Label>{t.applicationMethod}</Label>
+                </Block>
+                <Block label={t.unit} last>
                   <select
-                    value={form.application_method}
-                    onChange={(e) => set('application_method', e.target.value)}
+                    value={form.quantity_unit}
+                    onChange={(e) => set('quantity_unit', e.target.value)}
                     className={FIELD}
                   >
-                    <option value="">{t.selectPlaceholder}</option>
-                    {Object.entries(t.methodOptions).map(([v, text]) => (
+                    {Object.entries(labels.activityLog.quantityUnitOptions).map(([v, text]) => (
                       <option key={v} value={v}>{text}</option>
                     ))}
                   </select>
-                </div>
-              </>
-            )}
+                </Block>
+              </div>
+              <Block label={t.applicationMethod} last>
+                <select
+                  value={form.application_method}
+                  onChange={(e) => set('application_method', e.target.value)}
+                  className={FIELD}
+                >
+                  <option value="">{t.selectPlaceholder}</option>
+                  {Object.entries(t.methodOptions).map(([v, text]) => (
+                    <option key={v} value={v}>{text}</option>
+                  ))}
+                </select>
+              </Block>
+            </SoftBox>
+          )}
 
-            {(isPest || isDisease) && (
-              <>
-                <div className="mb-[18px]">
-                  <Label>{isPest ? t.pestName : t.diseaseName}</Label>
-                  <input
-                    type="text"
-                    value={form.pest_disease_name}
-                    onChange={(e) => set('pest_disease_name', e.target.value)}
-                    placeholder={isPest ? t.pestPlaceholder : t.diseasePlaceholder}
-                    className={FIELD}
-                  />
+          {(isPest || isDisease) && (
+            <SoftBox>
+              <Block label={isPest ? t.pestName : t.diseaseName}>
+                <input
+                  type="text"
+                  value={form.pest_disease_name}
+                  onChange={(e) => set('pest_disease_name', e.target.value)}
+                  placeholder={isPest ? t.pestPlaceholder : t.diseasePlaceholder}
+                  className={FIELD}
+                />
+              </Block>
+              <Block label={t.damageLevel}>
+                <div className="grid grid-cols-3 gap-2">
+                  {Object.entries(t.damageOptions).map(([v, text]) => (
+                    <Choice key={v} selected={form.severity === v} onClick={() => set('severity', form.severity === v ? '' : v)}>
+                      {text}
+                    </Choice>
+                  ))}
                 </div>
-                <div className="mb-[18px]">
-                  <Label>{t.damageLevel}</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {Object.entries(t.damageOptions).map(([v, text]) => (
-                      <Pill key={v} selected={form.severity === v} onClick={() => set('severity', form.severity === v ? '' : v)}>
-                        {text}
-                      </Pill>
-                    ))}
-                  </div>
-                </div>
-                <div className="mb-[18px]">
-                  <Label>{isPest ? t.pestTreatment : t.diseaseTreatment}</Label>
-                  <input
-                    type="text"
-                    value={form.treatment_used}
-                    onChange={(e) => set('treatment_used', e.target.value)}
-                    placeholder={isPest ? t.pestTreatmentPlaceholder : t.diseaseTreatmentPlaceholder}
-                    className={FIELD}
-                  />
-                </div>
-              </>
-            )}
+              </Block>
+              <Block label={isPest ? t.pestTreatment : t.diseaseTreatment} last>
+                <input
+                  type="text"
+                  value={form.treatment_used}
+                  onChange={(e) => set('treatment_used', e.target.value)}
+                  placeholder={isPest ? t.pestTreatmentPlaceholder : t.diseaseTreatmentPlaceholder}
+                  className={FIELD}
+                />
+              </Block>
+            </SoftBox>
+          )}
 
-            {isWater && (
-              <>
-                <div className="mb-[18px]">
-                  <Label>{t.plantCondition}</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {Object.entries(t.conditionOptions).map(([v, text]) => (
-                      <Pill key={v} selected={form.plant_condition === v} onClick={() => set('plant_condition', form.plant_condition === v ? '' : v)}>
-                        {text}
-                      </Pill>
-                    ))}
-                  </div>
-                </div>
-                <div className="mb-[18px]">
-                  <Label>{t.waterQuality}</Label>
-                  <select
-                    value={form.water_quality}
-                    onChange={(e) => set('water_quality', e.target.value)}
-                    className={FIELD}
-                  >
-                    <option value="">{t.selectPlaceholder}</option>
-                    {Object.entries(t.waterOptions).map(([v, text]) => (
-                      <option key={v} value={v}>{text}</option>
-                    ))}
-                  </select>
-                </div>
-              </>
-            )}
+          {isWater && (
+            <SoftBox>
+              <Block label={t.waterQuality} last>
+                <select
+                  value={form.water_quality}
+                  onChange={(e) => set('water_quality', e.target.value)}
+                  className={FIELD}
+                >
+                  <option value="">{t.selectPlaceholder}</option>
+                  {Object.entries(t.waterOptions).map(([v, text]) => (
+                    <option key={v} value={v}>{text}</option>
+                  ))}
+                </select>
+              </Block>
+            </SoftBox>
+          )}
 
-            <div className="mb-[18px]">
-              <Label optional={t.notesOptional}>{t.notes}</Label>
-              <textarea
-                rows={3}
-                value={form.notes}
-                onChange={(e) => set('notes', e.target.value)}
-                placeholder={t.notesPlaceholder}
-                className={`${FIELD} resize-none`}
-              />
+          <Block label={t.plantCondition}>
+            <div className="grid grid-cols-3 gap-2">
+              {Object.entries(t.conditionOptions).map(([v, text]) => (
+                <Choice key={v} selected={form.plant_condition === v} onClick={() => set('plant_condition', form.plant_condition === v ? '' : v)}>
+                  {text}
+                </Choice>
+              ))}
             </div>
+          </Block>
 
+          <Block label={t.notes} optional={t.notesOptional}>
+            <textarea
+              rows={3}
+              value={form.notes}
+              onChange={(e) => set('notes', e.target.value)}
+              placeholder={t.notesPlaceholder}
+              className={`${FIELD} resize-y`}
+            />
+          </Block>
+
+          <button
+            type="button"
+            onClick={submit}
+            disabled={saving}
+            className="w-full rounded-[10px] bg-cz-crop-header py-[15px] disabled:opacity-50"
+          >
+            <span className="text-[15px] font-semibold text-white">{editingId ? t.saveEdit : t.save}</span>
+          </button>
+          {editingId && (
             <button
               type="button"
-              onClick={submit}
-              disabled={saving}
-              className={`w-full rounded-[10px] py-[15px] text-[15px] font-semibold disabled:opacity-50 ${CROP_THEME.solidBtn}`}
+              onClick={resetForm}
+              className="mt-2 w-full rounded-[10px] border-[0.5px] border-cz-border-strong bg-cz-surface py-[13px]"
             >
-              {editingId ? t.saveEdit : t.save}
+              <span className="text-[14px] font-medium text-cz-text-2">{t.cancelEdit}</span>
             </button>
-            {editingId && (
-              <button
-                type="button"
-                onClick={resetForm}
-                className="mt-2 w-full rounded-[10px] border-[0.5px] border-cz-border-strong bg-cz-surface py-[13px] text-[14px] font-medium text-cz-text-2"
-              >
-                {t.cancelEdit}
-              </button>
-            )}
+          )}
 
-            <div className="mt-6 border-t-[0.5px] border-cz-border pt-4">
-              <button
-                type="button"
-                onClick={() => setHistoryOpen((v) => !v)}
-                aria-expanded={historyOpen}
-                className="flex w-full items-center gap-2.5 py-1 text-left"
-              >
-                <FileText size={17} className="shrink-0 text-cz-text-2" aria-hidden="true" />
-                <span className="flex-1 text-[15px] font-semibold text-cz-text">{t.historyHeading}</span>
-                {historyOpen
-                  ? <ChevronUp size={18} className="shrink-0 text-cz-text-muted" aria-hidden="true" />
-                  : <ChevronDown size={18} className="shrink-0 text-cz-text-muted" aria-hidden="true" />}
-              </button>
+          <div className="mt-5 border-t-[0.5px] border-cz-border pt-4">
+            <button
+              type="button"
+              onClick={() => setHistoryOpen((v) => !v)}
+              aria-expanded={historyOpen}
+              className="flex w-full items-center gap-2.5 py-1 text-left"
+            >
+              <span className="flex-1 text-[15px] font-semibold text-cz-text">{t.historyHeading}</span>
+              {historyOpen
+                ? <ChevronUp size={16} className="shrink-0 text-cz-text" aria-hidden="true" />
+                : <ChevronDown size={16} className="shrink-0 text-cz-text" aria-hidden="true" />}
+            </button>
 
-              {historyOpen && (
-                <div className="mt-3 space-y-2">
-                  {logs.length === 0 && (
-                    <p className="py-4 text-center text-[13px] italic text-cz-text-muted">{t.historyEmpty}</p>
-                  )}
-                  {logs.map((log) => {
-                    // logged_by_name is derived from recorded_by and is set
-                    // for a citizen's OWN logs too, so it cannot be the staff
-                    // test by itself -- comparing the id is what distinguishes
-                    // them. Same rule FarmerCropHistoryView already uses.
-                    const byStaff = log.recorded_by !== user?.id
-                    return (
-                      <div key={log.id} className="rounded-[10px] border-[0.5px] border-cz-border bg-cz-surface px-4 py-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <p className="text-[15px] font-semibold text-cz-text">
-                              {log.activity_type === 'Other'
-                                ? (log.activity_type_other_specify || t.types.Other)
-                                : log.activity_type}
-                            </p>
-                            <span className="mt-1.5 inline-block rounded-[6px] bg-cz-crop-pale px-2 py-[3px] text-[10px] font-bold uppercase tracking-[0.04em] text-cz-crop-deeper">
-                              {byStaff ? labels.ffNew.loggedByStaff : labels.ffNew.loggedByYou}
-                            </span>
-                            {byStaff && (
-                              <p className="mt-1 text-[13px] text-cz-text-2">{log.logged_by_name}</p>
-                            )}
-                            <p className="text-[13px] text-cz-text-2">
-                              {labels.common.formatDate(log.date_of_activity)}
-                            </p>
-                            {(log.fertilizer_type || log.pest_disease_name || log.notes) && (
-                              <p className="mt-1 text-[13px] text-cz-text-2">
-                                {[
-                                  log.fertilizer_type,
-                                  log.quantity_applied ? `${log.quantity_applied} kg` : null,
-                                  log.pest_disease_name,
-                                  log.notes,
-                                ].filter(Boolean).join(' · ')}
-                              </p>
-                            )}
-                          </div>
-                          {!byStaff && (
-                            <button
-                              type="button"
-                              onClick={() => loadForEdit(log)}
-                              className="flex shrink-0 items-center gap-1.5 rounded-[8px] border-[0.5px] border-cz-border-strong bg-cz-surface px-3 py-2 text-[13px] font-semibold text-cz-crop-deeper transition-colors hover:bg-cz-page"
-                            >
-                              <SquarePen size={14} aria-hidden="true" />
-                              {t.editBtn}
-                            </button>
-                          )}
-                        </div>
+            {historyOpen && (
+              <div className="mt-4 space-y-2.5">
+                {logs.length === 0 && (
+                  <p className="py-4 text-center text-[13px] italic text-cz-text-muted">{t.historyEmpty}</p>
+                )}
+                {logs.map((log) => {
+                  // logged_by_name is set for a citizen's OWN logs too, so it
+                  // cannot be the staff test by itself — comparing the id is
+                  // what distinguishes them.
+                  const byStaff = log.recorded_by !== user?.id
+                  const detail = [
+                    dayFirstShort(log.date_of_activity),
+                    log.fertilizer_type,
+                    log.quantity_applied ? `${log.quantity_applied} ${log.quantity_unit || 'kg'}` : null,
+                    log.application_method,
+                    log.pest_disease_name,
+                    log.notes,
+                  ].filter(Boolean).join(' · ')
+                  return (
+                    <div key={log.id} className="rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface px-4 py-3.5">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                        <p className="text-[15px] font-semibold text-cz-text">
+                          {log.activity_type === 'Other'
+                            ? (log.activity_type_other_specify || t.types.Other)
+                            : log.activity_type}
+                        </p>
+                        <span
+                          className={`rounded-full px-2.5 py-[3px] text-[10px] font-bold uppercase tracking-[0.03em] ${
+                            byStaff
+                              ? 'bg-semantic-warning-bg text-semantic-warning'
+                              : 'bg-semantic-safe-bg text-semantic-safe'
+                          }`}
+                        >
+                          {byStaff ? labels.ffNew.loggedByStaff : labels.ffNew.loggedByYou}
+                        </span>
                       </div>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          </>
-        )}
-    </>
+                      <p className="mt-1.5 text-[12px] leading-[1.5] text-cz-text-2">{detail}</p>
+                      <button type="button" onClick={() => loadForEdit(log)} className="mt-2.5 block text-left">
+                        <span className="text-[14px] font-bold text-cz-crop-header">{t.editBtn}</span>
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
   )
 
-  if (bare) return body
+  if (bare) return card
 
+  // Phone: the reference goes straight from the app header to the card, with
+  // no back link or title row.
   return (
     <CitizenScreen hasTabBar>
-      <CitizenSubHeader theme={CROP_THEME} title={t.title} onBack={onBack} />
-      <CitizenBody>{body}</CitizenBody>
+      <CitizenHomeHeader theme={CROP_THEME} />
+      <CitizenBody className="!px-3 !pt-3">{card}</CitizenBody>
       {tabBar}
     </CitizenScreen>
   )

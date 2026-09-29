@@ -3,6 +3,8 @@ import { ChevronRight, Lock, Pencil, RefreshCw, User } from 'lucide-react'
 import NotificationBell from '../../components/Layout/NotificationBell.jsx'
 import omagLogo from '../../assets/LOGO OMAg.jpg'
 import { labels } from './labels.js'
+import { FarmerChromeContext } from './farmerChromeContext.js'
+import { FarmerHeader } from './FarmerChrome.jsx'
 
 // One profile-icon destination for every mobile header (Home's and every
 // sub-screen's alike) without threading an onProfile prop through every
@@ -240,6 +242,10 @@ function StaticHeaderBar({ theme }) {
 }
 
 export function CitizenHomeHeader({ theme }) {
+  // Set only by FarmerHomeScreen; absent everywhere else, so every other
+  // caller keeps the bar below exactly as it was.
+  const farmerChrome = useContext(FarmerChromeContext)
+  if (farmerChrome) return <FarmerHeader {...farmerChrome} />
   return (
     <header className={`sticky top-0 z-30 ${theme.header} ${CITIZEN_GUTTER} py-3`}>
       <StaticHeaderBar theme={theme} />
@@ -351,6 +357,15 @@ export function EditLegend({ theme }) {
 // the content area below it via CitizenPageHeader, matching Organization's
 // already-established OrgTopBar/OrgPageHeader split.
 export function CitizenSubHeader({ theme, title, subtitle, onBack }) {
+  const farmerChrome = useContext(FarmerChromeContext)
+  if (farmerChrome) {
+    return (
+      <>
+        <FarmerHeader {...farmerChrome} />
+        <CitizenPageHeader title={title} subtitle={subtitle} onBack={onBack} />
+      </>
+    )
+  }
   return (
     <>
       <header className={`sticky top-0 z-30 ${theme.header} ${CITIZEN_GUTTER} py-3`}>

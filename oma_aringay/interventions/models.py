@@ -184,6 +184,10 @@ class BeneficiaryRecord(models.Model):
     confirmed_at = models.DateTimeField(null=True, blank=True)
     non_receipt_reason = models.TextField(blank=True)
     follow_up_notes = models.TextField(blank=True)
+    # Optional proof the recipient can attach when confirming receipt. Farmer
+    # only for now — written solely by BeneficiaryConfirmReceivedView.
+    confirmation_photo = models.ImageField(upload_to='beneficiary_confirmations/', null=True, blank=True)
+    confirmation_note = models.TextField(blank=True)
 
     class Meta:
         # Backstop matching every real BeneficiaryRecord queryset's own

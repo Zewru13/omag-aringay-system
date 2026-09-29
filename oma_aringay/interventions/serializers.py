@@ -47,6 +47,8 @@ class BeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
             'confirmed_at',
             'non_receipt_reason',
             'follow_up_notes',
+            'confirmation_photo',
+            'confirmation_note',
         ]
         read_only_fields = [
             'id',
@@ -60,6 +62,8 @@ class BeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
             'confirmed_at',
             'non_receipt_reason',
             'follow_up_notes',
+            'confirmation_photo',
+            'confirmation_note',
         ]
 
     def get_recorded_by_name(self, obj):
