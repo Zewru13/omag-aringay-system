@@ -6,6 +6,7 @@ import ModalShell from './UI/ModalShell.jsx'
 import StatTile from './UI/StatTile.jsx'
 import StatusPill from './UI/StatusPill.jsx'
 import StepIndicator from './UI/StepIndicator.jsx'
+import RsbsaUndoPanel from './RsbsaUndoPanel.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 
 const STEPS = [
@@ -20,6 +21,7 @@ const STATUS_TONE = {
   matched_with_changes: 'amber',
   matched_no_changes: 'green',
   unmatched: 'slate',
+  classification_mismatch: 'amber',
   duplicate_in_file: 'rose',
   invalid: 'rose',
 }
@@ -27,6 +29,7 @@ const STATUS_LABEL = {
   matched_with_changes: 'Changes Found',
   matched_no_changes: 'No Changes',
   unmatched: 'Unmatched',
+  classification_mismatch: 'Dual Registration',
   duplicate_in_file: 'Duplicate In File',
   invalid: 'Invalid',
 }
@@ -51,7 +54,10 @@ const COMMIT_BATCH_SIZE = 50
 const effectiveStatus = (r) => (r.status === 'duplicate_in_file' ? r.underlying_status : r.status)
 const isCommittable = (r) => {
   const st = effectiveStatus(r)
-  return st === 'matched_with_changes' || st === 'unmatched'
+  // classification_mismatch = the person already exists under the OTHER
+  // registry; committing creates their missing second record (a dual
+  // registration) and never touches the existing one.
+  return st === 'matched_with_changes' || st === 'unmatched' || st === 'classification_mismatch'
 }
 
 function formatLastUpdated(iso) {
@@ -82,6 +88,7 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
   const [selectedRows, setSelectedRows] = useState(() => new Set())
   const [commitResult, setCommitResult] = useState(null)
   const [commitProgress, setCommitProgress] = useState(null)
+  const [undoBatchId, setUndoBatchId] = useState(null)
 
   const handleFileChange = (e) => {
     const f = e.target.files?.[0] || null
@@ -145,6 +152,7 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
     { key: 'matched_with_changes', label: `${preview.summary.matched_with_changes} Changes Found` },
     { key: 'matched_no_changes', label: `${preview.summary.matched_no_changes} No Changes` },
     { key: 'unmatched', label: `${preview.summary.unmatched} Unmatched` },
+    { key: 'classification_mismatch', label: `${preview.summary.classification_mismatch || 0} Dual Registration` },
     { key: 'duplicate_in_file', label: `${preview.summary.duplicate_in_file} Duplicate In File` },
     { key: 'invalid', label: `${preview.summary.invalid} Invalid` },
   ] : []
@@ -182,6 +190,7 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
   )
   const selectedUpdateCount = selectedRowObjects.filter((r) => effectiveStatus(r) === 'matched_with_changes').length
   const selectedCreateCount = selectedRowObjects.filter((r) => effectiveStatus(r) === 'unmatched').length
+  const selectedDualCount = selectedRowObjects.filter((r) => effectiveStatus(r) === 'classification_mismatch').length
 
   const goToConfirm = () => {
     if (selectedRowObjects.length === 0) { showToast('Select at least one row to commit.', 'error'); return }
@@ -196,22 +205,19 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
   const handleCommit = async () => {
     const rows = selectedRowObjects
     const results = []
-    const batchIds = []
+    // ONE id for the whole import, sent with every slice, so the whole import
+    // can be undone as a unit (see RsbsaUndoPanel).
+    const batchId = crypto.randomUUID()
     setIsBusy(true)
     setError('')
     setCommitProgress({ done: 0, total: rows.length })
     try {
       for (let i = 0; i < rows.length; i += COMMIT_BATCH_SIZE) {
-        const r = await api.post('/farmers/rsbsa-import/commit/', { rows: rows.slice(i, i + COMMIT_BATCH_SIZE) })
+        const r = await api.post('/farmers/rsbsa-import/commit/', { rows: rows.slice(i, i + COMMIT_BATCH_SIZE), batch_id: batchId })
         results.push(...r.data.results)
-        batchIds.push(r.data.batch_id)
         setCommitProgress({ done: results.length, total: rows.length })
       }
-      setCommitResult({
-        batch_id: batchIds.length > 1 ? `${batchIds[0]} (+${batchIds.length - 1} more batches)` : batchIds[0],
-        committed: results.length,
-        results,
-      })
+      setCommitResult({ batch_id: batchId, committed: results.length, results })
       setStep('result')
       onCommitted?.()
     } catch (err) {
@@ -255,8 +261,21 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
       </div>
     ),
     result: commitResult ? (
-      <Button type="button" onClick={onClose}>Close</Button>
+      <div className="flex w-full items-center justify-between gap-2">
+        <Button type="button" variant="outline" onClick={() => { setUndoBatchId(commitResult.batch_id); setStep('undo') }}>
+          Undo this import
+        </Button>
+        <Button type="button" onClick={onClose}>Close</Button>
+      </div>
     ) : null,
+    undo: (
+      <div className="flex w-full items-center justify-between gap-2">
+        <button type="button" onClick={() => { setUndoBatchId(null); setStep(commitResult ? 'result' : 'upload') }} className="text-[13px] font-medium text-[#7A8E7A] hover:text-[#1A2B1A] transition-colors">
+          {commitResult ? 'Back to results' : 'Back to upload'}
+        </button>
+        <Button type="button" variant="outline" onClick={onClose}>Close</Button>
+      </div>
+    ),
   }[step]
 
   return (
@@ -268,7 +287,11 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
       maxWidth="max-w-4xl"
       footer={footerContent}
     >
-      <StepIndicator steps={STEPS} currentIndex={STEP_INDEX[step]} />
+      {step === 'undo' ? (
+        <RsbsaUndoPanel key={undoBatchId || 'list'} initialBatchId={undoBatchId} onChanged={() => onCommitted?.()} />
+      ) : (
+        <StepIndicator steps={STEPS} currentIndex={STEP_INDEX[step]} />
+      )}
 
       {step === 'upload' && (
         <div className="stagger-item mt-6 space-y-4">
@@ -288,6 +311,13 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
             </label>
           </div>
 
+          <div className="flex items-center justify-between rounded-2xl border border-[#E2E8E2] bg-[#F9FAF9] px-5 py-3">
+            <p className="text-[12.5px] text-[#4A5A4C]">Committed an import by mistake? You can review and reverse a recent one.</p>
+            <button type="button" onClick={() => { setUndoBatchId(null); setStep('undo') }} className="shrink-0 text-[13px] font-semibold text-[#1B4D2E] hover:underline">
+              Undo a recent import
+            </button>
+          </div>
+
           {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
         </div>
       )}
@@ -304,10 +334,11 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <StatTile value={preview.summary.matched_with_changes} label="Changes Found" />
             <StatTile value={preview.summary.matched_no_changes} label="No Changes" />
             <StatTile value={preview.summary.unmatched} label="Unmatched" />
+            <StatTile value={preview.summary.classification_mismatch || 0} label="Dual Registration" />
             <StatTile value={preview.summary.duplicate_in_file} label="Duplicate In File" />
             <StatTile value={preview.summary.invalid} label="Invalid Rows" />
           </div>
@@ -390,6 +421,9 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
                           {r.status === 'unmatched' && (
                             <p className="mt-0.5 text-[12px] text-[#5A6B5C]">Not yet in the system — commit will register this person as new.</p>
                           )}
+                          {r.status === 'classification_mismatch' && (
+                            <p className="mt-0.5 text-[12px] text-[#8A5207]">{r.mismatch_note}</p>
+                          )}
                           {r.status === 'duplicate_in_file' && (
                             <>
                               <p className="mt-0.5 text-[12px] text-rose-600">{r.detail}</p>
@@ -400,6 +434,9 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
                               )}
                               {r.underlying_status === 'unmatched' && (
                                 <p className="mt-0.5 text-[12px] text-[#5A6B5C]">Not yet in the system — commit will register this person as new.</p>
+                              )}
+                              {r.underlying_status === 'classification_mismatch' && (
+                                <p className="mt-0.5 text-[12px] text-[#8A5207]">{r.mismatch_note}</p>
                               )}
                               {r.underlying_status === 'matched_no_changes' && (
                                 <p className="mt-0.5 text-[12px] text-[#5A6B5C]">Matches the existing record — nothing to commit.</p>
@@ -480,6 +517,13 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
             <p className="text-[13px] text-[#B7CBBB]">
               <span className="font-semibold text-white">{selectedUpdateCount}</span> existing record{selectedUpdateCount === 1 ? '' : 's'} updated,{' '}
               <span className="font-semibold text-white">{selectedCreateCount}</span> new registrant{selectedCreateCount === 1 ? '' : 's'} created
+              {selectedDualCount > 0 && (
+                <>
+                  ,{' '}
+                  <span className="font-semibold text-white">{selectedDualCount}</span> dual registration{selectedDualCount === 1 ? '' : 's'}
+                  {' '}(an existing person gets their missing second record)
+                </>
+              )}
             </p>
           </div>
 
@@ -514,15 +558,18 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
                     <p className="min-w-0 truncate text-[13px] font-medium text-[#1A2B1A]">
                       {r.matched_record_name || r.rsbsa_number}
                     </p>
-                    <StatusPill tone={effectiveStatus(r) === 'unmatched' ? 'slate' : 'amber'}>
-                      {effectiveStatus(r) === 'unmatched' ? 'Register New' : 'Update'}
+                    <StatusPill tone={effectiveStatus(r) === 'matched_with_changes' ? 'amber' : 'slate'}>
+                      {effectiveStatus(r) === 'unmatched' ? 'Register New'
+                        : effectiveStatus(r) === 'classification_mismatch' ? 'Dual Registration' : 'Update'}
                     </StatusPill>
                   </div>
                   <p className="mt-0.5 text-[12px] text-[#7A8E7A]">
                     Row {r.row_number} · {r.rsbsa_number} ·{' '}
                     {effectiveStatus(r) === 'unmatched'
                       ? `${Object.keys(r.incoming_values || {}).length} field(s) will be set`
-                      : r.changes.map((c) => c.label).join(', ')}
+                      : effectiveStatus(r) === 'classification_mismatch'
+                        ? `creates their ${r.create_domain === 'FARMER' ? 'Farmer' : 'Fisherfolk'} record alongside the existing one`
+                        : r.changes.map((c) => c.label).join(', ')}
                   </p>
                 </div>
               ))}
@@ -562,7 +609,9 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
                       Row {r.row_number} · {r.fields_changed.length} field{r.fields_changed.length === 1 ? '' : 's'}: {r.fields_changed.join(', ')}
                     </p>
                   </div>
-                  <StatusPill tone={r.action === 'CREATE' ? 'slate' : 'green'}>{r.action === 'CREATE' ? 'Registered' : 'Updated'}</StatusPill>
+                  <StatusPill tone={r.action === 'UPDATE' ? 'green' : 'slate'}>
+                    {r.action === 'CREATE' ? 'Registered' : r.action === 'CREATE_DUAL_REGISTRATION' ? 'Dual Registered' : 'Updated'}
+                  </StatusPill>
                 </div>
               ))}
             </div>

@@ -667,7 +667,14 @@ class RsbsaUpdateImportCommitView(APIView):
                 }, status=400)
             seen[key] = row.get('row_number')
 
-        batch_id = uuid.uuid4()
+        # The frontend commits a big selection in slices; it sends ONE id for
+        # the whole import so every slice shares a batch and the whole import
+        # can be undone as a unit (see farmers.rsbsa_import_undo). A missing or
+        # malformed id just gets a fresh one.
+        try:
+            batch_id = uuid.UUID(str(request.data.get('batch_id')))
+        except (ValueError, TypeError, AttributeError):
+            batch_id = uuid.uuid4()
         log_entries = []
         results = []
 

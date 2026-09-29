@@ -1,5 +1,6 @@
 from django.urls import path
 
+from .rsbsa_import_undo import RsbsaImportBatchListView, RsbsaImportUndoView
 from .rsbsa_import_views import RsbsaUpdateImportCommitView, RsbsaUpdateImportPreviewView
 from .views import (
     FarmCropDeleteView,
@@ -21,6 +22,8 @@ urlpatterns = [
     path('check-duplicate/', FarmerDuplicateCheckView.as_view(), name='farmers-check-duplicate'),
     path('rsbsa-import/preview/', RsbsaUpdateImportPreviewView.as_view(), name='rsbsa-import-preview'),
     path('rsbsa-import/commit/', RsbsaUpdateImportCommitView.as_view(), name='rsbsa-import-commit'),
+    path('rsbsa-import/batches/', RsbsaImportBatchListView.as_view(), name='rsbsa-import-batches'),
+    path('rsbsa-import/batches/<uuid:batch_id>/undo/', RsbsaImportUndoView.as_view(), name='rsbsa-import-undo'),
     path('create/', FarmerCreateView.as_view(), name='farmers-create'),
     path('<int:id>/', FarmerDetailView.as_view(), name='farmers-detail'),
     path('<int:id>/delete/', FarmerDeleteView.as_view(), name='farmers-delete'),

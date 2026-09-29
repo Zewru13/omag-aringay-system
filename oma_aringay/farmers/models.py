@@ -357,6 +357,9 @@ class RsbsaImportChangeLog(models.Model):
     class Action(models.TextChoices):
         CREATE = 'CREATE', 'Create'
         UPDATE = 'UPDATE', 'Update'
+        # Written by farmers.rsbsa_import_undo when a batch is reversed; shares
+        # the original batch_id so the trail reads create -> undo in one place.
+        UNDO = 'UNDO', 'Undo'
 
     batch_id = models.UUIDField(db_index=True)
     performed_by = models.ForeignKey(
