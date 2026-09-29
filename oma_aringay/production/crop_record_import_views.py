@@ -22,7 +22,7 @@ under the same crop_type once both map onto the single Tobacco CropType.
 import uuid
 from datetime import date as date_cls
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -31,6 +31,7 @@ from rest_framework.views import APIView
 from accounts.models import User
 from accounts.permissions import IsAdminOrEvaluator
 from accounts.utils import create_inactive_citizen_shell
+from core.utils import MAX_IMPORT_ROWS
 from farmers.models import Farmer, RsbsaImportChangeLog
 # Reused wholesale rather than re-derived: these crop files ARE RSBSA/BFAR
 # registry rows (see this module's own docstring), byte-for-byte the same
@@ -207,7 +208,11 @@ class CropRecordImportPreviewView(APIView):
                 # break the whole preview; that row just stays uncommittable
                 # with a clear reason instead.
                 try:
-                    create_incoming_values = build_person_incoming(row)
+                    # Keys starting "_" (e.g. "_warnings") are preview-only
+                    # annotations, never Farmer fields.
+                    create_incoming_values = {
+                        k: v for k, v in build_person_incoming(row).items() if not k.startswith('_')
+                    }
                     create_blocked_reason = None
                 except ValueError as exc:
                     create_incoming_values = None
@@ -318,6 +323,24 @@ class CropRecordImportCommitView(APIView):
         rows = request.data.get('rows')
         if not isinstance(rows, list) or not rows:
             return Response({'detail': 'Expected a non-empty list of rows to commit.'}, status=400)
+        if len(rows) > MAX_IMPORT_ROWS:
+            return Response({'detail': f'Too many rows in one commit (limit {MAX_IMPORT_ROWS:,}).'}, status=400)
+        if not all(isinstance(r, dict) for r in rows):
+            return Response({'detail': 'Each row to commit must be an object as returned by the preview.'}, status=400)
+
+        # Two selected rows describing the same planting would make the
+        # second one trip its own live duplicate check against the first
+        # (both written in this one transaction) and refuse the whole batch
+        # with a confusing message — say so up front instead.
+        seen_keys = {}
+        for r in rows:
+            key = (r.get('farmer_id') or r.get('rsbsa_number'), r.get('crop_type_id'), r.get('variety_used') or '', r.get('date_planted'))
+            if key in seen_keys:
+                return Response({
+                    'detail': f'Rows {seen_keys[key]} and {r.get("row_number")} are the same planting '
+                              f'(same farmer, crop, variety and date) — select only one. Nothing was saved.',
+                }, status=400)
+            seen_keys[key] = r.get('row_number')
 
         batch_id = uuid.uuid4()
         log_entries = []
@@ -336,6 +359,11 @@ class CropRecordImportCommitView(APIView):
             return Response({
                 'detail': f'{where}{exc.message} No changes were saved — the entire batch was rolled back.',
             }, status=400)
+        except IntegrityError:
+            return Response({
+                'detail': 'A record in this batch was created by someone else while the commit was running. '
+                          'No changes were saved — re-run the preview and try again.',
+            }, status=409)
 
         return Response({'batch_id': str(batch_id), 'committed': len(created), 'results': created}, status=200)
 

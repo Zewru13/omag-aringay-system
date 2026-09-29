@@ -17,7 +17,7 @@ from accounts.permissions import IsAdmin, IsAdminOrEvaluator, IsStaffOrOwnRecord
 from accounts.utils import create_inactive_citizen_shell
 from core.locking import assert_not_locked_by_other
 from core.notifications import notify_staff, notify_user, resolve_owner_user
-from core.utils import accumulate_yield_group, day_range_bounds, harvest_gate_status, new_yield_group
+from core.utils import accumulate_yield_group, build_name_search_q, day_range_bounds, harvest_gate_status, new_yield_group
 
 from .models import (
     DiseaseResponseGuide,
@@ -76,10 +76,12 @@ class FisherfolkListView(generics.ListCreateAPIView):
         params = self.request.query_params
         search = params.get('search', '').strip()
         if search:
+            # Same full-name handling as FarmerListView: every whitespace-
+            # separated token must match some name field, so "Juan dela Cruz"
+            # finds first_name "Juan" + last_name "Dela Cruz".
             qs = qs.filter(
-                Q(first_name__icontains=search)
-                | Q(last_name__icontains=search)
-                | Q(middle_name__icontains=search)
+                build_name_search_q(search, ['first_name', 'middle_name', 'last_name'])
+                | Q(rsbsa_number__icontains=search)
                 | Q(lgu_registration_number__icontains=search)
                 | Q(fishr_number__icontains=search)
                 | Q(barangay__icontains=search)
@@ -103,7 +105,13 @@ class FisherfolkListView(generics.ListCreateAPIView):
         if params.get('is_4ps') is not None:
             qs = qs.filter(is_4ps_beneficiary=(params['is_4ps'].lower() in ('true', '1')))
         if params.get('organization') is not None:
-            qs = qs.filter(fisherfolk_organization_id=params['organization'])
+            # Real membership (join table), as FarmerListView filters — the
+            # direct fisherfolk_organization FK is legacy and unset for
+            # nearly every record.
+            qs = qs.filter(
+                fisherfolk_organizations__organization_id=params['organization'],
+                fisherfolk_organizations__is_active=True,
+            ).distinct()
         if params.get('registered_from'):
             bound = day_range_bounds(params['registered_from'])
             if bound:
@@ -548,6 +556,15 @@ class StockingBulkCreateView(APIView):
         return Response(StockingRecordSerializer(created, many=True).data, status=drf_status.HTTP_201_CREATED)
 
 
+STOCKING_TEMPLATE_HEADERS = [
+    'Fisherfolk RSBSA Number', 'Species Name', 'Date Stocked (YYYY-MM-DD)',
+    'Number of Fingerlings', 'Culture Type (Pond/Cage/Pen)',
+]
+STOCKING_TEMPLATE_SAMPLE = ['01-33-02-999-999999', 'Tilapia', '2025-01-15', 5000, 'Pond']
+# Far above any real single stocking, well inside a 32-bit integer column.
+MAX_FINGERLINGS = 10_000_000
+
+
 class StockingForecastingTemplateView(APIView):
     """Mirrors ForecastingTemplateView (production/views.py) exactly, with
     fisheries-appropriate columns substituted: RSBSA number instead of
@@ -572,10 +589,7 @@ class StockingForecastingTemplateView(APIView):
         ws = wb.active
         ws.title = 'Stocking Forecasting Import'
 
-        headers = [
-            'Fisherfolk RSBSA Number', 'Species Name', 'Date Stocked (YYYY-MM-DD)',
-            'Number of Fingerlings', 'Culture Type (Pond/Cage/Pen)',
-        ]
+        headers = STOCKING_TEMPLATE_HEADERS
         green_fill = PatternFill(start_color='1E4620', end_color='1E4620', fill_type='solid')
         white_font = Font(color='FFFFFF', bold=True)
 
@@ -586,11 +600,8 @@ class StockingForecastingTemplateView(APIView):
             cell.font = white_font
             ws.column_dimensions[cell.column_letter].width = width
 
-        ws.cell(row=2, column=1, value='01-33-02-999-999999')
-        ws.cell(row=2, column=2, value='Tilapia')
-        ws.cell(row=2, column=3, value='2025-01-15')
-        ws.cell(row=2, column=4, value=5000)
-        ws.cell(row=2, column=5, value='Pond')
+        for col, value in enumerate(STOCKING_TEMPLATE_SAMPLE, 1):
+            ws.cell(row=2, column=col, value=value)
 
         buf = BytesIO()
         wb.save(buf)
@@ -632,19 +643,29 @@ class StockingForecastingImportView(APIView):
     parser_classes = [MultiPartParser]
 
     def post(self, request):
-        import datetime as dt
-        from collections import defaultdict
-
-        from core.utils import UnsupportedFileType, iter_spreadsheet_rows
+        from core.utils import run_import_atomically
 
         file = request.FILES.get('file')
         if not file:
             return Response({'error': 'No file uploaded.'}, status=400)
         dry_run = str(request.data.get('dry_run', '')).strip().lower() in ('1', 'true', 'yes')
 
+        # All-or-nothing: rows that are merely invalid are reported, but an
+        # unexpected failure part-way through can no longer leave a
+        # half-imported file (see core.utils.run_import_atomically).
+        return run_import_atomically(lambda: self._import(request, file, dry_run))
+
+    def _import(self, request, file, dry_run):
+        import datetime as dt
+        from collections import defaultdict
+
+        from core.utils import ImportFileError, cell_text, read_template_rows
+
         try:
-            rows_iter = list(iter_spreadsheet_rows(file, file.name, min_row=3))
-        except UnsupportedFileType as exc:
+            rows_iter = read_template_rows(
+                file, file.name, STOCKING_TEMPLATE_HEADERS, sample_row=STOCKING_TEMPLATE_SAMPLE,
+            )
+        except ImportFileError as exc:
             return Response({'error': str(exc)}, status=400)
         except Exception as exc:
             return Response({'error': f'Invalid file: {exc}'}, status=400)
@@ -662,15 +683,12 @@ class StockingForecastingImportView(APIView):
         def cell(row, i):
             return row[i] if i < len(row) else None
 
-        for row_num, row in enumerate(rows_iter, start=3):
-            if not any(c for c in row if c is not None):
-                continue
-
-            rsbsa            = str(cell(row, 0)).strip() if cell(row, 0) is not None else ''
-            species_name     = str(cell(row, 1)).strip() if cell(row, 1) is not None else ''
-            date_str         = str(cell(row, 2)).strip() if cell(row, 2) is not None else ''
-            fingerlings_str  = str(cell(row, 3)).strip() if cell(row, 3) is not None else ''
-            culture_type_str = str(cell(row, 4)).strip() if cell(row, 4) is not None else ''
+        for row_num, row in rows_iter:
+            rsbsa            = cell_text(cell(row, 0))
+            species_name     = cell_text(cell(row, 1))
+            date_str         = cell_text(cell(row, 2))
+            fingerlings_str  = cell_text(cell(row, 3))
+            culture_type_str = cell_text(cell(row, 4))
 
             if not rsbsa or not species_name or not date_str or not fingerlings_str or not culture_type_str:
                 invalid(row_num, 'Fisherfolk RSBSA Number, Species Name, Date Stocked, Number of Fingerlings, '
@@ -700,11 +718,22 @@ class StockingForecastingImportView(APIView):
             except ValueError:
                 invalid(row_num, f'Invalid date "{date_str}". Use YYYY-MM-DD.')
                 continue
+            # Same rule the manual Add Stocking form enforces.
+            if date_stocked > dt.date.today():
+                invalid(row_num, f'Date Stocked {date_stocked.isoformat()} is in the future.')
+                continue
 
             try:
-                number_of_fingerlings = int(float(fingerlings_str))
-            except ValueError:
+                fingerlings_float = float(fingerlings_str.replace(',', ''))
+                if fingerlings_float != fingerlings_float or fingerlings_float in (float('inf'), float('-inf')):
+                    raise ValueError
+                number_of_fingerlings = int(fingerlings_float)
+            except (ValueError, OverflowError):
                 invalid(row_num, f'Invalid number of fingerlings "{fingerlings_str}".')
+                continue
+            if not 1 <= number_of_fingerlings <= MAX_FINGERLINGS:
+                invalid(row_num, f'Number of fingerlings {number_of_fingerlings:,} is not realistic '
+                                 f'(must be between 1 and {MAX_FINGERLINGS:,}).')
                 continue
 
             culture_type = valid_culture_types.get(culture_type_str.lower())
@@ -760,16 +789,17 @@ class StockingForecastingImportView(APIView):
             try:
                 month = date_stocked.month
                 season = 'Wet' if 5 <= month <= 10 else 'Dry'
-                record = StockingRecord.objects.create(
-                    fisherfolk=fisherfolk,
-                    species=species,
-                    date_stocked=date_stocked,
-                    number_of_fingerlings=item['number_of_fingerlings'],
-                    culture_type=item['culture_type'],
-                    season=season,
-                    year=date_stocked.year,
-                    recorded_by=request.user,
-                )
+                with transaction.atomic():
+                    record = StockingRecord.objects.create(
+                        fisherfolk=fisherfolk,
+                        species=species,
+                        date_stocked=date_stocked,
+                        number_of_fingerlings=item['number_of_fingerlings'],
+                        culture_type=item['culture_type'],
+                        season=season,
+                        year=date_stocked.year,
+                        recorded_by=request.user,
+                    )
                 created += 1
                 rows.append({'row': row_num, 'status': 'ready', 'label': label, 'detail': f'Created (record #{record.id}).'})
             except Exception as exc:

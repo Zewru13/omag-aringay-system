@@ -36,14 +36,23 @@ const HOLD_BACK_REASON_TEXT = {
   all_flags_no: 'Farmer/Farmworker/Fisherfolk flags are all No',
   unmatched_barangay: 'Barangay does not match any known barangay',
   unparseable_birthday: 'Birthdate could not be read',
+  invalid_person_data: 'This row cannot become a valid person record',
+  invalid_rsbsa_format: 'RSBSA number is not in an accepted format',
 }
 
 const PAGE_SIZE = 25
+const COMMIT_BATCH_SIZE = 50
 
 // Only these two statuses have anything a commit could write — everything
 // else (matched_no_changes: nothing differs; invalid: nothing to write to)
 // is never selectable, matching the backend's own refusal of anything else.
-const isCommittable = (r) => r.status === 'matched_with_changes' || r.status === 'unmatched'
+// A duplicate_in_file row commits as whatever it would be on its own
+// (underlying_status) — staff pick which ONE row per RSBSA number to commit.
+const effectiveStatus = (r) => (r.status === 'duplicate_in_file' ? r.underlying_status : r.status)
+const isCommittable = (r) => {
+  const st = effectiveStatus(r)
+  return st === 'matched_with_changes' || st === 'unmatched'
+}
 
 function formatLastUpdated(iso) {
   if (!iso) return 'never (no updated_at recorded)'
@@ -72,6 +81,7 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
   const [expandedRow, setExpandedRow] = useState(null)
   const [selectedRows, setSelectedRows] = useState(() => new Set())
   const [commitResult, setCommitResult] = useState(null)
+  const [commitProgress, setCommitProgress] = useState(null)
 
   const handleFileChange = (e) => {
     const f = e.target.files?.[0] || null
@@ -113,8 +123,19 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
   const toggleRow = (rowNumber) => {
     setSelectedRows((prev) => {
       const next = new Set(prev)
-      if (next.has(rowNumber)) next.delete(rowNumber)
-      else next.add(rowNumber)
+      if (next.has(rowNumber)) {
+        next.delete(rowNumber)
+      } else {
+        // Only one row per RSBSA number may be committed: picking one
+        // deselects any other row for the same person.
+        const picked = preview?.rows.find((r) => r.row_number === rowNumber)
+        if (picked?.rsbsa_number) {
+          preview.rows.forEach((r) => {
+            if (r.rsbsa_number === picked.rsbsa_number) next.delete(r.row_number)
+          })
+        }
+        next.add(rowNumber)
+      }
       return next
     })
   }
@@ -135,7 +156,9 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
       : preview.rows.filter((r) => r.status === statusFilter)
   }, [preview, statusFilter])
 
-  const committableVisible = filteredRows.filter(isCommittable)
+  // Select-all skips repeated-RSBSA rows: it would pick several rows for one
+  // person, and only one of them may be committed.
+  const committableVisible = filteredRows.filter((r) => isCommittable(r) && r.status !== 'duplicate_in_file')
   const allVisibleSelected = committableVisible.length > 0 && committableVisible.every((r) => selectedRows.has(r.row_number))
 
   const toggleSelectAllVisible = () => {
@@ -157,8 +180,8 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
     () => (preview ? preview.rows.filter((r) => selectedRows.has(r.row_number)) : []),
     [preview, selectedRows],
   )
-  const selectedUpdateCount = selectedRowObjects.filter((r) => r.status === 'matched_with_changes').length
-  const selectedCreateCount = selectedRowObjects.filter((r) => r.status === 'unmatched').length
+  const selectedUpdateCount = selectedRowObjects.filter((r) => effectiveStatus(r) === 'matched_with_changes').length
+  const selectedCreateCount = selectedRowObjects.filter((r) => effectiveStatus(r) === 'unmatched').length
 
   const goToConfirm = () => {
     if (selectedRowObjects.length === 0) { showToast('Select at least one row to commit.', 'error'); return }
@@ -166,18 +189,40 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
     setStep('confirm')
   }
 
+  // Rows are committed in sequential batches. Registering one new person is
+  // ~8 database round-trips (~0.5 s), so a whole 3,600-row file in a single
+  // request would run for half an hour and be cut off by any proxy/browser
+  // timeout mid-way. Each batch is still all-or-nothing on the server.
   const handleCommit = async () => {
+    const rows = selectedRowObjects
+    const results = []
+    const batchIds = []
     setIsBusy(true)
     setError('')
+    setCommitProgress({ done: 0, total: rows.length })
     try {
-      const r = await api.post('/farmers/rsbsa-import/commit/', { rows: selectedRowObjects })
-      setCommitResult(r.data)
+      for (let i = 0; i < rows.length; i += COMMIT_BATCH_SIZE) {
+        const r = await api.post('/farmers/rsbsa-import/commit/', { rows: rows.slice(i, i + COMMIT_BATCH_SIZE) })
+        results.push(...r.data.results)
+        batchIds.push(r.data.batch_id)
+        setCommitProgress({ done: results.length, total: rows.length })
+      }
+      setCommitResult({
+        batch_id: batchIds.length > 1 ? `${batchIds[0]} (+${batchIds.length - 1} more batches)` : batchIds[0],
+        committed: results.length,
+        results,
+      })
       setStep('result')
       onCommitted?.()
     } catch (err) {
-      setError(err?.response?.data?.detail || 'Failed to commit the selected rows. Nothing was saved.')
+      const detail = err?.response?.data?.detail || 'Failed to commit the selected rows.'
+      setError(results.length > 0
+        ? `${detail} ${results.length} row${results.length === 1 ? '' : 's'} in earlier batches WERE saved — close this window and run the preview again to see what is left.`
+        : `${detail} Nothing was saved.`)
+      if (results.length > 0) onCommitted?.()
     } finally {
       setIsBusy(false)
+      setCommitProgress(null)
     }
   }
 
@@ -305,7 +350,7 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
               )}
               {paginatedRows.map((r) => {
                 const isExpanded = expandedRow === r.row_number
-                const canExpand = r.status === 'matched_with_changes'
+                const canExpand = effectiveStatus(r) === 'matched_with_changes'
                 const committable = isCommittable(r)
                 return (
                   <div key={r.row_number} className={selectedRows.has(r.row_number) ? 'bg-[#F5FAF6]' : ''}>
@@ -336,14 +381,30 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
                           </p>
                           {r.status === 'invalid' && (
                             <p className="mt-0.5 text-[12px] text-rose-600">
-                              {HOLD_BACK_REASON_TEXT[r.hold_back_reason] || r.hold_back_reason}
+                              {r.detail || HOLD_BACK_REASON_TEXT[r.hold_back_reason] || r.hold_back_reason}
                             </p>
                           )}
+                          {(r.warnings || []).map((w) => (
+                            <p key={w} className="mt-0.5 text-[12px] text-[#8A5207]">⚠ {w}</p>
+                          ))}
                           {r.status === 'unmatched' && (
                             <p className="mt-0.5 text-[12px] text-[#5A6B5C]">Not yet in the system — commit will register this person as new.</p>
                           )}
                           {r.status === 'duplicate_in_file' && (
-                            <p className="mt-0.5 text-[12px] text-rose-600">{r.detail}</p>
+                            <>
+                              <p className="mt-0.5 text-[12px] text-rose-600">{r.detail}</p>
+                              {r.underlying_status === 'matched_with_changes' && (
+                                <p className="mt-0.5 text-[12px] text-[#8A5207]">
+                                  {r.changes.length} field{r.changes.length === 1 ? '' : 's'} differ — {isExpanded ? 'hide' : 'show'} details
+                                </p>
+                              )}
+                              {r.underlying_status === 'unmatched' && (
+                                <p className="mt-0.5 text-[12px] text-[#5A6B5C]">Not yet in the system — commit will register this person as new.</p>
+                              )}
+                              {r.underlying_status === 'matched_no_changes' && (
+                                <p className="mt-0.5 text-[12px] text-[#5A6B5C]">Matches the existing record — nothing to commit.</p>
+                              )}
+                            </>
                           )}
                           {r.status === 'matched_with_changes' && (
                             <>
@@ -425,9 +486,20 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
           <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
             <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-700" aria-hidden="true" />
             <p className="text-[13px] text-amber-800">
-              <span className="font-semibold">All-or-nothing:</span> if any selected row fails (e.g. a record changed
-              since this preview was generated), none of the {selectedRowObjects.length} row{selectedRowObjects.length === 1 ? '' : 's'} will
-              be saved. Only the fields shown below are ever touched — nothing else on these records changes.
+              {selectedRowObjects.length <= COMMIT_BATCH_SIZE ? (
+                <>
+                  <span className="font-semibold">All-or-nothing:</span> if any selected row fails (e.g. a record changed
+                  since this preview was generated), none of the {selectedRowObjects.length} row{selectedRowObjects.length === 1 ? '' : 's'} will
+                  be saved.
+                </>
+              ) : (
+                <>
+                  <span className="font-semibold">Saved in batches of {COMMIT_BATCH_SIZE}:</span> each batch is all-or-nothing,
+                  but if one fails, the batches before it stay saved and the rest are not attempted. Keep this window open
+                  until it finishes.
+                </>
+              )}{' '}
+              Only the fields shown below are ever touched — nothing else on these records changes.
             </p>
           </div>
 
@@ -442,13 +514,13 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
                     <p className="min-w-0 truncate text-[13px] font-medium text-[#1A2B1A]">
                       {r.matched_record_name || r.rsbsa_number}
                     </p>
-                    <StatusPill tone={r.status === 'unmatched' ? 'slate' : 'amber'}>
-                      {r.status === 'unmatched' ? 'Register New' : 'Update'}
+                    <StatusPill tone={effectiveStatus(r) === 'unmatched' ? 'slate' : 'amber'}>
+                      {effectiveStatus(r) === 'unmatched' ? 'Register New' : 'Update'}
                     </StatusPill>
                   </div>
                   <p className="mt-0.5 text-[12px] text-[#7A8E7A]">
                     Row {r.row_number} · {r.rsbsa_number} ·{' '}
-                    {r.status === 'unmatched'
+                    {effectiveStatus(r) === 'unmatched'
                       ? `${Object.keys(r.incoming_values || {}).length} field(s) will be set`
                       : r.changes.map((c) => c.label).join(', ')}
                   </p>
@@ -457,6 +529,11 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
             </div>
           </div>
 
+          {commitProgress && (
+            <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[13px] font-medium text-sky-800">
+              Committing… {commitProgress.done} of {commitProgress.total} rows saved. Please keep this window open.
+            </p>
+          )}
           {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
         </div>
       )}

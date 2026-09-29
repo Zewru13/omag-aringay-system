@@ -71,7 +71,7 @@ KNOWN_HEADER_VERSIONS = {
 def detect_header_version(actual_headers):
     """Returns 'v1', 'v2', or None — whichever known RSBSA/BFAR export
     header shape actual_headers matches exactly, if any."""
-    actual = list(actual_headers)
+    actual = [str(h).strip().lower() for h in actual_headers]
     for version, expected in KNOWN_HEADER_VERSIONS.items():
         if actual == expected:
             return version
@@ -101,6 +101,36 @@ def is_corrupted_rsbsa(value):
 
 def is_blank(v):
     return not v or v.strip() == '' or v.strip().lower() == 'null'
+
+
+def normalize_rsbsa(raw):
+    """Trim and upper-case an RSBSA number as read from a file. Every stored
+    number is upper-case, so a lower-case "01-033-02-011-xiirza" (retyped by
+    hand) must match — and be judged — as the same number instead of being
+    held back as corrupted."""
+    return (raw or '').strip().upper()
+
+
+class InvalidPersonData(ValueError):
+    """A row whose person fields can't safely create/update a Farmer or
+    Fisherfolk (unknown gender, no name, impossible birthdate). Bucketed as
+    an invalid row with this message — never guessed at."""
+
+
+CONTACT_RE = re.compile(r'^09\d{9}$')
+
+
+def clean_contact(raw):
+    """(value, warning). A number that isn't 11 digits starting 09 (after the
+    usual 10-digit -> 09 fix) is dropped with a warning rather than stored:
+    the registration form refuses such a number, and importing it would also
+    put a value in that the form could never re-save."""
+    n = normalize_contact(raw)
+    if not n:
+        return '', None
+    if CONTACT_RE.match(n):
+        return n, None
+    return '', f'Contact number "{(raw or "").strip()}" is not a valid 09XXXXXXXXX number — ignored.'
 
 
 def normalize_contact(raw):
@@ -186,7 +216,7 @@ def parse_rsbsa_xlsx(fileobj, filename=None):
     except StopIteration:
         raise ValueError('The file is empty.')
 
-    actual_headers = [str(h).strip() if h is not None else '' for h in header_row]
+    actual_headers = [str(h).strip().lower() if h is not None else '' for h in header_row]
     version = detect_header_version(actual_headers)
     if version is None:
         raise ValueError(
@@ -220,6 +250,7 @@ def parse_rsbsa_xlsx(fileobj, filename=None):
                 row[key] = str(int(value))
             else:
                 row[key] = str(value).strip()
+        row['rsbsa_no'] = normalize_rsbsa(row['rsbsa_no'])
         rows.append(row)
 
     return rows
@@ -231,30 +262,32 @@ def parse_rsbsa_csv(fileobj):
     real 2026 refresh arrives this way (not .xlsx) — see this module's
     docstring.
 
-    Unlike parse_rsbsa_xlsx, no positional remapping is needed: a CSV
-    already carries its own header row, and csv.DictReader keys every row
-    by it directly. classify_row()/_build_incoming() only ever look up a
-    fixed handful of field names (rsbsa_no, farmer, farmworker, fisherfolk,
-    farmer_address_bgy, gender, birthday, contact_num, first_name,
-    middle_name, last_name, ext_name), and those names are identical across
-    every known header version — only the columns nobody reads
-    (verified_area(for_testing), kyc_updated/parcel_updated vs.
-    date_updated) differ between versions, so this function doesn't need to
-    care which version it got beyond validating the header row is one of
-    them at all.
+    Read through core.utils' shared, hardened CSV handling (size cap,
+    UTF-8/UTF-16/Windows-1252 detection, comma/semicolon/tab). Header names
+    are matched case- and space-insensitively and every value is trimmed, so
+    a file re-saved through Excel still reads. The RSBSA number is trimmed
+    and upper-cased (see normalize_rsbsa).
 
     Raises ValueError (caller turns this into a 400) if the header row
     doesn't match a known RSBSA/BFAR export shape, or the file has no data
     rows.
     """
-    import csv
-    import io
+    from core.utils import (
+        MAX_IMPORT_ROWS, ImportFileError, check_upload_size, csv_reader_for, decode_csv_bytes,
+    )
 
-    raw = fileobj.read()
-    text = raw.decode('utf-8-sig') if isinstance(raw, bytes) else raw
-    reader = csv.DictReader(io.StringIO(text))
+    check_upload_size(fileobj)
+    try:
+        fileobj.seek(0)
+    except Exception:
+        pass
+    reader = csv_reader_for(decode_csv_bytes(fileobj.read()))
+    try:
+        header = next(reader)
+    except StopIteration:
+        raise ValueError('The file is empty.')
 
-    actual_headers = reader.fieldnames or []
+    actual_headers = [h.strip().lower() for h in header]
     if detect_header_version(actual_headers) is None:
         raise ValueError(
             f'File headers do not match a known RSBSA/BFAR export format.\n'
@@ -263,7 +296,18 @@ def parse_rsbsa_csv(fileobj):
             f'Actual: {actual_headers}'
         )
 
-    rows = [row for row in reader if any((v or '').strip() for v in row.values())]
+    rows = []
+    for raw in reader:
+        if not any((v or '').strip() for v in raw):
+            continue
+        row = {actual_headers[i]: (raw[i].strip() if i < len(raw) else '') for i in range(len(actual_headers))}
+        row['rsbsa_no'] = normalize_rsbsa(row['rsbsa_no'])
+        rows.append(row)
+        if len(rows) > MAX_IMPORT_ROWS:
+            raise ImportFileError(
+                f'The file has more than {MAX_IMPORT_ROWS:,} rows. Split it into smaller files and import them one at a time.'
+            )
+
     if not rows:
         raise ValueError('The file has a valid header row but no data rows.')
 

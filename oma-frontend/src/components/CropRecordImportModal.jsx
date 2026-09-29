@@ -34,6 +34,7 @@ const STATUS_LABEL = {
 }
 
 const PAGE_SIZE = 25
+const COMMIT_BATCH_SIZE = 50
 
 // This importer never updates an existing record — it only ever creates a
 // new CropMonitoringRecord — so unlike RsbsaImportModal (update-or-create),
@@ -62,6 +63,7 @@ export default function CropRecordImportModal({ onClose, onCommitted }) {
   const [page, setPage] = useState(1)
   const [selectedRows, setSelectedRows] = useState(() => new Set())
   const [commitResult, setCommitResult] = useState(null)
+  const [commitProgress, setCommitProgress] = useState(null)
 
   const handleFileChange = (e) => {
     const f = e.target.files?.[0] || null
@@ -155,18 +157,40 @@ export default function CropRecordImportModal({ onClose, onCommitted }) {
     setStep('confirm')
   }
 
+  // Sequential batches, each all-or-nothing on the server: one big request
+  // for thousands of rows would outlast any proxy/browser timeout (each row
+  // is several database round-trips) and could be cut off mid-way with no
+  // clear result. See RsbsaImportModal.jsx for the same approach.
   const handleCommit = async () => {
+    const rows = selectedRowObjects
+    const results = []
+    const batchIds = []
     setIsBusy(true)
     setError('')
+    setCommitProgress({ done: 0, total: rows.length })
     try {
-      const r = await api.post('/production/crop-record-import/commit/', { rows: selectedRowObjects })
-      setCommitResult(r.data)
+      for (let i = 0; i < rows.length; i += COMMIT_BATCH_SIZE) {
+        const r = await api.post('/production/crop-record-import/commit/', { rows: rows.slice(i, i + COMMIT_BATCH_SIZE) })
+        results.push(...r.data.results)
+        batchIds.push(r.data.batch_id)
+        setCommitProgress({ done: results.length, total: rows.length })
+      }
+      setCommitResult({
+        batch_id: batchIds.length > 1 ? `${batchIds[0]} (+${batchIds.length - 1} more batches)` : batchIds[0],
+        committed: results.length,
+        results,
+      })
       setStep('result')
       onCommitted?.()
     } catch (err) {
-      setError(err?.response?.data?.detail || 'Failed to commit the selected rows. Nothing was saved.')
+      const detail = err?.response?.data?.detail || 'Failed to commit the selected rows.'
+      setError(results.length > 0
+        ? `${detail} ${results.length} row${results.length === 1 ? '' : 's'} in earlier batches WERE saved — close this window and run the preview again to see what is left.`
+        : `${detail} Nothing was saved.`)
+      if (results.length > 0) onCommitted?.()
     } finally {
       setIsBusy(false)
+      setCommitProgress(null)
     }
   }
 
@@ -382,9 +406,19 @@ export default function CropRecordImportModal({ onClose, onCommitted }) {
           <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4">
             <AlertTriangle size={18} className="mt-0.5 shrink-0 text-rose-700" aria-hidden="true" />
             <p className="text-[13px] text-rose-800">
-              <span className="font-semibold">All-or-nothing:</span> if any selected row fails (e.g. a matching
-              record was created since this preview was generated), none of the {selectedRowObjects.length}{' '}
-              row{selectedRowObjects.length === 1 ? '' : 's'} will be saved.
+              {selectedRowObjects.length <= COMMIT_BATCH_SIZE ? (
+                <>
+                  <span className="font-semibold">All-or-nothing:</span> if any selected row fails (e.g. a matching
+                  record was created since this preview was generated), none of the {selectedRowObjects.length}{' '}
+                  row{selectedRowObjects.length === 1 ? '' : 's'} will be saved.
+                </>
+              ) : (
+                <>
+                  <span className="font-semibold">Saved in batches of {COMMIT_BATCH_SIZE}:</span> each batch is all-or-nothing,
+                  but if one fails, the batches before it stay saved and the rest are not attempted. Keep this window open
+                  until it finishes.
+                </>
+              )}
             </p>
           </div>
 
@@ -409,6 +443,11 @@ export default function CropRecordImportModal({ onClose, onCommitted }) {
             </div>
           </div>
 
+          {commitProgress && (
+            <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-[13px] font-medium text-sky-800">
+              Committing… {commitProgress.done} of {commitProgress.total} rows saved. Please keep this window open.
+            </p>
+          )}
           {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
         </div>
       )}

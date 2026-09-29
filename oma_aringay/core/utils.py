@@ -8,10 +8,6 @@ from django.db.models import Q
 from django.utils import timezone
 
 
-class UnsupportedFileType(ValueError):
-    """Raised by iter_spreadsheet_rows for anything but .xlsx/.xls/.csv."""
-
-
 def build_name_search_q(search, field_names):
     """Q object matching a person-name search across split first/middle/last
     name columns, correctly handling a full-name query like "Juan dela Cruz"
@@ -41,62 +37,257 @@ def build_name_search_q(search, field_names):
     return combined
 
 
+# ── Import-file safety ────────────────────────────────────────────────────
+# Every Import File feature reads its upload through the helpers below, so a
+# bad file (wrong encoding, corrupt/renamed workbook, a spreadsheet whose
+# formatting runs to row 1,048,576, an enormous upload) gets ONE clear message
+# instead of a server error or a hung request.
+MAX_IMPORT_BYTES = 10 * 1024 * 1024   # the real 2026 RSBSA exports are ~1 MB each
+MAX_IMPORT_ROWS = 20000               # ...and ~4,000 rows at most
+_MAX_TRAILING_BLANK_ROWS = 1000       # a sheet "ends" after this many empty rows in a row
+
+
+class ImportFileError(ValueError):
+    """A user-facing 'this file can't be imported' problem. It is a
+    ValueError so callers that already turn ValueError into a 400 with the
+    message keep working unchanged."""
+
+
+class UnsupportedFileType(ImportFileError):
+    """Raised by iter_spreadsheet_rows for anything but .xlsx/.xls/.csv."""
+
+
+def check_upload_size(fileobj):
+    size = getattr(fileobj, 'size', None)
+    if size is not None and size > MAX_IMPORT_BYTES:
+        raise ImportFileError(
+            f'The file is too large ({size / 1024 / 1024:.1f} MB). The limit is '
+            f'{MAX_IMPORT_BYTES // (1024 * 1024)} MB — split it into smaller files.'
+        )
+    if size == 0:
+        raise ImportFileError('The file is empty.')
+
+
+def decode_csv_bytes(raw):
+    """Decode an uploaded CSV. Excel's own "CSV" save is Windows-1252 (or
+    UTF-16 via "Unicode Text"), not UTF-8 — names like "Nuñez"/"Peña" would
+    otherwise crash a strict UTF-8 decode. UTF-8 (with or without BOM) is
+    still tried first."""
+    import codecs
+
+    if isinstance(raw, str):
+        return raw
+    if raw.startswith(codecs.BOM_UTF16_LE) or raw.startswith(codecs.BOM_UTF16_BE):
+        text = raw.decode('utf-16')
+    else:
+        try:
+            text = raw.decode('utf-8-sig')
+        except UnicodeDecodeError:
+            text = raw.decode('cp1252', errors='replace')
+    if '\x00' in text:
+        raise ImportFileError('This does not look like a text CSV file (it contains binary data).')
+    return text
+
+
+def csv_delimiter_for(text):
+    """The delimiter Excel actually used — a semicolon or tab in some
+    regional settings — picked from the header line."""
+    first = text.split('\n', 1)[0]
+    delimiter = max((',', ';', '\t'), key=first.count)
+    return delimiter if first.count(delimiter) else ','
+
+
+def csv_reader_for(text):
+    return csv.reader(io.StringIO(text), delimiter=csv_delimiter_for(text))
+
+
+def cell_text(value):
+    """A spreadsheet cell as clean text: None -> '', 5.0 -> '5' (Excel stores
+    whole numbers as floats), datetimes as ISO dates, everything else
+    stripped."""
+    if value is None:
+        return ''
+    if isinstance(value, bool):
+        return str(value)
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    if isinstance(value, datetime.datetime):
+        return value.date().isoformat()
+    if isinstance(value, datetime.date):
+        return value.isoformat()
+    return str(value).strip()
+
+
+def _row_is_blank(row):
+    return not any(c is not None and str(c).strip() != '' for c in row)
+
+
 def iter_spreadsheet_rows(fileobj, filename, *, min_row=1):
     """Yield row tuples (raw cell values) from an uploaded .xlsx, .xls, or
     .csv file, skipping every row before `min_row` (1-indexed) — the same
     convention openpyxl's own `ws.iter_rows(min_row=N, values_only=True)`
     already uses, so this is a drop-in replacement for it regardless of
-    which of the three formats the upload actually is. Every real import
-    feature in this project used to hand-roll its own openpyxl-only
-    handling (several with no extension check at all, silently rejecting
-    .xls/.csv via whatever exception openpyxl happened to raise); this is
-    the one place that logic now lives, reused by all of them, rather than
-    a per-feature copy of the same three-way dispatch.
+    which of the three formats the upload actually is.
 
     Genuine Excel date cells — in EITHER .xlsx or .xls — come back as real
     `datetime` objects, matching openpyxl's own behavior, not a raw Excel
-    serial number. Every existing `str(value)[:10]` / direct-index
-    consumer already written against openpyxl's rows keeps working
-    unchanged no matter which of the three formats was actually uploaded.
+    serial number.
 
-    Raises UnsupportedFileType for anything else.
+    Hardened for real-world uploads: size cap, a friendly ImportFileError for
+    corrupt/renamed/password-protected workbooks, encoding detection for CSV,
+    trailing empty (formatted-only) rows are never yielded, and a row cap.
+    Blank rows in the MIDDLE are still yielded, so callers' row numbers
+    always match the sheet.
+
+    Raises UnsupportedFileType for any other extension.
     """
     name = (filename or '').lower()
+    if not name.endswith(('.xlsx', '.xlsm', '.xls', '.csv')):
+        raise UnsupportedFileType('Only .xlsx, .xls, or .csv files are supported.')
+    check_upload_size(fileobj)
 
-    if name.endswith('.xlsx') or name.endswith('.xlsm'):
-        import openpyxl
-        wb = openpyxl.load_workbook(fileobj, read_only=True, data_only=True)
-        ws = wb.active
-        yield from ws.iter_rows(min_row=min_row, values_only=True)
-        return
+    def raw_rows():
+        if name.endswith(('.xlsx', '.xlsm')):
+            import zipfile
 
-    if name.endswith('.xls'):
-        import xlrd
+            import openpyxl
+            try:
+                fileobj.seek(0)
+                wb = openpyxl.load_workbook(fileobj, read_only=True, data_only=True)
+                ws = wb.active
+                if not hasattr(ws, 'iter_rows'):
+                    ws = next((s for s in wb.worksheets if hasattr(s, 'iter_rows')), None)
+                if ws is None:
+                    raise ImportFileError('The workbook has no worksheet with data.')
+            except ImportFileError:
+                raise
+            except (zipfile.BadZipFile, KeyError, OSError, ValueError, openpyxl.utils.exceptions.InvalidFileException):
+                raise ImportFileError(
+                    'The file could not be read as an Excel (.xlsx) workbook. It may be corrupt, '
+                    'password-protected, or not really an .xlsx file (e.g. a renamed CSV).'
+                )
+            yield from ws.iter_rows(min_row=min_row, values_only=True)
+            return
+
+        if name.endswith('.xls'):
+            import xlrd
+            try:
+                fileobj.seek(0)
+                book = xlrd.open_workbook(file_contents=fileobj.read())
+                sheet = book.sheet_by_index(0)
+            except Exception:
+                raise ImportFileError(
+                    'The file could not be read as a legacy Excel (.xls) workbook. It may be corrupt, '
+                    'password-protected, or not really an .xls file.'
+                )
+            for row_idx in range(min_row - 1, sheet.nrows):
+                values = []
+                for col_idx in range(sheet.ncols):
+                    cell = sheet.cell(row_idx, col_idx)
+                    if cell.ctype == xlrd.XL_CELL_DATE:
+                        values.append(xlrd.xldate_as_datetime(cell.value, book.datemode))
+                    else:
+                        values.append(cell.value)
+                yield tuple(values)
+            return
+
         fileobj.seek(0)
-        book = xlrd.open_workbook(file_contents=fileobj.read())
-        sheet = book.sheet_by_index(0)
-        for row_idx in range(min_row - 1, sheet.nrows):
-            values = []
-            for col_idx in range(sheet.ncols):
-                cell = sheet.cell(row_idx, col_idx)
-                if cell.ctype == xlrd.XL_CELL_DATE:
-                    values.append(xlrd.xldate_as_datetime(cell.value, book.datemode))
-                else:
-                    values.append(cell.value)
-            yield tuple(values)
-        return
-
-    if name.endswith('.csv'):
-        fileobj.seek(0)
-        raw = fileobj.read()
-        text = raw.decode('utf-8-sig') if isinstance(raw, bytes) else raw
-        for i, row in enumerate(csv.reader(io.StringIO(text)), start=1):
+        text = decode_csv_bytes(fileobj.read())
+        for i, row in enumerate(csv_reader_for(text), start=1):
             if i < min_row:
                 continue
             yield tuple(row)
-        return
 
-    raise UnsupportedFileType('Only .xlsx, .xls, or .csv files are supported.')
+    pending_blank = []
+    yielded = 0
+    for row in raw_rows():
+        if _row_is_blank(row):
+            pending_blank.append(row)
+            if len(pending_blank) > _MAX_TRAILING_BLANK_ROWS:
+                return  # formatted-but-empty tail: the data has ended
+            continue
+        for blank in pending_blank:
+            yielded += 1
+            yield blank
+        pending_blank = []
+        yielded += 1
+        if yielded > MAX_IMPORT_ROWS:
+            raise ImportFileError(
+                f'The file has more than {MAX_IMPORT_ROWS:,} rows. Split it into smaller files and import them one at a time.'
+            )
+        yield row
+
+
+def read_template_rows(fileobj, filename, headers, *, sample_row=None, note_prefixes=(), max_rows=1000):
+    """Data rows of one of this project's downloadable import templates, as
+    a list of (sheet_row_number, row) — found by the header row's CONTENT,
+    not by position. The old "data starts at row 3" rule silently dropped a
+    first data row whenever staff overwrote the template's sample row 2 (the
+    natural thing to do), and processed the template's own note line as data.
+
+    - The header row must be in the first few rows and its first cell must be
+      headers[0] (case/space-insensitive); this also stops a file from the
+      wrong page's template (e.g. Fisherfolk assistance uploaded on the Crop
+      Assistance page) from being half-read as something else.
+    - The template's untouched sample row, its note line, and fully blank rows
+      are skipped; every other row is returned with its real sheet row number.
+    """
+    def norm(v):
+        return ' '.join(cell_text(v).lower().split())
+
+    all_rows = list(iter_spreadsheet_rows(fileobj, filename))
+    header_idx = next(
+        (i for i, r in enumerate(all_rows[:6]) if r and norm(r[0]) == norm(headers[0])), None,
+    )
+    if header_idx is None:
+        raise ImportFileError(
+            f'Could not find the template header row (first column "{headers[0]}"). '
+            f'Download the template from this page, fill it in, and upload that file.'
+        )
+
+    sample = tuple(norm(c) for c in sample_row) if sample_row else None
+    data = []
+    for idx in range(header_idx + 1, len(all_rows)):
+        row = all_rows[idx]
+        if _row_is_blank(row):
+            continue
+        first = cell_text(row[0]) if row else ''
+        if any(first.startswith(p) for p in note_prefixes):
+            continue
+        if sample and tuple(norm(c) for c in row[:len(sample)]) == sample:
+            continue
+        data.append((idx + 1, row))
+    # These imports save through the normal serializers (several queries per
+    # row) inside ONE request; far beyond this the request would outlast any
+    # proxy/browser timeout. Hand-filled templates never get near it.
+    if len(data) > max_rows:
+        raise ImportFileError(
+            f'This import accepts up to {max_rows:,} rows at a time (the file has {len(data):,}). '
+            f'Split it into smaller files and import them one after another.'
+        )
+    return data
+
+
+def run_import_atomically(run):
+    """Run an import that may create many rows as ONE all-or-nothing database
+    transaction. These imports used to save row by row, so an unexpected
+    failure part-way through left a half-imported file that had to be
+    cleaned up by hand. Rows that are merely INVALID are still just reported
+    (they never reach the database); this only guards the unexpected — e.g.
+    two people importing the same organization at once, where the loser hit
+    a raw server error after the winner's rows were already in."""
+    from django.db import IntegrityError, transaction
+    from rest_framework.response import Response
+
+    try:
+        with transaction.atomic():
+            return run()
+    except IntegrityError:
+        return Response({
+            'error': 'A record from this file was saved by someone else while it was importing '
+                     '(a duplicate was created at the same moment). Nothing was imported — '
+                     'upload the file again to see the updated results.',
+        }, status=409)
 
 
 def harvest_gate_status(start_date, expected_date):

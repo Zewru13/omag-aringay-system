@@ -77,7 +77,7 @@ from datetime import date
 
 import openpyxl
 import xlrd
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -87,11 +87,15 @@ from accounts.models import User
 from accounts.permissions import IsAdminOrEvaluator
 from accounts.utils import create_inactive_citizen_shell
 from farmers.models import Farmer, RsbsaImportChangeLog
+from core.utils import MAX_IMPORT_ROWS
+from core.validators import RSBSA_PATTERNS
 from farmers.rsbsa_import import (
+    InvalidPersonData,
     build_last_name,
     classify_row,
+    clean_contact,
+    is_blank,
     normalize_barangay,
-    normalize_contact,
     normalize_name_part,
     parse_birthday,
     parse_rsbsa_csv,
@@ -145,6 +149,12 @@ def _diff_fields(record, incoming, field_specs):
         # only ever supplies strings, records may hold None.
         current_cmp = current if current not in (None, '') else None
         new_cmp = new if new not in (None, '') else None
+        # A blank in the sheet means "the file has nothing for this field" —
+        # never "erase what we have". Without this, a file carrying "null" for
+        # a contact number or middle name would queue a change wiping the
+        # stored value, and "Select all" would apply it.
+        if new_cmp is None and current_cmp is not None:
+            continue
         if current_cmp != new_cmp:
             changes.append({
                 'field': field,
@@ -159,17 +169,47 @@ def _build_incoming(row):
     """Parse one classified row's raw strings into the same typed values
     Farmer/Fisherfolk fields hold, using the exact same normalizers the
     one-time import writes with. Raises ValueError on unparseable data
-    (e.g. a malformed birthday) — caller buckets that row as invalid rather
-    than letting one bad row break the whole preview."""
-    gender = 'Male' if row['gender'].strip().upper() == 'MALE' else 'Female'
+    (e.g. a malformed birthday) and InvalidPersonData (a ValueError) on data
+    that parses but can't safely become a person — unknown gender (it used to
+    silently become "Female"), no first/last name (the literal "null" counts
+    as blank), a future birthdate, or a registrant under 10 (the registration
+    form's own rule). The caller buckets such a row as invalid rather than
+    letting one bad row break the whole preview or write junk."""
+    gender_raw = (row['gender'] or '').strip().upper()
+    if gender_raw in ('MALE', 'M'):
+        gender = 'Male'
+    elif gender_raw in ('FEMALE', 'F'):
+        gender = 'Female'
+    else:
+        raise InvalidPersonData(f'Gender "{(row["gender"] or "").strip()}" is not Male or Female.')
+
+    first_name = '' if is_blank(row['first_name']) else normalize_name_part(row['first_name'])
+    last_raw = '' if is_blank(row['last_name']) else row['last_name']
+    last_name = build_last_name(last_raw, row['ext_name']) if last_raw else ''
+    middle_name = '' if is_blank(row['middle_name']) else normalize_name_part(row['middle_name'])
+    if not first_name or not last_name:
+        raise InvalidPersonData('First name and last name are required.')
+
+    birthdate = parse_birthday(row['birthday'])
+    today = date.today()
+    if birthdate > today:
+        raise InvalidPersonData('Birthdate is in the future.')
+    if birthdate.year < 1900:
+        raise InvalidPersonData(f'Birthdate {birthdate.isoformat()} is not realistic.')
+    age = today.year - birthdate.year - ((today.month, today.day) < (birthdate.month, birthdate.day))
+    if age < 10:
+        raise InvalidPersonData('Registrant must be at least 10 years old.')
+
+    contact_number, contact_warning = clean_contact(row['contact_num'])
     incoming = {
-        'first_name': normalize_name_part(row['first_name']),
-        'middle_name': normalize_name_part(row['middle_name']),
-        'last_name': build_last_name(row['last_name'], row['ext_name']),
+        'first_name': first_name,
+        'middle_name': middle_name,
+        'last_name': last_name,
         'gender': gender,
-        'birthdate': parse_birthday(row['birthday']),
-        'contact_number': normalize_contact(row['contact_num']),
+        'birthdate': birthdate,
+        'contact_number': contact_number,
         'barangay': normalize_barangay(row['farmer_address_bgy']),
+        '_warnings': [contact_warning] if contact_warning else [],
     }
     farmer_flag = (row['farmer'] or '').strip().upper()
     incoming['is_farm_laborer'] = farmer_flag != 'YES'
@@ -235,6 +275,12 @@ class RsbsaUpdateImportPreviewView(APIView):
                 continue
             try:
                 incoming = _build_incoming(row)
+            except InvalidPersonData as exc:
+                parsed.append({
+                    'row': row, 'row_number': i, 'disposition': 'HOLD-BACK',
+                    'reason': 'invalid_person_data', 'detail': str(exc), 'incoming': None,
+                })
+                continue
             except ValueError:
                 parsed.append({
                     'row': row, 'row_number': i, 'disposition': 'HOLD-BACK',
@@ -275,11 +321,47 @@ class RsbsaUpdateImportPreviewView(APIView):
         # write is already live by the time the second row's drift check
         # re-fetches the record, so it always sees "changed since this
         # preview was generated" even though nothing external touched it;
-        # the row's own sibling in the same batch did. Flagging every row
-        # after the first occurrence as duplicate_in_file (same pattern
-        # CropRecordImportPreviewView already uses) makes only one row per
-        # person selectable at all, so this self-collision can't happen.
+        # the row's own sibling in the same batch did. Rows after the first
+        # occurrence are flagged duplicate_in_file (same pattern
+        # CropRecordImportPreviewView already uses); staff may commit any ONE
+        # row per RSBSA number — the modal deselects the others and the
+        # commit view refuses a batch containing two — so this
+        # self-collision still can't happen.
         seen_rsbsa_rows = {}
+
+        # Same person under a DIFFERENT RSBSA number (a renumbering, a typo):
+        # matching is by RSBSA only, so such a row shows up "unmatched" and
+        # would register a second copy of them. The registration form warns
+        # about exactly this (name + birthdate); the import now does too. One
+        # query per table, built only if some row turns out unmatched.
+        person_index = {}
+
+        def possible_duplicates(incoming):
+            if not person_index:
+                for model, table in ((Farmer, 'Farmer'), (Fisherfolk, 'Fisherfolk')):
+                    for pid, first, last, birth, rsbsa_no in model.objects.values_list(
+                        'id', 'first_name', 'last_name', 'birthdate', 'rsbsa_number',
+                    ):
+                        person_index.setdefault((first.lower(), last.lower(), birth), []).append(
+                            f'{table} #{pid} {first} {last} (RSBSA {rsbsa_no or "none"})'
+                        )
+                person_index[None] = []  # built marker
+            key = (incoming['first_name'].lower(), incoming['last_name'].lower(), incoming['birthdate'])
+            return person_index.get(key, [])
+
+        def emit(entry, dup_of):
+            if dup_of is not None:
+                summary[entry['status']] -= 1
+                summary['duplicate_in_file'] += 1
+                entry['underlying_status'] = entry['status']
+                entry['status'] = 'duplicate_in_file'
+                entry['duplicate_of_row'] = dup_of
+                entry['detail'] = (
+                    f'RSBSA number {entry["rsbsa_number"]} also appears in row {dup_of} of this same '
+                    f'file. Only one row per person can be committed per upload — select the row '
+                    f'with the correct values and leave the other unselected.'
+                )
+            result_rows.append(entry)
 
         for p in parsed:
             row, row_number, disposition, reason = p['row'], p['row_number'], p['disposition'], p['reason']
@@ -293,6 +375,8 @@ class RsbsaUpdateImportPreviewView(APIView):
                     'classification': disposition,
                     'status': 'invalid',
                     'hold_back_reason': reason,
+                    'detail': p.get('detail'),
+                    'warnings': [],
                     'matched_record_id': None,
                     'matched_record_type': None,
                     'matched_record_name': None,
@@ -304,34 +388,17 @@ class RsbsaUpdateImportPreviewView(APIView):
                 })
                 continue
 
-            first_seen_row = seen_rsbsa_rows.get(rsbsa)
-            if first_seen_row is not None:
-                summary['duplicate_in_file'] += 1
-                result_rows.append({
-                    'row_number': row_number,
-                    'rsbsa_number': rsbsa,
-                    'classification': disposition,
-                    'status': 'duplicate_in_file',
-                    'hold_back_reason': None,
-                    'matched_record_id': None,
-                    'matched_record_type': None,
-                    'matched_record_name': None,
-                    'classification_mismatch': False,
-                    'mismatch_note': None,
-                    'changes': [],
-                    'incoming_values': None,
-                    'current_values': None,
-                    'detail': (
-                        f'RSBSA number {rsbsa} also appears in row {first_seen_row} of this same '
-                        f'file. Only one row per person can be committed per upload — committing '
-                        f'both would make this row\'s own drift check fail against row '
-                        f'{first_seen_row}\'s just-applied change. Pick whichever row has the '
-                        f'correct values and leave the other unselected, or fix the source file '
-                        f'and re-upload.'
-                    ),
-                })
-                continue
-            seen_rsbsa_rows[rsbsa] = row_number
+            # A repeated RSBSA number is still fully previewed (diffed against
+            # the live record like any other row) so staff can choose WHICH of
+            # the repeated rows to commit; emit() below re-labels it
+            # 'duplicate_in_file' and keeps its real outcome in
+            # underlying_status. Only one row per RSBSA number may be
+            # committed per batch — enforced by the commit view and by the
+            # modal's selection — since a second write would trip its own
+            # drift check against the first's just-applied change.
+            dup_of = seen_rsbsa_rows.get(rsbsa)
+            if dup_of is None:
+                seen_rsbsa_rows[rsbsa] = row_number
 
             is_farmer = disposition == 'IMPORT-FARMER'
             primary_dict, primary_table = (farmers_by_rsbsa, 'FARMER') if is_farmer else (fisherfolk_by_rsbsa, 'FISHERFOLK')
@@ -349,9 +416,38 @@ class RsbsaUpdateImportPreviewView(APIView):
 
             field_specs = FARMER_FIELDS if matched_table == 'FARMER' else FISHERFOLK_FIELDS
 
+            if record is None and not any(pt.match(rsbsa) for pt in RSBSA_PATTERNS):
+                # Registering someone with an RSBSA number the registration
+                # form itself would refuse would create a record that can't
+                # be re-saved through the app. Existing records with such
+                # numbers are unaffected (they never reach this branch).
+                summary['invalid'] += 1
+                emit({
+                    'row_number': row_number,
+                    'rsbsa_number': rsbsa,
+                    'classification': disposition,
+                    'status': 'invalid',
+                    'hold_back_reason': 'invalid_rsbsa_format',
+                    'detail': (
+                        f'RSBSA number {rsbsa} is not in any accepted format and is not in the system yet, '
+                        f'so it cannot be registered as new. Fix the number in the file (a wrong municipality '
+                        f'or province code is the usual cause) and re-upload.'
+                    ),
+                    'warnings': [],
+                    'matched_record_id': None,
+                    'matched_record_type': None,
+                    'matched_record_name': None,
+                    'classification_mismatch': False,
+                    'mismatch_note': None,
+                    'changes': [],
+                    'incoming_values': None,
+                    'current_values': None,
+                }, dup_of)
+                continue
+
             if record is None:
                 summary['unmatched'] += 1
-                result_rows.append({
+                emit({
                     'row_number': row_number,
                     'rsbsa_number': rsbsa,
                     'classification': disposition,
@@ -363,13 +459,17 @@ class RsbsaUpdateImportPreviewView(APIView):
                     'classification_mismatch': False,
                     'mismatch_note': None,
                     'changes': [],
+                    'warnings': p['incoming']['_warnings'] + [
+                        f'Possible duplicate person: {d}. Check before registering.'
+                        for d in possible_duplicates(p['incoming'])
+                    ],
                     # No existing record to diff against — this is
                     # everything RsbsaUpdateImportCommitView needs to
                     # register this person as new, same field set the
                     # matched branch above diffs against (field_specs).
                     'incoming_values': {field: p['incoming'][field] for field, _ in field_specs},
                     'current_values': None,
-                })
+                }, dup_of)
                 continue
 
             changes = _diff_fields(record, p['incoming'], field_specs)
@@ -404,7 +504,7 @@ class RsbsaUpdateImportPreviewView(APIView):
                 create_domain = None
                 create_incoming_values = None
 
-            result_rows.append({
+            emit({
                 'row_number': row_number,
                 'rsbsa_number': rsbsa,
                 'classification': disposition,
@@ -420,6 +520,7 @@ class RsbsaUpdateImportPreviewView(APIView):
                 'classification_mismatch': classification_mismatch,
                 'mismatch_note': mismatch_note,
                 'changes': changes,
+                'warnings': p['incoming']['_warnings'],
                 # Raw (not display-formatted) values backing `changes` above,
                 # for RsbsaUpdateImportCommitView — `changes[].current`/
                 # `.incoming` are strings for human review ("(blank)", "True"),
@@ -438,7 +539,7 @@ class RsbsaUpdateImportPreviewView(APIView):
                 # matched_no_changes, which have nothing to "create".
                 'create_domain': create_domain,
                 'create_incoming_values': create_incoming_values,
-            })
+            }, dup_of)
 
         return Response({
             'total_rows': len(rows),
@@ -551,6 +652,20 @@ class RsbsaUpdateImportCommitView(APIView):
         rows = request.data.get('rows')
         if not isinstance(rows, list) or not rows:
             return Response({'detail': 'Expected a non-empty list of rows to commit.'}, status=400)
+        if len(rows) > MAX_IMPORT_ROWS:
+            return Response({'detail': f'Too many rows in one commit (limit {MAX_IMPORT_ROWS:,}).'}, status=400)
+        if not all(isinstance(r, dict) for r in rows):
+            return Response({'detail': 'Each row to commit must be an object as returned by the preview.'}, status=400)
+
+        seen = {}
+        for row in rows:
+            key = (row.get('rsbsa_number') or '').strip()
+            if key and key in seen:
+                return Response({
+                    'detail': f'Rows {seen[key]} and {row.get("row_number")} share RSBSA number {key} — '
+                              f'only one row per person can be committed in a batch. Nothing was saved.',
+                }, status=400)
+            seen[key] = row.get('row_number')
 
         batch_id = uuid.uuid4()
         log_entries = []
@@ -569,6 +684,13 @@ class RsbsaUpdateImportCommitView(APIView):
             return Response({
                 'detail': f'{where}{exc.message} No changes were saved — the entire batch was rolled back.',
             }, status=400)
+        except IntegrityError:
+            # Two people committing the same new RSBSA number at once: the
+            # loser used to get a raw server error.
+            return Response({
+                'detail': 'A record with the same RSBSA number was created by someone else while this '
+                          'commit was running. No changes were saved — re-run the preview and try again.',
+            }, status=409)
 
         return Response({
             'batch_id': str(batch_id),
@@ -579,6 +701,10 @@ class RsbsaUpdateImportCommitView(APIView):
     def _commit_one_row(self, row, batch_id, user, log_entries):
         row_number = row.get('row_number')
         status_ = row.get('status')
+        if status_ == 'duplicate_in_file':
+            # A repeated-RSBSA row chosen by staff commits as whatever it
+            # would have been on its own (see the preview's emit()).
+            status_ = row.get('underlying_status')
 
         try:
             if status_ == 'matched_with_changes':
@@ -614,7 +740,10 @@ class RsbsaUpdateImportCommitView(APIView):
             raise CommitRowError(row_number, 'has no incoming_values — nothing to commit.')
 
         try:
-            record = model.objects.get(pk=record_id)
+            # Row-locked for the rest of the transaction so a simultaneous
+            # edit can't be silently overwritten between the drift check
+            # below and the save.
+            record = model.objects.select_for_update().get(pk=record_id)
         except model.DoesNotExist:
             raise CommitRowError(row_number, f'{record_type.title()} #{record_id} no longer exists.')
 

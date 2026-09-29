@@ -453,7 +453,7 @@ function AddFarmerModal({ onClose, onSuccess }) {
             <ul className="space-y-1">
               {duplicates.map((d) => (
                 <li key={d.id} className="text-[12px] text-amber-800">
-                  <span className="font-medium">{d.first_name} {d.last_name}</span>
+                  <span className="font-medium">{d.full_name}</span>
                   {d.barangay ? ` — ${d.barangay}` : ''}
                   {d.rsbsa_number ? ` (RSBSA: ${d.rsbsa_number})` : ''}
                 </li>

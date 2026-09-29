@@ -235,6 +235,13 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Import commits send back every selected preview row as one JSON body:
+# ~0.5-1 KB per row, so a full 3,600-row RSBSA file is ~2-3.5 MB — over
+# Django's 2.5 MB default, which made large commits fail with an opaque 400
+# ("Failed to commit"). Uploaded FILES are separately capped at 10 MB in
+# core.utils.MAX_IMPORT_BYTES.
+DATA_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024
+
 AUTH_USER_MODEL = 'accounts.User'
 
 CORS_ALLOWED_ORIGINS = [

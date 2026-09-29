@@ -5,8 +5,9 @@ from rest_framework import serializers
 
 from accounts.models import User
 from accounts.utils import citizen_account_info
+from associations.models import FisherfolkOrganizationMember
 from core.constants import validate_prefix_gender
-from core.validators import validate_not_future_date, validate_uploaded_image
+from core.validators import validate_not_future_date, validate_philsys, validate_rsbsa, validate_uploaded_image
 
 from .models import (
     AquacultureRecord,
@@ -268,6 +269,11 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
             'is_aquaculture', 'is_capture_fishery', 'is_mariculture', 'is_inland_fishery',
         ]
         read_only_fields = ['id', 'date_registered', 'registered_by']
+        # Drop DRF's auto UniqueValidator on rsbsa_number so the friendlier,
+        # case-insensitive check in validate_rsbsa_number below is the one
+        # that answers (as FarmerCreateSerializer's does); the model's format
+        # validator is kept explicitly since overriding `validators` replaces it.
+        extra_kwargs = {'rsbsa_number': {'validators': [validate_rsbsa]}}
 
     def validate_birthdate(self, value):
         if value:
@@ -279,6 +285,11 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
 
     def validate_contact_number(self, value):
         return validate_contact_format(value)
+
+    def validate_philsys_number(self, value):
+        # Same format rule the Farmer model enforces on its own field.
+        validate_philsys(value)
+        return value
 
     def validate_fishr_number(self, value):
         if value is not None and not value.strip():
@@ -298,6 +309,13 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
         error = validate_prefix_gender(prefix, gender)
         if error:
             raise serializers.ValidationError({'prefix': error})
+
+        # RSBSA number is required to register, as for a farmer: it is the
+        # citizen login identifier and what the RSBSA import matches on.
+        # Only enforced on create — older records without one must stay
+        # editable.
+        if self.instance is None and not (data.get('rsbsa_number') or '').strip():
+            raise serializers.ValidationError({'rsbsa_number': 'RSBSA number is required.'})
 
         fisherfolk_type = data.get('fisherfolk_type', '')
         if not data.get('has_vessel', True):
@@ -321,6 +339,14 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
     def validate_rsbsa_number(self, value):
         if value is not None and not value.strip():
             return None
+        if value:
+            taken = Fisherfolk.objects.filter(rsbsa_number__iexact=value)
+            if self.instance is not None:
+                taken = taken.exclude(pk=self.instance.pk)
+            if taken.exists():
+                raise serializers.ValidationError(
+                    'A fisherfolk with this RSBSA number is already registered in the system.'
+                )
         return value
 
     def create(self, validated_data):
@@ -343,6 +369,19 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
             'average_catch_per_trip_kg':  validated_data.pop('average_catch_per_trip_kg', 0),
         }
         fisherfolk = Fisherfolk.objects.create(**validated_data)
+        # Registering into an organization must create the REAL membership
+        # row, as Farmer registration does: organization member lists,
+        # assistance attribution and the detail page all read
+        # FisherfolkOrganizationMember, not the legacy direct FK above.
+        organization = validated_data.get('fisherfolk_organization')
+        if organization is not None:
+            FisherfolkOrganizationMember.objects.create(
+                organization=organization,
+                fisherfolk=fisherfolk,
+                position=validated_data.get('organization_position') or FisherfolkOrganizationMember.Position.MEMBER,
+                date_joined=fisherfolk.date_registered.date(),
+                is_main=True,
+            )
         if fisherfolk.fisherfolk_type in ('Aquaculture', 'Mariculture'):
             AquacultureRecord.objects.create(fisherfolk=fisherfolk, **aquaculture_data)
         elif fisherfolk.fisherfolk_type in ('Capture', 'Inland'):

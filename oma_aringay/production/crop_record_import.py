@@ -45,6 +45,7 @@ that specific, legitimate case (`dual_citizen`) instead of the misleading
 exactly the silent-mismatch failure mode already confirmed for Picar/
 Villanueva/Obra, who appear in these exact crop files.
 """
+import math
 from datetime import date
 
 from farmers.rsbsa_import import (
@@ -140,8 +141,10 @@ def classify_crop_row(row, crop_type_cache):
     if disposition == 'HOLD-BACK':
         return 'HOLD-BACK', reason, None, None
 
-    cropname = (row.get('cropname') or '').strip()
-    mapping = CROPNAME_MAPPING.get(cropname)
+    cropname = ' '.join((row.get('cropname') or '').split())
+    # Case-insensitive: "CORN" / "corn" / "Rice/palay" from a hand-edited or
+    # re-exported file is still the mapped crop, not an "unmapped_cropname".
+    mapping = {k.lower(): v for k, v in CROPNAME_MAPPING.items()}.get(cropname.lower())
     if mapping is not None:
         crop_type_name, variety_used = mapping
         crop_type = crop_type_cache.get(crop_type_name.strip().lower())
@@ -169,9 +172,12 @@ def parse_date_created(raw):
     if not v:
         raise ValueError('date_created is blank.')
     try:
-        return date.fromisoformat(v[:10])
+        parsed = date.fromisoformat(v[:10])
     except ValueError:
         raise ValueError(f'date_created "{raw}" is not a recognized date.')
+    if parsed > date.today():
+        raise ValueError(f'date_created "{raw}" is in the future.')
+    return parsed
 
 
 def derive_season(planted):
@@ -192,6 +198,11 @@ def build_incoming(row, crop_type, variety_used):
         raise ValueError(f'crop_area "{area_raw}" is not a valid number.')
     if area_planted_ha is None:
         raise ValueError('crop_area is blank.')
+    # float() happily accepts "nan"/"inf" and negatives; a NaN reaching the
+    # DecimalField at commit would abort the WHOLE batch with a server error.
+    # 10,000 ha is more than the entire municipality's farmland.
+    if not math.isfinite(area_planted_ha) or area_planted_ha <= 0 or area_planted_ha > 10000:
+        raise ValueError(f'crop_area "{area_raw}" is not a realistic area (must be more than 0 and at most 10,000 ha).')
 
     return {
         'crop_type': crop_type,

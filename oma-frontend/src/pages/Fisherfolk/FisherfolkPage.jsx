@@ -152,8 +152,8 @@ function FisherfolkPage({ asTab = false }) {
     }
   }), [fisherfolk])
 
-  const handleCreated = (lguNumber) => {
-    setSuccessMsg(`Fisherfolk registered. LGU Reg. No.: ${lguNumber || '—'}`)
+  const handleCreated = () => {
+    setSuccessMsg('Fisherfolk registered successfully.')
     fetchFisherfolk(1); setPage(1)
   }
 

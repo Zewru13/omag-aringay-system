@@ -836,6 +836,19 @@ ASSISTANCE_TEMPLATE_HEADERS = [
 ASSISTANCE_TEMPLATE_COL_WIDTHS = [28, 20, 24, 18, 22, 12, 40]
 
 
+CROP_ASSISTANCE_TEMPLATE_SAMPLE = [
+    '01-33-02-014-058212', 'Seeds', 'Office of the Municipal Agriculturist', '5 sacks',
+    '2026-01-15', 'Dry', 'Certified rice seeds distribution',
+]
+FISHERIES_ASSISTANCE_TEMPLATE_SAMPLE = [
+    '01-33-02-999-000001', 'Fingerlings/Seeds', 'BFAR', '500 pcs',
+    '2026-01-15', 'Dry', 'Bangus fingerlings distribution',
+]
+ASSISTANCE_ID_LABELS = {'farmer': 'Farmer RSBSA Number', 'fisherfolk': 'Fisherfolk RSBSA Number'}
+ASSISTANCE_SAMPLES = {'farmer': CROP_ASSISTANCE_TEMPLATE_SAMPLE, 'fisherfolk': FISHERIES_ASSISTANCE_TEMPLATE_SAMPLE}
+ASSISTANCE_NOTE_PREFIX = 'Assistance Type must be one of'
+
+
 def _assistance_import_template_response(filename, id_label, sample_row, type_note):
     from io import BytesIO
 
@@ -885,11 +898,21 @@ def _run_assistance_import(person_model, record_model, serializer_class, person_
     import datetime as dt
     from collections import defaultdict
 
-    from core.utils import UnsupportedFileType, iter_spreadsheet_rows
+    from core.utils import ImportFileError, cell_text, read_template_rows
 
+    # The header row is located by content and must carry THIS page's id
+    # label ("Farmer RSBSA Number" vs "Fisherfolk RSBSA Number"): a file from
+    # the other page's template is refused up front instead of being half-read
+    # (a person in both registries would otherwise get assistance recorded
+    # under the wrong side).
+    headers = list(ASSISTANCE_TEMPLATE_HEADERS)
+    headers[0] = ASSISTANCE_ID_LABELS[person_field]
     try:
-        rows_iter = list(iter_spreadsheet_rows(file, file.name, min_row=3))
-    except UnsupportedFileType as exc:
+        rows_iter = read_template_rows(
+            file, file.name, headers,
+            sample_row=ASSISTANCE_SAMPLES[person_field], note_prefixes=(ASSISTANCE_NOTE_PREFIX,),
+        )
+    except ImportFileError as exc:
         return Response({'error': str(exc)}, status=400)
     except Exception as exc:
         return Response({'error': f'Invalid file: {exc}'}, status=400)
@@ -906,13 +929,9 @@ def _run_assistance_import(person_model, record_model, serializer_class, person_
         rows_out.append({'row': row_num, 'status': 'invalid', 'label': f'Row {row_num}', 'detail': msg})
 
     def s(row, i):
-        v = row[i] if i < len(row) else None
-        return str(v).strip() if v is not None else ''
+        return cell_text(row[i]) if i < len(row) else ''
 
-    for row_num, row in enumerate(rows_iter, start=3):
-        if not any(cell for cell in row if cell is not None):
-            continue
-
+    for row_num, row in rows_iter:
         id_number = s(row, 0)
         type_raw = s(row, 1)
         source_agency = s(row, 2)
@@ -920,6 +939,8 @@ def _run_assistance_import(person_model, record_model, serializer_class, person_
         date_str = s(row, 4)
         season = s(row, 5)
         text_value = s(row, 6)
+        if season.lower() in ('dry', 'wet'):
+            season = season.title()  # "dry"/"WET" would otherwise fail the Dry/Wet choice check
 
         if not id_number or not type_raw or not date_str:
             invalid(row_num, 'RSBSA Number, Assistance Type, and Date Given are required.')
@@ -1022,8 +1043,7 @@ class CropAssistanceImportTemplateView(APIView):
         return _assistance_import_template_response(
             'crop_assistance_import_template.xlsx',
             'Farmer RSBSA Number',
-            ['01-33-02-014-058212', 'Seeds', 'Office of the Municipal Agriculturist', '5 sacks',
-             '2026-01-15', 'Dry', 'Certified rice seeds distribution'],
+            CROP_ASSISTANCE_TEMPLATE_SAMPLE,
             'Assistance Type must be one of: Fertilizer / Seeds / Equipment / Cash Assistance / Training / Other',
         )
 
@@ -1038,10 +1058,11 @@ class CropAssistanceImportView(APIView):
             return Response({'error': 'No file uploaded.'}, status=400)
         dry_run = str(request.data.get('dry_run', '')).strip().lower() in ('1', 'true', 'yes')
         from farmers.models import Farmer
-        return _run_assistance_import(
+        from core.utils import run_import_atomically
+        return run_import_atomically(lambda: _run_assistance_import(
             Farmer, BeneficiaryRecord, BeneficiaryRecordCreateSerializer,
             'farmer', 'remarks', file, dry_run, request.user,
-        )
+        ))
 
 
 class FisheriesAssistanceImportTemplateView(APIView):
@@ -1051,8 +1072,7 @@ class FisheriesAssistanceImportTemplateView(APIView):
         return _assistance_import_template_response(
             'fisheries_assistance_import_template.xlsx',
             'Fisherfolk RSBSA Number',
-            ['01-33-02-999-000001', 'Fingerlings/Seeds', 'BFAR', '500 pcs',
-             '2026-01-15', 'Dry', 'Bangus fingerlings distribution'],
+            FISHERIES_ASSISTANCE_TEMPLATE_SAMPLE,
             'Assistance Type must be one of: Fishing Gear / Boat/Vessel / Fingerlings/Seeds / Feed / '
             'Equipment / Cash Assistance / Training / Other',
         )
@@ -1068,7 +1088,8 @@ class FisheriesAssistanceImportView(APIView):
             return Response({'error': 'No file uploaded.'}, status=400)
         dry_run = str(request.data.get('dry_run', '')).strip().lower() in ('1', 'true', 'yes')
         from fisheries.models import Fisherfolk
-        return _run_assistance_import(
+        from core.utils import run_import_atomically
+        return run_import_atomically(lambda: _run_assistance_import(
             Fisherfolk, FisherfolkBeneficiaryRecord, FisherfolkBeneficiaryRecordCreateSerializer,
             'fisherfolk', 'description', file, dry_run, request.user,
-        )
+        ))

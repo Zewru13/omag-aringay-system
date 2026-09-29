@@ -214,6 +214,11 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Import commits send every selected preview row back as one JSON body
+# (~0.5-1 KB per row); Django's 2.5 MB default fails a full 3,600-row commit.
+# Mirrors settings.py. Uploaded files are capped separately in core.utils.
+DATA_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024
+
 AUTH_USER_MODEL = 'accounts.User'
 
 # CORS for React production URL

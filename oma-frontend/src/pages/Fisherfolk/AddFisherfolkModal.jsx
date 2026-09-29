@@ -38,6 +38,9 @@ const initialForm = {
   contact_number: '',
   email: '',
   barangay: '',
+  civil_status: 'Single',
+  highest_education: '',
+  philsys_number: '',
   fisherfolk_type: 'Aquaculture',
   is_pwd: false,
   is_4ps_beneficiary: false,
@@ -68,6 +71,23 @@ const computeAge = (birthdate) => {
   return (m < 0 || (m === 0 && today.getDate() < birth.getDate())) ? age - 1 : age
 }
 
+const validateAge = (birthdate) => {
+  const age = computeAge(birthdate)
+  if (age !== null && age < 10) return 'Must be at least 10 years old to register.'
+  return null
+}
+
+const formatPhilsys = (raw) => {
+  const digits = raw.replace(/\D/g, '').slice(0, 16)
+  return digits.match(/.{1,4}/g)?.join('-') || digits
+}
+
+const validatePhilsys = (value) => {
+  if (!value) return ''
+  if (!/^\d{4}-\d{4}-\d{4}-\d{4}$/.test(value)) return 'Format must be NNNN-NNNN-NNNN-NNNN (e.g. 8419-5032-7741-3096).'
+  return ''
+}
+
 const validateContact = (value) => {
   if (!value) return ''
   const digits = value.replace(/\D/g, '')
@@ -96,6 +116,8 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
   const [idTouched,     setIdTouched]     = useState({ fishr: false, rsbsa: false })
   const [contactError,  setContactError]  = useState('')
   const [boatRegError,  setBoatRegError]  = useState('')
+  const [philsysError,  setPhilsysError]  = useState('')
+  const [birthdateError, setBirthdateError] = useState('')
   const [fieldErrors,   setFieldErrors]   = useState({})
   const [formError,     setFormError]     = useState('')
   const [isSubmitting,  setIsSubmitting]  = useState(false)
@@ -132,6 +154,13 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
   }, [form.first_name, form.last_name, form.birthdate])
 
   const updateField = (field, value) => {
+    if (field === 'philsys_number') {
+      const formatted = formatPhilsys(value)
+      setForm((c) => ({ ...c, philsys_number: formatted }))
+      setPhilsysError(validatePhilsys(formatted))
+      return
+    }
+    if (field === 'birthdate') setBirthdateError(validateAge(value) || '')
     if (field === 'contact_number') {
       const digits = value.replace(/\D/g, '').slice(0, 11)
       setForm((c) => ({ ...c, contact_number: digits }))
@@ -173,6 +202,11 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
     setFormError('')
     setFieldErrors({})
     setIdTouched({ fishr: true, rsbsa: true })
+    if (!form.rsbsa_number) { setFormError('RSBSA number is required and must be complete.'); return }
+    const ageErr = validateAge(form.birthdate)
+    if (ageErr) { setBirthdateError(ageErr); return }
+    const philsysErr = validatePhilsys(form.philsys_number)
+    if (philsysErr) { setPhilsysError(philsysErr); return }
     const contactErr = validateContact(form.contact_number)
     if (contactErr) { setContactError(contactErr); return }
 
@@ -201,8 +235,8 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
         vessel_material_other_specify: form.vessel_material === 'Other' ? (form.vessel_material_other_specify || '').trim() : '',
       }
       if (payload.average_catch_per_trip_kg === '') delete payload.average_catch_per_trip_kg
-      const res = await api.post('/fisheries/fisherfolk/', payload)
-      onSuccess(res.data?.lgu_registration_number)
+      await api.post('/fisheries/fisherfolk/', payload)
+      onSuccess()
       onClose()
     } catch (error) {
       const data = error.response?.data
@@ -303,7 +337,7 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
                 value={form.birthdate}
                 onChange={(e) => updateField('birthdate', e.target.value)}
               />
-              {form.birthdate && age !== null && (
+              {form.birthdate && age !== null && !birthdateError && (
                 <p className="mt-1 text-[12px] text-[#4A5E4A]">
                   Age: <strong>{age}</strong> years old
                   {isSenior && (
@@ -311,6 +345,22 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
                   )}
                 </p>
               )}
+              {birthdateError && <p className="mt-1 text-[12px] text-rose-600">{birthdateError}</p>}
+            </div>
+
+            <div>
+              <FormLabel required>Civil Status</FormLabel>
+              <select className={baseInputClasses} id="civil_status" value={form.civil_status} onChange={(e) => updateField('civil_status', e.target.value)}>
+                <option value="Single">Single</option>
+                <option value="Married">Married</option>
+                <option value="Widowed">Widowed</option>
+                <option value="Separated">Separated</option>
+              </select>
+            </div>
+
+            <div>
+              <FormLabel>Highest Education</FormLabel>
+              <input className={baseInputClasses} id="highest_education" value={form.highest_education} onChange={(e) => updateField('highest_education', e.target.value)} />
             </div>
           </div>
         </Section>
@@ -346,7 +396,7 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
         <Section title="Government Information">
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <FormLabel>RSBSA Number</FormLabel>
+              <FormLabel required>RSBSA Number</FormLabel>
               <SegmentedIdInput
                 parts={rsbsaParts}
                 value={form.rsbsa_number}
@@ -357,6 +407,9 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
                   ? `Barangay code ${barangayCode} auto-filled from ${form.barangay}.`
                   : 'Select a barangay below to auto-fill the barangay code.'}
               </p>
+              {idTouched.rsbsa && !form.rsbsa_number && (
+                <p className="mt-1 text-[12px] font-medium text-red-600">RSBSA number is required and must be complete.</p>
+              )}
               {fieldErrors.rsbsa_number && (
                 <p className="mt-1 text-[12px] text-rose-600">{fieldErrors.rsbsa_number}</p>
               )}
@@ -371,6 +424,15 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
               />
               {fieldErrors.fishr_number && (
                 <p className="mt-1 text-[12px] text-rose-600">{fieldErrors.fishr_number}</p>
+              )}
+            </div>
+
+            <div>
+              <FormLabel>PhilSys / National ID No.</FormLabel>
+              <input className={baseInputClasses} id="philsys_number" value={form.philsys_number} placeholder="8419-5032-7741-3096"
+                onChange={(e) => updateField('philsys_number', e.target.value)} />
+              {(philsysError || fieldErrors.philsys_number) && (
+                <p className="mt-1 text-[12px] font-medium text-red-600">{philsysError || fieldErrors.philsys_number}</p>
               )}
             </div>
           </div>
@@ -580,7 +642,7 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
             <ul className="space-y-1">
               {duplicates.map((d) => (
                 <li key={d.id} className="text-[12px] text-amber-800">
-                  <span className="font-medium">{d.first_name} {d.last_name}</span>
+                  <span className="font-medium">{d.full_name}</span>
                   {d.barangay ? ` — ${d.barangay}` : ''}
                   {d.lgu_registration_number ? ` (LGU: ${d.lgu_registration_number})` : ''}
                 </li>

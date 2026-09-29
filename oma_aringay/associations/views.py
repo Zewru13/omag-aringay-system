@@ -1059,6 +1059,17 @@ def _org_import_template_response(filename, sample_row, agency_note):
     return response
 
 
+FARMERS_ORG_TEMPLATE_SAMPLE = [
+    'Aringay Farmers Alliance', 'Poblacion', 'Purok 1', '2020-03-15', '2020-06-01',
+    'FA-2020-001', 'CDA', 'org@example.com', 'Juan Dela Cruz', '09171234567',
+]
+FISHERFOLK_ORG_TEMPLATE_SAMPLE = [
+    'Aringay Fisherfolk Alliance', 'Santa Cecilia', 'Purok 2', '2021-01-10', '2021-04-20',
+    'FF-2021-001', 'BFAR', 'org@example.com', 'Maria Santos', '09181234567',
+]
+ORG_TEMPLATE_NOTE_PREFIX = 'Registration Agency must be'
+
+
 def _parse_org_import_row(row, agency_choices):
     """Parses one raw Excel row (10 columns, matching ORG_TEMPLATE_HEADERS)
     into a dict of cleaned values ready to hand to the model's own
@@ -1068,17 +1079,26 @@ def _parse_org_import_row(row, agency_choices):
     *required*, contact number format, future-date checks) is left to that
     serializer, exactly as the manual "Add Organization" modal already gets,
     rather than re-deriving those rules by hand here."""
+    from datetime import datetime as _datetime
+
+    from core.utils import cell_text
+
     def s(i):
-        v = row[i] if i < len(row) else None
-        return str(v).strip() if v is not None else ''
+        return cell_text(row[i]) if i < len(row) else ''
 
     def parse_date(raw):
-        if not raw:
+        if raw is None or str(raw).strip() == '':
             return None
+        # A real Excel date cell arrives as a datetime (a date SUBCLASS): it
+        # must be reduced to a date, or the serializer refuses it with
+        # "Expected a date but got a datetime" — i.e. every date typed the
+        # normal Excel way used to fail.
+        if isinstance(raw, _datetime):
+            return raw.date()
         if isinstance(raw, date):
             return raw
         try:
-            return date.fromisoformat(str(raw)[:10])
+            return date.fromisoformat(str(raw).strip()[:10])
         except ValueError:
             raise ValueError(f'Invalid date "{raw}". Use YYYY-MM-DD.')
 
@@ -1106,6 +1126,10 @@ def _parse_org_import_row(row, agency_choices):
         'contact_person': s(8),
         'contact_number': s(9),
     }
+    # Excel stores 09171234567 as a number and drops the leading zero.
+    _digits = ''.join(ch for ch in payload['contact_number'] if ch.isdigit())
+    if len(_digits) == 10 and _digits.startswith('9') and payload['contact_number'] == _digits:
+        payload['contact_number'] = '0' + _digits
     date_organized = parse_date(row[3] if len(row) > 3 else None)
     date_registered = parse_date(row[4] if len(row) > 4 else None)
     if date_organized is not None:
@@ -1115,14 +1139,20 @@ def _parse_org_import_row(row, agency_choices):
     return payload
 
 
-def _run_organization_import(model, serializer_class, linked_record_type, agency_choices, file, dry_run, user):
+def _run_organization_import(model, serializer_class, linked_record_type, agency_choices, file, dry_run, user, sample_row=None):
     from collections import defaultdict
 
-    from core.utils import UnsupportedFileType, iter_spreadsheet_rows
+    from core.utils import ImportFileError, read_template_rows
 
+    # Rows are found by the header row's content (not "everything after row
+    # 2"), so overwriting the template's sample row no longer loses a row,
+    # and the sample/note lines are never imported as organizations.
     try:
-        rows_iter = list(iter_spreadsheet_rows(file, file.name, min_row=3))
-    except UnsupportedFileType as exc:
+        rows_iter = read_template_rows(
+            file, file.name, ORG_TEMPLATE_HEADERS,
+            sample_row=sample_row, note_prefixes=(ORG_TEMPLATE_NOTE_PREFIX,),
+        )
+    except ImportFileError as exc:
         return Response({'error': str(exc)}, status=400)
     except Exception as exc:
         return Response({'error': f'Invalid file: {exc}'}, status=400)
@@ -1136,10 +1166,7 @@ def _run_organization_import(model, serializer_class, linked_record_type, agency
         errors.append({'row': row_num, 'error': msg})
         rows_out.append({'row': row_num, 'status': 'invalid', 'label': f'Row {row_num}', 'detail': msg})
 
-    for row_num, row in enumerate(rows_iter, start=3):
-        if not any(cell for cell in row if cell is not None):
-            continue
-
+    for row_num, row in rows_iter:
         try:
             parsed = _parse_org_import_row(row, agency_choices)
         except ValueError as exc:
@@ -1211,8 +1238,7 @@ class FarmersOrganizationImportTemplateView(APIView):
     def get(self, request):
         return _org_import_template_response(
             'farmers_organizations_import_template.xlsx',
-            ['Aringay Farmers Alliance', 'Poblacion', 'Purok 1', '2020-03-15', '2020-06-01',
-             'FA-2020-001', 'CDA', 'org@example.com', 'Juan Dela Cruz', '09171234567'],
+            FARMERS_ORG_TEMPLATE_SAMPLE,
             'Registration Agency must be one of: SEC / CDA / DOLE',
         )
 
@@ -1226,10 +1252,12 @@ class FarmersOrganizationImportView(APIView):
         if not file:
             return Response({'error': 'No file uploaded.'}, status=400)
         dry_run = str(request.data.get('dry_run', '')).strip().lower() in ('1', 'true', 'yes')
-        return _run_organization_import(
+        from core.utils import run_import_atomically
+        return run_import_atomically(lambda: _run_organization_import(
             FarmersOrganization, FarmersOrganizationDetailSerializer, User.LinkedRecordType.FARMERS_ORG,
             FarmersOrganization.REGISTRATION_AGENCY_CHOICES, file, dry_run, request.user,
-        )
+            sample_row=FARMERS_ORG_TEMPLATE_SAMPLE,
+        ))
 
 
 class FisherfolkOrganizationImportTemplateView(APIView):
@@ -1238,8 +1266,7 @@ class FisherfolkOrganizationImportTemplateView(APIView):
     def get(self, request):
         return _org_import_template_response(
             'fisherfolk_organizations_import_template.xlsx',
-            ['Aringay Fisherfolk Alliance', 'Santa Cecilia', 'Purok 2', '2021-01-10', '2021-04-20',
-             'FF-2021-001', 'BFAR', 'org@example.com', 'Maria Santos', '09181234567'],
+            FISHERFOLK_ORG_TEMPLATE_SAMPLE,
             'Registration Agency must be one of: SEC / CDA / DOLE / BFAR',
         )
 
@@ -1253,7 +1280,9 @@ class FisherfolkOrganizationImportView(APIView):
         if not file:
             return Response({'error': 'No file uploaded.'}, status=400)
         dry_run = str(request.data.get('dry_run', '')).strip().lower() in ('1', 'true', 'yes')
-        return _run_organization_import(
+        from core.utils import run_import_atomically
+        return run_import_atomically(lambda: _run_organization_import(
             FisherfolkOrganization, FisherfolkOrganizationDetailSerializer, User.LinkedRecordType.FISHERFOLK_ORG,
             FisherfolkOrganization.REGISTRATION_AGENCY_CHOICES, file, dry_run, request.user,
-        )
+            sample_row=FISHERFOLK_ORG_TEMPLATE_SAMPLE,
+        ))
