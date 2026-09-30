@@ -10,8 +10,10 @@ import { ARINGAY_BARANGAYS } from '../../constants/barangays.js'
 // Organization Reference rebuild — Magdagdag ng Kasapi (image4/15): Pangalan
 // input + Barangay dropdown + an explicit "Hanapin" button (search-on-
 // click, not live/incremental search), and the blue info notice about
-// single-org membership. Same search endpoint, reassignment warning, and
-// 409 backstop as before — only the search interaction changed.
+// multi-organization membership (a person may belong to several; one is
+// their main). Same search endpoint as before — only the search
+// interaction changed. The reassignment warning / 409 backstop below is a
+// leftover of the retired single-org farmer model and can no longer fire.
 
 const MIN_SEARCH_LENGTH = 2
 const ALL_BARANGAYS = 'Lahat ng Barangay'

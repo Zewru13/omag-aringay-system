@@ -1699,13 +1699,15 @@ export const labels = {
     barangayFieldLabel: 'BARANGAY',
     searchButton: 'Hanapin',
     noticeLabel: 'Paalala',
-    // Genuinely different rules per domain, not just different wording:
-    // a Farmer is single-org (adding them elsewhere reassigns them, hence
-    // the warning), a Fisherfolk can belong to several organizations at
-    // once — see orgDomainConfig.js's candidateCurrentOrgName/
-    // candidateMembershipNote, which already encode this same split.
-    noticeFarmers: 'Ang bawat kasapi ay maaari lang maging miyembro ng isang Farmers Organization. Kung miyembro na sila ng ibang organisasyon, ililipat sila.',
-    noticeFisherfolk: 'Maaaring maging kasapi ang isang mangingisda ng higit sa isang Fisherfolk Organization nang sabay.',
+    // Same rule for both domains since multi-organization membership
+    // shipped (Phase B): a person may belong to several organizations at
+    // once, adding them here takes nothing away from the others, and
+    // exactly one active membership is their "main" (their first ever
+    // membership is main automatically). Only the organization type
+    // differs in the wording — see orgDomainConfig.js's
+    // candidateCurrentOrgName (always null) / candidateMembershipNote.
+    noticeFarmers: 'Maaaring maging kasapi ang isang magsasaka ng higit sa isang Farmers Organization nang sabay. Isa lang ang pangunahin niyang organisasyon, at hindi siya matatanggal sa ibang organisasyon kapag idinagdag dito.',
+    noticeFisherfolk: 'Maaaring maging kasapi ang isang mangingisda ng higit sa isang Fisherfolk Organization nang sabay. Isa lang ang pangunahin niyang organisasyon, at hindi siya matatanggal sa ibang organisasyon kapag idinagdag dito.',
     // image4's placeholder reads "pangalan, RSBSA number, o barangay". The
     // search endpoint deliberately does NOT match on RSBSA/FishR/LGU numbers
     // (unnecessary disclosure for this use case, decided in Batch 1), so the
