@@ -168,12 +168,15 @@ export function OrgTopBar({ theme, chipLabel, onNav, onToggleSidebar }) {
 export function OrgShell({ theme, chipLabel, active, onNav, tabBar, wide = false, children }) {
   const [collapsed, toggleCollapsed] = useSidebarCollapsed()
   return (
-    <div className="flex min-h-screen w-full bg-white">
+    <div className="flex min-h-screen w-full bg-cz-page">
       <OrgSidebar theme={theme} active={active} onNav={onNav} collapsed={collapsed} />
       <div className="flex min-w-0 flex-1 flex-col">
         <OrgTopBar theme={theme} chipLabel={chipLabel} onNav={onNav} onToggleSidebar={toggleCollapsed} />
         <main className={`mx-auto w-full flex-1 ${wide ? 'max-w-[1240px]' : 'max-w-[820px]'} px-4 pb-[calc(72px+env(safe-area-inset-bottom))] pt-5 sm:px-6 sm:pb-10`}>
-          {children}
+          {/* Each screen mounts a fresh OrgShell, so this wrapper's entrance
+              plays on every screen change while the sidebar and top bar
+              (outside it) stay put. */}
+          <div className="org-page-in">{children}</div>
         </main>
       </div>
       {tabBar}

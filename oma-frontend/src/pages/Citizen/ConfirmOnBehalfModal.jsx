@@ -51,8 +51,8 @@ export default function ConfirmOnBehalfModal({ domain, record, onClose, onSucces
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center">
-      <div className="modal-content w-full max-w-[440px] rounded-t-[16px] bg-cz-surface p-5 sm:rounded-[16px]">
+    <div className="org-backdrop fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center">
+      <div className="org-sheet w-full max-w-[440px] rounded-t-[16px] bg-cz-surface p-5 sm:rounded-[16px]">
         <div className="flex gap-2">
           <UserCheck size={18} className="mt-px shrink-0 text-cz-tile-blue-fg" aria-hidden="true" />
           <div>

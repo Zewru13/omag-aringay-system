@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Plus, Power, Search } from 'lucide-react'
 import OrgAvatar from './OrgAvatar.jsx'
 import OrgSetMemberActiveDialog from './OrgSetMemberActiveDialog.jsx'
@@ -23,6 +23,13 @@ export default function OrgMembersScreen({
   const theme = domain.dashboardTheme
   const [search, setSearch] = useState('')
   const [activeTarget, setActiveTarget] = useState(null) // { row, targetActive }
+  // True only for the first ~0.7s after the screen mounts: gates the row
+  // entrance so it plays once on arrival and never for rows revealed later.
+  const [intro, setIntro] = useState(true)
+  useEffect(() => {
+    const t = setTimeout(() => setIntro(false), 700)
+    return () => clearTimeout(t)
+  }, [])
 
   const positionOfPerson = (personId) => {
     const hit = Object.entries(officerByPosition).find(([, o]) => domain.officerPersonId(o) === personId)
@@ -69,12 +76,15 @@ export default function OrgMembersScreen({
       </div>
 
       {filtered.length === 0 ? (
-        <p className="rounded-[12px] border-[0.5px] border-cz-border bg-white p-6 text-center text-[13px] text-cz-text-muted">
+        <p className="rounded-[14px] bg-white p-6 text-center text-[13px] text-cz-text-muted shadow-[var(--shadow-xs)]">
           {labels.orgHome.membersEmpty}
         </p>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((m) => {
+        // A list, not a card grid: one member per row is denser to scan, and the
+        // pills (position, Main, Inactive) sit under the barangay where they
+        // stay readable at phone width.
+        <ul className="overflow-hidden rounded-[14px] bg-white shadow-[var(--shadow-xs)]">
+          {filtered.map((m, idx) => {
             const personId = domain.rowPersonId(m)
             const position = positionOfPerson(personId)
             const isActive = domain.rowIsActive(m)
@@ -83,52 +93,56 @@ export default function OrgMembersScreen({
             // backend clears the flag on deactivation, this just doesn't
             // rely on that.
             const isMain = isActive && domain.rowIsMain(m)
+            // First paint only, first 8 rows: rows a search reveals later
+            // never animate, since typing in the box is a frequent action.
+            const enters = intro && idx < 8
             return (
-              <div
+              <li
                 key={m.id}
-                className={`relative rounded-[12px] border-[0.5px] border-cz-border bg-white p-4 transition-opacity ${isActive ? '' : 'opacity-50'}`}
+                style={enters ? { '--i': idx } : undefined}
+                className={`flex items-center gap-3.5 border-t-[0.5px] border-cz-border px-4 py-3 first:border-t-0 ${enters ? 'org-rise' : ''} ${isActive ? '' : 'opacity-55'}`}
               >
+                <OrgAvatar name={domain.rowName(m)} theme={theme} size={40} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[15px] font-semibold text-cz-text">{domain.rowName(m)}</p>
+                  <p className="truncate text-[13px] text-cz-text-2">
+                    {domain.rowBarangay(m) ? `Brgy. ${domain.rowBarangay(m)}` : labels.common.unknown}
+                  </p>
+                  {(position || isMain || !isActive) && (
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {position && (
+                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] ${theme.tileSelectedBg} ${theme.tileSelectedText}`}>
+                          {position}
+                        </span>
+                      )}
+                      {isMain && (
+                        <span
+                          title={labels.orgHome.mainBadgeTitle}
+                          className="inline-block rounded-full bg-cz-badge-green px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] text-[#15803D]"
+                        >
+                          {labels.orgHome.mainBadge}
+                        </span>
+                      )}
+                      {!isActive && (
+                        <span className="inline-block rounded-full bg-cz-tile-slate-bg px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] text-cz-tile-slate-fg">
+                          {labels.orgMemberActive.inactiveBadge}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={() => setActiveTarget({ row: m, targetActive: !isActive })}
                   title={isActive ? labels.orgMemberActive.deactivateAction : labels.orgMemberActive.activateAction}
-                  className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-cz-text-muted transition-colors hover:bg-cz-page"
+                  className="press-scale flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-cz-text-muted transition-colors hover:bg-cz-page"
                 >
-                  <Power size={15} aria-hidden="true" />
+                  <Power size={16} aria-hidden="true" />
                 </button>
-                <OrgAvatar name={domain.rowName(m)} theme={theme} size={44} />
-                <p className="mt-2.5 truncate text-[15px] font-semibold text-cz-text">
-                  {domain.rowName(m)}
-                  {!isActive && (
-                    <span className="ml-1.5 shrink-0 rounded-[5px] bg-cz-tile-slate-bg px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] text-cz-tile-slate-fg align-middle">
-                      {labels.orgMemberActive.inactiveBadge}
-                    </span>
-                  )}
-                </p>
-                <p className="truncate text-[13px] text-cz-text-2">
-                  {domain.rowBarangay(m) ? `Brgy. ${domain.rowBarangay(m)}` : labels.common.unknown}
-                </p>
-                {(position || isMain) && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">
-                    {position && (
-                      <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] ${theme.tileSelectedBg} ${theme.tileSelectedText}`}>
-                        {position}
-                      </span>
-                    )}
-                    {isMain && (
-                      <span
-                        title={labels.orgHome.mainBadgeTitle}
-                        className="inline-block rounded-full bg-cz-badge-green px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] text-[#15803D]"
-                      >
-                        {labels.orgHome.mainBadge}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
+              </li>
             )
           })}
-        </div>
+        </ul>
       )}
 
       {activeTarget && (

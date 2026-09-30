@@ -98,6 +98,11 @@
   /* Motion */
   --ease-out-fluid: cubic-bezier(.22, .61, .36, 1);
   --ease-spring: cubic-bezier(.34, 1.4, .64, 1);
+  /* Stronger ease-out for entrances/feedback, and the iOS-style drawer curve
+     for bottom sheets. The built-in easings and --ease-out-fluid start too
+     gently to feel intentional at UI durations. */
+  --ease-out-strong: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 
   /* ─── Citizen self-service palette (cz-*) ──────────────────────────────
      The citizen-facing screens (src/pages/Citizen/**) follow their own
@@ -376,6 +381,83 @@ button, input, select, textarea {
   transform: scale(0.98);
 }
 
+/* ─── Organization account motion ──────────────────────────────────────────
+   Every rule here is transform/opacity only, ease-out, under 300ms, and uses
+   animation-fill-mode: BACKWARDS (not both): with `both` the last keyframe
+   keeps overriding the element afterwards, which would swallow the
+   :active press-scale on any pressable row that also has an entrance. */
+
+@keyframes orgPageIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Content area only — the sidebar and top bar stay still between screens. */
+.org-page-in {
+  animation: orgPageIn 180ms var(--ease-out-strong) backwards;
+}
+
+@keyframes orgRise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Section/row entrance. Stagger via --i; callers cap the count and only apply
+   it on the first paint of a screen, never to rows a search reveals later. */
+.org-rise {
+  animation: orgRise 220ms var(--ease-out-strong) backwards;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+
+@keyframes orgTickIn {
+  from { opacity: 0; transform: scaleY(0.35); }
+  to   { opacity: 1; transform: scaleY(1); }
+}
+
+/* Officer-position ticks on Home: one per position, filling in sequence. */
+.org-tick {
+  transform-origin: bottom;
+  animation: orgTickIn 240ms var(--ease-out-strong) backwards;
+  animation-delay: calc(180ms + var(--i, 0) * 30ms);
+}
+
+@keyframes orgSheetUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+@keyframes orgDialogIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Citizen-organization overlays: a bottom sheet below 640px slides up from
+   the edge it lives on; from sm up it is a centered box, so it fades/scales
+   from near-full size instead. Backdrop is a plain fade. */
+.org-backdrop {
+  animation: fadeIn 180ms var(--ease-out-strong);
+}
+
+.org-sheet {
+  animation: orgSheetUp 300ms var(--ease-drawer);
+}
+
+@media (min-width: 640px) {
+  .org-sheet {
+    animation: orgDialogIn 200ms var(--ease-out-strong);
+  }
+}
+
+@keyframes badgePop {
+  from { opacity: 0; transform: scale(0.6); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* Notification count: pops in when the number changes; not a loop. */
+.badge-pop {
+  animation: badgePop 200ms var(--ease-out-strong);
+}
+
 /* ─── Accessibility: respect reduced motion ────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
@@ -384,6 +466,14 @@ button, input, select, textarea {
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
+  }
+
+  /* Reduced motion means gentler, not none: keep a short opacity fade for
+     the organization screens' entrances (no movement, no delay/stagger). */
+  .org-page-in, .org-rise, .org-tick, .org-backdrop, .org-sheet, .badge-pop {
+    animation-name: fadeIn !important;
+    animation-duration: 150ms !important;
+    animation-delay: 0ms !important;
   }
 }
 

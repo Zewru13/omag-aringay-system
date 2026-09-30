@@ -1623,6 +1623,9 @@ export const labels = {
     statMembers: 'KASAPI',
     statPositions: 'POSISYON',
     viewMembers: 'Tingnan >',
+    viewMembersFull: 'Tingnan ang mga kasapi',
+    assignNow: 'Italaga',
+    positionsFilledAria: (filled, total) => `${filled} sa ${total} na posisyon ang may opisyal`,
     vacantCount: (n) => `${n} bakante`,
     officerRosterCardTitle: 'Mga Opisyal',
 
