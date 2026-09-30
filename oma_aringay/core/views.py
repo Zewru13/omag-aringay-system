@@ -209,7 +209,10 @@ class NotificationListView(APIView):
         unread_count = qs.filter(is_read=False).count()
 
         page_size = 20
-        page_num = int(request.query_params.get('page', 1))
+        try:
+            page_num = max(1, int(request.query_params.get('page', 1)))
+        except (TypeError, ValueError):
+            page_num = 1
         paginator = Paginator(qs, page_size)
         page = paginator.get_page(page_num)
 

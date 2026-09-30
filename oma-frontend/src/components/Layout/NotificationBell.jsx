@@ -2,17 +2,39 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Bell } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
+import { useAuth } from '../../context/AuthContext.jsx'
 
 // Simple polling, not websockets — this is a LAN office app with a handful
 // of concurrent users, so the extra infrastructure (channels/ASGI/a message
 // broker) wouldn't pay for itself here.
 const POLL_INTERVAL_MS = 45 * 1000
 
-const RECORD_TYPE_ROUTES = {
+// Where a notification takes a STAFF account, keyed by record_type. Every
+// record_type the backend emits has an entry: crop/stocking/fisherfolk_disaster
+// (activity, harvest, disaster), beneficiary/ff_beneficiary (assistance
+// reported as not received), beneficiary_obo/ff_beneficiary_obo (an
+// organization's on-behalf-of confirmation awaiting review) and the four
+// registry types (a citizen's profile-change request). The two review queues
+// live on the staff dashboard.
+const STAFF_ROUTES = {
   crop: '/crop-monitoring',
   stocking: '/fisheries-monitoring?tab=stocking',
   fisherfolk_disaster: '/fisheries-monitoring?tab=disasters',
+  beneficiary: '/crop-assistance?tab=needs-follow-up',
+  ff_beneficiary: '/fisheries-assistance?tab=needs-follow-up',
+  beneficiary_obo: '/dashboard',
+  ff_beneficiary_obo: '/dashboard',
+  FARMER: '/dashboard',
+  FISHERFOLK: '/dashboard',
+  FARMERS_ORG: '/dashboard',
+  FISHERFOLK_ORG: '/dashboard',
 }
+
+// A CITIZEN account may only open /my-account — every staff route above ends
+// in a full-page "Access Denied" for them (ProtectedRoute), so a citizen's
+// notification never navigates to one. Their screens are state-driven inside
+// /my-account, so the click just marks it read and lands them at home.
+const CITIZEN_HOME = '/my-account'
 
 function timeAgo(iso) {
   const diffSec = Math.max(0, (Date.now() - new Date(iso).getTime()) / 1000)
@@ -42,18 +64,54 @@ const VARIANT_CLASSES = {
 
 function NotificationBell({ variant = 'dark' }) {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [open, setOpen] = useState(false)
+  // `notifications` is always the newest page (refreshed by the poll);
+  // `older` holds pages the user asked for with "Load older", so a poll never
+  // throws away what they scrolled to. The badge counts EVERY unread row, so
+  // without this the list could show far fewer than the badge promised.
   const [notifications, setNotifications] = useState([])
+  const [older, setOlder] = useState([])
+  const [nextPage, setNextPage] = useState(null)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const ref = useRef(null)
+  const pagingStarted = useRef(false)
 
   const fetchNotifications = useCallback(async () => {
     try {
       const r = await api.get('/notifications/')
       setNotifications(r.data.results || [])
       setUnreadCount(r.data.unread_count || 0)
+      // Only the very first fetch decides where "Load older" starts; after
+      // that the user's own paging owns it.
+      if (!pagingStarted.current) {
+        pagingStarted.current = true
+        setNextPage(r.data.next ?? null)
+      }
     } catch { /* transient — next poll retries */ }
   }, [])
+
+  const loadOlder = async () => {
+    if (!nextPage || loadingMore) return
+    setLoadingMore(true)
+    try {
+      const r = await api.get('/notifications/', { params: { page: nextPage } })
+      setOlder(prev => [...prev, ...(r.data.results || [])])
+      setNextPage(r.data.next ?? null)
+    } catch { /* leave the button so they can retry */ }
+    finally { setLoadingMore(false) }
+  }
+
+  // Newest page first, then older pages; the same row can appear in both when
+  // new notifications shift the page boundary, so de-duplicate by id.
+  const seen = new Set()
+  const visible = [...notifications, ...older].filter(n => (seen.has(n.id) ? false : seen.add(n.id)))
+  const markLocalRead = (id) => {
+    const mark = list => list.map(x => (x.id === id ? { ...x, is_read: true } : x))
+    setNotifications(mark)
+    setOlder(mark)
+  }
 
   useEffect(() => {
     fetchNotifications()
@@ -72,16 +130,22 @@ function NotificationBell({ variant = 'dark' }) {
   const handleNotificationClick = (n) => {
     setOpen(false)
     if (!n.is_read) {
-      setNotifications(prev => prev.map(x => (x.id === n.id ? { ...x, is_read: true } : x)))
+      markLocalRead(n.id)
       setUnreadCount(c => Math.max(0, c - 1))
       api.post(`/notifications/${n.id}/read/`).catch(() => {})
     }
-    const target = RECORD_TYPE_ROUTES[n.record_type]
+    if (user?.role === 'CITIZEN') {
+      if (window.location.pathname !== CITIZEN_HOME) navigate(CITIZEN_HOME)
+      return
+    }
+    const target = STAFF_ROUTES[n.record_type]
     if (target) navigate(target)
   }
 
   const handleMarkAllRead = async () => {
-    setNotifications(prev => prev.map(x => ({ ...x, is_read: true })))
+    const markAll = list => list.map(x => ({ ...x, is_read: true }))
+    setNotifications(markAll)
+    setOlder(markAll)
     setUnreadCount(0)
     try {
       await api.post('/notifications/read-all/')
@@ -121,9 +185,9 @@ function NotificationBell({ variant = 'dark' }) {
             )}
           </div>
           <div className="overflow-y-auto flex-1">
-            {notifications.length === 0 ? (
+            {visible.length === 0 ? (
               <p className="px-3 py-6 text-center text-[12px] text-[#A8BCA8]">No notifications yet.</p>
-            ) : notifications.map(n => (
+            ) : visible.map(n => (
               <button
                 key={n.id}
                 type="button"
@@ -141,6 +205,16 @@ function NotificationBell({ variant = 'dark' }) {
                 </div>
               </button>
             ))}
+            {nextPage && (
+              <button
+                type="button"
+                onClick={loadOlder}
+                disabled={loadingMore}
+                className="w-full px-3 py-2.5 text-center text-[11px] font-medium text-[#1B4D2E] hover:bg-[#F9FAF9] disabled:opacity-50"
+              >
+                {loadingMore ? 'Loading…' : 'Load older notifications'}
+              </button>
+            )}
           </div>
         </div>
       )}
