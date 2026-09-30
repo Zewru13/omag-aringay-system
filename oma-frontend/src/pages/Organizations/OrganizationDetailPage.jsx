@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Plus, Power, Search, Trash2, UserCog, Users } from "lucide-react";
+import { ArrowLeft, Plus, Power, Search, Trash2, UserCog } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import api from "../../api/axiosInstance.js";
 import ActivateCitizenAccountButton from "../../components/ActivateCitizenAccountButton.jsx";
@@ -13,6 +13,7 @@ import ConfirmDialog from "../../components/UI/ConfirmDialog.jsx";
 import { baseInputClasses } from "../../components/UI/FormField.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
+import { agencyLabel } from "./agencyOptions.js";
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -778,9 +779,9 @@ function AddEquipmentModal({ type, organizationId, onClose, onSuccess }) {
 
 function Field({ label, value }) {
   return (
-    <div>
+    <div className="min-w-0">
       <p className="text-[12px] text-[#7A8E7A] mb-0.5">{label}</p>
-      <p className="text-[14px] font-medium text-[#1A2B1A]">{value || "—"}</p>
+      <p className="break-words text-[14px] font-medium text-[#1A2B1A]">{value || "—"}</p>
     </div>
   );
 }
@@ -968,8 +969,12 @@ function OrganizationDetailPage() {
                     <section className="rounded-xl border border-[#E2E8E2] bg-white overflow-hidden">
                       <div className="h-20" style={{ backgroundColor: themeColor }} />
                       <div className="px-5 pb-5 -mt-8">
-                        <div className="flex h-16 w-16 items-center justify-center rounded-2xl border-2 bg-white text-[18px] font-semibold" style={{ color: themeColor, borderColor: themeColor }}>
-                          {initialsOf(organization.name)}
+                        <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl border-2 bg-white text-[18px] font-semibold" style={{ color: themeColor, borderColor: themeColor }}>
+                          {organization.logo ? (
+                            <img src={organization.logo} alt={`${organization.name} logo`} className="h-full w-full object-cover" />
+                          ) : (
+                            initialsOf(organization.name)
+                          )}
                         </div>
                         <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8]">Organization Name</p>
                         <h1 className="mt-0.5 text-[16px] font-semibold text-[#1A2B1A]">
@@ -1003,23 +1008,34 @@ function OrganizationDetailPage() {
                           value={organization.registration_number}
                         />
                         <Field
-                          label="Date Established"
-                          value={formatDate(organization.date_established)}
+                          label="Registration Agency"
+                          value={agencyLabel(organization.registration_agency)}
                         />
                         <Field
-                          label="Date Created"
+                          label="Date Organized"
+                          value={formatDate(organization.date_organized)}
+                        />
+                        <Field
+                          label="Date Registered"
+                          value={formatDate(organization.date_registered)}
+                        />
+                        <Field
+                          label="Added to System"
                           value={formatDate(organization.date_created)}
                         />
-                        {organization.dole_registration_number != null && (
+                        {/* Farmers Organizations only, and no create/edit/import
+                            path fills them — shown only when a value exists
+                            instead of a permanent row of dashes. */}
+                        {organization.dole_registration_number && (
                           <Field
                             label="DOLE Registration No."
-                            value={organization.dole_registration_number || "—"}
+                            value={organization.dole_registration_number}
                           />
                         )}
-                        {organization.bir_number != null && (
+                        {organization.bir_number && (
                           <Field
                             label="BIR Number"
-                            value={organization.bir_number || "—"}
+                            value={organization.bir_number}
                           />
                         )}
                       </div>
@@ -1034,7 +1050,9 @@ function OrganizationDetailPage() {
                       <div className="p-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
                         <Field label="Contact Person" value={organization.contact_person} />
                         <Field label="Contact Number" value={organization.contact_number} />
+                        <Field label="Email" value={organization.email_address} />
                         <Field label="Barangay" value={organization.barangay} />
+                        <Field label="Street Address" value={organization.street_address} />
                       </div>
                     </section>
                   </div>

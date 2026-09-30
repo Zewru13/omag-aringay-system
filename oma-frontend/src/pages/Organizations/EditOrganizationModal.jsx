@@ -7,6 +7,7 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import Button from '../../components/UI/Button.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { agencyLabel, agencyOptionsFor } from './agencyOptions.js'
 
 const labelCls = 'block text-[13px] font-medium text-[#4A5E4A] mb-1.5'
 
@@ -208,9 +209,14 @@ export default function EditOrganizationModal({ organization, type, onClose, onS
             <select className={`${baseInputClasses}${formErrors.registration_agency ? ' border-rose-400' : ''}`} value={form.registration_agency}
               onChange={e => set('registration_agency', e.target.value)}>
               <option value="">Select agency</option>
-              <option value="SEC">SEC — Securities and Exchange Commission</option>
-              <option value="CDA">CDA — Cooperative Development Authority</option>
-              <option value="DOLE">DOLE — Department of Labor and Employment</option>
+              {agencyOptionsFor(type).map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+              {/* Never show a stored value as a blank select: if the record
+                  already holds a code this type doesn't list, keep it visible. */}
+              {form.registration_agency && !agencyOptionsFor(type).some((o) => o.value === form.registration_agency) && (
+                <option value={form.registration_agency}>{agencyLabel(form.registration_agency)}</option>
+              )}
             </select>
             {formErrors.registration_agency && <p className="mt-1 text-[12px] text-rose-600">{formErrors.registration_agency}</p>}
           </div>

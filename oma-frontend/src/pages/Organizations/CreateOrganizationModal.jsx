@@ -7,6 +7,7 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import Button from '../../components/UI/Button.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import { agencyOptionsFor } from './agencyOptions.js'
 
 const labelCls = 'block text-[13px] font-medium text-[#4A5E4A] mb-1.5'
 
@@ -115,7 +116,7 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
     <>
       <ModalShell
         title="Add New Organization"
-        subtitle="Create a new farmer organization in Aringay."
+        subtitle={`Create a new ${assocType === 'farmers' ? "farmers' organization" : 'fisherfolk organization'} in Aringay.`}
         icon={Building2}
         onClose={onClose}
         maxWidth="max-w-lg"
@@ -197,9 +198,9 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
             <select className={`${baseInputClasses}${formErrors.registration_agency ? ' border-rose-400' : ''}`} value={form.registration_agency}
               onChange={e => set('registration_agency', e.target.value)}>
               <option value="">Select agency</option>
-              <option value="SEC">SEC — Securities and Exchange Commission</option>
-              <option value="CDA">CDA — Cooperative Development Authority</option>
-              <option value="DOLE">DOLE — Department of Labor and Employment</option>
+              {agencyOptionsFor(assocType).map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
             </select>
             {formErrors.registration_agency && <p className="mt-1 text-[12px] text-rose-600">{formErrors.registration_agency}</p>}
           </div>
