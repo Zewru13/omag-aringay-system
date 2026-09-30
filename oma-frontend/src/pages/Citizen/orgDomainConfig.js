@@ -135,11 +135,8 @@ export const FARMERS_ORG_DOMAIN = {
   rowIsActive: (row) => row.is_active !== false,
   rowIsMain: (row) => row.is_main === true,
   officerPersonId: (o) => o.farmer_id,
-  // Multi-org is legitimate here now, so there is never a reassignment
-  // warning — this stays null and the Add Member screen skips that branch,
-  // same as the fisherfolk side.
-  candidateCurrentOrgName: () => null,
-  // ...but existing memberships are still worth SHOWING, so an officer can
+  // Multi-org is legitimate here now, so adding someone never reassigns
+  // them. Existing memberships are still worth SHOWING, so an officer can
   // see at a glance that someone already belongs elsewhere. Informational
   // only: adding them takes nothing away from those organizations.
   candidateMembershipNote: (cand) => {
@@ -199,10 +196,8 @@ export const FISHERFOLK_ORG_DOMAIN = {
   rowIsActive: (row) => row.is_active !== false,
   rowIsMain: (row) => row.is_main === true,
   officerPersonId: (o) => o.fisherfolk_id,
-  // Multi-org is legitimate here, so there is never a reassignment warning —
-  // this stays null and the Add Member screen skips the whole branch.
-  candidateCurrentOrgName: () => null,
-  // ...but existing memberships are still worth SHOWING, so an officer can
+  // Multi-org is legitimate here, so adding someone never reassigns them.
+  // Existing memberships are still worth SHOWING, so an officer can
   // see at a glance that someone already belongs elsewhere. Informational
   // only: adding them takes nothing away from those organizations.
   candidateMembershipNote: (cand) => {

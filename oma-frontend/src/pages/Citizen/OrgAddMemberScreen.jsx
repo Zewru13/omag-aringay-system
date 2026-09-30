@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AlertTriangle, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import OrgAvatar from './OrgAvatar.jsx'
@@ -12,8 +12,9 @@ import { ARINGAY_BARANGAYS } from '../../constants/barangays.js'
 // click, not live/incremental search), and the blue info notice about
 // multi-organization membership (a person may belong to several; one is
 // their main). Same search endpoint as before — only the search
-// interaction changed. The reassignment warning / 409 backstop below is a
-// leftover of the retired single-org farmer model and can no longer fire.
+// interaction changed. If the server needs someone's main organization
+// resolved before they can be added (main_choice_required), the officer only
+// gets an explanation — that decision is OMAg staff's, not theirs.
 
 const MIN_SEARCH_LENGTH = 2
 const ALL_BARANGAYS = 'Lahat ng Barangay'
@@ -28,7 +29,6 @@ export default function OrgAddMemberScreen({
   const [hasSearched, setHasSearched] = useState(false)
   const [results, setResults] = useState([])
   const [isSearching, setIsSearching] = useState(false)
-  const [pendingReassign, setPendingReassign] = useState(null)
   const [busyId, setBusyId] = useState(null)
   const [errorMessage, setErrorMessage] = useState('')
 
@@ -57,43 +57,27 @@ export default function OrgAddMemberScreen({
     }
   }
 
-  const submitAdd = async (candidate, confirmReassignment) => {
+  const submitAdd = async (candidate) => {
     setBusyId(candidate.id)
     setErrorMessage('')
     try {
-      await api.post(
-        domain.membersUrl(orgId),
-        domain.addMemberBody(candidate.id, confirmReassignment),
-      )
+      await api.post(domain.membersUrl(orgId), domain.addMemberBody(candidate.id))
       showToast(labels.orgAddMember.addSuccess(candidate.full_name), 'success')
-      setPendingReassign(null)
       onSuccess()
     } catch (err) {
-      // Backstop for the race the client pre-check cannot see: the person
-      // joined another organization after this search returned.
-      if (err?.response?.status === 409) {
-        const d = err.response.data || {}
-        setPendingReassign({
-          candidate,
-          currentOrgName: d.current_organization_name || labels.common.unknown,
-        })
+      const data = err?.response?.data
+      if (data?.main_choice_required) {
+        // The person's other memberships have no main and this organization
+        // doesn't settle it. The officer must not decide that, so show a
+        // plain explanation instead of the server's English sentence.
+        setErrorMessage(labels.orgAddMember.mainChoiceRequired(candidate.full_name))
       } else {
-        const data = err?.response?.data
         const first = data && typeof data === 'object' ? Object.values(data).flat()[0] : null
         setErrorMessage(first || data?.detail || labels.orgAddMember.addFailed)
       }
     } finally {
       setBusyId(null)
     }
-  }
-
-  const handleAdd = (candidate) => {
-    const currentOrg = domain.candidateCurrentOrgName(candidate)
-    if (currentOrg) {
-      setPendingReassign({ candidate, currentOrgName: currentOrg })
-      return
-    }
-    submitAdd(candidate, false)
   }
 
   const fieldBox = `min-h-[46px] w-full rounded-[10px] border-[0.5px] border-cz-border-strong bg-white px-3.5 text-[14px] text-cz-text outline-none ${theme.focusBorder}`
@@ -190,7 +174,7 @@ export default function OrgAddMemberScreen({
                     <button
                       type="button"
                       disabled={busyId === cand.id}
-                      onClick={() => handleAdd(cand)}
+                      onClick={() => submitAdd(cand)}
                       className={`min-h-[38px] shrink-0 rounded-[9px] px-3.5 text-white transition-opacity hover:opacity-90 disabled:opacity-50 ${theme.solidBtn}`}
                     >
                       <span className="text-[13px] font-semibold">{labels.orgAddMember.addButton}</span>
@@ -206,43 +190,6 @@ export default function OrgAddMemberScreen({
           <p className="text-[11px] text-cz-text-muted">{labels.orgAddMember.capped}</p>
         )}
       </div>
-
-      {pendingReassign && (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center">
-          <div className="w-full max-w-[440px] rounded-t-[16px] bg-white p-5 sm:rounded-[16px]">
-            <div className="flex gap-2">
-              <AlertTriangle size={18} className="mt-px shrink-0 text-cz-warn-accent" aria-hidden="true" />
-              <div>
-                <h2 className="text-[17px] font-medium text-cz-text">{labels.orgAddMember.reassignTitle}</h2>
-                <p className="mt-2 text-[13px] leading-[1.55] text-cz-text-2">
-                  {labels.orgAddMember.reassignBody(
-                    pendingReassign.candidate.full_name,
-                    pendingReassign.currentOrgName,
-                  )}
-                </p>
-                <p className="mt-2 text-[13px] leading-[1.55] text-cz-warn-body">
-                  {labels.orgAddMember.reassignOfficerNote}
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              disabled={busyId === pendingReassign.candidate.id}
-              onClick={() => submitAdd(pendingReassign.candidate, true)}
-              className={`mt-4 flex min-h-[46px] w-full items-center justify-center rounded-[10px] text-white transition-opacity hover:opacity-90 disabled:opacity-50 ${theme.solidBtn}`}
-            >
-              <span className="text-[15px] font-semibold">{labels.orgAddMember.reassignConfirm}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setPendingReassign(null)}
-              className="mt-2 flex min-h-[46px] w-full items-center justify-center rounded-[10px] border-[0.5px] border-cz-border-strong"
-            >
-              <span className="text-[14px] text-cz-text-2">{labels.common.cancel}</span>
-            </button>
-          </div>
-        </div>
-      )}
     </OrgShell>
   )
 }

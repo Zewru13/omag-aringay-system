@@ -106,7 +106,7 @@ function conditionTone(cond) {
 
 // ─── Add Member Modal ─────────────────────────────────────────────────────────
 
-function AddMemberModal({ type, organizationId, onClose, onSuccess }) {
+function AddMemberModal({ type, organizationId, organizationName, onClose, onSuccess }) {
   const [search, setSearch] = useState("");
   const [results, setResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -115,6 +115,11 @@ function AddMemberModal({ type, organizationId, onClose, onSuccess }) {
   const [dateJoined, setDateJoined] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Set when the server refuses the add until staff choose whether this
+  // organization becomes the person's main (the person's other active
+  // memberships have no main). Holds those other organizations' names.
+  const [mainChoice, setMainChoice] = useState(null);
+  const [submittedIsMain, setSubmittedIsMain] = useState(undefined);
 
   const searchEndpoint = type === "farmers" ? "/farmers/" : "/fisheries/fisherfolk/";
   const memberKey = type === "farmers" ? "farmer" : "fisherfolk";
@@ -139,7 +144,36 @@ function AddMemberModal({ type, organizationId, onClose, onSuccess }) {
     }
   };
 
-  const handleSubmit = async (e) => {
+  // `isMain` is only sent once staff have answered the main-organization
+  // choice; the first attempt omits it and lets the server decide.
+  const submitMember = async (isMain) => {
+    setError("");
+    setSubmittedIsMain(isMain);
+    setIsSubmitting(true);
+    try {
+      await api.post(`/organizations/${type}/${organizationId}/members/`, {
+        [memberKey]: selected.id,
+        position,
+        date_joined: dateJoined,
+        ...(isMain === undefined ? {} : { is_main: isMain }),
+      });
+      onSuccess();
+      onClose();
+    } catch (err) {
+      const data = err.response?.data;
+      if (data?.main_choice_required) {
+        setMainChoice({
+          otherNames: (data.other_organizations || []).map((o) => o.organization_name),
+        });
+      } else {
+        setError(data?.detail || "Unable to add member.");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmit = (e) => {
     e.preventDefault();
     if (!selected) {
       setError("Please search for and select a member first.");
@@ -149,23 +183,43 @@ function AddMemberModal({ type, organizationId, onClose, onSuccess }) {
       setError("Date joined is required.");
       return;
     }
-    setError("");
-    setIsSubmitting(true);
-    try {
-      await api.post(`/organizations/${type}/${organizationId}/members/`, {
-        [memberKey]: selected.id,
-        position,
-        date_joined: dateJoined,
-      });
-      onSuccess();
-      onClose();
-    } catch (err) {
-      const data = err.response?.data;
-      setError(data?.detail || "Unable to add member.");
-    } finally {
-      setIsSubmitting(false);
-    }
+    submitMember();
   };
+
+  if (mainChoice) {
+    return (
+      <ModalShell
+        title="Choose Main Organization"
+        onClose={onClose}
+        maxWidth="max-w-xl"
+        footer={
+          <>
+            <Button onClick={() => setMainChoice(null)} disabled={isSubmitting} type="button" variant="secondary">
+              Cancel
+            </Button>
+            <Button onClick={() => submitMember(false)} isLoading={isSubmitting && submittedIsMain === false} disabled={isSubmitting} type="button" variant="outline">
+              Add, but not as main
+            </Button>
+            <Button onClick={() => submitMember(true)} isLoading={isSubmitting && submittedIsMain === true} disabled={isSubmitting} type="button" variant="primary">
+              Make {organizationName} their main
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-[14px] leading-relaxed text-[#1A2B1A]">
+            <span className="font-semibold">{selected.full_name}</span> is already in{" "}
+            <span className="font-semibold">{mainChoice.otherNames.join(", ")}</span> but has no
+            main organization. Should <span className="font-semibold">{organizationName}</span> be
+            their main?
+          </p>
+          <p className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5 text-[12px] text-[#7A8E7A]">
+            They have not been added yet. Cancel to go back and change the details.
+          </p>
+        </div>
+      </ModalShell>
+    );
+  }
 
   return (
     <ModalShell
@@ -1329,6 +1383,7 @@ function OrganizationDetailPage() {
         <AddMemberModal
           type={type}
           organizationId={id}
+          organizationName={organization.name}
           onClose={() => setShowAddMember(false)}
           onSuccess={handleMemberAdded}
         />

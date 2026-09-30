@@ -6,6 +6,7 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, serializers, status
+from rest_framework.exceptions import APIException
 from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -53,6 +54,26 @@ from .serializers import (
 # FisherfolkOrganizationMember.is_main) — not the live barangay-match guess
 # _resolve_attributed_organization computes (interventions/models.py), which
 # predates this and is kept only as a general-purpose attribution fallback.
+
+class MainChoiceRequired(APIException):
+    """400 raised when adding a membership needs an explicit main-organization
+    choice (see _resolve_and_assign_main). The body keeps the original
+    `is_main` message and adds `main_choice_required` plus the person's other
+    active memberships, so a client can offer a real choice instead of a
+    generic error. APIException/ValidationError stringify every leaf of their
+    detail (True -> "True", ids -> "12"), so the plain dict is set directly
+    to keep real booleans and integers in the response."""
+    status_code = status.HTTP_400_BAD_REQUEST
+    default_code = 'main_choice_required'
+
+    def __init__(self, message, other_organizations):
+        super().__init__(message)
+        self.detail = {
+            'is_main': message,
+            'main_choice_required': True,
+            'other_organizations': other_organizations,
+        }
+
 
 def _resolve_and_assign_main(member, other_active_qs, person_barangay, explicit_is_main):
     """
@@ -110,12 +131,18 @@ def _resolve_and_assign_main(member, other_active_qs, person_barangay, explicit_
         member.save(update_fields=['is_main'])
         return
 
-    raise serializers.ValidationError({
-        'is_main': (
-            "This person has no main organization yet, and this organization's barangay does not "
-            "uniquely match theirs — please explicitly choose whether this should be their main organization."
-        ),
-    })
+    raise MainChoiceRequired(
+        "This person has no main organization yet, and this organization's barangay does not "
+        "uniquely match theirs — please explicitly choose whether this should be their main organization.",
+        [
+            {
+                'membership_id': m.id,
+                'organization_id': m.organization_id,
+                'organization_name': m.organization.name,
+            }
+            for m in others
+        ],
+    )
 
 
 def _promote_main_after_deactivation(other_active_qs, person_barangay):

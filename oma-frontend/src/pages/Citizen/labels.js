@@ -1705,7 +1705,7 @@ export const labels = {
     // exactly one active membership is their "main" (their first ever
     // membership is main automatically). Only the organization type
     // differs in the wording — see orgDomainConfig.js's
-    // candidateCurrentOrgName (always null) / candidateMembershipNote.
+    // candidateMembershipNote.
     noticeFarmers: 'Maaaring maging kasapi ang isang magsasaka ng higit sa isang Farmers Organization nang sabay. Isa lang ang pangunahin niyang organisasyon, at hindi siya matatanggal sa ibang organisasyon kapag idinagdag dito.',
     noticeFisherfolk: 'Maaaring maging kasapi ang isang mangingisda ng higit sa isang Fisherfolk Organization nang sabay. Isa lang ang pangunahin niyang organisasyon, at hindi siya matatanggal sa ibang organisasyon kapag idinagdag dito.',
     // image4's placeholder reads "pangalan, RSBSA number, o barangay". The
@@ -1726,11 +1726,11 @@ export const labels = {
     noCurrentOrg: 'Walang organisasyon',
     addButton: 'Idagdag',
 
-    reassignTitle: 'Lilipat ng organisasyon',
-    reassignBody: (name, orgName) =>
-      `Si ${name} ay kasapi ngayon ng ${orgName}. Kapag idinagdag ninyo rito, matatanggal po siya sa ${orgName}.`,
-    reassignOfficerNote: 'Matatanggal din ang posisyon niya bilang opisyal doon.',
-    reassignConfirm: 'Ituloy at ilipat',
+    // The server refuses the add when the person's other memberships have
+    // no main organization and this one doesn't settle it. Only OMAg staff
+    // decide a person's main, so this explains rather than offers a choice.
+    mainChoiceRequired: (name) =>
+      `Hindi naidagdag si ${name} sa organisasyong ito. Wala pa siyang itinakdang pangunahing organisasyon, at kailangan itong ayusin ng OMAg staff. Makipag-ugnayan po sa opisina ng OMAg.`,
     addSuccess: (name) => `Naidagdag na si ${name}.`,
     addFailed: 'Hindi maidagdag ang kasapi.',
   },
