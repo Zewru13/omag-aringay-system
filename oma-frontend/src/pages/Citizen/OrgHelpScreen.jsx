@@ -1,12 +1,18 @@
 import { useState } from 'react'
 import { ChevronDown, MapPin } from 'lucide-react'
-import { OrgScreen, OrgSectionLabel } from './OrgDashboardParts.jsx'
+import { OrgPageHeader, OrgSectionLabel, OrgShell } from './OrgDashboardParts.jsx'
 import { labels } from './labels.js'
 
 // New screen — spec item 10. Real FAQ content covering the actual
 // capabilities this account has (not a placeholder page), plus an OMAg
 // contact section that is honestly marked as not-yet-finalized rather than
 // inventing a real-looking address/phone/hours.
+//
+// Mounts through the same OrgShell + OrgPageHeader as every other
+// Organization screen (white top bar, sidebar, "< Bumalik" + title in the
+// content area) — it was the last screen still on the retired OrgScreen shell,
+// whose navy bar with the title inside it made this page look like a
+// different app.
 
 function FaqItem({ q, a, isOpen, onToggle }) {
   return (
@@ -36,17 +42,19 @@ function FaqItem({ q, a, isOpen, onToggle }) {
   )
 }
 
-export default function OrgHelpScreen({ domain, onBack, tabBar, active, onNav, railCollapsed, onToggleRail }) {
-  const theme = domain.theme
+export default function OrgHelpScreen({ domain, orgName, onBack, tabBar, active, onNav }) {
+  const theme = domain.dashboardTheme
   const H = labels.orgHelp
   const [openKey, setOpenKey] = useState(H.faq[0]?.key || null)
 
   return (
-    <OrgScreen
-      title={H.title} onBack={onBack} theme={theme} tabBar={tabBar}
-      active={active} onNav={onNav} railCollapsed={railCollapsed} onToggleRail={onToggleRail}
+    <OrgShell
+      theme={theme} chipLabel={orgName} active={active}
+      onNav={(key) => (key === 'home' ? onBack() : onNav(key))}
+      tabBar={tabBar} wide={false}
     >
-      <div className="mx-auto max-w-[640px] space-y-4">
+      <OrgPageHeader title={H.title} onBack={onBack} />
+      <div className="max-w-[640px] space-y-4">
         <section>
           <OrgSectionLabel>{H.faqHeading}</OrgSectionLabel>
           <div className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
@@ -75,6 +83,6 @@ export default function OrgHelpScreen({ domain, onBack, tabBar, active, onNav, r
           </div>
         </section>
       </div>
-    </OrgScreen>
+    </OrgShell>
   )
 }

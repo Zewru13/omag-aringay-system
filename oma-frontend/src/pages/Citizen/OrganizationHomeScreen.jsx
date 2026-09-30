@@ -38,15 +38,6 @@ export default function OrganizationHomeScreen({ record, domain }) {
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
-  // Preserved for OrgHelpScreen.jsx, which still uses the OLD
-  // OrgScreen/OrgNavRail shell (out of scope) — that shell's
-  // hamburger toggle needs real state here, not a no-op, or their existing
-  // collapse behavior would silently stop working when reached from the
-  // rebuilt Home. OrgInfoScreen.jsx moved onto the new OrgShell (2026-09-07,
-  // matching Home's white sidebar + green header per direct user request)
-  // and no longer needs this — it manages its own collapse via OrgShell's
-  // internal useSidebarCollapsed, same as every other rebuilt screen.
-  const [railCollapsed, setRailCollapsed] = useState(false)
 
   const refresh = useCallback(() => setReloadKey((k) => k + 1), [])
 
@@ -207,12 +198,11 @@ export default function OrganizationHomeScreen({ record, domain }) {
     return (
       <OrgHelpScreen
         domain={domain}
+        orgName={record?.label}
         onBack={() => setView('home')}
         tabBar={tabBar(null)}
         active={null}
         onNav={goHomeOrNav}
-        railCollapsed={railCollapsed}
-        onToggleRail={() => setRailCollapsed((v) => !v)}
       />
     )
   }
