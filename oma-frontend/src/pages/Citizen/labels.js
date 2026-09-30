@@ -1831,7 +1831,6 @@ export const labels = {
     // go through this file.
     perHeadSummary: (amount) => ` — ₱${amount} bawat kasapi`,
     onDate: (formatted) => ` noong ${formatted}`,
-    willSkip: (count) => `${count} miyembro ang lalaktawan`,
     willBlock: (count) => `${count} miyembro ang mahaharang — nakatanggap na sila ng parehong tulong sa ibang organisasyon sa nakaraang 30 araw`,
     willReceive: (count) => `${count} miyembro ang makakatanggap ng bagong record. Hindi po ito awtomatikong mababawi — suriin pong mabuti bago kumpirmahin.`,
     fields: {
@@ -1851,9 +1850,8 @@ export const labels = {
       previewFailed: 'Hindi ma-preview ang ipamamahagi.',
       distributeFailed: 'Hindi naipamahagi ang tulong.',
     },
-    resultSummary: (created, skipped, blocked, errors) => `${created} nagawa · ${skipped} nilaktawan · ${blocked} naharang · ${errors} error`,
+    resultSummary: (created, blocked, errors) => `${created} nagawa · ${blocked} naharang · ${errors} error`,
     statusCreated: 'Nagawa',
-    statusSkipped: 'Nilaktawan',
     statusBlocked: 'Naharang',
     statusError: 'Error',
     // Batch: richer 3-step wizard layout (step indicator, org context card,

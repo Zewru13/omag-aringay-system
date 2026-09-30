@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AlertTriangle, CheckCircle2, XCircle } from 'lucide-react'
+import { CheckCircle2, XCircle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import { labels } from './labels.js'
@@ -258,6 +258,11 @@ export default function OrgReportAssistanceScreen({
   domain, orgId, orgName, members, onBack, tabBar, onSuccess,
 }) {
   const theme = domain.dashboardTheme
+  // The org-wide distribution goes to ACTIVE members only (the backend
+  // filters the same way), so every "N kasapi" shown for that flow counts
+  // active rows. The per-member picker below still lists everyone — an
+  // inactive member can legitimately still be reported for.
+  const activeMemberCount = members.filter((m) => domain.rowIsActive(m)).length
   const fieldBox = `min-h-[46px] w-full rounded-[10px] border-[0.5px] border-cz-border-strong bg-white px-3.5 text-[14px] text-cz-text outline-none ${theme.focusBorder}`
 
   const [step, setStep] = useState('chooser') // 'chooser' | 'memberForm' | 'orgForm' | 'orgFormDetails' | 'confirm' | 'result'
@@ -403,12 +408,10 @@ export default function OrgReportAssistanceScreen({
     }
   }
 
-  const skipped = (preview?.results || []).filter((r) => r.status === 'skipped')
   const blocked = (preview?.results || []).filter((r) => r.status === 'would_block')
 
   const statusBadge = (status) => {
     if (status === 'created') return <span className="inline-flex shrink-0 items-center gap-1 text-[12px] font-semibold text-[#15803D]"><CheckCircle2 size={13} /> {L.statusCreated}</span>
-    if (status === 'skipped') return <span className="inline-flex shrink-0 items-center gap-1 text-[12px] font-semibold text-cz-tile-amber-fg"><AlertTriangle size={13} /> {L.statusSkipped}</span>
     if (status === 'blocked') return <span className="inline-flex shrink-0 items-center gap-1 text-[12px] font-semibold text-cz-danger-accent"><XCircle size={13} /> {L.statusBlocked}</span>
     return <span className="inline-flex shrink-0 items-center gap-1 text-[12px] font-semibold text-cz-danger-accent"><XCircle size={13} /> {L.statusError}</span>
   }
@@ -438,7 +441,7 @@ export default function OrgReportAssistanceScreen({
             className={`${CARD} w-full text-left transition-colors hover:bg-[#F6F5F1]`}
           >
             <p className={`text-[15px] font-semibold ${theme.accentText}`}>{R.chooseOrgTitle}</p>
-            <p className="mt-1 text-[13px] leading-[1.45] text-cz-text-2">{R.chooseOrgBody(members.length)}</p>
+            <p className="mt-1 text-[13px] leading-[1.45] text-cz-text-2">{R.chooseOrgBody(activeMemberCount)}</p>
           </button>
         </div>
       </OrgShell>
@@ -484,7 +487,7 @@ export default function OrgReportAssistanceScreen({
   if (step === 'orgForm') {
     return (
       <OrgShell theme={theme} chipLabel={orgName} active="home" onNav={shellNav} tabBar={tabBar} wide={false}>
-        <OrgPageHeader title={R.orgFormTitle} subtitle={R.orgFormSubtitle(members.length)} onBack={resetToChooser} />
+        <OrgPageHeader title={R.orgFormTitle} subtitle={R.orgFormSubtitle(activeMemberCount)} onBack={resetToChooser} />
         <form onSubmit={handleOrgStep1Next} className="max-w-lg space-y-4">
           <AssistanceTypeField domain={domain} form={form} set={set} fieldBox={fieldBox} />
           <DateField form={form} set={set} fieldBox={fieldBox} />
@@ -495,7 +498,7 @@ export default function OrgReportAssistanceScreen({
 
           <div className="flex gap-3">
             <button type="button" onClick={resetToChooser} className={ghostBtn}>{labels.common.cancel}</button>
-            <button type="submit" disabled={members.length === 0} className={primaryBtn}>{R.step1NextButton}</button>
+            <button type="submit" disabled={activeMemberCount === 0} className={primaryBtn}>{R.step1NextButton}</button>
           </div>
         </form>
       </OrgShell>
@@ -510,7 +513,7 @@ export default function OrgReportAssistanceScreen({
   if (step === 'orgFormDetails') {
     return (
       <OrgShell theme={theme} chipLabel={orgName} active="home" onNav={shellNav} tabBar={tabBar} wide={false}>
-        <OrgPageHeader title={R.orgFormTitle} subtitle={R.orgFormSubtitle(members.length)} onBack={() => setStep('orgForm')} />
+        <OrgPageHeader title={R.orgFormTitle} subtitle={R.orgFormSubtitle(activeMemberCount)} onBack={() => setStep('orgForm')} />
         <form onSubmit={handlePreview} className="max-w-lg space-y-4">
           <AssistanceAmountFields theme={theme} form={form} set={set} />
           <SourceSeasonDescriptionFields domain={domain} form={form} set={set} fieldBox={fieldBox} />
@@ -526,7 +529,7 @@ export default function OrgReportAssistanceScreen({
                 </span>
                 <div className="min-w-0">
                   <p className="text-[15px] font-semibold text-cz-text">{R.allMembers}</p>
-                  <p className="mt-0.5 text-[13px] text-cz-text-2">{R.memberCount(members.length)}</p>
+                  <p className="mt-0.5 text-[13px] text-cz-text-2">{R.memberCount(activeMemberCount)}</p>
                 </div>
               </div>
               <p className="mt-2.5 border-t-[0.5px] border-cz-border pt-2.5 text-[12px] leading-[1.45] text-cz-text-2">{R.allMembersNote}</p>
@@ -539,7 +542,7 @@ export default function OrgReportAssistanceScreen({
 
           <div className="flex gap-3">
             <button type="button" onClick={() => setStep('orgForm')} className={ghostBtn}>{labels.common.cancel}</button>
-            <button type="submit" disabled={isBusy || members.length === 0} className={primaryBtn}>{R.previewButton}</button>
+            <button type="submit" disabled={isBusy || activeMemberCount === 0} className={primaryBtn}>{R.previewButton}</button>
           </div>
         </form>
       </OrgShell>
@@ -561,14 +564,6 @@ export default function OrgReportAssistanceScreen({
           </p>
         </div>
 
-        {skipped.length > 0 && (
-          <div className="mt-3 max-w-lg rounded-[12px] border border-[#F5E0A3] bg-cz-alert-bg p-3.5">
-            <p className="text-[13px] font-semibold text-cz-alert-title">{L.willSkip(skipped.length)}</p>
-            <ul className="mt-1 space-y-0.5 text-[12px] text-cz-alert-title/80">
-              {skipped.map((r) => <li key={r.person_id}>{r.name} — {r.reason}</li>)}
-            </ul>
-          </div>
-        )}
         {blocked.length > 0 && (
           <div className="mt-3 max-w-lg rounded-[12px] border-[0.5px] border-cz-danger-border bg-cz-danger-bg p-3.5">
             <p className="text-[13px] font-semibold text-cz-danger-body">{L.willBlock(blocked.length)}</p>
@@ -578,7 +573,7 @@ export default function OrgReportAssistanceScreen({
           </div>
         )}
 
-        <p className="mt-3 max-w-lg text-[13px] text-cz-text-2">{L.willReceive(preview.member_count - skipped.length - blocked.length)}</p>
+        <p className="mt-3 max-w-lg text-[13px] text-cz-text-2">{L.willReceive(preview.member_count - blocked.length)}</p>
 
         {errorMessage && (
           <p className="mt-3 max-w-lg rounded-[10px] border-[0.5px] border-cz-danger-border bg-cz-danger-bg px-3.5 py-2.5 text-[13px] text-cz-danger-body">{errorMessage}</p>
@@ -603,7 +598,6 @@ export default function OrgReportAssistanceScreen({
           <p className="mt-0.5 text-[13px] text-cz-text-2">
             {L.resultSummary(
               created,
-              finalResult.results.filter((r) => r.status === 'skipped').length,
               finalResult.results.filter((r) => r.status === 'blocked').length,
               finalResult.results.filter((r) => r.status === 'error').length,
             )}
