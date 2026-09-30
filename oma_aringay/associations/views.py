@@ -909,16 +909,31 @@ def _run_organization_distribution(record_model, person_field, organization, mem
             })
             continue
 
+        # source_agencies is the JSON list both models carry since the
+        # source_agency -> source_agencies rename (interventions migrations
+        # 0014-0016); the four type-conditional fields below are validated by
+        # OrganizationDistributionRequestSerializer and were previously
+        # accepted and then dropped here. seed_type / fertilizer_type exist
+        # on BeneficiaryRecord only.
+        type_fields = {
+            'training_duration_days': data.get('training_duration_days'),
+            'equipment_type': data.get('equipment_type', ''),
+        }
+        if record_model is BeneficiaryRecord:
+            type_fields['seed_type'] = data.get('seed_type', '')
+            type_fields['fertilizer_type'] = data.get('fertilizer_type', '')
+
         try:
             with transaction.atomic():
                 record = record_model.objects.create(
                     assistance_type=assistance_type,
-                    source_agency=data.get('source_agency', ''),
+                    source_agencies=data.get('source_agencies', []),
                     quantity=data.get('quantity', ''),
                     date_given=date_given,
                     season=data.get('season', ''),
                     year=date_given.year,
                     recorded_by=user,
+                    **type_fields,
                     # Batch (Phase B — Phase A gap fix): the real, durable
                     # acting organization — see this function's own
                     # docstring and distributed_by_organization's model

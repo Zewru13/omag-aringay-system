@@ -44,8 +44,8 @@ function formatDateLong(iso) {
   return new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).format(new Date(iso + 'T00:00:00'))
 }
 
-const STATUS_TONE = { created: 'green', skipped: 'slate', blocked: 'rose', error: 'rose' }
-const STATUS_LABEL = { created: 'Created', skipped: 'Skipped', blocked: 'Blocked', error: 'Error' }
+const STATUS_TONE = { created: 'green', blocked: 'rose', error: 'rose' }
+const STATUS_LABEL = { created: 'Created', blocked: 'Blocked', error: 'Error' }
 
 // New capability alongside the existing one-by-one "Report/Log Assistance"
 // flow (AddAssistanceModal / LogGovernmentAssistanceModal) — creates ONE
@@ -177,9 +177,8 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
     setStep('form')
   }
 
-  const skippedInPreview = (preview?.results || []).filter((r) => r.status === 'skipped')
   const blockedInPreview = (preview?.results || []).filter((r) => r.status === 'would_block')
-  const eligibleCount = preview ? preview.member_count - skippedInPreview.length - blockedInPreview.length : 0
+  const eligibleCount = preview ? preview.member_count - blockedInPreview.length : 0
 
   const assistanceTypeDisplay = form.assistance_type === 'Other' ? form.assistance_type_other.trim() : form.assistance_type
   const typeFieldDisplay = isEquipment ? form.equipment_type : isSeeds ? form.seed_type : isFertilizer ? form.fertilizer_type : ''
@@ -190,14 +189,12 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
       : (form.quantity || '—') + (typeFieldDisplay ? ` — ${typeFieldDisplay}` : '')
 
   const createdResults = (finalResult?.results || []).filter((r) => r.status === 'created')
-  const skippedResults = (finalResult?.results || []).filter((r) => r.status === 'skipped')
   const errorResults   = (finalResult?.results || []).filter((r) => r.status === 'error')
   const blockedResults = (finalResult?.results || []).filter((r) => r.status === 'blocked')
 
   const RESULT_TABS = finalResult ? [
     { key: 'all',     label: `All ${finalResult.results.length}` },
     { key: 'created', label: `${createdResults.length} Created` },
-    ...(skippedResults.length ? [{ key: 'skipped', label: `${skippedResults.length} Skipped` }] : []),
     ...(blockedResults.length ? [{ key: 'blocked', label: `${blockedResults.length} Blocked` }] : []),
     ...(errorResults.length ? [{ key: 'error', label: `${errorResults.length} Error` }] : []),
   ] : []
@@ -392,20 +389,6 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
             <StatTile value={blockedInPreview.length} label="Blocked — already received" />
           </div>
 
-          {skippedInPreview.length > 0 && (
-            <div className="rounded-2xl border border-[#F3DDA6] bg-[#FDF3DC] p-4">
-              <p className="text-[13px] font-semibold text-[#8A5207]">{skippedInPreview.length} member(s) will be skipped</p>
-              <div className="mt-2 space-y-2">
-                {skippedInPreview.map((r) => (
-                  <div key={r.person_id} className="rounded-xl bg-white p-3">
-                    <p className="text-[13px] font-medium text-[#1A2B1A]">{r.name}</p>
-                    <p className="mt-0.5 text-[12px] text-[#8A5207]">{r.reason}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {blockedInPreview.length > 0 && (
             <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4">
               <div className="flex items-center gap-2">
@@ -435,10 +418,6 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
               {blockedInPreview.length > 0 && (
                 <li><span className="font-semibold text-rose-700">{blockedInPreview.length} blocked</span> — already received this assistance type from another organization within 30 days</li>
               )}
-              <li>
-                <span className={skippedInPreview.length ? 'font-semibold text-[#8A5207]' : 'font-semibold text-[#7A8E7A]'}>{skippedInPreview.length} record(s) skipped</span>
-                {' — '}{skippedInPreview.length ? 'already enrolled in the selected program' : 'no duplicates in this batch'}
-              </li>
             </ul>
           </div>
 
@@ -454,8 +433,8 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
               <p className="text-[14px] font-semibold text-[#1E5637]">Distribution Complete</p>
               <p className="mt-0.5 text-[13px] text-[#1A2B1A]">
                 <span className="font-semibold">{createdResults.length}</span> record{createdResults.length === 1 ? '' : 's'} created,{' '}
-                <span className="font-semibold">{skippedResults.length}</span> skipped,{' '}
-                <span className="font-semibold text-rose-700">{blockedResults.length}</span> blocked
+                <span className="font-semibold text-rose-700">{blockedResults.length}</span> blocked,{' '}
+                <span className={errorResults.length ? 'font-semibold text-rose-700' : 'font-semibold'}>{errorResults.length}</span> error{errorResults.length === 1 ? '' : 's'}
               </p>
               <p className="mt-1 text-[11px] text-[#5A6B5C]">{finalResult.organization_name}</p>
             </div>
