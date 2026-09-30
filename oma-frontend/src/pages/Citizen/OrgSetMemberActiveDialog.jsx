@@ -45,7 +45,7 @@ export default function OrgSetMemberActiveDialog({
       <div className="org-sheet w-full max-w-[440px] rounded-t-[16px] bg-cz-surface p-5 sm:rounded-[16px]">
         <div className="flex gap-2">
           {targetActive ? (
-            <UserCheck size={18} className="mt-px shrink-0 text-cz-tile-blue-fg" aria-hidden="true" />
+            <UserCheck size={18} className={`mt-px shrink-0 ${domain.dashboardTheme.accentText}`} aria-hidden="true" />
           ) : (
             <AlertTriangle size={18} className="mt-px shrink-0 text-cz-warn-accent" aria-hidden="true" />
           )}

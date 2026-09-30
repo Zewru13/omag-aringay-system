@@ -62,7 +62,7 @@ export default function OrgAssignOfficerScreen({
             {domain.officerPositions.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
           {currentHolder && (
-            <p className="mt-2 rounded-[10px] border border-[#F5E0A3] bg-cz-alert-bg px-3.5 py-2.5 text-[13px] leading-[1.45] text-cz-alert-title">
+            <p className="org-rise mt-2 rounded-[10px] border border-[#F5E0A3] bg-cz-alert-bg px-3.5 py-2.5 text-[13px] leading-[1.45] text-cz-alert-title">
               {labels.orgAssignOfficer.positionHeld(currentHolder.full_name)}
             </p>
           )}
@@ -71,7 +71,7 @@ export default function OrgAssignOfficerScreen({
         <div>
           <label className={fieldLabel} htmlFor="assign-member">{labels.orgAssignOfficer.memberFieldLabel}</label>
           {members.length === 0 ? (
-            <p className="rounded-[12px] border-[0.5px] border-cz-border bg-white p-4 text-center text-[13px] italic text-cz-text-muted">
+            <p className="rounded-[14px] bg-white p-4 text-center text-[13px] italic text-cz-text-muted shadow-[var(--shadow-xs)]">
               {labels.orgAssignOfficer.noMembers}
             </p>
           ) : (
@@ -101,14 +101,14 @@ export default function OrgAssignOfficerScreen({
           <button
             type="button"
             onClick={onBack}
-            className="flex min-h-[46px] flex-1 items-center justify-center rounded-[10px] border-[0.5px] border-cz-border-strong text-[14px] font-semibold text-cz-text-2 transition-colors hover:bg-cz-page"
+            className="press-scale flex min-h-[46px] flex-1 items-center justify-center rounded-[10px] border-[0.5px] border-cz-border-strong bg-white text-[14px] font-semibold text-cz-text-2 transition-colors hover:bg-cz-page"
           >
             {labels.common.cancel}
           </button>
           <button
             type="submit"
             disabled={isBusy || !position || !personId}
-            className={`flex min-h-[46px] flex-1 items-center justify-center rounded-[10px] text-[14px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 ${theme.solidBtn}`}
+            className={`press-scale flex min-h-[46px] flex-1 items-center justify-center rounded-[10px] text-[14px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 ${theme.solidBtn}`}
           >
             {labels.orgAssignOfficer.assignButton}
           </button>

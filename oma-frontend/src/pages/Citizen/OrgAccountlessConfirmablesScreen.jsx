@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { Clock, UserCheck } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { labels } from './labels.js'
-import { OrgShell } from './OrgDashboardParts.jsx'
+import { OrgListSkeleton, OrgShell } from './OrgDashboardParts.jsx'
+import { ORG_SURFACE, useOrgIntro } from './orgStyles.js'
 import ConfirmOnBehalfModal from './ConfirmOnBehalfModal.jsx'
 
 // Accountless-beneficiary on-behalf-of confirmation (Piece 2) — a NEW,
@@ -36,6 +37,7 @@ export default function OrgAccountlessConfirmablesScreen({ domain, orgName, onBa
 
   const L = labels.orgConfirmables
   const theme = domain.dashboardTheme
+  const intro = useOrgIntro(!isLoading)
 
   return (
     <OrgShell theme={theme} chipLabel={orgName} active={active} onNav={(key) => (key === 'home' ? onBack() : onNav(key))} tabBar={tabBar} wide>
@@ -47,7 +49,12 @@ export default function OrgAccountlessConfirmablesScreen({ domain, orgName, onBa
         <p className="text-[13px] text-cz-text-2">{L.countLine(rows.length)}</p>
       </div>
 
-      {isLoading && <p className="text-[13px] italic text-cz-text-2">{L.loading}</p>}
+      {isLoading && (
+        <>
+          <OrgListSkeleton />
+          <p className="sr-only">{L.loading}</p>
+        </>
+      )}
 
       {!isLoading && hasError && (
         <p className="rounded-[12px] border-[0.5px] border-cz-danger-border bg-cz-danger-bg p-4 text-[13px] text-cz-danger-body">
@@ -56,21 +63,22 @@ export default function OrgAccountlessConfirmablesScreen({ domain, orgName, onBa
       )}
 
       {!isLoading && !hasError && rows.length === 0 && (
-        <p className="rounded-[12px] border-[0.5px] border-cz-border bg-white p-6 text-center text-[13px] italic text-cz-text-muted">
+        <p className="rounded-[14px] bg-white p-6 text-center text-[13px] italic text-cz-text-muted shadow-[var(--shadow-xs)]">
           {L.empty}
         </p>
       )}
 
       {!isLoading && !hasError && rows.length > 0 && (
         <div className="space-y-3">
-          {rows.map((row) => {
+          {rows.map((row, idx) => {
             const name = domain.confirmableName(row)
             const isPending = row.latest_request_status === 'PENDING'
             const wasRejected = row.latest_request_status === 'REJECTED'
             return (
               <article
                 key={row.id}
-                className="rounded-[12px] border-[0.5px] border-cz-border bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
+                style={intro && idx < 6 ? { '--i': idx } : undefined}
+                className={`${ORG_SURFACE} p-4${intro && idx < 6 ? ' org-rise' : ''}`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -88,7 +96,7 @@ export default function OrgAccountlessConfirmablesScreen({ domain, orgName, onBa
                     <button
                       type="button"
                       onClick={() => setModalRecord(row)}
-                      className={`flex shrink-0 items-center gap-1.5 rounded-[8px] px-3 py-2 text-[12.5px] font-semibold text-white transition-opacity hover:opacity-90 ${theme.solidBtn}`}
+                      className={`press-scale flex shrink-0 items-center gap-1.5 rounded-[8px] px-3 py-2 text-[12.5px] font-semibold text-white transition-opacity hover:opacity-90 ${theme.solidBtn}`}
                     >
                       <UserCheck size={14} aria-hidden="true" />
                       {L.confirmButton}

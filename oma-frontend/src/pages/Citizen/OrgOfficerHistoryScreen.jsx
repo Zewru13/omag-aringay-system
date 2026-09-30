@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import api from '../../api/axiosInstance.js'
 import { labels } from './labels.js'
-import { OrgPageHeader, OrgShell } from './OrgDashboardParts.jsx'
+import { OrgListSkeleton, OrgPageHeader, OrgShell } from './OrgDashboardParts.jsx'
+import { ORG_SURFACE, useOrgIntro } from './orgStyles.js'
 
 // Read-only: every past + present officer per position, mirroring the
 // staff-side Officer History modal on OrganizationDetailPage. Same
@@ -13,6 +14,7 @@ export default function OrgOfficerHistoryScreen({ domain, orgId, orgName, onBack
   const [rows, setRows] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
+  const intro = useOrgIntro(!isLoading)
 
   useEffect(() => {
     let cancelled = false
@@ -37,7 +39,10 @@ export default function OrgOfficerHistoryScreen({ domain, orgId, orgName, onBack
       <OrgPageHeader title={labels.orgOfficerHistory.title} subtitle={labels.orgHome.officerHistorySub} onBack={onBack} />
 
       {isLoading && (
-        <p className="text-[13px] text-cz-text-muted">{labels.common.loading}</p>
+        <>
+          <OrgListSkeleton />
+          <p className="sr-only">{labels.common.loading}</p>
+        </>
       )}
 
       {!isLoading && hasError && (
@@ -47,17 +52,18 @@ export default function OrgOfficerHistoryScreen({ domain, orgId, orgName, onBack
       )}
 
       {!isLoading && !hasError && rows.length === 0 && (
-        <p className="rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface p-6 text-center text-[13px] italic text-cz-text-muted">
+        <p className="rounded-[14px] bg-white p-6 text-center text-[13px] italic text-cz-text-muted shadow-[var(--shadow-xs)]">
           {labels.orgOfficerHistory.empty}
         </p>
       )}
 
       {!isLoading && !hasError && rows.length > 0 && (
-        <ul className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+        <ul className={ORG_SURFACE}>
           {rows.map((o, i) => (
             <li
               key={o.id}
-              className={`px-4 py-3 ${i === rows.length - 1 ? '' : 'border-b-[0.5px] border-cz-border'}`}
+              style={intro && i < 8 ? { '--i': i } : undefined}
+              className={`px-4 py-3 ${i === rows.length - 1 ? '' : 'border-b-[0.5px] border-cz-border'}${intro && i < 8 ? ' org-rise' : ''}`}
             >
               <div className="flex items-center justify-between gap-2">
                 <p className="text-[15px] font-semibold text-cz-text">{o.full_name}</p>
@@ -82,7 +88,7 @@ export default function OrgOfficerHistoryScreen({ domain, orgId, orgName, onBack
                 {labels.common.formatDate(o.term_start_date)} – {labels.common.formatDate(o.term_end_date)}
               </p>
               {o.early_exit_reason && (
-                <p className="mt-1.5 rounded-[8px] bg-cz-org-panel px-2.5 py-1.5 text-[12px] text-cz-text-2">
+                <p className="mt-1.5 rounded-[8px] bg-cz-page px-2.5 py-1.5 text-[12px] text-cz-text-2">
                   {o.early_exit_reason}
                 </p>
               )}

@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { CheckCircle2, XCircle } from 'lucide-react'
+import { CheckCircle2, ChevronRight, XCircle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import { labels } from './labels.js'
 import { OrgPageHeader, OrgShell } from './OrgDashboardParts.jsx'
+import { ORG_SURFACE } from './orgStyles.js'
 import { todayISO } from '../../utils/localDate.js'
 
 // Organization Reference rebuild — Mag-report ng Tulong (image5-7, 17, 19,
@@ -59,7 +60,7 @@ const R = labels.orgReportAssistance
 const RA = labels.reportAssistance
 
 const FIELD_LABEL = 'mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-cz-text-2'
-const CARD = 'rounded-[12px] border-[0.5px] border-cz-border bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)]'
+const CARD = `${ORG_SURFACE} p-4`
 
 // Type selector alone (image5/6/20's "URI NG TULONG" dropdown) — split out
 // from the amount fields below so the org-wide flow can show just this +
@@ -68,7 +69,7 @@ const CARD = 'rounded-[12px] border-[0.5px] border-cz-border bg-white p-4 shadow
 function AssistanceTypeField({ domain, form, set, fieldBox }) {
   const isOtherType = form.assistance_type === 'Other'
   return (
-    <div>
+    <div className={CARD}>
       <label className={FIELD_LABEL} htmlFor="assistance-type">{R.typeHeading}</label>
       <select
         id="assistance-type"
@@ -113,7 +114,7 @@ function AssistanceAmountFields({ theme, form, set }) {
             />
           </div>
           {form.cash_amount && Number(form.cash_amount) > 0 && (
-            <p className="mt-2.5 rounded-[8px] bg-cz-tile-blue-bg px-3 py-2 text-[13px] font-semibold text-cz-tile-blue-fg">
+            <p className={`mt-2.5 rounded-[8px] px-3 py-2 text-[13px] font-semibold ${theme.tileSelectedBg} ${theme.tileSelectedText}`}>
               {R.cashPreview(Number(form.cash_amount).toLocaleString('en-PH'))}
             </p>
           )}
@@ -416,32 +417,42 @@ export default function OrgReportAssistanceScreen({
     return <span className="inline-flex shrink-0 items-center gap-1 text-[12px] font-semibold text-cz-danger-accent"><XCircle size={13} /> {L.statusError}</span>
   }
 
-  const primaryBtn = `flex min-h-[48px] w-full items-center justify-center rounded-[10px] text-[15px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 ${theme.solidBtn}`
-  const ghostBtn = 'flex min-h-[46px] w-full items-center justify-center rounded-[10px] border-[0.5px] border-cz-border-strong text-[14px] text-cz-text-2 transition-colors hover:bg-[#F6F5F1]'
+  const primaryBtn = `press-scale flex min-h-[48px] w-full items-center justify-center rounded-[10px] text-[15px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50 ${theme.solidBtn}`
+  const ghostBtn = 'press-scale flex min-h-[46px] w-full items-center justify-center rounded-[10px] border-[0.5px] border-cz-border-strong bg-white text-[14px] text-cz-text-2 transition-colors hover:bg-[#F6F5F1]'
 
   const shellNav = (key) => (key === 'home' ? onBack() : onBack())
 
   // ── Chooser (image7/17) ────────────────────────────────────────────
   if (step === 'chooser') {
     return (
-      <OrgShell theme={theme} chipLabel={orgName} active="home" onNav={shellNav} tabBar={tabBar} wide={false}>
+      <OrgShell theme={theme} chipLabel={orgName} active="home" onNav={shellNav} tabBar={tabBar} wide={false} pageKey={step}>
         <OrgPageHeader title={R.title} subtitle={R.chooserSubtitle} onBack={onBack} />
         <div className="max-w-lg space-y-3">
           <button
             type="button"
             onClick={() => { setForm(emptyForm(domain)); setStep('memberForm') }}
-            className={`${CARD} w-full text-left transition-colors hover:bg-[#F6F5F1]`}
+            className={`${CARD} press-scale w-full text-left transition-colors hover:bg-[#F6F5F1]`}
           >
-            <p className={`text-[15px] font-semibold ${theme.accentText}`}>{R.chooseMemberTitle}</p>
-            <p className="mt-1 text-[13px] leading-[1.45] text-cz-text-2">{R.chooseMemberBody}</p>
+            <span className="flex items-center gap-3">
+              <span className="min-w-0 flex-1">
+                <span className={`block text-[15px] font-semibold ${theme.accentText}`}>{R.chooseMemberTitle}</span>
+                <span className="mt-1 block text-[13px] leading-[1.45] text-cz-text-2">{R.chooseMemberBody}</span>
+              </span>
+              <ChevronRight size={18} className="shrink-0 text-cz-text-muted" aria-hidden="true" />
+            </span>
           </button>
           <button
             type="button"
             onClick={() => { setForm(emptyForm(domain)); setStep('orgForm') }}
-            className={`${CARD} w-full text-left transition-colors hover:bg-[#F6F5F1]`}
+            className={`${CARD} press-scale w-full text-left transition-colors hover:bg-[#F6F5F1]`}
           >
-            <p className={`text-[15px] font-semibold ${theme.accentText}`}>{R.chooseOrgTitle}</p>
-            <p className="mt-1 text-[13px] leading-[1.45] text-cz-text-2">{R.chooseOrgBody(activeMemberCount)}</p>
+            <span className="flex items-center gap-3">
+              <span className="min-w-0 flex-1">
+                <span className={`block text-[15px] font-semibold ${theme.accentText}`}>{R.chooseOrgTitle}</span>
+                <span className="mt-1 block text-[13px] leading-[1.45] text-cz-text-2">{R.chooseOrgBody(activeMemberCount)}</span>
+              </span>
+              <ChevronRight size={18} className="shrink-0 text-cz-text-muted" aria-hidden="true" />
+            </span>
           </button>
         </div>
       </OrgShell>
@@ -451,7 +462,7 @@ export default function OrgReportAssistanceScreen({
   // ── Para sa Isang Miyembro (image6/19) ──────────────────────────────
   if (step === 'memberForm') {
     return (
-      <OrgShell theme={theme} chipLabel={orgName} active="home" onNav={shellNav} tabBar={tabBar} wide={false}>
+      <OrgShell theme={theme} chipLabel={orgName} active="home" onNav={shellNav} tabBar={tabBar} wide={false} pageKey={step}>
         <OrgPageHeader title={R.memberFormTitle} subtitle={R.memberFormSubtitle} onBack={resetToChooser} />
         <form onSubmit={submitMemberForm} className="max-w-lg space-y-4">
           <div>
@@ -486,7 +497,7 @@ export default function OrgReportAssistanceScreen({
   // reference doesn't show (its screenshots stop here).
   if (step === 'orgForm') {
     return (
-      <OrgShell theme={theme} chipLabel={orgName} active="home" onNav={shellNav} tabBar={tabBar} wide={false}>
+      <OrgShell theme={theme} chipLabel={orgName} active="home" onNav={shellNav} tabBar={tabBar} wide={false} pageKey={step}>
         <OrgPageHeader title={R.orgFormTitle} subtitle={R.orgFormSubtitle(activeMemberCount)} onBack={resetToChooser} />
         <form onSubmit={handleOrgStep1Next} className="max-w-lg space-y-4">
           <AssistanceTypeField domain={domain} form={form} set={set} fieldBox={fieldBox} />
@@ -512,7 +523,7 @@ export default function OrgReportAssistanceScreen({
   // patterns since there is nothing here to match literally.
   if (step === 'orgFormDetails') {
     return (
-      <OrgShell theme={theme} chipLabel={orgName} active="home" onNav={shellNav} tabBar={tabBar} wide={false}>
+      <OrgShell theme={theme} chipLabel={orgName} active="home" onNav={shellNav} tabBar={tabBar} wide={false} pageKey={step}>
         <OrgPageHeader title={R.orgFormTitle} subtitle={R.orgFormSubtitle(activeMemberCount)} onBack={() => setStep('orgForm')} />
         <form onSubmit={handlePreview} className="max-w-lg space-y-4">
           <AssistanceAmountFields theme={theme} form={form} set={set} />
@@ -552,7 +563,7 @@ export default function OrgReportAssistanceScreen({
   // ── Confirmation (unchanged dry_run contract) ───────────────────────
   if (step === 'confirm' && preview) {
     return (
-      <OrgShell theme={theme} chipLabel={orgName} active="home" onNav={shellNav} tabBar={tabBar} wide={false}>
+      <OrgShell theme={theme} chipLabel={orgName} active="home" onNav={shellNav} tabBar={tabBar} wide={false} pageKey={step}>
         <OrgPageHeader title={R.confirmTitle} onBack={() => setStep('orgFormDetails')} />
         <div className={`${CARD} max-w-lg space-y-1.5`}>
           <p className="text-[13px] text-cz-text-2"><span className="font-semibold text-cz-text">{L.organizationLabel}:</span> {preview.organization_name}</p>
@@ -591,7 +602,7 @@ export default function OrgReportAssistanceScreen({
   if (step === 'result' && finalResult) {
     const created = finalResult.results.filter((r) => r.status === 'created').length
     return (
-      <OrgShell theme={theme} chipLabel={orgName} active="home" onNav={shellNav} tabBar={tabBar} wide={false}>
+      <OrgShell theme={theme} chipLabel={orgName} active="home" onNav={shellNav} tabBar={tabBar} wide={false} pageKey={step}>
         <OrgPageHeader title={R.resultTitle} onBack={onBack} />
         <div className={`${CARD} max-w-lg`}>
           <p className="text-[15px] font-semibold text-cz-text">{finalResult.organization_name}</p>
@@ -603,7 +614,7 @@ export default function OrgReportAssistanceScreen({
             )}
           </p>
         </div>
-        <ul className="mt-3 max-w-lg overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+        <ul className={`mt-3 max-w-lg ${ORG_SURFACE}`}>
           {finalResult.results.map((r, i) => (
             <li key={r.person_id} className={`px-4 py-3 ${i === finalResult.results.length - 1 ? '' : 'border-b-[0.5px] border-cz-border'}`}>
               <div className="flex items-center justify-between gap-2">

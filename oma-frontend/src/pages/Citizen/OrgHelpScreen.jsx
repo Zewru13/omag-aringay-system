@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ChevronDown, MapPin } from 'lucide-react'
 import { OrgPageHeader, OrgSectionLabel, OrgShell } from './OrgDashboardParts.jsx'
 import { labels } from './labels.js'
+import { ORG_SURFACE } from './orgStyles.js'
 
 // New screen — spec item 10. Real FAQ content covering the actual
 // capabilities this account has (not a placeholder page), plus an OMAg
@@ -21,7 +22,7 @@ function FaqItem({ q, a, isOpen, onToggle }) {
         type="button"
         onClick={onToggle}
         aria-expanded={isOpen}
-        className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-cz-org-panel"
+        className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-cz-page"
       >
         <span className="text-[14.5px] font-semibold text-cz-text">{q}</span>
         <ChevronDown
@@ -57,7 +58,7 @@ export default function OrgHelpScreen({ domain, orgName, onBack, tabBar, active,
       <div className="max-w-[640px] space-y-4">
         <section>
           <OrgSectionLabel>{H.faqHeading}</OrgSectionLabel>
-          <div className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+          <div className={ORG_SURFACE}>
             {H.faq.map((item) => (
               <FaqItem
                 key={item.key}

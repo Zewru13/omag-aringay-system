@@ -165,7 +165,7 @@ export function OrgTopBar({ theme, chipLabel, onNav, onToggleSidebar }) {
 // own `view` state, so onNav here only ever needs to cover that one case
 // from a sub-screen). Collapse state (Phase 3) is self-contained here via
 // `useSidebarCollapsed`, so no calling screen needs to know about it.
-export function OrgShell({ theme, chipLabel, active, onNav, tabBar, wide = false, children }) {
+export function OrgShell({ theme, chipLabel, active, onNav, tabBar, wide = false, pageKey, children }) {
   const [collapsed, toggleCollapsed] = useSidebarCollapsed()
   return (
     <div className="flex min-h-screen w-full bg-cz-page">
@@ -176,10 +176,26 @@ export function OrgShell({ theme, chipLabel, active, onNav, tabBar, wide = false
           {/* Each screen mounts a fresh OrgShell, so this wrapper's entrance
               plays on every screen change while the sidebar and top bar
               (outside it) stay put. */}
-          <div className="org-page-in">{children}</div>
+          <div key={pageKey} className="org-page-in">{children}</div>
         </main>
       </div>
       {tabBar}
+    </div>
+  )
+}
+
+// Placeholder cards while a list loads — the same white surface the real
+// cards use, so the page doesn't jump when the data arrives, and a shimmer
+// reads as "still loading" where plain text reads as "nothing here".
+export function OrgListSkeleton({ rows = 3 }) {
+  return (
+    <div className="space-y-3" aria-hidden="true">
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} className="rounded-[14px] bg-white p-4 shadow-[var(--shadow-xs)]">
+          <span className="skeleton-shimmer block h-4 w-2/5 rounded-[6px]" />
+          <span className="skeleton-shimmer mt-3 block h-3 w-3/4 rounded-[6px]" />
+        </div>
+      ))}
     </div>
   )
 }
@@ -310,14 +326,14 @@ function OrgAccountBadge({ theme, chipLabel, onNav }) {
             <button
               type="button"
               onClick={() => { close(); onNav('orgInfo') }}
-              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] text-cz-text transition-colors hover:bg-cz-org-panel"
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] text-cz-text transition-colors hover:bg-cz-page"
             >
               <User size={15} className="shrink-0 text-cz-text-muted" aria-hidden="true" /> {labels.orgHome.accountProfile}
             </button>
             <button
               type="button"
               onClick={() => { close(); onNav('help') }}
-              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] text-cz-text transition-colors hover:bg-cz-org-panel"
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] text-cz-text transition-colors hover:bg-cz-page"
             >
               <HelpCircle size={15} className="shrink-0 text-cz-text-muted" aria-hidden="true" /> {labels.orgHome.accountHelp}
             </button>
@@ -366,14 +382,14 @@ function OrgAccountMenu({ chipLabel, onNav }) {
             <button
               type="button"
               onClick={() => { close(); onNav('orgInfo') }}
-              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] text-cz-text transition-colors hover:bg-cz-org-panel"
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] text-cz-text transition-colors hover:bg-cz-page"
             >
               <User size={15} className="shrink-0 text-cz-text-muted" aria-hidden="true" /> {labels.orgHome.accountProfile}
             </button>
             <button
               type="button"
               onClick={() => { close(); onNav('help') }}
-              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] text-cz-text transition-colors hover:bg-cz-org-panel"
+              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] text-cz-text transition-colors hover:bg-cz-page"
             >
               <HelpCircle size={15} className="shrink-0 text-cz-text-muted" aria-hidden="true" /> {labels.orgHome.accountHelp}
             </button>
@@ -620,7 +636,7 @@ export function OrgActionRow({ icon: Icon, tone = 'blue', title, subtitle, onCli
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-3.5 rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface p-3.5 text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-colors hover:bg-cz-org-panel"
+      className="flex w-full items-center gap-3.5 rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface p-3.5 text-left shadow-[0_1px_2px_rgba(16,24,40,0.04)] transition-colors hover:bg-cz-page"
     >
       <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] ${TILE[tone]}`} aria-hidden="true">
         <Icon size={19} />

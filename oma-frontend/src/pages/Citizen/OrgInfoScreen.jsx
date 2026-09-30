@@ -7,6 +7,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { ARINGAY_BARANGAYS } from '../../constants/barangays.js'
 import { sanitizePhoneDigits, validatePhone } from '../../utils/validation.js'
 import { OrgPageHeader, OrgShell } from './OrgDashboardParts.jsx'
+import { ORG_SURFACE } from './orgStyles.js'
 import { EditLegend } from './citizenUI.jsx'
 import { labels } from './labels.js'
 
@@ -41,7 +42,7 @@ const CONTACT_READONLY_FIELDS = ['contact_person', 'email_address']
 
 const hasValue = (v) => v !== null && v !== undefined && String(v).trim() !== ''
 
-const CARD = 'overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface'
+const CARD = ORG_SURFACE
 
 function CardHeader({ theme, children }) {
   return (
@@ -560,8 +561,8 @@ export default function OrgInfoScreen({ record, domain, onBack, tabBar, onRecord
       </div>
 
       {requestField && (
-        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center">
-          <div className="w-full max-w-[440px] rounded-t-[16px] bg-cz-surface p-5 sm:rounded-[16px]">
+        <div className="org-backdrop fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center">
+          <div className="org-sheet w-full max-w-[440px] rounded-t-[16px] bg-cz-surface p-5 sm:rounded-[16px]">
             <h2 className="text-[17px] font-semibold text-cz-text">
               {labels.profileEdit.requestTitle(labels.profileEdit.fieldLabels[requestField])}
             </h2>

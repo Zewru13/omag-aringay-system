@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Search } from 'lucide-react'
+import { Info, Search } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import OrgAvatar from './OrgAvatar.jsx'
 import { labels } from './labels.js'
 import { OrgPageHeader, OrgShell } from './OrgDashboardParts.jsx'
+import { ORG_SURFACE } from './orgStyles.js'
 import { ARINGAY_BARANGAYS } from '../../constants/barangays.js'
 
 // Organization Reference rebuild — Magdagdag ng Kasapi (image4/15): Pangalan
@@ -118,17 +119,20 @@ export default function OrgAddMemberScreen({
 
         <button
           type="submit"
-          className={`flex min-h-[46px] w-full items-center justify-center rounded-[10px] text-[14px] font-semibold text-white transition-opacity hover:opacity-90 ${theme.solidBtn}`}
+          className={`press-scale flex min-h-[46px] w-full items-center justify-center rounded-[10px] text-[14px] font-semibold text-white transition-opacity hover:opacity-90 ${theme.solidBtn}`}
         >
           {labels.orgAddMember.searchButton}
         </button>
 
-        <div className="rounded-[10px] border-[0.5px] border-cz-tile-blue-fg/30 bg-cz-tile-blue-bg px-3.5 py-3">
-          <p className="text-[12.5px] leading-[1.5] text-cz-tile-blue-fg">
-            <span className="font-semibold">{labels.orgAddMember.noticeLabel}:</span>{' '}
+        {/* A plain note with a quiet icon: this is reference information, not an
+            alert, so it doesn't get a colored box competing with the button. */}
+        <p className="flex gap-2 text-[12.5px] leading-[1.5] text-cz-text-2">
+          <Info size={15} className={`mt-0.5 shrink-0 ${theme.accentText}`} aria-hidden="true" />
+          <span>
+            <span className="font-semibold text-cz-text">{labels.orgAddMember.noticeLabel}:</span>{' '}
             {domain.key === 'farmers_org' ? labels.orgAddMember.noticeFarmers : labels.orgAddMember.noticeFisherfolk}
-          </p>
-        </div>
+          </span>
+        </p>
       </form>
 
       <div className="mt-5 max-w-lg space-y-3">
@@ -137,7 +141,7 @@ export default function OrgAddMemberScreen({
           <p className="text-[13px] text-cz-text-2">{labels.orgAddMember.minChars}</p>
         )}
         {!isSearching && hasSearched && term.trim().length >= MIN_SEARCH_LENGTH && results.length === 0 && (
-          <p className="rounded-[12px] border-[0.5px] border-cz-border-strong bg-white p-6 text-center text-[13px] italic text-cz-text-muted">
+          <p className="rounded-[14px] bg-white p-6 text-center text-[13px] italic text-cz-text-muted shadow-[var(--shadow-xs)]">
             {labels.orgAddMember.noResults}
           </p>
         )}
@@ -149,7 +153,7 @@ export default function OrgAddMemberScreen({
         )}
 
         {results.length > 0 && (
-          <ul className="overflow-hidden rounded-[12px] border-[0.5px] border-cz-border bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]">
+          <ul className={ORG_SURFACE}>
             {results.map((cand, i) => {
               const already = memberIdSet.has(cand.id)
               const membershipNote = domain.candidateMembershipNote(cand)
@@ -175,7 +179,7 @@ export default function OrgAddMemberScreen({
                       type="button"
                       disabled={busyId === cand.id}
                       onClick={() => submitAdd(cand)}
-                      className={`min-h-[38px] shrink-0 rounded-[9px] px-3.5 text-white transition-opacity hover:opacity-90 disabled:opacity-50 ${theme.solidBtn}`}
+                      className={`press-scale min-h-[38px] shrink-0 rounded-[9px] px-3.5 text-white transition-opacity hover:opacity-90 disabled:opacity-50 ${theme.solidBtn}`}
                     >
                       <span className="text-[13px] font-semibold">{labels.orgAddMember.addButton}</span>
                     </button>

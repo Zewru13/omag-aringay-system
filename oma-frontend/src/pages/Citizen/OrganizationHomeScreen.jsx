@@ -11,6 +11,7 @@ import OrgOfficerHistoryScreen from './OrgOfficerHistoryScreen.jsx'
 import OrgMembersScreen from './OrgMembersScreen.jsx'
 import OrgInfoScreen from './OrgInfoScreen.jsx'
 import { OrgShell } from './OrgDashboardParts.jsx'
+import { ORG_EYEBROW, ORG_SURFACE } from './orgStyles.js'
 import { labels } from './labels.js'
 import { CitizenTabBar } from './citizenUI.jsx'
 
@@ -255,8 +256,8 @@ export default function OrganizationHomeScreen({ record, domain }) {
     ? labels.orgHome.typeBadgeFarmers
     : labels.orgHome.typeBadgeFisherfolk
   const total = domain.officerPositions.length
-  const eyebrow = 'text-[11px] font-semibold uppercase tracking-[0.08em] text-cz-text-2'
-  const surface = 'overflow-hidden rounded-[14px] bg-white shadow-[var(--shadow-xs)]'
+  const eyebrow = ORG_EYEBROW
+  const surface = ORG_SURFACE
 
   const masthead = (
     <div {...riseProps(0)}>

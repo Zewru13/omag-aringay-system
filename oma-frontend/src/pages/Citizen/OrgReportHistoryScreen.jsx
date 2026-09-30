@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { labels } from './labels.js'
-import { OrgPageHeader, OrgShell } from './OrgDashboardParts.jsx'
+import { ORG_SURFACE, useOrgIntro } from './orgStyles.js'
+import { OrgListSkeleton, OrgShell } from './OrgDashboardParts.jsx'
 
 // Reference image9. The endpoint returns ONE ROW PER PERSON — a distribution
 // to seven members is seven beneficiary records — but the reference reads
@@ -123,6 +124,7 @@ export default function OrgReportHistoryScreen({ domain, orgName, onBack, tabBar
 
   const H = labels.orgReportHistory
   const theme = domain.dashboardTheme
+  const intro = useOrgIntro(!isLoading)
 
   return (
     <OrgShell theme={theme} chipLabel={orgName} active={active} onNav={(key) => (key === 'home' ? onBack() : onNav(key))} tabBar={tabBar} wide>
@@ -131,7 +133,12 @@ export default function OrgReportHistoryScreen({ domain, orgName, onBack, tabBar
         <p className="text-[13px] text-cz-text-2">{H.countLine(groups.length)}</p>
       </div>
 
-      {isLoading && <p className="text-[13px] italic text-cz-text-2">{labels.orgReporting.loading}</p>}
+      {isLoading && (
+        <>
+          <OrgListSkeleton />
+          <p className="sr-only">{labels.orgReporting.loading}</p>
+        </>
+      )}
 
       {!isLoading && hasError && (
         <p className="rounded-[12px] border-[0.5px] border-cz-danger-border bg-cz-danger-bg p-4 text-[13px] text-cz-danger-body">
@@ -140,7 +147,7 @@ export default function OrgReportHistoryScreen({ domain, orgName, onBack, tabBar
       )}
 
       {!isLoading && !hasError && groups.length === 0 && (
-        <p className="rounded-[12px] border-[0.5px] border-cz-border bg-white p-6 text-center text-[13px] italic text-cz-text-muted">
+        <p className="rounded-[14px] bg-white p-6 text-center text-[13px] italic text-cz-text-muted shadow-[var(--shadow-xs)]">
           {labels.orgReporting.historyEmpty}
         </p>
       )}
@@ -156,7 +163,8 @@ export default function OrgReportHistoryScreen({ domain, orgName, onBack, tabBar
             return (
               <article
                 key={g.key}
-                className="rounded-[12px] border-[0.5px] border-cz-border bg-white p-4 shadow-[0_1px_2px_rgba(16,24,40,0.04)]"
+                style={intro && i < 6 ? { '--i': i } : undefined}
+                className={`${ORG_SURFACE} p-4${intro && i < 6 ? ' org-rise' : ''}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 flex-wrap items-center gap-1.5">
@@ -192,14 +200,22 @@ export default function OrgReportHistoryScreen({ domain, orgName, onBack, tabBar
                   </p>
                 )}
 
-                {!isSingle && isOpen && (
+                {/* Always mounted, height + opacity animated through a 0fr -> 1fr
+                    grid row, so opening a group's recipients no longer snaps. */}
+                {!isSingle && (
+                  <div
+                    className="grid transition-[grid-template-rows,opacity] duration-200 ease-out"
+                    style={{ gridTemplateRows: isOpen ? '1fr' : '0fr', opacity: isOpen ? 1 : 0 }}
+                    aria-hidden={!isOpen}
+                  >
+                  <div className="min-h-0 overflow-hidden">
                   <div className="mt-3 border-t-[0.5px] border-cz-border pt-3">
                     <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">
                       {H.recipientsHeading(g.recipients.length)}
                     </p>
                     <div className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
                       {g.recipients.map((r, n) => (
-                        <div key={`${g.key}-${n}`} className="stagger-item" style={{ '--stagger-index': n }}>
+                        <div key={`${g.key}-${n}`}>
                           <div className="flex items-center justify-between gap-2 text-[13px] text-cz-text">
                             <span className="truncate">{r.name}</span>
                             <StatusPill status={r.status} />
@@ -212,6 +228,8 @@ export default function OrgReportHistoryScreen({ domain, orgName, onBack, tabBar
                         </div>
                       ))}
                     </div>
+                  </div>
+                  </div>
                   </div>
                 )}
               </article>
