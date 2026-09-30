@@ -1,8 +1,60 @@
+import logging
+
 from django.utils import timezone
 
-from core.notifications import notify_user
+from core.notifications import notify_user, resolve_owner_user
 
 from .models import BeneficiaryRecord, DistributionStatus, FisherfolkBeneficiaryRecord
+
+logger = logging.getLogger(__name__)
+
+
+def notify_assistance_recorded(record, actor):
+    """
+    Tell a farmer/fisherfolk that assistance was recorded FOR them — the
+    counterpart of "staff logged an activity on your crop record": when
+    someone else acts on a citizen's record, the citizen is told.
+
+    Used by every path where staff or an organization creates assistance for
+    a person: the one-by-one Log Assistance endpoints and whole-organization
+    bulk distribution. Deliberately NOT called by the spreadsheet imports —
+    those load historical records in bulk, and notifying for each would flood
+    accounts with old news.
+
+    Rules, so it never becomes noise:
+      - Only a record that is already CONFIRMED (dated today or earlier). A
+        future-dated record starts PENDING and the recipient is told once, by
+        advance_due_distributions, when it comes due — telling them now as
+        well would be two notices for one event.
+      - Only the person's OWN account (resolve_owner_user with just their id,
+        so an organization login is never substituted for them). A member
+        with no account is a silent no-op, same as everywhere else.
+      - Never the actor themself (a citizen recording their own assistance).
+      - Non-fatal: this runs after the record is saved and must never turn a
+        successful save into an error.
+    """
+    try:
+        if record.status != DistributionStatus.CONFIRMED:
+            return
+        if isinstance(record, FisherfolkBeneficiaryRecord):
+            recipient = resolve_owner_user(fisherfolk_id=record.fisherfolk_id)
+            record_type = 'ff_beneficiary'
+        else:
+            recipient = resolve_owner_user(farmer_id=record.farmer_id)
+            record_type = 'beneficiary'
+        if recipient is None or (actor is not None and recipient.pk == actor.pk):
+            return
+        notify_user(
+            recipient=recipient,
+            actor=actor,
+            verb='recorded assistance for you:',
+            record_type=record_type,
+            record_id=record.id,
+            record_label=f'{record.assistance_type or "Assistance"} — {record.date_given}',
+            detail=(record.quantity or '')[:255],
+        )
+    except Exception:
+        logger.exception('notify_assistance_recorded failed (non-fatal): record=%s', getattr(record, 'pk', None))
 
 
 def advance_due_distributions(user):

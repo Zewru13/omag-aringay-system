@@ -18,6 +18,7 @@ from accounts.utils import create_inactive_citizen_shell
 from farmers.models import Farmer
 from farmers.rsbsa_import import normalize_barangay
 from fisheries.models import Fisherfolk
+from interventions.lifecycle import notify_assistance_recorded
 from interventions.models import BeneficiaryRecord, FisherfolkBeneficiaryRecord
 from interventions.serializers import OrganizationDistributionRequestSerializer
 
@@ -964,6 +965,12 @@ def _run_organization_distribution(record_model, person_field, organization, mem
                 'status': 'error',
                 'reason': str(exc),
             })
+        else:
+            # Only after the row is really saved — the recipient is told
+            # (if it is already-received and they have an account). Kept in
+            # the else: clause so a notification problem can never be
+            # reported as a failed distribution for this member.
+            notify_assistance_recorded(record, user)
 
     return results
 

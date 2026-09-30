@@ -16,7 +16,7 @@ from associations.models import FarmersOrganizationMember, FisherfolkOrganizatio
 from core.notifications import notify_staff, notify_user, resolve_owner_user
 from core.validators import validate_uploaded_image
 
-from .lifecycle import advance_due_distributions, advance_due_distributions_for_org
+from .lifecycle import advance_due_distributions, advance_due_distributions_for_org, notify_assistance_recorded
 from .models import (
     BeneficiaryConfirmationRequest,
     BeneficiaryRecord,
@@ -109,7 +109,8 @@ class BeneficiaryAdHocListCreateView(generics.ListCreateAPIView):
         return qs
 
     def perform_create(self, serializer):
-        serializer.save(recorded_by=self.request.user)
+        record = serializer.save(recorded_by=self.request.user)
+        notify_assistance_recorded(record, self.request.user)
 
 
 class BeneficiaryAdHocDetailView(PendingOnlyEditMixin, generics.RetrieveUpdateDestroyAPIView):
@@ -169,7 +170,8 @@ class FisherfolkBeneficiaryAdHocListCreateView(generics.ListCreateAPIView):
         return qs
 
     def perform_create(self, serializer):
-        serializer.save(recorded_by=self.request.user)
+        record = serializer.save(recorded_by=self.request.user)
+        notify_assistance_recorded(record, self.request.user)
 
 
 class FisherfolkBeneficiaryAdHocDetailView(PendingOnlyEditMixin, generics.RetrieveUpdateDestroyAPIView):
