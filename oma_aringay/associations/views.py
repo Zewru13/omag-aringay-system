@@ -987,9 +987,12 @@ class FarmersOrganizationDistributeAssistanceView(APIView):
         # several organizations, so this must be THIS org's roster
         # specifically, not "the" org on the farmer's own record (there is
         # no longer such a thing).
+        # Active memberships only: "every current member" means exactly
+        # that — a deactivated member (Toggle-not-delete batch) keeps their
+        # row and history but must not receive a new record.
         members = [
             m.farmer for m in
-            FarmersOrganizationMember.objects.filter(organization_id=pk).select_related('farmer')
+            FarmersOrganizationMember.objects.filter(organization_id=pk, is_active=True).select_related('farmer')
         ]
 
         results = _run_organization_distribution(
@@ -1018,9 +1021,10 @@ class FisherfolkOrganizationDistributeAssistanceView(APIView):
         request_serializer.is_valid(raise_exception=True)
         data = request_serializer.validated_data
 
+        # Active memberships only — see the farmers view above.
         members = [
             m.fisherfolk for m in
-            FisherfolkOrganizationMember.objects.filter(organization_id=pk).select_related('fisherfolk')
+            FisherfolkOrganizationMember.objects.filter(organization_id=pk, is_active=True).select_related('fisherfolk')
         ]
 
         results = _run_organization_distribution(

@@ -317,18 +317,14 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
             {/* Type-conditional fields — exactly one quantity-shaped field
                 (Amount for Cash, Duration for Training, Quantity for
                 everything else) plus, for Equipment/Seeds/Fertilizer only,
-                a second field naming what kind. */}
+                a second field naming what kind. Duration and the "what
+                kind" fields both come from TypeConditionalFields below —
+                this block deliberately does not render Duration itself. */}
             <div className="grid gap-4 sm:grid-cols-2">
               {isCashAssistance && (
                 <FormField label="Amount per Member (₱)" required pillLabel>
                   <input type="number" step="0.01" min="0.01" className={baseInputClasses} value={form.cash_amount}
                     onChange={(e) => set('cash_amount', e.target.value)} placeholder="e.g. 500.00" />
-                </FormField>
-              )}
-              {isTraining && (
-                <FormField label="Duration of Training (days)" required pillLabel>
-                  <input type="number" min="1" max="3" step="1" className={baseInputClasses} value={form.training_duration_days}
-                    onChange={(e) => set('training_duration_days', e.target.value)} placeholder="1–3 days" />
                 </FormField>
               )}
               {!isCashAssistance && !isTraining && (
