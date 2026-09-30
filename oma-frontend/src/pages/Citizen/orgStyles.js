@@ -7,7 +7,11 @@ import { useEffect, useState } from 'react'
 // forest-tinted shadow — no hairline box.
 export const ORG_SURFACE = 'overflow-hidden rounded-[14px] bg-white shadow-[var(--shadow-xs)]'
 
-export const ORG_EYEBROW = 'text-[11px] font-semibold uppercase tracking-[0.08em] text-cz-text-2'
+// Small label in plain sentence case. (These used to be tracked, uppercase
+// micro-headings; that pattern reads as generated, so labels are ordinary text.)
+export const ORG_EYEBROW = 'text-[12.5px] font-medium text-cz-text-2'
+
+export const ORG_FIELD_LABEL = 'mb-1.5 block text-[13px] font-medium text-cz-text-2'
 
 // Gate for a list's first-paint entrance. True from mount until `ms` after
 // `ready` first becomes true (pass `!isLoading` for lists that arrive with

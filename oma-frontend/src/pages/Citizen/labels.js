@@ -1253,14 +1253,14 @@ export const labels = {
     // lahat ng 12 kasapi.").
     orgFormSubtitle: (n) => `Ibibigay sa lahat ng ${n} kasapi.`,
     step1NextButton: 'Susunod: I-preview',
-    memberFieldLabel: 'KASAPI',
+    memberFieldLabel: 'Kasapi',
     memberPlaceholder: 'Pumili ng kasapi...',
-    typeHeading: 'URI NG TULONG',
-    quantity: 'DAMI',
-    unit: 'YUNIT',
-    cashPerMember: 'HALAGA BAWAT KASAPI (₱)',
+    typeHeading: 'Uri ng tulong',
+    quantity: 'Dami',
+    unit: 'Yunit',
+    cashPerMember: 'Halaga bawat kasapi (₱)',
     cashPreview: (amount) => `₱${amount} bawat kasapi`,
-    recipientsHeading: 'MGA TATANGGAP',
+    recipientsHeading: 'Mga tatanggap',
     allMembers: 'Lahat ng kasapi',
     memberCount: (n) => `${n} kasapi`,
     // States the option-(b) scope honestly rather than drawing per-member
@@ -1402,9 +1402,9 @@ export const labels = {
     passwordCardHeading: 'Password',
     passwordCardNote: 'Opsyonal. Maaari ninyong baguhin ang password anumang oras — hindi ito kailangan.',
     passwordSharedAccountNote: 'Ginagamit ang account na ito ng buong organisasyon — sinuman sa mga opisyal na may hawak ng password sa kasalukuyan. Ang pagbabago ng password ay makakaapekto sa LAHAT ng gumagamit nito, hindi lang sa inyo.',
-    passwordCurrentLabel: 'KASALUKUYANG PASSWORD',
-    passwordNewLabel: 'BAGONG PASSWORD',
-    passwordConfirmLabel: 'KUMPIRMAHIN ANG BAGONG PASSWORD',
+    passwordCurrentLabel: 'Kasalukuyang password',
+    passwordNewLabel: 'Bagong password',
+    passwordConfirmLabel: 'Kumpirmahin ang bagong password',
     passwordChangeCta: 'Baguhin ang Password',
     passwordMismatch: 'Hindi magkatugma ang bagong password at kumpirmasyon.',
     passwordChanged: 'Nabago na po ang password. Mag-log in ulit gamit ang bagong password.',
@@ -1448,8 +1448,8 @@ export const labels = {
   // ── Org parity batch: Help screen ───────────────────────────────────────
   orgHelp: {
     title: 'Tulong',
-    faqHeading: 'MGA MADALAS ITANONG',
-    contactHeading: 'MAKIPAG-UGNAYAN SA OMAg',
+    faqHeading: 'Mga madalas itanong',
+    contactHeading: 'Makipag-ugnayan sa OMAg',
     contactOfficeName: 'Opisina ng Municipal Agriculturist — Aringay, La Union',
     // Deliberately honest, not a fabricated address/phone/hours — those
     // are not finalized yet. An obvious placeholder beats a confident-
@@ -1622,6 +1622,9 @@ export const labels = {
 
     statMembers: 'KASAPI',
     statPositions: 'POSISYON',
+    // Sentence-case forms for the Home status strip.
+    statMembersLabel: 'Mga kasapi',
+    statPositionsLabel: 'Mga posisyon',
     viewMembers: 'Tingnan >',
     viewMembersFull: 'Tingnan ang mga kasapi',
     assignNow: 'Italaga',
@@ -1702,8 +1705,8 @@ export const labels = {
   // ── Batch 2: Add Member ────────────────────────────────────────────────
   orgAddMember: {
     title: 'Magdagdag ng Kasapi',
-    nameFieldLabel: 'PANGALAN',
-    barangayFieldLabel: 'BARANGAY',
+    nameFieldLabel: 'Pangalan o numero',
+    barangayFieldLabel: 'Barangay',
     searchButton: 'Hanapin',
     noticeLabel: 'Paalala',
     // Same rule for both domains since multi-organization membership
@@ -1715,11 +1718,13 @@ export const labels = {
     // candidateMembershipNote.
     noticeFarmers: 'Maaaring maging kasapi ang isang magsasaka ng higit sa isang Farmers Organization nang sabay. Isa lang ang pangunahin niyang organisasyon, at hindi siya matatanggal sa ibang organisasyon kapag idinagdag dito.',
     noticeFisherfolk: 'Maaaring maging kasapi ang isang mangingisda ng higit sa isang Fisherfolk Organization nang sabay. Isa lang ang pangunahin niyang organisasyon, at hindi siya matatanggal sa ibang organisasyon kapag idinagdag dito.',
-    // image4's placeholder reads "pangalan, RSBSA number, o barangay". The
-    // search endpoint deliberately does NOT match on RSBSA/FishR/LGU numbers
-    // (unnecessary disclosure for this use case, decided in Batch 1), so the
-    // placeholder promises only what the endpoint actually does.
-    searchPlaceholder: 'Pangalan ng kasapi...',
+    // Suggestions are matched on a name (any words, any order) or on the
+    // registry number itself once enough of it is typed; the response only
+    // ever returns the last four characters of that number.
+    searchPlaceholder: (registryName) => `Pangalan o ${registryName} number...`,
+    typeToSearch: 'Mag-type ng pangalan o numero — lalabas dito ang mga nakarehistro.',
+    registeredOnly: 'Mga nakarehistrong farmer/fisherfolk lang ang maaaring idagdag.',
+    searchFailed: 'Hindi makuha ang mga mungkahi. Subukan ulit.',
     // The 2-character minimum is a real server rule, not a UI nicety — the
     // endpoint returns nothing below it. Say so rather than showing an
     // empty-looking result.
@@ -1772,9 +1777,9 @@ export const labels = {
   orgAssignOfficer: {
     title: 'Mag-assign ng Opisyal',
     pickPosition: 'Pumili ng posisyon at ng kasaping ito-itakda. Mga miyembro lamang ng inyong organisasyon ang maaaring italaga.',
-    positionFieldLabel: 'POSISYON',
+    positionFieldLabel: 'Posisyon',
     positionPlaceholder: 'Pumili ng posisyon...',
-    memberFieldLabel: 'KASAPI',
+    memberFieldLabel: 'Kasapi',
     memberPlaceholder: 'Pumili ng kasapi...',
     pickMember: 'Pumili ng kasapi para sa posisyong ito:',
     currentHolder: (name) => `Ngayon: ${name}`,
@@ -1785,9 +1790,25 @@ export const labels = {
     failed: 'Hindi maitalaga ang opisyal.',
   },
 
+  // Search-as-you-type member picker (Assign Officer, Report Assistance).
+  orgPicker: {
+    placeholder: 'Pangalan, barangay o numero...',
+    empty: 'Walang kasaping tumutugma. Mga kasapi lang ng organisasyon ang maaaring piliin.',
+    clear: 'Alisin ang napili',
+    capped: (n) => `Ipinapakita ang unang ${n}. Paliitin ang paghahanap para makita ang iba.`,
+  },
+
   orgOfficerHistory: {
     title: 'Kasaysayan ng mga Opisyal',
     empty: 'Wala pang kasaysayan ng mga opisyal.',
+    cols: {
+      officer: 'Opisyal',
+      position: 'Posisyon',
+      start: 'Simula ng termino',
+      end: 'Katapusan ng termino',
+      status: 'Katayuan',
+      reason: 'Dahilan ng maagang pagtatapos',
+    },
     statusCurrent: 'Kasalukuyan',
     statusEndedEarly: 'Natapos Bago ang Oras',
     statusCompleted: 'Natapos ang Termino',

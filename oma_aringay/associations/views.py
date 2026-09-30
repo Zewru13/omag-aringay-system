@@ -2,7 +2,7 @@ from datetime import date, timedelta
 from io import BytesIO
 
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Case, IntegerField, Q, When
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, serializers, status
@@ -17,6 +17,7 @@ from accounts.permissions import IsAdminOrEvaluator, IsOwnOrgOrStaff
 from accounts.utils import create_inactive_citizen_shell
 from farmers.models import Farmer
 from farmers.rsbsa_import import normalize_barangay
+from core.utils import build_name_search_q
 from fisheries.models import Fisherfolk
 from interventions.lifecycle import notify_assistance_recorded
 from interventions.models import BeneficiaryRecord, FisherfolkBeneficiaryRecord
@@ -740,6 +741,39 @@ class FisherfolkOrganizationOfficerEndTermView(APIView):
 
 MIN_SEARCH_LENGTH = 2
 MAX_RESULTS = 20
+# An identifier (RSBSA / FishR / LGU number) is matched only once enough of it
+# has been typed to be a real number rather than a guess, and only when the
+# term actually contains a digit — so typing "ana" can never sweep the number
+# columns, and typing "01" cannot list the registry. The result cap and the
+# minimum length above still apply on top.
+MIN_NUMBER_SEARCH_LENGTH = 5
+
+
+def _name_or_number_q(search, name_fields, number_fields):
+    """Suggestion match for the add-member search: a full-name query ("Juan
+    Cruz", any order, partial words) via the shared build_name_search_q, or —
+    when the term looks like a number and is long enough — an identifier."""
+    q = build_name_search_q(search, name_fields)
+    if len(search) >= MIN_NUMBER_SEARCH_LENGTH and any(ch.isdigit() for ch in search):
+        for field in number_fields:
+            q |= Q(**{f'{field}__icontains': search})
+    return q
+
+
+def _prefix_first(qs, search, name_fields):
+    """Order suggestions so people whose name STARTS with what was typed come
+    before people whose name merely contains it ("ana" -> Ana Garcia before
+    Miana Abat), then alphabetically. Applied before the result cap, so the
+    best matches are the ones that survive it."""
+    tokens = search.split()
+    if not tokens:
+        return qs.order_by('last_name', 'first_name')
+    starts = Q()
+    for field in name_fields:
+        starts |= Q(**{f'{field}__istartswith': tokens[0]})
+    return qs.annotate(
+        _prefix_rank=Case(When(starts, then=0), default=1, output_field=IntegerField()),
+    ).order_by('_prefix_rank', 'last_name', 'first_name')
 
 
 class _AddCandidateSearchBase(generics.ListAPIView):
@@ -759,16 +793,14 @@ class FarmersOrganizationAddCandidateSearchView(_AddCandidateSearchBase):
         search = self._search_term()
         if len(search) < MIN_SEARCH_LENGTH:
             return Farmer.objects.none()
-        return (
+        qs = (
             Farmer.objects
-            .filter(
-                Q(first_name__icontains=search)
-                | Q(last_name__icontains=search)
-                | Q(middle_name__icontains=search)
-            )
+            .filter(_name_or_number_q(
+                search, ['first_name', 'middle_name', 'last_name'], ['rsbsa_number'],
+            ))
             .prefetch_related('farmer_organizations__organization')
-            .order_by('last_name', 'first_name')[:MAX_RESULTS]
         )
+        return _prefix_first(qs, search, ['first_name', 'middle_name', 'last_name'])[:MAX_RESULTS]
 
 
 class FisherfolkOrganizationAddCandidateSearchView(_AddCandidateSearchBase):
@@ -780,16 +812,15 @@ class FisherfolkOrganizationAddCandidateSearchView(_AddCandidateSearchBase):
         search = self._search_term()
         if len(search) < MIN_SEARCH_LENGTH:
             return Fisherfolk.objects.none()
-        return (
+        qs = (
             Fisherfolk.objects
-            .filter(
-                Q(first_name__icontains=search)
-                | Q(last_name__icontains=search)
-                | Q(middle_name__icontains=search)
-            )
+            .filter(_name_or_number_q(
+                search, ['first_name', 'middle_name', 'last_name'],
+                ['lgu_registration_number', 'fishr_number', 'rsbsa_number'],
+            ))
             .prefetch_related('fisherfolk_organizations__organization')
-            .order_by('last_name', 'first_name')[:MAX_RESULTS]
         )
+        return _prefix_first(qs, search, ['first_name', 'middle_name', 'last_name'])[:MAX_RESULTS]
 
 
 # ─── Per-organization bulk assistance distribution ──────────────────────────

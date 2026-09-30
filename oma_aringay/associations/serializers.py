@@ -30,22 +30,32 @@ from .models import (
 #                           reassignment (farmers) or see existing
 #                           memberships (fisherfolk)
 #
-# Government identifiers (RSBSA / FishR / LGU registration numbers) and all
-# contact details are deliberately EXCLUDED. They are not needed to pick a
-# person out of a search you already typed a name into, and they are the
-# fields with real disclosure consequences. See the views for the matching
-# minimum-query-length and result-cap limits that stop this being usable to
-# enumerate the whole registry.
+# Government identifiers and all contact details are NOT returned. An
+# identifier can now be TYPED to find someone (see _name_or_number_q in the
+# views — minimum length, digits only, result-capped), but the response only
+# carries `id_hint`, the last four characters, which is enough to tell two
+# people with the same name apart without disclosing the number itself.
+# See the views for the minimum-query-length and result-cap limits that stop
+# this being usable to enumerate the whole registry.
+
+
+def _id_hint(value):
+    value = (value or '').strip()
+    return f'…{value[-4:]}' if value else ''
 
 class FarmerAddCandidateSerializer(serializers.ModelSerializer):
     # Batch (Phase B): mirrors FisherfolkAddCandidateSerializer exactly now
     # that Farmer membership is also a real, multi-capable join table — no
     # more single current_organization_id/name, no more reassignment concept.
     current_organizations = serializers.SerializerMethodField()
+    id_hint = serializers.SerializerMethodField()
 
     class Meta:
         model = Farmer
-        fields = ['id', 'full_name', 'barangay', 'current_organizations']
+        fields = ['id', 'full_name', 'barangay', 'id_hint', 'current_organizations']
+
+    def get_id_hint(self, obj):
+        return _id_hint(obj.rsbsa_number)
 
     def get_current_organizations(self, obj):
         return [
@@ -56,10 +66,14 @@ class FarmerAddCandidateSerializer(serializers.ModelSerializer):
 
 class FisherfolkAddCandidateSerializer(serializers.ModelSerializer):
     current_organizations = serializers.SerializerMethodField()
+    id_hint = serializers.SerializerMethodField()
 
     class Meta:
         model = Fisherfolk
-        fields = ['id', 'full_name', 'barangay', 'current_organizations']
+        fields = ['id', 'full_name', 'barangay', 'id_hint', 'current_organizations']
+
+    def get_id_hint(self, obj):
+        return _id_hint(obj.lgu_registration_number or obj.fishr_number or obj.rsbsa_number)
 
     def get_current_organizations(self, obj):
         # A list, not a single value: fisherfolk membership is a real join

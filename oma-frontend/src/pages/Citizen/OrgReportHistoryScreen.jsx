@@ -210,7 +210,7 @@ export default function OrgReportHistoryScreen({ domain, orgName, onBack, tabBar
                   >
                   <div className="min-h-0 overflow-hidden">
                   <div className="mt-3 border-t-[0.5px] border-cz-border pt-3">
-                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">
+                    <p className="mb-2 text-[13px] font-semibold text-cz-text">
                       {H.recipientsHeading(g.recipients.length)}
                     </p>
                     <div className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">

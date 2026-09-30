@@ -4,7 +4,8 @@ import api from '../../api/axiosInstance.js'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import { labels } from './labels.js'
 import { OrgPageHeader, OrgShell } from './OrgDashboardParts.jsx'
-import { ORG_SURFACE } from './orgStyles.js'
+import OrgMemberPicker from './OrgMemberPicker.jsx'
+import { ORG_FIELD_LABEL, ORG_SURFACE } from './orgStyles.js'
 import { todayISO } from '../../utils/localDate.js'
 
 // Organization Reference rebuild — Mag-report ng Tulong (image5-7, 17, 19,
@@ -59,7 +60,7 @@ const L = labels.distributeAssistance
 const R = labels.orgReportAssistance
 const RA = labels.reportAssistance
 
-const FIELD_LABEL = 'mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-cz-text-2'
+const FIELD_LABEL = ORG_FIELD_LABEL
 const CARD = `${ORG_SURFACE} p-4`
 
 // Type selector alone (image5/6/20's "URI NG TULONG" dropdown) — split out
@@ -467,12 +468,13 @@ export default function OrgReportAssistanceScreen({
         <form onSubmit={submitMemberForm} className="max-w-lg space-y-4">
           <div>
             <label className={FIELD_LABEL} htmlFor="member-select">{R.memberFieldLabel}</label>
-            <select id="member-select" value={memberId} onChange={(e) => setMemberId(e.target.value)} className={fieldBox}>
-              <option value="">{R.memberPlaceholder}</option>
-              {members.map((m) => (
-                <option key={m.id} value={domain.rowPersonId(m)}>{domain.rowName(m)}</option>
-              ))}
-            </select>
+            <OrgMemberPicker
+              id="member-select"
+              domain={domain}
+              members={members}
+              value={memberId}
+              onChange={setMemberId}
+            />
           </div>
 
           <AssistanceTypeAndAmountFields theme={theme} domain={domain} form={form} set={set} fieldBox={fieldBox} />

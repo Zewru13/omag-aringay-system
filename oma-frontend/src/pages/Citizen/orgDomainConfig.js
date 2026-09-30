@@ -134,6 +134,7 @@ export const FARMERS_ORG_DOMAIN = {
   rowBarangay: (row) => row.farmer_barangay,
   rowIsActive: (row) => row.is_active !== false,
   rowIsMain: (row) => row.is_main === true,
+  rowIdNumber: (row) => row.farmer_rsbsa_number,
   officerPersonId: (o) => o.farmer_id,
   // Multi-org is legitimate here now, so adding someone never reassigns
   // them. Existing memberships are still worth SHOWING, so an officer can
@@ -195,6 +196,7 @@ export const FISHERFOLK_ORG_DOMAIN = {
   rowBarangay: (row) => row.fisherfolk_barangay,
   rowIsActive: (row) => row.is_active !== false,
   rowIsMain: (row) => row.is_main === true,
+  rowIdNumber: (row) => row.fisherfolk_lgu_number,
   officerPersonId: (o) => o.fisherfolk_id,
   // Multi-org is legitimate here, so adding someone never reassigns them.
   // Existing memberships are still worth SHOWING, so an officer can

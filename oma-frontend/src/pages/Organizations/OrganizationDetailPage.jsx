@@ -13,6 +13,7 @@ import ConfirmDialog from "../../components/UI/ConfirmDialog.jsx";
 import { baseInputClasses } from "../../components/UI/FormField.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
+import useSuggestSearch from "../../hooks/useSuggestSearch.js";
 import { agencyLabel } from "./agencyOptions.js";
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
@@ -108,8 +109,6 @@ function conditionTone(cond) {
 
 function AddMemberModal({ type, organizationId, organizationName, onClose, onSuccess }) {
   const [search, setSearch] = useState("");
-  const [results, setResults] = useState([]);
-  const [isSearching, setIsSearching] = useState(false);
   const [selected, setSelected] = useState(null);
   const [position, setPosition] = useState("Member");
   const [dateJoined, setDateJoined] = useState("");
@@ -127,22 +126,14 @@ function AddMemberModal({ type, organizationId, organizationName, onClose, onSuc
     type === "farmers" ? "rsbsa_number" : "lgu_registration_number";
   const idDisplayLabel = type === "farmers" ? "RSBSA No." : "LGU No.";
 
-  const handleSearch = async () => {
-    if (!search.trim()) return;
-    setIsSearching(true);
-    setResults([]);
-    setSelected(null);
-    try {
-      const response = await api.get(
-        `${searchEndpoint}?search=${encodeURIComponent(search)}`,
-      );
-      setResults(Array.isArray(response.data) ? response.data : (response.data.results || []));
-    } catch {
-      setResults([]);
-    } finally {
-      setIsSearching(false);
-    }
-  };
+  // Suggestions appear as staff type a name or ID number; the only people
+  // offered are registry records, and one must be picked from the list.
+  const { results, isSearching, hasSearched } = useSuggestSearch(
+    search,
+    (q) => api
+      .get(`${searchEndpoint}?search=${encodeURIComponent(q)}`)
+      .then((r) => (Array.isArray(r.data) ? r.data : (r.data.results || []))),
+  );
 
   // `isMain` is only sent once staff have answered the main-organization
   // choice; the first attempt omits it and lets the server decide.
@@ -242,34 +233,28 @@ function AddMemberModal({ type, organizationId, organizationName, onClose, onSuc
           <label className={labelCls}>
             Search {type === "farmers" ? "Farmer" : "Fisherfolk"}
           </label>
-          <div className="mt-1 flex gap-2">
-            <input
-              className={`${baseInputClasses} flex-1`}
-              placeholder="Name or ID number..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) =>
-                e.key === "Enter" && (e.preventDefault(), handleSearch())
+          <input
+            className={`${baseInputClasses} mt-1`}
+            placeholder="Name or ID number..."
+            autoComplete="off"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setSelected(null); }}
+            onKeyDown={(e) => {
+              // Enter picks the first suggestion instead of submitting the form.
+              if (e.key === "Enter") {
+                e.preventDefault();
+                if (results[0]) setSelected(results[0]);
               }
-            />
-            <Button
-              onClick={handleSearch}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              Search
-            </Button>
-          </div>
+            }}
+          />
+          <p className="mt-1.5 text-[12px] text-[#7A8E7A]">
+            Only registered {type === "farmers" ? "farmers" : "fisherfolk"} can be added — pick one from the list.
+          </p>
         </div>
 
         {/* Results */}
-        {isSearching && (
-          <p className="text-[13px] text-[#7A8E7A]">Searching...</p>
-        )}
-
-        {!isSearching && results.length > 0 && (
-          <div className="max-h-48 overflow-y-auto rounded-xl border border-[#E2E8E2]">
+        {results.length > 0 && (
+          <div className={`max-h-48 overflow-y-auto rounded-xl border border-[#E2E8E2] transition-opacity duration-150 ${isSearching ? "opacity-60" : ""}`}>
             {results.map((item) => (
               <button
                 key={item.id}
@@ -292,7 +277,7 @@ function AddMemberModal({ type, organizationId, organizationName, onClose, onSuc
           </div>
         )}
 
-        {!isSearching && results.length === 0 && search && (
+        {hasSearched && results.length === 0 && (
           <p className="text-[13px] text-[#7A8E7A]">
             No results. Try a different name or ID.
           </p>

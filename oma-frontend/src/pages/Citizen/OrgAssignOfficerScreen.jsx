@@ -3,6 +3,8 @@ import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { labels } from './labels.js'
 import { OrgPageHeader, OrgShell } from './OrgDashboardParts.jsx'
+import OrgMemberPicker from './OrgMemberPicker.jsx'
+import { ORG_FIELD_LABEL } from './orgStyles.js'
 
 // Organization Reference rebuild — Mag-assign ng Opisyal (image3/13): ONE
 // form, Posisyon and Kasapi shown together as two dropdowns, not the old
@@ -24,7 +26,7 @@ export default function OrgAssignOfficerScreen({
 
   const currentHolder = position ? officerByPosition[position] : null
   const fieldBox = `min-h-[46px] w-full rounded-[10px] border-[0.5px] border-cz-border-strong bg-white px-3.5 text-[14px] text-cz-text outline-none ${theme.focusBorder}`
-  const fieldLabel = 'mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-cz-text-2'
+  const fieldLabel = ORG_FIELD_LABEL
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -75,19 +77,13 @@ export default function OrgAssignOfficerScreen({
               {labels.orgAssignOfficer.noMembers}
             </p>
           ) : (
-            <select
+            <OrgMemberPicker
               id="assign-member"
-              className={fieldBox}
+              domain={domain}
+              members={members}
               value={personId}
-              onChange={(e) => setPersonId(e.target.value)}
-            >
-              <option value="">{labels.orgAssignOfficer.memberPlaceholder}</option>
-              {members.map((m) => (
-                <option key={m.id} value={domain.rowPersonId(m)}>
-                  {domain.rowName(m)}{domain.rowBarangay(m) ? ` — Brgy. ${domain.rowBarangay(m)}` : ''}
-                </option>
-              ))}
-            </select>
+              onChange={setPersonId}
+            />
           )}
         </div>
 

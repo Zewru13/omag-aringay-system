@@ -62,7 +62,7 @@ export default function ConfirmOnBehalfModal({ domain, record, onClose, onSucces
         </div>
 
         <form id="confirm-on-behalf-form" className="mt-4" onSubmit={handleSubmit}>
-          <label htmlFor="confirm-on-behalf-photo" className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-cz-text-2">
+          <label htmlFor="confirm-on-behalf-photo" className="mb-1.5 block text-[13px] font-medium text-cz-text-2">
             {L.photoLabel}
           </label>
           <input

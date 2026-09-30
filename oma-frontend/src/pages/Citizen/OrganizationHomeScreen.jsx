@@ -261,12 +261,11 @@ export default function OrganizationHomeScreen({ record, domain }) {
 
   const masthead = (
     <div {...riseProps(0)}>
-      <p className={`text-[11px] font-semibold uppercase tracking-[0.08em] ${theme.accentText}`}>{orgTypeLabel}</p>
-      <h1 className="mt-1 text-[26px] font-bold leading-[1.15] tracking-[-0.01em] text-cz-text">
+      <h1 className="text-[26px] font-bold leading-[1.15] tracking-[-0.01em] text-cz-text">
         {record?.label || labels.common.unknown}
       </h1>
       <p className="mt-1.5 text-[13px] text-cz-text-2">
-        {labels.orgHome.addressLine(record?.barangay || labels.common.unknown)}
+        {orgTypeLabel} · {labels.orgHome.addressLine(record?.barangay || labels.common.unknown)}
         {record?.registration_number ? ` · ${record.registration_number}` : ''}
       </p>
     </div>
@@ -285,7 +284,7 @@ export default function OrganizationHomeScreen({ record, domain }) {
           ) : (
             <span className={`block text-[32px] font-bold leading-none tabular-nums ${theme.accentText}`}>{members.length}</span>
           )}
-          <span className={`mt-1.5 block ${eyebrow}`}>{labels.orgHome.statMembers}</span>
+          <span className={`mt-1.5 block ${eyebrow}`}>{labels.orgHome.statMembersLabel}</span>
         </span>
         <span className="flex items-center gap-1 text-[13px] font-medium text-cz-text-2">
           {labels.orgHome.viewMembersFull}
@@ -295,7 +294,7 @@ export default function OrganizationHomeScreen({ record, domain }) {
 
       <div className="border-t-[0.5px] border-cz-border px-5 py-4">
         <div className="flex items-baseline justify-between">
-          <p className={eyebrow}>{labels.orgHome.statPositions}</p>
+          <p className={eyebrow}>{labels.orgHome.statPositionsLabel}</p>
           <p className="text-[13px] tabular-nums text-cz-text-2">
             <span className="text-[18px] font-bold text-cz-text">{isLoading ? '–' : filledPositions.length}</span>/{total}
           </p>
@@ -349,7 +348,6 @@ export default function OrganizationHomeScreen({ record, domain }) {
 
   const actionsSection = (
     <section className="mt-6">
-      <p {...riseProps(2, `mb-2 ${eyebrow}`)}>{labels.orgHome.actionsHeading}</p>
       <button
         type="button"
         onClick={() => setView('assistance')}
