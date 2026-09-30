@@ -78,6 +78,11 @@ export default function OrgMembersScreen({
             const personId = domain.rowPersonId(m)
             const position = positionOfPerson(personId)
             const isActive = domain.rowIsActive(m)
+            // Read-only: a member is "main" for THIS organization when it is
+            // their one main membership. Only shown while active — the
+            // backend clears the flag on deactivation, this just doesn't
+            // rely on that.
+            const isMain = isActive && domain.rowIsMain(m)
             return (
               <div
                 key={m.id}
@@ -103,10 +108,22 @@ export default function OrgMembersScreen({
                 <p className="truncate text-[13px] text-cz-text-2">
                   {domain.rowBarangay(m) ? `Brgy. ${domain.rowBarangay(m)}` : labels.common.unknown}
                 </p>
-                {position && (
-                  <span className={`mt-2 inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] ${theme.tileSelectedBg} ${theme.tileSelectedText}`}>
-                    {position}
-                  </span>
+                {(position || isMain) && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {position && (
+                      <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] ${theme.tileSelectedBg} ${theme.tileSelectedText}`}>
+                        {position}
+                      </span>
+                    )}
+                    {isMain && (
+                      <span
+                        title={labels.orgHome.mainBadgeTitle}
+                        className="inline-block rounded-full bg-cz-badge-green px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.04em] text-[#15803D]"
+                      >
+                        {labels.orgHome.mainBadge}
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
             )

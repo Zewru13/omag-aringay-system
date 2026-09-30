@@ -1654,6 +1654,10 @@ export const labels = {
     addMemberShort: 'Magdagdag',
     membersSearchPlaceholder: 'Hanapin ayon sa pangalan o barangay...',
     membersEmpty: 'Wala pang kasapi ang organisasyong ito.',
+    // Display only. A person who belongs to several organizations has one
+    // "main"; only OMAg staff can change it, so there is no action here.
+    mainBadge: 'Main',
+    mainBadgeTitle: 'Ito ang pangunahing organisasyon ng kasapi. Ang OMAg staff lang ang maaaring magpalit nito.',
     membersLoading: 'Kinukuha ang mga kasapi...',
     loadFailed: 'Hindi makuha ang datos ng organisasyon.',
     retry: 'Subukan ulit',

@@ -345,9 +345,16 @@ class FarmersOrganizationMemberSetMainView(APIView):
     farmer's main organization, clearing is_main on every other membership
     they hold (see _resolve_and_assign_main's docstring for the invariant
     this enforces). Mirrors FisherfolkOrganizationMemberSetMainView.
+
+    Staff only (ADMIN/EVALUATOR). This used to be IsOwnOrgOrStaff, which let
+    an organization's own login flip main for its members — no citizen
+    screen ever used that, and it is not the organization's decision: a
+    person's main organization is which one they primarily belong to when
+    they belong to several, and a person's other organizations shouldn't be
+    overridden unilaterally by one of them. The citizen Members screen shows
+    the Main marker read-only; changing it goes through staff.
     """
-    permission_classes = [IsAuthenticated, IsOwnOrgOrStaff]
-    org_linked_record_type = 'FARMERS_ORG'
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
     def post(self, request, pk, member_id):
         member = get_object_or_404(FarmersOrganizationMember, pk=member_id, organization_id=pk)
@@ -630,9 +637,9 @@ class FisherfolkOrganizationMemberOrgScopedSetActiveView(APIView):
 
 class FisherfolkOrganizationMemberSetMainView(APIView):
     """Batch (Phase B): explicit override — mirrors
-    FarmersOrganizationMemberSetMainView exactly."""
-    permission_classes = [IsAuthenticated, IsOwnOrgOrStaff]
-    org_linked_record_type = 'FISHERFOLK_ORG'
+    FarmersOrganizationMemberSetMainView exactly, including being staff-only
+    (see that view's docstring for why)."""
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
     def post(self, request, pk, member_id):
         member = get_object_or_404(FisherfolkOrganizationMember, pk=member_id, organization_id=pk)
