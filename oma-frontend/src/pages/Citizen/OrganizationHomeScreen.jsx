@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ClipboardList, History, Home, Package, UserCheck, UserCog, UserPlus, Users as UsersIcon } from 'lucide-react'
+import { ChevronRight, ClipboardList, History, Home, Package, UserCheck, UserCog, UserPlus, Users as UsersIcon } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import OrgHelpScreen from './OrgHelpScreen.jsx'
 import OrgReportAssistanceScreen from './OrgReportAssistanceScreen.jsx'
@@ -38,8 +38,8 @@ export default function OrganizationHomeScreen({ record, domain }) {
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
-  // Preserved for OrgOfficerHistoryScreen.jsx/OrgHelpScreen.jsx, which still
-  // use the OLD OrgScreen/OrgNavRail shell (out of scope) — that shell's
+  // Preserved for OrgHelpScreen.jsx, which still uses the OLD
+  // OrgScreen/OrgNavRail shell (out of scope) — that shell's
   // hamburger toggle needs real state here, not a no-op, or their existing
   // collapse behavior would silently stop working when reached from the
   // rebuilt Home. OrgInfoScreen.jsx moved onto the new OrgShell (2026-09-07,
@@ -145,8 +145,6 @@ export default function OrganizationHomeScreen({ record, domain }) {
         tabBar={tabBar(null)}
         active={null}
         onNav={goHomeOrNav}
-        railCollapsed={railCollapsed}
-        onToggleRail={() => setRailCollapsed((v) => !v)}
       />
     )
   }
@@ -316,6 +314,18 @@ export default function OrganizationHomeScreen({ record, domain }) {
           )
         })}
       </ul>
+      {/* Mirrors the staff detail page, where "Officer History" sits with the
+          officer roster. One row inside the card so it reads as part of the
+          roster at every width (the card renders once per breakpoint layout). */}
+      <button
+        type="button"
+        onClick={() => setView('officerHistory')}
+        className={`flex w-full items-center gap-2 border-t-[0.5px] border-cz-border px-4 py-3 text-left text-[13px] font-medium transition-colors hover:bg-cz-page ${theme.accentText}`}
+      >
+        <History size={15} aria-hidden="true" />
+        <span className="flex-1">{labels.orgHome.officerHistory}</span>
+        <ChevronRight size={16} className="shrink-0 text-cz-text-muted" aria-hidden="true" />
+      </button>
     </section>
   )
 

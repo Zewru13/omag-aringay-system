@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
 import api from '../../api/axiosInstance.js'
 import { labels } from './labels.js'
-import { OrgScreen } from './OrgDashboardParts.jsx'
+import { OrgPageHeader, OrgShell } from './OrgDashboardParts.jsx'
 
 // Read-only: every past + present officer per position, mirroring the
 // staff-side Officer History modal on OrganizationDetailPage. Same
 // ?history=1 endpoint the roster already uses for current-only reads.
-export default function OrgOfficerHistoryScreen({ domain, orgId, orgName, onBack, tabBar, active, onNav, railCollapsed, onToggleRail }) {
+// Reached from the "Kasaysayan ng mga Opisyal" row under the officer roster
+// on the Organization home. Mounts through the same OrgShell + OrgPageHeader
+// as every other rebuilt Organization screen.
+export default function OrgOfficerHistoryScreen({ domain, orgId, orgName, onBack, tabBar, active, onNav }) {
   const [rows, setRows] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
@@ -23,17 +26,16 @@ export default function OrgOfficerHistoryScreen({ domain, orgId, orgName, onBack
   }, [domain, orgId])
 
   return (
-    <OrgScreen
-      title={labels.orgOfficerHistory.title}
+    <OrgShell
+      theme={domain.dashboardTheme}
       chipLabel={orgName}
-      onBack={onBack}
-      tabBar={tabBar}
-      theme={domain.theme}
       active={active}
-      onNav={onNav}
-      railCollapsed={railCollapsed}
-      onToggleRail={onToggleRail}
+      onNav={(key) => (key === 'home' ? onBack() : onNav(key))}
+      tabBar={tabBar}
+      wide={false}
     >
+      <OrgPageHeader title={labels.orgOfficerHistory.title} subtitle={labels.orgHome.officerHistorySub} onBack={onBack} />
+
       {isLoading && (
         <p className="text-[13px] text-cz-text-muted">{labels.common.loading}</p>
       )}
@@ -88,6 +90,6 @@ export default function OrgOfficerHistoryScreen({ domain, orgId, orgName, onBack
           ))}
         </ul>
       )}
-    </OrgScreen>
+    </OrgShell>
   )
 }
