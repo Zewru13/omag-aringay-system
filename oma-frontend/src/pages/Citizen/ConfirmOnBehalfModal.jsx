@@ -1,9 +1,6 @@
 import { useState } from 'react'
 import { UserCheck } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
-import Button from '../../components/UI/Button.jsx'
-import FormField from '../../components/UI/FormField.jsx'
-import ModalShell from '../../components/UI/ModalShell.jsx'
 import { labels } from './labels.js'
 
 // Accountless-beneficiary on-behalf-of confirmation (Piece 2). Deliberately
@@ -19,6 +16,10 @@ import { labels } from './labels.js'
 // exactly: same accept list, same "only build FormData if a file was
 // actually chosen" submit shape, same server-side validate_uploaded_image
 // contract (jpg/png/webp, 5 MB).
+//
+// Overlay follows the citizen-organization sheet pattern shared with
+// OrgSetMemberActiveDialog / OrgInfoScreen: a bottom sheet below 640px, a
+// centered 440px box from sm up — not the staff ModalShell.
 export default function ConfirmOnBehalfModal({ domain, record, onClose, onSuccess }) {
   const [photo, setPhoto] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -50,35 +51,53 @@ export default function ConfirmOnBehalfModal({ domain, record, onClose, onSucces
   }
 
   return (
-    <ModalShell
-      title={L.modalTitle}
-      subtitle={L.modalSubtitle(name)}
-      icon={UserCheck}
-      onClose={onClose}
-      maxWidth="max-w-md"
-      footer={
-        <>
-          <Button onClick={onClose} type="button" variant="ghost">{labels.common.cancel}</Button>
-          <Button isLoading={isSubmitting} type="submit" form="confirm-on-behalf-form" variant="primary">{L.submit}</Button>
-        </>
-      }
-    >
-      <form id="confirm-on-behalf-form" className="space-y-4" onSubmit={handleSubmit}>
-        <FormField label={L.photoLabel}>
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center">
+      <div className="modal-content w-full max-w-[440px] rounded-t-[16px] bg-cz-surface p-5 sm:rounded-[16px]">
+        <div className="flex gap-2">
+          <UserCheck size={18} className="mt-px shrink-0 text-cz-tile-blue-fg" aria-hidden="true" />
+          <div>
+            <h2 className="text-[17px] font-medium text-cz-text">{L.modalTitle}</h2>
+            <p className="mt-2 text-[13px] leading-[1.55] text-cz-text-2">{L.modalSubtitle(name)}</p>
+          </div>
+        </div>
+
+        <form id="confirm-on-behalf-form" className="mt-4" onSubmit={handleSubmit}>
+          <label htmlFor="confirm-on-behalf-photo" className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.06em] text-cz-text-2">
+            {L.photoLabel}
+          </label>
           <input
+            id="confirm-on-behalf-photo"
             type="file"
             accept="image/jpeg,image/png,image/webp"
             onChange={(e) => setPhoto(e.target.files?.[0] || null)}
             className="w-full rounded-[8px] border-[0.5px] border-cz-border-strong bg-cz-surface px-3 py-[10px] text-[14px] text-cz-text file:mr-3 file:rounded-[6px] file:border-0 file:bg-cz-page file:px-3 file:py-1.5 file:text-[13px] file:font-medium"
           />
           <p className="mt-1 text-[12px] text-cz-text-muted">{L.photoHint}</p>
-        </FormField>
 
-        {errorMessage && (
-          <p className="rounded-[8px] bg-cz-danger-bg px-3 py-2 text-[13px] font-medium text-cz-danger-body">{errorMessage}</p>
-        )}
+          {errorMessage && (
+            <p className="mt-3 rounded-[8px] border-[0.5px] border-cz-danger-border bg-cz-danger-bg px-3 py-2 text-[13px] text-cz-danger-body">
+              {errorMessage}
+            </p>
+          )}
+        </form>
 
-      </form>
-    </ModalShell>
+        <button
+          type="submit"
+          form="confirm-on-behalf-form"
+          disabled={isSubmitting}
+          className={`mt-4 flex min-h-[44px] w-full items-center justify-center rounded-[8px] transition-opacity hover:opacity-90 disabled:opacity-50 press-scale ${domain.dashboardTheme.solidBtn}`}
+        >
+          <span className="text-[15px] font-medium">{L.submit}</span>
+        </button>
+        <button
+          type="button"
+          disabled={isSubmitting}
+          onClick={onClose}
+          className="mt-2 flex min-h-[44px] w-full items-center justify-center rounded-[8px] border-[0.5px] border-cz-border-strong"
+        >
+          <span className="text-[14px] text-cz-text-2">{labels.common.cancel}</span>
+        </button>
+      </div>
+    </div>
   )
 }
