@@ -859,9 +859,13 @@ function OrganizationDetailPage() {
   const { isAdmin, isEvaluator } = useAuth();
   const { showToast } = useToast();
 
-  const sectionTabs = type === "farmers"
-    ? [{ value: "members", label: "Members" }]
-    : [{ value: "members", label: "Members" }, { value: "equipment", label: "Equipment Inventory" }];
+  // Both organization types carry an equipment inventory: the backend has
+  // Add/Remove equipment endpoints and a serializer for each, and
+  // AddEquipmentModal's per-type lists mirror each model's choices.
+  const sectionTabs = [
+    { value: "members", label: "Members" },
+    { value: "equipment", label: "Equipment Inventory" },
+  ];
 
   const [organization, setOrganization] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
