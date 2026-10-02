@@ -4,6 +4,7 @@ from datetime import date
 
 from core.validators import validate_not_future_date, validate_uploaded_image
 from farmers.models import FarmParcel
+from .parcel_link import infer_farm_parcel
 
 from .models import (
     ActivityType, BarangayCropSummary, CropActivityLog, CropActivityStage,
@@ -587,6 +588,21 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
         land_status_other = data.get('land_status_other_specify', getattr(self.instance, 'land_status_other_specify', ''))
         if land_status == 'Other' and not (land_status_other or '').strip():
             raise serializers.ValidationError({'land_status_other_specify': 'Please specify the land status.'})
+
+        # A record may only sit on one of ITS OWN farmer's parcels.
+        farmer = data.get('farmer', getattr(self.instance, 'farmer', None))
+        parcel = data.get('farm_parcel', getattr(self.instance, 'farm_parcel', None))
+        if farmer and parcel and parcel.farmer_id != farmer.id:
+            raise serializers.ValidationError({'farm_parcel': 'That parcel belongs to a different farmer.'})
+
+        # No parcel chosen on a NEW record: link it when exactly one of the
+        # farmer's parcels declares this crop (see production/parcel_link.py).
+        # Anything ambiguous stays unlinked for a person to choose.
+        if self.instance is None and farmer and not parcel:
+            crop_type = data.get('crop_type')
+            inferred = infer_farm_parcel(farmer.id, crop_type.name if crop_type else '', data.get('farm_location_barangay', ''))
+            if inferred:
+                data['farm_parcel'] = inferred
         return data
 
 

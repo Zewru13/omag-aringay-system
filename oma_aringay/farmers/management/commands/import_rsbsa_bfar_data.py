@@ -119,6 +119,10 @@ class Command(BaseCommand):
                     continue
 
                 rsbsa = row['rsbsa_no'].strip()
+                if not rsbsa:
+                    # No RSBSA number, no registry record.
+                    self.stdout.write(self.style.WARNING(f'Skipped a row with no RSBSA number: {row.get("first_name", "")} {row.get("last_name", "")}'))
+                    continue
                 birth_date = parse_birthday(row['birthday'])
                 gender = 'Male' if row['gender'].strip().upper() == 'MALE' else 'Female'
                 barangay = normalize_barangay(row['farmer_address_bgy'])

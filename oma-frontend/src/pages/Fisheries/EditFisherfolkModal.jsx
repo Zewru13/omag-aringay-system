@@ -144,6 +144,11 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
       return
     }
 
+    if (!form.rsbsa_number) {
+      setFieldErrors({ rsbsa_number: 'RSBSA number is required and must be complete.' })
+      return
+    }
+
     const contactErr = validateContact(form.contact_number)
     if (contactErr) { setContactError(contactErr); return }
 
@@ -280,7 +285,7 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
             </div>
 
             <div>
-              <FormLabel className={labelCls}>RSBSA Number</FormLabel>
+              <FormLabel className={labelCls} required>RSBSA Number</FormLabel>
               <SegmentedIdInput
                 parts={rsbsaParts}
                 value={form.rsbsa_number}

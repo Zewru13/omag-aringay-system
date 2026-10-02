@@ -291,7 +291,8 @@ class Command(BaseCommand):
                 'is_capture_fishery': ftype == 'Capture',
                 'is_inland_fishery': ftype == 'Inland',
                 'fishr_number': f'01-33-02-{DEMO_LGU_YEAR}-{idx + 1:04d}' if has_fishr else None,
-                'rsbsa_number': f'01-33-02-999-{idx + 1:06d}' if has_rsbsa else None,
+                # Always set: the registry only accepts fisherfolk with an RSBSA number.
+                'rsbsa_number': f'01-33-02-999-{idx + 1:06d}',
                 'contact_number': f'0917{idx + 1:07d}',
             }
             ff, was_created = Fisherfolk.objects.get_or_create(

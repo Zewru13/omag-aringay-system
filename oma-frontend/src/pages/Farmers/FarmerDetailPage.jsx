@@ -13,28 +13,11 @@ import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
+import { declaredCropName, sameCrop } from '../../utils/cropNames.js'
 import AddFarmParcelModal from './AddFarmParcelModal.jsx'
 import EditFarmerModal from './EditFarmerModal.jsx'
 
 const MONITORING_STATUS_TONES = { Planted: 'green', 'Near Harvest': 'amber', Harvested: 'blue', 'Total Loss': 'rose' }
-
-// A parcel's declared crops come from the RSBSA form's own crop list, while
-// monitoring records use the crop catalog, and the two spell some crops
-// differently ("Bitter Gourd (Ampalaya)" vs "Ampalaya"). Comparing the full
-// name plus the text before and inside the parentheses lines them up.
-function cropKeys(name) {
-  const n = String(name || '').toLowerCase().trim()
-  const keys = new Set([n])
-  const m = n.match(/^(.*?)\s*\((.*?)\)\s*$/)
-  if (m) { keys.add(m[1].trim()); keys.add(m[2].trim()) }
-  return keys
-}
-
-function sameCrop(a, b) {
-  const ka = cropKeys(a)
-  for (const k of cropKeys(b)) if (ka.has(k)) return true
-  return false
-}
 
 function formatDate(value) {
   if (!value) {
@@ -394,7 +377,7 @@ function FarmerDetailPage() {
       id: `declared-${c.id}`,
       parcel: p,
       crop: c,
-      name: c.crop_name === 'Other' ? (c.crop_name_other || 'Other') : c.crop_name,
+      name: declaredCropName(c),
     })))
     .filter(({ parcel, name }) => !cropRecords.some(
       (r) => sameCrop(r.crop_type_name, name) && (!r.farm_parcel || r.farm_parcel === parcel.id),
@@ -704,6 +687,21 @@ function FarmerDetailPage() {
                         <span className="mt-0.5 block text-[11px] font-normal text-[#7A8E7A]">
                           Declared on {parcel.parcel_number ? `parcel ${parcel.parcel_number}` : `parcel #${parcel.id}`} · {parseFloat(crop.area_hectares)} ha{crop.is_main_crop ? ' · Main crop' : ''}
                         </span>
+                        {(isAdmin || isEvaluator) && (
+                          <Link
+                            to="/crop-records/add"
+                            state={{ prefill: {
+                              farmerId: farmer.id,
+                              rsbsa: farmer.rsbsa_number,
+                              parcel: { id: parcel.id, barangay: parcel.barangay, landOwnership: parcel.land_ownership },
+                              cropName: name,
+                              areaHa: parseFloat(crop.area_hectares),
+                            } }}
+                            className="mt-1 inline-block text-[12px] font-medium text-[#1B4D2E] hover:underline"
+                          >
+                            Start monitoring
+                          </Link>
+                        )}
                       </td>
                       <td className="px-4 py-2.5 text-[13px] text-[#7A8E7A]">—</td>
                       <td className="px-4 py-2.5 text-[13px] text-[#7A8E7A]">—</td>

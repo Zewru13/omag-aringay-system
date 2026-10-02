@@ -14,12 +14,14 @@ from .views import (
     FarmMachineryListCreateView,
     FarmParcelCreateView,
     FarmParcelListView,
+    MyFarmParcelListView,
 )
 
 
 urlpatterns = [
     path('', FarmerListView.as_view(), name='farmers-list'),
     path('check-duplicate/', FarmerDuplicateCheckView.as_view(), name='farmers-check-duplicate'),
+    path('me/parcels/', MyFarmParcelListView.as_view(), name='farm-parcels-mine'),
     path('rsbsa-import/preview/', RsbsaUpdateImportPreviewView.as_view(), name='rsbsa-import-preview'),
     path('rsbsa-import/commit/', RsbsaUpdateImportCommitView.as_view(), name='rsbsa-import-commit'),
     path('rsbsa-import/batches/', RsbsaImportBatchListView.as_view(), name='rsbsa-import-batches'),

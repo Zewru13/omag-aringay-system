@@ -192,8 +192,10 @@ class FisherfolkDetailSerializer(serializers.ModelSerializer):
         return value
 
     def validate_rsbsa_number(self, value):
-        if value is not None and not value.strip():
-            return None
+        # Required, and cannot be cleared on an edit: only people with an RSBSA
+        # number belong in the registry.
+        if not (value or '').strip():
+            raise serializers.ValidationError('RSBSA number is required and cannot be removed.')
         return value
 
     def validate_lgu_registration_number(self, value):
@@ -312,9 +314,7 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
 
         # RSBSA number is required to register, as for a farmer: it is the
         # citizen login identifier and what the RSBSA import matches on.
-        # Only enforced on create — older records without one must stay
-        # editable.
-        if self.instance is None and not (data.get('rsbsa_number') or '').strip():
+        if not (data.get('rsbsa_number') or '').strip():
             raise serializers.ValidationError({'rsbsa_number': 'RSBSA number is required.'})
 
         fisherfolk_type = data.get('fisherfolk_type', '')

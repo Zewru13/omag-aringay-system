@@ -105,6 +105,11 @@ class Farmer(models.Model):
         # -date_registered, -id ordering — see
         # production.models.CropMonitoringRecord.Meta for why -id tie-breaks.
         ordering = ['-date_registered', '-id']
+        constraints = [
+            # The database itself refuses a farmer without a real RSBSA number
+            # (an empty string would otherwise satisfy NOT NULL).
+            models.CheckConstraint(check=models.Q(rsbsa_number__regex=r'\S'), name='farmer_rsbsa_not_blank'),
+        ]
 
     @property
     def full_name(self):

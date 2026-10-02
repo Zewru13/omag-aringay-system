@@ -188,6 +188,21 @@ class FarmParcelListView(generics.ListCreateAPIView):
         serializer.save(farmer_id=self.kwargs['farmer_id'])
 
 
+class MyFarmParcelListView(generics.ListAPIView):
+    """A farmer citizen's OWN registered parcels, read-only. The staff parcel
+    list is admin/evaluator-only, so the citizen app had no way to count a
+    farmer's parcels; this serves only the parcels of the farmer the signed-in
+    account is linked to, and nothing for anyone else."""
+    serializer_class = FarmParcelSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = None
+
+    def get_queryset(self):
+        user = self.request.user
+        farmer_id = user.get_linked_farmer_id() if user.role == 'CITIZEN' else None
+        return FarmParcel.objects.filter(farmer_id=farmer_id if farmer_id else -1).order_by('id')
+
+
 class FarmParcelCreateView(generics.CreateAPIView):
     serializer_class = FarmParcelSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]

@@ -96,8 +96,11 @@ class Fisherfolk(models.Model):
     is_active          = models.BooleanField(default=True)
 
     # OMAg fisheries field-form identifiers and activity profile flags
+    # Required, like a farmer's: only people with an RSBSA number are accepted
+    # into the registry. (Rows without one — all deleted 2026-10-02 — used to be
+    # allowed; the column was null=True.)
     rsbsa_number       = models.CharField(
-        max_length=50, unique=True, null=True, blank=True,
+        max_length=50, unique=True,
         validators=[validate_rsbsa],
     )
     is_aquaculture     = models.BooleanField(default=True)
@@ -147,6 +150,11 @@ class Fisherfolk(models.Model):
         # -date_registered, -id ordering — see
         # production.models.CropMonitoringRecord.Meta for why -id tie-breaks.
         ordering = ['-date_registered', '-id']
+        constraints = [
+            # NOT NULL alone still lets an empty string through; this makes the
+            # database itself refuse a fisherfolk without a real RSBSA number.
+            models.CheckConstraint(check=Q(rsbsa_number__regex=r'\S'), name='fisherfolk_rsbsa_not_blank'),
+        ]
 
     @property
     def full_name(self):

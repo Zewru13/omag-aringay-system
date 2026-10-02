@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, ArrowLeft, CheckCircle2, Info, Plus, Search, Trash2, User } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { sameCrop } from '../../utils/cropNames.js'
 import api from '../../api/axiosInstance.js'
 import useSuggestSearch from '../../hooks/useSuggestSearch.js'
 import BARANGAYS from '../../constants/barangays.js'
@@ -434,6 +435,11 @@ function ConfirmSubmissionModal({ records, cropTypes, farmerFullName, isSubmitti
 
 export default function AddCropMonitoringPage() {
   const navigate = useNavigate()
+  // Arriving from a farmer's profile ("Start monitoring" on a declared parcel
+  // crop) carries the farmer, parcel, crop and area to start the first row from.
+  // The planting date is left for staff: a declared crop has none.
+  const prefill = useLocation().state?.prefill || null
+  const prefillApplied = useRef(false)
   const { showToast } = useToast()
   const [cropTypes,    setCropTypes]    = useState([])
   const [seedSources,  setSeedSources]  = useState([])
@@ -460,6 +466,25 @@ export default function AddCropMonitoringPage() {
   })
   const [farmerParcels, setFarmerParcels] = useState([])
 
+  // Resolve the prefilled farmer through the same list the search box uses, so
+  // the farmer's organization comes through exactly as if they were picked there.
+  useEffect(() => {
+    if (!prefill?.farmerId) return
+    api.get('/farmers/', { params: { search: prefill.rsbsa } }).then((r) => {
+      const list = Array.isArray(r.data) ? r.data : (r.data.results || [])
+      const f = list.find((x) => x.id === prefill.farmerId)
+      if (f) {
+        setFarmerInfo({
+          farmer_id: f.id,
+          farmer_full_name: f.full_name,
+          farmer_home_barangay: f.barangay || '',
+          farmer_assoc_id: f.farmers_organization || null,
+          farmer_assoc_name: f.farmers_organization_name || '',
+        })
+      }
+    }).catch(() => {})
+  }, [prefill])
+
   const goBack = () => navigate('/crop-records')
 
   useEffect(() => {
@@ -480,6 +505,24 @@ export default function AddCropMonitoringPage() {
   }, [farmerInfo.farmer_id])
 
   const showParcelColumn = farmerParcels.length > 0
+
+  // Once the crop catalog and the farmer's parcels are in, fill the first row
+  // from the prefill (once).
+  useEffect(() => {
+    if (!prefill || prefillApplied.current || !cropTypes.length || !farmerParcels.length) return
+    const parcel = farmerParcels.find((p) => p.id === prefill.parcel.id)
+    if (!parcel) return
+    prefillApplied.current = true
+    const crop = cropTypes.find((ct) => sameCrop(ct.name, prefill.cropName))
+    setRecords((rs) => rs.map((x, i) => (i > 0 ? x : {
+      ...x,
+      farm_parcel: String(parcel.id),
+      farm_location_barangay: parcel.barangay || '',
+      land_status: ['Owner', 'Tenant', 'Lessee'].includes(parcel.land_ownership) ? parcel.land_ownership : '',
+      crop_type: crop ? String(crop.id) : '',
+      area_planted_ha: prefill.areaHa ? String(prefill.areaHa) : '',
+    })))
+  }, [prefill, cropTypes, farmerParcels])
 
   const addRecord = () => {
     const id = nextIdRef.current++
@@ -620,6 +663,13 @@ export default function AddCropMonitoringPage() {
             any record is saved. An error in one row prevents all rows from saving.
           </p>
         </div>
+
+        {showParcelColumn && (
+          <p className="text-[12px] text-[#4A5E4A]">
+            <span className="font-semibold">Farm Parcel:</span> leave it blank and the record is linked automatically
+            when exactly one of this farmer's parcels grows the crop (in the same barangay). Choose one to be explicit.
+          </p>
+        )}
 
         {/* Crop records — horizontal table, every field visible (no expand toggle) */}
         <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white">

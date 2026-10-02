@@ -67,6 +67,18 @@ export default function FarmerHomeScreen({ record, onLogout }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const [parcelTotal, setParcelTotal] = useState(null)
+  useEffect(() => {
+    let cancelled = false
+    api.get('/farmers/me/parcels/')
+      .then((r) => {
+        const rows = Array.isArray(r.data) ? r.data : (r.data?.results || [])
+        if (!cancelled) setParcelTotal(rows.length)
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
   // Flatten every record's overdue/due-now suggestions into one task list,
   // each tagged with the crop record it belongs to. Overdue sorts first.
   const needsAttention = records.flatMap((rec) =>
@@ -84,7 +96,10 @@ export default function FarmerHomeScreen({ record, onLogout }) {
     const d = r.actual_harvest_date ? new Date(r.actual_harvest_date) : null
     return d && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
   }).length
-  const parcelCount = new Set(records.map((r) => r.farm_parcel).filter(Boolean)).size
+  // The farmer's real registered parcels (own parcels only, see
+  // farmers/me/parcels/). The distinct parcels behind crop records is only the
+  // fallback while that loads or if it fails — most records carry no parcel link.
+  const parcelCount = parcelTotal ?? new Set(records.map((r) => r.farm_parcel).filter(Boolean)).size
 
   // One suggestion per crop card: the most pressing not-yet-done activity
   // (overdue, then due now, then the next upcoming one). Nothing is shown when
