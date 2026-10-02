@@ -15,10 +15,13 @@ import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import StatusPill from '../../components/UI/StatusPill.jsx'
+import useDebouncedValue from '../../hooks/useDebouncedValue.js'
 import GroupedForecast from './GroupedForecast.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
+import { countdownText, daysUntil, fmtShortDate } from '../../utils/forecastDates.js'
 import { possibleFactorsText } from '../../utils/yieldAnalysis.js'
 
 const filterLabelCls = 'block text-[12px] font-medium text-[#4A5E4A] mb-1'
@@ -29,20 +32,17 @@ const filterSelectCls =
   'rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[7px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none'
 
 const COLUMNS = [
-  { key: 'crop_type_name',    label: 'CROP' },
-  { key: 'area_planted_ha',   label: 'AREA PLANTED (HA)' },
-  { key: 'yield_cell',        label: 'ESTIMATED HARVEST YIELD (KG)' },
-  { key: 'harvest_date_cell', label: 'ESTIMATED HARVEST DATE' },
+  { key: 'crop_cell',         label: 'CROP' },
+  { key: 'farmer_cell',       label: 'FARMER' },
+  { key: 'area_cell',         label: 'AREA (HA)' },
+  { key: 'yield_cell',        label: 'EST. YIELD (KG)' },
+  { key: 'harvest_date_cell', label: 'EXPECTED HARVEST' },
+  { key: 'status_cell',       label: 'STATUS' },
   { key: 'actions',           label: 'DETAILS' },
 ]
 
-const labelCls = 'text-[10px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8]'
-
-function fmtMDY(v) {
-  if (!v) return '—'
-  const d = new Date(v + 'T00:00:00')
-  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`
-}
+// A value label inside the detail dialog: plain sentence-case text.
+const labelCls = 'text-[11px] font-medium text-[#7A8E7A]'
 
 // ── Detail Modal ──────────────────────────────────────────────────────────────
 
@@ -67,7 +67,7 @@ function ForecastDetailModal({ record, onClose, onUpdated }) {
   return (
     <ModalShell
       title={`${record.crop_type_name ?? '—'} Forecast Details`}
-      subtitle={`${record.organization_name || '—'} — Planted: ${record.date_planted || '—'}`}
+      subtitle={`${record.farmer_name || '—'} · Planted ${fmtShortDate(record.date_planted)}`}
       icon={TrendingUp}
       onClose={onClose}
       maxWidth="max-w-md"
@@ -85,29 +85,44 @@ function ForecastDetailModal({ record, onClose, onUpdated }) {
         {/* Two panels side by side */}
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] p-4">
-            <p className="mb-3 text-[11px] font-semibold text-[#4A5E4A] flex items-center gap-1"><BarChart2 size={12} />Basic Information</p>
+            <p className="mb-3 text-[12px] font-semibold text-[#4A5E4A] flex items-center gap-1.5"><BarChart2 size={13} />Crop</p>
             <dl className="space-y-2.5">
               <div>
-                <dt className={labelCls}>Area Planted</dt>
+                <dt className={labelCls}>Area planted</dt>
                 <dd className="text-[13px] font-semibold text-[#1A2B1A]">
-                  {record.area_planted_ha ? `${record.area_planted_ha} ha` : '—'}
+                  {record.area_planted_ha ? `${Number(record.area_planted_ha).toFixed(2)} ha` : '—'}
                 </dd>
               </div>
               <div>
-                <dt className={labelCls}>Estimated Harvest</dt>
+                <dt className={labelCls}>Expected harvest</dt>
                 <dd className="text-[13px] font-semibold text-[#1A2B1A]">
-                  {fmtMDY(record.expected_harvest_date)}
+                  {fmtShortDate(record.expected_harvest_date)}
+                  <span className="ml-1.5 text-[11px] font-normal text-[#7A8E7A]">{countdownText(record.expected_harvest_date)}</span>
                 </dd>
+              </div>
+              <div>
+                <dt className={labelCls}>Estimated yield</dt>
+                <dd className="text-[13px] font-semibold text-[#1B4D2E]">
+                  {record.estimated_yield_kg ? `${Number(record.estimated_yield_kg).toLocaleString()} kg` : '—'}
+                </dd>
+              </div>
+              <div>
+                <dt className={labelCls}>Status</dt>
+                <dd className="text-[13px] font-semibold text-[#1A2B1A]">{daysUntil(record.expected_harvest_date) < 0 ? 'Overdue' : (record.status || '—')}</dd>
               </div>
             </dl>
           </div>
 
           <div className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] p-4">
-            <p className="mb-3 text-[11px] font-semibold text-[#4A5E4A] flex items-center gap-1"><User size={12} />Farmer & Location</p>
+            <p className="mb-3 text-[12px] font-semibold text-[#4A5E4A] flex items-center gap-1.5"><User size={13} />Farmer &amp; location</p>
             <dl className="space-y-2.5">
               <div>
+                <dt className={labelCls}>Farmer</dt>
+                <dd className="text-[13px] font-semibold text-[#1A2B1A]">{record.farmer_name || '—'}</dd>
+              </div>
+              <div>
                 <dt className={labelCls}>Organization</dt>
-                <dd className="text-[13px] font-semibold text-[#1A2B1A]">{record.organization_name || '—'}</dd>
+                <dd className="text-[13px] font-semibold text-[#1A2B1A]">{record.organization_name || 'None'}</dd>
               </div>
               <div>
                 <dt className={labelCls}>Barangay</dt>
@@ -121,7 +136,7 @@ function ForecastDetailModal({ record, onClose, onUpdated }) {
 
         {/* Remarks & Notes */}
         <div>
-          <label className="mb-1.5 flex items-center gap-1 text-[12px] font-semibold text-[#4A5E4A]"><FileText size={12} />Remarks & Notes</label>
+          <label className="mb-1.5 flex items-center gap-1.5 text-[12px] font-semibold text-[#4A5E4A]"><FileText size={13} />Remarks &amp; notes</label>
           <textarea
             rows={4}
             className={baseInputClasses}
@@ -136,7 +151,7 @@ function ForecastDetailModal({ record, onClose, onUpdated }) {
               disabled={isSaving || !hasChanges}
               className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38] disabled:opacity-50"
             >
-              {isSaving ? 'Saving…' : 'Save Remarks'}
+              {isSaving ? 'Saving…' : 'Save remarks'}
             </button>
           </div>
         </div>
@@ -337,8 +352,8 @@ function AggregatePanel({ groupBy, setGroupBy, groups, overall, isLoading }) {
 
   return (
     <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-[13px] font-semibold text-[#1A2B1A]">Aggregate Summary</p>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <p className="text-[13px] font-semibold text-[#1A2B1A]">Aggregate summary</p>
         <div className="flex items-center gap-1 rounded-lg border border-[#E2E8E2] p-0.5">
           {['barangay', 'crop_type'].map(opt => (
             <button
@@ -349,30 +364,30 @@ function AggregatePanel({ groupBy, setGroupBy, groups, overall, isLoading }) {
                 groupBy === opt ? 'bg-[#1B4D2E] text-white' : 'text-[#4A5E4A] hover:bg-[#F5F7F5]'
               }`}
             >
-              {opt === 'barangay' ? 'By Barangay' : 'By Crop Type'}
+              {opt === 'barangay' ? 'By barangay' : 'By crop type'}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-2 gap-3 mb-4 lg:grid-cols-4">
         <div className="bg-[#EBF5EE] rounded-xl p-3">
-          <p className="text-[11px] font-medium text-[#4A5E4A]">Harvested Crops</p>
+          <p className="text-[11px] font-medium text-[#4A5E4A]">Harvested crops</p>
           <p className="text-[18px] font-bold text-[#1B4D2E] mt-0.5">{overall.harvested_crop_count ?? 0}</p>
         </div>
         <div className="bg-[#EBF5EE] rounded-xl p-3">
-          <p className="text-[11px] font-medium text-[#4A5E4A]">Avg Estimated</p>
+          <p className="text-[11px] font-medium text-[#4A5E4A]">Avg. estimated</p>
           <p className="text-[18px] font-bold text-[#1B4D2E] mt-0.5">{overall.avg_estimated_kg != null ? `${overall.avg_estimated_kg.toLocaleString()} kg` : 'N/A'}</p>
         </div>
         <div className="bg-[#EBF5EE] rounded-xl p-3">
-          <p className="text-[11px] font-medium text-[#4A5E4A]">Avg Variance</p>
+          <p className="text-[11px] font-medium text-[#4A5E4A]">Avg. variance</p>
           <p className="text-[18px] font-bold text-[#1B4D2E] mt-0.5">{overall.avg_variance_pct != null ? `${overall.avg_variance_pct >= 0 ? '+' : ''}${overall.avg_variance_pct.toFixed(1)}%` : 'N/A'}</p>
           {overall.total_loss_count > 0 && (
             <p className="text-[10px] text-[#7A8E7A] mt-0.5">excl. {overall.total_loss_count} total loss</p>
           )}
         </div>
         <div className="bg-[#EBF5EE] rounded-xl p-3">
-          <p className="text-[11px] font-medium text-[#4A5E4A]">Avg Activity Completion</p>
+          <p className="text-[11px] font-medium text-[#4A5E4A]">Avg. activity completion</p>
           <p className="text-[18px] font-bold text-[#1B4D2E] mt-0.5">{overall.avg_activity_completion_pct != null ? `${overall.avg_activity_completion_pct.toFixed(1)}%` : 'N/A'}</p>
         </div>
       </div>
@@ -635,7 +650,7 @@ function YieldAnalysisTab() {
     <div className="space-y-5">
       {/* View toggle: existing analysis vs grouped by farmer */}
       <div className="flex items-center gap-1 w-fit rounded-lg border border-[#E2E8E2] p-0.5">
-        {[{ id: 'analysis', label: 'Analysis' }, { id: 'grouped', label: 'Group by farmer' }].map(v => (
+        {[{ id: 'analysis', label: 'Analysis' }, { id: 'grouped', label: 'By farmer' }].map(v => (
           <button
             key={v.id}
             type="button"
@@ -710,7 +725,7 @@ function YieldAnalysisTab() {
 
       {/* Per-crop table */}
       <div>
-        <p className="text-[13px] font-semibold text-[#1A2B1A]">Harvested Crops</p>
+        <p className="text-[13px] font-semibold text-[#1A2B1A]">Harvested crops</p>
         <p className="text-[12px] text-[#7A8E7A] mb-3">Click a row to see the full activity completion breakdown.</p>
         <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
           <table className="min-w-full text-sm">
@@ -754,7 +769,7 @@ function YieldAnalysisTab() {
                   {expanded.has(rec.id) && (
                     <tr className="border-b border-[#F0F4F0] bg-[#F9FAF9]">
                       <td colSpan={9} className="px-6 py-4">
-                        <p className="text-[12px] font-semibold text-[#1A2B1A] mb-2">Activity Completion Breakdown</p>
+                        <p className="text-[12px] font-semibold text-[#1A2B1A] mb-2">Activity completion breakdown</p>
                         {rec.activity_breakdown.length === 0 ? (
                           <p className="text-[12px] text-[#7A8E7A]">No activity schedule defined for this crop.</p>
                         ) : (
@@ -800,6 +815,10 @@ export default function ForecastingPage() {
   const [isLoading,     setIsLoading]     = useState(true)
   const [error,         setError]         = useState('')
   const [search,        setSearch]        = useState('')
+  // Searched on the server across every growing crop (farmer, RSBSA, crop,
+  // organization, barangay), so it is debounced; the list is no longer
+  // filtered after the fact on just the ten rows on screen.
+  const debouncedSearch = useDebouncedValue(search.trim())
   const [detailRecord,  setDetailRecord]  = useState(null)
   const [showRsbsaImportModal, setShowRsbsaImportModal] = useState(false)
   const [forecastView,  setForecastView]  = useState('flat') // 'flat' | 'grouped'
@@ -868,9 +887,11 @@ export default function ForecastingPage() {
   const fetchRecords = useCallback(async (pageNum = 1, isCancelled = () => false) => {
     setIsLoading(true); setError('')
     try {
-      const params = { status: 'Planted,Near Harvest', page: pageNum }
+      // Soonest expected harvest first — the order a forecast is read in.
+      const params = { status: 'Planted,Near Harvest', page: pageNum, ordering: 'expected_harvest_date' }
       if (barangayFilter) params.barangay = barangayFilter
       if (cropTypeFilter) params.crop_type = cropTypeFilter
+      if (debouncedSearch) params.search = debouncedSearch
       const r = await api.get('/production/monitoring/', { params })
       if (isCancelled()) return
       setRecords(Array.isArray(r.data) ? r.data : (r.data.results || []))
@@ -881,122 +902,152 @@ export default function ForecastingPage() {
       if (!isCancelled()) setIsLoading(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [barangayFilter, cropTypeFilter])
+  }, [barangayFilter, cropTypeFilter, debouncedSearch])
 
-  useEffect(() => { setPage(1) }, [barangayFilter, cropTypeFilter])
+  useEffect(() => { setPage(1) }, [barangayFilter, cropTypeFilter, debouncedSearch])
   useEffect(() => {
     let cancelled = false
     fetchRecords(page, () => cancelled)
     return () => { cancelled = true }
   }, [fetchRecords, page])
 
-  const q = search.toLowerCase()
-  const filtered = records.filter(rec =>
-    !q
-    || rec.crop_type_name?.toLowerCase().includes(q)
-    || rec.organization_name?.toLowerCase().includes(q)
-  )
-
-  const rows = filtered.map(rec => ({
-    ...rec,
-    harvest_date_cell: fmtMDY(rec.expected_harvest_date),
-    yield_cell: rec.estimated_yield_kg
-      ? <span className="font-semibold text-[#1B4D2E]">{Number(rec.estimated_yield_kg).toLocaleString()} kg</span>
-      : '—',
-    actions: (
-      <button
-        type="button"
-        className="text-sm text-[#1B4D2E] hover:underline"
-        onClick={() => setDetailRecord(rec)}
-      >
-        View
-      </button>
-    ),
-  }))
+  const rows = records.map(rec => {
+    const days = daysUntil(rec.expected_harvest_date)
+    const overdue = days !== null && days < 0
+    return {
+      ...rec,
+      crop_cell: <span className="font-medium text-[#1A2B1A] whitespace-nowrap">{rec.crop_type_name}</span>,
+      // Name, then barangay and organization on one truncated line (the full
+      // text is on hover and in the detail dialog) so every row stays two lines.
+      farmer_cell: (
+        <span className="block w-[210px] max-w-[210px]">
+          <span className="block truncate text-[#1A2B1A]" title={rec.farmer_name || ''}>{rec.farmer_name || '—'}</span>
+          <span className="block truncate text-[11px] text-[#7A8E7A]" title={[rec.farmer_barangay, rec.organization_name].filter(Boolean).join(' · ')}>
+            {[rec.farmer_barangay, rec.organization_name].filter(Boolean).join(' · ') || '—'}
+          </span>
+        </span>
+      ),
+      area_cell: rec.area_planted_ha ? Number(rec.area_planted_ha).toFixed(2) : '—',
+      yield_cell: rec.estimated_yield_kg
+        ? <span className="font-semibold text-[#1B4D2E]">{Number(rec.estimated_yield_kg).toLocaleString()}</span>
+        : '—',
+      harvest_date_cell: (
+        <span className="block whitespace-nowrap">
+          <span className="block text-[#1A2B1A]">{fmtShortDate(rec.expected_harvest_date)}</span>
+          <span className={`block text-[11px] ${overdue ? 'text-rose-600' : 'text-[#7A8E7A]'}`}>{countdownText(rec.expected_harvest_date)}</span>
+        </span>
+      ),
+      status_cell: (
+        <StatusPill tone={overdue ? 'rose' : rec.status === 'Near Harvest' ? 'amber' : 'green'}>
+          {overdue ? 'Overdue' : rec.status}
+        </StatusPill>
+      ),
+      actions: (
+        <button
+          type="button"
+          className="text-sm font-medium text-[#1B4D2E] hover:underline"
+          onClick={() => setDetailRecord(rec)}
+        >
+          View
+        </button>
+      ),
+    }
+  })
 
   return (
     <PageLayout
       title="Crop Forecasting"
-      subtitle="Forecasts are now based on real monitoring activities. Import crop data, then add monitoring activities to improve yield predictions."
+      subtitle="Expected harvest dates and yields for crops still growing, and how past harvests compared with their estimates."
     >
       <div className="space-y-4">
-        <div className="flex flex-wrap gap-2">
-          {[
-            { id: 'forecast',       icon: TrendingUp, label: 'Forecast' },
-            { id: 'yield_analysis', icon: BarChart2,  label: 'Yield Analysis' },
-          ].map(tab => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 rounded-lg text-[13px] font-medium transition-colors flex items-center gap-1.5 ${
-                activeTab === tab.id
-                  ? 'bg-[#1B4D2E] text-white'
-                  : 'bg-white border border-[#E2E8E2] text-[#4A5E4A] hover:bg-[#F5F7F5]'
-              }`}
-            >
-              <tab.icon size={14} />
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {activeTab === 'forecast' && (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-end gap-2">
+        {/* Tabs on the left, the page's actions on the right — one row. */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2">
+            {[
+              { id: 'forecast',       icon: TrendingUp, label: 'Forecast' },
+              { id: 'yield_analysis', icon: BarChart2,  label: 'Yield analysis' },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-4 py-2 rounded-lg text-[13px] font-medium transition-colors flex items-center gap-1.5 ${
+                  activeTab === tab.id
+                    ? 'bg-[#1B4D2E] text-white'
+                    : 'bg-white border border-[#E2E8E2] text-[#4A5E4A] hover:bg-[#F5F7F5]'
+                }`}
+              >
+                <tab.icon size={14} />
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          {activeTab === 'forecast' && (
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => navigate('/crop-records?action=add')}
-                className="flex items-center gap-1.5 rounded-lg border border-[#C8D5C8] px-3 py-[5px] text-[12px] font-medium text-[#4A5E4A] transition-colors hover:bg-[#F5F7F5]"
+                onClick={() => navigate('/crop-records/add')}
+                className="flex items-center gap-1.5 rounded-lg border border-[#C8D5C8] px-3 py-[7px] text-[13px] font-medium text-[#4A5E4A] transition-colors hover:bg-[#F5F7F5]"
               >
                 <Plus className="h-3.5 w-3.5" />
-                Add Crop
+                Add crop
               </button>
               <button
                 type="button"
                 onClick={() => setShowRsbsaImportModal(true)}
-                className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 py-[5px] text-[12px] font-medium text-white transition-colors hover:bg-[#235E38]"
+                className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 py-[7px] text-[13px] font-medium text-white transition-colors hover:bg-[#235E38]"
               >
                 <Upload className="h-3.5 w-3.5" />
-                Import File
+                Import file
               </button>
             </div>
+          )}
+        </div>
 
+        {activeTab === 'forecast' && (
+          <div className="space-y-4">
             <FilterPanel
-              search={search}
+                    search={search}
               onSearchChange={setSearch}
-              searchPlaceholder="Search by crop or organization..."
+              searchPlaceholder="Search by farmer, RSBSA, crop, or organization..."
               activeCount={[Boolean(barangayFilter), Boolean(cropTypeFilter)].filter(Boolean).length}
             >
               <select className={filterSelectCls} value={cropTypeFilter} onChange={e => setCropTypeFilter(e.target.value)}>
-                <option value="">All Crops</option>
+                <option value="">All crops</option>
                 {cropTypes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
               <select className={filterSelectCls} value={barangayFilter} onChange={e => setBarangayFilter(e.target.value)}>
-                <option value="">All Barangays</option>
+                <option value="">All barangays</option>
                 {BARANGAYS.map(b => <option key={b} value={b}>{b}</option>)}
               </select>
             </FilterPanel>
 
             {error && <ErrorMessage message={error} />}
 
-            {/* View toggle: existing flat per-record table vs grouped by farmer */}
-            <div className="flex items-center gap-1 w-fit rounded-lg border border-[#E2E8E2] p-0.5">
-              {[
-                { id: 'flat',    label: 'Flat' },
-                { id: 'grouped', label: 'Group by farmer' },
-              ].map(v => (
-                <button
-                  key={v.id}
-                  type="button"
-                  onClick={() => setForecastView(v.id)}
-                  className={`px-3 py-1 rounded-md text-[12px] font-medium transition-colors ${
-                    forecastView === v.id ? 'bg-[#1B4D2E] text-white' : 'text-[#4A5E4A] hover:bg-[#F5F7F5]'
-                  }`}
-                >
-                  {v.label}
-                </button>
-              ))}
+            {/* View toggle on the left, how many crops this shows on the right. */}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1 w-fit rounded-lg border border-[#E2E8E2] p-0.5">
+                {[
+                  { id: 'flat',    label: 'All crops' },
+                  { id: 'grouped', label: 'By farmer' },
+                ].map(v => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => setForecastView(v.id)}
+                    className={`px-3 py-1 rounded-md text-[12px] font-medium transition-colors ${
+                      forecastView === v.id ? 'bg-[#1B4D2E] text-white' : 'text-[#4A5E4A] hover:bg-[#F5F7F5]'
+                    }`}
+                  >
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+              {forecastView === 'flat' && !isLoading && (
+                <p className="text-[12px] text-[#7A8E7A]">
+                  {totalCount.toLocaleString()} growing crop{totalCount === 1 ? '' : 's'}, soonest harvest first
+                </p>
+              )}
             </div>
 
             {forecastView === 'flat' ? (

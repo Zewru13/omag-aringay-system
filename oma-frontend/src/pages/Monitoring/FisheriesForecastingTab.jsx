@@ -13,11 +13,13 @@ import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import StatusPill from '../../components/UI/StatusPill.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import GroupedForecast from '../Forecasting/GroupedForecast.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
+import { countdownText, daysUntil, fmtShortDate } from '../../utils/forecastDates.js'
 import { possibleFactorsText } from '../../utils/yieldAnalysis.js'
 
 const filterLabelCls = 'block text-[12px] font-medium text-[#4A5E4A] mb-1'
@@ -28,12 +30,6 @@ const filterSelectCls =
 
 // Fisheries Forecasting "Forecast" tab scope: every active Fisheries Monitoring stocking record
 // (the /fisheries/stocking/ default: not Harvested, not Total Loss) - no date window.
-
-function fmtMDY(v) {
-  if (!v) return '—'
-  const d = new Date(v + 'T00:00:00')
-  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`
-}
 
 // Identical framing/tone to the crop Yield Analysis module — adapted wording only.
 const YIELD_DISCLAIMER = 'This analysis is descriptive. Harvest yield is affected by many factors including water quality, disease, and weather; missed activities are shown as possible contributing factors, not proven causes.'
@@ -70,7 +66,7 @@ function StockingForecastDetailModal({ record, onClose, onUpdated }) {
   return (
     <ModalShell
       title={`${record.species_name ?? '—'} Forecast Details`}
-      subtitle={`${record.fisherfolk_name || '—'} — Stocked: ${record.date_stocked || '—'}`}
+      subtitle={`${record.fisherfolk_name || '—'} · Stocked ${fmtShortDate(record.date_stocked)}`}
       icon={TrendingUp}
       onClose={onClose}
       maxWidth="max-w-md"
@@ -78,25 +74,36 @@ function StockingForecastDetailModal({ record, onClose, onUpdated }) {
       <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] p-4">
-            <p className="mb-3 text-[11px] font-semibold text-[#4A5E4A] flex items-center gap-1"><BarChart2 size={12} />Basic Information</p>
+            <p className="mb-3 text-[12px] font-semibold text-[#4A5E4A] flex items-center gap-1.5"><BarChart2 size={13} />Stocking</p>
             <dl className="space-y-2.5">
               <div>
-                <dt className={labelCls}>Fingerlings Stocked</dt>
+                <dt className={labelCls}>Fingerlings stocked</dt>
                 <dd className="text-[13px] font-semibold text-[#1A2B1A]">
                   {record.number_of_fingerlings ? Number(record.number_of_fingerlings).toLocaleString() : '—'}
                 </dd>
               </div>
               <div>
-                <dt className={labelCls}>Estimated Harvest</dt>
+                <dt className={labelCls}>Expected harvest</dt>
                 <dd className="text-[13px] font-semibold text-[#1A2B1A]">
-                  {fmtMDY(record.expected_harvest_date)}
+                  {fmtShortDate(record.expected_harvest_date)}
+                  <span className="ml-1.5 text-[11px] font-normal text-[#7A8E7A]">{countdownText(record.expected_harvest_date)}</span>
                 </dd>
+              </div>
+              <div>
+                <dt className={labelCls}>Estimated yield</dt>
+                <dd className="text-[13px] font-semibold text-[#1B4D2E]">
+                  {record.estimated_harvest_kg ? `${Number(record.estimated_harvest_kg).toLocaleString()} kg` : '—'}
+                </dd>
+              </div>
+              <div>
+                <dt className={labelCls}>Status</dt>
+                <dd className="text-[13px] font-semibold text-[#1A2B1A]">{daysUntil(record.expected_harvest_date) < 0 ? 'Overdue' : (record.status || '—')}</dd>
               </div>
             </dl>
           </div>
 
           <div className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] p-4">
-            <p className="mb-3 text-[11px] font-semibold text-[#4A5E4A] flex items-center gap-1"><User size={12} />Fisherfolk & Location</p>
+            <p className="mb-3 text-[12px] font-semibold text-[#4A5E4A] flex items-center gap-1.5"><User size={13} />Fisherfolk &amp; location</p>
             <dl className="space-y-2.5">
               <div>
                 <dt className={labelCls}>Fisherfolk</dt>
@@ -113,7 +120,7 @@ function StockingForecastDetailModal({ record, onClose, onUpdated }) {
         <div className="border-t border-[#F0F4F0]" />
 
         <div>
-          <label className="mb-1.5 flex items-center gap-1 text-[12px] font-semibold text-[#4A5E4A]"><FileText size={12} />Remarks & Notes</label>
+          <label className="mb-1.5 flex items-center gap-1 text-[12px] font-semibold text-[#4A5E4A]"><FileText size={13} />Remarks &amp; notes</label>
           <textarea
             rows={4}
             className={baseInputClasses}
@@ -128,7 +135,7 @@ function StockingForecastDetailModal({ record, onClose, onUpdated }) {
               disabled={isSaving || !hasChanges}
               className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38] disabled:opacity-50"
             >
-              {isSaving ? 'Saving…' : 'Save Remarks'}
+              {isSaving ? 'Saving…' : 'Save remarks'}
             </button>
           </div>
         </div>
@@ -147,7 +154,8 @@ function StockingForecastDetailModal({ record, onClose, onUpdated }) {
   )
 }
 
-const labelCls = 'text-[10px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8]'
+// A value label inside the detail dialog: plain sentence-case text.
+const labelCls = 'text-[11px] font-medium text-[#7A8E7A]'
 
 // ── Import Errors Modal (mirrors ImportErrorsModal in crop's ForecastingPage.jsx) ──
 
@@ -396,8 +404,8 @@ function AggregatePanel({ groupBy, setGroupBy, groups, overall, cycleTrend, isLo
 
   return (
     <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-[13px] font-semibold text-[#1A2B1A]">Aggregate Summary</p>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <p className="text-[13px] font-semibold text-[#1A2B1A]">Aggregate summary</p>
         <div className="flex items-center gap-1 rounded-lg border border-[#E2E8E2] p-0.5">
           {['barangay', 'species'].map(opt => (
             <button
@@ -408,30 +416,30 @@ function AggregatePanel({ groupBy, setGroupBy, groups, overall, cycleTrend, isLo
                 groupBy === opt ? 'bg-[#1B4D2E] text-white' : 'text-[#4A5E4A] hover:bg-[#F5F7F5]'
               }`}
             >
-              {opt === 'barangay' ? 'By Barangay' : 'By Species'}
+              {opt === 'barangay' ? 'By barangay' : 'By species'}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-2 gap-3 mb-4 lg:grid-cols-4">
         <div className="bg-[#EBF5EE] rounded-xl p-3">
           <p className="text-[11px] font-medium text-[#4A5E4A]">Stockings</p>
           <p className="text-[18px] font-bold text-[#1B4D2E] mt-0.5">{overall.stocking_count ?? 0}</p>
         </div>
         <div className="bg-[#EBF5EE] rounded-xl p-3">
-          <p className="text-[11px] font-medium text-[#4A5E4A]">Avg Estimated</p>
+          <p className="text-[11px] font-medium text-[#4A5E4A]">Avg. estimated</p>
           <p className="text-[18px] font-bold text-[#1B4D2E] mt-0.5">{overall.avg_estimated_kg != null ? `${overall.avg_estimated_kg.toLocaleString()} kg` : 'N/A'}</p>
         </div>
         <div className="bg-[#EBF5EE] rounded-xl p-3">
-          <p className="text-[11px] font-medium text-[#4A5E4A]">Avg Variance</p>
+          <p className="text-[11px] font-medium text-[#4A5E4A]">Avg. variance</p>
           <p className="text-[18px] font-bold text-[#1B4D2E] mt-0.5">{overall.avg_variance_pct != null ? `${overall.avg_variance_pct >= 0 ? '+' : ''}${overall.avg_variance_pct.toFixed(1)}%` : 'N/A'}</p>
           {overall.total_loss_count > 0 && (
             <p className="text-[10px] text-[#7A8E7A] mt-0.5">excl. {overall.total_loss_count} total loss</p>
           )}
         </div>
         <div className="bg-[#EBF5EE] rounded-xl p-3">
-          <p className="text-[11px] font-medium text-[#4A5E4A]">Avg Activity Completion</p>
+          <p className="text-[11px] font-medium text-[#4A5E4A]">Avg. activity completion</p>
           <p className="text-[18px] font-bold text-[#1B4D2E] mt-0.5">{overall.avg_activity_completion_pct != null ? `${overall.avg_activity_completion_pct.toFixed(1)}%` : 'N/A'}</p>
         </div>
       </div>
@@ -485,7 +493,7 @@ function AggregatePanel({ groupBy, setGroupBy, groups, overall, cycleTrend, isLo
 
       {cycleTrend && cycleTrend.length > 0 && (
         <div className="mt-4 border-t border-[#F0F4F0] pt-4">
-          <p className="text-[12px] font-semibold text-[#1A2B1A] mb-2">Cycle Trend (Repeat Stockings)</p>
+          <p className="text-[12px] font-semibold text-[#1A2B1A] mb-2">Cycle trend (repeat stockings)</p>
           <div className="flex flex-wrap gap-3">
             {cycleTrend.map((c) => (
               <div key={c.cycle} className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-2">
@@ -541,7 +549,8 @@ export default function ForecastingTab({ asTab = false }) {
     try {
       // All active (not yet harvested / not total-loss) Fisheries Monitoring records: the endpoint's
       // default status scope. Search is applied server-side so it spans every page.
-      const params = { page: pageNum }
+      // Soonest expected harvest first — the order a forecast is read in.
+      const params = { page: pageNum, ordering: 'expected_harvest_date' }
       if (fcBarangayFilter) params.barangay = fcBarangayFilter
       if (fcSpeciesFilter)  params.species  = fcSpeciesFilter
       if (fcSearchDebounced.trim()) params.search = fcSearchDebounced.trim()
@@ -647,35 +656,62 @@ export default function ForecastingTab({ asTab = false }) {
   )
 
   const FC_COLUMNS = [
-    { key: 'species_name',      label: 'SPECIES' },
-    { key: 'fisherfolk_name',   label: 'FISHERFOLK' },
-    { key: 'culture_type',      label: 'CULTURE TYPE' },
+    { key: 'species_cell',      label: 'SPECIES' },
+    { key: 'fisherfolk_cell',   label: 'FISHERFOLK' },
     { key: 'stocked_cell',      label: 'DATE STOCKED' },
     { key: 'fingerlings_cell',  label: 'FINGERLINGS' },
-    { key: 'yield_cell',        label: 'ESTIMATED HARVEST YIELD (KG)' },
-    { key: 'harvest_date_cell', label: 'ESTIMATED HARVEST DATE' },
-    { key: 'status',            label: 'STATUS' },
+    { key: 'yield_cell',        label: 'EST. YIELD (KG)' },
+    { key: 'harvest_date_cell', label: 'EXPECTED HARVEST' },
+    { key: 'status_cell',       label: 'STATUS' },
     { key: 'actions',           label: 'DETAILS' },
   ]
 
-  const fcRows = fcFiltered.map(rec => ({
-    ...rec,
-    stocked_cell: fmtMDY(rec.date_stocked),
-    fingerlings_cell: rec.number_of_fingerlings ? Number(rec.number_of_fingerlings).toLocaleString() : '—',
-    harvest_date_cell: fmtMDY(rec.expected_harvest_date),
-    yield_cell: rec.estimated_harvest_kg
-      ? <span className="font-semibold text-[#1B4D2E]">{Number(rec.estimated_harvest_kg).toLocaleString()} kg</span>
-      : '—',
-    actions: (
-      <button
-        type="button"
-        className="text-sm text-[#1B4D2E] hover:underline"
-        onClick={() => setFcDetail(rec)}
-      >
-        View
-      </button>
-    ),
-  }))
+  const fcRows = fcFiltered.map(rec => {
+    const days = daysUntil(rec.expected_harvest_date)
+    const overdue = days !== null && days < 0
+    return {
+      ...rec,
+      // Species with its culture type beneath; fisherfolk with their barangay —
+      // two-line cells keep the table to one row per stocking at a normal width.
+      species_cell: (
+        <span className="block whitespace-nowrap">
+          <span className="block font-medium text-[#1A2B1A]">{rec.species_name}</span>
+          {rec.culture_type && <span className="block text-[11px] text-[#7A8E7A]">{rec.culture_type}</span>}
+        </span>
+      ),
+      fisherfolk_cell: (
+        <span className="block w-[190px] max-w-[190px]">
+          <span className="block truncate text-[#1A2B1A]" title={rec.fisherfolk_name || ''}>{rec.fisherfolk_name || '—'}</span>
+          <span className="block truncate text-[11px] text-[#7A8E7A]">{rec.pond_location_barangay || '—'}</span>
+        </span>
+      ),
+      stocked_cell: fmtShortDate(rec.date_stocked),
+      fingerlings_cell: rec.number_of_fingerlings ? Number(rec.number_of_fingerlings).toLocaleString() : '—',
+      yield_cell: rec.estimated_harvest_kg
+        ? <span className="font-semibold text-[#1B4D2E]">{Number(rec.estimated_harvest_kg).toLocaleString()}</span>
+        : '—',
+      harvest_date_cell: (
+        <span className="block whitespace-nowrap">
+          <span className="block text-[#1A2B1A]">{fmtShortDate(rec.expected_harvest_date)}</span>
+          <span className={`block text-[11px] ${overdue ? 'text-rose-600' : 'text-[#7A8E7A]'}`}>{countdownText(rec.expected_harvest_date)}</span>
+        </span>
+      ),
+      status_cell: (
+        <StatusPill tone={overdue ? 'rose' : rec.status === 'Near Harvest' ? 'amber' : 'green'}>
+          {overdue ? 'Overdue' : rec.status}
+        </StatusPill>
+      ),
+      actions: (
+        <button
+          type="button"
+          className="text-sm font-medium text-[#1B4D2E] hover:underline"
+          onClick={() => setFcDetail(rec)}
+        >
+          View
+        </button>
+      ),
+    }
+  })
 
   // ── existing "Yield Analysis" state (UNCHANGED below this point) ─────────
   const [speciesList, setSpeciesList] = useState([])
@@ -813,7 +849,7 @@ export default function ForecastingTab({ asTab = false }) {
     <div className="space-y-5">
       {/* View toggle: existing analysis vs grouped by fisherfolk */}
       <div className="flex items-center gap-1 w-fit rounded-lg border border-[#E2E8E2] p-0.5">
-        {[{ id: 'analysis', label: 'Analysis' }, { id: 'grouped', label: 'Group by fisherfolk' }].map(v => (
+        {[{ id: 'analysis', label: 'Analysis' }, { id: 'grouped', label: 'By fisherfolk' }].map(v => (
           <button
             key={v.id}
             type="button"
@@ -929,7 +965,7 @@ export default function ForecastingTab({ asTab = false }) {
                   {expanded.has(rec.id) && (
                     <tr className="border-b border-[#F0F4F0] bg-[#F9FAF9]">
                       <td colSpan={10} className="px-6 py-4">
-                        <p className="text-[12px] font-semibold text-[#1A2B1A] mb-2">Activity Completion Breakdown</p>
+                        <p className="text-[12px] font-semibold text-[#1A2B1A] mb-2">Activity completion breakdown</p>
                         {rec.activity_breakdown.length === 0 ? (
                           <p className="text-[12px] text-[#7A8E7A]">No activity schedule defined for this species.</p>
                         ) : (
@@ -963,81 +999,91 @@ export default function ForecastingTab({ asTab = false }) {
     </div>
   )
 
+  // The Forecast tab's actions, shown on the right of the tab row.
+  const fcActions = (
+    <div className="flex flex-wrap items-center gap-2">
+      <input
+        ref={fcFileInputRef}
+        type="file"
+        accept=".xlsx,.xls,.csv"
+        className="hidden"
+        onChange={handleFcImportFile}
+      />
+      <button
+        type="button"
+        onClick={() => navigate('/fisheries-monitoring/add')}
+        className="flex items-center gap-1.5 rounded-lg border border-[#C8D5C8] px-3 py-[7px] text-[13px] font-medium text-[#4A5E4A] transition-colors hover:bg-[#F5F7F5]"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        Add stocking
+      </button>
+      <button
+        type="button"
+        onClick={handleFcDownloadTemplate}
+        className="flex items-center gap-1.5 rounded-lg border border-[#C8D5C8] px-3 py-[7px] text-[13px] font-medium text-[#4A5E4A] transition-colors hover:bg-[#F5F7F5]"
+      >
+        <Download className="h-3.5 w-3.5" />
+        Template
+      </button>
+      <button
+        type="button"
+        disabled={fcImporting}
+        onClick={() => fcFileInputRef.current?.click()}
+        className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 py-[7px] text-[13px] font-medium text-white transition-colors hover:bg-[#235E38] disabled:opacity-60"
+      >
+        {fcImporting
+          ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+          : <Upload className="h-3.5 w-3.5" />
+        }
+        {fcImporting ? 'Importing…' : 'Import Excel'}
+      </button>
+    </div>
+  )
+
   const forecastContent = (
     <div className="space-y-4">
-      <div className="flex items-center justify-end gap-2">
-        <input
-          ref={fcFileInputRef}
-          type="file"
-          accept=".xlsx,.xls,.csv"
-          className="hidden"
-          onChange={handleFcImportFile}
-        />
-        <button
-          type="button"
-          onClick={() => navigate('/fisheries-monitoring/add')}
-          className="flex items-center gap-1.5 rounded-lg border border-[#C8D5C8] px-3 py-[5px] text-[12px] font-medium text-[#4A5E4A] transition-colors hover:bg-[#F5F7F5]"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          Add Stocking
-        </button>
-        <button
-          type="button"
-          disabled={fcImporting}
-          onClick={() => fcFileInputRef.current?.click()}
-          className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 py-[5px] text-[12px] font-medium text-white transition-colors hover:bg-[#235E38] disabled:opacity-60"
-        >
-          {fcImporting
-            ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-            : <Upload className="h-3.5 w-3.5" />
-          }
-          {fcImporting ? 'Importing…' : 'Import Excel'}
-        </button>
-        <button
-          type="button"
-          onClick={handleFcDownloadTemplate}
-          className="flex items-center gap-1.5 rounded-lg border border-[#C8D5C8] px-3 py-[5px] text-[12px] font-medium text-[#4A5E4A] transition-colors hover:bg-[#F5F7F5]"
-        >
-          <Download className="h-3.5 w-3.5" />
-          Template
-        </button>
-      </div>
-
       <FilterPanel
         search={fcSearch}
         onSearchChange={setFcSearch}
-        searchPlaceholder="Search by species or fisherfolk..."
+        searchPlaceholder="Search by fisherfolk, RSBSA / LGU no., species, or barangay..."
         activeCount={[Boolean(fcBarangayFilter), Boolean(fcSpeciesFilter)].filter(Boolean).length}
       >
         <select className={filterSelectCls} value={fcSpeciesFilter} onChange={e => setFcSpeciesFilter(e.target.value)}>
-          <option value="">All Species</option>
+          <option value="">All species</option>
           {speciesList.map(s => <option key={s.id} value={s.id}>{s.species_name}</option>)}
         </select>
         <select className={filterSelectCls} value={fcBarangayFilter} onChange={e => setFcBarangayFilter(e.target.value)}>
-          <option value="">All Barangays</option>
+          <option value="">All barangays</option>
           {BARANGAYS.map(b => <option key={b} value={b}>{b}</option>)}
         </select>
       </FilterPanel>
 
       {fcError && <ErrorMessage message={fcError} />}
 
-      {/* View toggle: flat per-record table vs grouped by fisherfolk */}
-      <div className="flex items-center gap-1 w-fit rounded-lg border border-[#E2E8E2] p-0.5">
-        {[
-          { id: 'flat',    label: 'Flat' },
-          { id: 'grouped', label: 'Group by fisherfolk' },
-        ].map(v => (
-          <button
-            key={v.id}
-            type="button"
-            onClick={() => setFcView(v.id)}
-            className={`px-3 py-1 rounded-md text-[12px] font-medium transition-colors ${
-              fcView === v.id ? 'bg-[#1B4D2E] text-white' : 'text-[#4A5E4A] hover:bg-[#F5F7F5]'
-            }`}
-          >
-            {v.label}
-          </button>
-        ))}
+      {/* View toggle on the left, how many stockings this shows on the right. */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-1 w-fit rounded-lg border border-[#E2E8E2] p-0.5">
+          {[
+            { id: 'flat',    label: 'All stockings' },
+            { id: 'grouped', label: 'By fisherfolk' },
+          ].map(v => (
+            <button
+              key={v.id}
+              type="button"
+              onClick={() => setFcView(v.id)}
+              className={`px-3 py-1 rounded-md text-[12px] font-medium transition-colors ${
+                fcView === v.id ? 'bg-[#1B4D2E] text-white' : 'text-[#4A5E4A] hover:bg-[#F5F7F5]'
+              }`}
+            >
+              {v.label}
+            </button>
+          ))}
+        </div>
+        {fcView === 'flat' && !fcLoading && (
+          <p className="text-[12px] text-[#7A8E7A]">
+            {fcTotalCount.toLocaleString()} active stocking{fcTotalCount === 1 ? '' : 's'}, soonest harvest first
+          </p>
+        )}
       </div>
 
       {fcView === 'flat' ? (
@@ -1068,25 +1114,29 @@ export default function ForecastingTab({ asTab = false }) {
           "Yield Analysis" wraps the pre-existing page content unchanged
           (Analysis/Grouped toggle, filters, AggregatePanel, Cycle Trend,
           Harvested/Total-Loss table); "Forecast" is new. */}
-      <div className="flex flex-wrap gap-2">
-        {[
-          { id: 'forecast',       icon: TrendingUp, label: 'Forecast' },
-          { id: 'yield_analysis', icon: BarChart2,  label: 'Yield Analysis' },
-        ].map(tab => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 rounded-lg text-[13px] font-medium transition-colors flex items-center gap-1.5 ${
-              activeTab === tab.id
-                ? 'bg-[#1B4D2E] text-white'
-                : 'bg-white border border-[#E2E8E2] text-[#4A5E4A] hover:bg-[#F5F7F5]'
-            }`}
-          >
-            <tab.icon size={14} />
-            {tab.label}
-          </button>
-        ))}
+      {/* Tabs on the left, the page's actions on the right — one row. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2">
+          {[
+            { id: 'forecast',       icon: TrendingUp, label: 'Forecast' },
+            { id: 'yield_analysis', icon: BarChart2,  label: 'Yield analysis' },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-2 rounded-lg text-[13px] font-medium transition-colors flex items-center gap-1.5 ${
+                activeTab === tab.id
+                  ? 'bg-[#1B4D2E] text-white'
+                  : 'bg-white border border-[#E2E8E2] text-[#4A5E4A] hover:bg-[#F5F7F5]'
+              }`}
+            >
+              <tab.icon size={14} />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        {activeTab === 'forecast' && fcActions}
       </div>
 
       {activeTab === 'forecast' ? forecastContent : yieldAnalysisContent}
@@ -1115,7 +1165,7 @@ export default function ForecastingTab({ asTab = false }) {
   return (
     <PageLayout
       title="Fisheries Forecasting"
-      subtitle="Upcoming stockings and descriptive yield analysis based on recorded harvests versus stocking-time estimates."
+      subtitle="Expected harvest dates and yields for active stockings, and how past harvests compared with their estimates."
     >
       {innerContent}
     </PageLayout>

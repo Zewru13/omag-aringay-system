@@ -3,7 +3,7 @@ from decimal import Decimal
 from io import BytesIO
 
 from django.db import transaction
-from django.db.models import Avg, Case, CharField, Count, Exists, IntegerField, OuterRef, Q, Sum, Value, When
+from django.db.models import Avg, Case, CharField, Count, Exists, F, IntegerField, OuterRef, Q, Sum, Value, When
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status as drf_status
@@ -821,6 +821,15 @@ class CropMonitoringListCreateView(generics.ListCreateAPIView):
             id_fields=['farmer__rsbsa_number'],
             other_fields=['crop_type__name', 'farmers_organization__name', 'farm_location_barangay'],
         )
+        # Forecast lists ask for the soonest expected harvest first; any other
+        # value is ignored (the default newest-first order stays).
+        ordering = params.get('ordering')
+        if ordering in ('expected_harvest_date', '-expected_harvest_date'):
+            harvest = F('expected_harvest_date')
+            qs = qs.order_by(
+                harvest.desc(nulls_last=True) if ordering.startswith('-') else harvest.asc(nulls_last=True),
+                '-id',
+            )
         return qs
 
     def perform_create(self, serializer):

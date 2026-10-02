@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, F, Q, Sum
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status as drf_status
 from rest_framework.exceptions import ValidationError
@@ -500,6 +500,9 @@ class StockingListCreateView(generics.ListCreateAPIView):
             qs = qs.filter(fisherfolk_id=params['fisherfolk'])
         if params.get('barangay'):
             qs = qs.filter(pond_location_barangay__iexact=params['barangay'])
+        # The Forecast tab's Species filter sent this all along but nothing read it.
+        if params.get('species'):
+            qs = qs.filter(species_id=params['species'])
         # Fisherfolk by name in any order or by RSBSA / LGU / FishR number
         # (as typed or without dashes), plus species and barangay.
         qs = filter_people_search(
@@ -520,6 +523,15 @@ class StockingListCreateView(generics.ListCreateAPIView):
             qs = qs.filter(expected_harvest_date__gte=params['date_from'])
         if params.get('date_to'):
             qs = qs.filter(expected_harvest_date__lte=params['date_to'])
+        # Forecast lists ask for the soonest expected harvest first; any other
+        # value is ignored (the default newest-first order stays).
+        ordering = params.get('ordering')
+        if ordering in ('expected_harvest_date', '-expected_harvest_date'):
+            harvest = F('expected_harvest_date')
+            qs = qs.order_by(
+                harvest.desc(nulls_last=True) if ordering.startswith('-') else harvest.asc(nulls_last=True),
+                '-id',
+            )
         return qs
 
     def perform_create(self, serializer):
