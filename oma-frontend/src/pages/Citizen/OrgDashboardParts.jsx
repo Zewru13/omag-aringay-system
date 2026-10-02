@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import {
-  ChevronRight, FileText, HelpCircle, Home, Info, LogOut, Menu, User,
+  ChevronDown, ChevronRight, FileText, HelpCircle, Home, Info, LogOut, Menu, User,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import NotificationBell from '../../components/Layout/NotificationBell.jsx'
@@ -240,9 +240,13 @@ function OrgAccountBadge({ theme, chipLabel, onNav }) {
         aria-expanded={open}
         aria-label={chipLabel}
         title={chipLabel}
-        className={`flex h-9 w-9 items-center justify-center rounded-full text-[13px] font-semibold transition-opacity hover:opacity-80 press-scale ${theme.tileSelectedBg} ${theme.tileSelectedText}`}
+        className="press-scale flex items-center gap-2 rounded-[8px] px-2 py-1.5 transition-colors hover:bg-cz-page"
       >
-        {orgInitials(chipLabel)}
+        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white ${theme.solidBtn}`}>
+          {orgInitials(chipLabel)}
+        </span>
+        <span className="max-w-[240px] truncate text-[13.5px] font-medium text-cz-text">{chipLabel}</span>
+        <ChevronDown size={15} className="shrink-0 text-cz-text-muted" aria-hidden="true" />
       </button>
 
       {open && (

@@ -1,7 +1,10 @@
 import { useState } from 'react'
-import { CheckCircle2, ChevronRight, XCircle } from 'lucide-react'
+import { CheckCircle2, ChevronRight, X, XCircle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
-import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
+import {
+  EMPTY_TYPE_CONDITIONAL_FIELDS, SOURCE_AGENCY_OPTIONS, buildTypeConditionalPayload,
+  isEquipmentType, isFertilizerType, isSeedsType, isTrainingType, validateTrainingDuration,
+} from '../AssistanceManagement/assistanceFieldHelpers.js'
 import { labels } from './labels.js'
 import { OrgPageHeader, OrgShell } from './OrgDashboardParts.jsx'
 import OrgMemberPicker from './OrgMemberPicker.jsx'
@@ -31,13 +34,11 @@ import { todayISO } from '../../utils/localDate.js'
 // that reached it. The backend PATCH endpoint (domain.detailUrl) still
 // exists; there is simply no button wired to it anymore.
 
-const SOURCE_AGENCY_OPTIONS = [
-  'LGU - Aringay',
-  'Office of the Provincial Agriculturist',
-  'Department of Agriculture (DA)',
-  'Department of Agrarian Reform (DAR)',
-  'Non-Government Organization (NGO)',
-]
+// The same fields the OMAg staff form collects (assistanceFieldHelpers.js is
+// shared with it): several source agencies, and the one type-specific detail
+// each assistance type carries — training length, or which equipment / seed /
+// fertilizer. Records an organization reports therefore look the same as
+// records staff enter, and reports can group them the same way.
 
 // Per-type unit lists. Presentation only — quantity is a free-text
 // CharField server-side; the chosen unit is composed into it
@@ -96,10 +97,19 @@ function AssistanceTypeField({ domain, form, set, fieldBox }) {
 // Quantity/unit (or cash amount) — the real backend-required fields the
 // reference's own screenshots don't show on this step, kept per earlier
 // explicit instruction. Split from the type selector for the same reason.
-function AssistanceAmountFields({ theme, form, set }) {
+function AssistanceAmountFields({ theme, domain, form, set, fieldBox }) {
   const isCash = form.assistance_type === 'Cash Assistance'
+  const isTraining = isTrainingType(form.assistance_type)
+  const allowSeedFertilizer = domain.key === 'farmers_org'
+  const typeDetail = isEquipmentType(form.assistance_type)
+    ? { field: 'equipment_type', label: R.equipmentType, placeholder: R.equipmentTypePlaceholder }
+    : allowSeedFertilizer && isSeedsType(form.assistance_type)
+      ? { field: 'seed_type', label: R.seedType, placeholder: R.seedTypePlaceholder }
+      : allowSeedFertilizer && isFertilizerType(form.assistance_type)
+        ? { field: 'fertilizer_type', label: R.fertilizerType, placeholder: R.fertilizerTypePlaceholder }
+        : null
   return (
-    <div className={CARD}>
+    <div className={`${CARD} space-y-3`}>
       {isCash ? (
         <>
           <label className={FIELD_LABEL} htmlFor="cash-amount">{R.cashPerMember}</label>
@@ -120,6 +130,17 @@ function AssistanceAmountFields({ theme, form, set }) {
             </p>
           )}
         </>
+      ) : isTraining ? (
+        <div>
+          <label className={FIELD_LABEL} htmlFor="training-days">{R.trainingDays}</label>
+          <input
+            id="training-days" type="number" min="1" max="3" step="1"
+            value={form.training_duration_days}
+            onChange={(e) => set('training_duration_days', e.target.value)}
+            placeholder={R.trainingDaysPlaceholder}
+            className={fieldBox}
+          />
+        </div>
       ) : (
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -140,6 +161,18 @@ function AssistanceAmountFields({ theme, form, set }) {
           </div>
         </div>
       )}
+      {typeDetail && (
+        <div>
+          <label className={FIELD_LABEL} htmlFor="type-detail">{typeDetail.label}</label>
+          <input
+            id="type-detail" type="text"
+            value={form[typeDetail.field]}
+            onChange={(e) => set(typeDetail.field, e.target.value)}
+            placeholder={typeDetail.placeholder}
+            className={fieldBox}
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -151,7 +184,7 @@ function AssistanceTypeAndAmountFields({ theme, domain, form, set, fieldBox }) {
   return (
     <>
       <AssistanceTypeField domain={domain} form={form} set={set} fieldBox={fieldBox} />
-      <AssistanceAmountFields theme={theme} form={form} set={set} />
+      <AssistanceAmountFields theme={theme} domain={domain} form={form} set={set} fieldBox={fieldBox} />
     </>
   )
 }
@@ -167,25 +200,71 @@ function DateField({ form, set, fieldBox }) {
   )
 }
 
+// Several agencies can fund one distribution, so this is a set of toggles for
+// the known agencies plus a free-text add for anything else — the same model
+// the staff form uses (source_agencies is one flat list).
+function SourceAgencyField({ theme, form, set, fieldBox }) {
+  const [custom, setCustom] = useState('')
+  const picked = form.source_agencies
+  const toggle = (agency) => set('source_agencies', picked.includes(agency) ? picked.filter((a) => a !== agency) : [...picked, agency])
+  const addCustom = () => {
+    const v = custom.trim()
+    if (!v || picked.includes(v)) return
+    set('source_agencies', [...picked, v])
+    setCustom('')
+  }
+  const extras = picked.filter((a) => !SOURCE_AGENCY_OPTIONS.includes(a))
+  return (
+    <div>
+      <p className={FIELD_LABEL}>{L.fields.sourceAgency}</p>
+      <div className="flex flex-wrap gap-2">
+        {SOURCE_AGENCY_OPTIONS.map((opt) => {
+          const on = picked.includes(opt)
+          return (
+            <label
+              key={opt}
+              className={`press-scale inline-flex min-h-[38px] cursor-pointer items-center rounded-[9px] border-[0.5px] px-3 text-[13px] transition-colors ${
+                on ? `border-transparent font-medium ${theme.tileSelectedBg} ${theme.tileSelectedText}` : 'border-cz-border-strong bg-white text-cz-text-2 hover:bg-cz-page'
+              }`}
+            >
+              <input type="checkbox" className="sr-only" checked={on} onChange={() => toggle(opt)} />
+              {opt}
+            </label>
+          )
+        })}
+        {extras.map((agency) => (
+          <span key={agency} className={`inline-flex min-h-[38px] items-center gap-1.5 rounded-[9px] pl-3 pr-2 text-[13px] font-medium ${theme.tileSelectedBg} ${theme.tileSelectedText}`}>
+            {agency}
+            <button type="button" aria-label={`${R.removeAgency}: ${agency}`} onClick={() => toggle(agency)} className="flex h-6 w-6 items-center justify-center rounded-full hover:bg-black/10">
+              <X size={13} aria-hidden="true" />
+            </button>
+          </span>
+        ))}
+      </div>
+      <div className="mt-2 flex gap-2">
+        <input
+          type="text"
+          value={custom}
+          onChange={(e) => setCustom(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustom() } }}
+          placeholder={R.addAgencyPlaceholder}
+          className={`${fieldBox} flex-1`}
+        />
+        <button type="button" onClick={addCustom} className="press-scale min-h-[46px] shrink-0 rounded-[10px] border-[0.5px] border-cz-border-strong bg-white px-4 text-[14px] text-cz-text-2 transition-colors hover:bg-cz-page">
+          {R.addAgency}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 // Source/season/description — the real required fields the reference never
 // shows for the org-wide flow (its screenshots stop at type+date). Rendered
 // on the org-wide wizard's SECOND step, alongside the amount fields.
-function SourceSeasonDescriptionFields({ domain, form, set, fieldBox }) {
+function SourceSeasonDescriptionFields({ theme, domain, form, set, fieldBox }) {
   return (
     <div className={`${CARD} space-y-3`}>
-      <div>
-        <label className={FIELD_LABEL} htmlFor="source-agency">{L.fields.sourceAgency}</label>
-        <ComboboxWithOther
-          options={SOURCE_AGENCY_OPTIONS}
-          value={form.source_agency}
-          otherValue={form.source_agency_other}
-          onChange={(v) => set('source_agency', v)}
-          onOtherChange={(v) => set('source_agency_other', v)}
-          otherLabel={R.other}
-          placeholder={R.notSpecified}
-          inputClassName={fieldBox}
-        />
-      </div>
+      <SourceAgencyField theme={theme} form={form} set={set} fieldBox={fieldBox} />
       {domain.seasonOptions && (
         <div>
           <label className={FIELD_LABEL} htmlFor="season">{L.fields.season}</label>
@@ -206,7 +285,7 @@ function SourceSeasonDescriptionFields({ domain, form, set, fieldBox }) {
 // ONE card, unchanged from before this rewrite — only the org-wide flow is
 // wizard-split (DateField / SourceSeasonDescriptionFields above, rendered
 // as two separate steps with their own card each).
-function DateSourceSeasonDescriptionFields({ domain, form, set, fieldBox }) {
+function DateSourceSeasonDescriptionFields({ theme, domain, form, set, fieldBox }) {
   return (
     <div className={`${CARD} space-y-3`}>
       <div>
@@ -214,19 +293,7 @@ function DateSourceSeasonDescriptionFields({ domain, form, set, fieldBox }) {
         <input id="date-given" type="date" value={form.date_given} onChange={(e) => set('date_given', e.target.value)} className={fieldBox} />
         <p className="mt-1.5 text-[12px] text-cz-text-2">{R.futureDateHint}</p>
       </div>
-      <div>
-        <label className={FIELD_LABEL} htmlFor="source-agency">{L.fields.sourceAgency}</label>
-        <ComboboxWithOther
-          options={SOURCE_AGENCY_OPTIONS}
-          value={form.source_agency}
-          otherValue={form.source_agency_other}
-          onChange={(v) => set('source_agency', v)}
-          onOtherChange={(v) => set('source_agency_other', v)}
-          otherLabel={R.other}
-          placeholder={R.notSpecified}
-          inputClassName={fieldBox}
-        />
-      </div>
+      <SourceAgencyField theme={theme} form={form} set={set} fieldBox={fieldBox} />
       {domain.seasonOptions && (
         <div>
           <label className={FIELD_LABEL} htmlFor="season">{L.fields.season}</label>
@@ -246,14 +313,14 @@ function DateSourceSeasonDescriptionFields({ domain, form, set, fieldBox }) {
 const emptyForm = (domain) => ({
   assistance_type: domain.assistanceTypeOptions[0],
   assistance_type_other: '',
-  source_agency: '',
-  source_agency_other: '',
+  source_agencies: [],
   date_given: todayISO(),
   quantity: '',
   unit: unitsFor(domain.assistanceTypeOptions[0])[0],
   cash_amount: '',
   description: '',
   season: domain.seasonOptions ? domain.seasonOptions[0] : '',
+  ...EMPTY_TYPE_CONDITIONAL_FIELDS,
 })
 
 export default function OrgReportAssistanceScreen({
@@ -277,7 +344,7 @@ export default function OrgReportAssistanceScreen({
 
   const set = (field, value) => {
     if (field === 'typeChange') {
-      setForm((f) => ({ ...f, assistance_type: value, unit: unitsFor(value)[0] }))
+      setForm((f) => ({ ...f, assistance_type: value, unit: unitsFor(value)[0], quantity: '', cash_amount: '', ...EMPTY_TYPE_CONDITIONAL_FIELDS }))
       return
     }
     setForm((f) => ({ ...f, [field]: value }))
@@ -285,7 +352,24 @@ export default function OrgReportAssistanceScreen({
 
   const isCash = form.assistance_type === 'Cash Assistance'
   const isOtherType = form.assistance_type === 'Other'
+  const isTraining = isTrainingType(form.assistance_type)
+  const allowSeedFertilizer = domain.key === 'farmers_org'
   const resolvedType = isOtherType ? form.assistance_type_other.trim() : form.assistance_type
+
+  // One place that turns the form into the fields every request carries, so
+  // the single-member save, the preview and the final distribution can never
+  // disagree. Same shape the staff form sends: an "Other" type goes out as the
+  // text typed, and only the detail matching the chosen type is included.
+  const assistanceFields = () => ({
+    assistance_type: resolvedType,
+    source_agencies: form.source_agencies,
+    quantity: isCash
+      ? (form.cash_amount ? `₱${form.cash_amount} per head` : '')
+      : isTraining ? '' : [form.quantity, form.unit].filter(Boolean).join(' '),
+    date_given: form.date_given,
+    season: form.season,
+    ...buildTypeConditionalPayload(form.assistance_type, form, { allowSeedFertilizer }),
+  })
 
   const extractError = (err) => {
     const data = err?.response?.data
@@ -309,28 +393,17 @@ export default function OrgReportAssistanceScreen({
     if (!memberId) { setErrorMessage(RA.errors.requiredFields); return }
     if (!form.assistance_type || !form.date_given) { setErrorMessage(RA.errors.requiredFields); return }
     if (isOtherType && !form.assistance_type_other.trim()) { setErrorMessage(RA.errors.specifyAssistanceType); return }
-    if (form.source_agency === 'Other' && !form.source_agency_other.trim()) { setErrorMessage(RA.errors.specifySourceAgency); return }
-    if (isCash ? (!form.cash_amount || Number(form.cash_amount) <= 0) : !form.quantity.trim()) {
+    if (isCash ? (!form.cash_amount || Number(form.cash_amount) <= 0) : (!isTraining && !form.quantity.trim())) {
       setErrorMessage(isCash ? RA.errors.invalidCashAmount : RA.errors.requiredFields)
       return
     }
+    if (validateTrainingDuration(form.assistance_type, form)) { setErrorMessage(R.trainingDaysError); return }
     const row = members.find((m) => String(domain.rowPersonId(m)) === String(memberId))
     setIsBusy(true)
     try {
-      const sourceAgency = form.source_agency === 'Other' ? form.source_agency_other.trim() : form.source_agency
-      const quantity = isCash ? `₱${form.cash_amount} per head` : [form.quantity, form.unit].filter(Boolean).join(' ')
-      const otherNote = isOtherType && form.assistance_type_other.trim() ? `Other: ${form.assistance_type_other.trim()}` : ''
-      const remarks = [otherNote, form.description.trim()].filter(Boolean).join(' — ')
       await api.post(domain.createUrl, {
-        assistance_type: form.assistance_type,
-        // This screen's own single-select UI is unchanged — wrapped into a
-        // one-item list to match source_agencies' new shape on the model,
-        // same conversion the data migration applied to existing rows.
-        source_agencies: sourceAgency ? [sourceAgency] : [],
-        quantity,
-        date_given: form.date_given,
-        season: form.season,
-        remarks,
+        ...assistanceFields(),
+        remarks: form.description.trim(),
         year: new Date(form.date_given).getFullYear(),
         [domain.personField]: domain.rowPersonId(row),
       })
@@ -345,24 +418,11 @@ export default function OrgReportAssistanceScreen({
 
   // ── "I-distribute sa Organisasyon" — unchanged dry_run -> confirm ->
   // submit contract, just restructured under the chooser.
-  const buildOrgPayload = (dryRun) => {
-    const sourceAgency = form.source_agency === 'Other' ? form.source_agency_other.trim() : form.source_agency
-    const quantity = isCash
-      ? (form.cash_amount ? `₱${form.cash_amount} per head` : '')
-      : [form.quantity, form.unit].filter(Boolean).join(' ')
-    const otherNote = isOtherType && form.assistance_type_other.trim() ? `Other: ${form.assistance_type_other.trim()}` : ''
-    const description = [otherNote, form.description.trim()].filter(Boolean).join(' — ')
-    return {
-      assistance_type: form.assistance_type,
-      // See handleSubmit's own identical comment above.
-      source_agencies: sourceAgency ? [sourceAgency] : [],
-      date_given: form.date_given,
-      quantity,
-      description,
-      season: form.season,
-      ...(dryRun ? { dry_run: true } : {}),
-    }
-  }
+  const buildOrgPayload = (dryRun) => ({
+    ...assistanceFields(),
+    description: form.description.trim(),
+    ...(dryRun ? { dry_run: true } : {}),
+  })
 
   // ── Org-wide wizard step 1 -> 2 (image5/20's "Susunod: I-preview").
   // Only validates what step 1 actually collects — type + date — the rest
@@ -381,8 +441,8 @@ export default function OrgReportAssistanceScreen({
     setErrorMessage('')
     if (!form.assistance_type || !form.date_given) { setErrorMessage(L.errors.requiredFields); return }
     if (isOtherType && !form.assistance_type_other.trim()) { setErrorMessage(L.errors.specifyAssistanceType); return }
-    if (form.source_agency === 'Other' && !form.source_agency_other.trim()) { setErrorMessage(L.errors.specifySourceAgency); return }
     if (isCash && (!form.cash_amount || Number(form.cash_amount) <= 0)) { setErrorMessage(L.errors.invalidCashAmount); return }
+    if (validateTrainingDuration(form.assistance_type, form)) { setErrorMessage(R.trainingDaysError); return }
     setIsBusy(true)
     try {
       const r = await api.post(domain.distributeUrl(orgId), buildOrgPayload(true))
@@ -478,7 +538,7 @@ export default function OrgReportAssistanceScreen({
           </div>
 
           <AssistanceTypeAndAmountFields theme={theme} domain={domain} form={form} set={set} fieldBox={fieldBox} />
-          <DateSourceSeasonDescriptionFields domain={domain} form={form} set={set} fieldBox={fieldBox} />
+          <DateSourceSeasonDescriptionFields theme={theme} domain={domain} form={form} set={set} fieldBox={fieldBox} />
 
           {errorMessage && (
             <p className="rounded-[10px] border-[0.5px] border-cz-danger-border bg-cz-danger-bg px-3.5 py-2.5 text-[13px] text-cz-danger-body">{errorMessage}</p>
@@ -528,8 +588,8 @@ export default function OrgReportAssistanceScreen({
       <OrgShell theme={theme} chipLabel={orgName} active="home" onNav={shellNav} tabBar={tabBar} wide={false} pageKey={step}>
         <OrgPageHeader title={R.orgFormTitle} subtitle={R.orgFormSubtitle(activeMemberCount)} onBack={() => setStep('orgForm')} />
         <form onSubmit={handlePreview} className="max-w-lg space-y-4">
-          <AssistanceAmountFields theme={theme} form={form} set={set} />
-          <SourceSeasonDescriptionFields domain={domain} form={form} set={set} fieldBox={fieldBox} />
+          <AssistanceAmountFields theme={theme} domain={domain} form={form} set={set} fieldBox={fieldBox} />
+          <SourceSeasonDescriptionFields theme={theme} domain={domain} form={form} set={set} fieldBox={fieldBox} />
 
           <div>
             <p className={FIELD_LABEL}>{R.recipientsHeading}</p>
@@ -572,7 +632,9 @@ export default function OrgReportAssistanceScreen({
           <p className="text-[13px] text-cz-text-2"><span className="font-semibold text-cz-text">{L.currentMembers}:</span> {preview.member_count}</p>
           <p className="text-[13px] text-cz-text-2">
             <span className="font-semibold text-cz-text">{L.assistanceSummary}:</span>{' '}
-            {resolvedType}{isCash ? L.perHeadSummary(form.cash_amount) : (form.quantity ? ` — ${form.quantity} ${form.unit}` : '')}
+            {resolvedType}{isCash ? L.perHeadSummary(form.cash_amount) : isTraining ? ` — ${form.training_duration_days} ${R.trainingDaysUnit}` : (form.quantity ? ` — ${form.quantity} ${form.unit}` : '')}
+            {[form.equipment_type, allowSeedFertilizer && form.seed_type, allowSeedFertilizer && form.fertilizer_type].filter(Boolean).map((d) => ` (${d})`).join('')}
+            {form.source_agencies.length > 0 ? ` · ${form.source_agencies.join(', ')}` : ''}
             {L.onDate(labels.common.formatDate(form.date_given))}
           </p>
         </div>

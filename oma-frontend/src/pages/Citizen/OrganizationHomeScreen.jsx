@@ -261,10 +261,12 @@ export default function OrganizationHomeScreen({ record, domain }) {
 
   const masthead = (
     <div {...riseProps(0)}>
-      <h1 className="text-[26px] font-bold leading-[1.15] tracking-[-0.01em] text-cz-text">
+      {/* From 640px up the top bar already shows the organization's name beside
+          the avatar, so the heading only appears on phones, where it doesn't. */}
+      <h1 className="text-[26px] font-bold leading-[1.15] tracking-[-0.01em] text-cz-text sm:hidden">
         {record?.label || labels.common.unknown}
       </h1>
-      <p className="mt-1.5 text-[13px] text-cz-text-2">
+      <p className="mt-1.5 text-[13px] text-cz-text-2 sm:mt-0">
         {orgTypeLabel} · {labels.orgHome.addressLine(record?.barangay || labels.common.unknown)}
         {record?.registration_number ? ` · ${record.registration_number}` : ''}
       </p>

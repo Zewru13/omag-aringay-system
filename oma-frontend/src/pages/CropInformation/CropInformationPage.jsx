@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import useDebouncedValue from "../../hooks/useDebouncedValue.js";
 import {
   Eye,
   FileText,
@@ -1046,12 +1047,20 @@ export default function CropInformationPage() {
   const [deletingRec, setDeletingRec] = useState(null);
   const [showRsbsaImportModal, setShowRsbsaImportModal] = useState(false);
 
+  // Server-side search over every record (farmer, RSBSA, crop, organization,
+  // barangay) — debounced, and a slower earlier answer never overwrites the
+  // one for what is typed now.
+  const debouncedSearch = useDebouncedValue(search.trim());
+  const requestSeq = useRef(0);
+
   const fetchRecords = useCallback(
     async (pageNum = 1) => {
+      const seq = ++requestSeq.current;
       setIsLoading(true);
       setError("");
       try {
         const params = new URLSearchParams({ page: pageNum });
+        if (debouncedSearch) params.set("search", debouncedSearch);
         if (seasonFilter) params.set("season", seasonFilter);
         if (yearFilter) params.set("year", yearFilter);
         // "Near Harvest" and "Overdue" are both partly client-derived (see
@@ -1067,39 +1076,33 @@ export default function CropInformationPage() {
           params.set("status", statusFilter);
         }
         const r = await api.get(`/production/monitoring/?${params.toString()}`);
+        if (seq !== requestSeq.current) return;
         setRecords(Array.isArray(r.data) ? r.data : r.data.results || []);
         setTotalCount(typeof r.data?.count === "number" ? r.data.count : 0);
       } catch {
-        setError("Failed to load crop records.");
+        if (seq === requestSeq.current) setError("Failed to load crop records.");
       } finally {
-        setIsLoading(false);
+        if (seq === requestSeq.current) setIsLoading(false);
       }
     },
-    [seasonFilter, yearFilter, statusFilter],
+    [seasonFilter, yearFilter, statusFilter, debouncedSearch],
   );
 
   useEffect(() => {
     setPage(1);
     fetchRecords(1);
-  }, [seasonFilter, yearFilter, statusFilter]);
+  }, [seasonFilter, yearFilter, statusFilter, debouncedSearch]);
 
   useEffect(() => {
     fetchRecords(page);
   }, [fetchRecords, page]);
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
     return records.filter((rec) => {
-      const matchSearch =
-        !q ||
-        rec.crop_type_name?.toLowerCase().includes(q) ||
-        rec.organization_name?.toLowerCase().includes(q);
       const displayStatus = getDisplayStatus(rec);
-      const matchStatus =
-        statusFilter === "All Status" || displayStatus === statusFilter;
-      return matchSearch && matchStatus;
+      return statusFilter === "All Status" || displayStatus === statusFilter;
     });
-  }, [records, search, statusFilter]);
+  }, [records, statusFilter]);
 
   const rows = filtered.map((rec) => {
     const displayStatus = getDisplayStatus(rec);
@@ -1176,7 +1179,7 @@ export default function CropInformationPage() {
         <FilterPanel
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Search by crop, organization..."
+          searchPlaceholder="Search by farmer, RSBSA, crop, or organization..."
           activeCount={[statusFilter !== 'All Status', Boolean(seasonFilter), Boolean(yearFilter)].filter(Boolean).length}
         >
           <select className={filterSelectCls} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>

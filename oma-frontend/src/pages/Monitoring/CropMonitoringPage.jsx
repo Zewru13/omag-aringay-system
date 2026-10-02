@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import useDebouncedValue from '../../hooks/useDebouncedValue.js'
 import {
   AlertTriangle, Bug, CheckCircle, CheckCircle2, Eye, FileText, HelpCircle, Leaf, Lock, MapPin, Pencil, Trash2, Unlock, User, Wheat,
 } from 'lucide-react'
@@ -16,6 +17,7 @@ import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import LoggedDatePicker from '../../components/UI/LoggedDatePicker.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import useRecordLock from '../../hooks/useRecordLock.js'
@@ -767,9 +769,16 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-700">Date of Activity *</label>
-                <input type="date" className={baseInputClasses} value={activityDate}
-                  max={todayISO()} min={selectedStageAllowsPrePlanting ? undefined : (record.date_planted || undefined)}
-                  onChange={e => setActivityDate(e.target.value)} />
+                <LoggedDatePicker
+                  id="crop-log-date"
+                  className={baseInputClasses}
+                  value={activityDate}
+                  max={todayISO()}
+                  min={selectedStageAllowsPrePlanting ? undefined : (record.date_planted || undefined)}
+                  onChange={setActivityDate}
+                  loggedDates={logs.map(l => l.date_of_activity)}
+                  labels={{ loggedNote: 'This crop already has a log on this date.' }}
+                />
               </div>
             </div>
 
@@ -1890,6 +1899,11 @@ export default function CropMonitoringPage() {
   const [isLoading,        setIsLoading]        = useState(true)
   const [error,            setError]            = useState('')
   const [search,           setSearch]           = useState('')
+  // The search runs on the server over every record (farmer, RSBSA, crop,
+  // organization, barangay), so it is debounced, and a slower earlier answer
+  // can never overwrite the one for what is typed now.
+  const debouncedSearch = useDebouncedValue(search.trim())
+  const requestSeq = useRef(0)
   const [statusFilter,     setStatusFilter]     = useState('Planted,Near Harvest')
   const [seasonFilter,     setSeasonFilter]     = useState('')
   const [yearFilter,       setYearFilter]       = useState('')
@@ -1907,6 +1921,7 @@ export default function CropMonitoringPage() {
   }, [])
 
   const fetchRecords = useCallback(async (pageNum = 1) => {
+    const seq = ++requestSeq.current
     setIsLoading(true); setError('')
     try {
       // 'Due Harvest'/'Ready for Harvest'/'Overdue' aren't real backend
@@ -1921,15 +1936,17 @@ export default function CropMonitoringPage() {
       if (seasonFilter)   params.season   = seasonFilter
       if (yearFilter)     params.year     = yearFilter
       if (barangayFilter) params.barangay = barangayFilter
+      if (debouncedSearch) params.search = debouncedSearch
       const r = await api.get('/production/monitoring/', { params })
+      if (seq !== requestSeq.current) return
       setRecords(Array.isArray(r.data) ? r.data : (r.data.results || []))
       setTotalCount(typeof r.data?.count === 'number' ? r.data.count : 0)
     } catch {
-      setError('Failed to load crop monitoring records.')
-    } finally { setIsLoading(false) }
-  }, [statusFilter, seasonFilter, yearFilter, barangayFilter])
+      if (seq === requestSeq.current) setError('Failed to load crop monitoring records.')
+    } finally { if (seq === requestSeq.current) setIsLoading(false) }
+  }, [statusFilter, seasonFilter, yearFilter, barangayFilter, debouncedSearch])
 
-  useEffect(() => { setPage(1) }, [statusFilter, seasonFilter, yearFilter, barangayFilter])
+  useEffect(() => { setPage(1) }, [statusFilter, seasonFilter, yearFilter, barangayFilter, debouncedSearch])
   useEffect(() => { fetchRecords(page) }, [fetchRecords, page])
 
   // Lock indicators for the currently-visible page only — bounded to page
@@ -1958,12 +1975,7 @@ export default function CropMonitoringPage() {
   }
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase()
     return records.filter(rec => {
-      const matchesSearch = !q
-        || rec.crop_type_name?.toLowerCase().includes(q)
-        || rec.organization_name?.toLowerCase().includes(q)
-      if (!matchesSearch) return false
       // Client-side half of the Due/Ready/Overdue split — the fetched page
       // already contains only real 'Near Harvest' rows for these three
       // filter values (see fetchRecords), so this narrows it further to the
@@ -1977,7 +1989,7 @@ export default function CropMonitoringPage() {
       }
       return true
     })
-  }, [records, search, statusFilter])
+  }, [records, statusFilter])
 
   const rows = filtered.map(rec => ({
     ...rec,
@@ -2054,7 +2066,7 @@ export default function CropMonitoringPage() {
         <FilterPanel
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Search by crop or organization..."
+          searchPlaceholder="Search by farmer, RSBSA, crop, or organization..."
           activeCount={[statusFilter !== 'Planted,Near Harvest', Boolean(seasonFilter), Boolean(yearFilter), Boolean(barangayFilter)].filter(Boolean).length}
         >
           <select className={filterSelectCls} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>

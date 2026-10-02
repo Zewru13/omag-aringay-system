@@ -18,6 +18,24 @@ import EditFarmerModal from './EditFarmerModal.jsx'
 
 const MONITORING_STATUS_TONES = { Planted: 'green', 'Near Harvest': 'amber', Harvested: 'blue', 'Total Loss': 'rose' }
 
+// A parcel's declared crops come from the RSBSA form's own crop list, while
+// monitoring records use the crop catalog, and the two spell some crops
+// differently ("Bitter Gourd (Ampalaya)" vs "Ampalaya"). Comparing the full
+// name plus the text before and inside the parentheses lines them up.
+function cropKeys(name) {
+  const n = String(name || '').toLowerCase().trim()
+  const keys = new Set([n])
+  const m = n.match(/^(.*?)\s*\((.*?)\)\s*$/)
+  if (m) { keys.add(m[1].trim()); keys.add(m[2].trim()) }
+  return keys
+}
+
+function sameCrop(a, b) {
+  const ka = cropKeys(a)
+  for (const k of cropKeys(b)) if (ka.has(k)) return true
+  return false
+}
+
 function formatDate(value) {
   if (!value) {
     return ''
@@ -367,6 +385,21 @@ function FarmerDetailPage() {
     }
   }
 
+  // Crops declared on a parcel that have no monitoring record yet. A declared
+  // crop is only a registration entry — it has no planting date, season or
+  // yield — so it is listed beside the real records as "Not yet monitored"
+  // rather than turned into a made-up monitoring record.
+  const unmonitoredCrops = isLoadingParcels || isLoadingCrops ? [] : parcels
+    .flatMap((p) => (p.crops || []).map((c) => ({
+      id: `declared-${c.id}`,
+      parcel: p,
+      crop: c,
+      name: c.crop_name === 'Other' ? (c.crop_name_other || 'Other') : c.crop_name,
+    })))
+    .filter(({ parcel, name }) => !cropRecords.some(
+      (r) => sameCrop(r.crop_type_name, name) && (!r.farm_parcel || r.farm_parcel === parcel.id),
+    ))
+
   useEffect(() => {
     fetchFarmer()
     fetchParcels()
@@ -633,7 +666,7 @@ function FarmerDetailPage() {
             <div className="flex min-h-24 items-center justify-center">
               <LoadingSpinner size={24} />
             </div>
-          ) : cropRecords.length === 0 ? (
+          ) : cropRecords.length === 0 && unmonitoredCrops.length === 0 ? (
             <p className="rounded-lg border border-[#E2E8E2] bg-[#EBF5EE]/30 px-4 py-3 text-[13px] text-[#4A5E4A]">
               No crop monitoring records for this farmer.
             </p>
@@ -664,6 +697,24 @@ function FarmerDetailPage() {
                       </tr>
                     )
                   })}
+                  {unmonitoredCrops.map(({ id: rowId, parcel, crop, name }, i) => (
+                    <tr key={rowId} className={(cropRecords.length + i) % 2 === 0 ? 'bg-white' : 'bg-[#F9FAF9]'}>
+                      <td className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">
+                        {name}
+                        <span className="mt-0.5 block text-[11px] font-normal text-[#7A8E7A]">
+                          Declared on {parcel.parcel_number ? `parcel ${parcel.parcel_number}` : `parcel #${parcel.id}`} · {parseFloat(crop.area_hectares)} ha{crop.is_main_crop ? ' · Main crop' : ''}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-[13px] text-[#7A8E7A]">—</td>
+                      <td className="px-4 py-2.5 text-[13px] text-[#7A8E7A]">—</td>
+                      <td className="px-4 py-2.5 text-[13px] text-[#7A8E7A]">—</td>
+                      <td className="px-4 py-2.5">
+                        <StatusPill tone="slate">Not yet monitored</StatusPill>
+                      </td>
+                      <td className="px-4 py-2.5 text-[13px] text-[#7A8E7A]">—</td>
+                      <td className="px-4 py-2.5 text-[13px] text-[#7A8E7A]">—</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

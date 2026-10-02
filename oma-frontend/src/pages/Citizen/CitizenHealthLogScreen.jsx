@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { AlertTriangle, Check, Fish, FlaskConical } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
+import LoggedDatePicker from '../../components/UI/LoggedDatePicker.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { labels } from './labels.js'
 import {
@@ -85,6 +86,20 @@ export default function CitizenHealthLogScreen({ records, onBack, onSaved, tabBa
   const [guide, setGuide] = useState(null)
   const [saving, setSaving] = useState(false)
   const [savedPondName, setSavedPondName] = useState('')
+  // Days that already have a log on this stocking record (any kind), red in the
+  // calendar so the person can see what has been logged before picking a day.
+  const [loggedDates, setLoggedDates] = useState([])
+  useEffect(() => {
+    if (!record?.id) return undefined
+    let cancelled = false
+    api.get(`/fisheries/stocking/${record.id}/logs/`)
+      .then((r) => {
+        const rows = Array.isArray(r.data) ? r.data : (r.data?.results || [])
+        if (!cancelled) setLoggedDates(rows.map((l) => l.date_of_activity))
+      })
+      .catch(() => { if (!cancelled) setLoggedDates([]) })
+    return () => { cancelled = true }
+  }, [record?.id])
 
   const [form, setForm] = useState({
     date_of_activity: todayISO(),
@@ -361,13 +376,20 @@ export default function CitizenHealthLogScreen({ records, onBack, onSaved, tabBa
               {opt.text}
             </button>
           ))}
-          <input
-            type="date"
-            value={form.date_of_activity}
-            max={todayISO()}
-            onChange={(e) => set('date_of_activity', e.target.value)}
-            className={`${FIELD} flex-1 py-2.5`}
-          />
+          <div className="min-w-0 flex-1">
+            <LoggedDatePicker
+              id="observation-date"
+              value={form.date_of_activity}
+              max={todayISO()}
+              onChange={(d) => set('date_of_activity', d)}
+              className={`${FIELD} py-2.5`}
+              accentClass="bg-cz-fish-header text-white"
+              locale="fil-PH"
+              align="right"
+              labels={labels.logCalendar}
+              loggedDates={loggedDates}
+            />
+          </div>
         </div>
       </div>
 

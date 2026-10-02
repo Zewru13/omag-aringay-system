@@ -1237,6 +1237,17 @@ export const labels = {
   // ── MyOrgReportingSection ──────────────────────────────────────────────
   // Reference images 5-8. Copy is the mockup's own, verbatim where it is
   // legible, including the English technical terms it mixes in.
+  // Calendar that marks days already logged (components/UI/LoggedDatePicker.jsx).
+  logCalendar: {
+    placeholder: 'Pumili ng petsa',
+    today: 'Ngayon',
+    logged: 'May log na',
+    loggedNote: 'May log na sa petsang ito.',
+    prevMonth: 'Nakaraang buwan',
+    nextMonth: 'Susunod na buwan',
+    logCount: (n) => `${n} log`,
+  },
+
   orgReportAssistance: {
     title: 'Mag-report ng Tulong',
     chooserSubtitle: 'Piliin kung para sa isang miyembro o sa buong organisasyon.',
@@ -1273,6 +1284,19 @@ export const labels = {
     other: 'Iba pa',
     otherTypePlaceholder: 'Anong uri ng tulong?',
     otherAgencyPlaceholder: 'Anong ahensya?',
+    addAgencyPlaceholder: 'Magdagdag ng ibang ahensya…',
+    addAgency: 'Idagdag',
+    removeAgency: 'Alisin',
+    trainingDays: 'Haba ng training (araw)',
+    trainingDaysPlaceholder: '1–3 araw',
+    trainingDaysUnit: 'araw',
+    trainingDaysError: 'Maglagay po ng tamang haba ng training (1–3 araw).',
+    equipmentType: 'Uri ng kagamitan',
+    equipmentTypePlaceholder: 'hal. Hand tractor',
+    seedType: 'Uri ng binhi',
+    seedTypePlaceholder: 'hal. Hybrid corn seeds',
+    fertilizerType: 'Uri ng pataba',
+    fertilizerTypePlaceholder: 'hal. Urea (46-0-0)',
     futureDateHint: 'Maaari pong pumili ng petsa sa hinaharap — magiging "Pending" ang record hanggang sa araw na iyon.',
   },
 

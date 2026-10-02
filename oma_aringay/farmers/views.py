@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 from accounts.permissions import IsAdminOrEvaluator
 from accounts.models import User
 from accounts.utils import create_inactive_citizen_shell
-from core.utils import build_name_search_q, day_range_bounds
+from core.utils import day_range_bounds, filter_people_search
 
 from .models import Farmer, FarmCrop, FarmMachinery, FarmParcel
 from .serializers import (
@@ -49,10 +49,11 @@ class FarmerListView(generics.ListCreateAPIView):
             # field, so "Juan dela Cruz" correctly matches first_name="Juan"
             # + last_name="Dela Cruz". rsbsa_number/barangay stay whole-
             # string OR alternatives alongside the name match, unchanged.
-            queryset = queryset.filter(
-                build_name_search_q(search, ['first_name', 'middle_name', 'last_name'])
-                | Q(rsbsa_number__icontains=search)
-                | Q(barangay__icontains=search)
+            queryset = filter_people_search(
+                queryset, search,
+                name_fields=['first_name', 'middle_name', 'last_name'],
+                id_fields=['rsbsa_number'],
+                other_fields=['barangay'],
             )
 
         if status_filter:

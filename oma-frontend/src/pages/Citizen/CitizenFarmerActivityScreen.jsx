@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
+import LoggedDatePicker from '../../components/UI/LoggedDatePicker.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { CROP_DOMAIN } from './citizenDomainConfig.js'
@@ -90,6 +91,10 @@ export default function CitizenFarmerActivityScreen({ records, initialRecordId, 
   const [dateMode, setDateMode] = useState('today')
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
+
+  // Days that already have a log, shown red in the calendar. The entry being
+  // edited is left out — its own date is not a duplicate.
+  const loggedDates = logs.filter((l) => l.id !== editingId).map((l) => l.date_of_activity)
 
   const activity = form.activity_type
   const isFert = activity === 'Fertilizer Application'
@@ -247,15 +252,27 @@ export default function CitizenFarmerActivityScreen({ records, initialRecordId, 
               ))}
             </div>
             {dateMode === 'custom' && (
-              <input
-                type="date"
+              <LoggedDatePicker
+                id="activity-date"
                 value={form.date_of_activity}
                 max={todayISO()}
-                onChange={(e) => set('date_of_activity', e.target.value)}
+                onChange={(d) => set('date_of_activity', d)}
                 className={`${FIELD} mt-2`}
+                accentClass={CROP_THEME.solidBtn}
+                locale="fil-PH"
+                defaultOpen
+                showLoggedNote={false}
+                labels={labels.logCalendar}
+                loggedDates={loggedDates}
               />
             )}
             <p className="mt-1.5 text-[12px] text-cz-text-2">{dayFirstLong(form.date_of_activity)}</p>
+            {loggedDates.includes(form.date_of_activity) && (
+              <p className="mt-1 flex items-center gap-1.5 text-[12px] font-medium text-red-600">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" aria-hidden="true" />
+                {labels.logCalendar.loggedNote}
+              </p>
+            )}
           </Block>
 
           {isFert && (

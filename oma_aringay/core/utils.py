@@ -2,9 +2,11 @@ import csv
 import datetime
 import io
 import math
+import re
 from decimal import Decimal
 
-from django.db.models import Q
+from django.db.models import Q, Value
+from django.db.models.functions import Replace
 from django.utils import timezone
 
 
@@ -25,7 +27,9 @@ def build_name_search_q(search, field_names):
     still guard the call with `if search:` for their own no-op-when-blank
     behavior, same as before this helper existed.
     """
-    tokens = search.split()
+    # Commas count as separators too, so "Cruz, Juan" is the same search as
+    # "Cruz Juan" instead of a token ("Cruz,") that no name contains.
+    tokens = [t for t in re.split(r'[\s,]+', search or '') if t]
     if not tokens:
         return Q()
     combined = Q()
@@ -35,6 +39,35 @@ def build_name_search_q(search, field_names):
             token_q |= Q(**{f'{field_name}__icontains': token})
         combined &= token_q
     return combined
+
+
+def filter_people_search(queryset, search, name_fields, id_fields, other_fields=()):
+    """Narrow `queryset` to people matching a typed name or ID number.
+
+    Names match as in build_name_search_q. ID fields (RSBSA / FishR / LGU
+    numbers) match the text as typed AND with spaces, dashes and dots removed
+    on both sides, so a number pasted with a stray space or typed without its
+    dashes ("0133020230001") still finds "01-33-02-023-000157".
+    `other_fields` (e.g. barangay) are plain icontains on the typed text.
+    """
+    search = (search or '').strip()
+    if not search:
+        return queryset
+    q = build_name_search_q(search, name_fields)
+    for field in other_fields:
+        q |= Q(**{f'{field}__icontains': search})
+    plain = re.sub(r'[\s\-.]+', '', search)
+    use_plain = len(plain) >= 4 and any(ch.isdigit() for ch in plain)
+    for field in id_fields:
+        q |= Q(**{f'{field}__icontains': search})
+        if use_plain:
+            alias = '_plain_' + field.replace('__', '_')
+            queryset = queryset.annotate(**{alias: Replace(
+                Replace(Replace(field, Value('-'), Value('')), Value(' '), Value('')),
+                Value('.'), Value(''),
+            )})
+            q |= Q(**{f'{alias}__icontains': plain})
+    return queryset.filter(q)
 
 
 # ── Import-file safety ────────────────────────────────────────────────────

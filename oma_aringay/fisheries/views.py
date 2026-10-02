@@ -17,7 +17,7 @@ from accounts.permissions import IsAdmin, IsAdminOrEvaluator, IsStaffOrOwnRecord
 from accounts.utils import create_inactive_citizen_shell
 from core.locking import assert_not_locked_by_other
 from core.notifications import notify_staff, notify_user, resolve_owner_user
-from core.utils import accumulate_yield_group, build_name_search_q, day_range_bounds, harvest_gate_status, new_yield_group
+from core.utils import accumulate_yield_group, build_name_search_q, day_range_bounds, filter_people_search, harvest_gate_status, new_yield_group
 
 from .models import (
     DiseaseResponseGuide,
@@ -79,12 +79,11 @@ class FisherfolkListView(generics.ListCreateAPIView):
             # Same full-name handling as FarmerListView: every whitespace-
             # separated token must match some name field, so "Juan dela Cruz"
             # finds first_name "Juan" + last_name "Dela Cruz".
-            qs = qs.filter(
-                build_name_search_q(search, ['first_name', 'middle_name', 'last_name'])
-                | Q(rsbsa_number__icontains=search)
-                | Q(lgu_registration_number__icontains=search)
-                | Q(fishr_number__icontains=search)
-                | Q(barangay__icontains=search)
+            qs = filter_people_search(
+                qs, search,
+                name_fields=['first_name', 'middle_name', 'last_name'],
+                id_fields=['rsbsa_number', 'lgu_registration_number', 'fishr_number'],
+                other_fields=['barangay'],
             )
         if params.get('status'):
             v = params['status'].lower()
@@ -501,14 +500,14 @@ class StockingListCreateView(generics.ListCreateAPIView):
             qs = qs.filter(fisherfolk_id=params['fisherfolk'])
         if params.get('barangay'):
             qs = qs.filter(pond_location_barangay__iexact=params['barangay'])
-        if params.get('search'):
-            q = params['search'].strip()
-            qs = qs.filter(
-                Q(fisherfolk__first_name__icontains=q)
-                | Q(fisherfolk__last_name__icontains=q)
-                | Q(species__species_name__icontains=q)
-                | Q(pond_location_barangay__icontains=q)
-            )
+        # Fisherfolk by name in any order or by RSBSA / LGU / FishR number
+        # (as typed or without dashes), plus species and barangay.
+        qs = filter_people_search(
+            qs, params.get('search'),
+            name_fields=['fisherfolk__first_name', 'fisherfolk__middle_name', 'fisherfolk__last_name'],
+            id_fields=['fisherfolk__rsbsa_number', 'fisherfolk__lgu_registration_number', 'fisherfolk__fishr_number'],
+            other_fields=['species__species_name', 'pond_location_barangay'],
+        )
         # Fisheries Forecasting "Forecast" tab: day-window scope over the real
         # expected_harvest_date field (today <= date <= date_to), rather than
         # trusting `status` alone — status only flips to Near Harvest when

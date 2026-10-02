@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, ArrowLeft, ChevronDown, ChevronRight, Plus, Search, Trash2, User } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
+import useSuggestSearch from '../../hooks/useSuggestSearch.js'
 import { bulkCellInputClasses, bulkSubLabelClasses, bulkTdClasses, bulkThClasses, bulkThCenterClasses } from '../../components/UI/bulkEntryStyles.js'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
@@ -14,29 +15,21 @@ import PondModal from '../Fisheries/PondModal.jsx'
 
 function FisherfolkSearchInput({ onSelect, selected }) {
   const [query,     setQuery]     = useState('')
-  const [results,   setResults]   = useState([])
-  const [searching, setSearching] = useState(false)
   const [showDrop,  setShowDrop]  = useState(false)
-  const debounceRef = useRef(null)
   const wrapperRef  = useRef(null)
 
-  const doSearch = useCallback(async (q) => {
-    if (!q.trim()) { setResults([]); return }
-    setSearching(true)
-    try {
-      const r = await api.get('/fisheries/fisherfolk/', { params: { search: q } })
-      const list = Array.isArray(r.data) ? r.data : (r.data.results || [])
-      setResults(list.slice(0, 8))
-    } catch { setResults([]) }
-    finally { setSearching(false) }
-  }, [])
+  // Shared search-as-you-type hook: an answer made stale by newer typing is
+  // thrown away. The server can take seconds, so an older, slower answer used
+  // to land after (and overwrite) the one the user was actually waiting for.
+  const { results, isSearching: searching, failed, active } = useSuggestSearch(
+    selected.id ? '' : query,
+    (q) => api.get('/fisheries/fisherfolk/', { params: { search: q } })
+      .then((r) => (Array.isArray(r.data) ? r.data : (r.data.results || [])).slice(0, 10)),
+  )
 
   const handleChange = (e) => {
-    const v = e.target.value
-    setQuery(v)
+    setQuery(e.target.value)
     setShowDrop(true)
-    clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => doSearch(v), 300)
   }
 
   useEffect(() => {
@@ -61,7 +54,6 @@ function FisherfolkSearchInput({ onSelect, selected }) {
   const handleClear = () => {
     setQuery('')
     onSelect({ id: null, full_name: '', barangay: '', assoc_name: '' })
-    setResults([])
   }
 
   const displayValue = selected.id ? selected.full_name : query
@@ -75,7 +67,7 @@ function FisherfolkSearchInput({ onSelect, selected }) {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#A8BCA8] pointer-events-none" />
         <input
           type="text"
-          placeholder="Search by name or registration number…"
+          placeholder="Search by name or RSBSA / FishR number…"
           value={displayValue}
           onChange={handleChange}
           onFocus={() => { if (results.length > 0) setShowDrop(true) }}
@@ -92,11 +84,11 @@ function FisherfolkSearchInput({ onSelect, selected }) {
         )}
       </div>
       {showDrop && (
-        <div className="absolute z-50 mt-1 w-full rounded-xl border border-[#E2E8E2] bg-white shadow-lg max-h-52 overflow-y-auto">
-          {searching ? (
-            <p className="px-4 py-3 text-xs text-[#7A8E7A]">Searching…</p>
-          ) : results.length === 0 ? (
-            <p className="px-4 py-3 text-xs text-[#7A8E7A]">{query.trim() ? 'No fisherfolk found.' : 'Type to search fisherfolk.'}</p>
+        <div className={`absolute z-50 mt-1 w-full rounded-xl border border-[#E2E8E2] bg-white shadow-lg max-h-52 overflow-y-auto transition-opacity ${searching && results.length > 0 ? 'opacity-60' : ''}`}>
+          {results.length === 0 ? (
+            <p className="px-4 py-3 text-xs text-[#7A8E7A]">
+              {!active ? 'Type at least 2 characters.' : searching ? 'Searching…' : failed ? 'Search failed — please try again.' : 'No fisherfolk found.'}
+            </p>
           ) : (
             results.map(f => (
               <button
@@ -109,7 +101,7 @@ function FisherfolkSearchInput({ onSelect, selected }) {
                 <div>
                   <p className="text-xs font-semibold text-[#1A2B1A]">{f.full_name}</p>
                   <p className="text-[11px] text-[#7A8E7A]">
-                    {f.lgu_registration_number && `${f.lgu_registration_number} · `}{f.barangay || ''}
+                    {(f.rsbsa_number || f.lgu_registration_number || f.fishr_number) && `${f.rsbsa_number || f.lgu_registration_number || f.fishr_number} · `}{f.barangay || ''}
                   </p>
                 </div>
               </button>

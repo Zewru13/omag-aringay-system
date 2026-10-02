@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Plus, Power, Search, Trash2, UserCog } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import api from "../../api/axiosInstance.js";
@@ -333,10 +333,7 @@ function AddMemberModal({ type, organizationId, organizationName, onClose, onSuc
 
 function MemberSearchInput({ type, organizationId, onSelect, selected }) {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState([]);
-  const [searching, setSearching] = useState(false);
   const [showDrop, setShowDrop] = useState(false);
-  const debounceRef = useRef(null);
   const wrapperRef = useRef(null);
 
   // Batch (Phase B): both domains' member-search results are real join
@@ -346,34 +343,18 @@ function MemberSearchInput({ type, organizationId, onSelect, selected }) {
   const getName = (item) => (type === "farmers" ? item.farmer_full_name : item.fisherfolk_full_name);
   const getBarangay = (item) => (type === "farmers" ? item.farmer_barangay : item.fisherfolk_barangay);
 
-  const doSearch = useCallback(
-    async (q) => {
-      if (!q.trim()) {
-        setResults([]);
-        return;
-      }
-      setSearching(true);
-      try {
-        const r = await api.get(`/organizations/${type}/${organizationId}/members/`, {
-          params: { search: q, active_only: true },
-        });
-        const list = Array.isArray(r.data) ? r.data : r.data.results || [];
-        setResults(list.slice(0, 8));
-      } catch {
-        setResults([]);
-      } finally {
-        setSearching(false);
-      }
-    },
-    [type, organizationId],
+  // Stale answers are thrown away (the server can take seconds, so an older,
+  // slower answer used to overwrite the one being waited for).
+  const { results, isSearching: searching, failed, active } = useSuggestSearch(
+    selected?.id ? "" : query,
+    (q) => api
+      .get(`/organizations/${type}/${organizationId}/members/`, { params: { search: q, active_only: true } })
+      .then((r) => (Array.isArray(r.data) ? r.data : r.data.results || []).slice(0, 10)),
   );
 
   const handleChange = (e) => {
-    const v = e.target.value;
-    setQuery(v);
+    setQuery(e.target.value);
     setShowDrop(true);
-    clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => doSearch(v), 300);
   };
 
   useEffect(() => {
@@ -407,12 +388,10 @@ function MemberSearchInput({ type, organizationId, onSelect, selected }) {
         />
       </div>
       {showDrop && (
-        <div className="absolute z-50 mt-1 w-full rounded-xl border border-[#E2E8E2] bg-white shadow-lg max-h-52 overflow-y-auto">
-          {searching ? (
-            <p className="px-4 py-3 text-xs text-[#7A8E7A]">Searching…</p>
-          ) : results.length === 0 ? (
+        <div className={`absolute z-50 mt-1 w-full rounded-xl border border-[#E2E8E2] bg-white shadow-lg max-h-52 overflow-y-auto transition-opacity ${searching && results.length > 0 ? "opacity-60" : ""}`}>
+          {results.length === 0 ? (
             <p className="px-4 py-3 text-xs text-[#7A8E7A]">
-              {query.trim() ? "No matching members in this organization." : "Type to search members."}
+              {!active ? "Type at least 2 characters." : searching ? "Searching…" : failed ? "Search failed — please try again." : "No matching members in this organization."}
             </p>
           ) : (
             results.map((item) => (

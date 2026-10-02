@@ -16,7 +16,7 @@ from accounts.permissions import IsAdmin, IsAdminOrEvaluator, IsStaffOrOwnRecord
 from core.constants import BARANGAY_CHOICES
 from core.locking import assert_not_locked_by_other
 from core.notifications import notify_staff, notify_user, resolve_owner_user
-from core.utils import accumulate_yield_group, harvest_gate_status, new_yield_group
+from core.utils import accumulate_yield_group, filter_people_search, harvest_gate_status, new_yield_group
 from farmers.models import FarmParcel, Farmer
 from fisheries.models import Fisherfolk
 
@@ -811,6 +811,16 @@ class CropMonitoringListCreateView(generics.ListCreateAPIView):
             qs = qs.filter(farm_parcel_id=params['farm_parcel'])
         if params.get('farmer'):
             qs = qs.filter(farmer_id=params['farmer'])
+        # Typed in the list's search bar: the farmer (name in any order, or an
+        # RSBSA number as typed or without its dashes), the crop, the
+        # organization or the barangay — searched across ALL records, not just
+        # the page currently on screen.
+        qs = filter_people_search(
+            qs, params.get('search'),
+            name_fields=['farmer__first_name', 'farmer__middle_name', 'farmer__last_name'],
+            id_fields=['farmer__rsbsa_number'],
+            other_fields=['crop_type__name', 'farmers_organization__name', 'farm_location_barangay'],
+        )
         return qs
 
     def perform_create(self, serializer):

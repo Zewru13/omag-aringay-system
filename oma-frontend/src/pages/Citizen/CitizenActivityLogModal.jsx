@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Check, ChevronDown } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
+import LoggedDatePicker from '../../components/UI/LoggedDatePicker.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import useRecordLock from '../../hooks/useRecordLock.js'
 import { labels } from './labels.js'
@@ -113,6 +114,20 @@ export default function CitizenActivityLogScreen({
   const t = theme || (isFisheries ? FISH_THEME : CROP_THEME)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [feedTypeOptions, setFeedTypeOptions] = useState([])
+  // Days that already have a log for this record — red in the calendar, so the
+  // person does not have to remember whether they already logged that day. The
+  // log being edited is left out: its own date is not a duplicate.
+  const [loggedDates, setLoggedDates] = useState([])
+  useEffect(() => {
+    let cancelled = false
+    api.get(domain.logsUrl(recordId))
+      .then((r) => {
+        const rows = Array.isArray(r.data) ? r.data : (r.data.results || [])
+        if (!cancelled) setLoggedDates(rows.filter((l) => l.id !== log?.id).map((l) => l.date_of_activity))
+      })
+      .catch(() => { if (!cancelled) setLoggedDates([]) })
+    return () => { cancelled = true }
+  }, [domain, recordId, log?.id])
 
   const initialDate = log?.date_of_activity || todayISO()
   const [selectedDateMode, setSelectedDateMode] = useState(dateMode(initialDate))
@@ -462,19 +477,30 @@ export default function CitizenActivityLogScreen({
             })}
           </div>
           {selectedDateMode === 'custom' && (
-            <input
-              type="date"
+            <LoggedDatePicker
+              id="activity-date"
               max={todayISO()}
               className={`${FIELD} mt-2`}
+              accentClass={t.solidBtn}
+              locale="fil-PH"
+              defaultOpen
+              showLoggedNote={false}
+              labels={labels.logCalendar}
               value={form.date_of_activity}
-              onChange={(e) => set('date_of_activity', e.target.value)}
+              onChange={(d) => set('date_of_activity', d)}
+              loggedDates={loggedDates}
               disabled={blockedByOther}
-              autoFocus
             />
           )}
           <p className="mt-1.5 text-[12px] text-cz-text-muted">
             {labels.activityLog.dateResolved(form.date_of_activity)}
           </p>
+          {loggedDates.includes(form.date_of_activity) && (
+            <p className="mt-1 flex items-center gap-1.5 text-[12px] font-medium text-red-600">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-500" aria-hidden="true" />
+              {labels.logCalendar.loggedNote}
+            </p>
+          )}
         </FieldBlock>
 
         {/* CONDITION — crop and fisheries each have their own field name */}

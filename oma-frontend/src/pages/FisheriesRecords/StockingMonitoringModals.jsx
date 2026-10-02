@@ -8,6 +8,7 @@ import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import GrowthProgressBar from '../../components/UI/GrowthProgressBar.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import LoggedDatePicker from '../../components/UI/LoggedDatePicker.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import useRecordLock from '../../hooks/useRecordLock.js'
@@ -716,9 +717,16 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-700">Date of Activity *</label>
-                <input type="date" className={baseInputClasses} value={activityDate}
-                  max={todayISO()} min={selectedStageAllowsPrePlanting ? undefined : (record.date_stocked || undefined)}
-                  onChange={e => setActivityDate(e.target.value)} />
+                <LoggedDatePicker
+                  id="stocking-log-date"
+                  className={baseInputClasses}
+                  value={activityDate}
+                  max={todayISO()}
+                  min={selectedStageAllowsPrePlanting ? undefined : (record.date_stocked || undefined)}
+                  onChange={setActivityDate}
+                  loggedDates={logs.map(l => l.date_of_activity)}
+                  labels={{ loggedNote: 'This stocking already has a log on this date.' }}
+                />
               </div>
             </div>
 

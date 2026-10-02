@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import useDebouncedValue from '../../hooks/useDebouncedValue.js'
 import { AlertTriangle, Eye, HelpCircle, Lock, Pencil, Plus, Trash2, Unlock, Upload, Wheat } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
@@ -608,6 +609,11 @@ export default function FisheriesRecordsPage({ asTab = false }) {
   const [isLoading,    setIsLoading]    = useState(true)
   const [error,        setError]        = useState('')
   const [search,       setSearch]       = useState('')
+  // Server-side search over every record (fisherfolk name or RSBSA / LGU /
+  // FishR number, species, barangay) — debounced, and a slower earlier answer
+  // never overwrites the one for what is typed now.
+  const debouncedSearch = useDebouncedValue(search.trim())
+  const requestSeq = useRef(0)
   const [statusFilter, setStatusFilter] = useState('All Status')
   const [seasonFilter, setSeasonFilter] = useState('')
   const [yearFilter,   setYearFilter]   = useState('')
@@ -633,9 +639,11 @@ export default function FisheriesRecordsPage({ asTab = false }) {
   }, [])
 
   const fetchRecords = useCallback(async (pageNum = 1) => {
+    const seq = ++requestSeq.current
     setIsLoading(true); setError('')
     try {
       const params = new URLSearchParams({ page: pageNum })
+      if (debouncedSearch) params.set('search', debouncedSearch)
       // 'Due Harvest'/'Ready for Harvest'/'Overdue' aren't real backend
       // values (see getStockingDisplayStatus) — all three are display-only
       // splits of the single real 'Near Harvest' status, so all three query
@@ -652,16 +660,17 @@ export default function FisheriesRecordsPage({ asTab = false }) {
       if (seasonFilter) params.set('season', seasonFilter)
       if (yearFilter)   params.set('year', yearFilter)
       const r = await api.get(`/fisheries/stocking/?${params.toString()}`)
+      if (seq !== requestSeq.current) return
       setRecords(Array.isArray(r.data) ? r.data : (r.data.results || []))
       setTotalCount(typeof r.data?.count === 'number' ? r.data.count : 0)
     } catch {
-      setError('Failed to load stocking records.')
+      if (seq === requestSeq.current) setError('Failed to load stocking records.')
     } finally {
-      setIsLoading(false)
+      if (seq === requestSeq.current) setIsLoading(false)
     }
-  }, [statusFilter, seasonFilter, yearFilter])
+  }, [statusFilter, seasonFilter, yearFilter, debouncedSearch])
 
-  useEffect(() => { setPage(1); fetchRecords(1) }, [statusFilter, seasonFilter, yearFilter])
+  useEffect(() => { setPage(1); fetchRecords(1) }, [statusFilter, seasonFilter, yearFilter, debouncedSearch])
   useEffect(() => { fetchRecords(page) }, [fetchRecords, page])
 
   // Lock indicators for the currently-visible page only.
@@ -688,13 +697,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
   }
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase()
     return records.filter(rec => {
-      const matchesSearch = !q
-        || rec.species_name?.toLowerCase().includes(q)
-        || rec.fisherfolk_name?.toLowerCase().includes(q)
-        || rec.pond_location_barangay?.toLowerCase().includes(q)
-      if (!matchesSearch) return false
       // Client-side half of the Due/Ready/Overdue split — the fetched page
       // already contains only real 'Near Harvest' rows for these three
       // filter values (see fetchRecords), so this narrows it further to the
@@ -708,7 +711,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
       }
       return true
     })
-  }, [records, search, statusFilter])
+  }, [records, statusFilter])
 
   const rows = filtered.map(rec => ({
     ...rec,
@@ -793,7 +796,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
         <FilterPanel
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Search by species, fisherfolk, or barangay..."
+          searchPlaceholder="Search by fisherfolk, RSBSA / LGU no., species, or barangay..."
           activeCount={[statusFilter !== 'All Status', Boolean(seasonFilter), Boolean(yearFilter)].filter(Boolean).length}
         >
           <select className={filterSelectCls} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
