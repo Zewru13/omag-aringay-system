@@ -293,7 +293,7 @@ function HarvestedCropTab() {
 
   const previewRows = filteredRecords.map(rec => [
     rec.farmer_barangay,
-    rec.organization_name,
+    rec.farmer_name,
     rec.organization_name,
     rec.crop_type_name,
     rec.area_planted_ha,

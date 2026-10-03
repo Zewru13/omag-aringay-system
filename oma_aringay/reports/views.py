@@ -874,10 +874,30 @@ class FisherfolkMasterlistReport(APIView):
 
 # ─── TASK 5 — Seasonal / Harvest Production Report ───────────────────────────
 
+def _harvest_owner(rec):
+    """(name, rsbsa, barangay) of whoever a harvest record belongs to.
+
+    HarvestRecord.farm_parcel is empty on every real row; the live link is the harvest's crop monitoring
+    record, which carries its own farmer (or, for an organization's crop, the organization) and location."""
+    parcel = rec.farm_parcel
+    mon = rec.monitoring_record
+    farmer = (parcel.farmer if parcel else None) or (mon.farmer if mon else None)
+    org = mon.farmers_organization if mon else None
+    if farmer:
+        name, rsbsa = full_name(farmer), fmt_field(farmer.rsbsa_number)
+    elif org:
+        name, rsbsa = org.name, 'N/A'
+    else:
+        name, rsbsa = 'N/A', 'N/A'
+    barangay = (parcel.barangay if parcel else '') or (mon.farm_location_barangay if mon else '') or (org.barangay if org else '')
+    return name, rsbsa, fmt_field(barangay)
+
+
 class HarvestProductionReport(APIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
     def get(self, request):
+        from django.db.models import Q
         today    = _today()
         year     = request.query_params.get('year', '')
         season   = request.query_params.get('season', '')
@@ -885,7 +905,10 @@ class HarvestProductionReport(APIView):
 
         records = (
             HarvestRecord.objects
-            .select_related('farm_parcel', 'farm_parcel__farmer')
+            .select_related(
+                'farm_parcel', 'farm_parcel__farmer',
+                'monitoring_record', 'monitoring_record__farmer', 'monitoring_record__farmers_organization',
+            )
             .order_by('-year', 'season', 'crop_name')
         )
         if year:
@@ -893,7 +916,11 @@ class HarvestProductionReport(APIView):
         if season:
             records = records.filter(season__iexact=season)
         if barangay:
-            records = records.filter(farm_parcel__barangay__iexact=barangay)
+            records = records.filter(
+                Q(farm_parcel__barangay__iexact=barangay) |
+                Q(monitoring_record__farm_location_barangay__iexact=barangay) |
+                Q(monitoring_record__farmers_organization__barangay__iexact=barangay)
+            )
 
         records = list(records)
 
@@ -908,10 +935,11 @@ class HarvestProductionReport(APIView):
         ]
         csv_rows = []
         for i, rec in enumerate(records, 1):
+            owner_name, owner_rsbsa, owner_barangay = _harvest_owner(rec)
             csv_rows.append([
-                i, full_name(rec.farm_parcel.farmer),
-                fmt_field(rec.farm_parcel.farmer.rsbsa_number),
-                fmt_field(rec.farm_parcel.barangay),
+                i, owner_name,
+                owner_rsbsa,
+                owner_barangay,
                 fmt_field(rec.crop_name),
                 fmt_field(rec.area_harvested_hectares),
                 fmt_field(rec.volume_kg),
@@ -955,9 +983,10 @@ class HarvestProductionReport(APIView):
             sum_area    += area
             sum_vol_kg  += vol_kg
             sum_vol_bag += vol_bag
+            owner_name, _rsbsa, owner_barangay = _harvest_owner(rec)
             rows.append([
-                str(i), full_name(rec.farm_parcel.farmer),
-                fmt_field(rec.farm_parcel.barangay),
+                str(i), owner_name,
+                owner_barangay,
                 fmt_field(rec.crop_name),
                 f'{area:,.2f}', f'{vol_kg:,.2f}', f'{vol_bag:,.2f}',
                 fmt_field(rec.season), fmt_field(rec.year),
@@ -1808,9 +1837,21 @@ class HarvestedCropReport(APIView):
         qs = CropMonitoringRecord.objects.filter(
             status='Harvested',
         ).select_related(
-            'crop_type', 'farmers_organization',
+            'crop_type', 'farmers_organization', 'farmer',
             'farm_parcel', 'farm_parcel__farmer',
-        ).prefetch_related('harvest_records').order_by('crop_type__name')
+        ).only(
+            # Only the columns this report reads: fetching whole rows for every harvested crop took ~16 s
+            # against ~3 s for these, over the remote database.
+            'id', 'status', 'farm_location_barangay', 'area_planted_ha', 'expected_harvest_date',
+            'actual_harvest_date', 'estimated_yield_kg', 'actual_yield_kg',
+            'crop_type_id', 'farmer_id', 'farm_parcel_id', 'farmers_organization_id',
+            'crop_type__id', 'crop_type__name',
+            'farmer__id', 'farmer__first_name', 'farmer__middle_name', 'farmer__last_name',
+            'farm_parcel__id', 'farm_parcel__barangay', 'farm_parcel__farmer_id',
+            'farm_parcel__farmer__id', 'farm_parcel__farmer__first_name', 'farm_parcel__farmer__middle_name',
+            'farm_parcel__farmer__last_name',
+            'farmers_organization__id', 'farmers_organization__name', 'farmers_organization__barangay',
+        ).prefetch_related('harvest_records').order_by('crop_type__name', 'id')
 
         if start_date:
             qs = qs.filter(actual_harvest_date__gte=start_date)
@@ -1819,6 +1860,7 @@ class HarvestedCropReport(APIView):
         if barangay:
             qs = qs.filter(
                 Q(farm_parcel__barangay__iexact=barangay) |
+                Q(farm_location_barangay__iexact=barangay) |
                 Q(farmers_organization__barangay__iexact=barangay)
             )
         if crop_name:
@@ -1852,6 +1894,8 @@ class HarvestedCropReport(APIView):
         def _barangay(rec):
             if rec.farm_parcel and rec.farm_parcel.barangay:
                 return fmt_field(rec.farm_parcel.barangay)
+            if rec.farm_location_barangay:
+                return fmt_field(rec.farm_location_barangay)
             if rec.farmers_organization:
                 return fmt_field(rec.farmers_organization.barangay)
             return '—'
@@ -1859,6 +1903,8 @@ class HarvestedCropReport(APIView):
         def _farmer(rec):
             if rec.farm_parcel and rec.farm_parcel.farmer:
                 return fmt_field(rec.farm_parcel.farmer.full_name)
+            if rec.farmer:
+                return fmt_field(rec.farmer.full_name)
             if rec.farmers_organization:
                 return fmt_field(rec.farmers_organization.name)
             return '—'
@@ -2328,7 +2374,13 @@ class FarmerCropHistoryReport(APIView):
 
         qs = CropMonitoringRecord.objects.select_related(
             'farmer', 'crop_type',
-        ).prefetch_related('activity_logs', 'harvest_records').order_by('-date_planted')
+        ).only(
+            'id', 'status', 'farm_location_barangay', 'date_planted', 'expected_harvest_date',
+            'actual_harvest_date', 'land_status', 'variety_used', 'yield_variance_pct', 'season', 'year',
+            'farmer_id', 'crop_type_id',
+            'farmer__id', 'farmer__first_name', 'farmer__middle_name', 'farmer__last_name', 'farmer__barangay',
+            'crop_type__id', 'crop_type__name',
+        ).prefetch_related('activity_logs', 'harvest_records').order_by('-date_planted', 'id')
 
         if farmer_id:
             qs = qs.filter(farmer_id=farmer_id)
@@ -2759,6 +2811,7 @@ class YieldAnalysisReport(APIView):
         from production.views import (
             YIELD_ANALYSIS_DISCLAIMER,
             _analyze_crop,
+            _stages_by_crop,
             _yield_analysis_queryset,
         )
 
@@ -2769,7 +2822,8 @@ class YieldAnalysisReport(APIView):
             group_by = 'barangay'
 
         records = list(_yield_analysis_queryset(request))
-        analyzed = [_analyze_crop(rec) for rec in records]
+        stages = _stages_by_crop(records)
+        analyzed = [_analyze_crop(rec, stages) for rec in records]
 
         groups = {}
         for a in analyzed:

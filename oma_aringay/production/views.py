@@ -1078,7 +1078,14 @@ YIELD_ANALYSIS_DISCLAIMER = (
 def _yield_analysis_queryset(request):
     qs = CropMonitoringRecord.objects.filter(
         status__in=[CropMonitoringRecord.Status.HARVESTED, CropMonitoringRecord.Status.TOTAL_LOSS],
-    ).select_related('farmer', 'crop_type').prefetch_related(
+    ).select_related('farmer', 'crop_type').only(
+        # Only what _analyze_crop / _activity_completion read. A full row is ~30 columns; over the remote
+        # database fetching them for every harvested crop took ~13 s against ~3 s for these.
+        'id', 'status', 'farm_location_barangay', 'variety_used', 'area_planted_ha', 'date_planted',
+        'estimated_yield_kg', 'farmer_id', 'crop_type_id',
+        'farmer__id', 'farmer__first_name', 'farmer__middle_name', 'farmer__last_name', 'farmer__barangay',
+        'crop_type__id', 'crop_type__name',
+    ).prefetch_related(
         'activity_logs', 'harvest_records',
     )
     if request.user.role == 'CITIZEN':
@@ -1109,10 +1116,23 @@ def _yield_analysis_queryset(request):
         qs = qs.filter(year=year)
     if farmer:
         qs = qs.filter(farmer_id=farmer)
-    return qs.order_by('-date_planted')
+    return qs.order_by('-date_planted', 'id')
 
 
-def _activity_completion(rec):
+def _stages_by_crop(records):
+    """{crop_type_id: [CropActivityStage, ...]} for every crop in `records`, in 2 queries at most.
+
+    _activity_completion used to query the stages once per record, which over the remote database made
+    the yield analysis take minutes for a few thousand harvested crops."""
+    crop_ids = {r.crop_type_id for r in records if r.crop_type_id}
+    grouped = {cid: [] for cid in crop_ids}
+    if crop_ids:
+        for stage in CropActivityStage.objects.filter(crop_type_id__in=crop_ids).order_by('day_after_planting', 'id'):
+            grouped[stage.crop_type_id].append(stage)
+    return grouped
+
+
+def _activity_completion(rec, stages_by_crop=None):
     """
     Expand this crop's CropActivityStage occurrences (application_days, same
     expansion the suggestions engine uses) and match each one against the
@@ -1123,7 +1143,10 @@ def _activity_completion(rec):
     """
     from datetime import timedelta
 
-    stages = CropActivityStage.objects.filter(crop_type_id=rec.crop_type_id)
+    if stages_by_crop is not None:
+        stages = stages_by_crop.get(rec.crop_type_id, [])
+    else:
+        stages = CropActivityStage.objects.filter(crop_type_id=rec.crop_type_id).order_by('day_after_planting', 'id')
     logs = list(rec.activity_logs.all())
     planted = rec.date_planted
 
@@ -1162,7 +1185,7 @@ def _activity_completion(rec):
     return total, completed, missed_high, breakdown
 
 
-def _analyze_crop(rec):
+def _analyze_crop(rec, stages_by_crop=None):
     harvests = list(rec.harvest_records.all())
     actual_total_kg = sum((h.volume_kg for h in harvests if h.volume_kg is not None), Decimal('0'))
     estimated_kg = rec.estimated_yield_kg
@@ -1174,7 +1197,7 @@ def _analyze_crop(rec):
         variance_kg = actual_total_kg - estimated_kg
         variance_pct = None if estimated_kg == 0 else float((variance_kg / estimated_kg) * Decimal('100'))
 
-    total, completed, missed_high, breakdown = _activity_completion(rec)
+    total, completed, missed_high, breakdown = _activity_completion(rec, stages_by_crop)
 
     harvest_dates = sorted({
         (h.harvest_start_date or h.date_recorded.date()).isoformat()
@@ -1218,8 +1241,9 @@ class YieldAnalysisView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        records = _yield_analysis_queryset(request)
-        data = [_analyze_crop(rec) for rec in records]
+        records = list(_yield_analysis_queryset(request))
+        stages = _stages_by_crop(records)
+        data = [_analyze_crop(rec, stages) for rec in records]
         return Response({
             'count': len(data),
             'records': data,
@@ -1236,7 +1260,8 @@ class YieldAnalysisSummaryView(APIView):
             group_by = 'barangay'
 
         records = list(_yield_analysis_queryset(request))
-        analyzed = [_analyze_crop(rec) for rec in records]
+        stages = _stages_by_crop(records)
+        analyzed = [_analyze_crop(rec, stages) for rec in records]
 
         groups = {}
         for rec, a in zip(records, analyzed):
