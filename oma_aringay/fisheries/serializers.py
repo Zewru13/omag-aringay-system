@@ -1,6 +1,8 @@
-from datetime import date
+from collections import defaultdict
+from datetime import date, timedelta
 
-from django.db.models import Q, Sum
+from django.db import transaction
+from django.db.models import Q, Sum, prefetch_related_objects
 from rest_framework import serializers
 
 from accounts.models import User
@@ -8,6 +10,7 @@ from accounts.utils import citizen_account_info
 from associations.models import FisherfolkOrganizationMember
 from core.constants import validate_prefix_gender
 from core.validators import validate_not_future_date, validate_philsys, validate_rsbsa, validate_uploaded_image
+from monitoring.models import AquacultureProductionUnit
 
 from .models import (
     AquacultureRecord,
@@ -19,7 +22,9 @@ from .models import (
     FisheriesActivityLog,
     FisheriesActivityType,
     FisheriesDisasterReport,
+    HARVEST_TIMING_LABELS,
     FisheriesHarvestRecord,
+    FisheriesHarvestUnit,
     FishingTripLog,
     Pond,
     SpeciesActivityStage,
@@ -27,6 +32,9 @@ from .models import (
     SpeciesOption,
     StockingRecord,
     TripSpeciesEntry,
+    harvest_timing,
+    production_cycle_numbers_bulk,
+    stocking_harvest_status_bulk,
 )
 
 
@@ -594,7 +602,26 @@ class FisheriesActivityLogSerializer(serializers.ModelSerializer):
         return data
 
 
-class FisheriesDisasterReportSerializer(serializers.ModelSerializer):
+class DisasterReportSubmissionFieldsMixin(serializers.Serializer):
+    """Read-only fields shared by both disaster-report serializers: the report's reference number, its
+    "Submit Report to Admin" state, and its Photo Documentation of Damage (FisheriesDisasterReportPhoto
+    rows, 0-10). Photos arrive as the multipart `photos` files of the create request (see the views)."""
+    report_number = serializers.CharField(read_only=True)
+    submission_status = serializers.CharField(read_only=True)
+    submitted_at = serializers.DateTimeField(read_only=True)
+    photos = serializers.SerializerMethodField()
+
+    SUBMISSION_FIELDS = ['report_number', 'submission_status', 'submitted_at', 'photos']
+
+    def get_photos(self, obj):
+        request = self.context.get('request')
+        return [
+            {'id': p.id, 'url': request.build_absolute_uri(p.image.url) if request else p.image.url}
+            for p in obj.photos.all()
+        ]
+
+
+class FisheriesDisasterReportSerializer(DisasterReportSubmissionFieldsMixin, serializers.ModelSerializer):
     reported_by_name = serializers.SerializerMethodField()
     recovered_by_name = serializers.SerializerMethodField()
 
@@ -603,16 +630,23 @@ class FisheriesDisasterReportSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'stocking_record', 'disaster_type', 'disaster_type_other_specify', 'date_of_occurrence',
             'area_affected_ha', 'estimated_damage', 'production_loss', 'photo',
+            # Optional here (the Admin stock form never sends them); the fisherfolk stock form does.
+            'volume_lost_kg', 'equipment_damaged',
             'severity',
             'is_total_loss',
             'status', 'recovered_date', 'recovered_by', 'recovered_by_name', 'recovery_note',
             'reported_by', 'reported_by_name', 'date_reported',
-        ]
+        ] + DisasterReportSubmissionFieldsMixin.SUBMISSION_FIELDS
         read_only_fields = [
             'id', 'stocking_record', 'status', 'recovered_date',
             'recovered_by', 'recovered_by_name', 'recovery_note',
             'reported_by', 'reported_by_name', 'date_reported',
         ]
+
+    def validate_volume_lost_kg(self, value):
+        if value is not None and value < 0:
+            raise serializers.ValidationError('Volume lost cannot be negative.')
+        return value
 
     def validate_photo(self, value):
         validate_uploaded_image(value)
@@ -645,6 +679,11 @@ class FisheriesDisasterReportSerializer(serializers.ModelSerializer):
             stocking_id = self.context.get('view').kwargs.get('stocking_id') if self.context.get('view') else None
             if stocking_id:
                 stocking_record = StockingRecord.objects.filter(pk=stocking_id).first()
+        if self.instance is not None:
+            # Editing an existing report (the fisherfolk's own draft): unchanged values come from the report.
+            stocking_record = stocking_record or self.instance.stocking_record
+            if area_affected_ha is None and 'area_affected_ha' not in data:
+                area_affected_ha = self.instance.area_affected_ha
         if area_affected_ha is None:
             raise serializers.ValidationError({'area_affected_ha': 'Area affected is required.'})
         if area_affected_ha <= 0:
@@ -656,7 +695,7 @@ class FisheriesDisasterReportSerializer(serializers.ModelSerializer):
         return data
 
 
-class GeneralDisasterReportSerializer(serializers.ModelSerializer):
+class GeneralDisasterReportSerializer(DisasterReportSubmissionFieldsMixin, serializers.ModelSerializer):
     """
     Consolidated batch: for a disaster reported directly against a
     fisherfolk with no stocking cycle to attach to (Capture-type fisherfolk
@@ -688,7 +727,7 @@ class GeneralDisasterReportSerializer(serializers.ModelSerializer):
             'volume_lost_kg', 'equipment_damaged',
             'status', 'recovered_date', 'recovered_by', 'recovered_by_name', 'recovery_note',
             'reported_by', 'reported_by_name', 'date_reported',
-        ]
+        ] + DisasterReportSubmissionFieldsMixin.SUBMISSION_FIELDS
         read_only_fields = [
             'id', 'fisherfolk_name', 'fisherfolk_barangay', 'recovered_date',
             'recovered_by', 'recovered_by_name',
@@ -725,18 +764,119 @@ class GeneralDisasterReportSerializer(serializers.ModelSerializer):
         return data
 
 
+class HarvestUnitQuantityInputSerializer(serializers.Serializer):
+    """One pond/cage and its own actual harvested kg, for a per-unit harvest."""
+    production_unit = serializers.PrimaryKeyRelatedField(queryset=AquacultureProductionUnit.objects.all())
+    quantity_kg = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+    def validate_quantity_kg(self, value):
+        if value <= 0:
+            raise serializers.ValidationError('Actual harvest must be greater than 0.')
+        return value
+
+
 class FisheriesHarvestRecordSerializer(serializers.ModelSerializer):
     recorded_by_name = serializers.SerializerMethodField()
+    # The ponds/cages this one harvest covers.
+    production_units = serializers.PrimaryKeyRelatedField(
+        many=True, required=False, queryset=AquacultureProductionUnit.objects.all(),
+    )
+    production_unit_labels = serializers.SerializerMethodField()
+    # Read-only detail of the ponds/cages actually linked to this harvest (its production_units
+    # relation): [{id, label, unit_type_label, force_harvest, reasons}]. Nothing is inferred.
+    production_unit_details = serializers.SerializerMethodField()
+    # Per-unit actual kg (write): [{production_unit, quantity_kg}]. The listed units become
+    # production_units and quantity_kg becomes their sum. Required for a Force Harvest of 2+ units.
+    unit_quantities = HarvestUnitQuantityInputSerializer(many=True, required=False, write_only=True)
+    # Per-unit actual kg (read), from FisheriesHarvestUnit: [{production_unit, label, quantity_kg}].
+    # Empty for a combined multi-unit harvest or an older record (quantity_kg is then the only value).
+    unit_harvests = serializers.SerializerMethodField()
+    # Harvest timing, derived from harvest_date vs the stocking record's expected (estimated) harvest date:
+    # 'early' | 'on_time' | 'late' (None when there is no estimate). early_late_reason holds the reason.
+    estimated_harvest_date = serializers.SerializerMethodField()
+    harvest_timing = serializers.SerializerMethodField()
+    harvest_timing_label = serializers.SerializerMethodField()
+    harvest_timing_days = serializers.SerializerMethodField()
 
     class Meta:
         model  = FisheriesHarvestRecord
         fields = [
             'id', 'stocking_record', 'harvest_date', 'quantity_kg',
             'avg_body_weight_kg', 'area_or_units_harvested', 'is_final',
+            'production_units', 'production_unit_labels', 'production_unit_details', 'is_force_harvest',
+            'unit_quantities', 'unit_harvests',
+            'estimated_harvest_date', 'harvest_timing', 'harvest_timing_label', 'harvest_timing_days',
             'harvest_variance_days', 'early_late_reason', 'notes',
             'recorded_by', 'recorded_by_name', 'date_recorded',
         ]
-        read_only_fields = ['id', 'stocking_record', 'harvest_variance_days', 'recorded_by', 'recorded_by_name', 'date_recorded']
+        # is_force_harvest is decided in validate() from the units' own state; a submitted value is ignored.
+        read_only_fields = ['id', 'stocking_record', 'production_unit_details', 'is_force_harvest', 'harvest_variance_days', 'recorded_by', 'recorded_by_name', 'date_recorded']
+        # Derived from unit_quantities when those are sent; otherwise still required (checked in validate).
+        extra_kwargs = {'quantity_kg': {'required': False}}
+
+    def _timing(self, obj):
+        sr = obj.stocking_record
+        return harvest_timing(obj.harvest_date, sr.expected_harvest_date if sr else None)
+
+    def get_estimated_harvest_date(self, obj):
+        sr = obj.stocking_record
+        return str(sr.expected_harvest_date) if sr and sr.expected_harvest_date else None
+
+    def get_harvest_timing(self, obj):
+        return self._timing(obj)[0]
+
+    def get_harvest_timing_label(self, obj):
+        return HARVEST_TIMING_LABELS.get(self._timing(obj)[0])
+
+    def get_harvest_timing_days(self, obj):
+        # Signed: negative = days earlier than expected, positive = days later.
+        return self._timing(obj)[1]
+
+    def get_unit_harvests(self, obj):
+        return [
+            {
+                'production_unit': row.production_unit_id,
+                'label': f'{row.production_unit.get_unit_type_display()} {row.production_unit.unit_number}',
+                'quantity_kg': str(row.quantity_kg),
+            }
+            for row in obj.unit_harvests.all()
+        ]
+
+    @transaction.atomic
+    def create(self, validated_data):
+        unit_quantities = validated_data.pop('unit_quantities', None)
+        harvest = super().create(validated_data)
+        if unit_quantities:
+            rows = [(row['production_unit'], row['quantity_kg']) for row in unit_quantities]
+        else:
+            # A single named unit is unambiguous: the whole quantity is that unit's own harvest.
+            # Several units with one combined quantity get no per-unit rows (no split is invented).
+            units = list(harvest.production_units.all())
+            rows = [(units[0], harvest.quantity_kg)] if len(units) == 1 else []
+        FisheriesHarvestUnit.objects.bulk_create([
+            FisheriesHarvestUnit(harvest=harvest, production_unit=unit, quantity_kg=kg) for unit, kg in rows
+        ])
+        return harvest
+
+    def get_production_unit_labels(self, obj):
+        return [f'{u.get_unit_type_display()} {u.unit_number}' for u in obj.production_units.all()]
+
+    def get_production_unit_details(self, obj):
+        units = sorted(obj.production_units.all(), key=lambda u: u.unit_number)
+        if not units:
+            return []
+        from monitoring.models import cycle_force_status
+        force, _ = cycle_force_status(units[0].production_cycle_id)
+        return [
+            {
+                'id': u.id,
+                'label': f'{u.get_unit_type_display()} {u.unit_number}',
+                'unit_type_label': u.get_unit_type_display(),
+                'force_harvest': u.id in force,
+                'reasons': force.get(u.id, []),
+            }
+            for u in units
+        ]
 
     def get_recorded_by_name(self, obj):
         if obj.recorded_by:
@@ -748,9 +888,83 @@ class FisheriesHarvestRecordSerializer(serializers.ModelSerializer):
         is_final = data.get('is_final', getattr(self.instance, 'is_final', False))
         stocking_record = data.get('stocking_record', getattr(self.instance, 'stocking_record', None))
         if not stocking_record:
+            # The create view passes the stocking record it already loaded; otherwise read it from the URL.
+            stocking_record = self.context.get('stocking_record')
+        if not stocking_record:
             stocking_id = self.context.get('view').kwargs.get('stocking_id') if self.context.get('view') else None
             if stocking_id:
                 stocking_record = StockingRecord.objects.filter(pk=stocking_id).first()
+
+        # Per-unit actual kg: each listed pond/cage keeps its own weight; the record total is their sum.
+        unit_quantities = data.get('unit_quantities')
+        if unit_quantities is not None:
+            if self.instance is not None:
+                raise serializers.ValidationError({'unit_quantities': 'The per-unit harvest cannot be changed after recording.'})
+            if not unit_quantities:
+                raise serializers.ValidationError({'unit_quantities': 'Enter the actual harvest (kg) for at least one pond/cage.'})
+            q_units = [row['production_unit'] for row in unit_quantities]
+            if len({u.id for u in q_units}) != len(q_units):
+                raise serializers.ValidationError({'unit_quantities': 'Each pond/cage can be listed only once.'})
+            given = data.get('production_units')
+            if given and {u.id for u in given} != {u.id for u in q_units}:
+                raise serializers.ValidationError({'unit_quantities': 'The per-unit harvest must list the same ponds/cages as production_units.'})
+            data['production_units'] = q_units
+            data['quantity_kg'] = sum((row['quantity_kg'] for row in unit_quantities), 0)
+        elif self.instance is None and data.get('quantity_kg') is None:
+            raise serializers.ValidationError({'quantity_kg': 'This field is required.'})
+        # The total of a per-unit harvest is the sum of its units; it cannot be edited on its own.
+        if (self.instance is not None and 'quantity_kg' in data and data['quantity_kg'] != self.instance.quantity_kg
+                and self.instance.unit_harvests.exists()):
+            raise serializers.ValidationError({'quantity_kg': 'This harvest is recorded per pond/cage; its total cannot be edited on its own.'})
+
+        # Harvest of specific ponds/cages: ONE harvest record for the selected units together, quantity_kg
+        # being their combined total. Every unit must be of THIS record's own cycle and not yet harvested.
+        #  - Force Harvest: every selected unit is awaiting Force Harvest (its own Health Log).
+        #  - Normal harvest: no selected unit is awaiting Force Harvest (those go through Force Harvest).
+        # A mix of the two is refused. is_force_harvest is set here, never taken from the client.
+        units = data.get('production_units') or []
+        if units:
+            if self.instance is not None:
+                raise serializers.ValidationError({'production_units': 'The harvested ponds/cages cannot be changed after recording.'})
+            if not stocking_record or not stocking_record.production_cycle_id:
+                raise serializers.ValidationError({'production_units': 'This stocking record has no production cycle, so ponds/cages cannot be selected.'})
+            # The create view's own harvest_units() of this same record when it already computed it.
+            known = self.context.get('harvest_units') if self.context.get('stocking_record') is stocking_record else None
+            status_by_id = {u['id']: u for u in (known if known is not None else stocking_record.harvest_units())}
+            chosen = []
+            for unit in units:
+                if unit.production_cycle_id != stocking_record.production_cycle_id:
+                    raise serializers.ValidationError({'production_units': 'Every pond/cage must belong to this production cycle.'})
+                info = status_by_id[unit.id]
+                if info['harvested']:
+                    raise serializers.ValidationError({'production_units': f"{info['label']} has already been harvested."})
+                if info not in chosen:
+                    chosen.append(info)
+            is_force = all(info['force_harvest'] for info in chosen)
+            if not is_force and any(info['force_harvest'] for info in chosen):
+                pending = ', '.join(info['label'] for info in chosen if info['force_harvest'])
+                raise serializers.ValidationError({'production_units': (
+                    f'{pending} is awaiting Force Harvest and must be harvested through Force Harvest, '
+                    'not together with unaffected ponds/cages.'
+                )})
+            data['is_force_harvest'] = is_force
+            # A harvest of several ponds/cages - Force or normal - records each unit's own actual kg, never
+            # one combined total for the user to divide.
+            if unit_quantities is None and len(chosen) > 1:
+                raise serializers.ValidationError({'unit_quantities': (
+                    'Enter the actual harvest (kg) for each affected pond/cage separately.' if is_force
+                    else 'Enter the actual harvest (kg) for each selected pond/cage separately.'
+                )})
+            # Force Harvest: the Health Log conditions are the reason for the early harvest - never re-typed.
+            if is_force and not (data.get('early_late_reason') or '').strip():
+                reasons = []
+                for info in chosen:
+                    reasons += [r for r in info['reasons'] if r not in reasons]
+                data['early_late_reason'] = '; '.join(reasons)[:255]
+            # Ponds/cages left unharvested keep growing: the cycle only closes once every unit is harvested.
+            chosen_ids = {info['id'] for info in chosen}
+            data['is_final'] = all(u['harvested'] or u['id'] in chosen_ids for u in status_by_id.values())
+            is_final = data['is_final']
 
         if harvest_date:
             if harvest_date > date.today():
@@ -759,13 +973,20 @@ class FisheriesHarvestRecordSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({
                     'harvest_date': f'Harvest date cannot be before the date stocked ({stocking_record.date_stocked}).'
                 })
-            if is_final and stocking_record and stocking_record.expected_harvest_date:
-                variance = (harvest_date - stocking_record.expected_harvest_date).days
-                reason = data.get('early_late_reason', getattr(self.instance, 'early_late_reason', '')) or ''
-                if abs(variance) > 7 and not reason.strip():
-                    raise serializers.ValidationError({
-                        'early_late_reason': 'A reason is required when the harvest date is more than 7 days early or late.'
-                    })
+            # Early (before the estimated harvest date) or late (after it) needs a reason - any number of
+            # days, partial or final harvest. On time needs none. A Force Harvest already carries its
+            # Health Log reason (filled in above). Only re-checked on update when the date or reason changes,
+            # so an older record without a reason keeps working.
+            timing, _days = harvest_timing(harvest_date, stocking_record.expected_harvest_date if stocking_record else None)
+            checking = self.instance is None or 'harvest_date' in data or 'early_late_reason' in data
+            if checking and timing in ('early', 'late'):
+                reason = (data.get('early_late_reason', getattr(self.instance, 'early_late_reason', '')) or '').strip()
+                kind = 'early' if timing == 'early' else 'late'
+                if not reason:
+                    raise serializers.ValidationError({'early_late_reason': f'A reason is required for a {kind} harvest.'})
+                if reason.lower() == 'other':
+                    raise serializers.ValidationError({'early_late_reason': f'Please specify the reason for the {kind} harvest.'})
+                data['early_late_reason'] = reason
         return data
 
 
@@ -807,6 +1028,48 @@ class DiseaseResponseGuideSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'disease_type_name']
 
 
+def _prefetched(obj, name):
+    """The prefetched rows of relation `name` on obj, or None when it was not prefetched."""
+    cache = getattr(obj, '_prefetched_objects_cache', None) or {}
+    return list(cache[name]) if name in cache else None
+
+
+def _stocking_list_context(records):
+    """Everything StockingRecordSerializer needs for a LIST of records, loaded once for the whole list
+    (a handful of queries) instead of per row. Each value is exactly what the per-record code computes."""
+    # Related rows the row fields read; already-prefetched / select_related relations are skipped.
+    prefetch_related_objects(records, 'logs', 'disaster_reports', 'harvests', 'species__category',
+                             'fisherfolk', 'pond', 'production_cycle__organization')
+    status = stocking_harvest_status_bulk(records)
+    cycle_no = production_cycle_numbers_bulk(records)   # compute_production_cycle_no() for every row, one query
+
+    # compute_recommended_feed_type(): the species' active feed types, in FeedType's own order (name).
+    species_ids = {r.species_id for r in records if r.species_id}
+    feeds_by_species = defaultdict(list)
+    if species_ids:
+        links = FeedType.species_options.through.objects.filter(
+            speciesoption_id__in=species_ids, feedtype__is_active=True,
+        ).select_related('feedtype')
+        for link in links:
+            feeds_by_species[link.speciesoption_id].append(link.feedtype)
+        for feeds in feeds_by_species.values():
+            feeds.sort(key=lambda f: (f.name, f.id))
+    return {'status': status, 'cycle_no': cycle_no, 'feeds_by_species': feeds_by_species}
+
+
+class StockingRecordListSerializer(serializers.ListSerializer):
+    """List form of StockingRecordSerializer: loads the per-row data for the whole list once (see
+    _stocking_list_context) so serializing a page does not query the database row by row."""
+
+    def to_representation(self, data):
+        records = list(data.all() if hasattr(data, 'all') else data)
+        self.child._list_context = _stocking_list_context(records) if records else None
+        try:
+            return super().to_representation(records)
+        finally:
+            self.child._list_context = None
+
+
 class StockingRecordSerializer(serializers.ModelSerializer):
     fisherfolk_name  = serializers.SerializerMethodField()
     pond_name        = serializers.CharField(source='pond.name', read_only=True, default=None)
@@ -817,12 +1080,27 @@ class StockingRecordSerializer(serializers.ModelSerializer):
     disaster_count   = serializers.SerializerMethodField()
     disaster_report_count = serializers.SerializerMethodField()
     has_recovered_disaster = serializers.SerializerMethodField()
+    # True when the linked production cycle's Health Log records fish mortality or a disease.
+    force_harvest = serializers.SerializerMethodField()
+    # Per pond/cage of the cycle: {id, label, force_harvest, reasons, harvested} - drives Record Harvest.
+    harvest_units = serializers.SerializerMethodField()
     harvest_variance_days = serializers.SerializerMethodField()
     final_harvest_date = serializers.SerializerMethodField()
+    # Latest harvest_date among ALL of this record's harvest records (normal or Force, partial or final);
+    # None while nothing has been harvested. Never derived from the expected date or the stocking date.
+    actual_harvest_date = serializers.SerializerMethodField()
+    # Timing of that same latest harvest vs expected_harvest_date, via fisheries.models.harvest_timing():
+    # 'early' | 'on_time' | 'late' (None without a harvest or an estimate); days is signed.
+    actual_harvest_timing = serializers.SerializerMethodField()
+    actual_harvest_timing_label = serializers.SerializerMethodField()
+    actual_harvest_timing_days = serializers.SerializerMethodField()
     total_harvested_kg = serializers.SerializerMethodField()
     harvest_count    = serializers.SerializerMethodField()
     stocking_density = serializers.SerializerMethodField()
     production_cycle_no = serializers.SerializerMethodField()
+    production_cycle_name = serializers.CharField(source='production_cycle.cycle_name', read_only=True, default=None)
+    # Organization of the linked Production Cycle (None for records without one).
+    organization_name = serializers.CharField(source='production_cycle.organization.name', read_only=True, default=None)
     next_feeding_date = serializers.SerializerMethodField()
     growth_stage = serializers.SerializerMethodField()
     recommended_feed_type_id = serializers.SerializerMethodField()
@@ -834,9 +1112,10 @@ class StockingRecordSerializer(serializers.ModelSerializer):
 
     class Meta:
         model  = StockingRecord
+        list_serializer_class = StockingRecordListSerializer
         fields = [
             'id', 'fisherfolk', 'fisherfolk_name',
-            'pond', 'pond_name',
+            'pond', 'pond_name', 'production_cycle', 'production_cycle_name', 'organization_name',
             'pond_location_barangay', 'land_status', 'land_status_other_specify', 'culture_type',
             'species', 'species_name', 'category_name',
             'date_stocked', 'date_stocked_is_estimated', 'area_hectares', 'number_of_fingerlings',
@@ -848,19 +1127,21 @@ class StockingRecordSerializer(serializers.ModelSerializer):
             'expected_harvest_date', 'estimated_harvest_kg',
             'notes', 'recorded_by', 'date_recorded',
             'is_near_harvest', 'log_count', 'disaster_count', 'disaster_report_count',
-            'has_recovered_disaster',
+            'has_recovered_disaster', 'force_harvest', 'harvest_units',
             'total_harvested_kg', 'harvest_count', 'harvest_variance_days',
-            'final_harvest_date',
+            'final_harvest_date', 'actual_harvest_date',
+            'actual_harvest_timing', 'actual_harvest_timing_label', 'actual_harvest_timing_days',
             'stocking_density', 'production_cycle_no', 'next_feeding_date',
             'growth_stage', 'recommended_feed_type_id', 'recommended_feed_type_name',
         ]
         read_only_fields = [
-            'id', 'fisherfolk_name', 'pond_name', 'species_name', 'category_name',
+            'id', 'fisherfolk_name', 'pond_name', 'production_cycle_name', 'organization_name', 'species_name', 'category_name',
             'expected_harvest_date', 'estimated_harvest_kg',
             'recorded_by', 'date_recorded',
             'is_near_harvest', 'log_count', 'disaster_count', 'disaster_report_count',
-            'has_recovered_disaster',
-            'total_harvested_kg', 'harvest_count', 'harvest_variance_days',
+            'has_recovered_disaster', 'force_harvest', 'harvest_units',
+            'total_harvested_kg', 'harvest_count', 'harvest_variance_days', 'actual_harvest_date',
+            'actual_harvest_timing', 'actual_harvest_timing_label', 'actual_harvest_timing_days',
             'stocking_density', 'production_cycle_no', 'next_feeding_date',
             'growth_stage', 'recommended_feed_type_id', 'recommended_feed_type_name',
         ]
@@ -877,24 +1158,77 @@ class StockingRecordSerializer(serializers.ModelSerializer):
     def get_log_count(self, obj):
         return obj.logs.count()
 
+    # Row values come from already-loaded data when available: the list context (StockingRecordListSerializer)
+    # or prefetched relations. Otherwise each falls back to its original per-record query - same values.
+    def _list(self):
+        return getattr(self, '_list_context', None)
+
     def get_disaster_count(self, obj):
+        reports = _prefetched(obj, 'disaster_reports')
+        if reports is not None:
+            return sum(1 for d in reports if d.status == 'Active')
         return obj.disaster_reports.filter(status='Active').count()
 
     def get_disaster_report_count(self, obj):
         return obj.disaster_reports.count()
 
+    def _final_harvest(self, obj):
+        harvests = _prefetched(obj, 'harvests')   # same order as the query: FisheriesHarvestRecord's -harvest_date
+        if harvests is not None:
+            return next((h for h in harvests if h.is_final), None)
+        return obj.harvests.filter(is_final=True).first()
+
     def get_harvest_variance_days(self, obj):
-        final = obj.harvests.filter(is_final=True).first()
+        final = self._final_harvest(obj)
         return final.harvest_variance_days if final else None
 
     def get_final_harvest_date(self, obj):
-        final = obj.harvests.filter(is_final=True).first()
+        final = self._final_harvest(obj)
         return str(final.harvest_date) if final else None
 
+    def _latest_harvest_date(self, obj):
+        # Uses the prefetched `harvests` (list/history/detail views prefetch them) - no extra query per row.
+        return max((h.harvest_date for h in obj.harvests.all() if h.harvest_date), default=None)
+
+    def get_actual_harvest_date(self, obj):
+        latest = self._latest_harvest_date(obj)
+        return str(latest) if latest else None
+
+    def _actual_timing(self, obj):
+        return harvest_timing(self._latest_harvest_date(obj), obj.expected_harvest_date)
+
+    def get_actual_harvest_timing(self, obj):
+        return self._actual_timing(obj)[0]
+
+    def get_actual_harvest_timing_label(self, obj):
+        return HARVEST_TIMING_LABELS.get(self._actual_timing(obj)[0])
+
+    def get_actual_harvest_timing_days(self, obj):
+        return self._actual_timing(obj)[1]
+
     def get_has_recovered_disaster(self, obj):
+        reports = _prefetched(obj, 'disaster_reports')
+        if reports is not None:
+            return any(d.status == 'Recovered' for d in reports)
         return obj.disaster_reports.filter(status='Recovered').exists()
 
+    def get_force_harvest(self, obj):
+        # Still awaiting harvest: an affected pond/cage not yet harvested (or a legacy log tied to no unit).
+        ctx = self._list()
+        if ctx is not None:
+            return ctx['status'][obj.id][1]
+        return obj.has_pending_force_harvest()
+
+    def get_harvest_units(self, obj):
+        ctx = self._list()
+        if ctx is not None:
+            return ctx['status'][obj.id][0]
+        return obj.harvest_units()
+
     def get_total_harvested_kg(self, obj):
+        harvests = _prefetched(obj, 'harvests')
+        if harvests is not None:
+            return float(sum(h.quantity_kg for h in harvests)) if harvests else 0.0
         result = obj.harvests.aggregate(total=Sum('quantity_kg'))['total']
         return float(result) if result is not None else 0.0
 
@@ -907,20 +1241,40 @@ class StockingRecordSerializer(serializers.ModelSerializer):
         return None
 
     def get_production_cycle_no(self, obj):
+        ctx = self._list()
+        if ctx is not None:
+            return ctx['cycle_no'][obj.id]
         return obj.compute_production_cycle_no()
 
     def get_next_feeding_date(self, obj):
+        logs = _prefetched(obj, 'logs')
+        if logs is not None and obj.species_id and obj.date_stocked:
+            # compute_next_feeding_date(): latest 'Feed Monitoring' log date (or the stocking date) + interval.
+            interval = obj.species.default_feeding_interval_days or 1
+            feed_dates = [l.date_of_activity for l in logs if l.activity == 'Feed Monitoring']
+            return (max(feed_dates) if feed_dates else obj.date_stocked) + timedelta(days=interval)
         return obj.compute_next_feeding_date()
 
     def get_growth_stage(self, obj):
         return obj.compute_growth_stage()
 
+    def _recommended_feed_type(self, obj):
+        ctx = self._list()
+        if ctx is None:
+            return obj.compute_recommended_feed_type()
+        # compute_recommended_feed_type(): stage-specific active feed type first, else a stage-agnostic one.
+        stage = obj.compute_growth_stage()
+        if not stage or not obj.species_id:
+            return None
+        feeds = ctx['feeds_by_species'].get(obj.species_id, [])
+        return next((f for f in feeds if f.growth_stage == stage), None) or next((f for f in feeds if f.growth_stage == ''), None)
+
     def get_recommended_feed_type_id(self, obj):
-        feed_type = obj.compute_recommended_feed_type()
+        feed_type = self._recommended_feed_type(obj)
         return feed_type.id if feed_type else None
 
     def get_recommended_feed_type_name(self, obj):
-        feed_type = obj.compute_recommended_feed_type()
+        feed_type = self._recommended_feed_type(obj)
         return feed_type.name if feed_type else None
 
     def validate_date_stocked(self, value):
@@ -937,6 +1291,11 @@ class StockingRecordSerializer(serializers.ModelSerializer):
             specify = data.get(specify_name, getattr(self.instance, specify_name, ''))
             if value == 'Other' and not (specify or '').strip():
                 raise serializers.ValidationError({specify_name: f'Please specify the {label}.'})
+        cycle = data.get('production_cycle')
+        if cycle is not None:
+            fisherfolk = data.get('fisherfolk', getattr(self.instance, 'fisherfolk', None))
+            if fisherfolk is None or cycle.fisherfolk_id != fisherfolk.id:
+                raise serializers.ValidationError({'production_cycle': 'This production cycle belongs to a different fisherfolk.'})
         return data
 
 
@@ -948,33 +1307,6 @@ class StockingRecordDetailSerializer(StockingRecordSerializer):
     class Meta(StockingRecordSerializer.Meta):
         fields = StockingRecordSerializer.Meta.fields + ['logs', 'disaster_reports', 'harvests']
         read_only_fields = StockingRecordSerializer.Meta.read_only_fields + ['logs', 'disaster_reports', 'harvests']
-
-
-# ─── Health & Feeding Monitoring (Batch 4) ─────────────────────────────────────
-# Read-only view over StockingRecord + FisheriesActivityLog — no new storage,
-# just two extra computed fields specific to this module's table view. Full
-# history reuses the existing FisheriesActivityLogSerializer via the
-# stocking/<id>/logs/ endpoint (ViewStockingLogsModal's own data source).
-
-class HealthMonitoringSerializer(StockingRecordSerializer):
-    latest_water_fish_condition = serializers.SerializerMethodField()
-    latest_mortality_count = serializers.SerializerMethodField()
-
-    class Meta(StockingRecordSerializer.Meta):
-        fields = StockingRecordSerializer.Meta.fields + [
-            'latest_water_fish_condition', 'latest_mortality_count',
-        ]
-        read_only_fields = StockingRecordSerializer.Meta.read_only_fields + [
-            'latest_water_fish_condition', 'latest_mortality_count',
-        ]
-
-    def get_latest_water_fish_condition(self, obj):
-        log = obj.logs.exclude(water_fish_condition='').order_by('-date_of_activity').first()
-        return log.water_fish_condition if log else None
-
-    def get_latest_mortality_count(self, obj):
-        log = obj.logs.exclude(mortality_count=None).order_by('-date_of_activity').first()
-        return log.mortality_count if log else None
 
 
 # ─── Legacy Capture Fishing / Vessel / Assistance serializers ─────────────────

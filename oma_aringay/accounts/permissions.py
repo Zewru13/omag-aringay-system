@@ -110,6 +110,11 @@ class IsStaffOrOwnRecordCitizen(BasePermission):
         # fisherfolk_id would be a raw-int collision waiting to happen).
         if request.user.linked_record_type not in ('FARMER', 'FISHERFOLK'):
             return False
+        # A view whose owner ids are Fisherfolk (or Farmer) pks declares it, so a citizen linked to the
+        # OTHER domain can never pass by a coincidental equal number (a farmer id equal to a fisherfolk id).
+        required_type = getattr(view, 'owner_record_type', None)
+        if required_type and request.user.linked_record_type != required_type:
+            return False
 
         get_target_owner_id = getattr(view, 'get_target_owner_id', None)
         if get_target_owner_id is None:
@@ -130,6 +135,9 @@ class IsStaffOrOwnRecordCitizen(BasePermission):
             return False
         if request.user.linked_record_type not in ('FARMER', 'FISHERFOLK'):
             return False
+        required_type = getattr(view, 'owner_record_type', None)
+        if required_type and request.user.linked_record_type != required_type:
+            return False
 
         # Evaluator-parity batch: a CITIZEN may act on ANY entry belonging to
         # their own record now, not just ones they personally created —
@@ -140,6 +148,63 @@ class IsStaffOrOwnRecordCitizen(BasePermission):
         # safe and unsafe methods. A citizen touching another person's
         # record — by ID, staff-logged or not — still fails right here.
         return view.get_object_owner_id(obj) == request.user.linked_record_id
+
+
+# ─── Fisheries ownership (Admin pages reused by Fisherfolk accounts) ─────────────
+# ONE role-aware rule for every Fisheries Monitoring / Forecasting / Disaster / Capture endpoint the
+# Admin pages call:
+#   - ADMIN / EVALUATOR: no filtering at all - exactly the behaviour these endpoints always had.
+#   - a CITIZEN linked to a Fisherfolk record (User.get_linked_fisherfolk_id): every queryset is narrowed
+#     to rows of THAT fisherfolk, so lists, details, updates and deletes only ever see their own rows (a
+#     guessed id of someone else's record is simply a 404), and creates are forced onto their own record.
+#   - anyone else (an organization citizen, a citizen with no linked record): rejected.
+STAFF_ROLES = ('ADMIN', 'EVALUATOR')
+
+
+def is_fisherfolk_citizen(user):
+    return bool(
+        user and user.is_authenticated and user.role == 'CITIZEN'
+        and user.get_linked_fisherfolk_id() is not None
+    )
+
+
+def fisherfolk_scope(user):
+    """None for ADMIN/EVALUATOR (= no filter); the user's own Fisherfolk id for a fisherfolk citizen."""
+    if user.role in STAFF_ROLES:
+        return None
+    return user.get_linked_fisherfolk_id()
+
+
+def scope_to_fisherfolk(queryset, user, lookup='fisherfolk_id'):
+    """Narrow `queryset` to the user's own fisherfolk via `lookup` (e.g. 'production_cycle__fisherfolk_id');
+    unchanged for staff. Callers sit behind IsStaffOrFisherfolk, so every other user is already rejected."""
+    owner = fisherfolk_scope(user)
+    return queryset if owner is None else queryset.filter(**{lookup: owner})
+
+
+class IsStaffOrFisherfolk(BasePermission):
+    """ADMIN/EVALUATOR exactly as IsAdminOrEvaluator; additionally a fisherfolk CITIZEN, whose data the view
+    then narrows with scope_to_fisherfolk. Views list staff-only HTTP methods for citizens in
+    `fisherfolk_blocked_methods` (e.g. ('DELETE',) - record deletion stays a staff/governance action)."""
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not (user and user.is_authenticated):
+            return False
+        if user.role in STAFF_ROLES:
+            return True
+        if not is_fisherfolk_citizen(user):
+            return False
+        return request.method not in getattr(view, 'fisherfolk_blocked_methods', ())
+
+
+class IsStaffOrFisherfolkReadOnly(IsStaffOrFisherfolk):
+    """Shared reference data (species, feed types, disease types...): staff unchanged, a fisherfolk may read."""
+
+    def has_permission(self, request, view):
+        if not super().has_permission(request, view):
+            return False
+        return request.user.role in STAFF_ROLES or request.method in SAFE_METHODS
 
 
 def _person_is_org_member(linked_record_type, org_id, person_id):

@@ -297,7 +297,9 @@ export default function CitizenHarvestModal({ domain, record, harvest, onClose, 
               <FormField label={labels.harvest.fields.isFinal}>
                 <input type="checkbox" checked={form.is_final} onChange={(e) => set('is_final', e.target.checked)} className="h-4 w-4" />
               </FormField>
-              {form.is_final && (
+              {/* Fisheries: always available - an early or late harvest (partial or final) needs a reason on
+                  the backend. Crop keeps its existing final-harvest-only field. */}
+              {(form.is_final || !isCrop) && (
                 <FormField label={labels.harvest.fields.earlyLateReason} hint={labels.harvest.fields.earlyLateReasonHint}>
                   <input type="text" className={baseInputClasses} value={form.early_late_reason} onChange={(e) => set('early_late_reason', e.target.value)} />
                 </FormField>

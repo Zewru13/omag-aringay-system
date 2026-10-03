@@ -13,13 +13,14 @@ import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
-import StatusPill from '../../components/UI/StatusPill.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import GroupedForecast from '../Forecasting/GroupedForecast.jsx'
+import { fmtActualHarvestKg } from '../FisheriesRecords/stockingHelpers.js'
+import AquacultureCycleDetailModal from './AquacultureCycleDetailModal.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
-import { countdownText, daysUntil, fmtShortDate } from '../../utils/forecastDates.js'
+import { fmtShortDate } from '../../utils/forecastDates.js'
 import { possibleFactorsText } from '../../utils/yieldAnalysis.js'
 
 const filterLabelCls = 'block text-[12px] font-medium text-[#4A5E4A] mb-1'
@@ -28,8 +29,11 @@ const filterLabelCls = 'block text-[12px] font-medium text-[#4A5E4A] mb-1'
 const filterSelectCls =
   'rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[7px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none'
 
-// Fisheries Forecasting "Forecast" tab scope: every active Fisheries Monitoring stocking record
-// (the /fisheries/stocking/ default: not Harvested, not Total Loss) - no date window.
+// Fisheries Forecasting "Forecast" tab scope: the same stocking records as the Fisheries Monitoring
+// table (Stocked, Near Harvest, Harvested; not Total Loss) - no date window.
+
+// Dates read in the staff app's short style ("Oct 28, 2026") - see utils/forecastDates.js.
+const fmtMDY = fmtShortDate
 
 // Identical framing/tone to the crop Yield Analysis module — adapted wording only.
 const YIELD_DISCLAIMER = 'This analysis is descriptive. Harvest yield is affected by many factors including water quality, disease, and weather; missed activities are shown as possible contributing factors, not proven causes.'
@@ -66,7 +70,7 @@ function StockingForecastDetailModal({ record, onClose, onUpdated }) {
   return (
     <ModalShell
       title={`${record.species_name ?? '—'} Forecast Details`}
-      subtitle={`${record.fisherfolk_name || '—'} · Stocked ${fmtShortDate(record.date_stocked)}`}
+      subtitle={`${record.fisherfolk_name || '—'} — Stocked: ${record.date_stocked || '—'}`}
       icon={TrendingUp}
       onClose={onClose}
       maxWidth="max-w-md"
@@ -74,36 +78,25 @@ function StockingForecastDetailModal({ record, onClose, onUpdated }) {
       <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] p-4">
-            <p className="mb-3 text-[12px] font-semibold text-[#4A5E4A] flex items-center gap-1.5"><BarChart2 size={13} />Stocking</p>
+            <p className="mb-3 text-[11px] font-semibold text-[#4A5E4A] flex items-center gap-1"><BarChart2 size={12} />Basic Information</p>
             <dl className="space-y-2.5">
               <div>
-                <dt className={labelCls}>Fingerlings stocked</dt>
+                <dt className={labelCls}>Fingerlings Stocked</dt>
                 <dd className="text-[13px] font-semibold text-[#1A2B1A]">
                   {record.number_of_fingerlings ? Number(record.number_of_fingerlings).toLocaleString() : '—'}
                 </dd>
               </div>
               <div>
-                <dt className={labelCls}>Expected harvest</dt>
+                <dt className={labelCls}>Estimated Harvest</dt>
                 <dd className="text-[13px] font-semibold text-[#1A2B1A]">
-                  {fmtShortDate(record.expected_harvest_date)}
-                  <span className="ml-1.5 text-[11px] font-normal text-[#7A8E7A]">{countdownText(record.expected_harvest_date)}</span>
+                  {fmtMDY(record.expected_harvest_date)}
                 </dd>
-              </div>
-              <div>
-                <dt className={labelCls}>Estimated yield</dt>
-                <dd className="text-[13px] font-semibold text-[#1B4D2E]">
-                  {record.estimated_harvest_kg ? `${Number(record.estimated_harvest_kg).toLocaleString()} kg` : '—'}
-                </dd>
-              </div>
-              <div>
-                <dt className={labelCls}>Status</dt>
-                <dd className="text-[13px] font-semibold text-[#1A2B1A]">{daysUntil(record.expected_harvest_date) < 0 ? 'Overdue' : (record.status || '—')}</dd>
               </div>
             </dl>
           </div>
 
           <div className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] p-4">
-            <p className="mb-3 text-[12px] font-semibold text-[#4A5E4A] flex items-center gap-1.5"><User size={13} />Fisherfolk &amp; location</p>
+            <p className="mb-3 text-[11px] font-semibold text-[#4A5E4A] flex items-center gap-1"><User size={12} />Fisherfolk & Location</p>
             <dl className="space-y-2.5">
               <div>
                 <dt className={labelCls}>Fisherfolk</dt>
@@ -120,7 +113,7 @@ function StockingForecastDetailModal({ record, onClose, onUpdated }) {
         <div className="border-t border-[#F0F4F0]" />
 
         <div>
-          <label className="mb-1.5 flex items-center gap-1 text-[12px] font-semibold text-[#4A5E4A]"><FileText size={13} />Remarks &amp; notes</label>
+          <label className="mb-1.5 flex items-center gap-1 text-[12px] font-semibold text-[#4A5E4A]"><FileText size={12} />Remarks & Notes</label>
           <textarea
             rows={4}
             className={baseInputClasses}
@@ -154,8 +147,7 @@ function StockingForecastDetailModal({ record, onClose, onUpdated }) {
   )
 }
 
-// A value label inside the detail dialog: plain sentence-case text.
-const labelCls = 'text-[11px] font-medium text-[#7A8E7A]'
+const labelCls = 'text-[10px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8]'
 
 // ── Import Errors Modal (mirrors ImportErrorsModal in crop's ForecastingPage.jsx) ──
 
@@ -397,15 +389,384 @@ function VarianceBadge({ pct }) {
   )
 }
 
+// ── Actual vs estimated harvest (Forecast table + Harvest Variance Details) ─────
+// Same formula as fisheries.views.harvest_variance: ((actual - estimated) / estimated) * 100, from the
+// record's own estimated_harvest_kg and cumulative total_harvested_kg. No harvest -> no variance; no or
+// zero estimate -> no percentage. Wording stays neutral ("less", "above") - it is never a verdict.
+const fmtKg2 = (v) => Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const fmtPctAbs = (pct) => String(Number(Math.abs(pct).toFixed(1)))
+
+function rowVariance(rec) {
+  // Shown whenever there is a recorded harvest and a valid estimate - also for a partially harvested
+  // cycle, where it compares the harvest recorded so far (the cycle status is a separate concept).
+  if (!rec.harvest_count || rec.estimated_harvest_kg == null) return null
+  const est = Number(rec.estimated_harvest_kg)
+  if (!(est > 0)) return null
+  const diff = Number(rec.total_harvested_kg || 0) - est
+  return { pct: (diff / est) * 100, diff }
+}
+
+// Short badge text: "+20% above" (always with the plus sign), "30% less", "On estimate".
+function varianceShortLabel({ pct, diff }) {
+  if (Math.abs(diff) < 0.005 || Number(pct.toFixed(1)) === 0) return 'On estimate'
+  return pct > 0 ? `+${fmtPctAbs(pct)}% above` : `${fmtPctAbs(pct)}% less`
+}
+
+function varianceLongLabel({ pct, diff }) {
+  if (Math.abs(diff) < 0.005 || Number(pct.toFixed(1)) === 0) return 'On estimate'
+  return pct > 0 ? `+${fmtPctAbs(pct)}% above estimate` : `${fmtPctAbs(pct)}% less than estimate`
+}
+
+function varianceBadgeCls({ pct, diff }) {
+  if (Math.abs(diff) < 0.005 || Number(pct.toFixed(1)) === 0) return VARIANCE_TONE_CLS.slate
+  return pct > 0 ? VARIANCE_TONE_CLS.green : VARIANCE_TONE_CLS.amber
+}
+
+const vdTh = 'px-2.5 py-1.5 text-left text-[11px] font-semibold uppercase tracking-[0.05em] text-[#4A5E4A] whitespace-nowrap'
+const vdTd = 'px-2.5 py-1.5 text-[12px] text-[#1A2B1A] align-top'
+
+function VdSection({ title, children }) {
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[13px] font-semibold text-[#1B4D2E]">{title}</p>
+      {children}
+    </div>
+  )
+}
+
+function VdTable({ head, children, foot }) {
+  return (
+    <div className="overflow-x-auto rounded-lg border border-[#E2E8E2]">
+      <table className="min-w-full">
+        <thead className="bg-[#F5F7F5]"><tr>{head.map(h => <th key={h} className={vdTh}>{h}</th>)}</tr></thead>
+        <tbody className="divide-y divide-[#F0F4F0]">{children}</tbody>
+        {foot}
+      </table>
+    </div>
+  )
+}
+
+// Harvest Variance Details: summary + the harvest records, Health Log and Feeding Log entries of THIS
+// record's production cycle, from GET /fisheries/stocking/<id>/variance-details/ (read-only). It only
+// lists what was recorded; it does not attribute the variance to any activity.
+function HarvestVarianceDetailsModal({ record, onClose }) {
+  const [data, setData] = useState(null)
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    api.get(`/fisheries/stocking/${record.id}/variance-details/`)
+      .then(r => { if (!cancelled) setData(r.data) })
+      .catch(() => { if (!cancelled) setFailed(true) })
+    return () => { cancelled = true }
+  }, [record.id])
+
+  const v = data && data.variance_pct != null && data.difference_kg != null
+    ? { pct: data.variance_pct, diff: Number(data.difference_kg) } : null
+  // Partially harvested: some harvest recorded, cycle not closed. The variance is still shown, but it
+  // compares the harvest recorded SO FAR - it is never presented as a final shortfall or a loss.
+  const partial = Boolean(data && data.harvest_count > 0 && !data.is_fully_harvested)
+  const stillStocked = (data?.production_units || []).filter(u => u.status === 'still_stocked')
+  // "Pond 3, Pond 4, and Pond 5"
+  const joinNames = (names) => (names.length <= 2 ? names.join(' and ') : `${names.slice(0, -1).join(', ')}, and ${names[names.length - 1]}`)
+  const cycleStatusText = !data?.harvest_count ? 'Not yet harvested' : data.is_fully_harvested ? 'Fully Harvested' : 'Partially Harvested'
+
+  // One row per harvested unit when the record has per-unit kg; an older combined record stays one row.
+  const harvestRows = (data?.harvests || []).flatMap(h => {
+    const perUnit = h.units.length > 0 && h.units.every(u => u.quantity_kg != null)
+    const reasonFor = (u) => (h.harvest_type === 'Force' && u?.health_reasons?.length ? u.health_reasons.join('; ') : h.reason) || '—'
+    if (perUnit) {
+      return h.units.map(u => ({ key: `${h.id}-${u.production_unit}`, unit: u.label, type: h.harvest_type,
+        kg: fmtKg2(u.quantity_kg), date: h.harvest_date, reason: reasonFor(u) }))
+    }
+    return [{ key: `${h.id}`, unit: h.units.length ? h.units.map(u => u.label).join(', ') : (h.area_or_units_harvested || '—'),
+      type: h.harvest_type, kg: `${fmtKg2(h.quantity_kg)}${h.units.length > 1 ? ' (combined)' : ''}`, date: h.harvest_date,
+      reason: reasonFor(h.units.length === 1 ? h.units[0] : null) }]
+  })
+
+  return (
+    <ModalShell
+      title="Harvest Variance Details"
+      subtitle={`${record.species_name || ''}${record.fisherfolk_name ? ` · ${record.fisherfolk_name}` : ''}`}
+      icon={BarChart2}
+      onClose={onClose}
+      maxWidth="max-w-3xl"
+    >
+      <div className="space-y-5" data-testid="harvest-variance-details">
+        {failed && <p className="text-[12px] text-rose-600">Failed to load the variance details.</p>}
+        {!data && !failed && <p className="text-[12px] text-[#7A8E7A]">Loading…</p>}
+        {data && (<>
+          <VdSection title="Summary">
+            <VdTable head={['Detail', 'Value']}>
+              <tr><td className={vdTd}>Estimated Harvest</td><td className={`${vdTd} font-semibold`}>{data.estimated_kg != null ? `${fmtKg2(data.estimated_kg)} kg` : '—'}</td></tr>
+              <tr><td className={vdTd}>{partial ? 'Actual Harvest Recorded So Far' : 'Actual Harvest'}</td><td className={`${vdTd} font-semibold`}>{data.harvest_count ? `${fmtKg2(data.actual_total_kg)} kg` : '—'}</td></tr>
+              <tr><td className={vdTd}>Difference</td><td className={`${vdTd} font-semibold`}>
+                {data.difference_kg != null ? `${Number(data.difference_kg) > 0 ? '+' : ''}${fmtKg2(data.difference_kg)} kg` : '—'}
+              </td></tr>
+              <tr><td className={vdTd}>Variance</td><td className={`${vdTd} font-semibold`} data-testid="variance-text">
+                {v ? `${varianceLongLabel(v)}${partial ? ' based on harvest recorded so far' : ''}`
+                  : (data.harvest_count ? 'Not calculated (no estimated harvest)' : '—')}
+              </td></tr>
+              <tr><td className={vdTd}>Status</td><td className={`${vdTd} font-semibold`} data-testid="cycle-harvest-status">
+                {partial ? <span className="text-amber-700">{cycleStatusText}</span> : cycleStatusText}
+              </td></tr>
+              {data.period?.from && (
+                <tr><td className={vdTd}>Period</td><td className={vdTd}>{fmtMDY(data.period.from)} – {data.period.to ? fmtMDY(data.period.to) : '—'}</td></tr>
+              )}
+            </VdTable>
+            {partial && (
+              <p className="text-[11px] font-medium text-amber-700" data-testid="cycle-not-fully-harvested">
+                Actual harvest recorded so far.
+                {stillStocked.length > 0 && ` ${joinNames(stillStocked.map(u => u.name))} ${stillStocked.length === 1 ? 'is' : 'are'} still stocked.`}
+              </p>
+            )}
+          </VdSection>
+
+          {data.production_units.length > 0 && (
+            // Every pond/cage of the cycle - harvested or not - with its own recorded kg.
+            <VdSection title="Production Unit Status">
+              <VdTable head={['Production Unit', 'Status', 'Actual Harvest (kg)']}>
+                {data.production_units.map(u => (
+                  <tr key={u.id} data-testid={`unit-status-${u.id}`}>
+                    <td className={`${vdTd} font-medium`}>{u.name}</td>
+                    <td className={vdTd}>
+                      {u.status === 'force_harvested'
+                        ? <span className="rounded-md border border-red-200 bg-red-50 px-1.5 py-[1px] text-[11px] font-semibold text-red-700">Force Harvested</span>
+                        : u.status === 'harvested'
+                          ? <span className="rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-[1px] text-[11px] font-semibold text-emerald-700">Harvested</span>
+                          : <span className="text-[#7A8E7A]">Still Stocked</span>}
+                    </td>
+                    <td className={vdTd}>
+                      {u.actual_harvest_kg != null
+                        ? fmtKg2(u.actual_harvest_kg)
+                        : u.in_combined_harvest
+                          ? <span className="text-[#7A8E7A]">In a combined harvest record</span>
+                          : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </VdTable>
+            </VdSection>
+          )}
+
+          {stillStocked.length > 0 && data.harvest_count > 0 && (
+            // The ponds/cages with no harvest yet, listed explicitly (no harvest value - never 0).
+            <VdSection title="Still Stocked / Not Yet Harvested">
+              <VdTable head={['Production Unit', 'Status', 'Actual Harvest (kg)']}>
+                {stillStocked.map(u => (
+                  <tr key={u.id} data-testid={`still-stocked-${u.id}`}>
+                    <td className={`${vdTd} font-medium`}>{u.name}</td>
+                    <td className={`${vdTd} text-[#7A8E7A]`}>Still Stocked</td>
+                    <td className={vdTd}>—</td>
+                  </tr>
+                ))}
+              </VdTable>
+            </VdSection>
+          )}
+
+          <VdSection title="Harvest Records">
+            {harvestRows.length === 0 ? <p className="text-[12px] text-[#7A8E7A]">No harvest recorded yet.</p> : (
+              <VdTable
+                head={['Production Unit', 'Harvest Type', 'Actual kg', 'Harvest Date', 'Reason']}
+                foot={<tfoot><tr className="border-t-2 border-[#E2E8E2] bg-[#F9FAF9]">
+                  <td className={`${vdTd} font-semibold`} colSpan={2}>{partial ? 'Total Actual Harvest Recorded' : 'Total Actual Harvest'}</td>
+                  <td className={`${vdTd} font-semibold`} colSpan={3}>{fmtKg2(data.actual_total_kg)} kg</td>
+                </tr></tfoot>}
+              >
+                {harvestRows.map(r => (
+                  <tr key={r.key}>
+                    <td className={`${vdTd} font-medium`}>{r.unit}</td>
+                    <td className={vdTd}>{r.type === 'Force'
+                      ? <span className="rounded-md border border-red-200 bg-red-50 px-1.5 py-[1px] text-[11px] font-semibold text-red-700">Force Harvest</span>
+                      : 'Normal'}</td>
+                    <td className={vdTd}>{r.kg}</td>
+                    <td className={`${vdTd} whitespace-nowrap`}>{fmtMDY(r.date)}</td>
+                    <td className={vdTd}>{r.reason}</td>
+                  </tr>
+                ))}
+              </VdTable>
+            )}
+          </VdSection>
+
+          <VdSection title="Health Log Activities">
+            {data.health_logs.length === 0 ? <p className="text-[12px] text-[#7A8E7A]">No Health Log entries for this production cycle.</p> : (
+              <VdTable head={['Date', 'Production Unit', 'Observation', 'Mortality', 'Force Harvest', 'Resulting Harvest']}>
+                {data.health_logs.map(l => (
+                  <tr key={l.id}>
+                    <td className={`${vdTd} whitespace-nowrap`}>{fmtMDY(l.log_date)}</td>
+                    <td className={vdTd}>{l.unit_label || '—'}</td>
+                    <td className={vdTd}>{l.observation}{l.treatment_applied ? <span className="block text-[11px] text-[#7A8E7A]">Treatment: {l.treatment_applied}</span> : null}</td>
+                    <td className={vdTd}>{l.mortality_count > 0 ? l.mortality_count.toLocaleString() : '—'}</td>
+                    <td className={vdTd}>{l.force_harvest ? <span className="font-semibold text-red-700">Yes</span> : 'No'}</td>
+                    <td className={vdTd}>
+                      {l.force_harvest_record
+                        ? `Force Harvest${l.force_harvest_record.quantity_kg != null ? ` · ${fmtKg2(l.force_harvest_record.quantity_kg)} kg` : ''} · ${fmtMDY(l.force_harvest_record.harvest_date)}`
+                        : (l.force_harvest ? 'Not yet harvested' : '—')}
+                    </td>
+                  </tr>
+                ))}
+              </VdTable>
+            )}
+          </VdSection>
+
+          <VdSection title="Feeding Log Activities">
+            {data.feeding_logs.length === 0 ? <p className="text-[12px] text-[#7A8E7A]">No Feeding Log entries for this production cycle.</p> : (
+              <VdTable head={['Date', 'Production Unit', 'Feed Type', 'Quantity']}>
+                {data.feeding_logs.flatMap(f => (f.units.length > 0
+                  ? f.units.map(u => (
+                    <tr key={`${f.id}-${u.production_unit}`}>
+                      <td className={`${vdTd} whitespace-nowrap`}>{fmtMDY(f.feeding_date)}</td>
+                      <td className={vdTd}>{u.label}</td>
+                      <td className={vdTd}>{f.feed_type}</td>
+                      <td className={vdTd}>{fmtKg2(u.quantity_kg)} kg</td>
+                    </tr>
+                  ))
+                  : [(
+                    <tr key={f.id}>
+                      <td className={`${vdTd} whitespace-nowrap`}>{fmtMDY(f.feeding_date)}</td>
+                      <td className={vdTd}>—</td>
+                      <td className={vdTd}>{f.feed_type}</td>
+                      <td className={vdTd}>{fmtKg2(f.quantity_kg)} kg</td>
+                    </tr>
+                  )]))}
+              </VdTable>
+            )}
+          </VdSection>
+
+          <p className="text-[11px] italic text-[#A8BCA8]">
+            Recorded activities are listed for reference only; they are not presented as the cause of the difference.
+          </p>
+        </>)}
+      </div>
+    </ModalShell>
+  )
+}
+
+// ── Harvest timing (Early / On-Time / Late) ─────────────────────────────────────
+// Display only: the timing itself always comes from the backend (fisheries.models.harvest_timing via
+// actual_harvest_timing on the row and harvest_timing on each harvest record) - nothing is recomputed here.
+const TIMING_SHORT = { early: 'Early', on_time: 'On-Time', late: 'Late' }
+const TIMING_BADGE_CLS = {
+  early:   'text-sky-700 bg-sky-50 border-sky-200',
+  on_time: 'text-emerald-700 bg-emerald-50 border-emerald-200',
+  late:    'text-amber-700 bg-amber-50 border-amber-200',
+}
+
+function timingDifferenceText(timing, days) {
+  if (timing === 'on_time') return 'On the estimated harvest date.'
+  if (days == null) return ''
+  const n = Math.abs(days)
+  return `${n} day${n !== 1 ? 's' : ''} ${timing === 'early' ? 'earlier' : 'later'} than expected.`
+}
+
+// Reason for a harvest's timing: its stored early_late_reason (a Force Harvest's Health Log reason
+// included). None shown for on time; "Not recorded" for an early/late record saved without one.
+function timingReasonText(timing, reason) {
+  if (timing === 'on_time' || !timing) return null
+  return (reason || '').trim() || 'Not recorded'
+}
+
+// Harvest Timing Details for one stocking record: the timing of the harvest shown in the table (the
+// latest one), every harvest record with its own timing and reason, and the status of every pond/cage.
+// Data: GET /fisheries/stocking/<id>/variance-details/ (read-only; the same records as the variance modal).
+function HarvestTimingDetailsModal({ record, onClose }) {
+  const [data, setData] = useState(null)
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    api.get(`/fisheries/stocking/${record.id}/variance-details/`)
+      .then(r => { if (!cancelled) setData(r.data) })
+      .catch(() => { if (!cancelled) setFailed(true) })
+    return () => { cancelled = true }
+  }, [record.id])
+
+  // The table's Actual Harvest Date is the latest harvest; its record(s) give the headline reason.
+  const latestDate = record.actual_harvest_date
+  const latest = (data?.harvests || []).filter(h => h.harvest_date === latestDate)
+  const timing = record.actual_harvest_timing
+  // `reason` in this response is the record's stored early_late_reason.
+  const headlineReasons = [...new Set(latest.map(h => timingReasonText(h.harvest_timing, h.reason)).filter(Boolean))]
+  const reasonFromHealthLog = latest.some(h => h.harvest_type === 'Force')
+  // One row per harvested unit (an older record without units stays one row).
+  const recordRows = (data?.harvests || []).flatMap(h => {
+    const unitReason = (u) => (h.harvest_type === 'Force' && u?.health_reasons?.length ? u.health_reasons.join('; ') : h.reason)
+    const base = { date: h.harvest_date, timing: h.harvest_timing, type: h.harvest_type }
+    if (h.units.length === 0) return [{ ...base, key: `${h.id}`, unit: h.area_or_units_harvested || '—', reason: timingReasonText(h.harvest_timing, h.reason) }]
+    return h.units.map(u => ({ ...base, key: `${h.id}-${u.production_unit}`, unit: u.label, reason: timingReasonText(h.harvest_timing, unitReason(u)) }))
+  })
+  const UNIT_STATUS = { force_harvested: 'Force Harvested', harvested: 'Harvested', still_stocked: 'Still Stocked' }
+
+  return (
+    <ModalShell
+      title="Harvest Timing Details"
+      subtitle={`${record.species_name || ''}${record.fisherfolk_name ? ` · ${record.fisherfolk_name}` : ''}`}
+      icon={Info}
+      onClose={onClose}
+      maxWidth="max-w-xl"
+    >
+      <div className="space-y-5" data-testid="harvest-timing-details">
+        {failed && <p className="text-[12px] text-rose-600">Failed to load the harvest timing details.</p>}
+        {!data && !failed && <p className="text-[12px] text-[#7A8E7A]">Loading…</p>}
+        {data && (<>
+          <VdTable head={['Detail', 'Value']}>
+            <tr><td className={vdTd}>Timing</td><td className={`${vdTd} font-semibold`}>{record.actual_harvest_timing_label || '—'}</td></tr>
+            {timing !== 'on_time' && (
+              <tr><td className={vdTd}>Difference</td><td className={vdTd}>{timingDifferenceText(timing, record.actual_harvest_timing_days)}</td></tr>
+            )}
+            <tr><td className={vdTd}>Estimated Harvest Date</td><td className={vdTd}>{fmtMDY(data.estimated_harvest_date)}</td></tr>
+            <tr><td className={vdTd}>Actual Harvest Date</td><td className={vdTd}>{fmtMDY(latestDate)}</td></tr>
+            {headlineReasons.length > 0 && (
+              <tr><td className={vdTd}>Reason</td><td className={`${vdTd} font-semibold`}>
+                {headlineReasons.join('; ')}
+                {reasonFromHealthLog && <span className="block text-[11px] font-normal text-[#7A8E7A]">Force Harvest — reason from the Health Log.</span>}
+              </td></tr>
+            )}
+          </VdTable>
+
+          {recordRows.length > 1 && (
+            <VdSection title="Harvest Records">
+              <VdTable head={['Production Unit', 'Harvest Date', 'Timing', 'Reason']}>
+                {recordRows.map(r => (
+                  <tr key={r.key}>
+                    <td className={`${vdTd} font-medium`}>{r.unit}</td>
+                    <td className={`${vdTd} whitespace-nowrap`}>{fmtMDY(r.date)}</td>
+                    <td className={vdTd}>{r.timing ? TIMING_SHORT[r.timing] : '—'}{r.type === 'Force' ? ' · Force' : ''}</td>
+                    <td className={vdTd}>{r.reason || '—'}</td>
+                  </tr>
+                ))}
+              </VdTable>
+            </VdSection>
+          )}
+
+          {data.production_units.length > 0 && (
+            <VdSection title="Production Unit Status">
+              <VdTable head={['Production Unit', 'Status']}>
+                {data.production_units.map(u => (
+                  <tr key={u.id}>
+                    <td className={`${vdTd} font-medium`}>{u.name}</td>
+                    <td className={`${vdTd} ${u.status === 'still_stocked' ? 'text-[#7A8E7A]' : ''}`}>{UNIT_STATUS[u.status]}</td>
+                  </tr>
+                ))}
+              </VdTable>
+            </VdSection>
+          )}
+        </>)}
+      </div>
+    </ModalShell>
+  )
+}
+
 // ── Aggregate Panel (barangay/species toggle + cycle-trend note) ────────────────
 
-function AggregatePanel({ groupBy, setGroupBy, groups, overall, cycleTrend, isLoading }) {
+// showGroupToggle: the By Barangay / By Species switch (hidden for fisherfolk accounts, which keep the
+// default grouping in a view-only analysis).
+function AggregatePanel({ groupBy, setGroupBy, groups, overall, cycleTrend, isLoading, showGroupToggle = true }) {
   const maxAbsVariance = Math.max(10, ...groups.map(g => Math.abs(g.avg_variance_pct ?? 0)))
 
   return (
     <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+      <div className="flex items-center justify-between mb-4">
         <p className="text-[13px] font-semibold text-[#1A2B1A]">Aggregate summary</p>
+        {showGroupToggle && (
         <div className="flex items-center gap-1 rounded-lg border border-[#E2E8E2] p-0.5">
           {['barangay', 'species'].map(opt => (
             <button
@@ -420,9 +781,10 @@ function AggregatePanel({ groupBy, setGroupBy, groups, overall, cycleTrend, isLo
             </button>
           ))}
         </div>
+        )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mb-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 mb-4 md:grid-cols-4">
         <div className="bg-[#EBF5EE] rounded-xl p-3">
           <p className="text-[11px] font-medium text-[#4A5E4A]">Stockings</p>
           <p className="text-[18px] font-bold text-[#1B4D2E] mt-0.5">{overall.stocking_count ?? 0}</p>
@@ -450,13 +812,15 @@ function AggregatePanel({ groupBy, setGroupBy, groups, overall, cycleTrend, isLo
         ) : groups.length === 0 ? (
           <p className="text-[12px] text-[#7A8E7A] py-3 text-center">No harvested or total-loss stockings in scope.</p>
         ) : groups.map(g => (
-          <div key={g.group} className="flex items-center gap-3 text-[12px]">
-            <span className="w-32 shrink-0 truncate text-[#4A5E4A] font-medium" title={g.group}>{g.group}</span>
-            <span className="w-16 shrink-0 text-[#7A8E7A]" title={g.total_loss_count > 0 ? `Avg variance excludes ${g.total_loss_count} total-loss record${g.total_loss_count !== 1 ? 's' : ''}` : undefined}>
+          // Phones: name + count on one line, each bar on its own labelled line; md and up: one row, as before.
+          <div key={g.group} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12px] md:flex-nowrap">
+            <span className="min-w-0 flex-1 truncate text-[#4A5E4A] font-medium md:w-32 md:flex-none md:shrink-0" title={g.group}>{g.group}</span>
+            <span className="shrink-0 text-[#7A8E7A] md:w-16" title={g.total_loss_count > 0 ? `Avg variance excludes ${g.total_loss_count} total-loss record${g.total_loss_count !== 1 ? 's' : ''}` : undefined}>
               {g.stocking_count} stocking{g.stocking_count !== 1 ? 's' : ''}
               {g.total_loss_count > 0 && <span className="text-rose-500"> ({g.total_loss_count} loss)</span>}
             </span>
-            <div className="flex-1 flex items-center gap-1.5">
+            <div className="flex basis-full items-center gap-1.5 md:flex-1">
+              <span className="w-16 shrink-0 text-[11px] text-[#A8BCA8] md:hidden">Variance</span>
               <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
                 {g.avg_variance_pct != null && (
                   <div
@@ -469,7 +833,8 @@ function AggregatePanel({ groupBy, setGroupBy, groups, overall, cycleTrend, isLo
                 {g.avg_variance_pct != null ? `${g.avg_variance_pct >= 0 ? '+' : ''}${g.avg_variance_pct.toFixed(1)}%` : 'N/A'}
               </span>
             </div>
-            <div className="flex-1 flex items-center gap-1.5">
+            <div className="flex basis-full items-center gap-1.5 md:flex-1">
+              <span className="w-16 shrink-0 text-[11px] text-[#A8BCA8] md:hidden">Activities</span>
               <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
                 {g.avg_activity_completion_pct != null && (
                   <div className="h-full bg-[#1B4D2E]" style={{ width: `${Math.min(100, g.avg_activity_completion_pct)}%` }} />
@@ -482,7 +847,7 @@ function AggregatePanel({ groupBy, setGroupBy, groups, overall, cycleTrend, isLo
           </div>
         ))}
         {groups.length > 0 && (
-          <div className="flex items-center gap-3 text-[11px] text-[#A8BCA8] pt-1">
+          <div className="hidden items-center gap-3 text-[11px] text-[#A8BCA8] pt-1 md:flex">
             <span className="w-32 shrink-0" />
             <span className="w-16 shrink-0" />
             <span className="flex-1 text-right pr-16">avg variance %</span>
@@ -523,7 +888,12 @@ function AggregatePanel({ groupBy, setGroupBy, groups, overall, cycleTrend, isLo
 export default function ForecastingTab({ asTab = false }) {
   const navigate = useNavigate()
   const { showToast } = useToast()
+  // Fisherfolk accounts use this same page; the backend returns only their own records.
+  const { isFisherfolk } = useAuth()
   const [activeTab, setActiveTab] = useState('forecast') // 'forecast' | 'yield_analysis'
+  // Yield Analysis data is loaded only once its tab has been opened (not while Forecast is the active tab);
+  // after that it reloads only when its own filters change, not on every tab switch.
+  const [yieldOpened, setYieldOpened] = useState(false)
 
   // ── "Forecast" tab: upcoming stockings (additive — everything below this
   // block, through the existing "yield analysis" state, is unchanged) ──────
@@ -535,6 +905,8 @@ export default function ForecastingTab({ asTab = false }) {
   const [fcSearch,         setFcSearch]         = useState('')
   const [fcSearchDebounced, setFcSearchDebounced] = useState('')
   const [fcDetail,         setFcDetail]         = useState(null)
+  const [varianceRec,      setVarianceRec]      = useState(null)   // row whose Harvest Variance Details is open
+  const [timingRec,        setTimingRec]        = useState(null)   // row whose Harvest Timing Details is open
   const [fcImporting,      setFcImporting]      = useState(false)
   const [fcImportResults,  setFcImportResults]  = useState(null)
   const [fcView,           setFcView]           = useState('flat') // 'flat' | 'grouped'
@@ -547,10 +919,11 @@ export default function ForecastingTab({ asTab = false }) {
   const fetchForecastRecords = useCallback(async (pageNum = 1, isCancelled = () => false) => {
     setFcLoading(true); setFcError('')
     try {
-      // All active (not yet harvested / not total-loss) Fisheries Monitoring records: the endpoint's
-      // default status scope. Search is applied server-side so it spans every page.
-      // Soonest expected harvest first — the order a forecast is read in.
-      const params = { page: pageNum, ordering: 'expected_harvest_date' }
+      // The same records and status scope as the Fisheries Monitoring table ("All Status": Stocked,
+      // Near Harvest, Harvested; Total Loss excluded). Without an explicit status the endpoint drops
+      // Harvested records, so a cycle closed by its final harvest vanished from Forecasting.
+      // Search is applied server-side so it spans every page.
+      const params = { page: pageNum, status: 'Stocked,Near Harvest,Harvested' }
       if (fcBarangayFilter) params.barangay = fcBarangayFilter
       if (fcSpeciesFilter)  params.species  = fcSpeciesFilter
       if (fcSearchDebounced.trim()) params.search = fcSearchDebounced.trim()
@@ -589,6 +962,7 @@ export default function ForecastingTab({ asTab = false }) {
     const params = {}
     if (fcBarangayFilter) params.barangay = fcBarangayFilter
     if (fcSpeciesFilter)  params.species  = fcSpeciesFilter
+    if (fcSearchDebounced.trim()) params.search = fcSearchDebounced.trim()   // same server-side search as the flat list
     api.get('/fisheries/stocking/history/', { params })
       .then(r => {
         if (cancelled) return
@@ -616,7 +990,7 @@ export default function ForecastingTab({ asTab = false }) {
       .finally(() => { if (!cancelled) setFcGroupedLoading(false) })
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fcView, fcBarangayFilter, fcSpeciesFilter])
+  }, [fcView, fcBarangayFilter, fcSpeciesFilter, fcSearchDebounced])
 
   const handleFcDownloadTemplate = async () => {
     try {
@@ -646,72 +1020,95 @@ export default function ForecastingTab({ asTab = false }) {
     }
   }
 
-  // Flat rows are already searched server-side; the grouped list is unpaginated, so it is searched here.
-  const fcQ = fcSearch.trim().toLowerCase()
+  // Both views are searched server-side (name, RSBSA, species, barangay), so they always agree.
   const fcFiltered = fcRecords
-  const fcGroupedFiltered = fcGrouped.filter(g =>
-    !fcQ
-    || g.commodity?.toLowerCase().includes(fcQ)
-    || g.person?.toLowerCase().includes(fcQ)
-  )
+  const fcGroupedFiltered = fcGrouped
 
   const FC_COLUMNS = [
-    { key: 'species_cell',      label: 'SPECIES' },
-    { key: 'fisherfolk_cell',   label: 'FISHERFOLK' },
+    { key: 'species_name',      label: 'SPECIES' },
+    { key: 'fisherfolk_name',   label: 'FISHERFOLK' },
+    { key: 'culture_type',      label: 'CULTURE TYPE' },
     { key: 'stocked_cell',      label: 'DATE STOCKED' },
     { key: 'fingerlings_cell',  label: 'FINGERLINGS' },
-    { key: 'yield_cell',        label: 'EST. YIELD (KG)' },
-    { key: 'harvest_date_cell', label: 'EXPECTED HARVEST' },
-    { key: 'status_cell',       label: 'STATUS' },
-    { key: 'actions',           label: 'DETAILS' },
+    { key: 'yield_cell',        label: 'ESTIMATED HARVEST YIELD (KG)' },
+    { key: 'actual_harvest_cell', label: 'ACTUAL HARVEST (KG)' },
+    { key: 'harvest_date_cell', label: 'ESTIMATED HARVEST DATE' },
+    { key: 'actual_harvest_date_cell', label: 'ACTUAL HARVEST DATE' },
+    { key: 'status',            label: 'STATUS' },
   ]
 
-  const fcRows = fcFiltered.map(rec => {
-    const days = daysUntil(rec.expected_harvest_date)
-    const overdue = days !== null && days < 0
-    return {
-      ...rec,
-      // Species with its culture type beneath; fisherfolk with their barangay —
-      // two-line cells keep the table to one row per stocking at a normal width.
-      species_cell: (
-        <span className="block whitespace-nowrap">
-          <span className="block font-medium text-[#1A2B1A]">{rec.species_name}</span>
-          {rec.culture_type && <span className="block text-[11px] text-[#7A8E7A]">{rec.culture_type}</span>}
+  const fcRows = fcFiltered.map(rec => ({
+    ...rec,
+    stocked_cell: fmtMDY(rec.date_stocked),
+    fingerlings_cell: rec.number_of_fingerlings ? Number(rec.number_of_fingerlings).toLocaleString() : '—',
+    harvest_date_cell: fmtMDY(rec.expected_harvest_date),
+    // Backend actual_harvest_date: the latest recorded harvest_date ("—" while nothing is harvested),
+    // with that harvest's backend timing as a clickable badge (none without a harvest or an estimate).
+    actual_harvest_date_cell: rec.actual_harvest_date ? (
+      <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+        <span>{fmtMDY(rec.actual_harvest_date)}</span>
+        {rec.actual_harvest_timing && (
+          <button
+            type="button"
+            data-testid="timing-indicator"
+            title="View Harvest Timing Details"
+            onClick={() => setTimingRec(rec)}
+            className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4D2E]/30 ${TIMING_BADGE_CLS[rec.actual_harvest_timing]}`}
+          >
+            {TIMING_SHORT[rec.actual_harvest_timing]}
+          </button>
+        )}
+      </span>
+    ) : '—',
+    yield_cell: rec.estimated_harvest_kg
+      ? <span className="font-semibold text-[#1B4D2E]">{Number(rec.estimated_harvest_kg).toLocaleString()} kg</span>
+      : '—',
+    // Same helper/source as the Fisheries Monitoring table, so both show the same cumulative actual kg.
+    actual_harvest_cell: (() => {
+      const v = rowVariance(rec)
+      return (
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+          <span>{fmtActualHarvestKg(rec)}</span>
+          {v && (
+            <button
+              type="button"
+              data-testid="variance-indicator"
+              title={rec.status === 'Harvested'
+                ? 'View Harvest Variance Details'
+                : 'Based on harvest recorded so far - view Harvest Variance Details'}
+              onClick={() => setVarianceRec(rec)}
+              className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4D2E]/30 ${varianceBadgeCls(v)}`}
+            >
+              {varianceShortLabel(v)}
+            </button>
+          )}
         </span>
-      ),
-      fisherfolk_cell: (
-        <span className="block w-[190px] max-w-[190px]">
-          <span className="block truncate text-[#1A2B1A]" title={rec.fisherfolk_name || ''}>{rec.fisherfolk_name || '—'}</span>
-          <span className="block truncate text-[11px] text-[#7A8E7A]">{rec.pond_location_barangay || '—'}</span>
-        </span>
-      ),
-      stocked_cell: fmtShortDate(rec.date_stocked),
-      fingerlings_cell: rec.number_of_fingerlings ? Number(rec.number_of_fingerlings).toLocaleString() : '—',
-      yield_cell: rec.estimated_harvest_kg
-        ? <span className="font-semibold text-[#1B4D2E]">{Number(rec.estimated_harvest_kg).toLocaleString()}</span>
-        : '—',
-      harvest_date_cell: (
-        <span className="block whitespace-nowrap">
-          <span className="block text-[#1A2B1A]">{fmtShortDate(rec.expected_harvest_date)}</span>
-          <span className={`block text-[11px] ${overdue ? 'text-rose-600' : 'text-[#7A8E7A]'}`}>{countdownText(rec.expected_harvest_date)}</span>
-        </span>
-      ),
-      status_cell: (
-        <StatusPill tone={overdue ? 'rose' : rec.status === 'Near Harvest' ? 'amber' : 'green'}>
-          {overdue ? 'Overdue' : rec.status}
-        </StatusPill>
-      ),
-      actions: (
-        <button
-          type="button"
-          className="text-sm font-medium text-[#1B4D2E] hover:underline"
-          onClick={() => setFcDetail(rec)}
-        >
-          View
-        </button>
-      ),
+      )
+    })(),
+  }))
+
+  // Clicking a forecast row (the Details column was retired) opens that stock's Production Cycle in the same
+  // AquacultureCycleDetailModal Fisheries Monitoring uses - looked up by the real production_cycle FK. A stock
+  // with no linked cycle opens its existing stocking forecast detail instead, never some other cycle.
+  const [fcCycle, setFcCycle] = useState(null)
+  const openForecastRow = async (rec) => {
+    if (!rec.production_cycle) { setFcDetail(rec); return }
+    try {
+      const r = await api.get(`/monitoring/aquaculture-cycles/${rec.production_cycle}/`)
+      setFcCycle(r.data)
+    } catch (err) {
+      showToast(err?.response?.data?.detail || 'Failed to load production cycle.', 'error')
     }
-  })
+  }
+  const refreshFcCycle = async () => {
+    if (!fcCycle) return
+    try {
+      const r = await api.get(`/monitoring/aquaculture-cycles/${fcCycle.id}/`)
+      setFcCycle(r.data)
+    } catch (err) {
+      showToast(err?.response?.data?.detail || 'Failed to refresh production cycle.', 'error')
+    }
+  }
 
   // ── existing "Yield Analysis" state (UNCHANGED below this point) ─────────
   const [speciesList, setSpeciesList] = useState([])
@@ -750,15 +1147,17 @@ export default function ForecastingTab({ asTab = false }) {
   }
 
   useEffect(() => {
+    if (!yieldOpened) return
     setIsLoading(true)
     api.get('/fisheries/yield-analysis/', { params: buildParams() })
       .then(r => setRecords(r.data.records || []))
       .catch(() => showToast('Failed to load yield analysis.', 'error'))
       .finally(() => setIsLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.species, filters.barangay, filters.year, fisherfolkFilter])
+  }, [yieldOpened, filters.species, filters.barangay, filters.year, fisherfolkFilter])
 
   useEffect(() => {
+    if (!yieldOpened) return
     setIsLoadingSummary(true)
     api.get('/fisheries/yield-analysis/summary/', { params: buildParams({ group_by: groupBy }) })
       .then(r => {
@@ -769,7 +1168,7 @@ export default function ForecastingTab({ asTab = false }) {
       .catch(() => showToast('Failed to load aggregate summary.', 'error'))
       .finally(() => setIsLoadingSummary(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.species, filters.barangay, filters.year, fisherfolkFilter, groupBy])
+  }, [yieldOpened, filters.species, filters.barangay, filters.year, fisherfolkFilter, groupBy])
 
   // Grouped-by-fisherfolk view — reuses StockingRecordSerializer via the
   // unpaginated /fisheries/stocking/history/ endpoint (all statuses), computing
@@ -847,9 +1246,11 @@ export default function ForecastingTab({ asTab = false }) {
 
   const yieldAnalysisContent = (
     <div className="space-y-5">
-      {/* View toggle: existing analysis vs grouped by fisherfolk */}
+      {/* View toggle: existing analysis vs grouped by fisherfolk. Staff only - a fisherfolk account sees
+          only its own records, so it stays on the Analysis view (viewMode's default). */}
+      {!isFisherfolk && (
       <div className="flex items-center gap-1 w-fit rounded-lg border border-[#E2E8E2] p-0.5">
-        {[{ id: 'analysis', label: 'Analysis' }, { id: 'grouped', label: 'By fisherfolk' }].map(v => (
+        {[{ id: 'analysis', label: 'Analysis' }, { id: 'grouped', label: 'Group by fisherfolk' }].map(v => (
           <button
             key={v.id}
             type="button"
@@ -860,10 +1261,13 @@ export default function ForecastingTab({ asTab = false }) {
           </button>
         ))}
       </div>
+      )}
 
       {viewMode === 'analysis' && <DisclaimerBanner />}
 
-      {/* Filters */}
+      {/* Filters - staff only. A fisherfolk account gets a view-only analysis of its own records
+          (the backend scopes them); the filters simply stay at their empty defaults. */}
+      {!isFisherfolk && (
       <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
         <p className="text-[13px] font-semibold text-[#1A2B1A] mb-4">Filter Options</p>
         <div className="flex flex-wrap gap-3">
@@ -900,6 +1304,7 @@ export default function ForecastingTab({ asTab = false }) {
           </div>
         </div>
       </div>
+      )}
 
       {viewMode === 'grouped' ? (
         <GroupedForecast
@@ -910,7 +1315,8 @@ export default function ForecastingTab({ asTab = false }) {
           dateLabel="Date Stocked"
         />
       ) : (<>
-      <AggregatePanel groupBy={groupBy} setGroupBy={setGroupBy} groups={groups} overall={overall} cycleTrend={cycleTrend} isLoading={isLoadingSummary} />
+      <AggregatePanel groupBy={groupBy} setGroupBy={setGroupBy} groups={groups} overall={overall} cycleTrend={cycleTrend} isLoading={isLoadingSummary}
+        showGroupToggle={!isFisherfolk} />
 
       <YAActionButtons
         onPdf={() => { setSigPurpose('pdf'); setShowSig(true) }}
@@ -921,8 +1327,78 @@ export default function ForecastingTab({ asTab = false }) {
       {/* Per-stocking table */}
       <div>
         <p className="text-[13px] font-semibold text-[#1A2B1A]">Harvested / Total-Loss Stockings</p>
-        <p className="text-[12px] text-[#7A8E7A] mb-3">Click a row to see the full activity completion breakdown.</p>
-        <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <p className="text-[12px] text-[#7A8E7A] mb-3">
+          {isFisherfolk ? <><span className="md:hidden">Tap a card</span><span className="hidden md:inline">Click a row</span></> : 'Click a row'} to see the full activity completion breakdown.
+        </p>
+        {/* Fisherfolk phones: one card per stocking (the table returns at md and up). */}
+        {isFisherfolk && (
+          <div className="space-y-3 md:hidden" data-testid="yield-cards">
+            {isLoading ? (
+              <p className="rounded-xl border border-[#E2E8E2] bg-white py-8 text-center text-[13px] text-[#7A8E7A]">Loading…</p>
+            ) : filteredRecords.length === 0 ? (
+              <p className="rounded-xl border border-[#E2E8E2] bg-white px-4 py-8 text-center text-[13px] text-[#7A8E7A]">No harvested or total-loss stockings found in scope.</p>
+            ) : filteredRecords.map(rec => (
+              <div
+                key={rec.id} data-testid="yield-card" role="button" tabIndex={0} aria-expanded={expanded.has(rec.id)}
+                onClick={() => toggleExpand(rec.id)}
+                onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggleExpand(rec.id) } }}
+                className="cursor-pointer rounded-xl border border-[#E2E8E2] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[15px] font-medium text-[#1A2B1A]">
+                      {rec.species}
+                      {rec.is_total_loss && (
+                        <span className="ml-1.5 whitespace-nowrap rounded-full bg-rose-50 border border-rose-200 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">Total Loss</span>
+                      )}
+                    </p>
+                    <p className="text-[12px] text-[#7A8E7A]">Cycle #{rec.production_cycle_no} · {rec.barangay}</p>
+                  </div>
+                  <span className="shrink-0 text-[#7A8E7A]">{expanded.has(rec.id) ? <ChevronDown size={18} /> : <ChevronRight size={18} />}</span>
+                </div>
+                <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5">
+                  {[
+                    ['Estimated (kg)', rec.estimated_kg != null ? rec.estimated_kg.toLocaleString() : 'N/A'],
+                    ['Actual (kg)', rec.actual_total_kg.toLocaleString()],
+                    ['Variance', <VarianceBadge key="variance" pct={rec.variance_pct} />],
+                    ['Activities', `${rec.activities_completed_count}/${rec.activities_total_count}`],
+                  ].map(([label, value]) => (
+                    <div key={label} className="min-w-0">
+                      <dt className="text-[11px] font-medium uppercase tracking-wide text-[#7A8E7A]">{label}</dt>
+                      <dd className="mt-0.5 text-[13px] text-[#1A2B1A]">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+                <div className="mt-2.5">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-[#7A8E7A]">Possible Factors</p>
+                  <p className="mt-0.5 break-words text-[12px] text-[#4A5E4A]">{possibleFactorsText(rec, 'fisheries')}</p>
+                </div>
+                {expanded.has(rec.id) && (
+                  <div className="mt-3 border-t border-[#F0F4F0] pt-3">
+                    <p className="text-[12px] font-semibold text-[#1A2B1A] mb-2">Activity completion breakdown</p>
+                    {rec.activity_breakdown.length === 0 ? (
+                      <p className="text-[12px] text-[#7A8E7A]">No activity schedule defined for this species.</p>
+                    ) : (
+                      <div className="grid gap-1">
+                        {rec.activity_breakdown.map((b, i) => (
+                          <div key={i} className={`flex min-w-0 items-center gap-1.5 text-[12px] rounded-lg border px-2 py-1 ${
+                            b.completed ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'
+                          }`}>
+                            <span className="font-medium">{b.completed ? '✓' : '✗'}</span>
+                            <span className="truncate">{b.activity} (Day {b.scheduled_day})</span>
+                            {b.priority === 'HIGH' && <span className="text-[10px] uppercase tracking-wide opacity-70 shrink-0">high</span>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-[11px] text-[#A8BCA8] italic mt-3">{YIELD_DISCLAIMER}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+        <div className={`overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] ${isFisherfolk ? 'hidden md:block' : ''}`}>
           <table className="min-w-full text-sm">
             <thead className="bg-[#1B4D2E] text-white">
               <tr>
@@ -999,49 +1475,57 @@ export default function ForecastingTab({ asTab = false }) {
     </div>
   )
 
-  // The Forecast tab's actions, shown on the right of the tab row.
-  const fcActions = (
-    <div className="flex flex-wrap items-center gap-2">
-      <input
-        ref={fcFileInputRef}
-        type="file"
-        accept=".xlsx,.xls,.csv"
-        className="hidden"
-        onChange={handleFcImportFile}
-      />
-      <button
-        type="button"
-        onClick={() => navigate('/fisheries-monitoring/add')}
-        className="flex items-center gap-1.5 rounded-lg border border-[#C8D5C8] px-3 py-[7px] text-[13px] font-medium text-[#4A5E4A] transition-colors hover:bg-[#F5F7F5]"
-      >
-        <Plus className="h-3.5 w-3.5" />
-        Add stocking
-      </button>
-      <button
-        type="button"
-        onClick={handleFcDownloadTemplate}
-        className="flex items-center gap-1.5 rounded-lg border border-[#C8D5C8] px-3 py-[7px] text-[13px] font-medium text-[#4A5E4A] transition-colors hover:bg-[#F5F7F5]"
-      >
-        <Download className="h-3.5 w-3.5" />
-        Template
-      </button>
-      <button
-        type="button"
-        disabled={fcImporting}
-        onClick={() => fcFileInputRef.current?.click()}
-        className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 py-[7px] text-[13px] font-medium text-white transition-colors hover:bg-[#235E38] disabled:opacity-60"
-      >
-        {fcImporting
-          ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-          : <Upload className="h-3.5 w-3.5" />
-        }
-        {fcImporting ? 'Importing…' : 'Import Excel'}
-      </button>
-    </div>
-  )
-
   const forecastContent = (
     <div className="space-y-4">
+      {/* Staff toolbar (and its hidden import input). Not rendered for a fisherfolk account, so no empty
+          row is left above the table. */}
+      {!isFisherfolk && (
+      <div className="flex items-center justify-end gap-2">
+        <input
+          ref={fcFileInputRef}
+          type="file"
+          accept=".xlsx,.xls,.csv"
+          className="hidden"
+          onChange={handleFcImportFile}
+        />
+        {/* Staff tools (bulk Add Stocking page, spreadsheet import/template - staff-only endpoints). A
+            fisherfolk starts their cycles from Fisheries Monitoring; everything else on this page is theirs. */}
+        <>
+          <button
+            type="button"
+            onClick={() => navigate('/fisheries-monitoring/add')}
+            className="flex items-center gap-1.5 rounded-lg border border-[#C8D5C8] px-3 py-[5px] text-[12px] font-medium text-[#4A5E4A] transition-colors hover:bg-[#F5F7F5]"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add Stocking
+          </button>
+          <button
+            type="button"
+            disabled={fcImporting}
+            onClick={() => fcFileInputRef.current?.click()}
+            className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 py-[5px] text-[12px] font-medium text-white transition-colors hover:bg-[#235E38] disabled:opacity-60"
+          >
+            {fcImporting
+              ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              : <Upload className="h-3.5 w-3.5" />
+            }
+            {fcImporting ? 'Importing…' : 'Import Excel'}
+          </button>
+          <button
+            type="button"
+            onClick={handleFcDownloadTemplate}
+            className="flex items-center gap-1.5 rounded-lg border border-[#C8D5C8] px-3 py-[5px] text-[12px] font-medium text-[#4A5E4A] transition-colors hover:bg-[#F5F7F5]"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Template
+          </button>
+        </>
+      </div>
+      )}
+
+      {/* Search, filters and the Flat / Group by fisherfolk toggle are staff tools; a fisherfolk account
+          sees only its own stockings, so it gets the plain table (fcView stays 'flat', filters stay empty). */}
+      {!isFisherfolk && (
       <FilterPanel
         search={fcSearch}
         onSearchChange={setFcSearch}
@@ -1049,46 +1533,42 @@ export default function ForecastingTab({ asTab = false }) {
         activeCount={[Boolean(fcBarangayFilter), Boolean(fcSpeciesFilter)].filter(Boolean).length}
       >
         <select className={filterSelectCls} value={fcSpeciesFilter} onChange={e => setFcSpeciesFilter(e.target.value)}>
-          <option value="">All species</option>
+          <option value="">All Species</option>
           {speciesList.map(s => <option key={s.id} value={s.id}>{s.species_name}</option>)}
         </select>
         <select className={filterSelectCls} value={fcBarangayFilter} onChange={e => setFcBarangayFilter(e.target.value)}>
-          <option value="">All barangays</option>
+          <option value="">All Barangays</option>
           {BARANGAYS.map(b => <option key={b} value={b}>{b}</option>)}
         </select>
       </FilterPanel>
+      )}
 
       {fcError && <ErrorMessage message={fcError} />}
 
-      {/* View toggle on the left, how many stockings this shows on the right. */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-1 w-fit rounded-lg border border-[#E2E8E2] p-0.5">
-          {[
-            { id: 'flat',    label: 'All stockings' },
-            { id: 'grouped', label: 'By fisherfolk' },
-          ].map(v => (
-            <button
-              key={v.id}
-              type="button"
-              onClick={() => setFcView(v.id)}
-              className={`px-3 py-1 rounded-md text-[12px] font-medium transition-colors ${
-                fcView === v.id ? 'bg-[#1B4D2E] text-white' : 'text-[#4A5E4A] hover:bg-[#F5F7F5]'
-              }`}
-            >
-              {v.label}
-            </button>
-          ))}
-        </div>
-        {fcView === 'flat' && !fcLoading && (
-          <p className="text-[12px] text-[#7A8E7A]">
-            {fcTotalCount.toLocaleString()} active stocking{fcTotalCount === 1 ? '' : 's'}, soonest harvest first
-          </p>
-        )}
+      {/* View toggle: flat per-record table vs grouped by fisherfolk (staff only, see above) */}
+      {!isFisherfolk && (
+      <div className="flex items-center gap-1 w-fit rounded-lg border border-[#E2E8E2] p-0.5">
+        {[
+          { id: 'flat',    label: 'Flat' },
+          { id: 'grouped', label: 'Group by fisherfolk' },
+        ].map(v => (
+          <button
+            key={v.id}
+            type="button"
+            onClick={() => setFcView(v.id)}
+            className={`px-3 py-1 rounded-md text-[12px] font-medium transition-colors ${
+              fcView === v.id ? 'bg-[#1B4D2E] text-white' : 'text-[#4A5E4A] hover:bg-[#F5F7F5]'
+            }`}
+          >
+            {v.label}
+          </button>
+        ))}
       </div>
+      )}
 
       {fcView === 'flat' ? (
         <>
-          <DataTable columns={FC_COLUMNS} data={fcRows} isLoading={fcLoading} />
+          <DataTable columns={FC_COLUMNS} data={fcRows} isLoading={fcLoading} onRowClick={openForecastRow} />
           <PaginationBar
             page={fcPage}
             totalCount={fcTotalCount}
@@ -1114,32 +1594,45 @@ export default function ForecastingTab({ asTab = false }) {
           "Yield Analysis" wraps the pre-existing page content unchanged
           (Analysis/Grouped toggle, filters, AggregatePanel, Cycle Trend,
           Harvested/Total-Loss table); "Forecast" is new. */}
-      {/* Tabs on the left, the page's actions on the right — one row. */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-2">
-          {[
-            { id: 'forecast',       icon: TrendingUp, label: 'Forecast' },
-            { id: 'yield_analysis', icon: BarChart2,  label: 'Yield analysis' },
-          ].map(tab => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 rounded-lg text-[13px] font-medium transition-colors flex items-center gap-1.5 ${
-                activeTab === tab.id
-                  ? 'bg-[#1B4D2E] text-white'
-                  : 'bg-white border border-[#E2E8E2] text-[#4A5E4A] hover:bg-[#F5F7F5]'
-              }`}
-            >
-              <tab.icon size={14} />
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        {activeTab === 'forecast' && fcActions}
+      <div className="flex flex-wrap gap-2">
+        {[
+          { id: 'forecast',       icon: TrendingUp, label: 'Forecast' },
+          { id: 'yield_analysis', icon: BarChart2,  label: 'Yield Analysis' },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => { setActiveTab(tab.id); if (tab.id === 'yield_analysis') setYieldOpened(true) }}
+            className={`px-4 py-2 rounded-lg text-[13px] font-medium transition-colors flex items-center gap-1.5 ${
+              activeTab === tab.id
+                ? 'bg-[#1B4D2E] text-white'
+                : 'bg-white border border-[#E2E8E2] text-[#4A5E4A] hover:bg-[#F5F7F5]'
+            }`}
+          >
+            <tab.icon size={14} />
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {activeTab === 'forecast' ? forecastContent : yieldAnalysisContent}
+
+      {varianceRec && (
+        <HarvestVarianceDetailsModal record={varianceRec} onClose={() => setVarianceRec(null)} />
+      )}
+
+      {timingRec && (
+        <HarvestTimingDetailsModal record={timingRec} onClose={() => setTimingRec(null)} />
+      )}
+
+      {fcCycle && (
+        <AquacultureCycleDetailModal
+          cycle={fcCycle}
+          onClose={() => setFcCycle(null)}
+          onRefresh={refreshFcCycle}
+          onHealthChanged={() => fetchForecastRecords(fcPage)}
+        />
+      )}
 
       {fcDetail && (
         <StockingForecastDetailModal
@@ -1165,7 +1658,7 @@ export default function ForecastingTab({ asTab = false }) {
   return (
     <PageLayout
       title="Fisheries Forecasting"
-      subtitle="Expected harvest dates and yields for active stockings, and how past harvests compared with their estimates."
+      subtitle="Upcoming stockings and descriptive yield analysis based on recorded harvests versus stocking-time estimates."
     >
       {innerContent}
     </PageLayout>

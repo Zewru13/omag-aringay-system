@@ -21,7 +21,7 @@ def refuse_if_any_missing(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('fisheries', '0064_stockingrecord_date_stocked_is_estimated'),
+        ('fisheries', '0071_fisheriesdisasterreport_submission'),
     ]
 
     operations = [

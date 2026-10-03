@@ -157,6 +157,47 @@ def notify_staff(actor, verb, record_type, record_id, record_label, detail=''):
     _safe_bulk(notifications, f'notify_staff verb={verb!r} record={record_type}:{record_id}')
 
 
+# The staff group every "submitted to Admin" notification already goes to (see notify_staff).
+STAFF_NOTIFICATION_ROLES = ('ADMIN', 'EVALUATOR')
+
+
+def fit(value, field_name):
+    """`value` cut to the Notification field's own max_length (so _safe_bulk never rejects it)."""
+    limit = Notification._meta.get_field(field_name).max_length
+    value = value or ''
+    return value if len(value) <= limit else value[:limit - 1] + '…'
+
+
+def build_owner_and_staff_notifications(owner, staff, actor, record_type, record_id, owner_text, staff_text):
+    """Notification rows (unsaved) for ONE event: the record owner's own wording and the staff wording.
+    owner_text/staff_text are (verb, record_label, detail). `staff` is an iterable of users; `actor` is
+    never notified about their own action (same rule as notify_staff)."""
+    rows = []
+
+    def row(user, text):
+        verb, label, detail = text
+        return Notification(recipient=user, actor=actor, verb=fit(verb, 'verb'), record_type=record_type,
+                            record_id=record_id, record_label=fit(label, 'record_label'), detail=fit(detail, 'detail'))
+
+    if owner is not None:
+        rows.append(row(owner, owner_text))
+    rows.extend(row(user, staff_text) for user in staff if actor is None or user.pk != actor.pk)
+    return rows
+
+
+def notify_owner_and_staff(owner, actor, record_type, record_id, owner_text, staff_text):
+    """One event -> the owner's notification + every active staff account's, in ONE insert (one query for the
+    staff list). Same non-fatal failure policy as the other helpers: never raises into the caller."""
+    try:
+        User = get_user_model()
+        staff = User.objects.filter(is_active=True, role__in=STAFF_NOTIFICATION_ROLES)
+        rows = build_owner_and_staff_notifications(owner, staff, actor, record_type, record_id, owner_text, staff_text)
+    except Exception:
+        logger.exception('notify_owner_and_staff failed (non-fatal): record=%s:%s', record_type, record_id)
+        return
+    _safe_bulk(rows, f'notify_owner_and_staff record={record_type}:{record_id}')
+
+
 def notify_user(recipient, actor, verb, record_type, record_id, record_label, detail=''):
     """Notify exactly ONE user — used to tell a citizen the outcome of their
     own request. No fan-out: nobody else has any business seeing it."""

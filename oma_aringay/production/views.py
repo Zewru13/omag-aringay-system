@@ -2192,3 +2192,81 @@ class ActivityStageNameSuggestionsView(APIView):
             seen.setdefault(row['stage_name'], row['recommendation'])
         data = [{'stage_name': name, 'recommendation': rec} for name, rec in sorted(seen.items())]
         return Response(data)
+
+
+# ─── Farmer Disaster Logs (Admin > Disaster > Farmer Disaster) ─────────────────
+# Read-only views over the existing CropDisasterReport records (created as before through
+# CropDisasterReportListCreateView). Staff only - farmer and organization accounts are unchanged.
+
+class CropDisasterLogListView(APIView):
+    """Every farmer disaster log. Filters: search (farmer/organization, crop, type, reference no.), barangay,
+    disaster_type, status, year. With ?page= the response is paginated ({count, page, page_size, results})."""
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    PAGE_SIZE = 20
+
+    def get(self, request):
+        from . import crop_disaster_logs
+        qs = crop_disaster_logs.crop_queryset().order_by('-date_reported', '-id')
+        params = request.query_params
+        if params.get('disaster_type'):
+            qs = qs.filter(disaster_type=params['disaster_type'])
+        if params.get('status') in ('Active', 'Recovered'):
+            qs = qs.filter(status=params['status'])
+        if params.get('year', '').isdigit():
+            qs = qs.filter(date_of_occurrence__year=int(params['year']))
+        if params.get('barangay'):
+            qs = qs.filter(monitoring_record__farm_location_barangay__iexact=params['barangay'])
+        search = (params.get('search') or '').strip()
+        if search:
+            match = (Q(monitoring_record__farmer__first_name__icontains=search)
+                     | Q(monitoring_record__farmer__last_name__icontains=search)
+                     | Q(monitoring_record__farm_parcel__farmer__first_name__icontains=search)
+                     | Q(monitoring_record__farm_parcel__farmer__last_name__icontains=search)
+                     | Q(monitoring_record__farmers_organization__name__icontains=search)
+                     | Q(monitoring_record__crop_type__name__icontains=search)
+                     | Q(disaster_type__icontains=search) | Q(disaster_type_other_specify__icontains=search))
+            ref = search.upper().replace('CDR-', '').split('-')[-1]
+            if ref.isdigit():
+                match |= Q(pk=int(ref))
+            qs = qs.filter(match)
+        if not params.get('page'):
+            return Response([crop_disaster_logs.list_row(r) for r in qs])
+        try:
+            page = max(1, int(params['page']))
+        except ValueError:
+            page = 1
+        count = qs.count()
+        rows = qs[(page - 1) * self.PAGE_SIZE: page * self.PAGE_SIZE]
+        return Response({'count': count, 'page': page, 'page_size': self.PAGE_SIZE,
+                         'results': [crop_disaster_logs.list_row(r) for r in rows]})
+
+
+class CropDisasterLogDocumentView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request, pk):
+        from . import crop_disaster_logs
+        report = get_object_or_404(crop_disaster_logs.crop_queryset(), pk=pk)
+        return Response(crop_disaster_logs.document(report, request))
+
+
+class CropDisasterLogPdfView(APIView):
+    """The saved farmer disaster log as a real PDF (read-only)."""
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request, pk):
+        import logging
+        from django.http import HttpResponse
+        from . import crop_disaster_logs
+        report = get_object_or_404(crop_disaster_logs.crop_queryset(), pk=pk)
+        doc = crop_disaster_logs.document(report, request)
+        try:
+            pdf_bytes = crop_disaster_logs.build_pdf(report, doc)
+        except Exception:
+            logging.getLogger(__name__).exception('Farmer disaster log PDF failed for %s', report.pk)
+            return Response({'detail': 'The PDF could not be generated. The disaster log was not changed - please try again.'},
+                            status=drf_status.HTTP_500_INTERNAL_SERVER_ERROR)
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{doc["pdf_filename"]}"'
+        response['Cache-Control'] = 'no-store'
+        return response

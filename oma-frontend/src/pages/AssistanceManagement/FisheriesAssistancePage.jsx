@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { CheckCircle2, Pencil, Plus, Trash2, Upload, Users } from 'lucide-react'
+import { CheckCircle2, Pencil, Plus, Trash2, Upload, Users, XCircle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ImportFileModal from '../../components/ImportFileModal.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
@@ -289,7 +289,46 @@ function MarkResolvedModal({ record, onClose, onResolved }) {
 // /interventions/fisherfolk-beneficiaries/adhoc/ — fisheries.FisheriesAssistanceRecord
 // and its endpoint were retired; this page's data was migrated, not lost.
 
+// Fisherfolk accounts: "Report Not Received" on their own assistance (existing recipient endpoint, which
+// checks the record is theirs). A reason is required, as on that endpoint.
+function ReportNotReceivedModal({ record, onClose, onDone }) {
+  const { showToast } = useToast()
+  const [reason, setReason] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!reason.trim()) { showToast('A reason is required.', 'error'); return }
+    setIsSubmitting(true)
+    try {
+      await api.post(`/interventions/fisherfolk-beneficiaries/${record.id}/report-not-received/`, { non_receipt_reason: reason.trim() })
+      showToast('Reported as not received.', 'success')
+      onDone()
+    } catch (err) {
+      showToast(extractErrorMessage(err, 'Failed to report.'), 'error')
+    } finally { setIsSubmitting(false) }
+  }
+  return (
+    <ModalShell title="Report Not Received" subtitle={`${record.assistance_type || 'Assistance'} · ${formatDate(record.date_given)}`} onClose={onClose}
+      footer={<>
+        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+        <Button type="submit" form="ff-report-not-received" isLoading={isSubmitting}>Submit</Button>
+      </>}>
+      <form id="ff-report-not-received" onSubmit={handleSubmit} className="space-y-4">
+        <FormField label="Reason" required>
+          <textarea rows={3} className={`${baseInputClasses} resize-none`} value={reason}
+            onChange={(e) => setReason(e.target.value)} placeholder="Why was this assistance not received?" />
+        </FormField>
+      </form>
+    </ModalShell>
+  )
+}
+
 export default function FisheriesAssistancePage({ asTab = false }) {
+  // Fisherfolk accounts reuse this page read-only: the backend returns only their own assistance, and they
+  // confirm or report receipt. Logging, importing, distributing, editing and resolving stay staff tools.
+  const { isFisherfolk } = useAuth()
+  const { showToast } = useToast()
+  const [reportingNotReceived, setReportingNotReceived] = useState(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const [assistance, setAssistance] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -331,19 +370,36 @@ export default function FisheriesAssistancePage({ asTab = false }) {
     setSearchParams(params, { replace: true })
   }
 
+  const confirmReceived = useCallback(async (a) => {
+    try {
+      await api.post(`/interventions/fisherfolk-beneficiaries/${a.id}/confirm-received/`)
+      showToast('Confirmed as received.', 'success')
+      fetchAssistance()
+    } catch (err) {
+      showToast(extractErrorMessage(err, 'Failed to confirm.'), 'error')
+    }
+  }, [fetchAssistance, showToast])
+
   const rows = useMemo(() => assistance.map((a) => ({
     ...a,
     source_agency: (a.source_agencies || []).join(', '),
     quantity: a.quantity || '—',
     date_received_fmt: formatDate(a.date_given),
     status_cell: a.status ? <StatusPill status={a.status}>{STATUS_LABELS[a.status] || a.status}</StatusPill> : '—',
-    actions_cell: (
+    actions_cell: isFisherfolk ? (
+      a.status === 'AWAITING_CONFIRMATION' ? (
+        <RowActions actions={[
+          { key: 'confirm', label: 'Confirm Received', icon: CheckCircle2, onClick: () => confirmReceived(a) },
+          { key: 'not-received', label: 'Report Not Received', icon: XCircle, tone: 'rose', onClick: () => setReportingNotReceived(a) },
+        ]} />
+      ) : '—'
+    ) : (
       <RowActions actions={[
         EDITABLE_STATUSES.has(a.status) && { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditing(a) },
         a.status === 'NOT_RECEIVED' && { key: 'resolve', label: 'Mark Resolved', icon: CheckCircle2, tone: 'default', onClick: () => setResolving(a) },
       ]} />
     ),
-  })), [assistance])
+  })), [assistance, isFisherfolk, confirmReceived])
 
   const totalQuantity = useMemo(
     () => assistance.reduce((sum, a) => sum + (parseFloat(a.quantity) || 0), 0),
@@ -368,17 +424,19 @@ export default function FisheriesAssistancePage({ asTab = false }) {
             </button>
           ))}
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowImport(true)}>
-            <Upload size={15} className="mr-1" /> Import File
-          </Button>
-          <Button variant="outline" onClick={() => setShowDistribute(true)}>
-            <Users size={15} className="mr-1" /> Distribute to Organization
-          </Button>
-          <Button onClick={() => setShowLog(true)}>
-            <Plus size={15} className="mr-1" /> Log Individual Assistance
-          </Button>
-        </div>
+        {!isFisherfolk && (
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowImport(true)}>
+              <Upload size={15} className="mr-1" /> Import File
+            </Button>
+            <Button variant="outline" onClick={() => setShowDistribute(true)}>
+              <Users size={15} className="mr-1" /> Distribute to Organization
+            </Button>
+            <Button onClick={() => setShowLog(true)}>
+              <Plus size={15} className="mr-1" /> Log Individual Assistance
+            </Button>
+          </div>
+        )}
       </div>
 
       <FilterPanel
@@ -461,12 +519,23 @@ export default function FisheriesAssistancePage({ asTab = false }) {
           onResolved={() => { setResolving(null); fetchAssistance() }}
         />
       )}
+      {reportingNotReceived && (
+        <ReportNotReceivedModal
+          record={reportingNotReceived}
+          onClose={() => setReportingNotReceived(null)}
+          onDone={() => { setReportingNotReceived(null); fetchAssistance() }}
+        />
+      )}
     </div>
   )
 
   if (asTab) return innerContent
 
-  return (
+  return isFisherfolk ? (
+    <PageLayout title="Assistance Received" subtitle="Government and organization assistance recorded for you.">
+      {innerContent}
+    </PageLayout>
+  ) : (
     <PageLayout title="Fisheries Assistance" subtitle="Government and organization assistance given to fisherfolk.">
       {innerContent}
     </PageLayout>

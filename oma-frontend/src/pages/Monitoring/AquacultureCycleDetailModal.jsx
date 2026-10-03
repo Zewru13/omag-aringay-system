@@ -11,24 +11,70 @@ import { useToast } from '../../context/ToastContext.jsx'
 
 const labelCls = 'block text-xs font-medium text-slate-600'
 const CYCLE_STATUS_TONES = { Active: 'green', Harvested: 'blue', Failed: 'rose', Abandoned: 'slate' }
-const FEED_TYPE_OPTIONS = [
-  'Commercial Pellets',
-  'Floating Pellets',
-  'Sinking Pellets',
-  'Starter Feed',
+// Feed Type choices for the Feeding Log. The backend stores feed_type as plain free text (no choices), so the
+// submitted value is always a plain string: one of these names, or a custom name typed by the user.
+const FEED_TYPE_CHOICES = [
+  'Starter/Fingerling Feed',
   'Grower Feed',
+  'Production Feed',
   'Finisher Feed',
-  'Rice Bran (Darak)',
-  'Corn Bran',
-  'Copra Meal',
-  'Azolla',
-  'Duckweed',
-  'Fresh Fish',
-  'Trash Fish',
-  'Homemade Feed',
-  'Mixed Feed',
-  'Other',
+  'Natural Pond Food',
+  'Others',
 ]
+// "Others" -> second dropdown. These are alternative/supplemental feed examples documented for particular
+// aquaculture systems/species - not feeds that suit every species. "Custom Feed" asks for a typed name.
+const OTHER_FEED_OPTIONS = [
+  'Rice Bran',
+  'Cooked Broken Rice',
+  'Trash Fish',
+  'Chopped/Blanched Chicken Entrails + Rice Bran',
+  'Stale Bread/Bakery Waste',
+  'Corn Bran',
+  'Natural Pond Food/Algae',
+  'Plant/Leaf Meal',
+  'Custom Feed',
+]
+
+// SUGGESTED Feed Type (never required - the user can always pick something else).
+//  - Hito / Asian catfish (SEAFDEC): formulated crumble for the first 2 months, formulated pellets from the
+//    3rd month until harvest. Only that documented distinction is used; months are counted as 30 days.
+//  - Every other species: no species-specific schedule is available here, so a GENERAL suggestion is derived
+//    from how far along the culture period is (stocking date -> target harvest date, else the species'
+//    configured culture duration), split into four equal parts. It is not a validated feeding requirement.
+// Feed QUANTITY is never calculated - it stays user-entered.
+const GENERIC_FEED_STAGES = ['Starter/Fingerling Feed', 'Grower Feed', 'Production Feed', 'Finisher Feed']
+const HITO_CRUMBLE_DAYS = 60
+
+function daysBetweenISO(a, b) {
+  const [ay, am, ad] = a.split('-').map(Number)
+  const [by, bm, bd] = b.split('-').map(Number)
+  return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000)
+}
+
+function todayISOLocal() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function suggestFeedType({ speciesName, stockingDate, targetDate, durationDays, feedingDate }) {
+  if (!stockingDate || !feedingDate) return null
+  const elapsed = daysBetweenISO(stockingDate, feedingDate)
+  if (elapsed < 0) return null
+  if (String(speciesName || '').trim().toLowerCase() === 'hito') {
+    return elapsed < HITO_CRUMBLE_DAYS
+      ? { value: 'Formulated Crumble', note: 'Hito / Asian catfish (SEAFDEC): formulated feed in crumble form during the first 2 months.' }
+      : { value: 'Formulated Pellet', note: 'Hito / Asian catfish (SEAFDEC): formulated pellets from the 3rd month until harvest.' }
+  }
+  let total = null
+  if (targetDate) { const t = daysBetweenISO(stockingDate, targetDate); if (t > 0) total = t }
+  if (!total && Number(durationDays) > 0) total = Number(durationDays)
+  if (!total) return null
+  const index = Math.min(GENERIC_FEED_STAGES.length - 1, Math.floor((elapsed / total) * GENERIC_FEED_STAGES.length))
+  return {
+    value: GENERIC_FEED_STAGES[index],
+    note: `General suggestion from culture progress (day ${elapsed} of about ${total}) - not a species-specific or validated feeding requirement.`,
+  }
+}
 
 function formatDate(v) {
   if (!v) return '—'
@@ -43,7 +89,7 @@ function InnerTabs({ tabs, active, onChange }) {
           key={t.value}
           type="button"
           onClick={() => onChange(t.value)}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+          className={`flex-1 whitespace-nowrap px-2 py-2.5 text-sm font-medium border-b-2 transition-colors md:flex-none md:px-4 md:py-2 ${
             active === t.value
               ? 'border-[#1E4620] text-[#1E4620]'
               : 'border-transparent text-slate-500 hover:text-slate-700'
@@ -72,7 +118,6 @@ function CycleInfoTab({ cycle, onRefresh }) {
     status: cycle.status,
     actual_harvest_date: cycle.actual_harvest_date || '',
     harvest_volume_kg: cycle.harvest_volume_kg || '',
-    price_per_kg: cycle.price_per_kg || '',
     area_cage_harvested: cycle.area_cage_harvested || '',
     notes: cycle.notes || '',
   })
@@ -85,7 +130,6 @@ function CycleInfoTab({ cycle, onRefresh }) {
       await api.patch(`/monitoring/aquaculture-cycles/${cycle.id}/`, {
         ...form,
         harvest_volume_kg: form.harvest_volume_kg ? parseFloat(form.harvest_volume_kg) : null,
-        price_per_kg: form.price_per_kg ? parseFloat(form.price_per_kg) : null,
         actual_harvest_date: form.actual_harvest_date || null,
         area_cage_harvested: form.area_cage_harvested || '',
       })
@@ -115,10 +159,6 @@ function CycleInfoTab({ cycle, onRefresh }) {
             <input type="number" step="0.01" className={baseInputClasses} value={form.harvest_volume_kg} onChange={e => setForm(f => ({...f, harvest_volume_kg: e.target.value}))} />
           </div>
           <div>
-            <label className={labelCls}>Price per kg (₱)</label>
-            <input type="number" step="0.01" className={baseInputClasses} value={form.price_per_kg} onChange={e => setForm(f => ({...f, price_per_kg: e.target.value}))} />
-          </div>
-          <div>
             <label className={labelCls}>Area / Cage Harvested</label>
             <input className={baseInputClasses} value={form.area_cage_harvested} onChange={e => setForm(f => ({...f, area_cage_harvested: e.target.value}))} placeholder="e.g. Pond 1 & 2, Cage A" />
           </div>
@@ -142,6 +182,7 @@ function CycleInfoTab({ cycle, onRefresh }) {
       </div>
       <div className="grid gap-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-3">
         <InfoField label="Fisherfolk" value={cycle.fisherfolk_name} />
+        <InfoField label="Organization" value={cycle.organization_name} />
         <InfoField label="Cycle Name" value={cycle.cycle_name} />
         <div>
           <p className="text-xs font-medium text-slate-400">Status</p>
@@ -151,29 +192,97 @@ function CycleInfoTab({ cycle, onRefresh }) {
         </div>
         <InfoField label="Species" value={cycle.species_display || cycle.species_farmed} />
         <InfoField label="Culture System" value={cycle.culture_system} />
+        <InfoField label="Pond Location" value={cycle.pond_location || null} />
         <InfoField label="Area" value={cycle.area_sqm ? `${cycle.area_sqm} sqm` : null} />
         <InfoField label="Stocking Date" value={formatDate(cycle.stocking_date)} />
         <InfoField label="Stocking Count" value={cycle.stocking_count ? `${Number(cycle.stocking_count).toLocaleString()} pcs` : null} />
         <InfoField label="Target Harvest" value={formatDate(cycle.target_harvest_date)} />
         <InfoField label="Actual Harvest" value={formatDate(cycle.actual_harvest_date)} />
         <InfoField label="Harvest Volume" value={cycle.harvest_volume_kg ? `${Number(cycle.harvest_volume_kg).toLocaleString()} kg` : null} />
-        <InfoField label="Price/kg" value={cycle.price_per_kg ? `₱${Number(cycle.price_per_kg).toLocaleString()}` : null} />
         <InfoField label="Area/Cage Harvested" value={cycle.area_cage_harvested || null} />
         <div className="sm:col-span-3">
           <InfoField label="Notes" value={cycle.notes} />
         </div>
       </div>
-    </div>
+
+      {cycle.units?.length > 0 && (() => {
+        const label = cycle.units[0].unit_type === 'cage' ? 'Cage' : 'Pond'
+        const fmt = (n) => Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 })
+        const totalArea = cycle.units.reduce((s, u) => s + Number(u.size_sqm), 0)
+        const totalActual = cycle.units.reduce((s, u) => s + Number(u.fingerling_count), 0)
+        return (
+          <div className="rounded-xl border border-slate-100 p-4">
+            <p className="mb-2 text-sm font-semibold text-slate-700">Production Units</p>
+            <ul className="divide-y divide-slate-100">
+              {cycle.units.map(u => {
+                const hasDims = u.length_m != null && u.width_m != null
+                return (
+                  <li key={u.id} className="py-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-slate-800">{label} {u.unit_number}</span>
+                      <span className="text-slate-600">
+                        {hasDims ? `${fmt(u.length_m)}m × ${fmt(u.width_m)}m · ` : ''}{fmt(u.size_sqm)} sq.m.
+                      </span>
+                    </div>
+                    <div className="mt-0.5 text-xs text-slate-500">
+                      <span>Actual Fingerlings: {fmt(u.fingerling_count)}</span>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+            <div className="mt-2 space-y-0.5 border-t border-slate-100 pt-2 text-sm font-semibold text-slate-800">
+              <div className="flex justify-between"><span>Total Area</span><span>{fmt(totalArea)} sq.m.</span></div>
+              <div className="flex justify-between"><span>Total Actual Fingerlings</span><span>{fmt(totalActual)}</span></div>
+              <div className="flex justify-between">
+                <span>Estimated Harvest Biomass</span>
+                <span>{cycle.estimated_harvest_kg != null ? `${Number(cycle.estimated_harvest_kg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg` : 'Not available'}</span>
+              </div>
+            </div>
+          </div>
+        )
+      })()}    </div>
   )
 }
-
-function FeedingLogTab({ cycleId }) {
+function FeedingLogTab({ cycleId, units = [], cycle }) {
   const { showToast } = useToast()
   const [logs, setLogs] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ feeding_date: '', feed_type: '', feed_type_other: '', quantity_kg: '', notes: '' })
+  const EMPTY_FEEDING_FORM = { feeding_date: '', feed_type: '', feed_type_other: '', feed_custom: '', quantity_kg: '', notes: '' }
+  const [form, setForm] = useState(EMPTY_FEEDING_FORM)
+  // false = the Feed Type shown is the system's suggestion; true = the user picked one (never overwritten).
+  const [feedTouched, setFeedTouched] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  // The cycle's own ponds/cages (its Production Units). When it has any, feed is entered per unit
+  // and the total is calculated; cycles without units keep the single Quantity (kg) field.
+  const unitLabel = (u) => `${u.unit_type === 'cage' ? 'Cage' : 'Pond'} ${u.unit_number}`
+  const hasUnits = units.length > 0
+  const [unitQty, setUnitQty] = useState({})
+  const unitValue = (u) => { const n = parseFloat(unitQty[u.id]); return n > 0 ? n : 0 }
+  const unitsTotal = units.reduce((s, u) => s + unitValue(u), 0)
+
+  // The cycle only carries the species NAME, so the species list (as used by Start Production Cycle) is
+  // matched by name to get its configured culture duration. No match -> no duration and no invented value.
+  const [speciesList, setSpeciesList] = useState([])
+  useEffect(() => {
+    api.get('/fisheries/species/?aquaculture_only=true')
+      .then(r => setSpeciesList(Array.isArray(r.data) ? r.data : (r.data.results || [])))
+      .catch(() => setSpeciesList([]))
+  }, [])
+  const speciesName = cycle?.species_farmed || ''
+  const matchedSpecies = speciesList.find(s => (s.species_name || '').trim().toLowerCase() === speciesName.trim().toLowerCase())
+  const suggestion = suggestFeedType({
+    speciesName,
+    stockingDate: cycle?.stocking_date,
+    targetDate: cycle?.target_harvest_date,
+    durationDays: matchedSpecies?.culture_duration_days,
+    feedingDate: form.feeding_date || todayISOLocal(),
+  })
+  // Suggestion until the user chooses; after that their choice is kept.
+  const feedType = feedTouched ? form.feed_type : (suggestion?.value || '')
+  const feedTypeChoices = suggestion && !FEED_TYPE_CHOICES.includes(suggestion.value) ? [suggestion.value, ...FEED_TYPE_CHOICES] : FEED_TYPE_CHOICES
+  const showUseSuggested = Boolean(suggestion) && feedTouched && form.feed_type !== suggestion.value
 
   const fetch = async () => {
     setIsLoading(true)
@@ -188,46 +297,46 @@ function FeedingLogTab({ cycleId }) {
   const handleAdd = async (e) => {
     e.preventDefault()
 
-    if (!form.feeding_date) {
-      showToast('Date is required.', 'error')
-      return
+    // The submitted feed_type is always a plain string: the chosen feed, the "Other" option, or the custom name.
+    let normalizedFeedType = feedType
+    if (!feedType) { showToast('Feed Type is required.', 'error'); return }
+    if (feedType === 'Others') {
+      if (!form.feed_type_other) { showToast('Select the Other Feed Type.', 'error'); return }
+      if (form.feed_type_other === 'Custom Feed') {
+        if (!form.feed_custom.trim()) { showToast('Custom Feed Name is required.', 'error'); return }
+        normalizedFeedType = form.feed_custom.trim()
+      } else {
+        normalizedFeedType = form.feed_type_other
+      }
     }
 
-    if (!form.feed_type) {
-      showToast('Feed Type is required.', 'error')
-      return
+    if (hasUnits) {
+      // Feed is entered per pond/cage; each quantity must be >= 0 and at least one must be above 0.
+      // The backend recomputes the total from these rows (a client-supplied total is ignored).
+      const bad = units.find(u => unitQty[u.id] !== undefined && unitQty[u.id] !== '' && !(parseFloat(unitQty[u.id]) >= 0))
+      if (bad) { showToast(`${unitLabel(bad)}: feed quantity cannot be negative.`, 'error'); return }
+      if (!(unitsTotal > 0)) { showToast('Enter a feed quantity for at least one pond/cage.', 'error'); return }
     }
-
-    if (form.feed_type === 'Other' && !form.feed_type_other.trim()) {
-      showToast('Specify Feed Type is required.', 'error')
-      return
-    }
-
-    if (!form.quantity_kg || Number(form.quantity_kg) <= 0) {
-      showToast('Quantity (kg) must be greater than 0.', 'error')
-      return
-    }
-
-    const normalizedFeedType = form.feed_type === 'Other'
-      ? form.feed_type_other.trim()
-      : form.feed_type
 
     setIsSaving(true)
     try {
       await api.post(`/monitoring/aquaculture-cycles/${cycleId}/feeding/`, {
         feeding_date: form.feeding_date,
         feed_type: normalizedFeedType,
-        quantity_kg: parseFloat(form.quantity_kg),
+        ...(hasUnits
+          ? { unit_quantities: units.map(u => ({ production_unit: u.id, quantity_kg: unitValue(u) })) }
+          : { quantity_kg: form.quantity_kg }),
         notes: form.notes,
       })
       showToast('Feeding log added.', 'success')
       setShowForm(false)
-      setForm({ feeding_date: '', feed_type: '', feed_type_other: '', quantity_kg: '', notes: '' })
+      setForm(EMPTY_FEEDING_FORM)
+      setFeedTouched(false)
+      setUnitQty({})
       fetch()
     } catch { showToast('Failed to save.', 'error') }
     finally { setIsSaving(false) }
   }
-
   const handleDelete = async (id) => {
     if (!window.confirm('Delete?')) return
     try {
@@ -246,37 +355,132 @@ function FeedingLogTab({ cycleId }) {
           {logs.length} log{logs.length !== 1 ? 's' : ''}
           {totalFeed > 0 && ` · Total: ${totalFeed.toFixed(2)} kg`}
         </span>
-        <Button size="sm" icon={Plus} onClick={() => setShowForm(v => !v)}>Log Feeding</Button>
+        <Button
+          size="sm" icon={Plus}
+          onClick={() => {
+            // Opening the form starts on today's LOCAL date; it stays editable for earlier feedings.
+            if (!showForm) setForm(f => ({ ...f, feeding_date: todayISOLocal() }))
+            setShowForm(v => !v)
+          }}
+        >
+          Log Feeding
+        </Button>
       </div>
 
       {showForm && (
         <form onSubmit={handleAdd} className="rounded-xl border border-blue-100 bg-blue-50 p-4 space-y-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className={labelCls}>Date *</label>
-              <input type="date" className={baseInputClasses} required value={form.feeding_date} onChange={e => setForm(f => ({...f, feeding_date: e.target.value}))} />
-            </div>
-            <div>
-              <label className={labelCls}>Feed Type *</label>
-              <ComboboxWithOther
-                options={FEED_TYPE_OPTIONS.filter(o => o !== 'Other')}
-                value={form.feed_type}
-                otherValue={form.feed_type_other}
-                onChange={(v) => setForm(f => ({ ...f, feed_type: v }))}
-                onOtherChange={(v) => setForm(f => ({ ...f, feed_type_other: v }))}
-                placeholder="Select Feed Type"
-                required
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Quantity (kg) *</label>
-              <input type="number" step="0.01" min="0.01" className={baseInputClasses} required value={form.quantity_kg} onChange={e => setForm(f => ({...f, quantity_kg: e.target.value}))} />
-            </div>
-            <div>
-              <label className={labelCls}>Notes</label>
-              <input className={baseInputClasses} value={form.notes} onChange={e => setForm(f => ({...f, notes: e.target.value}))} />
-            </div>
+          {/* Table 1 - feed per production unit; the total is always the sum of the unit quantities. */}
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white" data-testid="feeding-units-table">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50 text-left text-xs font-semibold text-slate-600">
+                  <th className="px-3 py-2">Pond/Cage</th>
+                  <th className="px-3 py-2 text-right">Feed Quantity (kg)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {hasUnits ? units.map(u => (
+                  <tr key={u.id} className="border-t border-slate-100">
+                    <td className="px-3 py-1.5 font-medium text-slate-800">{unitLabel(u)}</td>
+                    <td className="px-3 py-1.5">
+                      <input
+                        type="number" step="0.01" min="0" className={`${baseInputClasses} text-right`} aria-label={`${unitLabel(u)} feed quantity (kg)`}
+                        value={unitQty[u.id] ?? ''} onChange={e => setUnitQty(q => ({ ...q, [u.id]: e.target.value }))}
+                      />
+                    </td>
+                  </tr>
+                )) : (
+                  <tr className="border-t border-slate-100">
+                    <td className="px-3 py-1.5 font-medium text-slate-800">Whole cycle <span className="text-red-500">*</span></td>
+                    <td className="px-3 py-1.5">
+                      <input type="number" step="0.01" min="0.01" className={`${baseInputClasses} text-right`} required aria-label="Feed quantity (kg)"
+                        value={form.quantity_kg} onChange={e => setForm(f => ({ ...f, quantity_kg: e.target.value }))} />
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+              {hasUnits && (
+                <tfoot>
+                  <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold text-slate-800">
+                    <td className="px-3 py-2">TOTAL</td>
+                    <td className="px-3 py-2 text-right" data-testid="feed-total">{unitsTotal.toFixed(2)} kg</td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
           </div>
+
+          {/* Table 2 - the details of this feeding. */}
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white" data-testid="feeding-detail-table">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-slate-50 text-left text-xs font-semibold text-slate-600">
+                  <th className="w-[38%] px-3 py-2">Feeding Detail</th>
+                  <th className="px-3 py-2">Value</th>
+                </tr>
+              </thead>
+              <tbody className="align-top">
+                <tr className="border-t border-slate-100">
+                  <td className="px-3 py-2 text-xs font-medium text-slate-700">Date <span className="text-red-500">*</span></td>
+                  <td className="px-3 py-1.5">
+                    <input type="date" className={baseInputClasses} required value={form.feeding_date} onChange={e => setForm(f => ({ ...f, feeding_date: e.target.value }))} />
+                  </td>
+                </tr>
+                <tr className="border-t border-slate-100">
+                  <td className="px-3 py-2 text-xs font-medium text-slate-700">Suggested Feed Type <span className="text-red-500">*</span></td>
+                  <td className="px-3 py-1.5">
+                    <select
+                      className={baseInputClasses} required value={feedType} data-testid="feed-type-select"
+                      onChange={e => { setFeedTouched(true); setForm(f => ({ ...f, feed_type: e.target.value, feed_type_other: '', feed_custom: '' })) }}
+                    >
+                      <option value="" disabled>Select Feed Type</option>
+                      {feedTypeChoices.map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                    {suggestion ? (
+                      <p className="mt-1 text-xs text-slate-500" data-testid="feed-suggestion-note">
+                        Suggested: <span className="font-medium">{suggestion.value}</span>. {suggestion.note} You can change it based on your farm practice, fish size and available feed.
+                        {showUseSuggested && (
+                          <> <button type="button" className="font-medium text-[#1E4620] underline" data-testid="use-suggested-feed"
+                            onClick={() => { setFeedTouched(false); setForm(f => ({ ...f, feed_type: '', feed_type_other: '', feed_custom: '' })) }}>Use Suggested Feed</button></>
+                        )}
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-xs text-slate-500">No suggestion is available for this cycle - choose the feed used.</p>
+                    )}
+                  </td>
+                </tr>
+                {feedType === 'Others' && (
+                  <tr className="border-t border-slate-100">
+                    <td className="px-3 py-2 text-xs font-medium text-slate-700">Other Feed Type <span className="text-red-500">*</span></td>
+                    <td className="px-3 py-1.5">
+                      <select className={baseInputClasses} required value={form.feed_type_other}
+                        onChange={e => setForm(f => ({ ...f, feed_type_other: e.target.value, feed_custom: '' }))}>
+                        <option value="" disabled>Select Other Feed Type</option>
+                        {OTHER_FEED_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                      <p className="mt-1 text-xs text-slate-500">Alternative/supplemental feed examples - not suitable for every species or system.</p>
+                    </td>
+                  </tr>
+                )}
+                {feedType === 'Others' && form.feed_type_other === 'Custom Feed' && (
+                  <tr className="border-t border-slate-100">
+                    <td className="px-3 py-2 text-xs font-medium text-slate-700">Custom Feed Name <span className="text-red-500">*</span></td>
+                    <td className="px-3 py-1.5">
+                      <input className={baseInputClasses} required maxLength={100} value={form.feed_custom}
+                        onChange={e => setForm(f => ({ ...f, feed_custom: e.target.value }))} placeholder="Enter feed name" />
+                    </td>
+                  </tr>
+                )}
+                <tr className="border-t border-slate-100">
+                  <td className="px-3 py-2 text-xs font-medium text-slate-700">Notes</td>
+                  <td className="px-3 py-1.5">
+                    <input className={baseInputClasses} value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Optional" />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
           <div className="flex gap-2 justify-end">
             <Button type="button" size="sm" variant="ghost" onClick={() => setShowForm(false)}>Cancel</Button>
             <Button type="submit" size="sm" isLoading={isSaving}>Save</Button>
@@ -289,14 +493,19 @@ function FeedingLogTab({ cycleId }) {
       ) : (
         <ul className="divide-y divide-slate-100 rounded-xl border border-slate-100">
           {logs.map(l => (
-            <li key={l.id} className="flex items-center justify-between gap-2 px-4 py-2.5">
-              <div>
+            <li key={l.id} className="flex items-center justify-between gap-2 px-4 py-2.5" data-testid="feeding-log-item">
+              <div className="min-w-0 break-words">
                 <span className="text-sm font-medium text-slate-800">{l.feed_type}</span>
                 <span className="ml-2 text-sm text-slate-600">{l.quantity_kg} kg</span>
                 <span className="ml-2 text-xs text-slate-400">{formatDate(l.feeding_date)}</span>
                 {l.notes && <span className="ml-2 text-xs text-slate-400">— {l.notes}</span>}
+                {l.unit_quantities?.length > 0 && (
+                  <p className="mt-0.5 text-xs text-slate-500">
+                    {l.unit_quantities.map(q => `${q.unit_label}: ${Number(q.quantity_kg).toFixed(2)} kg`).join(' · ')}
+                  </p>
+                )}
               </div>
-              <button type="button" className="text-slate-400 hover:text-rose-500" onClick={() => handleDelete(l.id)}>
+              <button type="button" aria-label="Delete feeding log" className="-m-2 shrink-0 p-2 text-slate-400 hover:text-rose-500" onClick={() => handleDelete(l.id)}>
                 <Trash2 size={13} />
               </button>
             </li>
@@ -307,22 +516,57 @@ function FeedingLogTab({ cycleId }) {
   )
 }
 
-function HealthLogTab({ cycleId }) {
+function HealthLogTab({ cycleId, units = [], onChanged }) {
   const { showToast } = useToast()
   const [logs, setLogs] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({
+  // The cycle's own ponds/cages (its existing Production Units) - the affected one must be chosen
+  // when the cycle has any. Nothing is typed: options come straight from the units.
+  const hasUnits = units.length > 0
+  const unitName = (u) => `${u.unit_type === 'cage' ? 'Cage' : 'Pond'} ${u.unit_number}`
+  const EMPTY_HEALTH_FORM = {
+    production_units: [],       // ids of the affected ponds/cages (multi-select)
+    unit_mortality: {},         // {unitId: count}, used when several units are selected with Fish Mortality
     log_date: '',
     observation: '',
     observation_other: '',
     mortality_count: '0',
     treatment_applied: '',
     treatment_applied_other: '',
-    vet_consulted: false,
     notes: '',
-  })
+  }
+  const [form, setForm] = useState(EMPTY_HEALTH_FORM)
   const [isSaving, setIsSaving] = useState(false)
+  // Cycles with ponds/cages: every selected unit has its OWN observation, mortality count and treatment
+  // ({unitId: entry}); nothing typed for one unit applies to another. Errors are per unit too.
+  const EMPTY_UNIT_ENTRY = { observation: '', observation_other: '', mortality_count: '', treatment_applied: '' }
+  const [unitEntries, setUnitEntries] = useState({})
+  const [unitErrors, setUnitErrors] = useState({})
+  const entryFor = (id) => unitEntries[id] || EMPTY_UNIT_ENTRY
+  const setEntry = (id, patch) => {
+    setUnitEntries(prev => ({ ...prev, [id]: { ...(prev[id] || EMPTY_UNIT_ENTRY), ...patch } }))
+    setUnitErrors(prev => ({ ...prev, [id]: '' }))
+  }
+  // Same rule as the backend (monitoring.models.health_requires_force_harvest) - display only.
+  const isForceObservation = (obs) => obs === 'Fish Mortality' || HEALTH_DISEASE_OBSERVATIONS.includes(obs)
+  const chooseUnitObservation = (id, obs) => {
+    const current = entryFor(id)
+    setEntry(id, {
+      observation: obs,
+      // The real number of dead fish is always typed - never pre-filled or calculated.
+      mortality_count: obs === 'Fish Mortality' ? (Number(current.mortality_count) > 0 ? current.mortality_count : '') : '',
+      treatment_applied: isForceObservation(obs) ? '' : (HEALTH_RECOMMENDED_TREATMENT[obs] || ''),
+    })
+  }
+  const validateUnitEntry = (e) => {
+    if (!e.observation) return 'Observation is required.'
+    if (e.observation === 'Other' && !e.observation_other.trim()) return 'Specify the observation.'
+    if (e.observation === 'Fish Mortality' && !(Number(e.mortality_count) > 0)) return 'Mortality Count is required for Fish Mortality.'
+    if (!isForceObservation(e.observation) && !e.treatment_applied) return 'Treatment is required for this observation.'
+    return ''
+  }
+  const resetForm = () => { setForm(EMPTY_HEALTH_FORM); setUnitEntries({}); setUnitErrors({}) }
 
   const fetch = async () => {
     setIsLoading(true)
@@ -334,8 +578,70 @@ function HealthLogTab({ cycleId }) {
 
   useEffect(() => { fetch() }, [cycleId])
 
+  // Force Harvest is a status decided from the observation (and enforced again by the backend).
+  // It is display-only here: nothing is sent for it and no harvest is created by saving the log.
+  const forceHarvest = form.observation === 'Fish Mortality' || HEALTH_DISEASE_OBSERVATIONS.includes(form.observation)
+
+  // Ponds/cages that already have a Health Log in THIS cycle are not offered again (the backend enforces
+  // it too). Deleting that log brings the unit back on the next fetch. Logs without a unit block nothing.
+  const reportedIds = new Set(logs.filter(l => l.production_unit != null).map(l => l.production_unit))
+  const availableUnits = units.filter(u => !reportedIds.has(u.id))
+  const selectedUnits = availableUnits.filter(u => form.production_units.includes(u.id))
+  const forceSelectedUnits = selectedUnits.filter(u => isForceObservation(entryFor(u.id).observation))
+  const toggleUnit = (id) => setForm(f => ({
+    ...f,
+    production_units: f.production_units.includes(id) ? f.production_units.filter(x => x !== id) : [...f.production_units, id],
+  }))
+
   const handleAdd = async (e) => {
     e.preventDefault()
+
+    if (hasUnits && selectedUnits.length === 0) {
+      showToast('Please select the affected pond/cage.', 'error')
+      return
+    }
+
+    if (hasUnits) {
+      // One log per selected unit, each with its own observation/values (all-or-nothing on the backend).
+      const errs = Object.fromEntries(selectedUnits.map(u => [u.id, validateUnitEntry(entryFor(u.id))]))
+      setUnitErrors(errs)
+      if (Object.values(errs).some(Boolean)) {
+        showToast('Complete the health information for every selected pond/cage.', 'error')
+        return
+      }
+      setIsSaving(true)
+      try {
+        await api.post(`/monitoring/aquaculture-cycles/${cycleId}/health/`, {
+          log_date: form.log_date,
+          notes: form.notes,
+          unit_logs: selectedUnits.map(u => {
+            const e = entryFor(u.id)
+            return {
+              production_unit: u.id,
+              observation: e.observation === 'Other' ? e.observation_other.trim() : e.observation,
+              mortality_count: e.observation === 'Fish Mortality' ? (parseInt(e.mortality_count) || 0) : 0,
+              treatment_applied: isForceObservation(e.observation) ? '' : e.treatment_applied,
+            }
+          }),
+        })
+        showToast(selectedUnits.length > 1 ? `Health log added for ${selectedUnits.length} ponds/cages.` : 'Health log added.', 'success')
+        setShowForm(false)
+        resetForm()
+        fetch()
+        onChanged?.()   // the Force Harvest state of the Fisheries Monitoring row may have changed
+      } catch (err) {
+        const d = err?.response?.data?.unit_logs
+        if (Array.isArray(d) && d.length === selectedUnits.length && d.some(x => x && typeof x === 'object')) {
+          // errors[i] belongs to the i-th submitted unit: show each message on that unit's own card.
+          setUnitErrors(Object.fromEntries(selectedUnits.map((u, i) => [u.id, Object.values(d[i] || {}).flat().join(' ')])))
+          showToast('Some ponds/cages could not be saved. Check the highlighted entries.', 'error')
+        } else {
+          showToast([].concat(d || []).join(' ') || 'Failed to save.', 'error')
+        }
+        if (err?.response?.status === 400) fetch()   // a stale selection: reload the logs so the options refresh
+      } finally { setIsSaving(false) }
+      return
+    }
 
     if (!form.observation) {
       showToast('Observation is required.', 'error')
@@ -348,12 +654,19 @@ function HealthLogTab({ cycleId }) {
     }
 
     const isMortality = form.observation === 'Fish Mortality'
-    if (isMortality && (!form.mortality_count || Number(form.mortality_count) <= 0)) {
+    // One unit: the single Mortality Count field. Several units: each unit has its own count.
+    const perUnitMortality = isMortality && hasUnits && selectedUnits.length > 1
+    if (isMortality && !perUnitMortality && (!form.mortality_count || Number(form.mortality_count) <= 0)) {
       showToast('Mortality Count is required for Fish Mortality.', 'error')
       return
     }
+    if (perUnitMortality) {
+      const missing = selectedUnits.find(u => !(Number(form.unit_mortality[u.id]) > 0))
+      if (missing) { showToast(`Mortality Count is required for ${unitName(missing)}.`, 'error'); return }
+    }
 
-    if (!isMortality && !form.treatment_applied) {
+    // Fish Mortality and diseases have no Treatment field (Force Harvest applies instead).
+    if (!forceHarvest && !form.treatment_applied) {
       showToast('Treatment is required for the selected observation.', 'error')
       return
     }
@@ -362,34 +675,33 @@ function HealthLogTab({ cycleId }) {
       ? form.observation_other.trim()
       : form.observation
 
-    const normalizedTreatmentApplied = isMortality
-      ? 'Remove dead fish and disinfect pond'
-      : form.treatment_applied
+    const normalizedTreatmentApplied = forceHarvest ? '' : form.treatment_applied
 
     setIsSaving(true)
     try {
       await api.post(`/monitoring/aquaculture-cycles/${cycleId}/health/`, {
+        // One unit-specific log per selected unit is created by the backend, all-or-nothing.
+        ...(hasUnits ? { production_units: selectedUnits.map(u => u.id) } : {}),
+        ...(perUnitMortality
+          ? { unit_mortality: Object.fromEntries(selectedUnits.map(u => [u.id, parseInt(form.unit_mortality[u.id]) || 0])) }
+          : {}),
         log_date: form.log_date,
         observation: normalizedObservation,
-        mortality_count: isMortality ? (parseInt(form.mortality_count) || 0) : 0,
+        mortality_count: isMortality && !perUnitMortality ? (parseInt(form.mortality_count) || 0) : 0,
         treatment_applied: normalizedTreatmentApplied,
-        vet_consulted: form.vet_consulted,
         notes: form.notes,
       })
-      showToast('Health log added.', 'success')
+      showToast(selectedUnits.length > 1 ? `Health log added for ${selectedUnits.length} ponds/cages.` : 'Health log added.', 'success')
       setShowForm(false)
-      setForm({
-        log_date: '',
-        observation: '',
-        observation_other: '',
-        mortality_count: '0',
-        treatment_applied: '',
-        treatment_applied_other: '',
-        vet_consulted: false,
-        notes: '',
-      })
+      resetForm()
       fetch()
-    } catch { showToast('Failed to save.', 'error') }
+      onChanged?.()   // the Force Harvest state of the Fisheries Monitoring row may have changed
+    } catch (err) {
+      const d = err?.response?.data
+      const msg = d && typeof d === 'object' ? [].concat(d.production_units || d.production_unit || []).join(' ') : ''
+      showToast(msg || 'Failed to save.', 'error')
+      if (err?.response?.status === 400) fetch()   // a stale selection: reload the logs so the options refresh
+    }
     finally { setIsSaving(false) }
   }
 
@@ -399,6 +711,7 @@ function HealthLogTab({ cycleId }) {
       await api.delete(`/monitoring/aquaculture-cycles/health/${id}/`)
       showToast('Deleted.', 'success')
       fetch()
+      onChanged?.()
     } catch { showToast('Failed.', 'error') }
   }
 
@@ -411,8 +724,35 @@ function HealthLogTab({ cycleId }) {
           {logs.length} log{logs.length !== 1 ? 's' : ''}
           {totalMortality > 0 && <span style={{ color: '#c62828' }}> · {totalMortality} total mortality</span>}
         </span>
-        <Button size="sm" icon={Plus} onClick={() => setShowForm(v => !v)}>Log Health</Button>
+        <Button
+          size="sm" icon={Plus}
+          onClick={() => {
+            // Opening the form starts on today's LOCAL date; it stays editable for earlier health events.
+            if (!showForm) setForm(f => ({ ...f, log_date: todayISOLocal() }))
+            setShowForm(v => !v)
+          }}
+        >
+          Log Health
+        </Button>
       </div>
+
+      {/* Force Harvest is per pond/cage: only a unit with its own mortality/disease log is marked. */}
+      {hasUnits && (
+        <div className="flex flex-wrap gap-1.5" data-testid="unit-status">
+          {units.map(u => {
+            const force = logs.some(l => l.production_unit === u.id && l.force_harvest)
+            return (
+              <span
+                key={u.id}
+                data-force={force ? 'true' : 'false'}
+                style={{ fontSize: 11, padding: '2px 8px', borderRadius: 10, fontWeight: 600, background: force ? '#ffebee' : '#f1f5f1', color: force ? '#c62828' : '#4A5E4A' }}
+              >
+                {unitName(u)}: {force ? '⚠ Force Harvest' : 'Normal'}
+              </span>
+            )
+          })}
+        </div>
+      )}
 
       {showForm && (
         <form onSubmit={handleAdd} className="rounded-xl border border-orange-100 bg-orange-50 p-4 space-y-3">
@@ -421,6 +761,98 @@ function HealthLogTab({ cycleId }) {
               <label className={labelCls}>Date *</label>
               <input type="date" className={baseInputClasses} required value={form.log_date} onChange={e => setForm(f => ({...f, log_date: e.target.value}))} />
             </div>
+            {hasUnits && (
+              <div className="sm:col-span-2" data-testid="affected-units">
+                <label className={labelCls}>Affected Pond/Cage *</label>
+                {availableUnits.length === 0 ? (
+                  <p className="text-xs italic text-slate-500">Every pond/cage in this cycle already has a Health Log.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2" role="group" aria-label="Affected Pond/Cage">
+                    {availableUnits.map(u => {
+                      const on = form.production_units.includes(u.id)
+                      return (
+                        <button
+                          key={u.id} type="button" aria-pressed={on} onClick={() => toggleUnit(u.id)}
+                          className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${on ? 'border-[#1E4620] bg-[#1E4620] text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'}`}
+                        >
+                          {unitName(u)}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+                {availableUnits.length > 0 && availableUnits.length < units.length && (
+                  <p className="mt-1 text-[11px] text-slate-500">Ponds/cages that already have a Health Log are not listed.</p>
+                )}
+              </div>
+            )}
+            {hasUnits && selectedUnits.length > 0 && (
+              // Compact table: one row per selected pond/cage with its OWN Observation. Mortality Count
+              // (Fish Mortality) and Treatment (non-Force-Harvest observations) appear under it only when needed.
+              <div className="sm:col-span-2 overflow-hidden rounded-lg border border-orange-200 bg-white" data-testid="unit-health-entries">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-orange-100/60 text-left text-xs font-semibold text-slate-700">
+                      <th className="w-[30%] px-3 py-2">Pond/Cage</th>
+                      <th className="px-3 py-2">Observation <span className="text-red-500">*</span></th>
+                    </tr>
+                  </thead>
+                  <tbody className="align-top">
+                    {selectedUnits.map(u => {
+                      const e = entryFor(u.id)
+                      const force = isForceObservation(e.observation)
+                      const err = unitErrors[u.id]
+                      return (
+                        <tr key={u.id} data-testid={`unit-health-${u.id}`} className={`border-t border-orange-100 ${err ? 'bg-rose-50/60' : ''}`}>
+                          <td className="px-3 py-2">
+                            <span className="font-semibold text-slate-800">{unitName(u)}</span>
+                            {force && (
+                              <span className="mt-1 block w-fit" style={{ fontSize: 10, padding: '1px 7px', borderRadius: 10, background: '#ffebee', color: '#c62828', fontWeight: 600 }}>
+                                ⚠ Force Harvest
+                              </span>
+                            )}
+                          </td>
+                          <td className="space-y-1.5 px-3 py-1.5">
+                            <ComboboxWithOther
+                              options={HEALTH_OBSERVATION_OPTIONS.filter(o => o !== 'Other')}
+                              value={e.observation}
+                              otherValue={e.observation_other}
+                              onChange={(obs) => chooseUnitObservation(u.id, obs)}
+                              onOtherChange={(v) => setEntry(u.id, { observation_other: v })}
+                              placeholder="Select Observation"
+                              required
+                            />
+                            {e.observation === 'Fish Mortality' && (
+                              <input
+                                type="number" min="1" required className={baseInputClasses}
+                                aria-label={`${unitName(u)} mortality count`} placeholder="Mortality Count *"
+                                value={e.mortality_count}
+                                onChange={ev => setEntry(u.id, { mortality_count: ev.target.value })}
+                              />
+                            )}
+                            {e.observation && !force && (
+                              <select
+                                className={baseInputClasses} required aria-label={`${unitName(u)} treatment`}
+                                value={e.treatment_applied}
+                                onChange={ev => setEntry(u.id, { treatment_applied: ev.target.value })}
+                              >
+                                <option value="">Select Treatment *</option>
+                                {HEALTH_TREATMENT_OPTIONS.map(option => (
+                                  <option key={option} value={option}>{option}</option>
+                                ))}
+                              </select>
+                            )}
+                            {err && <p className="text-xs text-rose-600" role="alert">{err}</p>}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {/* Cycles without ponds/cages (Fishpen, older cycles): the single shared form, as before. */}
+            {!hasUnits && (<>
             <div>
               <label className={labelCls}>Observation *</label>
               <ComboboxWithOther
@@ -428,13 +860,15 @@ function HealthLogTab({ cycleId }) {
                 value={form.observation}
                 otherValue={form.observation_other}
                 onChange={(selectedObservation) => {
-                  const recommended = HEALTH_RECOMMENDED_TREATMENT[selectedObservation] || ''
                   const isMortality = selectedObservation === 'Fish Mortality'
+                  const noTreatment = isMortality || HEALTH_DISEASE_OBSERVATIONS.includes(selectedObservation)
+                  const recommended = noTreatment ? '' : (HEALTH_RECOMMENDED_TREATMENT[selectedObservation] || '')
                   setForm(f => ({
                     ...f,
                     observation: selectedObservation,
-                    mortality_count: isMortality ? (f.mortality_count && Number(f.mortality_count) > 0 ? f.mortality_count : '1') : '0',
-                    treatment_applied: isMortality ? 'Remove dead fish and disinfect pond' : recommended,
+                    // The user must type the real number of dead fish - it is never pre-filled or calculated.
+                    mortality_count: isMortality ? (f.mortality_count && Number(f.mortality_count) > 0 ? f.mortality_count : '') : '0',
+                    treatment_applied: recommended,
                     treatment_applied_other: '',
                   }))
                 }}
@@ -456,7 +890,7 @@ function HealthLogTab({ cycleId }) {
                 />
               </div>
             )}
-            {form.observation && form.observation !== 'Fish Mortality' && (
+            {form.observation && !forceHarvest && (
               <div>
                 <label className={labelCls}>Treatment *</label>
                 <select
@@ -472,11 +906,22 @@ function HealthLogTab({ cycleId }) {
                 </select>
               </div>
             )}
-            <div className="flex items-center gap-2 pt-4">
-              <input type="checkbox" id="vet" className="h-4 w-4 accent-green-600" checked={form.vet_consulted} onChange={e => setForm(f => ({...f, vet_consulted: e.target.checked}))} />
-              <label htmlFor="vet" className={labelCls}>Vet Consulted</label>
-            </div>
+            </>)}
           </div>
+          {(hasUnits ? forceSelectedUnits.length > 0 : forceHarvest) && (
+            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2" data-testid="force-harvest-banner">
+              <p className="text-sm font-semibold text-rose-700">⚠ Force Harvest: Yes <span className="font-normal">(default)</span></p>
+              {hasUnits && (
+                // Only the units whose OWN observation is mortality/disease.
+                <p className="mt-0.5 text-xs font-semibold text-rose-700" data-testid="force-harvest-unit">
+                  Applies to {forceSelectedUnits.map(unitName).join(', ')} only.
+                </p>
+              )}
+              <p className="mt-0.5 text-xs text-rose-700/90">
+                Force harvest is required/recommended for mortality or disease observations. Saving this log does not record a harvest — use Record Harvest to enter the actual harvested quantity.
+              </p>
+            </div>
+          )}
           <div className="flex gap-2 justify-end">
             <Button type="button" size="sm" variant="ghost" onClick={() => setShowForm(false)}>Cancel</Button>
             <Button type="submit" size="sm" isLoading={isSaving}>Save</Button>
@@ -489,9 +934,10 @@ function HealthLogTab({ cycleId }) {
       ) : (
         <ul className="divide-y divide-slate-100 rounded-xl border border-slate-100">
           {logs.map(l => (
-            <li key={l.id} className="flex items-start justify-between gap-2 px-4 py-3">
-              <div>
-                <div className="flex items-center gap-2">
+            <li key={l.id} className="flex items-start justify-between gap-2 px-4 py-3" data-testid="health-log-item">
+              <div className="min-w-0 break-words">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  {l.unit_label && <span className="text-sm font-semibold text-slate-800">{l.unit_label}</span>}
                   <span className="text-sm font-medium text-slate-800">{l.observation}</span>
                   {l.mortality_count > 0 && (
                     <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 10, background: '#ffebee', color: '#c62828', fontWeight: 600 }}>
@@ -499,10 +945,11 @@ function HealthLogTab({ cycleId }) {
                     </span>
                   )}
                   {l.vet_consulted && <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 10, background: '#e3f2fd', color: '#1565c0', fontWeight: 600 }}>Vet</span>}
+                  {l.force_harvest && <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 10, background: '#ffebee', color: '#c62828', fontWeight: 600 }}>⚠ Force Harvest</span>}
                 </div>
                 <p className="text-xs text-slate-500">{formatDate(l.log_date)}{l.treatment_applied && ` · ${l.treatment_applied}`}</p>
               </div>
-              <button type="button" className="text-slate-400 hover:text-rose-500" onClick={() => handleDelete(l.id)}>
+              <button type="button" aria-label="Delete health log" className="-m-2 shrink-0 p-2 text-slate-400 hover:text-rose-500" onClick={() => handleDelete(l.id)}>
                 <Trash2 size={14} />
               </button>
             </li>
@@ -528,6 +975,17 @@ const HEALTH_OBSERVATION_OPTIONS = [
   'Injury',
   'Predator Attack',
   'Other',
+]
+
+// The disease entries of HEALTH_OBSERVATION_OPTIONS. Mirrors monitoring.models.HEALTH_DISEASE_OBSERVATIONS,
+// which is the authoritative rule; this only drives the live banner.
+const HEALTH_DISEASE_OBSERVATIONS = [
+  'Bacterial Infection',
+  'Fungal Infection',
+  'Fin Rot',
+  'Gill Disease',
+  'White Spot (Ich)',
+  'Parasites',
 ]
 
 const HEALTH_RECOMMENDED_TREATMENT = {
@@ -1277,7 +1735,7 @@ function EconomicsTab({ cycle, onRefresh }) {
   )
 } */
 
-function AquacultureCycleDetailModal({ cycle, onClose, onRefresh }) {
+function AquacultureCycleDetailModal({ cycle, onClose, onRefresh, onHealthChanged }) {
   const [innerTab, setInnerTab] = useState('info')
 
   const INNER_TABS = [
@@ -1290,9 +1748,15 @@ function AquacultureCycleDetailModal({ cycle, onClose, onRefresh }) {
     <ModalShell title={`Cycle: ${cycle.cycle_name}`} onClose={onClose} maxWidth="max-w-3xl">
       <InnerTabs tabs={INNER_TABS} active={innerTab} onChange={setInnerTab} />
 
-      {innerTab === 'info' && <CycleInfoTab cycle={cycle} onRefresh={onRefresh} />}
-      {innerTab === 'feeding' && <FeedingLogTab cycleId={cycle.id} />}
-      {innerTab === 'health' && <HealthLogTab cycleId={cycle.id} />}
+      {innerTab === 'info' && (
+        <CycleInfoTab
+          key={[cycle.status, cycle.actual_harvest_date, cycle.harvest_volume_kg, cycle.area_cage_harvested, cycle.notes].join('|')}
+          cycle={cycle}
+          onRefresh={onRefresh}
+        />
+      )}
+      {innerTab === 'feeding' && <FeedingLogTab cycleId={cycle.id} units={cycle.units || []} cycle={cycle} />}
+      {innerTab === 'health' && <HealthLogTab cycleId={cycle.id} units={cycle.units || []} onChanged={onHealthChanged} />}
     </ModalShell>
   )
 }

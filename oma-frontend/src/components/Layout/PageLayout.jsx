@@ -1,9 +1,21 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useAuth } from '../../context/AuthContext.jsx'
 import Navbar from './Navbar.jsx'
 import Sidebar from './Sidebar.jsx'
 
 function PageLayout({ title, subtitle, action, children }) {
+  const { isFisherfolk } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  // Fisherfolk accounts: the fisheries blue theme for the whole layout (index.css
+  // [data-account-theme="fisherfolk"]). Set on <html> so it also reaches modals, which portal to <body>;
+  // removed when the layout unmounts (e.g. logout) or for any other role.
+  useEffect(() => {
+    if (!isFisherfolk) return undefined
+    const root = document.documentElement
+    root.setAttribute('data-account-theme', 'fisherfolk')
+    return () => root.removeAttribute('data-account-theme')
+  }, [isFisherfolk])
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {

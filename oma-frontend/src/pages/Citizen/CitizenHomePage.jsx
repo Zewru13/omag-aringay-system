@@ -1,9 +1,9 @@
 import { LogOut } from 'lucide-react'
+import { Navigate } from 'react-router-dom'
 import logo from '../../assets/LOGO OMAg.jpg'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { FARMERS_ORG_DOMAIN, FISHERFOLK_ORG_DOMAIN } from './orgDomainConfig.js'
 import FarmerHomeScreen from './FarmerHomeScreen.jsx'
-import FisherfolkHomeScreen from './FisherfolkHomeScreen.jsx'
 import OrganizationHomeScreen from './OrganizationHomeScreen.jsx'
 import { labels } from './labels.js'
 
@@ -37,8 +37,10 @@ export default function CitizenHomePage() {
   if (isFarmer && record) {
     return <FarmerHomeScreen record={record} onLogout={logout} />
   }
+  // Fisherfolk accounts now use the full Admin Fisheries pages (backend-scoped to their own records), so
+  // the older stocking-log portal is no longer their entry point.
   if (isFisherfolk && record) {
-    return <FisherfolkHomeScreen record={record} onLogout={logout} />
+    return <Navigate to="/fisheries-monitoring" replace />
   }
   if (orgDomain && record) {
     return (

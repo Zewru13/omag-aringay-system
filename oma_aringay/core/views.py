@@ -138,11 +138,29 @@ class LockReleaseView(APIView):
         return Response({'released': True, 'forced': forced}, status=status.HTTP_200_OK)
 
 
+MAX_LOCK_STATUS_IDS = 200
+
+
+def _citizen_owned_ids(user, record_type, ids):
+    """The subset of `ids` (record_type 'crop' / 'stocking') that this CITIZEN owns - the batch form of
+    _citizen_owns_locked_record()."""
+    if record_type == 'crop' and user.linked_record_type == 'FARMER':
+        from production.models import CropMonitoringRecord
+        return set(CropMonitoringRecord.objects.filter(pk__in=ids, farmer_id=user.linked_record_id).values_list('id', flat=True))
+    if record_type == 'stocking' and user.linked_record_type == 'FISHERFOLK':
+        from fisheries.models import StockingRecord
+        return set(StockingRecord.objects.filter(pk__in=ids, fisherfolk_id=user.linked_record_id).values_list('id', flat=True))
+    return set()
+
+
 class LockStatusView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         record_type = request.query_params.get('record_type')
+        record_ids = request.query_params.get('record_ids')
+        if record_type and record_ids is not None:
+            return self._batch(request, record_type, record_ids)
         record_id = request.query_params.get('record_id')
         if not record_type or not record_id:
             return Response({'detail': 'record_type and record_id are required.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -157,6 +175,28 @@ class LockStatusView(APIView):
         if not lock.is_active():
             return Response(_lock_payload(None, locked=False))
         return Response(_lock_payload(lock))
+
+    def _batch(self, request, record_type, record_ids):
+        """GET ?record_type=stocking&record_ids=1,2,3 -> {"results": {"1": <status>, ...}}: the same per-record
+        status as the single form, for a whole page in one request. A CITIZEN only gets the records they own
+        (others are simply left out); staff get every requested record, as with the single form."""
+        try:
+            ids = sorted({int(x) for x in record_ids.split(',') if x.strip()})
+        except ValueError:
+            return Response({'detail': 'record_ids must be a comma-separated list of ids.'}, status=status.HTTP_400_BAD_REQUEST)
+        if len(ids) > MAX_LOCK_STATUS_IDS:
+            return Response({'detail': f'At most {MAX_LOCK_STATUS_IDS} record_ids per request.'}, status=status.HTTP_400_BAD_REQUEST)
+        if request.user.role == 'CITIZEN':
+            ids = sorted(_citizen_owned_ids(request.user, record_type, ids)) if ids else []
+        locks = {
+            lock.record_id: lock
+            for lock in RecordLock.objects.select_related('locked_by').filter(record_type=record_type, record_id__in=ids)
+        } if ids else {}
+        results = {}
+        for rid in ids:
+            lock = locks.get(rid)
+            results[str(rid)] = _lock_payload(lock) if lock is not None and lock.is_active() else _lock_payload(None, locked=False)
+        return Response({'results': results})
 
 
 class LockReleaseBeaconView(APIView):

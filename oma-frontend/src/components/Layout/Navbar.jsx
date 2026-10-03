@@ -11,7 +11,11 @@ function formatDate(d) {
 
 function Navbar({ onToggleSidebar, isCollapsed }) {
   const navigate = useNavigate()
-  const { user, logout } = useAuth()
+  const { user, logout, isFisherfolk } = useAuth()
+  // Fisherfolk accounts have their own profile/help pages (staff /profile and /help are staff-only).
+  const profilePath = isFisherfolk ? '/my-profile' : '/profile'
+  const helpPath = isFisherfolk ? '/my-help' : '/help'
+  const roleLabel = isFisherfolk ? 'Fisherfolk' : user?.role?.toLowerCase()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const dropdownRef = useRef(null)
@@ -67,7 +71,7 @@ function Navbar({ onToggleSidebar, isCollapsed }) {
               still opens the dropdown for Help/Logout (and Activity Log for
               Admin), since "My Profile" no longer needs to live in there. */}
           <Link
-            to="/profile"
+            to={profilePath}
             className="flex items-center gap-2 pl-3 pr-1.5 py-1.5 rounded-l-lg hover:bg-surface-2 transition-colors"
           >
             {/* Avatar circle with initial */}
@@ -104,7 +108,7 @@ function Navbar({ onToggleSidebar, isCollapsed }) {
                 </div>
                 <div className="min-w-0">
                   <p className="text-[13px] font-medium text-text-primary leading-tight truncate">{user?.full_name || user?.email}</p>
-                  <p className="text-[11px] text-text-muted leading-tight capitalize">{user?.role?.toLowerCase()}</p>
+                  <p className="text-[11px] text-text-muted leading-tight capitalize">{roleLabel}</p>
                 </div>
               </div>
 
@@ -120,7 +124,7 @@ function Navbar({ onToggleSidebar, isCollapsed }) {
               )}
 
               <Link
-                to="/help"
+                to={helpPath}
                 className="flex items-center gap-2 px-3 py-2 rounded-[var(--radius-sm)] text-[13px] text-text-primary hover:bg-surface-2 transition-colors"
                 onClick={() => setDropdownOpen(false)}
               >

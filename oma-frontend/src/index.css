@@ -281,6 +281,99 @@
   --color-milk: #F6F5F1;
 }
 
+/* Fisherfolk accounts: the same navigation rail, in the fisheries "Tide" blue the fisherfolk profile and
+   screens already use (FISH_THEME / cz-fish-*), instead of the staff Field green. Only the rail's own nav-*
+   tokens (and the collapsed-rail tooltip's primary-deep) are re-pointed, and only inside the element that
+   Sidebar.jsx marks data-nav-theme="fisherfolk" - every other role keeps the green rail. Text follows the
+   contrast note above: text-on-header uses the -100 step (8.83:1 on the -700 header), never -300. */
+[data-nav-theme="fisherfolk"] {
+  --color-nav-bg:       var(--color-cz-fish-header);   /* #155E82 - the profile header blue */
+  --color-nav-active:   var(--color-cz-fish-deeper);   /* #0E3C56 - selected item, white text on it */
+  --color-nav-logo:     var(--color-cz-fish-deeper);
+  --color-nav-label:    var(--color-cz-fish-100);
+  --color-nav-rail:     var(--color-cz-fish-fill);
+  --color-nav-item:     var(--color-cz-fish-100);
+  --color-primary-deep: var(--color-cz-fish-deeper);   /* collapsed-rail tooltip */
+}
+
+/* Fisherfolk accounts: the fisheries blue for the whole layout, so the content matches the blue rail and
+   the blue profile. PageLayout.jsx sets data-account-theme="fisherfolk" on <html> only while a fisherfolk is
+   signed in (on <html> so it also reaches modals, which portal to <body>). Every other role keeps the green.
+   Two parts, both scoped to that attribute:
+   1. The brand tokens (primary/accent) re-pointed to the Tide ramp - recolours every token-based surface:
+      DataTable headers, Button, ModalShell icons, EmptyState, etc.
+   2. The exact hard-coded brand-green classes the screens use (bg-[#1B4D2E], hover:bg-[#235E38], ...)
+      mapped to the same tokens. Only BRAND greens: the neutral grey-greens (#4A5E4A, #E2E8E2, ...) and the
+      semantic status colours (StatusPill, badges, warnings/errors) are deliberately left as they are.
+   Ramp use: header #155E82 = primary, deeper #0E3C56 = hover/active, pale #E3EEF1 = light tints,
+   300 #9BC1CF = light borders, fill #4E93B0 = bar fills, 100 #E3EEF1 = light text on dark. */
+[data-account-theme="fisherfolk"] {
+  --color-primary:       var(--color-cz-fish-header);
+  --color-primary-hover: var(--color-cz-fish-deeper);
+  --color-primary-deep:  var(--color-cz-fish-deeper);
+  --color-primary-light: var(--color-cz-fish-pale);
+  --color-primary-muted: var(--color-cz-fish-300);
+  --color-accent:        var(--color-cz-fish-header);
+  --color-accent-hover:  var(--color-cz-fish-deeper);
+  --color-accent-light:  var(--color-cz-fish-pale);
+}
+[data-account-theme="fisherfolk"] .accent-\[\#1B4D2E\] { accent-color: var(--color-cz-fish-header); }
+[data-account-theme="fisherfolk"] .accent-\[\#1E4620\] { accent-color: var(--color-cz-fish-header); }
+[data-account-theme="fisherfolk"] .bg-\[\#1B4D2E\] { background-color: var(--color-cz-fish-header); }
+[data-account-theme="fisherfolk"] .bg-\[\#1B4D2E\]\/10 { background-color: color-mix(in oklab, var(--color-cz-fish-header) 10%, transparent); }
+[data-account-theme="fisherfolk"] .bg-\[\#1E4620\] { background-color: var(--color-cz-fish-header); }
+[data-account-theme="fisherfolk"] .hover\:bg-\[\#235E38\]:hover { background-color: var(--color-cz-fish-deeper); }
+[data-account-theme="fisherfolk"] .bg-\[\#4CAF50\] { background-color: var(--color-cz-fish-fill); }
+[data-account-theme="fisherfolk"] .bg-\[\#C8E6D0\] { background-color: var(--color-cz-fish-300); }
+[data-account-theme="fisherfolk"] .bg-\[\#EBF5EE\] { background-color: var(--color-cz-fish-pale); }
+[data-account-theme="fisherfolk"] .hover\:bg-\[\#EBF5EE\]:hover { background-color: var(--color-cz-fish-pale); }
+[data-account-theme="fisherfolk"] .bg-\[\#EBF5EE\]\/20 { background-color: color-mix(in oklab, var(--color-cz-fish-pale) 20%, transparent); }
+[data-account-theme="fisherfolk"] .bg-\[\#EBF5EE\]\/30 { background-color: color-mix(in oklab, var(--color-cz-fish-pale) 30%, transparent); }
+[data-account-theme="fisherfolk"] .hover\:bg-\[\#EBF5EE\]\/30:hover { background-color: color-mix(in oklab, var(--color-cz-fish-pale) 30%, transparent); }
+[data-account-theme="fisherfolk"] .hover\:bg-\[\#EBF5EE\]\/50:hover { background-color: color-mix(in oklab, var(--color-cz-fish-pale) 50%, transparent); }
+[data-account-theme="fisherfolk"] .hover\:bg-\[\#dceadd\]:hover { background-color: color-mix(in srgb, var(--color-cz-fish-300) 40%, var(--color-cz-fish-pale)); }
+[data-account-theme="fisherfolk"] .bg-\[\#e8f5e9\] { background-color: var(--color-cz-fish-pale); }
+[data-account-theme="fisherfolk"] .bg-\[\#f0f7f0\] { background-color: var(--color-cz-fish-pale); }
+[data-account-theme="fisherfolk"] .hover\:bg-\[\#f0f7f0\]:hover { background-color: var(--color-cz-fish-pale); }
+[data-account-theme="fisherfolk"] .border-\[\#1B4D2E\] { border-color: var(--color-cz-fish-header); }
+[data-account-theme="fisherfolk"] .focus-within\:border-\[\#1B4D2E\]:focus-within { border-color: var(--color-cz-fish-header); }
+[data-account-theme="fisherfolk"] .focus\:border-\[\#1B4D2E\]:focus { border-color: var(--color-cz-fish-header); }
+[data-account-theme="fisherfolk"] .hover\:border-\[\#1B4D2E\]:hover { border-color: var(--color-cz-fish-header); }
+[data-account-theme="fisherfolk"] .border-\[\#1B4D2E\]\/30 { border-color: color-mix(in oklab, var(--color-cz-fish-header) 30%, transparent); }
+[data-account-theme="fisherfolk"] .hover\:border-\[\#1B4D2E\]\/60:hover { border-color: color-mix(in oklab, var(--color-cz-fish-header) 60%, transparent); }
+[data-account-theme="fisherfolk"] .border-\[\#1E4620\] { border-color: var(--color-cz-fish-header); }
+[data-account-theme="fisherfolk"] .focus\:border-\[\#1E4620\]:focus { border-color: var(--color-cz-fish-header); }
+[data-account-theme="fisherfolk"] .hover\:border-\[\#1E4620\]:hover { border-color: var(--color-cz-fish-header); }
+[data-account-theme="fisherfolk"] .border-\[\#C8E6D0\] { border-color: var(--color-cz-fish-300); }
+[data-account-theme="fisherfolk"] .border-t-\[\#1B4D2E\] { border-top-color: var(--color-cz-fish-header); }
+[data-account-theme="fisherfolk"] .from-\[\#1B4D2E\] { --tw-gradient-from: var(--color-cz-fish-header); }
+[data-account-theme="fisherfolk"] .focus-visible\:outline-\[\#1E4620\]:focus-visible { outline-color: var(--color-cz-fish-header); }
+[data-account-theme="fisherfolk"] .focus\:ring-\[\#1B4D2E\]:focus { --tw-ring-color: var(--color-cz-fish-header); }
+[data-account-theme="fisherfolk"] .focus\:ring-\[\#1B4D2E\]\/10:focus { --tw-ring-color: color-mix(in oklab, var(--color-cz-fish-header) 10%, transparent); }
+[data-account-theme="fisherfolk"] .focus\:ring-\[\#1B4D2E\]\/20:focus { --tw-ring-color: color-mix(in oklab, var(--color-cz-fish-header) 20%, transparent); }
+[data-account-theme="fisherfolk"] .focus-visible\:ring-\[\#1B4D2E\]\/30:focus-visible { --tw-ring-color: color-mix(in oklab, var(--color-cz-fish-header) 30%, transparent); }
+[data-account-theme="fisherfolk"] .focus\:ring-\[\#1B4D2E\]\/30:focus { --tw-ring-color: color-mix(in oklab, var(--color-cz-fish-header) 30%, transparent); }
+[data-account-theme="fisherfolk"] .\!text-\[\#1B4D2E\] { color: var(--color-cz-fish-header) !important; }
+[data-account-theme="fisherfolk"] .hover\:text-\[\#1B4D2E\]:hover { color: var(--color-cz-fish-header); }
+[data-account-theme="fisherfolk"] .text-\[\#1B4D2E\] { color: var(--color-cz-fish-header); }
+[data-account-theme="fisherfolk"] .text-\[\#1E4620\] { color: var(--color-cz-fish-header); }
+[data-account-theme="fisherfolk"] .text-\[\#235E38\] { color: var(--color-cz-fish-deeper); }
+[data-account-theme="fisherfolk"] .text-\[\#C8E6D0\] { color: var(--color-cz-fish-100); }
+@media print {
+  [data-account-theme="fisherfolk"] .print\:bg-\[\#1B4D2E\] { background-color: var(--color-cz-fish-header); }
+}
+
+/* Clickable table rows (utils/rowClick.js): a visible keyboard-focus ring in the account's own primary colour
+   (green for staff, blue for fisherfolk via the token override above), and for fisherfolk a pale-blue hover
+   in place of the neutral grey one. */
+[data-row-clickable]:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+[data-account-theme="fisherfolk"] [data-row-clickable]:hover {
+  background-color: color-mix(in srgb, var(--color-cz-fish-pale) 70%, transparent);
+}
+
 * {
   box-sizing: border-box;
 }

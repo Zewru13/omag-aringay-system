@@ -28,14 +28,17 @@ import CropSettingsHub from "./pages/CropSettings/CropSettingsHub.jsx";
 import ActivitySettingsHub from "./pages/ActivitySettings/ActivitySettingsHub.jsx";
 import UserManagementPage from "./pages/Users/UserManagementPage.jsx";
 import HelpPage from "./pages/Help/HelpPage.jsx";
-import HealthMonitoringPage from "./pages/HealthMonitoring/HealthMonitoringPage.jsx";
 import CropAssistancePage from "./pages/AssistanceManagement/CropAssistancePage.jsx";
 import FisheriesAssistancePage from "./pages/AssistanceManagement/FisheriesAssistancePage.jsx";
 import CitizenHomePage from "./pages/Citizen/CitizenHomePage.jsx";
+import { FisherfolkHelpPage, FisherfolkProfilePage } from "./pages/Citizen/FisherfolkAccountPages.jsx";
+import DisasterPage from "./pages/Monitoring/DisasterPage.jsx";
 
 function HomeRedirect() {
-  const { isAuthenticated, isCitizen } = useAuth();
+  const { isAuthenticated, isCitizen, isFisherfolk } = useAuth();
   if (!isAuthenticated) return <Navigate to="/login" replace />;
+  // Fisherfolk accounts land in the (reused) Admin Fisheries Monitoring, scoped to their own records.
+  if (isFisherfolk) return <Navigate to="/fisheries-monitoring" replace />;
   return <Navigate to={isCitizen ? "/my-account" : "/dashboard"} replace />;
 }
 
@@ -94,6 +97,35 @@ function App() {
               </ProtectedRoute>
             }
           />
+          {/* Fisherfolk accounts: own profile and help inside the Admin-style layout. */}
+          <Route
+            path="/my-profile"
+            element={
+              <ProtectedRoute allowedRoles={[]} allowFisherfolk>
+                <FisherfolkProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/my-help"
+            element={
+              <ProtectedRoute allowedRoles={[]} allowFisherfolk>
+                <FisherfolkHelpPage />
+              </ProtectedRoute>
+            }
+          />
+          {/* Disaster: one module, role-appropriate views - fisherfolk accounts get My Logged Disasters
+              (Log Disaster = submitted to Admin), Admin/Evaluator get Farmer Disaster + Fisheries Disaster.
+              The old fisherfolk /disaster/reports page was folded into it. */}
+          <Route
+            path="/disaster"
+            element={
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFisherfolk>
+                <DisasterPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/disaster/reports" element={<Navigate to="/disaster" replace />} />
 
           {/* Farmers hub — tabs: Registry + Organizations */}
           <Route
@@ -168,7 +200,7 @@ function App() {
           <Route
             path="/fisheries-monitoring"
             element={
-              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFisherfolk>
                 <FisheriesMonitoringPage />
               </ProtectedRoute>
             }
@@ -181,15 +213,6 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
                 <AddStockingPage />
-              </ProtectedRoute>
-            }
-          />
-          {/* Health & Feeding Monitoring (Batch 4) */}
-          <Route
-            path="/fisheries-health-monitoring"
-            element={
-              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
-                <HealthMonitoringPage />
               </ProtectedRoute>
             }
           />
@@ -206,7 +229,7 @@ function App() {
           <Route
             path="/fisheries-forecasting"
             element={
-              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFisherfolk>
                 <FisheriesForecastingTab />
               </ProtectedRoute>
             }
@@ -225,7 +248,7 @@ function App() {
           <Route
             path="/fisheries-assistance"
             element={
-              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFisherfolk>
                 <FisheriesAssistancePage />
               </ProtectedRoute>
             }
@@ -339,3 +362,4 @@ function App() {
 }
 
 export default App;
+

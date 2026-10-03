@@ -1,7 +1,9 @@
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 
-function ProtectedRoute({ allowedRoles, children }) {
+// allowFisherfolk: also let a fisherfolk CITIZEN account in (the Admin Fisheries pages they reuse). The
+// real boundary is the backend, which only ever returns that fisherfolk's own records.
+function ProtectedRoute({ allowedRoles, allowFisherfolk = false, children }) {
   const { user, isLoading, isAuthenticated } = useAuth()
   const location = useLocation()
 
@@ -33,7 +35,11 @@ function ProtectedRoute({ allowedRoles, children }) {
     return <Navigate to="/change-password" replace />
   }
 
-  if (allowedRoles?.length && !allowedRoles.includes(user.role)) {
+  const fisherfolkAllowed = allowFisherfolk && user.role === 'CITIZEN' && user.linked_record_type === 'FISHERFOLK'
+  // A route restricts access when it lists roles OR opts fisherfolk in (allowedRoles={[]} + allowFisherfolk
+  // = fisherfolk accounts only).
+  const restricted = Boolean(allowedRoles?.length) || allowFisherfolk
+  if (restricted && !(allowedRoles || []).includes(user.role) && !fisherfolkAllowed) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
         <div className="max-w-md rounded-lg border border-red-200 bg-white p-6 text-center shadow-sm">

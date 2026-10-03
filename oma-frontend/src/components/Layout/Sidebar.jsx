@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   Activity,
+  AlertTriangle,
   BarChart2,
   Building2,
   ChevronDown,
@@ -8,7 +9,6 @@ import {
   FileBarChart,
   Fish,
   HandHeart,
-  HeartPulse,
   History,
   LayoutDashboard,
   Leaf,
@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   Sprout,
   TrendingUp,
+  UserCircle,
   UserCog,
   Users,
   Waves,
@@ -36,6 +37,8 @@ import logo from "../../assets/LOGO OMAg.jpg";
 // nests another (Organizations was split out to its own top-level group).
 
 const DASHBOARD_ITEM = { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" };
+// Admin/Evaluator: one top-level Disaster module (Farmer Disaster + Fisheries Disaster inside the page).
+const DISASTER_ITEM = { to: "/disaster", icon: AlertTriangle, label: "Disaster" };
 
 // Batch A: Reports was a single leaf item landing on ReportsPage's default
 // tab (Harvested Crop) no matter which report you actually wanted — now a
@@ -51,7 +54,6 @@ const REPORTS_GROUP = {
     { to: "/reports?tab=crop_options", icon: Leaf, label: "Crop Options" },
     { to: "/reports?tab=fisheries", icon: Fish, label: "Fisheries Production" },
     { to: "/reports?tab=farmer_crop_history", icon: History, label: "Farmer Crop History" },
-    { to: "/reports?tab=fisherfolk_stocking_history", icon: Fish, label: "Fisherfolk Stocking History" },
   ],
 };
 
@@ -96,7 +98,6 @@ const GROUPS = [
     icon: Waves,
     items: [
       { to: "/fisheries-monitoring", icon: Activity, label: "Fisheries Monitoring" },
-      { to: "/fisheries-health-monitoring", icon: HeartPulse, label: "Health & Feeding Monitoring" },
     ],
   },
   {
@@ -117,6 +118,20 @@ const GROUPS = [
       { to: "/fisheries-assistance", icon: Fish, label: "Fisheries Assistance" },
     ],
   },
+];
+
+// Fisherfolk accounts: the same Admin Fisheries pages (the backend returns only their own records), in
+// English. Activity logs, Health Log, Harvest and Force Harvest are the workflows inside Fisheries
+// Monitoring > Aquaculture, exactly as for Admin. A fisherfolk account is already an aquaculture
+// context, so there is no Capture Fishing and no Aquaculture/Capture category choice anywhere here.
+// Five direct links, no submenus: the account itself is the context, so Fisheries Monitoring IS the
+// aquaculture monitoring and Disaster IS the fisherfolk disaster page (My Logged Disasters + Log Disaster).
+const FISHERFOLK_NAV = [
+  { to: "/fisheries-monitoring", icon: Waves, label: "Fisheries Monitoring" },
+  { to: "/fisheries-forecasting", icon: TrendingUp, label: "Forecasting" },
+  { to: "/disaster", icon: AlertTriangle, label: "Disaster" },
+  { to: "/fisheries-assistance", icon: HandHeart, label: "Assistance" },
+  { to: "/my-profile", icon: UserCircle, label: "My Profile" },
 ];
 
 const ADMIN_GROUP = {
@@ -318,7 +333,7 @@ function NavGroup({ group, isCollapsed, depth = 0 }) {
 }
 
 function Sidebar({ isOpen, onClose, isCollapsed }) {
-  const { user } = useAuth();
+  const { user, isFisherfolk } = useAuth();
   const isAdmin = user?.role === "ADMIN";
 
   return (
@@ -349,6 +364,9 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
         // updated but the visual didn't apply live" bug. An inline style
         // has no generation step, so it can't hit that gap.
         style={{ width: isCollapsed ? '64px' : '248px' }}
+        // Fisherfolk accounts get the fisheries blue rail (index.css [data-nav-theme="fisherfolk"]);
+        // every other role keeps the default green.
+        data-nav-theme={isFisherfolk ? "fisherfolk" : undefined}
       >
         {/* Logo area — h-14 + md:top-0 on the aside makes this header fill the
             top-left corner flush with the navbar (no gap above the wordmark) */}
@@ -389,20 +407,34 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
 
         {/* Navigation */}
         <nav className="flex-1 py-3">
-          <LeafItem {...DASHBOARD_ITEM} isCollapsed={isCollapsed} />
-
-          {isCollapsed && <div className="mx-auto w-8 border-t border-nav-rail my-2" />}
-
-          {GROUPS.map((group) => (
-            <NavGroup key={group.key} group={group} isCollapsed={isCollapsed} />
-          ))}
-
-          <NavGroup group={REPORTS_GROUP} isCollapsed={isCollapsed} />
-
-          {isAdmin && (
+          {isFisherfolk ? (
+            // Fisherfolk account: Fisheries Monitoring, Forecasting, Disaster, Assistance, My Profile -
+            // plain top-level links, no submenus.
             <>
+              {FISHERFOLK_NAV.map((entry) => (
+                <LeafItem key={entry.to} {...entry} isCollapsed={isCollapsed} />
+              ))}
+            </>
+          ) : (
+            <>
+              <LeafItem {...DASHBOARD_ITEM} isCollapsed={isCollapsed} />
+
               {isCollapsed && <div className="mx-auto w-8 border-t border-nav-rail my-2" />}
-              <NavGroup group={ADMIN_GROUP} isCollapsed={isCollapsed} />
+
+              {GROUPS.map((group) => (
+                <NavGroup key={group.key} group={group} isCollapsed={isCollapsed} />
+              ))}
+
+              <LeafItem {...DISASTER_ITEM} isCollapsed={isCollapsed} />
+
+              <NavGroup group={REPORTS_GROUP} isCollapsed={isCollapsed} />
+
+              {isAdmin && (
+                <>
+                  {isCollapsed && <div className="mx-auto w-8 border-t border-nav-rail my-2" />}
+                  <NavGroup group={ADMIN_GROUP} isCollapsed={isCollapsed} />
+                </>
+              )}
             </>
           )}
         </nav>

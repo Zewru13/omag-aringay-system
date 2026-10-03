@@ -20,7 +20,7 @@ from reportlab.platypus import (
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
-from accounts.permissions import IsAdminOrEvaluator
+from accounts.permissions import IsAdminOrEvaluator, IsStaffOrFisherfolk
 from core.utils import accumulate_yield_group, day_range_bounds, new_yield_group, possible_factors_text
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk, FishingTripLog, Pond, StockingRecord, TripSpeciesEntry
@@ -2966,8 +2966,10 @@ class YieldAnalysisReport(APIView):
 
 class FisheriesYieldAnalysisReport(APIView):
     """Mirrors YieldAnalysisReport above, sourced from fisheries.views'
-    stocking-record yield analysis instead of crop monitoring records."""
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    stocking-record yield analysis instead of crop monitoring records.
+    A fisherfolk citizen may download it too: _fisheries_yield_analysis_queryset() limits a CITIZEN to
+    their own stocking records, so their report only contains their own data."""
+    permission_classes = [IsAuthenticated, IsStaffOrFisherfolk]
 
     def get(self, request):
         from django.http import JsonResponse

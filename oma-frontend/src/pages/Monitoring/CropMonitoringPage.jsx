@@ -1233,8 +1233,10 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
 }
 
 // ── Disaster Report Modal ─────────────────────────────────────────────────────
+// Also used, unchanged, by Admin > Disaster > Farmer Disaster > Log Disaster (after choosing the farmer and
+// their crop record).
 
-function DisasterReportModal({ record, onClose, onSuccess }) {
+export function DisasterReportModal({ record, onClose, onSuccess }) {
   const { showToast } = useToast()
   const [disasterType,      setDisasterType]      = useState('')
   const [disasterTypeOtherSpecify, setDisasterTypeOtherSpecify] = useState('')

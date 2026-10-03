@@ -19,7 +19,16 @@ const POLL_INTERVAL_MS = 45 * 1000
 const STAFF_ROUTES = {
   crop: '/crop-monitoring',
   stocking: '/fisheries-monitoring?tab=stocking',
-  fisherfolk_disaster: '/fisheries-monitoring?tab=disasters',
+  // Disaster management moved out of Fisheries Monitoring into Admin > Disaster > Fisheries Disaster.
+  fisherfolk_disaster: '/disaster?tab=fisheries',
+  // A fisherfolk "logged a fisheries disaster" (submitted to Admin): opens that log (record_id) in
+  // Admin > Disaster > Fisheries Disaster.
+  fisheries_disaster_report: (id) => `/disaster?tab=fisheries${id ? `&report=${id}` : ''}`,
+  // Fisheries production-cycle events (record_id = the production cycle): open that cycle's details.
+  fisheries_cycle_started: (id) => `/fisheries-monitoring?tab=stocking${id ? `&cycle=${id}` : ''}`,
+  fisheries_force_harvest: (id) => `/fisheries-monitoring?tab=stocking${id ? `&cycle=${id}` : ''}`,
+  fisheries_harvest_reminder_7d: (id) => `/fisheries-monitoring?tab=stocking${id ? `&cycle=${id}` : ''}`,
+  fisheries_harvest_reminder_3d: (id) => `/fisheries-monitoring?tab=stocking${id ? `&cycle=${id}` : ''}`,
   beneficiary: '/crop-assistance?tab=needs-follow-up',
   ff_beneficiary: '/fisheries-assistance?tab=needs-follow-up',
   beneficiary_obo: '/dashboard',
@@ -28,6 +37,25 @@ const STAFF_ROUTES = {
   FISHERFOLK: '/dashboard',
   FARMERS_ORG: '/dashboard',
   FISHERFOLK_ORG: '/dashboard',
+}
+
+// Fisherfolk accounts have no category tabs on Fisheries Monitoring; their disaster list has its own page.
+const FISHERFOLK_RECORD_TYPE_ROUTES = {
+  stocking: '/fisheries-monitoring',
+  fisherfolk_disaster: '/disaster',
+  fisheries_cycle_started: (id) => `/fisheries-monitoring${id ? `?cycle=${id}` : ''}`,
+  fisheries_force_harvest: (id) => `/fisheries-monitoring${id ? `?cycle=${id}` : ''}`,
+  fisheries_harvest_reminder_7d: (id) => `/fisheries-monitoring${id ? `?cycle=${id}` : ''}`,
+  fisheries_harvest_reminder_3d: (id) => `/fisheries-monitoring${id ? `?cycle=${id}` : ''}`,
+}
+
+// A short title shown above the message for these event types (other notifications are unchanged).
+const RECORD_TYPE_TITLES = {
+  fisheries_cycle_started: 'Production Cycle Started',
+  fisheries_force_harvest: 'Force Harvest Recorded',
+  fisheries_harvest_reminder_7d: 'Harvest in 7 Days',
+  fisheries_harvest_reminder_3d: 'Harvest in 3 Days',
+  fisheries_disaster_report: 'New Fisherfolk Disaster Report',
 }
 
 // A CITIZEN account may only open /my-account — every staff route above ends
@@ -64,7 +92,7 @@ const VARIANT_CLASSES = {
 
 function NotificationBell({ variant = 'dark' }) {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, isFisherfolk } = useAuth()
   const [open, setOpen] = useState(false)
   // `notifications` is always the newest page (refreshed by the poll);
   // `older` holds pages the user asked for with "Load older", so a poll never
@@ -134,11 +162,19 @@ function NotificationBell({ variant = 'dark' }) {
       setUnreadCount(c => Math.max(0, c - 1))
       api.post(`/notifications/${n.id}/read/`).catch(() => {})
     }
+    // A fisherfolk account opens the destination his fisheries notification types point to
+    // (production cycle, disaster log, ...); anything else falls through to the normal rules.
+    if (isFisherfolk) {
+      const own = FISHERFOLK_RECORD_TYPE_ROUTES[n.record_type]
+      const ownTarget = typeof own === 'function' ? own(n.record_id) : own
+      if (ownTarget) { navigate(ownTarget); return }
+    }
     if (user?.role === 'CITIZEN') {
       if (window.location.pathname !== CITIZEN_HOME) navigate(CITIZEN_HOME)
       return
     }
-    const target = STAFF_ROUTES[n.record_type]
+    const route = STAFF_ROUTES[n.record_type]
+    const target = typeof route === 'function' ? route(n.record_id) : route
     if (target) navigate(target)
   }
 
@@ -194,8 +230,13 @@ function NotificationBell({ variant = 'dark' }) {
                 onClick={() => handleNotificationClick(n)}
                 className={`w-full text-left px-3 py-2.5 border-b border-[#F5F7F5] hover:bg-[#F9FAF9] transition-colors ${!n.is_read ? 'bg-[#EBF5EE]' : ''}`}
               >
+                {RECORD_TYPE_TITLES[n.record_type] && (
+                  <p className="mb-0.5 text-[12px] font-semibold text-[#1A2B1A]" data-testid="notification-title">{RECORD_TYPE_TITLES[n.record_type]}</p>
+                )}
                 <p className="text-[12px] text-[#1A2B1A] leading-snug">
-                  <span className="font-semibold">{n.actor_name}</span> {n.verb}{' '}
+                  {/* Automatic (system) notifications with a title read as a sentence on their own. */}
+                  {(n.actor || !RECORD_TYPE_TITLES[n.record_type]) && <><span className="font-semibold">{n.actor_name}</span>{' '}</>}
+                  {n.verb}{' '}
                   <span className="font-medium">{n.record_label}</span>
                   {n.detail && <span className="text-[#7A8E7A]"> — {n.detail}</span>}
                 </p>

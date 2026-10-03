@@ -12,15 +12,12 @@ import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
-import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import FisheriesRecordsPage from '../FisheriesRecords/FisheriesRecordsPage.jsx'
 import FisheriesHistoryModal from './FisheriesHistoryModal.jsx'
 import LogCatchModal from './LogCatchModal.jsx'
-import LogFisheriesDisasterModal from './LogFisheriesDisasterModal.jsx'
 
-const DISASTER_STATUS_TONES = { Active: 'amber', Recovered: 'green' }
 const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - i)
 
@@ -34,15 +31,6 @@ const CATCH_COLUMNS = [
   { key: 'top_species_cell',  label: 'Top Species' },
   { key: 'hours_at_sea_fmt',  label: 'Hrs at Sea' },
   { key: 'actions_cell',      label: 'Actions' },
-]
-
-const DISASTER_COLUMNS = [
-  { key: 'fisherfolk_name',      label: 'Fisherfolk' },
-  { key: 'date_of_occurrence_fmt', label: 'Date' },
-  { key: 'disaster_type',        label: 'Type' },
-  { key: 'fisherfolk_barangay',  label: 'Barangay' },
-  { key: 'status_pill',          label: 'Status' },
-  { key: 'actions_cell',         label: 'Actions' },
 ]
 
 function formatDate(v) {
@@ -335,168 +323,22 @@ function EditCatchModal({ record, onClose, onSaved }) {
   )
 }
 
-// ─── Edit Disaster Report Modal ─────────────────────────────────────────────────
-// (Edit Assistance Modal relocated to pages/AssistanceManagement/FisheriesAssistancePage.jsx — Batch 5)
-
-const DISASTER_TYPES = ['Typhoon', 'Flooding', 'Storm Surge', 'El Nino Drought', 'Red Tide', 'Disease Outbreak', 'Other']
-const DISASTER_STATUS_OPTIONS = ['Active', 'Recovered']
-
-function EditDisasterModal({ record, onClose, onSaved }) {
-  const { isAdmin } = useAuth()
-  const { showToast } = useToast()
-  const originalData = {
-    date_of_occurrence: record.date_of_occurrence || '',
-    disaster_type: record.disaster_type || '',
-    estimated_damage: record.estimated_damage || '',
-    volume_lost_kg: record.volume_lost_kg != null ? String(record.volume_lost_kg) : '',
-    equipment_damaged: record.equipment_damaged || '',
-    status: record.status || 'Active',
-    recovery_note: record.recovery_note || '',
-  }
-  const [form, setForm] = useState(originalData)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState('')
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
-
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
-  const isDirty = JSON.stringify(form) !== JSON.stringify(originalData)
-  const isNewlyRecovered = form.status === 'Recovered' && record.status !== 'Recovered'
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (isNewlyRecovered && !form.recovery_note.trim()) {
-      setError('A recovery note is required to mark this Recovered — there\'s no stocking cycle to check response activities against.')
-      return
-    }
-    setError(''); setIsSubmitting(true)
-    try {
-      await api.patch(`/monitoring/fisherfolk-disasters/${record.id}/`, {
-        ...form,
-        volume_lost_kg: form.volume_lost_kg !== '' ? parseFloat(form.volume_lost_kg) : null,
-      })
-      showToast('Disaster report updated.', 'success')
-      onSaved()
-    } catch (err) {
-      setError(err?.response?.data?.detail || 'Failed to update disaster report.')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  const handleDeleteConfirmed = async () => {
-    setIsDeleting(true)
-    try {
-      await api.delete(`/monitoring/fisherfolk-disasters/${record.id}/`)
-      showToast('Disaster report deleted.', 'success')
-      onSaved()
-      onClose()
-    } catch (err) {
-      showToast(err?.response?.data?.detail || 'Failed to delete disaster report.', 'error')
-      setShowDeleteConfirm(false)
-    } finally {
-      setIsDeleting(false)
-    }
-  }
-
-  return (
-    <>
-      <ModalShell
-        title="Edit Disaster Report"
-        subtitle={record.fisherfolk_name}
-        icon={Pencil}
-        onClose={onClose}
-        maxWidth="max-w-xl"
-        footer={
-          <>
-            <button type="button" onClick={onClose}
-              className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
-              Cancel
-            </button>
-            <button type="submit" form="edit-disaster-report-form" disabled={isSubmitting || !isDirty}
-              className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50">
-              {isSubmitting ? 'Saving…' : 'Save Changes'}
-            </button>
-          </>
-        }
-      >
-        <form id="edit-disaster-report-form" onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <FormField label="Date of Occurrence" required>
-              <input type="date" className={baseInputClasses} value={form.date_of_occurrence}
-                max={new Date().toISOString().split('T')[0]}
-                onChange={(e) => set('date_of_occurrence', e.target.value)} />
-            </FormField>
-            <FormField label="Disaster Type" required>
-              <select className={baseInputClasses} value={form.disaster_type}
-                onChange={(e) => set('disaster_type', e.target.value)}>
-                {DISASTER_TYPES.map((d) => <option key={d} value={d}>{d}</option>)}
-              </select>
-            </FormField>
-            <FormField label="Status" required>
-              <select className={baseInputClasses} value={form.status}
-                onChange={(e) => set('status', e.target.value)}>
-                {DISASTER_STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </FormField>
-            <FormField label="Volume Lost (kg)">
-              <input type="number" step="0.01" min="0" className={baseInputClasses} value={form.volume_lost_kg}
-                onChange={(e) => set('volume_lost_kg', e.target.value)} />
-            </FormField>
-          </div>
-          <FormField label="Equipment Damaged">
-            <input type="text" className={baseInputClasses} value={form.equipment_damaged}
-              onChange={(e) => set('equipment_damaged', e.target.value)} />
-          </FormField>
-          <FormField label="Description of Damage" required>
-            <textarea className={baseInputClasses} rows={3} value={form.estimated_damage}
-              onChange={(e) => set('estimated_damage', e.target.value)} />
-          </FormField>
-          {isNewlyRecovered && (
-            <FormField label="Recovery Note" required>
-              <textarea className={baseInputClasses} rows={2} value={form.recovery_note}
-                placeholder="No stocking cycle to check response activities against — explain how/why this recovered."
-                onChange={(e) => set('recovery_note', e.target.value)} />
-            </FormField>
-          )}
-
-          {error && (
-            <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>
-          )}
-
-          <DangerZone
-            isAdmin={isAdmin}
-            description="Permanently delete this disaster report."
-            onDeleteClick={() => setShowDeleteConfirm(true)}
-          />
-        </form>
-      </ModalShell>
-
-      {showDeleteConfirm && (
-        <ConfirmDialog
-          title="Delete Disaster Report?"
-          message="This action cannot be undone."
-          confirmLabel={isDeleting ? 'Deleting…' : 'Delete Record'}
-          requireTypedConfirmation
-          typedConfirmationText="DELETE"
-          variant="danger"
-          onConfirm={handleDeleteConfirmed}
-          onCancel={() => setShowDeleteConfirm(false)}
-        />
-      )}
-    </>
-  )
-}
-
+// Staff accounts get the Aquaculture | Capture category tabs; a fisherfolk account sees Aquaculture only.
+// Disaster management lives in its own module (Admin > Disaster > Fisheries Disaster), not here.
 export default function FisheriesMonitoringPage() {
+  const { isFisherfolk } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const rawTab = searchParams.get('tab') || 'stocking'
   // Forecasting moved out to its own /fisheries-forecasting route (Batch C),
-  // Assistance moved out to /fisheries-assistance (Batch 5) — an old
-  // ?tab=forecasting or ?tab=assistance link/bookmark falls back to the
+  // Assistance moved out to /fisheries-assistance (Batch 5), disasters to /disaster — an old
+  // ?tab=forecasting, ?tab=assistance or ?tab=disasters link/bookmark falls back to the
   // default tab instead of rendering nothing.
-  const subTab = (rawTab === 'forecasting' || rawTab === 'assistance') ? 'stocking' : rawTab
+  const staffTab = rawTab === 'capture' ? 'capture' : 'stocking'
+  const subTab = isFisherfolk ? 'stocking' : staffTab
   const setSubTab = (tab) => setSearchParams({ tab }, { replace: true })
+  const pageTitle = 'Fisheries Monitoring'
+  const pageSubtitle = !isFisherfolk ? 'Aquaculture and capture fishing'
+    : 'Aquaculture production cycles, stocking, logs and harvests'
 
   const [barangay, setBarangay] = useState('')
   const [year, setYear]     = useState('')
@@ -506,19 +348,13 @@ export default function FisheriesMonitoringPage() {
   const [isLoadingCatch, setIsLoadingCatch] = useState(false)
   const [errorCatch, setErrorCatch]     = useState('')
 
-  const [disasters, setDisasters]             = useState([])
-  const [isLoadingDisasters, setIsLoadingDisasters] = useState(false)
-  const [errorDisasters, setErrorDisasters]   = useState('')
-
   const [showAddCatch, setShowAddCatch]         = useState(false)
   const [showFisheriesHistory, setShowFisheriesHistory] = useState(false)
-  const [showLogDisaster, setShowLogDisaster]   = useState(false)
 
   // View Details / Edit — Batch 5 action-icon reorganization
   const [viewingDetail, setViewingDetail] = useState(null) // { title, subtitle, rows }
   const [speciesBreakdown, setSpeciesBreakdown] = useState(null) // a catch record
   const [editingCatch, setEditingCatch]         = useState(null)
-  const [editingDisaster, setEditingDisaster]   = useState(null)
 
   const fetchCatch = useCallback(async () => {
     setIsLoadingCatch(true); setErrorCatch('')
@@ -536,20 +372,7 @@ export default function FisheriesMonitoringPage() {
     finally { setIsLoadingCatch(false) }
   }, [barangay, year])
 
-  const fetchDisasters = useCallback(async () => {
-    setIsLoadingDisasters(true); setErrorDisasters('')
-    try {
-      const params = new URLSearchParams()
-      if (barangay) params.set('barangay', barangay)
-      if (year) params.set('year', year)
-      const r = await api.get(`/monitoring/fisherfolk-disasters/?${params}`)
-      setDisasters(Array.isArray(r.data) ? r.data : (r.data.results || []))
-    } catch { setErrorDisasters('Failed to load disaster reports.') }
-    finally { setIsLoadingDisasters(false) }
-  }, [barangay, year])
-
   useEffect(() => { if (subTab === 'capture') fetchCatch() }, [subTab, fetchCatch])
-  useEffect(() => { if (subTab === 'disasters') fetchDisasters() }, [subTab, fetchDisasters])
 
   const catchData = useMemo(() => catchLogs.map((c) => {
     const entries = c.species_entries || []
@@ -595,34 +418,10 @@ export default function FisheriesMonitoringPage() {
     }
   }), [catchLogs])
 
-  const disasterData = useMemo(() => disasters.map((d) => ({
-    ...d,
-    date_of_occurrence_fmt: formatDate(d.date_of_occurrence),
-    status_pill: <StatusPill tone={DISASTER_STATUS_TONES[d.status] || 'slate'}>{d.status}</StatusPill>,
-    actions_cell: (
-      <TableActionsMenu
-        onViewDetails={() => setViewingDetail({
-          title: 'Disaster Report Details',
-          subtitle: d.fisherfolk_name,
-          rows: [
-            ['Fisherfolk', d.fisherfolk_name], ['Date', formatDate(d.date_of_occurrence)],
-            ['Disaster Type', d.disaster_type], ['Barangay', d.fisherfolk_barangay],
-            ['Status', d.status],
-            ['Volume Lost (kg)', d.volume_lost_kg ?? '—'], ['Equipment Damaged', d.equipment_damaged || '—'],
-            ['Description', d.estimated_damage || '—'],
-            ['Photo', d.photo ? <a href={d.photo} target="_blank" rel="noreferrer" className="text-[#1B4D2E] underline">View photo</a> : '—'],
-            ...(d.status === 'Recovered' ? [['Recovery Note', d.recovery_note || '—']] : []),
-          ],
-        })}
-        onEdit={() => setEditingDisaster(d)}
-      />
-    ),
-  })), [disasters])
-
   return (
     <PageLayout
-      title="Fisheries Monitoring"
-      subtitle="Aquaculture, capture fishing, and disaster reports"
+      title={pageTitle}
+      subtitle={pageSubtitle}
     >
       <div className="space-y-5">
         {/* Filters + Actions — not applicable to Stocking & Culture, which has its own filter bar */}
@@ -639,17 +438,15 @@ export default function FisheriesMonitoringPage() {
                   </Button>
                 </>
               )}
-              {subTab === 'disasters' && (
-                <Button onClick={() => setShowLogDisaster(true)}>
-                  <Plus size={15} className="mr-1" /> Log Disaster
-                </Button>
-              )}
             </div>
 
             <FilterPanel activeCount={[barangay, year].filter(Boolean).length}>
-              <div className="w-48">
-                <BarangaySelect value={barangay} onChange={(e) => setBarangay(e.target.value)} includeAllOption />
-              </div>
+              {/* A fisherfolk only ever sees their own records, so a barangay filter means nothing to them. */}
+              {!isFisherfolk && (
+                <div className="w-48">
+                  <BarangaySelect value={barangay} onChange={(e) => setBarangay(e.target.value)} includeAllOption />
+                </div>
+              )}
               <select
                 className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-[#1E4620] focus:outline-none"
                 value={year}
@@ -662,15 +459,17 @@ export default function FisheriesMonitoringPage() {
           </>
         )}
 
-        <SubTabBar
-          options={[
-            { value: 'stocking',   label: 'Aquaculture' },
-            { value: 'capture',    label: 'Capture' },
-            { value: 'disasters',  label: 'Fisherfolk Disasters' },
-          ]}
-          value={subTab}
-          onChange={setSubTab}
-        />
+        {/* Category tabs are a staff tool; a fisherfolk account is already in its own context. */}
+        {!isFisherfolk && (
+          <SubTabBar
+            options={[
+              { value: 'stocking',   label: 'Aquaculture' },
+              { value: 'capture',    label: 'Capture' },
+            ]}
+            value={subTab}
+            onChange={setSubTab}
+          />
+        )}
 
         {/* Stocking & Culture — the existing FisheriesRecordsPage, mounted as-is */}
         {subTab === 'stocking' && <FisheriesRecordsPage asTab />}
@@ -729,22 +528,6 @@ export default function FisheriesMonitoringPage() {
           </div>
         )}
 
-        {/* Disasters */}
-        {subTab === 'disasters' && (
-          <div className="space-y-4">
-            {disasters.length > 0 && (
-              <div className="flex flex-wrap gap-3">
-                <MetricCard label="Total Reports" value={disasters.length} />
-                <MetricCard label="Active" value={disasters.filter((d) => d.status === 'Active').length} accent="#f57c00" />
-              </div>
-            )}
-            {errorDisasters
-              ? <ErrorMessage message={errorDisasters} />
-              : <DataTable columns={DISASTER_COLUMNS} data={disasterData} isLoading={isLoadingDisasters} />
-            }
-          </div>
-        )}
-
       </div>
 
       {/* Modals */}
@@ -753,9 +536,6 @@ export default function FisheriesMonitoringPage() {
       )}
       {showFisheriesHistory && (
         <FisheriesHistoryModal onClose={() => setShowFisheriesHistory(false)} />
-      )}
-      {showLogDisaster && (
-        <LogFisheriesDisasterModal onClose={() => setShowLogDisaster(false)} onSuccess={fetchDisasters} />
       )}
 
       {viewingDetail && (
@@ -777,13 +557,6 @@ export default function FisheriesMonitoringPage() {
           record={editingCatch}
           onClose={() => setEditingCatch(null)}
           onSaved={() => { setEditingCatch(null); fetchCatch() }}
-        />
-      )}
-      {editingDisaster && (
-        <EditDisasterModal
-          record={editingDisaster}
-          onClose={() => setEditingDisaster(null)}
-          onSaved={() => { setEditingDisaster(null); fetchDisasters() }}
         />
       )}
     </PageLayout>

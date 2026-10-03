@@ -1,9 +1,13 @@
+import logging
 from collections import defaultdict
 from datetime import date, timedelta
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.core.files.storage import default_storage
 from django.db import transaction
 from django.db.models import Count, F, Q, Sum
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status as drf_status
 from rest_framework.exceptions import ValidationError
@@ -13,19 +17,27 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import User
-from accounts.permissions import IsAdmin, IsAdminOrEvaluator, IsStaffOrOwnRecordCitizen
+from accounts.permissions import (
+    STAFF_ROLES, IsAdmin, IsAdminOrEvaluator, IsStaffOrFisherfolk, IsStaffOrFisherfolkReadOnly,
+    IsStaffOrOwnRecordCitizen, fisherfolk_scope, is_fisherfolk_citizen, scope_to_fisherfolk,
+)
 from accounts.utils import create_inactive_citizen_shell
 from core.locking import assert_not_locked_by_other
 from core.notifications import notify_staff, notify_user, resolve_owner_user
 from core.utils import accumulate_yield_group, build_name_search_q, day_range_bounds, filter_people_search, harvest_gate_status, new_yield_group
+from core.validators import validate_uploaded_image
 
+from . import disaster_reports
+from .notifications import queue_force_harvest
 from .models import (
+    HARVEST_TIMING_LABELS,
     DiseaseResponseGuide,
     DiseaseType,
     FeedType,
     FisheriesActivityLog,
     FisheriesActivityType,
     FisheriesDisasterReport,
+    FisheriesDisasterReportPhoto,
     FisheriesDisasterResponseRule,
     FisheriesHarvestRecord,
     Fisherfolk,
@@ -36,6 +48,8 @@ from .models import (
     SpeciesOption,
     StockingRecord,
     TripSpeciesEntry,
+    harvest_timing,
+    production_cycle_numbers_bulk,
 )
 from .serializers import (
     DiseaseResponseGuideSerializer,
@@ -50,7 +64,6 @@ from .serializers import (
     FisheriesHarvestRecordSerializer,
     FishingTripLogSerializer,
     GeneralDisasterReportSerializer,
-    HealthMonitoringSerializer,
     PondSerializer,
     SpeciesActivityStageSerializer,
     SpeciesCategorySerializer,
@@ -60,11 +73,18 @@ from .serializers import (
     TripSpeciesEntrySerializer,
 )
 
+logger = logging.getLogger(__name__)
+
 
 # ─── Fisherfolk ───────────────────────────────────────────────────────────────
 
 class FisherfolkListView(generics.ListCreateAPIView):
     def get_permissions(self):
+        # Registering fisherfolk stays staff-only. Reading is also open to a fisherfolk citizen - the
+        # reused Admin pages (Start Production Cycle's fisherfolk picker, Forecasting's filter) need it -
+        # but scoped to their own single record below.
+        if self.request.method == 'GET':
+            return [IsAuthenticated(), IsStaffOrFisherfolk()]
         return [IsAuthenticated(), IsAdminOrEvaluator()]
 
     def get_serializer_class(self):
@@ -72,7 +92,7 @@ class FisherfolkListView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         from django.utils.timezone import now
-        qs = Fisherfolk.objects.all().order_by('-date_registered', '-id')
+        qs = scope_to_fisherfolk(Fisherfolk.objects.all(), self.request.user, 'id').order_by('-date_registered', '-id')
         params = self.request.query_params
         search = params.get('search', '').strip()
         if search:
@@ -188,8 +208,7 @@ class SpeciesCategoryListCreateView(generics.ListCreateAPIView):
     serializer_class = SpeciesCategorySerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     pagination_class = None
-    # Newest-first — see production.views.CropTypeListView's own comment.
-    queryset = SpeciesCategory.objects.order_by('-id')
+    queryset = SpeciesCategory.objects.order_by('name')
 
 
 class SpeciesCategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -203,8 +222,7 @@ class SpeciesCategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
 class FisheriesActivityTypeListCreateView(generics.ListCreateAPIView):
     serializer_class = FisheriesActivityTypeSerializer
     pagination_class = None
-    # Newest-first — see production.views.CropTypeListView's own comment.
-    queryset = FisheriesActivityType.objects.all().order_by('-id')
+    queryset = FisheriesActivityType.objects.all().order_by('name')
 
     def get_permissions(self):
         # GET is read by every activity-logging surface, staff and citizen
@@ -225,16 +243,31 @@ class FisheriesActivityTypeDetailView(generics.RetrieveUpdateAPIView):
 
 # ─── Species Option ───────────────────────────────────────────────────────────
 
+class StockingFormOptionsView(APIView):
+    """Read-only Pond Location / Water Source options for the Start Production Cycle form.
+
+    Serves the backend's own authoritative lists - core.constants.BARANGAY_CHOICES and
+    fisheries.models.WATER_SOURCE_CHOICES - i.e. exactly the values StockingRecord validates
+    against, so the dropdowns can never offer something the backend rejects."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from core.constants import BARANGAY_CHOICES
+        from .models import WATER_SOURCE_CHOICES
+        return Response({
+            'barangays': [value for value, _ in BARANGAY_CHOICES],
+            'water_sources': [value for value, _ in WATER_SOURCE_CHOICES],
+        })
+
+
 class SpeciesOptionListCreateView(generics.ListCreateAPIView):
     serializer_class = SpeciesOptionSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    # Shared reference data: a fisherfolk may read it (Start Production Cycle, Forecasting); writes staff-only.
+    permission_classes = [IsAuthenticated, IsStaffOrFisherfolkReadOnly]
     pagination_class = None
 
     def get_queryset(self):
-        # Newest-first, matching every other list in this app — see
-        # production.views.CropTypeListView's own comment (this table had
-        # the same alphabetical-order omission).
-        qs = SpeciesOption.objects.select_related('category').prefetch_related('stages').order_by('-id')
+        qs = SpeciesOption.objects.select_related('category').prefetch_related('stages').order_by('species_name')
         category_id = self.request.query_params.get('category_id')
         if category_id:
             qs = qs.filter(category_id=category_id)
@@ -251,7 +284,8 @@ class SpeciesOptionDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 class SpeciesActivityStageListCreateView(generics.ListCreateAPIView):
     serializer_class = SpeciesActivityStageSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    # Shared reference data: a fisherfolk may read the stages (activity logs); writes staff-only.
+    permission_classes = [IsAuthenticated, IsStaffOrFisherfolkReadOnly]
     pagination_class = None
 
     def get_queryset(self):
@@ -288,8 +322,7 @@ class FeedTypeListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         # Same species-scoping pattern as DiseaseTypeListCreateView (Batch C).
-        # Newest-first — see production.views.CropTypeListView's own comment.
-        qs = FeedType.objects.order_by('-id')
+        qs = FeedType.objects.order_by('name')
         species_id = self.request.query_params.get('species')
         if species_id:
             qs = qs.filter(species_options__id=species_id)
@@ -319,8 +352,7 @@ class DiseaseTypeListCreateView(generics.ListCreateAPIView):
         return [IsAuthenticated()]
 
     def get_queryset(self):
-        # Newest-first — see production.views.CropTypeListView's own comment.
-        qs = DiseaseType.objects.order_by('-id')
+        qs = DiseaseType.objects.order_by('name')
         species_id = self.request.query_params.get('species')
         if species_id:
             qs = qs.filter(species_options__id=species_id)
@@ -348,15 +380,7 @@ class DiseaseResponseGuideListCreateView(generics.ListCreateAPIView):
         return [IsAuthenticated()]
 
     def get_queryset(self):
-        # Newest-first for consistency with every other reference-data list
-        # in this app — see production.views.CropTypeListView's own comment.
-        # Every real consumer (DiseaseSettingsPage.jsx, CitizenHealthLogScreen.jsx,
-        # StockingMonitoringModals.jsx) either looks this up by disease_type id
-        # or scopes the query to one disease_type (at most 1 real row), so this
-        # ordering has no observable effect today — changed anyway so the
-        # queryset doesn't silently rely on alphabetical order if a multi-row
-        # consumer is ever added.
-        qs = DiseaseResponseGuide.objects.select_related('disease_type').order_by('-id')
+        qs = DiseaseResponseGuide.objects.select_related('disease_type').order_by('disease_type__name')
         disease_type_id = self.request.query_params.get('disease_type')
         if disease_type_id:
             qs = qs.filter(disease_type_id=disease_type_id)
@@ -474,7 +498,8 @@ class StockingListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         qs = StockingRecord.objects.select_related(
-            'fisherfolk', 'species', 'species__category', 'recorded_by',
+            'fisherfolk', 'species', 'species__category', 'recorded_by', 'production_cycle',
+            'production_cycle__organization',
         ).prefetch_related('logs', 'disaster_reports', 'harvests').order_by('-date_recorded', '-id')
 
         if self.request.user.role == 'CITIZEN':
@@ -498,11 +523,10 @@ class StockingListCreateView(generics.ListCreateAPIView):
             qs = qs.filter(year=params['year'])
         if params.get('fisherfolk'):
             qs = qs.filter(fisherfolk_id=params['fisherfolk'])
-        if params.get('barangay'):
-            qs = qs.filter(pond_location_barangay__iexact=params['barangay'])
-        # The Forecast tab's Species filter sent this all along but nothing read it.
         if params.get('species'):
             qs = qs.filter(species_id=params['species'])
+        if params.get('barangay'):
+            qs = qs.filter(pond_location_barangay__iexact=params['barangay'])
         # Fisherfolk by name in any order or by RSBSA / LGU / FishR number
         # (as typed or without dashes), plus species and barangay.
         qs = filter_people_search(
@@ -833,13 +857,14 @@ class StockingHistoryView(generics.ListAPIView):
     forecasting view. Reuses StockingRecordSerializer — which already exposes
     status, land_status, date_stocked, estimated_harvest_kg, total_harvested_kg
     and harvest_variance_days — and is unpaginated so the client can group
-    across the full set. Filters mirror the stocking list / yield-analysis."""
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    across the full set. Filters mirror the stocking list / yield-analysis.
+    A fisherfolk citizen gets only their own records (Forecasting's grouped view)."""
+    permission_classes = [IsAuthenticated, IsStaffOrFisherfolk]
     serializer_class = StockingRecordSerializer
     pagination_class = None
 
     def get_queryset(self):
-        qs = StockingRecord.objects.select_related(
+        qs = scope_to_fisherfolk(StockingRecord.objects.all(), self.request.user).select_related(
             'fisherfolk', 'species', 'species__category',
         ).prefetch_related('logs', 'disaster_reports', 'harvests').order_by(
             'fisherfolk__last_name', 'fisherfolk__first_name', '-date_stocked',
@@ -853,43 +878,45 @@ class StockingHistoryView(generics.ListAPIView):
             qs = qs.filter(year=params['year'])
         if params.get('fisherfolk'):
             qs = qs.filter(fisherfolk_id=params['fisherfolk'])
-        return qs
-
-
-class HealthMonitoringListView(generics.ListAPIView):
-    """Batch 4 — active stocking records with a health/feeding summary for
-    the Health & Feeding Monitoring table. Reuses HealthMonitoringSerializer
-    (built on StockingRecordSerializer, no new storage) — full per-record
-    history is the existing stocking/<id>/logs/ endpoint, same data
-    ViewStockingLogsModal already reads."""
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    serializer_class = HealthMonitoringSerializer
-    pagination_class = None
-
-    def get_queryset(self):
-        qs = StockingRecord.objects.filter(
-            status__in=[StockingRecord.Status.STOCKED, StockingRecord.Status.NEAR_HARVEST],
-        ).select_related('fisherfolk', 'pond', 'species').prefetch_related('logs').order_by(
-            'fisherfolk__last_name', 'fisherfolk__first_name', '-date_stocked',
-        )
-        params = self.request.query_params
-        if params.get('fisherfolk'):
-            qs = qs.filter(fisherfolk_id=params['fisherfolk'])
-        if params.get('barangay'):
-            qs = qs.filter(pond_location_barangay__iexact=params['barangay'])
+        if params.get('search'):
+            qs = filter_people_search(
+                qs, params.get('search'),
+                name_fields=['fisherfolk__first_name', 'fisherfolk__middle_name', 'fisherfolk__last_name'],
+                id_fields=['fisherfolk__rsbsa_number', 'fisherfolk__lgu_registration_number', 'fisherfolk__fishr_number'],
+                other_fields=['species__species_name', 'pond_location_barangay'],
+            )
         return qs
 
 
 class StockingDetailView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    queryset = StockingRecord.objects.select_related(
-        'fisherfolk', 'species', 'species__category', 'recorded_by',
-    ).prefetch_related('logs', 'disaster_reports', 'harvests')
+    permission_classes = [IsAuthenticated, IsStaffOrFisherfolk]
+    fisherfolk_blocked_methods = ('DELETE',)   # deleting stocking records stays staff-only (governance)
+
+    def get_queryset(self):
+        # A fisherfolk citizen only ever reaches their own stocking records - another id is a 404.
+        return scope_to_fisherfolk(StockingRecord.objects.all(), self.request.user).select_related(
+            'fisherfolk', 'species', 'species__category', 'recorded_by',
+        ).prefetch_related('logs', 'disaster_reports', 'disaster_reports__photos', 'harvests', 'harvests__production_units', 'harvests__unit_harvests__production_unit')
 
     def get_serializer_class(self):
         if self.request.method == 'GET':
             return StockingRecordDetailSerializer
         return StockingRecordSerializer
+
+    def update(self, request, *args, **kwargs):
+        owner = fisherfolk_scope(request.user)
+        if owner is not None:
+            # A fisherfolk can edit their own record but never move it to another fisherfolk or cycle.
+            instance = self.get_object()
+            data = request.data.copy()
+            data['fisherfolk'] = owner
+            if 'production_cycle' in data:
+                data['production_cycle'] = instance.production_cycle_id
+            serializer = self.get_serializer(instance, data=data, partial=kwargs.pop('partial', False))
+            serializer.is_valid(raise_exception=True)
+            self.perform_update(serializer)
+            return Response(serializer.data)
+        return super().update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
         obj = self.get_object()
@@ -919,6 +946,7 @@ def _stocking_record_label(stocking):
 class StockingActivityLogListCreateView(generics.ListCreateAPIView):
     serializer_class = FisheriesActivityLogSerializer
     permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
+    owner_record_type = 'FISHERFOLK'   # owner ids here are Fisherfolk pks - a Farmer-linked citizen never passes
     pagination_class = None
 
     def get_target_owner_id(self, request):
@@ -981,6 +1009,7 @@ class StockingActivityLogDetailView(generics.RetrieveUpdateAPIView):
     queryset = FisheriesActivityLog.objects.select_related('stocking_record')
     serializer_class = FisheriesActivityLogSerializer
     permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
+    owner_record_type = 'FISHERFOLK'   # owner ids here are Fisherfolk pks - a Farmer-linked citizen never passes
     http_method_names = ['get', 'patch']
     lookup_field = 'id'
 
@@ -1000,6 +1029,7 @@ class StockingDisasterReportListCreateView(generics.ListCreateAPIView):
     """
     serializer_class = FisheriesDisasterReportSerializer
     permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
+    owner_record_type = 'FISHERFOLK'   # owner ids here are Fisherfolk pks - a Farmer-linked citizen never passes
     pagination_class = None
 
     def get_target_owner_id(self, request):
@@ -1012,12 +1042,29 @@ class StockingDisasterReportListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         return FisheriesDisasterReport.objects.filter(
             stocking_record_id=self.kwargs['stocking_id']
-        ).order_by('-date_of_occurrence', '-id')
+        ).prefetch_related('photos').order_by('-date_of_occurrence', '-id')
+
+    def create(self, request, *args, **kwargs):
+        # Same contract as the general (no-stock) disaster create: optional 0-10 `photos`, validated before
+        # anything is saved, and report + photos + response built in one transaction.
+        _check_fisherfolk_disaster_type(request)
+        photos = _validated_damage_photos(request)
+        serializer = self.get_serializer(data=_disaster_form_data(request))
+        serializer.is_valid(raise_exception=True)
+        stocking_id = self.kwargs['stocking_id']
+        owner_id = StockingRecord.objects.filter(pk=stocking_id).values_list('fisherfolk_id', flat=True).first()
+        data, created = _create_disaster_with_photos(self, serializer, photos, owner_id, stocking_id)
+        return Response(data, status=drf_status.HTTP_201_CREATED if created else drf_status.HTTP_200_OK)
 
     def perform_create(self, serializer):
         stocking_id = self.kwargs['stocking_id']
         stocking = StockingRecord.objects.get(pk=stocking_id)
         assert_not_locked_by_other(self.request.user, 'stocking', stocking_id)
+        if is_fisherfolk_citizen(self.request.user):
+            # Their own log: submitted to Admin (and Admin notified) by _create_disaster_with_photos,
+            # in the same transaction, once the photos are saved too.
+            serializer.save(stocking_record_id=stocking_id, reported_by=self.request.user)
+            return
         disaster = serializer.save(
             stocking_record_id=stocking_id,
             reported_by=self.request.user,
@@ -1059,6 +1106,7 @@ class FisheriesDisasterResolveView(APIView):
     to delegate to. Recovery logic below unchanged for every role.
     """
     permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
+    owner_record_type = 'FISHERFOLK'   # owner ids here are Fisherfolk pks - a Farmer-linked citizen never passes
 
     def post(self, request, pk):
         disaster = get_object_or_404(FisheriesDisasterReport, pk=pk)
@@ -1147,15 +1195,122 @@ def _fisherfolk_disaster_label(fisherfolk):
     return f'{fisherfolk.full_name}, {barangay}' if barangay else fisherfolk.full_name
 
 
+def _general_disaster_data(request):
+    """A fisherfolk citizen's disaster data with `fisherfolk` forced to their own record (never trusted
+    from the request); staff data unchanged. Built as a plain dict rather than request.data.copy(): a
+    multipart request carries uploaded files, and QueryDict.copy() deep-copies them, which fails for large
+    (temporary-file) uploads. The multi-photo `photos` files are handled separately by the view."""
+    owner = fisherfolk_scope(request.user)
+    if owner is None:
+        return request.data
+    if hasattr(request.data, 'getlist'):   # form / multipart: one value per field (photos excluded)
+        data = {k: request.data.get(k) for k in request.data.keys() if k != 'photos'}
+    else:
+        data = dict(request.data)
+    data['fisherfolk'] = owner
+    return data
+
+
+# Fisherfolk accounts report aquaculture disasters only: no Disease Outbreak (disease goes through the
+# Health Log / Force Harvest). Staff keep every FisheriesDisasterReport type.
+FISHERFOLK_DISASTER_TYPES = ('Typhoon', 'Flooding', 'Storm Surge', 'El Nino Drought', 'Red Tide', 'Other')
+
+
+# A fisherfolk may only record recovery on a logged disaster, never change its content.
+FISHERFOLK_RECOVERY_FIELDS = ('status', 'recovery_note')
+
+
+def _check_fisherfolk_disaster_type(request):
+    if not is_fisherfolk_citizen(request.user):
+        return
+    disaster_type = request.data.get('disaster_type')
+    if disaster_type and disaster_type not in FISHERFOLK_DISASTER_TYPES:
+        raise ValidationError({'disaster_type': ['This disaster type is not available for fisherfolk reports.']})
+
+
+def _disaster_form_data(request):
+    """request.data minus the multi-photo `photos` files, as a plain dict for multipart (QueryDict.copy()
+    would deep-copy the uploaded files, which fails for large temporary-file uploads)."""
+    if hasattr(request.data, 'getlist'):
+        return {k: request.data.get(k) for k in request.data.keys() if k != 'photos'}
+    return request.data
+
+
+def _discard_uploaded_files(names):
+    """Delete files this request wrote for a report whose transaction then rolled back - only those exact
+    names (storage gives every upload a unique name), never anything belonging to a saved report."""
+    for name in names:
+        try:
+            default_storage.delete(name)
+        except Exception:
+            logger.exception('Could not remove orphaned disaster-report upload %s', name)
+
+
+def _create_disaster_with_photos(view, serializer, photos, owner_fisherfolk_id, stocking_record_id=None):
+    """Save the log (view.perform_create), then each photo as its own row, then - for a fisherfolk's own
+    log - submit it to Admin (submitted_at/by + Admin notification), then build the response. All in ONE
+    transaction: a failure anywhere leaves no log, no photos, no submission, no notification and (via the
+    cleanup below) no orphaned files.
+
+    The owner's row is locked first, so a repeat of the same log moments later (double click, browser or
+    network retry) finds the one already saved and returns it instead of creating a second log/notification.
+    Returns (response data, created)."""
+    user = view.request.user
+    written = []
+    try:
+        with transaction.atomic():
+            disaster_reports.lock_owner(owner_fisherfolk_id)
+            existing = disaster_reports.find_recent_duplicate(
+                user, owner_fisherfolk_id, stocking_record_id, serializer.validated_data,
+            )
+            if existing is not None:
+                return view.get_serializer(existing).data, False
+            view.perform_create(serializer)
+            report = serializer.instance
+            if report.photo:
+                written.append(report.photo.name)
+            # Each photo is its own row/file on THIS (just created, ownership-checked) log.
+            for f in photos:
+                row = FisheriesDisasterReportPhoto.objects.create(disaster_report=report, image=f, uploaded_by=user)
+                written.append(row.image.name)
+            if is_fisherfolk_citizen(user):
+                # The fisherfolk's Log Disaster IS the submission - there is no separate submit step.
+                disaster_reports.submit_on_log(report, user)
+            return view.get_serializer(report).data, True
+    except Exception:
+        _discard_uploaded_files(written)
+        raise
+
+
+def _validated_damage_photos(request):
+    """The multipart `photos` files of a disaster report: optional (0 is fine), at most
+    FisheriesDisasterReportPhoto.MAX_PER_REPORT, each checked by the project's image rules
+    (JPG/PNG/WEBP, 5 MB). Raises ValidationError so nothing is saved when any photo is invalid."""
+    files = request.FILES.getlist('photos') if hasattr(request, 'FILES') else []
+    limit = FisheriesDisasterReportPhoto.MAX_PER_REPORT
+    if len(files) > limit:
+        raise ValidationError({'photos': [f'Maximum of {limit} photos allowed.']})
+    errors = []
+    for i, f in enumerate(files, start=1):
+        try:
+            validate_uploaded_image(f)
+        except DjangoValidationError as exc:
+            errors.append(f'Photo {i}: ' + ' '.join(exc.messages))
+    if errors:
+        raise ValidationError({'photos': errors})
+    return files
+
+
 class GeneralDisasterReportListCreateView(generics.ListCreateAPIView):
     serializer_class = GeneralDisasterReportSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    # Fisherfolk citizens: their own disaster reports only, and new reports are always their own.
+    permission_classes = [IsAuthenticated, IsStaffOrFisherfolk]
     pagination_class = None
 
     def get_queryset(self):
-        qs = FisheriesDisasterReport.objects.filter(
+        qs = scope_to_fisherfolk(FisheriesDisasterReport.objects.all(), self.request.user).filter(
             stocking_record__isnull=True,
-        ).select_related('fisherfolk').order_by('-date_of_occurrence', '-id')
+        ).select_related('fisherfolk').prefetch_related('photos').order_by('-date_of_occurrence', '-id')
         params = self.request.query_params
         if params.get('fisherfolk'):
             qs = qs.filter(fisherfolk_id=params['fisherfolk'])
@@ -1165,7 +1320,24 @@ class GeneralDisasterReportListCreateView(generics.ListCreateAPIView):
             qs = qs.filter(disaster_type=params['disaster_type'])
         return qs
 
+    def create(self, request, *args, **kwargs):
+        _check_fisherfolk_disaster_type(request)
+        photos = _validated_damage_photos(request)          # 0-10 valid photos, or nothing is saved
+        serializer = self.get_serializer(data=_general_disaster_data(request))
+        serializer.is_valid(raise_exception=True)
+        # The report, its photos AND the response data are built in ONE transaction: if anything fails
+        # (e.g. a photo row, or reading the photos back), the report is rolled back too - the user is never
+        # told "failed" for a report that was in fact saved, and there are no half-saved reports. Photos can
+        # never be attached to anyone else's report, since there is no photo endpoint taking an id.
+        owner_id = serializer.validated_data['fisherfolk'].pk
+        data, created = _create_disaster_with_photos(self, serializer, photos, owner_id)
+        return Response(data, status=drf_status.HTTP_201_CREATED if created else drf_status.HTTP_200_OK)
+
     def perform_create(self, serializer):
+        if is_fisherfolk_citizen(self.request.user):
+            # Their own log: submitted to Admin (and Admin notified) by _create_disaster_with_photos.
+            serializer.save(reported_by=self.request.user)
+            return
         disaster = serializer.save(reported_by=self.request.user)
         notify_staff(
             actor=self.request.user,
@@ -1175,6 +1347,8 @@ class GeneralDisasterReportListCreateView(generics.ListCreateAPIView):
             record_label=_fisherfolk_disaster_label(disaster.fisherfolk),
             detail=disaster.disaster_type,
         )
+        if self.request.user.role == 'CITIZEN':
+            return   # the fisherfolk reported it themselves - no need to notify them about it
         notify_user(
             recipient=resolve_owner_user(fisherfolk_id=disaster.fisherfolk_id),
             actor=self.request.user,
@@ -1188,9 +1362,29 @@ class GeneralDisasterReportListCreateView(generics.ListCreateAPIView):
 
 class GeneralDisasterReportDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = GeneralDisasterReportSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    queryset = FisheriesDisasterReport.objects.filter(stocking_record__isnull=True).select_related('fisherfolk')
+    permission_classes = [IsAuthenticated, IsStaffOrFisherfolk]
+    fisherfolk_blocked_methods = ('DELETE',)   # deleting disaster reports stays Admin-only (destroy below)
     http_method_names = ['get', 'patch', 'delete']
+
+    def get_queryset(self):
+        return scope_to_fisherfolk(FisheriesDisasterReport.objects.all(), self.request.user).filter(
+            stocking_record__isnull=True,
+        ).select_related('fisherfolk').prefetch_related('photos')
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        if is_fisherfolk_citizen(request.user):
+            # A fisherfolk's log is submitted to Admin when it is logged, so its content is read-only to
+            # them. Only the disaster's recovery lifecycle (status / recovery_note - what Mark Recovered
+            # does for stock logs) may move. Office staff keep full edit rights.
+            changed = [k for k in request.data.keys() if k not in FISHERFOLK_RECOVERY_FIELDS]
+            if changed or getattr(request, 'FILES', None):
+                return Response({'detail': disaster_reports.READ_ONLY_MESSAGE}, status=drf_status.HTTP_403_FORBIDDEN)
+        serializer = self.get_serializer(instance, data=_general_disaster_data(request), partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
 
     def destroy(self, request, *args, **kwargs):
         if request.user.role != 'ADMIN':
@@ -1216,17 +1410,120 @@ class GeneralDisasterReportDetailView(generics.RetrieveUpdateDestroyAPIView):
             serializer.save()
 
 
+# ─── Disaster Logs (list / details / PDF) ──────────────────────────────────────
+# One surface for BOTH kinds of FisheriesDisasterReport (stock-attached and general). Fisherfolk reach only
+# their own logs - anything else is a 404, whatever id is put in the URL - and staff reach every log.
+# All read-only: logs are created through the two create endpoints above.
+
+def _scoped_disaster_reports(user):
+    qs = disaster_reports.report_queryset()
+    if user.role in STAFF_ROLES:
+        return qs
+    owner = user.get_linked_fisherfolk_id()
+    return qs.filter(Q(fisherfolk_id=owner) | Q(stocking_record__fisherfolk_id=owner))
+
+
+class FisheriesDisasterReportListView(APIView):
+    """Disaster log rows. Fisherfolk: their own. Staff: every fisherfolk's (Admin > Disaster > Fisheries).
+    Filters: search (fisherfolk, species, type, reference no.), barangay, disaster_type, status, year,
+    submission. With ?page= the response is paginated ({count, page, page_size, results}); without it, a
+    plain list."""
+    permission_classes = [IsAuthenticated, IsStaffOrFisherfolk]
+    PAGE_SIZE = 20
+
+    def get(self, request):
+        qs = _scoped_disaster_reports(request.user)
+        params = request.query_params
+        submission = params.get('submission')
+        if submission in FisheriesDisasterReport.SubmissionStatus.values:
+            qs = qs.filter(submission_status=submission)
+        if params.get('disaster_type'):
+            qs = qs.filter(disaster_type=params['disaster_type'])
+        if params.get('status') in ('Active', 'Recovered'):
+            qs = qs.filter(status=params['status'])
+        if params.get('year', '').isdigit():
+            qs = qs.filter(date_of_occurrence__year=int(params['year']))
+        if params.get('barangay'):
+            b = params['barangay']
+            qs = qs.filter(Q(fisherfolk__barangay__iexact=b) | Q(stocking_record__fisherfolk__barangay__iexact=b))
+        search = (params.get('search') or '').strip()
+        if search:
+            match = (Q(fisherfolk__first_name__icontains=search) | Q(fisherfolk__last_name__icontains=search)
+                     | Q(stocking_record__fisherfolk__first_name__icontains=search)
+                     | Q(stocking_record__fisherfolk__last_name__icontains=search)
+                     | Q(stocking_record__species__species_name__icontains=search)
+                     | Q(disaster_type__icontains=search) | Q(disaster_type_other_specify__icontains=search))
+            ref = search.upper().replace('FDR-', '').split('-')[-1]
+            if ref.isdigit():
+                match |= Q(pk=int(ref))
+            qs = qs.filter(match)
+        if submission == FisheriesDisasterReport.SubmissionStatus.SUBMITTED:
+            qs = qs.order_by('-submitted_at', '-id')
+        else:
+            qs = qs.order_by('-date_reported', '-id')
+        if not params.get('page'):
+            return Response([disaster_reports.report_list_row(r) for r in qs])
+        try:
+            page = max(1, int(params['page']))
+        except ValueError:
+            page = 1
+        count = qs.count()
+        rows = qs[(page - 1) * self.PAGE_SIZE: page * self.PAGE_SIZE]
+        return Response({'count': count, 'page': page, 'page_size': self.PAGE_SIZE,
+                         'results': [disaster_reports.report_list_row(r) for r in rows]})
+
+
+class FisheriesDisasterReportDocumentView(APIView):
+    """The complete disaster log (Disaster Details; also what Print and the PDF are built from)."""
+    permission_classes = [IsAuthenticated, IsStaffOrFisherfolk]
+
+    def get(self, request, pk):
+        report = get_object_or_404(_scoped_disaster_reports(request.user), pk=pk)
+        return Response(disaster_reports.report_document(report, request))
+
+class FisheriesDisasterReportPdfView(APIView):
+    """The saved disaster log as a real PDF file (read-only - nothing is created or changed)."""
+    permission_classes = [IsAuthenticated, IsStaffOrFisherfolk]
+
+    def get(self, request, pk):
+        report = get_object_or_404(_scoped_disaster_reports(request.user), pk=pk)
+        doc = disaster_reports.report_document(report, request)
+        try:
+            pdf_bytes = disaster_reports.build_report_pdf(report, doc)
+        except Exception:
+            logger.exception('Disaster report PDF failed for report %s', report.pk)
+            return Response({'detail': 'The PDF could not be generated. The disaster log was not changed - please try again.'},
+                            status=drf_status.HTTP_500_INTERNAL_SERVER_ERROR)
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{doc["pdf_filename"]}"'
+        response['Cache-Control'] = 'no-store'
+        return response
+
+
 class StockingHarvestListCreateView(generics.ListCreateAPIView):
     serializer_class = FisheriesHarvestRecordSerializer
     permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
+    owner_record_type = 'FISHERFOLK'   # owner ids here are Fisherfolk pks - a Farmer-linked citizen never passes
     pagination_class = None
 
+    def _stocking(self):
+        """The stocking record of this URL, read once per request (the permission check, the harvest
+        pre-checks and the serializer all use the same row instead of each querying it again)."""
+        if not hasattr(self, '_stocking_cache'):
+            self._stocking_cache = StockingRecord.objects.filter(pk=self.kwargs.get('stocking_id')).first()
+        return self._stocking_cache
+
     def get_target_owner_id(self, request):
-        stocking_id = self.kwargs.get('stocking_id')
-        try:
-            return StockingRecord.objects.get(pk=stocking_id).fisherfolk_id
-        except StockingRecord.DoesNotExist:
-            return None
+        record = self._stocking()
+        return record.fisherfolk_id if record else None
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        if self.request.method == 'POST':
+            # Already loaded by create(); validate() reuses them rather than querying them again.
+            context['stocking_record'] = self._stocking()
+            context['harvest_units'] = getattr(self, '_harvest_units_cache', None)
+        return context
 
     def get_queryset(self):
         return FisheriesHarvestRecord.objects.filter(
@@ -1236,10 +1533,18 @@ class StockingHarvestListCreateView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         stocking_id = kwargs.get('stocking_id')
         try:
-            record = StockingRecord.objects.get(pk=stocking_id)
+            record = self._stocking()
+            if record is None:
+                raise StockingRecord.DoesNotExist
             if record.status == StockingRecord.Status.TOTAL_LOSS:
                 return Response(
                     {'detail': 'Cannot record harvest for a Total Loss record — the stock was completely destroyed.'},
+                    status=drf_status.HTTP_400_BAD_REQUEST,
+                )
+            # A cycle is harvested once: no further harvest (partial or final) after the final one.
+            if record.status == StockingRecord.Status.HARVESTED or record.harvests.filter(is_final=True).exists():
+                return Response(
+                    {'detail': 'This production cycle has already been harvested. A harvest cannot be recorded twice.'},
                     status=drf_status.HTTP_400_BAD_REQUEST,
                 )
             # date_stocked is only an approximation for records with
@@ -1257,9 +1562,31 @@ class StockingHarvestListCreateView(generics.ListCreateAPIView):
                     )},
                     status=drf_status.HTTP_400_BAD_REQUEST,
                 )
+            # Force Harvest (an affected pond/cage still awaiting harvest, per the cycle's Health Log)
+            # lifts only this waiting rule, so it can be recorded before half the culture duration.
+            # Naming ponds/cages is NOT enough: a normal harvest of selected units stays gated. Only a
+            # selection that is an actual Force Harvest (every unit awaiting Force Harvest) is exempt.
             is_gated, message = harvest_gate_status(record.date_stocked, record.expected_harvest_date)
+            requested_units = request.data.get('production_units')
+            if not requested_units and isinstance(request.data.get('unit_quantities'), list):
+                # A per-unit harvest names its ponds/cages through unit_quantities instead.
+                requested_units = [row.get('production_unit') for row in request.data['unit_quantities'] if isinstance(row, dict)]
+            if requested_units and record.production_cycle_id:
+                # The ponds/cages' harvest status, computed once for this request: the gate below and the
+                # serializer's validation (via get_serializer_context) both use it.
+                self._harvest_units_cache = record.harvest_units()
             if is_gated:
-                return Response({'detail': message}, status=drf_status.HTTP_400_BAD_REQUEST)
+                if requested_units:
+                    if not record.is_force_harvest_selection(requested_units, getattr(self, '_harvest_units_cache', None)):
+                        return Response({'detail': message}, status=drf_status.HTTP_400_BAD_REQUEST)
+                else:
+                    # Force Harvest is unit-specific: one affected pond must NOT unlock a normal harvest of the
+                    # whole cycle before 50%. The only exception is the legacy case of a mortality/disease log
+                    # that was never tied to any pond/cage (cycle-level behaviour, as before).
+                    from monitoring.models import cycle_force_status
+                    _, legacy_unassigned_force = cycle_force_status(record.production_cycle_id)
+                    if not legacy_unassigned_force:
+                        return Response({'detail': message}, status=drf_status.HTTP_400_BAD_REQUEST)
         except StockingRecord.DoesNotExist:
             pass
         assert_not_locked_by_other(request.user, 'stocking', stocking_id)
@@ -1275,6 +1602,16 @@ class StockingHarvestListCreateView(generics.ListCreateAPIView):
             StockingRecord.objects.filter(pk=stocking_id).update(
                 status=StockingRecord.Status.HARVESTED
             )
+        # The response: the saved harvest with its ponds/cages and per-unit rows prefetched, so the
+        # serializer does not look each unit up one by one.
+        serializer.instance = FisheriesHarvestRecord.objects.select_related(
+            'stocking_record__fisherfolk', 'stocking_record__species', 'stocking_record__production_cycle', 'recorded_by',
+        ).prefetch_related('production_units', 'unit_harvests__production_unit').get(pk=harvest.pk)
+        if harvest.is_force_harvest:
+            # ONE "Force Harvest Recorded" notification for the event (owner + staff), once it commits. It
+            # replaces the generic "recorded a harvest" message below for the owner.
+            queue_force_harvest(serializer.instance, self.request.user)
+            return
         stocking = StockingRecord.objects.get(pk=stocking_id)
         if self.request.user.role != 'CITIZEN':
             notify_user(
@@ -1293,6 +1630,7 @@ class StockingHarvestDetailView(generics.RetrieveUpdateAPIView):
     queryset = FisheriesHarvestRecord.objects.select_related('stocking_record')
     serializer_class = FisheriesHarvestRecordSerializer
     permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
+    owner_record_type = 'FISHERFOLK'   # owner ids here are Fisherfolk pks - a Farmer-linked citizen never passes
     http_method_names = ['get', 'patch']
     lookup_field = 'id'
 
@@ -1301,6 +1639,137 @@ class StockingHarvestDetailView(generics.RetrieveUpdateAPIView):
 
     def get_object_creator_id(self, obj):
         return obj.recorded_by_id
+
+
+def harvest_variance(estimated_kg, actual_kg, harvest_count):
+    """Actual vs estimated harvest. difference_kg needs a harvest and an estimate; variance_pct also needs
+    a non-zero estimate: ((actual - estimated) / estimated) * 100. Nothing is computed from other values."""
+    if not harvest_count or estimated_kg is None:
+        return None, None
+    difference = actual_kg - estimated_kg
+    pct = None if estimated_kg == 0 else float(difference / estimated_kg * Decimal('100'))
+    return difference, pct
+
+
+class StockingVarianceDetailsView(APIView):
+    """Read-only data for the Forecasting "Harvest Variance Details" modal of ONE stocking record: the
+    estimate, the actual total (the same SUM(FisheriesHarvestRecord.quantity_kg) as total_harvested_kg -
+    FisheriesHarvestUnit rows are only listed, never added again), the harvest records with their units,
+    type, date and reason, and the Health Log / Feeding Log entries of THIS record's own production cycle.
+    It only lists recorded data; no cause is inferred.
+    A fisherfolk citizen can open only their own records (another id is a 404); the activities listed
+    always belong to that record's own cycle."""
+    permission_classes = [IsAuthenticated, IsStaffOrFisherfolk]
+
+    def get(self, request, pk):
+        from monitoring.models import AquacultureFeedingLog, AquacultureHealthLog, cycle_force_status
+        rec = get_object_or_404(scope_to_fisherfolk(StockingRecord.objects.all(), request.user), pk=pk)
+        unit_label = lambda u: f'{u.get_unit_type_display()} {u.unit_number}'
+        harvests = list(rec.harvests.prefetch_related('production_units', 'unit_harvests__production_unit').order_by('harvest_date', 'id'))
+        actual = sum((h.quantity_kg for h in harvests), Decimal('0'))
+        # The variance compares the harvest recorded SO FAR with the estimate, whether or not the cycle is
+        # fully harvested; is_fully_harvested (final harvest recorded) only tells the UI how to word it.
+        is_fully_harvested = rec.status == StockingRecord.Status.HARVESTED
+        difference, pct = harvest_variance(rec.estimated_harvest_kg, actual, len(harvests))
+        force_reasons, _ = cycle_force_status(rec.production_cycle_id)
+
+        # Per unit of each Force Harvest: that unit's own harvested kg (when recorded per unit), so a
+        # Health Log row can show the harvest it led to.
+        force_harvest_by_unit = {}
+        harvest_rows = []
+        for h in harvests:
+            kg_by_unit = {row.production_unit_id: row.quantity_kg for row in h.unit_harvests.all()}
+            units = []
+            for u in sorted(h.production_units.all(), key=lambda x: x.unit_number):
+                kg = kg_by_unit.get(u.id)
+                units.append({
+                    'production_unit': u.id, 'label': unit_label(u),
+                    'quantity_kg': str(kg) if kg is not None else None,     # None: older combined record
+                    # Force Harvest reason = that unit's OWN Health Log observation(s).
+                    'health_reasons': force_reasons.get(u.id, []) if h.is_force_harvest else [],
+                })
+                if h.is_force_harvest:
+                    force_harvest_by_unit[u.id] = {'harvest_id': h.id, 'harvest_date': str(h.harvest_date),
+                                                   'quantity_kg': str(kg) if kg is not None else None}
+            timing, timing_days = harvest_timing(h.harvest_date, rec.expected_harvest_date)
+            harvest_rows.append({
+                'id': h.id, 'harvest_date': str(h.harvest_date),
+                # Each record's own timing (same rule as Record Harvest); its reason is early_late_reason.
+                'harvest_timing': timing, 'harvest_timing_label': HARVEST_TIMING_LABELS.get(timing),
+                'harvest_timing_days': timing_days,
+                'harvest_type': 'Force' if h.is_force_harvest else 'Normal',
+                'is_final': h.is_final, 'quantity_kg': str(h.quantity_kg),
+                'reason': h.early_late_reason,       # the saved text itself (a custom "Other" reason included)
+                'area_or_units_harvested': h.area_or_units_harvested, 'notes': h.notes,
+                'units': units,
+            })
+
+        # EVERY pond/cage of this record's cycle (from AquacultureProductionUnit, not from the harvest links,
+        # so never-harvested units are included), with its state from the existing harvest data
+        # (StockingRecord.harvest_units) and its own recorded kg. A unit that is not harvested has no
+        # actual harvest (None, never 0); a unit inside an older combined record has no own kg either.
+        unit_kg = {}
+        combined_units = set()
+        for h in harvests:
+            rows = {row.production_unit_id: row.quantity_kg for row in h.unit_harvests.all()}
+            for u in h.production_units.all():
+                if u.id in rows:
+                    unit_kg[u.id] = unit_kg.get(u.id, Decimal('0')) + rows[u.id]
+                else:
+                    combined_units.add(u.id)
+        unit_status_rows = []
+        for u in rec.harvest_units():
+            status = 'force_harvested' if u['force_harvested'] else 'harvested' if u['harvested'] else 'still_stocked'
+            kg = unit_kg.get(u['id']) if u['harvested'] else None
+            unit_status_rows.append({
+                'id': u['id'], 'name': u['label'], 'status': status,
+                'actual_harvest_kg': str(kg) if kg is not None else None,
+                'in_combined_harvest': u['harvested'] and kg is None and u['id'] in combined_units,
+            })
+
+        health_rows, feeding_rows = [], []
+        if rec.production_cycle_id:   # activities of THIS cycle only - never another cycle or fisherfolk
+            for log in AquacultureHealthLog.objects.filter(production_cycle_id=rec.production_cycle_id) \
+                    .select_related('production_unit').order_by('log_date', 'id'):
+                health_rows.append({
+                    'id': log.id, 'log_date': str(log.log_date),
+                    'production_unit': log.production_unit_id,
+                    'unit_label': unit_label(log.production_unit) if log.production_unit else None,
+                    'observation': log.observation, 'mortality_count': log.mortality_count,
+                    'treatment_applied': log.treatment_applied, 'notes': log.notes,
+                    'force_harvest': log.force_harvest,
+                    # The Force Harvest record of this log's unit, if one was recorded.
+                    'force_harvest_record': force_harvest_by_unit.get(log.production_unit_id),
+                })
+            for log in AquacultureFeedingLog.objects.filter(production_cycle_id=rec.production_cycle_id) \
+                    .prefetch_related('unit_quantities__production_unit').order_by('feeding_date', 'id'):
+                feeding_rows.append({
+                    'id': log.id, 'feeding_date': str(log.feeding_date), 'feed_type': log.feed_type,
+                    'quantity_kg': str(log.quantity_kg), 'notes': log.notes,
+                    'units': [{'production_unit': q.production_unit_id, 'label': unit_label(q.production_unit),
+                               'quantity_kg': str(q.quantity_kg)} for q in log.unit_quantities.all()],
+                })
+
+        activity_dates = [r['harvest_date'] for r in harvest_rows] + [r['log_date'] for r in health_rows] \
+            + [r['feeding_date'] for r in feeding_rows]
+        return Response({
+            'stocking_record': rec.id,
+            'production_cycle': rec.production_cycle_id,
+            'estimated_kg': str(rec.estimated_harvest_kg) if rec.estimated_harvest_kg is not None else None,
+            'estimated_harvest_date': str(rec.expected_harvest_date) if rec.expected_harvest_date else None,
+            'actual_total_kg': str(actual),
+            'harvest_count': len(harvests),
+            'status': rec.status,
+            'is_fully_harvested': is_fully_harvested,
+            'production_units': unit_status_rows,
+            'difference_kg': str(difference) if difference is not None else None,
+            'variance_pct': pct,
+            'period': {'from': str(rec.date_stocked) if rec.date_stocked else None,
+                       'to': max(activity_dates) if activity_dates else None},
+            'harvests': harvest_rows,
+            'health_logs': health_rows,
+            'feeding_logs': feeding_rows,
+        })
 
 
 class StockingHarvestDeleteView(generics.DestroyAPIView):
@@ -1334,6 +1803,7 @@ class FisheriesActivitySuggestionsView(APIView):
     # for the same reason the crop view does it: this is a plain APIView with
     # no queryset for DRF's object-level machinery to hook into.
     permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
+    owner_record_type = 'FISHERFOLK'   # owner ids here are Fisherfolk pks - a Farmer-linked citizen never passes
 
     def get_target_owner_id(self, request):
         stocking_id = self.kwargs.get('stocking_id')
@@ -1471,13 +1941,29 @@ class FisheriesActivitySuggestionsView(APIView):
 # ─── Legacy Capture Fishing / Vessel / Assistance ─────────────────────────────
 # Relocated from monitoring app (Phase 3 of the fisheries merge).
 
+# Capture Fishing: Admin/Evaluator see every catch log (unchanged); a fisherfolk citizen sees and records
+# only their own, and their summary aggregates only their own trips.
+
+def _trip_queryset(user):
+    return scope_to_fisherfolk(FishingTripLog.objects.all(), user)
+
+
+def _with_own_fisherfolk_trip(request):
+    owner = fisherfolk_scope(request.user)
+    if owner is None:
+        return request.data
+    data = request.data.copy()
+    data['fisherfolk'] = owner
+    return data
+
+
 class FishingTripLogListCreateView(generics.ListCreateAPIView):
     serializer_class = FishingTripLogSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsStaffOrFisherfolk]
     pagination_class = None
 
     def get_queryset(self):
-        qs = FishingTripLog.objects.select_related(
+        qs = _trip_queryset(self.request.user).select_related(
             'fisherfolk', 'recorded_by',
         ).prefetch_related('species_entries').order_by('-trip_date')
         params = self.request.query_params
@@ -1489,14 +1975,30 @@ class FishingTripLogListCreateView(generics.ListCreateAPIView):
             qs = qs.filter(fisherfolk__barangay=params['barangay'])
         return qs
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=_with_own_fisherfolk_trip(request))
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response(serializer.data, status=drf_status.HTTP_201_CREATED)
+
     def perform_create(self, serializer):
         serializer.save(recorded_by=self.request.user)
 
 
 class FishingTripLogDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = FishingTripLogSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    queryset = FishingTripLog.objects.select_related('fisherfolk').prefetch_related('species_entries')
+    permission_classes = [IsAuthenticated, IsStaffOrFisherfolk]
+    fisherfolk_blocked_methods = ('DELETE',)   # deleting catch logs stays Admin-only (destroy below)
+
+    def get_queryset(self):
+        return _trip_queryset(self.request.user).select_related('fisherfolk').prefetch_related('species_entries')
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        serializer = self.get_serializer(self.get_object(), data=_with_own_fisherfolk_trip(request), partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
 
     def destroy(self, request, *args, **kwargs):
         if request.user.role != 'ADMIN':
@@ -1508,15 +2010,16 @@ class FishingTripLogDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 class TripSpeciesEntryListCreateView(APIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsStaffOrFisherfolk]
 
     def get(self, request, trip_id):
-        entries = TripSpeciesEntry.objects.filter(fishing_trip_id=trip_id).order_by('-volume_kg')
+        trip = get_object_or_404(_trip_queryset(request.user), pk=trip_id)
+        entries = TripSpeciesEntry.objects.filter(fishing_trip=trip).order_by('-volume_kg')
         serializer = TripSpeciesEntrySerializer(entries, many=True)
         return Response(serializer.data)
 
     def post(self, request, trip_id):
-        trip = FishingTripLog.objects.get(pk=trip_id)
+        trip = get_object_or_404(_trip_queryset(request.user), pk=trip_id)
         serializer = TripSpeciesEntrySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         serializer.save(fishing_trip=trip)
@@ -1525,19 +2028,21 @@ class TripSpeciesEntryListCreateView(APIView):
 
 class TripSpeciesEntryDeleteView(generics.DestroyAPIView):
     serializer_class = TripSpeciesEntrySerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    queryset = TripSpeciesEntry.objects.all()
+    permission_classes = [IsAuthenticated, IsStaffOrFisherfolk]
+
+    def get_queryset(self):
+        return scope_to_fisherfolk(TripSpeciesEntry.objects.all(), self.request.user, 'fishing_trip__fisherfolk_id')
 
 
 class FishingTripSummaryView(APIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsStaffOrFisherfolk]
 
     def get(self, request):
         season = request.query_params.get('season')
         year = request.query_params.get('year')
         barangay = request.query_params.get('barangay')
 
-        qs = FishingTripLog.objects.all()
+        qs = _trip_queryset(request.user)
         if year:
             qs = qs.filter(trip_date__year=year)
         if season:
@@ -1775,15 +2280,28 @@ def _fisheries_yield_analysis_queryset(request):
     return qs.order_by('-date_stocked')
 
 
-def _stocking_activity_completion(rec):
+def _yield_analysis_context(records):
+    """Per-record lookups of the yield analysis loaded once for all records: each species' activity stages
+    (in SpeciesActivityStage's own order) and every record's production cycle number."""
+    stages_by_species = defaultdict(list)
+    species_ids = {r.species_id for r in records if r.species_id}
+    if species_ids:
+        for stage in SpeciesActivityStage.objects.filter(species_option_id__in=species_ids):
+            stages_by_species[stage.species_option_id].append(stage)
+    return {'stages_by_species': stages_by_species, 'cycle_no': production_cycle_numbers_bulk(records)}
+
+
+def _stocking_activity_completion(rec, stages=None):
     """
     Expand this stocking's SpeciesActivityStage occurrences (application_days),
     the same expansion FisheriesActivitySuggestionsView uses, and match each
     one against the stocking's logged activities using the same rule: same
     activity name, and either the log's target_day matches the occurrence or
     its date falls within the stage's window_days of the scheduled due date.
+    `stages`: this species' stages when already loaded (see _yield_analysis_context).
     """
-    stages = SpeciesActivityStage.objects.filter(species_option_id=rec.species_id)
+    if stages is None:
+        stages = SpeciesActivityStage.objects.filter(species_option_id=rec.species_id)
     logs = list(rec.logs.all())
     stocked = rec.date_stocked
 
@@ -1822,7 +2340,8 @@ def _stocking_activity_completion(rec):
     return total, completed, missed_high, breakdown
 
 
-def _analyze_stocking(rec):
+def _analyze_stocking(rec, context=None):
+    """`context`: _yield_analysis_context() of the records being analyzed (no per-record queries)."""
     harvests = list(rec.harvests.all())
     actual_total_kg = sum((h.quantity_kg for h in harvests if h.quantity_kg is not None), Decimal('0'))
     estimated_kg = rec.estimated_harvest_kg
@@ -1834,7 +2353,8 @@ def _analyze_stocking(rec):
         variance_kg = actual_total_kg - estimated_kg
         variance_pct = None if estimated_kg == 0 else float((variance_kg / estimated_kg) * Decimal('100'))
 
-    total, completed, missed_high, breakdown = _stocking_activity_completion(rec)
+    total, completed, missed_high, breakdown = _stocking_activity_completion(
+        rec, context['stages_by_species'].get(rec.species_id, []) if context else None)
 
     harvest_dates = sorted({
         (h.harvest_date or h.date_recorded.date()).isoformat()
@@ -1862,7 +2382,7 @@ def _analyze_stocking(rec):
         'actual_total_kg': float(actual_total_kg),
         'variance_kg': float(variance_kg) if variance_kg is not None else None,
         'variance_pct': round(variance_pct, 2) if variance_pct is not None else None,
-        'production_cycle_no': rec.compute_production_cycle_no(),
+        'production_cycle_no': context['cycle_no'][rec.id] if context else rec.compute_production_cycle_no(),
         'activities_completed_count': completed,
         'activities_total_count': total,
         'missed_high_priority': missed_high,
@@ -1907,8 +2427,9 @@ class FisheriesYieldAnalysisView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        records = _fisheries_yield_analysis_queryset(request)
-        data = [_analyze_stocking(rec) for rec in records]
+        records = list(_fisheries_yield_analysis_queryset(request))
+        context = _yield_analysis_context(records)
+        data = [_analyze_stocking(rec, context) for rec in records]
         return Response({
             'count': len(data),
             'records': data,
@@ -1917,7 +2438,9 @@ class FisheriesYieldAnalysisView(APIView):
 
 
 class FisheriesYieldAnalysisSummaryView(APIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    # A fisherfolk citizen may open it too: _fisheries_yield_analysis_queryset() already limits a CITIZEN
+    # to their own stocking records, so their summary only ever aggregates their own data.
+    permission_classes = [IsAuthenticated, IsStaffOrFisherfolk]
 
     def get(self, request):
         group_by = request.query_params.get('group_by', 'barangay')
@@ -1925,7 +2448,8 @@ class FisheriesYieldAnalysisSummaryView(APIView):
             group_by = 'barangay'
 
         records = list(_fisheries_yield_analysis_queryset(request))
-        analyzed = [_analyze_stocking(rec) for rec in records]
+        context = _yield_analysis_context(records)
+        analyzed = [_analyze_stocking(rec, context) for rec in records]
 
         groups = {}
         for rec, a in zip(records, analyzed):

@@ -10,7 +10,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import IsAdminOrEvaluator, IsCitizen, IsOrgMemberRecordCitizen
+from accounts.permissions import (
+    IsAdminOrEvaluator, IsCitizen, IsOrgMemberRecordCitizen, IsStaffOrFisherfolk,
+    is_fisherfolk_citizen, scope_to_fisherfolk,
+)
 from accounts.utils import accountless_or_unactivated_ids
 from associations.models import FarmersOrganizationMember, FisherfolkOrganizationMember
 from core.notifications import notify_staff, notify_user, resolve_owner_user
@@ -150,14 +153,19 @@ class FisherfolkBeneficiaryAdHocListCreateView(generics.ListCreateAPIView):
 
     def get_permissions(self):
         if self.request.method == 'GET':
-            return [IsAuthenticated(), IsAdminOrEvaluator()]
+            # The Admin Fisheries Assistance page is reused by fisherfolk accounts read-only: a fisherfolk
+            # citizen lists only their OWN assistance (scoped below). Creating stays staff/organization.
+            return [IsAuthenticated(), IsStaffOrFisherfolk()]
         return [IsAuthenticated(), IsOrgMemberRecordCitizen()]
 
     def get_target_person_id(self, request):
         return request.data.get('fisherfolk')
 
     def get_queryset(self):
-        qs = FisherfolkBeneficiaryRecord.objects.select_related('fisherfolk', 'recorded_by').order_by('-date_given', '-id')
+        if is_fisherfolk_citizen(self.request.user):
+            advance_due_distributions(self.request.user)   # same lazy status step as MyFisherfolkBeneficiaryHistoryView
+        qs = scope_to_fisherfolk(FisherfolkBeneficiaryRecord.objects.all(), self.request.user) \
+            .select_related('fisherfolk', 'recorded_by').order_by('-date_given', '-id')
         params = self.request.query_params
         if params.get('fisherfolk'):
             qs = qs.filter(fisherfolk_id=params['fisherfolk'])

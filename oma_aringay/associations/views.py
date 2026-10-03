@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import User
-from accounts.permissions import IsAdminOrEvaluator, IsOwnOrgOrStaff
+from accounts.permissions import IsAdminOrEvaluator, IsOwnOrgOrStaff, IsStaffOrFisherfolk, fisherfolk_scope
 from accounts.utils import create_inactive_citizen_shell
 from farmers.models import Farmer
 from farmers.rsbsa_import import normalize_barangay
@@ -458,6 +458,10 @@ class OrganizationOfficerEndTermView(APIView):
 
 class FisherfolkOrganizationListCreateView(generics.ListCreateAPIView):
     def get_permissions(self):
+        # A fisherfolk citizen may READ the list (Start Production Cycle's Organization dropdown), limited
+        # below to the organizations they are an active member of; everything else stays staff-only.
+        if self.request.method == 'GET':
+            return [IsAuthenticated(), IsStaffOrFisherfolk()]
         return [IsAuthenticated(), IsAdminOrEvaluator()]
 
     def get_serializer_class(self):
@@ -468,8 +472,10 @@ class FisherfolkOrganizationListCreateView(generics.ListCreateAPIView):
         search = self.request.query_params.get('search', '').strip()
         if search:
             qs = qs.filter(Q(name__icontains=search) | Q(barangay__icontains=search))
-        # Only organizations this fisherfolk is an active member of (the real join table).
-        fisherfolk_id = self.request.query_params.get('fisherfolk', '').strip()
+        # Only organizations this fisherfolk is an active member of (the real join table). For a fisherfolk
+        # citizen this is always their OWN membership, whatever `fisherfolk` the request names.
+        owner = fisherfolk_scope(self.request.user)
+        fisherfolk_id = str(owner) if owner is not None else self.request.query_params.get('fisherfolk', '').strip()
         if fisherfolk_id:
             if not fisherfolk_id.isdigit():
                 return qs.none()

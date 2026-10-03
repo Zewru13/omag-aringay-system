@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import useDebouncedValue from '../../hooks/useDebouncedValue.js'
-import { AlertTriangle, Eye, HelpCircle, Lock, Pencil, Plus, Trash2, Unlock, Upload, Wheat } from 'lucide-react'
+import { AlertTriangle, Eye, Fish, HelpCircle, Layers, Lock, Pencil, Trash2, Unlock, Upload, Wheat } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import ImportFileModal from '../../components/ImportFileModal.jsx'
@@ -8,6 +8,7 @@ import RowActions from '../../components/UI/RowActions.jsx'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DisasterIndicator from '../../components/UI/DisasterIndicator.jsx'
+import FishingNetIcon from '../../components/UI/FishingNetIcon.jsx'
 import HarvestVarianceBadge from '../../components/UI/HarvestVarianceBadge.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
@@ -18,61 +19,27 @@ import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import AquacultureCycleDetailModal from '../Monitoring/AquacultureCycleDetailModal.jsx'
+import { rowClickProps } from '../../utils/rowClick.js'
+import StartProductionCycleModal from '../Monitoring/StartProductionCycleModal.jsx'
 import {
   RecordStockingHarvestModal,
   StockingDisasterReportModal,
   ViewStockingLogsModal,
 } from './StockingMonitoringModals.jsx'
 import PondSelector from './PondSelector.jsx'
-import { computeHarvestPreview, detectSeason, fmtLong, fmtShort } from './stockingHelpers.js'
+import { computeHarvestPreview, detectSeason, fmtActualHarvestKg, fmtLong, fmtShort, harvestGateStatus } from './stockingHelpers.js'
 
 const filterSelectCls =
   'rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[7px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none'
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-// 'Due Harvest'/'Ready for Harvest'/'Overdue' are NOT real backend status
-// values — see getStockingDisplayStatus below — but need their own tone
-// entries since the pill renders whatever that function returns, never the
-// raw 'Near Harvest' string directly. 'Overdue' shares 'rose' with 'Ready
-// for Harvest'/'Total Loss' rather than inventing a new hue — mirrors
-// CropMonitoringPage.jsx's own getCropDisplayStatus/STATUS_TONES exactly.
 const STATUS_TONES = {
-  Stocked:             'green',
-  'Near Harvest':      'amber',
-  'Due Harvest':        'amber',
-  'Ready for Harvest':  'rose',
-  Overdue:              'rose',
-  Harvested:            'blue',
-  'Total Loss':         'rose',
-}
-
-// Display-only reinterpretation of the real 'Near Harvest' backend status —
-// the backend enum, model, and stored value are untouched; this only
-// decides which of three words the pill shows for a record already inside
-// that existing ≤7-day-or-later window. Every other status (Stocked/
-// Harvested/Total Loss) passes through unchanged. Mirrors
-// CropMonitoringPage.jsx's own getCropDisplayStatus exactly — same
-// thresholds, same gating, kept as an independent per-domain copy rather
-// than a shared util (this codebase's established convention).
-//
-// Two boundaries, both single `<`/`<=` tests so every day maps to exactly
-// one label:
-//   diffDays >  0        -> 'Due Harvest'       (still counting down)
-//   -7 <= diffDays <= 0  -> 'Ready for Harvest'  (day 0 = harvest date has
-//                           arrived, through a week past — still "just
-//                           became ready", not yet neglected)
-//   diffDays < -7        -> 'Overdue'            (more than a week past due
-//                           with no harvest recorded — mirrors the width of
-//                           the existing 7-day Near-Harvest window itself)
-function getStockingDisplayStatus(rec) {
-  if (rec.status !== 'Near Harvest' || !rec.expected_harvest_date) return rec.status
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const expected = new Date(rec.expected_harvest_date + 'T00:00:00')
-  const diffDays = Math.round((expected - today) / (1000 * 60 * 60 * 24))
-  if (diffDays < -7) return 'Overdue'
-  return diffDays <= 0 ? 'Ready for Harvest' : 'Due Harvest'
+  Stocked:         'green',
+  'Near Harvest':  'amber',
+  Harvested:       'blue',
+  'Total Loss':    'rose',
 }
 
 const COLUMNS = [
@@ -83,6 +50,7 @@ const COLUMNS = [
   { key: 'date_stocked_fmt',    label: 'DATE STOCKED' },
   { key: 'expected_harvest_fmt',label: 'EXPECTED HARVEST' },
   { key: 'est_harvest_kg_fmt',  label: 'EST. HARVEST (KG)' },
+  { key: 'actual_harvest_kg_fmt', label: 'ACTUAL HARVEST (KG)' },
   { key: 'assoc_name',          label: 'ORGANIZATION' },
   { key: 'pond_location',       label: 'POND LOCATION' },
   { key: 'status_cell',         label: 'STATUS' },
@@ -117,6 +85,7 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
 
   const originalData = {
     pond:                    record.pond || null,
+    production_cycle:        record.production_cycle ?? null,
     pond_location_barangay: record.pond_location_barangay || '',
     land_status:            record.land_status || '',
     land_status_other_specify: record.land_status_other_specify || '',
@@ -147,6 +116,19 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
+  // Cycles this fisherfolk owns: Active ones for normal selection, plus the
+  // currently-linked cycle even if it is Harvested/Failed/Abandoned so it stays visible.
+  const [cycleOptions, setCycleOptions] = useState([])
+  useEffect(() => {
+    if (!record.fisherfolk) return
+    api.get('/monitoring/aquaculture-cycles/', { params: { fisherfolk: record.fisherfolk } })
+      .then(r => {
+        const list = Array.isArray(r.data) ? r.data : (r.data.results || [])
+        setCycleOptions(list.filter(c => c.status === 'Active' || c.id === record.production_cycle))
+      })
+      .catch(() => showToast('Failed to load production cycles.', 'error'))
+  }, [record.fisherfolk, record.production_cycle])
+
   const speciesObj = speciesList.find(s => String(s.id) === String(record.species))
   const isShellfish = Boolean(speciesObj && speciesObj.category_name && speciesObj.category_name !== 'Finfish')
 
@@ -171,6 +153,7 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
     try {
       await api.patch(`/fisheries/stocking/${record.id}/`, {
         pond:                    form.pond || null,
+        production_cycle:        form.production_cycle || null,
         pond_location_barangay: form.pond_location_barangay,
         land_status:            form.land_status,
         land_status_other_specify: form.land_status === 'Other' ? form.land_status_other_specify : '',
@@ -208,21 +191,9 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
       subtitle="Update stocking record details."
       icon={Pencil}
       onClose={onClose}
-      maxWidth="max-w-3xl"
-      footer={
-        <>
-          <button type="button" onClick={onClose}
-            className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
-            Cancel
-          </button>
-          <button type="submit" form="edit-stocking-record-form" disabled={isSubmitting || !isDirty}
-            className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50">
-            {isSubmitting ? 'Saving…' : 'Save Changes'}
-          </button>
-        </>
-      }
+      maxWidth="max-w-lg"
     >
-      <form id="edit-stocking-record-form" onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
         {/* Species info — read-only */}
         <div className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] px-4 py-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8] mb-1">Species (Read-Only)</p>
@@ -249,6 +220,17 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
             }))
           }}
         />
+
+        <div>
+          <label className={editLabelCls}>Production Cycle (optional)</label>
+          <select className={baseInputClasses} value={form.production_cycle ?? ''}
+            onChange={e => set('production_cycle', e.target.value ? Number(e.target.value) : null)}>
+            <option value="">— None —</option>
+            {cycleOptions.map(c => (
+              <option key={c.id} value={c.id}>{c.cycle_name} — {c.species_farmed} ({c.status})</option>
+            ))}
+          </select>
+        </div>
 
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
@@ -428,6 +410,16 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
           </div>
         )}
 
+        <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-3">
+          <button type="button" onClick={onClose}
+            className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
+            Cancel
+          </button>
+          <button type="submit" disabled={isSubmitting || !isDirty}
+            className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50">
+            {isSubmitting ? 'Saving…' : 'Save Changes'}
+          </button>
+        </div>
       </form>
 
       {showDeleteConfirm && (
@@ -448,6 +440,285 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
 }
 
 // ─── Detail Modal (Eye) ────────────────────────────────────────────────────────
+
+// Force-harvested ponds/cages of a cycle-linked record, straight from the backend's harvest_units.
+// `force_harvested` = the unit is listed on a harvest record with is_force_harvest=True (set by the
+// backend). A normally harvested unit and a Health Log alone (force_harvest without a harvest) never
+// qualify. Labels are "Pond N" / "Cage N" -> HP N / HC N.
+function forceHarvestedUnits(rec) {
+  return (rec.harvest_units || [])
+    .filter(u => u.force_harvested)
+    .map(u => {
+      const m = /^(Pond|Cage)\s+(\d+)$/.exec(u.label || '')
+      if (!m) return null
+      const prefix = m[1] === 'Pond' ? 'HP' : 'HC'
+      return { ...u, typeLabel: m[1], number: m[2], prefix, code: `${prefix}${m[2]}` }
+    })
+    .filter(Boolean)
+}
+
+// Display only: one compact badge per prefix showing HOW MANY units were force harvested - three ponds
+// -> "HP 3", ten cages -> "HC 10"; mixed types stay separate ("HP 2" and "HC 2"). The badge never lists
+// the units, so it keeps the same small footprint however many there are; each group keeps its actual
+// units (numeric order) for the details modal, which lists them all.
+function groupForceHarvestedUnits(units) {
+  const groups = new Map()
+  for (const u of units) {
+    if (!groups.has(u.prefix)) groups.set(u.prefix, [])
+    groups.get(u.prefix).push(u)
+  }
+  return [...groups.entries()].map(([prefix, list]) => {
+    const sorted = [...list].sort((a, b) => Number(a.number) - Number(b.number))
+    const noun = sorted[0].typeLabel === 'Cage' ? 'cage' : 'pond'
+    return {
+      prefix, units: sorted, code: `${prefix} ${sorted.length}`,
+      names: sorted.map(u => u.label).join(', '),
+      ariaLabel: `View ${sorted.length} Force Harvested ${noun}${sorted.length === 1 ? '' : 's'}`,
+    }
+  })
+}
+
+// Force Harvest Details for ONE pond/cage at a time: its own Health Log entries (cycle health endpoint,
+// filtered by production_unit) and the harvest record that lists it (stocking detail endpoint,
+// production_units). A grouped badge (e.g. HP1,2) passes all its units; a switcher picks the unit shown.
+function ForceHarvestDetailsModal({ record, units, onClose }) {
+  const [activeUnitId, setActiveUnitId] = useState(units[0].id)
+  const unit = units.find(u => u.id === activeUnitId) || units[0]
+  const [harvests, setHarvests] = useState(null)
+  // No production cycle -> no Health Log to load.
+  const [logs, setLogs] = useState(record.production_cycle ? null : [])
+  const [harvestFailed, setHarvestFailed] = useState(false)
+  const [logsFailed, setLogsFailed] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    api.get(`/fisheries/stocking/${record.id}/`)
+      .then(r => { if (!cancelled) setHarvests(r.data.harvests || []) })
+      .catch(() => { if (!cancelled) setHarvestFailed(true) })
+    if (record.production_cycle) {
+      api.get(`/monitoring/aquaculture-cycles/${record.production_cycle}/health/`)
+        .then(r => { if (!cancelled) setLogs(Array.isArray(r.data) ? r.data : (r.data.results || [])) })
+        .catch(() => { if (!cancelled) setLogsFailed(true) })
+    }
+    return () => { cancelled = true }
+  }, [record.id, record.production_cycle])
+
+  const fmtKg = (v) => Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const list = (items) => (items.length === 1 ? items[0] : (
+    <ul className="space-y-0.5">{items.map((it, i) => <li key={i}>• {it}</li>)}</ul>
+  ))
+
+  // Only this unit's own Force Harvest Health Log entries.
+  const unitLogs = (logs || []).filter(l => l.production_unit === unit.id && l.force_harvest)
+  // The Force Harvest record (is_force_harvest) whose production_units include a unit.
+  const harvestFor = (u) => (harvests || []).find(h => h.is_force_harvest && ((h.production_units || []).includes(u.id)
+    || (h.production_unit_details || []).some(d => d.id === u.id)))
+  const harvest = harvestFor(unit)
+  // A unit's own recorded kg for the "Force Harvested Units" list (combined total for older records).
+  const unitKgText = (u) => {
+    const h = harvestFor(u)
+    if (!h) return harvests === null ? '…' : '—'
+    const own = (h.unit_harvests || []).find(r => r.production_unit === u.id)
+    return own ? `${fmtKg(own.quantity_kg)} kg` : `${fmtKg(h.quantity_kg)} kg combined`
+  }
+  const harvestedWith = harvest ? (harvest.production_unit_details || []).map(d => d.label) : []
+  // Per-unit actual kg of that Force Harvest (FisheriesHarvestUnit rows). Empty for older records,
+  // which only have the combined quantity_kg.
+  const unitHarvests = harvest?.unit_harvests || []
+  const ownUnitHarvest = unitHarvests.find(r => r.production_unit === unit.id)
+
+  const rows = [
+    ['Production Unit', unit.label],
+    ['Status', 'Force Harvested'],
+  ]
+  const issues = [...new Set(unitLogs.map(l => l.observation).filter(Boolean))]
+  if (issues.length) rows.push(['Health Issue', list(issues)])
+  const mortality = unitLogs.filter(l => Number(l.mortality_count) > 0)
+  if (mortality.length) {
+    rows.push(['Mortality Count', list(mortality.map(l => (unitLogs.length > 1
+      ? `${Number(l.mortality_count).toLocaleString()} (${fmtLong(l.log_date)})`
+      : Number(l.mortality_count).toLocaleString())))])
+  }
+  const logDates = [...new Set(unitLogs.map(l => l.log_date).filter(Boolean))]
+  if (logDates.length) rows.push(['Health Log Date', list(logDates.map(fmtLong))])
+  // Every Force Harvest reason the backend classified for this unit (harvest_units.reasons).
+  if ((unit.reasons || []).length) rows.push(['Force Harvest Reason', list(unit.reasons)])
+  if (harvest) {
+    if (harvest.early_late_reason && harvest.early_late_reason !== (unit.reasons || []).join('; ')) {
+      rows.push(['Recorded Harvest Reason', harvest.early_late_reason])
+    }
+    rows.push(['Harvest Date', fmtLong(harvest.harvest_date)])
+    rows.push(['Actual Harvest (kg)', ownUnitHarvest
+      ? fmtKg(ownUnitHarvest.quantity_kg)                                   // this unit's own recorded kg
+      : harvestedWith.length > 1
+        ? <span>{fmtKg(harvest.quantity_kg)} <span className="font-normal text-[#7A8E7A]">(combined total for {harvestedWith.join(', ')})</span></span>
+        : fmtKg(harvest.quantity_kg)])
+    if (harvest.area_or_units_harvested) rows.push(['Area / Units Harvested', harvest.area_or_units_harvested])
+    if (harvest.notes) rows.push(['Notes', harvest.notes])
+  }
+  const logNotes = unitLogs.map(l => l.notes).filter(Boolean)
+  if (logNotes.length) rows.push(['Health Log Notes', list(logNotes)])
+
+  const loading = (harvests === null && !harvestFailed) || (logs === null && !logsFailed)
+
+  return (
+    <ModalShell
+      title={`Force Harvest Details — ${unit.label}`}
+      subtitle={`${record.species_name || ''}${record.fisherfolk_name ? ` · ${record.fisherfolk_name}` : ''}`}
+      icon={AlertTriangle}
+      onClose={onClose}
+      maxWidth="max-w-lg"
+    >
+      <div className="space-y-3" data-testid="force-harvest-details">
+        {units.length > 1 && (
+          // Every force-harvested unit of this badge with its own kg; picking one shows its full details below.
+          <div>
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#7A8E7A]">
+              Force Harvested Units ({units.length})
+            </p>
+            <div className="max-h-56 overflow-y-auto rounded-lg border border-[#E2E8E2]" role="tablist" aria-orientation="vertical" data-testid="force-unit-switcher">
+              {units.map(u => (
+                <button
+                  key={u.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={u.id === unit.id}
+                  onClick={() => setActiveUnitId(u.id)}
+                  data-testid="force-unit-row"
+                  className={`flex w-full items-center justify-between gap-3 border-b border-[#F0F4F0] px-3 py-1.5 text-left text-[12px] transition-colors last:border-b-0 ${
+                    u.id === unit.id ? 'bg-red-600 font-semibold text-white' : 'text-[#1A2B1A] hover:bg-red-50'
+                  }`}
+                >
+                  <span>{u.label}</span>
+                  <span className="whitespace-nowrap tabular-nums">{unitKgText(u)}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {harvestFailed &&<p className="text-[12px] text-rose-600">Failed to load harvest records.</p>}
+        {logsFailed && <p className="text-[12px] text-rose-600">Failed to load Health Log entries.</p>}
+        {loading ? (
+          <p className="text-[12px] text-[#7A8E7A]">Loading force harvest details…</p>
+        ) : (
+          <div className="overflow-hidden rounded-xl border border-[#E2E8E2]">
+            <table className="min-w-full text-[13px]">
+              <thead className="bg-[#F9FAF9] text-[11px] uppercase tracking-[0.06em] text-[#7A8E7A]">
+                <tr>
+                  <th className="px-3 py-2 text-left font-semibold">Detail</th>
+                  <th className="px-3 py-2 text-left font-semibold">Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(([label, value]) => (
+                  <tr key={label} className="border-t border-[#F0F4F0] align-top">
+                    <td className="whitespace-nowrap px-3 py-2 font-medium text-[#4A5E4A]">{label}</td>
+                    <td className="px-3 py-2 font-semibold text-[#1A2B1A]">{value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {!loading && unitHarvests.length > 1 && (
+          // Every unit harvested in this same Force Harvest event, each with its own recorded kg.
+          <div className="space-y-1.5" data-testid="force-harvest-unit-kg">
+            <p className="text-[12px] font-semibold text-[#4A5E4A]">Units harvested in this Force Harvest</p>
+            <div className="overflow-hidden rounded-xl border border-[#E2E8E2]">
+              <table className="min-w-full text-[13px]">
+                <thead className="bg-[#F9FAF9] text-[11px] uppercase tracking-[0.06em] text-[#7A8E7A]">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-semibold">Production Unit</th>
+                    <th className="px-3 py-2 text-right font-semibold">Actual Harvest (kg)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {unitHarvests.map(r => (
+                    <tr key={r.production_unit} className={`border-t border-[#F0F4F0] ${r.production_unit === unit.id ? 'bg-red-50/60' : ''}`}>
+                      <td className="px-3 py-2 font-medium text-[#1A2B1A]">{r.label}</td>
+                      <td className="px-3 py-2 text-right font-semibold text-[#1A2B1A]">{fmtKg(r.quantity_kg)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    </ModalShell>
+  )
+}
+
+// Harvest details for a record: one block per harvest record, listing the actual ponds/cages
+// linked to it. Loaded from the record's detail endpoint (which nests the harvest records).
+function HarvestDetailsSection({ record }) {
+  const [harvests, setHarvests] = useState(null)
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    if (!record.harvest_count) { setHarvests([]); return }
+    let cancelled = false
+    api.get(`/fisheries/stocking/${record.id}/`)
+      .then(r => { if (!cancelled) setHarvests(r.data.harvests || []) })
+      .catch(() => { if (!cancelled) setFailed(true) })
+    return () => { cancelled = true }
+  }, [record.id, record.harvest_count])
+
+  // Harvested vs remaining ponds/cages, from the backend's harvest_units (harvest <-> production-unit link).
+  const units = record.harvest_units || []
+  const harvestedUnits = units.filter(u => u.harvested)
+  const remainingUnits = units.filter(u => !u.harvested)
+  if (!record.harvest_count && harvestedUnits.length === 0) return null
+
+  const fmtKg = (v) => Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  const unitWord = (units[0]?.label || 'Pond').split(' ')[0]
+  // Only harvests actually linked to a production unit (backend production_units relation) are primary.
+  const linkedHarvests = (harvests || []).filter(h => (h.production_unit_details || []).length > 0)
+  // Harvest records with no linked production unit are not shown here (they stay in the database).
+  if (harvests !== null && linkedHarvests.length === 0 && units.length === 0) return null
+  return (
+    <div className="space-y-3" data-testid="harvest-details">
+      <p className="text-[13px] font-semibold text-[#1B4D2E]">Harvest Details</p>
+      {failed && <p className="text-[12px] text-rose-600">Failed to load harvest details.</p>}
+      {harvests === null && !failed && <p className="text-[12px] text-[#7A8E7A]">Loading harvest details…</p>}
+      {linkedHarvests.map(h => {
+        const details = h.production_unit_details
+        const type = details[0]?.unit_type_label
+        const reasons = [...new Set(details.flatMap(d => d.reasons || []))]
+        return (
+          <div key={h.id} className="space-y-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[13px]">
+            <div>
+              <p className="font-medium text-[#4A5E4A]">{details.length > 1 ? `Harvested ${type}s` : `Harvested ${type}`}</p>
+              {details.map(d => {
+                const own = (h.unit_harvests || []).find(r => r.production_unit === d.id)
+                return (
+                  <p key={d.id} className="font-semibold text-emerald-700">
+                    {d.label} — Harvested{own ? ` (${fmtKg(own.quantity_kg)} kg)` : ''}
+                  </p>
+                )
+              })}
+            </div>
+            <p><span className="font-medium text-[#4A5E4A]">Harvest Date: </span><span className="font-semibold">{fmtLong(h.harvest_date)}</span></p>
+            <p><span className="font-medium text-[#4A5E4A]">Actual Harvest: </span><span className="font-semibold">{fmtKg(h.quantity_kg)} kg</span></p>
+            {h.early_late_reason && (
+              <p><span className="font-medium text-[#4A5E4A]">Reason for Early Harvest: </span><span className="font-semibold">{h.early_late_reason}</span></p>
+            )}
+            {h.is_force_harvest && reasons.length > 0 && (
+              <p><span className="font-medium text-[#4A5E4A]">Force Harvest: </span><span className="font-semibold">{reasons.join('; ')}</span></p>
+            )}
+          </div>
+        )
+      })}
+      {units.length > 0 && (
+        <div className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-2.5 text-[13px]" data-testid="unit-harvest-status">
+          <p className="font-medium text-[#4A5E4A]">{`Remaining ${unitWord}s`}</p>
+          {remainingUnits.length === 0
+            ? <p className="text-[#7A8E7A]">None</p>
+            : remainingUnits.map(u => <p key={u.id} className="font-semibold text-[#1A2B1A]">{u.label} — Remaining (Stocked)</p>)}
+        </div>
+      )}
+    </div>
+  )
+}
 
 function StockingDetailModal({ record, onClose }) {
   const landStatusDisplay =
@@ -514,6 +785,8 @@ function StockingDetailModal({ record, onClose }) {
           ))}
         </div>
 
+        <HarvestDetailsSection record={record} />
+
         <div className="grid grid-cols-3 gap-3">
           <div className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] p-3 text-center">
             <p className="text-[20px] font-bold text-[#1B4D2E]">{record.log_count ?? 0}</p>
@@ -551,24 +824,20 @@ function harvestGateInfo(rec) {
         'cannot be recorded until a staff member confirms or corrects the real stocking date.',
     }
   }
-  if (!rec.date_stocked || !rec.expected_harvest_date) return { gated: false, message: null }
-  const stocked = new Date(rec.date_stocked + 'T00:00:00')
-  const expected = new Date(rec.expected_harvest_date + 'T00:00:00')
-  const totalDays = (expected - stocked) / (1000 * 60 * 60 * 24)
-  if (totalDays <= 0) return { gated: false, message: null }
-  const halfwayDays = totalDays / 2
-  const elapsedDays = (new Date() - stocked) / (1000 * 60 * 60 * 24)
-  if (elapsedDays >= halfwayDays) return { gated: false, message: null }
-  const daysRemaining = Math.ceil(halfwayDays - elapsedDays)
-  return {
-    gated: true,
-    message: `Harvest can only be recorded once at least half the expected culture duration has passed. Available in about ${daysRemaining} more day(s).`,
-  }
+  // Force Harvest (fish mortality / disease in the cycle's Health Log) lifts the waiting period; the
+  // backend applies the same exemption.
+  if (rec.force_harvest) return { gated: false, message: null }
+  // Normal harvest: active once >= 50% of this record's own Stocking Date -> Expected Harvest Date has elapsed.
+  return harvestGateStatus(rec.date_stocked, rec.expected_harvest_date)
 }
 
+// simplified (Admin and fisherfolk accounts): the row itself opens the Production Cycle (Cycle Info, Feeding
+// Logs, Health Logs), so View Cycle / View Logs / Record Harvest / Report Disaster are not repeated in the menu.
+// Harvest stays reachable through the fishing-net button beside the menu; disasters through Disaster.
+// Evaluator accounts keep the full menu.
 function StockingRowActions({
-  rec, isAdmin, isLocked, lockedByName,
-  onViewDetails, onEdit, onViewLogs, onRecordHarvest, onReportDisaster, onForceUnlock, showToast,
+  rec, isAdmin, isLocked, lockedByName, simplified = false,
+  onViewDetails, onEdit, onViewCycle, onViewLogs, onRecordHarvest, onReportDisaster, onForceUnlock, showToast,
 }) {
   const canEdit = rec.status !== 'Harvested'
   const canHarvest = rec.status !== 'Total Loss' && rec.status !== 'Harvested'
@@ -578,30 +847,127 @@ function StockingRowActions({
   const actions = [
     { key: 'view', label: 'View Details', icon: Eye, onClick: onViewDetails, group: 'crud' },
     canEdit && { key: 'edit', label: 'Edit', icon: Pencil, onClick: onEdit, group: 'crud' },
-    { key: 'logs', label: 'View Logs', icon: Eye, onClick: onViewLogs, group: 'lifecycle' },
-    canHarvest && {
+    !simplified && { key: 'cycle', label: 'View Cycle', icon: Layers, onClick: onViewCycle, group: 'lifecycle' },
+    !simplified && { key: 'logs', label: 'View Logs', icon: Eye, onClick: onViewLogs, group: 'lifecycle' },
+    !simplified && canHarvest && {
       key: 'harvest',
       label: harvestGate.gated ? 'Record Harvest (Not Yet Available)' : 'Record Harvest',
       icon: Wheat,
       onClick: () => (harvestGate.gated ? showToast(harvestGate.message, 'error') : onRecordHarvest()),
       tone: harvestGate.gated ? 'default' : (isNearHarvest ? 'amber' : 'default'), group: 'lifecycle',
     },
-    { key: 'disaster', label: 'Report Disaster', icon: AlertTriangle, onClick: onReportDisaster, tone: 'rose', group: 'lifecycle' },
+    !simplified && { key: 'disaster', label: 'Report Disaster', icon: AlertTriangle, onClick: onReportDisaster, tone: 'rose', group: 'lifecycle' },
     isAdmin && isLocked && {
       key: 'unlock', label: `Force Unlock (${lockedByName || 'locked'})`, icon: Unlock, onClick: onForceUnlock,
       tone: 'amber', group: 'lifecycle',
     },
   ]
 
-  return <RowActions actions={actions} menuTitle="Actions" menuWidthClassName="w-52" />
+  // Quick-access Record Harvest shortcut beside the ⋮ menu. It opens the SAME Record Harvest modal as
+  // the menu item (same handler, same gate) - it never records anything by itself. Red = the cycle's
+  // Health Log has fish mortality or a disease (Force Harvest).
+  const force = Boolean(rec.force_harvest)
+  // Inactive (disabled) before 50% of the culture duration, unless Force Harvest overrides the rule.
+  const netActive = canHarvest && !harvestGate.gated
+  const netTitle = rec.status === 'Harvested' ? 'Already harvested'
+    : rec.status === 'Total Loss' ? 'Harvest not available (Total Loss)'
+    : harvestGate.gated ? harvestGate.message
+    : force ? 'Record Harvest — Force Harvest' : 'Record Harvest'
+  const netColor = !netActive
+    ? 'cursor-not-allowed text-[#C8D5C8]'
+    : force ? 'text-red-600 hover:bg-red-50' : 'text-[#1B4D2E] hover:bg-[#F0F4F0]'
+
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        data-testid="quick-harvest"
+        data-force={force ? 'true' : 'false'}
+        title={netTitle}
+        aria-label={netTitle}
+        disabled={!netActive}
+        onClick={(e) => {
+          e.stopPropagation()
+          onRecordHarvest()
+        }}
+        className={`rounded-lg p-1.5 transition-colors ${netColor}`}
+      >
+        <FishingNetIcon size={16} />
+      </button>
+      <RowActions actions={actions} menuTitle="Actions" menuWidthClassName="w-52" />
+    </div>
+  )
+}
+
+// Fisherfolk phones (< md): one card per stock instead of the wide table. Tapping the card opens the
+// Production Cycle (same as the table row); the buttons are full-height touch targets for the same
+// actions the simplified row menu offers (View Details, Edit, Record Harvest with the same gate).
+function StockingMobileCard({ row, onOpen, onViewDetails, onEdit, onRecordHarvest }) {
+  const canEdit = row.status !== 'Harvested'
+  const canHarvest = row.status !== 'Total Loss' && row.status !== 'Harvested'
+  const harvestGate = harvestGateInfo(row)
+  const netActive = canHarvest && !harvestGate.gated
+  const force = Boolean(row.force_harvest)
+  const harvestTitle = row.status === 'Harvested' ? 'Already harvested'
+    : row.status === 'Total Loss' ? 'Harvest not available (Total Loss)'
+    : harvestGate.gated ? harvestGate.message
+    : force ? 'Record Harvest — Force Harvest' : 'Record Harvest'
+  const fields = [
+    ['Culture Type', row.culture_type || '—'],
+    ['Date Stocked', row.date_stocked_fmt],
+    ['Expected Harvest', row.expected_harvest_fmt],
+    ['Pond Location', row.pond_location],
+    ['Est. Harvest (kg)', row.est_harvest_kg_fmt],
+    ['Actual Harvest (kg)', row.actual_harvest_kg_fmt],
+  ]
+  const btn = 'flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border px-2 text-[13px] font-medium transition-colors'
+  return (
+    <div
+      data-testid="stock-card"
+      className="cursor-pointer rounded-xl border border-[#E2E8E2] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+      {...rowClickProps(onOpen, `Open production cycle: ${row.species_name || 'stock'}${row.production_cycle_no ? ` #${row.production_cycle_no}` : ''}`)}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 text-[15px] text-[#1A2B1A]">{row.species_name_cell}</div>
+        <span className="shrink-0 text-[12px] font-semibold text-[#4A5E4A]">Cycle {row.cycle_cell}</span>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">{row.status_cell}</div>
+      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5">
+        {fields.map(([label, value]) => (
+          <div key={label} className="min-w-0">
+            <dt className="text-[11px] font-medium uppercase tracking-wide text-[#7A8E7A]">{label}</dt>
+            <dd className="mt-0.5 break-words text-[13px] text-[#1A2B1A]">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <div className="mt-3 flex gap-2 border-t border-[#F0F4F0] pt-3">
+        <button type="button" className={`${btn} border-[#E2E8E2] text-[#1B4D2E] hover:bg-[#F0F4F0]`} onClick={onViewDetails}>
+          <Eye size={15} /> Details
+        </button>
+        {canEdit && (
+          <button type="button" className={`${btn} border-[#E2E8E2] text-[#1B4D2E] hover:bg-[#F0F4F0]`} onClick={onEdit}>
+            <Pencil size={15} /> Edit
+          </button>
+        )}
+        <button
+          type="button" data-testid="card-harvest" data-force={force ? 'true' : 'false'}
+          title={harvestTitle} aria-label={harvestTitle} disabled={!netActive} onClick={onRecordHarvest}
+          className={`${btn} ${!netActive ? 'cursor-not-allowed border-[#E2E8E2] text-[#C8D5C8]'
+            : force ? 'border-red-300 text-red-600 hover:bg-red-50' : 'border-[#E2E8E2] text-[#1B4D2E] hover:bg-[#F0F4F0]'}`}
+        >
+          <FishingNetIcon size={16} /> Harvest
+        </button>
+      </div>
+    </div>
+  )
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function FisheriesRecordsPage({ asTab = false }) {
-  const { user } = useAuth()
+  const { user, isFisherfolk } = useAuth()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { showToast } = useToast()
   const [records,      setRecords]      = useState([])
   const [totalCount,   setTotalCount]   = useState(0)
@@ -609,11 +975,9 @@ export default function FisheriesRecordsPage({ asTab = false }) {
   const [isLoading,    setIsLoading]    = useState(true)
   const [error,        setError]        = useState('')
   const [search,       setSearch]       = useState('')
-  // Server-side search over every record (fisherfolk name or RSBSA / LGU /
-  // FishR number, species, barangay) — debounced, and a slower earlier answer
-  // never overwrites the one for what is typed now.
+  // Server-side search over every record (fisherfolk name or RSBSA / LGU / FishR number, species,
+  // barangay) - debounced; the latest-request guard below already drops any slower, older answer.
   const debouncedSearch = useDebouncedValue(search.trim())
-  const requestSeq = useRef(0)
   const [statusFilter, setStatusFilter] = useState('All Status')
   const [seasonFilter, setSeasonFilter] = useState('')
   const [yearFilter,   setYearFilter]   = useState('')
@@ -624,6 +988,30 @@ export default function FisheriesRecordsPage({ asTab = false }) {
   const [disasterRec,  setDisasterRec]  = useState(null)
   const [harvestRec,   setHarvestRec]   = useState(null)
   const [showImportModal, setShowImportModal] = useState(false)
+  const [showStartCycle, setShowStartCycle] = useState(false)
+  const [viewingCycle,   setViewingCycle]   = useState(null)
+  const [forceUnitView,  setForceUnitView]  = useState(null)   // { rec, units } for an HP/HC badge group
+
+  // View Cycle uses the real production_cycle FK — never production_cycle_no.
+  const handleViewCycle = async (rec) => {
+    if (!rec.production_cycle) { showToast('No Production Cycle linked', 'error'); return }
+    try {
+      const r = await api.get(`/monitoring/aquaculture-cycles/${rec.production_cycle}/`)
+      setViewingCycle(r.data)
+    } catch (err) {
+      showToast(err?.response?.data?.detail || 'Failed to load production cycle.', 'error')
+    }
+  }
+
+  const refreshViewingCycle = async () => {
+    if (!viewingCycle) return
+    try {
+      const r = await api.get(`/monitoring/aquaculture-cycles/${viewingCycle.id}/`)
+      setViewingCycle(r.data)
+    } catch (err) {
+      showToast(err?.response?.data?.detail || 'Failed to refresh production cycle.', 'error')
+    }
+  }
 
   // Handle ?action=add from fisheries monitoring "Add Stocking" button —
   // the bulk-entry form moved to its own full-screen route, this just
@@ -632,59 +1020,75 @@ export default function FisheriesRecordsPage({ asTab = false }) {
     if (searchParams.get('action') === 'add') navigate('/fisheries-monitoring/add', { replace: true })
   }, [])
 
+  // ?cycle=<id> (a Fisheries notification link): open that production cycle's existing details. The cycle
+  // endpoint applies the usual ownership rules, so a fisherfolk can only ever open their own cycle.
+  const linkedCycleId = searchParams.get('cycle')
+  useEffect(() => {
+    if (!linkedCycleId) return undefined
+    let cancelled = false
+    api.get(`/monitoring/aquaculture-cycles/${linkedCycleId}/`)
+      .then(r => { if (!cancelled) setViewingCycle(r.data) })
+      .catch(err => { if (!cancelled) showToast(err?.response?.data?.detail || 'This production cycle could not be opened.', 'error') })
+    return () => { cancelled = true }
+  }, [linkedCycleId, showToast])
+  const closeViewingCycle = () => {
+    setViewingCycle(null)
+    if (linkedCycleId) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('cycle')
+      setSearchParams(next, { replace: true })
+    }
+  }
+
   useEffect(() => {
     api.get('/fisheries/species/')
       .then(r => setSpeciesList(Array.isArray(r.data) ? r.data : (r.data.results || [])))
       .catch(() => {})
   }, [])
 
+  // Only the latest request may update the table (a slower earlier response never overwrites a newer one).
+  const latestFetch = useRef(0)
   const fetchRecords = useCallback(async (pageNum = 1) => {
-    const seq = ++requestSeq.current
+    const fetchId = ++latestFetch.current
     setIsLoading(true); setError('')
     try {
       const params = new URLSearchParams({ page: pageNum })
       if (debouncedSearch) params.set('search', debouncedSearch)
-      // 'Due Harvest'/'Ready for Harvest'/'Overdue' aren't real backend
-      // values (see getStockingDisplayStatus) — all three are display-only
-      // splits of the single real 'Near Harvest' status, so all three query
-      // the backend for that and the split itself is applied client-side
-      // below, on whatever page of 'Near Harvest' rows comes back.
-      const backendStatus = (
-        statusFilter === 'Due Harvest' || statusFilter === 'Ready for Harvest' || statusFilter === 'Overdue'
-      ) ? 'Near Harvest' : statusFilter
-      if (backendStatus === 'All Status') {
+      if (statusFilter === 'All Status') {
         params.set('status', 'Stocked,Near Harvest,Harvested')
-      } else {
-        params.set('status', backendStatus)
+      } else if (statusFilter !== 'All Status') {
+        params.set('status', statusFilter)
       }
       if (seasonFilter) params.set('season', seasonFilter)
       if (yearFilter)   params.set('year', yearFilter)
       const r = await api.get(`/fisheries/stocking/?${params.toString()}`)
-      if (seq !== requestSeq.current) return
+      if (fetchId !== latestFetch.current) return
       setRecords(Array.isArray(r.data) ? r.data : (r.data.results || []))
       setTotalCount(typeof r.data?.count === 'number' ? r.data.count : 0)
     } catch {
-      if (seq === requestSeq.current) setError('Failed to load stocking records.')
+      if (fetchId === latestFetch.current) setError('Failed to load stocking records.')
     } finally {
-      if (seq === requestSeq.current) setIsLoading(false)
+      if (fetchId === latestFetch.current) setIsLoading(false)
     }
   }, [statusFilter, seasonFilter, yearFilter, debouncedSearch])
 
-  useEffect(() => { setPage(1); fetchRecords(1) }, [statusFilter, seasonFilter, yearFilter, debouncedSearch])
+  // ONE fetch per page view: changing a filter also resets the page to 1 in the same update (changeFilter
+  // below), so this single effect runs once with the new filters and page.
   useEffect(() => { fetchRecords(page) }, [fetchRecords, page])
+  // A new search starts from the first page.
+  useEffect(() => { setPage(1) }, [debouncedSearch])
+  const changeFilter = (setter) => (value) => { setter(value); setPage(1) }
 
-  // Lock indicators for the currently-visible page only.
+  // Lock indicators for the currently-visible page only - one batched request for all its rows.
   const [lockStatuses, setLockStatuses] = useState({})
 
   const refreshLockStatuses = useCallback(async (recs) => {
     if (!recs.length) { setLockStatuses({}); return }
-    const entries = await Promise.all(recs.map(async rec => {
-      try {
-        const r = await api.get('/locks/status/', { params: { record_type: 'stocking', record_id: rec.id } })
-        return [rec.id, r.data.locked ? r.data : null]
-      } catch { return [rec.id, null] }
-    }))
-    setLockStatuses(Object.fromEntries(entries.filter(([, v]) => v)))
+    try {
+      const r = await api.get('/locks/status/', { params: { record_type: 'stocking', record_ids: recs.map(rec => rec.id).join(',') } })
+      const results = r.data?.results || {}
+      setLockStatuses(Object.fromEntries(Object.entries(results).filter(([, v]) => v?.locked).map(([id, v]) => [Number(id), v])))
+    } catch { setLockStatuses({}) }
   }, [])
 
   useEffect(() => { refreshLockStatuses(records) }, [records, refreshLockStatuses])
@@ -696,25 +1100,12 @@ export default function FisheriesRecordsPage({ asTab = false }) {
     } catch { /* ignore */ }
   }
 
-  const filtered = useMemo(() => {
-    return records.filter(rec => {
-      // Client-side half of the Due/Ready/Overdue split — the fetched page
-      // already contains only real 'Near Harvest' rows for these three
-      // filter values (see fetchRecords), so this narrows it further to the
-      // one the user actually picked. Note: totalCount/pagination below
-      // still reflect the full Near-Harvest count, not this narrower
-      // client-side split — acceptable since that window is already small
-      // in practice, but a real limitation of doing this without a backend
-      // change (same as CropMonitoringPage.jsx's own equivalent).
-      if (statusFilter === 'Due Harvest' || statusFilter === 'Ready for Harvest' || statusFilter === 'Overdue') {
-        return getStockingDisplayStatus(rec) === statusFilter
-      }
-      return true
-    })
-  }, [records, statusFilter])
+  // The search runs on the server (above), so the rows are exactly what came back.
+  const filtered = records
 
   const rows = filtered.map(rec => ({
     ...rec,
+    _rec: rec,   // the untouched record, for the mobile card actions
     species_name_cell: (
       <span className="flex items-center gap-1.5">
         <span className="font-medium">{rec.species_name}</span>
@@ -743,16 +1134,38 @@ export default function FisheriesRecordsPage({ asTab = false }) {
       </span>
     ) : fmtShort(rec.date_stocked),
     expected_harvest_fmt: fmtShort(rec.expected_harvest_date),
-    est_harvest_kg_fmt:   rec.status === 'Harvested' && rec.total_harvested_kg
-      ? <span className="text-slate-400">{Number(rec.total_harvested_kg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-      : rec.estimated_harvest_kg
-        ? Number(rec.estimated_harvest_kg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-        : '—',
+    // Estimated (forecast) only - the actual harvested weight has its own column.
+    est_harvest_kg_fmt:   rec.estimated_harvest_kg
+      ? Number(rec.estimated_harvest_kg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : '—',
+    actual_harvest_kg_fmt: fmtActualHarvestKg(rec),
     assoc_name:   rec.organization_name || '—',
     pond_location: rec.pond_location_barangay || '—',
     status_cell: (
       <span className="flex items-center gap-1.5">
-        <StatusPill tone={STATUS_TONES[getStockingDisplayStatus(rec)] || 'slate'}>{getStockingDisplayStatus(rec)}</StatusPill>
+        {/* Overall cycle status is the backend's rec.status: it only becomes Harvested on the final harvest,
+            so force-harvesting some ponds/cages leaves it Stocked. Those units show as HP/HC badges below. */}
+        {rec.harvest_count > 0 ? (
+          <button type="button" data-testid="harvested-status" title="View harvest details" onClick={() => setViewingRec(rec)}>
+            <StatusPill tone={STATUS_TONES[rec.status] || 'slate'}>{rec.status}</StatusPill>
+          </button>
+        ) : (
+          <StatusPill tone={STATUS_TONES[rec.status] || 'slate'}>{rec.status}</StatusPill>
+        )}
+        {groupForceHarvestedUnits(forceHarvestedUnits(rec)).map(g => (
+          // Count only ("HP 10"), never the unit list, so the cell stays compact; the modal lists every unit.
+          <button
+            key={g.prefix}
+            type="button"
+            data-testid="force-harvest-unit"
+            title={`Force Harvested: ${g.names}. View details`}
+            aria-label={g.ariaLabel}
+            onClick={() => setForceUnitView({ rec, units: g.units })}
+            className="inline-flex min-w-[3.5rem] shrink-0 justify-center whitespace-nowrap rounded-md border border-red-300 bg-red-50 px-1.5 py-[2px] text-[10px] font-bold tracking-wide tabular-nums text-red-700 transition-colors hover:bg-red-100 hover:border-red-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+          >
+            {g.code}
+          </button>
+        ))}
         <HarvestVarianceBadge days={rec.harvest_variance_days} />
       </span>
     ),
@@ -760,10 +1173,12 @@ export default function FisheriesRecordsPage({ asTab = false }) {
       <StockingRowActions
         rec={rec}
         isAdmin={user?.role === 'ADMIN'}
+        simplified={user?.role === 'ADMIN' || isFisherfolk}
         isLocked={Boolean(lockStatuses[rec.id])}
         lockedByName={lockStatuses[rec.id]?.locked_by?.name}
         onViewDetails={() => setViewingRec(rec)}
         onEdit={() => setEditingRec(rec)}
+        onViewCycle={() => handleViewCycle(rec)}
         onViewLogs={() => setViewLogsRec(rec)}
         onRecordHarvest={() => setHarvestRec(rec)}
         onReportDisaster={() => setDisasterRec(rec)}
@@ -776,56 +1191,85 @@ export default function FisheriesRecordsPage({ asTab = false }) {
   const innerContent = (
     <div className="space-y-4">
       <div className="flex justify-end gap-2">
+        {/* Bulk spreadsheet import is a staff tool (staff-only endpoint); a fisherfolk starts cycles below. */}
+        {!isFisherfolk && (
+          <button
+            type="button"
+            className="flex items-center gap-1.5 rounded-lg border border-[#E2E8E2] px-4 py-2 text-[13px] font-medium text-[#1B4D2E] hover:bg-[#F0F4F0] transition-colors"
+            onClick={() => setShowImportModal(true)}
+          >
+            <Upload size={15} /> Import File
+          </button>
+        )}
         <button
           type="button"
-          className="flex items-center gap-1.5 rounded-lg border border-[#E2E8E2] px-4 py-2 text-[13px] font-medium text-[#1B4D2E] hover:bg-[#F0F4F0] transition-colors"
-          onClick={() => setShowImportModal(true)}
+          className={`flex items-center gap-1.5 rounded-lg border border-[#E2E8E2] px-4 py-2 text-[13px] font-medium text-[#1B4D2E] hover:bg-[#F0F4F0] transition-colors ${isFisherfolk ? 'min-h-[44px] w-full justify-center md:min-h-0 md:w-auto' : ''}`}
+          onClick={() => setShowStartCycle(true)}
         >
-          <Upload size={15} /> Import File
-        </button>
-        <button
-          type="button"
-          className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors"
-          onClick={() => navigate('/fisheries-monitoring/add')}
-        >
-          <Plus size={15} /> Add Stocking Record
+          <Fish size={15} /> Start Production Cycle
         </button>
       </div>
 
       <div className="space-y-4">
+        {/* Search + Filters are staff tools; a fisherfolk account sees only its own records, so it gets the
+            table directly (search/status/season/year stay at their defaults). */}
+        {!isFisherfolk && (
         <FilterPanel
           search={search}
           onSearchChange={setSearch}
           searchPlaceholder="Search by fisherfolk, RSBSA / LGU no., species, or barangay..."
           activeCount={[statusFilter !== 'All Status', Boolean(seasonFilter), Boolean(yearFilter)].filter(Boolean).length}
         >
-          <select className={filterSelectCls} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+          <select className={filterSelectCls} value={statusFilter} onChange={e => changeFilter(setStatusFilter)(e.target.value)}>
             <option value="All Status">All Status</option>
             <option value="Stocked">Stocked</option>
             <option value="Near Harvest">Near Harvest</option>
-            <option value="Due Harvest">Due Harvest</option>
-            <option value="Ready for Harvest">Ready for Harvest</option>
-            <option value="Overdue">Overdue</option>
             <option value="Harvested">Harvested</option>
             <option value="Total Loss">Total Loss</option>
           </select>
-          <select className={filterSelectCls} value={seasonFilter} onChange={e => setSeasonFilter(e.target.value)}>
+          <select className={filterSelectCls} value={seasonFilter} onChange={e => changeFilter(setSeasonFilter)(e.target.value)}>
             <option value="">All Seasons</option>
             <option value="Dry">Dry Season</option>
             <option value="Wet">Wet Season</option>
           </select>
-          <select className={filterSelectCls} value={yearFilter} onChange={e => setYearFilter(e.target.value)}>
+          <select className={filterSelectCls} value={yearFilter} onChange={e => changeFilter(setYearFilter)(e.target.value)}>
             <option value="">All Years</option>
             {Array.from({ length: 8 }, (_, i) => new Date().getFullYear() + 1 - i).map(y => (
               <option key={y} value={y}>{y}</option>
             ))}
           </select>
         </FilterPanel>
+        )}
 
         {error && <ErrorMessage message={error} />}
 
+        {/* Fisherfolk phones: cards instead of the wide table (the table returns at md and up). */}
+        {isFisherfolk && (
+          <div className="space-y-3 md:hidden" data-testid="stock-cards">
+            {isLoading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-40 animate-pulse rounded-xl border border-[#E2E8E2] bg-white" />
+              ))
+            ) : rows.length === 0 ? (
+              <div className="rounded-xl border border-[#E2E8E2] bg-white px-4 py-10 text-center">
+                <p className="text-[14px] font-medium text-[#4A5E4A]">No stocking records found</p>
+                <p className="mt-1 text-[13px] text-[#7A8E7A]">Tap Start Production Cycle to add one</p>
+              </div>
+            ) : rows.map(row => (
+              <StockingMobileCard
+                key={row.id}
+                row={row}
+                onOpen={() => handleViewCycle(row._rec)}
+                onViewDetails={() => setViewingRec(row._rec)}
+                onEdit={() => setEditingRec(row._rec)}
+                onRecordHarvest={() => setHarvestRec(row._rec)}
+              />
+            ))}
+          </div>
+        )}
+
         {/* Table */}
-        <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <div className={`overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] ${isFisherfolk ? 'hidden md:block' : ''}`}>
           <table className="min-w-full text-sm">
             <thead className="bg-[#1B4D2E] text-white">
               <tr>
@@ -859,7 +1303,10 @@ export default function FisheriesRecordsPage({ asTab = false }) {
                 </tr>
               ) : (
                 rows.map(row => (
-                  <tr key={row.id} className="border-b border-[#F0F4F0] transition-colors hover:bg-[#F9FAF9]">
+                  // The whole row opens this stock's Production Cycle (Cycle Info, Feeding Logs, Health Logs);
+                  // the badges and buttons inside it keep their own actions.
+                  <tr key={row.id} className="cursor-pointer border-b border-[#F0F4F0] transition-colors hover:bg-[#F9FAF9]"
+                    {...rowClickProps(() => handleViewCycle(row), `Open production cycle: ${row.species_name || 'stock'}${row.production_cycle_no ? ` #${row.production_cycle_no}` : ''}`)}>
                     {COLUMNS.map(col => (
                       <td key={col.key} className="whitespace-nowrap px-4 py-[13px] text-[13px] text-[#1A2B1A] align-middle">
                         {row[col.key]}
@@ -895,6 +1342,14 @@ export default function FisheriesRecordsPage({ asTab = false }) {
         <StockingDetailModal record={viewingRec} onClose={() => setViewingRec(null)} />
       )}
 
+      {forceUnitView && (
+        <ForceHarvestDetailsModal
+          record={forceUnitView.rec}
+          units={forceUnitView.units}
+          onClose={() => setForceUnitView(null)}
+        />
+      )}
+
       {viewLogsRec && (
         <ViewStockingLogsModal
           record={viewLogsRec}
@@ -916,6 +1371,24 @@ export default function FisheriesRecordsPage({ asTab = false }) {
           record={harvestRec}
           onClose={() => setHarvestRec(null)}
           onSuccess={() => { setHarvestRec(null); fetchRecords(page) }}
+        />
+      )}
+
+      {showStartCycle && (
+        <StartProductionCycleModal
+          onClose={() => setShowStartCycle(false)}
+          onSuccess={() => { setShowStartCycle(false); setPage(1); fetchRecords(1) }}
+        />
+      )}
+
+      {viewingCycle && (
+        <AquacultureCycleDetailModal
+          cycle={viewingCycle}
+          onClose={closeViewingCycle}
+          onRefresh={refreshViewingCycle}
+          // A saved/deleted Health Log can start or clear Force Harvest: reload the rows so the
+          // existing fishing-net button reflects it without a manual page reload.
+          onHealthChanged={() => fetchRecords(page)}
         />
       )}
 

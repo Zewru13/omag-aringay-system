@@ -87,6 +87,9 @@ export function AuthProvider({ children }) {
     isAdmin: user?.role === 'ADMIN',
     isEvaluator: user?.role === 'EVALUATOR',
     isCitizen: user?.role === 'CITIZEN',
+    // A citizen account linked to a Fisherfolk record: uses the Admin Fisheries pages, with the backend
+    // limiting every response to their own records.
+    isFisherfolk: user?.role === 'CITIZEN' && user?.linked_record_type === 'FISHERFOLK',
     isAuthenticated: Boolean(user),
   }), [user, isLoading, updateUser])
 

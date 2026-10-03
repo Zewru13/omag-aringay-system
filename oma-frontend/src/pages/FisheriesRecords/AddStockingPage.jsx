@@ -169,6 +169,7 @@ function makeRecord(n) {
   return {
     _id:                  n,
     pond:                 null,
+    production_cycle:     null,
     pond_location_barangay: '',
     land_status:          '',
     land_status_other_specify: '',
@@ -256,7 +257,7 @@ function PondCell({ fisherfolkId, value, onSelectPond }) {
   )
 }
 
-function StockingRecordRow({ rec, index, total, speciesList, fisherfolkId, error, expanded, onToggleExpand, onUpdate, onRemove }) {
+function StockingRecordRow({ rec, index, total, speciesList, cycles, fisherfolkId, error, expanded, onToggleExpand, onUpdate, onRemove }) {
   const set = (field, value) => onUpdate(rec._id, field, value)
   const isShellfish = Boolean(rec._speciesObj && rec._speciesObj.category_name && rec._speciesObj.category_name !== 'Finfish')
 
@@ -357,6 +358,16 @@ function StockingRecordRow({ rec, index, total, speciesList, fisherfolkId, error
           <td />
           <td colSpan={8} className="px-3 py-4">
             <div className="grid gap-4 sm:grid-cols-4">
+              <div>
+                <p className={bulkSubLabelClasses}>Production Cycle (optional)</p>
+                <select className={bulkCellInputClasses} value={rec.production_cycle ?? ''}
+                  onChange={e => set('production_cycle', e.target.value ? Number(e.target.value) : null)}>
+                  <option value="">— None —</option>
+                  {cycles.map(c => (
+                    <option key={c.id} value={c.id}>{c.cycle_name} — {c.species_farmed}</option>
+                  ))}
+                </select>
+              </div>
               <div>
                 <p className={bulkSubLabelClasses}>Land Status (optional)</p>
                 <ComboboxWithOther
@@ -477,6 +488,8 @@ export default function AddStockingPage() {
     id: null, full_name: '', barangay: '', assoc_name: '',
   })
   const [existingCycleCount, setExistingCycleCount] = useState(0)
+  // Actual AquacultureProductionCycle rows (FK) — not the computed production_cycle_no above.
+  const [cycles, setCycles] = useState([])
 
   const goBack = () => navigate('/fisheries-monitoring?tab=stocking')
 
@@ -496,6 +509,15 @@ export default function AddStockingPage() {
         setExistingCycleCount(list.length)
       })
       .catch(() => setExistingCycleCount(0))
+  }, [fisherfolkInfo.id])
+
+  useEffect(() => {
+    // A cycle belongs to one fisherfolk, so any previously picked cycle is stale on change.
+    setRecords(rs => rs.map(r => (r.production_cycle ? { ...r, production_cycle: null } : r)))
+    if (!fisherfolkInfo.id) { setCycles([]); return }
+    api.get('/monitoring/aquaculture-cycles/', { params: { fisherfolk: fisherfolkInfo.id, status: 'Active' } })
+      .then(r => setCycles(Array.isArray(r.data) ? r.data : (r.data.results || [])))
+      .catch(() => { setCycles([]); showToast('Failed to load production cycles.', 'error') })
   }, [fisherfolkInfo.id])
 
   const addRecord = () => {
@@ -523,6 +545,7 @@ export default function AddStockingPage() {
       fisherfolk:               fisherfolkInfo.id,
       species:                  rec.species || null,
       pond:                     rec.pond || null,
+      production_cycle:         rec.production_cycle || null,
       pond_location_barangay:   rec.pond_location_barangay || '',
       land_status:              rec.land_status || '',
       land_status_other_specify: rec.land_status === 'Other' ? (rec.land_status_other_specify || '') : '',
@@ -662,6 +685,7 @@ export default function AddStockingPage() {
                     <StockingRecordRow
                       key={rec._id}
                       rec={recWithCycle}
+                      cycles={cycles}
                       index={i}
                       total={records.length}
                       speciesList={speciesList}

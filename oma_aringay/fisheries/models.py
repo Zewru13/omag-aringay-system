@@ -12,6 +12,20 @@ from core.constants import BARANGAY_CHOICES
 from core.validators import validate_fishr, validate_lgu_reg, validate_rsbsa
 
 
+def calculate_estimated_harvest_kg(number_of_fingerlings, survival_rate_pct, avg_body_weight_kg):
+    """The single estimated-harvest formula (StockingRecord.estimated_harvest_kg and the
+    Production Cycle's Estimated Harvest Biomass both use it):
+    fingerlings x (survival rate % / 100) x average body weight (kg), rounded to 0.01.
+    Returns None when any input is missing - nothing is guessed."""
+    if number_of_fingerlings is None or survival_rate_pct is None or avg_body_weight_kg is None:
+        return None
+    return (
+        Decimal(str(number_of_fingerlings))
+        * (Decimal(str(survival_rate_pct)) / Decimal('100'))
+        * Decimal(str(avg_body_weight_kg))
+    ).quantize(Decimal('0.01'))
+
+
 # ─── Fisherfolk ───────────────────────────────────────────────────────────────
 
 class Fisherfolk(models.Model):
@@ -273,6 +287,13 @@ class SpeciesOption(models.Model):
     category                  = models.ForeignKey(SpeciesCategory, on_delete=models.CASCADE, related_name='species')
     culture_environment       = models.CharField(max_length=20, choices=CultureEnvironment.choices)
     culture_duration_days     = models.IntegerField()
+    # DEPRECATED / UNUSED: Recommended Stocking Density was removed from the application (not in any
+    # serializer or form). The nullable column stays in the schema so no migration is needed.
+    recommended_stocking_density = models.DecimalField(
+        max_digits=8, decimal_places=2, null=True, blank=True,
+        help_text='Recommended fingerlings per square meter for this species. NULL until configured '
+                  '- production-cycle forms show no recommendation for a species without one.',
+    )
     default_survival_rate_pct = models.DecimalField(max_digits=5, decimal_places=2)
     default_avg_body_weight_kg = models.DecimalField(max_digits=8, decimal_places=3)
     # Batch 4 — PROVISIONAL generic default (every species defaults to daily
@@ -297,6 +318,14 @@ class SpeciesOption(models.Model):
 
     def __str__(self):
         return self.species_name
+
+    def estimate_harvest_kg(self, fingerlings):
+        """Estimate for a NEW stocking of `fingerlings` of this species: the species' configured
+        default survival rate and average body weight - exactly what StockingRecord.save()
+        copies onto a new record. Same shared formula."""
+        return calculate_estimated_harvest_kg(
+            fingerlings, self.default_survival_rate_pct, self.default_avg_body_weight_kg,
+        )
 
     def growth_stage_for_day(self, days_since_stocking):
         """None if days_since_stocking is unknown or the three thresholds
@@ -501,6 +530,13 @@ class StockingRecord(models.Model):
                    'water_source below stay the source of truth for reads; when pond is set, save() '
                    'overwrites them from the Pond so they never drift out of sync.',
     )
+    # NEW (not part of the restored 4da000a0 code): optional link to the restored
+    # monitoring.AquacultureProductionCycle. Nullable so every existing record is
+    # untouched; SET_NULL so deleting a cycle never deletes stocking data.
+    production_cycle        = models.ForeignKey(
+        'monitoring.AquacultureProductionCycle', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='stocking_records',
+    )
     pond_location_barangay  = models.CharField(max_length=100, blank=True, default='')
     land_status             = models.CharField(max_length=20, choices=LAND_STATUS_CHOICES, blank=True)
     land_status_other_specify = models.CharField(max_length=150, blank=True)
@@ -586,14 +622,11 @@ class StockingRecord(models.Model):
                 pass
 
         # Compute estimated_harvest_kg
-        if (self.number_of_fingerlings is not None
-                and self.survival_rate_pct is not None
-                and self.avg_body_weight_kg is not None):
-            self.estimated_harvest_kg = (
-                Decimal(str(self.number_of_fingerlings))
-                * (Decimal(str(self.survival_rate_pct)) / Decimal('100'))
-                * Decimal(str(self.avg_body_weight_kg))
-            ).quantize(Decimal('0.01'))
+        estimate = calculate_estimated_harvest_kg(
+            self.number_of_fingerlings, self.survival_rate_pct, self.avg_body_weight_kg,
+        )
+        if estimate is not None:
+            self.estimated_harvest_kg = estimate
 
         # Auto-transition: Stocked → Near Harvest when within 7 days of expected harvest.
         # Skipped when date_stocked is only an estimate — see date_stocked_is_estimated's
@@ -627,9 +660,65 @@ class StockingRecord(models.Model):
         ).count()
         return prior + 1
 
+    def _harvested_unit_ids(self):
+        from monitoring.models import AquacultureProductionUnit
+        return set(AquacultureProductionUnit.objects.filter(harvest_records__stocking_record=self).values_list('id', flat=True))
+
+    def _force_harvested_unit_ids(self):
+        from monitoring.models import AquacultureProductionUnit
+        return set(AquacultureProductionUnit.objects.filter(
+            harvest_records__stocking_record=self, harvest_records__is_force_harvest=True,
+        ).values_list('id', flat=True))
+
+    def harvest_units(self):
+        """For the linked production cycle's ponds/cages: is each under Force Harvest (from ITS OWN
+        Health Log), why, has it already been harvested (listed on any harvest record), and was that
+        harvest a Force Harvest (listed on a harvest record with is_force_harvest=True)."""
+        if not self.production_cycle_id:
+            return []
+        from monitoring.models import AquacultureProductionUnit, cycle_force_status
+        force, _ = cycle_force_status(self.production_cycle_id)
+        # Harvested and force-harvested units in ONE query (same rows as _harvested_unit_ids /
+        # _force_harvested_unit_ids): every (unit, harvest) link of this record's harvests.
+        harvested, force_harvested = set(), set()
+        links = FisheriesHarvestRecord.production_units.through.objects.filter(fisheriesharvestrecord__stocking_record=self)
+        for unit_id, is_force in links.values_list('aquacultureproductionunit_id', 'fisheriesharvestrecord__is_force_harvest'):
+            harvested.add(unit_id)
+            if is_force:
+                force_harvested.add(unit_id)
+        units = AquacultureProductionUnit.objects.filter(production_cycle_id=self.production_cycle_id).order_by('unit_number')
+        return _harvest_unit_rows(units, force, harvested, force_harvested)
+
+    def is_force_harvest_selection(self, unit_ids, units_status=None):
+        """True when `unit_ids` is an actual Force Harvest of this record: a non-empty list in which
+        EVERY unit belongs to this cycle, is awaiting Force Harvest (its own Health Log) and is not yet
+        harvested. Merely naming units is never enough - this is what may lift the 50% waiting rule.
+        `units_status`: this record's harvest_units() when the caller already has it (not re-queried)."""
+        if not isinstance(unit_ids, (list, tuple)) or not unit_ids:
+            return False
+        try:
+            wanted = {int(i) for i in unit_ids}
+        except (TypeError, ValueError):
+            return False
+        status_by_id = {u['id']: u for u in (self.harvest_units() if units_status is None else units_status)}
+        return all(
+            uid in status_by_id and status_by_id[uid]['force_harvest'] and not status_by_id[uid]['harvested']
+            for uid in wanted
+        )
+
+    def has_pending_force_harvest(self):
+        """True while a mortality/disease condition still awaits harvest: an affected unit not yet
+        harvested, or a legacy log not tied to any unit (cycle-level behaviour, as before)."""
+        if not self.production_cycle_id:
+            return False
+        from monitoring.models import cycle_force_status
+        force, unassigned = cycle_force_status(self.production_cycle_id)
+        return unassigned or any(uid not in self._harvested_unit_ids() for uid in force)
+
     def determine_status(self):
         """Pick the correct status for this record after total-loss reversal."""
-        if self.harvests.exists():
+        # Only a FINAL harvest closes the record - a partial (e.g. force-harvest of some ponds) does not.
+        if self.harvests.filter(is_final=True).exists():
             return self.Status.HARVESTED
         if self.expected_harvest_date and not self.date_stocked_is_estimated:
             days_remaining = (self.expected_harvest_date - date.today()).days
@@ -683,6 +772,77 @@ class StockingRecord(models.Model):
             return None
         candidates = self.species.feed_types.filter(is_active=True)
         return candidates.filter(growth_stage=stage).first() or candidates.filter(growth_stage='').first()
+
+
+def _harvest_unit_rows(units, force, harvested, force_harvested):
+    """The rows of StockingRecord.harvest_units() from already-loaded data: `units` (the cycle's ponds/cages,
+    unit_number order), `force` ({unit_id: [reasons]} from cycle_force_status) and the harvested /
+    force-harvested unit-id sets of the stocking record's own harvests."""
+    return [
+        {
+            'id': u.id, 'label': f'{u.get_unit_type_display()} {u.unit_number}',
+            'force_harvest': u.id in force, 'reasons': force.get(u.id, []), 'harvested': u.id in harvested,
+            'force_harvested': u.id in force_harvested,
+        }
+        for u in units
+    ]
+
+
+def production_cycle_numbers_bulk(records):
+    """{record_id: compute_production_cycle_no()} for many records with ONE query: the records of the same
+    fisherfolk + species stocked earlier (or the same day with a lower id), over every status, plus one.
+    Records without fisherfolk, species or stocking date get 1, as compute_production_cycle_no() does."""
+    from collections import defaultdict
+    pairs = {(r.fisherfolk_id, r.species_id) for r in records if r.fisherfolk_id and r.species_id and r.date_stocked}
+    siblings = defaultdict(list)
+    if pairs:
+        rows = StockingRecord.objects.filter(
+            fisherfolk_id__in={p[0] for p in pairs}, species_id__in={p[1] for p in pairs},
+        ).values_list('id', 'fisherfolk_id', 'species_id', 'date_stocked')
+        for rid, ff_id, sp_id, stocked in rows:
+            if (ff_id, sp_id) in pairs and stocked is not None:
+                siblings[(ff_id, sp_id)].append((stocked, rid))
+    out = {}
+    for r in records:
+        if (r.fisherfolk_id, r.species_id) not in pairs or not r.date_stocked:
+            out[r.id] = 1
+            continue
+        out[r.id] = 1 + sum(1 for stocked, rid in siblings[(r.fisherfolk_id, r.species_id)]
+                            if stocked < r.date_stocked or (stocked == r.date_stocked and rid < r.id))
+    return out
+
+
+def stocking_harvest_status_bulk(records):
+    """For many stocking records at once (a list page): {record_id: (harvest_units, pending_force_harvest)}, the
+    exact values of record.harvest_units() and record.has_pending_force_harvest(), with 3 queries in total
+    instead of several per record."""
+    from collections import defaultdict
+    from monitoring.models import AquacultureProductionUnit, cycle_force_status_bulk
+    with_cycle = [r for r in records if r.production_cycle_id]
+    cycle_ids = {r.production_cycle_id for r in with_cycle}
+    force_by_cycle = cycle_force_status_bulk(cycle_ids)
+    units_by_cycle = defaultdict(list)
+    for u in AquacultureProductionUnit.objects.filter(production_cycle_id__in=cycle_ids).order_by('unit_number'):
+        units_by_cycle[u.production_cycle_id].append(u)
+    harvested, force_harvested = defaultdict(set), defaultdict(set)
+    if with_cycle:
+        links = FisheriesHarvestRecord.production_units.through.objects.filter(
+            fisheriesharvestrecord__stocking_record_id__in=[r.id for r in with_cycle])
+        for sid, unit_id, is_force in links.values_list(
+                'fisheriesharvestrecord__stocking_record_id', 'aquacultureproductionunit_id', 'fisheriesharvestrecord__is_force_harvest'):
+            harvested[sid].add(unit_id)
+            if is_force:
+                force_harvested[sid].add(unit_id)
+    out = {}
+    for r in records:
+        if not r.production_cycle_id:
+            out[r.id] = ([], False)
+            continue
+        force, unassigned = force_by_cycle[r.production_cycle_id]
+        rows = _harvest_unit_rows(units_by_cycle[r.production_cycle_id], force, harvested[r.id], force_harvested[r.id])
+        # has_pending_force_harvest(): a legacy unassigned log, or an affected unit not yet harvested.
+        out[r.id] = (rows, unassigned or any(uid not in harvested[r.id] for uid in force))
+    return out
 
 
 # ─── Fisheries Activity Log ────────────────────────────────────────────────────
@@ -861,6 +1021,12 @@ class FisheriesDisasterReport(models.Model):
         ('Recovered', 'Recovered'),
     ]
 
+    class SubmissionStatus(models.TextChoices):
+        # A fisherfolk's own report is a DRAFT until they submit it to Admin; '' (blank) is every report
+        # recorded before this workflow existed and every report recorded by office staff.
+        DRAFT     = 'DRAFT',     'Not yet submitted'
+        SUBMITTED = 'SUBMITTED', 'Submitted to Admin'
+
     # Exactly one of stocking_record / fisherfolk is set (enforced in the
     # serializer): stocking_record for an aquaculture production cycle
     # (unlocks the response-rule/recovery-activity engine below), fisherfolk
@@ -903,11 +1069,28 @@ class FisheriesDisasterReport(models.Model):
         related_name='fisheries_disaster_reports',
     )
     date_reported       = models.DateTimeField(auto_now_add=True)
+    # Fisherfolk "Submit Report to Admin": set once, by the owning fisherfolk, on the existing report
+    # (never a second row). Separate from `status`, which is the disaster's Active/Recovered lifecycle.
+    submission_status   = models.CharField(max_length=10, choices=SubmissionStatus.choices, blank=True, default='')
+    submitted_at        = models.DateTimeField(null=True, blank=True)
+    submitted_by        = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='+',
+    )
 
     class Meta:
         # -id tie-breaks -date_of_occurrence (a plain DateField — day
         # precision) since two disasters reported the same day are common.
         ordering = ['-date_of_occurrence', '-id']
+
+    @property
+    def report_number(self):
+        """Reference number derived from the row itself (no stored counter): FDR-<year reported>-<id>."""
+        if not self.pk:
+            return ''
+        year = self.date_reported.year if self.date_reported else ''
+        return f'FDR-{year}-{self.pk:05d}'
 
     @property
     def owner_fisherfolk(self):
@@ -942,6 +1125,26 @@ class FisheriesDisasterReport(models.Model):
 
     def __str__(self):
         return f'{self.disaster_type} - {self.date_of_occurrence}'
+
+
+class FisheriesDisasterReportPhoto(models.Model):
+    """One "Photo Documentation of Damage" image of a FisheriesDisasterReport. Optional: 0 to
+    MAX_PER_REPORT per report (enforced by the API). Each photo is its own row and file, so one upload
+    never replaces another. The report's older single `photo` field is untouched and still served."""
+    MAX_PER_REPORT = 10
+
+    disaster_report = models.ForeignKey(FisheriesDisasterReport, on_delete=models.CASCADE, related_name='photos')
+    image           = models.ImageField(upload_to='disaster_reports/fisheries/photos/')
+    uploaded_by     = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
+    )
+    date_uploaded   = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['id']
+
+    def __str__(self):
+        return f'Photo {self.pk} of disaster report {self.disaster_report_id}'
 
 
 # ─── Fisheries Disaster Response Rules ────────────────────────────────────────
@@ -997,6 +1200,19 @@ class FisheriesDisasterResponseRule(models.Model):
         return f'{self.disaster_type} / {species_str}: {self.title}'
 
 
+HARVEST_TIMING_LABELS = {'early': 'Early Harvest', 'on_time': 'On-Time Harvest', 'late': 'Late Harvest'}
+
+
+def harvest_timing(harvest_date, estimated_harvest_date):
+    """Actual harvest date vs the estimated (expected) harvest date: ('early' | 'on_time' | 'late', days),
+    where days is harvest_date - estimated (negative = earlier). (None, None) when either date is missing.
+    The single rule used by harvest validation and by anything that reports harvest timing."""
+    if not harvest_date or not estimated_harvest_date:
+        return None, None
+    days = (harvest_date - estimated_harvest_date).days
+    return ('early' if days < 0 else 'late' if days > 0 else 'on_time'), days
+
+
 # ─── Fisheries Harvest Record (partial harvests) ──────────────────────────────
 
 class FisheriesHarvestRecord(models.Model):
@@ -1011,7 +1227,15 @@ class FisheriesHarvestRecord(models.Model):
         help_text='Days early (negative) or late (positive) vs. expected harvest date — final harvest only',
     )
     early_late_reason       = models.CharField(max_length=255, blank=True)
-    notes                   = models.TextField(blank=True)
+    # Force Harvest: the affected ponds/cages this ONE harvest covers (quantity_kg is their combined
+    # total). Empty for a normal harvest, which keeps working exactly as before.
+    production_units        = models.ManyToManyField(
+        'monitoring.AquacultureProductionUnit', blank=True, related_name='harvest_records',
+    )
+    # True only for a Force Harvest (every listed unit was awaiting Force Harvest per its own Health Log).
+    # Set by the serializer, never by the client. A normal harvest - with or without units - is False.
+    is_force_harvest        = models.BooleanField(default=False)
+    notes                  = models.TextField(blank=True)
     recorded_by             = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL, null=True, blank=True,
@@ -1041,6 +1265,29 @@ class FisheriesHarvestRecord(models.Model):
 
     def __str__(self):
         return f'Harvest {self.quantity_kg}kg on {self.harvest_date}'
+
+
+class FisheriesHarvestUnit(models.Model):
+    """Actual harvested kg of ONE pond/cage within a harvest record (e.g. a Force Harvest of Pond 1
+    and Pond 2 records each pond's own weight). When a record has these rows, its quantity_kg is their
+    sum (set by the serializer), so the cycle's actual harvest stays SUM(FisheriesHarvestRecord.quantity_kg)
+    and nothing is counted twice. Records without rows (a combined multi-unit normal harvest, older
+    records) keep a single combined quantity_kg - no per-unit split is ever invented."""
+    harvest         = models.ForeignKey(FisheriesHarvestRecord, on_delete=models.CASCADE, related_name='unit_harvests')
+    production_unit = models.ForeignKey(
+        'monitoring.AquacultureProductionUnit', on_delete=models.CASCADE, related_name='harvest_quantities',
+    )
+    quantity_kg     = models.DecimalField(max_digits=12, decimal_places=2)
+
+    class Meta:
+        ordering = ['production_unit__unit_number']
+        constraints = [
+            models.UniqueConstraint(fields=['harvest', 'production_unit'], name='unique_unit_per_fisheries_harvest'),
+            models.CheckConstraint(check=Q(quantity_kg__gt=0), name='fisheries_harvest_unit_kg_positive'),
+        ]
+
+    def __str__(self):
+        return f'{self.production_unit} - {self.quantity_kg}kg'
 
 
 @receiver(post_delete, sender=FisheriesHarvestRecord)
