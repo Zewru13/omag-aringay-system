@@ -119,6 +119,11 @@ _DATABASES_POSTGRES = {
         'PORT': os.environ.get('SUPABASE_DB_PORT', ''),
         'OPTIONS': {
             'sslmode': 'require',
+            # The pooler hostname resolves to several addresses and some intermittently never answer the
+            # SSL handshake. Without a timeout libpq waits on such an address for minutes (every request
+            # opens a new connection), so a save could hang on "Saving...". With it, libpq gives up on that
+            # address after 3 s and connects to the next one (a healthy connect takes ~0.3 s).
+            'connect_timeout': 3,
         },
     }
 }
