@@ -1,3 +1,4 @@
+import itertools
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -9,16 +10,26 @@ from fisheries.models import Fisherfolk, SpeciesCategory, SpeciesOption, Stockin
 from monitoring.models import AquacultureProductionCycle
 
 
-class ProductionCycleOrganizationTests(APITestCase):
+_RSBSA = itertools.count(900001)
+
+
+def _rsbsa():
+    """A unique, well-formed RSBSA number: every fisherfolk now needs one."""
+    return '01-033-02-019-%06d' % next(_RSBSA)
+
+
+class ProductionCycleBase(APITestCase):
+    """Shared data and helpers for the production cycle tests. It holds no tests itself, so the
+    classes that inherit it get the setup without re-running each other's tests."""
     CYCLES = '/api/monitoring/aquaculture-cycles/'
     ORGS = '/api/organizations/fisherfolk/'
 
     @classmethod
     def setUpTestData(cls):
-        cls.user = get_user_model().objects.create_user(username='admin1', password='pw', role='ADMIN')
+        cls.user = get_user_model().objects.create_user(username='admin1', password='pw', role='ADMIN', email='admin1@x.test')
         make = lambda n: Fisherfolk.objects.create(
             first_name=n, last_name='Test', gender='Male', birthdate=date(1990, 1, 1),
-            barangay='Poblacion', fisherfolk_type='Aquaculture',
+            barangay='Poblacion', fisherfolk_type='Aquaculture', rsbsa_number=_rsbsa(),
         )
         cls.ff_a, cls.ff_b, cls.ff_none = make('Ann'), make('Ben'), make('Cy')
         org = lambda n: FisherfolkOrganization.objects.create(
@@ -60,6 +71,94 @@ class ProductionCycleOrganizationTests(APITestCase):
         self.assertEqual(r.status_code, 200)
         rows = r.data['results'] if isinstance(r.data, dict) else r.data
         return sorted(o['name'] for o in rows)
+
+    # --- Estimated Harvest Biomass (shared existing formula)
+    def expected(self, n, species=None):
+        s = species or self.species
+        return (Decimal(n) * s.default_survival_rate_pct / 100 * s.default_avg_body_weight_kg).quantize(Decimal('0.01'))
+
+    def units(self, *counts):
+        return [{'length_m': 4, 'width_m': 1, 'fingerling_count': c} for c in counts]
+
+    # --- Feeding Log: per pond/cage quantities (View Cycle > Feeding Log > Log Feeding)
+    def feeding(self, cycle_id, **body):
+        base = {'feeding_date': str(date.today()), 'feed_type': 'Pellets'}
+        base.update(body)
+        return self.client.post(f'{self.CYCLES}{cycle_id}/feeding/', base, format='json')
+
+    def legacy_cycle_without_units(self):
+        """An older Fishpen cycle (no ponds/cages). New cycles are Fishpond/Fishcage only, so this legacy
+        data is created directly, the way it already exists in the database."""
+        cycle = AquacultureProductionCycle.objects.create(
+            fisherfolk=self.ff_a, cycle_name='Grow-out Phase', species_farmed='Tilapia', culture_system='Fishpen',
+            stocking_date=date.today() - timedelta(days=1), stocking_count=100)
+        return {'id': cycle.id, 'units': []}
+
+    # --- Health Log: Force Harvest defaults to YES for fish mortality / disease
+    def unit_ids(self, cycle_id):
+        from monitoring.models import AquacultureProductionUnit
+        return list(AquacultureProductionUnit.objects.filter(production_cycle_id=cycle_id).values_list('id', flat=True))
+
+    def health(self, cycle_id, **body):
+        from monitoring.models import AquacultureHealthLog
+        base = {'log_date': str(date.today()), 'observation': 'Fish Mortality', 'mortality_count': 5}
+        ids = self.unit_ids(cycle_id)
+        if ids and 'production_unit' not in body:
+            # The affected pond/cage is required when the cycle has units; default to the first one that
+            # has no Health Log yet (a unit cannot be reported twice in a cycle).
+            reported = set(AquacultureHealthLog.objects.filter(production_cycle_id=cycle_id).values_list('production_unit_id', flat=True))
+            base['production_unit'] = next((i for i in ids if i not in reported), ids[0])
+        base.update({k: v for k, v in body.items() if not (k == 'production_unit' and v is Ellipsis)})
+        if base.get('production_unit') is Ellipsis:
+            base.pop('production_unit')
+        return self.client.post(f'{self.CYCLES}{cycle_id}/health/', base, format='json')
+
+    # --- Health Log: affected pond/cage (unit-specific record and Force Harvest)
+    def unit_status(self, cycle_id):
+        """{unit_id: True/False} - Force Harvest per pond/cage, derived from that unit's own logs."""
+        logs = self.client.get(f'{self.CYCLES}{cycle_id}/health/').data
+        return {uid: any(l['force_harvest'] for l in logs if l['production_unit'] == uid) for uid in self.unit_ids(cycle_id)}
+
+    # --- Fisheries Monitoring: Harvest button data + Record Harvest workflow (force harvest, duplicates)
+    STOCKING = '/api/fisheries/stocking/'
+
+    def stocking_row(self, cycle_id):
+        rec = StockingRecord.objects.get(production_cycle_id=cycle_id)
+        return rec, self.client.get(f'{self.STOCKING}{rec.id}/').data
+
+    def harvest(self, rec, **body):
+        base = {'harvest_date': str(date.today()), 'quantity_kg': '125.50', 'is_final': True, 'early_late_reason': 'Emergency harvest — disaster damage'}
+        base.update(body)
+        return self.client.post(f'{self.STOCKING}{rec.id}/harvests/', base, format='json')
+
+    # --- Unit-aware Force Harvest: ONE harvest record, only the affected ponds/cages, ONE total kg
+    def force_cycle(self, n=3):
+        cid = self.post(units=self.units(*([10] * n))).data['id']
+        return cid, self.unit_ids(cid), StockingRecord.objects.get(production_cycle_id=cid)
+
+    def unit_harvest(self, rec, unit_ids, kg, **extra):
+        body = {'harvest_date': str(date.today()), 'quantity_kg': kg, 'production_units': unit_ids}
+        body.update(extra)
+        return self.client.post(f'{self.STOCKING}{rec.id}/harvests/', body, format='json')
+
+    def per_unit_harvest(self, rec, kg_by_unit, **extra):
+        """Per-unit actual kg: {unit_id: kg}. No combined quantity_kg is sent."""
+        body = {'harvest_date': str(date.today()),
+                'unit_quantities': [{'production_unit': uid, 'quantity_kg': kg} for uid, kg in kg_by_unit.items()]}
+        body.update(extra)
+        return self.client.post(f'{self.STOCKING}{rec.id}/harvests/', body, format='json')
+
+    def units_state(self, rec):
+        return {u['label']: (u['force_harvest'], u['harvested']) for u in self.client.get(f'{self.STOCKING}{rec.id}/').data['harvest_units']}
+
+    # --- Normal harvest of selected units (is_force_harvest=False) alongside Force Harvest (True)
+    def past_half(self, rec):
+        # Past the 50% rule and harvested ON TIME (expected = today), so no early/late reason is involved.
+        StockingRecord.objects.filter(pk=rec.pk).update(
+            date_stocked=date.today() - timedelta(days=100), expected_harvest_date=date.today())
+
+
+class ProductionCycleOrganizationTests(ProductionCycleBase):
 
     def test_org_list_only_shows_the_fisherfolks_active_organizations(self):
         self.assertEqual(self.names(self.ff_a.id), ['OrgA', 'OrgA2'])   # inactive membership excluded
@@ -134,14 +233,6 @@ class ProductionCycleOrganizationTests(APITestCase):
         d = self.client.get(f'{self.CYCLES}{cid}/').data
         self.assertEqual((len(d['feeding_logs']), len(d['health_logs'])), (1, 1))
 
-    # --- Estimated Harvest Biomass (shared existing formula)
-    def expected(self, n, species=None):
-        s = species or self.species
-        return (Decimal(n) * s.default_survival_rate_pct / 100 * s.default_avg_body_weight_kg).quantize(Decimal('0.01'))
-
-    def units(self, *counts):
-        return [{'length_m': 4, 'width_m': 1, 'fingerling_count': c} for c in counts]
-
     def test_biomass_one_pond_multiple_ponds_and_cages(self):
         for system, counts in (('Fishpond', (1000,)), ('Fishpond', (1000, 1500)), ('Fishcage', (500, 700, 600))):
             r = self.post(culture_system=system, units=self.units(*counts))
@@ -191,12 +282,6 @@ class ProductionCycleOrganizationTests(APITestCase):
         self.assertEqual(self.client.get(f'{self.CYCLES}estimate-harvest/', {'species': 'x', 'fingerlings': 5}).status_code, 400)
         self.assertEqual(self.client.get(f'{self.CYCLES}estimate-harvest/', {'species': 999999, 'fingerlings': 5}).status_code, 400)
 
-    # --- Feeding Log: per pond/cage quantities (View Cycle > Feeding Log > Log Feeding)
-    def feeding(self, cycle_id, **body):
-        base = {'feeding_date': str(date.today()), 'feed_type': 'Pellets'}
-        base.update(body)
-        return self.client.post(f'{self.CYCLES}{cycle_id}/feeding/', base, format='json')
-
     def test_feeding_per_pond_total_is_the_sum(self):
         cycle = self.post(units=self.units(10, 10, 10, 10, 10)).data
         ids = [u['id'] for u in cycle['units']]
@@ -236,14 +321,6 @@ class ProductionCycleOrganizationTests(APITestCase):
         self.assertEqual(self.feeding(a['id']).status_code, 400)                                                # no quantity at all
         self.assertEqual(self.client.get(f"{self.CYCLES}{a['id']}/feeding/").data, [])
 
-    def legacy_cycle_without_units(self):
-        """An older Fishpen cycle (no ponds/cages). New cycles are Fishpond/Fishcage only, so this legacy
-        data is created directly, the way it already exists in the database."""
-        cycle = AquacultureProductionCycle.objects.create(
-            fisherfolk=self.ff_a, cycle_name='Grow-out Phase', species_farmed='Tilapia', culture_system='Fishpen',
-            stocking_date=date.today() - timedelta(days=1), stocking_count=100)
-        return {'id': cycle.id, 'units': []}
-
     def test_new_cycle_accepts_only_fishpond_or_fishcage_and_needs_a_fisherfolk(self):
         existing = AquacultureProductionCycle.objects.count()   # some test classes create cycles in setUp
         for system in ('Fishpen', 'Oyster', 'Mussel', 'Seaweed', 'Other'):
@@ -276,31 +353,6 @@ class ProductionCycleOrganizationTests(APITestCase):
         self.assertEqual(self.client.delete(f"{self.CYCLES}feeding/{log['id']}/").status_code, 204)
         from monitoring.models import AquacultureFeedingLogUnit
         self.assertEqual(AquacultureFeedingLogUnit.objects.count(), 0)
-
-    # --- Health Log: Force Harvest defaults to YES for fish mortality / disease
-    def unit_ids(self, cycle_id):
-        from monitoring.models import AquacultureProductionUnit
-        return list(AquacultureProductionUnit.objects.filter(production_cycle_id=cycle_id).values_list('id', flat=True))
-
-    def health(self, cycle_id, **body):
-        from monitoring.models import AquacultureHealthLog
-        base = {'log_date': str(date.today()), 'observation': 'Fish Mortality', 'mortality_count': 5}
-        ids = self.unit_ids(cycle_id)
-        if ids and 'production_unit' not in body:
-            # The affected pond/cage is required when the cycle has units; default to the first one that
-            # has no Health Log yet (a unit cannot be reported twice in a cycle).
-            reported = set(AquacultureHealthLog.objects.filter(production_cycle_id=cycle_id).values_list('production_unit_id', flat=True))
-            base['production_unit'] = next((i for i in ids if i not in reported), ids[0])
-        base.update({k: v for k, v in body.items() if not (k == 'production_unit' and v is Ellipsis)})
-        if base.get('production_unit') is Ellipsis:
-            base.pop('production_unit')
-        return self.client.post(f'{self.CYCLES}{cycle_id}/health/', base, format='json')
-
-    # --- Health Log: affected pond/cage (unit-specific record and Force Harvest)
-    def unit_status(self, cycle_id):
-        """{unit_id: True/False} - Force Harvest per pond/cage, derived from that unit's own logs."""
-        logs = self.client.get(f'{self.CYCLES}{cycle_id}/health/').data
-        return {uid: any(l['force_harvest'] for l in logs if l['production_unit'] == uid) for uid in self.unit_ids(cycle_id)}
 
     def test_health_log_identifies_the_affected_pond_and_force_harvest_is_per_unit(self):
         cid = self.post(units=self.units(10, 10, 10)).data['id']
@@ -443,18 +495,6 @@ class ProductionCycleOrganizationTests(APITestCase):
         rec.refresh_from_db()
         self.assertEqual((rec.status, rec.estimated_harvest_kg, rec.number_of_fingerlings), before)
 
-    # --- Fisheries Monitoring: Harvest button data + Record Harvest workflow (force harvest, duplicates)
-    STOCKING = '/api/fisheries/stocking/'
-
-    def stocking_row(self, cycle_id):
-        rec = StockingRecord.objects.get(production_cycle_id=cycle_id)
-        return rec, self.client.get(f'{self.STOCKING}{rec.id}/').data
-
-    def harvest(self, rec, **body):
-        base = {'harvest_date': str(date.today()), 'quantity_kg': '125.50', 'is_final': True, 'early_late_reason': 'Emergency harvest — disaster damage'}
-        base.update(body)
-        return self.client.post(f'{self.STOCKING}{rec.id}/harvests/', base, format='json')
-
     def test_stocking_row_flags_force_harvest_per_cycle(self):
         normal, mortality, disease, other = (self.post(units=self.units(10)).data['id'] for _ in range(4))
         self.assertEqual(self.health(mortality).status_code, 201)
@@ -487,14 +527,16 @@ class ProductionCycleOrganizationTests(APITestCase):
     def test_normal_cycle_is_gated_but_force_harvest_cycle_can_harvest_early(self):
         normal = self.post(units=self.units(20, 30)).data['id']
         force = self.post(units=self.units(20, 30)).data['id']
-        self.health(force)
+        f1, f2 = self.unit_ids(force)
+        self.health(force, production_unit=f1)      # a harvest is per pond/cage: every affected one is listed
+        self.health(force, production_unit=f2)
         rec_n, _ = self.stocking_row(normal)
         rec_f, _ = self.stocking_row(force)
         blocked = self.harvest(rec_n)
         self.assertEqual(blocked.status_code, 400)                       # existing 50%-duration rule still applies
         self.assertIn('half', str(blocked.data['detail']))
         before = (rec_f.estimated_harvest_kg, rec_f.number_of_fingerlings)
-        ok = self.harvest(rec_f, quantity_kg='40.25')
+        ok = self.per_unit_harvest(rec_f, {f1: '15.25', f2: '25.00'})
         self.assertEqual(ok.status_code, 201, ok.data)                    # force harvest: recorded before the target date
         rec_f.refresh_from_db()
         self.assertEqual(rec_f.status, StockingRecord.Status.HARVESTED)   # existing status update
@@ -506,9 +548,11 @@ class ProductionCycleOrganizationTests(APITestCase):
     def test_harvest_cannot_be_recorded_twice(self):
         from fisheries.models import FisheriesHarvestRecord
         cid = self.post(units=self.units(20, 30)).data['id']
-        self.health(cid)
+        p1, p2 = self.unit_ids(cid)
+        self.health(cid, production_unit=p1)
+        self.health(cid, production_unit=p2)
         rec, _ = self.stocking_row(cid)
-        self.assertEqual(self.harvest(rec).status_code, 201)
+        self.assertEqual(self.per_unit_harvest(rec, {p1: '60.50', p2: '65.00'}).status_code, 201)
         second = self.harvest(rec, quantity_kg='10')
         self.assertEqual(second.status_code, 400)
         self.assertIn('already been harvested', second.data['detail'])
@@ -524,26 +568,6 @@ class ProductionCycleOrganizationTests(APITestCase):
         self.assertEqual(self.harvest(rec, early_late_reason='').status_code, 400)                                  # >7 days early needs a reason
         self.assertEqual(self.harvest(rec, quantity_kg='').status_code, 400)                                        # actual kg required
         self.assertEqual(self.client.get(f'{self.STOCKING}{rec.id}/harvests/').data, [])
-
-    # --- Unit-aware Force Harvest: ONE harvest record, only the affected ponds/cages, ONE total kg
-    def force_cycle(self, n=3):
-        cid = self.post(units=self.units(*([10] * n))).data['id']
-        return cid, self.unit_ids(cid), StockingRecord.objects.get(production_cycle_id=cid)
-
-    def unit_harvest(self, rec, unit_ids, kg, **extra):
-        body = {'harvest_date': str(date.today()), 'quantity_kg': kg, 'production_units': unit_ids}
-        body.update(extra)
-        return self.client.post(f'{self.STOCKING}{rec.id}/harvests/', body, format='json')
-
-    def per_unit_harvest(self, rec, kg_by_unit, **extra):
-        """Per-unit actual kg: {unit_id: kg}. No combined quantity_kg is sent."""
-        body = {'harvest_date': str(date.today()),
-                'unit_quantities': [{'production_unit': uid, 'quantity_kg': kg} for uid, kg in kg_by_unit.items()]}
-        body.update(extra)
-        return self.client.post(f'{self.STOCKING}{rec.id}/harvests/', body, format='json')
-
-    def units_state(self, rec):
-        return {u['label']: (u['force_harvest'], u['harvested']) for u in self.client.get(f'{self.STOCKING}{rec.id}/').data['harvest_units']}
 
     def test_one_affected_pond_is_harvested_alone(self):
         from fisheries.models import FisheriesHarvestRecord
@@ -605,6 +629,7 @@ class ProductionCycleOrganizationTests(APITestCase):
         cid_b, (b1,), rec_b = self.force_cycle(1)
         self.health(cid_a, production_unit=a2)
         self.health(cid_b, production_unit=b1)
+        self.past_half(rec_a)       # past the 50% rule, so the pond/cage checks (not the waiting rule) decide
         r = self.unit_harvest(rec_a, [a2, b1], '10')
         self.assertEqual(r.status_code, 400)
         self.assertIn('belong to this production cycle', str(r.data['production_units']))
@@ -617,6 +642,7 @@ class ProductionCycleOrganizationTests(APITestCase):
         cid, (p1, p2, p3), rec = self.force_cycle(3)
         self.health(cid, production_unit=p2)
         self.assertEqual(self.unit_harvest(rec, [p2], '20').status_code, 201)
+        self.past_half(rec)         # past the 50% rule, so the pond/cage checks (not the waiting rule) decide
         again = self.unit_harvest(rec, [p2], '5')
         self.assertEqual(again.status_code, 400)
         self.assertIn('already been harvested', str(again.data['production_units']))
@@ -666,12 +692,6 @@ class ProductionCycleOrganizationTests(APITestCase):
         self.assertEqual((ok.data['production_units'], ok.data['is_final']), ([], True))  # whole-cycle final harvest, no units
         rec.refresh_from_db()
         self.assertEqual(rec.status, StockingRecord.Status.HARVESTED)
-
-    # --- Normal harvest of selected units (is_force_harvest=False) alongside Force Harvest (True)
-    def past_half(self, rec):
-        # Past the 50% rule and harvested ON TIME (expected = today), so no early/late reason is involved.
-        StockingRecord.objects.filter(pk=rec.pk).update(
-            date_stocked=date.today() - timedelta(days=100), expected_harvest_date=date.today())
 
     def test_force_then_normal_unit_harvests_accumulate(self):
         from fisheries.models import FisheriesHarvestRecord
@@ -867,7 +887,7 @@ class ProductionCycleOrganizationTests(APITestCase):
         self.assertEqual((AquacultureProductionCycle.objects.count(), StockingRecord.objects.count()), (cycles, stocks))
 
 
-class ProductionCycleSeasonTests(ProductionCycleOrganizationTests):
+class ProductionCycleSeasonTests(ProductionCycleBase):
     """Season is derived from stocking_date by core.seasons (Wet Jun-Nov, Dry Dec-May), never client-supplied."""
 
     def test_season_by_date_including_boundaries(self):
@@ -895,7 +915,7 @@ class ProductionCycleSeasonTests(ProductionCycleOrganizationTests):
         self.assertEqual(r.data['season'], 'Wet')
 
 
-class ForecastingReadsMonitoringRecordsTests(ProductionCycleOrganizationTests):
+class ForecastingReadsMonitoringRecordsTests(ProductionCycleBase):
     """Fisheries Forecasting reads the same /fisheries/stocking/ records Monitoring creates - no copies."""
     STOCKING = '/api/fisheries/stocking/'
 
@@ -959,7 +979,7 @@ class ForecastingReadsMonitoringRecordsTests(ProductionCycleOrganizationTests):
         self.assertFalse(any(x['id'] == rec.id for x in self.rows()))
 
 
-class HarvestedUnitDetailsTests(ProductionCycleOrganizationTests):
+class HarvestedUnitDetailsTests(ProductionCycleBase):
     """Harvest details name the actual ponds linked to the harvest; unharvested ponds stay Stocked."""
 
     def test_only_pond_1_harvested(self):
@@ -986,7 +1006,7 @@ class HarvestedUnitDetailsTests(ProductionCycleOrganizationTests):
         self.assertEqual(len(detail['harvests']), 1)
 
 
-class CyclePondLocationWaterSourceTests(ProductionCycleOrganizationTests):
+class CyclePondLocationWaterSourceTests(ProductionCycleBase):
     """Pond Location / Water Source are validated against the backend lists and stored on the StockingRecord."""
 
     def test_values_stored_on_stocking_record(self):
@@ -1029,7 +1049,7 @@ class CyclePondLocationWaterSourceTests(ProductionCycleOrganizationTests):
         self.assertEqual(r.data['water_sources'], ['River', 'Spring', 'Rain-fed', 'Deep Well', 'Other'])
 
 
-class ForceHarvestOverridesFiftyPercentRuleTests(ProductionCycleOrganizationTests):
+class ForceHarvestOverridesFiftyPercentRuleTests(ProductionCycleBase):
     """Before 50% of the culture duration a normal harvest is refused; Force Harvest lifts it per unit only."""
 
     def setUp(self):
@@ -1086,7 +1106,7 @@ class ForceHarvestOverridesFiftyPercentRuleTests(ProductionCycleOrganizationTest
         self.assertEqual(self.harvest(production_units=[self.p2.id]).status_code, 201)
 
 
-class HealthLogMultipleUnitsTests(ProductionCycleOrganizationTests):
+class HealthLogMultipleUnitsTests(ProductionCycleBase):
     """One submission may name several ponds/cages; each gets its own unit-specific log; reported units are closed."""
 
     def setUp(self):
@@ -1152,7 +1172,7 @@ class HealthLogMultipleUnitsTests(ProductionCycleOrganizationTests):
         self.assertTrue(all(x['force_harvest'] for x in r.data))
 
 
-class HealthLogPerUnitObservationTests(ProductionCycleOrganizationTests):
+class HealthLogPerUnitObservationTests(ProductionCycleBase):
     """`unit_logs`: every selected pond/cage gets its OWN log with its own observation, mortality, treatment
     and Vet Consulted; Force Harvest and its reason stay per unit; the submission is all-or-nothing."""
 
@@ -1265,7 +1285,7 @@ class HealthLogPerUnitObservationTests(ProductionCycleOrganizationTests):
         self.assertEqual({x['unit_label']: x['force_harvest'] for x in r.data}, {'Pond 1': True, 'Pond 2': False})
 
 
-class HarvestVarianceDetailsTests(ProductionCycleOrganizationTests):
+class HarvestVarianceDetailsTests(ProductionCycleBase):
     """GET /fisheries/stocking/<id>/variance-details/: estimate vs the cumulative actual (no double counting),
     the harvest records with type/date/reason, and the Health/Feeding Log entries of THIS cycle only."""
 
@@ -1409,7 +1429,7 @@ class HarvestVarianceDetailsTests(ProductionCycleOrganizationTests):
         self.assertNotIn('OTHER CYCLE', str(d))
 
 
-class HarvestTimingTests(ProductionCycleOrganizationTests):
+class HarvestTimingTests(ProductionCycleBase):
     """Harvest timing = harvest_date vs the estimated (expected) harvest date, to the day. Early or late
     needs a reason (early_late_reason) on any normal harvest; on time needs none; a Force Harvest keeps
     its Health Log reason. Dates are relative to today because a harvest date cannot be in the future."""
@@ -1489,7 +1509,7 @@ class HarvestTimingTests(ProductionCycleOrganizationTests):
         self.assertEqual((r.data['harvest_timing'], r.data['early_late_reason']), ('early', ''))   # nothing invented
 
 
-class ForecastingHarvestTimingTests(ProductionCycleOrganizationTests):
+class ForecastingHarvestTimingTests(ProductionCycleBase):
     """Forecasting surfaces the timing recorded by Record Harvest: the row's actual_harvest_timing (its
     latest harvest, via fisheries.models.harvest_timing) and each harvest record's own timing and reason
     in the read-only variance-details response. Nothing is recomputed differently or invented."""

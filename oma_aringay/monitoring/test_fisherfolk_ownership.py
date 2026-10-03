@@ -5,6 +5,7 @@ units, feeding/health logs, harvest, disaster report, catch log and assistance).
 receive Pablo's data - in lists, details, nested endpoints, creates and updates - while Admin keeps
 seeing everything. Staff-governance actions (deletes, bulk import) stay staff-only.
 """
+import itertools
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -24,29 +25,38 @@ CYCLES = '/api/monitoring/aquaculture-cycles/'
 STOCKING = '/api/fisheries/stocking/'
 
 
+_RSBSA = itertools.count(900001)
+
+
+def _rsbsa():
+    """A unique, well-formed RSBSA number: every fisherfolk now needs one."""
+    return '01-033-02-019-%06d' % next(_RSBSA)
+
+
 def _citizen(username, record_type, record_id):
-    user = get_user_model().objects.create_user(username=username, password='pw', role='CITIZEN')
+    user = get_user_model().objects.create_user(username=username, password='pw', role='CITIZEN', email=f'{username}@x.test')
     UserLinkedRecord.objects.create(user=user, record_type=record_type, record_id=record_id, is_active=True)
     return user
 
 
-class FisherfolkOwnershipTests(APITestCase):
+class FisherfolkOwnershipBase(APITestCase):
+    """Shared data and helpers for the fisherfolk ownership tests (holds no tests, so inheriting classes do not re-run them)."""
 
     @classmethod
     def setUpTestData(cls):
         User = get_user_model()
-        cls.admin = User.objects.create_user(username='admin1', password='pw', role='ADMIN')
-        cls.evaluator = User.objects.create_user(username='eval1', password='pw', role='EVALUATOR')
+        cls.admin = User.objects.create_user(username='admin1', password='pw', role='ADMIN', email='admin1@x.test')
+        cls.evaluator = User.objects.create_user(username='eval1', password='pw', role='EVALUATOR', email='eval1@x.test')
         make = lambda n: Fisherfolk.objects.create(
             first_name=n, last_name='Test', gender='Male', birthdate=date(1990, 1, 1),
-            barangay='Poblacion', fisherfolk_type='Aquaculture',
+            barangay='Poblacion', fisherfolk_type='Inland', rsbsa_number=_rsbsa(),   # Inland: may log fishing trips AND run a cycle
         )
         cls.ff_a, cls.ff_b = make('Pablo'), make('Joshua')
         cls.pablo = _citizen('pablo', 'FISHERFOLK', cls.ff_a.id)
         cls.joshua = _citizen('joshua', 'FISHERFOLK', cls.ff_b.id)
         # A FARMER-linked citizen whose linked id happens to equal Joshua's fisherfolk id.
         cls.farmer_collision = _citizen('farmer1', 'FARMER', cls.ff_b.id)
-        cls.unlinked = get_user_model().objects.create_user(username='nolink', password='pw', role='CITIZEN')
+        cls.unlinked = get_user_model().objects.create_user(username='nolink', password='pw', role='CITIZEN', email='nolink@x.test')
         org = lambda n: FisherfolkOrganization.objects.create(
             name=n, barangay='Poblacion', contact_person='X', contact_number='1', registration_number=n,
         )
@@ -104,6 +114,16 @@ class FisherfolkOwnershipTests(APITestCase):
     def as_user(self, user):
         self.client.force_authenticate(user)
 
+    def _cycle_payload(self):
+        return {
+            'cycle_name': 'Grow-out Phase', 'species_farmed': 'Tilapia', 'species_option': self.species.id,
+            'culture_system': 'Fishpond', 'pond_location_barangay': 'Poblacion', 'water_source': 'River',
+            'stocking_date': str(date.today() - timedelta(days=1)),
+            'units': [{'length_m': 4, 'width_m': 2, 'fingerling_count': 20}],
+        }
+
+
+class FisherfolkOwnershipTests(FisherfolkOwnershipBase):
     # --- 1. Lists: own records only (and Admin/Evaluator still see everything)
     def test_fisherfolk_lists_contain_only_their_own_records(self):
         self.as_user(self.pablo)
@@ -193,7 +213,7 @@ class FisherfolkOwnershipTests(APITestCase):
         self.assertEqual(self.client.get(f'{CYCLES}{new_cycle}/').data['fisherfolk'], self.ff_a.id)   # ...stored as Pablo
         r = self.client.post(CYCLES, {**self._cycle_payload(), 'fisherfolk': self.ff_b.id, 'organization': self.org_b.id}, format='json')
         self.assertEqual(r.status_code, 400)                                         # Joshua's organization is not Pablo's
-        d = self.client.post('/api/monitoring/fisherfolk-disasters/', {'fisherfolk': self.ff_b.id, 'disaster_type': 'Flood',
+        d = self.client.post('/api/monitoring/fisherfolk-disasters/', {'fisherfolk': self.ff_b.id, 'disaster_type': 'Flooding',
                                                                        'date_of_occurrence': str(date.today())}, format='json')
         self.assertEqual((d.status_code, d.data['fisherfolk']), (201, self.ff_a.id))
         t = self.client.post('/api/fisheries/fishing-trips/', {'fisherfolk': self.ff_b.id, 'trip_date': str(date.today()),
@@ -206,15 +226,11 @@ class FisherfolkOwnershipTests(APITestCase):
         self.rec_a.refresh_from_db()
         self.assertEqual((self.rec_a.fisherfolk_id, self.rec_a.notes), (self.ff_a.id, 'mine'))
         dp = self.client.patch(f'/api/monitoring/fisherfolk-disasters/{self.disaster_a.id}/', {'fisherfolk': self.ff_b.id}, format='json')
-        self.assertEqual((dp.status_code, dp.data['fisherfolk']), (200, self.ff_a.id))
-
-    def _cycle_payload(self):
-        return {
-            'cycle_name': 'Grow-out Phase', 'species_farmed': 'Tilapia', 'species_option': self.species.id,
-            'culture_system': 'Fishpond', 'pond_location_barangay': 'Poblacion', 'water_source': 'River',
-            'stocking_date': str(date.today() - timedelta(days=1)),
-            'units': [{'length_m': 4, 'width_m': 2, 'fingerling_count': 20}],
-        }
+        # A fisherfolk's disaster log is submitted to Admin when logged, so its content is read-only to them:
+        # the attempt to move it onto Joshua is refused and the log stays Pablo's.
+        self.assertEqual(dp.status_code, 403)
+        self.disaster_a.refresh_from_db()
+        self.assertEqual(self.disaster_a.fisherfolk_id, self.ff_a.id)
 
     # --- 4. The full Admin workflow works on their own records
     def test_fisherfolk_can_use_the_full_workflow_on_their_own_cycle(self):
@@ -275,7 +291,7 @@ def _png(name='damage.png'):
 
 
 @override_settings(MEDIA_ROOT=_MEDIA)
-class DisasterDamagePhotoTests(FisherfolkOwnershipTests):
+class DisasterDamagePhotoTests(FisherfolkOwnershipBase):
     """Photo Documentation of Damage on the general (fisherfolk) disaster report: optional, 0-10 photos,
     each stored as its own FisheriesDisasterReportPhoto on the report being created - which is always the
     logged-in fisherfolk's own."""
@@ -297,7 +313,7 @@ class DisasterDamagePhotoTests(FisherfolkOwnershipTests):
         from fisheries.models import FisheriesDisasterReportPhoto
         self.as_user(self.pablo)
         for n in (0, 1, 5, 10):
-            r = self.report(n)
+            r = self.report(n, date_of_occurrence=str(date.today() - timedelta(days=n)))   # a repeat report of the same day/type is merged, not created
             self.assertEqual(r.status_code, 201, (n, r.data))
             self.assertEqual(r.data['fisherfolk'], self.ff_a.id)                     # forced to Pablo
             self.assertEqual(len(r.data['photos']), n)

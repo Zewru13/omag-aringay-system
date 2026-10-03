@@ -2,6 +2,7 @@
 Fisherfolk disaster report notification to Admin. All built on core.models.Notification.
 
 Run ONLY against an isolated test database (never the shared Supabase database)."""
+import itertools
 from datetime import date, timedelta
 from io import StringIO
 from unittest import mock
@@ -15,6 +16,14 @@ from core.models import Notification
 from fisheries import notifications as fn
 from fisheries.models import FisheriesDisasterReport, Fisherfolk, SpeciesCategory, SpeciesOption, StockingRecord
 from monitoring.models import AquacultureHealthLog, AquacultureProductionCycle, AquacultureProductionUnit
+
+_RSBSA = itertools.count(900001)
+
+
+def _rsbsa():
+    """A unique, well-formed RSBSA number: every fisherfolk now needs one."""
+    return '01-033-02-019-%06d' % next(_RSBSA)
+
 
 CYCLES = '/api/monitoring/aquaculture-cycles/'
 STOCKING = '/api/fisheries/stocking/'
@@ -31,7 +40,7 @@ class FisheriesNotificationTests(APITestCase):
         cls.inactive_admin = User.objects.create_user(username='admin3', password='pw', role='ADMIN', email='a3@x.test', is_active=False)
         make = lambda first, last: Fisherfolk.objects.create(
             first_name=first, middle_name='', last_name=last, gender='Female', birthdate=date(1985, 5, 5),
-            barangay='Samara', fisherfolk_type='Aquaculture')
+            barangay='Samara', fisherfolk_type='Aquaculture', rsbsa_number=_rsbsa())
         cls.ff_a, cls.ff_b = make('Felicitas', 'Manabat'), make('Pablo', 'Dulay')
 
         def citizen(ff, name):
