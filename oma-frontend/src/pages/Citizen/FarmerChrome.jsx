@@ -18,8 +18,8 @@ import { labels } from './labels.js'
 // `button { font: inherit }` outside any layer, which discards font utilities
 // placed directly on a <button> (see the note at the top of citizenUI.jsx).
 
-function MenuPanel({ onProfile, onHelp, onLogout, onClose, className }) {
-  const M = labels.farmerChrome.menu
+function MenuPanel({ onProfile, onHelp, onLogout, onClose, className, menuLabels }) {
+  const M = menuLabels || labels.farmerChrome.menu
   const item = 'flex h-[36px] w-full items-center gap-3 px-4 text-left transition-colors hover:bg-cz-page'
   return (
     <div
@@ -67,10 +67,17 @@ function Seal({ size }) {
 
 // ─── Phone ────────────────────────────────────────────────────────────────
 
-export function FarmerHeader({ initials, onProfile, onHelp, onLogout }) {
+// Colour per domain. Full class names (not built from a variable) so Tailwind keeps them. The Fisherfolk
+// phone shell passes `theme="fish"`; every other caller gets the crop green exactly as before.
+const CHROME_THEME = {
+  crop: { header: 'bg-cz-crop-header', tabActive: 'text-cz-crop-deep' },
+  fish: { header: 'bg-cz-fish-header', tabActive: 'text-cz-fish-deep' },
+}
+
+export function FarmerHeader({ initials, onProfile, onHelp, onLogout, theme = 'crop', menuLabels }) {
   const [open, setOpen] = useMenuState()
   return (
-    <header className="sticky top-0 z-30 bg-cz-crop-header">
+    <header className={`sticky top-0 z-30 ${CHROME_THEME[theme].header}`}>
       <div className="flex h-[55px] items-center justify-between px-4 sm:px-6">
         <span className="flex items-center gap-2">
           <Seal size={28} />
@@ -104,6 +111,7 @@ export function FarmerHeader({ initials, onProfile, onHelp, onLogout }) {
             onLogout={onLogout}
             onClose={() => setOpen(false)}
             className="absolute right-3.5 top-[53px] w-[196px]"
+            menuLabels={menuLabels}
           />
         </>
       )}
@@ -111,11 +119,12 @@ export function FarmerHeader({ initials, onProfile, onHelp, onLogout }) {
   )
 }
 
-export function FarmerTabBar({ active, items }) {
+export function FarmerTabBar({ active, items, theme = 'crop', ariaLabel }) {
+  const activeText = CHROME_THEME[theme].tabActive
   return (
     <nav
       className="fixed inset-x-0 bottom-0 z-30 border-t-[0.5px] border-cz-border bg-cz-surface pb-[env(safe-area-inset-bottom)] sm:hidden"
-      aria-label={labels.tabBar.ariaLabel}
+      aria-label={ariaLabel || labels.tabBar.ariaLabel}
     >
       <div className="mx-auto flex w-full max-w-[720px]">
         {items.map((item) => {
@@ -131,12 +140,12 @@ export function FarmerTabBar({ active, items }) {
             >
               <Icon
                 size={20}
-                className={`transition-colors ${isActive ? 'text-cz-crop-deep' : 'text-cz-text-muted'}`}
+                className={`transition-colors ${isActive ? activeText : 'text-cz-text-muted'}`}
                 aria-hidden="true"
               />
               <span
                 className={`text-center text-[9.5px] leading-[1.15] transition-colors ${
-                  isActive ? 'font-semibold text-cz-crop-deep' : 'font-medium text-cz-text-muted'
+                  isActive ? `font-semibold ${activeText}` : 'font-medium text-cz-text-muted'
                 }`}
               >
                 {item.label}

@@ -2,6 +2,8 @@ import { LogOut } from 'lucide-react'
 import { Navigate } from 'react-router-dom'
 import logo from '../../assets/LOGO OMAg.jpg'
 import { useAuth } from '../../context/AuthContext.jsx'
+import useIsPhone from '../../hooks/useIsPhone.js'
+import FisherfolkPhoneHome from './FisherfolkPhoneHome.jsx'
 import { FARMERS_ORG_DOMAIN, FISHERFOLK_ORG_DOMAIN } from './orgDomainConfig.js'
 import FarmerHomeScreen from './FarmerHomeScreen.jsx'
 import OrganizationHomeScreen from './OrganizationHomeScreen.jsx'
@@ -19,6 +21,7 @@ const RECORD_TYPE_LABELS_LOWER = labels.home.recordTypeLabels
 
 export default function CitizenHomePage() {
   const { user, logout } = useAuth()
+  const isPhone = useIsPhone()
   const record = user?.linked_record
   const recordType = user?.linked_record_type
   const isFarmersOrg = recordType === 'FARMERS_ORG'
@@ -37,10 +40,11 @@ export default function CitizenHomePage() {
   if (isFarmer && record) {
     return <FarmerHomeScreen record={record} onLogout={logout} />
   }
-  // Fisherfolk accounts now use the full Admin Fisheries pages (backend-scoped to their own records), so
-  // the older stocking-log portal is no longer their entry point.
+  // Fisherfolk accounts use the Admin Fisheries pages (backend-scoped to their own records). On a phone they
+  // land on a farmer-style Home inside the phone shell (see FisherfolkPhoneShell); on a larger screen they go
+  // straight to Fisheries Monitoring. The older stocking-log portal is no longer their entry point.
   if (isFisherfolk && record) {
-    return <Navigate to="/fisheries-monitoring" replace />
+    return isPhone ? <FisherfolkPhoneHome /> : <Navigate to="/fisheries-monitoring" replace />
   }
   if (orgDomain && record) {
     return (

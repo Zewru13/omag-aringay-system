@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext.jsx'
+import useIsPhone from '../../hooks/useIsPhone.js'
+import FisherfolkPhoneShell from '../../pages/Citizen/FisherfolkPhoneShell.jsx'
 import Navbar from './Navbar.jsx'
 import Sidebar from './Sidebar.jsx'
 
 function PageLayout({ title, subtitle, action, children }) {
   const { isFisherfolk } = useAuth()
+  const isPhone = useIsPhone()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Fisherfolk accounts: the fisheries blue theme for the whole layout (index.css
@@ -37,6 +40,12 @@ function PageLayout({ title, subtitle, action, children }) {
         return next
       })
     }
+  }
+
+  // A fisherfolk account on a phone gets the citizen-style shell (header, avatar menu, bottom tabs) instead of
+  // the admin sidebar layout. Everyone else, and tablets/desktops, keep the layout below untouched.
+  if (isFisherfolk && isPhone) {
+    return <FisherfolkPhoneShell title={title} subtitle={subtitle} action={action}>{children}</FisherfolkPhoneShell>
   }
 
   return (
