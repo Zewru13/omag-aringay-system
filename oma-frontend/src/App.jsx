@@ -35,10 +35,14 @@ import { FisherfolkHelpPage, FisherfolkProfilePage } from "./pages/Citizen/Fishe
 import DisasterPage from "./pages/Monitoring/DisasterPage.jsx";
 
 function HomeRedirect() {
-  const { isAuthenticated, isCitizen, isFisherfolk } = useAuth();
+  const { isAuthenticated, isCitizen, isFisherfolk, isLoading } = useAuth();
+  // Wait for the stored session to be restored: deciding earlier sent a signed-in user (e.g. someone opening
+  // the site's home-screen shortcut) to the login page.
+  if (isLoading) return null;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
-  // Fisherfolk accounts land in the (reused) Admin Fisheries Monitoring, scoped to their own records.
-  if (isFisherfolk) return <Navigate to="/fisheries-monitoring" replace />;
+  // Fisherfolk accounts land on their Home: a phone shows the phone Home, a larger screen is sent on to
+  // Fisheries Monitoring (reused Admin page, scoped to their own records) by CitizenHomePage.
+  if (isFisherfolk) return <Navigate to="/my-account" replace />;
   return <Navigate to={isCitizen ? "/my-account" : "/dashboard"} replace />;
 }
 
