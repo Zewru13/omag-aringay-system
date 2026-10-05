@@ -1,6 +1,6 @@
 from django.urls import path
 
-from fisheries.views import GeneralDisasterReportDetailView, GeneralDisasterReportListCreateView
+from fisheries.views import DisasterEligibilityView, GeneralDisasterReportDetailView, GeneralDisasterReportListCreateView
 
 from .views import (
     AquacultureFeedingLogDeleteView,
@@ -32,5 +32,6 @@ urlpatterns = [
     # Consolidated onto fisheries.FisheriesDisasterReport — URL path kept
     # stable so the frontend didn't need to change its request paths.
     path('fisherfolk-disasters/', GeneralDisasterReportListCreateView.as_view(), name='fisherfolk-disaster-list'),
+    path('fisherfolk-disasters/eligibility/', DisasterEligibilityView.as_view(), name='fisherfolk-disaster-eligibility'),
     path('fisherfolk-disasters/<int:pk>/', GeneralDisasterReportDetailView.as_view(), name='fisherfolk-disaster-detail'),
 ]

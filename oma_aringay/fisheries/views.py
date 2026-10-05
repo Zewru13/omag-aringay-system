@@ -28,6 +28,7 @@ from core.utils import accumulate_yield_group, build_name_search_q, day_range_bo
 from core.validators import validate_uploaded_image
 
 from . import disaster_reports
+from .eligibility import NO_PONDS_MESSAGE, fisherfolk_has_ponds
 from .notifications import queue_force_harvest
 from .models import (
     HARVEST_TIMING_LABELS,
@@ -1325,6 +1326,10 @@ class GeneralDisasterReportListCreateView(generics.ListCreateAPIView):
         photos = _validated_damage_photos(request)          # 0-10 valid photos, or nothing is saved
         serializer = self.get_serializer(data=_general_disaster_data(request))
         serializer.is_valid(raise_exception=True)
+        # A disaster needs a pond or cage to report on: nobody (the fisherfolk or staff on their behalf) can log
+        # a disaster for a fisherfolk who has none.
+        if not fisherfolk_has_ponds(serializer.validated_data['fisherfolk'].pk):
+            return Response({'detail': NO_PONDS_MESSAGE}, status=drf_status.HTTP_400_BAD_REQUEST)
         # The report, its photos AND the response data are built in ONE transaction: if anything fails
         # (e.g. a photo row, or reading the photos back), the report is rolled back too - the user is never
         # told "failed" for a report that was in fact saved, and there are no half-saved reports. Photos can
@@ -1358,6 +1363,27 @@ class GeneralDisasterReportListCreateView(generics.ListCreateAPIView):
             record_label=_fisherfolk_disaster_label(disaster.fisherfolk),
             detail=disaster.disaster_type,
         )
+
+
+class DisasterEligibilityView(APIView):
+    """Can a disaster be logged for this fisherfolk? A fisherfolk account asks about itself; staff pass
+    ?fisherfolk=<id>. The screens use it to explain the rule up front (see fisheries/eligibility.py)."""
+    permission_classes = [IsAuthenticated, IsStaffOrFisherfolk]
+
+    def get(self, request):
+        owner = fisherfolk_scope(request.user)
+        fisherfolk_id = owner if owner is not None else request.query_params.get('fisherfolk')
+        try:
+            fisherfolk_id = int(fisherfolk_id)
+        except (TypeError, ValueError):
+            return Response({'detail': 'fisherfolk is required.'}, status=drf_status.HTTP_400_BAD_REQUEST)
+        has_ponds = fisherfolk_has_ponds(fisherfolk_id)
+        return Response({
+            'fisherfolk': fisherfolk_id,
+            'has_ponds': has_ponds,
+            'can_log_disaster': has_ponds,
+            'message': None if has_ponds else NO_PONDS_MESSAGE,
+        })
 
 
 class GeneralDisasterReportDetailView(generics.RetrieveUpdateDestroyAPIView):

@@ -14,7 +14,7 @@ from rest_framework.test import APITestCase
 from accounts.models import UserLinkedRecord
 from core.models import Notification
 from fisheries import notifications as fn
-from fisheries.models import FisheriesDisasterReport, Fisherfolk, SpeciesCategory, SpeciesOption, StockingRecord
+from fisheries.models import FisheriesDisasterReport, Fisherfolk, Pond, SpeciesCategory, SpeciesOption, StockingRecord
 from monitoring.models import AquacultureHealthLog, AquacultureProductionCycle, AquacultureProductionUnit
 
 _RSBSA = itertools.count(900001)
@@ -42,6 +42,7 @@ class FisheriesNotificationTests(APITestCase):
             first_name=first, middle_name='', last_name=last, gender='Female', birthdate=date(1985, 5, 5),
             barangay='Samara', fisherfolk_type='Aquaculture', rsbsa_number=_rsbsa())
         cls.ff_a, cls.ff_b = make('Felicitas', 'Manabat'), make('Pablo', 'Dulay')
+        Pond.objects.create(fisherfolk=cls.ff_a, name='Pond 1')   # a disaster can only be logged by a fisherfolk with a pond
 
         def citizen(ff, name):
             u = User.objects.create_user(username=name, password='pw', role='CITIZEN', email=f'{name}@x.test', full_name=ff.full_name)
