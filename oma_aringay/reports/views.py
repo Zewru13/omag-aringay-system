@@ -20,7 +20,7 @@ from reportlab.platypus import (
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 
-from accounts.permissions import IsAdminOrEvaluator, IsStaffOrFisherfolk
+from accounts.permissions import IsAdminOrEvaluator, IsStaffOrFarmer, IsStaffOrFisherfolk, farmer_scope
 from core.utils import accumulate_yield_group, day_range_bounds, new_yield_group, possible_factors_text
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk, FishingTripLog, Pond, StockingRecord, TripSpeciesEntry
@@ -2357,7 +2357,8 @@ class FisheriesProductionReport(APIView):
 # ─── Farmer Crop History Report ──────────────────────────────────────────────
 
 class FarmerCropHistoryReport(APIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    # A farmer account gets its own crop history only: the `farmer` filter is forced to them.
+    permission_classes = [IsAuthenticated, IsStaffOrFarmer]
 
     def get(self, request):
         from django.http import JsonResponse
@@ -2365,7 +2366,8 @@ class FarmerCropHistoryReport(APIView):
 
         today = _today()
 
-        farmer_id = request.query_params.get('farmer', '')
+        own_farmer = farmer_scope(request.user)
+        farmer_id = str(own_farmer) if own_farmer is not None else request.query_params.get('farmer', '')
         crop_type = request.query_params.get('crop_type', '')
         barangay  = request.query_params.get('barangay', '')
         season    = request.query_params.get('season', '')

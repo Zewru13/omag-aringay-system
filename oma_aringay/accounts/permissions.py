@@ -207,6 +207,64 @@ class IsStaffOrFisherfolkReadOnly(IsStaffOrFisherfolk):
         return request.user.role in STAFF_ROLES or request.method in SAFE_METHODS
 
 
+# ─── Farmer ownership (Admin crop pages reused by Farmer accounts) ───────────────
+# The Farmer counterpart of the Fisherfolk block above, for the crop endpoints the Farmer pages call:
+#   - ADMIN / EVALUATOR: no filtering - exactly the behaviour these endpoints always had.
+#   - a CITIZEN linked to a Farmer record (User.get_linked_farmer_id, which is None for any other link type, so
+#     an organization or fisherfolk id can never be mistaken for a farmer id): querysets are narrowed to rows of
+#     THAT farmer; another farmer's id is simply a 404.
+#   - anyone else: rejected by IsStaffOrFarmer, and (defence in depth) scope_to_farmer returns NOTHING for them
+#     rather than everything, should a view ever forget the permission class.
+
+
+def is_farmer_citizen(user):
+    return bool(
+        user and user.is_authenticated and user.role == 'CITIZEN'
+        and user.get_linked_farmer_id() is not None
+    )
+
+
+def farmer_scope(user):
+    """None for ADMIN/EVALUATOR (= no filter) and for anyone who is not a farmer; the user's own Farmer id for a
+    farmer citizen."""
+    if user.role in STAFF_ROLES:
+        return None
+    return user.get_linked_farmer_id()
+
+
+def scope_to_farmer(queryset, user, lookup='farmer_id'):
+    """Narrow `queryset` to the user's own farmer via `lookup` (e.g. 'monitoring_record__farmer_id'); unchanged for
+    staff; EMPTY for any other user who is not a farmer citizen."""
+    if user.role in STAFF_ROLES:
+        return queryset
+    owner = user.get_linked_farmer_id()
+    return queryset.none() if owner is None else queryset.filter(**{lookup: owner})
+
+
+class IsStaffOrFarmer(BasePermission):
+    """ADMIN/EVALUATOR exactly as IsAdminOrEvaluator; additionally a farmer CITIZEN, whose data the view then
+    narrows with scope_to_farmer. Views list HTTP methods refused for farmers in `farmer_blocked_methods`."""
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not (user and user.is_authenticated):
+            return False
+        if user.role in STAFF_ROLES:
+            return True
+        if not is_farmer_citizen(user):
+            return False
+        return request.method not in getattr(view, 'farmer_blocked_methods', ())
+
+
+class IsStaffOrFarmerReadOnly(IsStaffOrFarmer):
+    """Shared reference data (crop types, stages): staff unchanged, a farmer may read."""
+
+    def has_permission(self, request, view):
+        if not super().has_permission(request, view):
+            return False
+        return request.user.role in STAFF_ROLES or request.method in SAFE_METHODS
+
+
 def _person_is_org_member(linked_record_type, org_id, person_id):
     """
     Batch 12: is `person_id` (a Farmer or Fisherfolk pk, depending on

@@ -12,7 +12,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import IsAdmin, IsAdminOrEvaluator, IsStaffOrOwnRecordCitizen
+from accounts.permissions import (
+    IsAdmin, IsAdminOrEvaluator, IsStaffOrFarmer, IsStaffOrFarmerReadOnly, IsStaffOrOwnRecordCitizen, scope_to_farmer,
+)
 from core.constants import BARANGAY_CHOICES
 from core.locking import assert_not_locked_by_other
 from core.notifications import notify_staff, notify_user, resolve_owner_user
@@ -101,6 +103,7 @@ class HarvestRecordCreateView(generics.CreateAPIView):
     queryset = HarvestRecord.objects.all()
     serializer_class = HarvestRecordCreateSerializer
     permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
+    owner_record_type = 'FARMER'   # owner ids here are Farmer pks - a Fisherfolk-linked citizen never passes
 
     def get_target_owner_id(self, request):
         monitoring_id = request.data.get('monitoring_record')
@@ -178,6 +181,7 @@ class HarvestRecordDetailView(generics.RetrieveUpdateDestroyAPIView):
     )
     serializer_class = HarvestRecordSerializer
     permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
+    owner_record_type = 'FARMER'   # owner ids here are Farmer pks - a Fisherfolk-linked citizen never passes
     http_method_names = ['get', 'patch', 'delete']
     lookup_field = 'id'
 
@@ -709,7 +713,7 @@ class DashboardExtendedSummaryView(APIView):
 
 class CropTypeListView(generics.ListCreateAPIView):
     serializer_class = CropTypeSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsStaffOrFarmerReadOnly]   # reference data: a farmer may read
     pagination_class = None
 
     def get_queryset(self):
@@ -867,10 +871,18 @@ class CropMonitoringBulkCreateView(APIView):
 
 
 class CropMonitoringDetailView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
-    queryset = CropMonitoringRecord.objects.select_related(
-        'farm_parcel', 'farm_parcel__farmer', 'crop_type',
-    ).prefetch_related('activity_logs', 'input_logs', 'pest_disease_reports', 'labor_logs')
+    # A farmer account may READ its own crop record (the Crop Monitoring page's details window); changing or
+    # deleting a record stays staff-only.
+    permission_classes = [IsAuthenticated, IsStaffOrFarmer]
+    farmer_blocked_methods = ('PUT', 'PATCH', 'DELETE')
+
+    def get_queryset(self):
+        return scope_to_farmer(
+            CropMonitoringRecord.objects.select_related(
+                'farm_parcel', 'farm_parcel__farmer', 'crop_type',
+            ).prefetch_related('activity_logs', 'input_logs', 'pest_disease_reports', 'labor_logs'),
+            self.request.user, 'farmer_id',
+        )
 
     def get_serializer_class(self):
         if self.request.method == 'GET':
@@ -924,6 +936,7 @@ class CropActivitySuggestionsView(APIView):
     # shape and validation are untouched. Same get_target_owner_id pattern
     # already used by CropActivityLogListCreateView.
     permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
+    owner_record_type = 'FARMER'   # owner ids here are Farmer pks - a Fisherfolk-linked citizen never passes
 
     def get_target_owner_id(self, request):
         monitoring_id = self.kwargs.get('monitoring_id')
@@ -1323,6 +1336,7 @@ def _crop_record_label(monitoring):
 class CropActivityLogListCreateView(generics.ListCreateAPIView):
     serializer_class = CropActivityLogSerializer
     permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
+    owner_record_type = 'FARMER'   # owner ids here are Farmer pks - a Fisherfolk-linked citizen never passes
     pagination_class = None
 
     def get_target_owner_id(self, request):
@@ -1395,6 +1409,7 @@ class CropActivityLogDetailView(generics.RetrieveUpdateAPIView):
     queryset = CropActivityLog.objects.select_related('monitoring_record')
     serializer_class = CropActivityLogSerializer
     permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
+    owner_record_type = 'FARMER'   # owner ids here are Farmer pks - a Fisherfolk-linked citizen never passes
     http_method_names = ['get', 'patch']
     lookup_field = 'id'
 
@@ -1418,6 +1433,7 @@ class CropDisasterReportListCreateView(generics.ListCreateAPIView):
     """
     serializer_class = CropDisasterReportSerializer
     permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
+    owner_record_type = 'FARMER'   # owner ids here are Farmer pks - a Fisherfolk-linked citizen never passes
     pagination_class = None
 
     def get_target_owner_id(self, request):
@@ -1484,6 +1500,7 @@ class CropDisasterResolveView(APIView):
     unchanged for every role.
     """
     permission_classes = [IsAuthenticated, IsStaffOrOwnRecordCitizen]
+    owner_record_type = 'FARMER'   # owner ids here are Farmer pks - a Fisherfolk-linked citizen never passes
 
     def post(self, request, pk):
         from datetime import date as _date
@@ -2176,7 +2193,7 @@ class MonitoringRemarkListCreateView(generics.ListCreateAPIView):
 
 class CropActivityStageListCreateView(generics.ListCreateAPIView):
     serializer_class = CropActivityStageSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsStaffOrFarmerReadOnly]   # reference data: a farmer may read
     pagination_class = None
 
     def get_queryset(self):
@@ -2225,13 +2242,14 @@ class ActivityStageNameSuggestionsView(APIView):
 
 class CropDisasterLogListView(APIView):
     """Every farmer disaster log. Filters: search (farmer/organization, crop, type, reference no.), barangay,
-    disaster_type, status, year. With ?page= the response is paginated ({count, page, page_size, results})."""
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    disaster_type, status, year. With ?page= the response is paginated ({count, page, page_size, results}).
+    A farmer account gets only its own logs, whatever the filters say."""
+    permission_classes = [IsAuthenticated, IsStaffOrFarmer]
     PAGE_SIZE = 20
 
     def get(self, request):
         from . import crop_disaster_logs
-        qs = crop_disaster_logs.crop_queryset().order_by('-date_reported', '-id')
+        qs = scope_to_farmer(crop_disaster_logs.crop_queryset(), request.user, 'monitoring_record__farmer_id').order_by('-date_reported', '-id')
         params = request.query_params
         if params.get('disaster_type'):
             qs = qs.filter(disaster_type=params['disaster_type'])
@@ -2267,23 +2285,23 @@ class CropDisasterLogListView(APIView):
 
 
 class CropDisasterLogDocumentView(APIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsStaffOrFarmer]
 
     def get(self, request, pk):
         from . import crop_disaster_logs
-        report = get_object_or_404(crop_disaster_logs.crop_queryset(), pk=pk)
+        report = get_object_or_404(scope_to_farmer(crop_disaster_logs.crop_queryset(), request.user, 'monitoring_record__farmer_id'), pk=pk)
         return Response(crop_disaster_logs.document(report, request))
 
 
 class CropDisasterLogPdfView(APIView):
     """The saved farmer disaster log as a real PDF (read-only)."""
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsStaffOrFarmer]
 
     def get(self, request, pk):
         import logging
         from django.http import HttpResponse
         from . import crop_disaster_logs
-        report = get_object_or_404(crop_disaster_logs.crop_queryset(), pk=pk)
+        report = get_object_or_404(scope_to_farmer(crop_disaster_logs.crop_queryset(), request.user, 'monitoring_record__farmer_id'), pk=pk)
         doc = crop_disaster_logs.document(report, request)
         try:
             pdf_bytes = crop_disaster_logs.build_pdf(report, doc)

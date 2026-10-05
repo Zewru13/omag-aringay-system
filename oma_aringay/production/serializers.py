@@ -694,6 +694,12 @@ def _validate_harvest_record(data, instance):
 
     monitoring_record = data.get('monitoring_record', getattr(instance, 'monitoring_record', None))
 
+    # The parcel must be one of the crop's own farmer: otherwise a harvest could carry someone else's parcel, and
+    # the harvest detail would show that parcel owner's name and RSBSA number to whoever can read the harvest.
+    parcel = data.get('farm_parcel', getattr(instance, 'farm_parcel', None))
+    if parcel and monitoring_record and monitoring_record.farmer_id and parcel.farmer_id != monitoring_record.farmer_id:
+        raise serializers.ValidationError({'farm_parcel': 'This parcel does not belong to the farmer of this crop.'})
+
     if start:
         if start > date.today():
             raise serializers.ValidationError({'harvest_start_date': 'Harvest date cannot be in the future.'})
