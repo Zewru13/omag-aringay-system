@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { CheckCircle2, Pencil, Plus, Search, Trash2, Upload, User, Users } from 'lucide-react'
+import { CheckCircle2, Pencil, Plus, Search, Trash2, Upload, User, Users, XCircle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import useSuggestSearch from '../../hooks/useSuggestSearch.js'
 import ImportFileModal from '../../components/ImportFileModal.jsx'
@@ -34,6 +34,9 @@ const STATUS_LABELS = {
   NOT_RECEIVED: 'Not Received',
   RESOLVED: 'Resolved',
 }
+// A farmer reads the same lifecycle as "Received" / "Not Received": a record the office logged or the farmer
+// confirmed is simply Received.
+const FARMER_STATUS_LABELS = { ...STATUS_LABELS, CONFIRMED: 'Received' }
 // Editing is blocked once a record has entered a citizen-facing state
 // (interventions.views.PendingOnlyEditMixin) — mirrored here so the row
 // action doesn't offer something the backend will reject.
@@ -495,15 +498,93 @@ function MarkResolvedModal({ record, onClose, onResolved }) {
 
 // ── Main Page ────────────────────────────────────────────────────────────────
 
+function ConfirmReceivedModal({ record, onClose, onDone }) {
+  const { showToast } = useToast()
+  const [photo, setPhoto] = useState(null)
+  const [note, setNote] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+    try {
+      const body = new FormData()
+      if (photo) body.append('confirmation_photo', photo)
+      if (note.trim()) body.append('confirmation_note', note.trim())
+      await api.post(`/interventions/beneficiaries/${record.id}/confirm-received/`, body)
+      showToast('Confirmed as received.', 'success')
+      onDone()
+    } catch (err) {
+      const d = err?.response?.data
+      const photoError = d?.confirmation_photo && [].concat(d.confirmation_photo).join(' ')
+      showToast(photoError || extractErrorMessage(err, 'Failed to confirm.'), 'error')
+    } finally { setIsSubmitting(false) }
+  }
+  return (
+    <ModalShell title="Confirm Received" subtitle={`${record.assistance_type || 'Assistance'} · ${formatDate(record.date_given)}`} onClose={onClose}
+      footer={<>
+        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+        <Button type="submit" form="farmer-confirm-received" isLoading={isSubmitting}>Confirm</Button>
+      </>}>
+      <form id="farmer-confirm-received" onSubmit={handleSubmit} className="space-y-4">
+        <FormField label="Proof Photo (optional)">
+          <input type="file" accept="image/jpeg,image/png,image/webp" className={baseInputClasses}
+            onChange={(e) => setPhoto(e.target.files?.[0] || null)} />
+        </FormField>
+        <FormField label="Note (optional)">
+          <textarea rows={3} className={`${baseInputClasses} resize-none`} value={note}
+            onChange={(e) => setNote(e.target.value)} placeholder="Anything the office should know about what you received" />
+        </FormField>
+      </form>
+    </ModalShell>
+  )
+}
+
+function ReportNotReceivedModal({ record, onClose, onDone }) {
+  const { showToast } = useToast()
+  const [reason, setReason] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!reason.trim()) { showToast('A reason is required.', 'error'); return }
+    setIsSubmitting(true)
+    try {
+      await api.post(`/interventions/beneficiaries/${record.id}/report-not-received/`, { non_receipt_reason: reason.trim() })
+      showToast('Reported as not received.', 'success')
+      onDone()
+    } catch (err) {
+      showToast(extractErrorMessage(err, 'Failed to report.'), 'error')
+    } finally { setIsSubmitting(false) }
+  }
+  return (
+    <ModalShell title="Report Not Received" subtitle={`${record.assistance_type || 'Assistance'} · ${formatDate(record.date_given)}`} onClose={onClose}
+      footer={<>
+        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+        <Button type="submit" form="farmer-report-not-received" isLoading={isSubmitting}>Submit</Button>
+      </>}>
+      <form id="farmer-report-not-received" onSubmit={handleSubmit} className="space-y-4">
+        <FormField label="Reason" required>
+          <textarea rows={3} className={`${baseInputClasses} resize-none`} value={reason}
+            onChange={(e) => setReason(e.target.value)} placeholder="Why was this assistance not received?" />
+        </FormField>
+      </form>
+    </ModalShell>
+  )
+}
+
 export default function CropAssistancePage({ asTab = false }) {
-  const { isAdmin } = useAuth()
+  // A farmer account reuses this page for its own assistance only: the list is the caller's own history, and
+  // they confirm or report receipt. Logging, importing, distributing, editing and resolving stay staff tools.
+  const { isAdmin, isFarmer } = useAuth()
+  const [reportingNotReceived, setReportingNotReceived] = useState(null)
+  const [confirmingReceived, setConfirmingReceived] = useState(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const [records, setRecords] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [barangay, setBarangay] = useState('')
   const [year, setYear] = useState('')
-  const [view, setView] = useState(searchParams.get('tab') === 'needs-follow-up' ? 'needs-follow-up' : 'all')
+  const initialTab = searchParams.get('tab')
+  const [view, setView] = useState(initialTab === 'needs-follow-up' || (initialTab === 'upcoming' && isFarmer) ? initialTab : 'all')
   const [showAdd, setShowAdd] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [showDistribute, setShowDistribute] = useState(false)
@@ -513,6 +594,16 @@ export default function CropAssistancePage({ asTab = false }) {
   const fetchAll = useCallback(async () => {
     setIsLoading(true); setError('')
     try {
+      if (isFarmer) {
+        // Own history (not filterable on the server): the year and Needs Follow-up views narrow it here.
+        const r = await api.get('/interventions/my-beneficiary-history/')
+        let mine = Array.isArray(r.data) ? r.data : (r.data.results || [])
+        if (year) mine = mine.filter((x) => String(x.date_given || '').startsWith(String(year)))
+        if (view === 'needs-follow-up') mine = mine.filter((x) => x.status === 'NOT_RECEIVED')
+        if (view === 'upcoming') mine = mine.filter((x) => x.status === 'PENDING')
+        setRecords(mine)
+        return
+      }
       const params = new URLSearchParams()
       if (barangay) params.set('barangay', barangay)
       if (year) params.set('year', year)
@@ -524,14 +615,14 @@ export default function CropAssistancePage({ asTab = false }) {
     } finally {
       setIsLoading(false)
     }
-  }, [barangay, year, view])
+  }, [barangay, year, view, isFarmer])
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
   const changeView = (next) => {
     setView(next)
     const params = new URLSearchParams(searchParams)
-    if (next === 'needs-follow-up') params.set('tab', next); else params.delete('tab')
+    if (next !== 'all') params.set('tab', next); else params.delete('tab')
     setSearchParams(params, { replace: true })
   }
 
@@ -540,22 +631,30 @@ export default function CropAssistancePage({ asTab = false }) {
     source_agency: (r.source_agencies || []).join(', '),
     date_received_fmt: formatDate(r.date_given),
     season_year_cell: [r.season, r.year].filter(Boolean).join(' '),
-    status_cell: r.status ? <StatusPill status={r.status}>{STATUS_LABELS[r.status] || r.status}</StatusPill> : '—',
-    actions_cell: (
+    status_cell: r.status ? <StatusPill status={r.status}>{(isFarmer ? FARMER_STATUS_LABELS : STATUS_LABELS)[r.status] || r.status}</StatusPill> : '—',
+    actions_cell: isFarmer ? (
+      r.status === 'AWAITING_CONFIRMATION' ? (
+        <RowActions actions={[
+          { key: 'confirm', label: 'Confirm Received', icon: CheckCircle2, onClick: () => setConfirmingReceived(r) },
+          { key: 'not-received', label: 'Report Not Received', icon: XCircle, tone: 'rose', onClick: () => setReportingNotReceived(r) },
+        ]} />
+      ) : '—'
+    ) : (
       <RowActions actions={[
         EDITABLE_STATUSES.has(r.status) && { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditing(r) },
         r.status === 'NOT_RECEIVED' && { key: 'resolve', label: 'Mark Resolved', icon: CheckCircle2, tone: 'default', onClick: () => setResolving(r) },
       ]} />
     ),
-  })), [records])
+  })), [records, isFarmer])
 
   const innerContent = (
     <div className="space-y-4">
       <div className="flex overflow-hidden rounded-xl border border-slate-300 w-fit">
         {[
-          { key: 'all', label: 'All Records' },
+          { key: 'all', label: isFarmer ? 'History' : 'All Records' },
+          isFarmer && { key: 'upcoming', label: 'Upcoming' },
           { key: 'needs-follow-up', label: 'Needs Follow-up' },
-        ].map((t) => (
+        ].filter(Boolean).map((t) => (
           <button
             key={t.key} type="button" onClick={() => changeView(t.key)}
             className={`px-4 py-2 text-[13px] font-semibold transition-colors ${
@@ -567,7 +666,7 @@ export default function CropAssistancePage({ asTab = false }) {
         ))}
       </div>
 
-      <div className="flex justify-end gap-2">
+      {!isFarmer && <div className="flex justify-end gap-2">
         <Button variant="outline" onClick={() => setShowImport(true)}>
           <Upload size={15} className="mr-1" /> Import File
         </Button>
@@ -577,12 +676,12 @@ export default function CropAssistancePage({ asTab = false }) {
         <Button onClick={() => setShowAdd(true)}>
           <Plus size={15} className="mr-1" /> Log Individual Assistance
         </Button>
-      </div>
+      </div>}
 
-      <FilterPanel activeCount={[barangay, year].filter(Boolean).length}>
-        <div className="w-48">
+      <FilterPanel activeCount={[isFarmer ? '' : barangay, year].filter(Boolean).length}>
+        {!isFarmer && <div className="w-48">
           <BarangaySelect value={barangay} onChange={(e) => setBarangay(e.target.value)} includeAllOption />
-        </div>
+        </div>}
         <select
           className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-[#1E4620] focus:outline-none"
           value={year} onChange={(e) => setYear(e.target.value)}
@@ -592,10 +691,10 @@ export default function CropAssistancePage({ asTab = false }) {
         </select>
       </FilterPanel>
 
-      {error ? <ErrorMessage message={error} /> : <DataTable columns={COLUMNS} data={rows} isLoading={isLoading} />}
+      {error ? <ErrorMessage message={error} /> : <DataTable columns={isFarmer ? COLUMNS.filter((c) => !['farmer_full_name', 'recorded_by_name'].includes(c.key)) : COLUMNS} data={rows} isLoading={isLoading} />}
 
-      {showAdd && <AddAssistanceModal onClose={() => setShowAdd(false)} onSuccess={fetchAll} />}
-      {showImport && (
+      {showAdd && !isFarmer && <AddAssistanceModal onClose={() => setShowAdd(false)} onSuccess={fetchAll} />}
+      {showImport && !isFarmer && (
         <ImportFileModal
           title="Import Crop Assistance"
           subtitle="Upload a spreadsheet to log assistance given to many farmers at once."
@@ -607,21 +706,35 @@ export default function CropAssistancePage({ asTab = false }) {
           onImported={fetchAll}
         />
       )}
-      {showDistribute && (
+      {showDistribute && !isFarmer && (
         <DistributeAssistanceModal
           domain={FARMER_DISTRIBUTION_DOMAIN}
           onClose={() => setShowDistribute(false)}
           onSuccess={fetchAll}
         />
       )}
-      {editing && (
+      {editing && !isFarmer && (
         <EditAssistanceModal
           record={editing}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); fetchAll() }}
         />
       )}
-      {resolving && (
+      {confirmingReceived && (
+        <ConfirmReceivedModal
+          record={confirmingReceived}
+          onClose={() => setConfirmingReceived(null)}
+          onDone={() => { setConfirmingReceived(null); fetchAll() }}
+        />
+      )}
+      {reportingNotReceived && (
+        <ReportNotReceivedModal
+          record={reportingNotReceived}
+          onClose={() => setReportingNotReceived(null)}
+          onDone={() => { setReportingNotReceived(null); fetchAll() }}
+        />
+      )}
+      {resolving && !isFarmer && (
         <MarkResolvedModal
           record={resolving}
           onClose={() => setResolving(null)}
@@ -634,7 +747,10 @@ export default function CropAssistancePage({ asTab = false }) {
   if (asTab) return innerContent
 
   return (
-    <PageLayout title="Crop Assistance" subtitle="Government and organization assistance given to farmers.">
+    <PageLayout
+      title={isFarmer ? 'Assistance Received' : 'Crop Assistance'}
+      subtitle={isFarmer ? 'Government and organization assistance recorded for you.' : 'Government and organization assistance given to farmers.'}
+    >
       {innerContent}
     </PageLayout>
   )

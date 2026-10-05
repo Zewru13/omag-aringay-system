@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
 // Below Tailwind's `md` (768px), where the admin layout also drops its persistent sidebar. Tablets and
-// desktops keep the full layout; only a phone gets the citizen-style shell (see FisherfolkPhoneShell).
+// desktops keep the full layout; only a phone gets the citizen-style shell (see CitizenPhoneShell).
 const QUERY = '(max-width: 767px)'
 
 export default function useIsPhone() {

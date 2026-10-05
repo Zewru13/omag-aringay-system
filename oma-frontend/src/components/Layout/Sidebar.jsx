@@ -17,7 +17,6 @@ import {
   ShieldCheck,
   Sprout,
   TrendingUp,
-  UserCircle,
   UserCog,
   Users,
   Waves,
@@ -37,8 +36,17 @@ import logo from "../../assets/LOGO OMAg.jpg";
 // nests another (Organizations was split out to its own top-level group).
 
 const DASHBOARD_ITEM = { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard" };
-// Admin/Evaluator: one top-level Disaster module (Farmer Disaster + Fisheries Disaster inside the page).
-const DISASTER_ITEM = { to: "/disaster", icon: AlertTriangle, label: "Disaster" };
+// Admin/Evaluator: one Disaster module (the /disaster page), shown as its own group like the other sections
+// instead of a standalone full-size item. Each entry opens the page on its tab (?tab=farmer | fisheries).
+const DISASTER_GROUP = {
+  key: "disaster",
+  label: "Disaster",
+  icon: AlertTriangle,
+  items: [
+    { to: "/disaster?tab=farmer", icon: Sprout, label: "Crop Disaster" },
+    { to: "/disaster?tab=fisheries", icon: Fish, label: "Fisheries Disaster" },
+  ],
+};
 
 // Batch A: Reports was a single leaf item landing on ReportsPage's default
 // tab (Harvested Crop) no matter which report you actually wanted — now a
@@ -62,7 +70,8 @@ const REPORTS_GROUP = {
 // mirrors that so a bare /farmers (e.g. an old link, or the farmer detail
 // page's back-navigation) still correctly highlights "Farmers", not nothing.
 // /reports mirrors the same idea for its default "harvested" report.
-const DEFAULT_TAB_BY_PATH = { "/farmers": "registry", "/fisherfolk": "registry", "/reports": "harvested" };
+// /disaster mirrors the same idea: a bare /disaster opens the Crop view (see AdminDisasterPage).
+const DEFAULT_TAB_BY_PATH = { "/farmers": "registry", "/fisherfolk": "registry", "/reports": "harvested", "/disaster": "farmer" };
 
 const GROUPS = [
   {
@@ -131,7 +140,15 @@ const FISHERFOLK_NAV = [
   { to: "/fisheries-forecasting", icon: TrendingUp, label: "Forecasting" },
   { to: "/disaster", icon: AlertTriangle, label: "Disaster" },
   { to: "/fisheries-assistance", icon: HandHeart, label: "Assistance" },
-  { to: "/my-profile", icon: UserCircle, label: "My Profile" },
+];
+
+// Farmer accounts: the same Admin crop pages (the backend returns only their own records), in English, as plain
+// top-level links like the fisherfolk menu. A farmer cannot create crop records, so there is no Crop Records.
+const FARMER_NAV = [
+  { to: "/crop-monitoring", icon: Sprout, label: "Crop Monitoring" },
+  { to: "/forecasting", icon: TrendingUp, label: "Forecasting" },
+  { to: "/disaster", icon: AlertTriangle, label: "Disaster" },
+  { to: "/crop-assistance", icon: HandHeart, label: "Assistance" },
 ];
 
 const ADMIN_GROUP = {
@@ -333,7 +350,8 @@ function NavGroup({ group, isCollapsed, depth = 0 }) {
 }
 
 function Sidebar({ isOpen, onClose, isCollapsed }) {
-  const { user, isFisherfolk } = useAuth();
+  const { user, isFisherfolk, isFarmer } = useAuth();
+  const ownNav = isFisherfolk ? FISHERFOLK_NAV : isFarmer ? FARMER_NAV : null;
   const isAdmin = user?.role === "ADMIN";
 
   return (
@@ -407,11 +425,10 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
 
         {/* Navigation */}
         <nav className="flex-1 py-3">
-          {isFisherfolk ? (
-            // Fisherfolk account: Fisheries Monitoring, Forecasting, Disaster, Assistance, My Profile -
-            // plain top-level links, no submenus.
+          {ownNav ? (
+            // Fisherfolk or farmer account: five plain top-level links, no submenus.
             <>
-              {FISHERFOLK_NAV.map((entry) => (
+              {ownNav.map((entry) => (
                 <LeafItem key={entry.to} {...entry} isCollapsed={isCollapsed} />
               ))}
             </>
@@ -425,7 +442,7 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
                 <NavGroup key={group.key} group={group} isCollapsed={isCollapsed} />
               ))}
 
-              <LeafItem {...DISASTER_ITEM} isCollapsed={isCollapsed} />
+              <NavGroup group={DISASTER_GROUP} isCollapsed={isCollapsed} />
 
               <NavGroup group={REPORTS_GROUP} isCollapsed={isCollapsed} />
 

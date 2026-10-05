@@ -90,6 +90,9 @@ export function AuthProvider({ children }) {
     // A citizen account linked to a Fisherfolk record: uses the Admin Fisheries pages, with the backend
     // limiting every response to their own records.
     isFisherfolk: user?.role === 'CITIZEN' && user?.linked_record_type === 'FISHERFOLK',
+    // A citizen account linked to a Farmer record: uses the Admin crop pages, with the backend limiting every
+    // response to their own records (accounts/permissions.py farmer_scope).
+    isFarmer: user?.role === 'CITIZEN' && user?.linked_record_type === 'FARMER',
     isAuthenticated: Boolean(user),
   }), [user, isLoading, updateUser])
 

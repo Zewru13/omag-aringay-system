@@ -7,6 +7,7 @@ import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
+import DataTable from '../../components/UI/DataTable.jsx'
 import DisasterIndicator from '../../components/UI/DisasterIndicator.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
@@ -427,12 +428,13 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
   const [logs,              setLogs]              = useState([])
   const [disasters,         setDisasters]         = useState([])
   const [isLoading,         setIsLoading]         = useState(true)
-  const { isAdmin } = useAuth()
+  const { isAdmin, isFarmer } = useAuth()
   const [showForm,          setShowForm]          = useState(false)
   const recordLock = useRecordLock('crop', record.id, showForm)
   const [showSuggest,       setShowSuggest]       = useState(false)
   const [showConfirm,       setShowConfirm]       = useState(false)
   const [isSubmitting,      setIsSubmitting]      = useState(false)
+  const [editingLogId,      setEditingLogId]      = useState(null)   // farmer: the activity log being edited
   const [pendingSuggestion, setPendingSuggestion] = useState(null)
   const [pendingDisasterReport, setPendingDisasterReport] = useState(null)
   const [pendingDisasterRule, setPendingDisasterRule] = useState(null)
@@ -562,6 +564,27 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
     setPendingSuggestion(null)
     setPendingDisasterReport(null)
     setPendingDisasterRule(null)
+    setEditingLogId(null)
+  }
+
+  // A farmer can correct their own entries: load the log back into the form, and save it with a PATCH.
+  const startEdit = (log) => {
+    setEditingLogId(log.id)
+    setActivityType(log.activity_type || '')
+    setActivityTypeOtherSpecify(log.activity_type === 'Other' ? (log.activity_type_other_specify || '') : '')
+    setActivityDate(log.date_of_activity || todayISO())
+    setPlantCondition(log.plant_condition || '')
+    setFertilizerType(log.fertilizer_type || '')
+    setQuantityApplied(log.quantity_applied ?? '')
+    setQuantityUnit(log.quantity_unit || 'kg')
+    setPestDiseaseName(log.pest_disease_name || '')
+    setAreaAffected(log.area_affected_ha ?? '')
+    setAreaAffectedError('')
+    setSeverity(log.severity || '')
+    setNotes(log.notes || '')
+    setRemedyDisasterId(log.disaster_report ? String(log.disaster_report) : '')
+    setPendingSuggestion(null)
+    setShowForm(true)
   }
 
   const handleSubmitClick = () => {
@@ -582,7 +605,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
   const handleConfirmed = async () => {
     setShowConfirm(false); setIsSubmitting(true)
     try {
-      await api.post(`/production/monitoring/${record.id}/logs/`, {
+      const payload = {
         activity_type:     activityType,
         activity_type_other_specify: activityType === 'Other' ? activityTypeOtherSpecify.trim() : '',
         date_of_activity:   activityDate,
@@ -594,11 +617,19 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
         area_affected_ha:  showPestFields ? (areaAffected || null) : null,
         severity:          showPestFields ? severity : '',
         notes,
-        target_day: pendingSuggestion?.occurrence_day ?? null,
-        disaster_report: showRemedyFields ? parseInt(remedyDisasterId, 10) : pendingDisasterReport,
-        disaster_rule:   showRemedyFields ? null : pendingDisasterRule,
-      })
-      showToast('Activity log added.', 'success')
+      }
+      if (editingLogId) {
+        // Editing keeps the entry's own late/disaster links: only the fields on the form change.
+        await api.patch(`/production/monitoring/logs/${editingLogId}/detail/`, payload)
+      } else {
+        await api.post(`/production/monitoring/${record.id}/logs/`, {
+          ...payload,
+          target_day: pendingSuggestion?.occurrence_day ?? null,
+          disaster_report: showRemedyFields ? parseInt(remedyDisasterId, 10) : pendingDisasterReport,
+          disaster_rule:   showRemedyFields ? null : pendingDisasterRule,
+        })
+      }
+      showToast(editingLogId ? 'Activity log updated.' : 'Activity log added.', 'success')
       resetForm(); setShowForm(false)
       await fetchLogs(); onLogAdded()
     } catch (err) {
@@ -776,7 +807,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
                   max={todayISO()}
                   min={selectedStageAllowsPrePlanting ? undefined : (record.date_planted || undefined)}
                   onChange={setActivityDate}
-                  loggedDates={logs.map(l => l.date_of_activity)}
+                  loggedDates={logs.filter(l => l.id !== editingLogId).map(l => l.date_of_activity)}
                   labels={{ loggedNote: 'This crop already has a log on this date.' }}
                 />
               </div>
@@ -911,7 +942,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
 
             <button type="button" disabled={isSubmitting} onClick={handleSubmitClick}
               className="w-full rounded-xl bg-[#1B4D2E] py-2.5 text-sm font-medium text-white hover:bg-[#235E38] disabled:opacity-60">
-              {isSubmitting ? 'Saving…' : 'Add Log'}
+              {isSubmitting ? 'Saving…' : (editingLogId ? 'Save Changes' : 'Add Log')}
             </button>
             </>}
           </div>
@@ -1055,6 +1086,12 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
                   )}
                   {log.notes && <p className="mt-0.5 text-xs text-slate-500">{log.notes}</p>}
                   {log.logged_by_name && <p className="mt-0.5 text-xs text-slate-400">{log.logged_by_name}</p>}
+                  {isFarmer && !isHarvested && !isTotalLoss && (
+                    <button type="button" onClick={() => startEdit(log)}
+                      className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-[#1B4D2E] hover:underline">
+                      <Pencil className="w-3 h-3" /> Edit
+                    </button>
+                  )}
                 </div>
               )
             })}
@@ -1065,7 +1102,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
       {showConfirm && (
         <ConfirmDialog
           title="Confirm Action"
-          message="Are you sure you want to add this activity log?"
+          message={editingLogId ? 'Are you sure you want to save your changes to this activity log?' : 'Are you sure you want to add this activity log?'}
           confirmLabel="Confirm"
           onConfirm={handleConfirmed}
           onCancel={() => setShowConfirm(false)}
@@ -1954,7 +1991,10 @@ export default function CropMonitoringPage() {
   // Lock indicators for the currently-visible page only — bounded to page
   // size, not a full-table N+1 poll.
   const [lockStatuses, setLockStatuses] = useState({})
-  const { isAdmin } = useAuth()
+  const { isAdmin, isFarmer } = useAuth()
+  // A farmer account sees only its own crops, so the Farmer column is redundant, and the record-lock
+  // indicators (a staff editing aid) are skipped.
+  const columns = isFarmer ? COLUMNS.filter(c => c.key !== 'farmer_col') : COLUMNS
 
   const refreshLockStatuses = useCallback(async (recs) => {
     if (!recs.length) { setLockStatuses({}); return }
@@ -1967,7 +2007,7 @@ export default function CropMonitoringPage() {
     setLockStatuses(Object.fromEntries(entries.filter(([, v]) => v)))
   }, [])
 
-  useEffect(() => { refreshLockStatuses(records) }, [records, refreshLockStatuses])
+  useEffect(() => { if (!isFarmer) refreshLockStatuses(records) }, [records, refreshLockStatuses, isFarmer])
 
   const handleForceUnlock = async (recordId) => {
     try {
@@ -2063,12 +2103,12 @@ export default function CropMonitoringPage() {
   }))
 
   return (
-    <PageLayout title="Crop Monitoring" subtitle="Track activities and progress for each crop.">
+    <PageLayout title="Crop Monitoring" subtitle={isFarmer ? 'Track activities and progress for your crops.' : 'Track activities and progress for each crop.'}>
       <div className="space-y-4">
         <FilterPanel
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Search by farmer, RSBSA, crop, or organization..."
+          searchPlaceholder={isFarmer ? 'Search by crop or barangay...' : 'Search by farmer, RSBSA, crop, or organization...'}
           activeCount={[statusFilter !== 'Planted,Near Harvest', Boolean(seasonFilter), Boolean(yearFilter), Boolean(barangayFilter)].filter(Boolean).length}
         >
           <select className={filterSelectCls} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
@@ -2103,11 +2143,26 @@ export default function CropMonitoringPage() {
 
         {error && <ErrorMessage message={error} />}
 
+        {isFarmer ? (
+          // A farmer account gets the system's standard table: cards on a phone, a table on a larger screen
+          // (the same DataTable the Fisheries pages use), instead of this page's sideways-scrolling staff table.
+          <DataTable
+            columns={columns}
+            data={rows}
+            isLoading={isLoading}
+            emptyState={(
+              <div className="px-4 py-12 text-center">
+                <p className="text-[14px] font-medium text-[#4A5E4A]">No monitoring records found</p>
+                <p className="text-[13px] text-[#7A8E7A]">Your crops will appear here once the office registers them.</p>
+              </div>
+            )}
+          />
+        ) : (
         <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
           <table className="min-w-full text-sm">
             <thead className="bg-[#1B4D2E] text-white">
               <tr>
-                {COLUMNS.map(col => (
+                {columns.map(col => (
                   <th key={col.key}
                     className={`px-4 py-[11px] text-[11px] font-semibold uppercase tracking-[0.06em] ${col.center ? 'text-center' : 'text-left'}`}>
                     {col.label}
@@ -2119,7 +2174,7 @@ export default function CropMonitoringPage() {
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b border-[#F0F4F0] animate-pulse">
-                    {COLUMNS.map((col) => (
+                    {columns.map((col) => (
                       <td key={col.key} className="px-4 py-[13px]">
                         <div className="h-4 bg-[#E8EEE8] rounded w-3/4" />
                       </td>
@@ -2128,18 +2183,18 @@ export default function CropMonitoringPage() {
                 ))
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={COLUMNS.length} className="py-12 text-center">
+                  <td colSpan={columns.length} className="py-12 text-center">
                     <div className="flex flex-col items-center gap-2 text-[#C8D5C8]">
                       <svg width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
                       <p className="text-[14px] font-medium text-[#4A5E4A]">No monitoring records found</p>
-                      <p className="text-[13px] text-[#7A8E7A]">Add crop records to begin monitoring</p>
+                      <p className="text-[13px] text-[#7A8E7A]">{isFarmer ? 'Your crops will appear here once the office registers them.' : 'Add crop records to begin monitoring'}</p>
                     </div>
                   </td>
                 </tr>
               ) : (
                 rows.map(row => (
                   <tr key={row.id} className="border-b border-[#F0F4F0] transition-colors hover:bg-[#F9FAF9]">
-                    {COLUMNS.map(col => (
+                    {columns.map(col => (
                       <td key={col.key}
                         className={`px-4 py-[13px] text-[13px] text-[#1A2B1A] align-middle ${col.center ? 'text-center' : ''}`}>
                         {row[col.key]}
@@ -2151,6 +2206,7 @@ export default function CropMonitoringPage() {
             </tbody>
           </table>
         </div>
+        )}
 
         <PaginationBar
           page={page}

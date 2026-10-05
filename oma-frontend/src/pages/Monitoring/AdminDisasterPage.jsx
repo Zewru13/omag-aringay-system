@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Download, Eye, Fish, Plus, Printer, Sprout, Users } from 'lucide-react'
+import { AlertTriangle, Download, Eye, Plus, Printer, Users } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
@@ -125,16 +125,18 @@ function ChoosePersonModal({ title, label, searchUrl, onClose, onChoose }) {
 }
 
 // Step 2: choose what was affected (the person's stock / crop record).
-function ChooseRecordModal({ title, person, label, options, allowGeneral, onBack, onClose, onChoose }) {
+function ChooseRecordModal({ title, person, label, options, allowGeneral, blockedMessage, onBack, onClose, onChoose }) {
   const [choice, setChoice] = useState('')
-  const chosen = choice === GENERAL ? GENERAL : options?.find(o => String(o.id) === choice)
+  const chosen = blockedMessage ? null : (choice === GENERAL ? GENERAL : options?.find(o => String(o.id) === choice))
   return (
     <ModalShell title={title} subtitle={`Step 2 of 3 — ${person.full_name}`} icon={AlertTriangle} onClose={onClose} maxWidth="max-w-md"
       footer={<>
         <Button type="button" variant="outline" onClick={onBack}>Back</Button>
         <Button type="button" disabled={!chosen} onClick={() => chosen && onChoose(chosen)}>Continue</Button>
       </>}>
-      {options === null ? <p className="text-sm text-slate-500">Loading…</p> : (
+      {options === null ? <p className="text-sm text-slate-500">Loading…</p> : blockedMessage ? (
+        <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700" data-testid="disaster-blocked">{blockedMessage}</p>
+      ) : (
         <FormField label={label} required>
           <select className={baseInputClasses} value={choice} onChange={e => setChoice(e.target.value)}>
             <option value="">Select…</option>
@@ -174,13 +176,17 @@ function FisheriesDisasterTab({ openLog }) {
   const choosePerson = async (person) => {
     setStep({ name: 'record', person, options: null })
     try {
-      const stocks = await fetchAllStocks({ fisherfolk: person.id, status: 'Stocked,Near Harvest' })
-      setStep({ name: 'record', person, options: stocks.map(s => ({
+      const [stocks, eligibility] = await Promise.all([
+        fetchAllStocks({ fisherfolk: person.id, status: 'Stocked,Near Harvest' }),
+        api.get('/monitoring/fisherfolk-disasters/eligibility/', { params: { fisherfolk: person.id } }),
+      ])
+      const blockedMessage = eligibility.data.can_log_disaster ? null : eligibility.data.message
+      setStep({ name: 'record', person, blockedMessage, options: stocks.map(s => ({
         ...s, label: `${s.species_name || 'Stock'}${s.production_cycle_name ? ` · ${s.production_cycle_name}` : ''}${s.culture_phase ? ` — ${s.culture_phase}` : ''} — stocked ${fmtLong(s.date_stocked)}`,
       })) })
     } catch {
       showToast('Failed to load this fisherfolk\'s stocks.', 'error')
-      setStep({ name: 'record', person, options: [] })
+      setStep({ name: 'record', person, options: [], blockedMessage: 'Could not check this fisherfolk for ponds or cages. Please try again.' })
     }
   }
   const onLogged = (log) => { setStep(null); setVersion(v => v + 1); if (log?.id) openLog(log.id) }
@@ -235,7 +241,7 @@ function FisheriesDisasterTab({ openLog }) {
           onClose={() => setStep(null)} onChoose={choosePerson} />
       )}
       {step?.name === 'record' && (
-        <ChooseRecordModal title="Log Fisheries Disaster" person={step.person} label="Affected Stock" options={step.options} allowGeneral
+        <ChooseRecordModal title="Log Fisheries Disaster" person={step.person} label="Affected Stock" options={step.options} allowGeneral={!step.blockedMessage} blockedMessage={step.blockedMessage}
           onBack={() => setStep({ name: 'person' })} onClose={() => setStep(null)}
           onChoose={(record) => setStep({ name: 'form', person: step.person, record })} />
       )}
@@ -345,45 +351,21 @@ function FarmerDisasterTab() {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-function UseCaseCard({ icon: Icon, title, text, onClick }) {
-  return (
-    <button type="button" onClick={onClick}
-      className="flex flex-1 min-w-[240px] items-start gap-3 rounded-2xl border border-slate-200 bg-white p-5 text-left transition-colors hover:border-[#1E4620] hover:bg-[#f0f7f0]">
-      <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[#E7F5EC]"><Icon size={20} className="text-[#1E4620]" /></span>
-      <span>
-        <span className="block text-[15px] font-semibold text-slate-800">{title}</span>
-        <span className="mt-0.5 block text-xs text-slate-500">{text}</span>
-      </span>
-    </button>
-  )
-}
-
 export default function AdminDisasterPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const reportId = Number(searchParams.get('report')) || null
-  const tab = searchParams.get('tab') || (reportId ? 'fisheries' : '')
-  const setTab = (t) => setSearchParams({ tab: t }, { replace: true })
+  // The sidebar's Disaster group (Crop Disaster / Fisheries Disaster) is the only navigation between the two
+  // views, so there is no in-page switcher: ?tab=fisheries (or an opened ?report=) is Fisheries, anything else Crop.
+  const tab = searchParams.get('tab') === 'fisheries' || reportId ? 'fisheries' : 'farmer'
   const openLog = (id) => setSearchParams({ tab: 'fisheries', report: String(id) }, { replace: true })
   const closeLog = () => setSearchParams({ tab: 'fisheries' }, { replace: true })
 
   return (
-    <PageLayout title="Disaster" subtitle="Farmer and fisheries disaster logs">
+    <PageLayout
+      title={tab === 'fisheries' ? 'Fisheries Disaster' : 'Crop Disaster'}
+      subtitle={tab === 'fisheries' ? 'Disaster logs of fisherfolk aquaculture stocks' : "Disaster logs of farmers' crops"}
+    >
       <div className="space-y-5">
-        {!tab ? (
-          <div className="flex flex-wrap gap-4" data-testid="disaster-use-cases">
-            <UseCaseCard icon={Sprout} title="Farmer Disaster" text="Disasters on farmers' crops — view, print, download, or log one for a farmer." onClick={() => setTab('farmer')} />
-            <UseCaseCard icon={Fish} title="Fisheries Disaster" text="Fisherfolk aquaculture disasters — view, print, download, or log one for a fisherfolk." onClick={() => setTab('fisheries')} />
-          </div>
-        ) : (
-          <div className="flex w-fit overflow-hidden rounded-xl border border-slate-200">
-            {[['farmer', 'Farmer Disaster'], ['fisheries', 'Fisheries Disaster']].map(([value, label]) => (
-              <button key={value} type="button" onClick={() => setTab(value)}
-                className={`px-5 py-2 text-sm font-semibold transition-colors ${tab === value ? 'bg-[#1E4620] text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
-                {label}
-              </button>
-            ))}
-          </div>
-        )}
         {tab === 'farmer' && <FarmerDisasterTab />}
         {tab === 'fisheries' && <FisheriesDisasterTab openLog={openLog} />}
       </div>

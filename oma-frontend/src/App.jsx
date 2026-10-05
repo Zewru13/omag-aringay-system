@@ -31,7 +31,7 @@ import HelpPage from "./pages/Help/HelpPage.jsx";
 import CropAssistancePage from "./pages/AssistanceManagement/CropAssistancePage.jsx";
 import FisheriesAssistancePage from "./pages/AssistanceManagement/FisheriesAssistancePage.jsx";
 import CitizenHomePage from "./pages/Citizen/CitizenHomePage.jsx";
-import { FisherfolkHelpPage, FisherfolkProfilePage } from "./pages/Citizen/FisherfolkAccountPages.jsx";
+import { OwnHelpPage, OwnProfilePage } from "./pages/Citizen/OwnAccountPages.jsx";
 import DisasterPage from "./pages/Monitoring/DisasterPage.jsx";
 
 function HomeRedirect() {
@@ -101,20 +101,20 @@ function App() {
               </ProtectedRoute>
             }
           />
-          {/* Fisherfolk accounts: own profile and help inside the Admin-style layout. */}
+          {/* Fisherfolk and farmer accounts: own profile and help inside the Admin-style layout. */}
           <Route
             path="/my-profile"
             element={
-              <ProtectedRoute allowedRoles={[]} allowFisherfolk>
-                <FisherfolkProfilePage />
+              <ProtectedRoute allowedRoles={[]} allowFisherfolk allowFarmer>
+                <OwnProfilePage />
               </ProtectedRoute>
             }
           />
           <Route
             path="/my-help"
             element={
-              <ProtectedRoute allowedRoles={[]} allowFisherfolk>
-                <FisherfolkHelpPage />
+              <ProtectedRoute allowedRoles={[]} allowFisherfolk allowFarmer>
+                <OwnHelpPage />
               </ProtectedRoute>
             }
           />
@@ -124,7 +124,7 @@ function App() {
           <Route
             path="/disaster"
             element={
-              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFisherfolk>
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFisherfolk allowFarmer>
                 <DisasterPage />
               </ProtectedRoute>
             }
@@ -196,7 +196,7 @@ function App() {
           <Route
             path="/crop-monitoring"
             element={
-              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFarmer>
                 <CropMonitoringPage />
               </ProtectedRoute>
             }
@@ -223,7 +223,7 @@ function App() {
           <Route
             path="/forecasting"
             element={
-              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFarmer>
                 <ForecastingPage />
               </ProtectedRoute>
             }
@@ -244,7 +244,7 @@ function App() {
           <Route
             path="/crop-assistance"
             element={
-              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFarmer>
                 <CropAssistancePage />
               </ProtectedRoute>
             }

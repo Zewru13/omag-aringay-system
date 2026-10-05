@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import useIsPhone from '../../hooks/useIsPhone.js'
-import FisherfolkPhoneShell from '../../pages/Citizen/FisherfolkPhoneShell.jsx'
+import CitizenPhoneShell from '../../pages/Citizen/CitizenPhoneShell.jsx'
 import Navbar from './Navbar.jsx'
 import Sidebar from './Sidebar.jsx'
 
 function PageLayout({ title, subtitle, action, children }) {
-  const { isFisherfolk } = useAuth()
+  const { isFisherfolk, isFarmer } = useAuth()
   const isPhone = useIsPhone()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -42,10 +42,10 @@ function PageLayout({ title, subtitle, action, children }) {
     }
   }
 
-  // A fisherfolk account on a phone gets the citizen-style shell (header, avatar menu, bottom tabs) instead of
-  // the admin sidebar layout. Everyone else, and tablets/desktops, keep the layout below untouched.
-  if (isFisherfolk && isPhone) {
-    return <FisherfolkPhoneShell title={title} subtitle={subtitle} action={action}>{children}</FisherfolkPhoneShell>
+  // A fisherfolk or farmer account on a phone gets the citizen-style shell (header, avatar menu, bottom tabs)
+  // instead of the admin sidebar layout. Everyone else, and tablets/desktops, keep the layout below untouched.
+  if ((isFisherfolk || isFarmer) && isPhone) {
+    return <CitizenPhoneShell title={title} subtitle={subtitle} action={action}>{children}</CitizenPhoneShell>
   }
 
   return (

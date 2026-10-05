@@ -48,6 +48,7 @@ const labelCls = 'text-[11px] font-medium text-[#7A8E7A]'
 
 function ForecastDetailModal({ record, onClose, onUpdated }) {
   const { showToast } = useToast()
+  const { isFarmer } = useAuth()   // a farmer sees their crop's forecast but cannot edit staff remarks
   const originalNotes = record.notes || ''
   const [notes,    setNotes]    = useState(originalNotes)
   const [isSaving, setIsSaving] = useState(false)
@@ -132,10 +133,10 @@ function ForecastDetailModal({ record, onClose, onUpdated }) {
           </div>
         </div>
 
-        <div className="border-t border-[#F0F4F0]" />
+        {!isFarmer && <div className="border-t border-[#F0F4F0]" />}
 
-        {/* Remarks & Notes */}
-        <div>
+        {/* Remarks & Notes (staff only) */}
+        {!isFarmer && <div>
           <label className="mb-1.5 flex items-center gap-1.5 text-[12px] font-semibold text-[#4A5E4A]"><FileText size={13} />Remarks &amp; notes</label>
           <textarea
             rows={4}
@@ -154,7 +155,7 @@ function ForecastDetailModal({ record, onClose, onUpdated }) {
               {isSaving ? 'Saving…' : 'Save remarks'}
             </button>
           </div>
-        </div>
+        </div>}
       </div>
     </ModalShell>
   )
@@ -519,6 +520,9 @@ function FarmerFilterInput({ selected, onSelect }) {
 
 function YieldAnalysisTab() {
   const { showToast } = useToast()
+  // A farmer sees only their own harvested crops: no farmer picker, no "by farmer" grouping, no aggregate
+  // comparison and no report export (those are staff tools and the endpoints behind them are staff-only).
+  const { isFarmer } = useAuth()
   const [cropTypes, setCropTypes] = useState([])
   const [records, setRecords] = useState([])
   const [groups, setGroups] = useState([])
@@ -569,6 +573,7 @@ function YieldAnalysisTab() {
   }, [filters.crop_type, filters.barangay, filters.season, filters.year, farmerFilter])
 
   useEffect(() => {
+    if (isFarmer) { setIsLoadingSummary(false); return }
     setIsLoadingSummary(true)
     api.get('/production/yield-analysis/summary/', { params: buildParams({ group_by: groupBy }) })
       .then(r => {
@@ -649,7 +654,7 @@ function YieldAnalysisTab() {
   return (
     <div className="space-y-5">
       {/* View toggle: existing analysis vs grouped by farmer */}
-      <div className="flex items-center gap-1 w-fit rounded-lg border border-[#E2E8E2] p-0.5">
+      {!isFarmer && <div className="flex items-center gap-1 w-fit rounded-lg border border-[#E2E8E2] p-0.5">
         {[{ id: 'analysis', label: 'Analysis' }, { id: 'grouped', label: 'By farmer' }].map(v => (
           <button
             key={v.id}
@@ -660,7 +665,7 @@ function YieldAnalysisTab() {
             {v.label}
           </button>
         ))}
-      </div>
+      </div>}
 
       {viewMode === 'analysis' && <DisclaimerBanner />}
 
@@ -668,7 +673,7 @@ function YieldAnalysisTab() {
       <FilterPanel
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Crop, farmer, or barangay..."
+        searchPlaceholder={isFarmer ? 'Crop or barangay...' : 'Crop, farmer, or barangay...'}
         activeCount={[filters.crop_type, filters.barangay, filters.season, filters.year, farmerFilter?.id].filter(Boolean).length}
       >
         <div className="w-44">
@@ -700,10 +705,10 @@ function YieldAnalysisTab() {
             onChange={e => set('year', e.target.value)}
           />
         </div>
-        <div className="w-56">
+        {!isFarmer && <div className="w-56">
           <label className={filterLabelCls}>Farmer</label>
           <FarmerFilterInput selected={farmerFilter} onSelect={setFarmerFilter} />
-        </div>
+        </div>}
       </FilterPanel>
 
       {viewMode === 'grouped' ? (
@@ -715,13 +720,13 @@ function YieldAnalysisTab() {
           dateLabel="Date Planted"
         />
       ) : (<>
-      <AggregatePanel groupBy={groupBy} setGroupBy={setGroupBy} groups={groups} overall={overall} isLoading={isLoadingSummary} />
+      {!isFarmer && <AggregatePanel groupBy={groupBy} setGroupBy={setGroupBy} groups={groups} overall={overall} isLoading={isLoadingSummary} />}
 
-      <YAActionButtons
+      {!isFarmer && <YAActionButtons
         onPdf={() => { setSigPurpose('pdf'); setShowSig(true) }}
         onExcel={() => { setSigPurpose('excel'); setShowSig(true) }}
         isDownloading={isDownloading}
-      />
+      />}
 
       {/* Per-crop table */}
       <div>
@@ -808,6 +813,7 @@ function YieldAnalysisTab() {
 
 export default function ForecastingPage() {
   const navigate = useNavigate()
+  const { isFarmer } = useAuth()   // farmer account: own crops only, no staff tools (add, import, by-farmer grouping)
   const [activeTab,     setActiveTab]     = useState('forecast')
   const [records,       setRecords]       = useState([])
   const [totalCount,    setTotalCount]    = useState(0)
@@ -982,7 +988,7 @@ export default function ForecastingPage() {
               </button>
             ))}
           </div>
-          {activeTab === 'forecast' && (
+          {activeTab === 'forecast' && !isFarmer && (
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -1009,7 +1015,7 @@ export default function ForecastingPage() {
             <FilterPanel
                     search={search}
               onSearchChange={setSearch}
-              searchPlaceholder="Search by farmer, RSBSA, crop, or organization..."
+              searchPlaceholder={isFarmer ? 'Search by crop or barangay...' : 'Search by farmer, RSBSA, crop, or organization...'}
               activeCount={[Boolean(barangayFilter), Boolean(cropTypeFilter)].filter(Boolean).length}
             >
               <select className={filterSelectCls} value={cropTypeFilter} onChange={e => setCropTypeFilter(e.target.value)}>
@@ -1026,7 +1032,7 @@ export default function ForecastingPage() {
 
             {/* View toggle on the left, how many crops this shows on the right. */}
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-1 w-fit rounded-lg border border-[#E2E8E2] p-0.5">
+              {isFarmer ? <span /> : <div className="flex items-center gap-1 w-fit rounded-lg border border-[#E2E8E2] p-0.5">
                 {[
                   { id: 'flat',    label: 'All crops' },
                   { id: 'grouped', label: 'By farmer' },
@@ -1042,7 +1048,7 @@ export default function ForecastingPage() {
                     {v.label}
                   </button>
                 ))}
-              </div>
+              </div>}
               {forecastView === 'flat' && !isLoading && (
                 <p className="text-[12px] text-[#7A8E7A]">
                   {totalCount.toLocaleString()} growing crop{totalCount === 1 ? '' : 's'}, soonest harvest first
@@ -1052,7 +1058,7 @@ export default function ForecastingPage() {
 
             {forecastView === 'flat' ? (
               <>
-                <DataTable columns={COLUMNS} data={rows} isLoading={isLoading} />
+                <DataTable columns={isFarmer ? COLUMNS.filter(c => c.key !== 'farmer_cell') : COLUMNS} data={rows} isLoading={isLoading} />
                 <PaginationBar
                   page={page}
                   totalCount={totalCount}
@@ -1083,7 +1089,7 @@ export default function ForecastingPage() {
         />
       )}
 
-      {showRsbsaImportModal && (
+      {showRsbsaImportModal && !isFarmer && (
         <CropRecordImportModal
           onClose={() => setShowRsbsaImportModal(false)}
           onCommitted={() => fetchRecords(page)}

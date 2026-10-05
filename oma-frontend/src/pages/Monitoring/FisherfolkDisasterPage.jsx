@@ -100,6 +100,7 @@ export default function FisherfolkDisasterPage() {
   const { showToast } = useToast()
   const [rows, setRows] = useState([])
   const [stocks, setStocks] = useState([])
+  const [eligibility, setEligibility] = useState(null)   // { can_log_disaster, message }: logging needs a pond or cage on record
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [version, setVersion] = useState(0)
@@ -115,10 +116,12 @@ export default function FisherfolkDisasterPage() {
     Promise.all([
       api.get('/fisheries/disaster-reports/'),
       fetchAllStocks({ status: REPORTABLE }),
-    ]).then(([logs, stock]) => {
+      api.get('/monitoring/fisherfolk-disasters/eligibility/'),
+    ]).then(([logs, stock, eligible]) => {
       if (cancelled) return
       setRows(Array.isArray(logs.data) ? logs.data : [])
       setStocks(stock)
+      setEligibility(eligible.data)
       setError('')
     }).catch(() => { if (!cancelled) setError('Failed to load your logged disasters.') })
       .finally(() => { if (!cancelled) setIsLoading(false) })
@@ -167,10 +170,13 @@ export default function FisherfolkDisasterPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-slate-700">My Logged Disasters</h2>
-          <Button onClick={() => setChoosing(true)} disabled={isLoading}>
+          <Button onClick={() => setChoosing(true)} disabled={isLoading || eligibility?.can_log_disaster === false}>
             <Plus size={15} className="mr-1" /> Log Disaster
           </Button>
         </div>
+        {eligibility?.can_log_disaster === false && (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800" data-testid="disaster-blocked">{eligibility.message}</p>
+        )}
         {error ? <ErrorMessage message={error} /> : <DataTable columns={COLUMNS} data={data} isLoading={isLoading} onRowClick={(row) => setViewingId(row.id)} />}
       </div>
 

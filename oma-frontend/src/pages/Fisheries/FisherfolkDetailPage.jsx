@@ -385,8 +385,13 @@ function FisherfolkDetailPage() {
                 </section>
 
                 <div className="mt-3 rounded-xl border border-[#E2E8E2] bg-[#EAF1F5] px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#155E82]">RSBSA Number</p>
+                  <p className="mt-1 text-[13px] font-semibold text-[#1A2B1A]">{fisherfolk.rsbsa_number}</p>
+                </div>
+
+                <div className="mt-3 rounded-xl border border-[#E2E8E2] bg-[#EAF1F5] px-4 py-3">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#155E82]">LGU Registration Number</p>
-                  <p className="mt-1 text-[13px] font-semibold text-[#1A2B1A]">{fisherfolk.lgu_registration_number}</p>
+                  <p className="mt-1 text-[13px] font-semibold text-[#1A2B1A]">{fisherfolk.lgu_registration_number || '—'}</p>
                 </div>
               </div>
 
@@ -395,7 +400,7 @@ function FisherfolkDetailPage() {
                   <div className="px-5 py-3.5 bg-[#EAF1F5] border-b border-[#E2E8E2]">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#155E82]">Personal Information</p>
                   </div>
-                  <div className="p-5 grid gap-4 sm:grid-cols-2">
+                  <div className="p-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                     {fisherfolk.prefix && <Field label="Prefix" value={fisherfolk.prefix} />}
                     <Field label="First Name" value={fisherfolk.first_name} />
                     <Field label="Last Name" value={fisherfolk.last_name} />
@@ -412,8 +417,14 @@ function FisherfolkDetailPage() {
                   <div className="px-5 py-3.5 bg-[#EAF1F5] border-b border-[#E2E8E2]">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#155E82]">Reference Information</p>
                   </div>
-                  <div className="p-5 grid gap-4 sm:grid-cols-2">
+                  <div className="p-5">
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <Field label="Civil Status" value={fisherfolk.civil_status} />
+                    <Field label="Highest Education" value={fisherfolk.highest_education} />
                     <Field label="Date Registered" value={formatDate(fisherfolk.date_registered)} />
+                    {fisherfolk.philsys_number && (
+                      <Field label="PhilSys / National ID No." value={fisherfolk.philsys_number} />
+                    )}
                     {fisherfolk.fish_registration_number && (
                       <Field label="Fish Registration No. (Fish-R)" value={fisherfolk.fish_registration_number} />
                     )}
@@ -441,6 +452,33 @@ function FisherfolkDetailPage() {
                         <p className="text-[14px] font-medium italic text-[#A8BCA8]">Not part of any organization</p>
                       )}
                     </div>
+                  </div>
+
+                  {/* Classification badges, as on the farmer profile */}
+                  {(fisherfolk.is_pwd || fisherfolk.is_4ps_beneficiary || fisherfolk.is_icc_ip_member || fisherfolk.is_senior_citizen) && (
+                    <div className="mt-5 flex flex-wrap gap-2 border-t border-[#F0F4F0] pt-4">
+                      {fisherfolk.is_pwd && (
+                        <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[12px] font-medium text-blue-700 ring-1 ring-blue-200">
+                          Person with Disability (PWD)
+                        </span>
+                      )}
+                      {fisherfolk.is_4ps_beneficiary && (
+                        <span className="inline-flex items-center rounded-full bg-green-50 px-3 py-1 text-[12px] font-medium text-green-700 ring-1 ring-green-200">
+                          4Ps Beneficiary
+                        </span>
+                      )}
+                      {fisherfolk.is_icc_ip_member && (
+                        <span className="inline-flex items-center rounded-full bg-purple-50 px-3 py-1 text-[12px] font-medium text-purple-700 ring-1 ring-purple-200">
+                          ICC/IP Member{fisherfolk.icc_ip_name ? ` — ${fisherfolk.icc_ip_name}` : ''}
+                        </span>
+                      )}
+                      {fisherfolk.is_senior_citizen && (
+                        <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-[12px] font-medium text-amber-700 ring-1 ring-amber-200">
+                          Senior Citizen
+                        </span>
+                      )}
+                    </div>
+                  )}
                   </div>
                 </section>
               </div>

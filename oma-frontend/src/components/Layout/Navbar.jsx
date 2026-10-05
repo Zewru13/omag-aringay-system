@@ -11,11 +11,12 @@ function formatDate(d) {
 
 function Navbar({ onToggleSidebar, isCollapsed }) {
   const navigate = useNavigate()
-  const { user, logout, isFisherfolk } = useAuth()
+  const { user, logout, isFisherfolk, isFarmer } = useAuth()
+  const ownAccount = isFisherfolk || isFarmer   // citizen accounts that use the Admin pages for their own records
   // Fisherfolk accounts have their own profile/help pages (staff /profile and /help are staff-only).
-  const profilePath = isFisherfolk ? '/my-profile' : '/profile'
-  const helpPath = isFisherfolk ? '/my-help' : '/help'
-  const roleLabel = isFisherfolk ? 'Fisherfolk' : user?.role?.toLowerCase()
+  const profilePath = ownAccount ? '/my-profile' : '/profile'
+  const helpPath = ownAccount ? '/my-help' : '/help'
+  const roleLabel = isFisherfolk ? 'Fisherfolk' : isFarmer ? 'Farmer' : user?.role?.toLowerCase()
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const dropdownRef = useRef(null)

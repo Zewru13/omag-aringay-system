@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import useIsPhone from '../../hooks/useIsPhone.js'
 import FisherfolkPhoneHome from './FisherfolkPhoneHome.jsx'
 import { FARMERS_ORG_DOMAIN, FISHERFOLK_ORG_DOMAIN } from './orgDomainConfig.js'
-import FarmerHomeScreen from './FarmerHomeScreen.jsx'
+import FarmerPhoneHome from './FarmerPhoneHome.jsx'
 import OrganizationHomeScreen from './OrganizationHomeScreen.jsx'
 import { labels } from './labels.js'
 
@@ -30,18 +30,15 @@ export default function CitizenHomePage() {
   const isFisherfolk = recordType === 'FISHERFOLK'
   const orgDomain = isFarmersOrg ? FARMERS_ORG_DOMAIN : isFisherfolkOrg ? FISHERFOLK_ORG_DOMAIN : null
 
-  // Batch E gave Farmer the new task-first, single-scroll home screen (see
-  // FarmerHomeScreen.jsx); Batch F does the same for Fisherfolk (see
-  // FisherfolkHomeScreen.jsx), adapted for multiple ponds and daily
-  // feeding. Batch 2 finally does the same for ORGANIZATION — the
-  // Overview | Report Assistance tab pair that used to live in this file is
-  // replaced by OrganizationHomeScreen's real dashboard (member and officer
-  // management alongside the assistance flows).
+  // Farmer and Fisherfolk accounts use the Admin pages for their own records (see below). ORGANIZATION accounts
+  // have OrganizationHomeScreen's dashboard (member and officer management alongside the assistance flows).
+  // Farmer accounts use the Admin crop pages (backend-scoped to their own records). On a phone they land on a Home
+  // inside the phone shell (see CitizenPhoneShell); on a larger screen they go straight to Crop Monitoring.
   if (isFarmer && record) {
-    return <FarmerHomeScreen record={record} onLogout={logout} />
+    return isPhone ? <FarmerPhoneHome /> : <Navigate to="/crop-monitoring" replace />
   }
   // Fisherfolk accounts use the Admin Fisheries pages (backend-scoped to their own records). On a phone they
-  // land on a farmer-style Home inside the phone shell (see FisherfolkPhoneShell); on a larger screen they go
+  // land on a farmer-style Home inside the phone shell (see CitizenPhoneShell); on a larger screen they go
   // straight to Fisheries Monitoring. The older stocking-log portal is no longer their entry point.
   if (isFisherfolk && record) {
     return isPhone ? <FisherfolkPhoneHome /> : <Navigate to="/fisheries-monitoring" replace />
