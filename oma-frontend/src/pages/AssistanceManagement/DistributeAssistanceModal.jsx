@@ -55,13 +55,15 @@ const STATUS_LABEL = { created: 'Created', blocked: 'Blocked', error: 'Error' }
 // dry_run call to the same backend endpoint so the member count and any
 // 30-day cross-org flags are real, not guessed ('confirm') -> submit for
 // real and show the per-member outcome, not a generic success toast ('result').
-export default function DistributeAssistanceModal({ domain, onClose, onSuccess }) {
+// fixedOrg: an organization account distributes to its own members only, so the organization is given
+// ({ id, name, barangay }) instead of searched for, and cannot be changed.
+export default function DistributeAssistanceModal({ domain, fixedOrg = null, onClose, onSuccess }) {
   const { showToast } = useToast()
   const [step, setStep] = useState('form') // 'form' | 'confirm' | 'result'
 
   const [orgSearch, setOrgSearch] = useState('')
   const [orgResults, setOrgResults] = useState([])
-  const [org, setOrg] = useState(null)
+  const [org, setOrg] = useState(fixedOrg)
 
   const [form, setForm] = useState(EMPTY_FORM(domain))
   const [preview, setPreview] = useState(null) // dry-run response
@@ -168,7 +170,7 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
   }
 
   const handleStartNew = () => {
-    setOrg(null)
+    setOrg(fixedOrg)
     setOrgSearch('')
     setForm(EMPTY_FORM(domain))
     setPreview(null)
@@ -291,7 +293,7 @@ export default function DistributeAssistanceModal({ domain, onClose, onSuccess }
                       {org.contact_person ? ` · Contact: ${org.contact_person}` : ''}
                     </p>
                   </div>
-                  <button type="button" onClick={() => setOrg(null)} className="text-xs font-medium text-rose-600 hover:underline shrink-0">Change</button>
+                  {!fixedOrg && <button type="button" onClick={() => setOrg(null)} className="text-xs font-medium text-rose-600 hover:underline shrink-0">Change</button>}
                 </div>
               )}
             </FormField>

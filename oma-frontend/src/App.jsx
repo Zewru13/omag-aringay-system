@@ -105,7 +105,7 @@ function App() {
           <Route
             path="/my-profile"
             element={
-              <ProtectedRoute allowedRoles={[]} allowFisherfolk allowFarmer>
+              <ProtectedRoute allowedRoles={[]} allowFisherfolk allowFarmer allowOrg={["FARMERS_ORG", "FISHERFOLK_ORG"]}>
                 <OwnProfilePage />
               </ProtectedRoute>
             }
@@ -113,7 +113,7 @@ function App() {
           <Route
             path="/my-help"
             element={
-              <ProtectedRoute allowedRoles={[]} allowFisherfolk allowFarmer>
+              <ProtectedRoute allowedRoles={[]} allowFisherfolk allowFarmer allowOrg={["FARMERS_ORG", "FISHERFOLK_ORG"]}>
                 <OwnHelpPage />
               </ProtectedRoute>
             }
@@ -155,6 +155,15 @@ function App() {
               preserves params instead of dropping them. */}
           <Route path="/associations/:type/:id" element={<LegacyOrganizationDetailRedirect />} />
 
+          {/* Organization accounts: their own organization (members, equipment, officers). */}
+          <Route
+            path="/my-organization"
+            element={
+              <ProtectedRoute allowedRoles={[]} allowOrg={["FARMERS_ORG", "FISHERFOLK_ORG"]}>
+                <OrganizationDetailPage own />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/organizations/:type/:id"
             element={
@@ -244,7 +253,7 @@ function App() {
           <Route
             path="/crop-assistance"
             element={
-              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFarmer>
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFarmer allowOrg={["FARMERS_ORG"]}>
                 <CropAssistancePage />
               </ProtectedRoute>
             }
@@ -252,7 +261,7 @@ function App() {
           <Route
             path="/fisheries-assistance"
             element={
-              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFisherfolk>
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFisherfolk allowOrg={["FISHERFOLK_ORG"]}>
                 <FisheriesAssistancePage />
               </ProtectedRoute>
             }

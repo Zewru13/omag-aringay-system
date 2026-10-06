@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { CheckCircle2, Pencil, Plus, Trash2, Upload, Users, XCircle } from 'lucide-react'
+import { CheckCircle2, Pencil, Plus, Trash2, Upload, UserCheck, Users, XCircle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ImportFileModal from '../../components/ImportFileModal.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
@@ -16,7 +16,9 @@ import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import ConfirmOnBehalfDialog from './ConfirmOnBehalfDialog.jsx'
 import LogGovernmentAssistanceModal from './LogGovernmentAssistanceModal.jsx'
+import { FISHERFOLK_ORG_DOMAIN } from '../Citizen/orgDomainConfig.js'
 import DistributeAssistanceModal from './DistributeAssistanceModal.jsx'
 import { FISHERFOLK_DISTRIBUTION_DOMAIN } from './distributionDomains.js'
 import { SourceAgencyMultiSelect, TypeConditionalFields } from './sharedAssistanceFields.jsx'
@@ -33,6 +35,9 @@ const STATUS_LABELS = {
   NOT_RECEIVED: 'Not Received',
   RESOLVED: 'Resolved',
 }
+// An organization reads the same plain lifecycle words as the farmers' side: a record the office logged or the
+// recipient confirmed is simply Received.
+const ORG_STATUS_LABELS = { ...STATUS_LABELS, CONFIRMED: 'Received' }
 const EDITABLE_STATUSES = new Set(['PENDING', 'CONFIRMED', undefined, ''])
 
 function extractErrorMessage(err, fallback) {
@@ -62,6 +67,15 @@ const COLUMNS = [
   { key: 'actions_cell',                               label: 'Actions' },
 ]
 
+const CONFIRM_COLUMNS = [
+  { key: 'date_received_fmt',   label: 'Date Given' },
+  { key: 'fisherfolk_full_name', label: 'Member' },
+  { key: 'assistance_type',     label: 'Assistance Type' },
+  { key: 'quantity',            label: 'Quantity' },
+  { key: 'review_cell',         label: 'Status' },
+  { key: 'actions_cell',        label: 'Actions' },
+]
+
 function formatDate(v) {
   if (!v) return '—'
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(v + 'T00:00:00'))
@@ -83,7 +97,7 @@ function DangerZone({ isAdmin, description, onDeleteClick }) {
 
 // ── Edit Modal — relocated from FisheriesMonitoringPage.jsx unchanged ────────
 
-function EditAssistanceModal({ record, onClose, onSaved }) {
+function EditAssistanceModal({ record, onClose, onSaved, own = false }) {
   const { isAdmin } = useAuth()
   const { showToast } = useToast()
   const originalData = {
@@ -114,7 +128,7 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
     setError(''); setIsSubmitting(true)
     try {
       const { date_received, quantity, ...rest } = form
-      await api.patch(`/interventions/fisherfolk-beneficiaries/adhoc/${record.id}/`, {
+      await api.patch(own ? `/interventions/fisherfolk-beneficiaries/${record.id}/detail/` : `/interventions/fisherfolk-beneficiaries/adhoc/${record.id}/`, {
         ...rest,
         date_given: date_received,
         quantity: isTraining ? null : (quantity !== '' ? parseFloat(quantity) : null),
@@ -168,7 +182,7 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
           <div className="grid gap-3 sm:grid-cols-2">
             <FormField label="Date Received" required>
               <input type="date" className={baseInputClasses} value={form.date_received}
-                max={new Date().toISOString().split('T')[0]}
+                max={own ? undefined : new Date().toISOString().split('T')[0]}
                 onChange={(e) => set('date_received', e.target.value)} />
             </FormField>
             <FormField label="Assistance Type" required>
@@ -326,8 +340,13 @@ function ReportNotReceivedModal({ record, onClose, onDone }) {
 export default function FisheriesAssistancePage({ asTab = false }) {
   // Fisherfolk accounts reuse this page read-only: the backend returns only their own assistance, and they
   // confirm or report receipt. Logging, importing, distributing, editing and resolving stay staff tools.
-  const { isFisherfolk } = useAuth()
+  const { isFisherfolk, isOrg, user } = useAuth()
   const { showToast } = useToast()
+  // An organization account sees what it reported, reports assistance to its own members and confirms for members
+  // without an account (organization mode, like the fisherfolk one above).
+  const orgId = user?.linked_record?.id
+  const orgRecord = user?.linked_record
+  const [confirmingOnBehalf, setConfirmingOnBehalf] = useState(null)
   const [reportingNotReceived, setReportingNotReceived] = useState(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const [assistance, setAssistance] = useState([])
@@ -338,7 +357,8 @@ export default function FisheriesAssistancePage({ asTab = false }) {
   const [source, setSource] = useState('')
   const [type, setType] = useState('')
   const [year, setYear] = useState('')
-  const [view, setView] = useState(searchParams.get('tab') === 'needs-follow-up' ? 'needs-follow-up' : 'all')
+  const initialTab = searchParams.get('tab')
+  const [view, setView] = useState((initialTab === 'needs-follow-up' && !isOrg) || (initialTab === 'confirm' && isOrg) ? initialTab : 'all')
   const [showLog, setShowLog] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [showDistribute, setShowDistribute] = useState(false)
@@ -348,6 +368,14 @@ export default function FisheriesAssistancePage({ asTab = false }) {
   const fetchAssistance = useCallback(async () => {
     setIsLoading(true); setError('')
     try {
+      if (isOrg) {
+        // What this organization reported, or the members' awaiting records it may confirm for (year narrows both).
+        const r = await api.get(view === 'confirm' ? FISHERFOLK_ORG_DOMAIN.accountlessConfirmablesUrl : FISHERFOLK_ORG_DOMAIN.historyUrl)
+        let mine = Array.isArray(r.data) ? r.data : (r.data.results || [])
+        if (year) mine = mine.filter((x) => String(x.date_given || '').startsWith(String(year)))
+        setAssistance(mine)
+        return
+      }
       const params = new URLSearchParams()
       if (year) params.set('year', year)
       if (barangay) params.set('barangay', barangay)
@@ -359,14 +387,14 @@ export default function FisheriesAssistancePage({ asTab = false }) {
       setAssistance(Array.isArray(r.data) ? r.data : (r.data.results || []))
     } catch { setError('Failed to load assistance records.') }
     finally { setIsLoading(false) }
-  }, [year, barangay, search, source, type, view])
+  }, [year, barangay, search, source, type, view, isOrg])
 
   useEffect(() => { fetchAssistance() }, [fetchAssistance])
 
   const changeView = (next) => {
     setView(next)
     const params = new URLSearchParams(searchParams)
-    if (next === 'needs-follow-up') params.set('tab', next); else params.delete('tab')
+    if (next !== 'all') params.set('tab', next); else params.delete('tab')
     setSearchParams(params, { replace: true })
   }
 
@@ -385,8 +413,25 @@ export default function FisheriesAssistancePage({ asTab = false }) {
     source_agency: (a.source_agencies || []).join(', '),
     quantity: a.quantity || '—',
     date_received_fmt: formatDate(a.date_given),
-    status_cell: a.status ? <StatusPill status={a.status}>{STATUS_LABELS[a.status] || a.status}</StatusPill> : '—',
-    actions_cell: isFisherfolk ? (
+    status_cell: a.status ? <StatusPill status={a.status}>{(isOrg ? ORG_STATUS_LABELS : STATUS_LABELS)[a.status] || a.status}</StatusPill> : '—',
+    // Confirm for Members list: where the member's request to OMAg stands
+    review_cell: a.latest_request_status === 'PENDING'
+      ? <StatusPill tone="amber">Pending Review</StatusPill>
+      : a.latest_request_status === 'REJECTED'
+        ? <StatusPill tone="rose">{a.latest_request_reason ? `Rejected: ${a.latest_request_reason}` : 'Rejected'}</StatusPill>
+        : <StatusPill tone="slate">Needs Confirmation</StatusPill>,
+    actions_cell: isOrg ? (
+      view === 'confirm' ? (
+        a.latest_request_status === 'PENDING' ? '—' : (
+          <RowActions actions={[
+            { key: 'confirm', label: 'Confirm for Member', icon: UserCheck, onClick: () => setConfirmingOnBehalf(a) },
+          ]} />
+        )
+      ) : a.status === 'PENDING' ? (
+        // an organization corrects only what has not reached the member yet (scheduled, not yet due)
+        <RowActions actions={[{ key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditing(a) }]} />
+      ) : '—'
+    ) : isFisherfolk ? (
       a.status === 'AWAITING_CONFIRMATION' ? (
         <RowActions actions={[
           { key: 'confirm', label: 'Confirm Received', icon: CheckCircle2, onClick: () => confirmReceived(a) },
@@ -399,21 +444,29 @@ export default function FisheriesAssistancePage({ asTab = false }) {
         a.status === 'NOT_RECEIVED' && { key: 'resolve', label: 'Mark Resolved', icon: CheckCircle2, tone: 'default', onClick: () => setResolving(a) },
       ]} />
     ),
-  })), [assistance, isFisherfolk, confirmReceived])
+  })), [assistance, isFisherfolk, isOrg, view, confirmReceived])
 
   const totalQuantity = useMemo(
     () => assistance.reduce((sum, a) => sum + (parseFloat(a.quantity) || 0), 0),
     [assistance],
   )
 
+  const tableColumns = isOrg
+    ? (view === 'confirm'
+      ? CONFIRM_COLUMNS
+      : COLUMNS.filter((c) => !['fisherfolk_type', 'attributed_fisherfolk_organization_name', 'recorded_by_name'].includes(c.key))
+        .map((c) => (c.key === 'fisherfolk_full_name' ? { ...c, label: 'Member' } : c.key === 'date_received_fmt' ? { ...c, label: 'Date Given' } : c)))
+    : COLUMNS
+
   const innerContent = (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex overflow-hidden rounded-xl border border-slate-300 w-fit">
           {[
-            { key: 'all', label: 'All Records' },
-            { key: 'needs-follow-up', label: 'Needs Follow-up' },
-          ].map((t) => (
+            { key: 'all', label: isOrg ? 'History' : 'All Records' },
+            isOrg && { key: 'confirm', label: 'Confirm for Members' },
+            !isOrg && { key: 'needs-follow-up', label: 'Needs Follow-up' },
+          ].filter(Boolean).map((t) => (
             <button
               key={t.key} type="button" onClick={() => changeView(t.key)}
               className={`px-4 py-2 text-[13px] font-semibold transition-colors ${
@@ -424,7 +477,17 @@ export default function FisheriesAssistancePage({ asTab = false }) {
             </button>
           ))}
         </div>
-        {!isFisherfolk && (
+        {isOrg && view === 'all' && (
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setShowDistribute(true)}>
+              <Users size={15} className="mr-1" /> Report to All Members
+            </Button>
+            <Button onClick={() => setShowLog(true)}>
+              <Plus size={15} className="mr-1" /> Report to a Member
+            </Button>
+          </div>
+        )}
+        {!isFisherfolk && !isOrg && (
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setShowImport(true)}>
               <Upload size={15} className="mr-1" /> Import File
@@ -440,24 +503,26 @@ export default function FisheriesAssistancePage({ asTab = false }) {
       </div>
 
       <FilterPanel
-        search={search}
-        onSearchChange={setSearch}
-        searchPlaceholder="Search fisherfolk or LGU no."
-        activeCount={[Boolean(barangay), Boolean(source), Boolean(type), Boolean(year)].filter(Boolean).length}
+        {...(isOrg ? {} : { search, onSearchChange: setSearch, searchPlaceholder: 'Search fisherfolk or LGU no.' })}
+        activeCount={(isOrg ? [Boolean(year)] : [Boolean(barangay), Boolean(source), Boolean(type), Boolean(year)]).filter(Boolean).length}
       >
-        <BarangaySelect value={barangay} onChange={(e) => setBarangay(e.target.value)} includeAllOption />
-        <input
-          className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[7px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none"
-          placeholder="Source of assistance"
-          value={source}
-          onChange={(e) => setSource(e.target.value)}
-        />
-        <input
-          className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[7px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none"
-          placeholder="Assistance type"
-          value={type}
-          onChange={(e) => setType(e.target.value)}
-        />
+        {!isOrg && <BarangaySelect value={barangay} onChange={(e) => setBarangay(e.target.value)} includeAllOption />}
+        {!isOrg && (
+          <input
+            className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[7px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none"
+            placeholder="Source of assistance"
+            value={source}
+            onChange={(e) => setSource(e.target.value)}
+          />
+        )}
+        {!isOrg && (
+          <input
+            className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[7px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none"
+            placeholder="Assistance type"
+            value={type}
+            onChange={(e) => setType(e.target.value)}
+          />
+        )}
         <select
           className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[7px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none"
           value={year}
@@ -468,7 +533,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
         </select>
       </FilterPanel>
 
-      {assistance.length > 0 && (
+      {assistance.length > 0 && !(isOrg && view === 'confirm') && (
         <div className="flex flex-wrap gap-3">
           <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
             <p className="text-xs text-slate-400 uppercase tracking-wide">Total Records</p>
@@ -481,12 +546,16 @@ export default function FisheriesAssistancePage({ asTab = false }) {
         </div>
       )}
 
-      {error ? <ErrorMessage message={error} /> : <DataTable columns={COLUMNS} data={rows} isLoading={isLoading} />}
+      {error ? <ErrorMessage message={error} /> : <DataTable columns={tableColumns} data={rows} isLoading={isLoading} />}
 
       {showLog && (
-        <LogGovernmentAssistanceModal onClose={() => setShowLog(false)} onSuccess={fetchAssistance} />
+        <LogGovernmentAssistanceModal
+          onClose={() => setShowLog(false)}
+          onSuccess={fetchAssistance}
+          memberUrl={isOrg ? FISHERFOLK_ORG_DOMAIN.memberSearchUrl(orgId) : null}
+        />
       )}
-      {showImport && (
+      {showImport && !isOrg && (
         <ImportFileModal
           title="Import Fisheries Assistance"
           subtitle="Upload a spreadsheet to log assistance given to many fisherfolk at once."
@@ -501,6 +570,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
       {showDistribute && (
         <DistributeAssistanceModal
           domain={FISHERFOLK_DISTRIBUTION_DOMAIN}
+          fixedOrg={isOrg ? { id: orgId, name: orgRecord?.label, barangay: orgRecord?.barangay } : null}
           onClose={() => setShowDistribute(false)}
           onSuccess={fetchAssistance}
         />
@@ -508,11 +578,21 @@ export default function FisheriesAssistancePage({ asTab = false }) {
       {editing && (
         <EditAssistanceModal
           record={editing}
+          own={isOrg}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); fetchAssistance() }}
         />
       )}
-      {resolving && (
+      {confirmingOnBehalf && (
+        <ConfirmOnBehalfDialog
+          url={FISHERFOLK_ORG_DOMAIN.confirmOnBehalfUrl(confirmingOnBehalf.id)}
+          memberName={confirmingOnBehalf.fisherfolk_full_name}
+          assistanceLabel={confirmingOnBehalf.assistance_type || 'Assistance'}
+          onClose={() => setConfirmingOnBehalf(null)}
+          onDone={() => { setConfirmingOnBehalf(null); fetchAssistance() }}
+        />
+      )}
+      {resolving && !isOrg && (
         <MarkResolvedModal
           record={resolving}
           onClose={() => setResolving(null)}
@@ -531,7 +611,11 @@ export default function FisheriesAssistancePage({ asTab = false }) {
 
   if (asTab) return innerContent
 
-  return isFisherfolk ? (
+  return isOrg ? (
+    <PageLayout title="Assistance" subtitle="Assistance your organization reported to its members.">
+      {innerContent}
+    </PageLayout>
+  ) : isFisherfolk ? (
     <PageLayout title="Assistance Received" subtitle="Government and organization assistance recorded for you.">
       {innerContent}
     </PageLayout>

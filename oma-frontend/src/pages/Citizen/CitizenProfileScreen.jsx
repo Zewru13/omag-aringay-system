@@ -17,8 +17,8 @@ import { CROP_THEME, CitizenBody, CitizenScreen, CitizenSubHeader, EditLegend, F
 // orange refresh = needs approval, gray lock = read-only), a "Reference
 // Information" card for the demographic fields the previous version never
 // surfaced at all (birthdate, civil status, education, PWD/4Ps), and a
-// collapsed-by-default password card — matching OrgInfoScreen.jsx's proven
-// pattern for the same three field behaviors, rather than three separate
+// collapsed-by-default password card — matching the organization profile's
+// (OrgAccountPages.jsx) pattern for the same three field behaviors, rather than three separate
 // cards named after what kind of edit they allow.
 //
 // NAME stays three inputs under one "Buong Pangalan" request (see the

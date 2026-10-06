@@ -1,4 +1,4 @@
-import { AlertTriangle, HandHeart, Home, Sprout, TrendingUp, Waves } from 'lucide-react'
+import { AlertTriangle, Building2, HandHeart, Home, Sprout, TrendingUp, Waves } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { FarmerHeader, FarmerTabBar } from './FarmerChrome.jsx'
@@ -28,7 +28,19 @@ const TABS_BY_ROLE = {
     { key: 'assistance', path: '/crop-assistance', icon: HandHeart, label: 'Assistance' },
   ],
 }
-const THEME_BY_ROLE = { fisherfolk: 'fish', farmer: 'crop' }
+// An organization account: Home, its organization and the assistance page of its own domain.
+TABS_BY_ROLE.orgFarm = [
+  { key: 'home', path: '/my-account', icon: Home, label: 'Home' },
+  { key: 'organization', path: '/my-organization', icon: Building2, label: 'Organization' },
+  { key: 'assistance', path: '/crop-assistance', icon: HandHeart, label: 'Assistance' },
+]
+TABS_BY_ROLE.orgFish = [
+  { key: 'home', path: '/my-account', icon: Home, label: 'Home' },
+  { key: 'organization', path: '/my-organization', icon: Building2, label: 'Organization' },
+  { key: 'assistance', path: '/fisheries-assistance', icon: HandHeart, label: 'Assistance' },
+]
+
+const THEME_BY_ROLE = { fisherfolk: 'fish', farmer: 'crop', orgFarm: 'crop', orgFish: 'fish' }
 
 // The tab a path belongs to; the profile and help pages (reached from the avatar menu) light none.
 function activeTabKey(tabs, pathname) {
@@ -39,8 +51,8 @@ function activeTabKey(tabs, pathname) {
 export default function CitizenPhoneShell({ title, subtitle, action, children }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  const { user, logout, isFarmer } = useAuth()
-  const role = isFarmer ? 'farmer' : 'fisherfolk'
+  const { user, logout, isFarmer, isOrg, orgType } = useAuth()
+  const role = isFarmer ? 'farmer' : isOrg ? (orgType === 'FISHERFOLK_ORG' ? 'orgFish' : 'orgFarm') : 'fisherfolk'
   const TABS = TABS_BY_ROLE[role]
 
   const initials = (user?.full_name || user?.linked_record?.label || '')

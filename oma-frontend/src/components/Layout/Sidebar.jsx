@@ -151,6 +151,13 @@ const FARMER_NAV = [
   { to: "/crop-assistance", icon: HandHeart, label: "Assistance" },
 ];
 
+// Organization accounts: their own organization and its assistance, as plain top-level links. The assistance
+// page is the one of the organization's own domain (crop or fisheries).
+const orgNav = (orgType) => [
+  { to: "/my-organization", icon: Building2, label: "My Organization" },
+  { to: orgType === "FISHERFOLK_ORG" ? "/fisheries-assistance" : "/crop-assistance", icon: HandHeart, label: "Assistance" },
+];
+
 const ADMIN_GROUP = {
   key: "admin",
   label: "Admin",
@@ -350,8 +357,8 @@ function NavGroup({ group, isCollapsed, depth = 0 }) {
 }
 
 function Sidebar({ isOpen, onClose, isCollapsed }) {
-  const { user, isFisherfolk, isFarmer } = useAuth();
-  const ownNav = isFisherfolk ? FISHERFOLK_NAV : isFarmer ? FARMER_NAV : null;
+  const { user, isFisherfolk, isFarmer, isOrg, orgType } = useAuth();
+  const ownNav = isFisherfolk ? FISHERFOLK_NAV : isFarmer ? FARMER_NAV : isOrg ? orgNav(orgType) : null;
   const isAdmin = user?.role === "ADMIN";
 
   return (

@@ -78,7 +78,10 @@ export function AuthProvider({ children }) {
     setUser(updatedUser)
   }, [])
 
-  const value = useMemo(() => ({
+  const value = useMemo(() => {
+    const isOrgAccount = user?.role === 'CITIZEN'
+      && (user?.linked_record_type === 'FARMERS_ORG' || user?.linked_record_type === 'FISHERFOLK_ORG')
+    return {
     user,
     isLoading,
     login,
@@ -93,8 +96,14 @@ export function AuthProvider({ children }) {
     // A citizen account linked to a Farmer record: uses the Admin crop pages, with the backend limiting every
     // response to their own records (accounts/permissions.py farmer_scope).
     isFarmer: user?.role === 'CITIZEN' && user?.linked_record_type === 'FARMER',
+    // A citizen account linked to an Organization (farmers' or fisherfolk): uses the Admin pages in an
+    // "own organization" mode, with the backend limiting every response to that organization.
+    isOrg: isOrgAccount,
+    orgType: isOrgAccount ? user.linked_record_type : null,
+    isFisherfolkOrg: isOrgAccount && user.linked_record_type === 'FISHERFOLK_ORG',
     isAuthenticated: Boolean(user),
-  }), [user, isLoading, updateUser])
+    }
+  }, [user, isLoading, updateUser])
 
   return (
     <AuthContext.Provider value={value}>

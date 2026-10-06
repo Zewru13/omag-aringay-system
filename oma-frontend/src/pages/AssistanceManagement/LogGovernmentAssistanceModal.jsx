@@ -42,7 +42,9 @@ const UNIT_OPTIONS = [
 
 const STATUS_OPTIONS = ['Pending', 'Approved', 'Released', 'Received', 'Completed']
 
-function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
+// memberUrl: an organization reports to one of its own members (the picker lists that organization's members,
+// a future date schedules the assistance, and the clerk's free-text Status is not asked: the system sets it).
+function LogGovernmentAssistanceModal({ onClose, onSuccess, memberUrl = null }) {
   const { showToast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -69,9 +71,15 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
     let mounted = true
     const loadFisherfolk = async () => {
       try {
-        const r = await api.get('/fisheries/fisherfolk/')
+        const r = await api.get(memberUrl || '/fisheries/fisherfolk/')
         const rows = Array.isArray(r.data) ? r.data : (r.data.results || [])
-        const activeRows = rows.filter((ff) => ff?.is_active !== false)
+        // Member rows are shaped like registry rows; reporting to an inactive member can still be legitimate.
+        const activeRows = memberUrl
+          ? rows.map((m) => ({
+            id: m.fisherfolk, full_name: m.fisherfolk_full_name,
+            lgu_registration_number: m.fisherfolk_lgu_number, barangay: m.fisherfolk_barangay,
+          }))
+          : rows.filter((ff) => ff?.is_active !== false)
         if (mounted) setFfResults(activeRows)
       } catch {
         if (mounted) setFfResults([])
@@ -79,7 +87,7 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
     }
     loadFisherfolk()
     return () => { mounted = false }
-  }, [])
+  }, [memberUrl])
 
   const filteredFisherfolk = useMemo(() => {
     const q = searchTerm.trim().toLowerCase()
@@ -161,7 +169,7 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
     // below so the info the clerk entered isn't silently discarded (Batch 6:
     // was fisheries.FisheriesAssistanceRecord).
     const unitNote = !isCashType && !isTraining && unit ? `Unit: ${unit}` : ''
-    const statusNote = form.status ? `Status: ${form.status}` : ''
+    const statusNote = !memberUrl && form.status ? `Status: ${form.status}` : ''
     const combinedRemarks = [statusNote, unitNote, form.remarks].filter(Boolean).join(' | ')
 
     const payload = {
@@ -210,7 +218,7 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
 
   return (
     <ModalShell
-      title="Log Individual Assistance"
+      title={memberUrl ? 'Report Assistance to a Member' : 'Log Individual Assistance'}
       onClose={onClose}
       maxWidth="max-w-4xl"
       footer={
@@ -223,7 +231,7 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
       <form id="log-government-assistance-form" className="space-y-4" onSubmit={handleSubmit}>
         <div className="relative z-10">
           <label className="block text-xs text-slate-500 mb-1">
-            Find Fisherfolk <span className="text-red-500">*</span>
+            {memberUrl ? 'Find Member' : 'Find Fisherfolk'} <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
@@ -241,7 +249,7 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
           {isDropdownOpen && (
             <div className="absolute left-0 right-0 mt-1 max-h-52 overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm z-20">
               {filteredFisherfolk.length === 0 ? (
-                <div className="px-3 py-2 text-sm text-slate-500">No fisherfolk found.</div>
+                <div className="px-3 py-2 text-sm text-slate-500">{memberUrl ? 'No members found.' : 'No fisherfolk found.'}</div>
               ) : (
                 filteredFisherfolk.map((ff) => (
                   <button
@@ -270,12 +278,12 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
             <input className={baseInputClasses} value={selectedFisherfolk?.barangay || ''} readOnly />
           </FormField>
 
-          <FormField label="Date Received" required>
+          <FormField label={memberUrl ? 'Date Given' : 'Date Received'} required>
             <input
               type="date"
               className={baseInputClasses}
               value={form.date_received}
-              max={new Date().toISOString().split('T')[0]}
+              max={memberUrl ? undefined : new Date().toISOString().split('T')[0]}
               onChange={(e) => set('date_received', e.target.value)}
             />
           </FormField>
@@ -319,15 +327,17 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess }) {
 
           <TypeConditionalFields assistanceType={form.assistance_type} form={form} set={set} allowSeedFertilizer={false} />
 
-          <FormField label="Status" required>
-            <select
-              className={baseInputClasses}
-              value={form.status}
-              onChange={(e) => set('status', e.target.value)}
-            >
-              {STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
-            </select>
-          </FormField>
+          {!memberUrl && (
+            <FormField label="Status" required>
+              <select
+                className={baseInputClasses}
+                value={form.status}
+                onChange={(e) => set('status', e.target.value)}
+              >
+                {STATUS_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+              </select>
+            </FormField>
+          )}
         </div>
 
         <FormField label="Source of Assistance">
