@@ -68,6 +68,7 @@ class BeneficiaryRecordDetailView(PendingOnlyEditMixin, generics.RetrieveUpdateA
     queryset = BeneficiaryRecord.objects.select_related('farmer')
     serializer_class = BeneficiaryRecordUpdateSerializer
     permission_classes = [IsAuthenticated, IsOrgMemberRecordCitizen]
+    org_linked_record_type = 'FARMERS_ORG'   # a farmer id here must never be matched by a fisherfolk organization
     http_method_names = ['get', 'patch']
     lookup_field = 'id'
 
@@ -81,6 +82,7 @@ class BeneficiaryRecordDetailView(PendingOnlyEditMixin, generics.RetrieveUpdateA
 class BeneficiaryAdHocListCreateView(generics.ListCreateAPIView):
     serializer_class = BeneficiaryRecordCreateSerializer
     pagination_class = None
+    org_linked_record_type = 'FARMERS_ORG'
 
     def get_permissions(self):
         # Batch 12: LIST stays staff-only — an ORGANIZATION citizen browsing
@@ -137,6 +139,7 @@ class FisherfolkBeneficiaryRecordDetailView(PendingOnlyEditMixin, generics.Retri
     queryset = FisherfolkBeneficiaryRecord.objects.select_related('fisherfolk')
     serializer_class = FisherfolkBeneficiaryRecordUpdateSerializer
     permission_classes = [IsAuthenticated, IsOrgMemberRecordCitizen]
+    org_linked_record_type = 'FISHERFOLK_ORG'   # a fisherfolk id here must never be matched by a farmers' organization
     http_method_names = ['get', 'patch']
     lookup_field = 'id'
 
@@ -150,6 +153,7 @@ class FisherfolkBeneficiaryRecordDetailView(PendingOnlyEditMixin, generics.Retri
 class FisherfolkBeneficiaryAdHocListCreateView(generics.ListCreateAPIView):
     serializer_class = FisherfolkBeneficiaryRecordCreateSerializer
     pagination_class = None
+    org_linked_record_type = 'FISHERFOLK_ORG'
 
     def get_permissions(self):
         if self.request.method == 'GET':

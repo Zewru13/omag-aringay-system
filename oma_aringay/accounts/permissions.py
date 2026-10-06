@@ -336,6 +336,12 @@ class IsOrgMemberRecordCitizen(BasePermission):
             return False
         if request.user.linked_record_type not in ('FARMERS_ORG', 'FISHERFOLK_ORG'):
             return False
+        # The view's domain: a FISHERFOLK_ORG whose member has the same id number as some farmer must never reach a
+        # crop route (and the reverse), because _person_is_org_member below picks the membership table from the
+        # CALLER's type.
+        required_type = getattr(view, 'org_linked_record_type', None)
+        if required_type and request.user.linked_record_type != required_type:
+            return False
 
         get_target_person_id = getattr(view, 'get_target_person_id', None)
         if get_target_person_id is None:
@@ -353,6 +359,9 @@ class IsOrgMemberRecordCitizen(BasePermission):
             return False
         if request.user.linked_record_type not in ('FARMERS_ORG', 'FISHERFOLK_ORG'):
             return False
+        required_type = getattr(view, 'org_linked_record_type', None)
+        if required_type and request.user.linked_record_type != required_type:
+            return False
 
         person_id = view.get_object_person_id(obj)
         if not _person_is_org_member(request.user.linked_record_type, request.user.linked_record_id, person_id):
@@ -362,6 +371,25 @@ class IsOrgMemberRecordCitizen(BasePermission):
             if view.get_object_creator_id(obj) != request.user.id:
                 return False
         return True
+
+
+class IsOrgCitizenOrStaff(BasePermission):
+    """
+    Gate for an organization-owned resource addressed by its OWN id (no organization 'pk' in the URL, e.g. the
+    equipment DELETE): ADMIN/EVALUATOR pass; a CITIZEN passes only when linked to an organization of the view's
+    `org_linked_record_type`. The view's get_queryset() then narrows to that organization's own rows, so another
+    organization's id is a 404.
+    """
+
+    def has_permission(self, request, view):
+        if not (request.user and request.user.is_authenticated):
+            return False
+        if request.user.role in ('ADMIN', 'EVALUATOR'):
+            return True
+        if request.user.role != 'CITIZEN':
+            return False
+        required_type = getattr(view, 'org_linked_record_type', None)
+        return required_type is not None and request.user.linked_record_type == required_type
 
 
 class IsOwnOrgOrStaff(BasePermission):

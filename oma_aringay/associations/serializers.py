@@ -222,6 +222,13 @@ class FarmersOrganizationDetailSerializer(serializers.ModelSerializer):
     def get_citizen_account(self, obj):
         return citizen_account_info(User.LinkedRecordType.FARMERS_ORG, obj.id)
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        if request is not None and request.user.role not in ('ADMIN', 'EVALUATOR'):
+            data.pop('citizen_account', None)   # the staff-facing Activate Account block, not for the organization
+        return data
+
     def validate_contact_number(self, value):
         return _validate_contact(value)
 
@@ -363,6 +370,13 @@ class FisherfolkOrganizationDetailSerializer(serializers.ModelSerializer):
 
     def get_citizen_account(self, obj):
         return citizen_account_info(User.LinkedRecordType.FISHERFOLK_ORG, obj.id)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        if request is not None and request.user.role not in ('ADMIN', 'EVALUATOR'):
+            data.pop('citizen_account', None)   # the staff-facing Activate Account block, not for the organization
+        return data
 
     def validate_contact_number(self, value):
         return _validate_contact(value)

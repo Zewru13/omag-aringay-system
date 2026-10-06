@@ -13,7 +13,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import User
-from accounts.permissions import IsAdminOrEvaluator, IsOwnOrgOrStaff, IsStaffOrFisherfolk, fisherfolk_scope
+from accounts.permissions import (
+    IsAdminOrEvaluator, IsOrgCitizenOrStaff, IsOwnOrgOrStaff, IsStaffOrFisherfolk, fisherfolk_scope,
+)
 from accounts.utils import create_inactive_citizen_shell
 from farmers.models import Farmer
 from farmers.rsbsa_import import normalize_barangay
@@ -193,7 +195,14 @@ class FarmersOrganizationListCreateView(generics.ListCreateAPIView):
 
 
 class FarmersOrganizationDetailView(generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    # GET is open to the organization itself (read-only own record); changing it stays staff-only.
+    org_linked_record_type = 'FARMERS_ORG'
+
+    def get_permissions(self):
+        if self.request.method in ('GET', 'HEAD', 'OPTIONS'):
+            return [IsAuthenticated(), IsOwnOrgOrStaff()]
+        return [IsAuthenticated(), IsAdminOrEvaluator()]
+
     serializer_class = FarmersOrganizationDetailSerializer
     queryset = FarmersOrganization.objects.all()
 
@@ -252,7 +261,9 @@ class FarmersOrganizationMemberAddView(generics.ListCreateAPIView):
                 {'detail': 'This farmer is already a member of this organization.'}
             )
         member = serializer.save(organization_id=organization_id)
-        explicit_is_main = self.request.data.get('is_main')
+        # Only staff choose a person's main organization; an organization's own request never does (it could take
+        # main status away from another organization the person belongs to).
+        explicit_is_main = self.request.data.get('is_main') if self.request.user.role in ('ADMIN', 'EVALUATOR') else None
         if explicit_is_main is not None:
             explicit_is_main = str(explicit_is_main).lower() in ('true', '1')
         _resolve_and_assign_main(
@@ -374,7 +385,8 @@ class FarmersOrganizationMemberSetMainView(APIView):
 
 
 class FarmersOrganizationEquipmentAddView(generics.CreateAPIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsOwnOrgOrStaff]
+    org_linked_record_type = 'FARMERS_ORG'
     serializer_class = FarmersOrganizationEquipmentSerializer
 
     def perform_create(self, serializer):
@@ -382,9 +394,17 @@ class FarmersOrganizationEquipmentAddView(generics.CreateAPIView):
 
 
 class FarmersOrganizationEquipmentRemoveView(generics.DestroyAPIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsOrgCitizenOrStaff]
+    org_linked_record_type = 'FARMERS_ORG'
     queryset = FarmersOrganizationEquipment.objects.all()
     lookup_url_kwarg = 'equip_id'
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.request.user.role == 'CITIZEN':
+            # an organization removes only its own equipment; any other id is a 404
+            return qs.filter(organization_id=self.request.user.linked_record_id)
+        return qs
 
 
 class OrganizationOfficerListCreateView(generics.ListCreateAPIView):
@@ -492,7 +512,14 @@ class FisherfolkOrganizationListCreateView(generics.ListCreateAPIView):
 
 
 class FisherfolkOrganizationDetailView(generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    # GET is open to the organization itself (read-only own record); changing it stays staff-only.
+    org_linked_record_type = 'FISHERFOLK_ORG'
+
+    def get_permissions(self):
+        if self.request.method in ('GET', 'HEAD', 'OPTIONS'):
+            return [IsAuthenticated(), IsOwnOrgOrStaff()]
+        return [IsAuthenticated(), IsAdminOrEvaluator()]
+
     serializer_class = FisherfolkOrganizationDetailSerializer
     queryset = FisherfolkOrganization.objects.all()
 
@@ -548,7 +575,9 @@ class FisherfolkOrganizationMemberAddView(generics.ListCreateAPIView):
                 {'detail': 'This fisherfolk is already a member of this organization.'}
             )
         member = serializer.save(organization_id=organization_id)
-        explicit_is_main = self.request.data.get('is_main')
+        # Only staff choose a person's main organization; an organization's own request never does (it could take
+        # main status away from another organization the person belongs to).
+        explicit_is_main = self.request.data.get('is_main') if self.request.user.role in ('ADMIN', 'EVALUATOR') else None
         if explicit_is_main is not None:
             explicit_is_main = str(explicit_is_main).lower() in ('true', '1')
         _resolve_and_assign_main(
@@ -665,7 +694,8 @@ class FisherfolkOrganizationMemberSetMainView(APIView):
 
 
 class FisherfolkOrganizationEquipmentAddView(generics.CreateAPIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsOwnOrgOrStaff]
+    org_linked_record_type = 'FISHERFOLK_ORG'
     serializer_class = FisherfolkOrganizationEquipmentSerializer
 
     def perform_create(self, serializer):
@@ -673,9 +703,17 @@ class FisherfolkOrganizationEquipmentAddView(generics.CreateAPIView):
 
 
 class FisherfolkOrganizationEquipmentRemoveView(generics.DestroyAPIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsOrgCitizenOrStaff]
+    org_linked_record_type = 'FISHERFOLK_ORG'
     queryset = FisherfolkOrganizationEquipment.objects.all()
     lookup_url_kwarg = 'equip_id'
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.request.user.role == 'CITIZEN':
+            # an organization removes only its own equipment; any other id is a 404
+            return qs.filter(organization_id=self.request.user.linked_record_id)
+        return qs
 
 
 class FisherfolkOrganizationOfficerListCreateView(generics.ListCreateAPIView):
