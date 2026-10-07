@@ -8,6 +8,7 @@ import StatusPill from './UI/StatusPill.jsx'
 import StepIndicator from './UI/StepIndicator.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { downloadFile } from '../utils/fileDownload.js'
+import { STATUS_META, filterTabs as buildFilterTabs, summaryTiles } from '../utils/importSummary.js'
 
 const STEPS = [
   { key: 'upload', label: 'Upload File' },
@@ -15,25 +16,6 @@ const STEPS = [
   { key: 'done', label: 'Done' },
 ]
 const STEP_INDEX = { upload: 0, preview: 1, done: 2 }
-
-const STATUS_TONE = {
-  ready: 'green',
-  duplicate_in_file: 'amber',
-  duplicate_in_database: 'amber',
-  invalid: 'rose',
-}
-const STATUS_LABEL_PREVIEW = {
-  ready: 'Will Create',
-  duplicate_in_file: 'Duplicate In File',
-  duplicate_in_database: 'Already Exists',
-  invalid: 'Invalid',
-}
-const STATUS_LABEL_DONE = {
-  ready: 'Created',
-  duplicate_in_file: 'Skipped — Duplicate',
-  duplicate_in_database: 'Skipped — Already Exists',
-  invalid: 'Invalid',
-}
 
 const PAGE_SIZE = 25
 
@@ -109,15 +91,7 @@ export default function ImportFileModal({
     setStep('upload')
   }
 
-  const statusLabels = step === 'done' ? STATUS_LABEL_DONE : STATUS_LABEL_PREVIEW
-
-  const filterTabs = result ? [
-    { key: 'all', label: `All ${result.rows.length}` },
-    { key: 'ready', label: `${result.summary.ready} ${statusLabels.ready}` },
-    { key: 'duplicate_in_file', label: `${result.summary.duplicate_in_file} In-File Dupe` },
-    { key: 'duplicate_in_database', label: `${result.summary.duplicate_in_database} Already Exists` },
-    { key: 'invalid', label: `${result.summary.invalid} Invalid` },
-  ].filter((t) => t.key === 'all' || t.label.charAt(0) !== '0') : []
+  const filterTabs = result ? buildFilterTabs(result.summary, result.rows.length, step) : []
 
   const filteredRows = useMemo(() => {
     if (!result) return []
@@ -205,10 +179,9 @@ export default function ImportFileModal({
           )}
 
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatTile value={result.summary.ready} label={step === 'done' ? 'Created' : 'Ready to Create'} />
-            <StatTile value={result.summary.duplicate_in_file} label="Duplicate in File" />
-            <StatTile value={result.summary.duplicate_in_database} label="Already Exists" />
-            <StatTile value={result.summary.invalid} label="Invalid Rows" />
+            {summaryTiles(result.summary, step).map((tile) => (
+              <StatTile key={tile.label} value={tile.value} label={tile.label} />
+            ))}
           </div>
 
           {result.credentials_to_hand_over?.length > 0 && (
@@ -272,7 +245,7 @@ export default function ImportFileModal({
                       {r.detail}{r.activation?.email_sent ? ' Account activated; login details emailed.' : ''}
                     </p>
                   </div>
-                  <StatusPill tone={STATUS_TONE[r.status]}>{statusLabels[r.status]}</StatusPill>
+                  <StatusPill tone={STATUS_META[r.status]?.tone}>{STATUS_META[r.status]?.[step === 'done' ? 'done' : 'preview'] || r.status}</StatusPill>
                 </div>
               ))}
             </div>

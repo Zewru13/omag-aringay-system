@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Plus, Power, Search, Trash2, UserCog } from "lucide-react";
+import { ArrowLeft, Plus, Power, Search, Trash2, Upload, UserCog } from "lucide-react";
 import { Link, useParams } from "react-router-dom";
 import api from "../../api/axiosInstance.js";
 import ActivateCitizenAccountButton from "../../components/ActivateCitizenAccountButton.jsx";
+import ImportFileModal from "../../components/ImportFileModal.jsx";
 import PageLayout from "../../components/Layout/PageLayout.jsx";
 import Button from "../../components/UI/Button.jsx";
 import DataTable from "../../components/UI/DataTable.jsx";
@@ -869,6 +870,8 @@ function OrganizationDetailPage({ own = false }) {
   const [activeSection, setActiveSection] = useState("members");
   const [showAddMember, setShowAddMember] = useState(false);
   const [showAddEquipment, setShowAddEquipment] = useState(false);
+  const [showImportMembers, setShowImportMembers] = useState(false);
+  const [showImportEquipment, setShowImportEquipment] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   // Toggle-not-delete batch: { id, name, targetActive, heldPosition } —
   // heldPosition only matters when deactivating (targetActive === false),
@@ -1199,21 +1202,39 @@ function OrganizationDetailPage({ own = false }) {
                 />
                 {canManage &&
                   (activeSection === "members" ? (
-                    <button
-                      className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
-                      onClick={() => setShowAddMember(true)}
-                    >
-                      <Plus size={15} />
-                      Add Member
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        className="flex items-center gap-1.5 border border-[#C8D5C8] bg-white hover:bg-[#F0F4F0] text-[#1B4D2E] text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
+                        onClick={() => setShowImportMembers(true)}
+                      >
+                        <Upload size={15} />
+                        Import Members
+                      </button>
+                      <button
+                        className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
+                        onClick={() => setShowAddMember(true)}
+                      >
+                        <Plus size={15} />
+                        Add Member
+                      </button>
+                    </div>
                   ) : (
-                    <button
-                      className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
-                      onClick={() => setShowAddEquipment(true)}
-                    >
-                      <Plus size={15} />
-                      Add Equipment
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        className="flex items-center gap-1.5 border border-[#C8D5C8] bg-white hover:bg-[#F0F4F0] text-[#1B4D2E] text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
+                        onClick={() => setShowImportEquipment(true)}
+                      >
+                        <Upload size={15} />
+                        Import Equipment
+                      </button>
+                      <button
+                        className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
+                        onClick={() => setShowAddEquipment(true)}
+                      >
+                        <Plus size={15} />
+                        Add Equipment
+                      </button>
+                    </div>
                   ))}
               </div>
 
@@ -1468,6 +1489,30 @@ function OrganizationDetailPage({ own = false }) {
           own={own}
           onClose={() => setShowAddMember(false)}
           onSuccess={handleMemberAdded}
+        />
+      )}
+
+      {showImportMembers && (
+        <ImportFileModal
+          title="Import Members"
+          subtitle={`Add already-registered ${type === "farmers" ? "farmers" : "fisherfolk"} to ${organization.name} from a spreadsheet.`}
+          importUrl={`/organizations/${type}/${id}/members/import/`}
+          templateUrl={`/organizations/${type}/${id}/members/import/template/`}
+          templateFilename={`${type}_organization_members_import_template.xlsx`}
+          onClose={() => setShowImportMembers(false)}
+          onImported={handleMemberAdded}
+        />
+      )}
+
+      {showImportEquipment && (
+        <ImportFileModal
+          title="Import Equipment"
+          subtitle={`Add equipment to ${organization.name} from a spreadsheet.`}
+          importUrl={`/organizations/${type}/${id}/equipment/import/`}
+          templateUrl={`/organizations/${type}/${id}/equipment/import/template/`}
+          templateFilename={`${type}_organization_equipment_import_template.xlsx`}
+          onClose={() => setShowImportEquipment(false)}
+          onImported={handleEquipmentAdded}
         />
       )}
 
