@@ -5,7 +5,9 @@ import api from '../../api/axiosInstance.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { ARINGAY_BARANGAYS } from '../../constants/barangays.js'
+import PasswordRequirementChecklist from '../../components/UI/PasswordRequirementChecklist.jsx'
 import PhoneInput from '../../components/UI/PhoneInput.jsx'
+import { passwordMeetsRules } from '../../utils/passwordRules.js'
 import { tidyPhone } from '../../utils/inputGuards.js'
 import { validatePhone } from '../../utils/validation.js'
 import { labels } from './labels.js'
@@ -204,6 +206,10 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
     setPasswordError('')
     if (passwordForm.next !== passwordForm.confirm) {
       setPasswordError(P.passwordMismatch)
+      return
+    }
+    if (!passwordMeetsRules(passwordForm.next)) {
+      setPasswordError('The new password needs at least 8 characters, 1 capital letter, 1 special character and 3 numbers.')
       return
     }
     setChangingPassword(true)
@@ -562,6 +568,7 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
                 onChange={(e) => setPasswordForm((f) => ({ ...f, next: e.target.value }))}
                 className="min-h-[40px] w-full rounded-[8px] border-[0.5px] border-cz-border-strong px-3 text-[14px] text-cz-text outline-none"
               />
+              {passwordForm.next && <PasswordRequirementChecklist password={passwordForm.next} />}
               <input
                 type="password"
                 autoComplete="new-password"

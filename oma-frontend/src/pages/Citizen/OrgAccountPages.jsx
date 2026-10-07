@@ -13,7 +13,9 @@ import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { ARINGAY_BARANGAYS } from '../../constants/barangays.js'
+import PasswordRequirementChecklist from '../../components/UI/PasswordRequirementChecklist.jsx'
 import PhoneInput from '../../components/UI/PhoneInput.jsx'
+import { passwordMeetsRules } from '../../utils/passwordRules.js'
 import { tidyPhone } from '../../utils/inputGuards.js'
 import { validatePhone } from '../../utils/validation.js'
 import { agencyLabel } from '../Organizations/agencyOptions.js'
@@ -231,6 +233,10 @@ export function OrgProfilePage() {
   const changePassword = async () => {
     setPasswordError('')
     if (passwordForm.next !== passwordForm.confirm) { setPasswordError('The new passwords do not match.'); return }
+    if (!passwordMeetsRules(passwordForm.next)) {
+      setPasswordError('The new password needs at least 8 characters, 1 capital letter, 1 special character and 3 numbers.')
+      return
+    }
     setChangingPassword(true)
     try {
       await api.post('/accounts/change-password/', {
@@ -372,6 +378,7 @@ export function OrgProfilePage() {
                     aria-label={label} className={baseInputClasses} placeholder={label} value={passwordForm[key]}
                     onChange={(e) => setPasswordForm((f) => ({ ...f, [key]: e.target.value }))} />
                 ))}
+                {passwordForm.next && <PasswordRequirementChecklist password={passwordForm.next} />}
                 {passwordError && <p className="text-[12px] text-rose-600">{passwordError}</p>}
                 <div className="flex gap-2">
                   <Button size="sm" isLoading={changingPassword} onClick={changePassword}>Change password</Button>

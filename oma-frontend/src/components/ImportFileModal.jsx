@@ -211,6 +211,37 @@ export default function ImportFileModal({
             <StatTile value={result.summary.invalid} label="Invalid Rows" />
           </div>
 
+          {result.credentials_to_hand_over?.length > 0 && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+              <p className="text-[13px] font-semibold text-amber-900">Email could not be sent: hand these over in person</p>
+              <p className="mt-0.5 text-[12px] text-amber-800">
+                These accounts are active. The temporary passwords are shown only now and must be changed at first login.
+              </p>
+              <div className="mt-3 overflow-x-auto">
+                <table className="w-full text-left text-[12px] text-[#1A2B1A]">
+                  <thead>
+                    <tr className="text-[11px] uppercase tracking-wide text-amber-800">
+                      <th className="py-1 pr-3">Organization</th>
+                      <th className="py-1 pr-3">Login</th>
+                      <th className="py-1 pr-3">Temporary password</th>
+                      <th className="py-1">Stops working</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {result.credentials_to_hand_over.map((c) => (
+                      <tr key={c.row} className="border-t border-amber-200">
+                        <td className="py-1.5 pr-3">{c.label}</td>
+                        <td className="py-1.5 pr-3 font-medium">{c.login}</td>
+                        <td className="py-1.5 pr-3"><code className="font-semibold">{c.default_password}</code></td>
+                        <td className="py-1.5">{c.expires_at ? new Date(c.expires_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' }) : ''}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           <div className="rounded-2xl border border-[#E2E8E2] bg-white p-5">
             <div className="mb-3 flex flex-wrap gap-1.5">
               {filterTabs.map((t) => (
@@ -237,7 +268,9 @@ export default function ImportFileModal({
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[13px] font-medium text-[#1A2B1A]">{r.label}</p>
                     <p className="mt-0.5 text-[11px] text-[#A8BCA8]">Row {r.row}</p>
-                    <p className="mt-0.5 text-[12px] text-[#4A5A4C]">{r.detail}</p>
+                    <p className="mt-0.5 text-[12px] text-[#4A5A4C]">
+                      {r.detail}{r.activation?.email_sent ? ' Account activated; login details emailed.' : ''}
+                    </p>
                   </div>
                   <StatusPill tone={STATUS_TONE[r.status]}>{statusLabels[r.status]}</StatusPill>
                 </div>

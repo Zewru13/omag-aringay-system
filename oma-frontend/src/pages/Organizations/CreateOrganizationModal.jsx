@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Building2, Phone } from 'lucide-react'
+import { Building2, Copy, KeyRound, Phone } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
@@ -44,6 +44,7 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
   const [contactError, setContactError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showConfirm,  setShowConfirm]  = useState(false)
+  const [handover,     setHandover]     = useState(null)
 
   const typeLabel = assocType === 'farmers' ? "Farmers' Organization" : 'Fisherfolk Organization'
 
@@ -100,7 +101,7 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
     try {
       const contactPerson = [form.contact_person_last, form.contact_person_first]
         .filter(Boolean).join(', ')
-      await api.post(`/organizations/${assocType}/`, {
+      const { data: created } = await api.post(`/organizations/${assocType}/`, {
         name:                form.name,
         barangay:            form.barangay,
         street_address:      form.street_address,
@@ -112,8 +113,17 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
         contact_person:      contactPerson,
         contact_number:      form.contact_number,
       })
-      showToast(`${typeLabel} created successfully.`, 'success')
-      onSuccess()
+      const activation = created?.activation
+      if (activation?.activated && activation.email_sent) {
+        showToast(`Account activated. The login details were emailed to ${form.email_address}.`, 'success')
+        onSuccess()
+      } else if (activation?.activated) {
+        // The email could not be sent: show the temporary password once so staff can hand it over.
+        setHandover(activation)
+      } else {
+        showToast(`${typeLabel} created successfully.`, 'success')
+        onSuccess()
+      }
     } catch (err) {
       const data = err.response?.data
       const first = data && typeof data === 'object' ? Object.values(data).flat()[0] : null
@@ -122,6 +132,39 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  if (handover) {
+    const expires = handover.expires_at ? new Date(handover.expires_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }) : ''
+    const copyPassword = () => { try { navigator.clipboard.writeText(handover.default_password) } catch { /* the password is on screen */ } }
+    return (
+      <ModalShell
+        title="Account activated: hand over the password"
+        subtitle={`${typeLabel} created.`}
+        icon={KeyRound}
+        onClose={onSuccess}
+        footer={<Button type="button" onClick={onSuccess}>Done</Button>}
+      >
+        <div className="space-y-3 text-[13px] text-[#4A5E4A]">
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-amber-800">
+            The email could not be sent{handover.reason ? ` (${handover.reason.replace(/\.$/, '')})` : ''}. Give the organization this password
+            yourself. It is shown only now.
+          </p>
+          <div>
+            <span className="block text-[12px] text-[#7A8E7A]">Login</span>
+            <span className="font-medium text-[#1B2B1B]">{handover.login}</span>
+          </div>
+          <div>
+            <span className="block text-[12px] text-[#7A8E7A]">Temporary password</span>
+            <span className="flex items-center gap-2">
+              <code className="rounded bg-[#F1F6F1] px-2 py-1 text-[15px] font-semibold tracking-wide text-[#1B2B1B]">{handover.default_password}</code>
+              <Button type="button" size="sm" variant="outline" icon={Copy} onClick={copyPassword}>Copy</Button>
+            </span>
+          </div>
+          {expires && <p className="text-[12px] text-[#7A8E7A]">It must be changed at first login and stops working on {expires}.</p>}
+        </div>
+      </ModalShell>
+    )
   }
 
   return (

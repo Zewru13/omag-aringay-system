@@ -6,6 +6,7 @@ import Button from "../../components/UI/Button.jsx"
 import ConfirmDialog from "../../components/UI/ConfirmDialog.jsx"
 import ModalShell from "../../components/UI/ModalShell.jsx"
 import PasswordRequirementChecklist from "../../components/UI/PasswordRequirementChecklist.jsx"
+import { passwordMeetsRules } from "../../utils/passwordRules.js"
 import StatusPill from "../../components/UI/StatusPill.jsx"
 import { baseInputClasses, FormLabel } from "../../components/UI/FormField.jsx"
 import EmailInput from "../../components/UI/EmailInput.jsx"
@@ -201,8 +202,8 @@ function ProfilePage() {
         setFormError("New passwords do not match.")
         return
       }
-      if (passwords.new_password.length < 15) {
-        setFormError("New password must be at least 15 characters.")
+      if (!passwordMeetsRules(passwords.new_password)) {
+        setFormError("New password must have at least 8 characters, 1 capital letter, 1 special character and 3 numbers.")
         return
       }
     }
