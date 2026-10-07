@@ -9,7 +9,7 @@ from accounts.models import User
 from accounts.utils import citizen_account_info
 from associations.models import FisherfolkOrganizationMember
 from core.constants import validate_prefix_gender
-from core.validators import validate_not_future_date, validate_philsys, validate_rsbsa, validate_uploaded_image
+from core.validators import validate_not_future_date, validate_philsys, validate_rsbsa, validate_uploaded_image, validate_contact_number
 from monitoring.models import AquacultureProductionUnit
 
 from .models import (
@@ -39,13 +39,7 @@ from .models import (
 
 
 def validate_contact_format(value):
-    if value and value.strip():
-        digits = ''.join(filter(str.isdigit, value.strip()))
-        if len(digits) != 11 or not digits.startswith('09'):
-            raise serializers.ValidationError(
-                'Contact number must be exactly 11 digits and start with 09.'
-            )
-    return value
+    return validate_contact_number(value)
 
 
 # ─── Fisherfolk sub-record serializers ────────────────────────────────────────
@@ -691,6 +685,12 @@ class FisheriesDisasterReportSerializer(DisasterReportSubmissionFieldsMixin, ser
         if stocking_record and stocking_record.area_hectares and area_affected_ha > stocking_record.area_hectares:
             raise serializers.ValidationError({
                 'area_affected_ha': f'Area affected cannot exceed the {stocking_record.area_hectares} ha stocked.'
+            })
+        # A Total Loss means the whole stocked area is affected (compared as decimals, so 2 equals 2.00).
+        is_total_loss = data.get('is_total_loss', self.instance.is_total_loss if self.instance is not None else False)
+        if is_total_loss and stocking_record and stocking_record.area_hectares and area_affected_ha != stocking_record.area_hectares:
+            raise serializers.ValidationError({
+                'is_total_loss': f'Total Loss is only allowed when the whole area is affected ({stocking_record.area_hectares} ha).'
             })
         return data
 

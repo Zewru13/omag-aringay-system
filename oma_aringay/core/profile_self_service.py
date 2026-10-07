@@ -28,7 +28,7 @@ from associations.models import FarmersOrganization, FisherfolkOrganization
 from core.constants import BARANGAY_CHOICES
 from core.models import ProfileChangeRequest
 from core.notifications import notify_staff, notify_user
-from core.validators import validate_uploaded_image
+from core.validators import validate_contact_number, validate_uploaded_image
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk
 
@@ -162,15 +162,7 @@ class ContactNumberSerializer(serializers.Serializer):
     contact_number = serializers.CharField(max_length=20, allow_blank=True)
 
     def validate_contact_number(self, value):
-        v = (value or '').strip()
-        if not v:
-            return ''
-        digits = ''.join(ch for ch in v if ch.isdigit())
-        if len(digits) != 11 or not digits.startswith('09'):
-            raise serializers.ValidationError(
-                'Contact number must be exactly 11 digits and start with 09.'
-            )
-        return v
+        return validate_contact_number((value or '').strip())
 
 
 class ContactNumberUpdateView(_OwnRecordMixin, APIView):

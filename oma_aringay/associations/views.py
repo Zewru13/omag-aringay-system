@@ -20,6 +20,7 @@ from accounts.utils import create_inactive_citizen_shell
 from farmers.models import Farmer
 from farmers.rsbsa_import import normalize_barangay
 from core.utils import build_name_search_q
+from core.validators import normalize_contact_number
 from fisheries.models import Fisherfolk
 from interventions.lifecycle import notify_assistance_recorded
 from interventions.models import BeneficiaryRecord, FisherfolkBeneficiaryRecord
@@ -1261,10 +1262,9 @@ def _parse_org_import_row(row, agency_choices):
         'contact_person': s(8),
         'contact_number': s(9),
     }
-    # Excel stores 09171234567 as a number and drops the leading zero.
-    _digits = ''.join(ch for ch in payload['contact_number'] if ch.isdigit())
-    if len(_digits) == 10 and _digits.startswith('9') and payload['contact_number'] == _digits:
-        payload['contact_number'] = '0' + _digits
+    # Excel stores 09171234567 as a number and drops the leading zero; a number typed as 0917-123-4567 or
+    # +63 917 123 4567 is turned into the plain format before it is validated.
+    payload['contact_number'] = normalize_contact_number(payload['contact_number'])
     date_organized = parse_date(row[3] if len(row) > 3 else None)
     date_registered = parse_date(row[4] if len(row) > 4 else None)
     if date_organized is not None:

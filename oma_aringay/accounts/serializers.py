@@ -2,19 +2,14 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
+from core.validators import validate_contact_number
 
 
 User = get_user_model()
 
 
 def _validate_contact(value):
-    if value and value.strip():
-        digits = ''.join(filter(str.isdigit, value.strip()))
-        if len(digits) != 11 or not digits.startswith('09'):
-            raise serializers.ValidationError(
-                'Contact number must be exactly 11 digits and start with 09.'
-            )
-    return value
+    return validate_contact_number(value)
 
 
 class UserSerializer(serializers.ModelSerializer):

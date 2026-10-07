@@ -385,6 +385,12 @@ class CropDisasterReportSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 'area_affected_ha': f'Area affected cannot exceed the {monitoring_record.area_planted_ha} ha planted.'
             })
+        # A Total Loss means the whole planted area is affected (compared as decimals, so 2 equals 2.00).
+        if (data.get('is_total_loss') and monitoring_record and monitoring_record.area_planted_ha
+                and area_affected_ha != monitoring_record.area_planted_ha):
+            raise serializers.ValidationError({
+                'is_total_loss': f'Total Loss is only allowed when the whole area is affected ({monitoring_record.area_planted_ha} ha).'
+            })
         return data
 
 
