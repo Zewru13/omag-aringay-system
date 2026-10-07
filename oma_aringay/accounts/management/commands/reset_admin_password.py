@@ -33,7 +33,7 @@ class Command(BaseCommand):
 
         password = options['password']
         if not password:
-            password = getpass.getpass('New password (min 15 characters): ')
+            password = getpass.getpass('New password (min 8 characters, with a capital letter, a special character and 3 numbers): ')
             confirm = getpass.getpass('Confirm password: ')
             if password != confirm:
                 raise CommandError('Passwords do not match.')

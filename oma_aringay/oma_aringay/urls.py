@@ -3,7 +3,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenRefreshView
 
 
 def api_root(request):
@@ -26,7 +26,6 @@ path('farmers/', include('farmers.urls')),
     path('reports/', include('reports.urls')),
     path('organizations/', include('associations.urls')),
     path('auditlog/', include('auditlog.urls')),
-    path('token/', TokenObtainPairView.as_view(), name='token-obtain-pair'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token-refresh'),
 ]
 

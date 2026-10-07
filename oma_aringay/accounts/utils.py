@@ -1,8 +1,10 @@
 import secrets
 import smtplib
+from datetime import timedelta
 
 from django.conf import settings
 from django.core.mail import send_mail
+from django.utils import timezone
 
 
 def citizen_account_info(linked_record_type, record_id):
@@ -75,16 +77,42 @@ def accountless_or_unactivated_ids(linked_record_type, record_ids):
     return record_ids - active_account_ids
 
 
+# Short fish and crop names (4-6 letters) for the readable temporary password. None contains a term from
+# accounts.validators.LOCAL_DENYLIST_TERMS (checked by a test).
+_WORDS = (
+    'Bangus', 'Dalag', 'Hipon', 'Tahong', 'Palay', 'Mais', 'Saging', 'Kamote', 'Mangga', 'Okra',
+    'Sitaw', 'Talong', 'Pechay', 'Luya', 'Bawang', 'Tulya', 'Ulang', 'Isda', 'Sugpo', 'Dilis',
+    'Pusit', 'Kuhol', 'Santol', 'Papaya', 'Atis', 'Durian', 'Gabi', 'Mani', 'Munggo', 'Camote',
+    'Sayote', 'Lemon',
+)
+_SPECIALS = '#@!$%'
+
+
 def generate_default_password():
-    """~22 url-safe characters — well over the 15-char policy minimum, and
-    random enough to never collide with the common-password or local
-    denylists, so it always passes AUTH_PASSWORD_VALIDATORS untouched. Used
-    for ADMIN/EVALUATOR account creation (UserCreateView), the
-    reset_admin_password command, and CITIZEN account activation
-    (accounts.views.SetCitizenPasswordView) — every one of those flows has
-    staff relay the password to the account's owner in person or by email,
-    never the person typing it into a form themselves."""
-    return secrets.token_urlsafe(16)
+    """A short, readable temporary password such as 'Bangus#482715': a fish or crop word, one special
+    character and six digits. It always satisfies the password policy (1 capital, 1 special character,
+    3 numbers, at least 8 characters), is easy to read aloud, and is only ever a temporary password: it
+    must be changed at first login and expires (see issue_temporary_password). Used for ADMIN/EVALUATOR
+    account creation, CITIZEN account activation and regeneration, and organization activation."""
+    digits = ''.join(secrets.choice('0123456789') for _ in range(6))
+    return f'{secrets.choice(_WORDS)}{secrets.choice(_SPECIALS)}{digits}'
+
+
+def issue_temporary_password(user):
+    """Give `user` a new temporary password that must be changed at the next login and stops working after
+    settings.TEMP_PASSWORD_VALID_DAYS. Saves the user (it does not touch is_active) and returns the plain
+    password, which the caller must hand over once and never store or log."""
+    password = generate_default_password()
+    user.set_password(password)
+    user.must_change_password = True
+    user.temp_password_expires_at = timezone.now() + timedelta(days=settings.TEMP_PASSWORD_VALID_DAYS)
+    user.save()
+    return password
+
+
+def temp_password_expired(user):
+    return bool(user.must_change_password and user.temp_password_expires_at
+                and user.temp_password_expires_at < timezone.now())
 
 
 def existing_citizen_shell_for_rsbsa(rsbsa_number, exclude_record_type=None):
@@ -303,3 +331,77 @@ def send_verification_email(user, verification_link):
         f'system administrator to have it reset.\n'
     )
     return _send(subject, message, user.email)
+
+
+def send_organization_credentials_email(org, plain_password, expires_at):
+    """Email an organization its login and temporary password. The password is IN the email, there is no
+    link. Returns (success, reason) — see _send()."""
+    subject = 'Your OMA Aringay account is ready'
+    message = (
+        f'Hello {org.contact_person or org.name},\n\n'
+        f'An account for {org.name} has been created on the OMA Aringay Integrated Agricultural Monitoring '
+        f'and Production Management System.\n\n'
+        f'Log in with:\n'
+        f'Login: {org.registration_number}\n'
+        f'Temporary password: {plain_password}\n\n'
+        f'You will be asked to choose your own password the first time you log in. This temporary password '
+        f'stops working on {expires_at.strftime("%B %d, %Y")}; after that, ask the Office of the Municipal '
+        f'Agriculturist for a new one.\n\n'
+        f'If you did not expect this account, please contact the Office of the Municipal Agriculturist, '
+        f'Aringay, La Union.\n'
+    )
+    return _send(subject, message, org.email_address)
+
+
+def activate_organization_account(record_type, org):
+    """Database half of organization activation: when `org` has an email address and its citizen account is
+    still an inactive shell, make the account active with a new temporary password. Returns the pending
+    hand-over `{'org', 'password', 'expires_at'}` (the plain password lives only in this dict), or None when
+    there is nothing to activate (no email, or no inactive shell). Sends nothing, so an import can call it
+    inside its transaction and deliver only after the transaction has committed."""
+    from accounts.models import User
+
+    if not org.email_address:
+        return None
+    user = User.objects.filter(
+        linked_records__record_type=record_type,
+        linked_records__record_id=org.id,
+        linked_records__is_active=True,
+        is_active=False,
+    ).first()
+    if user is None:
+        return None
+    user.is_active = True
+    password = issue_temporary_password(user)
+    return {'org': org, 'password': password, 'expires_at': user.temp_password_expires_at}
+
+
+def deliver_organization_credentials(pending, skip_reason=None):
+    """Email a pending activation (see activate_organization_account) and describe the outcome. A failed send
+    never raises: the result then carries the password and the reason so staff can hand it over once; a
+    successful send never carries the password. With `skip_reason` nothing is sent and that reason is reported
+    (used when the mail server has already failed repeatedly)."""
+    org = pending['org']
+    if skip_reason:
+        sent, reason = False, skip_reason
+    else:
+        sent, reason = send_organization_credentials_email(org, pending['password'], pending['expires_at'])
+    result = {
+        'activated': True,
+        'email_sent': sent,
+        'expires_at': pending['expires_at'].isoformat(),
+        'login': org.registration_number,
+    }
+    if not sent:
+        result['reason'] = reason
+        result['default_password'] = pending['password']
+    return result
+
+
+def activate_and_email_organization(record_type, org):
+    """Activate an organization's account and email its temporary password. Returns
+    `{'activated': False}` when there is nothing to activate."""
+    pending = activate_organization_account(record_type, org)
+    if pending is None:
+        return {'activated': False}
+    return deliver_organization_credentials(pending)

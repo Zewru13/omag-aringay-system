@@ -16,7 +16,10 @@ from accounts.models import User
 from accounts.permissions import (
     IsAdminOrEvaluator, IsOrgCitizenOrStaff, IsOwnOrgOrStaff, IsStaffOrFisherfolk, fisherfolk_scope,
 )
-from accounts.utils import create_inactive_citizen_shell
+from accounts.utils import (
+    activate_and_email_organization, activate_organization_account, create_inactive_citizen_shell,
+    deliver_organization_credentials,
+)
 from farmers.models import Farmer
 from farmers.rsbsa_import import normalize_barangay
 from core.utils import build_name_search_q
@@ -193,6 +196,13 @@ class FarmersOrganizationListCreateView(generics.ListCreateAPIView):
             serializer.save()
             org = serializer.instance
             create_inactive_citizen_shell(User.LinkedRecordType.FARMERS_ORG, org)
+        # An organization with an email gets an active account and its temporary password by email.
+        self._activation = activate_and_email_organization(User.LinkedRecordType.FARMERS_ORG, org)
+
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        response.data['activation'] = self._activation
+        return response
 
 
 class FarmersOrganizationDetailView(generics.RetrieveUpdateAPIView):
@@ -510,6 +520,13 @@ class FisherfolkOrganizationListCreateView(generics.ListCreateAPIView):
             serializer.save()
             org = serializer.instance
             create_inactive_citizen_shell(User.LinkedRecordType.FISHERFOLK_ORG, org)
+        # An organization with an email gets an active account and its temporary password by email.
+        self._activation = activate_and_email_organization(User.LinkedRecordType.FISHERFOLK_ORG, org)
+
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        response.data['activation'] = self._activation
+        return response
 
 
 class FisherfolkOrganizationDetailView(generics.RetrieveUpdateAPIView):
@@ -1274,7 +1291,8 @@ def _parse_org_import_row(row, agency_choices):
     return payload
 
 
-def _run_organization_import(model, serializer_class, linked_record_type, agency_choices, file, dry_run, user, sample_row=None):
+def _run_organization_import(model, serializer_class, linked_record_type, agency_choices, file, dry_run, user, sample_row=None,
+                             pending=None):
     from collections import defaultdict
 
     from core.utils import ImportFileError, read_template_rows
@@ -1353,6 +1371,9 @@ def _run_organization_import(model, serializer_class, linked_record_type, agency
         with transaction.atomic():
             instance = serializer.save()
             create_inactive_citizen_shell(linked_record_type, instance)
+            activation = activate_organization_account(linked_record_type, instance)
+        if activation is not None and pending is not None:
+            pending.append((row_num, activation))
         created += 1
         rows_out.append({'row': row_num, 'status': 'ready', 'label': label, 'detail': f'Created (record #{instance.id}).'})
 
@@ -1364,7 +1385,45 @@ def _run_organization_import(model, serializer_class, linked_record_type, agency
     }
     return Response({
         'created': created, 'errors': errors, 'dry_run': dry_run, 'summary': summary, 'rows': rows_out,
+        'credentials_to_hand_over': [],
     })
+
+
+def _import_organizations(request, model, serializer_class, linked_record_type, agency_choices, sample_row):
+    """Run the organization file import in one transaction, then — only once it has committed — email the
+    temporary passwords of the organizations it activated. A failed email never fails the import: that
+    organization's password is returned once in `credentials_to_hand_over` for staff to hand over."""
+    from core.utils import run_import_atomically
+
+    file = request.FILES.get('file')
+    if not file:
+        return Response({'error': 'No file uploaded.'}, status=400)
+    dry_run = str(request.data.get('dry_run', '')).strip().lower() in ('1', 'true', 'yes')
+    pending = []
+    response = run_import_atomically(lambda: _run_organization_import(
+        model, serializer_class, linked_record_type, agency_choices, file, dry_run, request.user,
+        sample_row=sample_row, pending=pending,
+    ))
+    if response.status_code != 200:
+        return response
+    rows = {row['row']: row for row in response.data.get('rows', [])}
+    failures_in_a_row = 0
+    for row_num, activation in pending:
+        # After 3 failed sends in a row the mail server is treated as down: the remaining organizations are
+        # handed over instead of each waiting out its own timeout while the request (already committed) hangs.
+        gave_up = failures_in_a_row >= 3
+        result = deliver_organization_credentials(
+            activation, skip_reason='Not sent: the mail server did not respond to earlier messages.' if gave_up else None)
+        failures_in_a_row = 0 if result['email_sent'] else failures_in_a_row + 1
+        if row_num in rows:
+            rows[row_num]['activation'] = result
+        if not result['email_sent']:
+            response.data['credentials_to_hand_over'].append({
+                'row': row_num, 'label': rows[row_num]['label'] if row_num in rows else '',
+                'login': result['login'], 'default_password': result['default_password'],
+                'expires_at': result['expires_at'], 'reason': result['reason'],
+            })
+    return response
 
 
 class FarmersOrganizationImportTemplateView(APIView):
@@ -1383,16 +1442,9 @@ class FarmersOrganizationImportView(APIView):
     parser_classes = [MultiPartParser]
 
     def post(self, request):
-        file = request.FILES.get('file')
-        if not file:
-            return Response({'error': 'No file uploaded.'}, status=400)
-        dry_run = str(request.data.get('dry_run', '')).strip().lower() in ('1', 'true', 'yes')
-        from core.utils import run_import_atomically
-        return run_import_atomically(lambda: _run_organization_import(
-            FarmersOrganization, FarmersOrganizationDetailSerializer, User.LinkedRecordType.FARMERS_ORG,
-            FarmersOrganization.REGISTRATION_AGENCY_CHOICES, file, dry_run, request.user,
-            sample_row=FARMERS_ORG_TEMPLATE_SAMPLE,
-        ))
+        return _import_organizations(
+            request, FarmersOrganization, FarmersOrganizationDetailSerializer, User.LinkedRecordType.FARMERS_ORG,
+            FarmersOrganization.REGISTRATION_AGENCY_CHOICES, FARMERS_ORG_TEMPLATE_SAMPLE)
 
 
 class FisherfolkOrganizationImportTemplateView(APIView):
@@ -1411,13 +1463,7 @@ class FisherfolkOrganizationImportView(APIView):
     parser_classes = [MultiPartParser]
 
     def post(self, request):
-        file = request.FILES.get('file')
-        if not file:
-            return Response({'error': 'No file uploaded.'}, status=400)
-        dry_run = str(request.data.get('dry_run', '')).strip().lower() in ('1', 'true', 'yes')
-        from core.utils import run_import_atomically
-        return run_import_atomically(lambda: _run_organization_import(
-            FisherfolkOrganization, FisherfolkOrganizationDetailSerializer, User.LinkedRecordType.FISHERFOLK_ORG,
-            FisherfolkOrganization.REGISTRATION_AGENCY_CHOICES, file, dry_run, request.user,
-            sample_row=FISHERFOLK_ORG_TEMPLATE_SAMPLE,
-        ))
+        return _import_organizations(
+            request, FisherfolkOrganization, FisherfolkOrganizationDetailSerializer,
+            User.LinkedRecordType.FISHERFOLK_ORG, FisherfolkOrganization.REGISTRATION_AGENCY_CHOICES,
+            FISHERFOLK_ORG_TEMPLATE_SAMPLE)

@@ -1,10 +1,12 @@
 """
 Custom password-policy validators for the OMA Aringay system.
 
-Policy: long-passphrase-friendly, no forced composition rules (no mandatory
-symbol/number/uppercase), per NIST 800-63B guidance. Strength comes from
-minimum length + a denylist, not character-class requirements.
+Policy: a minimum length of 8, at least 1 capital letter, at least 1 special
+character and at least 3 numbers, plus a common-password list and an
+OMAg/Aringay denylist. A long passphrase that has the three parts is fine.
 """
+import unicodedata
+
 from django.core.exceptions import ValidationError
 from django.utils.translation import gettext as _
 
@@ -58,3 +60,31 @@ class MaximumLengthValidator:
         return _('Your password must be at most %(max_length)d characters.') % {
             'max_length': self.max_length,
         }
+
+
+class CompositionPasswordValidator:
+    """At least 1 capital letter, 1 special character and 3 numbers.
+
+    Capital = an uppercase letter (any alphabet); number = a decimal digit;
+    special = anything that is neither a letter, a digit nor whitespace
+    (symbols and emoji count, letters with accents do not)."""
+
+    MIN_DIGITS = 3
+
+    def validate(self, password, user=None):
+        problems = []
+        if not any(ch.isupper() for ch in password):
+            problems.append(ValidationError(
+                _('Add at least 1 capital letter.'), code='password_no_capital'))
+        if not any(not ch.isalnum() and not ch.isspace() for ch in password):
+            problems.append(ValidationError(
+                _('Add at least 1 special character.'), code='password_no_special'))
+        if sum(1 for ch in password if unicodedata.category(ch) == 'Nd') < self.MIN_DIGITS:
+            problems.append(ValidationError(
+                _('Add at least %(count)d numbers.'), code='password_few_digits',
+                params={'count': self.MIN_DIGITS}))
+        if problems:
+            raise ValidationError(problems)
+
+    def get_help_text(self):
+        return _('Your password needs at least 1 capital letter, 1 special character and 3 numbers.')

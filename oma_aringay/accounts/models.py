@@ -6,7 +6,7 @@ from django.contrib.auth.models import AbstractUser
 class User(AbstractUser):
     class Roles(models.TextChoices):
         ADMIN = 'ADMIN', 'Admin'
-        EVALUATOR = 'EVALUATOR', 'Evaluator'
+        EVALUATOR = 'EVALUATOR', 'Focal Person'
         # Batch 10: self-service Farmer/Fisherfolk/Organization accounts.
         # Named CITIZEN to match the terminology this file's own comment
         # already used before this role existed.
@@ -47,6 +47,11 @@ class User(AbstractUser):
     must_change_password = models.BooleanField(
         default=False,
         help_text='Forces the user to a change-password screen on next login.',
+    )
+
+    temp_password_expires_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text='When the system-issued temporary password stops working. Empty for every other password.',
     )
 
     is_email_verified = models.BooleanField(default=False)
