@@ -4,6 +4,8 @@ from datetime import date
 
 from core.validators import validate_not_future_date, validate_uploaded_image
 from farmers.models import FarmParcel
+from .duplicates import ACTIVE_STATUSES, duplicate_message, find_active_duplicates
+from .naming import normalize_name
 from .parcel_link import infer_farm_parcel
 
 from .models import (
@@ -50,14 +52,26 @@ class CropVarietySerializer(serializers.ModelSerializer):
         name = (data.get('name', self.instance.name if self.instance else '') or '').strip()
         crop_type = data['crop_type'] if 'crop_type' in data else (self.instance.crop_type if self.instance else None)
         if name:
-            qs = CropVariety.objects.filter(name__iexact=name, crop_type=crop_type)
+            key = normalize_name(name)
+            if not key:
+                raise serializers.ValidationError({'name': 'Enter a real name (letters or numbers).'})
+            # An existing duplicate can still be edited: the check runs only for a new variety, or when the
+            # name or the crop type is being changed.
+            unchanged = bool(
+                self.instance
+                and normalize_name(self.instance.name) == key
+                and crop_type == self.instance.crop_type
+            )
+            others = CropVariety.objects.filter(crop_type=crop_type)
             if self.instance:
-                qs = qs.exclude(pk=self.instance.pk)
-            if qs.exists():
-                crop_label = crop_type.name if crop_type else 'crops with no crop type set'
-                raise serializers.ValidationError({
-                    'name': f"A variety named '{name}' already exists for {crop_label}.",
-                })
+                others = others.exclude(pk=self.instance.pk)
+            # Compared ignoring case, spaces and punctuation: 'RC 222' is the same variety as 'Rc-222'.
+            for existing in ([] if unchanged else others.values_list('name', flat=True)):
+                if normalize_name(existing) == key:
+                    crop_label = crop_type.name if crop_type else 'crops with no crop type set'
+                    raise serializers.ValidationError({
+                        'name': f"A variety named '{existing}' already exists for {crop_label}.",
+                    })
             data['name'] = name
 
         # Same all-or-nothing growth-stage-day rule as CropTypeSerializer.
@@ -117,11 +131,18 @@ class CropTypeSerializer(serializers.ModelSerializer):
 
     def validate_name(self, value):
         name = value.strip()
-        qs = CropType.objects.filter(name__iexact=name)
+        key = normalize_name(name)
+        if not key:
+            raise serializers.ValidationError('Enter a real name (letters or numbers).')
+        if self.instance and normalize_name(self.instance.name) == key:
+            return name   # unchanged spelling: an existing duplicate can still be edited
+        others = CropType.objects.all()
         if self.instance:
-            qs = qs.exclude(pk=self.instance.pk)
-        if qs.exists():
-            raise serializers.ValidationError(f"A crop type named '{name}' already exists.")
+            others = others.exclude(pk=self.instance.pk)
+        # Compared ignoring case, spaces and punctuation: 'Rice  (Palay)' is the same crop as 'Rice (Palay)'.
+        for existing in others.values_list('name', flat=True):
+            if normalize_name(existing) == key:
+                raise serializers.ValidationError(f"A crop type named '{existing}' already exists.")
         return name
 
     def validate(self, data):
@@ -609,6 +630,47 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
             inferred = infer_farm_parcel(farmer.id, crop_type.name if crop_type else '', data.get('farm_location_barangay', ''))
             if inferred:
                 data['farm_parcel'] = inferred
+
+        # One farmer cannot have two active records of the same crop and variety in the same place. A new record
+        # is always checked. An existing one is checked only while it is still active and only when something
+        # that decides the rule really changes (the edit form re-sends every field, changed or not), so a
+        # record that is already part of a duplicate pair, or a lost/harvested one, can still be corrected.
+        def stored(field):
+            return getattr(self.instance, field, None) if self.instance else None
+
+        record_farmer = data['farmer'] if 'farmer' in data else stored('farmer')
+        record_crop = data['crop_type'] if 'crop_type' in data else stored('crop_type')
+        record_variety = data['variety_used'] if 'variety_used' in data else (stored('variety_used') or '')
+        record_parcel = data['farm_parcel'] if 'farm_parcel' in data else stored('farm_parcel')
+        record_barangay = (data['farm_location_barangay'] if 'farm_location_barangay' in data
+                           else (stored('farm_location_barangay') or ''))
+
+        def decisive_change():
+            if self.instance is None:
+                return True
+            if self.instance.status not in ACTIVE_STATUSES:
+                return False
+            same = (
+                getattr(record_farmer, 'id', None) == self.instance.farmer_id
+                and getattr(record_crop, 'id', None) == self.instance.crop_type_id
+                and normalize_name(record_variety) == normalize_name(self.instance.variety_used)
+                and getattr(record_parcel, 'id', None) == self.instance.farm_parcel_id
+            )
+            # the barangay only decides the rule when there is no parcel
+            if same and not record_parcel:
+                same = (record_barangay or '').strip().lower() == (self.instance.farm_location_barangay or '').strip().lower()
+            return not same
+
+        if record_farmer and record_crop and decisive_change():
+            found = find_active_duplicates(
+                farmer_id=record_farmer.id, crop_type_id=record_crop.id, variety=record_variety,
+                farm_parcel_id=record_parcel.id if record_parcel else None, barangay=record_barangay,
+                exclude_id=self.instance.pk if self.instance else None,
+            )
+            if found:
+                raise serializers.ValidationError({
+                    'crop_type': duplicate_message(found[0], record_crop, record_barangay, bool(record_parcel)),
+                })
         return data
 
 

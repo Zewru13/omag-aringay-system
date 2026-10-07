@@ -22,6 +22,8 @@ from core.utils import accumulate_yield_group, filter_people_search, harvest_gat
 from farmers.models import FarmParcel, Farmer
 from fisheries.models import Fisherfolk
 
+from .duplicates import find_active_duplicates, same_place
+from .naming import normalize_name
 from .dashboard_activity import (
     active_disaster_rows, barangay_rows, crop_activity_status,
     crop_yield_variance, fisheries_activity_status, not_received_count, sector_summary,
@@ -864,6 +866,28 @@ class CropMonitoringBulkCreateView(APIView):
         if not all(validities):
             return Response({'errors': [s.errors for s in item_serializers]}, status=drf_status.HTTP_400_BAD_REQUEST)
 
+        # Every row passed on its own, but two rows of this same form can still be the same crop in the same
+        # place (the database check cannot see them: nothing is saved yet). Later rows are refused.
+        batch_errors = [{} for _ in item_serializers]
+        for i, current in enumerate(item_serializers):
+            row = current.validated_data
+            for j in range(i):
+                earlier = item_serializers[j].validated_data
+                if (
+                    row.get('farmer') and earlier.get('farmer') and row['farmer'].id == earlier['farmer'].id
+                    and row['crop_type'].id == earlier['crop_type'].id
+                    and normalize_name(row.get('variety_used')) == normalize_name(earlier.get('variety_used'))
+                    and same_place(
+                        row['farm_parcel'].id if row.get('farm_parcel') else None, row.get('farm_location_barangay', ''),
+                        earlier['farm_parcel'].id if earlier.get('farm_parcel') else None,
+                        earlier.get('farm_location_barangay', ''),
+                    )
+                ):
+                    batch_errors[i] = {'crop_type': [f'This record duplicates row {j + 1} of this form.']}
+                    break
+        if any(batch_errors):
+            return Response({'errors': batch_errors}, status=drf_status.HTTP_400_BAD_REQUEST)
+
         with transaction.atomic():
             created = [s.save(recorded_by=request.user) for s in item_serializers]
 
@@ -904,24 +928,28 @@ class CropDuplicateCheckView(APIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
     def get(self, request):
-        farmer_id   = request.query_params.get('farmer')
-        crop_type_id = request.query_params.get('crop_type')
-        if not farmer_id or not crop_type_id:
+        params = request.query_params
+        farmer_id, crop_type_id = params.get('farmer'), params.get('crop_type')
+        if not (farmer_id or '').isdigit() or not (crop_type_id or '').isdigit():
             return Response({'duplicates': []})
-        qs = CropMonitoringRecord.objects.filter(
-            farmer_id=farmer_id,
-            crop_type_id=crop_type_id,
-            status=CropMonitoringRecord.Status.PLANTED,
-        ).select_related('crop_type').order_by('-date_planted')[:5]
+        parcel = params.get('parcel')
+        exclude = params.get('exclude')
+        found = find_active_duplicates(
+            farmer_id=int(farmer_id), crop_type_id=int(crop_type_id), variety=params.get('variety', ''),
+            farm_parcel_id=int(parcel) if (parcel or '').isdigit() else None,
+            barangay=params.get('barangay', ''),
+            exclude_id=int(exclude) if (exclude or '').isdigit() else None,
+        )[:5]
         results = [
             {
                 'id':           r.id,
                 'crop_type':    r.crop_type.name if r.crop_type else '',
+                'variety_used': r.variety_used,
                 'date_planted': str(r.date_planted) if r.date_planted else None,
                 'area_planted_ha': str(r.area_planted_ha),
                 'status':       r.status,
             }
-            for r in qs
+            for r in found
         ]
         return Response({'duplicates': results})
 
