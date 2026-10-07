@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, Fish, PackageX, Sprout } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
+import PhotoLinks from '../../components/UI/PhotoLinks.jsx'
 import { resolveMediaUrl } from '../../utils/mediaUrl.js'
 
 // The admin/evaluator dashboard, built to the approved staff reference
@@ -548,14 +549,13 @@ export default function StaffDashboard({ user }) {
                     </p>
                     <div className="mt-2 flex items-start justify-between gap-3 flex-wrap">
                       <div className="flex min-w-0 items-start gap-3">
-                        {r.photo_url ? (
-                          <a href={resolveMediaUrl(r.photo_url)} target="_blank" rel="noreferrer" className="shrink-0">
-                            <img
-                              src={resolveMediaUrl(r.photo_url)}
-                              alt=""
-                              className="h-16 w-16 rounded-[8px] border border-border object-cover transition-opacity hover:opacity-80"
-                            />
-                          </a>
+                        {(r.photo_urls?.length > 0 || r.photo_url) ? (
+                          // every proof photo can be opened (the older single photo first)
+                          <PhotoLinks
+                            className="max-w-[9.5rem] shrink-0"
+                            legacy={r.photo_url ? resolveMediaUrl(r.photo_url) : null}
+                            photos={(r.photo_urls || []).map((url, i) => ({ id: i, url: resolveMediaUrl(url) }))}
+                          />
                         ) : (
                           <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[8px] border border-dashed border-border-strong text-[10px] text-text-muted">
                             No photo

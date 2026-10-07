@@ -8,6 +8,8 @@ import { CROP_THEME, CitizenBody, CitizenHomeHeader, CitizenScreen } from './cit
 import { dayFirstLong } from './farmerDates.js'
 import { Block, Choice, FIELD } from './farmerFormParts.jsx'
 import { labels } from './labels.js'
+import usePhotoList from '../../hooks/usePhotoList.js'
+import PhotoListField from '../../components/UI/PhotoListField.jsx'
 import { todayISO, yesterdayISO } from '../../utils/localDate.js'
 
 // Farmer Sakuna report form, rebuilt to UPDATED FARMER CITIZEN UI.docx.
@@ -47,7 +49,7 @@ export default function FarmerDisasterReportForm({
   const [dateMode, setDateMode] = useState('today')
   const [areaError, setAreaError] = useState('')
   const [severityError, setSeverityError] = useState('')
-  const [photo, setPhoto] = useState(null)
+  const photosState = usePhotoList()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
@@ -95,10 +97,10 @@ export default function FarmerDisasterReportForm({
         is_total_loss: form.is_total_loss,
       }
       let payload = fields
-      if (photo) {
+      if (photosState.photos.length) {
         payload = new FormData()
         Object.entries(fields).forEach(([k, v]) => { if (v !== null && v !== undefined) payload.append(k, v) })
-        payload.append('photo', photo)
+        photosState.photos.forEach(p => payload.append('photos', p.file))
       }
       await api.post(domain.disastersUrl(recordId), payload)
       showToast(labels.disaster.submitSuccess, 'success')
@@ -249,15 +251,8 @@ export default function FarmerDisasterReportForm({
 
       <Block label={labels.disaster.fields.photo}>
         <div className="rounded-[10px] border border-dashed border-cz-border-strong px-3.5 py-3">
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={(e) => setPhoto(e.target.files?.[0] || null)}
-            disabled={blockedByOther}
-            className="w-full text-[14px] text-cz-text"
-          />
+          <PhotoListField photosState={photosState} hint={labels.disaster.fields.photoHint} altPrefix="Photo" />
         </div>
-        <p className="mt-2 text-[11px] text-cz-text-muted">{labels.disaster.fields.photoHint}</p>
       </Block>
 
       <button

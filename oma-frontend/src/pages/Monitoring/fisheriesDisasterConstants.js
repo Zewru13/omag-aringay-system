@@ -22,9 +22,8 @@ export const AQUACULTURE_EQUIPMENT_OPTIONS = AQUACULTURE_EQUIPMENT_GROUPS.flatMa
 
 // Photo Documentation of Damage: optional, 0-10 photos; same formats/size as the backend's
 // validate_uploaded_image (JPG/PNG/WEBP, 5 MB each).
-export const MAX_DAMAGE_PHOTOS = 10
-export const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp']
-export const PHOTO_MAX_BYTES = 5 * 1024 * 1024
+// The rules live in utils/photoRules.js, shared by every multi-photo form; re-exported under the old names here.
+export { MAX_PHOTOS as MAX_DAMAGE_PHOTOS, PHOTO_TYPES, PHOTO_MAX_BYTES } from '../../utils/photoRules.js'
 
 // First readable message from a DRF error response ({detail} or {field: [msg]}), so a rejected report
 // shows WHY instead of a generic failure.

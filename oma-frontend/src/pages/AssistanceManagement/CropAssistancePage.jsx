@@ -4,6 +4,8 @@ import { CheckCircle2, Pencil, Plus, Search, Trash2, Upload, User, UserCheck, Us
 import api from '../../api/axiosInstance.js'
 import useSuggestSearch from '../../hooks/useSuggestSearch.js'
 import ImportFileModal from '../../components/ImportFileModal.jsx'
+import PhotoListField from '../../components/UI/PhotoListField.jsx'
+import usePhotoList from '../../hooks/usePhotoList.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import Button from '../../components/UI/Button.jsx'
@@ -528,7 +530,7 @@ function MarkResolvedModal({ record, onClose, onResolved }) {
 
 function ConfirmReceivedModal({ record, onClose, onDone }) {
   const { showToast } = useToast()
-  const [photo, setPhoto] = useState(null)
+  const photosState = usePhotoList()
   const [note, setNote] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const handleSubmit = async (e) => {
@@ -536,14 +538,14 @@ function ConfirmReceivedModal({ record, onClose, onDone }) {
     setIsSubmitting(true)
     try {
       const body = new FormData()
-      if (photo) body.append('confirmation_photo', photo)
+      photosState.photos.forEach(p => body.append('confirmation_photos', p.file))
       if (note.trim()) body.append('confirmation_note', note.trim())
       await api.post(`/interventions/beneficiaries/${record.id}/confirm-received/`, body)
       showToast('Confirmed as received.', 'success')
       onDone()
     } catch (err) {
       const d = err?.response?.data
-      const photoError = d?.confirmation_photo && [].concat(d.confirmation_photo).join(' ')
+      const photoError = d?.confirmation_photos && [].concat(d.confirmation_photos).join(' ')
       showToast(photoError || extractErrorMessage(err, 'Failed to confirm.'), 'error')
     } finally { setIsSubmitting(false) }
   }
@@ -554,10 +556,7 @@ function ConfirmReceivedModal({ record, onClose, onDone }) {
         <Button type="submit" form="farmer-confirm-received" isLoading={isSubmitting}>Confirm</Button>
       </>}>
       <form id="farmer-confirm-received" onSubmit={handleSubmit} className="space-y-4">
-        <FormField label="Proof Photo (optional)">
-          <input type="file" accept="image/jpeg,image/png,image/webp" className={baseInputClasses}
-            onChange={(e) => setPhoto(e.target.files?.[0] || null)} />
-        </FormField>
+        <PhotoListField photosState={photosState} title="Proof Photos (optional)" hint="Up to 10 photos." altPrefix="Proof photo" />
         <FormField label="Note (optional)">
           <textarea rows={3} className={`${baseInputClasses} resize-none`} value={note}
             onChange={(e) => setNote(e.target.value)} placeholder="Anything the office should know about what you received" />

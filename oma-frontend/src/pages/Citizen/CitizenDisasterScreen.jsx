@@ -5,6 +5,8 @@ import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import useRecordLock from '../../hooks/useRecordLock.js'
 import { labels } from './labels.js'
+import usePhotoList from '../../hooks/usePhotoList.js'
+import PhotoListField from '../../components/UI/PhotoListField.jsx'
 import { CitizenScreen, CitizenSubHeader } from './citizenUI.jsx'
 import FarmerDisasterList from './FarmerDisasterList.jsx'
 import FarmerDisasterReportForm from './FarmerDisasterReportForm.jsx'
@@ -101,7 +103,7 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
     is_total_loss: false,
   })
   const [areaError, setAreaError] = useState('')
-  const [photo, setPhoto] = useState(null)
+  const photosState = usePhotoList()
 
   // Recovery UI state, keyed by disaster id.
   // disaster_id -> { rules, all_rules_done }, from the record's suggestions
@@ -197,10 +199,10 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
         is_total_loss: form.is_total_loss,
       }
       let payload = fields
-      if (photo) {
+      if (photosState.photos.length) {
         payload = new FormData()
         Object.entries(fields).forEach(([k, v]) => { if (v !== null && v !== undefined) payload.append(k, v) })
-        payload.append('photo', photo)
+        photosState.photos.forEach(p => payload.append('photos', p.file))
       }
       await api.post(domain.disastersUrl(recordId), payload)
       showToast(labels.disaster.submitSuccess, 'success')
@@ -440,13 +442,7 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
           </FieldBlock>
 
           <FieldBlock label={labels.disaster.fields.photo} hint={labels.disaster.fields.photoHint}>
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={(e) => setPhoto(e.target.files?.[0] || null)}
-              disabled={blockedByOther}
-              className={`${FIELD} py-[10px]`}
-            />
+            <PhotoListField photosState={photosState} altPrefix="Photo" />
           </FieldBlock>
 
           <button

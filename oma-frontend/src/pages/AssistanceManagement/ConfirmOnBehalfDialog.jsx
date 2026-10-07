@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { UserCheck } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import PhotoListField from '../../components/UI/PhotoListField.jsx'
+import usePhotoList from '../../hooks/usePhotoList.js'
 import { useToast } from '../../context/ToastContext.jsx'
 
 // An organization confirms receipt for a member whose own account cannot do it. This does not confirm the
@@ -11,7 +12,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 // request), with an optional proof photo. Shared by the crop and fisheries assistance pages in organization mode.
 export default function ConfirmOnBehalfDialog({ url, memberName, assistanceLabel, onClose, onDone }) {
   const { showToast } = useToast()
-  const [photo, setPhoto] = useState(null)
+  const photosState = usePhotoList()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -21,9 +22,9 @@ export default function ConfirmOnBehalfDialog({ url, memberName, assistanceLabel
     setIsSubmitting(true)
     try {
       let payload = null
-      if (photo) {
+      if (photosState.photos.length) {
         payload = new FormData()
-        payload.append('photo', photo)
+        photosState.photos.forEach(p => payload.append('photos', p.file))
       }
       await api.post(url, payload)
       showToast('Confirmation sent to OMAg for review.', 'success')
@@ -56,10 +57,7 @@ export default function ConfirmOnBehalfDialog({ url, memberName, assistanceLabel
           Use this when {memberName} has no working account to confirm for themselves. It sends a confirmation
           request to OMAg staff, who review it before the assistance is marked as received.
         </p>
-        <FormField label="Proof Photo (optional)">
-          <input type="file" accept="image/jpeg,image/png,image/webp" className={baseInputClasses}
-            onChange={(e) => setPhoto(e.target.files?.[0] || null)} />
-        </FormField>
+        <PhotoListField photosState={photosState} title="Proof Photos (optional)" hint="Up to 10 photos." altPrefix="Proof photo" />
         {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-[13px] font-medium text-rose-700">{error}</p>}
       </form>
     </ModalShell>
