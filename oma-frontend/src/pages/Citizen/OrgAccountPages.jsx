@@ -8,6 +8,7 @@ import { Camera, KeyRound, Lock, Pencil } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
+import EmailInput from '../../components/UI/EmailInput.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
@@ -15,6 +16,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { ARINGAY_BARANGAYS } from '../../constants/barangays.js'
 import PasswordRequirementChecklist from '../../components/UI/PasswordRequirementChecklist.jsx'
 import PhoneInput from '../../components/UI/PhoneInput.jsx'
+import { approvalLines, waitingText } from '../../utils/approvalStatus.js'
 import { passwordMeetsRules } from '../../utils/passwordRules.js'
 import { tidyPhone } from '../../utils/inputGuards.js'
 import { validatePhone } from '../../utils/validation.js'
@@ -106,12 +108,32 @@ const REQUESTABLE = [
   { field: 'name', label: 'Organization Name' },
   { field: 'barangay', label: 'Barangay' },
   { field: 'street_address', label: 'Street Address' },
+  { field: 'email_address', label: 'Email address' },
+  { field: 'contact_person', label: 'Contact person' },
 ]
 const FIELD_LABELS = Object.fromEntries(REQUESTABLE.map((r) => [r.field, r.label]))
 const hasValue = (v) => v !== null && v !== undefined && String(v).trim() !== ''
 const fmtDate = (v) => (v ? new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric' }).format(new Date(`${v}T00:00:00`)) : '')
 
 const CARD = 'rounded-xl border border-border bg-surface'
+
+const fmtStamp = (v) => (v ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(new Date(v)) : '')
+
+// "Admin: approved Oct 7 (Ana)" / "Focal Person: pending" — one line per role of a two-approval request.
+function ApprovalLines({ request }) {
+  // A rejected request will never get the missing approvals, so only show the ones that happened.
+  const lines = approvalLines(request).filter((line) => line.done || request.status !== 'REJECTED')
+  if (lines.length === 0) return null
+  return (
+    <ul className="mt-1 space-y-0.5 text-[12px] text-text-secondary" data-testid="approval-lines">
+      {lines.map((line) => (
+        <li key={line.role}>
+          {line.role}: {line.done ? `approved ${fmtStamp(line.at)}${line.by ? ` (${line.by})` : ''}` : 'pending'}
+        </li>
+      ))}
+    </ul>
+  )
+}
 const ACTION = 'text-[13px] font-medium text-primary hover:underline disabled:opacity-50'
 
 function CardTitle({ children }) {
@@ -168,6 +190,9 @@ export function OrgProfilePage() {
 
   // Keep the signed-in user (and so the header, sidebar and other pages) in step after an instant change.
   const refreshUser = () => api.get('/accounts/me/').then((r) => updateUser(r.data)).catch(() => {})
+  // An approved change is written by staff while this page is closed, so pick up the current record on open.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { refreshUser() }, [])
 
   const pendingFor = (field) => requests.find((r) => r.field_name === field && r.status === 'PENDING')
   const accent = isFisherfolkOrg ? '#1B5E7B' : '#1B4D2E'
@@ -260,8 +285,6 @@ export function OrgProfilePage() {
     ['Registration Agency', record?.registration_agency ? agencyLabel(record.registration_agency) : ''],
     ['Date Organized', fmtDate(record?.date_organized)],
     ['Date Registered', fmtDate(record?.date_registered)],
-    ['Contact Person', record?.contact_person],
-    ['Email', record?.email_address],
   ].filter(([, v]) => hasValue(v))
   const currentValue = (field) => (field === 'name' ? name : record?.[field] || '')
 
@@ -299,7 +322,7 @@ export function OrgProfilePage() {
         )}
 
         <section className={CARD}>
-          <CardTitle>Name and Address</CardTitle>
+          <CardTitle>Organization Details</CardTitle>
           {REQUESTABLE.map(({ field, label }) => {
             const pending = pendingFor(field)
             return (
@@ -310,7 +333,7 @@ export function OrgProfilePage() {
                     <p className="mt-0.5 break-words text-[14px] font-medium text-text-primary">{currentValue(field) || '—'}</p>
                   </div>
                   {pending ? (
-                    <StatusPill tone="amber">Pending review</StatusPill>
+                    <StatusPill tone="amber">{pending.requires_both ? 'Awaiting approval' : 'Pending review'}</StatusPill>
                   ) : (
                     <button type="button" className={ACTION} disabled={isBusy}
                       onClick={() => { setRequestField(field); setRequestDraft(currentValue(field)); setErrorMessage('') }}>
@@ -318,7 +341,13 @@ export function OrgProfilePage() {
                     </button>
                   )}
                 </div>
-                {pending && <p className="mt-1 text-[12px] text-text-secondary">Requested: {pending.requested_value}</p>}
+                {pending && (
+                  <div className="mt-1 text-[12px] text-text-secondary">
+                    <p className="break-words">Requested: {pending.requested_value}</p>
+                    <p>{waitingText(pending)}</p>
+                    <ApprovalLines request={pending} />
+                  </div>
+                )}
                 {requestField === field && (
                   <div className="mt-3 space-y-2">
                     {field === 'barangay' ? (
@@ -326,8 +355,11 @@ export function OrgProfilePage() {
                         <option value="">Select barangay</option>
                         {ARINGAY_BARANGAYS.map((b) => <option key={b} value={b}>{b}</option>)}
                       </select>
+                    ) : field === 'email_address' ? (
+                      <EmailInput aria-label={`New ${label}`} className={baseInputClasses} value={requestDraft} onChange={setRequestDraft} />
                     ) : (
-                      <input aria-label={`New ${label}`} className={baseInputClasses} value={requestDraft} onChange={(e) => setRequestDraft(e.target.value)} />
+                      <input aria-label={`New ${label}`} className={baseInputClasses} maxLength={field === 'contact_person' ? 150 : undefined}
+                        value={requestDraft} onChange={(e) => setRequestDraft(e.target.value)} />
                     )}
                     <div className="flex gap-2">
                       <Button size="sm" isLoading={isBusy} onClick={submitRequest}>Send request</Button>
@@ -404,12 +436,14 @@ export function OrgProfilePage() {
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-[13px] font-medium text-text-primary">{FIELD_LABELS[r.field_name] || r.field_name}</p>
                   <StatusPill tone={r.status === 'APPROVED' ? 'green' : r.status === 'REJECTED' ? 'rose' : 'amber'}>
-                    {r.status === 'APPROVED' ? 'Approved' : r.status === 'REJECTED' ? 'Rejected' : 'Pending review'}
+                    {r.status === 'APPROVED' ? 'Approved' : r.status === 'REJECTED' ? 'Rejected' : r.requires_both ? 'Awaiting approval' : 'Pending review'}
                   </StatusPill>
                 </div>
-                <p className="mt-1 text-[12.5px] text-text-secondary">
+                <p className="mt-1 break-words text-[12.5px] text-text-secondary">
                   <span className="line-through">{r.old_value}</span> → {r.requested_value}
                 </p>
+                {r.status === 'PENDING' && <p className="mt-1 text-[12px] text-text-secondary">{waitingText(r)}</p>}
+                <ApprovalLines request={r} />
                 {r.status === 'REJECTED' && r.rejection_reason && (
                   <p className="mt-1 text-[12px] text-rose-700">Reason: {r.rejection_reason}</p>
                 )}
