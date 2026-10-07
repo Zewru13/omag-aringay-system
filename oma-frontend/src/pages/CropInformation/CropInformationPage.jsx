@@ -565,8 +565,11 @@ function EditCropModal({ record, onClose, onSaved }) {
       });
       showToast("Crop record updated successfully.", "success");
       onSaved();
-    } catch {
-      setError("Failed to update crop record.");
+    } catch (err) {
+      // Show the server's reason (for example the active-duplicate refusal) instead of a generic failure.
+      const data = err?.response?.data;
+      const reason = data?.crop_type?.[0] || data?.detail;
+      setError(typeof reason === "string" && reason ? reason : "Failed to update crop record.");
     } finally {
       setIsSubmitting(false);
     }

@@ -23,6 +23,7 @@ import LoggedDatePicker from '../../components/UI/LoggedDatePicker.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import useRecordLock from '../../hooks/useRecordLock.js'
+import { groupActivityOptions, overdueStepDay } from '../../utils/activityPicker.js'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
@@ -488,6 +489,8 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
   // ── Change 1: soft "Suggested now" ordering for the Activity dropdown ──────
   const [activityStages, setActivityStages] = useState([])
   const [activityTypeOptions, setActivityTypeOptions] = useState([])
+  // The server's schedule for this crop (each step due / overdue / upcoming / done); the picker follows it.
+  const [scheduleSteps, setScheduleSteps] = useState([])
 
   useEffect(() => {
     if (!record.crop_type) return
@@ -505,27 +508,14 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
       .catch(() => setActivityTypeOptions([]))
   }, [])
 
-  const suggestedNowActivities = useMemo(() => {
-    if (!record.date_planted || activityStages.length === 0) return new Set()
-    const loggedTypes = new Set(logs.map(l => l.activity_type))
-    const planted = new Date(record.date_planted + 'T00:00:00')
-    const referenceDate = activityDate || todayISO()
-    const current = new Date(referenceDate + 'T00:00:00')
-    const currentDay = Math.floor((current - planted) / (1000 * 60 * 60 * 24))
-    const applicable = new Set()
-    activityStages.forEach(stage => {
-      const days = (stage.application_days && stage.application_days.length)
-        ? stage.application_days
-        : [stage.day_after_planting]
-      const dueNow = days.some(d => Math.abs(d - currentDay) <= 7)
-      const overdueUnlogged = days.some(d => (currentDay - d) > 7) && !loggedTypes.has(stage.stage_name)
-      if (dueNow || overdueUnlogged) applicable.add(stage.stage_name)
-    })
-    return applicable
-  }, [activityStages, activityDate, record.date_planted, logs])
-
-  const suggestedActivityOptions = activityTypeOptions.filter(o => suggestedNowActivities.has(o))
-  const otherActivityOptions = activityTypeOptions.filter(o => !suggestedNowActivities.has(o))
+  // "Suggested now" = scheduled steps due or overdue and not yet done, earliest first; "Other" = unscheduled
+  // activities and steps that are only upcoming; an activity whose steps are all done is left out (see
+  // utils/activityPicker.js). The log being edited keeps its own activity selectable.
+  const editingLogType = editingLogId ? (logs.find(l => l.id === editingLogId)?.activity_type || '') : ''
+  const { suggested: suggestedActivityOptions, other: otherActivityOptions } = useMemo(
+    () => groupActivityOptions({ allTypes: activityTypeOptions, suggestions: scheduleSteps, editingType: editingLogType }),
+    [activityTypeOptions, scheduleSteps, editingLogType],
+  )
 
   // Land-prep-style activities may be logged before date_planted; everything else may not.
   const selectedStageAllowsPrePlanting = useMemo(() => {
@@ -536,10 +526,12 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
   const fetchLogs = useCallback(async () => {
     setIsLoading(true)
     try {
-      const [logsRes, disRes] = await Promise.all([
+      const [logsRes, disRes, scheduleRes] = await Promise.all([
         api.get(`/production/monitoring/${record.id}/logs/`),
         api.get(`/production/monitoring/${record.id}/disasters/`),
+        api.get(`/production/monitoring/${record.id}/suggestions/`).catch(() => null),
       ])
+      setScheduleSteps(scheduleRes?.data?.suggestions || [])
       setLogs(Array.isArray(logsRes.data) ? logsRes.data : (logsRes.data.results || []))
       setDisasters(Array.isArray(disRes.data) ? disRes.data : (disRes.data.results || []))
     } catch {
@@ -625,7 +617,8 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
       } else {
         await api.post(`/production/monitoring/${record.id}/logs/`, {
           ...payload,
-          target_day: pendingSuggestion?.occurrence_day ?? null,
+          // A late log chosen from the dropdown is tied to the activity's earliest overdue step, like one started from a suggestion.
+          target_day: pendingSuggestion?.occurrence_day ?? overdueStepDay(activityType, scheduleSteps),
           disaster_report: showRemedyFields ? parseInt(remedyDisasterId, 10) : pendingDisasterReport,
           disaster_rule:   showRemedyFields ? null : pendingDisasterRule,
         })
