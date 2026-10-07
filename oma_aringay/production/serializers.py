@@ -350,12 +350,15 @@ class CropActivityLogSerializer(serializers.ModelSerializer):
 class CropDisasterReportSerializer(serializers.ModelSerializer):
     reported_by_name = serializers.SerializerMethodField()
     recovered_by_name = serializers.SerializerMethodField()
+    # The damage photos (CropDisasterReportPhoto rows, 0-10); they arrive as the multipart `photos` files of the
+    # create request (see CropDisasterReportListCreateView). `photo` below is the older single photo, kept as is.
+    photos = serializers.SerializerMethodField()
 
     class Meta:
         model = CropDisasterReport
         fields = [
             'id', 'monitoring_record', 'disaster_type', 'disaster_type_other_specify', 'date_of_occurrence',
-            'area_affected_ha', 'estimated_damage', 'production_loss', 'photo',
+            'area_affected_ha', 'estimated_damage', 'production_loss', 'photo', 'photos',
             'severity',
             'is_total_loss',
             'status', 'recovered_date', 'recovered_by', 'recovered_by_name', 'recovery_note',
@@ -370,6 +373,13 @@ class CropDisasterReportSerializer(serializers.ModelSerializer):
     def validate_photo(self, value):
         validate_uploaded_image(value)
         return value
+
+    def get_photos(self, obj):
+        request = self.context.get('request')
+        return [
+            {'id': p.id, 'url': request.build_absolute_uri(p.image.url) if request else p.image.url}
+            for p in obj.photos.all()
+        ]
 
     def get_reported_by_name(self, obj):
         if obj.reported_by:

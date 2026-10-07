@@ -397,6 +397,14 @@ class BeneficiaryConfirmationRequest(models.Model):
             models.Index(fields=['beneficiary_record', 'status']),
         ]
 
+    @property
+    def first_photo(self):
+        """The first proof photo file (a photo row, else the older single photo), or None."""
+        row = self.photos.first()
+        if row is not None:
+            return row.image
+        return self.photo or None
+
     def __str__(self):
         return f'On-behalf-of confirmation #{self.pk} for BeneficiaryRecord #{self.beneficiary_record_id}'
 
@@ -441,5 +449,50 @@ class FisherfolkBeneficiaryConfirmationRequest(models.Model):
             models.Index(fields=['beneficiary_record', 'status']),
         ]
 
+    @property
+    def first_photo(self):
+        """The first proof photo file (a photo row, else the older single photo), or None."""
+        row = self.photos.first()
+        if row is not None:
+            return row.image
+        return self.photo or None
+
     def __str__(self):
         return f'On-behalf-of confirmation #{self.pk} for FisherfolkBeneficiaryRecord #{self.beneficiary_record_id}'
+
+
+# Proof photos of a confirmation: 0-10 per parent (core.photos), each its own row and file. The older single photo
+# fields stay untouched and are shown first; new code never writes them.
+
+class BeneficiaryRecordPhoto(models.Model):
+    MAX_PER_PARENT = 10
+    beneficiary_record = models.ForeignKey(BeneficiaryRecord, on_delete=models.CASCADE, related_name='photos')
+    image = models.ImageField(upload_to='beneficiary_confirmations/photos/')
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    date_uploaded = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['id']
+
+
+class BeneficiaryConfirmationRequestPhoto(models.Model):
+    MAX_PER_PARENT = 10
+    confirmation_request = models.ForeignKey(BeneficiaryConfirmationRequest, on_delete=models.CASCADE, related_name='photos')
+    image = models.ImageField(upload_to='beneficiary_confirmations/farmers/photos/')
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    date_uploaded = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['id']
+
+
+class FisherfolkBeneficiaryConfirmationRequestPhoto(models.Model):
+    MAX_PER_PARENT = 10
+    confirmation_request = models.ForeignKey(
+        FisherfolkBeneficiaryConfirmationRequest, on_delete=models.CASCADE, related_name='photos')
+    image = models.ImageField(upload_to='beneficiary_confirmations/fisherfolk/photos/')
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    date_uploaded = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['id']

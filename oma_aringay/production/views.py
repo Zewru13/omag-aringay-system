@@ -22,6 +22,7 @@ from core.utils import accumulate_yield_group, filter_people_search, harvest_gat
 from farmers.models import FarmParcel, Farmer
 from fisheries.models import Fisherfolk
 
+from core.photos import discard_uploaded_files, validated_photos
 from .duplicates import find_active_duplicates, same_place
 from .naming import normalize_name
 from .dashboard_activity import (
@@ -31,7 +32,7 @@ from .dashboard_activity import (
 from .models import (
     ActivityType,
     BarangayCropSummary,
-    CropActivityLog, CropActivityStage, CropCategory, CropDisasterReport,
+    CropActivityLog, CropActivityStage, CropCategory, CropDisasterReport, CropDisasterReportPhoto,
     CropInputType,
     CropMonitoringRecord, CropRemark,
     CropSubcategory, CropType, CropVariety, DamageReport, DisasterResponseRule,
@@ -1475,7 +1476,33 @@ class CropDisasterReportListCreateView(generics.ListCreateAPIView):
         monitoring_id = self.kwargs.get('monitoring_id')
         return CropDisasterReport.objects.filter(
             monitoring_record_id=monitoring_id,
-        ).order_by('-date_of_occurrence')
+        ).prefetch_related('photos').order_by('-date_of_occurrence')
+
+    def create(self, request, *args, **kwargs):
+        # 0-10 damage photos (the older single `photo` field counts as one), validated before anything is saved;
+        # the report, its photo rows and the response are built in ONE transaction, and the files written by a
+        # failed attempt are removed again.
+        photos = validated_photos(request, 'photos', legacy_field='photo', limit=CropDisasterReportPhoto.MAX_PER_PARENT)
+        if hasattr(request.data, 'getlist'):   # multipart: one value per field, photo files excluded
+            data = {k: request.data.get(k) for k in request.data.keys() if k not in ('photos', 'photo')}
+        else:
+            data = {k: v for k, v in request.data.items() if k not in ('photos', 'photo')}
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        written = []
+        try:
+            with transaction.atomic():
+                self.perform_create(serializer)
+                report = serializer.instance
+                for f in photos:
+                    row = CropDisasterReportPhoto.objects.create(disaster_report=report, image=f, uploaded_by=request.user)
+                    written.append(row.image.name)
+                report = CropDisasterReport.objects.prefetch_related('photos').get(pk=report.pk)
+                response_data = self.get_serializer(report).data
+        except Exception:
+            discard_uploaded_files(written)
+            raise
+        return Response(response_data, status=drf_status.HTTP_201_CREATED)
 
     def perform_create(self, serializer):
         monitoring_id = self.kwargs.get('monitoring_id')

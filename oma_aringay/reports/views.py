@@ -3336,10 +3336,10 @@ class BeneficiaryConfirmationReport(APIView):
 
         farmer_qs = BeneficiaryConfirmationRequest.objects.select_related(
             'beneficiary_record__farmer', 'submitted_by_organization', 'reviewed_by',
-        ).order_by('-submitted_at')
+        ).prefetch_related('photos').order_by('-submitted_at')
         ff_qs = FisherfolkBeneficiaryConfirmationRequest.objects.select_related(
             'beneficiary_record__fisherfolk', 'submitted_by_organization', 'reviewed_by',
-        ).order_by('-submitted_at')
+        ).prefetch_related('photos').order_by('-submitted_at')
 
         # date_from/date_to compare against explicit local-midnight UTC-aware
         # bounds (core.utils.day_range_bounds) rather than using
@@ -3410,14 +3410,14 @@ class BeneficiaryConfirmationReport(APIView):
                     'reviewed_by': r.reviewed_by.full_name if r.reviewed_by else None,
                     'status': r.status,
                     'rejection_reason': r.rejection_reason,
-                    'has_photo': bool(r.photo),
+                    'has_photo': bool(r.first_photo),
                 })
             summary = {
                 'total': len(entries),
                 'pending': sum(1 for e in entries if e['req'].status == 'PENDING'),
                 'approved': sum(1 for e in entries if e['req'].status == 'APPROVED'),
                 'rejected': sum(1 for e in entries if e['req'].status == 'REJECTED'),
-                'with_photo': sum(1 for e in entries if e['req'].photo),
+                'with_photo': sum(1 for e in entries if e['req'].first_photo),
             }
             return JsonResponse({'count': len(data), 'records': data, 'summary': summary})
 
@@ -3449,7 +3449,7 @@ class BeneficiaryConfirmationReport(APIView):
         rows = []
         for e in entries:
             r = e['req']
-            photo_cell = _photo_thumbnail(r.photo) if r.status == 'APPROVED' else None
+            photo_cell = _photo_thumbnail(r.first_photo) if r.status == 'APPROVED' else None
             rows.append(row_data_fn(e) + [photo_cell])
         story.append(build_ledger_table(pdf_headers, rows, col_widths=col_widths))
         story.append(Spacer(1, 30))
@@ -3492,7 +3492,7 @@ class BeneficiaryConfirmationReport(APIView):
 
         for e in entries:
             r = e['req']
-            ws.append(row_data_fn(e) + ['Yes' if r.photo else 'No', r.rejection_reason or ''])
+            ws.append(row_data_fn(e) + ['Yes' if r.first_photo else 'No', r.rejection_reason or ''])
 
         ws.column_dimensions['K'].width = 50
 

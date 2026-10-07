@@ -16,6 +16,7 @@ from django.utils import timezone
 
 from accounts.permissions import STAFF_ROLES
 from core.notifications import notify_staff
+from core.photos import local_photo_paths
 from reports.disaster_log_pdf import build_disaster_log_pdf, fmt_datetime, fmt_number, safe_pdf_filename
 from reports.pdf_utils import fmt_date
 
@@ -284,7 +285,11 @@ def build_report_pdf(report, doc):
         ]},
     ]
     # The log's own photo rows (same order as on screen), plus an older log's single photo field.
-    paths = [p.image.path for p in report.photos.all()] + ([report.photo.path] if report.photo else [])
+    with local_photo_paths([p.image for p in report.photos.all()] + ([report.photo] if report.photo else [])) as paths:
+        return _render_pdf(doc, sections, paths)
+
+
+def _render_pdf(doc, sections, paths):
     return build_disaster_log_pdf(
         title='FISHERFOLK DISASTER REPORT',
         header_rows=[

@@ -8,7 +8,16 @@ from .models import (
 )
 
 
+def _photo_list(obj, request):
+    """[{id, url}] of a parent's photo rows (absolute URLs when a request is in context)."""
+    return [
+        {'id': p.id, 'url': request.build_absolute_uri(p.image.url) if request else p.image.url}
+        for p in obj.photos.all()
+    ]
+
+
 class BeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
+    confirmation_photos = serializers.SerializerMethodField()
     farmer_full_name = serializers.CharField(source='farmer.full_name', read_only=True)
     farmer_rsbsa_number = serializers.CharField(source='farmer.rsbsa_number', read_only=True)
     farmer_barangay = serializers.CharField(source='farmer.barangay', read_only=True)
@@ -48,6 +57,7 @@ class BeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
             'non_receipt_reason',
             'follow_up_notes',
             'confirmation_photo',
+            'confirmation_photos',
             'confirmation_note',
         ]
         read_only_fields = [
@@ -68,6 +78,9 @@ class BeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
 
     def get_recorded_by_name(self, obj):
         return obj.recorded_by.full_name if obj.recorded_by else None
+
+    def get_confirmation_photos(self, obj):
+        return _photo_list(obj, self.context.get('request'))
 
     # date_given no longer rejects future dates here — a future date is now
     # the deliberate trigger for the PENDING scheduling path
@@ -284,13 +297,14 @@ class BeneficiaryConfirmationRequestSerializer(serializers.ModelSerializer):
     submitted_by_name = serializers.CharField(source='submitted_by.full_name', read_only=True, default=None)
     reviewed_by_name = serializers.CharField(source='reviewed_by.full_name', read_only=True, default=None)
     photo_url = serializers.SerializerMethodField()
+    photo_urls = serializers.SerializerMethodField()
 
     class Meta:
         model = BeneficiaryConfirmationRequest
         fields = [
             'id', 'beneficiary_record', 'farmer_full_name', 'assistance_type', 'date_given',
             'submitted_by_organization', 'submitted_by_organization_name',
-            'submitted_by', 'submitted_by_name', 'photo_url',
+            'submitted_by', 'submitted_by_name', 'photo_url', 'photo_urls',
             'status', 'submitted_at', 'reviewed_by', 'reviewed_by_name',
             'reviewed_at', 'rejection_reason',
         ]
@@ -298,6 +312,10 @@ class BeneficiaryConfirmationRequestSerializer(serializers.ModelSerializer):
 
     def get_photo_url(self, obj):
         return obj.photo.url if obj.photo else None
+
+    def get_photo_urls(self, obj):
+        request = self.context.get('request')
+        return [request.build_absolute_uri(p.image.url) if request else p.image.url for p in obj.photos.all()]
 
 
 class FisherfolkBeneficiaryConfirmationRequestSerializer(serializers.ModelSerializer):
@@ -308,13 +326,14 @@ class FisherfolkBeneficiaryConfirmationRequestSerializer(serializers.ModelSerial
     submitted_by_name = serializers.CharField(source='submitted_by.full_name', read_only=True, default=None)
     reviewed_by_name = serializers.CharField(source='reviewed_by.full_name', read_only=True, default=None)
     photo_url = serializers.SerializerMethodField()
+    photo_urls = serializers.SerializerMethodField()
 
     class Meta:
         model = FisherfolkBeneficiaryConfirmationRequest
         fields = [
             'id', 'beneficiary_record', 'fisherfolk_full_name', 'assistance_type', 'date_given',
             'submitted_by_organization', 'submitted_by_organization_name',
-            'submitted_by', 'submitted_by_name', 'photo_url',
+            'submitted_by', 'submitted_by_name', 'photo_url', 'photo_urls',
             'status', 'submitted_at', 'reviewed_by', 'reviewed_by_name',
             'reviewed_at', 'rejection_reason',
         ]
@@ -322,3 +341,7 @@ class FisherfolkBeneficiaryConfirmationRequestSerializer(serializers.ModelSerial
 
     def get_photo_url(self, obj):
         return obj.photo.url if obj.photo else None
+
+    def get_photo_urls(self, obj):
+        request = self.context.get('request')
+        return [request.build_absolute_uri(p.image.url) if request else p.image.url for p in obj.photos.all()]

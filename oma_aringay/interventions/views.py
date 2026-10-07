@@ -17,10 +17,12 @@ from accounts.permissions import (
 from accounts.utils import accountless_or_unactivated_ids
 from associations.models import FarmersOrganizationMember, FisherfolkOrganizationMember
 from core.notifications import notify_staff, notify_user, resolve_owner_user
+from core.photos import discard_uploaded_files, validated_photos
 from core.validators import validate_uploaded_image
 
 from .lifecycle import advance_due_distributions, advance_due_distributions_for_org, notify_assistance_recorded
 from .models import (
+    BeneficiaryConfirmationRequestPhoto, BeneficiaryRecordPhoto, FisherfolkBeneficiaryConfirmationRequestPhoto,
     BeneficiaryConfirmationRequest,
     BeneficiaryRecord,
     DistributionStatus,
@@ -98,7 +100,7 @@ class BeneficiaryAdHocListCreateView(generics.ListCreateAPIView):
         return request.data.get('farmer')
 
     def get_queryset(self):
-        qs = BeneficiaryRecord.objects.select_related('farmer', 'recorded_by').order_by('-date_given', '-id')
+        qs = BeneficiaryRecord.objects.select_related('farmer', 'recorded_by').prefetch_related('photos').order_by('-date_given', '-id')
         params = self.request.query_params
         if params.get('farmer'):
             qs = qs.filter(farmer_id=params['farmer'])
@@ -227,7 +229,7 @@ class MyBeneficiaryHistoryView(generics.ListAPIView):
             return BeneficiaryRecord.objects.none()
         return BeneficiaryRecord.objects.filter(
             farmer_id=farmer_id,
-        ).select_related('farmer', 'recorded_by').order_by('-date_given', '-id')
+        ).select_related('farmer', 'recorded_by').prefetch_related('photos').order_by('-date_given', '-id')
 
 
 class MyFisherfolkBeneficiaryHistoryView(generics.ListAPIView):
@@ -268,7 +270,7 @@ class MyOrgBeneficiaryHistoryView(generics.ListAPIView):
             return BeneficiaryRecord.objects.none()
         return BeneficiaryRecord.objects.filter(
             recorded_by=self.request.user,
-        ).select_related('farmer').order_by('-date_given', '-id')
+        ).select_related('farmer').prefetch_related('photos').order_by('-date_given', '-id')
 
 
 class MyOrgFisherfolkBeneficiaryHistoryView(generics.ListAPIView):
@@ -328,18 +330,34 @@ class BeneficiaryConfirmReceivedView(APIView):
                 status=400,
             )
         note = (request.data.get('confirmation_note') or '').strip()
-        photo = request.FILES.get('confirmation_photo')
-        if photo is not None:
-            try:
-                validate_uploaded_image(photo)
-            except DjangoValidationError as exc:
-                return Response({'confirmation_photo': exc.messages}, status=400)
-            record.confirmation_photo = photo
-        record.confirmation_note = note
-        record.status = DistributionStatus.CONFIRMED
-        record.confirmed_at = timezone.now()
-        record.save()
-        return Response(BeneficiaryRecordCreateSerializer(record, context={'request': request}).data)
+        # 0-10 proof photos (the older single `confirmation_photo` counts as one), all validated before anything
+        # changes; the status change and the photo rows are one transaction and a failed attempt's files are removed.
+        photos = validated_photos(
+            request, 'confirmation_photos', legacy_field='confirmation_photo', limit=BeneficiaryRecordPhoto.MAX_PER_PARENT)
+        written = []
+        try:
+            with transaction.atomic():
+                # Re-read under a row lock: a second simultaneous confirmation (double tap, retry, two tabs) waits
+                # here and then finds the record already confirmed instead of adding its photos again.
+                record = BeneficiaryRecord.objects.select_for_update().get(pk=record.pk)
+                if record.status != DistributionStatus.AWAITING_CONFIRMATION:
+                    return Response(
+                        {'detail': f'This record is not awaiting confirmation (current status: {record.get_status_display()}).'},
+                        status=400,
+                    )
+                record.confirmation_note = note
+                record.status = DistributionStatus.CONFIRMED
+                record.confirmed_at = timezone.now()
+                record.save()
+                for f in photos:
+                    row = BeneficiaryRecordPhoto.objects.create(beneficiary_record=record, image=f, uploaded_by=request.user)
+                    written.append(row.image.name)
+                record = BeneficiaryRecord.objects.select_related('farmer').prefetch_related('photos').get(pk=record.pk)
+                data = BeneficiaryRecordCreateSerializer(record, context={'request': request}).data
+        except Exception:
+            discard_uploaded_files(written)
+            raise
+        return Response(data)
 
 
 class BeneficiaryReportNotReceivedView(APIView):
@@ -592,38 +610,39 @@ class BeneficiaryConfirmOnBehalfView(APIView):
                 status=400,
             )
 
-        photo = request.FILES.get('photo')
-        if photo is not None:
-            try:
-                validate_uploaded_image(photo)
-            except Exception as exc:
-                msgs = getattr(exc, 'messages', None) or [str(exc)]
-                return Response({'photo': msgs}, status=400)
+        photos = validated_photos(request, 'photos', legacy_field='photo', limit=BeneficiaryConfirmationRequestPhoto.MAX_PER_PARENT)
 
-        with transaction.atomic():
-            existing = list(
-                BeneficiaryConfirmationRequest.objects.select_for_update().filter(
-                    beneficiary_record=record, status=BeneficiaryConfirmationRequest.Status.PENDING,
+        written = []
+        try:
+            with transaction.atomic():
+                existing = list(
+                    BeneficiaryConfirmationRequest.objects.select_for_update().filter(
+                        beneficiary_record=record, status=BeneficiaryConfirmationRequest.Status.PENDING,
+                    )
                 )
-            )
-            if existing:
-                return Response(
-                    {'detail': 'A confirmation request for this record is already pending admin review.'},
-                    status=400,
+                if existing:
+                    return Response(
+                        {'detail': 'A confirmation request for this record is already pending admin review.'},
+                        status=400,
+                    )
+                req = BeneficiaryConfirmationRequest.objects.create(
+                    beneficiary_record=record,
+                    submitted_by_organization_id=request.user.linked_record_id,
+                    submitted_by=request.user,
                 )
-            req = BeneficiaryConfirmationRequest.objects.create(
-                beneficiary_record=record,
-                submitted_by_organization_id=request.user.linked_record_id,
-                submitted_by=request.user,
-                photo=photo,
-            )
+                for f in photos:
+                    row = BeneficiaryConfirmationRequestPhoto.objects.create(confirmation_request=req, image=f, uploaded_by=request.user)
+                    written.append(row.image.name)
+        except Exception:
+            discard_uploaded_files(written)
+            raise
 
         notify_staff(
             actor=request.user, verb='submitted an on-behalf-of confirmation for',
             record_type='beneficiary_obo', record_id=req.id,
             record_label=_beneficiary_label(record, record.farmer),
         )
-        return Response(BeneficiaryConfirmationRequestSerializer(req).data, status=drf_status.HTTP_201_CREATED)
+        return Response(BeneficiaryConfirmationRequestSerializer(req, context={'request': request}).data, status=drf_status.HTTP_201_CREATED)
 
 
 class FisherfolkBeneficiaryConfirmOnBehalfView(APIView):
@@ -648,38 +667,39 @@ class FisherfolkBeneficiaryConfirmOnBehalfView(APIView):
                 status=400,
             )
 
-        photo = request.FILES.get('photo')
-        if photo is not None:
-            try:
-                validate_uploaded_image(photo)
-            except Exception as exc:
-                msgs = getattr(exc, 'messages', None) or [str(exc)]
-                return Response({'photo': msgs}, status=400)
+        photos = validated_photos(request, 'photos', legacy_field='photo', limit=FisherfolkBeneficiaryConfirmationRequestPhoto.MAX_PER_PARENT)
 
-        with transaction.atomic():
-            existing = list(
-                FisherfolkBeneficiaryConfirmationRequest.objects.select_for_update().filter(
-                    beneficiary_record=record, status=FisherfolkBeneficiaryConfirmationRequest.Status.PENDING,
+        written = []
+        try:
+            with transaction.atomic():
+                existing = list(
+                    FisherfolkBeneficiaryConfirmationRequest.objects.select_for_update().filter(
+                        beneficiary_record=record, status=FisherfolkBeneficiaryConfirmationRequest.Status.PENDING,
+                    )
                 )
-            )
-            if existing:
-                return Response(
-                    {'detail': 'A confirmation request for this record is already pending admin review.'},
-                    status=400,
+                if existing:
+                    return Response(
+                        {'detail': 'A confirmation request for this record is already pending admin review.'},
+                        status=400,
+                    )
+                req = FisherfolkBeneficiaryConfirmationRequest.objects.create(
+                    beneficiary_record=record,
+                    submitted_by_organization_id=request.user.linked_record_id,
+                    submitted_by=request.user,
                 )
-            req = FisherfolkBeneficiaryConfirmationRequest.objects.create(
-                beneficiary_record=record,
-                submitted_by_organization_id=request.user.linked_record_id,
-                submitted_by=request.user,
-                photo=photo,
-            )
+                for f in photos:
+                    row = FisherfolkBeneficiaryConfirmationRequestPhoto.objects.create(confirmation_request=req, image=f, uploaded_by=request.user)
+                    written.append(row.image.name)
+        except Exception:
+            discard_uploaded_files(written)
+            raise
 
         notify_staff(
             actor=request.user, verb='submitted an on-behalf-of confirmation for',
             record_type='ff_beneficiary_obo', record_id=req.id,
             record_label=_beneficiary_label(record, record.fisherfolk),
         )
-        return Response(FisherfolkBeneficiaryConfirmationRequestSerializer(req).data, status=drf_status.HTTP_201_CREATED)
+        return Response(FisherfolkBeneficiaryConfirmationRequestSerializer(req, context={'request': request}).data, status=drf_status.HTTP_201_CREATED)
 
 
 class BeneficiaryConfirmationRequestListView(generics.ListAPIView):
@@ -691,7 +711,7 @@ class BeneficiaryConfirmationRequestListView(generics.ListAPIView):
     def get_queryset(self):
         qs = BeneficiaryConfirmationRequest.objects.select_related(
             'beneficiary_record__farmer', 'submitted_by_organization', 'submitted_by', 'reviewed_by',
-        )
+        ).prefetch_related('photos')
         status_filter = self.request.query_params.get('status', 'PENDING').upper()
         if status_filter != 'ALL':
             qs = qs.filter(status=status_filter)
@@ -707,7 +727,7 @@ class FisherfolkBeneficiaryConfirmationRequestListView(generics.ListAPIView):
     def get_queryset(self):
         qs = FisherfolkBeneficiaryConfirmationRequest.objects.select_related(
             'beneficiary_record__fisherfolk', 'submitted_by_organization', 'submitted_by', 'reviewed_by',
-        )
+        ).prefetch_related('photos')
         status_filter = self.request.query_params.get('status', 'PENDING').upper()
         if status_filter != 'ALL':
             qs = qs.filter(status=status_filter)
