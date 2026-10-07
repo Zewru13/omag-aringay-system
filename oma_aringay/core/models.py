@@ -140,9 +140,13 @@ class ProfileChangeRequest(models.Model):
     REQUESTABLE_FIELDS = {
         RecordType.FARMER: ['first_name', 'middle_name', 'last_name', 'barangay'],
         RecordType.FISHERFOLK: ['first_name', 'middle_name', 'last_name', 'barangay'],
-        RecordType.FARMERS_ORG: ['name', 'barangay', 'street_address'],
-        RecordType.FISHERFOLK_ORG: ['name', 'barangay', 'street_address'],
+        RecordType.FARMERS_ORG: ['name', 'barangay', 'street_address', 'email_address', 'contact_person'],
+        RecordType.FISHERFOLK_ORG: ['name', 'barangay', 'street_address', 'email_address', 'contact_person'],
     }
+
+    # Organization changes are reviewed twice: one Admin and one Focal Person
+    # (User.Roles.EVALUATOR) must both approve before the value is written.
+    ORGANIZATION_TYPES = (RecordType.FARMERS_ORG, RecordType.FISHERFOLK_ORG)
 
     linked_record_type = models.CharField(max_length=20, choices=RecordType.choices)
     linked_record_id = models.PositiveIntegerField()
@@ -165,6 +169,31 @@ class ProfileChangeRequest(models.Model):
     )
     reviewed_at = models.DateTimeField(null=True, blank=True)
     rejection_reason = models.CharField(max_length=255, blank=True)
+
+    # Two-approval review (organizations only). Rows created before this
+    # existed keep requires_both=False and complete on one approval.
+    requires_both = models.BooleanField(default=False)
+    admin_approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='+',
+    )
+    admin_approved_at = models.DateTimeField(null=True, blank=True)
+    focal_approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='+',
+    )
+    focal_approved_at = models.DateTimeField(null=True, blank=True)
+
+    def awaiting(self):
+        """Roles whose approval is still missing: [] unless this is a pending two-approval request."""
+        if not self.requires_both or self.status != self.Status.PENDING:
+            return []
+        roles = []
+        if self.admin_approved_at is None:
+            roles.append('ADMIN')
+        if self.focal_approved_at is None:
+            roles.append('EVALUATOR')
+        return roles
 
     class Meta:
         ordering = ['-requested_at']

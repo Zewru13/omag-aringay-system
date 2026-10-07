@@ -14,6 +14,8 @@ linked_record_id, so there is no id for a client to tamper with. That is
 also why these views need no object-level permission class — there is no
 way to address someone else's record in the first place.
 """
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.core.validators import validate_email
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers, status
@@ -27,7 +29,7 @@ from accounts.permissions import IsAdminOrEvaluator
 from associations.models import FarmersOrganization, FisherfolkOrganization
 from core.constants import BARANGAY_CHOICES
 from core.models import ProfileChangeRequest
-from core.notifications import notify_staff, notify_user
+from core.notifications import fit, notify_staff, notify_user
 from core.validators import validate_contact_number, validate_uploaded_image
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk
@@ -58,6 +60,8 @@ FIELD_LABELS = {
     'barangay': 'barangay',
     'name': 'organization name',
     'street_address': 'street address',
+    'email_address': 'email address',
+    'contact_person': 'contact person',
 }
 
 
@@ -189,6 +193,9 @@ class ProfileChangeRequestSerializer(serializers.ModelSerializer):
     requested_by_name = serializers.CharField(source='requested_by.full_name',
                                               read_only=True, default=None)
     record_label = serializers.SerializerMethodField()
+    admin_approved_by_name = serializers.SerializerMethodField()
+    focal_approved_by_name = serializers.SerializerMethodField()
+    awaiting = serializers.SerializerMethodField()
 
     class Meta:
         model = ProfileChangeRequest
@@ -197,8 +204,23 @@ class ProfileChangeRequestSerializer(serializers.ModelSerializer):
             'field_name', 'field_label', 'old_value', 'requested_value',
             'status', 'requested_by', 'requested_by_name', 'requested_at',
             'reviewed_by', 'reviewed_by_name', 'reviewed_at', 'rejection_reason',
+            'requires_both', 'admin_approved_by_name', 'admin_approved_at',
+            'focal_approved_by_name', 'focal_approved_at', 'awaiting',
         ]
         read_only_fields = fields
+
+    @staticmethod
+    def _name(user):
+        return (user.full_name or user.username) if user else None
+
+    def get_admin_approved_by_name(self, obj):
+        return self._name(obj.admin_approved_by)
+
+    def get_focal_approved_by_name(self, obj):
+        return self._name(obj.focal_approved_by)
+
+    def get_awaiting(self, obj):
+        return obj.awaiting()
 
     def get_field_label(self, obj):
         return FIELD_LABELS.get(obj.field_name, obj.field_name)
@@ -250,8 +272,26 @@ class ProfileChangeRequestCreateSerializer(serializers.Serializer):
                 'requested_value': 'This field cannot be empty.'
             })
 
+        if field == 'email_address':
+            if len(value) > 254:
+                raise serializers.ValidationError({
+                    'requested_value': 'Ensure this value has at most 254 characters.'
+                })
+            try:
+                validate_email(value)
+            except DjangoValidationError:
+                raise serializers.ValidationError({
+                    'requested_value': 'Enter a valid email address.'
+                })
+        if field == 'contact_person' and len(value) > 150:
+            raise serializers.ValidationError({
+                'requested_value': 'Ensure this value has at most 150 characters.'
+            })
+
         old_value = str(getattr(record, field, '') or '')
-        if value == old_value:
+        # An email address is not case-sensitive for this purpose.
+        same = value.lower() == old_value.lower() if field == 'email_address' else value == old_value
+        if same:
             raise serializers.ValidationError({
                 'requested_value': 'This is already the current value.'
             })
@@ -289,6 +329,7 @@ class ProfileChangeRequestCreateSerializer(serializers.Serializer):
                 old_value=validated['old_value'],
                 requested_value=validated['requested_value'],
                 requested_by=user,
+                requires_both=rtype in ProfileChangeRequest.ORGANIZATION_TYPES,
             )
 
 
@@ -344,6 +385,27 @@ class StaffChangeRequestListView(APIView):
         return Response(ProfileChangeRequestSerializer(qs, many=True).data)
 
 
+def _lock_request(pk):
+    """Re-read a request with its row locked, so two simultaneous decisions serialise."""
+    return ProfileChangeRequest.objects.select_for_update().filter(pk=pk).first()
+
+
+ROLE_TITLES = {'ADMIN': 'Admin', 'EVALUATOR': 'Focal Person'}
+
+
+def _notify_role(role, actor, req, record, verb, detail):
+    """Notify every active staff user of `role` except the actor."""
+    recipients = User.objects.filter(is_active=True, role=role)
+    if actor is not None:
+        recipients = recipients.exclude(pk=actor.pk)
+    for user in recipients:
+        notify_user(
+            recipient=user, actor=actor, verb=verb,
+            record_type=req.linked_record_type, record_id=req.linked_record_id,
+            record_label=fit(_record_label(record), 'record_label'), detail=fit(detail, 'detail'),
+        )
+
+
 class StaffChangeRequestDecisionView(APIView):
     """
     POST .../<pk>/approve/  -> writes the value onto the real record
@@ -352,46 +414,98 @@ class StaffChangeRequestDecisionView(APIView):
     Approve is atomic: the record write and the status flip happen in one
     transaction, so a failure cannot leave a request marked APPROVED whose
     change was never applied (or the reverse).
+
+    An organization's request (requires_both) needs one Admin AND one Focal
+    Person (EVALUATOR) approval: the first records its role's approval and
+    writes nothing, the second (the other role) applies the value. The request
+    is re-read under a row lock inside the transaction so two simultaneous
+    decisions cannot both apply it.
     """
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    @staticmethod
+    def _bad(message):
+        return Response({'detail': message}, status=status.HTTP_400_BAD_REQUEST)
 
     def post(self, request, pk, action):
         req = ProfileChangeRequest.objects.filter(pk=pk).first()
         if req is None:
             return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
         if req.status != ProfileChangeRequest.Status.PENDING:
-            return Response(
-                {'detail': f'This request is already {req.status.lower()}.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return self._bad(f'This request is already {req.status.lower()}.')
 
         model = RECORD_MODELS.get(req.linked_record_type)
         record = model.objects.filter(pk=req.linked_record_id).first() if model else None
         if record is None:
-            return Response({'detail': 'The record this request refers to no longer exists.'},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return self._bad('The record this request refers to no longer exists.')
 
-        if action == 'approve':
-            with transaction.atomic():
-                setattr(record, req.field_name, req.requested_value)
-                record.save(update_fields=[req.field_name])
-                req.status = ProfileChangeRequest.Status.APPROVED
+        label = FIELD_LABELS.get(req.field_name, req.field_name)
+        first_of_two = None
+        with transaction.atomic():
+            req = _lock_request(pk)
+            if req is None:
+                return Response({'detail': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+            if req.status != ProfileChangeRequest.Status.PENDING:
+                return self._bad(f'This request is already {req.status.lower()}.')
+            now = timezone.now()
+
+            if action == 'approve':
+                done = True
+                if req.requires_both:
+                    role = request.user.role
+                    if request.user.pk in (req.admin_approved_by_id, req.focal_approved_by_id):
+                        return self._bad('You already approved this request.')
+                    if role == User.Roles.ADMIN:
+                        if req.admin_approved_at is not None:
+                            return self._bad('The Admin already approved this request.')
+                        req.admin_approved_by, req.admin_approved_at = request.user, now
+                        saved = ['admin_approved_by', 'admin_approved_at']
+                    else:
+                        if req.focal_approved_at is not None:
+                            return self._bad('The Focal Person already approved this request.')
+                        req.focal_approved_by, req.focal_approved_at = request.user, now
+                        saved = ['focal_approved_by', 'focal_approved_at']
+                    if req.admin_approved_at is None or req.focal_approved_at is None:
+                        done = False
+                        req.save(update_fields=saved)
+                        first_of_two = role
+                    else:
+                        req.save(update_fields=saved)
+                if done:
+                    if str(getattr(record, req.field_name, '') or '') != req.requested_value:
+                        setattr(record, req.field_name, req.requested_value)
+                        record.save(update_fields=[req.field_name])
+                    req.status = ProfileChangeRequest.Status.APPROVED
+                    req.reviewed_by = request.user
+                    req.reviewed_at = now
+                    req.save(update_fields=['status', 'reviewed_by', 'reviewed_at'])
+                    verb = 'approved your profile change'
+                    detail = f'{label} is now "{req.requested_value}"'
+            else:
+                reason = (request.data.get('rejection_reason') or '').strip()[:255]
+                req.status = ProfileChangeRequest.Status.REJECTED
                 req.reviewed_by = request.user
-                req.reviewed_at = timezone.now()
-                req.save(update_fields=['status', 'reviewed_by', 'reviewed_at'])
-            verb = 'approved your profile change'
-            detail = (f'{FIELD_LABELS.get(req.field_name, req.field_name)} is now '
-                      f'"{req.requested_value}"')
-        else:
-            reason = (request.data.get('rejection_reason') or '').strip()[:255]
-            req.status = ProfileChangeRequest.Status.REJECTED
-            req.reviewed_by = request.user
-            req.reviewed_at = timezone.now()
-            req.rejection_reason = reason
-            req.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'rejection_reason'])
-            verb = 'rejected your profile change'
-            detail = (f'{FIELD_LABELS.get(req.field_name, req.field_name)}'
-                      + (f' — {reason}' if reason else ''))
+                req.reviewed_at = now
+                req.rejection_reason = reason
+                req.save(update_fields=['status', 'reviewed_by', 'reviewed_at', 'rejection_reason'])
+                verb = 'rejected your profile change'
+                detail = f'{label}' + (f' — {reason}' if reason else '')
+
+        if first_of_two:
+            other = 'EVALUATOR' if first_of_two == 'ADMIN' else 'ADMIN'
+            notify_user(
+                recipient=req.requested_by, actor=request.user,
+                verb='approved your profile change',
+                record_type=req.linked_record_type, record_id=req.linked_record_id,
+                record_label=fit(_record_label(record), 'record_label'),
+                detail=fit(f'{label} approved by the {ROLE_TITLES[first_of_two]}; '
+                           f'waiting for the {ROLE_TITLES[other]}', 'detail'),
+            )
+            _notify_role(
+                other, request.user, req, record, 'needs your approval',
+                f'{label}: "{req.old_value}" → "{req.requested_value}"',
+            )
+            return Response(ProfileChangeRequestSerializer(req).data)
 
         notify_user(
             recipient=req.requested_by,
@@ -399,7 +513,9 @@ class StaffChangeRequestDecisionView(APIView):
             verb=verb,
             record_type=req.linked_record_type,
             record_id=req.linked_record_id,
-            record_label=_record_label(record),
-            detail=detail,
+            record_label=fit(_record_label(record), 'record_label'),
+            # A 255-character rejection reason plus the field label would
+            # overflow the notification and silently drop it.
+            detail=fit(detail, 'detail'),
         )
         return Response(ProfileChangeRequestSerializer(req).data)
