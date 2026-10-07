@@ -4,6 +4,7 @@ import api from '../../api/axiosInstance.js'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import Button from '../../components/UI/Button.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 
 // Must match fisheries.models.WATER_SOURCE_CHOICES on the backend exactly
@@ -121,12 +122,12 @@ function BulkPondModal({ fisherfolkId, existingPondCount, onClose, onSuccess }) 
                   error={rowFieldError(i, 'barangay')}
                 />
                 <FormField label="Area (ha)" error={rowFieldError(i, 'area_hectares')}>
-                  <input
-                    type="number" step="0.0001" min="0"
+                  <DecimalInput
+                    decimals={4}
                     className={baseInputClasses}
                     placeholder="0.0000"
                     value={row.area_hectares}
-                    onChange={(e) => setRowField(i, 'area_hectares', e.target.value)}
+                    onChange={(v) => setRowField(i, 'area_hectares', v)}
                   />
                 </FormField>
                 <FormField label="Water Source" error={rowFieldError(i, 'water_source')}>

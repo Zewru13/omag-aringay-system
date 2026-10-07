@@ -4,6 +4,9 @@ import api from '../../api/axiosInstance.js'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import Button from '../../components/UI/Button.jsx'
 import { baseInputClasses, FormLabel } from '../../components/UI/FormField.jsx'
+import PhoneInput from '../../components/UI/PhoneInput.jsx'
+import EmailInput from '../../components/UI/EmailInput.jsx'
+import { guardPhilsys as formatPhilsys } from '../../utils/inputGuards.js'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import SegmentedIdInput from '../../components/UI/SegmentedIdInput.jsx'
@@ -75,11 +78,6 @@ const validateAge = (birthdate) => {
   const age = computeAge(birthdate)
   if (age !== null && age < 10) return 'Must be at least 10 years old to register.'
   return null
-}
-
-const formatPhilsys = (raw) => {
-  const digits = raw.replace(/\D/g, '').slice(0, 16)
-  return digits.match(/.{1,4}/g)?.join('-') || digits
 }
 
 const validatePhilsys = (value) => {
@@ -369,17 +367,7 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <FormLabel>Contact Number</FormLabel>
-              <input
-                className={baseInputClasses}
-                id="contact_number"
-                type="tel"
-                inputMode="numeric"
-                maxLength={11}
-                placeholder="09XXXXXXXXX"
-                onKeyPress={(e) => { if (!/[0-9]/.test(e.key)) e.preventDefault() }}
-                value={form.contact_number}
-                onChange={(e) => updateField('contact_number', e.target.value)}
-              />
+              <PhoneInput className={baseInputClasses} id="contact_number" value={form.contact_number} onChange={(v) => updateField('contact_number', v)} />
               {contactError && <p className="mt-1 text-[12px] text-rose-600">{contactError}</p>}
             </div>
 
@@ -620,7 +608,7 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
         <Section title="Account Information">
           <div>
             <FormLabel>Email</FormLabel>
-            <input className={baseInputClasses} id="email" type="email" value={form.email} onChange={(e) => updateField('email', e.target.value)} />
+            <EmailInput className={baseInputClasses} id="email" value={form.email} onChange={(v) => updateField('email', v)} />
             <p className="mt-1 text-[12px] text-[#7A8E7A]">
               Optional. The citizen login account is set up separately, in person, via "Set Up Account" on the fisherfolk's detail page.
             </p>

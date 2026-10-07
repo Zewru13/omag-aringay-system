@@ -11,6 +11,7 @@ import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
@@ -194,8 +195,8 @@ function EditAssistanceModal({ record, onClose, onSaved, own = false }) {
             </FormField>
             {!isTraining && (
               <FormField label="Quantity / Amount" required>
-                <input type="number" step="0.01" min="0" className={baseInputClasses} value={form.quantity}
-                  onChange={(e) => set('quantity', e.target.value)} />
+                <DecimalInput decimals={2} className={baseInputClasses} value={form.quantity}
+                  onChange={(v) => set('quantity', v)} />
               </FormField>
             )}
             <TypeConditionalFields assistanceType={form.assistance_type} form={form} set={set} allowSeedFertilizer={false} />

@@ -3,6 +3,7 @@ import { Fish } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import SearchBar from '../../components/UI/SearchBar.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
@@ -494,7 +495,7 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
                 <input type="number" className={baseInputClasses} required min="1" value={form.stocking_count} onChange={e => set('stocking_count', e.target.value)} />
               </FormField>
               <FormField label="Area (sq.m.)">
-                <input type="number" step="0.01" className={baseInputClasses} min="0" value={form.area_sqm} onChange={e => set('area_sqm', e.target.value)} />
+                <DecimalInput decimals={2} className={baseInputClasses} value={form.area_sqm} onChange={v => set('area_sqm', v)} />
               </FormField>
             </>
           )}

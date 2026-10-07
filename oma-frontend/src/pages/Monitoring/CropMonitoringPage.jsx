@@ -18,6 +18,7 @@ import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import LoggedDatePicker from '../../components/UI/LoggedDatePicker.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -833,8 +834,8 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Quantity Applied</label>
-                    <input type="number" step="0.01" value={quantityApplied}
-                      onChange={e => setQuantityApplied(e.target.value)} placeholder="e.g. 50" className={baseInputClasses} />
+                    <DecimalInput decimals={2} value={quantityApplied}
+                      onChange={setQuantityApplied} placeholder="e.g. 50" className={baseInputClasses} />
                   </div>
                   <div>
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Unit</label>
@@ -864,10 +865,10 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Area Affected (ha) *</label>
-                    <input type="number" step="0.0001" value={areaAffected}
-                      onChange={e => {
-                        setAreaAffected(e.target.value)
-                        setAreaAffectedError(validateAreaAffected(e.target.value))
+                    <DecimalInput decimals={4} max={plantedArea} value={areaAffected}
+                      onChange={v => {
+                        setAreaAffected(v)
+                        setAreaAffectedError(validateAreaAffected(v))
                       }}
                       placeholder="e.g. 1.50"
                       className={`${baseInputClasses} ${areaAffectedError ? 'border-rose-400' : ''}`} />
@@ -1228,9 +1229,9 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700">Area Harvested (ha) *</label>
-              <input type="number" step="0.0001" className={baseInputClasses}
+              <DecimalInput decimals={2} className={baseInputClasses}
                 value={form.area_harvested_hectares}
-                onChange={e => handleChange('area_harvested_hectares', e.target.value)}
+                onChange={v => handleChange('area_harvested_hectares', v)}
                 placeholder="e.g. 2.50" />
             </div>
             <div>
@@ -1291,6 +1292,8 @@ export function DisasterReportModal({ record, onClose, onSuccess }) {
   const cropName   = record.crop_type_name || 'this crop'
   const maxArea    = record.area_planted_ha ? parseFloat(record.area_planted_ha) : null
   const datePlanted = record.date_planted || null
+  // Total Loss means the whole planted area is affected: the option is available only once the area typed equals it.
+  const isWholeArea = maxArea === null || (areaAffectedHa !== '' && Math.abs(parseFloat(areaAffectedHa) - maxArea) < 0.00005)
 
   const validateArea = (val) => {
     if (!val) return 'Area affected is required.'
@@ -1326,10 +1329,10 @@ export function DisasterReportModal({ record, onClose, onSuccess }) {
         disaster_type:      disasterType,
         disaster_type_other_specify: disasterType === 'Other' ? disasterTypeOtherSpecify.trim() : '',
         date_of_occurrence: dateOfOccurrence,
-        area_affected_ha:   parseFloat(isTotalLoss && maxArea ? maxArea : areaAffectedHa),
+        area_affected_ha:   parseFloat(areaAffectedHa),
         estimated_damage:   estimatedDamage,
         production_loss:    productionLoss,
-        is_total_loss:      isTotalLoss,
+        is_total_loss:      isTotalLoss && isWholeArea,
       }
       let payload = fields
       if (photo) {
@@ -1402,14 +1405,18 @@ export function DisasterReportModal({ record, onClose, onSuccess }) {
 
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-700">Area Affected (ha) *</label>
-            <input type="number" step="0.0001"
-              className={`${baseInputClasses} ${areaError ? 'border-rose-400' : ''} ${isTotalLoss ? 'bg-slate-100 cursor-not-allowed' : ''}`}
-              value={isTotalLoss && maxArea ? maxArea : areaAffectedHa}
-              onChange={e => { setAreaAffectedHa(e.target.value); setAreaError(validateArea(e.target.value)) }}
-              disabled={isTotalLoss}
+            <DecimalInput decimals={4} max={maxArea}
+              className={`${baseInputClasses} ${areaError ? 'border-rose-400' : ''}`}
+              value={areaAffectedHa}
+              onChange={v => {
+                setAreaAffectedHa(v)
+                setAreaError(validateArea(v))
+                // Total Loss needs the whole area: typing anything else switches it off
+                if (isTotalLoss && maxArea !== null && !(Math.abs(parseFloat(v) - maxArea) < 0.00005)) setIsTotalLoss(false)
+              }}
               placeholder={maxArea ? `0.01 – ${maxArea}` : 'e.g. 2.50'} />
             {areaError && <p className="mt-1 text-xs text-rose-600">{areaError}</p>}
-            {!areaError && maxArea && !isTotalLoss && (
+            {!areaError && maxArea && (
               <p className="mt-1 text-xs text-slate-400">Max: {maxArea} ha (total area planted)</p>
             )}
           </div>
@@ -1428,22 +1435,20 @@ export function DisasterReportModal({ record, onClose, onSuccess }) {
               placeholder="Describe or estimate production loss" />
           </div>
 
-          <label className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 cursor-pointer">
+          <label className={`flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 ${isWholeArea ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
             <input
               type="checkbox"
-              checked={isTotalLoss}
-              onChange={e => {
-                setIsTotalLoss(e.target.checked)
-                if (e.target.checked && maxArea) {
-                  setAreaAffectedHa(String(maxArea))
-                  setAreaError('')
-                }
-              }}
+              checked={isTotalLoss && isWholeArea}
+              disabled={!isWholeArea}
+              onChange={e => setIsTotalLoss(e.target.checked)}
               className="mt-0.5 h-4 w-4 rounded border-rose-300 text-rose-600 focus:ring-rose-500"
             />
             <div>
               <span className="text-sm font-medium text-rose-800">Total loss — crop completely destroyed</span>
               <p className="text-xs text-rose-500 mt-0.5">This ends the production cycle. No harvest can be recorded.</p>
+              {!isWholeArea && (
+                <p className="mt-1 text-xs text-slate-600">Available only when the whole area is affected{maxArea ? ` (${maxArea} ha)` : ''}.</p>
+              )}
             </div>
           </label>
 

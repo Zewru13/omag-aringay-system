@@ -4,6 +4,7 @@ import api from '../../api/axiosInstance.js'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import Button from '../../components/UI/Button.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import SearchBar from '../../components/UI/SearchBar.jsx'
 
 const labelCls = 'block text-xs font-medium text-slate-600'
@@ -239,13 +240,11 @@ function AddPlantingRecordModal({ onClose, onSuccess }) {
 
         <div className="grid grid-cols-2 gap-4">
           <FormField label="Area Planted (ha)" required>
-            <input
+            <DecimalInput
               className={baseInputClasses}
-              min="0"
-              step="0.01"
-              type="number"
+              decimals={2}
               value={form.area_planted_hectares}
-              onChange={(e) => update('area_planted_hectares', e.target.value)}
+              onChange={(v) => update('area_planted_hectares', v)}
             />
           </FormField>
           <FormField label="Date Planted" required>

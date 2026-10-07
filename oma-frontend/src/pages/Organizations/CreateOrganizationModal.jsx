@@ -7,6 +7,9 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import Button from '../../components/UI/Button.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import EmailInput from '../../components/UI/EmailInput.jsx'
+import PhoneInput from '../../components/UI/PhoneInput.jsx'
+import { localToday } from '../../utils/inputGuards.js'
 import { agencyOptionsFor } from './agencyOptions.js'
 
 const labelCls = 'block text-[13px] font-medium text-[#4A5E4A] mb-1.5'
@@ -52,6 +55,12 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
       setFormErrors(e => { const n = { ...e }; delete n.contact_number; return n })
       return
     }
+    if (field === 'date_organized') {
+      // a registered date earlier than the new organized date is no longer valid, so it is cleared
+      setForm(f => ({ ...f, date_organized: value, date_registered: value && f.date_registered && f.date_registered < value ? '' : f.date_registered }))
+      setFormErrors(e => { const n = { ...e }; delete n.date_organized; delete n.date_registered; return n })
+      return
+    }
     setForm(f => ({ ...f, [field]: value }))
     setFormErrors(e => { const n = { ...e }; delete n[field]; return n })
   }
@@ -66,6 +75,7 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
     if (contactErr) { setContactError(contactErr) }
     if (!form.date_organized)             errs.date_organized = 'Required'
     if (!form.date_registered)            errs.date_registered = 'Required'
+    else if (form.date_organized && form.date_registered < form.date_organized) errs.date_registered = 'Date registered cannot be before the date organized.'
     if (!form.registration_number.trim()) errs.registration_number = 'Required'
     if (!form.registration_agency)        errs.registration_agency = 'Required'
     if (!form.email_address.trim())       errs.email_address = 'Required'
@@ -106,7 +116,9 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
       onSuccess()
     } catch (err) {
       const data = err.response?.data
-      setError(data?.detail || data?.name?.[0] || 'Unable to create organization.')
+      const first = data && typeof data === 'object' ? Object.values(data).flat()[0] : null
+      setError(data?.detail || data?.name?.[0] || (typeof first === 'string' ? first : '') || 'Unable to create organization.')
+      if (data?.date_registered?.[0]) setFormErrors(e => ({ ...e, date_registered: data.date_registered[0] }))
     } finally {
       setIsSubmitting(false)
     }
@@ -160,14 +172,15 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
             <div>
               <label className={labelCls}>Date Organized <span className="text-rose-500">*</span></label>
               <input type="date" className={`${baseInputClasses}${formErrors.date_organized ? ' border-rose-400' : ''}`} value={form.date_organized}
-                max={new Date().toISOString().split('T')[0]}
+                max={localToday()}
                 onChange={e => set('date_organized', e.target.value)} />
               {formErrors.date_organized && <p className="mt-1 text-[12px] text-rose-600">{formErrors.date_organized}</p>}
             </div>
             <div>
               <label className={labelCls}>Date Registered <span className="text-rose-500">*</span></label>
               <input type="date" className={`${baseInputClasses}${formErrors.date_registered ? ' border-rose-400' : ''}`} value={form.date_registered}
-                max={new Date().toISOString().split('T')[0]}
+                min={form.date_organized || undefined}
+                max={localToday()}
                 onChange={e => set('date_registered', e.target.value)} />
               {formErrors.date_registered && <p className="mt-1 text-[12px] text-rose-600">{formErrors.date_registered}</p>}
             </div>
@@ -208,8 +221,8 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
           {/* Email Address */}
           <div>
             <label className={labelCls}>Email Address <span className="text-rose-500">*</span></label>
-            <input type="email" className={`${baseInputClasses}${formErrors.email_address ? ' border-rose-400' : ''}`} placeholder="e.g. organization@email.com"
-              value={form.email_address} onChange={e => set('email_address', e.target.value)} />
+            <EmailInput className={`${baseInputClasses}${formErrors.email_address ? ' border-rose-400' : ''}`} placeholder="e.g. organization@email.com"
+              value={form.email_address} onChange={v => set('email_address', v)} />
             {formErrors.email_address && <p className="mt-1 text-[12px] text-rose-600">{formErrors.email_address}</p>}
           </div>
 
@@ -233,10 +246,8 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
               <Phone size={12} className="inline mr-1 text-[#7A8E7A]" />
               Contact Number <span className="text-rose-500">*</span>
             </label>
-            <input className={baseInputClasses} required type="tel" inputMode="numeric" maxLength={11}
-              placeholder="09XXXXXXXXX"
-              onKeyPress={e => { if (!/[0-9]/.test(e.key)) e.preventDefault() }}
-              value={form.contact_number} onChange={e => set('contact_number', e.target.value)} />
+            <PhoneInput className={baseInputClasses} required
+              value={form.contact_number} onChange={v => set('contact_number', v)} />
             {contactError && <p className="mt-1 text-[12px] text-rose-600">{contactError}</p>}
           </div>
 

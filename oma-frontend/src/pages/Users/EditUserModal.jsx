@@ -4,6 +4,9 @@ import api from '../../api/axiosInstance.js'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import EmailInput from '../../components/UI/EmailInput.jsx'
+import PhoneInput from '../../components/UI/PhoneInput.jsx'
+import { tidyPhone } from '../../utils/inputGuards.js'
 import { describeRole } from './userRoleHelpers.js'
 
 const labelCls = 'block text-[12px] font-medium text-[#4A5E4A] mb-1'
@@ -42,7 +45,7 @@ export default function EditUserModal({ user, onClose, onSuccess }) {
     email:          user.email || '',
     full_name:      user.full_name || '',
     suffix:         user.suffix || '',
-    contact_number: user.contact_number || '',
+    contact_number: tidyPhone(user.contact_number || ''),   // an older number with dashes opens in the plain format
     role:           user.role || 'EVALUATOR',
     is_active:      user.is_active,
   }
@@ -61,8 +64,7 @@ export default function EditUserModal({ user, onClose, onSuccess }) {
   const currentData = { email, full_name: fullName, suffix, contact_number: contact, role, is_active: isActive }
   const hasChanges = JSON.stringify(currentData) !== JSON.stringify(originalData)
 
-  const handleContactChange = (e) => {
-    const digits = e.target.value.replace(/\D/g, '').slice(0, 11)
+  const handleContactChange = (digits) => {
     setContact(digits)
     setContactError(validateContact(digits))
   }
@@ -121,7 +123,7 @@ export default function EditUserModal({ user, onClose, onSuccess }) {
           {/* Email */}
           <div>
             <label className={labelCls}>Email Address</label>
-            <input type="email" className={baseInputClasses} value={email} onChange={e => setEmail(e.target.value)} />
+            <EmailInput className={baseInputClasses} value={email} onChange={setEmail} />
           </div>
 
           {/* Full Name + Suffix */}
@@ -141,9 +143,7 @@ export default function EditUserModal({ user, onClose, onSuccess }) {
           {/* Contact */}
           <div>
             <label className={labelCls}>Contact Number</label>
-            <input type="tel" inputMode="numeric" maxLength={11} className={baseInputClasses}
-              placeholder="09XXXXXXXXX"
-              onKeyPress={e => { if (!/[0-9]/.test(e.key)) e.preventDefault() }}
+            <PhoneInput className={baseInputClasses}
               value={contact}
               onChange={handleContactChange} />
             {contactError && <p className="mt-1 text-[12px] text-[#C0392B]">{contactError}</p>}

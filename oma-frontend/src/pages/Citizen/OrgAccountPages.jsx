@@ -13,7 +13,9 @@ import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { ARINGAY_BARANGAYS } from '../../constants/barangays.js'
-import { sanitizePhoneDigits, validatePhone } from '../../utils/validation.js'
+import PhoneInput from '../../components/UI/PhoneInput.jsx'
+import { tidyPhone } from '../../utils/inputGuards.js'
+import { validatePhone } from '../../utils/validation.js'
 import { agencyLabel } from '../Organizations/agencyOptions.js'
 import CitizenHelpScreen from './CitizenHelpScreen.jsx'
 import { CROP_THEME, FISH_THEME } from './citizenUI.jsx'
@@ -337,8 +339,7 @@ export function OrgProfilePage() {
           <div className="px-5 py-3">
             {editingContact ? (
               <div className="space-y-2">
-                <input aria-label="Contact number" className={baseInputClasses} inputMode="numeric" placeholder="09XXXXXXXXX" value={contactDraft}
-                  onChange={(e) => setContactDraft(sanitizePhoneDigits(e.target.value))} />
+                <PhoneInput aria-label="Contact number" className={baseInputClasses} value={contactDraft} onChange={setContactDraft} />
                 {contactError && contactDraft && <p className="text-[12px] text-rose-600">{contactError}</p>}
                 <div className="flex gap-2">
                   <Button size="sm" isLoading={isBusy} onClick={saveContact}>Save</Button>
@@ -349,7 +350,7 @@ export function OrgProfilePage() {
               <div className="flex items-center justify-between gap-3">
                 <p className="text-[14px] font-medium text-text-primary">{contact || '—'}</p>
                 <button type="button" className={`${ACTION} inline-flex items-center gap-1`}
-                  onClick={() => { setContactDraft(contact); setEditingContact(true); setErrorMessage('') }}>
+                  onClick={() => { setContactDraft(tidyPhone(contact)); setEditingContact(true); setErrorMessage('') }}>
                   <Pencil size={13} aria-hidden="true" /> Edit
                 </button>
               </div>

@@ -5,7 +5,9 @@ import api from '../../api/axiosInstance.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { ARINGAY_BARANGAYS } from '../../constants/barangays.js'
-import { sanitizePhoneDigits, validatePhone } from '../../utils/validation.js'
+import PhoneInput from '../../components/UI/PhoneInput.jsx'
+import { tidyPhone } from '../../utils/inputGuards.js'
+import { validatePhone } from '../../utils/validation.js'
 import { labels } from './labels.js'
 import { CROP_THEME, CitizenBody, CitizenScreen, CitizenSubHeader, EditLegend, FISH_THEME } from './citizenUI.jsx'
 
@@ -426,10 +428,10 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
             {editingContact ? (
               <div className="mt-1.5">
                 <div className="flex gap-2">
-                  <input
-                    type="tel" inputMode="numeric" value={contactDraft}
+                  <PhoneInput
+                    value={contactDraft}
                     placeholder={labels.profileEdit.contactPlaceholder}
-                    onChange={(e) => setContactDraft(sanitizePhoneDigits(e.target.value))}
+                    onChange={setContactDraft}
                     className="min-h-[40px] flex-1 rounded-[8px] border-[0.5px] border-cz-border-strong px-3 text-[14px] text-cz-text outline-none"
                   />
                   <button
@@ -455,7 +457,7 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
                 <p className="text-[14px] font-medium text-cz-text">{contact || labels.common.unknown}</p>
                 <button
                   type="button"
-                  onClick={() => { setContactDraft(contact); setEditingContact(true) }}
+                  onClick={() => { setContactDraft(tidyPhone(contact)); setEditingContact(true) }}
                   className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${theme.solidBtn}`}
                   aria-label={labels.profileEdit.editAction}
                 >

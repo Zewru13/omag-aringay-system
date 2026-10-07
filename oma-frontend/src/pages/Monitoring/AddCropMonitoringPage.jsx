@@ -9,6 +9,7 @@ import { bulkCellInputClasses, bulkThClasses, bulkThCenterClasses } from '../../
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import Button from '../../components/UI/Button.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 
@@ -286,10 +287,10 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
           )}
         </td>
         <td className="px-3 py-3 overflow-hidden" style={{ width: COL_WIDTH.area }}>
-          <input type="number" step="0.01" min="0" className={`${bulkCellInputClasses} w-full`}
+          <DecimalInput decimals={2} className={`${bulkCellInputClasses} w-full`}
             placeholder="0.00"
             value={rec.area_planted_ha}
-            onChange={e => set('area_planted_ha', e.target.value)} />
+            onChange={v => set('area_planted_ha', v)} />
         </td>
         <td className="px-3 py-3 overflow-hidden" style={{ width: COL_WIDTH.season }}>
           <select className={`${bulkCellInputClasses} w-full`} value={rec.season}

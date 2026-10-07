@@ -4,6 +4,7 @@ import api from '../../api/axiosInstance.js'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import EmailInput from '../../components/UI/EmailInput.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 
@@ -165,8 +166,8 @@ function StepDetails({ role, formData, onChange, onBack, onNext, onCancel, setFo
         {/* Email */}
         <div>
           <label className={labelCls}>Email Address <span className="text-rose-500">*</span></label>
-          <input type="email" className={baseInputClasses} placeholder="e.g. juan@example.com"
-            value={formData.email} onChange={e => set('email', e.target.value)} />
+          <EmailInput className={baseInputClasses} placeholder="e.g. juan@example.com"
+            value={formData.email} onChange={v => set('email', v)} />
           <p className="mt-1 text-[11px] text-[#A8BCA8]">
             Double-check this — it's not pre-verified. A mistyped or fake address just means the account
             never gets activated (the link is never received/clicked), which is intentional, not a bug.

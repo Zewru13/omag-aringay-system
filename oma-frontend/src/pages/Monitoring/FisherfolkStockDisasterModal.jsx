@@ -3,6 +3,7 @@ import { AlertTriangle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -44,6 +45,8 @@ export default function FisherfolkStockDisasterModal({ record, onClose, onSaved 
 
   const maxArea = record.area_hectares ? parseFloat(record.area_hectares) : null
   const dateStocked = record.date_stocked || null
+  // Total Loss means the whole stocked area is affected: the option is available only once the area typed equals it.
+  const isWholeArea = maxArea === null || (form.area_affected_ha !== '' && Math.abs(parseFloat(form.area_affected_ha) - maxArea) < 0.00005)
 
   const toggleEquipment = (option) => setForm((prev) => {
     const next = prev.equipment_damaged.includes(option)
@@ -58,7 +61,7 @@ export default function FisherfolkStockDisasterModal({ record, onClose, onSaved 
     if (form.date_of_occurrence > today) return 'Date of occurrence cannot be in the future.'
     if (dateStocked && form.date_of_occurrence < dateStocked) return `Date of occurrence cannot be before the stocking date (${fmtLong(dateStocked)}).`
     if (form.disaster_type === 'Other' && !form.disaster_type_other_specify.trim()) return 'Please specify the disaster type.'
-    const area = form.is_total_loss && maxArea ? maxArea : parseFloat(form.area_affected_ha)
+    const area = parseFloat(form.area_affected_ha)
     if (!area || area <= 0) return 'Area affected must be greater than 0.'
     if (maxArea !== null && area > maxArea) return `Area affected cannot exceed the ${maxArea} ha stocked.`
     if (form.volume_lost_kg !== '' && parseFloat(form.volume_lost_kg) < 0) return 'Volume lost cannot be negative.'
@@ -78,11 +81,11 @@ export default function FisherfolkStockDisasterModal({ record, onClose, onSaved 
         disaster_type: form.disaster_type,
         disaster_type_other_specify: form.disaster_type === 'Other' ? form.disaster_type_other_specify.trim() : '',
         date_of_occurrence: form.date_of_occurrence,
-        area_affected_ha: form.is_total_loss && maxArea ? maxArea : parseFloat(form.area_affected_ha),
+        area_affected_ha: parseFloat(form.area_affected_ha),
         volume_lost_kg: form.volume_lost_kg === '' ? null : parseFloat(form.volume_lost_kg),
         equipment_damaged: equipmentPayload(form.equipment_damaged, form.equipment_damaged_other),
         estimated_damage: form.estimated_damage.trim(),
-        is_total_loss: form.is_total_loss,
+        is_total_loss: form.is_total_loss && isWholeArea,
       }
       let payload = fields
       if (damagePhotos.photos.length) {
@@ -153,12 +156,16 @@ export default function FisherfolkStockDisasterModal({ record, onClose, onSaved 
             )}
           </FormField>
           <FormField label="Area Affected (ha)" required>
-            <input type="number" step="0.0001" min="0" className={`${baseInputClasses} ${form.is_total_loss ? 'cursor-not-allowed bg-slate-100' : ''}`}
-              value={form.is_total_loss && maxArea ? maxArea : form.area_affected_ha}
-              disabled={form.is_total_loss}
-              onChange={e => set('area_affected_ha', e.target.value)}
+            <DecimalInput decimals={4} max={maxArea} className={baseInputClasses}
+              value={form.area_affected_ha}
+              onChange={v => setForm(f => ({
+                ...f,
+                area_affected_ha: v,
+                // Total Loss needs the whole area: typing anything else switches it off
+                is_total_loss: f.is_total_loss && (maxArea === null || Math.abs(parseFloat(v) - maxArea) < 0.00005),
+              }))}
               placeholder={maxArea ? `0.01 – ${maxArea}` : 'e.g. 0.50'} />
-            {maxArea && !form.is_total_loss && <p className="mt-1 text-xs text-slate-400">Max: {maxArea} ha (total area stocked)</p>}
+            {maxArea && <p className="mt-1 text-xs text-slate-400">Max: {maxArea} ha (total area stocked)</p>}
           </FormField>
           <FormField label="Volume Lost (kg)">
             <input type="number" step="0.01" min="0" className={baseInputClasses} value={form.volume_lost_kg}
@@ -179,13 +186,16 @@ export default function FisherfolkStockDisasterModal({ record, onClose, onSaved 
               onChange={e => set('estimated_damage', e.target.value)}
               placeholder="Describe the damage to the stock, pond/cage and equipment" />
           </FormField>
-          <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 sm:col-span-2">
-            <input type="checkbox" checked={form.is_total_loss}
+          <label className={`flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 sm:col-span-2 ${isWholeArea ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
+            <input type="checkbox" checked={form.is_total_loss && isWholeArea} disabled={!isWholeArea}
               onChange={e => set('is_total_loss', e.target.checked)}
               className="mt-0.5 h-4 w-4 rounded border-rose-300 text-rose-600 focus:ring-rose-500" />
             <span>
               <span className="text-sm font-medium text-rose-800">Total loss — stock completely destroyed</span>
               <span className="mt-0.5 block text-xs text-rose-500">This ends the production cycle. No harvest can be recorded.</span>
+              {!isWholeArea && (
+                <span className="mt-1 block text-xs text-slate-600">Available only when the whole area is affected{maxArea ? ` (${maxArea} ha)` : ''}.</span>
+              )}
             </span>
           </label>
           <div className="sm:col-span-2">

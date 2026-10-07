@@ -8,6 +8,8 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import SegmentedIdInput from '../../components/UI/SegmentedIdInput.jsx'
+import PhoneInput from '../../components/UI/PhoneInput.jsx'
+import { tidyPhone } from '../../utils/inputGuards.js'
 import { BARANGAY_RSBSA_CODES } from '../../constants/barangays.js'
 import { getPrefixOptions, isPrefixValidForGender } from '../../utils/prefixOptions.js'
 
@@ -58,7 +60,7 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
     last_name: fisherfolk.last_name || '',
     gender: fisherfolk.gender || 'Male',
     birthdate: fisherfolk.birthdate || '',
-    contact_number: fisherfolk.contact_number || '',
+    contact_number: tidyPhone(fisherfolk.contact_number || ''),   // an older number with dashes opens in the plain format
     barangay: fisherfolk.barangay || '',
     is_active: fisherfolk.is_active,
     fishr_number: fisherfolk.fishr_number || '',
@@ -252,17 +254,7 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
 
             <div>
               <FormLabel className={labelCls}>Contact Number</FormLabel>
-              <input
-                className={baseInputClasses}
-                id="edit_contact_number"
-                type="tel"
-                inputMode="numeric"
-                maxLength={11}
-                placeholder="09XXXXXXXXX"
-                onKeyPress={(e) => { if (!/[0-9]/.test(e.key)) e.preventDefault() }}
-                value={form.contact_number}
-                onChange={(e) => updateField('contact_number', e.target.value)}
-              />
+              <PhoneInput className={baseInputClasses} id="edit_contact_number" value={form.contact_number} onChange={(v) => updateField('contact_number', v)} />
               {contactError && <p className="mt-1 text-xs text-rose-600">{contactError}</p>}
             </div>
 
