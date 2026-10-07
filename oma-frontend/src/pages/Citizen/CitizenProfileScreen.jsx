@@ -16,7 +16,7 @@ import { CROP_THEME, CitizenBody, CitizenScreen, CitizenSubHeader, EditLegend, F
 // ─── Aking Profile (Farmer/Fisherfolk) ─────────────────────────────────────
 // Rebuilt against PROFILE REFERENCE!.docx frames 2-5 (own-profile, both
 // breakpoints): an identity card with a role pill and Barangay/Contact mini
-// fields, a field-status legend bar, one merged "Personal na Impormasyon"
+// fields, a field-status legend bar, one merged "Personal Information"
 // card whose rows each carry their own status icon (green pencil = instant,
 // orange refresh = needs approval, gray lock = read-only), a "Reference
 // Information" card for the demographic fields the previous version never
@@ -25,7 +25,7 @@ import { CROP_THEME, CitizenBody, CitizenScreen, CitizenSubHeader, EditLegend, F
 // (OrgAccountPages.jsx) pattern for the same three field behaviors, rather than three separate
 // cards named after what kind of edit they allow.
 //
-// NAME stays three inputs under one "Buong Pangalan" request (see the
+// NAME stays three inputs under one "Full Name" request (see the
 // modal below) for the same reason the previous version kept them: the
 // backend's ProfileChangeRequest.REQUESTABLE_FIELDS only accepts the real
 // model fields (first_name/middle_name/last_name), not a composed
@@ -343,7 +343,7 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
           )}
 
           {/* Barangay/Contact used to repeat here in a compact mini-grid AND
-              again below in the full "Personal na Impormasyon" card — removed
+              again below in the full "Personal Information" card — removed
               (2026-09-07) since that card already shows both, with edit
               affordances this read-only summary didn't have. */}
           {isUploading && <p className="mt-2.5 text-[12px] text-cz-text-2">{labels.profileEdit.uploading}</p>}
@@ -592,7 +592,7 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
         )}
       </section>
 
-      {/* TULONG — always last, matches every reference frame's ordering. */}
+      {/* HELP — always last, matches every reference frame's ordering. */}
       {onHelp && (
         <button
           type="button"
@@ -605,7 +605,7 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
         </button>
       )}
 
-      {/* MAG-LOG OUT — moved here from the header (2026-09-07 direct
+      {/* LOG OUT — moved here from the header (2026-09-07 direct
           request): the header no longer carries a logout icon at all, so
           this is now the only place to sign out on mobile. */}
       <button

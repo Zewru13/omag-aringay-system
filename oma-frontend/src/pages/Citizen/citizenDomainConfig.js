@@ -9,7 +9,7 @@
 import { labels } from './labels.js'
 
 // Display-only. `season` is stored as 'Dry'/'Wet'; recordTitle is read by a
-// citizen, so it shows the Tagalog label while the stored value is untouched.
+// citizen, so it shows the friendly label while the stored value is untouched.
 // Falls back to the raw value for anything outside the two known choices.
 const seasonLabel = (s) => (s ? labels.harvest.seasonOptions[s] || s : '')
 

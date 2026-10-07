@@ -1,7 +1,7 @@
 import { DATE_LOCALE } from './labels.js'
 
-// Day-first dates ("12 Setyembre 2026", "10 Set 2026"), as the Farmer citizen
-// reference writes them — the fil-PH patterns themselves put the month first.
+// Day-first dates ("12 September 2026", "10 Sep 2026"), as the Farmer citizen
+// reference writes them — the en-PH patterns themselves put the month first.
 const monthOf = (d, style) => new Intl.DateTimeFormat(DATE_LOCALE, { month: style }).format(d)
 
 const format = (iso, style) => {

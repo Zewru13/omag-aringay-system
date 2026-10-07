@@ -473,7 +473,7 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
     )
 
     // Desktop mode: no CitizenScreen/SubHeader -- the parent's DesktopShell
-    // supplies the topbar, whose back button exits the whole Sakuna screen
+    // supplies the topbar, whose back button exits the whole Disaster screen
     // (same as onClose below); reaching 'list' stays under that same chrome
     // since mode is internal state, not a route change.
     if (bare) return formBody

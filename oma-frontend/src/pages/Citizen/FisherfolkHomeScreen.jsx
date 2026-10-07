@@ -285,13 +285,13 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
     const accountProps = {
       initials: (record.label || '').split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '—',
       name: record.label,
-      roleLabel: labels.home.recordTypeLabels.FISHERFOLK || 'Mangingisda',
+      roleLabel: labels.home.recordTypeLabels.FISHERFOLK || 'Fisherfolk',
       onProfile: () => { setLogScreen(null); setDisasterScreen(null); setView({ kind: 'profile' }) },
       onHelp: () => { setLogScreen(null); setDisasterScreen(null); setView({ kind: 'help' }) },
       onLogout,
     }
 
-    // ── Sakuna ─────────────────────────────────────────────────────
+    // ── Disaster ─────────────────────────────────────────────────────
     if (disasterScreen) {
       return (
         <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} onToggleSidebar={toggleSidebar} title={D.navSakuna} onBack={() => setDisasterScreen(null)} account={accountProps} />}>
@@ -329,7 +329,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
       )
     }
 
-    // ── Mag-log (pond picker, then the activity form) ─────────────────
+    // ── Log (pond picker, then the activity form) ─────────────────
     if (view.kind === 'pondPicker' || logScreen) {
       const isDisasterMode = pondPickerMode === 'disaster'
       if (!logScreen) {
@@ -422,7 +422,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
       )
     }
 
-    // ── Tulong Natanggap ───────────────────────────────────────────────
+    // ── Assistance Received ───────────────────────────────────────────────
     if (view.kind === 'assistance') {
       return (
         <DesktopShell collapsed={sidebarCollapsed} sidebar={sidebar} topbar={<DesktopTopbar theme={FISH_THEME} onToggleSidebar={toggleSidebar} title={D.helpAssistance} subtitle={D.helpAssistanceSubtitle} onBack={() => setView({ kind: 'home' })} account={accountProps} />}>
@@ -444,7 +444,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
       )
     }
 
-    // ── Tulong (Help) ────────────────────────────────────────────────────
+    // ── Help ────────────────────────────────────────────────────
     if (view.kind === 'help') {
       const H = labels.fisherfolkHelp
       return (
@@ -466,7 +466,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
               theme={FISH_THEME}
               onToggleSidebar={toggleSidebar}
               greetingName={D.greeting(record.label)}
-              metaLine={`Brgy. ${record.barangay || labels.common.unknown} · ${new Date().toLocaleDateString('fil-PH', { year: 'numeric', month: 'long', day: 'numeric' })}`}
+              metaLine={`Brgy. ${record.barangay || labels.common.unknown} · ${new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })}`}
               account={accountProps}
             />
           }
@@ -939,7 +939,7 @@ export default function FisherfolkHomeScreen({ record, onLogout }) {
                     {/* PER-POND FEEDING ACTIONS (UI basis). Only on ponds that
                         are actually due — putting them on every pond would
                         invite logging a feeding for a pond that isn't due.
-                        "Ulitin" only appears when there IS a prior feeding to
+                        "Repeat" only appears when there IS a prior feeding to
                         repeat; otherwise the single "Ibang pakain" button
                         stands alone rather than offering a repeat that would
                         have nothing to copy. */}

@@ -4,12 +4,12 @@ import { ChevronDown, LogOut, RefreshCcw, SquarePen, Lock } from 'lucide-react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { CitizenBody, CitizenScreen, CitizenSubHeader } from './citizenUI.jsx'
 
-// Farmer/Fisherfolk individual "Tulong" (Help) screen. Shared between both
+// Farmer/Fisherfolk individual Help screen. Shared between both
 // domains -- only `theme` and `L` (labels.farmerHelp / labels.fisherfolkHelp)
 // differ. Desktop and mobile are genuinely different layouts per the
 // reference, not one responsive component: desktop shows a "Field
 // Behaviors" legend card in a sidebar column; mobile omits that card and
-// shows a Mag-logout row instead. `bare` selects which one renders --
+// shows a Log out row instead. `bare` selects which one renders --
 // callers only ever reach this already knowing which POV they're in
 // (see CitizenProfileScreen's identical bare convention), so there is no
 // Tailwind breakpoint switching the two internally.
@@ -136,7 +136,7 @@ export default function CitizenHelpScreen({ theme, L, onBack, tabBar, bare = fal
     )
   }
 
-  // ── Phone POV: single column, no Field Behaviors card, Mag-logout row
+  // ── Phone POV: single column, no Field Behaviors card, Log out row
   //    instead (this sub-view has no persistent nav shell to log out from)
   return (
     <CitizenScreen hasTabBar>

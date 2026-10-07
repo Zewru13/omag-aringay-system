@@ -4,7 +4,7 @@ import api from '../../api/axiosInstance.js'
 import { DATE_LOCALE, labels } from './labels.js'
 import { CROP_THEME, CitizenBody, CitizenScreen, CitizenSubHeader } from './citizenUI.jsx'
 
-// ─── Mga Resulta ng Ani (frames 32-33) ────────────────────────────────────
+// ─── Harvest Results (frames 32-33) ────────────────────────────────────
 // One card per harvested crop: a variance chip, the actual and estimated
 // yields as paired bars, a plain-language verdict, and -- only when there
 // are any -- the unlogged activities that fell in that cycle.

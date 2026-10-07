@@ -253,7 +253,7 @@ export function CitizenHomeHeader({ theme }) {
   )
 }
 
-// Plain, non-sticky "< Bumalik" + title, in the content area — exactly the
+// Plain, non-sticky "< Back" + title, in the content area — exactly the
 // pattern OrgPageHeader already established for Organization, now shared
 // by Farmer/Fisherfolk too so the sticky bar above never has to change.
 export function CitizenPageHeader({ title, subtitle, onBack }) {

@@ -8,7 +8,7 @@ import CitizenProfileScreen from './CitizenProfileScreen.jsx'
 import { CROP_THEME } from './citizenUI.jsx'
 
 // English help for farmer accounts, describing the pages they now use. Same shape as labels.farmerHelp (which
-// CitizenHelpScreen reads); kept here because labels.js is the shared Tagalog file of the Organization portals.
+// CitizenHelpScreen reads); kept here as the farmer-specific wording.
 // Contact details are still placeholders, exactly as in the original help screen.
 const FARMER_HELP_EN = {
   title: 'Help',

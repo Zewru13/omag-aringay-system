@@ -8,8 +8,8 @@ import CitizenProfileScreen from './CitizenProfileScreen.jsx'
 import { FISH_THEME } from './citizenUI.jsx'
 
 // English help for fisherfolk accounts, describing the Fisheries pages they now use. Same shape as
-// labels.fisherfolkHelp (which CitizenHelpScreen reads); kept here because labels.js is the shared
-// Tagalog file of the Farmer/Organization portals, which stay unchanged. Contact details are still
+// labels.fisherfolkHelp (which CitizenHelpScreen reads); kept here as the fisherfolk-specific wording.
+// Contact details are still
 // placeholders, exactly as in the original help screen.
 const FISHERFOLK_HELP_EN = {
   title: 'Help',

@@ -12,7 +12,7 @@ import usePhotoList from '../../hooks/usePhotoList.js'
 import PhotoListField from '../../components/UI/PhotoListField.jsx'
 import { todayISO, yesterdayISO } from '../../utils/localDate.js'
 
-// Farmer Sakuna report form, rebuilt to UPDATED FARMER CITIZEN UI.docx.
+// Farmer disaster report form, rebuilt to UPDATED FARMER CITIZEN UI.docx.
 // Rendered by CitizenDisasterScreen when it is given variant="farmer"; that
 // screen still owns the record lock and the switch to the reported-disasters
 // list, so this file is only the form itself.
