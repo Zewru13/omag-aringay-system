@@ -261,3 +261,39 @@ class RemovalTests(APITestCase):
             self.assertEqual(res.data['removed'], [second.id])
             self.assertEqual([k['id'] for k in res.data['kept']], [first.id])
             self.assertEqual({r.id: r.status for r in self.records(domain)}, {first.id: 'CONFIRMED', second.id: 'REMOVED'})
+
+
+class RemovalClosesOpenRequestsTests(RemovalTests):
+    """An open confirm-on-behalf request for an entry that is removed must not stay in staff's queue."""
+
+    def open_request(self, domain, record):
+        from interventions.models import BeneficiaryConfirmationRequest, FisherfolkBeneficiaryConfirmationRequest
+        ctx = self.ctx[domain]
+        model = BeneficiaryConfirmationRequest if domain == 'crop' else FisherfolkBeneficiaryConfirmationRequest
+        return model.objects.create(beneficiary_record=record, submitted_by_organization=ctx['org'], submitted_by=ctx['user'])
+
+    def test_removing_an_entry_rejects_its_pending_confirmation_request_with_a_reason(self):
+        for domain in DOMAINS:
+            self.distribute(domain, (0, 1))
+            first, second = self.records(domain)
+            pending = self.open_request(domain, first)
+            untouched = self.open_request(domain, second)
+            res = self.remove(domain, record_ids=[first.id])
+            self.assertEqual(res.status_code, 200)
+            pending.refresh_from_db()
+            untouched.refresh_from_db()
+            self.assertEqual(pending.status, 'REJECTED', domain)
+            self.assertIn('removed', pending.rejection_reason.lower())
+            self.assertEqual(pending.reviewed_by, self.ctx[domain]['user'])
+            self.assertIsNotNone(pending.reviewed_at)
+            self.assertEqual(untouched.status, 'PENDING', domain)
+
+    def test_a_kept_entry_keeps_its_open_request(self):
+        for domain in DOMAINS:
+            self.distribute(domain, (0,))
+            record = self.records(domain)[0]
+            self.set_status(domain, record, DistributionStatus.CONFIRMED)
+            pending = self.open_request(domain, record)
+            self.remove(domain, record_ids=[record.id])
+            pending.refresh_from_db()
+            self.assertEqual(pending.status, 'PENDING', domain)

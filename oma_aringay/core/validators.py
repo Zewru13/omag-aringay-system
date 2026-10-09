@@ -179,12 +179,17 @@ def validate_uploaded_image(f):
 CONTACT_NUMBER_RE = re.compile(r'^09\d{9}$')
 
 
-def validate_contact_number(value):
-    """Blank is accepted (the field is optional wherever it is used); anything else must be 09XXXXXXXXX."""
+def validate_contact_number(value, instance=None):
+    """Blank is accepted (the field is optional wherever it is used); anything else must be 09XXXXXXXXX.
+    `instance` is the record being updated: a number it already holds is accepted as it is, so an older record saved
+    in another format can still be edited, and the number only has to be fixed when someone changes it."""
     if value and value.strip():
-        if not CONTACT_NUMBER_RE.match(value.strip()):
+        cleaned = value.strip()
+        if instance is not None and cleaned == (getattr(instance, 'contact_number', None) or '').strip():
+            return cleaned
+        if not CONTACT_NUMBER_RE.match(cleaned):
             raise serializers.ValidationError('Contact number must be exactly 11 digits and start with 09.')
-        return value.strip()
+        return cleaned
     return '' if value is not None else value
 
 

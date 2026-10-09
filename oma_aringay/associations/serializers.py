@@ -139,8 +139,8 @@ def _check_registered_not_before_organized(data, instance):
         raise serializers.ValidationError({'date_registered': 'Date registered cannot be before the date organized.'})
 
 
-def _validate_contact(value):
-    return validate_contact_number(value)
+def _validate_contact(value, instance=None):
+    return validate_contact_number(value, instance)
 
 
 class FarmersOrganizationMemberSerializer(serializers.ModelSerializer):
@@ -236,7 +236,7 @@ class FarmersOrganizationDetailSerializer(serializers.ModelSerializer):
         return data
 
     def validate_contact_number(self, value):
-        return _validate_contact(value)
+        return _validate_contact(value, self.instance)
 
     def validate_date_organized(self, value):
         validate_not_future_date(value, 'Date organized')
@@ -389,7 +389,7 @@ class FisherfolkOrganizationDetailSerializer(serializers.ModelSerializer):
         return data
 
     def validate_contact_number(self, value):
-        return _validate_contact(value)
+        return _validate_contact(value, self.instance)
 
     def validate_date_organized(self, value):
         validate_not_future_date(value, 'Date organized')

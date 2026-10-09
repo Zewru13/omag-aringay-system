@@ -173,6 +173,10 @@ def remove_records(domain, user, record_ids=None, distribution=None):
             record.removed_at = now
             record.removed_by = user
             record.save(update_fields=['status', 'removed_at', 'removed_by'])
+            # An open "confirm on behalf" request for this entry would otherwise sit in staff's queue forever.
+            record.confirmation_requests.filter(status='PENDING').update(
+                status='REJECTED', reviewed_by=user, reviewed_at=now,
+                rejection_reason='The assistance was removed from the list.')
             AuditLogEntry.objects.create(
                 user=user, action=AuditLogEntry.Action.UPDATE, model_name=model.__name__,
                 object_repr=f'Removed from the list: {record.assistance_type} for {getattr(record, person_field).full_name} '

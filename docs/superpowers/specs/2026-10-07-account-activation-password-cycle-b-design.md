@@ -55,7 +55,7 @@ citizen account is created active in the same transaction:
 ### 2. Temporary password
 
 - New `generate_default_password()`: a short word from a fixed list of fish and crop names (4-6 letters, capitalised,
-  none contained in the local denylist), one special character from `#@!$%`, and 6 random digits: `Bangus#482715`.
+  none contained in the local denylist), one special character from `#@!$%`, and 8 random digits: `Bangus#48271536`.
   Always satisfies the policy of decision 3. Random choices use `secrets`.
 - Used by every flow that calls it today (staff creation, "Set Up Account", "Regenerate Password", organization activation,
   the reset command).
@@ -136,7 +136,7 @@ Frontend: node check script for `passwordRules.js`; build; lint compared with HE
 ## Changes made after the final review
 
 - The unthrottled stock `/api/token/` login route was removed (it skipped the expiry and the login throttle; the frontend never used it).
-- The default password has 6 digits (about 160 million combinations) instead of 4.
+- The default password has 8 digits (about 16 billion combinations with the word and symbol) instead of 4.
 - Changing a password to the same password is refused, so an emailed temporary password cannot be kept as the permanent one.
 - Import emails stop after 3 failures in a row and `EMAIL_TIMEOUT` is 10 seconds; the remaining organizations are handed over on screen.
 - Staff temporary passwords carry no expiry, and Regenerate stays a staff-relayed password (decision 2, amended above).

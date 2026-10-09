@@ -89,12 +89,12 @@ _SPECIALS = '#@!$%'
 
 
 def generate_default_password():
-    """A short, readable temporary password such as 'Bangus#482715': a fish or crop word, one special
-    character and six digits. It always satisfies the password policy (1 capital, 1 special character,
+    """A short, readable temporary password such as 'Bangus#48271536': a fish or crop word, one special
+    character and eight digits (about 34 bits, tried against a throttled login). It always satisfies the password policy (1 capital, 1 special character,
     3 numbers, at least 8 characters), is easy to read aloud, and is only ever a temporary password: it
     must be changed at first login and expires (see issue_temporary_password). Used for ADMIN/EVALUATOR
     account creation, CITIZEN account activation and regeneration, and organization activation."""
-    digits = ''.join(secrets.choice('0123456789') for _ in range(6))
+    digits = ''.join(secrets.choice('0123456789') for _ in range(8))
     return f'{secrets.choice(_WORDS)}{secrets.choice(_SPECIALS)}{digits}'
 
 

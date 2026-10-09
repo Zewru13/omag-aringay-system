@@ -38,8 +38,8 @@ from .models import (
 )
 
 
-def validate_contact_format(value):
-    return validate_contact_number(value)
+def validate_contact_format(value, instance=None):
+    return validate_contact_number(value, instance)
 
 
 # ─── Fisherfolk sub-record serializers ────────────────────────────────────────
@@ -186,7 +186,7 @@ class FisherfolkDetailSerializer(serializers.ModelSerializer):
         return value
 
     def validate_contact_number(self, value):
-        return validate_contact_format(value)
+        return validate_contact_format(value, self.instance)
 
     def validate_fishr_number(self, value):
         if value is not None and not value.strip():
@@ -288,7 +288,7 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
         return value
 
     def validate_contact_number(self, value):
-        return validate_contact_format(value)
+        return validate_contact_format(value, self.instance)
 
     def validate_philsys_number(self, value):
         # Same format rule the Farmer model enforces on its own field.

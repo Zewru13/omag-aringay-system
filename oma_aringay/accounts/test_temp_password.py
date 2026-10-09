@@ -17,7 +17,7 @@ from accounts.utils import _WORDS, generate_default_password, issue_temporary_pa
 from accounts.validators import LOCAL_DENYLIST_TERMS
 from associations.models import FarmersOrganization
 
-FORMAT = re.compile(r'^[A-Z][a-z]{3,5}[#@!$%]\d{6}$')
+FORMAT = re.compile(r'^[A-Z][a-z]{3,5}[#@!$%]\d{8}$')
 EXPIRED_DETAIL = 'This temporary password has expired. Ask the Office of the Municipal Agriculturist for a new one.'
 MAIL = dict(SMTP_CONFIGURED=True, EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
 _N = itertools.count(1)

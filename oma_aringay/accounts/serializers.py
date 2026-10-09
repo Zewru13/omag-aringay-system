@@ -8,8 +8,8 @@ from core.validators import validate_contact_number
 User = get_user_model()
 
 
-def _validate_contact(value):
-    return validate_contact_number(value)
+def _validate_contact(value, instance=None):
+    return validate_contact_number(value, instance)
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -165,7 +165,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
     def validate_contact_number(self, value):
-        return _validate_contact(value)
+        return _validate_contact(value, self.instance)
 
     def validate(self, attrs):
         # Batch 10: User.email is nullable at the model level (CITIZEN
@@ -200,7 +200,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         }
 
     def validate_contact_number(self, value):
-        return _validate_contact(value)
+        return _validate_contact(value, self.instance)
 
     def validate_email(self, value):
         value = value.strip().lower()
@@ -237,7 +237,7 @@ class MeUpdateSerializer(serializers.ModelSerializer):
         }
 
     def validate_contact_number(self, value):
-        return _validate_contact(value)
+        return _validate_contact(value, self.instance)
 
     def validate_email(self, value):
         value = value.strip().lower()
