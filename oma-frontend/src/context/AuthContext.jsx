@@ -49,6 +49,9 @@ export function AuthProvider({ children }) {
       // Lets LoginPage distinguish "email not verified" (with a resend
       // action) from a plain wrong-password/no-account error.
       wrapped.code = error.response?.data?.code
+      // undefined when the server never answered (network down); lets LoginPage tell a server fault
+      // from a wrong password.
+      wrapped.status = error.response?.status
       throw wrapped
     }
   }
