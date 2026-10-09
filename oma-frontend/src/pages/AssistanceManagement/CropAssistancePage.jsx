@@ -21,6 +21,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import ConfirmOnBehalfDialog from './ConfirmOnBehalfDialog.jsx'
 import DistributeAssistanceModal from './DistributeAssistanceModal.jsx'
+import OrgDistributionHistory from './OrgDistributionHistory.jsx'
 import { FARMERS_ORG_DOMAIN } from '../Citizen/orgDomainConfig.js'
 import { FARMER_DISTRIBUTION_DOMAIN } from './distributionDomains.js'
 import { SourceAgencyMultiSelect, TypeConditionalFields } from './sharedAssistanceFields.jsx'
@@ -41,10 +42,10 @@ const STATUS_LABELS = {
 // A farmer or an organization reads the same lifecycle as "Received" / "Not Received": a record the office logged
 // or the recipient confirmed is simply Received.
 const FARMER_STATUS_LABELS = { ...STATUS_LABELS, CONFIRMED: 'Received' }
-// Editing is blocked once a record has entered a citizen-facing state
+// Staff may edit a record until the recipient reports it or it is resolved (an organization only while it is Pending)
 // (interventions.views.PendingOnlyEditMixin) — mirrored here so the row
 // action doesn't offer something the backend will reject.
-const EDITABLE_STATUSES = new Set(['PENDING', 'CONFIRMED', undefined, ''])
+const EDITABLE_STATUSES = new Set(['PENDING', 'AWAITING_CONFIRMATION', 'CONFIRMED', undefined, ''])
 
 // Must match interventions.models.BeneficiaryRecord.AssistanceType exactly
 // (Batch 6: absorbed from production.models.CropAssistanceRecord).
@@ -611,6 +612,7 @@ export default function CropAssistancePage({ asTab = false }) {
   const [confirmingReceived, setConfirmingReceived] = useState(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const [records, setRecords] = useState([])
+  const [historyKey, setHistoryKey] = useState(0) // bumps to reload the organization's distribution history
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
   const [barangay, setBarangay] = useState('')
@@ -628,8 +630,12 @@ export default function CropAssistancePage({ asTab = false }) {
   const fetchAll = useCallback(async () => {
     setIsLoading(true); setError('')
     try {
+      if (isOrg && view === 'all') {
+        // The organization's history is OrgDistributionHistory, which loads its own distributions.
+        return
+      }
       if (isOrg) {
-        // What this organization reported, or the members' awaiting records it may confirm for (year narrows both).
+        // The members' awaiting records this organization may confirm for (year narrows them).
         const r = await api.get(view === 'confirm' ? FARMERS_ORG_DOMAIN.accountlessConfirmablesUrl : FARMERS_ORG_DOMAIN.historyUrl)
         let mine = Array.isArray(r.data) ? r.data : (r.data.results || [])
         if (year) mine = mine.filter((x) => String(x.date_given || '').startsWith(String(year)))
@@ -710,7 +716,7 @@ export default function CropAssistancePage({ asTab = false }) {
     ? (view === 'confirm'
       ? CONFIRM_COLUMNS
       : COLUMNS.filter((c) => !['attributed_organization_name', 'recorded_by_name'].includes(c.key))
-        .map((c) => (c.key === 'farmer_full_name' ? { ...c, label: 'Member' } : c.key === 'date_received_fmt' ? { ...c, label: 'Date Given' } : c)))
+        .map((c) => (c.key === 'farmer_full_name' ? { ...c, label: 'Member' } : c)))
     : isFarmer
       ? COLUMNS.filter((c) => !['farmer_full_name', 'recorded_by_name'].includes(c.key))
       : COLUMNS
@@ -757,6 +763,10 @@ export default function CropAssistancePage({ asTab = false }) {
         </Button>
       </div>}
 
+      {isOrg && view === 'all' ? (
+        <OrgDistributionHistory domain="crop" refreshKey={historyKey} />
+      ) : (
+      <>
       <FilterPanel activeCount={[(isFarmer || isOrg) ? '' : barangay, year].filter(Boolean).length}>
         {!isFarmer && !isOrg && <div className="w-48">
           <BarangaySelect value={barangay} onChange={(e) => setBarangay(e.target.value)} includeAllOption />
@@ -771,11 +781,13 @@ export default function CropAssistancePage({ asTab = false }) {
       </FilterPanel>
 
       {error ? <ErrorMessage message={error} /> : <DataTable columns={tableColumns} data={rows} isLoading={isLoading} />}
+      </>
+      )}
 
       {showAdd && !isFarmer && (
         <AddAssistanceModal
           onClose={() => setShowAdd(false)}
-          onSuccess={fetchAll}
+          onSuccess={() => { fetchAll(); setHistoryKey((k) => k + 1) }}
           memberUrl={isOrg ? FARMERS_ORG_DOMAIN.memberSearchUrl(orgId) : null}
         />
       )}
@@ -796,7 +808,7 @@ export default function CropAssistancePage({ asTab = false }) {
           domain={FARMER_DISTRIBUTION_DOMAIN}
           fixedOrg={isOrg ? { id: orgId, name: orgRecord?.label, barangay: orgRecord?.barangay } : null}
           onClose={() => setShowDistribute(false)}
-          onSuccess={fetchAll}
+          onSuccess={() => { fetchAll(); setHistoryKey((k) => k + 1) }}
         />
       )}
       {editing && !isFarmer && (

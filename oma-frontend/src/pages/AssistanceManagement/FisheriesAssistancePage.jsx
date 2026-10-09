@@ -21,6 +21,7 @@ import ConfirmOnBehalfDialog from './ConfirmOnBehalfDialog.jsx'
 import LogGovernmentAssistanceModal from './LogGovernmentAssistanceModal.jsx'
 import { FISHERFOLK_ORG_DOMAIN } from '../Citizen/orgDomainConfig.js'
 import DistributeAssistanceModal from './DistributeAssistanceModal.jsx'
+import OrgDistributionHistory from './OrgDistributionHistory.jsx'
 import { FISHERFOLK_DISTRIBUTION_DOMAIN } from './distributionDomains.js'
 import { SourceAgencyMultiSelect, TypeConditionalFields } from './sharedAssistanceFields.jsx'
 import {
@@ -39,7 +40,7 @@ const STATUS_LABELS = {
 // An organization reads the same plain lifecycle words as the farmers' side: a record the office logged or the
 // recipient confirmed is simply Received.
 const ORG_STATUS_LABELS = { ...STATUS_LABELS, CONFIRMED: 'Received' }
-const EDITABLE_STATUSES = new Set(['PENDING', 'CONFIRMED', undefined, ''])
+const EDITABLE_STATUSES = new Set(['PENDING', 'AWAITING_CONFIRMATION', 'CONFIRMED', undefined, ''])
 
 function extractErrorMessage(err, fallback) {
   const data = err?.response?.data
@@ -365,12 +366,17 @@ export default function FisheriesAssistancePage({ asTab = false }) {
   const [showDistribute, setShowDistribute] = useState(false)
   const [editing, setEditing] = useState(null)
   const [resolving, setResolving] = useState(null)
+  const [historyKey, setHistoryKey] = useState(0) // bumps to reload the organization's distribution history
 
   const fetchAssistance = useCallback(async () => {
     setIsLoading(true); setError('')
     try {
+      if (isOrg && view === 'all') {
+        // The organization's history is OrgDistributionHistory, which loads its own distributions.
+        return
+      }
       if (isOrg) {
-        // What this organization reported, or the members' awaiting records it may confirm for (year narrows both).
+        // The members' awaiting records this organization may confirm for (year narrows them).
         const r = await api.get(view === 'confirm' ? FISHERFOLK_ORG_DOMAIN.accountlessConfirmablesUrl : FISHERFOLK_ORG_DOMAIN.historyUrl)
         let mine = Array.isArray(r.data) ? r.data : (r.data.results || [])
         if (year) mine = mine.filter((x) => String(x.date_given || '').startsWith(String(year)))
@@ -503,6 +509,10 @@ export default function FisheriesAssistancePage({ asTab = false }) {
         )}
       </div>
 
+      {isOrg && view === 'all' ? (
+        <OrgDistributionHistory domain="fisheries" refreshKey={historyKey} />
+      ) : (
+      <>
       <FilterPanel
         {...(isOrg ? {} : { search, onSearchChange: setSearch, searchPlaceholder: 'Search fisherfolk or LGU no.' })}
         activeCount={(isOrg ? [Boolean(year)] : [Boolean(barangay), Boolean(source), Boolean(type), Boolean(year)]).filter(Boolean).length}
@@ -548,11 +558,13 @@ export default function FisheriesAssistancePage({ asTab = false }) {
       )}
 
       {error ? <ErrorMessage message={error} /> : <DataTable columns={tableColumns} data={rows} isLoading={isLoading} />}
+      </>
+      )}
 
       {showLog && (
         <LogGovernmentAssistanceModal
           onClose={() => setShowLog(false)}
-          onSuccess={fetchAssistance}
+          onSuccess={() => { fetchAssistance(); setHistoryKey((k) => k + 1) }}
           memberUrl={isOrg ? FISHERFOLK_ORG_DOMAIN.memberSearchUrl(orgId) : null}
         />
       )}
@@ -573,7 +585,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
           domain={FISHERFOLK_DISTRIBUTION_DOMAIN}
           fixedOrg={isOrg ? { id: orgId, name: orgRecord?.label, barangay: orgRecord?.barangay } : null}
           onClose={() => setShowDistribute(false)}
-          onSuccess={fetchAssistance}
+          onSuccess={() => { fetchAssistance(); setHistoryKey((k) => k + 1) }}
         />
       )}
       {editing && (

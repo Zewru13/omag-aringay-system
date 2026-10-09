@@ -206,6 +206,7 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
       }
       await api.post(domain.disastersUrl(recordId), payload)
       showToast(labels.disaster.submitSuccess, 'success')
+      photosState.clear()
       setJustReported(true)
       setMode('list')
       setReloadKey((k) => k + 1)

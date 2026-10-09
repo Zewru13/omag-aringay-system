@@ -11,6 +11,7 @@ import StatTile from '../../components/UI/StatTile.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import StepIndicator from '../../components/UI/StepIndicator.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import { selectionSummary } from '../../utils/distributionHelpers.js'
 import { todayISO } from '../../utils/localDate.js'
 import { SourceAgencyMultiSelect, TypeConditionalFields } from './sharedAssistanceFields.jsx'
 import {
@@ -67,6 +68,7 @@ export default function DistributeAssistanceModal({ domain, fixedOrg = null, onC
 
   const [form, setForm] = useState(EMPTY_FORM(domain))
   const [preview, setPreview] = useState(null) // dry-run response
+  const [selectedIds, setSelectedIds] = useState(new Set()) // person ids that will receive the assistance
   const [finalResult, setFinalResult] = useState(null)
   const [isBusy, setIsBusy] = useState(false)
   const [error, setError] = useState('')
@@ -143,6 +145,8 @@ export default function DistributeAssistanceModal({ domain, fixedOrg = null, onC
     try {
       const r = await api.post(domain.distributeUrl(org.id), buildPayload(true))
       setPreview(r.data)
+      // Everyone who can receive it starts ticked; the user unticks anyone who is not valid for this assistance.
+      setSelectedIds(new Set((r.data.results || []).filter((m) => m.status === 'would_create').map((m) => m.person_id)))
       setStep('confirm')
     } catch (err) {
       const data = err?.response?.data
@@ -153,10 +157,11 @@ export default function DistributeAssistanceModal({ domain, fixedOrg = null, onC
   }
 
   const handleConfirm = async () => {
+    if (selectedIds.size === 0) { setError('Select at least one member.'); return }
     setIsBusy(true)
     setError('')
     try {
-      const r = await api.post(domain.distributeUrl(org.id), buildPayload(false))
+      const r = await api.post(domain.distributeUrl(org.id), { ...buildPayload(false), member_ids: [...selectedIds] })
       setFinalResult(r.data)
       setResultFilter('all')
       setStep('result')
@@ -174,13 +179,22 @@ export default function DistributeAssistanceModal({ domain, fixedOrg = null, onC
     setOrgSearch('')
     setForm(EMPTY_FORM(domain))
     setPreview(null)
+    setSelectedIds(new Set())
     setFinalResult(null)
     setError('')
     setStep('form')
   }
 
   const blockedInPreview = (preview?.results || []).filter((r) => r.status === 'would_block')
-  const eligibleCount = preview ? preview.member_count - blockedInPreview.length : 0
+  const selectable = (preview?.results || []).filter((r) => r.status === 'would_create')
+  const selection = selectionSummary(preview?.results || [], selectedIds)
+  const eligibleCount = selection.willReceive
+  const toggleMember = (personId) => setSelectedIds((prev) => {
+    const next = new Set(prev)
+    if (next.has(personId)) next.delete(personId)
+    else next.add(personId)
+    return next
+  })
 
   const assistanceTypeDisplay = form.assistance_type === 'Other' ? form.assistance_type_other.trim() : form.assistance_type
   const typeFieldDisplay = isEquipment ? form.equipment_type : isSeeds ? form.seed_type : isFertilizer ? form.fertilizer_type : ''
@@ -223,7 +237,9 @@ export default function DistributeAssistanceModal({ domain, fixedOrg = null, onC
       <button type="button" onClick={() => setStep('form')} className="inline-flex items-center gap-1 text-[13px] font-medium text-[#7A8E7A] hover:text-[#1A2B1A] transition-colors">
         <ArrowLeft size={14} aria-hidden="true" /> Back to Edit
       </button>
-      <Button type="button" isLoading={isBusy} onClick={handleConfirm}>Confirm and Distribute</Button>
+      <Button type="button" isLoading={isBusy} disabled={selectedIds.size === 0} onClick={handleConfirm}>
+        Confirm and Distribute ({selectedIds.size})
+      </Button>
     </div>
   ) : (
     <>
@@ -235,7 +251,7 @@ export default function DistributeAssistanceModal({ domain, fixedOrg = null, onC
   return (
     <ModalShell
       title="Distribute to Organization"
-      subtitle={`Issue assistance to every current ${domain.personLabel.toLowerCase()} member in one operation.`}
+      subtitle={`Issue assistance to the current ${domain.personLabel.toLowerCase()} members you choose, in one operation.`}
       icon={Users}
       onClose={onClose}
       maxWidth="max-w-3xl"
@@ -374,7 +390,7 @@ export default function DistributeAssistanceModal({ domain, fixedOrg = null, onC
             <p className="mt-2 text-[26px] font-semibold leading-tight">{quantityDisplay}</p>
             <p className="text-[15px] font-medium text-[#D7E7D9]">{assistanceTypeDisplay}</p>
             <div className="my-4 border-t border-white/15" />
-            <p className="text-[13px] text-[#B7CBBB]">To all current members of</p>
+            <p className="text-[13px] text-[#B7CBBB]">To {selection.willReceive} selected member{selection.willReceive === 1 ? '' : 's'} of</p>
             <p className="text-[15px] font-semibold">{preview.organization_name}</p>
             <p className="mt-0.5 text-[13px] text-[#B7CBBB]">
               on <span className="font-semibold text-white">{formatDateLong(form.date_given)}</span>
@@ -383,7 +399,7 @@ export default function DistributeAssistanceModal({ domain, fixedOrg = null, onC
 
           <div className="grid grid-cols-3 gap-3">
             <StatTile value={preview.member_count} label="Total members" />
-            <StatTile value={eligibleCount} label="Eligible recipients" />
+            <StatTile value={eligibleCount} label="Selected to receive" />
             <StatTile value={blockedInPreview.length} label="Blocked — already received" />
           </div>
 
@@ -409,10 +425,45 @@ export default function DistributeAssistanceModal({ domain, fixedOrg = null, onC
             </div>
           )}
 
+          <div className="rounded-2xl border border-[#E2E8E2] bg-white">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E2E8E2] px-4 py-3">
+              <p className="text-[13px] font-semibold text-[#1A2B1A]">
+                Recipients <span className="font-normal text-[#4A5A4C]" data-testid="selected-count">— {selection.selected} of {selectable.length} selected</span>
+              </p>
+              <div className="flex gap-3 text-[12px] font-medium">
+                <button type="button" className="text-[#1E5637] hover:underline"
+                  onClick={() => setSelectedIds(new Set(selectable.map((m) => m.person_id)))}>Select all</button>
+                <button type="button" className="text-[#7A8E7A] hover:underline" onClick={() => setSelectedIds(new Set())}>Clear</button>
+              </div>
+            </div>
+            <ul className="max-h-64 divide-y divide-[#EEF2EE] overflow-y-auto" aria-label="Members to receive this assistance">
+              {(preview.results || []).map((m) => {
+                const blocked = m.status === 'would_block'
+                return (
+                  <li key={m.person_id} className={blocked ? 'bg-rose-50/50' : ''}>
+                    <label className={`flex items-start gap-3 px-4 py-2.5 ${blocked ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:bg-[#F5F7F5]'}`}>
+                      <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[#1B4D2E]" disabled={blocked}
+                        checked={!blocked && selectedIds.has(m.person_id)} onChange={() => toggleMember(m.person_id)}
+                        aria-label={`${blocked ? 'Blocked: ' : ''}${m.name}`} />
+                      <span className="min-w-0">
+                        <span className="block text-[13px] font-medium text-[#1A2B1A]">{m.name}</span>
+                        {m.id_number && <span className="block text-[12px] text-[#7A8E7A]">{m.id_number}</span>}
+                        {blocked && <span className="block text-[12px] text-rose-700">{m.reason}</span>}
+                      </span>
+                    </label>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+
           <div className="rounded-2xl border border-[#E2E8E2] bg-[#F9FAF9] p-4">
             <p className="mb-2 text-[13px] font-semibold text-[#1A2B1A]">Summary of what will happen:</p>
             <ul className="space-y-1 text-[13px] text-[#4A5A4C]">
-              <li><span className="font-semibold text-[#1E5637]">{eligibleCount} record(s) created</span> — assistance logged for {eligibleCount} member{eligibleCount === 1 ? '' : 's'}</li>
+              <li><span className="font-semibold text-[#1E5637]">{eligibleCount} record(s) created</span> — assistance logged for {eligibleCount} member{eligibleCount === 1 ? '' : 's'}; each is told to confirm it</li>
+              {selectable.length - eligibleCount > 0 && (
+                <li><span className="font-semibold text-[#4A5A4C]">{selectable.length - eligibleCount} not selected</span> — these members will not receive this assistance</li>
+              )}
               {blockedInPreview.length > 0 && (
                 <li><span className="font-semibold text-rose-700">{blockedInPreview.length} blocked</span> — already received this assistance type from another organization within 30 days</li>
               )}

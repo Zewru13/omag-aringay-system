@@ -5,7 +5,7 @@ import { MAX_PHOTOS, classifyPhotoFiles } from '../utils/photoRules.js'
 // A list of photos chosen for a form: each entry keeps its own File + preview URL. Adding never replaces existing
 // photos (an 11th is refused with "Maximum of 10 photos allowed."); removing one frees exactly one slot. Preview URLs
 // are released when removed or when the form unmounts. `reserved` = photos the record already has: they count toward
-// the same 10. Returns { photos, add, remove, reserved } where `photos` is [{ key, file, url }].
+// the same 10. Returns { photos, add, remove, clear, reserved } where `photos` is [{ key, file, url }].
 export default function usePhotoList(reserved = 0) {
   const { showToast } = useToast()
   const [photos, setPhotos] = useState([])
@@ -41,5 +41,12 @@ export default function usePhotoList(reserved = 0) {
     })
   }, [])
 
-  return { photos, add, remove, reserved }
+  // Empty the list after the form has been submitted, so the next report on the same screen starts with no photos.
+  const clear = useCallback(() => {
+    photosRef.current.forEach(p => URL.revokeObjectURL(p.url))
+    photosRef.current = []
+    setPhotos([])
+  }, [])
+
+  return { photos, add, remove, clear, reserved }
 }

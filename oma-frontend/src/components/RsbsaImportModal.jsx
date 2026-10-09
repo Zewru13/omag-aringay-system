@@ -8,6 +8,7 @@ import StatusPill from './UI/StatusPill.jsx'
 import StepIndicator from './UI/StepIndicator.jsx'
 import RsbsaUndoPanel from './RsbsaUndoPanel.jsx'
 import { useToast } from '../context/ToastContext.jsx'
+import { duplicateGroups, groupDecision, groupNeedsDecision } from '../utils/distributionHelpers.js'
 
 const STEPS = [
   { key: 'upload', label: 'Upload File' },
@@ -86,6 +87,8 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
   const [page, setPage] = useState(1)
   const [expandedRow, setExpandedRow] = useState(null)
   const [selectedRows, setSelectedRows] = useState(() => new Set())
+  // RSBSA numbers whose duplicate rows were all rejected (nothing from that group will be committed).
+  const [rejectedGroups, setRejectedGroups] = useState(() => new Set())
   const [commitResult, setCommitResult] = useState(null)
   const [commitProgress, setCommitProgress] = useState(null)
   const [undoBatchId, setUndoBatchId] = useState(null)
@@ -110,6 +113,7 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
       setStatusFilter('all')
       setPage(1)
       setSelectedRows(new Set())
+      setRejectedGroups(new Set())
       setStep('preview')
     } catch (err) {
       setError(err?.response?.data?.detail || 'Failed to preview the file.')
@@ -122,6 +126,7 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
     setFile(null)
     setPreview(null)
     setSelectedRows(new Set())
+    setRejectedGroups(new Set())
     setCommitResult(null)
     setError('')
     setStep('upload')
@@ -140,11 +145,44 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
           preview.rows.forEach((r) => {
             if (r.rsbsa_number === picked.rsbsa_number) next.delete(r.row_number)
           })
+          setRejectedGroups((prev) => {
+            if (!prev.has(picked.rsbsa_number)) return prev
+            const rest = new Set(prev)
+            rest.delete(picked.rsbsa_number)
+            return rest
+          })
         }
         next.add(rowNumber)
       }
       return next
     })
+  }
+
+  // Rows that share an RSBSA number are shown side by side: staff accept exactly one of them or reject them all.
+  const dupGroups = useMemo(() => duplicateGroups(preview?.rows).filter(groupNeedsDecision), [preview])
+  const undecidedGroups = dupGroups.filter((g) => groupDecision(g, selectedRows, rejectedGroups) === 'undecided')
+
+  const chooseDuplicate = (group, rowNumber) => {
+    setSelectedRows((prev) => {
+      const next = new Set(prev)
+      group.rows.forEach((r) => next.delete(r.row_number))
+      next.add(rowNumber)
+      return next
+    })
+    setRejectedGroups((prev) => {
+      const next = new Set(prev)
+      next.delete(group.rsbsa)
+      return next
+    })
+  }
+
+  const rejectDuplicates = (group) => {
+    setSelectedRows((prev) => {
+      const next = new Set(prev)
+      group.rows.forEach((r) => next.delete(r.row_number))
+      return next
+    })
+    setRejectedGroups((prev) => new Set(prev).add(group.rsbsa))
   }
 
   const FILTER_TABS = preview ? [
@@ -193,6 +231,7 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
   const selectedDualCount = selectedRowObjects.filter((r) => effectiveStatus(r) === 'classification_mismatch').length
 
   const goToConfirm = () => {
+    if (undecidedGroups.length > 0) { showToast('Decide every duplicate RSBSA number first.', 'error'); return }
     if (selectedRowObjects.length === 0) { showToast('Select at least one row to commit.', 'error'); return }
     setError('')
     setStep('confirm')
@@ -246,7 +285,12 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
         <Button type="button" variant="outline" onClick={handleStartOver}>Upload a Different File</Button>
         <div className="flex items-center gap-3">
           <span className="text-[12.5px] text-[#7A8E7A]">{selectedRows.size} row{selectedRows.size === 1 ? '' : 's'} selected</span>
-          <Button type="button" onClick={goToConfirm} disabled={selectedRows.size === 0}>
+          {undecidedGroups.length > 0 && (
+            <span className="text-[12.5px] font-medium text-rose-700" data-testid="undecided-groups">
+              {undecidedGroups.length} duplicate group{undecidedGroups.length === 1 ? ' needs' : 's need'} a decision
+            </span>
+          )}
+          <Button type="button" onClick={goToConfirm} disabled={selectedRows.size === 0 || undecidedGroups.length > 0}>
             Continue to Confirm
           </Button>
         </div>
@@ -348,6 +392,67 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
             record hasn't been edited since — they don't yet distinguish a genuine recent edit from a record
             that simply hasn't been touched.
           </p>
+
+          {dupGroups.length > 0 && (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50/60 p-5" data-testid="duplicate-groups">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={16} className="text-rose-700" aria-hidden="true" />
+                <p className="text-[14px] font-semibold text-rose-800">Duplicate RSBSA numbers — choose one row for each, or reject them all</p>
+              </div>
+              <p className="mt-1 text-[12.5px] text-rose-800">
+                One person has one RSBSA number, so only one row per number can be committed. Pick the row to keep, or reject every row for that number.
+              </p>
+              <div className="mt-4 space-y-4">
+                {dupGroups.map((group) => {
+                  const decision = groupDecision(group, selectedRows, rejectedGroups)
+                  return (
+                    <fieldset key={group.rsbsa} className="rounded-xl border border-[#E2E8E2] bg-white p-3">
+                      <legend className="px-1 text-[12px] font-semibold text-[#1A2B1A]">
+                        RSBSA {group.rsbsa}
+                        <span className={`ml-2 font-medium ${decision === 'undecided' ? 'text-rose-700' : 'text-[#1E5637]'}`}>
+                          {decision === 'undecided' ? 'needs a decision' : decision === 'rejected' ? 'all rows rejected' : 'one row accepted'}
+                        </span>
+                      </legend>
+                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        {group.rows.map((r) => {
+                          const chosen = selectedRows.has(r.row_number)
+                          return (
+                            <label key={r.row_number}
+                              className={`flex cursor-pointer gap-2 rounded-lg border p-2.5 text-[12px] ${chosen ? 'border-[#1B4D2E] bg-[#F5FAF6]' : 'border-[#E2E8E2] hover:bg-[#F9FAF9]'}`}>
+                              <input type="radio" name={`dup-${group.rsbsa}`} checked={chosen}
+                                onChange={() => chooseDuplicate(group, r.row_number)} aria-label={`Keep row ${r.row_number}`} className="mt-0.5" />
+                              <span className="min-w-0">
+                                <span className="block font-semibold text-[#1A2B1A]">Row {r.row_number} · {r.matched_record_name || 'New person'}</span>
+                                <span className="block text-[#5A6B5C]">
+                                  {effectiveStatus(r) === 'matched_with_changes' ? 'Matches an existing record with changes'
+                                    : effectiveStatus(r) === 'unmatched' ? 'Not in the system yet — will be registered'
+                                      : effectiveStatus(r) === 'classification_mismatch' ? 'Dual registration'
+                                        : 'Matches the existing record — nothing to commit'}
+                                </span>
+                                {(r.changes || []).slice(0, 4).map((c) => (
+                                  <span key={c.field} className="block text-[#8A5207]">{c.label}: {c.current || '—'} → {c.incoming}</span>
+                                ))}
+                                {(r.changes || []).length > 4 && <span className="block text-[#7A8E7A]">+{r.changes.length - 4} more</span>}
+                                {!(r.changes || []).length && r.incoming_values && Object.entries(r.incoming_values)
+                                  .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== '').slice(0, 8).map(([k, v]) => (
+                                  <span key={k} className="block text-[#4A5A4C]">{k.replace(/_/g, ' ')}: {String(v ?? '—')}</span>
+                                ))}
+                              </span>
+                            </label>
+                          )
+                        })}
+                      </div>
+                      <label className="mt-2 flex cursor-pointer items-center gap-2 text-[12px] font-medium text-rose-800">
+                        <input type="radio" name={`dup-${group.rsbsa}`} checked={decision === 'rejected'}
+                          onChange={() => rejectDuplicates(group)} aria-label={`Reject all rows for ${group.rsbsa}`} />
+                        Reject all rows for this RSBSA number
+                      </label>
+                    </fieldset>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           <div className="rounded-2xl border border-[#E2E8E2] bg-white p-5">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
