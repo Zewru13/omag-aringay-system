@@ -317,6 +317,9 @@ function FeedingLogTab({ cycleId, units = [], cycle }) {
       const bad = units.find(u => unitQty[u.id] !== undefined && unitQty[u.id] !== '' && !(parseFloat(unitQty[u.id]) >= 0))
       if (bad) { showToast(`${unitLabel(bad)}: feed quantity cannot be negative.`, 'error'); return }
       if (!(unitsTotal > 0)) { showToast('Enter a feed quantity for at least one pond/cage.', 'error'); return }
+    } else if (!(parseFloat(form.quantity_kg) >= 0.01)) {
+      // A lone "." or "0" passes the field's `required`, so the minimum is checked here.
+      showToast('Feed quantity must be at least 0.01 kg.', 'error'); return
     }
 
     setIsSaving(true)
