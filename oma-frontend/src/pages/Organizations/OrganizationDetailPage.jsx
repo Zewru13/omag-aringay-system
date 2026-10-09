@@ -6,7 +6,6 @@ import ActivateCitizenAccountButton from "../../components/ActivateCitizenAccoun
 import ImportFileModal from "../../components/ImportFileModal.jsx";
 import PageLayout from "../../components/Layout/PageLayout.jsx";
 import Button from "../../components/UI/Button.jsx";
-import DataTable from "../../components/UI/DataTable.jsx";
 import StatusPill from "../../components/UI/StatusPill.jsx";
 import Tabs from "../../components/UI/Tabs.jsx";
 import ModalShell from "../../components/UI/ModalShell.jsx";
@@ -16,7 +15,9 @@ import { baseInputClasses } from "../../components/UI/FormField.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import useSuggestSearch from "../../hooks/useSuggestSearch.js";
+import { filterOptions } from "../../utils/orgListFilter.js";
 import { agencyLabel } from "./agencyOptions.js";
+import OrgCompactList from "./OrgCompactList.jsx";
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -859,10 +860,16 @@ function OrganizationDetailPage({ own = false }) {
   // Both organization types carry an equipment inventory: the backend has
   // Add/Remove equipment endpoints and a serializer for each, and
   // AddEquipmentModal's per-type lists mirror each model's choices.
-  const sectionTabs = [
-    { value: "members", label: "Members" },
-    { value: "equipment", label: "Equipment Inventory" },
-  ];
+  const sectionTabs = own
+    ? [
+        { value: "members", label: "Members" },
+        { value: "equipment", label: "Equipment" },
+        { value: "officers", label: "Officers" },
+      ]
+    : [
+        { value: "members", label: "Members" },
+        { value: "equipment", label: "Equipment Inventory" },
+      ];
 
   const [organization, setOrganization] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -980,77 +987,63 @@ function OrganizationDetailPage({ own = false }) {
   const handleEquipmentAdded = () => setRefreshKey((k) => k + 1);
   const handleOfficerAssigned = () => setRefreshKey((k) => k + 1);
 
-  // Own-organization mode shows these lists in the shared table (it becomes cards on a phone) instead of the
-  // wide staff tables. The same actions, built once here.
-  const memberColumns = [
-    { key: "name", label: "Full Name" },
-    { key: "idNumber", label: memberIdLabel },
-    { key: "positionCell", label: "Position" },
-    { key: "joined", label: "Date Joined" },
-    { key: "mainCell", label: "Main" },
-    { key: "statusCell", label: "Status" },
-    { key: "actionsCell", label: "Actions" },
-  ];
-  const memberRows = (organization?.members || []).map((m) => {
+  // Own-organization mode shows short lists (just the name on each row, details on tap) with a search and filters.
+  const choices = (items, key) => filterOptions(items, key).map((value) => ({ value, label: value }));
+  const memberItems = (organization?.members || []).map((m) => {
     const isActive = m.is_active !== false;
     return {
       id: m.id,
       name: m[memberNameField],
-      idNumber: m[memberIdField],
-      positionCell: <StatusPill tone={positionTone(m.position)}>{m.position}</StatusPill>,
-      joined: formatDate(m.date_joined),
-      mainCell: m.is_main ? <StatusPill tone="green">Main</StatusPill> : "—",
-      statusCell: <StatusPill tone={isActive ? "green" : "slate"}>{isActive ? "Active" : "Inactive"}</StatusPill>,
-      actionsCell: (
-        <Button
-          className={isActive ? "!text-rose-600" : "!text-[#1B4D2E]"}
-          icon={Power}
-          onClick={() => setConfirmSetMemberActive({
-            id: m.id, name: m[memberNameField], targetActive: !isActive, heldPosition: heldPositionFor(m),
-          })}
-          size="sm"
-          type="button"
-          variant="ghost"
-        >
-          {isActive ? "Deactivate" : "Activate"}
-        </Button>
-      ),
+      dim: !isActive,
+      attrs: { status: isActive ? "Active" : "Inactive", position: m.position || "Member", main: m.is_main ? "Main" : "Other" },
+      details: [
+        { label: memberIdLabel, value: m[memberIdField] || "—" },
+        { label: "Position", value: <StatusPill tone={positionTone(m.position)}>{m.position}</StatusPill> },
+        { label: "Date joined", value: formatDate(m.date_joined) },
+        { label: "Main organization", value: m.is_main ? "Yes" : "No" },
+        { label: "Status", value: <StatusPill tone={isActive ? "green" : "slate"}>{isActive ? "Active" : "Inactive"}</StatusPill> },
+      ],
+      actions: [{
+        key: "toggle",
+        label: isActive ? "Deactivate" : "Activate",
+        icon: Power,
+        tone: isActive ? "danger" : "default",
+        onClick: () => setConfirmSetMemberActive({
+          id: m.id, name: m[memberNameField], targetActive: !isActive, heldPosition: heldPositionFor(m),
+        }),
+      }],
     };
   });
-  const equipmentColumns = [
-    { key: "name", label: "Equipment" },
-    { key: "quantity", label: "Qty" },
-    { key: "conditionCell", label: "Condition" },
-    { key: "acquired", label: "Acquired" },
-    { key: "remarks", label: "Remarks" },
-    { key: "actionsCell", label: "Actions" },
+  const memberFilters = [
+    { key: "status", label: "Status", allLabel: "All statuses", options: choices(memberItems, "status") },
+    { key: "position", label: "Position", allLabel: "All positions", options: choices(memberItems, "position") },
+    { key: "main", label: "Main organization", allLabel: "Main or not", options: memberItems.some((i) => i.attrs.main === "Main") ? [{ value: "Main", label: "Main organization only" }] : [] },
   ];
-  const equipmentRows = (organization?.equipment || []).map((eq) => ({
+  const equipmentItems = (organization?.equipment || []).map((eq) => ({
     id: eq.id,
     name: eq.equipment_name === "Other" && eq.equipment_name_other ? `Other — ${eq.equipment_name_other}` : eq.equipment_name,
-    quantity: eq.quantity,
-    conditionCell: <StatusPill tone={conditionTone(eq.condition)}>{eq.condition}</StatusPill>,
-    acquired: formatDate(eq.acquisition_date),
-    remarks: eq.remarks || "—",
-    actionsCell: (
-      <Button className="!text-rose-600" icon={Trash2} onClick={() => setConfirmRemoveEquipment(eq.id)} size="sm" type="button" variant="ghost">
-        Remove
-      </Button>
-    ),
+    attrs: { condition: eq.condition },
+    details: [
+      { label: "Quantity", value: eq.quantity },
+      { label: "Condition", value: <StatusPill tone={conditionTone(eq.condition)}>{eq.condition}</StatusPill> },
+      { label: "Date acquired", value: formatDate(eq.acquisition_date) },
+      { label: "Remarks", value: eq.remarks || "—" },
+    ],
+    actions: [{ key: "remove", label: "Remove", icon: Trash2, tone: "danger", onClick: () => setConfirmRemoveEquipment(eq.id) }],
   }));
-  const officerColumns = [
-    { key: "position", label: "Position" },
-    { key: "name", label: "Name" },
-    { key: "termStart", label: "Term Start" },
-    { key: "termEnd", label: "Term End" },
-  ];
-  const officerRows = (organization?.officers || []).map((o) => ({
+  const equipmentFilters = [{ key: "condition", label: "Condition", allLabel: "All conditions", options: choices(equipmentItems, "condition") }];
+  const officerItems = (organization?.officers || []).map((o) => ({
     id: o.id,
-    position: o.position,
     name: o.full_name,
-    termStart: formatDate(o.term_start_date),
-    termEnd: formatDate(o.term_end_date),
+    subtitle: o.position,
+    attrs: { position: o.position },
+    details: [
+      { label: "Position", value: o.position },
+      { label: "Term start", value: formatDate(o.term_start_date) },
+      { label: "Term end", value: formatDate(o.term_end_date) },
+    ],
   }));
+  const officerFilters = [{ key: "position", label: "Position", allLabel: "All positions", options: choices(officerItems, "position") }];
 
   return (
     <PageLayout
@@ -1091,8 +1084,8 @@ function OrganizationDetailPage({ own = false }) {
 
         {!isLoading && organization && (
           <>
-            {/* Identity + Organization Information */}
-            {(() => {
+            {/* Identity + Organization Information (staff view only: an organization sees these on My Profile) */}
+            {!own && (() => {
               const themeColor = type === "farmers" ? "#1B4D2E" : FISH_BLUE;
               const themeBg = type === "farmers" ? "#EBF5EE" : "#EAF1F5";
               return (
@@ -1218,6 +1211,19 @@ function OrganizationDetailPage({ own = false }) {
                         Add Member
                       </button>
                     </div>
+                  ) : own && activeSection === "officers" ? (
+                    <div className="flex items-center gap-2">
+                      <Button onClick={() => setShowOfficerHistory(true)} size="sm" type="button" variant="secondary">
+                        Officer History
+                      </Button>
+                      <button
+                        className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
+                        onClick={() => setShowAssignOfficer(true)}
+                      >
+                        <UserCog size={15} />
+                        Assign Officer
+                      </button>
+                    </div>
                   ) : (
                     <div className="flex items-center gap-2">
                       <button
@@ -1248,7 +1254,7 @@ function OrganizationDetailPage({ own = false }) {
                     No members recorded.
                   </p>
                 ) : own ? (
-                  <DataTable columns={memberColumns} data={memberRows} />
+                  <OrgCompactList items={memberItems} filters={memberFilters} searchPlaceholder="Search by name..." emptyText="No members recorded." />
                 ) : (
                   <div className="overflow-hidden rounded-xl border border-[#E2E8E2]">
                     <div className="overflow-x-auto">
@@ -1338,7 +1344,7 @@ function OrganizationDetailPage({ own = false }) {
                     No equipment recorded.
                   </p>
                 ) : own ? (
-                  <DataTable columns={equipmentColumns} data={equipmentRows} />
+                  <OrgCompactList items={equipmentItems} filters={equipmentFilters} searchPlaceholder="Search by name..." emptyText="No equipment recorded." />
                 ) : (
                   <div className="overflow-hidden rounded-xl border border-[#E2E8E2]">
                     <div className="overflow-x-auto">
@@ -1401,10 +1407,20 @@ function OrganizationDetailPage({ own = false }) {
                     </div>
                   </div>
                 ))}
+
+              {/* Officers tab (an organization's own page) */}
+              {own && activeSection === "officers" &&
+                (organization.officers.length === 0 ? (
+                  <p className="rounded-lg bg-[#F5F7F5] px-4 py-3 text-[13px] text-[#7A8E7A]">
+                    No officers assigned yet.
+                  </p>
+                ) : (
+                  <OrgCompactList items={officerItems} filters={officerFilters} searchPlaceholder="Search by name..." emptyText="No officers assigned yet." />
+                ))}
             </div>
 
-            {/* Officers Table (both organization types) */}
-            {organization.officers && (
+            {/* Officers: a tab above for an organization's own page, this card for staff */}
+            {!own && organization.officers && (
               <div className="mt-6 bg-white border border-[#E2E8E2] rounded-xl p-6">
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                   <h3 className="text-[14px] font-semibold text-[#1A2B1A]">Organization Officers</h3>
@@ -1432,8 +1448,6 @@ function OrganizationDetailPage({ own = false }) {
                   <p className="rounded-lg bg-[#F5F7F5] px-4 py-3 text-[13px] text-[#7A8E7A]">
                     No officers assigned yet.
                   </p>
-                ) : own ? (
-                  <DataTable columns={officerColumns} data={officerRows} />
                 ) : (
                   <div className="rounded-xl border border-[#E2E8E2] overflow-hidden overflow-x-auto">
                     <table className="w-full text-sm">
