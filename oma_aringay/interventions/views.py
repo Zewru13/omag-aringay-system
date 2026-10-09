@@ -1,3 +1,5 @@
+import uuid
+
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.shortcuts import get_object_or_404
@@ -29,6 +31,7 @@ from .models import (
     FisherfolkBeneficiaryConfirmationRequest,
     FisherfolkBeneficiaryRecord,
 )
+from .distributions import build_distributions, filter_records, remove_records
 from .serializers import (
     AccountlessConfirmableSerializer,
     BeneficiaryConfirmationRequestSerializer,
@@ -43,23 +46,23 @@ from .serializers import (
 
 class PendingOnlyEditMixin:
     """
-    Scheduled-distribution lifecycle, Step 6: once a record has entered
-    AWAITING_CONFIRMATION or later, it's a citizen-facing state and must
-    not be silently changed under them — editing is blocked from that point
-    on. PENDING (not yet due) and the pre-existing CONFIRMED-immediately
-    path (today/past-dated, no lifecycle involved at all) both stay
-    editable exactly as before; this mixin only adds a new rejection for
-    the states that are new in this batch.
+    Who may still edit an assistance record, by its state:
+      - an organization (CITIZEN account) only while it is PENDING: once the record is due it belongs to the recipient;
+      - staff while it is PENDING, AWAITING_CONFIRMATION (new assistance starts there, so a typo can still be fixed) or
+        CONFIRMED, but not once the recipient reported non-receipt or the case was resolved.
     """
+    ORGANIZATION_EDITABLE = (DistributionStatus.PENDING,)
+    STAFF_EDITABLE = (
+        DistributionStatus.PENDING, DistributionStatus.AWAITING_CONFIRMATION, DistributionStatus.CONFIRMED,
+    )
 
     def perform_update(self, serializer):
-        # An organization (a CITIZEN account) may only edit what it submitted while it is still Pending: a
-        # Confirmed record already belongs to the recipient, so only staff can correct it.
-        allowed = (DistributionStatus.PENDING,) if self.request.user.role == 'CITIZEN'             else (DistributionStatus.PENDING, DistributionStatus.CONFIRMED)
+        is_organization = self.request.user.role == 'CITIZEN'
+        allowed = self.ORGANIZATION_EDITABLE if is_organization else self.STAFF_EDITABLE
         if serializer.instance.status not in allowed:
             raise ValidationError(
                 f'This record cannot be edited — it is {serializer.instance.get_status_display()}, '
-                + ('not Pending.' if self.request.user.role == 'CITIZEN' else 'not Pending or Confirmed.')
+                + ('not Pending.' if is_organization else 'not Pending, Awaiting Confirmation or Confirmed.')
             )
         serializer.save()
 
@@ -119,7 +122,7 @@ class BeneficiaryAdHocListCreateView(generics.ListCreateAPIView):
         return qs
 
     def perform_create(self, serializer):
-        record = serializer.save(recorded_by=self.request.user)
+        record = serializer.save(recorded_by=self.request.user, distribution_batch=uuid.uuid4())
         notify_assistance_recorded(record, self.request.user)
 
 
@@ -187,7 +190,7 @@ class FisherfolkBeneficiaryAdHocListCreateView(generics.ListCreateAPIView):
         return qs
 
     def perform_create(self, serializer):
-        record = serializer.save(recorded_by=self.request.user)
+        record = serializer.save(recorded_by=self.request.user, distribution_batch=uuid.uuid4())
         notify_assistance_recorded(record, self.request.user)
 
 
@@ -288,6 +291,54 @@ class MyOrgFisherfolkBeneficiaryHistoryView(generics.ListAPIView):
         return FisherfolkBeneficiaryRecord.objects.filter(
             recorded_by=self.request.user,
         ).select_related('fisherfolk').order_by('-date_given', '-id')
+
+
+class MyOrgDistributionsView(APIView):
+    """An organization's own assistance history as distributions (one entry per distribution, expandable to its
+    members), with the filters `status` (a status or `needs-follow-up`), `assistance_type`, `date_from`, `date_to`,
+    `member` and `source_agency`. Only records this organization account recorded, never another organization's."""
+    permission_classes = [IsAuthenticated, IsCitizen]
+    org_linked_record_type = 'FARMERS_ORG'
+    record_model = BeneficiaryRecord
+    person_field = 'farmer'
+
+    def get(self, request):
+        if request.user.linked_record_type != self.org_linked_record_type:
+            return Response([])
+        queryset = self.record_model.objects.filter(recorded_by=request.user).select_related(self.person_field)
+        records = filter_records(queryset, self.person_field, request.query_params)
+        return Response(build_distributions(records, self.person_field))
+
+
+class MyOrgFisherfolkDistributionsView(MyOrgDistributionsView):
+    org_linked_record_type = 'FISHERFOLK_ORG'
+    record_model = FisherfolkBeneficiaryRecord
+    person_field = 'fisherfolk'
+
+
+class AssistanceRemovalView(APIView):
+    """Take entries out of the list before the recipient confirms them: body {domain: 'crop'|'fisheries', record_ids: [...]}
+    or {domain, distribution: <group id>}. Staff may remove any entry; an organization account only what it recorded."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        domain = request.data.get('domain')
+        denied = Response({'detail': 'You do not have permission to perform this action.'}, status=403)
+        if user.role == 'CITIZEN':
+            expected = {'crop': 'FARMERS_ORG', 'fisheries': 'FISHERFOLK_ORG'}.get(domain)
+            if expected is None or user.linked_record_type != expected:
+                return denied
+        elif user.role not in ('ADMIN', 'EVALUATOR'):
+            return denied
+        record_ids = request.data.get('record_ids')
+        if record_ids is not None and not isinstance(record_ids, list):
+            raise ValidationError({'record_ids': ['Send a list of record ids.']})
+        try:
+            result = remove_records(domain, user, record_ids=record_ids, distribution=request.data.get('distribution'))
+        except (TypeError, ValueError):
+            raise ValidationError({'record_ids': ['Send a list of record ids.']})
+        return Response(result)
 
 
 # ─── Scheduled distribution + confirmation lifecycle: recipient & staff actions ──
@@ -1059,6 +1110,10 @@ def _run_assistance_import(person_model, record_model, serializer_class, person_
             continue
 
         record = serializer.save(recorded_by=user)
+        if record.status == DistributionStatus.AWAITING_CONFIRMATION:
+            # An import loads assistance that already happened, so past-dated rows stay Confirmed (they must not
+            # flood every recipient with old confirmations); future-dated rows stay Pending as before.
+            record_model.objects.filter(pk=record.pk).update(status=DistributionStatus.CONFIRMED)
         created += 1
         rows_out.append({'row': row_num, 'status': 'ready', 'label': label, 'detail': f'Created (record #{record.id}).'})
 

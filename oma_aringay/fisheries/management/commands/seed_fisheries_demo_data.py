@@ -581,7 +581,7 @@ class Command(BaseCommand):
         for i, spec in enumerate(specs):
             ff = fisherfolk[spec['ff_idx']]
             date_received = today - timedelta(days=spec['days_ago'])
-            FisherfolkBeneficiaryRecord.objects.create(
+            record = FisherfolkBeneficiaryRecord.objects.create(
                 program=None,
                 fisherfolk=ff,
                 assistance_type=spec['atype'],
@@ -594,6 +594,8 @@ class Command(BaseCommand):
                 remarks=SEED_TAG,
                 recorded_by=admin_user,
             )
+            # Demo history: assistance that already happened, so it is Confirmed (new records otherwise await the recipient).
+            FisherfolkBeneficiaryRecord.objects.filter(pk=record.pk).update(status='CONFIRMED')
             count += 1
         self.stdout.write(f'  Created {count} assistance records.')
         return count

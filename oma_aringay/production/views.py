@@ -7,6 +7,7 @@ from django.db.models import Avg, Case, CharField, Count, Exists, F, IntegerFiel
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status as drf_status
+from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -18,7 +19,7 @@ from accounts.permissions import (
 from core.constants import BARANGAY_CHOICES
 from core.locking import assert_not_locked_by_other
 from core.notifications import notify_staff, notify_user, resolve_owner_user
-from core.utils import accumulate_yield_group, filter_people_search, harvest_gate_status, new_yield_group
+from core.utils import accumulate_yield_group, filter_people_search, harvest_gate_status, is_plain_int, new_yield_group
 from farmers.models import FarmParcel, Farmer
 from fisheries.models import Fisherfolk
 
@@ -931,15 +932,15 @@ class CropDuplicateCheckView(APIView):
     def get(self, request):
         params = request.query_params
         farmer_id, crop_type_id = params.get('farmer'), params.get('crop_type')
-        if not (farmer_id or '').isdigit() or not (crop_type_id or '').isdigit():
+        if not is_plain_int(farmer_id) or not is_plain_int(crop_type_id):
             return Response({'duplicates': []})
         parcel = params.get('parcel')
         exclude = params.get('exclude')
         found = find_active_duplicates(
             farmer_id=int(farmer_id), crop_type_id=int(crop_type_id), variety=params.get('variety', ''),
-            farm_parcel_id=int(parcel) if (parcel or '').isdigit() else None,
+            farm_parcel_id=int(parcel) if is_plain_int(parcel) else None,
             barangay=params.get('barangay', ''),
-            exclude_id=int(exclude) if (exclude or '').isdigit() else None,
+            exclude_id=int(exclude) if is_plain_int(exclude) else None,
         )[:5]
         results = [
             {
@@ -1482,6 +1483,8 @@ class CropDisasterReportListCreateView(generics.ListCreateAPIView):
         # 0-10 damage photos (the older single `photo` field counts as one), validated before anything is saved;
         # the report, its photo rows and the response are built in ONE transaction, and the files written by a
         # failed attempt are removed again.
+        if not hasattr(request.data, 'items'):
+            raise ValidationError({'detail': 'Send the report as a form or a JSON object.'})
         photos = validated_photos(request, 'photos', legacy_field='photo', limit=CropDisasterReportPhoto.MAX_PER_PARENT)
         if hasattr(request.data, 'getlist'):   # multipart: one value per field, photo files excluded
             data = {k: request.data.get(k) for k in request.data.keys() if k not in ('photos', 'photo')}
@@ -2310,7 +2313,7 @@ class CropDisasterLogListView(APIView):
             qs = qs.filter(disaster_type=params['disaster_type'])
         if params.get('status') in ('Active', 'Recovered'):
             qs = qs.filter(status=params['status'])
-        if params.get('year', '').isdigit():
+        if is_plain_int(params.get('year', '')):
             qs = qs.filter(date_of_occurrence__year=int(params['year']))
         if params.get('barangay'):
             qs = qs.filter(monitoring_record__farm_location_barangay__iexact=params['barangay'])
@@ -2324,7 +2327,7 @@ class CropDisasterLogListView(APIView):
                      | Q(monitoring_record__crop_type__name__icontains=search)
                      | Q(disaster_type__icontains=search) | Q(disaster_type_other_specify__icontains=search))
             ref = search.upper().replace('CDR-', '').split('-')[-1]
-            if ref.isdigit():
+            if is_plain_int(ref):
                 match |= Q(pk=int(ref))
             qs = qs.filter(match)
         if not params.get('page'):

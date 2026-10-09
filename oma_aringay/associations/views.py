@@ -1,3 +1,4 @@
+import uuid
 from datetime import date, timedelta
 from io import BytesIO
 
@@ -22,7 +23,7 @@ from accounts.utils import (
 )
 from farmers.models import Farmer
 from farmers.rsbsa_import import normalize_barangay
-from core.utils import build_name_search_q
+from core.utils import build_name_search_q, is_plain_int
 from core.validators import normalize_contact_number
 from fisheries.models import Fisherfolk
 from interventions.lifecycle import notify_assistance_recorded
@@ -508,7 +509,7 @@ class FisherfolkOrganizationListCreateView(generics.ListCreateAPIView):
         owner = fisherfolk_scope(self.request.user)
         fisherfolk_id = str(owner) if owner is not None else self.request.query_params.get('fisherfolk', '').strip()
         if fisherfolk_id:
-            if not fisherfolk_id.isdigit():
+            if not is_plain_int(fisherfolk_id):
                 return qs.none()
             qs = qs.filter(members__fisherfolk_id=fisherfolk_id, members__is_active=True).distinct()
         return qs
@@ -891,7 +892,25 @@ class FisherfolkOrganizationAddCandidateSearchView(_AddCandidateSearchBase):
 # one-by-one flow (CitizenReportAssistanceModal / AddAssistanceModal /
 # LogGovernmentAssistanceModal) — does not replace it.
 
-def _run_organization_distribution(record_model, person_field, organization, members, data, user, commit=True):
+def _chosen_members(members, data, dry_run):
+    """The people a distribution goes to: the whole active roster, or only the ids in `member_ids` (each must be on
+    that roster). The preview always lists the whole roster so the form can show a checklist."""
+    if dry_run or 'member_ids' not in data:
+        return members
+    ids = data['member_ids']
+    if not ids:
+        raise serializers.ValidationError({'member_ids': ['Select at least one member.']})
+    roster = {person.id: person for person in members}
+    unknown = sorted(set(ids) - set(roster))
+    if unknown:
+        raise serializers.ValidationError({
+            'member_ids': [f'Not an active member of this organization: {", ".join(str(i) for i in unknown)}.'],
+        })
+    chosen = set(ids)
+    return [person for person in members if person.id in chosen]
+
+
+def _run_organization_distribution(record_model, person_field, organization, members, data, user, commit=True, batch=None):
     """
     Shared by both domain views below — identical per-member logic, differing
     only in which model/FK field/attribution field is used.
@@ -1041,6 +1060,7 @@ def _run_organization_distribution(record_model, person_field, organization, mem
                     # comment for why this can't be reconstructed later
                     # from attributed_organization.
                     distributed_by_organization=organization,
+                    distribution_batch=batch,
                     **{person_field: person, text_field: data.get('description', '')},
                 )
             results.append({
@@ -1102,14 +1122,18 @@ class FarmersOrganizationDistributeAssistanceView(APIView):
             FarmersOrganizationMember.objects.filter(organization_id=pk, is_active=True).select_related('farmer')
         ]
 
+        dry_run = bool(request.data.get('dry_run'))
+        members = _chosen_members(members, data, dry_run)
+        batch = None if dry_run else uuid.uuid4()
         results = _run_organization_distribution(
             BeneficiaryRecord, 'farmer', organization, members, data, request.user,
-            commit=not bool(request.data.get('dry_run')),
+            commit=not dry_run, batch=batch,
         )
         return Response({
             'organization_id': organization.id,
             'organization_name': organization.name,
             'member_count': len(members),
+            'distribution_id': str(batch) if batch else None,
             'results': results,
         }, status=status.HTTP_200_OK)
 
@@ -1134,14 +1158,18 @@ class FisherfolkOrganizationDistributeAssistanceView(APIView):
             FisherfolkOrganizationMember.objects.filter(organization_id=pk, is_active=True).select_related('fisherfolk')
         ]
 
+        dry_run = bool(request.data.get('dry_run'))
+        members = _chosen_members(members, data, dry_run)
+        batch = None if dry_run else uuid.uuid4()
         results = _run_organization_distribution(
             FisherfolkBeneficiaryRecord, 'fisherfolk', organization, members, data, request.user,
-            commit=not bool(request.data.get('dry_run')),
+            commit=not dry_run, batch=batch,
         )
         return Response({
             'organization_id': organization.id,
             'organization_name': organization.name,
             'member_count': len(members),
+            'distribution_id': str(batch) if batch else None,
             'results': results,
         }, status=status.HTTP_200_OK)
 

@@ -24,7 +24,7 @@ from accounts.permissions import (
 from accounts.utils import create_inactive_citizen_shell
 from core.locking import assert_not_locked_by_other
 from core.notifications import notify_staff, notify_user, resolve_owner_user
-from core.utils import accumulate_yield_group, build_name_search_q, day_range_bounds, filter_people_search, harvest_gate_status, new_yield_group
+from core.utils import accumulate_yield_group, build_name_search_q, day_range_bounds, filter_people_search, harvest_gate_status, is_plain_int, new_yield_group
 from core.photos import discard_uploaded_files, validated_photos
 from core.validators import validate_uploaded_image
 
@@ -1449,7 +1449,7 @@ class FisheriesDisasterReportListView(APIView):
             qs = qs.filter(disaster_type=params['disaster_type'])
         if params.get('status') in ('Active', 'Recovered'):
             qs = qs.filter(status=params['status'])
-        if params.get('year', '').isdigit():
+        if is_plain_int(params.get('year', '')):
             qs = qs.filter(date_of_occurrence__year=int(params['year']))
         if params.get('barangay'):
             b = params['barangay']
@@ -1462,7 +1462,7 @@ class FisheriesDisasterReportListView(APIView):
                      | Q(stocking_record__species__species_name__icontains=search)
                      | Q(disaster_type__icontains=search) | Q(disaster_type_other_specify__icontains=search))
             ref = search.upper().replace('FDR-', '').split('-')[-1]
-            if ref.isdigit():
+            if is_plain_int(ref):
                 match |= Q(pk=int(ref))
             qs = qs.filter(match)
         if submission == FisheriesDisasterReport.SubmissionStatus.SUBMITTED:

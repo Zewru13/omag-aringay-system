@@ -22,7 +22,7 @@ def notify_assistance_recorded(record, actor):
     accounts with old news.
 
     Rules, so it never becomes noise:
-      - Only a record that is already CONFIRMED (dated today or earlier). A
+      - Only a record that is already due (CONFIRMED, or AWAITING_CONFIRMATION: dated today or earlier). A
         future-dated record starts PENDING and the recipient is told once, by
         advance_due_distributions, when it comes due — telling them now as
         well would be two notices for one event.
@@ -34,7 +34,7 @@ def notify_assistance_recorded(record, actor):
         successful save into an error.
     """
     try:
-        if record.status != DistributionStatus.CONFIRMED:
+        if record.status not in (DistributionStatus.CONFIRMED, DistributionStatus.AWAITING_CONFIRMATION):
             return
         if isinstance(record, FisherfolkBeneficiaryRecord):
             recipient = resolve_owner_user(fisherfolk_id=record.fisherfolk_id)
@@ -44,6 +44,7 @@ def notify_assistance_recorded(record, actor):
             record_type = 'beneficiary'
         if recipient is None or (actor is not None and recipient.pk == actor.pk):
             return
+        awaiting = record.status == DistributionStatus.AWAITING_CONFIRMATION
         notify_user(
             recipient=recipient,
             actor=actor,
@@ -51,7 +52,11 @@ def notify_assistance_recorded(record, actor):
             record_type=record_type,
             record_id=record.id,
             record_label=f'{record.assistance_type or "Assistance"} — {record.date_given}',
-            detail=(record.quantity or '')[:255],
+            detail=(
+                f'{record.quantity} — please confirm that you received it' if record.quantity and awaiting
+                else 'Please confirm that you received it' if awaiting
+                else (record.quantity or '')
+            )[:255],
         )
     except Exception:
         logger.exception('notify_assistance_recorded failed (non-fatal): record=%s', getattr(record, 'pk', None))

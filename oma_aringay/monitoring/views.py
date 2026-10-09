@@ -9,6 +9,7 @@ from rest_framework.views import APIView
 from accounts.permissions import (
     IsAdminOrEvaluator, IsStaffOrFisherfolk, fisherfolk_scope, scope_to_fisherfolk,
 )
+from core.utils import is_plain_int
 from fisheries.models import SpeciesOption
 from fisheries.notifications import queue_cycle_started
 
@@ -113,7 +114,7 @@ class EstimateHarvestView(APIView):
     def get(self, request):
         species_id = request.query_params.get('species', '')
         fingerlings = request.query_params.get('fingerlings', '')
-        if not species_id.isdigit() or not fingerlings.isdigit():
+        if not is_plain_int(species_id) or not is_plain_int(fingerlings):
             return Response({'detail': 'species and fingerlings must be whole numbers.'}, status=400)
         species = SpeciesOption.objects.filter(pk=species_id).first()
         if species is None:

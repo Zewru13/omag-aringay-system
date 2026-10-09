@@ -101,3 +101,21 @@ class OrganizationEditsOnlyPendingRecordsTests(APITestCase):
             res = self.patch(domain, record, self.staff)
             self.assertEqual(res.status_code, 200, (domain, res.data))
             self.assertEqual(type(record).objects.get(pk=record.pk).remarks, 'changed')
+
+
+class StaffCorrectionsTests(OrganizationEditsOnlyPendingRecordsTests):
+    """New assistance is Awaiting Confirmation from the moment it is logged, so staff must still be able to fix a typo then;
+    once the recipient has reported or the case is followed up, staff cannot rewrite it."""
+
+    def test_staff_can_edit_a_record_that_is_awaiting_confirmation(self):
+        for domain in DOMAINS:
+            record = self.make_record(domain, DistributionStatus.AWAITING_CONFIRMATION)
+            res = self.patch(domain, record, self.staff)
+            self.assertEqual(res.status_code, 200, (domain, res.data))
+            self.assertEqual(type(record).objects.get(pk=record.pk).remarks, 'changed')
+
+    def test_staff_cannot_edit_a_record_the_recipient_reported_or_that_was_resolved(self):
+        for domain in DOMAINS:
+            for status in (DistributionStatus.NOT_RECEIVED, DistributionStatus.RESOLVED):
+                record = self.make_record(domain, status)
+                self.assertEqual(self.patch(domain, record, self.staff).status_code, 400, (domain, status))

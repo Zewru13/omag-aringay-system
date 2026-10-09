@@ -345,7 +345,7 @@ def send_organization_credentials_email(org, plain_password, expires_at):
         f'Login: {org.registration_number}\n'
         f'Temporary password: {plain_password}\n\n'
         f'You will be asked to choose your own password the first time you log in. This temporary password '
-        f'stops working on {expires_at.strftime("%B %d, %Y")}; after that, ask the Office of the Municipal '
+        f'stops working on {timezone.localtime(expires_at).strftime("%B %d, %Y")}; after that, ask the Office of the Municipal '
         f'Agriculturist for a new one.\n\n'
         f'If you did not expect this account, please contact the Office of the Municipal Agriculturist, '
         f'Aringay, La Union.\n'

@@ -16,7 +16,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.permissions import IsOwnOrgOrStaff
-from core.utils import ImportFileError, cell_text, read_template_rows, run_import_atomically
+from core.utils import ImportFileError, cell_text, is_plain_int, read_template_rows, run_import_atomically
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk
 
@@ -256,7 +256,7 @@ def run_equipment_import(domain, organization, file, dry_run):
                 matched, other_text, note = 'Other', typed, f'Recorded as Other: {typed}. '
 
             quantity_text = cell(1).strip()
-            if not quantity_text.isdigit() or int(quantity_text) < 1:
+            if not is_plain_int(quantity_text) or int(quantity_text) < 1:
                 add(row_num, 'invalid', label, 'Quantity must be a whole number of 1 or more.')
                 continue
             quantity = int(quantity_text)

@@ -26,10 +26,11 @@ from django.db import migrations
 def backfill_attributed_organization(apps, schema_editor):
     from interventions.models import BeneficiaryRecord, FisherfolkBeneficiaryRecord
 
-    for rec in BeneficiaryRecord.objects.select_related('farmer').only('id', 'farmer'):
+    # all_objects: the default manager now filters on a status column that does not exist yet at this point of a fresh build.
+    for rec in BeneficiaryRecord.all_objects.select_related('farmer').only('id', 'farmer'):
         rec.save(update_fields=['attributed_organization'])
 
-    for rec in FisherfolkBeneficiaryRecord.objects.select_related('fisherfolk').only('id', 'fisherfolk'):
+    for rec in FisherfolkBeneficiaryRecord.all_objects.select_related('fisherfolk').only('id', 'fisherfolk'):
         rec.save(update_fields=['attributed_fisherfolk_organization'])
 
 

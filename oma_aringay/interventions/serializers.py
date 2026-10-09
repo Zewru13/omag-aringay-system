@@ -207,6 +207,8 @@ class OrganizationDistributionRequestSerializer(serializers.Serializer):
     equipment_type = serializers.CharField(required=False, allow_blank=True, default='')
     seed_type = serializers.CharField(required=False, allow_blank=True, default='')
     fertilizer_type = serializers.CharField(required=False, allow_blank=True, default='')
+    # Which members receive it. Absent = every active member; the view checks the ids against the roster.
+    member_ids = serializers.ListField(child=serializers.IntegerField(), required=False, allow_empty=True)
 
     def validate_assistance_type(self, value):
         valid_choices = dict(self.context['model'].AssistanceType.choices)
