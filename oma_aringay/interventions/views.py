@@ -53,10 +53,13 @@ class PendingOnlyEditMixin:
     """
 
     def perform_update(self, serializer):
-        if serializer.instance.status not in (DistributionStatus.PENDING, DistributionStatus.CONFIRMED):
+        # An organization (a CITIZEN account) may only edit what it submitted while it is still Pending: a
+        # Confirmed record already belongs to the recipient, so only staff can correct it.
+        allowed = (DistributionStatus.PENDING,) if self.request.user.role == 'CITIZEN'             else (DistributionStatus.PENDING, DistributionStatus.CONFIRMED)
+        if serializer.instance.status not in allowed:
             raise ValidationError(
                 f'This record cannot be edited — it is {serializer.instance.get_status_display()}, '
-                'not Pending or Confirmed.'
+                + ('not Pending.' if self.request.user.role == 'CITIZEN' else 'not Pending or Confirmed.')
             )
         serializer.save()
 
