@@ -32,6 +32,8 @@ eq([hasApproved(plain, 'ADMIN'), hasApproved(adminDone, 'CITIZEN'), hasApproved(
 
 eq(approvalLines({}), [], 'missing fields tolerated (lines)')
 eq(waitingText({}), 'Pending review', 'missing fields tolerated (text)')
+eq(waitingText({ requires_both: true, status: 'PENDING', awaiting: ['CITIZEN'] }), 'Pending review', 'an unknown role never leaves a dangling sentence')
+eq(waitingText({ requires_both: true, status: 'PENDING', awaiting: ['CITIZEN', 'EVALUATOR'] }), 'Waiting for approval from the Focal Person', 'unknown roles are skipped, known ones kept')
 eq(hasApproved({}, 'ADMIN'), false, 'missing fields tolerated (hasApproved)')
 eq(hasApproved(null, 'ADMIN'), false, 'null request tolerated')
 

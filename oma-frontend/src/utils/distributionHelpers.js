@@ -31,6 +31,15 @@ export const formatDateTime = (dateIso, recordedAtIso) => {
   return `${dayText} · ${TIME_FORMAT.format(stamp)}`
 }
 
+// One ISO timestamp as "Oct 9, 2026 · 3:41 PM" in the viewer's local time, so the date and the time always agree
+// (slicing the date off a UTC string would show the previous day for early-morning times). "—" when missing or invalid.
+export const formatStamp = (iso) => {
+  if (!iso) return '—'
+  const stamp = new Date(iso)
+  if (Number.isNaN(stamp.getTime())) return '—'
+  return `${DAY_FORMAT.format(stamp)} · ${TIME_FORMAT.format(stamp)}`
+}
+
 // A duplicate_in_file row commits as whatever it would be on its own.
 const effectiveStatus = (r) => (r.status === 'duplicate_in_file' ? r.underlying_status : r.status)
 const COMMITTABLE = new Set(['matched_with_changes', 'unmatched', 'classification_mismatch'])

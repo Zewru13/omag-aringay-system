@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 
-const { selectionSummary, formatDateTime, duplicateGroups, groupDecision, groupNeedsDecision } = await import(
+const { selectionSummary, formatDateTime, formatStamp, duplicateGroups, groupDecision, groupNeedsDecision } = await import(
   new URL('../src/utils/distributionHelpers.js', import.meta.url).href)
 
 let n = 0
@@ -26,6 +26,15 @@ eq(formatDateTime('2026-10-09', null), dayPart, 'date only when there is no time
 eq(formatDateTime('2026-10-09', ''), dayPart, 'blank timestamp treated as none')
 eq(formatDateTime(null, stamp), '—', 'no date')
 eq(formatDateTime('not-a-date', null), '—', 'bad date')
+
+// ── formatStamp: one timestamp, so the date and the time always agree (local time) ──
+const late = '2026-10-09T20:00:00Z'  // 04:00 on Oct 10 in the Philippines
+const lateLocal = new Date(late)
+const lateText = formatStamp(late)
+eq(lateText.includes(`Oct ${lateLocal.getDate()},`), true, 'date part is the local date, not the UTC date')
+eq(lateText.includes(new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(lateLocal)), true, 'time part is local time')
+eq(formatStamp(null), '—', 'no timestamp')
+eq(formatStamp('garbage'), '—', 'bad timestamp')
 
 // ── duplicateGroups ─────────────────────────────────────────────────────────
 const row = (row_number, rsbsa_number, status, extra = {}) => ({ row_number, rsbsa_number, status, ...extra })

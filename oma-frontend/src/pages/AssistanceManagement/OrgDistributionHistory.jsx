@@ -6,7 +6,7 @@ import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
-import { formatDateTime } from '../../utils/distributionHelpers.js'
+import { formatDateTime, formatStamp } from '../../utils/distributionHelpers.js'
 import { SOURCE_AGENCY_OPTIONS } from './assistanceFieldHelpers.js'
 
 // An organization's assistance history as distributions: one row per distribution, expandable to the members it went to.
@@ -87,6 +87,7 @@ export default function OrgDistributionHistory({ domain = 'crop', refreshKey = 0
   }, [config.url, params, refreshKey, reloadKey])
 
   const activeCount = Object.values(filters).filter(Boolean).length
+  const filtersActive = activeCount > 0 || Boolean(member)
   const setFilter = (key) => (e) => setFilters((f) => ({ ...f, [key]: e.target.value }))
   const clearFilters = () => { setFilters(EMPTY_FILTERS); setMemberInput(''); setMember('') }
   const toggle = (id) => setExpanded((prev) => {
@@ -100,7 +101,8 @@ export default function OrgDistributionHistory({ domain = 'crop', refreshKey = 0
     const { item, member: one } = removing
     setIsBusy(true)
     try {
-      const body = one ? { domain, record_ids: [one.record_id] } : { domain, distribution: item.id }
+      // The row only lists the members that match the current filters, so remove exactly those (never the whole batch).
+      const body = { domain, record_ids: one ? [one.record_id] : item.members.filter((m) => REMOVABLE.has(m.status)).map((m) => m.record_id) }
       const r = await api.post('/interventions/assistance-removals/', body)
       const { removed = [], kept = [] } = r.data
       showToast(
@@ -128,6 +130,7 @@ export default function OrgDistributionHistory({ domain = 'crop', refreshKey = 0
     const kept = removing.item.member_count - removable
     return `${removable} entr${removable === 1 ? 'y' : 'ies'} will be removed from the list and those members can no longer receive it.`
       + (kept ? ` ${kept} already confirmed or followed up and will stay.` : '')
+      + (filtersActive ? ' Only the members shown by your filters are affected.' : '')
   }
 
   return (
@@ -230,7 +233,7 @@ export default function OrgDistributionHistory({ domain = 'crop', refreshKey = 0
                               <span className="font-medium text-[#1A2B1A]">{m.name}</span>
                               <span className="flex flex-wrap items-center gap-3">
                                 <StatusPill status={m.status}>{MEMBER_STATUS_LABELS[m.status] || m.status}</StatusPill>
-                                {m.confirmed_at && <span className="text-[12px] text-[#7A8E7A]">{formatDateTime(String(m.confirmed_at).slice(0, 10), m.confirmed_at)}</span>}
+                                {m.confirmed_at && <span className="text-[12px] text-[#7A8E7A]">{formatStamp(m.confirmed_at)}</span>}
                                 {REMOVABLE.has(m.status) && (
                                   <button type="button" onClick={() => setRemoving({ item, member: m })}
                                     className="text-[12px] font-semibold text-rose-700 hover:underline">

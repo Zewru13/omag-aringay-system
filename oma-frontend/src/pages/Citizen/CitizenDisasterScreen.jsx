@@ -10,6 +10,7 @@ import PhotoListField from '../../components/UI/PhotoListField.jsx'
 import { CitizenScreen, CitizenSubHeader } from './citizenUI.jsx'
 import FarmerDisasterList from './FarmerDisasterList.jsx'
 import FarmerDisasterReportForm from './FarmerDisasterReportForm.jsx'
+import { isWholeArea } from '../../utils/disasterRules.js'
 import { todayISO, yesterdayISO } from '../../utils/localDate.js'
 
 // Same control geometry as CitizenActivityLogModal — hairline border, 8px
@@ -173,6 +174,8 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
   }
 
   const blockedByOther = mode === 'create' && recordLock.lockedByOther
+  // Total Loss is only allowed when the whole recorded area is affected (the server enforces the same rule).
+  const wholeArea = isWholeArea(form.area_affected_ha, recordArea)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -196,7 +199,7 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
         area_affected_ha: form.area_affected_ha,
         estimated_damage: form.estimated_damage,
         production_loss: form.production_loss,
-        is_total_loss: form.is_total_loss,
+        is_total_loss: form.is_total_loss && wholeArea,
       }
       let payload = fields
       if (photosState.photos.length) {
@@ -365,7 +368,11 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
               type="number" step="0.0001" inputMode="decimal"
               className={FIELD}
               value={form.area_affected_ha}
-              onChange={(e) => { set('area_affected_ha', e.target.value); setAreaError('') }}
+              onChange={(e) => {
+                const value = e.target.value
+                setForm((f) => ({ ...f, area_affected_ha: value, is_total_loss: f.is_total_loss && isWholeArea(value, recordArea) }))
+                setAreaError('')
+              }}
               disabled={blockedByOther}
             />
           </FieldBlock>
@@ -419,11 +426,11 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
             </div>
           </FieldBlock>
 
-          <FieldBlock hint={form.is_total_loss ? labels.disaster.fields.isTotalLossHint : undefined}>
+          <FieldBlock hint={!wholeArea ? labels.disaster.fields.isTotalLossNeedsWholeArea(recordArea) : form.is_total_loss ? labels.disaster.fields.isTotalLossHint : undefined}>
             <button
               type="button"
-              disabled={blockedByOther}
-              aria-pressed={form.is_total_loss}
+              disabled={blockedByOther || !wholeArea}
+              aria-pressed={form.is_total_loss && wholeArea}
               onClick={() => set('is_total_loss', !form.is_total_loss)}
               className={`flex min-h-[44px] w-full items-center gap-3 rounded-[8px] border-[0.5px] px-3 py-3 text-left transition-colors disabled:opacity-50 ${
                 form.is_total_loss ? 'border-cz-danger-accent bg-cz-danger-bg' : 'border-cz-border-strong'

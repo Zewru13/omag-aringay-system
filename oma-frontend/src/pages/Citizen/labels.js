@@ -1100,6 +1100,7 @@ export const labels = {
       productionLoss: 'Estimated production lost',
       isTotalLoss: 'This is a total loss',
       isTotalLossHint: 'The crop or stock was completely destroyed and this cycle is finished. It cannot be undone here — contact the OMAg office to correct it.',
+      isTotalLossNeedsWholeArea: (area) => `Total loss is only possible when the whole area (${area} ha) is affected.`,
       recoveryNote: 'Note about the recovery',
       recoveryNoteHint: 'This is required unless every recommended response for this disaster has been logged.',
       photo: 'Photos (optional)',

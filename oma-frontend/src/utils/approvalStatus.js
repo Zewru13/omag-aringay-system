@@ -24,7 +24,7 @@ export const approvalLines = (request) => {
 }
 
 export const waitingText = (request) => {
-  const awaiting = request?.requires_both ? request.awaiting || [] : []
+  const awaiting = (request?.requires_both ? request.awaiting || [] : []).filter((role) => ROLE_TITLES[role])
   if (awaiting.length === 0) return 'Pending review'
   return `Waiting for approval from the ${awaiting.map((role) => ROLE_TITLES[role]).join(' and the ')}`
 }
