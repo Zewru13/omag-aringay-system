@@ -17,7 +17,11 @@ def _barangay_key(value):
 
 def same_place(parcel_id, barangay, other_parcel_id, other_barangay):
     """The same place for the duplicate rule: the same parcel when this record has one, otherwise the same
-    barangay (two records with no barangay at all count as the same place)."""
+    barangay (two records with no barangay at all count as the same place).
+
+    Known edge, left on purpose: a record WITH a parcel and one WITHOUT a parcel in the same barangay are treated as
+    different places, so that pair is not flagged. On the data checked on 2026-10-09 (109 active records, none with
+    a parcel) it cannot occur; make the rule symmetric (and warn instead of refusing) if parcels start being used."""
     if parcel_id:
         return other_parcel_id == parcel_id
     return _barangay_key(barangay) == _barangay_key(other_barangay)
