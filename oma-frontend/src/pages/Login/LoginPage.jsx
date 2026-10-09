@@ -45,8 +45,10 @@ function LoginPage() {
       if (err.code === "email_not_verified") {
         setNeedsVerification(true);
         setError(err.message);
-      } else if (err.code === "citizen_not_activated") {
+      } else if (err.code === "citizen_not_activated" || err.code === "temp_password_expired") {
         setError(err.message);
+      } else if (err.status === undefined || err.status >= 500) {
+        setError("The server could not be reached or had a problem. This is not your password — please try again in a moment.");
       } else {
         setError("Invalid email, username, or password. Please try again.");
       }

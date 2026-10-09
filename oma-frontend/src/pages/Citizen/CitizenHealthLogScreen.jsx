@@ -384,7 +384,7 @@ export default function CitizenHealthLogScreen({ records, onBack, onSaved, tabBa
               onChange={(d) => set('date_of_activity', d)}
               className={`${FIELD} py-2.5`}
               accentClass="bg-cz-fish-header text-white"
-              locale="fil-PH"
+              locale="en-PH"
               align="right"
               labels={labels.logCalendar}
               loggedDates={loggedDates}

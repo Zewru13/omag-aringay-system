@@ -9,6 +9,7 @@ import { bulkCellInputClasses, bulkThClasses, bulkThCenterClasses } from '../../
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import Button from '../../components/UI/Button.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 
@@ -186,10 +187,16 @@ function FarmerSearchInput({ onSelect, selected }) {
 
 // ── Crop Duplicate Check ──────────────────────────────────────────────────────
 
-function useCropDuplicateCheck(farmerId, cropTypeId) {
+// Same rule the server enforces on save (production/duplicates.py): same farmer, crop and variety, an active record,
+// and the same parcel (or the same barangay when no parcel is chosen). The warning is advice; the server refuses.
+function useCropDuplicateCheck(farmerId, rec) {
   const [duplicates,  setDuplicates]  = useState([])
   const [isChecking,  setIsChecking]  = useState(false)
   const timerRef = useRef(null)
+  const cropTypeId = rec.crop_type
+  const variety = rec.variety_used || ''
+  const parcel = rec.farm_parcel || ''
+  const barangay = rec.farm_location_barangay || ''
 
   useEffect(() => {
     if (!farmerId || !cropTypeId) { setDuplicates([]); return }
@@ -198,14 +205,14 @@ function useCropDuplicateCheck(farmerId, cropTypeId) {
       setIsChecking(true)
       try {
         const r = await api.get('/production/monitoring/check-duplicate/', {
-          params: { farmer: farmerId, crop_type: cropTypeId },
+          params: { farmer: farmerId, crop_type: cropTypeId, variety, parcel, barangay },
         })
         setDuplicates(r.data?.duplicates || [])
       } catch { setDuplicates([]) }
       finally { setIsChecking(false) }
     }, 500)
     return () => clearTimeout(timerRef.current)
-  }, [farmerId, cropTypeId])
+  }, [farmerId, cropTypeId, variety, parcel, barangay])
 
   return { duplicates, isChecking }
 }
@@ -214,7 +221,7 @@ function useCropDuplicateCheck(farmerId, cropTypeId) {
 
 function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, farmerId, showParcelColumn, farmerParcels, error, onUpdate, onRemove }) {
   const set = (field, value) => onUpdate(rec._id, field, value)
-  const { duplicates, isChecking } = useCropDuplicateCheck(farmerId, rec.crop_type)
+  const { duplicates, isChecking } = useCropDuplicateCheck(farmerId, rec)
 
   const relevantVarieties = varieties.filter(
     v => v.is_active && (!v.crop_type || String(v.crop_type) === String(rec.crop_type))
@@ -223,7 +230,7 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
   const selectedCropType = cropTypes.find(c => String(c.id) === String(rec.crop_type))
   const hasDuplicates = !isChecking && duplicates.length > 0
   const duplicateTitle = hasDuplicates
-    ? `Active record${duplicates.length > 1 ? 's' : ''} already exist for this crop: ${duplicates.map(d => `${d.date_planted || '—'} (${d.area_planted_ha} ha)`).join(', ')}`
+    ? `An active ${duplicates[0].crop_type}${duplicates[0].variety_used ? ` (${duplicates[0].variety_used})` : ''} record already exists here: ${duplicates.map(d => `${d.date_planted || '—'} (${d.area_planted_ha} ha)`).join(', ')}`
     : undefined
 
   const colCount = 11 + (showParcelColumn ? 1 : 0)
@@ -286,10 +293,10 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
           )}
         </td>
         <td className="px-3 py-3 overflow-hidden" style={{ width: COL_WIDTH.area }}>
-          <input type="number" step="0.01" min="0" className={`${bulkCellInputClasses} w-full`}
+          <DecimalInput decimals={2} className={`${bulkCellInputClasses} w-full`}
             placeholder="0.00"
             value={rec.area_planted_ha}
-            onChange={e => set('area_planted_ha', e.target.value)} />
+            onChange={v => set('area_planted_ha', v)} />
         </td>
         <td className="px-3 py-3 overflow-hidden" style={{ width: COL_WIDTH.season }}>
           <select className={`${bulkCellInputClasses} w-full`} value={rec.season}
@@ -602,7 +609,11 @@ export default function AddCropMonitoringPage() {
         data.errors.forEach((rowErr, i) => {
           if (rowErr && Object.keys(rowErr).length > 0) {
             const rec = records[i]
-            const msgs = Object.entries(rowErr).map(([k, v]) => `${k.replace(/_/g, ' ')}: ${Array.isArray(v) ? v[0] : v}`)
+            // The duplicate refusal is a full sentence; every other error keeps its field name in front.
+            const msgs = Object.entries(rowErr).map(([k, v]) => {
+              const text = Array.isArray(v) ? v[0] : v
+              return k === 'crop_type' && /already has an active|duplicates row/.test(String(text)) ? text : `${k.replace(/_/g, ' ')}: ${text}`
+            })
             nextRowErrors[rec._id] = `Row ${i + 1}: ${msgs.join(' · ')}`
           }
         })

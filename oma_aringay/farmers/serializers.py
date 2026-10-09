@@ -1,4 +1,5 @@
 from datetime import date
+from core.validators import validate_contact_number
 
 from rest_framework import serializers
 
@@ -21,14 +22,8 @@ def _farmer_main_membership(farmer):
     return farmer.farmer_organizations.filter(is_active=True, is_main=True).select_related('organization').first()
 
 
-def validate_contact_format(value):
-    if value and value.strip():
-        digits = ''.join(filter(str.isdigit, value.strip()))
-        if len(digits) != 11 or not digits.startswith('09'):
-            raise serializers.ValidationError(
-                'Contact number must be exactly 11 digits and start with 09.'
-            )
-    return value
+def validate_contact_format(value, instance=None):
+    return validate_contact_number(value, instance)
 
 
 class FarmCropSerializer(serializers.ModelSerializer):
@@ -281,7 +276,7 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
         return value
 
     def validate_contact_number(self, value):
-        return validate_contact_format(value)
+        return validate_contact_format(value, self.instance)
 
     def validate(self, data):
         prefix = data.get('prefix', getattr(self.instance, 'prefix', ''))
@@ -373,7 +368,7 @@ class FarmerCreateSerializer(serializers.ModelSerializer):
         return value
 
     def validate_contact_number(self, value):
-        return validate_contact_format(value)
+        return validate_contact_format(value, self.instance)
 
     def validate(self, data):
         prefix = data.get('prefix', '')

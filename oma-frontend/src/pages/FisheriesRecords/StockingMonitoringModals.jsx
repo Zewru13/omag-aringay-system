@@ -8,10 +8,14 @@ import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import GrowthProgressBar from '../../components/UI/GrowthProgressBar.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import LoggedDatePicker from '../../components/UI/LoggedDatePicker.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import useRecordLock from '../../hooks/useRecordLock.js'
+import usePhotoList from '../../hooks/usePhotoList.js'
+import PhotoListField from '../../components/UI/PhotoListField.jsx'
+import PhotoLinks from '../../components/UI/PhotoLinks.jsx'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
@@ -772,8 +776,8 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Quantity (kg)</label>
-                    <input type="number" step="0.01" value={feedQuantityKg}
-                      onChange={e => setFeedQuantityKg(e.target.value)} placeholder="e.g. 25" className={baseInputClasses} />
+                    <DecimalInput decimals={2} value={feedQuantityKg}
+                      onChange={setFeedQuantityKg} placeholder="e.g. 25" className={baseInputClasses} />
                   </div>
                   <div>
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Brand</label>
@@ -841,10 +845,10 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
                 )}
                 <div className="mb-2">
                   <label className="text-xs font-medium text-slate-700 mb-1 block">Area Affected (ha) *</label>
-                  <input type="number" step="0.0001" value={areaAffected}
-                    onChange={e => {
-                      setAreaAffected(e.target.value)
-                      setAreaAffectedError(validateAreaAffected(e.target.value))
+                  <DecimalInput decimals={4} max={stockedArea} value={areaAffected}
+                    onChange={v => {
+                      setAreaAffected(v)
+                      setAreaAffectedError(validateAreaAffected(v))
                     }}
                     placeholder="e.g. 0.50"
                     className={`${baseInputClasses} ${areaAffectedError ? 'border-rose-400' : ''}`} />
@@ -973,7 +977,7 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
             {allEvents.map(event => {
               if (event._type === 'disaster') {
                 const isExpanded = expandedDisasters.has(event.id)
-                const hasDetails = event.area_affected_ha || event.estimated_damage || event.production_loss || event.photo
+                const hasDetails = event.area_affected_ha || event.estimated_damage || event.production_loss || event.photo || event.photos?.length
                 const isRecovered = event.status === 'Recovered'
                 return (
                   <div key={`d-${event.id}`} className="py-3">
@@ -1033,11 +1037,11 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
                         {event.production_loss && (
                           <p className={`text-xs ${isRecovered ? 'text-emerald-700' : 'text-rose-700'}`}><span className="font-medium">Production loss:</span> {event.production_loss}</p>
                         )}
-                        {event.photo && (
-                          <p className={`text-xs ${isRecovered ? 'text-emerald-700' : 'text-rose-700'}`}>
-                            <span className="font-medium">Photo:</span>{' '}
-                            <a href={event.photo} target="_blank" rel="noreferrer" className="underline">View photo</a>
-                          </p>
+                        {(event.photo || event.photos?.length > 0) && (
+                          <div className={`text-xs ${isRecovered ? 'text-emerald-700' : 'text-rose-700'}`}>
+                            <span className="font-medium">Photos:</span>
+                            <PhotoLinks photos={event.photos} legacy={event.photo} className="mt-1" />
+                          </div>
                         )}
                         {!hasDetails && (
                           <p className={`text-xs italic ${isRecovered ? 'text-emerald-400' : 'text-rose-400'}`}>No additional details recorded.</p>
@@ -1143,7 +1147,7 @@ export function StockingDisasterReportModal({ record, onClose, onSuccess }) {
   const [estimatedDamage,   setEstimatedDamage]   = useState('')
   const [productionLoss,    setProductionLoss]    = useState('')
   const [isTotalLoss,       setIsTotalLoss]       = useState(false)
-  const [photo,             setPhoto]             = useState(null)
+  const photosState = usePhotoList()
   const [showConfirm,       setShowConfirm]       = useState(false)
   const [isSubmitting,      setIsSubmitting]      = useState(false)
   const [areaError,         setAreaError]         = useState('')
@@ -1152,6 +1156,8 @@ export function StockingDisasterReportModal({ record, onClose, onSuccess }) {
   const speciesName  = record.species_name || 'this stock'
   const maxArea       = record.area_hectares ? parseFloat(record.area_hectares) : null
   const dateStocked   = record.date_stocked || null
+  // Total Loss means the whole stocked area is affected: the option is available only once the area typed equals it.
+  const isWholeArea = maxArea === null || (areaAffectedHa !== '' && Math.abs(parseFloat(areaAffectedHa) - maxArea) < 0.00005)
 
   const validateArea = (val) => {
     if (!val) return 'Area affected is required.'
@@ -1187,23 +1193,23 @@ export function StockingDisasterReportModal({ record, onClose, onSuccess }) {
         disaster_type:      disasterType,
         disaster_type_other_specify: disasterType === 'Other' ? disasterTypeOtherSpecify.trim() : '',
         date_of_occurrence: dateOfOccurrence,
-        area_affected_ha:   parseFloat(isTotalLoss && maxArea ? maxArea : areaAffectedHa),
+        area_affected_ha:   parseFloat(areaAffectedHa),
         estimated_damage:   estimatedDamage,
         production_loss:    productionLoss,
-        is_total_loss:      isTotalLoss,
+        is_total_loss:      isTotalLoss && isWholeArea,
       }
       let payload = fields
-      if (photo) {
+      if (photosState.photos.length) {
         payload = new FormData()
         Object.entries(fields).forEach(([k, v]) => { if (v !== null && v !== undefined) payload.append(k, v) })
-        payload.append('photo', photo)
+        photosState.photos.forEach(p => payload.append('photos', p.file))
       }
       await api.post(`/fisheries/stocking/${record.id}/disasters/`, payload)
       showToast('Disaster report recorded.', 'success')
       onSuccess()
       onClose()
     } catch (err) {
-      showToast(err?.response?.data?.detail || 'Failed to save disaster report.', 'error')
+      showToast(err?.response?.data?.photos?.[0] || err?.response?.data?.detail || 'Failed to save disaster report.', 'error')
     } finally { setIsSubmitting(false) }
   }
 
@@ -1251,14 +1257,18 @@ export function StockingDisasterReportModal({ record, onClose, onSuccess }) {
 
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-700">Area Affected (ha) *</label>
-            <input type="number" step="0.0001"
-              className={`${baseInputClasses} ${areaError ? 'border-rose-400' : ''} ${isTotalLoss ? 'bg-slate-100 cursor-not-allowed' : ''}`}
-              value={isTotalLoss && maxArea ? maxArea : areaAffectedHa}
-              onChange={e => { setAreaAffectedHa(e.target.value); setAreaError(validateArea(e.target.value)) }}
-              disabled={isTotalLoss}
+            <DecimalInput decimals={4} max={maxArea}
+              className={`${baseInputClasses} ${areaError ? 'border-rose-400' : ''}`}
+              value={areaAffectedHa}
+              onChange={v => {
+                setAreaAffectedHa(v)
+                setAreaError(validateArea(v))
+                // Total Loss needs the whole area: typing anything else switches it off
+                if (isTotalLoss && maxArea !== null && !(Math.abs(parseFloat(v) - maxArea) < 0.00005)) setIsTotalLoss(false)
+              }}
               placeholder={maxArea ? `0.01 – ${maxArea}` : 'e.g. 2.50'} />
             {areaError && <p className="mt-1 text-xs text-rose-600">{areaError}</p>}
-            {!areaError && maxArea && !isTotalLoss && (
+            {!areaError && maxArea && (
               <p className="mt-1 text-xs text-slate-400">Max: {maxArea} ha (total area stocked)</p>
             )}
           </div>
@@ -1277,31 +1287,25 @@ export function StockingDisasterReportModal({ record, onClose, onSuccess }) {
               placeholder="Describe or estimate production loss" />
           </div>
 
-          <label className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 cursor-pointer">
+          <label className={`flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 ${isWholeArea ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
             <input
               type="checkbox"
-              checked={isTotalLoss}
-              onChange={e => {
-                setIsTotalLoss(e.target.checked)
-                if (e.target.checked && maxArea) {
-                  setAreaAffectedHa(String(maxArea))
-                  setAreaError('')
-                }
-              }}
+              checked={isTotalLoss && isWholeArea}
+              disabled={!isWholeArea}
+              onChange={e => setIsTotalLoss(e.target.checked)}
               className="mt-0.5 h-4 w-4 rounded border-rose-300 text-rose-600 focus:ring-rose-500"
             />
             <div>
               <span className="text-sm font-medium text-rose-800">Total loss — stock completely destroyed</span>
               <p className="text-xs text-rose-500 mt-0.5">This ends the production cycle. No harvest can be recorded.</p>
+              {!isWholeArea && (
+                <p className="mt-1 text-xs text-slate-600">Available only when the whole area is affected{maxArea ? ` (${maxArea} ha)` : ''}.</p>
+              )}
             </div>
           </label>
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">Photo (optional)</label>
-            <input type="file" accept="image/jpeg,image/png,image/webp" className={baseInputClasses}
-              onChange={e => setPhoto(e.target.files?.[0] || null)} />
-            <p className="mt-1 text-xs text-slate-400">JPG, PNG, or WEBP, up to 5 MB.</p>
-          </div>
+          <PhotoListField photosState={photosState} title="Photos (optional)"
+            hint="Up to 10 photos showing the damage." altPrefix="Damage photo" />
 
           <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
             <button type="button" onClick={onClose}

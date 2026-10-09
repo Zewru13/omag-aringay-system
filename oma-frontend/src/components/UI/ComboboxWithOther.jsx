@@ -32,8 +32,8 @@ const OTHER_SENTINEL = 'Other'
 
 // `options` accepts either plain strings (value === display label, the
 // original contract every existing caller relies on) or {value, label}
-// objects, for the citizen screens whose option labels are translated
-// (English value stored/submitted, Filipino label shown) — added rather
+// objects, for the citizen screens whose option labels differ from the stored value
+// (stored/submitted value vs. the label shown) — added rather
 // than inventing a second Other-handling pattern for that one difference.
 const normalizeOption = (o) => (typeof o === 'string' ? { value: o, label: o } : o)
 

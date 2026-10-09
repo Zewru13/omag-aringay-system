@@ -37,7 +37,7 @@ import { CROP_THEME, FISH_THEME } from './citizenUI.jsx'
 //
 // Used by `dashboardTheme` below (Home, Members, Assign Officer, Add Member,
 // Report Assistance, History). `theme` above stays CROP_THEME/FISH_THEME —
-// OrgInfoScreen.jsx now reads `dashboardTheme` instead (Phase 2 color fix,
+// the organization screens read `dashboardTheme` instead (Phase 2 color fix,
 // 2026-09-07), so the distinction is no longer load-bearing for this file,
 // but `theme` is kept for CitizenProfileScreen.jsx's own dashboard-summary
 // hero, which still legitimately wants the individual-citizen shell colour.

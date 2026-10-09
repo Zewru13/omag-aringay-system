@@ -7,7 +7,7 @@ import { labels } from './labels.js'
 import { todayISO, yesterdayISO } from '../../utils/localDate.js'
 import { DesktopRailCard } from './CitizenDesktopUI.jsx'
 
-// ─── Tulong Natanggap ───────────────────────────────────────────────────────
+// ─── Assistance Received ───────────────────────────────────────────────────────
 // Frames 4 and 8. Reuses the same read-only /interventions/my-*-beneficiary-
 // history/ endpoints the old table-based MyAssistanceHistorySection called
 // (Batch 11) -- no new access, just the reference's card-list + summary-rail

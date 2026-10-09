@@ -4,7 +4,8 @@ import { useAuth } from '../context/AuthContext.jsx'
 // allowFisherfolk: also let a fisherfolk CITIZEN account in (the Admin Fisheries pages they reuse). The
 // real boundary is the backend, which only ever returns that fisherfolk's own records.
 // allowFarmer: the same for a farmer CITIZEN account (the Admin crop pages they reuse).
-function ProtectedRoute({ allowedRoles, allowFisherfolk = false, allowFarmer = false, children }) {
+// allowOrg: a list of organization types ('FARMERS_ORG' / 'FISHERFOLK_ORG') whose CITIZEN accounts may enter.
+function ProtectedRoute({ allowedRoles, allowFisherfolk = false, allowFarmer = false, allowOrg = [], children }) {
   const { user, isLoading, isAuthenticated } = useAuth()
   const location = useLocation()
 
@@ -40,8 +41,9 @@ function ProtectedRoute({ allowedRoles, allowFisherfolk = false, allowFarmer = f
   // A route restricts access when it lists roles OR opts fisherfolk in (allowedRoles={[]} + allowFisherfolk
   // = fisherfolk accounts only).
   const farmerAllowed = allowFarmer && user.role === 'CITIZEN' && user.linked_record_type === 'FARMER'
-  const restricted = Boolean(allowedRoles?.length) || allowFisherfolk || allowFarmer
-  if (restricted && !(allowedRoles || []).includes(user.role) && !fisherfolkAllowed && !farmerAllowed) {
+  const orgAllowed = allowOrg.length > 0 && user.role === 'CITIZEN' && allowOrg.includes(user.linked_record_type)
+  const restricted = Boolean(allowedRoles?.length) || allowFisherfolk || allowFarmer || allowOrg.length > 0
+  if (restricted && !(allowedRoles || []).includes(user.role) && !fisherfolkAllowed && !farmerAllowed && !orgAllowed) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6">
         <div className="max-w-md rounded-lg border border-red-200 bg-white p-6 text-center shadow-sm">

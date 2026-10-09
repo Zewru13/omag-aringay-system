@@ -8,9 +8,12 @@ import { CROP_THEME, CitizenBody, CitizenHomeHeader, CitizenScreen } from './cit
 import { dayFirstLong } from './farmerDates.js'
 import { Block, Choice, FIELD } from './farmerFormParts.jsx'
 import { labels } from './labels.js'
+import usePhotoList from '../../hooks/usePhotoList.js'
+import PhotoListField from '../../components/UI/PhotoListField.jsx'
+import { isWholeArea } from '../../utils/disasterRules.js'
 import { todayISO, yesterdayISO } from '../../utils/localDate.js'
 
-// Farmer Sakuna report form, rebuilt to UPDATED FARMER CITIZEN UI.docx.
+// Farmer disaster report form, rebuilt to UPDATED FARMER CITIZEN UI.docx.
 // Rendered by CitizenDisasterScreen when it is given variant="farmer"; that
 // screen still owns the record lock and the switch to the reported-disasters
 // list, so this file is only the form itself.
@@ -47,7 +50,7 @@ export default function FarmerDisasterReportForm({
   const [dateMode, setDateMode] = useState('today')
   const [areaError, setAreaError] = useState('')
   const [severityError, setSeverityError] = useState('')
-  const [photo, setPhoto] = useState(null)
+  const photosState = usePhotoList()
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
@@ -56,6 +59,8 @@ export default function FarmerDisasterReportForm({
     ? (record?.area_planted_ha ? Number(record.area_planted_ha) : null)
     : (record?.area_hectares ? Number(record.area_hectares) : null)
   const blockedByOther = Boolean(recordLock?.lockedByOther)
+  // Total Loss is only allowed when the whole recorded area is affected (the server enforces the same rule).
+  const wholeArea = isWholeArea(form.area_affected_ha, recordArea)
 
   const validateArea = (value) => {
     if (!value || value === '') return labels.disaster.errors.areaAffectedRequired
@@ -92,13 +97,13 @@ export default function FarmerDisasterReportForm({
         estimated_damage: form.estimated_damage,
         production_loss: form.production_loss,
         severity: form.severity,
-        is_total_loss: form.is_total_loss,
+        is_total_loss: form.is_total_loss && wholeArea,
       }
       let payload = fields
-      if (photo) {
+      if (photosState.photos.length) {
         payload = new FormData()
         Object.entries(fields).forEach(([k, v]) => { if (v !== null && v !== undefined) payload.append(k, v) })
-        payload.append('photo', photo)
+        photosState.photos.forEach(p => payload.append('photos', p.file))
       }
       await api.post(domain.disastersUrl(recordId), payload)
       showToast(labels.disaster.submitSuccess, 'success')
@@ -186,7 +191,11 @@ export default function FarmerDisasterReportForm({
           inputMode="decimal"
           className={FIELD}
           value={form.area_affected_ha}
-          onChange={(e) => { set('area_affected_ha', e.target.value); setAreaError('') }}
+          onChange={(e) => {
+            const value = e.target.value
+            setForm((f) => ({ ...f, area_affected_ha: value, is_total_loss: f.is_total_loss && isWholeArea(value, recordArea) }))
+            setAreaError('')
+          }}
           disabled={blockedByOther}
         />
       </Block>
@@ -231,14 +240,19 @@ export default function FarmerDisasterReportForm({
         <label className="flex cursor-pointer items-start gap-3 rounded-[10px] border-[0.5px] border-cz-border bg-cz-surface px-3.5 py-3">
           <input
             type="checkbox"
-            checked={form.is_total_loss}
+            checked={form.is_total_loss && wholeArea}
             onChange={(e) => set('is_total_loss', e.target.checked)}
-            disabled={blockedByOther}
+            disabled={blockedByOther || !wholeArea}
             className="mt-1 h-4 w-4 shrink-0 accent-cz-crop-header"
           />
           <span className="min-w-0">
             <span className="block text-[15px] font-semibold text-cz-text">{labels.farmerDisaster.totalLoss}</span>
-            {form.is_total_loss && (
+            {!wholeArea && (
+              <span className="mt-1.5 block text-[12.5px] leading-[1.5] text-cz-text-2">
+                {labels.disaster.fields.isTotalLossNeedsWholeArea(recordArea)}
+              </span>
+            )}
+            {form.is_total_loss && wholeArea && (
               <span className="mt-1.5 block text-[12.5px] leading-[1.5] text-cz-danger-accent">
                 {labels.disaster.fields.isTotalLossHint}
               </span>
@@ -249,15 +263,8 @@ export default function FarmerDisasterReportForm({
 
       <Block label={labels.disaster.fields.photo}>
         <div className="rounded-[10px] border border-dashed border-cz-border-strong px-3.5 py-3">
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={(e) => setPhoto(e.target.files?.[0] || null)}
-            disabled={blockedByOther}
-            className="w-full text-[14px] text-cz-text"
-          />
+          <PhotoListField photosState={photosState} hint={labels.disaster.fields.photoHint} altPrefix="Photo" />
         </div>
-        <p className="mt-2 text-[11px] text-cz-text-muted">{labels.disaster.fields.photoHint}</p>
       </Block>
 
       <button

@@ -37,6 +37,17 @@ class DistributionStatus(models.TextChoices):
     CONFIRMED = 'CONFIRMED', 'Confirmed'
     NOT_RECEIVED = 'NOT_RECEIVED', 'Not Received'
     RESOLVED = 'RESOLVED', 'Resolved'
+    # An organization took this entry out of a distribution before the recipient confirmed it. The row stays in the
+    # database for audit; the models' default manager hides it everywhere (see ActiveRecordManager).
+    REMOVED = 'REMOVED', 'Removed'
+
+
+class ActiveRecordManager(models.Manager):
+    """Default manager of both assistance record models: removed entries never show up in lists, histories, reports,
+    counts or the 30-day cross-organization check. `all_objects` is the audit view that includes them."""
+
+    def get_queryset(self):
+        return super().get_queryset().exclude(status=DistributionStatus.REMOVED)
 
 
 def _resolve_attributed_organization(candidates, own_barangay):
@@ -189,6 +200,20 @@ class BeneficiaryRecord(models.Model):
     confirmation_photo = models.ImageField(upload_to='beneficiary_confirmations/', null=True, blank=True)
     confirmation_note = models.TextField(blank=True)
 
+    # One id shared by every record created by one distribution submit; null for records made before batches existed.
+    distribution_batch = models.UUIDField(null=True, blank=True, db_index=True)
+    # When the record was created (null for older rows). The history shows it as the distribution's date and time.
+    recorded_at = models.DateTimeField(null=True, blank=True)
+    # Set when an organization removes the entry before the recipient confirmed it (status REMOVED).
+    removed_at = models.DateTimeField(null=True, blank=True)
+    removed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
+    )
+
+    # The FIRST manager is the default one: removed entries are hidden unless `all_objects` is used.
+    objects = ActiveRecordManager()
+    all_objects = models.Manager()
+
     class Meta:
         # Backstop matching every real BeneficiaryRecord queryset's own
         # explicit -date_given, -id ordering — see CropMonitoringRecord.Meta
@@ -206,10 +231,13 @@ class BeneficiaryRecord(models.Model):
         else:
             self.attributed_organization = None
         if self._state.adding:
+            # New assistance is never "received" on its own: it waits for the recipient (or their organization on
+            # their behalf) to confirm. A future date stays Pending until it comes due.
             self.status = (
-                DistributionStatus.CONFIRMED if self.date_given and self.date_given <= timezone.localdate()
+                DistributionStatus.AWAITING_CONFIRMATION if self.date_given and self.date_given <= timezone.localdate()
                 else DistributionStatus.PENDING
             )
+            self.recorded_at = timezone.now()
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -299,6 +327,20 @@ class FisherfolkBeneficiaryRecord(models.Model):
     non_receipt_reason = models.TextField(blank=True)
     follow_up_notes = models.TextField(blank=True)
 
+    # One id shared by every record created by one distribution submit; null for records made before batches existed.
+    distribution_batch = models.UUIDField(null=True, blank=True, db_index=True)
+    # When the record was created (null for older rows). The history shows it as the distribution's date and time.
+    recorded_at = models.DateTimeField(null=True, blank=True)
+    # Set when an organization removes the entry before the recipient confirmed it (status REMOVED).
+    removed_at = models.DateTimeField(null=True, blank=True)
+    removed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
+    )
+
+    # The FIRST manager is the default one: removed entries are hidden unless `all_objects` is used.
+    objects = ActiveRecordManager()
+    all_objects = models.Manager()
+
     class Meta:
         # Backstop matching every real FisherfolkBeneficiaryRecord
         # queryset's own explicit -date_given, -id ordering — see
@@ -316,10 +358,13 @@ class FisherfolkBeneficiaryRecord(models.Model):
         else:
             self.attributed_fisherfolk_organization = None
         if self._state.adding:
+            # New assistance is never "received" on its own: it waits for the recipient (or their organization on
+            # their behalf) to confirm. A future date stays Pending until it comes due.
             self.status = (
-                DistributionStatus.CONFIRMED if self.date_given and self.date_given <= timezone.localdate()
+                DistributionStatus.AWAITING_CONFIRMATION if self.date_given and self.date_given <= timezone.localdate()
                 else DistributionStatus.PENDING
             )
+            self.recorded_at = timezone.now()
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -397,6 +442,14 @@ class BeneficiaryConfirmationRequest(models.Model):
             models.Index(fields=['beneficiary_record', 'status']),
         ]
 
+    @property
+    def first_photo(self):
+        """The first proof photo file (a photo row, else the older single photo), or None."""
+        row = self.photos.first()
+        if row is not None:
+            return row.image
+        return self.photo or None
+
     def __str__(self):
         return f'On-behalf-of confirmation #{self.pk} for BeneficiaryRecord #{self.beneficiary_record_id}'
 
@@ -441,5 +494,50 @@ class FisherfolkBeneficiaryConfirmationRequest(models.Model):
             models.Index(fields=['beneficiary_record', 'status']),
         ]
 
+    @property
+    def first_photo(self):
+        """The first proof photo file (a photo row, else the older single photo), or None."""
+        row = self.photos.first()
+        if row is not None:
+            return row.image
+        return self.photo or None
+
     def __str__(self):
         return f'On-behalf-of confirmation #{self.pk} for FisherfolkBeneficiaryRecord #{self.beneficiary_record_id}'
+
+
+# Proof photos of a confirmation: 0-10 per parent (core.photos), each its own row and file. The older single photo
+# fields stay untouched and are shown first; new code never writes them.
+
+class BeneficiaryRecordPhoto(models.Model):
+    MAX_PER_PARENT = 10
+    beneficiary_record = models.ForeignKey(BeneficiaryRecord, on_delete=models.CASCADE, related_name='photos')
+    image = models.ImageField(upload_to='beneficiary_confirmations/photos/')
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    date_uploaded = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['id']
+
+
+class BeneficiaryConfirmationRequestPhoto(models.Model):
+    MAX_PER_PARENT = 10
+    confirmation_request = models.ForeignKey(BeneficiaryConfirmationRequest, on_delete=models.CASCADE, related_name='photos')
+    image = models.ImageField(upload_to='beneficiary_confirmations/farmers/photos/')
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    date_uploaded = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['id']
+
+
+class FisherfolkBeneficiaryConfirmationRequestPhoto(models.Model):
+    MAX_PER_PARENT = 10
+    confirmation_request = models.ForeignKey(
+        FisherfolkBeneficiaryConfirmationRequest, on_delete=models.CASCADE, related_name='photos')
+    image = models.ImageField(upload_to='beneficiary_confirmations/fisherfolk/photos/')
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    date_uploaded = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['id']

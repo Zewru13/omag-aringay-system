@@ -1,3 +1,4 @@
+import uuid
 from datetime import date, timedelta
 from io import BytesIO
 
@@ -13,11 +14,17 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import User
-from accounts.permissions import IsAdminOrEvaluator, IsOwnOrgOrStaff, IsStaffOrFisherfolk, fisherfolk_scope
-from accounts.utils import create_inactive_citizen_shell
+from accounts.permissions import (
+    IsAdminOrEvaluator, IsOrgCitizenOrStaff, IsOwnOrgOrStaff, IsStaffOrFisherfolk, fisherfolk_scope,
+)
+from accounts.utils import (
+    activate_and_email_organization, activate_organization_account, create_inactive_citizen_shell,
+    deliver_organization_credentials,
+)
 from farmers.models import Farmer
 from farmers.rsbsa_import import normalize_barangay
-from core.utils import build_name_search_q
+from core.utils import build_name_search_q, is_plain_int
+from core.validators import normalize_contact_number
 from fisheries.models import Fisherfolk
 from interventions.lifecycle import notify_assistance_recorded
 from interventions.models import BeneficiaryRecord, FisherfolkBeneficiaryRecord
@@ -190,10 +197,24 @@ class FarmersOrganizationListCreateView(generics.ListCreateAPIView):
             serializer.save()
             org = serializer.instance
             create_inactive_citizen_shell(User.LinkedRecordType.FARMERS_ORG, org)
+        # An organization with an email gets an active account and its temporary password by email.
+        self._activation = activate_and_email_organization(User.LinkedRecordType.FARMERS_ORG, org)
+
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        response.data['activation'] = self._activation
+        return response
 
 
 class FarmersOrganizationDetailView(generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    # GET is open to the organization itself (read-only own record); changing it stays staff-only.
+    org_linked_record_type = 'FARMERS_ORG'
+
+    def get_permissions(self):
+        if self.request.method in ('GET', 'HEAD', 'OPTIONS'):
+            return [IsAuthenticated(), IsOwnOrgOrStaff()]
+        return [IsAuthenticated(), IsAdminOrEvaluator()]
+
     serializer_class = FarmersOrganizationDetailSerializer
     queryset = FarmersOrganization.objects.all()
 
@@ -252,7 +273,9 @@ class FarmersOrganizationMemberAddView(generics.ListCreateAPIView):
                 {'detail': 'This farmer is already a member of this organization.'}
             )
         member = serializer.save(organization_id=organization_id)
-        explicit_is_main = self.request.data.get('is_main')
+        # Only staff choose a person's main organization; an organization's own request never does (it could take
+        # main status away from another organization the person belongs to).
+        explicit_is_main = self.request.data.get('is_main') if self.request.user.role in ('ADMIN', 'EVALUATOR') else None
         if explicit_is_main is not None:
             explicit_is_main = str(explicit_is_main).lower() in ('true', '1')
         _resolve_and_assign_main(
@@ -374,7 +397,8 @@ class FarmersOrganizationMemberSetMainView(APIView):
 
 
 class FarmersOrganizationEquipmentAddView(generics.CreateAPIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsOwnOrgOrStaff]
+    org_linked_record_type = 'FARMERS_ORG'
     serializer_class = FarmersOrganizationEquipmentSerializer
 
     def perform_create(self, serializer):
@@ -382,9 +406,17 @@ class FarmersOrganizationEquipmentAddView(generics.CreateAPIView):
 
 
 class FarmersOrganizationEquipmentRemoveView(generics.DestroyAPIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsOrgCitizenOrStaff]
+    org_linked_record_type = 'FARMERS_ORG'
     queryset = FarmersOrganizationEquipment.objects.all()
     lookup_url_kwarg = 'equip_id'
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.request.user.role == 'CITIZEN':
+            # an organization removes only its own equipment; any other id is a 404
+            return qs.filter(organization_id=self.request.user.linked_record_id)
+        return qs
 
 
 class OrganizationOfficerListCreateView(generics.ListCreateAPIView):
@@ -477,7 +509,7 @@ class FisherfolkOrganizationListCreateView(generics.ListCreateAPIView):
         owner = fisherfolk_scope(self.request.user)
         fisherfolk_id = str(owner) if owner is not None else self.request.query_params.get('fisherfolk', '').strip()
         if fisherfolk_id:
-            if not fisherfolk_id.isdigit():
+            if not is_plain_int(fisherfolk_id):
                 return qs.none()
             qs = qs.filter(members__fisherfolk_id=fisherfolk_id, members__is_active=True).distinct()
         return qs
@@ -489,10 +521,24 @@ class FisherfolkOrganizationListCreateView(generics.ListCreateAPIView):
             serializer.save()
             org = serializer.instance
             create_inactive_citizen_shell(User.LinkedRecordType.FISHERFOLK_ORG, org)
+        # An organization with an email gets an active account and its temporary password by email.
+        self._activation = activate_and_email_organization(User.LinkedRecordType.FISHERFOLK_ORG, org)
+
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        response.data['activation'] = self._activation
+        return response
 
 
 class FisherfolkOrganizationDetailView(generics.RetrieveUpdateAPIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    # GET is open to the organization itself (read-only own record); changing it stays staff-only.
+    org_linked_record_type = 'FISHERFOLK_ORG'
+
+    def get_permissions(self):
+        if self.request.method in ('GET', 'HEAD', 'OPTIONS'):
+            return [IsAuthenticated(), IsOwnOrgOrStaff()]
+        return [IsAuthenticated(), IsAdminOrEvaluator()]
+
     serializer_class = FisherfolkOrganizationDetailSerializer
     queryset = FisherfolkOrganization.objects.all()
 
@@ -548,7 +594,9 @@ class FisherfolkOrganizationMemberAddView(generics.ListCreateAPIView):
                 {'detail': 'This fisherfolk is already a member of this organization.'}
             )
         member = serializer.save(organization_id=organization_id)
-        explicit_is_main = self.request.data.get('is_main')
+        # Only staff choose a person's main organization; an organization's own request never does (it could take
+        # main status away from another organization the person belongs to).
+        explicit_is_main = self.request.data.get('is_main') if self.request.user.role in ('ADMIN', 'EVALUATOR') else None
         if explicit_is_main is not None:
             explicit_is_main = str(explicit_is_main).lower() in ('true', '1')
         _resolve_and_assign_main(
@@ -665,7 +713,8 @@ class FisherfolkOrganizationMemberSetMainView(APIView):
 
 
 class FisherfolkOrganizationEquipmentAddView(generics.CreateAPIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsOwnOrgOrStaff]
+    org_linked_record_type = 'FISHERFOLK_ORG'
     serializer_class = FisherfolkOrganizationEquipmentSerializer
 
     def perform_create(self, serializer):
@@ -673,9 +722,17 @@ class FisherfolkOrganizationEquipmentAddView(generics.CreateAPIView):
 
 
 class FisherfolkOrganizationEquipmentRemoveView(generics.DestroyAPIView):
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsOrgCitizenOrStaff]
+    org_linked_record_type = 'FISHERFOLK_ORG'
     queryset = FisherfolkOrganizationEquipment.objects.all()
     lookup_url_kwarg = 'equip_id'
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.request.user.role == 'CITIZEN':
+            # an organization removes only its own equipment; any other id is a 404
+            return qs.filter(organization_id=self.request.user.linked_record_id)
+        return qs
 
 
 class FisherfolkOrganizationOfficerListCreateView(generics.ListCreateAPIView):
@@ -835,7 +892,25 @@ class FisherfolkOrganizationAddCandidateSearchView(_AddCandidateSearchBase):
 # one-by-one flow (CitizenReportAssistanceModal / AddAssistanceModal /
 # LogGovernmentAssistanceModal) — does not replace it.
 
-def _run_organization_distribution(record_model, person_field, organization, members, data, user, commit=True):
+def _chosen_members(members, data, dry_run):
+    """The people a distribution goes to: the whole active roster, or only the ids in `member_ids` (each must be on
+    that roster). The preview always lists the whole roster so the form can show a checklist."""
+    if dry_run or 'member_ids' not in data:
+        return members
+    ids = data['member_ids']
+    if not ids:
+        raise serializers.ValidationError({'member_ids': ['Select at least one member.']})
+    roster = {person.id: person for person in members}
+    unknown = sorted(set(ids) - set(roster))
+    if unknown:
+        raise serializers.ValidationError({
+            'member_ids': [f'Not an active member of this organization: {", ".join(str(i) for i in unknown)}.'],
+        })
+    chosen = set(ids)
+    return [person for person in members if person.id in chosen]
+
+
+def _run_organization_distribution(record_model, person_field, organization, members, data, user, commit=True, batch=None):
     """
     Shared by both domain views below — identical per-member logic, differing
     only in which model/FK field/attribution field is used.
@@ -985,6 +1060,7 @@ def _run_organization_distribution(record_model, person_field, organization, mem
                     # comment for why this can't be reconstructed later
                     # from attributed_organization.
                     distributed_by_organization=organization,
+                    distribution_batch=batch,
                     **{person_field: person, text_field: data.get('description', '')},
                 )
             results.append({
@@ -1046,14 +1122,18 @@ class FarmersOrganizationDistributeAssistanceView(APIView):
             FarmersOrganizationMember.objects.filter(organization_id=pk, is_active=True).select_related('farmer')
         ]
 
+        dry_run = bool(request.data.get('dry_run'))
+        members = _chosen_members(members, data, dry_run)
+        batch = None if dry_run else uuid.uuid4()
         results = _run_organization_distribution(
             BeneficiaryRecord, 'farmer', organization, members, data, request.user,
-            commit=not bool(request.data.get('dry_run')),
+            commit=not dry_run, batch=batch,
         )
         return Response({
             'organization_id': organization.id,
             'organization_name': organization.name,
             'member_count': len(members),
+            'distribution_id': str(batch) if batch else None,
             'results': results,
         }, status=status.HTTP_200_OK)
 
@@ -1078,14 +1158,18 @@ class FisherfolkOrganizationDistributeAssistanceView(APIView):
             FisherfolkOrganizationMember.objects.filter(organization_id=pk, is_active=True).select_related('fisherfolk')
         ]
 
+        dry_run = bool(request.data.get('dry_run'))
+        members = _chosen_members(members, data, dry_run)
+        batch = None if dry_run else uuid.uuid4()
         results = _run_organization_distribution(
             FisherfolkBeneficiaryRecord, 'fisherfolk', organization, members, data, request.user,
-            commit=not bool(request.data.get('dry_run')),
+            commit=not dry_run, batch=batch,
         )
         return Response({
             'organization_id': organization.id,
             'organization_name': organization.name,
             'member_count': len(members),
+            'distribution_id': str(batch) if batch else None,
             'results': results,
         }, status=status.HTTP_200_OK)
 
@@ -1223,10 +1307,9 @@ def _parse_org_import_row(row, agency_choices):
         'contact_person': s(8),
         'contact_number': s(9),
     }
-    # Excel stores 09171234567 as a number and drops the leading zero.
-    _digits = ''.join(ch for ch in payload['contact_number'] if ch.isdigit())
-    if len(_digits) == 10 and _digits.startswith('9') and payload['contact_number'] == _digits:
-        payload['contact_number'] = '0' + _digits
+    # Excel stores 09171234567 as a number and drops the leading zero; a number typed as 0917-123-4567 or
+    # +63 917 123 4567 is turned into the plain format before it is validated.
+    payload['contact_number'] = normalize_contact_number(payload['contact_number'])
     date_organized = parse_date(row[3] if len(row) > 3 else None)
     date_registered = parse_date(row[4] if len(row) > 4 else None)
     if date_organized is not None:
@@ -1236,7 +1319,8 @@ def _parse_org_import_row(row, agency_choices):
     return payload
 
 
-def _run_organization_import(model, serializer_class, linked_record_type, agency_choices, file, dry_run, user, sample_row=None):
+def _run_organization_import(model, serializer_class, linked_record_type, agency_choices, file, dry_run, user, sample_row=None,
+                             pending=None):
     from collections import defaultdict
 
     from core.utils import ImportFileError, read_template_rows
@@ -1315,6 +1399,9 @@ def _run_organization_import(model, serializer_class, linked_record_type, agency
         with transaction.atomic():
             instance = serializer.save()
             create_inactive_citizen_shell(linked_record_type, instance)
+            activation = activate_organization_account(linked_record_type, instance)
+        if activation is not None and pending is not None:
+            pending.append((row_num, activation))
         created += 1
         rows_out.append({'row': row_num, 'status': 'ready', 'label': label, 'detail': f'Created (record #{instance.id}).'})
 
@@ -1326,7 +1413,45 @@ def _run_organization_import(model, serializer_class, linked_record_type, agency
     }
     return Response({
         'created': created, 'errors': errors, 'dry_run': dry_run, 'summary': summary, 'rows': rows_out,
+        'credentials_to_hand_over': [],
     })
+
+
+def _import_organizations(request, model, serializer_class, linked_record_type, agency_choices, sample_row):
+    """Run the organization file import in one transaction, then — only once it has committed — email the
+    temporary passwords of the organizations it activated. A failed email never fails the import: that
+    organization's password is returned once in `credentials_to_hand_over` for staff to hand over."""
+    from core.utils import run_import_atomically
+
+    file = request.FILES.get('file')
+    if not file:
+        return Response({'error': 'No file uploaded.'}, status=400)
+    dry_run = str(request.data.get('dry_run', '')).strip().lower() in ('1', 'true', 'yes')
+    pending = []
+    response = run_import_atomically(lambda: _run_organization_import(
+        model, serializer_class, linked_record_type, agency_choices, file, dry_run, request.user,
+        sample_row=sample_row, pending=pending,
+    ))
+    if response.status_code != 200:
+        return response
+    rows = {row['row']: row for row in response.data.get('rows', [])}
+    failures_in_a_row = 0
+    for row_num, activation in pending:
+        # After 3 failed sends in a row the mail server is treated as down: the remaining organizations are
+        # handed over instead of each waiting out its own timeout while the request (already committed) hangs.
+        gave_up = failures_in_a_row >= 3
+        result = deliver_organization_credentials(
+            activation, skip_reason='Not sent: the mail server did not respond to earlier messages.' if gave_up else None)
+        failures_in_a_row = 0 if result['email_sent'] else failures_in_a_row + 1
+        if row_num in rows:
+            rows[row_num]['activation'] = result
+        if not result['email_sent']:
+            response.data['credentials_to_hand_over'].append({
+                'row': row_num, 'label': rows[row_num]['label'] if row_num in rows else '',
+                'login': result['login'], 'default_password': result['default_password'],
+                'expires_at': result['expires_at'], 'reason': result['reason'],
+            })
+    return response
 
 
 class FarmersOrganizationImportTemplateView(APIView):
@@ -1345,16 +1470,9 @@ class FarmersOrganizationImportView(APIView):
     parser_classes = [MultiPartParser]
 
     def post(self, request):
-        file = request.FILES.get('file')
-        if not file:
-            return Response({'error': 'No file uploaded.'}, status=400)
-        dry_run = str(request.data.get('dry_run', '')).strip().lower() in ('1', 'true', 'yes')
-        from core.utils import run_import_atomically
-        return run_import_atomically(lambda: _run_organization_import(
-            FarmersOrganization, FarmersOrganizationDetailSerializer, User.LinkedRecordType.FARMERS_ORG,
-            FarmersOrganization.REGISTRATION_AGENCY_CHOICES, file, dry_run, request.user,
-            sample_row=FARMERS_ORG_TEMPLATE_SAMPLE,
-        ))
+        return _import_organizations(
+            request, FarmersOrganization, FarmersOrganizationDetailSerializer, User.LinkedRecordType.FARMERS_ORG,
+            FarmersOrganization.REGISTRATION_AGENCY_CHOICES, FARMERS_ORG_TEMPLATE_SAMPLE)
 
 
 class FisherfolkOrganizationImportTemplateView(APIView):
@@ -1373,13 +1491,7 @@ class FisherfolkOrganizationImportView(APIView):
     parser_classes = [MultiPartParser]
 
     def post(self, request):
-        file = request.FILES.get('file')
-        if not file:
-            return Response({'error': 'No file uploaded.'}, status=400)
-        dry_run = str(request.data.get('dry_run', '')).strip().lower() in ('1', 'true', 'yes')
-        from core.utils import run_import_atomically
-        return run_import_atomically(lambda: _run_organization_import(
-            FisherfolkOrganization, FisherfolkOrganizationDetailSerializer, User.LinkedRecordType.FISHERFOLK_ORG,
-            FisherfolkOrganization.REGISTRATION_AGENCY_CHOICES, file, dry_run, request.user,
-            sample_row=FISHERFOLK_ORG_TEMPLATE_SAMPLE,
-        ))
+        return _import_organizations(
+            request, FisherfolkOrganization, FisherfolkOrganizationDetailSerializer,
+            User.LinkedRecordType.FISHERFOLK_ORG, FisherfolkOrganization.REGISTRATION_AGENCY_CHOICES,
+            FISHERFOLK_ORG_TEMPLATE_SAMPLE)

@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { CheckCircle2, Loader2, MailWarning, XCircle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import logo from '../../assets/LOGO OMAg.jpg'
+import EmailInput from '../../components/UI/EmailInput.jsx'
 
 function VerifyEmailPage() {
   const navigate = useNavigate()
@@ -92,11 +93,10 @@ function VerifyEmailPage() {
                     <label className="text-[12px] font-medium text-slate-700 flex items-center gap-1.5 mb-1.5">
                       <MailWarning className="w-3.5 h-3.5 text-amber-600" /> Request a new verification link
                     </label>
-                    <input
-                      type="email"
+                    <EmailInput
                       required
                       value={resendEmail}
-                      onChange={e => setResendEmail(e.target.value)}
+                      onChange={setResendEmail}
                       placeholder="you@example.com"
                       className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm mb-2 focus:outline-none focus:ring-2 focus:ring-[#1B4D2E] focus:border-[#1B4D2E] transition-colors"
                     />

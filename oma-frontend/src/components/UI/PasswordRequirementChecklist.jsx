@@ -1,29 +1,9 @@
 import { Check, X } from 'lucide-react'
+import { evaluatePassword } from '../../utils/passwordRules.js'
 
-// Client-side mirror of the server-side policy (accounts/validators.py +
-// AUTH_PASSWORD_VALIDATORS) for instant feedback only. The server always
-// re-validates on submit — this is not the source of truth.
-const LOCAL_DENYLIST_TERMS = [
-  'aringay', 'omag', 'oma aringay', 'omaaringay', 'password', 'capstone',
-  'municipalagriculturist', 'launion', 'la union', 'agriculturist',
-]
-
-// A short sample of the most common passwords, for instant feedback only —
-// the server checks against Django's full common-password list on submit.
-const OBVIOUSLY_COMMON = [
-  'password123', '123456789012345', 'qwertyuiopasdfgh', 'letmein12345678',
-  'iloveyou12345678', 'football1234567', 'baseball1234567', 'princess123456',
-]
-
-export function evaluatePassword(password) {
-  const trimmed = password || ''
-  const lower = trimmed.toLowerCase()
-  const meetsLength = trimmed.length >= 15
-  const hitsLocalTerm = LOCAL_DENYLIST_TERMS.some(term => lower.includes(term))
-  const hitsCommon = OBVIOUSLY_COMMON.some(term => lower === term)
-  const notObviouslyWeak = trimmed.length === 0 ? null : !hitsLocalTerm && !hitsCommon
-  return { meetsLength, notObviouslyWeak }
-}
+// Live checklist of the password rules (the rule logic lives in utils/passwordRules.js, a mirror of the server policy
+// for instant feedback only — the server always re-validates on submit).
+export { evaluatePassword }
 
 function Item({ ok, label }) {
   const state = ok === null ? 'pending' : ok ? 'pass' : 'fail'
@@ -37,11 +17,14 @@ function Item({ ok, label }) {
 }
 
 export default function PasswordRequirementChecklist({ password }) {
-  const { meetsLength, notObviouslyWeak } = evaluatePassword(password)
+  const rules = evaluatePassword(password)
   return (
     <ul className="space-y-1 rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-2.5">
-      <Item ok={password ? meetsLength : null} label="At least 15 characters (passphrases welcome)" />
-      <Item ok={notObviouslyWeak} label="Not a common or easily-guessed password" />
+      <Item ok={rules.length} label="At least 8 characters" />
+      <Item ok={rules.capital} label="1 capital letter" />
+      <Item ok={rules.special} label="1 special character (like # or @)" />
+      <Item ok={rules.digits} label="At least 3 numbers" />
+      <Item ok={rules.notWeak} label="Not a common or easily-guessed password" />
     </ul>
   )
 }

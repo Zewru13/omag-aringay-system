@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AlertCircle, Eye, EyeOff, Loader2, ShieldAlert } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PasswordRequirementChecklist from '../../components/UI/PasswordRequirementChecklist.jsx'
+import { passwordMeetsRules } from '../../utils/passwordRules.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import logo from '../../assets/LOGO OMAg.jpg'
 
@@ -136,7 +137,7 @@ function ForceChangePasswordPage() {
 
           <button
             type="submit"
-            disabled={loading || !currentPassword || !newPassword || !confirmPassword}
+            disabled={loading || !currentPassword || !passwordMeetsRules(newPassword) || !confirmPassword}
             className="w-full bg-[#1B4D2E] hover:bg-[#235E38] text-white font-semibold py-2.5 rounded-xl text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}

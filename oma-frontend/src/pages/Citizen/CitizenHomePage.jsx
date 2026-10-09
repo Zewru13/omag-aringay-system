@@ -6,16 +6,17 @@ import useIsPhone from '../../hooks/useIsPhone.js'
 import FisherfolkPhoneHome from './FisherfolkPhoneHome.jsx'
 import { FARMERS_ORG_DOMAIN, FISHERFOLK_ORG_DOMAIN } from './orgDomainConfig.js'
 import FarmerPhoneHome from './FarmerPhoneHome.jsx'
-import OrganizationHomeScreen from './OrganizationHomeScreen.jsx'
+import OrgPhoneHome from './OrgPhoneHome.jsx'
 import { labels } from './labels.js'
 
 // Batch 10 built the read-only proof-of-chain overview below. Batch 11
 // added self-service tabs for Farmer/Fisherfolk: log/edit own activity &
 // harvest entries, read-only Yield Analysis and Assistance History.
-// Batch 12 adds the ORGANIZATION-role equivalent: report beneficiary
+// Batch 12 added the ORGANIZATION-role equivalent: report beneficiary
 // assistance for this org's own members only, edit own submissions. No
 // crop/pond records, no member profile editing, no disaster reporting
-// anywhere on this page for any role.
+// anywhere on this page for any role. Organization accounts now use the
+// Admin pages in an own-organization mode, like the other two (see OrgPhoneHome).
 
 const RECORD_TYPE_LABELS_LOWER = labels.home.recordTypeLabels
 
@@ -30,8 +31,7 @@ export default function CitizenHomePage() {
   const isFisherfolk = recordType === 'FISHERFOLK'
   const orgDomain = isFarmersOrg ? FARMERS_ORG_DOMAIN : isFisherfolkOrg ? FISHERFOLK_ORG_DOMAIN : null
 
-  // Farmer and Fisherfolk accounts use the Admin pages for their own records (see below). ORGANIZATION accounts
-  // have OrganizationHomeScreen's dashboard (member and officer management alongside the assistance flows).
+  // Farmer, Fisherfolk and Organization accounts use the Admin pages for their own records (see below).
   // Farmer accounts use the Admin crop pages (backend-scoped to their own records). On a phone they land on a Home
   // inside the phone shell (see CitizenPhoneShell); on a larger screen they go straight to Crop Monitoring.
   if (isFarmer && record) {
@@ -43,15 +43,10 @@ export default function CitizenHomePage() {
   if (isFisherfolk && record) {
     return isPhone ? <FisherfolkPhoneHome /> : <Navigate to="/fisheries-monitoring" replace />
   }
+  // Organization accounts use the Admin pages for their own organization. On a phone they land on a Home inside
+  // the phone shell (see CitizenPhoneShell); on a larger screen they go straight to My Organization.
   if (orgDomain && record) {
-    return (
-      <OrganizationHomeScreen
-        record={record}
-        recordType={recordType}
-        domain={orgDomain}
-        onLogout={logout}
-      />
-    )
+    return isPhone ? <OrgPhoneHome /> : <Navigate to="/my-organization" replace />
   }
 
   // Fallback only: a CITIZEN whose account has no linked record at all, and

@@ -135,10 +135,9 @@ elif DB_BACKEND == 'postgres':
 else:
     raise RuntimeError(f"DB_BACKEND must be 'mysql' or 'postgres', got {DB_BACKEND!r}")
 
-# Passphrase-friendly policy: length + denylist, no forced composition rules
-# (no mandatory symbol/number/uppercase) and no periodic/expiry logic anywhere
-# in this project — both are deliberate, per NIST 800-63B guidance. Kept in
-# sync with settings.py's own copy of this list.
+# Password policy: minimum length 8, at least 1 capital letter, 1 special character and 3 numbers
+# (accounts.validators.CompositionPasswordValidator), plus the common-password and local denylists.
+# No periodic password expiry for chosen passwords; only temporary (system-issued) passwords expire.
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -146,7 +145,10 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-        'OPTIONS': {'min_length': 15},
+        'OPTIONS': {'min_length': 8},
+    },
+    {
+        'NAME': 'accounts.validators.CompositionPasswordValidator',
     },
     {
         'NAME': 'accounts.validators.MaximumLengthValidator',
@@ -304,6 +306,12 @@ FRONTEND_BASE_URL = os.environ.get('FRONTEND_BASE_URL', '').rstrip('/')
 
 # How long an email-verification token stays valid.
 EMAIL_VERIFICATION_TOKEN_HOURS = int(os.environ.get('EMAIL_VERIFICATION_TOKEN_HOURS', '72'))
+
+# How long a system-issued temporary password can still be used to log in.
+TEMP_PASSWORD_VALID_DAYS = int(os.environ.get('TEMP_PASSWORD_VALID_DAYS', '7'))
+
+# Seconds to wait on the mail server before giving up (an unreachable server must not hang a request).
+EMAIL_TIMEOUT = int(os.environ.get('EMAIL_TIMEOUT', '10'))
 
 # ── Deliberately NOT set here yet — open questions for real deployment ────
 # These are standard Django production-hardening settings (SECURE_SSL_REDIRECT,

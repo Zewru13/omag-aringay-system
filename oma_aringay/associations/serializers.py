@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from accounts.models import User
 from accounts.utils import citizen_account_info
-from core.validators import validate_not_future_date
+from core.validators import validate_not_future_date, validate_contact_number
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk
 
@@ -127,14 +127,20 @@ class OrganizationOfficerSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
-def _validate_contact(value):
-    if value and value.strip():
-        digits = ''.join(filter(str.isdigit, value.strip()))
-        if len(digits) != 11 or not digits.startswith('09'):
-            raise serializers.ValidationError(
-                'Contact number must be exactly 11 digits and start with 09.'
-            )
-    return value
+def _check_registered_not_before_organized(data, instance):
+    """An organization cannot be registered before it was organized (the same day is fine). Each date is the
+    submitted value, else the stored one, so a PATCH of only one date is checked against the other; a missing
+    date is never compared, and a PATCH that sends neither is never blocked by an old bad pair."""
+    if 'date_organized' not in data and 'date_registered' not in data:
+        return
+    organized = data['date_organized'] if 'date_organized' in data else getattr(instance, 'date_organized', None)
+    registered = data['date_registered'] if 'date_registered' in data else getattr(instance, 'date_registered', None)
+    if organized and registered and registered < organized:
+        raise serializers.ValidationError({'date_registered': 'Date registered cannot be before the date organized.'})
+
+
+def _validate_contact(value, instance=None):
+    return validate_contact_number(value, instance)
 
 
 class FarmersOrganizationMemberSerializer(serializers.ModelSerializer):
@@ -222,8 +228,15 @@ class FarmersOrganizationDetailSerializer(serializers.ModelSerializer):
     def get_citizen_account(self, obj):
         return citizen_account_info(User.LinkedRecordType.FARMERS_ORG, obj.id)
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        if request is not None and request.user.role not in ('ADMIN', 'EVALUATOR'):
+            data.pop('citizen_account', None)   # the staff-facing Activate Account block, not for the organization
+        return data
+
     def validate_contact_number(self, value):
-        return _validate_contact(value)
+        return _validate_contact(value, self.instance)
 
     def validate_date_organized(self, value):
         validate_not_future_date(value, 'Date organized')
@@ -232,6 +245,10 @@ class FarmersOrganizationDetailSerializer(serializers.ModelSerializer):
     def validate_date_registered(self, value):
         validate_not_future_date(value, 'Date registered')
         return value
+
+    def validate(self, data):
+        _check_registered_not_before_organized(data, self.instance)
+        return data
 
 
 # ─── Fisherfolk ──────────────────────────────────────────────────────────────
@@ -364,8 +381,15 @@ class FisherfolkOrganizationDetailSerializer(serializers.ModelSerializer):
     def get_citizen_account(self, obj):
         return citizen_account_info(User.LinkedRecordType.FISHERFOLK_ORG, obj.id)
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get('request')
+        if request is not None and request.user.role not in ('ADMIN', 'EVALUATOR'):
+            data.pop('citizen_account', None)   # the staff-facing Activate Account block, not for the organization
+        return data
+
     def validate_contact_number(self, value):
-        return _validate_contact(value)
+        return _validate_contact(value, self.instance)
 
     def validate_date_organized(self, value):
         validate_not_future_date(value, 'Date organized')
@@ -374,3 +398,7 @@ class FisherfolkOrganizationDetailSerializer(serializers.ModelSerializer):
     def validate_date_registered(self, value):
         validate_not_future_date(value, 'Date registered')
         return value
+
+    def validate(self, data):
+        _check_registered_not_before_organized(data, self.instance)
+        return data

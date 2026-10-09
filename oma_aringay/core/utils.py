@@ -477,3 +477,9 @@ def accumulate_yield_group(g, a):
     if a['activities_total_count'] > 0:
         g['completion_pct_sum'] += (a['activities_completed_count'] / a['activities_total_count']) * 100
         g['completion_pct_n'] += 1
+
+
+def is_plain_int(value, max_digits=9):
+    """True for a short string of ASCII digits only. `str.isdigit()` also accepts look-alikes such as '²' or Arabic-Indic
+    digits (then `int()` raises), and a very long run of digits overflows the database, so use this before `int()`."""
+    return isinstance(value, str) and value.isascii() and value.isdigit() and 0 < len(value) <= max_digits

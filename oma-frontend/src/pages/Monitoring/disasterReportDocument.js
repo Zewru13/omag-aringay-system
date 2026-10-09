@@ -141,7 +141,7 @@ export function cropPrintSpec(doc) {
       { title: 'Disaster Details', rows: s.details },
       { title: 'Description of Damage', paragraphs: s.paragraphs, empty: 'No description recorded.' },
     ],
-    photos: doc.photo ? [doc.photo] : [],
+    photos: [...(doc.photo ? [doc.photo] : []), ...(doc.photos || []).map(p => p.url)],
   }
 }
 

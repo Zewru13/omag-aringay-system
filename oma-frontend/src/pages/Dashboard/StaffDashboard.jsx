@@ -2,7 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, Fish, PackageX, Sprout } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
+import PhotoLinks from '../../components/UI/PhotoLinks.jsx'
 import { resolveMediaUrl } from '../../utils/mediaUrl.js'
+import { approvalLines, hasApproved } from '../../utils/approvalStatus.js'
 
 // The admin/evaluator dashboard, built to the approved staff reference
 // ("New Dashboard base.docx", three frames).
@@ -194,8 +196,12 @@ export default function StaffDashboard({ user }) {
     try {
       const body = action === 'reject' ? { rejection_reason: 'Rejected from dashboard review.' } : {}
       await api.post(`/staff/change-requests/${req.id}/${action}/`, body)
+    } catch {
+      // Someone else may have decided it first; the reload below shows where it stands.
+    } finally {
       loadRequests()
-    } finally { setBusyId(null) }
+      setBusyId(null)
+    }
   }
 
   const decideConfirmation = async (req, action) => {
@@ -485,7 +491,7 @@ export default function StaffDashboard({ user }) {
                   <li key={r.id} className={`px-5 py-3.5 ${i === requests.length - 1 ? '' : 'border-b border-border'}`}>
                     <div className="flex items-start justify-between gap-3">
                       <p className="text-[14px] font-semibold text-text-primary truncate">
-                        {r.record_name || r.requested_by_name || `Request #${r.id}`}
+                        {r.record_label || r.requested_by_name || `Request #${r.id}`}
                       </p>
                       <span className="text-[12px] text-text-muted shrink-0 tabular-nums">
                         {r.requested_at ? new Date(r.requested_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
@@ -494,14 +500,25 @@ export default function StaffDashboard({ user }) {
                     <div className="mt-1 flex items-start justify-between gap-3 flex-wrap">
                       <div className="min-w-0">
                         <p className="text-[13px] text-[color:var(--color-semantic-info)] capitalize">
-                          {(r.field_name || '').replace(/_/g, ' ') || 'Change request'}
+                          {r.field_label || (r.field_name || '').replace(/_/g, ' ') || 'Change request'}
                         </p>
-                        <p className="mt-0.5 text-[12.5px] text-text-muted">
+                        <p className="mt-0.5 break-words text-[12.5px] text-text-muted">
                           {r.old_value || '—'} → {r.requested_value || '—'}
                         </p>
+                        {r.requires_both && (
+                          <p className="mt-1 text-[12px] text-text-secondary" data-testid="approval-lines">
+                            {approvalLines(r).map((line, idx) => (
+                              <span key={line.role}>
+                                {idx > 0 ? ' · ' : ''}
+                                {line.done ? `${line.role} ✓ ${line.by}`.trim() : `${line.role} pending`}
+                              </span>
+                            ))}
+                          </p>
+                        )}
                       </div>
                       <div className="flex gap-2 shrink-0">
-                        <button type="button" disabled={busyId === r.id} onClick={() => decide(r, 'approve')}
+                        <button type="button" disabled={busyId === r.id || hasApproved(r, user?.role)} onClick={() => decide(r, 'approve')}
+                          title={hasApproved(r, user?.role) ? 'You already approved this' : undefined}
                           className="rounded-[6px] border border-[color:var(--color-semantic-safe)] px-3 py-1.5 transition-colors hover:bg-[color:var(--color-semantic-safe-bg)] disabled:opacity-50 cursor-pointer">
                           <span className="text-[12px] font-semibold text-[color:var(--color-semantic-safe)]">Approve</span>
                         </button>
@@ -548,14 +565,13 @@ export default function StaffDashboard({ user }) {
                     </p>
                     <div className="mt-2 flex items-start justify-between gap-3 flex-wrap">
                       <div className="flex min-w-0 items-start gap-3">
-                        {r.photo_url ? (
-                          <a href={resolveMediaUrl(r.photo_url)} target="_blank" rel="noreferrer" className="shrink-0">
-                            <img
-                              src={resolveMediaUrl(r.photo_url)}
-                              alt=""
-                              className="h-16 w-16 rounded-[8px] border border-border object-cover transition-opacity hover:opacity-80"
-                            />
-                          </a>
+                        {(r.photo_urls?.length > 0 || r.photo_url) ? (
+                          // every proof photo can be opened (the older single photo first)
+                          <PhotoLinks
+                            className="max-w-[9.5rem] shrink-0"
+                            legacy={r.photo_url ? resolveMediaUrl(r.photo_url) : null}
+                            photos={(r.photo_urls || []).map((url, i) => ({ id: i, url: resolveMediaUrl(url) }))}
+                          />
                         ) : (
                           <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[8px] border border-dashed border-border-strong text-[10px] text-text-muted">
                             No photo

@@ -33,8 +33,10 @@ from .utils import (
     build_verification_link,
     generate_default_password,
     generate_verification_token,
+    issue_temporary_password,
     send_verification_email,
     send_welcome_email,
+    temp_password_expired,
 )
 
 
@@ -199,6 +201,17 @@ class LoginView(APIView):
             return Response(
                 {'detail': 'Incorrect password.'},
                 status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        # A temporary password past its expiry no longer works. Checked only after the password itself
+        # is right, so a wrong guess never learns whether the account's password has expired.
+        if temp_password_expired(db_user):
+            return Response(
+                {
+                    'detail': 'This temporary password has expired. Ask the Office of the Municipal Agriculturist for a new one.',
+                    'code': 'temp_password_expired',
+                },
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         # Email verification is an ADMIN/EVALUATOR-only concept — CITIZEN
@@ -443,8 +456,16 @@ class ChangePasswordView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        if request.user.check_password(new_password):
+            # Otherwise the emailed temporary password could be "changed" to itself and kept for good.
+            return Response(
+                {'new_password': ['Choose a new password that is different from the current one.']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         request.user.set_password(new_password)
         request.user.must_change_password = False
+        request.user.temp_password_expires_at = None
         request.user.save()
 
         # The password just changed — every token issued before now (this
@@ -672,11 +693,8 @@ class SetCitizenPasswordView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        generated_password = generate_default_password()
-        user.set_password(generated_password)
-        user.must_change_password = True
         user.is_active = True
-        user.save()
+        generated_password = issue_temporary_password(user)
 
         return Response({
             'user': UserSerializer(user).data,
@@ -708,9 +726,13 @@ class RegenerateCitizenPasswordView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        generated_password = generate_default_password()
-        user.set_password(generated_password)
-        user.save()
+        generated_password = issue_temporary_password(user)
+        # The old password is gone, so every session started with it must stop working too (same policy
+        # as ChangePasswordView: a failure here is logged and never turns the reissue into an error).
+        try:
+            _blacklist_outstanding_tokens(user)
+        except Exception:
+            logger.exception('Token blacklist failed after password regeneration (non-fatal): user_id=%s', user.pk)
 
         return Response({
             'user': UserSerializer(user).data,

@@ -851,8 +851,8 @@ export default function ForecastingPage() {
   // changing two filters in quick succession fires two overlapping requests
   // with no guarantee they resolve in the order they were sent. Guarded with
   // this codebase's own established cancelled-flag idiom (see e.g.
-  // MyYieldAnalysisSection.jsx, OrganizationHomeScreen.jsx, StaffDashboard.jsx
-  // — 14 files already use this exact pattern) rather than inventing a new
+  // MyYieldAnalysisSection.jsx, StaffDashboard.jsx
+  // — many files already use this exact pattern) rather than inventing a new
   // one: the effect's cleanup flips `cancelled` before the next run starts,
   // so a response that lands after a newer request has already begun is
   // discarded instead of applied.

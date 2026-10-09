@@ -253,7 +253,7 @@ export function CitizenHomeHeader({ theme }) {
   )
 }
 
-// Plain, non-sticky "< Bumalik" + title, in the content area — exactly the
+// Plain, non-sticky "< Back" + title, in the content area — exactly the
 // pattern OrgPageHeader already established for Organization, now shared
 // by Farmer/Fisherfolk too so the sticky bar above never has to change.
 export function CitizenPageHeader({ title, subtitle, onBack }) {
@@ -316,8 +316,7 @@ export function QuickLinksHeading({ children }) {
 }
 
 // ─── Field-status legend ─────────────────────────────────────────────────
-// Shared by CitizenProfileScreen (Farmer/Fisherfolk) and OrgInfoScreen
-// (both org types) — PROFILE REFERENCE!.docx draws the identical bar on
+// Used by CitizenProfileScreen (Farmer/Fisherfolk) — PROFILE REFERENCE!.docx draws the identical bar on
 // every self-service profile frame: green pencil = saves instantly, orange
 // refresh = goes through a staff-reviewed change request, gray lock = never
 // editable by the citizen. One component so the three colors/icons/order

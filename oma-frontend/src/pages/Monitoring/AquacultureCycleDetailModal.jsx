@@ -4,6 +4,7 @@ import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import LoadingSpinner from '../../components/UI/LoadingSpinner.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
@@ -316,6 +317,9 @@ function FeedingLogTab({ cycleId, units = [], cycle }) {
       const bad = units.find(u => unitQty[u.id] !== undefined && unitQty[u.id] !== '' && !(parseFloat(unitQty[u.id]) >= 0))
       if (bad) { showToast(`${unitLabel(bad)}: feed quantity cannot be negative.`, 'error'); return }
       if (!(unitsTotal > 0)) { showToast('Enter a feed quantity for at least one pond/cage.', 'error'); return }
+    } else if (!(parseFloat(form.quantity_kg) >= 0.01)) {
+      // A lone "." or "0" passes the field's `required`, so the minimum is checked here.
+      showToast('Feed quantity must be at least 0.01 kg.', 'error'); return
     }
 
     setIsSaving(true)
@@ -383,9 +387,9 @@ function FeedingLogTab({ cycleId, units = [], cycle }) {
                   <tr key={u.id} className="border-t border-slate-100">
                     <td className="px-3 py-1.5 font-medium text-slate-800">{unitLabel(u)}</td>
                     <td className="px-3 py-1.5">
-                      <input
-                        type="number" step="0.01" min="0" className={`${baseInputClasses} text-right`} aria-label={`${unitLabel(u)} feed quantity (kg)`}
-                        value={unitQty[u.id] ?? ''} onChange={e => setUnitQty(q => ({ ...q, [u.id]: e.target.value }))}
+                      <DecimalInput
+                        decimals={2} className={`${baseInputClasses} text-right`} aria-label={`${unitLabel(u)} feed quantity (kg)`}
+                        value={unitQty[u.id] ?? ''} onChange={v => setUnitQty(q => ({ ...q, [u.id]: v }))}
                       />
                     </td>
                   </tr>
@@ -393,8 +397,8 @@ function FeedingLogTab({ cycleId, units = [], cycle }) {
                   <tr className="border-t border-slate-100">
                     <td className="px-3 py-1.5 font-medium text-slate-800">Whole cycle <span className="text-red-500">*</span></td>
                     <td className="px-3 py-1.5">
-                      <input type="number" step="0.01" min="0.01" className={`${baseInputClasses} text-right`} required aria-label="Feed quantity (kg)"
-                        value={form.quantity_kg} onChange={e => setForm(f => ({ ...f, quantity_kg: e.target.value }))} />
+                      <DecimalInput decimals={2} className={`${baseInputClasses} text-right`} required aria-label="Feed quantity (kg)"
+                        value={form.quantity_kg} onChange={v => setForm(f => ({ ...f, quantity_kg: v }))} />
                     </td>
                   </tr>
                 )}
@@ -1309,7 +1313,7 @@ function InputsTab({ cycleId }) {
             </div>
             <div>
               <label className={labelCls}>Quantity *</label>
-              <input type="number" step="0.01" min="0.01" className={baseInputClasses} required value={form.quantity} onChange={e => setForm(f => ({...f, quantity: e.target.value}))} />
+              <DecimalInput decimals={2} className={baseInputClasses} required value={form.quantity} onChange={v => setForm(f => ({...f, quantity: v}))} />
             </div>
             <div>
               <label className={labelCls}>Unit *</label>

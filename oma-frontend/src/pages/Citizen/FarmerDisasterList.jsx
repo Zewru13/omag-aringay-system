@@ -7,7 +7,7 @@ import { dayFirstShort } from './farmerDates.js'
 import { FIELD } from './farmerFormParts.jsx'
 import { labels } from './labels.js'
 
-// Farmer "mga naiulat na sakuna" list with its recommendation checklist and
+// Farmer reported-disasters list with its recommendation checklist and
 // the mark-as-recovered step, rebuilt to UPDATED FARMER CITIZEN UI.docx.
 // Rendered by CitizenDisasterScreen for variant="farmer": that screen still
 // fetches the disasters and their response rules; this file draws them and owns

@@ -7,6 +7,7 @@ from django.db.models import Avg, Case, CharField, Count, Exists, F, IntegerFiel
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status as drf_status
+from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -18,10 +19,13 @@ from accounts.permissions import (
 from core.constants import BARANGAY_CHOICES
 from core.locking import assert_not_locked_by_other
 from core.notifications import notify_staff, notify_user, resolve_owner_user
-from core.utils import accumulate_yield_group, filter_people_search, harvest_gate_status, new_yield_group
+from core.utils import accumulate_yield_group, filter_people_search, harvest_gate_status, is_plain_int, new_yield_group
 from farmers.models import FarmParcel, Farmer
 from fisheries.models import Fisherfolk
 
+from core.photos import discard_uploaded_files, validated_photos
+from .duplicates import find_active_duplicates, same_place
+from .naming import normalize_name
 from .dashboard_activity import (
     active_disaster_rows, barangay_rows, crop_activity_status,
     crop_yield_variance, fisheries_activity_status, not_received_count, sector_summary,
@@ -29,7 +33,7 @@ from .dashboard_activity import (
 from .models import (
     ActivityType,
     BarangayCropSummary,
-    CropActivityLog, CropActivityStage, CropCategory, CropDisasterReport,
+    CropActivityLog, CropActivityStage, CropCategory, CropDisasterReport, CropDisasterReportPhoto,
     CropInputType,
     CropMonitoringRecord, CropRemark,
     CropSubcategory, CropType, CropVariety, DamageReport, DisasterResponseRule,
@@ -864,6 +868,28 @@ class CropMonitoringBulkCreateView(APIView):
         if not all(validities):
             return Response({'errors': [s.errors for s in item_serializers]}, status=drf_status.HTTP_400_BAD_REQUEST)
 
+        # Every row passed on its own, but two rows of this same form can still be the same crop in the same
+        # place (the database check cannot see them: nothing is saved yet). Later rows are refused.
+        batch_errors = [{} for _ in item_serializers]
+        for i, current in enumerate(item_serializers):
+            row = current.validated_data
+            for j in range(i):
+                earlier = item_serializers[j].validated_data
+                if (
+                    row.get('farmer') and earlier.get('farmer') and row['farmer'].id == earlier['farmer'].id
+                    and row['crop_type'].id == earlier['crop_type'].id
+                    and normalize_name(row.get('variety_used')) == normalize_name(earlier.get('variety_used'))
+                    and same_place(
+                        row['farm_parcel'].id if row.get('farm_parcel') else None, row.get('farm_location_barangay', ''),
+                        earlier['farm_parcel'].id if earlier.get('farm_parcel') else None,
+                        earlier.get('farm_location_barangay', ''),
+                    )
+                ):
+                    batch_errors[i] = {'crop_type': [f'This record duplicates row {j + 1} of this form.']}
+                    break
+        if any(batch_errors):
+            return Response({'errors': batch_errors}, status=drf_status.HTTP_400_BAD_REQUEST)
+
         with transaction.atomic():
             created = [s.save(recorded_by=request.user) for s in item_serializers]
 
@@ -904,24 +930,28 @@ class CropDuplicateCheckView(APIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
     def get(self, request):
-        farmer_id   = request.query_params.get('farmer')
-        crop_type_id = request.query_params.get('crop_type')
-        if not farmer_id or not crop_type_id:
+        params = request.query_params
+        farmer_id, crop_type_id = params.get('farmer'), params.get('crop_type')
+        if not is_plain_int(farmer_id) or not is_plain_int(crop_type_id):
             return Response({'duplicates': []})
-        qs = CropMonitoringRecord.objects.filter(
-            farmer_id=farmer_id,
-            crop_type_id=crop_type_id,
-            status=CropMonitoringRecord.Status.PLANTED,
-        ).select_related('crop_type').order_by('-date_planted')[:5]
+        parcel = params.get('parcel')
+        exclude = params.get('exclude')
+        found = find_active_duplicates(
+            farmer_id=int(farmer_id), crop_type_id=int(crop_type_id), variety=params.get('variety', ''),
+            farm_parcel_id=int(parcel) if is_plain_int(parcel) else None,
+            barangay=params.get('barangay', ''),
+            exclude_id=int(exclude) if is_plain_int(exclude) else None,
+        )[:5]
         results = [
             {
                 'id':           r.id,
                 'crop_type':    r.crop_type.name if r.crop_type else '',
+                'variety_used': r.variety_used,
                 'date_planted': str(r.date_planted) if r.date_planted else None,
                 'area_planted_ha': str(r.area_planted_ha),
                 'status':       r.status,
             }
-            for r in qs
+            for r in found
         ]
         return Response({'duplicates': results})
 
@@ -1447,7 +1477,35 @@ class CropDisasterReportListCreateView(generics.ListCreateAPIView):
         monitoring_id = self.kwargs.get('monitoring_id')
         return CropDisasterReport.objects.filter(
             monitoring_record_id=monitoring_id,
-        ).order_by('-date_of_occurrence')
+        ).prefetch_related('photos').order_by('-date_of_occurrence')
+
+    def create(self, request, *args, **kwargs):
+        # 0-10 damage photos (the older single `photo` field counts as one), validated before anything is saved;
+        # the report, its photo rows and the response are built in ONE transaction, and the files written by a
+        # failed attempt are removed again.
+        if not hasattr(request.data, 'items'):
+            raise ValidationError({'detail': 'Send the report as a form or a JSON object.'})
+        photos = validated_photos(request, 'photos', legacy_field='photo', limit=CropDisasterReportPhoto.MAX_PER_PARENT)
+        if hasattr(request.data, 'getlist'):   # multipart: one value per field, photo files excluded
+            data = {k: request.data.get(k) for k in request.data.keys() if k not in ('photos', 'photo')}
+        else:
+            data = {k: v for k, v in request.data.items() if k not in ('photos', 'photo')}
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        written = []
+        try:
+            with transaction.atomic():
+                self.perform_create(serializer)
+                report = serializer.instance
+                for f in photos:
+                    row = CropDisasterReportPhoto.objects.create(disaster_report=report, image=f, uploaded_by=request.user)
+                    written.append(row.image.name)
+                report = CropDisasterReport.objects.prefetch_related('photos').get(pk=report.pk)
+                response_data = self.get_serializer(report).data
+        except Exception:
+            discard_uploaded_files(written)
+            raise
+        return Response(response_data, status=drf_status.HTTP_201_CREATED)
 
     def perform_create(self, serializer):
         monitoring_id = self.kwargs.get('monitoring_id')
@@ -2255,7 +2313,7 @@ class CropDisasterLogListView(APIView):
             qs = qs.filter(disaster_type=params['disaster_type'])
         if params.get('status') in ('Active', 'Recovered'):
             qs = qs.filter(status=params['status'])
-        if params.get('year', '').isdigit():
+        if is_plain_int(params.get('year', '')):
             qs = qs.filter(date_of_occurrence__year=int(params['year']))
         if params.get('barangay'):
             qs = qs.filter(monitoring_record__farm_location_barangay__iexact=params['barangay'])
@@ -2269,7 +2327,7 @@ class CropDisasterLogListView(APIView):
                      | Q(monitoring_record__crop_type__name__icontains=search)
                      | Q(disaster_type__icontains=search) | Q(disaster_type_other_specify__icontains=search))
             ref = search.upper().replace('CDR-', '').split('-')[-1]
-            if ref.isdigit():
+            if is_plain_int(ref):
                 match |= Q(pk=int(ref))
             qs = qs.filter(match)
         if not params.get('page'):

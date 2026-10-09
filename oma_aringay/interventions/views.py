@@ -1,3 +1,5 @@
+import uuid
+
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from django.shortcuts import get_object_or_404
@@ -17,16 +19,19 @@ from accounts.permissions import (
 from accounts.utils import accountless_or_unactivated_ids
 from associations.models import FarmersOrganizationMember, FisherfolkOrganizationMember
 from core.notifications import notify_staff, notify_user, resolve_owner_user
+from core.photos import discard_uploaded_files, validated_photos
 from core.validators import validate_uploaded_image
 
 from .lifecycle import advance_due_distributions, advance_due_distributions_for_org, notify_assistance_recorded
 from .models import (
+    BeneficiaryConfirmationRequestPhoto, BeneficiaryRecordPhoto, FisherfolkBeneficiaryConfirmationRequestPhoto,
     BeneficiaryConfirmationRequest,
     BeneficiaryRecord,
     DistributionStatus,
     FisherfolkBeneficiaryConfirmationRequest,
     FisherfolkBeneficiaryRecord,
 )
+from .distributions import build_distributions, filter_records, remove_records
 from .serializers import (
     AccountlessConfirmableSerializer,
     BeneficiaryConfirmationRequestSerializer,
@@ -41,20 +46,23 @@ from .serializers import (
 
 class PendingOnlyEditMixin:
     """
-    Scheduled-distribution lifecycle, Step 6: once a record has entered
-    AWAITING_CONFIRMATION or later, it's a citizen-facing state and must
-    not be silently changed under them — editing is blocked from that point
-    on. PENDING (not yet due) and the pre-existing CONFIRMED-immediately
-    path (today/past-dated, no lifecycle involved at all) both stay
-    editable exactly as before; this mixin only adds a new rejection for
-    the states that are new in this batch.
+    Who may still edit an assistance record, by its state:
+      - an organization (CITIZEN account) only while it is PENDING: once the record is due it belongs to the recipient;
+      - staff while it is PENDING, AWAITING_CONFIRMATION (new assistance starts there, so a typo can still be fixed) or
+        CONFIRMED, but not once the recipient reported non-receipt or the case was resolved.
     """
+    ORGANIZATION_EDITABLE = (DistributionStatus.PENDING,)
+    STAFF_EDITABLE = (
+        DistributionStatus.PENDING, DistributionStatus.AWAITING_CONFIRMATION, DistributionStatus.CONFIRMED,
+    )
 
     def perform_update(self, serializer):
-        if serializer.instance.status not in (DistributionStatus.PENDING, DistributionStatus.CONFIRMED):
+        is_organization = self.request.user.role == 'CITIZEN'
+        allowed = self.ORGANIZATION_EDITABLE if is_organization else self.STAFF_EDITABLE
+        if serializer.instance.status not in allowed:
             raise ValidationError(
                 f'This record cannot be edited — it is {serializer.instance.get_status_display()}, '
-                'not Pending or Confirmed.'
+                + ('not Pending.' if is_organization else 'not Pending, Awaiting Confirmation or Confirmed.')
             )
         serializer.save()
 
@@ -68,6 +76,7 @@ class BeneficiaryRecordDetailView(PendingOnlyEditMixin, generics.RetrieveUpdateA
     queryset = BeneficiaryRecord.objects.select_related('farmer')
     serializer_class = BeneficiaryRecordUpdateSerializer
     permission_classes = [IsAuthenticated, IsOrgMemberRecordCitizen]
+    org_linked_record_type = 'FARMERS_ORG'   # a farmer id here must never be matched by a fisherfolk organization
     http_method_names = ['get', 'patch']
     lookup_field = 'id'
 
@@ -81,6 +90,7 @@ class BeneficiaryRecordDetailView(PendingOnlyEditMixin, generics.RetrieveUpdateA
 class BeneficiaryAdHocListCreateView(generics.ListCreateAPIView):
     serializer_class = BeneficiaryRecordCreateSerializer
     pagination_class = None
+    org_linked_record_type = 'FARMERS_ORG'
 
     def get_permissions(self):
         # Batch 12: LIST stays staff-only — an ORGANIZATION citizen browsing
@@ -96,7 +106,7 @@ class BeneficiaryAdHocListCreateView(generics.ListCreateAPIView):
         return request.data.get('farmer')
 
     def get_queryset(self):
-        qs = BeneficiaryRecord.objects.select_related('farmer', 'recorded_by').order_by('-date_given', '-id')
+        qs = BeneficiaryRecord.objects.select_related('farmer', 'recorded_by').prefetch_related('photos').order_by('-date_given', '-id')
         params = self.request.query_params
         if params.get('farmer'):
             qs = qs.filter(farmer_id=params['farmer'])
@@ -112,7 +122,7 @@ class BeneficiaryAdHocListCreateView(generics.ListCreateAPIView):
         return qs
 
     def perform_create(self, serializer):
-        record = serializer.save(recorded_by=self.request.user)
+        record = serializer.save(recorded_by=self.request.user, distribution_batch=uuid.uuid4())
         notify_assistance_recorded(record, self.request.user)
 
 
@@ -137,6 +147,7 @@ class FisherfolkBeneficiaryRecordDetailView(PendingOnlyEditMixin, generics.Retri
     queryset = FisherfolkBeneficiaryRecord.objects.select_related('fisherfolk')
     serializer_class = FisherfolkBeneficiaryRecordUpdateSerializer
     permission_classes = [IsAuthenticated, IsOrgMemberRecordCitizen]
+    org_linked_record_type = 'FISHERFOLK_ORG'   # a fisherfolk id here must never be matched by a farmers' organization
     http_method_names = ['get', 'patch']
     lookup_field = 'id'
 
@@ -150,6 +161,7 @@ class FisherfolkBeneficiaryRecordDetailView(PendingOnlyEditMixin, generics.Retri
 class FisherfolkBeneficiaryAdHocListCreateView(generics.ListCreateAPIView):
     serializer_class = FisherfolkBeneficiaryRecordCreateSerializer
     pagination_class = None
+    org_linked_record_type = 'FISHERFOLK_ORG'
 
     def get_permissions(self):
         if self.request.method == 'GET':
@@ -178,7 +190,7 @@ class FisherfolkBeneficiaryAdHocListCreateView(generics.ListCreateAPIView):
         return qs
 
     def perform_create(self, serializer):
-        record = serializer.save(recorded_by=self.request.user)
+        record = serializer.save(recorded_by=self.request.user, distribution_batch=uuid.uuid4())
         notify_assistance_recorded(record, self.request.user)
 
 
@@ -223,7 +235,7 @@ class MyBeneficiaryHistoryView(generics.ListAPIView):
             return BeneficiaryRecord.objects.none()
         return BeneficiaryRecord.objects.filter(
             farmer_id=farmer_id,
-        ).select_related('farmer', 'recorded_by').order_by('-date_given', '-id')
+        ).select_related('farmer', 'recorded_by').prefetch_related('photos').order_by('-date_given', '-id')
 
 
 class MyFisherfolkBeneficiaryHistoryView(generics.ListAPIView):
@@ -264,7 +276,7 @@ class MyOrgBeneficiaryHistoryView(generics.ListAPIView):
             return BeneficiaryRecord.objects.none()
         return BeneficiaryRecord.objects.filter(
             recorded_by=self.request.user,
-        ).select_related('farmer').order_by('-date_given', '-id')
+        ).select_related('farmer').prefetch_related('photos').order_by('-date_given', '-id')
 
 
 class MyOrgFisherfolkBeneficiaryHistoryView(generics.ListAPIView):
@@ -279,6 +291,54 @@ class MyOrgFisherfolkBeneficiaryHistoryView(generics.ListAPIView):
         return FisherfolkBeneficiaryRecord.objects.filter(
             recorded_by=self.request.user,
         ).select_related('fisherfolk').order_by('-date_given', '-id')
+
+
+class MyOrgDistributionsView(APIView):
+    """An organization's own assistance history as distributions (one entry per distribution, expandable to its
+    members), with the filters `status` (a status or `needs-follow-up`), `assistance_type`, `date_from`, `date_to`,
+    `member` and `source_agency`. Only records this organization account recorded, never another organization's."""
+    permission_classes = [IsAuthenticated, IsCitizen]
+    org_linked_record_type = 'FARMERS_ORG'
+    record_model = BeneficiaryRecord
+    person_field = 'farmer'
+
+    def get(self, request):
+        if request.user.linked_record_type != self.org_linked_record_type:
+            return Response([])
+        queryset = self.record_model.objects.filter(recorded_by=request.user).select_related(self.person_field)
+        records = filter_records(queryset, self.person_field, request.query_params)
+        return Response(build_distributions(records, self.person_field))
+
+
+class MyOrgFisherfolkDistributionsView(MyOrgDistributionsView):
+    org_linked_record_type = 'FISHERFOLK_ORG'
+    record_model = FisherfolkBeneficiaryRecord
+    person_field = 'fisherfolk'
+
+
+class AssistanceRemovalView(APIView):
+    """Take entries out of the list before the recipient confirms them: body {domain: 'crop'|'fisheries', record_ids: [...]}
+    or {domain, distribution: <group id>}. Staff may remove any entry; an organization account only what it recorded."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        domain = request.data.get('domain')
+        denied = Response({'detail': 'You do not have permission to perform this action.'}, status=403)
+        if user.role == 'CITIZEN':
+            expected = {'crop': 'FARMERS_ORG', 'fisheries': 'FISHERFOLK_ORG'}.get(domain)
+            if expected is None or user.linked_record_type != expected:
+                return denied
+        elif user.role not in ('ADMIN', 'EVALUATOR'):
+            return denied
+        record_ids = request.data.get('record_ids')
+        if record_ids is not None and not isinstance(record_ids, list):
+            raise ValidationError({'record_ids': ['Send a list of record ids.']})
+        try:
+            result = remove_records(domain, user, record_ids=record_ids, distribution=request.data.get('distribution'))
+        except (TypeError, ValueError):
+            raise ValidationError({'record_ids': ['Send a list of record ids.']})
+        return Response(result)
 
 
 # ─── Scheduled distribution + confirmation lifecycle: recipient & staff actions ──
@@ -324,18 +384,34 @@ class BeneficiaryConfirmReceivedView(APIView):
                 status=400,
             )
         note = (request.data.get('confirmation_note') or '').strip()
-        photo = request.FILES.get('confirmation_photo')
-        if photo is not None:
-            try:
-                validate_uploaded_image(photo)
-            except DjangoValidationError as exc:
-                return Response({'confirmation_photo': exc.messages}, status=400)
-            record.confirmation_photo = photo
-        record.confirmation_note = note
-        record.status = DistributionStatus.CONFIRMED
-        record.confirmed_at = timezone.now()
-        record.save()
-        return Response(BeneficiaryRecordCreateSerializer(record, context={'request': request}).data)
+        # 0-10 proof photos (the older single `confirmation_photo` counts as one), all validated before anything
+        # changes; the status change and the photo rows are one transaction and a failed attempt's files are removed.
+        photos = validated_photos(
+            request, 'confirmation_photos', legacy_field='confirmation_photo', limit=BeneficiaryRecordPhoto.MAX_PER_PARENT)
+        written = []
+        try:
+            with transaction.atomic():
+                # Re-read under a row lock: a second simultaneous confirmation (double tap, retry, two tabs) waits
+                # here and then finds the record already confirmed instead of adding its photos again.
+                record = BeneficiaryRecord.objects.select_for_update().get(pk=record.pk)
+                if record.status != DistributionStatus.AWAITING_CONFIRMATION:
+                    return Response(
+                        {'detail': f'This record is not awaiting confirmation (current status: {record.get_status_display()}).'},
+                        status=400,
+                    )
+                record.confirmation_note = note
+                record.status = DistributionStatus.CONFIRMED
+                record.confirmed_at = timezone.now()
+                record.save()
+                for f in photos:
+                    row = BeneficiaryRecordPhoto.objects.create(beneficiary_record=record, image=f, uploaded_by=request.user)
+                    written.append(row.image.name)
+                record = BeneficiaryRecord.objects.select_related('farmer').prefetch_related('photos').get(pk=record.pk)
+                data = BeneficiaryRecordCreateSerializer(record, context={'request': request}).data
+        except Exception:
+            discard_uploaded_files(written)
+            raise
+        return Response(data)
 
 
 class BeneficiaryReportNotReceivedView(APIView):
@@ -588,38 +664,39 @@ class BeneficiaryConfirmOnBehalfView(APIView):
                 status=400,
             )
 
-        photo = request.FILES.get('photo')
-        if photo is not None:
-            try:
-                validate_uploaded_image(photo)
-            except Exception as exc:
-                msgs = getattr(exc, 'messages', None) or [str(exc)]
-                return Response({'photo': msgs}, status=400)
+        photos = validated_photos(request, 'photos', legacy_field='photo', limit=BeneficiaryConfirmationRequestPhoto.MAX_PER_PARENT)
 
-        with transaction.atomic():
-            existing = list(
-                BeneficiaryConfirmationRequest.objects.select_for_update().filter(
-                    beneficiary_record=record, status=BeneficiaryConfirmationRequest.Status.PENDING,
+        written = []
+        try:
+            with transaction.atomic():
+                existing = list(
+                    BeneficiaryConfirmationRequest.objects.select_for_update().filter(
+                        beneficiary_record=record, status=BeneficiaryConfirmationRequest.Status.PENDING,
+                    )
                 )
-            )
-            if existing:
-                return Response(
-                    {'detail': 'A confirmation request for this record is already pending admin review.'},
-                    status=400,
+                if existing:
+                    return Response(
+                        {'detail': 'A confirmation request for this record is already pending admin review.'},
+                        status=400,
+                    )
+                req = BeneficiaryConfirmationRequest.objects.create(
+                    beneficiary_record=record,
+                    submitted_by_organization_id=request.user.linked_record_id,
+                    submitted_by=request.user,
                 )
-            req = BeneficiaryConfirmationRequest.objects.create(
-                beneficiary_record=record,
-                submitted_by_organization_id=request.user.linked_record_id,
-                submitted_by=request.user,
-                photo=photo,
-            )
+                for f in photos:
+                    row = BeneficiaryConfirmationRequestPhoto.objects.create(confirmation_request=req, image=f, uploaded_by=request.user)
+                    written.append(row.image.name)
+        except Exception:
+            discard_uploaded_files(written)
+            raise
 
         notify_staff(
             actor=request.user, verb='submitted an on-behalf-of confirmation for',
             record_type='beneficiary_obo', record_id=req.id,
             record_label=_beneficiary_label(record, record.farmer),
         )
-        return Response(BeneficiaryConfirmationRequestSerializer(req).data, status=drf_status.HTTP_201_CREATED)
+        return Response(BeneficiaryConfirmationRequestSerializer(req, context={'request': request}).data, status=drf_status.HTTP_201_CREATED)
 
 
 class FisherfolkBeneficiaryConfirmOnBehalfView(APIView):
@@ -644,38 +721,39 @@ class FisherfolkBeneficiaryConfirmOnBehalfView(APIView):
                 status=400,
             )
 
-        photo = request.FILES.get('photo')
-        if photo is not None:
-            try:
-                validate_uploaded_image(photo)
-            except Exception as exc:
-                msgs = getattr(exc, 'messages', None) or [str(exc)]
-                return Response({'photo': msgs}, status=400)
+        photos = validated_photos(request, 'photos', legacy_field='photo', limit=FisherfolkBeneficiaryConfirmationRequestPhoto.MAX_PER_PARENT)
 
-        with transaction.atomic():
-            existing = list(
-                FisherfolkBeneficiaryConfirmationRequest.objects.select_for_update().filter(
-                    beneficiary_record=record, status=FisherfolkBeneficiaryConfirmationRequest.Status.PENDING,
+        written = []
+        try:
+            with transaction.atomic():
+                existing = list(
+                    FisherfolkBeneficiaryConfirmationRequest.objects.select_for_update().filter(
+                        beneficiary_record=record, status=FisherfolkBeneficiaryConfirmationRequest.Status.PENDING,
+                    )
                 )
-            )
-            if existing:
-                return Response(
-                    {'detail': 'A confirmation request for this record is already pending admin review.'},
-                    status=400,
+                if existing:
+                    return Response(
+                        {'detail': 'A confirmation request for this record is already pending admin review.'},
+                        status=400,
+                    )
+                req = FisherfolkBeneficiaryConfirmationRequest.objects.create(
+                    beneficiary_record=record,
+                    submitted_by_organization_id=request.user.linked_record_id,
+                    submitted_by=request.user,
                 )
-            req = FisherfolkBeneficiaryConfirmationRequest.objects.create(
-                beneficiary_record=record,
-                submitted_by_organization_id=request.user.linked_record_id,
-                submitted_by=request.user,
-                photo=photo,
-            )
+                for f in photos:
+                    row = FisherfolkBeneficiaryConfirmationRequestPhoto.objects.create(confirmation_request=req, image=f, uploaded_by=request.user)
+                    written.append(row.image.name)
+        except Exception:
+            discard_uploaded_files(written)
+            raise
 
         notify_staff(
             actor=request.user, verb='submitted an on-behalf-of confirmation for',
             record_type='ff_beneficiary_obo', record_id=req.id,
             record_label=_beneficiary_label(record, record.fisherfolk),
         )
-        return Response(FisherfolkBeneficiaryConfirmationRequestSerializer(req).data, status=drf_status.HTTP_201_CREATED)
+        return Response(FisherfolkBeneficiaryConfirmationRequestSerializer(req, context={'request': request}).data, status=drf_status.HTTP_201_CREATED)
 
 
 class BeneficiaryConfirmationRequestListView(generics.ListAPIView):
@@ -687,7 +765,7 @@ class BeneficiaryConfirmationRequestListView(generics.ListAPIView):
     def get_queryset(self):
         qs = BeneficiaryConfirmationRequest.objects.select_related(
             'beneficiary_record__farmer', 'submitted_by_organization', 'submitted_by', 'reviewed_by',
-        )
+        ).prefetch_related('photos')
         status_filter = self.request.query_params.get('status', 'PENDING').upper()
         if status_filter != 'ALL':
             qs = qs.filter(status=status_filter)
@@ -703,7 +781,7 @@ class FisherfolkBeneficiaryConfirmationRequestListView(generics.ListAPIView):
     def get_queryset(self):
         qs = FisherfolkBeneficiaryConfirmationRequest.objects.select_related(
             'beneficiary_record__fisherfolk', 'submitted_by_organization', 'submitted_by', 'reviewed_by',
-        )
+        ).prefetch_related('photos')
         status_filter = self.request.query_params.get('status', 'PENDING').upper()
         if status_filter != 'ALL':
             qs = qs.filter(status=status_filter)
@@ -1032,6 +1110,10 @@ def _run_assistance_import(person_model, record_model, serializer_class, person_
             continue
 
         record = serializer.save(recorded_by=user)
+        if record.status == DistributionStatus.AWAITING_CONFIRMATION:
+            # An import loads assistance that already happened, so past-dated rows stay Confirmed (they must not
+            # flood every recipient with old confirmations); future-dated rows stay Pending as before.
+            record_model.objects.filter(pk=record.pk).update(status=DistributionStatus.CONFIRMED)
         created += 1
         rows_out.append({'row': row_num, 'status': 'ready', 'label': label, 'detail': f'Created (record #{record.id}).'})
 

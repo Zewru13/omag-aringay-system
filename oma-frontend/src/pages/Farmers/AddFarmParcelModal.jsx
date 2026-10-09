@@ -6,6 +6,7 @@ import Button from '../../components/UI/Button.jsx'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import SegmentedIdInput from '../../components/UI/SegmentedIdInput.jsx'
 
@@ -241,9 +242,9 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
             <div className="grid gap-3 md:grid-cols-2">
               <div>
                 <label className={labelCls}>Area (ha) *</label>
-                <input type="number" min="0" step="0.01" className={baseInputClasses} required
+                <DecimalInput decimals={2} className={baseInputClasses} required
                   placeholder="0.00"
-                  value={parcel.area_hectares} onChange={e => set('area_hectares', e.target.value)} />
+                  value={parcel.area_hectares} onChange={v => set('area_hectares', v)} />
               </div>
               <div>
                 <label className={labelCls}>Tax Dec Number</label>
@@ -380,8 +381,8 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
               </div>
               <div>
                 <label className={labelCls}>Crop Area (ha)</label>
-                <input type="number" min="0" step="0.0001" className={baseInputClasses} placeholder="0.00"
-                  value={parcel._cropArea} onChange={e => set('_cropArea', e.target.value)} />
+                <DecimalInput decimals={4} className={baseInputClasses} placeholder="0.00"
+                  value={parcel._cropArea} onChange={v => set('_cropArea', v)} />
               </div>
               <div>
                 <label className={labelCls}>Variety Used</label>

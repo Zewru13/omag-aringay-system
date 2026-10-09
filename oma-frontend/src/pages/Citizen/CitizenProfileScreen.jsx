@@ -5,23 +5,27 @@ import api from '../../api/axiosInstance.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { ARINGAY_BARANGAYS } from '../../constants/barangays.js'
-import { sanitizePhoneDigits, validatePhone } from '../../utils/validation.js'
+import PasswordRequirementChecklist from '../../components/UI/PasswordRequirementChecklist.jsx'
+import PhoneInput from '../../components/UI/PhoneInput.jsx'
+import { passwordMeetsRules } from '../../utils/passwordRules.js'
+import { tidyPhone } from '../../utils/inputGuards.js'
+import { validatePhone } from '../../utils/validation.js'
 import { labels } from './labels.js'
 import { CROP_THEME, CitizenBody, CitizenScreen, CitizenSubHeader, EditLegend, FISH_THEME } from './citizenUI.jsx'
 
 // ─── Aking Profile (Farmer/Fisherfolk) ─────────────────────────────────────
 // Rebuilt against PROFILE REFERENCE!.docx frames 2-5 (own-profile, both
 // breakpoints): an identity card with a role pill and Barangay/Contact mini
-// fields, a field-status legend bar, one merged "Personal na Impormasyon"
+// fields, a field-status legend bar, one merged "Personal Information"
 // card whose rows each carry their own status icon (green pencil = instant,
 // orange refresh = needs approval, gray lock = read-only), a "Reference
 // Information" card for the demographic fields the previous version never
 // surfaced at all (birthdate, civil status, education, PWD/4Ps), and a
-// collapsed-by-default password card — matching OrgInfoScreen.jsx's proven
-// pattern for the same three field behaviors, rather than three separate
+// collapsed-by-default password card — matching the organization profile's
+// (OrgAccountPages.jsx) pattern for the same three field behaviors, rather than three separate
 // cards named after what kind of edit they allow.
 //
-// NAME stays three inputs under one "Buong Pangalan" request (see the
+// NAME stays three inputs under one "Full Name" request (see the
 // modal below) for the same reason the previous version kept them: the
 // backend's ProfileChangeRequest.REQUESTABLE_FIELDS only accepts the real
 // model fields (first_name/middle_name/last_name), not a composed
@@ -204,6 +208,10 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
       setPasswordError(P.passwordMismatch)
       return
     }
+    if (!passwordMeetsRules(passwordForm.next)) {
+      setPasswordError('The new password needs at least 8 characters, 1 capital letter, 1 special character and 3 numbers.')
+      return
+    }
     setChangingPassword(true)
     try {
       await api.post('/accounts/change-password/', {
@@ -335,7 +343,7 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
           )}
 
           {/* Barangay/Contact used to repeat here in a compact mini-grid AND
-              again below in the full "Personal na Impormasyon" card — removed
+              again below in the full "Personal Information" card — removed
               (2026-09-07) since that card already shows both, with edit
               affordances this read-only summary didn't have. */}
           {isUploading && <p className="mt-2.5 text-[12px] text-cz-text-2">{labels.profileEdit.uploading}</p>}
@@ -426,10 +434,10 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
             {editingContact ? (
               <div className="mt-1.5">
                 <div className="flex gap-2">
-                  <input
-                    type="tel" inputMode="numeric" value={contactDraft}
+                  <PhoneInput
+                    value={contactDraft}
                     placeholder={labels.profileEdit.contactPlaceholder}
-                    onChange={(e) => setContactDraft(sanitizePhoneDigits(e.target.value))}
+                    onChange={setContactDraft}
                     className="min-h-[40px] flex-1 rounded-[8px] border-[0.5px] border-cz-border-strong px-3 text-[14px] text-cz-text outline-none"
                   />
                   <button
@@ -455,7 +463,7 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
                 <p className="text-[14px] font-medium text-cz-text">{contact || labels.common.unknown}</p>
                 <button
                   type="button"
-                  onClick={() => { setContactDraft(contact); setEditingContact(true) }}
+                  onClick={() => { setContactDraft(tidyPhone(contact)); setEditingContact(true) }}
                   className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${theme.solidBtn}`}
                   aria-label={labels.profileEdit.editAction}
                 >
@@ -560,6 +568,7 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
                 onChange={(e) => setPasswordForm((f) => ({ ...f, next: e.target.value }))}
                 className="min-h-[40px] w-full rounded-[8px] border-[0.5px] border-cz-border-strong px-3 text-[14px] text-cz-text outline-none"
               />
+              {passwordForm.next && <PasswordRequirementChecklist password={passwordForm.next} />}
               <input
                 type="password"
                 autoComplete="new-password"
@@ -583,7 +592,7 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
         )}
       </section>
 
-      {/* TULONG — always last, matches every reference frame's ordering. */}
+      {/* HELP — always last, matches every reference frame's ordering. */}
       {onHelp && (
         <button
           type="button"
@@ -596,7 +605,7 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
         </button>
       )}
 
-      {/* MAG-LOG OUT — moved here from the header (2026-09-07 direct
+      {/* LOG OUT — moved here from the header (2026-09-07 direct
           request): the header no longer carries a logout icon at all, so
           this is now the only place to sign out on mobile. */}
       <button

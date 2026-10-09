@@ -725,6 +725,26 @@ class CropDisasterReport(models.Model):
         return f'{self.disaster_type} - {self.date_of_occurrence}'
 
 
+class CropDisasterReportPhoto(models.Model):
+    """One damage-documentation photo of a CropDisasterReport. Optional: 0 to MAX_PER_PARENT per report (enforced by
+    the API, core.photos). Each photo is its own row and file. The report's older single `photo` field is untouched,
+    never written by new code, and still shown as the first photo."""
+    MAX_PER_PARENT = 10
+
+    disaster_report = models.ForeignKey(CropDisasterReport, on_delete=models.CASCADE, related_name='photos')
+    image = models.ImageField(upload_to='disaster_reports/crop/photos/')
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
+    )
+    date_uploaded = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['id']
+
+    def __str__(self):
+        return f'Photo {self.pk} of crop disaster report {self.disaster_report_id}'
+
+
 class HarvestRecord(models.Model):
     class Season(models.TextChoices):
         DRY = 'Dry', 'Dry'

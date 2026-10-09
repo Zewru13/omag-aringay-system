@@ -105,7 +105,7 @@ function FarmerBody({ doc }) {
       <Section title="Affected Crop"><Rows rows={s.crop} /></Section>
       <Section title="Disaster Details"><Rows rows={s.details} /></Section>
       <Section title="Description of Damage"><Paragraphs items={s.paragraphs} /></Section>
-      <Photos urls={doc.photo ? [doc.photo] : []} />
+      <Photos urls={[...(doc.photo ? [doc.photo] : []), ...(doc.photos || []).map(p => p.url)]} />
     </>
   )
 }

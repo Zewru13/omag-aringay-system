@@ -18,10 +18,15 @@ import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import LoggedDatePicker from '../../components/UI/LoggedDatePicker.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import useRecordLock from '../../hooks/useRecordLock.js'
+import usePhotoList from '../../hooks/usePhotoList.js'
+import PhotoListField from '../../components/UI/PhotoListField.jsx'
+import PhotoLinks from '../../components/UI/PhotoLinks.jsx'
+import { groupActivityOptions, overdueStepDay } from '../../utils/activityPicker.js'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
@@ -487,6 +492,8 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
   // ── Change 1: soft "Suggested now" ordering for the Activity dropdown ──────
   const [activityStages, setActivityStages] = useState([])
   const [activityTypeOptions, setActivityTypeOptions] = useState([])
+  // The server's schedule for this crop (each step due / overdue / upcoming / done); the picker follows it.
+  const [scheduleSteps, setScheduleSteps] = useState([])
 
   useEffect(() => {
     if (!record.crop_type) return
@@ -504,27 +511,14 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
       .catch(() => setActivityTypeOptions([]))
   }, [])
 
-  const suggestedNowActivities = useMemo(() => {
-    if (!record.date_planted || activityStages.length === 0) return new Set()
-    const loggedTypes = new Set(logs.map(l => l.activity_type))
-    const planted = new Date(record.date_planted + 'T00:00:00')
-    const referenceDate = activityDate || todayISO()
-    const current = new Date(referenceDate + 'T00:00:00')
-    const currentDay = Math.floor((current - planted) / (1000 * 60 * 60 * 24))
-    const applicable = new Set()
-    activityStages.forEach(stage => {
-      const days = (stage.application_days && stage.application_days.length)
-        ? stage.application_days
-        : [stage.day_after_planting]
-      const dueNow = days.some(d => Math.abs(d - currentDay) <= 7)
-      const overdueUnlogged = days.some(d => (currentDay - d) > 7) && !loggedTypes.has(stage.stage_name)
-      if (dueNow || overdueUnlogged) applicable.add(stage.stage_name)
-    })
-    return applicable
-  }, [activityStages, activityDate, record.date_planted, logs])
-
-  const suggestedActivityOptions = activityTypeOptions.filter(o => suggestedNowActivities.has(o))
-  const otherActivityOptions = activityTypeOptions.filter(o => !suggestedNowActivities.has(o))
+  // "Suggested now" = scheduled steps due or overdue and not yet done, earliest first; "Other" = unscheduled
+  // activities and steps that are only upcoming; an activity whose steps are all done is left out (see
+  // utils/activityPicker.js). The log being edited keeps its own activity selectable.
+  const editingLogType = editingLogId ? (logs.find(l => l.id === editingLogId)?.activity_type || '') : ''
+  const { suggested: suggestedActivityOptions, other: otherActivityOptions } = useMemo(
+    () => groupActivityOptions({ allTypes: activityTypeOptions, suggestions: scheduleSteps, editingType: editingLogType }),
+    [activityTypeOptions, scheduleSteps, editingLogType],
+  )
 
   // Land-prep-style activities may be logged before date_planted; everything else may not.
   const selectedStageAllowsPrePlanting = useMemo(() => {
@@ -535,10 +529,12 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
   const fetchLogs = useCallback(async () => {
     setIsLoading(true)
     try {
-      const [logsRes, disRes] = await Promise.all([
+      const [logsRes, disRes, scheduleRes] = await Promise.all([
         api.get(`/production/monitoring/${record.id}/logs/`),
         api.get(`/production/monitoring/${record.id}/disasters/`),
+        api.get(`/production/monitoring/${record.id}/suggestions/`).catch(() => null),
       ])
+      setScheduleSteps(scheduleRes?.data?.suggestions || [])
       setLogs(Array.isArray(logsRes.data) ? logsRes.data : (logsRes.data.results || []))
       setDisasters(Array.isArray(disRes.data) ? disRes.data : (disRes.data.results || []))
     } catch {
@@ -624,7 +620,8 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
       } else {
         await api.post(`/production/monitoring/${record.id}/logs/`, {
           ...payload,
-          target_day: pendingSuggestion?.occurrence_day ?? null,
+          // A late log chosen from the dropdown is tied to the activity's earliest overdue step, like one started from a suggestion.
+          target_day: pendingSuggestion?.occurrence_day ?? overdueStepDay(activityType, scheduleSteps),
           disaster_report: showRemedyFields ? parseInt(remedyDisasterId, 10) : pendingDisasterReport,
           disaster_rule:   showRemedyFields ? null : pendingDisasterRule,
         })
@@ -833,8 +830,8 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Quantity Applied</label>
-                    <input type="number" step="0.01" value={quantityApplied}
-                      onChange={e => setQuantityApplied(e.target.value)} placeholder="e.g. 50" className={baseInputClasses} />
+                    <DecimalInput decimals={2} value={quantityApplied}
+                      onChange={setQuantityApplied} placeholder="e.g. 50" className={baseInputClasses} />
                   </div>
                   <div>
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Unit</label>
@@ -864,10 +861,10 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="text-xs font-medium text-slate-700 mb-1 block">Area Affected (ha) *</label>
-                    <input type="number" step="0.0001" value={areaAffected}
-                      onChange={e => {
-                        setAreaAffected(e.target.value)
-                        setAreaAffectedError(validateAreaAffected(e.target.value))
+                    <DecimalInput decimals={4} max={plantedArea} value={areaAffected}
+                      onChange={v => {
+                        setAreaAffected(v)
+                        setAreaAffectedError(validateAreaAffected(v))
                       }}
                       placeholder="e.g. 1.50"
                       className={`${baseInputClasses} ${areaAffectedError ? 'border-rose-400' : ''}`} />
@@ -969,7 +966,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
             {allEvents.map(event => {
               if (event._type === 'disaster') {
                 const isExpanded = expandedDisasters.has(event.id)
-                const hasDetails = event.area_affected_ha || event.estimated_damage || event.production_loss || event.photo
+                const hasDetails = event.area_affected_ha || event.estimated_damage || event.production_loss || event.photo || event.photos?.length
                 const isRecovered = event.status === 'Recovered'
                 return (
                   <div key={`d-${event.id}`} className="py-3">
@@ -1029,11 +1026,11 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
                         {event.production_loss && (
                           <p className={`text-xs ${isRecovered ? 'text-emerald-700' : 'text-rose-700'}`}><span className="font-medium">Production loss:</span> {event.production_loss}</p>
                         )}
-                        {event.photo && (
-                          <p className={`text-xs ${isRecovered ? 'text-emerald-700' : 'text-rose-700'}`}>
-                            <span className="font-medium">Photo:</span>{' '}
-                            <a href={event.photo} target="_blank" rel="noreferrer" className="underline">View photo</a>
-                          </p>
+                        {(event.photo || event.photos?.length > 0) && (
+                          <div className={`text-xs ${isRecovered ? 'text-emerald-700' : 'text-rose-700'}`}>
+                            <span className="font-medium">Photos:</span>
+                            <PhotoLinks photos={event.photos} legacy={event.photo} className="mt-1" />
+                          </div>
                         )}
                         {!hasDetails && (
                           <p className={`text-xs italic ${isRecovered ? 'text-emerald-400' : 'text-rose-400'}`}>No additional details recorded.</p>
@@ -1228,9 +1225,9 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700">Area Harvested (ha) *</label>
-              <input type="number" step="0.0001" className={baseInputClasses}
+              <DecimalInput decimals={2} className={baseInputClasses}
                 value={form.area_harvested_hectares}
-                onChange={e => handleChange('area_harvested_hectares', e.target.value)}
+                onChange={v => handleChange('area_harvested_hectares', v)}
                 placeholder="e.g. 2.50" />
             </div>
             <div>
@@ -1282,7 +1279,7 @@ export function DisasterReportModal({ record, onClose, onSuccess }) {
   const [estimatedDamage,   setEstimatedDamage]   = useState('')
   const [productionLoss,    setProductionLoss]    = useState('')
   const [isTotalLoss,       setIsTotalLoss]       = useState(false)
-  const [photo,             setPhoto]             = useState(null)
+  const photosState = usePhotoList()
   const [showConfirm,       setShowConfirm]       = useState(false)
   const [isSubmitting,      setIsSubmitting]      = useState(false)
   const [areaError,         setAreaError]         = useState('')
@@ -1291,6 +1288,8 @@ export function DisasterReportModal({ record, onClose, onSuccess }) {
   const cropName   = record.crop_type_name || 'this crop'
   const maxArea    = record.area_planted_ha ? parseFloat(record.area_planted_ha) : null
   const datePlanted = record.date_planted || null
+  // Total Loss means the whole planted area is affected: the option is available only once the area typed equals it.
+  const isWholeArea = maxArea === null || (areaAffectedHa !== '' && Math.abs(parseFloat(areaAffectedHa) - maxArea) < 0.00005)
 
   const validateArea = (val) => {
     if (!val) return 'Area affected is required.'
@@ -1326,23 +1325,23 @@ export function DisasterReportModal({ record, onClose, onSuccess }) {
         disaster_type:      disasterType,
         disaster_type_other_specify: disasterType === 'Other' ? disasterTypeOtherSpecify.trim() : '',
         date_of_occurrence: dateOfOccurrence,
-        area_affected_ha:   parseFloat(isTotalLoss && maxArea ? maxArea : areaAffectedHa),
+        area_affected_ha:   parseFloat(areaAffectedHa),
         estimated_damage:   estimatedDamage,
         production_loss:    productionLoss,
-        is_total_loss:      isTotalLoss,
+        is_total_loss:      isTotalLoss && isWholeArea,
       }
       let payload = fields
-      if (photo) {
+      if (photosState.photos.length) {
         payload = new FormData()
         Object.entries(fields).forEach(([k, v]) => { if (v !== null && v !== undefined) payload.append(k, v) })
-        payload.append('photo', photo)
+        photosState.photos.forEach(p => payload.append('photos', p.file))
       }
       await api.post(`/production/monitoring/${record.id}/disasters/`, payload)
       showToast('Disaster report recorded.', 'success')
       onSuccess()
       onClose()
     } catch (err) {
-      showToast(err?.response?.data?.detail || 'Failed to save disaster report.', 'error')
+      showToast(err?.response?.data?.photos?.[0] || err?.response?.data?.detail || 'Failed to save disaster report.', 'error')
     } finally { setIsSubmitting(false) }
   }
 
@@ -1402,14 +1401,18 @@ export function DisasterReportModal({ record, onClose, onSuccess }) {
 
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-700">Area Affected (ha) *</label>
-            <input type="number" step="0.0001"
-              className={`${baseInputClasses} ${areaError ? 'border-rose-400' : ''} ${isTotalLoss ? 'bg-slate-100 cursor-not-allowed' : ''}`}
-              value={isTotalLoss && maxArea ? maxArea : areaAffectedHa}
-              onChange={e => { setAreaAffectedHa(e.target.value); setAreaError(validateArea(e.target.value)) }}
-              disabled={isTotalLoss}
+            <DecimalInput decimals={4} max={maxArea}
+              className={`${baseInputClasses} ${areaError ? 'border-rose-400' : ''}`}
+              value={areaAffectedHa}
+              onChange={v => {
+                setAreaAffectedHa(v)
+                setAreaError(validateArea(v))
+                // Total Loss needs the whole area: typing anything else switches it off
+                if (isTotalLoss && maxArea !== null && !(Math.abs(parseFloat(v) - maxArea) < 0.00005)) setIsTotalLoss(false)
+              }}
               placeholder={maxArea ? `0.01 – ${maxArea}` : 'e.g. 2.50'} />
             {areaError && <p className="mt-1 text-xs text-rose-600">{areaError}</p>}
-            {!areaError && maxArea && !isTotalLoss && (
+            {!areaError && maxArea && (
               <p className="mt-1 text-xs text-slate-400">Max: {maxArea} ha (total area planted)</p>
             )}
           </div>
@@ -1428,31 +1431,25 @@ export function DisasterReportModal({ record, onClose, onSuccess }) {
               placeholder="Describe or estimate production loss" />
           </div>
 
-          <label className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 cursor-pointer">
+          <label className={`flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 ${isWholeArea ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
             <input
               type="checkbox"
-              checked={isTotalLoss}
-              onChange={e => {
-                setIsTotalLoss(e.target.checked)
-                if (e.target.checked && maxArea) {
-                  setAreaAffectedHa(String(maxArea))
-                  setAreaError('')
-                }
-              }}
+              checked={isTotalLoss && isWholeArea}
+              disabled={!isWholeArea}
+              onChange={e => setIsTotalLoss(e.target.checked)}
               className="mt-0.5 h-4 w-4 rounded border-rose-300 text-rose-600 focus:ring-rose-500"
             />
             <div>
               <span className="text-sm font-medium text-rose-800">Total loss — crop completely destroyed</span>
               <p className="text-xs text-rose-500 mt-0.5">This ends the production cycle. No harvest can be recorded.</p>
+              {!isWholeArea && (
+                <p className="mt-1 text-xs text-slate-600">Available only when the whole area is affected{maxArea ? ` (${maxArea} ha)` : ''}.</p>
+              )}
             </div>
           </label>
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">Photo (optional)</label>
-            <input type="file" accept="image/jpeg,image/png,image/webp" className={baseInputClasses}
-              onChange={e => setPhoto(e.target.files?.[0] || null)} />
-            <p className="mt-1 text-xs text-slate-400">JPG, PNG, or WEBP, up to 5 MB.</p>
-          </div>
+          <PhotoListField photosState={photosState} title="Photos (optional)"
+            hint="Up to 10 photos showing the damage." altPrefix="Damage photo" />
         </div>
       </ModalShell>
 

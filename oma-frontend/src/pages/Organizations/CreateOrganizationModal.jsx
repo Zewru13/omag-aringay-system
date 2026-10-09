@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Building2, Phone } from 'lucide-react'
+import { Building2, Copy, KeyRound, Phone } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
@@ -7,6 +7,9 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import Button from '../../components/UI/Button.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
+import EmailInput from '../../components/UI/EmailInput.jsx'
+import PhoneInput from '../../components/UI/PhoneInput.jsx'
+import { localToday } from '../../utils/inputGuards.js'
 import { agencyOptionsFor } from './agencyOptions.js'
 
 const labelCls = 'block text-[13px] font-medium text-[#4A5E4A] mb-1.5'
@@ -41,6 +44,7 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
   const [contactError, setContactError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showConfirm,  setShowConfirm]  = useState(false)
+  const [handover,     setHandover]     = useState(null)
 
   const typeLabel = assocType === 'farmers' ? "Farmers' Organization" : 'Fisherfolk Organization'
 
@@ -50,6 +54,12 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
       setForm(f => ({ ...f, contact_number: digits }))
       setContactError(validateContact(digits))
       setFormErrors(e => { const n = { ...e }; delete n.contact_number; return n })
+      return
+    }
+    if (field === 'date_organized') {
+      // a registered date earlier than the new organized date is no longer valid, so it is cleared
+      setForm(f => ({ ...f, date_organized: value, date_registered: value && f.date_registered && f.date_registered < value ? '' : f.date_registered }))
+      setFormErrors(e => { const n = { ...e }; delete n.date_organized; delete n.date_registered; return n })
       return
     }
     setForm(f => ({ ...f, [field]: value }))
@@ -66,6 +76,7 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
     if (contactErr) { setContactError(contactErr) }
     if (!form.date_organized)             errs.date_organized = 'Required'
     if (!form.date_registered)            errs.date_registered = 'Required'
+    else if (form.date_organized && form.date_registered < form.date_organized) errs.date_registered = 'Date registered cannot be before the date organized.'
     if (!form.registration_number.trim()) errs.registration_number = 'Required'
     if (!form.registration_agency)        errs.registration_agency = 'Required'
     if (!form.email_address.trim())       errs.email_address = 'Required'
@@ -90,7 +101,7 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
     try {
       const contactPerson = [form.contact_person_last, form.contact_person_first]
         .filter(Boolean).join(', ')
-      await api.post(`/organizations/${assocType}/`, {
+      const { data: created } = await api.post(`/organizations/${assocType}/`, {
         name:                form.name,
         barangay:            form.barangay,
         street_address:      form.street_address,
@@ -102,14 +113,58 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
         contact_person:      contactPerson,
         contact_number:      form.contact_number,
       })
-      showToast(`${typeLabel} created successfully.`, 'success')
-      onSuccess()
+      const activation = created?.activation
+      if (activation?.activated && activation.email_sent) {
+        showToast(`Account activated. The login details were emailed to ${form.email_address}.`, 'success')
+        onSuccess()
+      } else if (activation?.activated) {
+        // The email could not be sent: show the temporary password once so staff can hand it over.
+        setHandover(activation)
+      } else {
+        showToast(`${typeLabel} created successfully.`, 'success')
+        onSuccess()
+      }
     } catch (err) {
       const data = err.response?.data
-      setError(data?.detail || data?.name?.[0] || 'Unable to create organization.')
+      const first = data && typeof data === 'object' ? Object.values(data).flat()[0] : null
+      setError(data?.detail || data?.name?.[0] || (typeof first === 'string' ? first : '') || 'Unable to create organization.')
+      if (data?.date_registered?.[0]) setFormErrors(e => ({ ...e, date_registered: data.date_registered[0] }))
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  if (handover) {
+    const expires = handover.expires_at ? new Date(handover.expires_at).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' }) : ''
+    const copyPassword = () => { try { navigator.clipboard.writeText(handover.default_password) } catch { /* the password is on screen */ } }
+    return (
+      <ModalShell
+        title="Account activated: hand over the password"
+        subtitle={`${typeLabel} created.`}
+        icon={KeyRound}
+        onClose={onSuccess}
+        footer={<Button type="button" onClick={onSuccess}>Done</Button>}
+      >
+        <div className="space-y-3 text-[13px] text-[#4A5E4A]">
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-amber-800">
+            The email could not be sent{handover.reason ? ` (${handover.reason.replace(/\.$/, '')})` : ''}. Give the organization this password
+            yourself. It is shown only now.
+          </p>
+          <div>
+            <span className="block text-[12px] text-[#7A8E7A]">Login</span>
+            <span className="font-medium text-[#1B2B1B]">{handover.login}</span>
+          </div>
+          <div>
+            <span className="block text-[12px] text-[#7A8E7A]">Temporary password</span>
+            <span className="flex items-center gap-2">
+              <code className="rounded bg-[#F1F6F1] px-2 py-1 text-[15px] font-semibold tracking-wide text-[#1B2B1B]">{handover.default_password}</code>
+              <Button type="button" size="sm" variant="outline" icon={Copy} onClick={copyPassword}>Copy</Button>
+            </span>
+          </div>
+          {expires && <p className="text-[12px] text-[#7A8E7A]">It must be changed at first login and stops working on {expires}.</p>}
+        </div>
+      </ModalShell>
+    )
   }
 
   return (
@@ -160,14 +215,15 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
             <div>
               <label className={labelCls}>Date Organized <span className="text-rose-500">*</span></label>
               <input type="date" className={`${baseInputClasses}${formErrors.date_organized ? ' border-rose-400' : ''}`} value={form.date_organized}
-                max={new Date().toISOString().split('T')[0]}
+                max={localToday()}
                 onChange={e => set('date_organized', e.target.value)} />
               {formErrors.date_organized && <p className="mt-1 text-[12px] text-rose-600">{formErrors.date_organized}</p>}
             </div>
             <div>
               <label className={labelCls}>Date Registered <span className="text-rose-500">*</span></label>
               <input type="date" className={`${baseInputClasses}${formErrors.date_registered ? ' border-rose-400' : ''}`} value={form.date_registered}
-                max={new Date().toISOString().split('T')[0]}
+                min={form.date_organized || undefined}
+                max={localToday()}
                 onChange={e => set('date_registered', e.target.value)} />
               {formErrors.date_registered && <p className="mt-1 text-[12px] text-rose-600">{formErrors.date_registered}</p>}
             </div>
@@ -208,8 +264,8 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
           {/* Email Address */}
           <div>
             <label className={labelCls}>Email Address <span className="text-rose-500">*</span></label>
-            <input type="email" className={`${baseInputClasses}${formErrors.email_address ? ' border-rose-400' : ''}`} placeholder="e.g. organization@email.com"
-              value={form.email_address} onChange={e => set('email_address', e.target.value)} />
+            <EmailInput className={`${baseInputClasses}${formErrors.email_address ? ' border-rose-400' : ''}`} placeholder="e.g. organization@email.com"
+              value={form.email_address} onChange={v => set('email_address', v)} />
             {formErrors.email_address && <p className="mt-1 text-[12px] text-rose-600">{formErrors.email_address}</p>}
           </div>
 
@@ -233,10 +289,8 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
               <Phone size={12} className="inline mr-1 text-[#7A8E7A]" />
               Contact Number <span className="text-rose-500">*</span>
             </label>
-            <input className={baseInputClasses} required type="tel" inputMode="numeric" maxLength={11}
-              placeholder="09XXXXXXXXX"
-              onKeyPress={e => { if (!/[0-9]/.test(e.key)) e.preventDefault() }}
-              value={form.contact_number} onChange={e => set('contact_number', e.target.value)} />
+            <PhoneInput className={baseInputClasses} required
+              value={form.contact_number} onChange={v => set('contact_number', v)} />
             {contactError && <p className="mt-1 text-[12px] text-rose-600">{contactError}</p>}
           </div>
 

@@ -24,7 +24,8 @@ from accounts.permissions import (
 from accounts.utils import create_inactive_citizen_shell
 from core.locking import assert_not_locked_by_other
 from core.notifications import notify_staff, notify_user, resolve_owner_user
-from core.utils import accumulate_yield_group, build_name_search_q, day_range_bounds, filter_people_search, harvest_gate_status, new_yield_group
+from core.utils import accumulate_yield_group, build_name_search_q, day_range_bounds, filter_people_search, harvest_gate_status, is_plain_int, new_yield_group
+from core.photos import discard_uploaded_files, validated_photos
 from core.validators import validate_uploaded_image
 
 from . import disaster_reports
@@ -1237,14 +1238,7 @@ def _disaster_form_data(request):
     return request.data
 
 
-def _discard_uploaded_files(names):
-    """Delete files this request wrote for a report whose transaction then rolled back - only those exact
-    names (storage gives every upload a unique name), never anything belonging to a saved report."""
-    for name in names:
-        try:
-            default_storage.delete(name)
-        except Exception:
-            logger.exception('Could not remove orphaned disaster-report upload %s', name)
+_discard_uploaded_files = discard_uploaded_files   # the shared cleanup helper (core/photos.py)
 
 
 def _create_disaster_with_photos(view, serializer, photos, owner_fisherfolk_id, stocking_record_id=None):
@@ -1287,19 +1281,7 @@ def _validated_damage_photos(request):
     """The multipart `photos` files of a disaster report: optional (0 is fine), at most
     FisheriesDisasterReportPhoto.MAX_PER_REPORT, each checked by the project's image rules
     (JPG/PNG/WEBP, 5 MB). Raises ValidationError so nothing is saved when any photo is invalid."""
-    files = request.FILES.getlist('photos') if hasattr(request, 'FILES') else []
-    limit = FisheriesDisasterReportPhoto.MAX_PER_REPORT
-    if len(files) > limit:
-        raise ValidationError({'photos': [f'Maximum of {limit} photos allowed.']})
-    errors = []
-    for i, f in enumerate(files, start=1):
-        try:
-            validate_uploaded_image(f)
-        except DjangoValidationError as exc:
-            errors.append(f'Photo {i}: ' + ' '.join(exc.messages))
-    if errors:
-        raise ValidationError({'photos': errors})
-    return files
+    return validated_photos(request, 'photos', limit=FisheriesDisasterReportPhoto.MAX_PER_REPORT)
 
 
 class GeneralDisasterReportListCreateView(generics.ListCreateAPIView):
@@ -1467,7 +1449,7 @@ class FisheriesDisasterReportListView(APIView):
             qs = qs.filter(disaster_type=params['disaster_type'])
         if params.get('status') in ('Active', 'Recovered'):
             qs = qs.filter(status=params['status'])
-        if params.get('year', '').isdigit():
+        if is_plain_int(params.get('year', '')):
             qs = qs.filter(date_of_occurrence__year=int(params['year']))
         if params.get('barangay'):
             b = params['barangay']
@@ -1480,7 +1462,7 @@ class FisheriesDisasterReportListView(APIView):
                      | Q(stocking_record__species__species_name__icontains=search)
                      | Q(disaster_type__icontains=search) | Q(disaster_type_other_specify__icontains=search))
             ref = search.upper().replace('FDR-', '').split('-')[-1]
-            if ref.isdigit():
+            if is_plain_int(ref):
                 match |= Q(pk=int(ref))
             qs = qs.filter(match)
         if submission == FisheriesDisasterReport.SubmissionStatus.SUBMITTED:

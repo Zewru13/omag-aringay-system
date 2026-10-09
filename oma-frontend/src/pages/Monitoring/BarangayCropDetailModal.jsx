@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import axiosInstance from '../../api/axiosInstance';
+import DecimalInput from '../../components/UI/DecimalInput.jsx'
 
 const GROWTH_STAGES = [
   'Land Preparation', 'Planted', 'Vegetative', 'Reproductive',
@@ -150,8 +151,8 @@ export default function BarangayCropDetailModal({ record, onClose, onSaved }) {
               </div>
               <div className="form-group">
                 <label className="form-label">Area Planted (ha)</label>
-                <input type="number" name="area_planted_ha" value={form.area_planted_ha || ''}
-                  onChange={handleChange} className="form-control" step="0.0001" min="0" />
+                <DecimalInput decimals={4} value={form.area_planted_ha || ''}
+                  onChange={(v) => handleChange({ target: { name: 'area_planted_ha', value: v } })} className="form-control" />
               </div>
               <div className="form-group">
                 <label className="form-label">Number of Farmers</label>

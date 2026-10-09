@@ -6,7 +6,7 @@ import Navbar from './Navbar.jsx'
 import Sidebar from './Sidebar.jsx'
 
 function PageLayout({ title, subtitle, action, children }) {
-  const { isFisherfolk, isFarmer } = useAuth()
+  const { isFisherfolk, isFarmer, isOrg, isFisherfolkOrg } = useAuth()
   const isPhone = useIsPhone()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -14,11 +14,11 @@ function PageLayout({ title, subtitle, action, children }) {
   // [data-account-theme="fisherfolk"]). Set on <html> so it also reaches modals, which portal to <body>;
   // removed when the layout unmounts (e.g. logout) or for any other role.
   useEffect(() => {
-    if (!isFisherfolk) return undefined
+    if (!isFisherfolk && !isFisherfolkOrg) return undefined
     const root = document.documentElement
     root.setAttribute('data-account-theme', 'fisherfolk')
     return () => root.removeAttribute('data-account-theme')
-  }, [isFisherfolk])
+  }, [isFisherfolk, isFisherfolkOrg])
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
@@ -42,9 +42,9 @@ function PageLayout({ title, subtitle, action, children }) {
     }
   }
 
-  // A fisherfolk or farmer account on a phone gets the citizen-style shell (header, avatar menu, bottom tabs)
+  // A fisherfolk, farmer or organization account on a phone gets the citizen-style shell (header, avatar menu, bottom tabs)
   // instead of the admin sidebar layout. Everyone else, and tablets/desktops, keep the layout below untouched.
-  if ((isFisherfolk || isFarmer) && isPhone) {
+  if ((isFisherfolk || isFarmer || isOrg) && isPhone) {
     return <CitizenPhoneShell title={title} subtitle={subtitle} action={action}>{children}</CitizenPhoneShell>
   }
 

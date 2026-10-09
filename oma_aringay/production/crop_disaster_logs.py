@@ -6,6 +6,8 @@ Read-only: logs are still created through the existing /production/monitoring/<i
 from reports.disaster_log_pdf import build_disaster_log_pdf, fmt_datetime, fmt_number, safe_pdf_filename
 from reports.pdf_utils import fmt_date
 
+from core.photos import local_photo_paths
+
 from .models import CropDisasterReport
 
 
@@ -14,7 +16,7 @@ def crop_queryset():
         'monitoring_record__farmer', 'monitoring_record__farm_parcel__farmer',
         'monitoring_record__farmers_organization', 'monitoring_record__crop_type',
         'reported_by', 'recovered_by',
-    )
+    ).prefetch_related('photos')
 
 
 def reference_number(report):
@@ -83,6 +85,10 @@ def document(report, request=None):
     photo = None
     if report.photo:
         photo = request.build_absolute_uri(report.photo.url) if request else report.photo.url
+    photos = [
+        {'id': p.id, 'url': request.build_absolute_uri(p.image.url) if request else p.image.url}
+        for p in report.photos.all()
+    ]
     return {
         **list_row(report),
         'farmer': {
@@ -107,6 +113,7 @@ def document(report, request=None):
         'description': report.estimated_damage or '',
         'production_loss': report.production_loss or '',
         'photo': photo,
+        'photos': photos,
         'recovered_date': report.recovered_date,
         'recovery_note': report.recovery_note or '',
     }
@@ -114,6 +121,13 @@ def document(report, request=None):
 
 def build_pdf(report, doc):
     crop, farmer = doc['crop_record'], doc['farmer']
+    # The photo rows first, then the older single photo; a file that cannot be read is left out, not fatal. Remote
+    # storage (S3) is read through the storage API into temporary files for the PDF.
+    with local_photo_paths([p.image for p in report.photos.all()] + ([report.photo] if report.photo else [])) as photo_paths:
+        return _build_pdf(report, doc, crop, farmer, photo_paths)
+
+
+def _build_pdf(report, doc, crop, farmer, photo_paths):
     return build_disaster_log_pdf(
         title='FARMER DISASTER REPORT',
         header_rows=[
@@ -144,7 +158,7 @@ def build_pdf(report, doc):
                 doc['status'] == 'Recovered' and doc['recovery_note'] and f'Recovery note: {doc["recovery_note"]}',
             ]},
         ],
-        photo_paths=[report.photo.path] if report.photo else [],
+        photo_paths=photo_paths,
         reference=doc['report_number'],
         pdf_title=f'Farmer Disaster Report {doc["report_number"]}',
     )

@@ -1,4 +1,4 @@
-// Shared building blocks for the Farmer citizen forms (Mag-log, Sakuna):
+// Shared building blocks for the Farmer citizen forms (Log, Disaster):
 // the hairline input, the labelled field block, the solid-green choice pill
 // and the green-tinted group box, exactly as UPDATED FARMER CITIZEN UI.docx
 // draws them. Farmer-only; Fisherfolk forms keep their own controls.
@@ -22,7 +22,7 @@ export function Block({ label, required, optional, last, error, children }) {
 }
 
 // Solid-green when chosen, hairline outline otherwise. `tone` swaps the chosen
-// look for a semantic one (the Sakuna damage levels).
+// look for a semantic one (the disaster damage levels).
 const CHOSEN = {
   green: 'bg-cz-crop-header',
   low: 'border-[0.5px] border-cz-status-good-fg bg-cz-status-good-bg',

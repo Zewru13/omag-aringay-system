@@ -4,6 +4,8 @@ import api from '../../api/axiosInstance.js'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import Button from '../../components/UI/Button.jsx'
 import { baseInputClasses, FormLabel } from '../../components/UI/FormField.jsx'
+import PhoneInput from '../../components/UI/PhoneInput.jsx'
+import { guardPhilsys as formatPhilsys, tidyPhone } from '../../utils/inputGuards.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
@@ -30,11 +32,6 @@ const computeAge = (birthdate) => {
   const age = today.getFullYear() - birth.getFullYear()
   const m = today.getMonth() - birth.getMonth()
   return (m < 0 || (m === 0 && today.getDate() < birth.getDate())) ? age - 1 : age
-}
-
-const formatPhilsys = (raw) => {
-  const digits = raw.replace(/\D/g, '').slice(0, 16)
-  return digits.match(/.{1,4}/g)?.join('-') || digits
 }
 
 const validatePhilsys = (value) => {
@@ -68,7 +65,7 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
     middle_name: farmer.middle_name || '',
     gender: farmer.gender || 'Male',
     birthdate: farmer.birthdate || '',
-    contact_number: farmer.contact_number || '',
+    contact_number: tidyPhone(farmer.contact_number || ''),   // an older number with dashes opens in the plain format
     barangay: farmer.barangay || '',
     civil_status: farmer.civil_status || 'Single',
     highest_education: farmer.highest_education || '',
@@ -261,17 +258,7 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
 
           <div>
             <FormLabel>Contact Number</FormLabel>
-            <input
-              className={baseInputClasses}
-              id="contact_number"
-              type="tel"
-              inputMode="numeric"
-              maxLength={11}
-              placeholder="09XXXXXXXXX"
-              onKeyPress={(e) => { if (!/[0-9]/.test(e.key)) e.preventDefault() }}
-              onChange={(e) => updateField('contact_number', e.target.value)}
-              value={form.contact_number}
-            />
+            <PhoneInput className={baseInputClasses} id="contact_number" value={form.contact_number} onChange={(v) => updateField('contact_number', v)} />
             {contactError && <p className="mt-1 text-[12px] text-rose-600">{contactError}</p>}
           </div>
 

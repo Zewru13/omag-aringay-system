@@ -482,7 +482,7 @@ export default function CitizenActivityLogScreen({
               max={todayISO()}
               className={`${FIELD} mt-2`}
               accentClass={t.solidBtn}
-              locale="fil-PH"
+              locale="en-PH"
               defaultOpen
               showLoggedNote={false}
               labels={labels.logCalendar}

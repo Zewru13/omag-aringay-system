@@ -23,6 +23,7 @@ import ErrorMessage from "../../components/UI/ErrorMessage.jsx";
 import FilterPanel from "../../components/UI/FilterPanel.jsx";
 import HarvestVarianceBadge from "../../components/UI/HarvestVarianceBadge.jsx";
 import FormField, { baseInputClasses } from "../../components/UI/FormField.jsx";
+import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import ModalShell from "../../components/UI/ModalShell.jsx";
 import PaginationBar from "../../components/UI/PaginationBar.jsx";
 import StatusPill from "../../components/UI/StatusPill.jsx";
@@ -564,8 +565,11 @@ function EditCropModal({ record, onClose, onSaved }) {
       });
       showToast("Crop record updated successfully.", "success");
       onSaved();
-    } catch {
-      setError("Failed to update crop record.");
+    } catch (err) {
+      // Show the server's reason (for example the active-duplicate refusal) instead of a generic failure.
+      const data = err?.response?.data;
+      const reason = data?.crop_type?.[0] || data?.detail;
+      setError(typeof reason === "string" && reason ? reason : "Failed to update crop record.");
     } finally {
       setIsSubmitting(false);
     }
@@ -730,14 +734,12 @@ function EditCropModal({ record, onClose, onSaved }) {
             <label className={editLabelCls}>
               Area Planted (ha) <span className="text-rose-500">*</span>
             </label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
+            <DecimalInput
+              decimals={2}
               className={baseInputClasses}
               placeholder="e.g. 2.50"
               value={form.area_planted_ha}
-              onChange={(e) => set("area_planted_ha", e.target.value)}
+              onChange={(v) => set("area_planted_ha", v)}
             />
             {record.date_planted_is_estimated && (
               <p className="mt-1.5 text-[11px] text-amber-700">
