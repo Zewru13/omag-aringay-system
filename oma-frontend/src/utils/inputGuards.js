@@ -28,10 +28,13 @@ export const guardEmail = (raw) => String(raw ?? '').replace(/\s+/g, '').slice(0
 // A decimal number typed as text: digits and one dot, no more than `decimals` after the dot, no minus sign unless
 // asked, and never above `max` (the value is clamped to it). A comma is a thousands separator when a dot is also
 // present or when it splits the digits into groups of three (1,500 -> 1500); otherwise it is a decimal comma (1,5 -> 1.5).
+// Exception: in a field with three or more decimals (areas, weights) a single group such as 2,500 is a decimal comma
+// (2.500), because those values are small; several groups or a comma with a dot are still thousands separators.
 export const guardDecimal = (raw, { decimals = 2, max = null, allowNegative = false } = {}) => {
   let text = String(raw ?? '')
   if (text.includes(',')) {
-    const thousands = text.includes('.') || /^\s*-?[1-9]\d{0,2}(,\d{3})+\s*$/.test(text)
+    const oneGroup = decimals >= 3 && /^\s*-?[1-9]\d{0,2},\d{3}\s*$/.test(text)
+    const thousands = !oneGroup && (text.includes('.') || /^\s*-?[1-9]\d{0,2}(,\d{3})+\s*$/.test(text))
     text = thousands ? text.replace(/,/g, '') : text.replace(',', '.')
   }
   const negative = allowNegative && text.trim().startsWith('-')

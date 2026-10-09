@@ -99,7 +99,7 @@ function DangerZone({ isAdmin, description, onDeleteClick }) {
 
 // ── Edit Modal — relocated from FisheriesMonitoringPage.jsx unchanged ────────
 
-function EditAssistanceModal({ record, onClose, onSaved, own = false }) {
+function EditAssistanceModal({ record, onClose, onSaved }) {
   const { isAdmin } = useAuth()
   const { showToast } = useToast()
   const originalData = {
@@ -130,7 +130,7 @@ function EditAssistanceModal({ record, onClose, onSaved, own = false }) {
     setError(''); setIsSubmitting(true)
     try {
       const { date_received, quantity, ...rest } = form
-      await api.patch(own ? `/interventions/fisherfolk-beneficiaries/${record.id}/detail/` : `/interventions/fisherfolk-beneficiaries/adhoc/${record.id}/`, {
+      await api.patch(`/interventions/fisherfolk-beneficiaries/adhoc/${record.id}/`, {
         ...rest,
         date_given: date_received,
         quantity: isTraining ? null : (quantity !== '' ? parseFloat(quantity) : null),
@@ -184,7 +184,7 @@ function EditAssistanceModal({ record, onClose, onSaved, own = false }) {
           <div className="grid gap-3 sm:grid-cols-2">
             <FormField label="Date Received" required>
               <input type="date" className={baseInputClasses} value={form.date_received}
-                max={own ? undefined : new Date().toISOString().split('T')[0]}
+                max={new Date().toISOString().split('T')[0]}
                 onChange={(e) => set('date_received', e.target.value)} />
             </FormField>
             <FormField label="Assistance Type" required>
@@ -427,17 +427,13 @@ export default function FisheriesAssistancePage({ asTab = false }) {
       : a.latest_request_status === 'REJECTED'
         ? <StatusPill tone="rose">{a.latest_request_reason ? `Rejected: ${a.latest_request_reason}` : 'Rejected'}</StatusPill>
         : <StatusPill tone="slate">Needs Confirmation</StatusPill>,
+    // An organization's table is the "Confirm for Members" list only; its history is OrgDistributionHistory.
     actions_cell: isOrg ? (
-      view === 'confirm' ? (
-        a.latest_request_status === 'PENDING' ? '—' : (
-          <RowActions actions={[
-            { key: 'confirm', label: 'Confirm for Member', icon: UserCheck, onClick: () => setConfirmingOnBehalf(a) },
-          ]} />
-        )
-      ) : a.status === 'PENDING' ? (
-        // an organization corrects only what has not reached the member yet (scheduled, not yet due)
-        <RowActions actions={[{ key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditing(a) }]} />
-      ) : '—'
+      a.latest_request_status === 'PENDING' ? '—' : (
+        <RowActions actions={[
+          { key: 'confirm', label: 'Confirm for Member', icon: UserCheck, onClick: () => setConfirmingOnBehalf(a) },
+        ]} />
+      )
     ) : isFisherfolk ? (
       a.status === 'AWAITING_CONFIRMATION' ? (
         <RowActions actions={[
@@ -451,19 +447,14 @@ export default function FisheriesAssistancePage({ asTab = false }) {
         a.status === 'NOT_RECEIVED' && { key: 'resolve', label: 'Mark Resolved', icon: CheckCircle2, tone: 'default', onClick: () => setResolving(a) },
       ]} />
     ),
-  })), [assistance, isFisherfolk, isOrg, view, confirmReceived])
+  })), [assistance, isFisherfolk, isOrg, confirmReceived])
 
   const totalQuantity = useMemo(
     () => assistance.reduce((sum, a) => sum + (parseFloat(a.quantity) || 0), 0),
     [assistance],
   )
 
-  const tableColumns = isOrg
-    ? (view === 'confirm'
-      ? CONFIRM_COLUMNS
-      : COLUMNS.filter((c) => !['fisherfolk_type', 'attributed_fisherfolk_organization_name', 'recorded_by_name'].includes(c.key))
-        .map((c) => (c.key === 'fisherfolk_full_name' ? { ...c, label: 'Member' } : c.key === 'date_received_fmt' ? { ...c, label: 'Date Given' } : c)))
-    : COLUMNS
+  const tableColumns = isOrg ? CONFIRM_COLUMNS : COLUMNS
 
   const innerContent = (
     <div className="space-y-4">
@@ -591,7 +582,6 @@ export default function FisheriesAssistancePage({ asTab = false }) {
       {editing && (
         <EditAssistanceModal
           record={editing}
-          own={isOrg}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); fetchAssistance() }}
         />

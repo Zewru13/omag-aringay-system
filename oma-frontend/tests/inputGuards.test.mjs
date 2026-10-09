@@ -43,6 +43,12 @@ eq(guardDecimal('1,500.00', { decimals: 2 }), '1500.00', 'thousands comma with d
 eq(guardDecimal('1,500,000', { decimals: 2 }), '1500000', 'two thousands separators')
 eq(guardDecimal('12,50', { decimals: 2 }), '12.50', 'decimal comma still a dot')
 eq(guardDecimal('0,500', { decimals: 4 }), '0.500', 'leading zero comma is a decimal comma')
+// Fields with three or more decimals hold small measures (areas, weights), so a lone "2,500" is 2.5, not 2500.
+eq(guardDecimal('2,500', { decimals: 3 }), '2.500', 'three-decimal field: one comma group is a decimal comma')
+eq(guardDecimal('2,500', { decimals: 4 }), '2.500', 'four-decimal field: one comma group is a decimal comma')
+eq(guardDecimal('2,500', { decimals: 2 }), '2500', 'two-decimal field keeps the thousands reading')
+eq(guardDecimal('1,500,000', { decimals: 4 }), '1500000', 'several groups are thousands even with many decimals')
+eq(guardDecimal('1,500.50', { decimals: 4 }), '1500.50', 'comma plus dot is thousands even with many decimals')
 eq(guardDecimal('3', { decimals: 0 }), '3', 'zero decimals')
 eq(guardDecimal('3.7', { decimals: 0 }), '3', 'zero decimals drops the fraction')
 eq(guardDecimal('-3', { decimals: 2, allowNegative: true }), '-3', 'negative allowed when asked')

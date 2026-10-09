@@ -315,7 +315,7 @@ function AddAssistanceModal({ onClose, onSuccess, memberUrl = null }) {
 
 // ── Edit Modal ───────────────────────────────────────────────────────────────
 
-function EditAssistanceModal({ record, onClose, onSaved, own = false }) {
+function EditAssistanceModal({ record, onClose, onSaved }) {
   const { isAdmin } = useAuth()
   const { showToast } = useToast()
   const originalData = {
@@ -349,7 +349,7 @@ function EditAssistanceModal({ record, onClose, onSaved, own = false }) {
     setError(''); setIsSubmitting(true)
     try {
       const { description, date_received, quantity, ...rest } = form
-      await api.patch(own ? `/interventions/beneficiaries/${record.id}/detail/` : `/interventions/beneficiaries/adhoc/${record.id}/`, {
+      await api.patch(`/interventions/beneficiaries/adhoc/${record.id}/`, {
         ...rest,
         quantity: isTraining ? '' : quantity,
         remarks: description,
@@ -409,7 +409,7 @@ function EditAssistanceModal({ record, onClose, onSaved, own = false }) {
             </FormField>
             <FormField label="Date Received" required>
               <input type="date" className={baseInputClasses} value={form.date_received}
-                max={own ? undefined : new Date().toISOString().split('T')[0]}
+                max={new Date().toISOString().split('T')[0]}
                 onChange={(e) => set('date_received', e.target.value)} />
             </FormField>
             {!isTraining && (
@@ -686,17 +686,13 @@ export default function CropAssistancePage({ asTab = false }) {
       : r.latest_request_status === 'REJECTED'
         ? <StatusPill tone="rose">{r.latest_request_reason ? `Rejected: ${r.latest_request_reason}` : 'Rejected'}</StatusPill>
         : <StatusPill tone="slate">Needs Confirmation</StatusPill>,
+    // An organization's table is the "Confirm for Members" list only; its history is OrgDistributionHistory.
     actions_cell: isOrg ? (
-      view === 'confirm' ? (
-        r.latest_request_status === 'PENDING' ? '—' : (
-          <RowActions actions={[
-            { key: 'confirm', label: 'Confirm for Member', icon: UserCheck, onClick: () => setConfirmingOnBehalf(r) },
-          ]} />
-        )
-      ) : r.status === 'PENDING' ? (
-        // an organization corrects only what has not reached the member yet (scheduled, not yet due)
-        <RowActions actions={[{ key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditing(r) }]} />
-      ) : '—'
+      r.latest_request_status === 'PENDING' ? '—' : (
+        <RowActions actions={[
+          { key: 'confirm', label: 'Confirm for Member', icon: UserCheck, onClick: () => setConfirmingOnBehalf(r) },
+        ]} />
+      )
     ) : isFarmer ? (
       r.status === 'AWAITING_CONFIRMATION' ? (
         <RowActions actions={[
@@ -710,13 +706,10 @@ export default function CropAssistancePage({ asTab = false }) {
         r.status === 'NOT_RECEIVED' && { key: 'resolve', label: 'Mark Resolved', icon: CheckCircle2, tone: 'default', onClick: () => setResolving(r) },
       ]} />
     ),
-  })), [records, isFarmer, isOrg, view])
+  })), [records, isFarmer, isOrg])
 
   const tableColumns = isOrg
-    ? (view === 'confirm'
-      ? CONFIRM_COLUMNS
-      : COLUMNS.filter((c) => !['attributed_organization_name', 'recorded_by_name'].includes(c.key))
-        .map((c) => (c.key === 'farmer_full_name' ? { ...c, label: 'Member' } : c)))
+    ? CONFIRM_COLUMNS
     : isFarmer
       ? COLUMNS.filter((c) => !['farmer_full_name', 'recorded_by_name'].includes(c.key))
       : COLUMNS
@@ -814,7 +807,6 @@ export default function CropAssistancePage({ asTab = false }) {
       {editing && !isFarmer && (
         <EditAssistanceModal
           record={editing}
-          own={isOrg}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); fetchAll() }}
         />
