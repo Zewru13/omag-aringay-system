@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { CheckCircle2, Pencil, Plus, Trash2, Upload, UserCheck, Users, XCircle } from 'lucide-react'
+import { Ban, CheckCircle2, Eye, Pencil, Plus, Trash2, Upload, UserCheck, Users, XCircle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ImportFileModal from '../../components/ImportFileModal.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
@@ -17,6 +17,7 @@ import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import AssistanceViewDialog from './AssistanceViewDialog.jsx'
 import ConfirmOnBehalfDialog from './ConfirmOnBehalfDialog.jsx'
 import LogGovernmentAssistanceModal from './LogGovernmentAssistanceModal.jsx'
 import { FISHERFOLK_ORG_DOMAIN } from '../Citizen/orgDomainConfig.js'
@@ -41,6 +42,8 @@ const STATUS_LABELS = {
 // recipient confirmed is simply Received.
 const ORG_STATUS_LABELS = { ...STATUS_LABELS, CONFIRMED: 'Received' }
 const EDITABLE_STATUSES = new Set(['PENDING', 'AWAITING_CONFIRMATION', 'CONFIRMED', undefined, ''])
+// Assistance can be cancelled (taken off the list, kept for audit) until the recipient has confirmed or reported it.
+const CANCELLABLE_STATUSES = new Set(['PENDING', 'AWAITING_CONFIRMATION'])
 
 function extractErrorMessage(err, fallback) {
   const data = err?.response?.data
@@ -366,6 +369,9 @@ export default function FisheriesAssistancePage({ asTab = false }) {
   const [showDistribute, setShowDistribute] = useState(false)
   const [editing, setEditing] = useState(null)
   const [resolving, setResolving] = useState(null)
+  const [viewing, setViewing] = useState(null)
+  const [cancelling, setCancelling] = useState(null)
+  const [isCancelling, setIsCancelling] = useState(false)
   const [historyKey, setHistoryKey] = useState(0) // bumps to reload the organization's distribution history
 
   const fetchAssistance = useCallback(async () => {
@@ -430,20 +436,22 @@ export default function FisheriesAssistancePage({ asTab = false }) {
     // An organization's table is the "Confirm for Members" list only; its history is OrgDistributionHistory.
     actions_cell: isOrg ? (
       a.latest_request_status === 'PENDING' ? '—' : (
-        <RowActions actions={[
+        <RowActions inline actions={[
           { key: 'confirm', label: 'Confirm for Member', icon: UserCheck, onClick: () => setConfirmingOnBehalf(a) },
         ]} />
       )
     ) : isFisherfolk ? (
       a.status === 'AWAITING_CONFIRMATION' ? (
-        <RowActions actions={[
+        <RowActions inline actions={[
           { key: 'confirm', label: 'Confirm Received', icon: CheckCircle2, onClick: () => confirmReceived(a) },
           { key: 'not-received', label: 'Report Not Received', icon: XCircle, tone: 'rose', onClick: () => setReportingNotReceived(a) },
         ]} />
       ) : '—'
     ) : (
-      <RowActions actions={[
+      <RowActions inline actions={[
+        { key: 'view', label: 'View', icon: Eye, onClick: () => setViewing(a) },
         EDITABLE_STATUSES.has(a.status) && { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditing(a) },
+        CANCELLABLE_STATUSES.has(a.status) && { key: 'cancel', label: 'Cancel assistance', icon: Ban, tone: 'rose', onClick: () => setCancelling(a) },
         a.status === 'NOT_RECEIVED' && { key: 'resolve', label: 'Mark Resolved', icon: CheckCircle2, tone: 'default', onClick: () => setResolving(a) },
       ]} />
     ),
@@ -593,6 +601,47 @@ export default function FisheriesAssistancePage({ asTab = false }) {
           assistanceLabel={confirmingOnBehalf.assistance_type || 'Assistance'}
           onClose={() => setConfirmingOnBehalf(null)}
           onDone={() => { setConfirmingOnBehalf(null); fetchAssistance() }}
+        />
+      )}
+      {viewing && !isOrg && !isFisherfolk && (
+        <AssistanceViewDialog
+          title={viewing.assistance_type || 'Assistance'} subtitle={viewing.fisherfolk_full_name}
+          onClose={() => setViewing(null)}
+          details={[
+            { label: 'Fisherfolk', value: viewing.fisherfolk_full_name },
+            { label: 'Type', value: viewing.fisherfolk_type },
+            { label: 'Organization', value: viewing.attributed_fisherfolk_organization_name },
+            { label: 'Assistance type', value: viewing.assistance_type },
+            { label: 'Source of assistance', value: (viewing.source_agencies || []).join(', ') },
+            { label: 'Quantity / amount', value: viewing.quantity },
+            { label: 'Date received', value: formatDate(viewing.date_given) },
+            { label: 'Status', value: STATUS_LABELS[viewing.status] || viewing.status },
+            { label: 'Recorded by', value: viewing.recorded_by_name },
+            { label: 'Description', value: viewing.description },
+            { label: 'Remarks', value: viewing.remarks },
+          ]}
+        />
+      )}
+      {cancelling && !isOrg && !isFisherfolk && (
+        <ConfirmDialog
+          title="Cancel this assistance?"
+          message={`${cancelling.assistance_type || 'This assistance'} for ${cancelling.fisherfolk_full_name} will be taken off the list and the fisherfolk will no longer be asked to confirm it. The record is kept for audit.`}
+          confirmLabel={isCancelling ? 'Cancelling...' : 'Cancel assistance'}
+          cancelLabel="Keep it"
+          onConfirm={async () => {
+            setIsCancelling(true)
+            try {
+              await api.post('/interventions/assistance-removals/', { domain: 'fisheries', record_ids: [cancelling.id] })
+              showToast('Assistance cancelled.', 'success')
+              setCancelling(null)
+              fetchAssistance()
+            } catch (err) {
+              showToast(err?.response?.data?.detail || 'The assistance could not be cancelled.', 'error')
+            } finally {
+              setIsCancelling(false)
+            }
+          }}
+          onCancel={() => { if (!isCancelling) setCancelling(null) }}
         />
       )}
       {resolving && !isOrg && (

@@ -110,7 +110,7 @@ function DataTable({ columns, data, isLoading, loading, onRowClick, emptyState, 
               <tr className="bg-primary">
                 {columns.map((column) => (
                   <th
-                    className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white"
+                    className={`px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white ${isActionsColumn(column) ? 'sticky right-0 bg-primary' : ''}`}
                     key={column.key}
                   >
                     {column.label}
@@ -130,7 +130,7 @@ function DataTable({ columns, data, isLoading, loading, onRowClick, emptyState, 
                   onClick={() => onRowClick?.(row)}
                 >
                   {columns.map((column) => (
-                    <td className="px-4 py-[13px] text-[13px] text-text-primary align-middle" key={column.key}>
+                    <td className={`px-4 py-[13px] text-[13px] text-text-primary align-middle ${isActionsColumn(column) ? 'sticky right-0 bg-surface shadow-[-6px_0_6px_-6px_rgba(0,0,0,0.12)]' : ''}`} key={column.key}>
                       {row[column.key] ?? ''}
                     </td>
                   ))}

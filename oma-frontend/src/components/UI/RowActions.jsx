@@ -32,16 +32,16 @@ const labelledToneClasses = {
 }
 
 // Below `md` (where tables turn into cards) each action is a labelled button instead of an icon or a menu.
-function PhoneActions({ visible }) {
+function PhoneActions({ visible, alwaysVisible = false }) {
   return (
-    <div className="flex flex-wrap gap-2 md:hidden">
+    <div className={alwaysVisible ? 'flex flex-wrap gap-2 md:flex-col md:flex-nowrap md:gap-1.5' : 'flex flex-wrap gap-2 md:hidden'}>
       {visible.map((a) => (
         <button
           key={a.key}
           type="button"
           disabled={a.disabled}
           onClick={(e) => { e.stopPropagation(); if (!a.disabled) a.onClick() }}
-          className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg border bg-white px-3 text-[12px] font-semibold transition-colors ${
+          className={`inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap md:min-h-8 rounded-lg border bg-white px-3 text-[12px] font-semibold transition-colors ${
             a.disabled ? 'cursor-not-allowed border-[#E2E8E2] text-[#C8D5C8]' : (labelledToneClasses[a.tone] || labelledToneClasses.default)
           }`}
         >
@@ -52,9 +52,11 @@ function PhoneActions({ visible }) {
   )
 }
 
+// `inline`: show every action as a labelled button at every width instead of the icon / ⋮ menu on larger screens.
 function RowActions(props) {
   const visible = props.actions.filter(Boolean)
   if (visible.length === 0) return null
+  if (props.inline) return <PhoneActions visible={visible} alwaysVisible />
   return (
     <>
       <PhoneActions visible={visible} />
