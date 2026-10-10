@@ -91,17 +91,24 @@ class OrganizationOfficerSerializer(serializers.ModelSerializer):
     )
     farmer_id = serializers.IntegerField(source='farmer.id', read_only=True)
     farmer_barangay = serializers.CharField(source='farmer.barangay', read_only=True)
+    # Only an active member of the organization can receive its assistance; an older officer entry that was typed in
+    # by name alone is not one.
+    is_member = serializers.SerializerMethodField()
 
     class Meta:
         model  = OrganizationOfficer
         fields = [
-            'id', 'position', 'full_name', 'farmer', 'farmer_id', 'farmer_barangay',
+            'id', 'position', 'full_name', 'farmer', 'farmer_id', 'farmer_barangay', 'is_member',
             'term_start_date', 'term_end_date', 'early_exit_reason', 'is_active',
         ]
         read_only_fields = [
-            'id', 'full_name', 'farmer_id', 'farmer_barangay',
+            'id', 'full_name', 'farmer_id', 'farmer_barangay', 'is_member',
             'term_start_date', 'term_end_date', 'early_exit_reason', 'is_active',
         ]
+
+    def get_is_member(self, obj):
+        return bool(obj.farmer_id) and FarmersOrganizationMember.objects.filter(
+            organization_id=obj.organization_id, farmer_id=obj.farmer_id, is_active=True).exists()
 
     def validate_farmer(self, value):
         organization_id = self.context['view'].kwargs.get('pk')
@@ -354,17 +361,21 @@ class FisherfolkOrganizationOfficerSerializer(serializers.ModelSerializer):
     )
     fisherfolk_id = serializers.SerializerMethodField()
     fisherfolk_barangay = serializers.SerializerMethodField()
+    is_member = serializers.SerializerMethodField()
 
     class Meta:
         model  = FisherfolkOrganizationOfficer
         fields = [
-            'id', 'position', 'full_name', 'fisherfolk', 'fisherfolk_id', 'fisherfolk_barangay',
+            'id', 'position', 'full_name', 'fisherfolk', 'fisherfolk_id', 'fisherfolk_barangay', 'is_member',
             'term_start_date', 'term_end_date', 'early_exit_reason', 'is_active',
         ]
         read_only_fields = [
-            'id', 'full_name', 'fisherfolk_id', 'fisherfolk_barangay',
+            'id', 'full_name', 'fisherfolk_id', 'fisherfolk_barangay', 'is_member',
             'term_start_date', 'term_end_date', 'early_exit_reason', 'is_active',
         ]
+
+    def get_is_member(self, obj):
+        return bool(obj.member_id) and bool(obj.member.is_active)
 
     def get_fisherfolk_id(self, obj):
         return obj.member.fisherfolk_id if obj.member else None

@@ -88,3 +88,40 @@ class EndTermTests(APITestCase):
         for domain in DOMAINS:
             officer = self.officer(domain)
             self.assertEqual(self.end(domain, officer, self.staff).status_code, 200, domain)
+
+
+class OfficerMembershipFlagTests(APITestCase):
+    """Each officer says whether they are an active member (only members can receive assistance)."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from farmers.models import Farmer
+        from fisheries.models import Fisherfolk
+        from associations.models import FarmersOrganizationMember, FisherfolkOrganizationMember
+
+        cls.ctx = {}
+        n = next(_N)
+        farm_org, fish_org = make_org(FarmersOrganization, 'Flag farmers'), make_org(FisherfolkOrganization, 'Flag fisherfolk')
+        farmer = Farmer.objects.create(
+            rsbsa_number='01-033-02-019-%06d' % (960000 + n), first_name='Fay', last_name='Flag', gender='Male',
+            birthdate=date(1985, 1, 1), barangay='Alaska', civil_status='Single')
+        fisher = Fisherfolk.objects.create(
+            rsbsa_number='01-033-02-019-%06d' % (961000 + n), first_name='Fin', last_name='Flag', gender='Male',
+            birthdate=date(1990, 1, 1), barangay='Alaska', fisherfolk_type='Inland')
+        FarmersOrganizationMember.objects.create(organization=farm_org, farmer=farmer, date_joined=date(2025, 1, 1), is_main=True)
+        fish_member = FisherfolkOrganizationMember.objects.create(organization=fish_org, fisherfolk=fisher, date_joined=date(2025, 1, 1), is_main=True)
+        OrganizationOfficer.objects.create(organization=farm_org, farmer=farmer, position='President', full_name='Fay Flag')
+        OrganizationOfficer.objects.create(organization=farm_org, position='Secretary', full_name='Typed Name Only')
+        FisherfolkOrganizationOfficer.objects.create(organization=fish_org, member=fish_member, position='President', full_name='Fin Flag')
+        FisherfolkOrganizationOfficer.objects.create(organization=fish_org, position='Secretary', full_name='Typed Name Only')
+        cls.ctx = {'farmers': (farm_org, make_citizen('flag-farmers', 'FARMERS_ORG', farm_org.id)),
+                   'fisherfolk': (fish_org, make_citizen('flag-fisherfolk', 'FISHERFOLK_ORG', fish_org.id))}
+
+    def test_the_officer_list_and_the_organization_detail_flag_non_members(self):
+        for domain, (org, user) in self.ctx.items():
+            self.client.force_authenticate(user)
+            listed = self.client.get(f'/api/organizations/{domain}/{org.id}/officers/')
+            self.assertEqual(listed.status_code, 200, domain)
+            self.assertEqual({o['position']: o['is_member'] for o in listed.data}, {'President': True, 'Secretary': False}, domain)
+            detail = self.client.get(f'/api/organizations/{domain}/{org.id}/')
+            self.assertEqual({o['position']: o['is_member'] for o in detail.data['officers']}, {'President': True, 'Secretary': False}, domain)

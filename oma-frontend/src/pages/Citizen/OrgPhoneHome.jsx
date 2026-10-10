@@ -96,7 +96,7 @@ export default function OrgPhoneHome() {
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <StatTile value={activeMembers} label="Active members" tone={tone.text} />
-            <StatTile value={`${officers.length} of ${domain.officerPositions.length}`} label="Officer positions filled" tone={tone.text} />
+            <StatTile value={`${officers.filter((o) => o.is_member !== false).length} of ${domain.officerPositions.length}`} label="Officer positions filled" tone={tone.text} />
             <StatTile value={reportedThisYear} label="Assistance given this year" tone={tone.text} />
             <StatTile value={needConfirmation} label="Members awaiting confirmation" tone={tone.text} />
           </div>

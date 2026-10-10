@@ -1089,10 +1089,11 @@ function OrganizationDetailPage({ own = false }) {
   const officerItems = (organization?.officers || []).map((o) => ({
     id: o.id,
     name: o.full_name,
-    subtitle: o.position,
+    subtitle: o.is_member === false ? `${o.position} · Not a member` : o.position,
     attrs: { position: o.position },
     details: [
       { label: "Position", value: o.position },
+      { label: "Member of this organization", value: o.is_member === false ? <StatusPill tone="amber">Not a member — cannot receive assistance</StatusPill> : "Yes" },
       { label: "Term start", value: formatDate(o.term_start_date) },
       { label: "Term end", value: formatDate(o.term_end_date) },
     ],
@@ -1528,7 +1529,10 @@ function OrganizationDetailPage({ own = false }) {
                         {organization.officers.map((officer) => (
                           <tr key={officer.id} className="border-t border-[#F0F4F0] hover:bg-[#F5F7F5]">
                             <td className="px-4 py-3 text-[12px] font-semibold text-[#4A5E4A]">{officer.position}</td>
-                            <td className="px-4 py-3 text-[13px] text-[#1A2B1A]">{officer.full_name}</td>
+                            <td className="px-4 py-3 text-[13px] text-[#1A2B1A]">
+                              {officer.full_name}
+                              {officer.is_member === false && <span className="ml-2 align-middle"><StatusPill tone="amber">Not a member</StatusPill></span>}
+                            </td>
                             <td className="px-4 py-3 text-[13px] text-[#4A5E4A]">{formatDate(officer.term_start_date)}</td>
                             <td className="px-4 py-3 text-[13px] text-[#4A5E4A]">{formatDate(officer.term_end_date)}</td>
                             {isStaff && (
