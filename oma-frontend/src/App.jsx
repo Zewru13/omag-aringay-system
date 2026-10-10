@@ -5,6 +5,7 @@ import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import { useAuth } from "./context/AuthContext.jsx";
 import AuditLogPage from "./pages/Admin/AuditLogPage.jsx";
 import OrganizationDetailPage from "./pages/Organizations/OrganizationDetailPage.jsx";
+import MyEquipmentPage from "./pages/Equipment/MyEquipmentPage.jsx";
 import DashboardPage from "./pages/Dashboard/DashboardPage.jsx";
 import FarmerDetailPage from "./pages/Farmers/FarmerDetailPage.jsx";
 import FarmersHub from "./pages/Farmers/FarmersHub.jsx";
@@ -154,6 +155,16 @@ function App() {
           {/* Batch 1: Association -> Organization rename. /associations/:type/:id
               preserves params instead of dropping them. */}
           <Route path="/associations/:type/:id" element={<LegacyOrganizationDetailRedirect />} />
+
+          {/* Farmer and fisherfolk accounts: borrow equipment of the organizations they belong to. */}
+          <Route
+            path="/my-equipment"
+            element={
+              <ProtectedRoute allowedRoles={[]} allowFisherfolk allowFarmer>
+                <MyEquipmentPage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Organization accounts: their own organization (members, equipment, officers). */}
           <Route

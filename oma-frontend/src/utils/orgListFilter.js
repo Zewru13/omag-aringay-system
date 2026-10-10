@@ -13,7 +13,8 @@ export const filterOrgItems = (items, { query = '', filters = {} } = {}) => {
       const name = String(item.name ?? '').toLowerCase().replace(/-/g, ' ')
       if (!name || !wanted.every((word) => name.includes(word.replace(/-/g, ' ')))) return false
     }
-    return active.every(([key, value]) => item.attrs?.[key] === value)
+    // An attribute may hold several values (a row of equipment with units in more than one condition): any match counts.
+    return active.every(([key, value]) => [].concat(item.attrs?.[key] ?? []).includes(value))
   })
 }
 
@@ -22,8 +23,9 @@ export const filterOptions = (items, key) => {
   if (!Array.isArray(items)) return []
   const seen = []
   items.forEach((item) => {
-    const value = item.attrs?.[key]
-    if (value !== undefined && value !== null && value !== '' && !seen.includes(value)) seen.push(value)
+    ;[].concat(item.attrs?.[key] ?? []).forEach((value) => {
+      if (value !== undefined && value !== null && value !== '' && !seen.includes(value)) seen.push(value)
+    })
   })
   return seen
 }

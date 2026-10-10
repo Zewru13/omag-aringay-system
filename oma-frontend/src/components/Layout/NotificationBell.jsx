@@ -56,6 +56,7 @@ const RECORD_TYPE_TITLES = {
   fisheries_harvest_reminder_7d: 'Harvest in 7 Days',
   fisheries_harvest_reminder_3d: 'Harvest in 3 Days',
   fisheries_disaster_report: 'New Fisherfolk Disaster Report',
+  equipment_loan: 'Equipment Loan',
 }
 
 // A CITIZEN account may only open /my-account — every staff route above ends
@@ -168,6 +169,11 @@ function NotificationBell({ variant = 'dark' }) {
       const own = FISHERFOLK_RECORD_TYPE_ROUTES[n.record_type]
       const ownTarget = typeof own === 'function' ? own(n.record_id) : own
       if (ownTarget) { navigate(ownTarget); return }
+    }
+    // An equipment loan opens the organization's Borrowed tab, or a member's Borrow Equipment page.
+    if (user?.role === 'CITIZEN' && n.record_type === 'equipment_loan') {
+      navigate(['FARMERS_ORG', 'FISHERFOLK_ORG'].includes(user.linked_record_type) ? '/my-organization?tab=borrowed' : '/my-equipment')
+      return
     }
     if (user?.role === 'CITIZEN') {
       if (window.location.pathname !== CITIZEN_HOME) navigate(CITIZEN_HOME)

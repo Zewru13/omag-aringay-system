@@ -25,10 +25,45 @@ const menuToneClasses = {
   rose: 'text-[#1A2B1A] hover:bg-rose-50 hover:text-rose-600',
 }
 
-function RowActions({ actions, menuTitle = 'Actions', menuWidthClassName = 'w-52' }) {
-  const visible = actions.filter(Boolean)
-  if (visible.length === 0) return null
+const labelledToneClasses = {
+  default: 'border-[#C8D5C8] text-[#1B4D2E] hover:bg-[#F0F4F0]',
+  amber: 'border-amber-200 text-amber-700 hover:bg-amber-50',
+  rose: 'border-rose-200 text-rose-600 hover:bg-rose-50',
+}
 
+// Below `md` (where tables turn into cards) each action is a labelled button instead of an icon or a menu.
+function PhoneActions({ visible }) {
+  return (
+    <div className="flex flex-wrap gap-2 md:hidden">
+      {visible.map((a) => (
+        <button
+          key={a.key}
+          type="button"
+          disabled={a.disabled}
+          onClick={(e) => { e.stopPropagation(); if (!a.disabled) a.onClick() }}
+          className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg border bg-white px-3 text-[12px] font-semibold transition-colors ${
+            a.disabled ? 'cursor-not-allowed border-[#E2E8E2] text-[#C8D5C8]' : (labelledToneClasses[a.tone] || labelledToneClasses.default)
+          }`}
+        >
+          <a.icon size={14} aria-hidden="true" /> {a.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function RowActions(props) {
+  const visible = props.actions.filter(Boolean)
+  if (visible.length === 0) return null
+  return (
+    <>
+      <PhoneActions visible={visible} />
+      <div className="hidden md:block"><DesktopActions {...props} visible={visible} /></div>
+    </>
+  )
+}
+
+function DesktopActions({ visible, menuTitle = 'Actions', menuWidthClassName = 'w-52' }) {
   if (visible.length <= 1) {
     return (
       <div className="flex items-center gap-0.5">

@@ -233,8 +233,8 @@ export default function DistributeAssistanceModal({ domain, fixedOrg = null, onC
       </Button>
     </>
   ) : step === 'confirm' ? (
-    <div className="flex w-full items-center justify-between">
-      <button type="button" onClick={() => setStep('form')} className="inline-flex items-center gap-1 text-[13px] font-medium text-[#7A8E7A] hover:text-[#1A2B1A] transition-colors">
+    <div className="flex w-full flex-col-reverse items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <button type="button" onClick={() => setStep('form')} className="inline-flex items-center justify-center gap-1 py-1 text-[13px] font-medium text-[#7A8E7A] hover:text-[#1A2B1A] transition-colors">
         <ArrowLeft size={14} aria-hidden="true" /> Back to Edit
       </button>
       <Button type="button" isLoading={isBusy} disabled={selectedIds.size === 0} onClick={handleConfirm}>
@@ -250,8 +250,10 @@ export default function DistributeAssistanceModal({ domain, fixedOrg = null, onC
 
   return (
     <ModalShell
-      title="Distribute to Organization"
-      subtitle={`Issue assistance to the current ${domain.personLabel.toLowerCase()} members you choose, in one operation.`}
+      title={fixedOrg ? 'Distribute to All Members' : 'Distribute to Organization'}
+      subtitle={fixedOrg
+        ? 'Give the same assistance to the members you choose, in one step.'
+        : `Issue assistance to the current ${domain.personLabel.toLowerCase()} members you choose, in one operation.`}
       icon={Users}
       onClose={onClose}
       maxWidth="max-w-3xl"
@@ -261,7 +263,7 @@ export default function DistributeAssistanceModal({ domain, fixedOrg = null, onC
 
       {step === 'form' && (
         <form id="distribute-assistance-form" onSubmit={handlePreview} className="stagger-item mt-6 space-y-4">
-          <div className="rounded-2xl border border-[#E2E8E2] bg-white p-5">
+          <div className="rounded-2xl border border-[#E2E8E2] bg-white p-4 sm:p-5">
             <SectionEyebrow>Target Organization</SectionEyebrow>
             <FormField label={domain.orgLabel} required pillLabel>
               {!org ? (
@@ -315,7 +317,7 @@ export default function DistributeAssistanceModal({ domain, fixedOrg = null, onC
             </FormField>
           </div>
 
-          <div className="rounded-2xl border border-[#E2E8E2] bg-white p-5 space-y-4">
+          <div className="rounded-2xl border border-[#E2E8E2] bg-white p-4 sm:p-5 space-y-4">
             <SectionEyebrow className="mb-0">Assistance Details</SectionEyebrow>
             <FormField label="Assistance Type" required pillLabel>
               <ComboboxWithOther
@@ -489,7 +491,7 @@ export default function DistributeAssistanceModal({ domain, fixedOrg = null, onC
             </div>
           </div>
 
-          <div className="rounded-2xl border border-[#E2E8E2] bg-white p-5">
+          <div className="rounded-2xl border border-[#E2E8E2] bg-white p-4 sm:p-5">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <SectionEyebrow className="mb-0">Per-Member Outcome</SectionEyebrow>
               <div className="flex flex-wrap gap-1.5">

@@ -459,7 +459,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
   const innerContent = (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex overflow-hidden rounded-xl border border-slate-300 w-fit">
+        <div className="flex w-full overflow-hidden rounded-xl border border-slate-300 sm:w-fit">
           {[
             { key: 'all', label: isOrg ? 'History' : 'All Records' },
             isOrg && { key: 'confirm', label: 'Confirm for Members' },
@@ -467,7 +467,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
           ].filter(Boolean).map((t) => (
             <button
               key={t.key} type="button" onClick={() => changeView(t.key)}
-              className={`px-4 py-2 text-[13px] font-semibold transition-colors ${
+              className={`flex-1 whitespace-nowrap px-2 py-2 text-[12px] font-semibold transition-colors sm:flex-none sm:px-4 sm:text-[13px] ${
                 view === t.key ? 'bg-[#1B4D2E] text-white' : 'bg-white text-[#4A5E4A] hover:bg-[#F5F7F5]'
               }`}
             >
@@ -476,17 +476,17 @@ export default function FisheriesAssistancePage({ asTab = false }) {
           ))}
         </div>
         {isOrg && view === 'all' && (
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setShowDistribute(true)}>
-              <Users size={15} className="mr-1" /> Report to All Members
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => setShowDistribute(true)}>
+              <Users size={15} className="mr-1" /> Distribute to All Members
             </Button>
-            <Button onClick={() => setShowLog(true)}>
-              <Plus size={15} className="mr-1" /> Report to a Member
+            <Button className="w-full sm:w-auto" onClick={() => setShowLog(true)}>
+              <Plus size={15} className="mr-1" /> Distribute to Individual
             </Button>
           </div>
         )}
         {!isFisherfolk && !isOrg && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setShowImport(true)}>
               <Upload size={15} className="mr-1" /> Import File
             </Button>
@@ -548,7 +548,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
         </div>
       )}
 
-      {error ? <ErrorMessage message={error} /> : <DataTable columns={tableColumns} data={rows} isLoading={isLoading} />}
+      {error ? <ErrorMessage message={error} /> : <DataTable columns={tableColumns} data={rows} isLoading={isLoading} cardColumns={2} />}
       </>
       )}
 
@@ -615,7 +615,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
   if (asTab) return innerContent
 
   return isOrg ? (
-    <PageLayout title="Assistance" subtitle="Assistance your organization reported to its members.">
+    <PageLayout title="Assistance" subtitle="Assistance your organization distributed to its members.">
       {innerContent}
     </PageLayout>
   ) : isFisherfolk ? (

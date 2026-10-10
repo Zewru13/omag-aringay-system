@@ -6,6 +6,7 @@ from core.validators import validate_not_future_date, validate_contact_number
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk
 
+from . import equipment_ops
 from .models import (
     FarmersOrganization,
     FarmersOrganizationEquipment,
@@ -169,14 +170,49 @@ class FarmersOrganizationMemberSerializer(serializers.ModelSerializer):
         return value
 
 
-class FarmersOrganizationEquipmentSerializer(serializers.ModelSerializer):
+class _EquipmentLineValidation:
+    """Checks for an equipment line added by hand: at least one unit, and 'Other' must say what it is."""
+
+    def validate_quantity(self, value):
+        if value < 1:
+            raise serializers.ValidationError('Quantity must be at least 1.')
+        return value
+
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        name = attrs.get('equipment_name')
+        other = (attrs.get('equipment_name_other') or '').strip()
+        if name == 'Other':
+            if not other:
+                raise serializers.ValidationError({'equipment_name_other': 'Say what the equipment is.'})
+            attrs['equipment_name_other'] = other
+        elif name is not None:
+            attrs['equipment_name_other'] = ''
+        return attrs
+
+
+class FarmersOrganizationEquipmentSerializer(_EquipmentLineValidation, serializers.ModelSerializer):
+    # Units out on loan, units that can be lent, and who has them (see associations.equipment_ops).
+    on_loan = serializers.SerializerMethodField()
+    available = serializers.SerializerMethodField()
+    holders = serializers.SerializerMethodField()
+
     class Meta:
         model = FarmersOrganizationEquipment
         fields = [
             'id', 'organization', 'equipment_name', 'equipment_name_other',
-            'quantity', 'condition', 'acquisition_date', 'remarks',
+            'quantity', 'condition', 'acquisition_date', 'remarks', 'on_loan', 'available', 'holders',
         ]
         read_only_fields = ['organization']
+
+    def get_on_loan(self, obj):
+        return equipment_ops.on_loan(obj)
+
+    def get_available(self, obj):
+        return equipment_ops.available(obj)
+
+    def get_holders(self, obj):
+        return equipment_ops.holders(obj)
 
     def validate_acquisition_date(self, value):
         validate_not_future_date(value, 'Acquisition date')
@@ -199,12 +235,13 @@ class FarmersOrganizationListSerializer(serializers.ModelSerializer):
         return obj.members.count()
 
     def get_equipment_count(self, obj):
-        return obj.equipment.count()
+        return obj.equipment.filter(quantity__gt=0).count()
 
 
 class FarmersOrganizationDetailSerializer(serializers.ModelSerializer):
     members   = FarmersOrganizationMemberSerializer(many=True, read_only=True)
-    equipment = FarmersOrganizationEquipmentSerializer(many=True, read_only=True)
+    # Lines with no units left (all moved to other conditions) stay in the database for their history but are not listed.
+    equipment = serializers.SerializerMethodField()
     # Current officers only (one per filled position) — officer_history
     # below carries every past holder too. Both read from the same
     # `officers` related_name; the lazy expiry check runs before this
@@ -216,6 +253,10 @@ class FarmersOrganizationDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model  = FarmersOrganization
         fields = '__all__'
+
+    def get_equipment(self, obj):
+        lines = obj.equipment.filter(quantity__gt=0).prefetch_related('loans__member')
+        return FarmersOrganizationEquipmentSerializer(lines, many=True, context=self.context).data
 
     def get_officers(self, obj):
         qs = obj.officers.filter(is_active=True)
@@ -279,14 +320,28 @@ class FisherfolkOrganizationMemberSerializer(serializers.ModelSerializer):
         return value
 
 
-class FisherfolkOrganizationEquipmentSerializer(serializers.ModelSerializer):
+class FisherfolkOrganizationEquipmentSerializer(_EquipmentLineValidation, serializers.ModelSerializer):
+    # Units out on loan, units that can be lent, and who has them (see associations.equipment_ops).
+    on_loan = serializers.SerializerMethodField()
+    available = serializers.SerializerMethodField()
+    holders = serializers.SerializerMethodField()
+
     class Meta:
         model = FisherfolkOrganizationEquipment
         fields = [
             'id', 'organization', 'equipment_name', 'equipment_name_other',
-            'quantity', 'condition', 'acquisition_date', 'remarks',
+            'quantity', 'condition', 'acquisition_date', 'remarks', 'on_loan', 'available', 'holders',
         ]
         read_only_fields = ['organization']
+
+    def get_on_loan(self, obj):
+        return equipment_ops.on_loan(obj)
+
+    def get_available(self, obj):
+        return equipment_ops.available(obj)
+
+    def get_holders(self, obj):
+        return equipment_ops.holders(obj)
 
     def validate_acquisition_date(self, value):
         validate_not_future_date(value, 'Acquisition date')
@@ -356,12 +411,12 @@ class FisherfolkOrganizationListSerializer(serializers.ModelSerializer):
         return obj.members.count()
 
     def get_equipment_count(self, obj):
-        return obj.equipment.count()
+        return obj.equipment.filter(quantity__gt=0).count()
 
 
 class FisherfolkOrganizationDetailSerializer(serializers.ModelSerializer):
     members   = FisherfolkOrganizationMemberSerializer(many=True, read_only=True)
-    equipment = FisherfolkOrganizationEquipmentSerializer(many=True, read_only=True)
+    equipment = serializers.SerializerMethodField()
     officers  = serializers.SerializerMethodField()
     officer_history = serializers.SerializerMethodField()
     citizen_account = serializers.SerializerMethodField()
@@ -369,6 +424,10 @@ class FisherfolkOrganizationDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model  = FisherfolkOrganization
         fields = '__all__'
+
+    def get_equipment(self, obj):
+        lines = obj.equipment.filter(quantity__gt=0).prefetch_related('loans__member')
+        return FisherfolkOrganizationEquipmentSerializer(lines, many=True, context=self.context).data
 
     def get_officers(self, obj):
         qs = obj.officers.filter(is_active=True)

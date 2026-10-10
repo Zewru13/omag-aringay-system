@@ -176,6 +176,9 @@ class ContactNumberUpdateView(_OwnRecordMixin, APIView):
             return err
         s = ContactNumberSerializer(data=request.data)
         s.is_valid(raise_exception=True)
+        if rtype in ('FARMERS_ORG', 'FISHERFOLK_ORG') and not s.validated_data['contact_number']:
+            # an organization must always be reachable; a farmer's or fisherfolk's number stays optional
+            return Response({'contact_number': ['Contact number is required.']}, status=status.HTTP_400_BAD_REQUEST)
         record.contact_number = s.validated_data['contact_number']
         # update_fields is the second guard: even if something upstream had
         # mutated another attribute on this instance, only this column is

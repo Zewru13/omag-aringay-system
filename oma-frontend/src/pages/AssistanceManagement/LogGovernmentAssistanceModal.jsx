@@ -218,7 +218,7 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess, memberUrl = null }) 
 
   return (
     <ModalShell
-      title={memberUrl ? 'Report Assistance to a Member' : 'Log Individual Assistance'}
+      title={memberUrl ? 'Distribute to an Individual' : 'Log Individual Assistance'}
       onClose={onClose}
       maxWidth="max-w-4xl"
       footer={

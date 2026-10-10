@@ -50,6 +50,28 @@ function StatusCounts({ counts }) {
   return <span className="text-[12px] text-[#4A5A4C]">{parts.join(' · ')}</span>
 }
 
+// The members a distribution went to, with each one's status; shared by the table row and the phone card.
+function MemberList({ item, onRemove }) {
+  return (
+    <ul className="divide-y divide-[#EEF2EE] rounded-lg border border-[#E2E8E2] bg-white" aria-label="Members in this distribution">
+      {item.members.map((m) => (
+        <li key={m.record_id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 px-3 py-2">
+          <span className="min-w-0 font-medium text-[#1A2B1A]">{m.name}</span>
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <StatusPill status={m.status}>{MEMBER_STATUS_LABELS[m.status] || m.status}</StatusPill>
+            {m.confirmed_at && <span className="text-[12px] text-[#7A8E7A]">{formatStamp(m.confirmed_at)}</span>}
+            {REMOVABLE.has(m.status) && (
+              <button type="button" onClick={() => onRemove(m)} className="text-[12px] font-semibold text-rose-700 hover:underline">
+                Remove from the list
+              </button>
+            )}
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 export default function OrgDistributionHistory({ domain = 'crop', refreshKey = 0, onChanged }) {
   const config = DOMAINS[domain]
   const { showToast } = useToast()
@@ -136,7 +158,7 @@ export default function OrgDistributionHistory({ domain = 'crop', refreshKey = 0
   return (
     <div className="space-y-4">
       <FilterPanel
-        search={memberInput} onSearchChange={setMemberInput} searchPlaceholder="Search by member name..."
+        search={memberInput} onSearchChange={setMemberInput} searchPlaceholder="Search member..."
         activeCount={activeCount + (member ? 1 : 0)}
       >
         <select className={SELECT} value={filters.status} onChange={setFilter('status')} aria-label="Status">
@@ -169,7 +191,51 @@ export default function OrgDistributionHistory({ domain = 'crop', refreshKey = 0
       </FilterPanel>
 
       {error ? <ErrorMessage message={error} /> : (
-        <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white">
+        <>
+        {/* Phone: one card per distribution, with labelled buttons. */}
+        <div className="space-y-3 md:hidden" data-testid="distribution-cards">
+          {isLoading && items.length === 0 && <p className="px-1 py-6 text-center text-[13px] text-[#7A8E7A]">Loading...</p>}
+          {!isLoading && items.length === 0 && (
+            <p className="rounded-xl border border-[#E2E8E2] bg-white px-4 py-6 text-center text-[13px] text-[#7A8E7A]">
+              {activeCount || member ? 'No distributions match these filters.' : 'No assistance has been given yet.'}
+            </p>
+          )}
+          {items.map((item) => {
+            const isOpen = expanded.has(item.id)
+            const removable = removableCount(item)
+            return (
+              <div key={item.id} className="rounded-xl border border-[#E2E8E2] bg-white p-3.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-[#1A2B1A]">{item.assistance_type || '—'}</p>
+                    <p className="text-[12px] text-[#7A8E7A]">{formatDateTime(item.date_given, item.recorded_at)}</p>
+                  </div>
+                  <StatusPill tone={SUMMARY_TONE[item.summary_status] || 'slate'}>{item.summary_status}</StatusPill>
+                </div>
+                <p className="mt-2 text-[12px] text-[#4A5A4C]">
+                  {item.member_count} member{item.member_count === 1 ? '' : 's'}
+                  {item.quantity ? ` · ${item.quantity}` : ''}
+                  {item.source_agencies?.length > 0 ? ` · ${item.source_agencies.join(', ')}` : ''}
+                </p>
+                <p className="mt-0.5"><StatusCounts counts={item.status_counts} /></p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button type="button" aria-expanded={isOpen} onClick={() => toggle(item.id)}
+                    className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-[#C8D5C8] px-2 text-[12px] font-semibold text-[#1B4D2E] hover:bg-[#F0F4F0]">
+                    {isOpen ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
+                    {isOpen ? 'Hide members' : 'Show members'}
+                  </button>
+                  <button type="button" disabled={removable === 0} onClick={() => setRemoving({ item })}
+                    className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-rose-200 px-2 text-[12px] font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40">
+                    <Trash2 size={13} aria-hidden="true" /> Remove
+                  </button>
+                </div>
+                {isOpen && <div className="mt-3"><MemberList item={item} onRemove={(m) => setRemoving({ item, member: m })} /></div>}
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="hidden overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white md:block">
           <table className="w-full min-w-[760px] text-left text-[13px]">
             <thead>
               <tr className="bg-[#1B4D2E] text-[11px] font-semibold uppercase tracking-wide text-white">
@@ -227,23 +293,7 @@ export default function OrgDistributionHistory({ domain = 'crop', refreshKey = 0
                     <tr key={`${item.id}-members`} className="bg-[#F9FAF9]">
                       <td />
                       <td colSpan={6} className="px-3 py-3">
-                        <ul className="divide-y divide-[#EEF2EE] rounded-lg border border-[#E2E8E2] bg-white" aria-label="Members in this distribution">
-                          {item.members.map((m) => (
-                            <li key={m.record_id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
-                              <span className="font-medium text-[#1A2B1A]">{m.name}</span>
-                              <span className="flex flex-wrap items-center gap-3">
-                                <StatusPill status={m.status}>{MEMBER_STATUS_LABELS[m.status] || m.status}</StatusPill>
-                                {m.confirmed_at && <span className="text-[12px] text-[#7A8E7A]">{formatStamp(m.confirmed_at)}</span>}
-                                {REMOVABLE.has(m.status) && (
-                                  <button type="button" onClick={() => setRemoving({ item, member: m })}
-                                    className="text-[12px] font-semibold text-rose-700 hover:underline">
-                                    Remove from the list
-                                  </button>
-                                )}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
+                        <MemberList item={item} onRemove={(m) => setRemoving({ item, member: m })} />
                       </td>
                     </tr>
                   ),
@@ -252,6 +302,7 @@ export default function OrgDistributionHistory({ domain = 'crop', refreshKey = 0
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       {removing && (

@@ -9,14 +9,15 @@ import { filterOrgItems } from '../../utils/orgListFilter.js'
 // optional small line under it), a name search and filters, and the small details (plus actions) in a dialog when a
 // row is tapped. Works the same on a phone and on a desktop.
 //
-// items:   [{ id, name, subtitle?, dim?, attrs: { <filter key>: value }, details: [{ label, value }],
-//             actions?: [{ key, label, icon?, tone?, onClick }] }]
+// items:   [{ id, name, subtitle?, dim?, attrs: { <filter key>: value | [values] }, details: [{ label, value }],
+//             actions?: [{ key, label, icon?, tone?, onClick }], renderBody?: ({ close }) => node }]
+//           (renderBody replaces the details list when an entry needs more than label / value rows)
 // filters: [{ key, label, allLabel?, options: [{ value, label }] }]   (a filter with no options is not shown)
 
 const SELECT = 'rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-[#1E4620] focus:outline-none'
 
 export default function OrgCompactList({
-  items, filters = [], searchPlaceholder = 'Search by name...', emptyText = 'Nothing recorded yet.', pageSize = 30,
+  items, filters = [], searchPlaceholder = 'Search name...', emptyText = 'Nothing recorded yet.', pageSize = 30,
 }) {
   const [query, setQuery] = useState('')
   const [chosen, setChosen] = useState({})
@@ -40,7 +41,7 @@ export default function OrgCompactList({
     <div className="max-w-3xl space-y-3">
       <FilterPanel
         search={query} onSearchChange={(v) => { setQuery(v); setVisible(pageSize) }} searchPlaceholder={searchPlaceholder}
-        activeCount={activeCount + (query.trim() ? 1 : 0)}
+        activeCount={activeCount + (query.trim() ? 1 : 0)} className=""
       >
         {shownFilters.map((f) => (
           <select key={f.key} className={SELECT} value={chosen[f.key] || ''} onChange={setFilter(f.key)} aria-label={f.label}>
@@ -94,27 +95,29 @@ export default function OrgCompactList({
           subtitle={open.subtitle}
           onClose={() => setOpenId(null)}
           footer={(open.actions || []).length > 0 ? (
-            <>
+            <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
               {open.actions.map((a) => (
                 <Button
-                  key={a.key} type="button" size="sm" variant="ghost" icon={a.icon}
-                  className={a.tone === 'danger' ? '!text-rose-600' : '!text-[#1B4D2E]'}
+                  key={a.key} type="button" size="sm" variant="outline" icon={a.icon}
+                  className={`whitespace-nowrap ${a.tone === 'danger' ? '!border-rose-200 !text-rose-600 hover:!bg-rose-50' : '!text-[#1B4D2E]'}`}
                   onClick={() => { setOpenId(null); a.onClick() }}
                 >
                   {a.label}
                 </Button>
               ))}
-            </>
+            </div>
           ) : undefined}
         >
-          <dl className="space-y-3">
-            {open.details.map((d) => (
-              <div key={d.label} className="flex items-start justify-between gap-4">
-                <dt className="text-[12px] text-[#7A8E7A]">{d.label}</dt>
-                <dd className="min-w-0 break-words text-right text-[13px] font-medium text-[#1A2B1A]">{d.value}</dd>
-              </div>
-            ))}
-          </dl>
+          {open.renderBody ? open.renderBody({ close: () => setOpenId(null) }) : (
+            <dl className="space-y-3">
+              {open.details.map((d) => (
+                <div key={d.label} className="flex items-start justify-between gap-4">
+                  <dt className="text-[12px] text-[#7A8E7A]">{d.label}</dt>
+                  <dd className="min-w-0 break-words text-right text-[13px] font-medium text-[#1A2B1A]">{d.value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
         </ModalShell>
       )}
     </div>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Building2, ClipboardCheck, HandHeart, UserCog, Users } from 'lucide-react'
+import { Building2, ClipboardCheck, HandHeart, HandHelping, Package, UserCog, Users } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
@@ -97,7 +97,7 @@ export default function OrgPhoneHome() {
           <div className="grid grid-cols-2 gap-3">
             <StatTile value={activeMembers} label="Active members" tone={tone.text} />
             <StatTile value={`${officers.length} of ${domain.officerPositions.length}`} label="Officer positions filled" tone={tone.text} />
-            <StatTile value={reportedThisYear} label="Assistance reported this year" tone={tone.text} />
+            <StatTile value={reportedThisYear} label="Assistance given this year" tone={tone.text} />
             <StatTile value={needConfirmation} label="Members awaiting confirmation" tone={tone.text} />
           </div>
 
@@ -118,9 +118,11 @@ export default function OrgPhoneHome() {
           )}
 
           <div className="space-y-2">
-            <QuickAction icon={HandHeart} label="Report assistance" tone={tone} onClick={() => navigate(assistancePath)} />
+            <QuickAction icon={HandHeart} label="Distribute assistance" tone={tone} onClick={() => navigate(assistancePath)} />
             <QuickAction icon={Users} label="Members" tone={tone} onClick={() => navigate('/my-organization')} />
-            <QuickAction icon={UserCog} label="Officers" tone={tone} onClick={() => navigate('/my-organization')} />
+            <QuickAction icon={UserCog} label="Officers" tone={tone} onClick={() => navigate('/my-organization?tab=officers')} />
+            <QuickAction icon={Package} label="Equipment" tone={tone} onClick={() => navigate('/my-organization?tab=equipment')} />
+            <QuickAction icon={HandHelping} label="Borrowed equipment" tone={tone} onClick={() => navigate('/my-organization?tab=borrowed')} />
             <QuickAction icon={ClipboardCheck} label="Confirm for members" tone={tone} onClick={() => navigate(`${assistancePath}?tab=confirm`)} />
           </div>
 

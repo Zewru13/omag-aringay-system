@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { isAuthEndpoint } from '../utils/authRequests.js'
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
 
@@ -21,7 +22,7 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint(originalRequest.url)) {
       originalRequest._retry = true
       const refreshToken = localStorage.getItem('refreshToken')
 

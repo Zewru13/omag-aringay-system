@@ -249,7 +249,7 @@ function AddAssistanceModal({ onClose, onSuccess, memberUrl = null }) {
 
   return (
     <ModalShell
-      title={memberUrl ? 'Report Assistance to a Member' : 'Log Individual Assistance'}
+      title={memberUrl ? 'Distribute to an Individual' : 'Log Individual Assistance'}
       subtitle={memberUrl ? 'Record assistance your organization gave to one member.' : 'Record assistance given to a farmer.'}
       onClose={onClose}
       maxWidth="max-w-xl"
@@ -716,7 +716,7 @@ export default function CropAssistancePage({ asTab = false }) {
 
   const innerContent = (
     <div className="space-y-4">
-      <div className="flex overflow-hidden rounded-xl border border-slate-300 w-fit">
+      <div className="flex w-full overflow-hidden rounded-xl border border-slate-300 sm:w-fit">
         {[
           { key: 'all', label: (isFarmer || isOrg) ? 'History' : 'All Records' },
           isFarmer && { key: 'upcoming', label: 'Upcoming' },
@@ -725,7 +725,7 @@ export default function CropAssistancePage({ asTab = false }) {
         ].filter(Boolean).map((t) => (
           <button
             key={t.key} type="button" onClick={() => changeView(t.key)}
-            className={`px-4 py-2 text-[13px] font-semibold transition-colors ${
+            className={`flex-1 whitespace-nowrap px-2 py-2 text-[12px] font-semibold transition-colors sm:flex-none sm:px-4 sm:text-[13px] ${
               view === t.key ? 'bg-[#1B4D2E] text-white' : 'bg-white text-[#4A5E4A] hover:bg-[#F5F7F5]'
             }`}
           >
@@ -735,16 +735,16 @@ export default function CropAssistancePage({ asTab = false }) {
       </div>
 
       {isOrg && view === 'all' && (
-        <div className="flex flex-wrap justify-end gap-2">
-          <Button variant="outline" onClick={() => setShowDistribute(true)}>
-            <Users size={15} className="mr-1" /> Report to All Members
+        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <Button variant="outline" className="w-full sm:w-auto" onClick={() => setShowDistribute(true)}>
+            <Users size={15} className="mr-1" /> Distribute to All Members
           </Button>
-          <Button onClick={() => setShowAdd(true)}>
-            <Plus size={15} className="mr-1" /> Report to a Member
+          <Button className="w-full sm:w-auto" onClick={() => setShowAdd(true)}>
+            <Plus size={15} className="mr-1" /> Distribute to Individual
           </Button>
         </div>
       )}
-      {!isFarmer && !isOrg && <div className="flex justify-end gap-2">
+      {!isFarmer && !isOrg && <div className="flex flex-wrap justify-end gap-2">
         <Button variant="outline" onClick={() => setShowImport(true)}>
           <Upload size={15} className="mr-1" /> Import File
         </Button>
@@ -773,7 +773,7 @@ export default function CropAssistancePage({ asTab = false }) {
         </select>
       </FilterPanel>
 
-      {error ? <ErrorMessage message={error} /> : <DataTable columns={tableColumns} data={rows} isLoading={isLoading} />}
+      {error ? <ErrorMessage message={error} /> : <DataTable columns={tableColumns} data={rows} isLoading={isLoading} cardColumns={2} />}
       </>
       )}
 
@@ -852,7 +852,7 @@ export default function CropAssistancePage({ asTab = false }) {
       subtitle={isFarmer
         ? 'Government and organization assistance recorded for you.'
         : isOrg
-          ? 'Assistance your organization reported to its members.'
+          ? 'Assistance your organization distributed to its members.'
           : 'Government and organization assistance given to farmers.'}
     >
       {innerContent}

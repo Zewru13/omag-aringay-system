@@ -41,4 +41,15 @@ eq(filterOptions(items, 'status'), ['Active', 'Inactive'], 'distinct statuses')
 eq(filterOptions(items, 'missing'), [], 'unknown attribute')
 eq(filterOptions(undefined, 'position'), [], 'missing list tolerated')
 
+// ── a row may carry several values for one attribute (equipment with units in more than one condition) ──
+const multi = [
+  { id: 1, name: 'Water Pump', attrs: { condition: ['Good', 'Broken'] } },
+  { id: 2, name: 'Tractor', attrs: { condition: ['Good'] } },
+  { id: 3, name: 'Dryer', attrs: { condition: ['Lost'] } },
+]
+eq(names(filterOrgItems(multi, { filters: { condition: 'Broken' } })), ['Water Pump'], 'matches when any value matches')
+eq(names(filterOrgItems(multi, { filters: { condition: 'Good' } })), ['Water Pump', 'Tractor'], 'a row with several values matches each')
+eq(names(filterOrgItems(multi, { filters: { condition: 'Needs Repair' } })), [], 'none of the values match')
+eq(filterOptions(multi, 'condition'), ['Good', 'Broken', 'Lost'], 'options flatten the values in first-seen order')
+
 console.log(`ok - ${n} assertions`)

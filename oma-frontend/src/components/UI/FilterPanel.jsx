@@ -13,13 +13,13 @@ import SearchBar from './SearchBar.jsx'
 // dropdowns/dates with no free-text search concept (Audit Log, Reports,
 // Production, ...) omit it, and the search box itself is skipped rather
 // than rendering an input that filters nothing.
-function FilterPanel({ search, onSearchChange, searchPlaceholder, activeCount = 0, children, defaultOpen = false }) {
+function FilterPanel({ search, onSearchChange, searchPlaceholder, activeCount = 0, children, defaultOpen = false, className = 'mb-4' }) {
   const [open, setOpen] = useState(defaultOpen)
   const hasFilters = Boolean(children)
   const hasSearch = Boolean(onSearchChange)
 
   return (
-    <div className="bg-white border border-[#E2E8E2] rounded-xl px-4 py-[10px] mb-4">
+    <div className={`bg-white border border-[#E2E8E2] rounded-xl px-3 py-[10px] sm:px-4 ${className}`}>
       <div className="flex items-center gap-2.5">
         {hasSearch && (
           <div className="flex-1 min-w-0">
