@@ -466,6 +466,10 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
   const [notes,           setNotes]           = useState('')
 
   const [remedyDisasterId, setRemedyDisasterId] = useState('')
+  // The crop recovered because of the remedy: tick it on the form (saved together with the log) or use the button on a saved remedy.
+  const [recoveredAfterRemedy, setRecoveredAfterRemedy] = useState(false)
+  const [recoverTarget, setRecoverTarget] = useState(null)   // { disaster, note } while the recovery dialog is open
+  const [isRecovering, setIsRecovering] = useState(false)
 
   const showFertilizerFields = activityType === 'Fertilizer Application'
   const showPestFields = activityType === 'Pest Control' || activityType === 'Disease Control'
@@ -556,6 +560,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
     setFertilizerType(''); setQuantityApplied(''); setQuantityUnit('kg')
     setActivityTypeOtherSpecify('')
     setRemedyDisasterId('')
+    setRecoveredAfterRemedy(false)
     setPestDiseaseName(''); setAreaAffected(''); setAreaAffectedError(''); setSeverity(''); setNotes('')
     setPendingSuggestion(null)
     setPendingDisasterReport(null)
@@ -581,6 +586,19 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
     setRemedyDisasterId(log.disaster_report ? String(log.disaster_report) : '')
     setPendingSuggestion(null)
     setShowForm(true)
+  }
+
+  const confirmRecovered = async () => {
+    if (!recoverTarget) return
+    setIsRecovering(true)
+    try {
+      await api.post(`/production/disasters/${recoverTarget.disaster.id}/resolve/`, { recovery_note: recoverTarget.note.trim() })
+      showToast('Disaster marked as recovered.', 'success')
+      setRecoverTarget(null)
+      await fetchLogs(); onLogAdded()
+    } catch (err) {
+      showToast(err?.response?.data?.detail || 'Failed to mark the disaster as recovered.', 'error')
+    } finally { setIsRecovering(false) }
   }
 
   const handleSubmitClick = () => {
@@ -627,6 +645,14 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
         })
       }
       showToast(editingLogId ? 'Activity log updated.' : 'Activity log added.', 'success')
+      if (!editingLogId && showRemedyFields && recoveredAfterRemedy) {
+        try {
+          await api.post(`/production/disasters/${remedyDisasterId}/resolve/`, { recovery_note: notes.trim() })
+          showToast('Disaster marked as recovered.', 'success')
+        } catch (err) {
+          showToast(err?.response?.data?.detail || 'The remedy was saved, but the disaster could not be marked as recovered.', 'error')
+        }
+      }
       resetForm(); setShowForm(false)
       await fetchLogs(); onLogAdded()
     } catch (err) {
@@ -911,6 +937,15 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
                 <p className="text-[11px] text-rose-500">
                   This remedy will not automatically satisfy any recommended response rule — describe it in the Notes field below.
                 </p>
+                {!editingLogId && (
+                  <label className="mt-2 flex cursor-pointer items-start gap-2 text-xs font-medium text-emerald-800">
+                    <input
+                      type="checkbox" className="mt-0.5" checked={recoveredAfterRemedy} disabled={!remedyDisasterId}
+                      onChange={(e) => setRecoveredAfterRemedy(e.target.checked)}
+                    />
+                    <span>The crop has recovered because of this remedy — also mark the disaster as Recovered.</span>
+                  </label>
+                )}
               </div>
             )}
 
@@ -1083,6 +1118,20 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
                   )}
                   {log.notes && <p className="mt-0.5 text-xs text-slate-500">{log.notes}</p>}
                   {log.logged_by_name && <p className="mt-0.5 text-xs text-slate-400">{log.logged_by_name}</p>}
+                  {remedyDisaster && remedyDisaster.status === 'Recovered' && (
+                    <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                      <CheckCircle2 className="w-3 h-3" /> Recovered{remedyDisaster.recovered_date ? ` on ${fmtDate(remedyDisaster.recovered_date)}` : ''}
+                    </p>
+                  )}
+                  {remedyDisaster && remedyDisaster.status === 'Active' && !remedyDisaster.is_total_loss && !isHarvested && !isTotalLoss && (
+                    <button
+                      type="button"
+                      onClick={() => setRecoverTarget({ disaster: remedyDisaster, note: log.notes || '' })}
+                      className="mt-1.5 inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-white px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Mark as Recovered
+                    </button>
+                  )}
                   {isFarmer && !isHarvested && !isTotalLoss && (
                     <button type="button" onClick={() => startEdit(log)}
                       className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-[#1B4D2E] hover:underline">
@@ -1103,6 +1152,20 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
           confirmLabel="Confirm"
           onConfirm={handleConfirmed}
           onCancel={() => setShowConfirm(false)}
+        />
+      )}
+
+      {recoverTarget && (
+        <ConfirmDialog
+          title="Mark this disaster as Recovered?"
+          message={`The crop recovered after the remedy for ${otherLabel(recoverTarget.disaster.disaster_type, recoverTarget.disaster.disaster_type_other_specify)}. Say how it recovered; this note is kept with the disaster.`}
+          confirmLabel={isRecovering ? 'Saving...' : 'Mark as Recovered'}
+          variant="primary" danger={false} icon={CheckCircle2} iconBg="#DCFCE7" iconColor="#15803D"
+          showReasonInput reasonLabel="How it recovered (required)"
+          reasonValue={recoverTarget.note}
+          onReasonChange={(v) => setRecoverTarget((cur) => ({ ...cur, note: v }))}
+          onConfirm={() => { if (recoverTarget.note.trim() && !isRecovering) confirmRecovered() }}
+          onCancel={() => { if (!isRecovering) setRecoverTarget(null) }}
         />
       )}
 
