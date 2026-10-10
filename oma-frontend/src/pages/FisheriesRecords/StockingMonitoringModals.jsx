@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  AlertTriangle, Bug, CheckCircle, CheckCircle2, Fish, HelpCircle, Lock, Wheat,
+  AlertTriangle, Bug, CheckCircle, CheckCircle2, ChevronDown, Fish, HelpCircle, Lock, Wheat,
 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
+import CycleDayBanner from '../../components/UI/CycleDayBanner.jsx'
+import { cycleProgress, filterCycleActivities } from '../../utils/cycleActivity.js'
+import { todayISO as localToday } from '../../utils/localDate.js'
 import GrowthProgressBar from '../../components/UI/GrowthProgressBar.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
@@ -369,6 +372,7 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
   const [isLoading,         setIsLoading]         = useState(true)
   const { isAdmin } = useAuth()
   const [showForm,          setShowForm]          = useState(false)
+  const [showHistory,       setShowHistory]       = useState(false)   // the past activity stays closed until asked for
   const recordLock = useRecordLock('stocking', record.id, showForm)
   const [showSuggest,       setShowSuggest]       = useState(false)
   const [showConfirm,       setShowConfirm]       = useState(false)
@@ -620,12 +624,18 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
   }
 
   const assocLabel = record.fisherfolk_name || '—'
+  const cycle = cycleProgress(record.date_stocked, record.expected_harvest_date, localToday())
+  // Disaster Remedy needs a disaster report; Pre-Harvest Inspection and Harvesting open from half way through the culture.
+  const activityChoices = filterCycleActivities(
+    [...suggestedActivityOptions, ...otherActivityOptions].filter(o => o !== 'Other'),
+    { hasDisaster: activeDisasters.length > 0, halfway: cycle ? cycle.halfway : true },
+  )
 
   return (
     <>
       <ModalShell
         title={record.species_name?.toUpperCase() ?? 'STOCKING RECORD'}
-        subtitle={`${assocLabel} - Stocked: ${record.date_stocked || '—'}`}
+        subtitle={`${assocLabel} - Stocked: ${record.date_stocked || '—'}${cycle ? ` · Day ${cycle.day}${cycle.total ? ` of ${cycle.total}` : ''}` : ''}`}
         icon={Fish}
         onClose={onClose}
         maxWidth="max-w-sm"
@@ -692,6 +702,8 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
               </div>
             )}
             {!recordLock.lockedByOther && <>
+            <CycleDayBanner progress={cycle} stage={record.growth_stage} icon={Fish} />
+
             {/* Late log note */}
             {pendingSuggestion?.status === 'overdue' && (
               <div className="flex items-center gap-1.5 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-700">
@@ -708,7 +720,7 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
                     identical conversion for why the two optgroups are
                     flattened into one ordered (suggested-first) list. */}
                 <ComboboxWithOther
-                  options={[...suggestedActivityOptions, ...otherActivityOptions].filter(o => o !== 'Other')}
+                  options={activityChoices}
                   value={activityType}
                   otherValue={activityTypeOtherSpecify}
                   onChange={(v) => {
@@ -956,19 +968,24 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
           </div>
         )}
 
-        {/* Activity Logs header */}
-        <div className="mb-3 flex items-center gap-2">
+        {/* Activity History: closed until it is opened, so the modal stays short */}
+        <button
+          type="button" onClick={() => setShowHistory((v) => !v)} aria-expanded={showHistory}
+          className="mb-3 flex w-full items-center gap-2 rounded-lg px-1 py-1.5 text-left hover:bg-slate-50"
+        >
           <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#2D7A4F]" />
           <span className="text-sm font-semibold text-slate-700">Activity History</span>
+          {!isLoading && <span className="text-xs text-slate-400">({allEvents.length})</span>}
           {disasters.length > 1 && (
             <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-700">
               <AlertTriangle className="w-3 h-3" /> {disasters.length} disaster reports
             </span>
           )}
-        </div>
+          <ChevronDown className={`ml-auto h-4 w-4 text-slate-400 transition-transform ${showHistory ? 'rotate-180' : ''}`} aria-hidden="true" />
+        </button>
 
         {/* Unified timeline */}
-        {isLoading ? (
+        {showHistory && (isLoading ? (
           <p className="py-4 text-center text-sm text-slate-400">Loading…</p>
         ) : allEvents.length === 0 ? (
           <p className="py-4 text-center text-sm italic text-slate-400">No logs yet.</p>
@@ -1107,7 +1124,7 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
               )
             })}
           </div>
-        )}
+        ))}
       </ModalShell>
 
       {showConfirm && (
