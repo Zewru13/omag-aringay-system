@@ -575,6 +575,28 @@ def _check_org_confirms_on_behalf_permission(request, org_linked_type, person_id
     return None
 
 
+# An organization vouches for a member it confirms for, so it must show proof: at least this many photos.
+MIN_ON_BEHALF_PHOTOS = 2
+# The most characters a rejection note can hold (BeneficiaryConfirmationRequest.rejection_reason).
+REJECTION_NOTE_MAX = 255
+
+
+def _require_proof_photos(photos):
+    if len(photos) < MIN_ON_BEHALF_PHOTOS:
+        raise ValidationError({'photos': [f'Add at least {MIN_ON_BEHALF_PHOTOS} photos as proof.']})
+
+
+def _required_rejection_note(request):
+    """The note staff must write when they reject an on-behalf-of confirmation: it is sent to the organization,
+    so a blank one, or one too long to store whole, is refused rather than saved empty or cut short."""
+    note = str(request.data.get('rejection_reason') or '').strip()
+    if not note:
+        raise ValidationError({'rejection_reason': ['Write why you are rejecting this confirmation, so the organization knows what to fix.']})
+    if len(note) > REJECTION_NOTE_MAX:
+        raise ValidationError({'rejection_reason': [f'Keep the note to {REJECTION_NOTE_MAX} characters or fewer.']})
+    return note
+
+
 class MyOrgAccountlessConfirmablesView(generics.ListAPIView):
     """
     An ORGANIZATION citizen's confirmable-on-behalf-of queue: BeneficiaryRecord
@@ -665,6 +687,7 @@ class BeneficiaryConfirmOnBehalfView(APIView):
             )
 
         photos = validated_photos(request, 'photos', legacy_field='photo', limit=BeneficiaryConfirmationRequestPhoto.MAX_PER_PARENT)
+        _require_proof_photos(photos)
 
         written = []
         try:
@@ -722,6 +745,7 @@ class FisherfolkBeneficiaryConfirmOnBehalfView(APIView):
             )
 
         photos = validated_photos(request, 'photos', legacy_field='photo', limit=FisherfolkBeneficiaryConfirmationRequestPhoto.MAX_PER_PARENT)
+        _require_proof_photos(photos)
 
         written = []
         try:
@@ -831,7 +855,7 @@ class BeneficiaryConfirmationRequestDecisionView(APIView):
                 req.save()
             verb, detail = 'approved your on-behalf-of confirmation for', ''
         elif action == 'reject':
-            reason = (request.data.get('rejection_reason') or '').strip()[:255]
+            reason = _required_rejection_note(request)
             req.status = BeneficiaryConfirmationRequest.Status.REJECTED
             req.reviewed_by = request.user
             req.reviewed_at = timezone.now()
@@ -883,7 +907,7 @@ class FisherfolkBeneficiaryConfirmationRequestDecisionView(APIView):
                 req.save()
             verb, detail = 'approved your on-behalf-of confirmation for', ''
         elif action == 'reject':
-            reason = (request.data.get('rejection_reason') or '').strip()[:255]
+            reason = _required_rejection_note(request)
             req.status = FisherfolkBeneficiaryConfirmationRequest.Status.REJECTED
             req.reviewed_by = request.user
             req.reviewed_at = timezone.now()

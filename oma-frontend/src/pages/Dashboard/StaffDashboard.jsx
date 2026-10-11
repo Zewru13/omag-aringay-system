@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, Fish, PackageX, Sprout } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
+import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import PhotoLinks from '../../components/UI/PhotoLinks.jsx'
 import { resolveMediaUrl } from '../../utils/mediaUrl.js'
 import { approvalLines, hasApproved } from '../../utils/approvalStatus.js'
@@ -142,6 +143,10 @@ export default function StaffDashboard({ user }) {
   const [isLoading, setIsLoading] = useState(true)
   const [busyId, setBusyId] = useState(null)
   const [tableDomain, setTableDomain] = useState('crop')
+  // Rejecting an organization's on-behalf-of confirmation needs a note; the organization receives it.
+  const [rejecting, setRejecting] = useState(null)
+  const [rejectNote, setRejectNote] = useState('')
+  const [rejectError, setRejectError] = useState('')
 
   const loadRequests = useCallback(() => {
     api.get('/staff/change-requests/', { params: { status: 'PENDING' } })
@@ -204,15 +209,31 @@ export default function StaffDashboard({ user }) {
     }
   }
 
-  const decideConfirmation = async (req, action) => {
+  const confirmationBase = (req) => (req.domain === 'farmer'
+    ? '/interventions/beneficiary-confirmation-requests/'
+    : '/interventions/fisherfolk-beneficiary-confirmation-requests/')
+
+  const approveConfirmation = async (req) => {
     setBusyId(`confirmation-${req.id}`)
     try {
-      const base = req.domain === 'farmer'
-        ? '/interventions/beneficiary-confirmation-requests/'
-        : '/interventions/fisherfolk-beneficiary-confirmation-requests/'
-      const body = action === 'reject' ? { rejection_reason: 'Rejected from dashboard review.' } : {}
-      await api.post(`${base}${req.id}/${action}/`, body)
+      await api.post(`${confirmationBase(req)}${req.id}/approve/`, {})
       loadConfirmationRequests()
+    } finally { setBusyId(null) }
+  }
+
+  const openRejection = (req) => { setRejecting(req); setRejectNote(''); setRejectError('') }
+
+  const submitRejection = async () => {
+    const note = rejectNote.trim()
+    if (!note || !rejecting) return
+    setBusyId(`confirmation-${rejecting.id}`)
+    try {
+      await api.post(`${confirmationBase(rejecting)}${rejecting.id}/reject/`, { rejection_reason: note })
+      setRejecting(null)
+      loadConfirmationRequests()
+    } catch (err) {
+      const d = err?.response?.data
+      setRejectError(d?.rejection_reason?.[0] || d?.detail || 'The confirmation could not be rejected. Please try again.')
     } finally { setBusyId(null) }
   }
 
@@ -587,11 +608,11 @@ export default function StaffDashboard({ user }) {
                         </div>
                       </div>
                       <div className="flex gap-2 shrink-0">
-                        <button type="button" disabled={busyId === `confirmation-${r.id}`} onClick={() => decideConfirmation(r, 'approve')}
+                        <button type="button" disabled={busyId === `confirmation-${r.id}`} onClick={() => approveConfirmation(r)}
                           className="rounded-[6px] border border-[color:var(--color-semantic-safe)] px-3 py-1.5 transition-colors hover:bg-[color:var(--color-semantic-safe-bg)] disabled:opacity-50 cursor-pointer">
                           <span className="text-[12px] font-semibold text-[color:var(--color-semantic-safe)]">Approve</span>
                         </button>
-                        <button type="button" disabled={busyId === `confirmation-${r.id}`} onClick={() => decideConfirmation(r, 'reject')}
+                        <button type="button" disabled={busyId === `confirmation-${r.id}`} onClick={() => openRejection(r)}
                           className="rounded-[6px] border border-border-strong px-3 py-1.5 transition-colors hover:bg-surface-2 disabled:opacity-50 cursor-pointer">
                           <span className="text-[12px] font-semibold text-text-secondary">Reject</span>
                         </button>
@@ -639,6 +660,20 @@ export default function StaffDashboard({ user }) {
           </div>
         </div>
       </div>
+      {rejecting && (
+        <ConfirmDialog
+          title="Reject this confirmation?"
+          subtitle={`${rejecting.personName || 'Beneficiary'} · ${rejecting.assistance_type || 'Assistance'}`}
+          message={`The note below is sent to ${rejecting.submitted_by_organization_name || 'the organization'}, so they know what to fix.`}
+          confirmLabel="Reject" variant="danger"
+          showReasonInput reasonLabel="Why is it rejected? (required)" reasonMaxLength={255}
+          reasonPlaceholder="e.g. The photos do not show the assistance being received."
+          reasonValue={rejectNote} onReasonChange={(v) => { setRejectNote(v); setRejectError('') }}
+          details={rejectError || null}
+          confirmDisabled={!rejectNote.trim() || busyId === `confirmation-${rejecting.id}`}
+          onConfirm={submitRejection} onCancel={() => setRejecting(null)}
+        />
+      )}
     </div>
   )
 }
