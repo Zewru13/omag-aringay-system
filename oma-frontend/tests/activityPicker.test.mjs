@@ -43,4 +43,20 @@ eq(overdueStepDay('Weeding', [step('Weeding', 20, 'done'), step('Weeding', 40, '
 eq(overdueStepDay('Weeding', [step('Planting', 1, 'overdue')]), null, 'other activity ignored')
 eq(overdueStepDay('Weeding', []), null, 'no schedule')
 eq(overdueStepDay('', [step('Weeding', 20, 'overdue')]), null, 'no activity chosen')
+// set-up work is done once: after it is recorded it is no longer offered at all, with or without a schedule
+const setupTypes = ['Land Preparation', 'Planting', 'Weeding', 'Irrigation / Watering']
+const noSchedule = groupActivityOptions({ allTypes: setupTypes, suggestions: [], editingType: '', recorded: ['Land Preparation', 'Planting'] })
+eq(noSchedule, { suggested: [], other: ['Weeding', 'Irrigation / Watering'] }, 'recorded Land Preparation and Planting are gone')
+eq(groupActivityOptions({ allTypes: setupTypes, suggestions: [], editingType: '', recorded: ['Planting'] }).other, ['Land Preparation', 'Weeding', 'Irrigation / Watering'], 'only the recorded one is gone')
+eq(groupActivityOptions({ allTypes: setupTypes, suggestions: [], editingType: '' }).other, setupTypes, 'nothing recorded: all offered')
+eq(groupActivityOptions({ allTypes: setupTypes, suggestions: [], editingType: '', recorded: ['Weeding'] }).other.includes('Weeding'), true, 'a repeatable activity stays offered after it was logged')
+eq(groupActivityOptions({ allTypes: setupTypes, suggestions: [], editingType: 'Planting', recorded: ['Planting'] }).other.includes('Planting'), true, 'the log being edited keeps its activity')
+// recorded and still suggested by an old server answer: recorded wins
+eq(groupActivityOptions({ allTypes: setupTypes, suggestions: [step('Land Preparation', 0, 'overdue')], editingType: '', recorded: ['Land Preparation'] }).suggested, [], 'recorded is never suggested')
+// a set-up step whose time has passed (never recorded) is not suggested but can still be picked to log it late
+const passed = groupActivityOptions({ allTypes: setupTypes, suggestions: [step('Land Preparation', 0, 'passed'), step('Planting', 1, 'passed')], editingType: '' })
+eq(passed.suggested, [], 'passed steps are not suggested')
+eq(passed.other.includes('Land Preparation') && passed.other.includes('Planting'), true, 'passed steps can still be logged late')
+eq(overdueStepDay('Land Preparation', [step('Land Preparation', 0, 'passed')]), null, 'a passed step is not an overdue target')
+
 console.log(`ALL ${n} CHECKS PASSED`)
