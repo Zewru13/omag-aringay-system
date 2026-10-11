@@ -7,6 +7,7 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { todayISO as localToday } from '../../utils/localDate.js'
+import { availableAgainText } from '../../utils/borrowerGroups.js'
 import { CONDITIONS, apiMessage, defaultBreakdown, loanStatusLabel, unitsSummary, validateBreakdown } from '../../utils/equipmentLoans.js'
 
 // The forms behind an organization's equipment actions: change condition, repair, lend, confirm a return, and the history.
@@ -185,8 +186,9 @@ export function ReturnDialog({ loan, type, onClose, onDone }) {
       onClose={onClose} submitLabel="Confirm return" disabled={!check.ok}
       onSubmit={async () => {
         const breakdown = parts.filter((p) => Number(p.quantity) > 0).map((p) => ({ condition: p.condition, quantity: Number(p.quantity) }))
-        await api.post(`/organizations/${type}/equipment-loans/${loan.id}/return/`, { breakdown: breakdown.length ? breakdown : defaultBreakdown(loan.quantity) })
-        showToast('Return recorded.', 'success')
+        const sent = breakdown.length ? breakdown : defaultBreakdown(loan.quantity)
+        await api.post(`/organizations/${type}/equipment-loans/${loan.id}/return/`, { breakdown: sent })
+        showToast(['Return recorded.', availableAgainText(loan.equipment_name, sent)].filter(Boolean).join(' '), 'success')
         onDone()
       }}
     >
