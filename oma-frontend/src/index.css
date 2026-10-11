@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Login layout: the side-by-side split needs a wide AND tall screen; a phone held sideways (wide but short) keeps the
+   stacked phone layout so the form is not pushed below the fold. */
+@custom-variant split (@media (min-width: 768px) and (min-height: 560px));
+@custom-variant short (@media (max-height: 500px));
+
 /* ─── Cultivated Ground token system ──────────────────────────────────────
    Single source of truth for color, elevation, radius and motion. Every
    component should consume these via Tailwind utilities (bg-primary,
@@ -500,6 +505,58 @@ button, input, select, textarea {
 /* Notification count: pops in when the number changes; not a loop. */
 .badge-pop {
   animation: badgePop 200ms var(--ease-out-strong);
+}
+
+/* ─── Login page motion ────────────────────────────────────────────────────
+   Four purposeful moments, each plays once: the form and brand copy rise in on load; the contour lines of the
+   picture draw themselves; a failed sign-in shakes the password field and slides the error in; the show/hide
+   password icon crossfades. transform / opacity / stroke-dashoffset only. Reduced motion is handled by the global
+   rule below (durations collapse, so everything simply appears in place). */
+
+@keyframes loginRise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.login-rise {
+  animation: loginRise 420ms var(--ease-out-strong) both;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+
+@keyframes loginDraw {
+  from { stroke-dashoffset: 1; }
+  to   { stroke-dashoffset: 0; }
+}
+
+.login-draw {
+  stroke-dasharray: 1;
+  animation: loginDraw 1500ms var(--ease-out-strong) both;
+  animation-delay: calc(var(--i, 0) * 80ms);
+}
+
+@keyframes loginShake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+}
+
+.login-shake {
+  animation: loginShake 320ms var(--ease-out-strong);
+}
+
+@keyframes loginError {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.login-error {
+  animation: loginError 200ms var(--ease-out-strong);
+}
+
+.login-icon {
+  animation: fadeIn 120ms ease-out;
 }
 
 /* ─── Accessibility: respect reduced motion ────────────────────────────── */
