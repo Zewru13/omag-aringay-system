@@ -34,7 +34,7 @@ class FarmerListView(generics.ListCreateAPIView):
         return [IsAuthenticated(), IsAdminOrEvaluator()]
 
     def get_queryset(self):
-        from django.utils.timezone import now
+        from django.utils.timezone import localdate
         queryset = Farmer.objects.all().order_by('-date_registered', '-id')
         search = self.request.query_params.get('search')
         status_filter = self.request.query_params.get('status')
@@ -78,7 +78,9 @@ class FarmerListView(generics.ListCreateAPIView):
             queryset = queryset.filter(is_farm_laborer=(farmer_type_filter.lower() in ('true', '1')))
 
         if is_senior and is_senior.lower() == 'true':
-            today = now().date()
+            # Senior from the 60th birthday, counted on the Manila calendar day (not the UTC day, which is
+            # still "yesterday" for the first 8 hours of each Manila day).
+            today = localdate()
             senior_cutoff = today.replace(year=today.year - 60)
             queryset = queryset.filter(birthdate__lte=senior_cutoff)
 

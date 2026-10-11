@@ -93,7 +93,7 @@ class FisherfolkListView(generics.ListCreateAPIView):
         return FisherfolkCreateSerializer if self.request.method == 'POST' else FisherfolkListSerializer
 
     def get_queryset(self):
-        from django.utils.timezone import now
+        from django.utils.timezone import localdate
         qs = scope_to_fisherfolk(Fisherfolk.objects.all(), self.request.user, 'id').order_by('-date_registered', '-id')
         params = self.request.query_params
         search = params.get('search', '').strip()
@@ -118,7 +118,7 @@ class FisherfolkListView(generics.ListCreateAPIView):
         if params.get('fisherfolk_type'):
             qs = qs.filter(fisherfolk_type__iexact=params['fisherfolk_type'])
         if params.get('is_senior') and params['is_senior'].lower() == 'true':
-            today = now().date()
+            today = localdate()   # the Manila calendar day, as in FarmerListView
             cutoff = today.replace(year=today.year - 60)
             qs = qs.filter(birthdate__lte=cutoff)
         if params.get('is_pwd') is not None:
