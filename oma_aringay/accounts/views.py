@@ -36,7 +36,8 @@ from .utils import (
     generate_default_password,
     generate_verification_token,
     issue_temporary_password,
-    send_verification_email,
+    issue_temporary_password,
+    send_new_password_email,
     send_welcome_email,
     temp_password_expired,
 )
@@ -896,13 +897,7 @@ class ResendVerificationView(APIView):
                 return Response(RESEND_GENERIC)
             return Response({'detail': 'This account is already verified. Please log in.', 'already_verified': True})
 
-        token = generate_verification_token()
-        user.email_verification_token = token
-        user.email_verification_sent_at = timezone.now()
-        user.save(update_fields=['email_verification_token', 'email_verification_sent_at'])
-
-        verification_link = build_verification_link(token, request)
-        email_sent, reason = send_verification_email(user, verification_link)
+        email_sent, reason, link, token, password = _resend_credentials(user, request)
 
         if not detailed:
             if not email_sent:
@@ -912,6 +907,62 @@ class ResendVerificationView(APIView):
         response_data = {'email_sent': email_sent}
         if not email_sent:
             response_data['reason'] = reason
-            response_data['verification_link'] = verification_link
+            response_data['verification_link'] = link
             response_data['verification_token'] = token
+            response_data['temporary_password'] = password
         return Response(response_data)
+
+
+def _resend_credentials(user, request):
+    """For an account that has not verified its e-mail yet: a new verification link AND a new temporary password (the
+    original cannot be looked up, and an earlier e-mail may never have arrived), sent together. Returns
+    (email_sent, reason, link, token, password); the password is only ever put in the e-mail, or handed to an admin
+    when the e-mail could not be sent."""
+    token = generate_verification_token()
+    user.email_verification_token = token
+    user.email_verification_sent_at = timezone.now()
+    password = issue_temporary_password(user)            # also saves the token fields above
+    link = build_verification_link(token, request)
+    email_sent, reason = send_welcome_email(user, password, link, resent=True)
+    return email_sent, reason, link, token, password
+
+
+class RegenerateStaffPasswordView(APIView):
+    """An administrator issues a new temporary password to an Admin or Focal Person who lost theirs, and it is e-mailed
+    to them like the first one. The old password stops working and their open sessions end. For someone who never
+    verified their e-mail it sends the verification link too. If the e-mail cannot be sent, the administrator is given
+    the password to pass on in person. (Citizen accounts have their own action on their record.)"""
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def post(self, request, id):
+        user = get_object_or_404(User, pk=id)
+        if user.role not in (User.Roles.ADMIN, User.Roles.EVALUATOR):
+            return Response({'detail': 'This is for Admin and Focal Person accounts. Use the account actions on the record for a citizen.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if user.pk == request.user.pk:
+            return Response({'detail': 'To change your own password use Change Password in your profile.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not user.email:
+            return Response({'detail': 'This account has no e-mail address to send a password to.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not user.is_email_verified:
+            email_sent, reason, link, token, password = _resend_credentials(user, request)
+            data = {'user': UserListSerializer(user).data, 'email_sent': email_sent}
+            if not email_sent:
+                data.update(reason=reason, temporary_password=password, verification_link=link)
+            return Response(data)
+
+        if not user.is_active:
+            return Response({'detail': 'This account is deactivated. Reactivate it first, then issue a new password.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        password = issue_temporary_password(user)
+        try:
+            _blacklist_outstanding_tokens(user)                # the old password is gone, so its sessions must end too
+        except Exception:
+            logger.exception('Token blacklist failed after staff password regeneration (non-fatal): user_id=%s', user.pk)
+        email_sent, reason = send_new_password_email(user, password)
+        data = {'user': UserListSerializer(user).data, 'email_sent': email_sent}
+        if not email_sent:
+            logger.warning('New temporary password e-mail for user %s was not sent: %s', user.pk, reason)
+            data.update(reason=reason, temporary_password=password)
+        return Response(data)

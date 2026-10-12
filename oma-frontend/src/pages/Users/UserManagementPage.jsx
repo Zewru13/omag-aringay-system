@@ -1,14 +1,18 @@
 import { useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight, MailWarning, Pencil, RotateCcw } from 'lucide-react'
+import { ChevronLeft, ChevronRight, KeyRound, MailWarning, Pencil, RotateCcw } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
+import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
+import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import CreateUserModal from './CreateUserModal.jsx'
 import EditUserModal from './EditUserModal.jsx'
+import TemporaryPasswordModal from './TemporaryPasswordModal.jsx'
+import { canRegeneratePassword, regenerateConfirmText, regenerateOutcome, resendOutcome } from './staffPasswordOutcome.js'
 import { describeRole } from './userRoleHelpers.js'
 import {
   STAFF_ROLE_OPTIONS, STAFF_STATUS_OPTIONS, TYPE_OPTIONS, USER_TABS,
@@ -32,6 +36,7 @@ const PAGE_SIZE = 10
 // its own filters, search and page. `reloadKey` changes when a user was created, to fetch the list again.
 function UsersTable({ tab, reloadKey, onEdit }) {
   const { showToast } = useToast()
+  const { user: me } = useAuth()
   // The last answer received and the request it answers; the table is "loading" whenever that is not the current request.
   const [loaded,         setLoaded]         = useState({ key: null, users: [], total: 0 })
   const [search,         setSearch]         = useState('')
@@ -40,22 +45,40 @@ function UsersTable({ tab, reloadKey, onEdit }) {
   const [version,        setVersion]        = useState(0)
   const [resendingId,    setResendingId]    = useState(null)
   const [reactivatingId, setReactivatingId] = useState(null)
+  const [confirmRegen,    setConfirmRegen]    = useState(null)   // the staff member a new password is about to be sent to
+  const [regenBusy,       setRegenBusy]       = useState(false)
+  const [relay,           setRelay]           = useState(null)   // a password that could not be e-mailed, for the admin to pass on
   const setFilter = (name, value) => { setFilters((f) => ({ ...f, [name]: value })); setPage(1) }
 
   const handleResendVerification = async (u) => {
     setResendingId(u.id)
     try {
       const r = await api.post('/accounts/resend-verification/', { email: u.email })
-      showToast(
-        r.data.email_sent
-          ? `Verification email resent to ${u.email}.`
-          : `Could not email ${u.email} (${r.data.reason || 'unknown reason'}) — share the verification link from the server console/logs directly.`,
-        r.data.email_sent ? 'success' : 'error',
-      )
+      // A resend carries a NEW temporary password with the link (the first one cannot be looked up).
+      const outcome = resendOutcome(r.data, u)
+      if (outcome.kind === 'sent') showToast(outcome.toast, 'success')
+      else setRelay(outcome)
     } catch {
       showToast('Failed to resend verification email.', 'error')
     } finally {
       setResendingId(null)
+    }
+  }
+
+  const handleRegenerate = async () => {
+    const u = confirmRegen
+    setRegenBusy(true)
+    try {
+      const r = await api.post(`/accounts/users/${u.id}/regenerate-password/`)
+      const outcome = regenerateOutcome(r.data, u)
+      setConfirmRegen(null)
+      if (outcome.kind === 'sent') showToast(outcome.toast, 'success')
+      else setRelay(outcome)
+    } catch (err) {
+      setConfirmRegen(null)
+      showToast(err.response?.data?.detail || 'Failed to issue a new password.', 'error')
+    } finally {
+      setRegenBusy(false)
     }
   }
 
@@ -133,6 +156,10 @@ function UsersTable({ tab, reloadKey, onEdit }) {
         !u.is_active && {
           key: 'reactivate', label: 'Reactivate account', icon: RotateCcw,
           onClick: () => handleReactivate(u), disabled: reactivatingId === u.id,
+        },
+        canRegeneratePassword(u, me?.id) && {
+          key: 'regenerate', label: 'Regenerate password', icon: KeyRound,
+          onClick: () => setConfirmRegen(u),
         },
         u.role !== 'CITIZEN' && !u.is_email_verified && {
           key: 'resend', label: 'Resend verification email', icon: MailWarning, tone: 'amber',
@@ -239,6 +266,20 @@ function UsersTable({ tab, reloadKey, onEdit }) {
           </div>
         </div>
       )}
+
+      {confirmRegen && (
+        <ConfirmDialog
+          title="Regenerate password?"
+          message={regenerateConfirmText(confirmRegen)}
+          confirmLabel={regenBusy ? 'Sending…' : 'Send password'}
+          variant="primary"
+          icon={KeyRound}
+          confirmDisabled={regenBusy}
+          onConfirm={() => { if (!regenBusy) handleRegenerate() }}
+          onCancel={() => { if (!regenBusy) setConfirmRegen(null) }}
+        />
+      )}
+      {relay && <TemporaryPasswordModal outcome={relay} onClose={() => setRelay(null)} />}
     </div>
   )
 }
