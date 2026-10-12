@@ -292,43 +292,54 @@ def _send(subject, message, recipient_email):
         return False, f'Email sending failed ({exc}).'
 
 
-def send_welcome_email(user, plain_password, verification_link):
+def send_welcome_email(user, plain_password, verification_link, resent=False):
     """
-    Send the new user their verification link + temporary password. Returns
-    (success, reason) — see _send(). Account is unusable until the user
-    clicks the verification link (see accounts.views.VerifyEmailView).
+    Send a staff member their verification link + temporary password. Returns (success, reason) - see _send().
+    The account is unusable until the link is clicked (see accounts.views.VerifyEmailView). `resent`: this is a
+    re-send, which always carries a NEW temporary password (the original cannot be looked up), so any earlier one no
+    longer works.
     """
-    subject = 'Verify your email — OMA Aringay account created'
+    if resent:
+        subject = 'Your OMA Aringay verification link and new temporary password'
+        intro = (
+            'Here is your new verification link and a new temporary password for the OMA Aringay Integrated '
+            'Agricultural Monitoring and Production Management System. Any earlier link or password you were '
+            'sent no longer works.\n\n'
+        )
+    else:
+        subject = 'Verify your email — OMA Aringay account created'
+        intro = (
+            'An account has been created for you on the OMA Aringay Integrated '
+            'Agricultural Monitoring and Production Management System.\n\n'
+        )
     message = (
         f'Hello {user.full_name or user.email},\n\n'
-        f'An account has been created for you on the OMA Aringay Integrated '
-        f'Agricultural Monitoring and Production Management System.\n\n'
-        f'1) Click the link below to verify your email and activate your account:\n'
+        + intro
+        + f'1) Click the link below to verify your email and activate your account:\n'
         f'{verification_link}\n\n'
         f'2) Then log in with the temporary password below and set your own:\n\n'
         f'Login email: {user.email}\n'
         f'Temporary password: {plain_password}\n\n'
-        f'This verification link expires in {settings.EMAIL_VERIFICATION_TOKEN_HOURS} hours.\n\n'
+        f'This verification link expires in {settings.EMAIL_VERIFICATION_TOKEN_HOURS} hours, and the temporary '
+        f'password in {settings.TEMP_PASSWORD_VALID_DAYS} days.\n\n'
         f'If you did not expect this account, please contact the Office of '
         f'the Municipal Agriculturist, Aringay, La Union.\n'
     )
     return _send(subject, message, user.email)
 
 
-def send_verification_email(user, verification_link):
-    """Resend-only email — just the link, no password (the original
-    plaintext password can't be recovered once hashed; an admin can reset it
-    via the reset_admin_password command or the User Management UI if the
-    user has genuinely lost it). Returns (success, reason)."""
-    subject = 'Your OMA Aringay verification link'
+def send_new_password_email(user, plain_password):
+    """E-mail a staff member the new temporary password an administrator generated for them. Returns (success, reason)."""
+    subject = 'Your OMA Aringay account: new temporary password'
     message = (
         f'Hello {user.full_name or user.email},\n\n'
-        f'Here is your new verification link — click it to verify your email '
-        f'and activate your account:\n\n'
-        f'{verification_link}\n\n'
-        f'This link expires in {settings.EMAIL_VERIFICATION_TOKEN_HOURS} hours.\n\n'
-        f"If you don't remember your temporary password, contact your "
-        f'system administrator to have it reset.\n'
+        f'An administrator has issued a new temporary password for your OMA Aringay account. Your previous password '
+        f'no longer works.\n\n'
+        f'Login email: {user.email}\n'
+        f'Temporary password: {plain_password}\n\n'
+        f'Log in with it and you will be asked to set your own. It stops working after '
+        f'{settings.TEMP_PASSWORD_VALID_DAYS} days.\n\n'
+        f'If you did not ask for this, please contact the Office of the Municipal Agriculturist, Aringay, La Union.\n'
     )
     return _send(subject, message, user.email)
 
