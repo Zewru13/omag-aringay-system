@@ -1,5 +1,14 @@
 from django.urls import path
 
+from .equipment_views import (
+    MyEquipmentCancelView, MyEquipmentRequestView, MyEquipmentReturnView, MyEquipmentView,
+    FarmersEquipmentConditionView, FarmersEquipmentHistoryView, FarmersEquipmentLendView,
+    FarmersEquipmentLoanApproveView, FarmersEquipmentLoanListView, FarmersEquipmentLoanRejectView,
+    FarmersEquipmentLoanReturnView, FarmersEquipmentRepairView,
+    FisherfolkEquipmentConditionView, FisherfolkEquipmentHistoryView, FisherfolkEquipmentLendView,
+    FisherfolkEquipmentLoanApproveView, FisherfolkEquipmentLoanListView, FisherfolkEquipmentLoanRejectView,
+    FisherfolkEquipmentLoanReturnView, FisherfolkEquipmentRepairView,
+)
 from .org_imports import (
     equipment_import_template_view, equipment_import_view, member_import_template_view, member_import_view,
 )
@@ -57,6 +66,18 @@ urlpatterns = [
     path('farmers/<int:pk>/equipment/import/template/', equipment_import_template_view('farmers').as_view()),
     path('farmers/<int:pk>/equipment/', FarmersOrganizationEquipmentAddView.as_view()),
     path('farmers/equipment/<int:equip_id>/', FarmersOrganizationEquipmentRemoveView.as_view()),
+    path('my-equipment/', MyEquipmentView.as_view()),
+    path('my-equipment/request/', MyEquipmentRequestView.as_view()),
+    path('my-equipment/loans/<int:loan_id>/cancel/', MyEquipmentCancelView.as_view()),
+    path('my-equipment/loans/<int:loan_id>/return/', MyEquipmentReturnView.as_view()),
+    path('farmers/equipment/<int:equip_id>/condition/', FarmersEquipmentConditionView.as_view()),
+    path('farmers/equipment/<int:equip_id>/repair/', FarmersEquipmentRepairView.as_view()),
+    path('farmers/equipment/<int:equip_id>/history/', FarmersEquipmentHistoryView.as_view()),
+    path('farmers/equipment/<int:equip_id>/lend/', FarmersEquipmentLendView.as_view()),
+    path('farmers/<int:pk>/equipment-loans/', FarmersEquipmentLoanListView.as_view()),
+    path('farmers/equipment-loans/<int:loan_id>/approve/', FarmersEquipmentLoanApproveView.as_view()),
+    path('farmers/equipment-loans/<int:loan_id>/reject/', FarmersEquipmentLoanRejectView.as_view()),
+    path('farmers/equipment-loans/<int:loan_id>/return/', FarmersEquipmentLoanReturnView.as_view()),
     path('farmers/<int:pk>/member-search/', FarmersOrganizationAddCandidateSearchView.as_view()),
     path('farmers/<int:pk>/officers/', OrganizationOfficerListCreateView.as_view()),
     path('farmers/officers/<int:officer_id>/end-term/', OrganizationOfficerEndTermView.as_view()),
@@ -76,6 +97,14 @@ urlpatterns = [
     path('fisherfolk/<int:pk>/equipment/import/template/', equipment_import_template_view('fisherfolk').as_view()),
     path('fisherfolk/<int:pk>/equipment/', FisherfolkOrganizationEquipmentAddView.as_view()),
     path('fisherfolk/equipment/<int:equip_id>/', FisherfolkOrganizationEquipmentRemoveView.as_view()),
+    path('fisherfolk/equipment/<int:equip_id>/condition/', FisherfolkEquipmentConditionView.as_view()),
+    path('fisherfolk/equipment/<int:equip_id>/repair/', FisherfolkEquipmentRepairView.as_view()),
+    path('fisherfolk/equipment/<int:equip_id>/history/', FisherfolkEquipmentHistoryView.as_view()),
+    path('fisherfolk/equipment/<int:equip_id>/lend/', FisherfolkEquipmentLendView.as_view()),
+    path('fisherfolk/<int:pk>/equipment-loans/', FisherfolkEquipmentLoanListView.as_view()),
+    path('fisherfolk/equipment-loans/<int:loan_id>/approve/', FisherfolkEquipmentLoanApproveView.as_view()),
+    path('fisherfolk/equipment-loans/<int:loan_id>/reject/', FisherfolkEquipmentLoanRejectView.as_view()),
+    path('fisherfolk/equipment-loans/<int:loan_id>/return/', FisherfolkEquipmentLoanReturnView.as_view()),
     path('fisherfolk/<int:pk>/member-search/', FisherfolkOrganizationAddCandidateSearchView.as_view()),
     path('fisherfolk/<int:pk>/officers/', FisherfolkOrganizationOfficerListCreateView.as_view()),
     path('fisherfolk/officers/<int:officer_id>/end-term/', FisherfolkOrganizationOfficerEndTermView.as_view()),

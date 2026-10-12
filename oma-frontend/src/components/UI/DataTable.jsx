@@ -12,7 +12,11 @@ function SkeletonRow({ columnCount }) {
   )
 }
 
-function DataTable({ columns, data, isLoading, loading, onRowClick, emptyState }) {
+const isActionsColumn = (column) => /^actions?(_cell)?$/.test(column.key)
+const isBlank = (value) => value === undefined || value === null || value === ''
+
+// cardColumns: how many columns the phone cards use for their fields (1 = stacked, 2 = side by side).
+function DataTable({ columns, data, isLoading, loading, onRowClick, emptyState, cardColumns = 1 }) {
   const showLoading = isLoading || loading
 
   if (showLoading) {
@@ -74,15 +78,20 @@ function DataTable({ columns, data, isLoading, loading, onRowClick, emptyState }
             style={{ '--stagger-index': Math.min(rowIndex, 8) }}
             onClick={() => onRowClick?.(row)}
           >
-            {columns.map((column) => (
-              <div key={column.key} className="mt-2 first:mt-0">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-                  {column.label}
-                </p>
-                <div className="mt-0.5 text-[13px] text-text-primary">
-                  {row[column.key] ?? '—'}
+            <div className={cardColumns === 2 ? 'grid grid-cols-2 gap-x-3 gap-y-2.5' : 'space-y-2'}>
+              {columns.filter((column) => !isActionsColumn(column)).map((column) => (
+                <div key={column.key} className="min-w-0 break-words">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+                    {column.label}
+                  </p>
+                  <div className="mt-0.5 text-[13px] text-text-primary">
+                    {isBlank(row[column.key]) ? '—' : row[column.key]}
+                  </div>
                 </div>
-              </div>
+              ))}
+            </div>
+            {columns.filter((column) => isActionsColumn(column) && !isBlank(row[column.key]) && row[column.key] !== '—').map((column) => (
+              <div key={column.key} className="mt-3 border-t border-border pt-3">{row[column.key]}</div>
             ))}
             {onRowClick && (
               <p className="mt-3 border-t border-border pt-2 text-[12px] font-medium text-primary">
@@ -101,7 +110,7 @@ function DataTable({ columns, data, isLoading, loading, onRowClick, emptyState }
               <tr className="bg-primary">
                 {columns.map((column) => (
                   <th
-                    className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white"
+                    className={`px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white ${isActionsColumn(column) ? 'sticky right-0 bg-primary' : ''}`}
                     key={column.key}
                   >
                     {column.label}
@@ -121,7 +130,7 @@ function DataTable({ columns, data, isLoading, loading, onRowClick, emptyState }
                   onClick={() => onRowClick?.(row)}
                 >
                   {columns.map((column) => (
-                    <td className="px-4 py-[13px] text-[13px] text-text-primary align-middle" key={column.key}>
+                    <td className={`px-4 py-[13px] text-[13px] text-text-primary align-middle ${isActionsColumn(column) ? 'sticky right-0 bg-surface shadow-[-6px_0_6px_-6px_rgba(0,0,0,0.12)]' : ''}`} key={column.key}>
                       {row[column.key] ?? ''}
                     </td>
                   ))}

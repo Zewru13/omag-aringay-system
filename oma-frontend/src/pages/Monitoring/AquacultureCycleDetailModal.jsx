@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { Fish, Plus, Trash2 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
+import CycleDayBanner from '../../components/UI/CycleDayBanner.jsx'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
@@ -9,6 +10,8 @@ import LoadingSpinner from '../../components/UI/LoadingSpinner.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import { cycleProgress } from '../../utils/cycleActivity.js'
+import { todayISO as localToday } from '../../utils/localDate.js'
 
 const labelCls = 'block text-xs font-medium text-slate-600'
 const CYCLE_STATUS_TONES = { Active: 'green', Harvested: 'blue', Failed: 'rose', Abandoned: 'slate' }
@@ -1750,6 +1753,12 @@ function AquacultureCycleDetailModal({ cycle, onClose, onRefresh, onHealthChange
 
   return (
     <ModalShell title={`Cycle: ${cycle.cycle_name}`} onClose={onClose} maxWidth="max-w-3xl">
+      {/* How many days the pond has been in culture, visible on every tab (and above the logging forms). */}
+      {cycle.status === 'Active' && (
+        <div className="mb-3">
+          <CycleDayBanner progress={cycleProgress(cycle.stocking_date, cycle.target_harvest_date, localToday())} icon={Fish} />
+        </div>
+      )}
       <InnerTabs tabs={INNER_TABS} active={innerTab} onChange={setInnerTab} />
 
       {innerTab === 'info' && (

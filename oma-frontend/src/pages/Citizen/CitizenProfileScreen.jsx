@@ -509,6 +509,16 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
                   : <span className="italic text-cz-text-muted">{P.organizationNone}</span>
               }
             />
+            {record?.organization_names?.length > 0 && (
+              <button
+                type="button"
+                onClick={() => navigate('/my-equipment')}
+                className={`flex w-full items-center justify-between py-2.5 text-left text-[13px] font-semibold ${theme.tileSelectedText}`}
+              >
+                Borrow equipment
+                <ChevronRight size={16} aria-hidden="true" />
+              </button>
+            )}
             {(record?.is_pwd || record?.is_4ps_beneficiary) && (
               <div className="py-2.5">
                 <p className="text-[10.5px] font-semibold uppercase tracking-[0.05em] text-cz-text-2">{P.statusFlagsLabel}</p>

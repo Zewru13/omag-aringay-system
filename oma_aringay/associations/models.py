@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
@@ -205,6 +206,8 @@ class FarmersOrganizationEquipment(models.Model):
         GOOD = 'Good', 'Good'
         NEEDS_REPAIR = 'Needs Repair', 'Needs Repair'
         NOT_OPERATIONAL = 'Not Operational', 'Not Operational'
+        BROKEN = 'Broken', 'Broken'
+        LOST = 'Lost', 'Lost'
 
     organization = models.ForeignKey(FarmersOrganization, on_delete=models.CASCADE, related_name='equipment')
     equipment_name = models.CharField(max_length=50, choices=EquipmentName.choices)
@@ -375,6 +378,8 @@ class FisherfolkOrganizationEquipment(models.Model):
         GOOD = 'Good', 'Good'
         NEEDS_REPAIR = 'Needs Repair', 'Needs Repair'
         NOT_OPERATIONAL = 'Not Operational', 'Not Operational'
+        BROKEN = 'Broken', 'Broken'
+        LOST = 'Lost', 'Lost'
 
     organization = models.ForeignKey(FisherfolkOrganization, on_delete=models.CASCADE, related_name='equipment')
     equipment_name = models.CharField(max_length=50, choices=EquipmentName.choices)
@@ -386,3 +391,77 @@ class FisherfolkOrganizationEquipment(models.Model):
 
     def __str__(self):
         return f'{self.equipment_name} — {self.organization.name}'
+
+
+# ─── Equipment loans and repairs (one mirrored pair per domain, like the equipment lines themselves) ───────────────────
+
+class EquipmentLoanStatus(models.TextChoices):
+    REQUESTED = 'REQUESTED', 'Requested'
+    BORROWED = 'BORROWED', 'Borrowed'
+    RETURN_PENDING = 'RETURN_PENDING', 'Return pending'
+    RETURNED = 'RETURNED', 'Returned'
+    REJECTED = 'REJECTED', 'Rejected'
+    CANCELLED = 'CANCELLED', 'Cancelled'
+
+
+class EquipmentLoanOrigin(models.TextChoices):
+    ORGANIZATION = 'ORGANIZATION', 'Organization'
+    MEMBER = 'MEMBER', 'Member'
+
+
+class _EquipmentLoanBase(models.Model):
+    """A member borrowing units of one equipment line. Units are "out" while BORROWED or RETURN_PENDING; a REQUESTED loan
+    reserves nothing. The concrete classes add the equipment line and the member."""
+    quantity = models.PositiveIntegerField()
+    status = models.CharField(max_length=15, choices=EquipmentLoanStatus.choices, default=EquipmentLoanStatus.REQUESTED)
+    origin = models.CharField(max_length=15, choices=EquipmentLoanOrigin.choices)
+    requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    decided_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    returned_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    requested_at = models.DateTimeField(auto_now_add=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
+    borrowed_at = models.DateTimeField(null=True, blank=True)
+    due_date = models.DateField(null=True, blank=True)
+    return_requested_at = models.DateTimeField(null=True, blank=True)
+    returned_at = models.DateTimeField(null=True, blank=True)
+    # What came back, by condition, e.g. {"Good": 2, "Broken": 1}; empty until the loan is returned.
+    return_breakdown = models.JSONField(default=dict, blank=True)
+    member_note = models.TextField(blank=True, default='')
+    reject_reason = models.CharField(max_length=255, blank=True, default='')
+
+    class Meta:
+        abstract = True
+        ordering = ['-requested_at', '-id']
+
+
+class _EquipmentRepairBase(models.Model):
+    """One repair: `quantity` units of a line went back to Good. The concrete classes add the equipment line."""
+    quantity = models.PositiveIntegerField()
+    repaired_on = models.DateField()
+    description = models.CharField(max_length=255)
+    cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    from_condition = models.CharField(max_length=20)
+    recorded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    recorded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        abstract = True
+        ordering = ['-repaired_on', '-id']
+
+
+class FarmersOrganizationEquipmentLoan(_EquipmentLoanBase):
+    equipment = models.ForeignKey(FarmersOrganizationEquipment, on_delete=models.PROTECT, related_name='loans')
+    member = models.ForeignKey(Farmer, on_delete=models.PROTECT, related_name='equipment_loans')
+
+
+class FisherfolkOrganizationEquipmentLoan(_EquipmentLoanBase):
+    equipment = models.ForeignKey(FisherfolkOrganizationEquipment, on_delete=models.PROTECT, related_name='loans')
+    member = models.ForeignKey(Fisherfolk, on_delete=models.PROTECT, related_name='equipment_loans')
+
+
+class FarmersOrganizationEquipmentRepair(_EquipmentRepairBase):
+    equipment = models.ForeignKey(FarmersOrganizationEquipment, on_delete=models.PROTECT, related_name='repairs')
+
+
+class FisherfolkOrganizationEquipmentRepair(_EquipmentRepairBase):
+    equipment = models.ForeignKey(FisherfolkOrganizationEquipment, on_delete=models.PROTECT, related_name='repairs')

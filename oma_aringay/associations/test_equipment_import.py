@@ -87,7 +87,7 @@ class EquipmentImportTests(APITestCase):
         for domain in DOMAINS:
             name = KNOWN[domain]
             future = (date.today() + timedelta(days=5)).isoformat()
-            rows = [[name, 1, 'Broken', '', ''], [name, 1, 'Needs Repair', future, ''], [name, 1, 'Not Operational', 'junk', ''],
+            rows = [[name, 1, 'Shiny', '', ''], [name, 1, 'Needs Repair', future, ''], [name, 1, 'Not Operational', 'junk', ''],
                     [name, 1, 'Needs Repair', '', '']]
             response = self.run_import(domain, make_org(domain), rows)
             self.assertEqual(self.statuses(response), ['invalid', 'invalid', 'invalid', 'ready'], domain)

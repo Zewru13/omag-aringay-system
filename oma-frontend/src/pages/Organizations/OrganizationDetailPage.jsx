@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Plus, Power, Search, Trash2, Upload, UserCog } from "lucide-react";
-import { Link, useParams } from "react-router-dom";
+import { ArrowLeft, HandHelping, Plus, Power, Search, Trash2, Upload, UserCog, UserX } from "lucide-react";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import api from "../../api/axiosInstance.js";
 import ActivateCitizenAccountButton from "../../components/ActivateCitizenAccountButton.jsx";
 import ImportFileModal from "../../components/ImportFileModal.jsx";
 import PageLayout from "../../components/Layout/PageLayout.jsx";
 import Button from "../../components/UI/Button.jsx";
-import DataTable from "../../components/UI/DataTable.jsx";
 import StatusPill from "../../components/UI/StatusPill.jsx";
 import Tabs from "../../components/UI/Tabs.jsx";
 import ModalShell from "../../components/UI/ModalShell.jsx";
@@ -16,7 +15,15 @@ import { baseInputClasses } from "../../components/UI/FormField.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import useSuggestSearch from "../../hooks/useSuggestSearch.js";
+import { CONDITIONS, apiMessage, conditionTone, groupEquipment, openRequestCount } from "../../utils/equipmentLoans.js";
+import { filterOptions } from "../../utils/orgListFilter.js";
 import { agencyLabel } from "./agencyOptions.js";
+import BorrowedPanel from "./BorrowedPanel.jsx";
+import EquipmentGroupBody from "./EquipmentGroupBody.jsx";
+import OrgCompactList from "./OrgCompactList.jsx";
+import {
+  ChangeConditionDialog, EquipmentHistoryDialog, LendDialog, RepairDialog,
+} from "./EquipmentActionDialogs.jsx";
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -86,8 +93,6 @@ const FISHERFOLK_EQUIPMENT = [
   "Other",
 ];
 
-const CONDITIONS = ["Good", "Needs Repair", "Not Operational"];
-
 // Matches OrganizationOfficer.POSITION_CHOICES / FisherfolkOrganizationOfficer.POSITION_CHOICES
 // on the backend — narrower than the Member-position list above (no "Chairperson" /
 // "Vice Chairperson" / "Member").
@@ -101,11 +106,11 @@ function positionTone(pos) {
   return "slate";
 }
 
-function conditionTone(cond) {
-  if (cond === "Good") return "green";
-  if (cond === "Needs Repair") return "amber";
-  return "rose";
-}
+// Header actions of the member / equipment / officer cards: two equal buttons on a phone, natural width from `sm` up.
+const ACTION_ROW = "grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center";
+const BTN_BASE = "flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-[12px] font-medium transition-colors sm:px-4 sm:text-[13px]";
+const BTN_OUTLINE = `${BTN_BASE} border border-[#C8D5C8] bg-white text-[#1B4D2E] hover:bg-[#F0F4F0]`;
+const BTN_SOLID = `${BTN_BASE} bg-[#1B4D2E] text-white hover:bg-[#235E38]`;
 
 // ─── Add Member Modal ─────────────────────────────────────────────────────────
 
@@ -454,7 +459,7 @@ function AssignOfficerModal({ type, organizationId, existingOfficers, own = fals
     }
     if (positionFilled) {
       setError(own
-        ? "This position is currently held by someone else. Ask OMAg staff to end their term first, then assign the new officer."
+        ? "This position is currently held by someone else. End their term first (open the officer and choose End term early), then assign the new officer."
         : "This position is currently held by someone else. End their term first before assigning a new officer.");
       return;
     }
@@ -513,7 +518,7 @@ function AssignOfficerModal({ type, organizationId, existingOfficers, own = fals
           {positionFilled && (
             <p className="mt-1 text-[11px] text-amber-600">
               {own
-                ? "This position is currently held by someone else. Ask OMAg staff to end their term first, then assign the new officer."
+                ? "This position is currently held by someone else. End their term first (open the officer and choose End term early), then assign the new officer."
                 : "This position is currently held by someone else. End their term first before assigning a new officer."}
             </p>
           )}
@@ -636,13 +641,34 @@ function EndTermModal({ type, officer, onClose, onSuccess }) {
 
 function OfficerHistoryModal({ history, onClose }) {
   return (
-    <ModalShell title="Officer History" onClose={onClose}>
+    <ModalShell title="Officer History" onClose={onClose} maxWidth="max-w-3xl">
       {history.length === 0 ? (
         <p className="rounded-lg bg-[#F5F7F5] px-4 py-3 text-[13px] text-[#7A8E7A]">
           No officer history yet.
         </p>
       ) : (
-        <div className="rounded-xl border border-[#E2E8E2] overflow-hidden overflow-x-auto">
+        <>
+        {/* Phone: one card per term, so nothing is hidden behind a sideways scroll. */}
+        <ul className="space-y-2.5 sm:hidden" aria-label="Officer terms">
+          {history.map((officer) => (
+            <li key={officer.id} className="rounded-xl border border-[#E2E8E2] p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-[14px] font-semibold text-[#1A2B1A]">{officer.full_name}</p>
+                  <p className="text-[12px] font-semibold text-[#4A5E4A]">{officer.position}</p>
+                </div>
+                <StatusPill tone={officer.is_active ? "green" : officer.early_exit_reason ? "rose" : "slate"}>
+                  {officer.is_active ? "Current" : officer.early_exit_reason ? "Ended Early" : "Completed"}
+                </StatusPill>
+              </div>
+              <p className="mt-2 text-[12px] text-[#4A5E4A]">
+                {formatDate(officer.term_start_date)} – {formatDate(officer.term_end_date)}
+              </p>
+              {officer.early_exit_reason && <p className="mt-1 text-[12px] text-[#7A8E7A]">Reason: {officer.early_exit_reason}</p>}
+            </li>
+          ))}
+        </ul>
+        <div className="hidden rounded-xl border border-[#E2E8E2] overflow-hidden overflow-x-auto sm:block">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-[#1B4D2E]">
@@ -672,6 +698,7 @@ function OfficerHistoryModal({ history, onClose }) {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </ModalShell>
   );
@@ -700,6 +727,10 @@ function AddEquipmentModal({ type, organizationId, onClose, onSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    if (form.equipment_name === "Other" && !form.equipment_name_other.trim()) {
+      setError("Say what the equipment is.");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const payload = { ...form };
@@ -713,8 +744,7 @@ function AddEquipmentModal({ type, organizationId, onClose, onSuccess }) {
       onSuccess();
       onClose();
     } catch (err) {
-      const data = err.response?.data;
-      setError(data?.detail || "Unable to add equipment.");
+      setError(apiMessage(err, "Unable to add equipment."));
     } finally {
       setIsSubmitting(false);
     }
@@ -859,15 +889,28 @@ function OrganizationDetailPage({ own = false }) {
   // Both organization types carry an equipment inventory: the backend has
   // Add/Remove equipment endpoints and a serializer for each, and
   // AddEquipmentModal's per-type lists mirror each model's choices.
-  const sectionTabs = [
-    { value: "members", label: "Members" },
-    { value: "equipment", label: "Equipment Inventory" },
-  ];
+  // An organization account's loans, loaded below; the Borrowed tab shows how many requests are waiting.
+  const [loans, setLoans] = useState([]);
+  const sectionTabs = own
+    ? [
+        { value: "members", label: "Members" },
+        { value: "equipment", label: "Equipment" },
+        { value: "borrowed", label: openRequestCount(loans) > 0 ? `Borrowed (${openRequestCount(loans)})` : "Borrowed" },
+        { value: "officers", label: "Officers" },
+      ]
+    : [
+        { value: "members", label: "Members" },
+        { value: "equipment", label: "Equipment Inventory" },
+      ];
 
   const [organization, setOrganization] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
-  const [activeSection, setActiveSection] = useState("members");
+  const [searchParams] = useSearchParams();
+  // An organization account can open straight onto a tab (the bell links to ?tab=borrowed, the Home shortcuts to the others).
+  const [activeSection, setActiveSection] = useState(
+    own && ["members", "equipment", "borrowed", "officers"].includes(searchParams.get("tab")) ? searchParams.get("tab") : "members",
+  );
   const [showAddMember, setShowAddMember] = useState(false);
   const [showAddEquipment, setShowAddEquipment] = useState(false);
   const [showImportMembers, setShowImportMembers] = useState(false);
@@ -879,6 +922,8 @@ function OrganizationDetailPage({ own = false }) {
   const [confirmSetMemberActive, setConfirmSetMemberActive] = useState(null);
   const [deactivateReason, setDeactivateReason] = useState("");
   const [confirmRemoveEquipment, setConfirmRemoveEquipment] = useState(null);
+  // The equipment action in progress: { kind: "condition" | "repair" | "lend" | "history", line }.
+  const [equipAction, setEquipAction] = useState(null);
   const [endTermOfficer, setEndTermOfficer] = useState(null);
   const [showAssignOfficer, setShowAssignOfficer] = useState(false);
   const [showOfficerHistory, setShowOfficerHistory] = useState(false);
@@ -969,88 +1014,92 @@ function OrganizationDetailPage({ own = false }) {
       await api.delete(`/organizations/${type}/equipment/${equipId}/`);
       showToast("Equipment removed.", "success");
       setRefreshKey((k) => k + 1);
-    } catch {
-      showToast("Unable to remove equipment.", "error");
+    } catch (err) {
+      showToast(apiMessage(err, "Unable to remove equipment."), "error");
     } finally {
       setConfirmRemoveEquipment(null);
     }
   };
 
+  // An organization account also loads its loans (for the Borrowed tab and the count of open requests).
+  useEffect(() => {
+    if (!own) return undefined;
+    let cancelled = false;
+    api.get(`/organizations/${type}/${id}/equipment-loans/`)
+      .then((r) => { if (!cancelled) setLoans(r.data); })
+      .catch(() => { if (!cancelled) setLoans([]); });
+    return () => { cancelled = true; };
+  }, [own, type, id, refreshKey]);
+
   const handleMemberAdded = () => setRefreshKey((k) => k + 1);
   const handleEquipmentAdded = () => setRefreshKey((k) => k + 1);
   const handleOfficerAssigned = () => setRefreshKey((k) => k + 1);
 
-  // Own-organization mode shows these lists in the shared table (it becomes cards on a phone) instead of the
-  // wide staff tables. The same actions, built once here.
-  const memberColumns = [
-    { key: "name", label: "Full Name" },
-    { key: "idNumber", label: memberIdLabel },
-    { key: "positionCell", label: "Position" },
-    { key: "joined", label: "Date Joined" },
-    { key: "mainCell", label: "Main" },
-    { key: "statusCell", label: "Status" },
-    { key: "actionsCell", label: "Actions" },
-  ];
-  const memberRows = (organization?.members || []).map((m) => {
+  // Own-organization mode shows short lists (just the name on each row, details on tap) with a search and filters.
+  const choices = (items, key) => filterOptions(items, key).map((value) => ({ value, label: value }));
+  const memberItems = (organization?.members || []).map((m) => {
     const isActive = m.is_active !== false;
     return {
       id: m.id,
       name: m[memberNameField],
-      idNumber: m[memberIdField],
-      positionCell: <StatusPill tone={positionTone(m.position)}>{m.position}</StatusPill>,
-      joined: formatDate(m.date_joined),
-      mainCell: m.is_main ? <StatusPill tone="green">Main</StatusPill> : "—",
-      statusCell: <StatusPill tone={isActive ? "green" : "slate"}>{isActive ? "Active" : "Inactive"}</StatusPill>,
-      actionsCell: (
-        <Button
-          className={isActive ? "!text-rose-600" : "!text-[#1B4D2E]"}
-          icon={Power}
-          onClick={() => setConfirmSetMemberActive({
-            id: m.id, name: m[memberNameField], targetActive: !isActive, heldPosition: heldPositionFor(m),
-          })}
-          size="sm"
-          type="button"
-          variant="ghost"
-        >
-          {isActive ? "Deactivate" : "Activate"}
-        </Button>
-      ),
+      dim: !isActive,
+      attrs: { status: isActive ? "Active" : "Inactive", position: m.position || "Member", main: m.is_main ? "Main" : "Other" },
+      details: [
+        { label: memberIdLabel, value: m[memberIdField] || "—" },
+        { label: "Position", value: <StatusPill tone={positionTone(m.position)}>{m.position}</StatusPill> },
+        { label: "Date joined", value: formatDate(m.date_joined) },
+        { label: "Main organization", value: m.is_main ? "Yes" : "No" },
+        { label: "Status", value: <StatusPill tone={isActive ? "green" : "slate"}>{isActive ? "Active" : "Inactive"}</StatusPill> },
+      ],
+      actions: [{
+        key: "toggle",
+        label: isActive ? "Deactivate" : "Activate",
+        icon: Power,
+        tone: isActive ? "danger" : "default",
+        onClick: () => setConfirmSetMemberActive({
+          id: m.id, name: m[memberNameField], targetActive: !isActive, heldPosition: heldPositionFor(m),
+        }),
+      }],
     };
   });
-  const equipmentColumns = [
-    { key: "name", label: "Equipment" },
-    { key: "quantity", label: "Qty" },
-    { key: "conditionCell", label: "Condition" },
-    { key: "acquired", label: "Acquired" },
-    { key: "remarks", label: "Remarks" },
-    { key: "actionsCell", label: "Actions" },
+  const memberFilters = [
+    { key: "status", label: "Status", allLabel: "All statuses", options: choices(memberItems, "status") },
+    { key: "position", label: "Position", allLabel: "All positions", options: choices(memberItems, "position") },
+    { key: "main", label: "Main organization", allLabel: "Main or not", options: memberItems.some((i) => i.attrs.main === "Main") ? [{ value: "Main", label: "Main organization only" }] : [] },
   ];
-  const equipmentRows = (organization?.equipment || []).map((eq) => ({
-    id: eq.id,
-    name: eq.equipment_name === "Other" && eq.equipment_name_other ? `Other — ${eq.equipment_name_other}` : eq.equipment_name,
-    quantity: eq.quantity,
-    conditionCell: <StatusPill tone={conditionTone(eq.condition)}>{eq.condition}</StatusPill>,
-    acquired: formatDate(eq.acquisition_date),
-    remarks: eq.remarks || "—",
-    actionsCell: (
-      <Button className="!text-rose-600" icon={Trash2} onClick={() => setConfirmRemoveEquipment(eq.id)} size="sm" type="button" variant="ghost">
-        Remove
-      </Button>
+  // One entry per kind of equipment; tapping it drops down its conditions one by one, each with its own details and actions.
+  const equipmentItems = groupEquipment(organization?.equipment || []).map((group) => ({
+    id: group.id,
+    name: group.label,
+    subtitle: group.summary + (group.onLoan ? ` \u00b7 ${group.onLoan} on loan` : ""),
+    attrs: { condition: group.conditions },
+    renderBody: ({ close }) => (
+      <EquipmentGroupBody
+        group={group}
+        onAction={(kind, line) => { close(); setEquipAction({ kind, line }); }}
+        onRemove={(line) => { close(); setConfirmRemoveEquipment(line.id); }}
+      />
     ),
   }));
-  const officerColumns = [
-    { key: "position", label: "Position" },
-    { key: "name", label: "Name" },
-    { key: "termStart", label: "Term Start" },
-    { key: "termEnd", label: "Term End" },
-  ];
-  const officerRows = (organization?.officers || []).map((o) => ({
+  const personField = type === "farmers" ? "farmer" : "fisherfolk";
+  const lendableMembers = (organization?.members || [])
+    .filter((m) => m.is_active !== false)
+    .map((m) => ({ id: m[personField], name: m[memberNameField] }));
+  const equipmentFilters = [{ key: "condition", label: "Condition", allLabel: "All conditions", options: choices(equipmentItems, "condition") }];
+  const officerItems = (organization?.officers || []).map((o) => ({
     id: o.id,
-    position: o.position,
     name: o.full_name,
-    termStart: formatDate(o.term_start_date),
-    termEnd: formatDate(o.term_end_date),
+    subtitle: o.is_member === false ? `${o.position} · Not a member` : o.position,
+    attrs: { position: o.position },
+    details: [
+      { label: "Position", value: o.position },
+      { label: "Member of this organization", value: o.is_member === false ? <StatusPill tone="amber">Not a member — cannot receive assistance</StatusPill> : "Yes" },
+      { label: "Term start", value: formatDate(o.term_start_date) },
+      { label: "Term end", value: formatDate(o.term_end_date) },
+    ],
+    actions: [{ key: "end-term", label: "End term early", icon: UserX, tone: "danger", onClick: () => setEndTermOfficer({ id: o.id, position: o.position, name: o.full_name }) }],
   }));
+  const officerFilters = [{ key: "position", label: "Position", allLabel: "All positions", options: choices(officerItems, "position") }];
 
   return (
     <PageLayout
@@ -1091,8 +1140,8 @@ function OrganizationDetailPage({ own = false }) {
 
         {!isLoading && organization && (
           <>
-            {/* Identity + Organization Information */}
-            {(() => {
+            {/* Identity + Organization Information (staff view only: an organization sees these on My Profile) */}
+            {!own && (() => {
               const themeColor = type === "farmers" ? "#1B4D2E" : FISH_BLUE;
               const themeBg = type === "farmers" ? "#EBF5EE" : "#EAF1F5";
               return (
@@ -1193,8 +1242,8 @@ function OrganizationDetailPage({ own = false }) {
             })()}
 
             {/* Members & Equipment */}
-            <div className="bg-white border border-[#E2E8E2] rounded-xl p-6">
-              <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div className="bg-white border border-[#E2E8E2] rounded-xl p-4 sm:p-6">
+              <div className="mb-4 flex flex-col gap-3 sm:mb-5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                 <Tabs
                   activeTab={activeSection}
                   tabs={sectionTabs}
@@ -1202,33 +1251,53 @@ function OrganizationDetailPage({ own = false }) {
                 />
                 {canManage &&
                   (activeSection === "members" ? (
-                    <div className="flex items-center gap-2">
+                    <div className={ACTION_ROW}>
                       <button
-                        className="flex items-center gap-1.5 border border-[#C8D5C8] bg-white hover:bg-[#F0F4F0] text-[#1B4D2E] text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
+                        className={BTN_OUTLINE}
                         onClick={() => setShowImportMembers(true)}
                       >
                         <Upload size={15} />
-                        Import Members
+                        Import<span className="hidden sm:inline"> Members</span>
                       </button>
                       <button
-                        className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
+                        className={BTN_SOLID}
                         onClick={() => setShowAddMember(true)}
                       >
                         <Plus size={15} />
                         Add Member
                       </button>
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
+                  ) : own && activeSection === "borrowed" ? (
+                    <div className={ACTION_ROW}>
+                      <button className={`${BTN_SOLID} col-span-2`} onClick={() => setActiveSection("equipment")} type="button">
+                        <HandHelping size={15} />
+                        Lend equipment
+                      </button>
+                    </div>
+                  ) : own && activeSection === "officers" ? (
+                    <div className={ACTION_ROW}>
+                      <button className={BTN_OUTLINE} onClick={() => setShowOfficerHistory(true)} type="button">
+                        Officer History
+                      </button>
                       <button
-                        className="flex items-center gap-1.5 border border-[#C8D5C8] bg-white hover:bg-[#F0F4F0] text-[#1B4D2E] text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
+                        className={BTN_SOLID}
+                        onClick={() => setShowAssignOfficer(true)}
+                      >
+                        <UserCog size={15} />
+                        Assign Officer
+                      </button>
+                    </div>
+                  ) : (
+                    <div className={ACTION_ROW}>
+                      <button
+                        className={BTN_OUTLINE}
                         onClick={() => setShowImportEquipment(true)}
                       >
                         <Upload size={15} />
-                        Import Equipment
+                        Import<span className="hidden sm:inline"> Equipment</span>
                       </button>
                       <button
-                        className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
+                        className={BTN_SOLID}
                         onClick={() => setShowAddEquipment(true)}
                       >
                         <Plus size={15} />
@@ -1248,7 +1317,7 @@ function OrganizationDetailPage({ own = false }) {
                     No members recorded.
                   </p>
                 ) : own ? (
-                  <DataTable columns={memberColumns} data={memberRows} />
+                  <OrgCompactList items={memberItems} filters={memberFilters} searchPlaceholder="Search name..." emptyText="No members recorded." />
                 ) : (
                   <div className="overflow-hidden rounded-xl border border-[#E2E8E2]">
                     <div className="overflow-x-auto">
@@ -1338,7 +1407,7 @@ function OrganizationDetailPage({ own = false }) {
                     No equipment recorded.
                   </p>
                 ) : own ? (
-                  <DataTable columns={equipmentColumns} data={equipmentRows} />
+                  <OrgCompactList items={equipmentItems} filters={equipmentFilters} searchPlaceholder="Search name..." emptyText="No equipment recorded." />
                 ) : (
                   <div className="overflow-hidden rounded-xl border border-[#E2E8E2]">
                     <div className="overflow-x-auto">
@@ -1366,6 +1435,7 @@ function OrganizationDetailPage({ own = false }) {
                               </td>
                               <td className="px-4 py-[13px] text-[13px] text-[#4A5E4A]">
                                 {eq.quantity}
+                                {eq.on_loan ? ` (${eq.on_loan} on loan)` : ""}
                               </td>
                               <td className="px-4 py-[13px]">
                                 <StatusPill tone={conditionTone(eq.condition)}>
@@ -1401,25 +1471,34 @@ function OrganizationDetailPage({ own = false }) {
                     </div>
                   </div>
                 ))}
+
+              {own && activeSection === "borrowed" && (
+                <BorrowedPanel type={type} loans={loans} onChanged={() => setRefreshKey((k) => k + 1)} />
+              )}
+
+              {/* Officers tab (an organization's own page) */}
+              {own && activeSection === "officers" &&
+                (organization.officers.length === 0 ? (
+                  <p className="rounded-lg bg-[#F5F7F5] px-4 py-3 text-[13px] text-[#7A8E7A]">
+                    No officers assigned yet.
+                  </p>
+                ) : (
+                  <OrgCompactList items={officerItems} filters={officerFilters} searchPlaceholder="Search name..." emptyText="No officers assigned yet." />
+                ))}
             </div>
 
-            {/* Officers Table (both organization types) */}
-            {organization.officers && (
-              <div className="mt-6 bg-white border border-[#E2E8E2] rounded-xl p-6">
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            {/* Officers: a tab above for an organization's own page, this card for staff */}
+            {!own && organization.officers && (
+              <div className="mt-6 bg-white border border-[#E2E8E2] rounded-xl p-4 sm:p-6">
+                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                   <h3 className="text-[14px] font-semibold text-[#1A2B1A]">Organization Officers</h3>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      onClick={() => setShowOfficerHistory(true)}
-                      size="sm"
-                      type="button"
-                      variant="secondary"
-                    >
+                  <div className={ACTION_ROW}>
+                    <button className={BTN_OUTLINE} onClick={() => setShowOfficerHistory(true)} type="button">
                       Officer History
-                    </Button>
+                    </button>
                     {canManage && (
                       <button
-                        className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
+                        className={BTN_SOLID}
                         onClick={() => setShowAssignOfficer(true)}
                       >
                         <UserCog size={15} />
@@ -1432,8 +1511,6 @@ function OrganizationDetailPage({ own = false }) {
                   <p className="rounded-lg bg-[#F5F7F5] px-4 py-3 text-[13px] text-[#7A8E7A]">
                     No officers assigned yet.
                   </p>
-                ) : own ? (
-                  <DataTable columns={officerColumns} data={officerRows} />
                 ) : (
                   <div className="rounded-xl border border-[#E2E8E2] overflow-hidden overflow-x-auto">
                     <table className="w-full text-sm">
@@ -1452,7 +1529,10 @@ function OrganizationDetailPage({ own = false }) {
                         {organization.officers.map((officer) => (
                           <tr key={officer.id} className="border-t border-[#F0F4F0] hover:bg-[#F5F7F5]">
                             <td className="px-4 py-3 text-[12px] font-semibold text-[#4A5E4A]">{officer.position}</td>
-                            <td className="px-4 py-3 text-[13px] text-[#1A2B1A]">{officer.full_name}</td>
+                            <td className="px-4 py-3 text-[13px] text-[#1A2B1A]">
+                              {officer.full_name}
+                              {officer.is_member === false && <span className="ml-2 align-middle"><StatusPill tone="amber">Not a member</StatusPill></span>}
+                            </td>
                             <td className="px-4 py-3 text-[13px] text-[#4A5E4A]">{formatDate(officer.term_start_date)}</td>
                             <td className="px-4 py-3 text-[13px] text-[#4A5E4A]">{formatDate(officer.term_end_date)}</td>
                             {isStaff && (
@@ -1560,6 +1640,21 @@ function OrganizationDetailPage({ own = false }) {
         />
       )}
 
+      {equipAction?.kind === "condition" && (
+        <ChangeConditionDialog line={equipAction.line} type={type} onClose={() => setEquipAction(null)}
+          onDone={() => { setEquipAction(null); setRefreshKey((k) => k + 1); }} />
+      )}
+      {equipAction?.kind === "repair" && (
+        <RepairDialog line={equipAction.line} type={type} onClose={() => setEquipAction(null)}
+          onDone={() => { setEquipAction(null); setRefreshKey((k) => k + 1); }} />
+      )}
+      {equipAction?.kind === "lend" && (
+        <LendDialog line={equipAction.line} type={type} members={lendableMembers} onClose={() => setEquipAction(null)}
+          onDone={() => { setEquipAction(null); setRefreshKey((k) => k + 1); }} />
+      )}
+      {equipAction?.kind === "history" && (
+        <EquipmentHistoryDialog line={equipAction.line} type={type} onClose={() => setEquipAction(null)} />
+      )}
       {confirmRemoveEquipment && (
         <ConfirmDialog
           title="Remove Equipment"

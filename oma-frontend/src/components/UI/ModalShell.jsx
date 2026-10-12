@@ -17,7 +17,7 @@ function ModalShell({ title, subtitle, icon: Icon, iconBg = 'bg-primary-light', 
             being scrolled out of view on tall content (see EditUserModal.jsx's
             standalone version, where this exact structure was live-tested
             first before being folded back in here). */}
-        <div className="flex flex-shrink-0 items-center gap-3 border-b border-border px-6 pt-5 pb-4">
+        <div className="flex flex-shrink-0 items-center gap-3 border-b border-border px-4 pt-4 pb-3 sm:px-6 sm:pt-5 sm:pb-4">
           {Icon && (
             <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-[10px] ${iconBg}`}>
               <Icon size={18} className={iconColor} aria-hidden="true" />
@@ -38,7 +38,7 @@ function ModalShell({ title, subtitle, icon: Icon, iconBg = 'bg-primary-light', 
         </div>
 
         {/* Body — only this section scrolls */}
-        <div className="overflow-y-auto px-6 py-5">
+        <div className="overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
           {children}
         </div>
 
@@ -48,7 +48,7 @@ function ModalShell({ title, subtitle, icon: Icon, iconBg = 'bg-primary-light', 
             scrolls-with-the-body behavior for those specific buttons
             until it's migrated to this slot individually. */}
         {footer && (
-          <div className="flex flex-shrink-0 justify-end gap-2 border-t border-border px-6 pt-4 pb-5">
+          <div className="flex flex-shrink-0 justify-end gap-2 border-t border-border px-4 pt-3 pb-4 sm:px-6 sm:pt-4 sm:pb-5">
             {footer}
           </div>
         )}

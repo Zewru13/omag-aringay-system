@@ -203,7 +203,6 @@ class OrgStaffOnlyRoutesTests(OrgFixtureMixin, APITestCase):
             for method, route in (
                     ('get', f'organizations/{domain}/'), ('post', f'organizations/{domain}/'),
                     ('post', f'organizations/{domain}/{org}/members/1/set-main/'),
-                    ('post', f'organizations/{domain}/officers/1/end-term/'),
                     ('patch', f'organizations/{domain}/members/1/'),
                     ('get', 'farmers/'), ('get', 'fisheries/fisherfolk/'), ('get', 'accounts/users/')):
                 response = getattr(self.client, method)('/api/' + route, {}, format='json')

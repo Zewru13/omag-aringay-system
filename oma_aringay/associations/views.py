@@ -30,6 +30,7 @@ from interventions.lifecycle import notify_assistance_recorded
 from interventions.models import BeneficiaryRecord, FisherfolkBeneficiaryRecord
 from interventions.serializers import OrganizationDistributionRequestSerializer
 
+from .equipment_views import EquipmentRemoveGuard
 from .lifecycle import expire_due_officer_terms
 from .models import (
     FarmersOrganization,
@@ -405,7 +406,7 @@ class FarmersOrganizationEquipmentAddView(generics.CreateAPIView):
         serializer.save(organization_id=self.kwargs['pk'])
 
 
-class FarmersOrganizationEquipmentRemoveView(generics.DestroyAPIView):
+class FarmersOrganizationEquipmentRemoveView(EquipmentRemoveGuard, generics.DestroyAPIView):
     permission_classes = [IsAuthenticated, IsOrgCitizenOrStaff]
     org_linked_record_type = 'FARMERS_ORG'
     queryset = FarmersOrganizationEquipment.objects.all()
@@ -470,10 +471,15 @@ class OrganizationOfficerEndTermView(APIView):
     vacant/re-assignable. The row itself is never touched otherwise: it
     remains a permanent, queryable historical record.
     """
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsOrgCitizenOrStaff]
+    org_linked_record_type = 'FARMERS_ORG'
 
     def post(self, request, officer_id):
-        officer = get_object_or_404(OrganizationOfficer, pk=officer_id)
+        officers = OrganizationOfficer.objects.all()
+        if request.user.role == 'CITIZEN':
+            # an organization account ends only its own officers' terms; any other id is a 404
+            officers = officers.filter(organization_id=request.user.linked_record_id)
+        officer = get_object_or_404(officers, pk=officer_id)
         reason = (request.data.get('reason') or '').strip()
         if not reason:
             return Response({'detail': 'A reason is required to end a term early.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -721,7 +727,7 @@ class FisherfolkOrganizationEquipmentAddView(generics.CreateAPIView):
         serializer.save(organization_id=self.kwargs['pk'])
 
 
-class FisherfolkOrganizationEquipmentRemoveView(generics.DestroyAPIView):
+class FisherfolkOrganizationEquipmentRemoveView(EquipmentRemoveGuard, generics.DestroyAPIView):
     permission_classes = [IsAuthenticated, IsOrgCitizenOrStaff]
     org_linked_record_type = 'FISHERFOLK_ORG'
     queryset = FisherfolkOrganizationEquipment.objects.all()
@@ -772,10 +778,14 @@ class FisherfolkOrganizationOfficerListCreateView(generics.ListCreateAPIView):
 
 class FisherfolkOrganizationOfficerEndTermView(APIView):
     """Fisherfolk equivalent of OrganizationOfficerEndTermView above."""
-    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    permission_classes = [IsAuthenticated, IsOrgCitizenOrStaff]
+    org_linked_record_type = 'FISHERFOLK_ORG'
 
     def post(self, request, officer_id):
-        officer = get_object_or_404(FisherfolkOrganizationOfficer, pk=officer_id)
+        officers = FisherfolkOrganizationOfficer.objects.all()
+        if request.user.role == 'CITIZEN':
+            officers = officers.filter(organization_id=request.user.linked_record_id)
+        officer = get_object_or_404(officers, pk=officer_id)
         reason = (request.data.get('reason') or '').strip()
         if not reason:
             return Response({'detail': 'A reason is required to end a term early.'}, status=status.HTTP_400_BAD_REQUEST)

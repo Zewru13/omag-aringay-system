@@ -45,17 +45,22 @@ const ORG_HELP_EN = {
     {
       key: 'assign-officer',
       q: 'How do I assign an officer?',
-      a: 'In the Officers table on My Organization, click Assign Officer, choose a position and pick one of your active members. If someone already holds that position, OMAg staff must end their term first. Officer History shows everyone who held each position.',
+      a: 'In the Officers table on My Organization, click Assign Officer, choose a position and pick one of your active members. If someone already holds that position, open that officer and choose End term early (a reason is required), then assign the new one. Officer History shows everyone who held each position.',
     },
     {
       key: 'equipment',
       q: 'How do I keep our equipment list?',
-      a: 'Open the Equipment Inventory tab on My Organization. Add each item with its quantity and condition, and remove an item when it is no longer yours.',
+      a: 'Open the Equipment tab on My Organization. Add each item with its quantity and condition (Good, Needs Repair, Not Operational, Broken or Lost). Tap an item to change the condition of some of its units, record a repair (date, what was done, optional cost), lend it, see its history, or remove it. An item with loan or repair history cannot be removed.',
+    },
+    {
+      key: 'lend-equipment',
+      q: 'How do I lend equipment to a member?',
+      a: 'Only units in Good condition can be lent. Tap the item, choose Lend, pick the member, the number of units and an optional return-by date. Members with an account can also ask to borrow from their Borrow Equipment page; their requests appear on the Borrowed tab, where you can approve or reject them. When the units come back, open the loan, choose Mark returned and say what condition they are in.',
     },
     {
       key: 'report-assistance',
       q: 'What is the difference between reporting assistance to one member and to all members?',
-      a: 'On Assistance, Report to a Member is for assistance given to one member only. Report to All Members gives the same assistance to every current member in one step, and shows a preview of who will receive it before you confirm. A future date schedules the assistance instead of recording it as already given.',
+      a: 'On Assistance, Distribute to Individual is for assistance given to one member only. Distribute to All Members gives the same assistance to every current member in one step, and shows a preview of who will receive it before you confirm. A future date schedules the assistance instead of recording it as already given.',
     },
     {
       key: 'confirm-for-members',
@@ -222,6 +227,7 @@ export function OrgProfilePage() {
 
   const contactError = editingContact ? validatePhone(contactDraft) : null
   const saveContact = async () => {
+    if (!contactDraft.trim()) { setErrorMessage('Enter your organization\'s contact number.'); return }
     if (validatePhone(contactDraft)) { setErrorMessage(validatePhone(contactDraft)); return }
     setIsBusy(true)
     setErrorMessage('')

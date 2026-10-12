@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import useDebouncedValue from '../../hooks/useDebouncedValue.js'
 import {
-  AlertTriangle, Bug, CheckCircle, CheckCircle2, Eye, FileText, HelpCircle, Leaf, Lock, MapPin, Pencil, Trash2, Unlock, User, Wheat,
+  AlertTriangle, Bug, CheckCircle, CheckCircle2, ChevronDown, Eye, FileText, HelpCircle, Leaf, Lock, MapPin, Pencil, Trash2, Unlock, User, Wheat,
 } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
@@ -27,6 +27,9 @@ import usePhotoList from '../../hooks/usePhotoList.js'
 import PhotoListField from '../../components/UI/PhotoListField.jsx'
 import PhotoLinks from '../../components/UI/PhotoLinks.jsx'
 import { groupActivityOptions, overdueStepDay } from '../../utils/activityPicker.js'
+import { cycleProgress, filterCycleActivities } from '../../utils/cycleActivity.js'
+import { todayISO as localToday } from '../../utils/localDate.js'
+import CycleDayBanner from '../../components/UI/CycleDayBanner.jsx'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
@@ -435,6 +438,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
   const [isLoading,         setIsLoading]         = useState(true)
   const { isAdmin, isFarmer } = useAuth()
   const [showForm,          setShowForm]          = useState(false)
+  const [showHistory,       setShowHistory]       = useState(false)   // the past activity stays closed until asked for
   const recordLock = useRecordLock('crop', record.id, showForm)
   const [showSuggest,       setShowSuggest]       = useState(false)
   const [showConfirm,       setShowConfirm]       = useState(false)
@@ -466,6 +470,10 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
   const [notes,           setNotes]           = useState('')
 
   const [remedyDisasterId, setRemedyDisasterId] = useState('')
+  // The crop recovered because of the remedy: tick it on the form (saved together with the log) or use the button on a saved remedy.
+  const [recoveredAfterRemedy, setRecoveredAfterRemedy] = useState(false)
+  const [recoverTarget, setRecoverTarget] = useState(null)   // { disaster, note } while the recovery dialog is open
+  const [isRecovering, setIsRecovering] = useState(false)
 
   const showFertilizerFields = activityType === 'Fertilizer Application'
   const showPestFields = activityType === 'Pest Control' || activityType === 'Disease Control'
@@ -556,6 +564,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
     setFertilizerType(''); setQuantityApplied(''); setQuantityUnit('kg')
     setActivityTypeOtherSpecify('')
     setRemedyDisasterId('')
+    setRecoveredAfterRemedy(false)
     setPestDiseaseName(''); setAreaAffected(''); setAreaAffectedError(''); setSeverity(''); setNotes('')
     setPendingSuggestion(null)
     setPendingDisasterReport(null)
@@ -581,6 +590,19 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
     setRemedyDisasterId(log.disaster_report ? String(log.disaster_report) : '')
     setPendingSuggestion(null)
     setShowForm(true)
+  }
+
+  const confirmRecovered = async () => {
+    if (!recoverTarget) return
+    setIsRecovering(true)
+    try {
+      await api.post(`/production/disasters/${recoverTarget.disaster.id}/resolve/`, { recovery_note: recoverTarget.note.trim() })
+      showToast('Disaster marked as recovered.', 'success')
+      setRecoverTarget(null)
+      await fetchLogs(); onLogAdded()
+    } catch (err) {
+      showToast(err?.response?.data?.detail || 'Failed to mark the disaster as recovered.', 'error')
+    } finally { setIsRecovering(false) }
   }
 
   const handleSubmitClick = () => {
@@ -627,6 +649,14 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
         })
       }
       showToast(editingLogId ? 'Activity log updated.' : 'Activity log added.', 'success')
+      if (!editingLogId && showRemedyFields && recoveredAfterRemedy) {
+        try {
+          await api.post(`/production/disasters/${remedyDisasterId}/resolve/`, { recovery_note: notes.trim() })
+          showToast('Disaster marked as recovered.', 'success')
+        } catch (err) {
+          showToast(err?.response?.data?.detail || 'The remedy was saved, but the disaster could not be marked as recovered.', 'error')
+        }
+      }
       resetForm(); setShowForm(false)
       await fetchLogs(); onLogAdded()
     } catch (err) {
@@ -664,12 +694,18 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
 
   const assocLabel = record.organization_name || record.farmer_name || '—'
   const growthInfo = getGrowthStageLabel(record.date_planted)
+  const cycle = cycleProgress(record.date_planted, record.expected_harvest_date, localToday())
+  // Disaster Remedy needs a disaster report; Pre-Harvest Inspection and Harvesting open from half way through the season.
+  const activityChoices = filterCycleActivities(
+    [...suggestedActivityOptions, ...otherActivityOptions].filter(o => o !== 'Other'),
+    { hasDisaster: activeDisasters.length > 0, halfway: cycle ? cycle.halfway : true, keep: editingLogType },
+  )
 
   return (
     <>
       <ModalShell
         title={record.crop_type_name?.toUpperCase() ?? 'CROP'}
-        subtitle={`${assocLabel} - Planted: ${record.date_planted || '—'}`}
+        subtitle={`${assocLabel} - Planted: ${record.date_planted || '—'}${cycle ? ` · Day ${cycle.day}${cycle.total ? ` of ${cycle.total}` : ''}` : ''}`}
         icon={FileText}
         onClose={onClose}
         maxWidth="max-w-sm"
@@ -754,12 +790,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
             )}
             {!recordLock.lockedByOther && <>
             {/* Growth stage context label */}
-            {growthInfo && (
-              <div className="flex items-center gap-1.5 rounded-lg bg-[#EBF5EE] border border-[#C8E6D0] px-3 py-2 text-xs text-[#1B4D2E]">
-                <Leaf className="w-3.5 h-3.5 flex-shrink-0" />
-                Day {growthInfo.days} — <strong className="ml-0.5">{growthInfo.stage}</strong> stage
-              </div>
-            )}
+            <CycleDayBanner progress={cycle} stage={growthInfo?.stage} />
 
             {/* Late log note */}
             {pendingSuggestion?.status === 'overdue' && (
@@ -783,7 +814,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
                     The selectable values and their priority order are
                     unchanged. */}
                 <ComboboxWithOther
-                  options={[...suggestedActivityOptions, ...otherActivityOptions].filter(o => o !== 'Other')}
+                  options={activityChoices}
                   value={activityType}
                   otherValue={activityTypeOtherSpecify}
                   onChange={(newType) => {
@@ -911,6 +942,15 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
                 <p className="text-[11px] text-rose-500">
                   This remedy will not automatically satisfy any recommended response rule — describe it in the Notes field below.
                 </p>
+                {!editingLogId && (
+                  <label className="mt-2 flex cursor-pointer items-start gap-2 text-xs font-medium text-emerald-800">
+                    <input
+                      type="checkbox" className="mt-0.5" checked={recoveredAfterRemedy} disabled={!remedyDisasterId}
+                      onChange={(e) => setRecoveredAfterRemedy(e.target.checked)}
+                    />
+                    <span>The crop has recovered because of this remedy — also mark the disaster as Recovered.</span>
+                  </label>
+                )}
               </div>
             )}
 
@@ -945,19 +985,24 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
           </div>
         )}
 
-        {/* Activity Logs header */}
-        <div className="mb-3 flex items-center gap-2">
+        {/* Activity History: closed until it is opened, so the modal stays short */}
+        <button
+          type="button" onClick={() => setShowHistory((v) => !v)} aria-expanded={showHistory}
+          className="mb-3 flex w-full items-center gap-2 rounded-lg px-1 py-1.5 text-left hover:bg-slate-50"
+        >
           <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#2D7A4F]" />
           <span className="text-sm font-semibold text-slate-700">Activity History</span>
+          {!isLoading && <span className="text-xs text-slate-400">({allEvents.length})</span>}
           {disasters.length > 1 && (
             <span className="ml-1 inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-700">
               <AlertTriangle className="w-3 h-3" /> {disasters.length} disaster reports
             </span>
           )}
-        </div>
+          <ChevronDown className={`ml-auto h-4 w-4 text-slate-400 transition-transform ${showHistory ? 'rotate-180' : ''}`} aria-hidden="true" />
+        </button>
 
         {/* Unified timeline */}
-        {isLoading ? (
+        {showHistory && (isLoading ? (
           <p className="py-4 text-center text-sm text-slate-400">Loading…</p>
         ) : allEvents.length === 0 ? (
           <p className="py-4 text-center text-sm italic text-slate-400">No logs yet.</p>
@@ -1083,6 +1128,20 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
                   )}
                   {log.notes && <p className="mt-0.5 text-xs text-slate-500">{log.notes}</p>}
                   {log.logged_by_name && <p className="mt-0.5 text-xs text-slate-400">{log.logged_by_name}</p>}
+                  {remedyDisaster && remedyDisaster.status === 'Recovered' && (
+                    <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                      <CheckCircle2 className="w-3 h-3" /> Recovered{remedyDisaster.recovered_date ? ` on ${fmtDate(remedyDisaster.recovered_date)}` : ''}
+                    </p>
+                  )}
+                  {remedyDisaster && remedyDisaster.status === 'Active' && !remedyDisaster.is_total_loss && !isHarvested && !isTotalLoss && (
+                    <button
+                      type="button"
+                      onClick={() => setRecoverTarget({ disaster: remedyDisaster, note: log.notes || '' })}
+                      className="mt-1.5 inline-flex items-center gap-1 rounded-lg border border-emerald-300 bg-white px-2.5 py-1 text-xs font-semibold text-emerald-700 hover:bg-emerald-50"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Mark as Recovered
+                    </button>
+                  )}
                   {isFarmer && !isHarvested && !isTotalLoss && (
                     <button type="button" onClick={() => startEdit(log)}
                       className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-[#1B4D2E] hover:underline">
@@ -1093,7 +1152,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
               )
             })}
           </div>
-        )}
+        ))}
       </ModalShell>
 
       {showConfirm && (
@@ -1103,6 +1162,20 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
           confirmLabel="Confirm"
           onConfirm={handleConfirmed}
           onCancel={() => setShowConfirm(false)}
+        />
+      )}
+
+      {recoverTarget && (
+        <ConfirmDialog
+          title="Mark this disaster as Recovered?"
+          message={`The crop recovered after the remedy for ${otherLabel(recoverTarget.disaster.disaster_type, recoverTarget.disaster.disaster_type_other_specify)}. Say how it recovered; this note is kept with the disaster.`}
+          confirmLabel={isRecovering ? 'Saving...' : 'Mark as Recovered'}
+          variant="primary" danger={false} icon={CheckCircle2} iconBg="#DCFCE7" iconColor="#15803D"
+          showReasonInput reasonLabel="How it recovered (required)"
+          reasonValue={recoverTarget.note}
+          onReasonChange={(v) => setRecoverTarget((cur) => ({ ...cur, note: v }))}
+          onConfirm={() => { if (recoverTarget.note.trim() && !isRecovering) confirmRecovered() }}
+          onCancel={() => { if (!isRecovering) setRecoverTarget(null) }}
         />
       )}
 

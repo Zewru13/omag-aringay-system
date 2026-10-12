@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { CheckCircle2, Pencil, Plus, Trash2, Upload, UserCheck, Users, XCircle } from 'lucide-react'
+import { Ban, CheckCircle2, Eye, Pencil, Plus, Trash2, Upload, UserCheck, Users, XCircle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ImportFileModal from '../../components/ImportFileModal.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
@@ -17,6 +17,7 @@ import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import AssistanceViewDialog from './AssistanceViewDialog.jsx'
 import ConfirmOnBehalfDialog from './ConfirmOnBehalfDialog.jsx'
 import LogGovernmentAssistanceModal from './LogGovernmentAssistanceModal.jsx'
 import { FISHERFOLK_ORG_DOMAIN } from '../Citizen/orgDomainConfig.js'
@@ -41,6 +42,8 @@ const STATUS_LABELS = {
 // recipient confirmed is simply Received.
 const ORG_STATUS_LABELS = { ...STATUS_LABELS, CONFIRMED: 'Received' }
 const EDITABLE_STATUSES = new Set(['PENDING', 'AWAITING_CONFIRMATION', 'CONFIRMED', undefined, ''])
+// Assistance can be cancelled (taken off the list, kept for audit) until the recipient has confirmed or reported it.
+const CANCELLABLE_STATUSES = new Set(['PENDING', 'AWAITING_CONFIRMATION'])
 
 function extractErrorMessage(err, fallback) {
   const data = err?.response?.data
@@ -366,6 +369,9 @@ export default function FisheriesAssistancePage({ asTab = false }) {
   const [showDistribute, setShowDistribute] = useState(false)
   const [editing, setEditing] = useState(null)
   const [resolving, setResolving] = useState(null)
+  const [viewing, setViewing] = useState(null)
+  const [cancelling, setCancelling] = useState(null)
+  const [isCancelling, setIsCancelling] = useState(false)
   const [historyKey, setHistoryKey] = useState(0) // bumps to reload the organization's distribution history
 
   const fetchAssistance = useCallback(async () => {
@@ -430,20 +436,22 @@ export default function FisheriesAssistancePage({ asTab = false }) {
     // An organization's table is the "Confirm for Members" list only; its history is OrgDistributionHistory.
     actions_cell: isOrg ? (
       a.latest_request_status === 'PENDING' ? '—' : (
-        <RowActions actions={[
+        <RowActions inline actions={[
           { key: 'confirm', label: 'Confirm for Member', icon: UserCheck, onClick: () => setConfirmingOnBehalf(a) },
         ]} />
       )
     ) : isFisherfolk ? (
       a.status === 'AWAITING_CONFIRMATION' ? (
-        <RowActions actions={[
+        <RowActions inline actions={[
           { key: 'confirm', label: 'Confirm Received', icon: CheckCircle2, onClick: () => confirmReceived(a) },
           { key: 'not-received', label: 'Report Not Received', icon: XCircle, tone: 'rose', onClick: () => setReportingNotReceived(a) },
         ]} />
       ) : '—'
     ) : (
-      <RowActions actions={[
+      <RowActions inline actions={[
+        { key: 'view', label: 'View', icon: Eye, onClick: () => setViewing(a) },
         EDITABLE_STATUSES.has(a.status) && { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditing(a) },
+        CANCELLABLE_STATUSES.has(a.status) && { key: 'cancel', label: 'Cancel assistance', icon: Ban, tone: 'rose', onClick: () => setCancelling(a) },
         a.status === 'NOT_RECEIVED' && { key: 'resolve', label: 'Mark Resolved', icon: CheckCircle2, tone: 'default', onClick: () => setResolving(a) },
       ]} />
     ),
@@ -459,7 +467,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
   const innerContent = (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex overflow-hidden rounded-xl border border-slate-300 w-fit">
+        <div className="flex w-full overflow-hidden rounded-xl border border-slate-300 sm:w-fit">
           {[
             { key: 'all', label: isOrg ? 'History' : 'All Records' },
             isOrg && { key: 'confirm', label: 'Confirm for Members' },
@@ -467,7 +475,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
           ].filter(Boolean).map((t) => (
             <button
               key={t.key} type="button" onClick={() => changeView(t.key)}
-              className={`px-4 py-2 text-[13px] font-semibold transition-colors ${
+              className={`flex-1 whitespace-nowrap px-2 py-2 text-[12px] font-semibold transition-colors sm:flex-none sm:px-4 sm:text-[13px] ${
                 view === t.key ? 'bg-[#1B4D2E] text-white' : 'bg-white text-[#4A5E4A] hover:bg-[#F5F7F5]'
               }`}
             >
@@ -476,17 +484,17 @@ export default function FisheriesAssistancePage({ asTab = false }) {
           ))}
         </div>
         {isOrg && view === 'all' && (
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setShowDistribute(true)}>
-              <Users size={15} className="mr-1" /> Report to All Members
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => setShowDistribute(true)}>
+              <Users size={15} className="mr-1" /> Distribute to All Members
             </Button>
-            <Button onClick={() => setShowLog(true)}>
-              <Plus size={15} className="mr-1" /> Report to a Member
+            <Button className="w-full sm:w-auto" onClick={() => setShowLog(true)}>
+              <Plus size={15} className="mr-1" /> Distribute to Individual
             </Button>
           </div>
         )}
         {!isFisherfolk && !isOrg && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setShowImport(true)}>
               <Upload size={15} className="mr-1" /> Import File
             </Button>
@@ -548,7 +556,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
         </div>
       )}
 
-      {error ? <ErrorMessage message={error} /> : <DataTable columns={tableColumns} data={rows} isLoading={isLoading} />}
+      {error ? <ErrorMessage message={error} /> : <DataTable columns={tableColumns} data={rows} isLoading={isLoading} cardColumns={2} />}
       </>
       )}
 
@@ -595,6 +603,47 @@ export default function FisheriesAssistancePage({ asTab = false }) {
           onDone={() => { setConfirmingOnBehalf(null); fetchAssistance() }}
         />
       )}
+      {viewing && !isOrg && !isFisherfolk && (
+        <AssistanceViewDialog
+          title={viewing.assistance_type || 'Assistance'} subtitle={viewing.fisherfolk_full_name}
+          onClose={() => setViewing(null)}
+          details={[
+            { label: 'Fisherfolk', value: viewing.fisherfolk_full_name },
+            { label: 'Type', value: viewing.fisherfolk_type },
+            { label: 'Organization', value: viewing.attributed_fisherfolk_organization_name },
+            { label: 'Assistance type', value: viewing.assistance_type },
+            { label: 'Source of assistance', value: (viewing.source_agencies || []).join(', ') },
+            { label: 'Quantity / amount', value: viewing.quantity },
+            { label: 'Date received', value: formatDate(viewing.date_given) },
+            { label: 'Status', value: STATUS_LABELS[viewing.status] || viewing.status },
+            { label: 'Recorded by', value: viewing.recorded_by_name },
+            { label: 'Description', value: viewing.description },
+            { label: 'Remarks', value: viewing.remarks },
+          ]}
+        />
+      )}
+      {cancelling && !isOrg && !isFisherfolk && (
+        <ConfirmDialog
+          title="Cancel this assistance?"
+          message={`${cancelling.assistance_type || 'This assistance'} for ${cancelling.fisherfolk_full_name} will be taken off the list and the fisherfolk will no longer be asked to confirm it. The record is kept for audit.`}
+          confirmLabel={isCancelling ? 'Cancelling...' : 'Cancel assistance'}
+          cancelLabel="Keep it"
+          onConfirm={async () => {
+            setIsCancelling(true)
+            try {
+              await api.post('/interventions/assistance-removals/', { domain: 'fisheries', record_ids: [cancelling.id] })
+              showToast('Assistance cancelled.', 'success')
+              setCancelling(null)
+              fetchAssistance()
+            } catch (err) {
+              showToast(err?.response?.data?.detail || 'The assistance could not be cancelled.', 'error')
+            } finally {
+              setIsCancelling(false)
+            }
+          }}
+          onCancel={() => { if (!isCancelling) setCancelling(null) }}
+        />
+      )}
       {resolving && !isOrg && (
         <MarkResolvedModal
           record={resolving}
@@ -615,7 +664,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
   if (asTab) return innerContent
 
   return isOrg ? (
-    <PageLayout title="Assistance" subtitle="Assistance your organization reported to its members.">
+    <PageLayout title="Assistance" subtitle="Assistance your organization distributed to its members.">
       {innerContent}
     </PageLayout>
   ) : isFisherfolk ? (

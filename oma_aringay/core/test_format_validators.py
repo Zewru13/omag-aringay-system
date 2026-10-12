@@ -78,6 +78,15 @@ class ContactNumberApiTests(APITestCase):
         good = self.client.patch('/api/profile/contact-number/', {'contact_number': '09181234567'}, format='json')
         self.assertEqual(good.status_code, 200, good.content)
 
+    def test_an_organization_cannot_blank_its_contact_number(self):
+        """The contact number is required for an organization; the farmer and fisherfolk profiles keep it optional."""
+        self.client.force_authenticate(self.org_user)
+        for blank in ('', '   '):
+            res = self.client.patch('/api/profile/contact-number/', {'contact_number': blank}, format='json')
+            self.assertEqual(res.status_code, 400, (blank, res.content))
+            self.assertIn('contact_number', res.json())
+        self.assertEqual(FarmersOrganization.objects.get(name='Fmt Own Org').contact_number, '09171234567')
+
     def test_organization_import_normalizes_a_formatted_number(self):
         self.client.force_authenticate(self.staff)
         row = ['Imported Fmt Org', 'Alaska', 'Purok 1', '2020-03-15', '2020-06-01', 'IMPFMT-%d' % next(_N), 'SEC',

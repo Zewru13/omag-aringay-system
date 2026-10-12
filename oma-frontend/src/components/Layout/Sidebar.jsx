@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   BarChart2,
   Building2,
+  Package,
   ChevronDown,
   ClipboardList,
   FileBarChart,
@@ -358,7 +359,10 @@ function NavGroup({ group, isCollapsed, depth = 0 }) {
 
 function Sidebar({ isOpen, onClose, isCollapsed }) {
   const { user, isFisherfolk, isFarmer, isOrg, orgType } = useAuth();
-  const ownNav = isFisherfolk ? FISHERFOLK_NAV : isFarmer ? FARMER_NAV : isOrg ? orgNav(orgType) : null;
+  const baseNav = isFisherfolk ? FISHERFOLK_NAV : isFarmer ? FARMER_NAV : isOrg ? orgNav(orgType) : null;
+  // A member of an organization can also borrow its equipment.
+  const isMember = (isFisherfolk || isFarmer) && (user?.linked_record?.organization_names?.length || 0) > 0;
+  const ownNav = baseNav && isMember ? [...baseNav, { to: "/my-equipment", icon: Package, label: "Equipment" }] : baseNav;
   const isAdmin = user?.role === "ADMIN";
 
   return (
