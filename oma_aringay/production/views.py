@@ -3,7 +3,7 @@ from decimal import Decimal
 from io import BytesIO
 
 from django.db import transaction
-from django.db.models import Avg, Case, CharField, Count, Exists, F, IntegerField, OuterRef, Q, Sum, Value, When
+from django.db.models import Avg, Case, CharField, Count, Exists, F, IntegerField, OuterRef, Prefetch, Q, Sum, Value, When
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status as drf_status
@@ -20,6 +20,7 @@ from core.constants import BARANGAY_CHOICES
 from core.locking import assert_not_locked_by_other
 from core.notifications import notify_staff, notify_user, resolve_owner_user
 from core.utils import accumulate_yield_group, filter_people_search, harvest_gate_status, is_plain_int, new_yield_group
+from associations.models import FarmersOrganizationMember
 from farmers.models import FarmParcel, Farmer
 from fisheries.models import Fisherfolk
 
@@ -785,7 +786,10 @@ class CropMonitoringListCreateView(generics.ListCreateAPIView):
         # staying newest-inserted-first.
         qs = CropMonitoringRecord.objects.select_related(
             'farm_parcel', 'farm_parcel__farmer', 'farmer', 'crop_type', 'recorded_by', 'farmers_organization',
-        ).prefetch_related('activity_logs', 'labor_logs', 'harvest_records').order_by('-date_recorded', '-id')
+        ).prefetch_related(
+            'activity_logs', 'labor_logs', 'harvest_records', 'disaster_reports',
+            Prefetch('farmer__farmer_organizations', queryset=FarmersOrganizationMember.objects.select_related('organization')),
+        ).order_by('-date_recorded', '-id')
         qs = qs.annotate(
             has_disaster=Exists(
                 CropDisasterReport.objects.filter(

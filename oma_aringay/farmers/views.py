@@ -1,5 +1,5 @@
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Prefetch, Q
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 from accounts.permissions import IsAdminOrEvaluator
 from accounts.models import User
 from accounts.utils import create_inactive_citizen_shell
+from associations.models import FarmersOrganizationMember
 from core.utils import day_range_bounds, filter_people_search
 
 from .models import Farmer, FarmCrop, FarmMachinery, FarmParcel
@@ -36,6 +37,13 @@ class FarmerListView(generics.ListCreateAPIView):
     def get_queryset(self):
         from django.utils.timezone import localdate
         queryset = Farmer.objects.all().order_by('-date_registered', '-id')
+        if self.request.method == 'GET':
+            # The list serializer reads each farmer's memberships and parcels; fetching them for the whole page at
+            # once (two queries) instead of per row keeps the list and the name search fast.
+            queryset = queryset.prefetch_related(
+                Prefetch('farmer_organizations', queryset=FarmersOrganizationMember.objects.select_related('organization')),
+                'farm_parcels',
+            )
         search = self.request.query_params.get('search')
         status_filter = self.request.query_params.get('status')
         gender_filter = self.request.query_params.get('gender')
