@@ -1,9 +1,8 @@
-import { useState } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { AlertTriangle, Search, X } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
-import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -14,39 +13,297 @@ import {
 import { DamagePhotosField, EquipmentChecklist } from './fisheriesDisasterShared.jsx'
 import useDamagePhotos from './useDamagePhotos.js'
 
-// Log Disaster on an aquaculture stock - the full Fisheries disaster form, used by a fisherfolk for their OWN
-// stock and by Admin/Evaluator logging on behalf of a fisherfolk (Admin > Disaster > Fisheries Disaster).
-// Saves to the existing /fisheries/stocking/<id>/disasters/ endpoint (the backend checks a fisherfolk's
-// ownership). A fisherfolk's log is submitted to Admin by that same save - there is no second step.
-// onSaved(log) receives the saved log so the page can open its Disaster Details.
+// Log Disaster - the ONE Fisheries disaster form, for a fisherfolk's own stocks and for Admin/Evaluator logging
+// on behalf of a chosen fisherfolk (Admin > Disaster > Fisheries Disaster). Either:
+//   - linked: one or more of the fisherfolk's active stocks, with the fingerlings lost and Total Loss per stock
+//     and pond/cage -> POST /fisheries/disaster-reports/stocks/ (one report; the backend checks every stock
+//     and pond belongs to this fisherfolk, recomputes totals and saves everything in one transaction), or
+//   - not linked to a stock (pond, cage or equipment damage only) -> the existing
+//     POST /monitoring/fisherfolk-disasters/, with no fingerling losses.
+// A fisherfolk's log is submitted to Admin by that same save. onSaved(log) receives the saved log.
+//
+// Props: stocks = every eligible stock of the fisherfolk (null while loading); fisherfolk = {id, full_name}
+// (required for staff; a fisherfolk account is always its own record on the backend).
+
+const NOT_LINKED = 'unlinked'
+const LINKED = 'stocks'
 
 const todayLocal = () => {
   const d = new Date()
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10)
 }
 
-export default function FisherfolkStockDisasterModal({ record, onClose, onSaved }) {
+const stockOptionLabel = (s) => [
+  s.species_name || 'Stock',
+  s.production_cycle_name,
+  s.production_cycle_no && `Cycle ${s.production_cycle_no}`,
+].filter(Boolean).join(' · ')
+
+const stockOptionDetail = (s) => [
+  s.culture_phase,
+  s.date_stocked && `stocked ${fmtLong(s.date_stocked)}`,
+  s.pond_location_barangay,
+  s.number_of_units && `${s.number_of_units} ${(s.culture_type || 'unit').toLowerCase()}${s.number_of_units === 1 ? '' : 's'}`,
+].filter(Boolean).join(' · ')
+
+const rowKey = (stockId, unitId) => `${stockId}:${unitId ?? 'all'}`
+const HARVESTED = new Set(['harvested', 'force_harvested', 'cycle_harvested'])
+
+// Total Loss on a row with a known stocked count: the count is that full stocked count (filled in, read-only).
+const autoFilled = (row, value) => Boolean(value?.total) && row.stocked != null
+
+// The row's Fingerlings Lost as counted in totals and sent: the stocked count while auto-filled.
+const effectiveLost = (row, value) => (autoFilled(row, value) ? String(row.stocked) : String(value?.lost ?? '').trim())
+
+// '' = not recorded. Otherwise a whole number of 0 or more, at most the stocked count when known.
+function rowError(row, value) {
+  if (autoFilled(row, value)) return ''
+  const s = String(value?.lost ?? '').trim()
+  if (!s) return value?.total ? 'Enter the fingerlings lost (no stocked count is recorded for this one).' : ''
+  if (!/^\d+$/.test(s)) return 'Whole number of 0 or more.'
+  if (row.stocked != null && Number(s) > row.stocked) return `Cannot exceed ${row.stocked.toLocaleString()} stocked.`
+  return ''
+}
+
+function StockPicker({ stocks, selectedIds, onToggle }) {
+  const [query, setQuery] = useState('')
+  const q = query.trim().toLowerCase()
+  const shown = stocks.filter(s => !q || `${stockOptionLabel(s)} ${stockOptionDetail(s)}`.toLowerCase().includes(q))
+  return (
+    <div className="space-y-2" data-testid="stock-picker">
+      {selectedIds.length > 0 && (
+        <ul className="flex flex-wrap gap-1.5" aria-label="Selected stocks">
+          {selectedIds.map(id => {
+            const s = stocks.find(x => x.id === id)
+            return s && (
+              <li key={id} className="inline-flex items-center gap-1 rounded-full border border-green-300 bg-[#f0f7f0] py-0.5 pl-2.5 pr-1 text-xs font-medium text-[#1E4620]">
+                {stockOptionLabel(s)}
+                <button type="button" onClick={() => onToggle(id)} className="rounded-full p-0.5 hover:bg-green-200" aria-label={`Remove ${stockOptionLabel(s)}`}>
+                  <X size={12} />
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+      <div className="relative">
+        <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input type="search" className={`${baseInputClasses} pl-8`} value={query} onChange={e => setQuery(e.target.value)}
+          placeholder={`Search ${stocks.length} stock${stocks.length === 1 ? '' : 's'} by species, cycle or location`} aria-label="Search stocks" />
+      </div>
+      <ul className="max-h-56 overflow-y-auto rounded-lg border border-slate-200" role="listbox" aria-multiselectable="true" aria-label="Affected stocks">
+        {shown.length === 0 && <li className="px-3 py-3 text-xs text-slate-500">No stock matches “{query}”.</li>}
+        {shown.map(s => {
+          const checked = selectedIds.includes(s.id)
+          return (
+            <li key={s.id} role="option" aria-selected={checked} className="border-b border-slate-100 last:border-b-0">
+              <label className={`flex min-h-[44px] cursor-pointer items-start gap-2.5 px-3 py-2 ${checked ? 'bg-[#f0f7f0]' : 'hover:bg-slate-50'}`}>
+                <input type="checkbox" className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#1E4620]" checked={checked} onChange={() => onToggle(s.id)} />
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium text-slate-800">{stockOptionLabel(s)}</span>
+                  <span className="block text-xs text-slate-500">{stockOptionDetail(s)}</span>
+                </span>
+              </label>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
+// A row's Fingerlings Lost input. With Total Loss ticked and a known stocked count it shows that full count,
+// read-only; the value typed before stays untouched underneath and comes back when Total Loss is unticked.
+function LostInput({ row, value, name, err, onChange, className = '', placeholder = '0' }) {
+  const auto = autoFilled(row, value)
+  return (
+    <div className={className}>
+      <input type="number" inputMode="numeric" min="0" step="1" max={row.stocked ?? undefined}
+        className={`${baseInputClasses} w-full ${auto ? 'cursor-not-allowed bg-slate-100 text-slate-600' : ''} ${err ? 'border-rose-400' : ''}`}
+        aria-label={`Fingerlings lost for ${name}`} aria-invalid={Boolean(err)} readOnly={auto} aria-readonly={auto}
+        value={auto ? row.stocked : (value.lost ?? '')}
+        onChange={e => { if (!auto) onChange(row.key, { lost: e.target.value }) }} placeholder={placeholder} />
+      {auto && <p className="mt-1 text-[11px] text-slate-500">All {row.stocked.toLocaleString()} stocked (Total Loss)</p>}
+      {value.total && row.stocked == null && !err && <p className="mt-1 text-[11px] text-slate-500">No stocked count recorded — enter the number lost.</p>}
+      {err && <p className="mt-1 text-xs text-rose-600" role="alert">{err}</p>}
+    </div>
+  )
+}
+
+// One table: a row per selected stock and pond/cage (or one "Whole stock" row for a stock without them).
+function FingerlingsLostTable({ groups, values, onChange, showErrors }) {
+  const fmt = (n) => Number(n).toLocaleString()
+  const overall = groups.reduce((sum, g) => sum + g.total, 0)
+  return (
+    <section className="space-y-2" data-testid="fingerlings-lost">
+      <div>
+        <h3 className="text-sm font-semibold text-slate-800">Fingerlings Lost per Stock and Production Unit</h3>
+        <p className="text-xs text-slate-500">Leave blank if not counted. Tick Total Loss when a pond/cage was completely destroyed: its Fingerlings Lost becomes the full stocked count automatically. A stock ends as Total Loss only when all of its remaining ponds/cages are.</p>
+      </div>
+
+      {/* Desktop / tablet: a table (scrolls sideways inside the modal if needed). */}
+      <div className="hidden overflow-x-auto rounded-lg border border-slate-200 sm:block">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-slate-50 text-left text-xs font-semibold text-slate-600">
+              <th className="px-2.5 py-1.5">Stock</th>
+              <th className="px-2.5 py-1.5">Production Unit</th>
+              <th className="px-2.5 py-1.5 text-right">Stocked</th>
+              <th className="px-2.5 py-1.5">Fingerlings Lost</th>
+              <th className="px-2.5 py-1.5 text-center">Total Loss</th>
+            </tr>
+          </thead>
+          {groups.map(g => (
+            <tbody key={g.stock.id} className="border-t-2 border-slate-200 align-top">
+              {g.state === 'loading' && <tr><td colSpan={5} className="px-2.5 py-2 text-xs text-slate-500">{stockOptionLabel(g.stock)} — loading ponds/cages…</td></tr>}
+              {g.state === 'error' && <tr><td colSpan={5} className="px-2.5 py-2 text-xs text-rose-600">{stockOptionLabel(g.stock)} — the ponds/cages could not be loaded. Remove and re-select the stock to retry.</td></tr>}
+              {g.rows.map((r, i) => {
+                const v = values[r.key] || {}
+                const err = showErrors(r.key) ? rowError(r, v) : ''
+                const name = `${stockOptionLabel(g.stock)}, ${r.unitLabel}`
+                return (
+                  <tr key={r.key} className="border-t border-slate-100" data-testid="loss-row">
+                    <td className="px-2.5 py-2 text-xs font-semibold text-slate-800">{i === 0 ? stockOptionLabel(g.stock) : ''}</td>
+                    <td className="px-2.5 py-2 font-medium text-slate-800">{r.unitLabel}</td>
+                    <td className="px-2.5 py-2 text-right tabular-nums text-slate-600">{r.stocked != null ? fmt(r.stocked) : '—'}</td>
+                    <td className="px-2.5 py-1.5">
+                      <LostInput row={r} value={v} name={name} err={err} onChange={onChange} className="w-32" />
+                    </td>
+                    <td className="px-2.5 py-2 text-center">
+                      <input type="checkbox" className="h-4 w-4 rounded border-rose-300 text-rose-600"
+                        aria-label={`Total loss — ${name} completely destroyed`}
+                        checked={Boolean(v.total)} onChange={e => onChange(r.key, { total: e.target.checked })} />
+                    </td>
+                  </tr>
+                )
+              })}
+              {g.skipped.length > 0 && <tr><td colSpan={5} className="px-2.5 pb-2 text-[11px] text-slate-400">Already harvested, not listed: {g.skipped.join(', ')}</td></tr>}
+              {g.rows.length > 0 && (
+                <tr className="bg-slate-50 text-xs font-semibold text-slate-700" data-testid="stock-total">
+                  <td className="px-2.5 py-1.5" colSpan={3}>Total — {stockOptionLabel(g.stock)}</td>
+                  <td className="px-2.5 py-1.5" colSpan={2}>{fmt(g.total)} fingerlings</td>
+                </tr>
+              )}
+            </tbody>
+          ))}
+          <tfoot>
+            <tr className="border-t-2 border-slate-300 bg-slate-100 text-xs font-bold text-slate-800" data-testid="overall-total">
+              <td className="px-2.5 py-1.5" colSpan={3}>TOTAL FINGERLINGS LOST</td>
+              <td className="px-2.5 py-1.5" colSpan={2}>{fmt(overall)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      {/* Phones: one card per stock, one block per pond/cage. */}
+      <div className="space-y-3 sm:hidden">
+        {groups.map(g => (
+          <div key={g.stock.id} className="rounded-lg border border-slate-200 p-3">
+            <p className="text-sm font-semibold text-slate-800">{stockOptionLabel(g.stock)}</p>
+            {g.state === 'loading' && <p className="text-xs text-slate-500">Loading ponds/cages…</p>}
+            {g.state === 'error' && <p className="text-xs text-rose-600">The ponds/cages could not be loaded. Remove and re-select the stock to retry.</p>}
+            {g.rows.map(r => {
+              const v = values[r.key] || {}
+              const err = showErrors(r.key) ? rowError(r, v) : ''
+              const name = `${stockOptionLabel(g.stock)}, ${r.unitLabel}`
+              return (
+                <div key={r.key} className="mt-2 border-t border-slate-100 pt-2">
+                  <div className="flex items-baseline justify-between gap-2 text-sm">
+                    <span className="font-medium text-slate-800">{r.unitLabel}</span>
+                    <span className="text-xs text-slate-500">Stocked: {r.stocked != null ? fmt(r.stocked) : '—'}</span>
+                  </div>
+                  <div className="mt-1 flex items-start gap-3">
+                    <LostInput row={r} value={v} name={name} err={err} onChange={onChange} className="flex-1" placeholder="Fingerlings lost" />
+                    <label className="flex min-h-[44px] items-center gap-1.5 text-xs font-medium text-rose-700">
+                      <input type="checkbox" className="h-4 w-4 rounded border-rose-300 text-rose-600" aria-label={`Total loss — ${name} completely destroyed`}
+                        checked={Boolean(v.total)} onChange={e => onChange(r.key, { total: e.target.checked })} />
+                      Total loss
+                    </label>
+                  </div>
+                </div>
+              )
+            })}
+            {g.skipped.length > 0 && <p className="mt-2 text-[11px] text-slate-400">Already harvested, not listed: {g.skipped.join(', ')}</p>}
+            {g.rows.length > 0 && <p className="mt-2 border-t border-slate-100 pt-2 text-xs font-semibold text-slate-700">Total: {fmt(g.total)} fingerlings</p>}
+          </div>
+        ))}
+        <p className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-bold text-slate-800">Total fingerlings lost: {fmt(overall)}</p>
+      </div>
+    </section>
+  )
+}
+
+export default function FisherfolkStockDisasterModal({ stocks, fisherfolk = null, initialStockIds = [], onClose, onSaved }) {
   const { showToast } = useToast()
   const { isFisherfolk } = useAuth()
   const damagePhotos = useDamagePhotos()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [mode, setMode] = useState(LINKED)
+  const [selectedIds, setSelectedIds] = useState(initialStockIds)
+  // stockId -> {state: 'loading' | 'ok' | 'error', units}: each selected stock's own ponds/cages.
+  const [unitsByStock, setUnitsByStock] = useState(() => Object.fromEntries(initialStockIds.map(id => [id, { state: 'loading', units: [] }])))
+  const [losses, setLosses] = useState({})               // rowKey -> {lost, total}
+  const [touched, setTouched] = useState(new Set())
+  const [submitted, setSubmitted] = useState(false)
   const [form, setForm] = useState({
     date_of_occurrence: todayLocal(),
     disaster_type: 'Typhoon',
     disaster_type_other_specify: '',
-    area_affected_ha: '',
     volume_lost_kg: '',
     equipment_damaged: [],
     equipment_damaged_other: '',
     estimated_damage: '',
-    is_total_loss: false,
   })
   const set = (field, value) => setForm(f => ({ ...f, [field]: value }))
+  const allStocks = stocks || []
+  const selected = selectedIds.map(id => allStocks.find(s => s.id === id)).filter(Boolean)
 
-  const maxArea = record.area_hectares ? parseFloat(record.area_hectares) : null
-  const dateStocked = record.date_stocked || null
-  // Total Loss means the whole stocked area is affected: the option is available only once the area typed equals it.
-  const isWholeArea = maxArea === null || (form.area_affected_ha !== '' && Math.abs(parseFloat(form.area_affected_ha) - maxArea) < 0.00005)
+  // A selected stock's own production units (with their stocked fingerlings), once per selection. A reply
+  // for a stock deselected meanwhile is ignored.
+  const loadUnits = (id) => {
+    api.get(`/fisheries/stocking/${id}/production-units/`)
+      .then(r => setUnitsByStock(prev => (prev[id] ? { ...prev, [id]: { state: 'ok', units: r.data.units || [] } } : prev)))
+      .catch(() => setUnitsByStock(prev => (prev[id] ? { ...prev, [id]: { state: 'error', units: [] } } : prev)))
+  }
+  useEffect(() => { initialStockIds.forEach(loadUnits) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleStock = (id) => {
+    if (selectedIds.includes(id)) {
+      // Deselected: its rows and entered values are cleared, so nothing stale can be submitted.
+      setSelectedIds(ids => ids.filter(x => x !== id))
+      setUnitsByStock(prev => { const n = { ...prev }; delete n[id]; return n })
+      setLosses(prev => Object.fromEntries(Object.entries(prev).filter(([k]) => !k.startsWith(`${id}:`))))
+    } else {
+      // Values of the stocks that stay selected are kept; the new stock is added once (never twice).
+      setSelectedIds(ids => (ids.includes(id) ? ids : [...ids, id]))
+      setUnitsByStock(prev => ({ ...prev, [id]: { state: 'loading', units: [] } }))
+      loadUnits(id)
+    }
+  }
+
+  const groups = useMemo(() => selected.map(stock => {
+    const info = unitsByStock[stock.id] || { state: 'loading', units: [] }
+    let rows = []
+    let skipped = []
+    if (info.state === 'ok') {
+      const open = info.units.filter(u => !HARVESTED.has(u.status))
+      skipped = info.units.filter(u => HARVESTED.has(u.status)).map(u => u.label)
+      rows = info.units.length
+        ? open.map(u => ({ key: rowKey(stock.id, u.id), unitId: u.id, unitLabel: u.label, stocked: u.fingerling_count ?? null }))
+        : [{ key: rowKey(stock.id, null), unitId: null, unitLabel: 'Whole stock', stocked: stock.number_of_fingerlings ?? null }]
+    }
+    const total = rows.reduce((sum, r) => {
+      const s = effectiveLost(r, losses[r.key])   // a Total Loss row counts its full stocked count at once
+      return /^\d+$/.test(s) ? sum + Number(s) : sum
+    }, 0)
+    return { stock, state: info.state, rows, skipped, total }
+  }), [selected, unitsByStock, losses])
+
+  const changeLoss = (key, patch) => {
+    setLosses(prev => ({ ...prev, [key]: { ...prev[key], ...patch } }))
+    setTouched(prev => new Set(prev).add(key))
+  }
+  const showErrors = (key) => submitted || touched.has(key)
 
   const toggleEquipment = (option) => setForm((prev) => {
     const next = prev.equipment_damaged.includes(option)
@@ -55,24 +312,32 @@ export default function FisherfolkStockDisasterModal({ record, onClose, onSaved 
     return { ...prev, equipment_damaged: next, equipment_damaged_other: next.includes('Other') ? prev.equipment_damaged_other : '' }
   })
 
+  // The disaster cannot predate the stocking of any stock it affected.
+  const latestStocked = mode === LINKED ? selected.map(s => s.date_stocked).filter(Boolean).sort().pop() || null : null
+
   const validate = () => {
     const today = todayLocal()
+    if (!isFisherfolk && !fisherfolk?.id) return 'Select a fisherfolk.'
     if (!form.date_of_occurrence) return 'Date of occurrence is required.'
     if (form.date_of_occurrence > today) return 'Date of occurrence cannot be in the future.'
-    if (dateStocked && form.date_of_occurrence < dateStocked) return `Date of occurrence cannot be before the stocking date (${fmtLong(dateStocked)}).`
     if (form.disaster_type === 'Other' && !form.disaster_type_other_specify.trim()) return 'Please specify the disaster type.'
-    const area = parseFloat(form.area_affected_ha)
-    if (!area || area <= 0) return 'Area affected must be greater than 0.'
-    if (maxArea !== null && area > maxArea) return `Area affected cannot exceed the ${maxArea} ha stocked.`
+    if (mode === LINKED) {
+      if (!selected.length) return 'Select at least one affected stock, or choose “Not linked to a stock”.'
+      if (latestStocked && form.date_of_occurrence < latestStocked) return `Date of occurrence cannot be before a selected stock's stocking date (${fmtLong(latestStocked)}).`
+      if (groups.some(g => g.state === 'loading')) return 'Still loading the ponds/cages of a selected stock.'
+      if (groups.some(g => g.state === 'error')) return 'The ponds/cages of a selected stock could not be loaded.'
+      if (groups.some(g => g.rows.length === 0)) return 'A selected stock has no pond/cage left to record (all harvested).'
+      if (groups.some(g => g.rows.some(r => rowError(r, losses[r.key])))) return 'Fix the highlighted Fingerlings Lost entries.'
+    }
     if (form.volume_lost_kg !== '' && parseFloat(form.volume_lost_kg) < 0) return 'Volume lost cannot be negative.'
     if (form.equipment_damaged.includes('Other') && !form.equipment_damaged_other.trim()) return 'Specify Equipment Damaged.'
-    if (!form.estimated_damage.trim()) return 'Please describe the damage.'
     return ''
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (isSubmitting) return
+    setSubmitted(true)
     const problem = validate()
     if (problem) { showToast(problem, 'error'); return }
     setIsSubmitting(true)
@@ -81,22 +346,29 @@ export default function FisherfolkStockDisasterModal({ record, onClose, onSaved 
         disaster_type: form.disaster_type,
         disaster_type_other_specify: form.disaster_type === 'Other' ? form.disaster_type_other_specify.trim() : '',
         date_of_occurrence: form.date_of_occurrence,
-        area_affected_ha: parseFloat(form.area_affected_ha),
         volume_lost_kg: form.volume_lost_kg === '' ? null : parseFloat(form.volume_lost_kg),
         equipment_damaged: equipmentPayload(form.equipment_damaged, form.equipment_damaged_other),
         estimated_damage: form.estimated_damage.trim(),
-        is_total_loss: form.is_total_loss && isWholeArea,
+        ...(fisherfolk?.id ? { fisherfolk: fisherfolk.id } : {}),
       }
-      let payload = fields
+      // Every selected stock/pond is sent (blank = not recorded); totals are recomputed by the backend.
+      const stockLosses = mode === LINKED ? groups.flatMap(g => g.rows.map(r => {
+        const v = losses[r.key] || {}
+        const lost = effectiveLost(r, v)
+        return { stocking_record: g.stock.id, production_unit: r.unitId, fingerlings_lost: lost === '' ? null : Number(lost), is_total_loss: Boolean(v.total) }
+      })) : null
+      const url = mode === LINKED ? '/fisheries/disaster-reports/stocks/' : '/monitoring/fisherfolk-disasters/'
+      let payload = stockLosses ? { ...fields, stock_losses: stockLosses } : fields
       if (damagePhotos.photos.length) {
         payload = new FormData()
         Object.entries(fields).forEach(([k, v]) => { if (v !== null && v !== undefined) payload.append(k, v) })
+        if (stockLosses) payload.append('stock_losses', JSON.stringify(stockLosses))
         // Every damage photo as its own `photos` file - the backend stores each one separately.
         damagePhotos.photos.forEach(p => payload.append('photos', p.file, p.file.name))
       }
-      const r = await api.post(`/fisheries/stocking/${record.id}/disasters/`, payload)
+      const r = await api.post(url, payload)
       showToast(isFisherfolk ? 'Disaster logged and submitted to Admin successfully.'
-        : `Disaster logged for ${record.fisherfolk_name || 'the fisherfolk'}.`, 'success')
+        : `Disaster logged for ${fisherfolk?.full_name || 'the fisherfolk'}.`, 'success')
       onSaved(r.data)
     } catch (err) {
       // Never a false success; the form keeps everything entered so the user can fix it and retry.
@@ -104,45 +376,52 @@ export default function FisherfolkStockDisasterModal({ record, onClose, onSaved 
     } finally { setIsSubmitting(false) }
   }
 
-  const stockSummary = [
-    !isFisherfolk && record.fisherfolk_name,
-    record.species_name,
-    record.production_cycle_name,
-    record.date_stocked && `stocked ${fmtLong(record.date_stocked)}`,
-  ].filter(Boolean).join(' · ')
+  const radioCls = (on) => `flex min-h-[44px] cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 text-sm ${on ? 'border-green-400 bg-[#f0f7f0]' : 'border-slate-200 hover:bg-slate-50'}`
 
   return (
     <ModalShell
       title="Log Disaster"
-      subtitle={stockSummary}
+      subtitle={!isFisherfolk && fisherfolk ? fisherfolk.full_name : 'Fisheries disaster'}
       icon={AlertTriangle}
       iconBg="bg-rose-100"
       iconColor="text-rose-600"
       onClose={onClose}
-      maxWidth="max-w-2xl"
+      maxWidth="max-w-3xl"
       footer={<>
         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-        <Button type="submit" form="ff-stock-disaster-form" isLoading={isSubmitting} disabled={isSubmitting}>Log Disaster</Button>
+        <Button type="submit" form="ff-stock-disaster-form" isLoading={isSubmitting} disabled={isSubmitting || stocks === null}>Log Disaster</Button>
       </>}
     >
-      <form id="ff-stock-disaster-form" onSubmit={handleSubmit} className="space-y-4">
-        <div className="rounded-xl border border-green-200 bg-[#f0f7f0] px-3 py-2 text-sm" data-testid="affected-stock">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-[#1E4620]">Affected Stock</p>
-          <p className="font-medium text-slate-800">{record.species_name || 'Stock'}{record.production_cycle_name ? ` · ${record.production_cycle_name}` : ''}</p>
-          <p className="text-xs text-slate-500">
-            {[
-              record.date_stocked && `Stocked ${fmtLong(record.date_stocked)}`,
-              record.pond_location_barangay,
-              record.organization_name,
-              record.area_hectares && `${parseFloat(record.area_hectares)} ha stocked`,
-            ].filter(Boolean).join(' · ')}
-          </p>
-        </div>
+      <form id="ff-stock-disaster-form" onSubmit={handleSubmit} className="space-y-4" noValidate>
+        <FormField label="Affected Stock" required>
+          <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Affected stock">
+            <label className={radioCls(mode === LINKED)}>
+              <input type="radio" name="disaster-link" className="mt-0.5" checked={mode === LINKED} onChange={() => setMode(LINKED)} />
+              <span>One or more stocks</span>
+            </label>
+            <label className={radioCls(mode === NOT_LINKED)}>
+              <input type="radio" name="disaster-link" className="mt-0.5" checked={mode === NOT_LINKED}
+                onChange={() => { setMode(NOT_LINKED); setSelectedIds([]); setUnitsByStock({}); setLosses({}) }} />
+              <span>Not linked to a stock (pond, cage or equipment damage only)</span>
+            </label>
+          </div>
+          {mode === LINKED && (
+            <div className="mt-2">
+              {stocks === null ? <p className="text-xs text-slate-500">Loading stocks…</p>
+                : allStocks.length === 0 ? <p className="text-xs text-slate-500">No active stocks to choose from — choose “Not linked to a stock”.</p>
+                  : <StockPicker stocks={allStocks} selectedIds={selectedIds} onToggle={toggleStock} />}
+            </div>
+          )}
+        </FormField>
+
+        {mode === LINKED && groups.length > 0 && (
+          <FingerlingsLostTable groups={groups} values={losses} onChange={changeLoss} showErrors={showErrors} />
+        )}
 
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField label="Date of Occurrence" required>
             <input type="date" className={baseInputClasses} required value={form.date_of_occurrence}
-              max={todayLocal()} min={dateStocked || undefined}
+              max={todayLocal()} min={latestStocked || undefined}
               onChange={e => set('date_of_occurrence', e.target.value)} />
           </FormField>
           <FormField label="Disaster Type" required>
@@ -154,18 +433,6 @@ export default function FisherfolkStockDisasterModal({ record, onClose, onSaved 
                 onChange={e => set('disaster_type_other_specify', e.target.value)}
                 placeholder="Specify disaster type" maxLength={150} required />
             )}
-          </FormField>
-          <FormField label="Area Affected (ha)" required>
-            <DecimalInput decimals={4} max={maxArea} className={baseInputClasses}
-              value={form.area_affected_ha}
-              onChange={v => setForm(f => ({
-                ...f,
-                area_affected_ha: v,
-                // Total Loss needs the whole area: typing anything else switches it off
-                is_total_loss: f.is_total_loss && (maxArea === null || Math.abs(parseFloat(v) - maxArea) < 0.00005),
-              }))}
-              placeholder={maxArea ? `0.01 – ${maxArea}` : 'e.g. 0.50'} />
-            {maxArea && <p className="mt-1 text-xs text-slate-400">Max: {maxArea} ha (total area stocked)</p>}
           </FormField>
           <FormField label="Volume Lost (kg)">
             <input type="number" step="0.01" min="0" className={baseInputClasses} value={form.volume_lost_kg}
@@ -181,23 +448,11 @@ export default function FisherfolkStockDisasterModal({ record, onClose, onSaved 
               inputClassName={baseInputClasses}
             />
           </FormField>
-          <FormField label="Description of Damage" required className="sm:col-span-2">
-            <textarea rows={3} className={`${baseInputClasses} resize-none`} required value={form.estimated_damage}
+          <FormField label="Description of Damage" className="sm:col-span-2">
+            <textarea rows={3} className={`${baseInputClasses} resize-none`} value={form.estimated_damage}
               onChange={e => set('estimated_damage', e.target.value)}
               placeholder="Describe the damage to the stock, pond/cage and equipment" />
           </FormField>
-          <label className={`flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-3 sm:col-span-2 ${isWholeArea ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}>
-            <input type="checkbox" checked={form.is_total_loss && isWholeArea} disabled={!isWholeArea}
-              onChange={e => set('is_total_loss', e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-rose-300 text-rose-600 focus:ring-rose-500" />
-            <span>
-              <span className="text-sm font-medium text-rose-800">Total loss — stock completely destroyed</span>
-              <span className="mt-0.5 block text-xs text-rose-500">This ends the production cycle. No harvest can be recorded.</span>
-              {!isWholeArea && (
-                <span className="mt-1 block text-xs text-slate-600">Available only when the whole area is affected{maxArea ? ` (${maxArea} ha)` : ''}.</span>
-              )}
-            </span>
-          </label>
           <div className="sm:col-span-2">
             <DamagePhotosField photosState={damagePhotos} />
           </div>

@@ -1,4 +1,6 @@
+import { Fragment } from 'react'
 import { InboxIcon } from 'lucide-react'
+import { rowClickProps } from '../../utils/rowClick.js'
 
 function SkeletonRow({ columnCount }) {
   return (
@@ -16,8 +18,19 @@ const isActionsColumn = (column) => /^actions?(_cell)?$/.test(column.key)
 const isBlank = (value) => value === undefined || value === null || value === ''
 
 // cardColumns: how many columns the phone cards use for their fields (1 = stacked, 2 = side by side).
-function DataTable({ columns, data, isLoading, loading, onRowClick, emptyState, cardColumns = 1 }) {
+// Optional, opt-in expandable rows (no effect when omitted): `expandedRowId` is the id of the open row;
+// `renderExpanded(row)` is drawn in a full-width row under it on desktop, `renderExpandedMobile(row)` inside
+// its card on phones (taps inside it never re-trigger onRowClick). `rowClickLabel(row)` labels the clickable row.
+function DataTable({
+  columns, data, isLoading, loading, onRowClick, emptyState, cardColumns = 1,
+  expandedRowId, renderExpanded, renderExpandedMobile, rowClickLabel,
+}) {
   const showLoading = isLoading || loading
+  const expandable = Boolean(renderExpanded || renderExpandedMobile)
+  const isExpanded = (row) => expandable && expandedRowId != null && row.id === expandedRowId
+  const clickProps = (row) => (onRowClick
+    ? { ...rowClickProps(() => onRowClick(row), rowClickLabel?.(row)), ...(expandable ? { 'aria-expanded': isExpanded(row) } : {}) }
+    : {})
 
   if (showLoading) {
     return (
@@ -76,7 +89,7 @@ function DataTable({ columns, data, isLoading, loading, onRowClick, emptyState, 
               onRowClick ? 'cursor-pointer hover:shadow-md hover:border-border-strong transition-[box-shadow,border-color] press-scale' : '',
             ].join(' ')}
             style={{ '--stagger-index': Math.min(rowIndex, 8) }}
-            onClick={() => onRowClick?.(row)}
+            {...clickProps(row)}
           >
             <div className={cardColumns === 2 ? 'grid grid-cols-2 gap-x-3 gap-y-2.5' : 'space-y-2'}>
               {columns.filter((column) => !isActionsColumn(column)).map((column) => (
@@ -93,9 +106,14 @@ function DataTable({ columns, data, isLoading, loading, onRowClick, emptyState, 
             {columns.filter((column) => isActionsColumn(column) && !isBlank(row[column.key]) && row[column.key] !== '—').map((column) => (
               <div key={column.key} className="mt-3 border-t border-border pt-3">{row[column.key]}</div>
             ))}
+            {isExpanded(row) && renderExpandedMobile && (
+              <div className="mt-3 cursor-default border-t border-border pt-3" data-no-row-click>
+                {renderExpandedMobile(row)}
+              </div>
+            )}
             {onRowClick && (
               <p className="mt-3 border-t border-border pt-2 text-[12px] font-medium text-primary">
-                Tap to view details →
+                {renderExpandedMobile ? (isExpanded(row) ? 'Tap to hide details ↑' : 'Tap to show details ↓') : 'Tap to view details →'}
               </p>
             )}
           </div>
@@ -120,21 +138,28 @@ function DataTable({ columns, data, isLoading, loading, onRowClick, emptyState, 
             </thead>
             <tbody>
               {data.map((row, rowIndex) => (
-                <tr
-                  className={[
-                    'stagger-item border-b border-border last:border-b-0 transition-colors hover:bg-surface-2',
-                    onRowClick ? 'cursor-pointer' : '',
-                  ].join(' ')}
-                  style={{ '--stagger-index': Math.min(rowIndex, 8) }}
-                  key={row.id || rowIndex}
-                  onClick={() => onRowClick?.(row)}
-                >
-                  {columns.map((column) => (
-                    <td className={`px-4 py-[13px] text-[13px] text-text-primary align-middle ${isActionsColumn(column) ? 'sticky right-0 bg-surface shadow-[-6px_0_6px_-6px_rgba(0,0,0,0.12)]' : ''}`} key={column.key}>
-                      {row[column.key] ?? ''}
-                    </td>
-                  ))}
-                </tr>
+                <Fragment key={row.id || rowIndex}>
+                  <tr
+                    className={[
+                      'stagger-item border-b border-border last:border-b-0 transition-colors hover:bg-surface-2',
+                      onRowClick ? 'cursor-pointer' : '',
+                      isExpanded(row) ? 'bg-surface-2' : '',
+                    ].join(' ')}
+                    style={{ '--stagger-index': Math.min(rowIndex, 8) }}
+                    {...clickProps(row)}
+                  >
+                    {columns.map((column) => (
+                      <td className={`px-4 py-[13px] text-[13px] text-text-primary align-middle ${isActionsColumn(column) ? 'sticky right-0 bg-surface shadow-[-6px_0_6px_-6px_rgba(0,0,0,0.12)]' : ''}`} key={column.key}>
+                        {row[column.key] ?? ''}
+                      </td>
+                    ))}
+                  </tr>
+                  {isExpanded(row) && renderExpanded && (
+                    <tr className="border-b border-border">
+                      <td colSpan={columns.length} className="p-0">{renderExpanded(row)}</td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>

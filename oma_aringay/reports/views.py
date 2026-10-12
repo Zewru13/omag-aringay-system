@@ -3079,7 +3079,7 @@ class FisheriesYieldAnalysisReport(APIView):
                 a['fisherfolk'],
                 a['barangay'],
                 a['culture_type'],
-                a['production_cycle_no'],
+                a['production_cycle_no'] if a['production_cycle_no'] is not None else '—',
                 a['estimated_kg'] if a['estimated_kg'] is not None else '—',
                 a['actual_total_kg'],
                 f"{a['variance_pct']:+.2f}%" if a['variance_pct'] is not None else '—',

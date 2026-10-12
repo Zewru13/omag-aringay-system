@@ -1599,3 +1599,120 @@ class ForecastingHarvestTimingTests(ProductionCycleBase):
         self.estimate(27)
         row = self.row()
         self.assertEqual((row['actual_harvest_date'], row['actual_harvest_timing'], row['actual_harvest_timing_days']), (None, None, None))
+
+
+class StockingProductionUnitsTests(ProductionCycleOrganizationTests):
+    """GET /fisheries/stocking/<id>/production-units/: the Fisheries Monitoring expandable row - every pond/cage
+    of THIS record's cycle with its own recorded values; nothing split, guessed or counted twice."""
+
+    def units_of(self, rec, client=None):
+        r = (client or self.client).get(f'/api/fisheries/stocking/{rec.id}/production-units/')
+        self.assertEqual(r.status_code, 200)
+        return r.data['units']
+
+    def test_one_pond_cycle_lists_its_recorded_values(self):
+        cid = self.post(units=[{'length_m': 4, 'width_m': 2.5, 'fingerling_count': 1000}]).data['id']
+        rec = StockingRecord.objects.get(production_cycle_id=cid)
+        (u,) = self.units_of(rec)
+        self.assertEqual((u['label'], u['fingerling_count'], Decimal(u['length_m']), Decimal(u['width_m']), Decimal(u['size_sqm'])),
+                         ('Pond 1', 1000, Decimal('4'), Decimal('2.5'), Decimal('10')))
+        # The shared estimate formula on this unit's own fingerlings: 1000 x 80% x 0.25 kg.
+        self.assertEqual(Decimal(u['estimated_harvest_kg']), Decimal('200.00'))
+        self.assertEqual((u['actual_harvest_kg'], u['harvest_dates'], u['status']), (None, [], 'in_progress'))
+
+    def test_three_ponds_partial_force_harvest_is_per_unit(self):
+        cid, (p1, p2, p3), rec = self.force_cycle(3)
+        self.health(cid, production_unit=p1, observation='Bacterial Infection', mortality_count=0)
+        self.health(cid, production_unit=p2)
+        self.assertEqual(self.per_unit_harvest(rec, {p1: '12.50'}).status_code, 201)
+        units = self.units_of(rec)
+        self.assertEqual([u['id'] for u in units], [p1, p2, p3])
+        self.assertEqual([(u['label'], u['status'], u['actual_harvest_kg']) for u in units], [
+            ('Pond 1', 'force_harvested', '12.50'), ('Pond 2', 'awaiting_force_harvest', None), ('Pond 3', 'in_progress', None),
+        ])
+        self.assertEqual(units[0]['harvest_dates'], [str(date.today())])
+        self.assertEqual(units[1]['force_harvest_reasons'], ['Fish Mortality'])
+        rec.refresh_from_db()
+        self.assertNotEqual(rec.status, StockingRecord.Status.HARVESTED)      # one unit never closes the cycle
+        # Per-unit estimates sum to the record's estimate (same formula, same inputs) - no even split.
+        self.assertEqual(sum(Decimal(u['estimated_harvest_kg']) for u in units), rec.estimated_harvest_kg)
+
+    def test_cages_and_each_cycle_lists_only_its_own_units(self):
+        cage_cid = self.post(culture_system='Fishcage', units=self.units(10, 20)).data['id']
+        pond_cid = self.post(units=self.units(30)).data['id']
+        cages = self.units_of(StockingRecord.objects.get(production_cycle_id=cage_cid))
+        ponds = self.units_of(StockingRecord.objects.get(production_cycle_id=pond_cid))
+        self.assertEqual([u['label'] for u in cages], ['Cage 1', 'Cage 2'])
+        self.assertEqual([u['id'] for u in cages], self.unit_ids(cage_cid))
+        self.assertEqual([u['label'] for u in ponds], ['Pond 1'])
+
+    def test_each_unit_estimate_follows_its_own_fingerlings(self):
+        # Record Harvest shows these per-unit estimates under each Actual Harvest input (normal and Force).
+        cid = self.post(culture_system='Fishcage', units=self.units(100, 250, 40)).data['id']
+        rec = StockingRecord.objects.get(production_cycle_id=cid)
+        units = self.units_of(rec)
+        # fingerlings x 80% survival x 0.25 kg - each cage its own value, never the cycle total repeated.
+        self.assertEqual([(u['label'], Decimal(u['estimated_harvest_kg'])) for u in units],
+                         [('Cage 1', Decimal('20.00')), ('Cage 2', Decimal('50.00')), ('Cage 3', Decimal('8.00'))])
+        self.assertEqual(rec.estimated_harvest_kg, Decimal('78.00'))           # cycle estimate unchanged
+
+    def test_fully_harvested_cycle_keeps_each_units_kg_and_date(self):
+        cid, (p1, p2), rec = self.force_cycle(2)
+        self.past_half(rec)
+        self.assertEqual(self.per_unit_harvest(rec, {p1: '7.00', p2: '9.25'}).status_code, 201)
+        rec.refresh_from_db()
+        self.assertEqual(rec.status, StockingRecord.Status.HARVESTED)
+        units = self.units_of(rec)
+        self.assertEqual([(u['status'], u['actual_harvest_kg'], u['harvest_dates']) for u in units],
+                         [('harvested', '7.00', [str(date.today())]), ('harvested', '9.25', [str(date.today())])])
+
+    def test_combined_older_harvest_is_not_split(self):
+        from fisheries.models import FisheriesHarvestRecord
+        cid, (p1, p2, p3), rec = self.force_cycle(3)
+        h = FisheriesHarvestRecord.objects.create(stocking_record=rec, harvest_date=date.today(), quantity_kg='21.50')
+        h.production_units.set([p1, p2])                                        # no per-unit kg rows
+        units = self.units_of(rec)
+        self.assertEqual([(u['actual_harvest_kg'], u['in_combined_harvest']) for u in units],
+                         [(None, True), (None, True), (None, False)])
+
+    def test_missing_values_are_null_not_invented(self):
+        from monitoring.models import AquacultureProductionUnit
+        cid, (p1,), rec = self.force_cycle(1)
+        AquacultureProductionUnit.objects.filter(pk=p1).update(length_m=None, width_m=None)   # legacy unit
+        StockingRecord.objects.filter(pk=rec.pk).update(survival_rate_pct=None)
+        (u,) = self.units_of(rec)
+        self.assertEqual((u['length_m'], u['width_m'], u['estimated_harvest_kg']), (None, None, None))
+        self.assertIsNotNone(u['size_sqm'])
+
+    def test_record_without_cycle_has_no_units(self):
+        rec = StockingRecord.objects.create(
+            fisherfolk=self.ff_a, species=self.species, culture_type='Pond', date_stocked=date.today(),
+            number_of_fingerlings=100, season='Dry', year=date.today().year,
+        )
+        r = self.client.get(f'/api/fisheries/stocking/{rec.id}/production-units/')
+        self.assertEqual((r.status_code, r.data['production_cycle'], r.data['units']), (200, None, []))
+
+    def test_fisherfolk_sees_only_their_own_records(self):
+        from accounts.models import UserLinkedRecord
+        User = get_user_model()
+        own_cid = self.post(units=self.units(10)).data['id']
+        other_cid = self.post(fisherfolk=self.ff_b.id, units=self.units(10)).data['id']
+        citizen = User.objects.create_user(username='ffa_citizen', password='pw', role='CITIZEN', email='ffa_citizen@x.test')
+        UserLinkedRecord.objects.create(user=citizen, record_type=User.LinkedRecordType.FISHERFOLK, record_id=self.ff_a.id, is_active=True)
+        self.client.force_authenticate(citizen)
+        self.assertEqual(len(self.units_of(StockingRecord.objects.get(production_cycle_id=own_cid))), 1)
+        other = StockingRecord.objects.get(production_cycle_id=other_cid)
+        self.assertEqual(self.client.get(f'/api/fisheries/stocking/{other.id}/production-units/').status_code, 404)
+        self.client.force_authenticate(None)
+        self.assertIn(self.client.get(f'/api/fisheries/stocking/{other.id}/production-units/').status_code, (401, 403))
+
+    def test_evaluator_reads_any_record_and_other_roles_are_refused(self):
+        # Fisheries Forecasting reuses this endpoint for Admin, Evaluator and Fisherfolk alike.
+        User = get_user_model()
+        rec = StockingRecord.objects.get(production_cycle_id=self.post(fisherfolk=self.ff_b.id, units=self.units(10, 20)).data['id'])
+        evaluator = User.objects.create_user(username='eval1', password='pw', role='EVALUATOR', email='eval1@x.test')
+        self.client.force_authenticate(evaluator)
+        self.assertEqual(len(self.units_of(rec)), 2)
+        plain_citizen = User.objects.create_user(username='plain1', password='pw', role='CITIZEN', email='plain1@x.test')
+        self.client.force_authenticate(plain_citizen)                       # not linked to any fisherfolk
+        self.assertEqual(self.client.get(f'/api/fisheries/stocking/{rec.id}/production-units/').status_code, 403)

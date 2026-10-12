@@ -16,6 +16,8 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import GroupedForecast from '../Forecasting/GroupedForecast.jsx'
 import { fmtActualHarvestKg } from '../FisheriesRecords/stockingHelpers.js'
+import { ProductionUnitsCards, ProductionUnitsTable } from '../FisheriesRecords/ProductionUnitsPanel.jsx'
+import useExpandableProductionUnits from '../FisheriesRecords/useExpandableProductionUnits.js'
 import AquacultureCycleDetailModal from './AquacultureCycleDetailModal.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -979,7 +981,7 @@ export default function ForecastingTab({ asTab = false }) {
             commodity: rec.species_name,
             landStatus: rec.land_status,
             dateField: rec.date_stocked,
-            status: rec.status,
+            status: rec.display_status || rec.status,   // same displayed status as the flat table (Late included)
             harvestDate: rec.final_harvest_date,
             variancePct,
             isTotalLoss: rec.status === 'Total Loss',
@@ -1024,8 +1026,14 @@ export default function ForecastingTab({ asTab = false }) {
   const fcFiltered = fcRecords
   const fcGroupedFiltered = fcGrouped
 
+  // Clicking a forecast row expands that stock's ponds/cages under it (one row at a time) - the same endpoint,
+  // hook and panel as Fisheries Monitoring.
+  const {
+    expandedId: fcExpandedId, unitsState: fcUnitsState, toggle: toggleFcRow, retry: retryFcUnits,
+  } = useExpandableProductionUnits(fcRecords)
+
   const FC_COLUMNS = [
-    { key: 'species_name',      label: 'SPECIES' },
+    { key: 'species_cell',      label: 'SPECIES' },
     { key: 'fisherfolk_name',   label: 'FISHERFOLK' },
     { key: 'culture_type',      label: 'CULTURE TYPE' },
     { key: 'stocked_cell',      label: 'DATE STOCKED' },
@@ -1034,11 +1042,23 @@ export default function ForecastingTab({ asTab = false }) {
     { key: 'actual_harvest_cell', label: 'ACTUAL HARVEST (KG)' },
     { key: 'harvest_date_cell', label: 'ESTIMATED HARVEST DATE' },
     { key: 'actual_harvest_date_cell', label: 'ACTUAL HARVEST DATE' },
-    { key: 'status',            label: 'STATUS' },
+    { key: 'status_cell',       label: 'STATUS' },
   ]
 
   const fcRows = fcFiltered.map(rec => ({
     ...rec,
+    _rec: rec,   // the untouched record for the row click / expanded panel
+    species_cell: (
+      <span className="inline-flex items-center gap-1.5">
+        {fcExpandedId === rec.id
+          ? <ChevronDown size={15} className="shrink-0 text-[#1B4D2E]" aria-hidden="true" />
+          : <ChevronRight size={15} className="shrink-0 text-[#7A8E7A]" aria-hidden="true" />}
+        <span>{rec.species_name}</span>
+      </span>
+    ),
+    // Same backend display_status as Fisheries Monitoring (Stocked / Near Harvest / Late from today's date;
+    // Harvested / Total Loss as stored). A completed harvest's own timing is the badge in Actual Harvest Date.
+    status_cell: rec.display_status || rec.status,
     stocked_cell: fmtMDY(rec.date_stocked),
     fingerlings_cell: rec.number_of_fingerlings ? Number(rec.number_of_fingerlings).toLocaleString() : '—',
     harvest_date_cell: fmtMDY(rec.expected_harvest_date),
@@ -1087,19 +1107,9 @@ export default function ForecastingTab({ asTab = false }) {
     })(),
   }))
 
-  // Clicking a forecast row (the Details column was retired) opens that stock's Production Cycle in the same
-  // AquacultureCycleDetailModal Fisheries Monitoring uses - looked up by the real production_cycle FK. A stock
-  // with no linked cycle opens its existing stocking forecast detail instead, never some other cycle.
+  // The cycle-details action lives in Fisheries Monitoring's expanded row only; nothing on this page opens
+  // these two modals at present (state kept so the existing modal wiring below stays intact).
   const [fcCycle, setFcCycle] = useState(null)
-  const openForecastRow = async (rec) => {
-    if (!rec.production_cycle) { setFcDetail(rec); return }
-    try {
-      const r = await api.get(`/monitoring/aquaculture-cycles/${rec.production_cycle}/`)
-      setFcCycle(r.data)
-    } catch (err) {
-      showToast(err?.response?.data?.detail || 'Failed to load production cycle.', 'error')
-    }
-  }
   const refreshFcCycle = async () => {
     if (!fcCycle) return
     try {
@@ -1192,7 +1202,7 @@ export default function ForecastingTab({ asTab = false }) {
             commodity: rec.species_name,
             landStatus: rec.land_status,
             dateField: rec.date_stocked,
-            status: rec.status,
+            status: rec.display_status || rec.status,   // same displayed status as the Forecast table
             harvestDate: rec.final_harvest_date,
             variancePct,
             isTotalLoss: rec.status === 'Total Loss',
@@ -1568,7 +1578,32 @@ export default function ForecastingTab({ asTab = false }) {
 
       {fcView === 'flat' ? (
         <>
-          <DataTable columns={FC_COLUMNS} data={fcRows} isLoading={fcLoading} onRowClick={openForecastRow} />
+          <DataTable
+            columns={FC_COLUMNS}
+            data={fcRows}
+            isLoading={fcLoading}
+            onRowClick={row => toggleFcRow(row._rec)}
+            rowClickLabel={row => `${fcExpandedId === row.id ? 'Hide' : 'Show'} ponds/cages: ${row.species_name || 'stock'}`}
+            expandedRowId={fcExpandedId}
+            renderExpanded={row => (
+              <ProductionUnitsTable
+                forecast
+                state={fcUnitsState(row.id)}
+                speciesName={row.species_name}
+                estimatedHarvestDate={row.expected_harvest_date}
+                onRetry={() => retryFcUnits(row.id)}
+              />
+            )}
+            renderExpandedMobile={row => (
+              <ProductionUnitsCards
+                forecast
+                state={fcUnitsState(row.id)}
+                speciesName={row.species_name}
+                estimatedHarvestDate={row.expected_harvest_date}
+                onRetry={() => retryFcUnits(row.id)}
+              />
+            )}
+          />
           <PaginationBar
             page={fcPage}
             totalCount={fcTotalCount}

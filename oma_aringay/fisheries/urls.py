@@ -49,6 +49,8 @@ from .views import (
     StockingHarvestDeleteView,
     StockingHarvestDetailView,
     StockingVarianceDetailsView,
+    StockingProductionUnitsView,
+    MultiStockDisasterReportCreateView,
     TripSpeciesEntryDeleteView,
     TripSpeciesEntryListCreateView,
 )
@@ -104,6 +106,7 @@ urlpatterns = [
     path('disasters/<int:pk>/resolve/', FisheriesDisasterResolveView.as_view(), name='fisheries-disaster-resolve'),
     path('disasters/<int:pk>/', StockingDisasterReportDeleteView.as_view(), name='fisheries-disaster-delete'),
     path('disaster-reports/', FisheriesDisasterReportListView.as_view(), name='fisheries-disaster-report-list'),
+    path('disaster-reports/stocks/', MultiStockDisasterReportCreateView.as_view(), name='fisheries-disaster-report-stocks-create'),
     path('disaster-reports/<int:pk>/', FisheriesDisasterReportDocumentView.as_view(), name='fisheries-disaster-report-detail'),
     path('disaster-reports/<int:pk>/pdf/', FisheriesDisasterReportPdfView.as_view(), name='fisheries-disaster-report-pdf'),
     path('stocking/<int:stocking_id>/harvests/', StockingHarvestListCreateView.as_view(), name='stocking-harvests'),
@@ -111,6 +114,7 @@ urlpatterns = [
     path('stocking/harvests/<int:id>/detail/', StockingHarvestDetailView.as_view(), name='stocking-harvest-detail'),
     path('stocking/<int:stocking_id>/suggestions/', FisheriesActivitySuggestionsView.as_view(), name='stocking-suggestions'),
     path('stocking/<int:pk>/variance-details/', StockingVarianceDetailsView.as_view(), name='stocking-variance-details'),
+    path('stocking/<int:pk>/production-units/', StockingProductionUnitsView.as_view(), name='stocking-production-units'),
 
     # ── Legacy Capture Fishing / Assistance (relocated from monitoring) ──────
     path('fishing-trips/', FishingTripLogListCreateView.as_view(), name='fishing-trip-list-create'),
