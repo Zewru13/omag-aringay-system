@@ -18,7 +18,9 @@ import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import AssistanceViewDialog from './AssistanceViewDialog.jsx'
-import ConfirmOnBehalfDialog from './ConfirmOnBehalfDialog.jsx'
+import ConfirmMembersDialog from './ConfirmMembersDialog.jsx'
+import { ConfirmActionBar, SelectCell, SelectHeader } from './OrgConfirmControls.jsx'
+import useConfirmSelection from './useConfirmSelection.js'
 import LogGovernmentAssistanceModal from './LogGovernmentAssistanceModal.jsx'
 import { FISHERFOLK_ORG_DOMAIN } from '../Citizen/orgDomainConfig.js'
 import DistributeAssistanceModal from './DistributeAssistanceModal.jsx'
@@ -71,6 +73,8 @@ const COLUMNS = [
   { key: 'status_cell',                                label: 'Status' },
   { key: 'actions_cell',                               label: 'Actions' },
 ]
+
+const NO_RECORDS = []
 
 const CONFIRM_COLUMNS = [
   { key: 'date_received_fmt',   label: 'Date Given' },
@@ -364,6 +368,8 @@ export default function FisheriesAssistancePage({ asTab = false }) {
   const [year, setYear] = useState('')
   const initialTab = searchParams.get('tab')
   const [view, setView] = useState((initialTab === 'needs-follow-up' && !isOrg) || (initialTab === 'confirm' && isOrg) ? initialTab : 'all')
+  // The members picked on the organization's Confirm for Members list.
+  const selection = useConfirmSelection(isOrg && view === 'confirm' ? assistance : NO_RECORDS)
   const [showLog, setShowLog] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [showDistribute, setShowDistribute] = useState(false)
@@ -423,6 +429,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
 
   const rows = useMemo(() => assistance.map((a) => ({
     ...a,
+    select_cell: <SelectCell record={a} name={a.fisherfolk_full_name} selection={selection} />,
     source_agency: (a.source_agencies || []).join(', '),
     quantity: a.quantity || '—',
     date_received_fmt: formatDate(a.date_given),
@@ -437,7 +444,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
     actions_cell: isOrg ? (
       a.latest_request_status === 'PENDING' ? '—' : (
         <RowActions inline actions={[
-          { key: 'confirm', label: 'Confirm for Member', icon: UserCheck, onClick: () => setConfirmingOnBehalf(a) },
+          { key: 'confirm', label: 'Confirm for Member', icon: UserCheck, onClick: () => setConfirmingOnBehalf([a]) },
         ]} />
       )
     ) : isFisherfolk ? (
@@ -455,14 +462,14 @@ export default function FisheriesAssistancePage({ asTab = false }) {
         a.status === 'NOT_RECEIVED' && { key: 'resolve', label: 'Mark Resolved', icon: CheckCircle2, tone: 'default', onClick: () => setResolving(a) },
       ]} />
     ),
-  })), [assistance, isFisherfolk, isOrg, confirmReceived])
+  })), [assistance, isFisherfolk, isOrg, confirmReceived, selection])
 
   const totalQuantity = useMemo(
     () => assistance.reduce((sum, a) => sum + (parseFloat(a.quantity) || 0), 0),
     [assistance],
   )
 
-  const tableColumns = isOrg ? CONFIRM_COLUMNS : COLUMNS
+  const tableColumns = isOrg ? [{ key: 'select_cell', label: 'Select', headerNode: <SelectHeader selection={selection} records={assistance} /> }, ...CONFIRM_COLUMNS] : COLUMNS
 
   const innerContent = (
     <div className="space-y-4">
@@ -556,6 +563,9 @@ export default function FisheriesAssistancePage({ asTab = false }) {
         </div>
       )}
 
+      {isOrg && !error && !isLoading && (
+        <ConfirmActionBar selection={selection} records={assistance} onConfirm={() => setConfirmingOnBehalf(selection.selectedRecords)} />
+      )}
       {error ? <ErrorMessage message={error} /> : <DataTable columns={tableColumns} data={rows} isLoading={isLoading} cardColumns={2} />}
       </>
       )}
@@ -595,13 +605,12 @@ export default function FisheriesAssistancePage({ asTab = false }) {
         />
       )}
       {confirmingOnBehalf && (
-        <ConfirmOnBehalfDialog
-          url={FISHERFOLK_ORG_DOMAIN.confirmOnBehalfUrl(confirmingOnBehalf.id)}
-          memberName={confirmingOnBehalf.fisherfolk_full_name}
-          assistanceLabel={confirmingOnBehalf.assistance_type || 'Assistance'}
-          previousRejection={confirmingOnBehalf.latest_request_status === 'REJECTED' ? confirmingOnBehalf.latest_request_reason : ''}
+        <ConfirmMembersDialog
+          url={FISHERFOLK_ORG_DOMAIN.confirmOnBehalfBulkUrl}
+          records={confirmingOnBehalf}
+          nameOf={(r) => r.fisherfolk_full_name}
           onClose={() => setConfirmingOnBehalf(null)}
-          onDone={() => { setConfirmingOnBehalf(null); fetchAssistance() }}
+          onDone={() => { setConfirmingOnBehalf(null); selection.clear(); fetchAssistance() }}
         />
       )}
       {viewing && !isOrg && !isFisherfolk && (

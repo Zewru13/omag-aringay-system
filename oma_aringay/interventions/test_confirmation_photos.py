@@ -225,17 +225,17 @@ class ConfirmationPhotoTests(APITestCase):
         return f'/api/interventions/fisherfolk-beneficiaries/{record.id}/confirm-on-behalf/'
 
     def test_on_behalf_farmer_and_fisherfolk_with_several_photos(self):
+        farmer_record, fisherfolk_record = self.awaiting_farmer_record(self.lonely_farmer), self.awaiting_fisherfolk_record()
         cases = [
-            (self.farm_org_user, self.farmer_url(self.awaiting_farmer_record(self.lonely_farmer)), BeneficiaryConfirmationRequest, FARMER_REQUEST_DIR),
-            (self.fish_org_user, self.fisherfolk_url(self.awaiting_fisherfolk_record()), FisherfolkBeneficiaryConfirmationRequest, FISHERFOLK_REQUEST_DIR),
+            (self.farm_org_user, self.farmer_url(farmer_record), farmer_record, BeneficiaryConfirmationRequest, FARMER_REQUEST_DIR),
+            (self.fish_org_user, self.fisherfolk_url(fisherfolk_record), fisherfolk_record, FisherfolkBeneficiaryConfirmationRequest, FISHERFOLK_REQUEST_DIR),
         ]
-        for user, url, model, folder in cases:
+        for user, url, record, model, folder in cases:
             self.client.force_authenticate(user)
             response = self.on_behalf(url, [('photos', png(f'o{i}.png')) for i in range(3)])
             self.assertEqual(response.status_code, 201, response.content)
-            self.assertEqual(len(response.json()['photo_urls']), 3)
-            self.assertIsNone(response.json()['photo_url'])
-            self.assertEqual(model.objects.get(pk=response.json()['id']).photos.count(), 3)
+            self.assertEqual(response.json()['confirmed'], 1)
+            self.assertEqual(model.objects.get(beneficiary_record=record).photos.count(), 3)
             self.assertEqual(len(self.files_in(folder)), 3)
 
     def test_on_behalf_with_too_many_or_a_bad_photo_creates_no_request(self):
@@ -253,10 +253,10 @@ class ConfirmationPhotoTests(APITestCase):
     def test_on_behalf_legacy_photo_is_a_row(self):
         self.client.force_authenticate(self.farm_org_user)
         # the older single field counts as one of the (at least two) proof photos
-        response = self.on_behalf(self.farmer_url(self.awaiting_farmer_record(self.lonely_farmer)),
-                                  [('photo', png('legacy.png')), ('photos', png('second.png'))])
+        record = self.awaiting_farmer_record(self.lonely_farmer)
+        response = self.on_behalf(self.farmer_url(record), [('photo', png('legacy.png')), ('photos', png('second.png'))])
         self.assertEqual(response.status_code, 201, response.content)
-        request = BeneficiaryConfirmationRequest.objects.get(pk=response.json()['id'])
+        request = BeneficiaryConfirmationRequest.objects.get(beneficiary_record=record)
         self.assertFalse(request.photo)
         self.assertEqual(request.photos.count(), 2)
 
@@ -279,7 +279,7 @@ class ConfirmationPhotoTests(APITestCase):
         self.assertEqual(BeneficiaryConfirmationRequestPhoto.objects.count(), 0)
         self.assertEqual(self.files_in(FARMER_REQUEST_DIR), [])
 
-    def test_a_second_pending_request_is_refused_and_adds_no_photos(self):
+    def test_a_second_confirmation_of_the_same_record_is_refused_and_adds_no_photos(self):
         self.client.force_authenticate(self.farm_org_user)
         record = self.awaiting_farmer_record(self.lonely_farmer)
         self.assertEqual(self.on_behalf(self.farmer_url(record), [('photos', png('a.png')), ('photos', png('a2.png'))]).status_code, 201)
@@ -288,8 +288,11 @@ class ConfirmationPhotoTests(APITestCase):
         self.assertEqual(BeneficiaryConfirmationRequestPhoto.objects.count(), 2)
 
     def test_staff_review_queue_shows_every_photo(self):
-        self.client.force_authenticate(self.farm_org_user)
-        self.on_behalf(self.farmer_url(self.awaiting_farmer_record(self.lonely_farmer)), [('photos', png('a.png')), ('photos', png('b.png'))])
+        # an older request still waiting for staff (new confirmations are final and never wait)
+        request = BeneficiaryConfirmationRequest.objects.create(
+            beneficiary_record=self.awaiting_farmer_record(self.lonely_farmer), submitted_by_organization=self.farm_org, submitted_by=self.farm_org_user)
+        for name in ('a.png', 'b.png'):
+            BeneficiaryConfirmationRequestPhoto.objects.create(confirmation_request=request, image=png(name), uploaded_by=self.farm_org_user)
         self.client.force_authenticate(self.staff)
         rows = self.client.get('/api/interventions/beneficiary-confirmation-requests/').json()
         self.assertEqual(len(rows[0]['photo_urls']), 2)

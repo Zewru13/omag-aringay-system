@@ -22,6 +22,7 @@ from core.notifications import notify_staff, notify_user, resolve_owner_user
 from core.photos import discard_uploaded_files, validated_photos
 from core.validators import validate_uploaded_image
 
+from . import org_confirmation
 from .lifecycle import advance_due_distributions, advance_due_distributions_for_org, notify_assistance_recorded
 from .models import (
     BeneficiaryConfirmationRequestPhoto, BeneficiaryRecordPhoto, FisherfolkBeneficiaryConfirmationRequestPhoto,
@@ -548,43 +549,8 @@ class FisherfolkBeneficiaryMarkResolvedView(APIView):
 # BeneficiaryRecord fields; mirrored per-domain, not one polymorphic model;
 # additive to DistributionStatus, not a new state in it).
 
-def _check_org_confirms_on_behalf_permission(request, org_linked_type, person_id):
-    """
-    Only a CITIZEN linked to `org_linked_type`, whose organization is the
-    ACTUAL current organization of `person_id`, may submit an on-behalf-of
-    confirmation. Deliberately NO ADMIN/EVALUATOR bypass, unlike
-    _check_recipient_permission's staff bypass above — staff already has an
-    unmediated way to confirm receipt directly (BeneficiaryConfirmReceivedView
-    lets ADMIN/EVALUATOR act as the recipient with no approval loop), so this
-    feature exists specifically to let an ORGANIZATION do what only staff
-    could do before, subject to admin review because the org is not the
-    actual recipient.
-    """
-    if request.user.role != 'CITIZEN' or request.user.linked_record_type != org_linked_type:
-        return Response({'detail': 'You do not have permission to perform this action.'}, status=403)
-    org_id = request.user.linked_record_id
-    if org_linked_type == 'FARMERS_ORG':
-        is_member = FarmersOrganizationMember.objects.filter(
-            farmer_id=person_id, organization_id=org_id, is_active=True,
-        ).exists()
-    else:
-        is_member = FisherfolkOrganizationMember.objects.filter(
-            fisherfolk_id=person_id, organization_id=org_id, is_active=True,
-        ).exists()
-    if not is_member:
-        return Response({'detail': 'You do not have permission to perform this action.'}, status=403)
-    return None
-
-
-# An organization vouches for a member it confirms for, so it must show proof: at least this many photos.
-MIN_ON_BEHALF_PHOTOS = 2
 # The most characters a rejection note can hold (BeneficiaryConfirmationRequest.rejection_reason).
 REJECTION_NOTE_MAX = 255
-
-
-def _require_proof_photos(photos):
-    if len(photos) < MIN_ON_BEHALF_PHOTOS:
-        raise ValidationError({'photos': [f'Add at least {MIN_ON_BEHALF_PHOTOS} photos as proof.']})
 
 
 def _required_rejection_note(request):
@@ -660,125 +626,40 @@ class MyOrgFisherfolkAccountlessConfirmablesView(generics.ListAPIView):
 
 class BeneficiaryConfirmOnBehalfView(APIView):
     """
-    An ORGANIZATION confirms receipt on behalf of a member who genuinely has
-    no working citizen account. Creates a PENDING BeneficiaryConfirmationRequest
-    for admin review rather than writing CONFIRMED directly — the org is not
-    the actual recipient, so this goes through the same pending-then-staff-
-    approval shape core.models.ProfileChangeRequest already established, not
-    straight to BeneficiaryConfirmReceivedView's immediate-confirm behavior.
+    An ORGANIZATION confirms receipt on behalf of one of its members who has no working citizen account. The
+    confirmation is final (no staff approval); the shared flow is in interventions.org_confirmation.
     """
     permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser]
+    parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request, pk):
-        record = get_object_or_404(BeneficiaryRecord.objects.select_related('farmer'), pk=pk)
-        denied = _check_org_confirms_on_behalf_permission(request, 'FARMERS_ORG', record.farmer_id)
-        if denied:
-            return denied
-        if record.status != DistributionStatus.AWAITING_CONFIRMATION:
-            return Response(
-                {'detail': f'This record is not awaiting confirmation (current status: {record.get_status_display()}).'},
-                status=400,
-            )
-        eligible_ids = accountless_or_unactivated_ids('FARMER', [record.farmer_id])
-        if record.farmer_id not in eligible_ids:
-            return Response(
-                {'detail': 'This beneficiary has a working account and must confirm receipt themselves.'},
-                status=400,
-            )
+        return Response(org_confirmation.confirm_for_members(request, 'crop', [pk]), status=drf_status.HTTP_201_CREATED)
 
-        photos = validated_photos(request, 'photos', legacy_field='photo', limit=BeneficiaryConfirmationRequestPhoto.MAX_PER_PARENT)
-        _require_proof_photos(photos)
 
-        written = []
-        try:
-            with transaction.atomic():
-                existing = list(
-                    BeneficiaryConfirmationRequest.objects.select_for_update().filter(
-                        beneficiary_record=record, status=BeneficiaryConfirmationRequest.Status.PENDING,
-                    )
-                )
-                if existing:
-                    return Response(
-                        {'detail': 'A confirmation request for this record is already pending admin review.'},
-                        status=400,
-                    )
-                req = BeneficiaryConfirmationRequest.objects.create(
-                    beneficiary_record=record,
-                    submitted_by_organization_id=request.user.linked_record_id,
-                    submitted_by=request.user,
-                )
-                for f in photos:
-                    row = BeneficiaryConfirmationRequestPhoto.objects.create(confirmation_request=req, image=f, uploaded_by=request.user)
-                    written.append(row.image.name)
-        except Exception:
-            discard_uploaded_files(written)
-            raise
+class BeneficiaryConfirmOnBehalfBulkView(APIView):
+    """Confirm several members' assistance at once with one set of proof photos (POST record_ids + photos)."""
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
 
-        notify_staff(
-            actor=request.user, verb='submitted an on-behalf-of confirmation for',
-            record_type='beneficiary_obo', record_id=req.id,
-            record_label=_beneficiary_label(record, record.farmer),
-        )
-        return Response(BeneficiaryConfirmationRequestSerializer(req, context={'request': request}).data, status=drf_status.HTTP_201_CREATED)
+    def post(self, request):
+        return Response(org_confirmation.confirm_for_members(request, 'crop'), status=drf_status.HTTP_201_CREATED)
 
 
 class FisherfolkBeneficiaryConfirmOnBehalfView(APIView):
     """Fisherfolk equivalent of BeneficiaryConfirmOnBehalfView above."""
     permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser]
+    parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request, pk):
-        record = get_object_or_404(FisherfolkBeneficiaryRecord.objects.select_related('fisherfolk'), pk=pk)
-        denied = _check_org_confirms_on_behalf_permission(request, 'FISHERFOLK_ORG', record.fisherfolk_id)
-        if denied:
-            return denied
-        if record.status != DistributionStatus.AWAITING_CONFIRMATION:
-            return Response(
-                {'detail': f'This record is not awaiting confirmation (current status: {record.get_status_display()}).'},
-                status=400,
-            )
-        eligible_ids = accountless_or_unactivated_ids('FISHERFOLK', [record.fisherfolk_id])
-        if record.fisherfolk_id not in eligible_ids:
-            return Response(
-                {'detail': 'This beneficiary has a working account and must confirm receipt themselves.'},
-                status=400,
-            )
+        return Response(org_confirmation.confirm_for_members(request, 'fisheries', [pk]), status=drf_status.HTTP_201_CREATED)
 
-        photos = validated_photos(request, 'photos', legacy_field='photo', limit=FisherfolkBeneficiaryConfirmationRequestPhoto.MAX_PER_PARENT)
-        _require_proof_photos(photos)
 
-        written = []
-        try:
-            with transaction.atomic():
-                existing = list(
-                    FisherfolkBeneficiaryConfirmationRequest.objects.select_for_update().filter(
-                        beneficiary_record=record, status=FisherfolkBeneficiaryConfirmationRequest.Status.PENDING,
-                    )
-                )
-                if existing:
-                    return Response(
-                        {'detail': 'A confirmation request for this record is already pending admin review.'},
-                        status=400,
-                    )
-                req = FisherfolkBeneficiaryConfirmationRequest.objects.create(
-                    beneficiary_record=record,
-                    submitted_by_organization_id=request.user.linked_record_id,
-                    submitted_by=request.user,
-                )
-                for f in photos:
-                    row = FisherfolkBeneficiaryConfirmationRequestPhoto.objects.create(confirmation_request=req, image=f, uploaded_by=request.user)
-                    written.append(row.image.name)
-        except Exception:
-            discard_uploaded_files(written)
-            raise
+class FisherfolkBeneficiaryConfirmOnBehalfBulkView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
 
-        notify_staff(
-            actor=request.user, verb='submitted an on-behalf-of confirmation for',
-            record_type='ff_beneficiary_obo', record_id=req.id,
-            record_label=_beneficiary_label(record, record.fisherfolk),
-        )
-        return Response(FisherfolkBeneficiaryConfirmationRequestSerializer(req, context={'request': request}).data, status=drf_status.HTTP_201_CREATED)
+    def post(self, request):
+        return Response(org_confirmation.confirm_for_members(request, 'fisheries'), status=drf_status.HTTP_201_CREATED)
 
 
 class BeneficiaryConfirmationRequestListView(generics.ListAPIView):

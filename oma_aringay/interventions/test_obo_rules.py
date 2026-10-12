@@ -44,6 +44,7 @@ class OnBehalfRulesTests(APITestCase):
         fish_record = FisherfolkBeneficiaryRecord.objects.create(fisherfolk=fisherfolk, assistance_type='Feed', date_given=date(2026, 8, 1), recorded_by=cls.staff)
         BeneficiaryRecord.objects.filter(pk=farm_record.pk).update(status=AWAITING)
         FisherfolkBeneficiaryRecord.objects.filter(pk=fish_record.pk).update(status=AWAITING)
+        cls.records = {'farmer': farm_record, 'fisherfolk': fish_record}
         # domain -> (organization account, confirm URL, review-queue base URL, request model, org's confirmables list)
         cls.domains = {
             'farmer': (cls.farm_user, f'/api/interventions/beneficiaries/{farm_record.id}/confirm-on-behalf/',
@@ -73,9 +74,10 @@ class OnBehalfRulesTests(APITestCase):
         return [('photos', png('a.png')), ('photos', png('b.png'))]
 
     def pending_request(self, domain):
-        response = self.submit(domain, self.two_photos())
-        self.assertEqual(response.status_code, 201, response.content)
-        return response.json()['id']
+        """A request still waiting for staff: new confirmations are final, but older ones can still be waiting."""
+        user, _, _, model, _ = self.domains[domain]
+        return model.objects.create(beneficiary_record=self.records[domain], submitted_by_organization_id=user.linked_record_id,
+                                    submitted_by=user).id
 
     def decide(self, domain, request_id, action, **body):
         self.client.force_authenticate(self.staff)
@@ -92,8 +94,10 @@ class OnBehalfRulesTests(APITestCase):
                 self.assertEqual(model.objects.count(), 0)
 
     def test_exactly_two_photos_is_enough(self):
-        for domain in self.domains:
-            self.assertEqual(len(self.submit(domain, self.two_photos()).json()['photo_urls']), 2, domain)
+        for domain, (_, _, _, model, _) in self.domains.items():
+            response = self.submit(domain, self.two_photos())
+            self.assertEqual(response.status_code, 201, domain)
+            self.assertEqual(model.objects.get(beneficiary_record=self.records[domain]).photos.count(), 2, domain)
 
     # ── a rejection needs a note, and the organization receives it ───────────
 

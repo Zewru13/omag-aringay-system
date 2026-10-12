@@ -5,6 +5,7 @@ from .views import (
     BeneficiaryAdHocListCreateView,
     BeneficiaryConfirmationRequestDecisionView,
     BeneficiaryConfirmationRequestListView,
+    BeneficiaryConfirmOnBehalfBulkView,
     BeneficiaryConfirmOnBehalfView,
     BeneficiaryConfirmReceivedView,
     BeneficiaryMarkResolvedView,
@@ -16,6 +17,7 @@ from .views import (
     FisherfolkBeneficiaryAdHocListCreateView,
     FisherfolkBeneficiaryConfirmationRequestDecisionView,
     FisherfolkBeneficiaryConfirmationRequestListView,
+    FisherfolkBeneficiaryConfirmOnBehalfBulkView,
     FisherfolkBeneficiaryConfirmOnBehalfView,
     FisherfolkBeneficiaryConfirmReceivedView,
     FisherfolkBeneficiaryMarkResolvedView,
@@ -155,6 +157,16 @@ urlpatterns = [
         'my-org-fisherfolk-accountless-confirmables/',
         MyOrgFisherfolkAccountlessConfirmablesView.as_view(),
         name='my-org-fisherfolk-accountless-confirmables',
+    ),
+    path(
+        'beneficiaries/confirm-on-behalf/',
+        BeneficiaryConfirmOnBehalfBulkView.as_view(),
+        name='beneficiaries-confirm-on-behalf-bulk',
+    ),
+    path(
+        'fisherfolk-beneficiaries/confirm-on-behalf/',
+        FisherfolkBeneficiaryConfirmOnBehalfBulkView.as_view(),
+        name='fisherfolk-beneficiaries-confirm-on-behalf-bulk',
     ),
     path(
         'beneficiaries/<int:pk>/confirm-on-behalf/',

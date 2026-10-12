@@ -20,7 +20,9 @@ import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import AssistanceViewDialog from './AssistanceViewDialog.jsx'
-import ConfirmOnBehalfDialog from './ConfirmOnBehalfDialog.jsx'
+import ConfirmMembersDialog from './ConfirmMembersDialog.jsx'
+import { ConfirmActionBar, SelectCell, SelectHeader } from './OrgConfirmControls.jsx'
+import useConfirmSelection from './useConfirmSelection.js'
 import DistributeAssistanceModal from './DistributeAssistanceModal.jsx'
 import OrgDistributionHistory from './OrgDistributionHistory.jsx'
 import { FARMERS_ORG_DOMAIN } from '../Citizen/orgDomainConfig.js'
@@ -69,6 +71,8 @@ const COLUMNS = [
   { key: 'status_cell',                   label: 'Status' },
   { key: 'actions_cell',                  label: 'Actions' },
 ]
+
+const NO_RECORDS = []
 
 const CONFIRM_COLUMNS = [
   { key: 'date_received_fmt', label: 'Date Given' },
@@ -625,6 +629,8 @@ export default function CropAssistancePage({ asTab = false }) {
   const [view, setView] = useState(
     (initialTab === 'needs-follow-up' && !isOrg) || (initialTab === 'upcoming' && isFarmer) || (initialTab === 'confirm' && isOrg) ? initialTab : 'all',
   )
+  // The members picked on the organization's Confirm for Members list.
+  const selection = useConfirmSelection(isOrg && view === 'confirm' ? records : NO_RECORDS)
   const [showAdd, setShowAdd] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [showDistribute, setShowDistribute] = useState(false)
@@ -683,6 +689,7 @@ export default function CropAssistancePage({ asTab = false }) {
 
   const rows = useMemo(() => records.map((r) => ({
     ...r,
+    select_cell: <SelectCell record={r} name={r.farmer_full_name} selection={selection} />,
     source_agency: (r.source_agencies || []).join(', '),
     date_received_fmt: formatDate(r.date_given),
     season_year_cell: [r.season, r.year].filter(Boolean).join(' '),
@@ -697,7 +704,7 @@ export default function CropAssistancePage({ asTab = false }) {
     actions_cell: isOrg ? (
       r.latest_request_status === 'PENDING' ? '—' : (
         <RowActions inline actions={[
-          { key: 'confirm', label: 'Confirm for Member', icon: UserCheck, onClick: () => setConfirmingOnBehalf(r) },
+          { key: 'confirm', label: 'Confirm for Member', icon: UserCheck, onClick: () => setConfirmingOnBehalf([r]) },
         ]} />
       )
     ) : isFarmer ? (
@@ -715,10 +722,10 @@ export default function CropAssistancePage({ asTab = false }) {
         r.status === 'NOT_RECEIVED' && { key: 'resolve', label: 'Mark Resolved', icon: CheckCircle2, tone: 'default', onClick: () => setResolving(r) },
       ]} />
     ),
-  })), [records, isFarmer, isOrg])
+  })), [records, isFarmer, isOrg, selection])
 
   const tableColumns = isOrg
-    ? CONFIRM_COLUMNS
+    ? [{ key: 'select_cell', label: 'Select', headerNode: <SelectHeader selection={selection} records={records} /> }, ...CONFIRM_COLUMNS]
     : isFarmer
       ? COLUMNS.filter((c) => !['farmer_full_name', 'recorded_by_name'].includes(c.key))
       : COLUMNS
@@ -782,6 +789,9 @@ export default function CropAssistancePage({ asTab = false }) {
         </select>
       </FilterPanel>
 
+      {isOrg && !error && !isLoading && (
+        <ConfirmActionBar selection={selection} records={records} onConfirm={() => setConfirmingOnBehalf(selection.selectedRecords)} />
+      )}
       {error ? <ErrorMessage message={error} /> : <DataTable columns={tableColumns} data={rows} isLoading={isLoading} cardColumns={2} />}
       </>
       )}
@@ -835,13 +845,12 @@ export default function CropAssistancePage({ asTab = false }) {
         />
       )}
       {confirmingOnBehalf && (
-        <ConfirmOnBehalfDialog
-          url={FARMERS_ORG_DOMAIN.confirmOnBehalfUrl(confirmingOnBehalf.id)}
-          memberName={confirmingOnBehalf.farmer_full_name}
-          assistanceLabel={confirmingOnBehalf.assistance_type || 'Assistance'}
-          previousRejection={confirmingOnBehalf.latest_request_status === 'REJECTED' ? confirmingOnBehalf.latest_request_reason : ''}
+        <ConfirmMembersDialog
+          url={FARMERS_ORG_DOMAIN.confirmOnBehalfBulkUrl}
+          records={confirmingOnBehalf}
+          nameOf={(r) => r.farmer_full_name}
           onClose={() => setConfirmingOnBehalf(null)}
-          onDone={() => { setConfirmingOnBehalf(null); fetchAll() }}
+          onDone={() => { setConfirmingOnBehalf(null); selection.clear(); fetchAll() }}
         />
       )}
       {viewing && !isFarmer && !isOrg && (

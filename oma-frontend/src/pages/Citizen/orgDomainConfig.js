@@ -162,6 +162,8 @@ export const FARMERS_ORG_DOMAIN = {
   // frontend trusts that entirely rather than re-deriving eligibility.
   accountlessConfirmablesUrl: '/interventions/my-org-accountless-confirmables/',
   confirmOnBehalfUrl: (recordId) => `/interventions/beneficiaries/${recordId}/confirm-on-behalf/`,
+  // Several members at once, one set of photos (the organization's Confirm for Members list).
+  confirmOnBehalfBulkUrl: '/interventions/beneficiaries/confirm-on-behalf/',
   confirmableName: (row) => row.farmer_full_name,
 }
 
@@ -223,5 +225,6 @@ export const FISHERFOLK_ORG_DOMAIN = {
   // farmers domain's own comment above.
   accountlessConfirmablesUrl: '/interventions/my-org-fisherfolk-accountless-confirmables/',
   confirmOnBehalfUrl: (recordId) => `/interventions/fisherfolk-beneficiaries/${recordId}/confirm-on-behalf/`,
+  confirmOnBehalfBulkUrl: '/interventions/fisherfolk-beneficiaries/confirm-on-behalf/',
   confirmableName: (row) => row.fisherfolk_full_name,
 }
