@@ -302,21 +302,28 @@ export function OrgProfilePage() {
         )}
 
         <section className={`${CARD} flex flex-wrap items-center gap-4 p-5`}>
-          <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border-2 bg-white text-[20px] font-semibold"
-            style={{ color: accent, borderColor: accent }}>
-            {logoUrl && !logoFailed
-              ? <img src={logoUrl} alt={`${name} logo`} className="h-full w-full object-cover" onError={() => setLogoFailed(true)} />
-              : name.trim()[0]?.toUpperCase()}
+          <div className="relative h-16 w-16 shrink-0">
+            <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-2xl border-2 bg-white text-[20px] font-semibold"
+              style={{ color: accent, borderColor: accent }}>
+              {logoUrl && !logoFailed
+                ? <img src={logoUrl} alt={`${name} logo`} className="h-full w-full object-cover" onError={() => setLogoFailed(true)} />
+                : name.trim()[0]?.toUpperCase()}
+            </div>
+            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFile} />
+            <button
+              type="button"
+              disabled={isUploading}
+              aria-label="Change logo"
+              onClick={() => fileRef.current?.click()}
+              className="press-scale absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white text-white shadow-md transition-transform hover:scale-105 disabled:opacity-50"
+              style={{ backgroundColor: accent }}
+            >
+              <Camera size={11} aria-hidden="true" />
+            </button>
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="break-words text-[17px] font-semibold text-text-primary">{name}</h2>
             <p className="mt-0.5 text-[13px] text-text-secondary">{typeBadge}</p>
-          </div>
-          <div className="w-full sm:w-auto">
-            <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleFile} />
-            <Button variant="outline" size="sm" icon={Camera} isLoading={isUploading} onClick={() => fileRef.current?.click()}>
-              Change logo
-            </Button>
           </div>
         </section>
 

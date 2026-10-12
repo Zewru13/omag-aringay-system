@@ -26,6 +26,7 @@ from fisheries.models import Fisherfolk
 from core.photos import discard_uploaded_files, validated_photos
 from .duplicates import find_active_duplicates, same_place
 from .naming import normalize_name
+from .schedule_rules import done_date as step_done_date, is_setup_stage, step_status
 from .dashboard_activity import (
     active_disaster_rows, barangay_rows, crop_activity_status,
     crop_yield_variance, fisheries_activity_status, not_received_count, sector_summary,
@@ -999,6 +1000,7 @@ class CropActivitySuggestionsView(APIView):
         planted = record.date_planted
         is_total_loss = record.status == CropMonitoringRecord.Status.TOTAL_LOSS
 
+        log_rows = [(l['activity_type'], l['date_of_activity'], l['target_day']) for l in activity_logs]
         suggestions = []
         # An estimated date_planted (see the field's own comment) has no real
         # relationship to when activities are actually due — every
@@ -1008,32 +1010,15 @@ class CropActivitySuggestionsView(APIView):
         if not is_total_loss and not record.date_planted_is_estimated:
             for stage in stages:
                 days_list = stage.application_days if stage.application_days else [stage.day_after_planting]
+                setup = is_setup_stage(stage)   # Land Preparation / Planting style: done once (see schedule_rules)
                 for occurrence_day in days_list:
                     due_date = planted + timedelta(days=occurrence_day) if planted else None
                     days_diff = occurrence_day - days_elapsed
 
-                    is_done = False
-                    done_date = None
-                    if due_date:
-                        window = stage.window_days
-                        for log in activity_logs:
-                            if log['activity_type'] != stage.stage_name:
-                                continue
-                            target_match = log.get('target_day') is not None and log['target_day'] == occurrence_day
-                            date_match = abs((log['date_of_activity'] - due_date).days) <= window
-                            if target_match or date_match:
-                                is_done = True
-                                done_date = log['date_of_activity'].isoformat()
-                                break
-
-                    if is_done:
-                        status = 'done'
-                    elif days_diff < -stage.window_days:
-                        status = 'overdue'
-                    elif abs(days_diff) <= stage.window_days:
-                        status = 'due_now'
-                    else:
-                        status = 'upcoming'
+                    done_on = step_done_date(stage.stage_name, occurrence_day, due_date, stage.window_days, log_rows, setup)
+                    is_done = done_on is not None
+                    done_date = done_on.isoformat() if done_on else None
+                    status = step_status(occurrence_day, days_elapsed, stage.window_days, is_done, setup)
 
                     suggestions.append({
                         'id': stage.id,
@@ -1190,7 +1175,7 @@ def _activity_completion(rec, stages_by_crop=None):
         stages = stages_by_crop.get(rec.crop_type_id, [])
     else:
         stages = CropActivityStage.objects.filter(crop_type_id=rec.crop_type_id).order_by('day_after_planting', 'id')
-    logs = list(rec.activity_logs.all())
+    log_rows = [(log.activity_type, log.date_of_activity, log.target_day) for log in rec.activity_logs.all()]
     planted = rec.date_planted
 
     total = 0
@@ -1200,20 +1185,11 @@ def _activity_completion(rec, stages_by_crop=None):
 
     for stage in stages:
         days_list = stage.application_days if stage.application_days else [stage.day_after_planting]
+        setup = is_setup_stage(stage)
         for occurrence_day in days_list:
             total += 1
             due_date = planted + timedelta(days=occurrence_day) if planted else None
-            is_done = False
-            if due_date:
-                window = stage.window_days
-                for log in logs:
-                    if log.activity_type != stage.stage_name:
-                        continue
-                    target_match = log.target_day is not None and log.target_day == occurrence_day
-                    date_match = log.date_of_activity is not None and abs((log.date_of_activity - due_date).days) <= window
-                    if target_match or date_match:
-                        is_done = True
-                        break
+            is_done = step_done_date(stage.stage_name, occurrence_day, due_date, stage.window_days, log_rows, setup) is not None
             if is_done:
                 completed += 1
             elif stage.priority == CropActivityStage.Priority.HIGH:

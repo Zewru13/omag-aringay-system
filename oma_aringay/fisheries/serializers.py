@@ -34,6 +34,7 @@ from .models import (
     TripSpeciesEntry,
     harvest_timing,
     production_cycle_numbers_bulk,
+    stocking_display_status,
     stocking_harvest_status_bulk,
 )
 
@@ -678,20 +679,23 @@ class FisheriesDisasterReportSerializer(DisasterReportSubmissionFieldsMixin, ser
             stocking_record = stocking_record or self.instance.stocking_record
             if area_affected_ha is None and 'area_affected_ha' not in data:
                 area_affected_ha = self.instance.area_affected_ha
-        if area_affected_ha is None:
-            raise serializers.ValidationError({'area_affected_ha': 'Area affected is required.'})
-        if area_affected_ha <= 0:
-            raise serializers.ValidationError({'area_affected_ha': 'Area affected must be greater than 0.'})
-        if stocking_record and stocking_record.area_hectares and area_affected_ha > stocking_record.area_hectares:
-            raise serializers.ValidationError({
-                'area_affected_ha': f'Area affected cannot exceed the {stocking_record.area_hectares} ha stocked.'
-            })
-        # A Total Loss means the whole stocked area is affected (compared as decimals, so 2 equals 2.00).
-        is_total_loss = data.get('is_total_loss', self.instance.is_total_loss if self.instance is not None else False)
-        if is_total_loss and stocking_record and stocking_record.area_hectares and area_affected_ha != stocking_record.area_hectares:
-            raise serializers.ValidationError({
-                'is_total_loss': f'Total Loss is only allowed when the whole area is affected ({stocking_record.area_hectares} ha).'
-            })
+        # Area Affected is no longer asked on the Fisheries Disaster form (the affected stocks and their
+        # ponds/cages identify the area), so it is optional; a value that IS sent is still checked. Older
+        # reports keep the value they were saved with.
+        if area_affected_ha is not None:
+            if area_affected_ha <= 0:
+                raise serializers.ValidationError({'area_affected_ha': 'Area affected must be greater than 0.'})
+            if stocking_record and stocking_record.area_hectares and area_affected_ha > stocking_record.area_hectares:
+                raise serializers.ValidationError({
+                    'area_affected_ha': f'Area affected cannot exceed the {stocking_record.area_hectares} ha stocked.'
+                })
+            # A Total Loss means the whole stocked area is affected (compared as decimals, so 2 equals 2.00). Only
+            # checked when an area was sent: the multi-stock log decides Total Loss per stock on the server.
+            is_total_loss = data.get('is_total_loss', self.instance.is_total_loss if self.instance is not None else False)
+            if is_total_loss and stocking_record and stocking_record.area_hectares and area_affected_ha != stocking_record.area_hectares:
+                raise serializers.ValidationError({
+                    'is_total_loss': f'Total Loss is only allowed when the whole area is affected ({stocking_record.area_hectares} ha).'
+                })
         return data
 
 
@@ -1076,6 +1080,9 @@ class StockingRecordSerializer(serializers.ModelSerializer):
     species_name     = serializers.CharField(source='species.species_name', read_only=True)
     category_name    = serializers.CharField(source='species.category.name', read_only=True)
     is_near_harvest  = serializers.SerializerMethodField()
+    # What the tables show: `status` with Stocked / Near Harvest / Late derived from today's date (see
+    # fisheries.models.stocking_display_status). `status` itself stays the stored completion status.
+    display_status   = serializers.SerializerMethodField()
     log_count        = serializers.SerializerMethodField()
     disaster_count   = serializers.SerializerMethodField()
     disaster_report_count = serializers.SerializerMethodField()
@@ -1123,7 +1130,7 @@ class StockingRecordSerializer(serializers.ModelSerializer):
             'water_source', 'water_source_other_specify', 'number_of_units', 'unit_dimensions',
             'fingerling_source', 'fingerling_source_other_specify', 'avg_fingerling_size',
             'culture_phase', 'culture_phase_other_specify', 'seed_cost_php',
-            'season', 'year', 'status',
+            'season', 'year', 'status', 'display_status',
             'expected_harvest_date', 'estimated_harvest_kg',
             'notes', 'recorded_by', 'date_recorded',
             'is_near_harvest', 'log_count', 'disaster_count', 'disaster_report_count',
@@ -1137,7 +1144,7 @@ class StockingRecordSerializer(serializers.ModelSerializer):
         read_only_fields = [
             'id', 'fisherfolk_name', 'pond_name', 'production_cycle_name', 'organization_name', 'species_name', 'category_name',
             'expected_harvest_date', 'estimated_harvest_kg',
-            'recorded_by', 'date_recorded',
+            'recorded_by', 'date_recorded', 'display_status',
             'is_near_harvest', 'log_count', 'disaster_count', 'disaster_report_count',
             'has_recovered_disaster', 'force_harvest', 'harvest_units',
             'total_harvested_kg', 'harvest_count', 'harvest_variance_days', 'actual_harvest_date',
@@ -1154,6 +1161,9 @@ class StockingRecordSerializer(serializers.ModelSerializer):
             delta = (obj.expected_harvest_date - date.today()).days
             return 0 <= delta <= 7
         return False
+
+    def get_display_status(self, obj):
+        return stocking_display_status(obj)
 
     def get_log_count(self, obj):
         return obj.logs.count()

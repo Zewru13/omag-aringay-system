@@ -949,14 +949,18 @@ function OrganizationDetailPage({ own = false }) {
     return officer ? officer.position : null;
   };
 
+  // The spinner covers the first load and a switch to another organization. A refresh after an action keeps the page
+  // on screen, so the tab you are working in (and which rows you had open) is not thrown away.
+  const loadedFor = useRef("");
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      setIsLoading(true);
+      const key = `${type}:${id}`;
+      if (loadedFor.current !== key) setIsLoading(true);
       setError("");
       try {
         const response = await api.get(`/organizations/${type}/${id}/`);
-        if (!cancelled) setOrganization(response.data);
+        if (!cancelled) { setOrganization(response.data); loadedFor.current = key; }
       } catch {
         if (!cancelled) setError("Unable to load organization details.");
       } finally {

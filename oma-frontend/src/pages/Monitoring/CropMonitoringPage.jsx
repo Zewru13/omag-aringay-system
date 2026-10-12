@@ -523,9 +523,11 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
   // activities and steps that are only upcoming; an activity whose steps are all done is left out (see
   // utils/activityPicker.js). The log being edited keeps its own activity selectable.
   const editingLogType = editingLogId ? (logs.find(l => l.id === editingLogId)?.activity_type || '') : ''
+  // Set-up work (Land Preparation, Planting) is done once: after a log of it exists it is not offered again.
+  const recordedActivities = useMemo(() => [...new Set(logs.map(l => l.activity_type))], [logs])
   const { suggested: suggestedActivityOptions, other: otherActivityOptions } = useMemo(
-    () => groupActivityOptions({ allTypes: activityTypeOptions, suggestions: scheduleSteps, editingType: editingLogType }),
-    [activityTypeOptions, scheduleSteps, editingLogType],
+    () => groupActivityOptions({ allTypes: activityTypeOptions, suggestions: scheduleSteps, editingType: editingLogType, recorded: recordedActivities }),
+    [activityTypeOptions, scheduleSteps, editingLogType, recordedActivities],
   )
 
   // Land-prep-style activities may be logged before date_planted; everything else may not.

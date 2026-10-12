@@ -6,7 +6,9 @@ function ConfirmDialog({
   danger = false, variant = 'danger', details = null,
   requireTypedConfirmation = false, typedConfirmationText = 'DELETE',
   showReasonInput = false, reasonValue = '', onReasonChange, reasonLabel = 'Reason (optional)',
-  reasonPlaceholder = '',
+  reasonPlaceholder = '', reasonMaxLength,
+  // Lets a caller hold the confirm button back (e.g. until a required reason is written).
+  confirmDisabled: holdConfirm = false,
   // Optional icon override — every existing caller omits these and keeps
   // today's amber AlertTriangle look. Added for non-destructive confirms
   // (e.g. "Confirm Save") that want a different icon/color, without forking
@@ -15,7 +17,7 @@ function ConfirmDialog({
 }) {
   const isDanger = danger || variant === 'danger'
   const [typedValue, setTypedValue] = useState('')
-  const confirmDisabled = requireTypedConfirmation && typedValue !== typedConfirmationText
+  const confirmDisabled = holdConfirm || (requireTypedConfirmation && typedValue !== typedConfirmationText)
 
   return (
     <div
@@ -53,6 +55,7 @@ function ConfirmDialog({
               rows={2}
               value={reasonValue}
               onChange={(e) => onReasonChange?.(e.target.value)}
+              maxLength={reasonMaxLength}
               className="mt-1 w-full px-3 py-2 text-[13px] rounded-lg border border-[#C8D5C8] focus:outline-none focus:ring-2 focus:ring-[#1B4D2E]/20 resize-none"
               placeholder={reasonPlaceholder}
             />

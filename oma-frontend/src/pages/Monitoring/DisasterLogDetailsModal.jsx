@@ -6,7 +6,8 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import {
-  FARMER_LOG, FISHERIES_LOG, allPhotoUrls, cropSections, downloadLog, fmtDateTime, printLog, reportSections,
+  FARMER_LOG, FISHERIES_LOG, allPhotoUrls, cropSections, downloadLog, fmtDateTime, lossTable, printLog, reportSections,
+  stocksTable,
 } from './disasterReportDocument.js'
 
 // Disaster Details (read-only) for a Fisheries log (kind="fisheries"; fisherfolk: their own, staff: any)
@@ -55,13 +56,35 @@ function Photos({ urls }) {
   )
 }
 
-function Paragraphs({ items }) {
-  if (!items.length) return <p className="text-[13px] italic text-slate-500">No description recorded.</p>
+function Paragraphs({ items, empty = 'No description recorded.' }) {
+  if (!items.length) return <p className="text-[13px] italic text-slate-500">{empty}</p>
   return items.map(t => <p key={t} className="whitespace-pre-wrap text-[13px] text-[#1A2B1A]">{t}</p>)
+}
+
+// A read-only data table (affected stocks / fingerlings lost); scrolls sideways on narrow screens.
+function TableBlock({ table, testId }) {
+  return (
+    <div className="overflow-x-auto rounded-lg border border-[#E2E8E2]" data-testid={testId}>
+      <table className="w-full min-w-[520px] text-[13px]">
+        <thead className="bg-[#F9FAF9] text-left text-[11px] uppercase tracking-wide text-[#7A8E7A]">
+          <tr>{table.head.map(h => <th key={h} className="px-2.5 py-1.5 font-semibold">{h}</th>)}</tr>
+        </thead>
+        <tbody>
+          {table.rows.map((r, i) => (
+            <tr key={i} className={`border-t border-[#F0F4F0] ${table.boldRows.has(i) ? 'bg-[#F9FAF9] font-semibold' : ''}`}>
+              {r.map((v, j) => <td key={j} className="px-2.5 py-1.5 text-[#1A2B1A]">{v}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
 }
 
 function FisheriesBody({ doc }) {
   const s = reportSections(doc)
+  const stocks = stocksTable(doc)
+  const losses = lossTable(doc)
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
@@ -76,7 +99,11 @@ function FisheriesBody({ doc }) {
       )}
       <Section title="Disaster Log"><Rows rows={s.header} /></Section>
       <Section title="Fisherfolk"><Rows rows={s.fisherfolk} /></Section>
+      {stocks && <Section title="Affected Stocks"><TableBlock table={stocks} testId="affected-stocks" /></Section>}
       {s.stock && <Section title="Affected Stock"><Rows rows={s.stock} /></Section>}
+      {losses && (
+        <Section title="Fingerlings Lost per Stock and Production Unit"><TableBlock table={losses} testId="fingerlings-lost" /></Section>
+      )}
       <Section title="Disaster Details"><Rows rows={s.details} /></Section>
       <Section title="Equipment Damaged">
         {doc.equipment_damaged.length ? (
@@ -84,7 +111,8 @@ function FisheriesBody({ doc }) {
         ) : <p className="text-[13px] italic text-slate-500">No equipment recorded as damaged.</p>}
       </Section>
       <Section title="Description of Damage">
-        <Paragraphs items={[doc.description, doc.production_loss && `Estimated production loss: ${doc.production_loss}`,
+        {/* Optional on the form: a blank description reads "Not provided." */}
+        <Paragraphs empty="Not provided." items={[doc.description, doc.production_loss && `Estimated production loss: ${doc.production_loss}`,
           doc.status === 'Recovered' && doc.recovery_note && `Recovery note: ${doc.recovery_note}`].filter(Boolean)} />
       </Section>
       <Photos urls={allPhotoUrls(doc)} />

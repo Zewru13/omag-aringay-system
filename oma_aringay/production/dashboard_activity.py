@@ -5,13 +5,13 @@ and per barangay. Both numbers already exist in the system, but only one record
 at a time: CropActivitySuggestionsView and the fisheries equivalent compute them
 inside a detail view. This module lifts that same rule to a whole queryset.
 
-IMPORTANT: the classification below is copied from those two views deliberately,
-not re-invented. If the rule ever changes there it must change here too, or the
-dashboard will disagree with the record screens it links to. The rule is:
+IMPORTANT: the classification is the same one the record screens use (production/schedule_rules.py),
+so the dashboard cannot disagree with them. The rule is:
 
     days_diff = occurrence_day - days_elapsed
-    done      -> a matching activity log exists
-    overdue   -> days_diff < -window_days
+    done      -> a matching activity log exists (a set-up step such as Land Preparation or Planting:
+                 any log of that activity, whenever it was done)
+    overdue   -> days_diff < -window_days   (a set-up step never recorded is not counted at all once its time has passed)
     due_now   -> abs(days_diff) <= window_days
     upcoming  -> otherwise
 
@@ -29,17 +29,10 @@ from datetime import datetime, time, timedelta
 from django.apps import apps
 from django.utils import timezone
 
+from .schedule_rules import done_date as step_done_date, is_setup_stage, step_status
+
 # Records that are finished or written off carry no outstanding activities.
 _CLOSED = ('Harvested', 'Total Loss')
-
-
-def _classify(occurrence_day, days_elapsed, window):
-    days_diff = occurrence_day - days_elapsed
-    if days_diff < -window:
-        return 'overdue'
-    if abs(days_diff) <= window:
-        return 'due_now'
-    return 'upcoming'
 
 
 def _blank():
@@ -47,7 +40,7 @@ def _blank():
 
 
 def _tally(records, stages_by_key, logs_by_record, *, key_attr, start_attr,
-           stage_day_attr, stage_name_attr, log_name_attr, barangay_attr):
+           stage_day_attr, stage_name_attr, log_name_attr, barangay_attr, is_setup=None):
     """Walk every open record once and bucket its outstanding activities.
 
     Returns (totals, by_barangay) where by_barangay maps barangay -> counts.
@@ -72,28 +65,18 @@ def _tally(records, stages_by_key, logs_by_record, *, key_attr, start_attr,
             days_list = stage.application_days or [getattr(stage, stage_day_attr)]
             window = stage.window_days
             stage_name = getattr(stage, stage_name_attr)
+            setup = bool(is_setup and is_setup(stage))   # crops: Land Preparation / Planting style, see schedule_rules
 
             for occurrence_day in days_list:
                 if occurrence_day is None:
                     continue
                 due_date = started + timedelta(days=occurrence_day)
 
-                # Same done-matching as the detail views: an explicit target_day
-                # hit, or any log of that activity inside the window.
-                done = False
-                for log_name, log_date, target_day in logs:
-                    if log_name != stage_name:
-                        continue
-                    if target_day is not None and target_day == occurrence_day:
-                        done = True
-                        break
-                    if log_date and abs((log_date - due_date).days) <= window:
-                        done = True
-                        break
-                if done:
+                # Same done-matching and classification as the detail views (schedule_rules).
+                done = step_done_date(stage_name, occurrence_day, due_date, window, logs, setup) is not None
+                status = step_status(occurrence_day, days_elapsed, window, done, setup)
+                if status in ('done', 'passed'):
                     continue
-
-                status = _classify(occurrence_day, days_elapsed, window)
                 bucket = 'due_today' if status == 'due_now' else status
                 totals[bucket] += 1
                 by_barangay[barangay][bucket] += 1
@@ -131,6 +114,7 @@ def crop_activity_status():
         key_attr='crop_type_id', start_attr='date_planted',
         stage_day_attr='day_after_planting', stage_name_attr='stage_name',
         log_name_attr='activity_type', barangay_attr='farm_location_barangay',
+        is_setup=is_setup_stage,
     )
 
 

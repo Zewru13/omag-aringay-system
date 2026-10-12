@@ -599,6 +599,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
           url={FISHERFOLK_ORG_DOMAIN.confirmOnBehalfUrl(confirmingOnBehalf.id)}
           memberName={confirmingOnBehalf.fisherfolk_full_name}
           assistanceLabel={confirmingOnBehalf.assistance_type || 'Assistance'}
+          previousRejection={confirmingOnBehalf.latest_request_status === 'REJECTED' ? confirmingOnBehalf.latest_request_reason : ''}
           onClose={() => setConfirmingOnBehalf(null)}
           onDone={() => { setConfirmingOnBehalf(null); fetchAssistance() }}
         />

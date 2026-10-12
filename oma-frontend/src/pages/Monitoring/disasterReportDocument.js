@@ -27,9 +27,41 @@ const keep = rows => rows.filter(([, v]) => v !== null && v !== undefined && v !
 
 // ─── Fisheries ────────────────────────────────────────────────────────────────
 
+// Fingerlings lost per stock and pond/cage of a multi-stock log (doc.fingerling_losses, totals summed by the
+// backend) as table rows: each stock's rows, its subtotal, then the overall total. null when there are none
+// (older logs and logs not linked to a stock).
+export function lossTable(doc) {
+  const groups = doc.fingerling_losses || []
+  if (!groups.length) return null
+  const num = v => (v === null || v === undefined ? null : fmtNumber(v))
+  const rows = []
+  const boldRows = new Set()
+  groups.forEach(g => {
+    g.rows.forEach(r => rows.push([g.label, r.unit_label, num(r.fingerlings_stocked) ?? '—',
+      num(r.fingerlings_lost) ?? 'Not recorded', r.is_total_loss ? 'Yes' : 'No']))
+    boldRows.add(rows.length)
+    rows.push([`Subtotal — ${g.label}`, '', '', num(g.total_lost) ?? '—', ''])
+  })
+  boldRows.add(rows.length)
+  rows.push(['TOTAL FINGERLINGS LOST', '', '', num(doc.fingerlings_lost_total) ?? '—', ''])
+  return { head: ['Stock', 'Production Unit', 'Fingerlings Stocked', 'Fingerlings Lost', 'Total Loss'], rows, boldRows }
+}
+
+// Several affected stocks: one row each (one stock keeps the detailed single-stock section).
+export function stocksTable(doc) {
+  const groups = doc.fingerling_losses || []
+  if (groups.length < 2) return null
+  return {
+    head: ['Stock', 'Stocking Date', 'Location', 'Fingerlings Stocked', 'Stock Status'],
+    rows: groups.map(g => [g.label, g.date_stocked ? `${fmtDate(g.date_stocked)}${g.date_stocked_is_estimated ? ' (estimated)' : ''}` : '—',
+      g.location || '—', fmtNumber(g.number_of_fingerlings) ?? '—', g.stock_status]),
+    boldRows: new Set(),
+  }
+}
+
 // The Fisheries log's sections as [label, value] rows (empty values dropped), for the details view and print.
 export function reportSections(doc) {
-  const stock = doc.affected_stock
+  const stock = (doc.fingerling_losses || []).length > 1 ? null : doc.affected_stock
   return {
     header: keep([
       ['Reference No.', doc.report_number],
@@ -84,18 +116,24 @@ function damageParagraphs(doc) {
 
 export function fisheriesPrintSpec(doc) {
   const s = reportSections(doc)
+  const stocks = stocksTable(doc)
+  const losses = lossTable(doc)
   return {
     title: 'FISHERFOLK DISASTER REPORT',
     reference: doc.report_number,
     header: s.header,
     sections: [
       { title: 'Fisherfolk', rows: s.fisherfolk },
+      ...(stocks ? [{ title: 'Affected Stocks', table: stocks }] : []),
       ...(s.stock ? [{ title: 'Affected Stock', rows: s.stock }] : []),
+      ...(losses ? [{ title: 'Fingerlings Lost per Stock and Production Unit', table: losses }] : []),
       { title: 'Disaster Details', rows: s.details },
       { title: 'Equipment Damaged', bullets: doc.equipment_damaged || [], empty: 'No equipment recorded as damaged.' },
-      { title: 'Description of Damage', paragraphs: damageParagraphs(doc), empty: 'No description recorded.' },
+      { title: 'Description of Damage', paragraphs: damageParagraphs(doc), empty: 'Not provided.' },
     ],
     photos: allPhotoUrls(doc),
+    photoTitle: 'Photo Documentation of Damage',
+    pageSize: 'A4',
   }
 }
 
@@ -149,23 +187,26 @@ export function cropPrintSpec(doc) {
 
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 const kvTable = rows => `<table class="kv">${rows.map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</table>`
-const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII']
+const dataTable = ({ head, rows, boldRows }) => `<table class="data"><thead><tr>${head.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${
+  rows.map((r, i) => `<tr${boldRows?.has(i) ? ' class="total"' : ''}>${r.map(v => `<td>${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table>`
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
 
 export function buildPrintHtml(spec) {
   let n = 0
   const section = (title, body) => `<section><h2>${ROMAN[n++]}. ${esc(title)}</h2>${body}</section>`
   const body = spec.sections.map((sec) => {
     if (sec.rows) return sec.rows.length ? section(sec.title, kvTable(sec.rows)) : ''
+    if (sec.table) return section(sec.title, dataTable(sec.table))
     if (sec.bullets) return section(sec.title, sec.bullets.length ? `<ul>${sec.bullets.map(b => `<li>${esc(b)}</li>`).join('')}</ul>` : `<p class="muted">${esc(sec.empty)}</p>`)
     return section(sec.title, sec.paragraphs.length ? sec.paragraphs.map(p => `<p class="pre">${esc(p)}</p>`).join('') : `<p class="muted">${esc(sec.empty)}</p>`)
   }).join('')
   const photos = spec.photos.length
-    ? section(`Photo Documentation (${spec.photos.length})`, `<div class="photos">${spec.photos.map((u, i) => `<figure><img src="${esc(u)}" alt="Damage photo ${i + 1}"></figure>`).join('')}</div>`)
+    ? section(`${spec.photoTitle || 'Photo Documentation'} (${spec.photos.length})`, `<div class="photos">${spec.photos.map((u, i) => `<figure><img src="${esc(u)}" alt="Damage photo ${i + 1}"></figure>`).join('')}</div>`)
     : ''
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>${esc(spec.title)} ${esc(spec.reference)}</title>
 <style>
-  @page { size: letter; margin: 16mm; }
+  @page { size: ${spec.pageSize === 'A4' ? 'A4' : 'letter'}; margin: 16mm; }
   * { box-sizing: border-box; }
   body { font-family: Helvetica, Arial, sans-serif; color: #0f172a; font-size: 11px; margin: 0; }
   header { text-align: center; border-bottom: 1px solid #cbd5e1; padding-bottom: 8px; margin-bottom: 10px; }
@@ -177,6 +218,11 @@ export function buildPrintHtml(spec) {
   table.kv { width: 100%; border-collapse: collapse; }
   table.kv th, table.kv td { border: 1px solid #cbd5e1; padding: 4px 6px; text-align: left; vertical-align: top; }
   table.kv th { width: 32%; color: #475569; background: #f8fafc; font-weight: bold; }
+  table.data { width: 100%; border-collapse: collapse; }
+  table.data th, table.data td { border: 1px solid #cbd5e1; padding: 3px 5px; text-align: left; vertical-align: top; }
+  table.data th { background: #f1f5f9; color: #334155; }
+  table.data tr.total td { font-weight: bold; background: #f8fafc; }
+  table.data tr { break-inside: avoid; }
   ul { margin: 0; padding-left: 18px; }
   .pre { white-space: pre-wrap; margin: 0 0 4px; }
   .muted { color: #64748b; font-style: italic; }
@@ -214,11 +260,15 @@ export function printSpec(spec) {
       fdoc.open()
       fdoc.write(buildPrintHtml(spec))
       fdoc.close()
-      const loaded = Array.from(fdoc.images).map(img => (img.complete ? Promise.resolve() : new Promise(done => {
-        img.addEventListener('load', done, { once: true })
+      // Print only once every image has loaded AND been decoded (a loaded-but-undecoded photo can print blank);
+      // a photo that fails still lets the rest print. Capped so a dead link can never block printing.
+      const ready = Array.from(fdoc.images).map(img => new Promise(done => {
+        const decode = () => (img.decode ? img.decode().catch(() => {}) : Promise.resolve()).then(done)
+        if (img.complete) { decode(); return }
+        img.addEventListener('load', decode, { once: true })
         img.addEventListener('error', done, { once: true })
-      })))
-      Promise.race([Promise.all(loaded), new Promise(done => setTimeout(done, 10000))]).then(() => {
+      }))
+      Promise.race([Promise.all(ready), new Promise(done => setTimeout(done, 20000))]).then(() => {
         try {
           frame.contentWindow.addEventListener('afterprint', cleanup, { once: true })
           frame.contentWindow.focus()
@@ -240,6 +290,29 @@ export const FISHERIES_LOG = {
   docUrl: id => `/fisheries/disaster-reports/${id}/`,
   pdfUrl: id => `/fisheries/disaster-reports/${id}/pdf/`,
   printSpec: fisheriesPrintSpec,
+  inlinePhotos: true,
+}
+
+// The SAVED photos of a log (their server URLs from the log document) embedded as data URLs, so the print
+// frame already holds every image before printing - nothing left to load from another host while the print
+// dialog opens. A photo that cannot be fetched keeps its URL (printed as before, never dropped).
+async function inlineImages(urls) {
+  return Promise.all(urls.map(async (url) => {
+    try {
+      const r = await fetch(url)
+      if (!r.ok) return url
+      const blob = await r.blob()
+      if (!blob.type.startsWith('image/')) return url
+      return await new Promise((resolve) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(reader.result)
+        reader.onerror = () => resolve(url)
+        reader.readAsDataURL(blob)
+      })
+    } catch {
+      return url
+    }
+  }))
 }
 export const FARMER_LOG = {
   docUrl: id => `/production/disaster-logs/${id}/`,
@@ -249,7 +322,9 @@ export const FARMER_LOG = {
 
 export async function printLog(kind, id, doc = null) {
   const data = doc || (await api.get(kind.docUrl(id))).data
-  await printSpec(kind.printSpec(data))
+  const spec = kind.printSpec(data)
+  if (kind.inlinePhotos && spec.photos.length) spec.photos = await inlineImages(spec.photos)
+  await printSpec(spec)
 }
 
 // Downloads the backend-generated PDF. Verifies it really is a PDF before saving; throws with the server's

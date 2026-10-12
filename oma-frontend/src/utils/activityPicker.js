@@ -3,11 +3,18 @@
 //
 //   suggested: scheduled activities that have a step due now or overdue and not yet done, earliest step first.
 //   other:     activities with no schedule for this crop, and scheduled ones whose remaining steps are only upcoming.
-//   hidden:    scheduled activities whose every step is done (unless that is the activity of the log being edited).
+//   hidden:    scheduled activities whose every step is done (unless that is the activity of the log being edited), and
+//              set-up work that is done once (Land Preparation, Planting) as soon as the crop has a log of it, with or
+//              without a schedule. A set-up step whose time has passed without a log ('passed') is not suggested but
+//              can still be picked, to log it late.
 //
 // The picker only guides: the server still accepts a repeated or early activity.
 
-export function groupActivityOptions({ allTypes, suggestions, editingType = '' }) {
+// Done once, before or at planting: once recorded, never offered again.
+const ONCE = ['Land Preparation', 'Planting']
+
+export function groupActivityOptions({ allTypes, suggestions, editingType = '', recorded = [] }) {
+  const alreadyDone = new Set(recorded || [])
   const stepsByName = new Map()
   for (const step of suggestions || []) {
     if (!stepsByName.has(step.activity_name)) stepsByName.set(step.activity_name, [])
@@ -18,6 +25,7 @@ export function groupActivityOptions({ allTypes, suggestions, editingType = '' }
   const suggested = []
   const other = []
   for (const name of names) {
+    if (ONCE.includes(name) && alreadyDone.has(name) && name !== editingType) continue
     const steps = stepsByName.get(name)
     if (!steps || steps.length === 0) { other.push(name); continue }
     const waiting = steps.filter((s) => s.status === 'due_now' || s.status === 'overdue')

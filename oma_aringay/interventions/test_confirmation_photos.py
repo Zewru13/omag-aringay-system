@@ -252,11 +252,13 @@ class ConfirmationPhotoTests(APITestCase):
 
     def test_on_behalf_legacy_photo_is_a_row(self):
         self.client.force_authenticate(self.farm_org_user)
-        response = self.on_behalf(self.farmer_url(self.awaiting_farmer_record(self.lonely_farmer)), [('photo', png('legacy.png'))])
+        # the older single field counts as one of the (at least two) proof photos
+        response = self.on_behalf(self.farmer_url(self.awaiting_farmer_record(self.lonely_farmer)),
+                                  [('photo', png('legacy.png')), ('photos', png('second.png'))])
         self.assertEqual(response.status_code, 201, response.content)
         request = BeneficiaryConfirmationRequest.objects.get(pk=response.json()['id'])
         self.assertFalse(request.photo)
-        self.assertEqual(request.photos.count(), 1)
+        self.assertEqual(request.photos.count(), 2)
 
     def test_on_behalf_failure_after_files_were_written_leaves_nothing(self):
         self.client.force_authenticate(self.farm_org_user)
@@ -280,10 +282,10 @@ class ConfirmationPhotoTests(APITestCase):
     def test_a_second_pending_request_is_refused_and_adds_no_photos(self):
         self.client.force_authenticate(self.farm_org_user)
         record = self.awaiting_farmer_record(self.lonely_farmer)
-        self.assertEqual(self.on_behalf(self.farmer_url(record), [('photos', png('a.png'))]).status_code, 201)
-        again = self.on_behalf(self.farmer_url(record), [('photos', png('b.png'))])
+        self.assertEqual(self.on_behalf(self.farmer_url(record), [('photos', png('a.png')), ('photos', png('a2.png'))]).status_code, 201)
+        again = self.on_behalf(self.farmer_url(record), [('photos', png('b.png')), ('photos', png('b2.png'))])
         self.assertEqual(again.status_code, 400)
-        self.assertEqual(BeneficiaryConfirmationRequestPhoto.objects.count(), 1)
+        self.assertEqual(BeneficiaryConfirmationRequestPhoto.objects.count(), 2)
 
     def test_staff_review_queue_shows_every_photo(self):
         self.client.force_authenticate(self.farm_org_user)
@@ -294,7 +296,7 @@ class ConfirmationPhotoTests(APITestCase):
 
     def test_report_counts_a_request_with_only_photo_rows(self):
         self.client.force_authenticate(self.farm_org_user)
-        self.on_behalf(self.farmer_url(self.awaiting_farmer_record(self.lonely_farmer)), [('photos', png('a.png'))])
+        self.on_behalf(self.farmer_url(self.awaiting_farmer_record(self.lonely_farmer)), [('photos', png('a.png')), ('photos', png('b.png'))])
         self.client.force_authenticate(self.staff)
         report = self.client.get('/api/reports/beneficiary-confirmations/?format=json').json()
         self.assertTrue(report['records'][0]['has_photo'])

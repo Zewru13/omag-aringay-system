@@ -21,7 +21,6 @@ import DisasterLogDetailsModal from './DisasterLogDetailsModal.jsx'
 import { FARMER_LOG, FISHERIES_LOG, downloadLog, fetchAllStocks, printLog } from './disasterReportDocument.js'
 import { FISHERFOLK_DISASTER_TYPES } from './fisheriesDisasterConstants.js'
 import FisherfolkStockDisasterModal from './FisherfolkStockDisasterModal.jsx'
-import LogFisheriesDisasterModal from './LogFisheriesDisasterModal.jsx'
 
 // ADMIN > DISASTER: one module, two use cases on the existing records (no new disaster models):
 //   Farmer Disaster    - every CropDisasterReport (GET /production/disaster-logs/); Log Disaster = choose a
@@ -165,7 +164,7 @@ function FisheriesDisasterTab({ openLog }) {
   const { rows, count, isLoading, error } = usePagedLogs('/fisheries/disaster-reports/',
     { search: debounced, barangay, disaster_type: type, status, year, page }, version)
   const [busyId, setBusyId] = useState(null)
-  const [step, setStep] = useState(null)   // {name:'person'} | {name:'record', person, options} | {name:'form', person, record}
+  const [step, setStep] = useState(null)   // {name:'person'} | {name:'form', person, stocks (null while loading)}
 
   const setFilter = (fn) => (v) => { fn(v); setPage(1) }
   const act = async (id, fn, failMsg) => {
@@ -173,21 +172,29 @@ function FisheriesDisasterTab({ openLog }) {
     try { await fn() } catch (err) { showToast(err?.message || failMsg, 'error') } finally { setBusyId(null) }
   }
 
+  // The same Log Disaster form a fisherfolk uses, with EVERY active stock of the chosen fisherfolk (all pages)
+  // - never another fisherfolk's; the backend checks that again on save.
   const choosePerson = async (person) => {
-    setStep({ name: 'record', person, options: null })
+    setStep({ name: 'form', person, stocks: null })
+    let stocks = []
     try {
-      const [stocks, eligibility] = await Promise.all([
+      const [loaded, eligibility] = await Promise.all([
         fetchAllStocks({ fisherfolk: person.id, status: 'Stocked,Near Harvest' }),
         api.get('/monitoring/fisherfolk-disasters/eligibility/', { params: { fisherfolk: person.id } }),
       ])
-      const blockedMessage = eligibility.data.can_log_disaster ? null : eligibility.data.message
-      setStep({ name: 'record', person, blockedMessage, options: stocks.map(s => ({
-        ...s, label: `${s.species_name || 'Stock'}${s.production_cycle_name ? ` · ${s.production_cycle_name}` : ''}${s.culture_phase ? ` — ${s.culture_phase}` : ''} — stocked ${fmtLong(s.date_stocked)}`,
-      })) })
+      if (!eligibility.data.can_log_disaster) {
+        // No pond, cage or stock on record: no disaster can be logged for this fisherfolk (the rule their own screen applies).
+        setStep(null)
+        showToast(eligibility.data.message, 'error')
+        return
+      }
+      stocks = loaded
     } catch {
-      showToast('Failed to load this fisherfolk\'s stocks.', 'error')
-      setStep({ name: 'record', person, options: [], blockedMessage: 'Could not check this fisherfolk for ponds or cages. Please try again.' })
+      showToast('Could not check this fisherfolk\'s ponds, cages and stocks. Please try again.', 'error')
+      setStep(null)
+      return
     }
+    setStep(prev => (prev?.name === 'form' && prev.person.id === person.id ? { ...prev, stocks } : prev))
   }
   const onLogged = (log) => { setStep(null); setVersion(v => v + 1); if (log?.id) openLog(log.id) }
 
@@ -240,17 +247,9 @@ function FisheriesDisasterTab({ openLog }) {
         <ChoosePersonModal title="Log Fisheries Disaster" label="Fisherfolk" searchUrl="/fisheries/fisherfolk/"
           onClose={() => setStep(null)} onChoose={choosePerson} />
       )}
-      {step?.name === 'record' && (
-        <ChooseRecordModal title="Log Fisheries Disaster" person={step.person} label="Affected Stock" options={step.options} allowGeneral={!step.blockedMessage} blockedMessage={step.blockedMessage}
-          onBack={() => setStep({ name: 'person' })} onClose={() => setStep(null)}
-          onChoose={(record) => setStep({ name: 'form', person: step.person, record })} />
-      )}
-      {step?.name === 'form' && step.record !== GENERAL && (
-        <FisherfolkStockDisasterModal record={{ ...step.record, fisherfolk_name: step.record.fisherfolk_name || step.person.full_name }}
+      {step?.name === 'form' && (
+        <FisherfolkStockDisasterModal stocks={step.stocks} fisherfolk={step.person}
           onClose={() => setStep(null)} onSaved={onLogged} />
-      )}
-      {step?.name === 'form' && step.record === GENERAL && (
-        <LogFisheriesDisasterModal fixedFisherfolk={step.person} onClose={() => setStep(null)} onSuccess={onLogged} />
       )}
     </div>
   )

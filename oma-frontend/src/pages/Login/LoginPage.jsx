@@ -1,16 +1,35 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   AlertCircle,
   CheckCircle2,
+  CloudLightning,
   Eye,
   EyeOff,
+  Fish,
+  HandHeart,
   Loader2,
+  Lock,
   MailWarning,
+  Sprout,
+  TriangleAlert,
+  User,
 } from "lucide-react";
 import api from "../../api/axiosInstance.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import logo from "../../assets/LOGO OMAg.jpg";
+import LoginArt from "./LoginArt.jsx";
+
+// What the system covers, shown beside the form so a first-time visitor knows where they are.
+const MODULES = [
+  { icon: Sprout, label: "Crop monitoring" },
+  { icon: Fish, label: "Fisheries" },
+  { icon: CloudLightning, label: "Disaster reports" },
+  { icon: HandHeart, label: "Assistance" },
+];
+
+const FIELD =
+  "w-full h-12 rounded-[var(--radius-sm)] border border-border-strong bg-surface pl-11 pr-3.5 text-[16px] split:text-[15px] text-text-primary placeholder:text-text-muted transition-[border-color,box-shadow] duration-150 focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/25 disabled:bg-surface-2";
 
 function LoginPage() {
   const navigate = useNavigate();
@@ -20,10 +39,23 @@ function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
+  const [capsOn, setCapsOn] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [errorCount, setErrorCount] = useState(0); // remounts the field so the shake plays on every failed attempt
   const [needsVerification, setNeedsVerification] = useState(false);
   const [resendState, setResendState] = useState("idle"); // idle | sending | sent | error
+  const passwordRef = useRef(null);
+
+  const fail = (message) => {
+    setError(message);
+    setErrorCount((n) => n + 1);
+    // A wrong password is retyped, not re-read: put the cursor back in the field with the old text selected.
+    requestAnimationFrame(() => {
+      passwordRef.current?.focus();
+      passwordRef.current?.select();
+    });
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -46,11 +78,11 @@ function LoginPage() {
         setNeedsVerification(true);
         setError(err.message);
       } else if (err.code === "citizen_not_activated" || err.code === "temp_password_expired") {
-        setError(err.message);
+        fail(err.message);
       } else if (err.status === undefined || err.status >= 500) {
-        setError("The server could not be reached or had a problem. This is not your password — please try again in a moment.");
+        fail("The server could not be reached or had a problem. This is not your password — please try again in a moment.");
       } else {
-        setError("Invalid email, username, or password. Please try again.");
+        fail("Invalid email, username, or password. Please try again.");
       }
     } finally {
       setLoading(false);
@@ -68,199 +100,187 @@ function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-bg flex items-stretch">
-      <div className="w-full max-w-5xl mx-auto my-auto grid grid-cols-1 md:grid-cols-[1.1fr_1fr] rounded-[var(--radius-lg)] overflow-hidden shadow-[var(--shadow-lg)] border border-border">
-        {/* Brand panel — institutional context, deliberate negative space */}
-        <div className="relative hidden md:flex flex-col justify-between bg-[color:var(--color-primary-deep)] px-10 py-12 overflow-hidden">
-          <svg
-            className="absolute -right-16 -bottom-20 opacity-[0.08]"
-            width="320"
-            height="320"
-            viewBox="0 0 320 320"
-            fill="none"
-            aria-hidden="true"
-          >
-            <path
-              d="M160 300V120"
-              stroke="#EBF5EE"
-              strokeWidth="6"
-              strokeLinecap="round"
-            />
-            <path
-              d="M160 160c0-55-42-88-96-92 4 52 42 96 96 100"
-              fill="#EBF5EE"
-            />
-            <path
-              d="M160 120c0-48 40-76 88-80-4 46-38 84-88 88"
-              fill="#EBF5EE"
-            />
-          </svg>
-
-          <div className="relative">
-            <img
-              src={logo}
-              alt="OMAg Aringay seal"
-              className="w-14 h-14 object-contain rounded-lg"
-            />
+    <div className="min-h-dvh bg-bg split:grid split:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)]">
+      {/* ── Brand panel (desktop) ───────────────────────────────────────── */}
+      <aside className="relative hidden overflow-hidden split:block">
+        <LoginArt className="absolute inset-0 h-full w-full" />
+        <div className="relative z-10 flex h-full min-h-dvh flex-col px-12 py-12 lg:px-16">
+          <div className="login-rise flex items-center gap-3" style={{ "--i": 0 }}>
+            <img src={logo} alt="" className="h-12 w-12 rounded-lg bg-white/95 object-contain p-0.5" />
+            <p className="text-[13px] font-medium tracking-wide text-white/80">Municipality of Aringay, La Union</p>
           </div>
 
-          <div className="relative">
-            <p className="font-display text-[30px] leading-[1.15] font-semibold text-white tracking-tight">
-              Integrated Agricultural Monitoring and Production Management
-              System
+          <div className="mt-16 max-w-md">
+            <h2 className="login-rise text-[44px] font-bold leading-[1.05] tracking-tight text-white lg:text-[52px]" style={{ "--i": 1 }}>
+              OMAg
+              <br />
+              Aringay
+            </h2>
+            <p className="login-rise mt-4 text-[15px] leading-relaxed text-white/80" style={{ "--i": 2 }}>
+              Integrated Agricultural Monitoring and Production Management System for the Office of the Municipal Agriculturist.
             </p>
-            <p className="mt-4 text-[13px] text-white/70 leading-relaxed max-w-sm">
-              Integrated Agricultural Monitoring and Production Management
-              System — tracking crop cycles, fisheries stocks, and disaster
-              response for the Office of the Municipal Agriculturist.
-            </p>
-          </div>
 
-          <p className="relative text-[12px] text-white/50">
-            Municipality of Aringay, La Union
-          </p>
+            <ul className="login-rise mt-8 grid grid-cols-2 gap-x-6 gap-y-3" style={{ "--i": 3 }}>
+              {MODULES.map(({ icon: Icon, label }) => (
+                <li key={label} className="flex items-center gap-2.5 text-[14px] text-white/90">
+                  <span className="flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-white/12">
+                    <Icon className="h-4 w-4" aria-hidden="true" />
+                  </span>
+                  {label}
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
+      </aside>
 
-        {/* Form panel */}
-        <div className="bg-surface px-6 py-10 sm:px-12 sm:py-14 flex flex-col justify-center">
-          <div className="md:hidden flex items-center gap-3 mb-8">
-            <img
-              src={logo}
-              alt="OMAg Aringay seal"
-              className="w-11 h-11 object-contain flex-shrink-0"
-            />
-            <div>
-              <p className="font-display text-[15px] font-semibold text-text-primary leading-tight">
-                OMAg Aringay
-              </p>
-              <p className="text-[11px] text-text-muted">La Union</p>
+      {/* ── Sign-in ─────────────────────────────────────────────────────── */}
+      <main className="flex min-h-dvh flex-col split:min-h-0 split:justify-center split:bg-surface">
+        {/* Phone: the picture becomes a short banner with the seal and name */}
+        <header className="relative h-[200px] flex-none overflow-hidden short:h-24 split:hidden">
+          <LoginArt variant="banner" className="absolute inset-0 h-full w-full" />
+          <div className="relative z-10 flex h-full items-start gap-3 px-6 pt-[max(1.5rem,env(safe-area-inset-top))]">
+            <img src={logo} alt="" className="h-11 w-11 flex-none rounded-lg bg-white/95 object-contain p-0.5" />
+            <div className="text-white">
+              <p className="text-[17px] font-bold leading-tight tracking-tight">OMAg Aringay</p>
+              <p className="text-[12px] text-white/75">Municipality of Aringay, La Union</p>
             </div>
           </div>
+        </header>
 
-          <h1 className="font-display text-[24px] font-semibold text-text-primary tracking-tight">
-            Sign in
-          </h1>
-          <p className="text-[13px] text-text-secondary mt-1 mb-8">
-            Enter your credentials to access the system.
-          </p>
+        <div className="relative z-10 -mt-7 flex-1 rounded-t-[28px] bg-surface px-6 pb-[max(2rem,env(safe-area-inset-bottom))] pt-8 shadow-[0_-8px_24px_rgba(22,51,24,0.12)] split:mt-0 split:flex-none split:rounded-none split:px-14 split:py-14 split:shadow-none lg:px-20">
+          <div className="mx-auto w-full max-w-[400px]">
+            <h1 className="login-rise text-[28px] font-bold leading-tight tracking-tight text-text-primary split:text-[32px]" style={{ "--i": 0 }}>
+              Sign in
+            </h1>
+            <p className="login-rise mt-1.5 text-[14px] leading-relaxed text-text-secondary" style={{ "--i": 1 }}>
+              Use the username or email OMAg gave you.
+            </p>
 
-          <form
-            onSubmit={handleSubmit}
-            className="stagger-item"
-            style={{ "--stagger-index": 0 }}
-          >
-            <label
-              htmlFor="login-email"
-              className="text-[13px] font-medium text-text-primary block mb-1.5"
-            >
-              Email or username
-            </label>
-            <input
-              id="login-email"
-              type="text"
-              autoComplete="username"
-              required
-              disabled={loading}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com or username"
-              className="w-full h-11 border border-border-strong bg-surface rounded-[var(--radius-sm)] px-3.5 text-[13px] mb-4 text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-            />
-
-            <label
-              htmlFor="login-password"
-              className="text-[13px] font-medium text-text-primary block mb-1.5"
-            >
-              Password
-            </label>
-            <div className="relative mb-5">
-              <input
-                id="login-password"
-                type={show ? "text" : "password"}
-                autoComplete="current-password"
-                required
-                disabled={loading}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
-                className="w-full h-11 border border-border-strong bg-surface rounded-[var(--radius-sm)] px-3.5 pr-11 text-[13px] text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-colors"
-              />
-              <button
-                type="button"
-                tabIndex={-1}
-                onClick={() => setShow((v) => !v)}
-                aria-label={show ? "Hide password" : "Show password"}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text-primary transition-colors w-7 h-7 flex items-center justify-center"
-              >
-                {show ? (
-                  <EyeOff className="w-4 h-4" aria-hidden="true" />
-                ) : (
-                  <Eye className="w-4 h-4" aria-hidden="true" />
-                )}
-              </button>
-            </div>
-
-            {error && !needsVerification && (
-              <div className="bg-[color:var(--color-semantic-critical-bg)] border border-[color:var(--color-semantic-critical)]/20 rounded-[var(--radius-sm)] px-3.5 py-2.5 text-[13px] text-[color:var(--color-semantic-critical)] mb-4 flex items-center gap-2">
-                <AlertCircle
-                  className="w-4 h-4 flex-shrink-0"
-                  aria-hidden="true"
-                />
-                {error}
-              </div>
-            )}
-
-            {needsVerification && (
-              <div className="bg-[color:var(--color-semantic-warning-bg)] border border-[color:var(--color-semantic-warning)]/25 rounded-[var(--radius-sm)] px-3.5 py-3 text-[13px] text-[color:var(--color-semantic-warning)] mb-4">
-                <div className="flex items-start gap-2">
-                  <MailWarning
-                    className="w-4 h-4 flex-shrink-0 mt-0.5"
-                    aria-hidden="true"
+            <form onSubmit={handleSubmit} className="mt-8" noValidate>
+              <div className="login-rise" style={{ "--i": 2 }}>
+                <label htmlFor="login-email" className="mb-1.5 block text-[13px] font-medium text-text-primary">
+                  Email or username
+                </label>
+                <div className="relative">
+                  <User className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-text-muted" aria-hidden="true" />
+                  <input
+                    id="login-email"
+                    type="text"
+                    inputMode="email"
+                    autoComplete="username"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    required
+                    disabled={loading}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    className={FIELD}
                   />
-                  <span>{error}</span>
                 </div>
-                {resendState === "sent" ? (
-                  <p className="mt-2 flex items-center gap-1.5 text-[color:var(--color-semantic-safe)] text-[12px] font-medium">
-                    <CheckCircle2 className="w-3.5 h-3.5" aria-hidden="true" />{" "}
-                    Verification email sent — check your inbox.
-                  </p>
-                ) : (
+              </div>
+
+              <div className="login-rise mt-5" style={{ "--i": 3 }}>
+                <label htmlFor="login-password" className="mb-1.5 block text-[13px] font-medium text-text-primary">
+                  Password
+                </label>
+                {/* key: a new failed attempt remounts the wrapper, which replays the one-time shake */}
+                <div key={errorCount} className={`relative ${errorCount > 0 && error ? "login-shake" : ""}`}>
+                  <Lock className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-text-muted" aria-hidden="true" />
+                  <input
+                    id="login-password"
+                    ref={passwordRef}
+                    type={show ? "text" : "password"}
+                    autoComplete="current-password"
+                    required
+                    disabled={loading}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    onKeyUp={(e) => setCapsOn(e.getModifierState?.("CapsLock") ?? false)}
+                    onBlur={() => setCapsOn(false)}
+                    placeholder="Password"
+                    aria-invalid={error && !needsVerification ? true : undefined}
+                    aria-describedby={capsOn ? "login-caps" : undefined}
+                    className={`${FIELD} pr-12`}
+                  />
                   <button
                     type="button"
-                    onClick={handleResend}
-                    disabled={resendState === "sending"}
-                    className="mt-2 text-[12px] font-semibold underline hover:no-underline disabled:opacity-60"
+                    onClick={() => setShow((v) => !v)}
+                    aria-label={show ? "Hide password" : "Show password"}
+                    aria-pressed={show}
+                    className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg text-text-muted transition-colors hover:text-text-primary focus-visible:outline-2 focus-visible:outline-primary"
                   >
-                    {resendState === "sending"
-                      ? "Resending…"
-                      : "Resend verification email"}
+                    {show ? (
+                      <EyeOff key="off" className="login-icon h-[18px] w-[18px]" aria-hidden="true" />
+                    ) : (
+                      <Eye key="on" className="login-icon h-[18px] w-[18px]" aria-hidden="true" />
+                    )}
                   </button>
-                )}
-                {resendState === "error" && (
-                  <p className="mt-1 text-[12px] text-[color:var(--color-semantic-critical)]">
-                    Could not resend. Please try again shortly.
+                </div>
+                {capsOn && (
+                  <p id="login-caps" className="mt-1.5 flex items-center gap-1.5 text-[12px] font-medium text-[color:var(--color-semantic-warning)]" role="status">
+                    <TriangleAlert className="h-3.5 w-3.5" aria-hidden="true" /> Caps Lock is on
                   </p>
                 )}
               </div>
-            )}
 
-            <button
-              type="submit"
-              disabled={loading || !email.trim() || !password}
-              className="press-scale w-full h-11 bg-primary hover:bg-primary-hover text-white font-semibold rounded-[var(--radius-sm)] text-[13px] shadow-sm hover:shadow-md transition-[background-color,box-shadow] flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
-            >
-              {loading && (
-                <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-              )}
-              Sign in
-            </button>
-          </form>
+              <div aria-live="polite">
+                {error && !needsVerification && (
+                  <div
+                    role="alert"
+                    className="login-error mt-5 flex items-start gap-2.5 rounded-[var(--radius-sm)] border border-[color:var(--color-semantic-critical)]/20 bg-[color:var(--color-semantic-critical-bg)] px-3.5 py-3 text-[13px] leading-snug text-[color:var(--color-semantic-critical)]"
+                  >
+                    <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                    {error}
+                  </div>
+                )}
 
-          <p className="text-center text-[11px] text-text-muted mt-8">
-            Authorized personnel only.
-          </p>
+                {needsVerification && (
+                  <div role="alert" className="login-error mt-5 rounded-[var(--radius-sm)] border border-[color:var(--color-semantic-warning)]/25 bg-[color:var(--color-semantic-warning-bg)] px-3.5 py-3 text-[13px] text-[color:var(--color-semantic-warning)]">
+                    <div className="flex items-start gap-2">
+                      <MailWarning className="mt-0.5 h-4 w-4 flex-shrink-0" aria-hidden="true" />
+                      <span>{error}</span>
+                    </div>
+                    {resendState === "sent" ? (
+                      <p className="mt-2 flex items-center gap-1.5 text-[12px] font-medium text-[color:var(--color-semantic-safe)]">
+                        <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> Verification email sent — check your inbox.
+                      </p>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleResend}
+                        disabled={resendState === "sending"}
+                        className="mt-2 min-h-8 text-[12px] font-semibold underline hover:no-underline disabled:opacity-60"
+                      >
+                        {resendState === "sending" ? "Resending…" : "Resend verification email"}
+                      </button>
+                    )}
+                    {resendState === "error" && (
+                      <p className="mt-1 text-[12px] text-[color:var(--color-semantic-critical)]">Could not resend. Please try again shortly.</p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading || !email.trim() || !password}
+                className="login-rise press-scale mt-6 flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-[var(--radius-sm)] bg-primary text-[15px] font-semibold text-white shadow-sm transition-[background-color,box-shadow,opacity] hover:bg-primary-hover hover:shadow-md disabled:pointer-events-none disabled:opacity-50"
+                style={{ "--i": 4 }}
+              >
+                {loading && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+                {loading ? "Signing in…" : "Sign in"}
+              </button>
+            </form>
+
+            <p className="login-rise mt-8 border-t border-border pt-5 text-[13px] leading-relaxed text-text-secondary" style={{ "--i": 5 }}>
+              Can&apos;t sign in? Ask the Office of the Municipal Agriculturist to check your account or reset your password.
+            </p>
+          </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

@@ -41,6 +41,7 @@ from .models import (
     FisheriesDisasterReport,
     FisheriesDisasterReportPhoto,
     FisheriesDisasterResponseRule,
+    FisheriesDisasterStockLoss,
     FisheriesHarvestRecord,
     Fisherfolk,
     FishingTripLog,
@@ -50,8 +51,10 @@ from .models import (
     SpeciesOption,
     StockingRecord,
     TripSpeciesEntry,
+    calculate_estimated_harvest_kg,
     harvest_timing,
     production_cycle_numbers_bulk,
+    stocking_display_status_q,
 )
 from .serializers import (
     DiseaseResponseGuideSerializer,
@@ -93,7 +96,7 @@ class FisherfolkListView(generics.ListCreateAPIView):
         return FisherfolkCreateSerializer if self.request.method == 'POST' else FisherfolkListSerializer
 
     def get_queryset(self):
-        from django.utils.timezone import now
+        from django.utils.timezone import localdate
         qs = scope_to_fisherfolk(Fisherfolk.objects.all(), self.request.user, 'id').order_by('-date_registered', '-id')
         params = self.request.query_params
         search = params.get('search', '').strip()
@@ -118,7 +121,7 @@ class FisherfolkListView(generics.ListCreateAPIView):
         if params.get('fisherfolk_type'):
             qs = qs.filter(fisherfolk_type__iexact=params['fisherfolk_type'])
         if params.get('is_senior') and params['is_senior'].lower() == 'true':
-            today = now().date()
+            today = localdate()   # the Manila calendar day, as in FarmerListView
             cutoff = today.replace(year=today.year - 60)
             qs = qs.filter(birthdate__lte=cutoff)
         if params.get('is_pwd') is not None:
@@ -511,8 +514,10 @@ class StockingListCreateView(generics.ListCreateAPIView):
         params = self.request.query_params
         raw_status = params.get('status', '')
         if raw_status:
+            # Filters on the DISPLAYED status (Stocked / Near Harvest / Late from the dates, see
+            # stocking_display_status), so a row and the filter that lists it always agree.
             statuses = [s.strip() for s in raw_status.split(',') if s.strip()]
-            qs = qs.filter(status__in=statuses)
+            qs = qs.filter(stocking_display_status_q(statuses))
         else:
             qs = qs.exclude(status__in=[
                 StockingRecord.Status.TOTAL_LOSS,
@@ -1091,6 +1096,72 @@ class StockingDisasterReportListCreateView(generics.ListCreateAPIView):
             )
 
 
+def _stock_losses_payload(request):
+    """`stock_losses` as a list: a JSON array in a JSON body, or a JSON-encoded string field in a multipart
+    body (which is how the form sends it alongside the photo files)."""
+    import json
+    raw = request.data.get('stock_losses')
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except ValueError:
+            raise ValidationError({'stock_losses': ['Invalid affected-stock data.']})
+    return raw
+
+
+class MultiStockDisasterReportCreateView(generics.CreateAPIView):
+    """POST /fisheries/disaster-reports/stocks/ - ONE disaster log covering one or more of a fisherfolk's
+    stocks, with the fingerlings lost (and Total Loss) per stock and pond/cage. Used by the fisherfolk's own
+    Log Disaster and by Admin/Evaluator logging on a fisherfolk's behalf (same form, same rules).
+
+    Owner: a fisherfolk citizen is always their own record (any `fisherfolk` sent is ignored); staff must
+    send `fisherfolk`. Every stock is checked against that owner (disaster_reports.plan_stock_losses) before
+    anything is saved. The report (stocking_record = the first stock, so every single-stock reader keeps
+    working), its loss rows, Total Loss on the closed stocks, the photos and the submission/notification
+    are ONE transaction - any failure leaves nothing behind. A stock-less (equipment only) log stays on
+    /monitoring/fisherfolk-disasters/."""
+    serializer_class = FisheriesDisasterReportSerializer
+    permission_classes = [IsAuthenticated, IsStaffOrFisherfolk]
+
+    def create(self, request, *args, **kwargs):
+        _check_fisherfolk_disaster_type(request)
+        owner_id = fisherfolk_scope(request.user)
+        if owner_id is None:   # staff: the fisherfolk being logged for
+            try:
+                owner_id = int(request.data.get('fisherfolk'))
+            except (TypeError, ValueError):
+                raise ValidationError({'fisherfolk': ['Select a fisherfolk.']})
+            if not Fisherfolk.objects.filter(pk=owner_id).exists():
+                raise ValidationError({'fisherfolk': ['Fisherfolk not found.']})
+        photos = _validated_damage_photos(request)
+        self._plan = disaster_reports.plan_stock_losses(owner_id, _stock_losses_payload(request))
+        primary = self._plan['stocks'][0]
+        data = {k: v for k, v in dict(_disaster_form_data(request)).items()
+                if k not in ('stock_losses', 'fisherfolk', 'is_total_loss', 'area_affected_ha')}
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        data, created = _create_disaster_with_photos(self, serializer, photos, owner_id, primary.id)
+        return Response(data, status=drf_status.HTTP_201_CREATED if created else drf_status.HTTP_200_OK)
+
+    def perform_create(self, serializer):
+        plan = self._plan
+        primary = plan['stocks'][0]
+        for s in plan['stocks']:
+            assert_not_locked_by_other(self.request.user, 'stocking', s.id)
+        # Report-level Total Loss only when EVERY affected stock was closed (it blocks "Mark Recovered").
+        all_closed = set(plan['closes']) == {s.id for s in plan['stocks']}
+        report = serializer.save(stocking_record=primary, reported_by=self.request.user, is_total_loss=all_closed)
+        disaster_reports.save_stock_losses(report, plan)
+        if is_fisherfolk_citizen(self.request.user):
+            return   # submitted to Admin (and Admin notified) by _create_disaster_with_photos
+        label = disaster_reports.affected_stocks_label(report)
+        notify_staff(actor=self.request.user, verb='reported a disaster on', record_type='stocking',
+                     record_id=primary.id, record_label=label, detail=report.disaster_type)
+        notify_user(recipient=resolve_owner_user(fisherfolk_id=primary.fisherfolk_id), actor=self.request.user,
+                    verb='reported a disaster on', record_type='stocking', record_id=primary.id,
+                    record_label=label, detail=report.disaster_type)
+
+
 class FisheriesDisasterResolveView(APIView):
     """
     Mark a disaster Recovered. Two paths:
@@ -1255,8 +1326,10 @@ def _create_disaster_with_photos(view, serializer, photos, owner_fisherfolk_id, 
     try:
         with transaction.atomic():
             disaster_reports.lock_owner(owner_fisherfolk_id)
+            plan = getattr(view, '_plan', None)   # multi-stock log: its loss rows are part of "the same log"
             existing = disaster_reports.find_recent_duplicate(
                 user, owner_fisherfolk_id, stocking_record_id, serializer.validated_data,
+                stock_loss_rows=plan['rows'] if plan else None,
             )
             if existing is not None:
                 return view.get_serializer(existing).data, False
@@ -1460,7 +1533,10 @@ class FisheriesDisasterReportListView(APIView):
                      | Q(stocking_record__fisherfolk__first_name__icontains=search)
                      | Q(stocking_record__fisherfolk__last_name__icontains=search)
                      | Q(stocking_record__species__species_name__icontains=search)
-                     | Q(disaster_type__icontains=search) | Q(disaster_type_other_specify__icontains=search))
+                     | Q(disaster_type__icontains=search) | Q(disaster_type_other_specify__icontains=search)
+                     # any affected stock of a multi-stock log (a subquery, so a log is never listed twice)
+                     | Q(pk__in=FisheriesDisasterStockLoss.objects.filter(
+                         stocking_record__species__species_name__icontains=search).values('disaster_report_id')))
             ref = search.upper().replace('FDR-', '').split('-')[-1]
             if is_plain_int(ref):
                 match |= Q(pk=int(ref))
@@ -1778,6 +1854,73 @@ class StockingVarianceDetailsView(APIView):
             'health_logs': health_rows,
             'feeding_logs': feeding_rows,
         })
+
+
+class StockingProductionUnitsView(APIView):
+    """Read-only rows for the Fisheries Monitoring expandable cycle row: every pond/cage of ONE stocking
+    record's production cycle with its dimensions, area, fingerlings, estimate, actual harvest, harvest
+    date and status. Everything comes from recorded data:
+      - unit fields from AquacultureProductionUnit;
+      - estimated kg = the shared calculate_estimated_harvest_kg() formula applied to the unit's OWN
+        fingerling_count with the record's survival rate / ABW (the same inputs as the record's estimate,
+        never an even split of it); None when an input is missing;
+      - actual kg = the unit's own FisheriesHarvestUnit rows; a unit inside an older combined harvest has
+        no own kg (None + in_combined_harvest) - no split is invented;
+      - status from StockingRecord.harvest_units() rules.
+    A fisherfolk citizen can open only their own records (another id is a 404)."""
+    permission_classes = [IsAuthenticated, IsStaffOrFisherfolk]
+
+    def get(self, request, pk):
+        from monitoring.models import AquacultureProductionUnit
+        rec = get_object_or_404(scope_to_fisherfolk(StockingRecord.objects.all(), request.user), pk=pk)
+        if not rec.production_cycle_id:
+            return Response({'stocking_record': rec.id, 'production_cycle': None, 'units': []})
+        units = list(AquacultureProductionUnit.objects.filter(production_cycle_id=rec.production_cycle_id).order_by('unit_type', 'unit_number'))
+        harvests = rec.harvests.prefetch_related('production_units', 'unit_harvests')
+        unit_kg, unit_dates, combined_units = {}, {}, set()
+        for h in harvests:
+            rows = {row.production_unit_id: row.quantity_kg for row in h.unit_harvests.all()}
+            for u in h.production_units.all():
+                unit_dates.setdefault(u.id, set()).add(h.harvest_date)
+                if u.id in rows:
+                    unit_kg[u.id] = unit_kg.get(u.id, Decimal('0')) + rows[u.id]
+                else:
+                    combined_units.add(u.id)
+        status_by_id = {u['id']: u for u in rec.harvest_units()}
+        record_closed = rec.status in (StockingRecord.Status.HARVESTED, StockingRecord.Status.TOTAL_LOSS)
+        out = []
+        for u in units:
+            st = status_by_id.get(u.id, {})
+            if st.get('force_harvested'):
+                status = 'force_harvested'
+            elif st.get('harvested'):
+                status = 'harvested'
+            elif record_closed:
+                # The record was closed (final harvest without this unit listed, or Total Loss): the unit is
+                # not still growing, but no unit-level harvest exists for it.
+                status = 'total_loss' if rec.status == StockingRecord.Status.TOTAL_LOSS else 'cycle_harvested'
+            elif st.get('force_harvest'):
+                status = 'awaiting_force_harvest'
+            else:
+                status = 'in_progress'
+            estimate = calculate_estimated_harvest_kg(u.fingerling_count, rec.survival_rate_pct, rec.avg_body_weight_kg)
+            kg = unit_kg.get(u.id)
+            dates = sorted(unit_dates.get(u.id, ()))
+            out.append({
+                'id': u.id, 'label': f'{u.get_unit_type_display()} {u.unit_number}', 'unit_type': u.unit_type,
+                'unit_number': u.unit_number,
+                'length_m': str(u.length_m) if u.length_m is not None else None,
+                'width_m': str(u.width_m) if u.width_m is not None else None,
+                'size_sqm': str(u.size_sqm) if u.size_sqm is not None else None,
+                'fingerling_count': u.fingerling_count,
+                'estimated_harvest_kg': str(estimate) if estimate is not None else None,
+                'actual_harvest_kg': str(kg) if kg is not None else None,
+                'in_combined_harvest': u.id in combined_units and kg is None,
+                'harvest_dates': [str(d) for d in dates],
+                'status': status,
+                'force_harvest_reasons': st.get('reasons', []),
+            })
+        return Response({'stocking_record': rec.id, 'production_cycle': rec.production_cycle_id, 'units': out})
 
 
 class StockingHarvestDeleteView(generics.DestroyAPIView):
@@ -2407,9 +2550,9 @@ def _cycle_trend_note(analyzed):
     """
     buckets = {}
     for a in analyzed:
-        if a['variance_pct'] is None or a['is_total_loss']:
-            continue
         cycle = a['production_cycle_no']
+        if a['variance_pct'] is None or a['is_total_loss'] or cycle is None:   # None: record without a fisherfolk
+            continue
         key = str(cycle) if cycle < 3 else '3+'
         b = buckets.setdefault(key, {'sum': 0.0, 'n': 0})
         b['sum'] += a['variance_pct']

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import useDebouncedValue from '../../hooks/useDebouncedValue.js'
-import { AlertTriangle, Eye, Fish, HelpCircle, Layers, Lock, Pencil, Trash2, Unlock, Upload, Wheat } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronRight, Eye, Fish, HelpCircle, Layers, Lock, Pencil, Trash2, Unlock, Upload, Wheat } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import ImportFileModal from '../../components/ImportFileModal.jsx'
@@ -28,6 +28,8 @@ import {
   ViewStockingLogsModal,
 } from './StockingMonitoringModals.jsx'
 import PondSelector from './PondSelector.jsx'
+import { ProductionUnitsCards, ProductionUnitsTable } from './ProductionUnitsPanel.jsx'
+import useExpandableProductionUnits from './useExpandableProductionUnits.js'
 import { computeHarvestPreview, detectSeason, fmtActualHarvestKg, fmtLong, fmtShort, harvestGateStatus } from './stockingHelpers.js'
 
 const filterSelectCls =
@@ -38,6 +40,7 @@ const filterSelectCls =
 const STATUS_TONES = {
   Stocked:         'green',
   'Near Harvest':  'amber',
+  Late:            'rose',    // display_status only: past the expected harvest date, not yet harvested
   Harvested:       'blue',
   'Total Loss':    'rose',
 }
@@ -358,7 +361,7 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
             )}
             {record.production_cycle_no && (
               <p className="text-[11px] text-[#235E38]">
-                Production Cycle <strong>#{record.production_cycle_no}</strong> for this fisherfolk and species
+                Production Cycle <strong>#{record.production_cycle_no}</strong> for this fisherfolk
               </p>
             )}
             {preview && (
@@ -763,7 +766,7 @@ function StockingDetailModal({ record, onClose }) {
     ['Estimated Harvest (kg)', fmtNum(record.estimated_harvest_kg)],
     ['Stocking Density (fingerlings/ha)', record.stocking_density ?? '—'],
     ['Production Cycle', record.production_cycle_no ? `#${record.production_cycle_no}` : '—'],
-    ['Status', record.status || '—'],
+    ['Status', record.display_status || record.status || '—'],
     ['Notes', record.notes || '—'],
   ]
 
@@ -831,10 +834,10 @@ function harvestGateInfo(rec) {
   return harvestGateStatus(rec.date_stocked, rec.expected_harvest_date)
 }
 
-// simplified (Admin and fisherfolk accounts): the row itself opens the Production Cycle (Cycle Info, Feeding
-// Logs, Health Logs), so View Cycle / View Logs / Record Harvest / Report Disaster are not repeated in the menu.
-// Harvest stays reachable through the fishing-net button beside the menu; disasters through Disaster.
-// Evaluator accounts keep the full menu.
+// The row itself expands the cycle's ponds/cages, so View Cycle (Cycle Info, Feeding Logs, Health Logs) is
+// offered to every role here. simplified (Admin and fisherfolk accounts): View Logs / Record Harvest / Report
+// Disaster are not repeated in the menu - harvest stays reachable through the fishing-net button beside the
+// menu; disasters through Disaster. Evaluator accounts keep the full menu.
 function StockingRowActions({
   rec, isAdmin, isLocked, lockedByName, simplified = false,
   onViewDetails, onEdit, onViewCycle, onViewLogs, onRecordHarvest, onReportDisaster, onForceUnlock, showToast,
@@ -847,7 +850,7 @@ function StockingRowActions({
   const actions = [
     { key: 'view', label: 'View Details', icon: Eye, onClick: onViewDetails, group: 'crud' },
     canEdit && { key: 'edit', label: 'Edit', icon: Pencil, onClick: onEdit, group: 'crud' },
-    !simplified && { key: 'cycle', label: 'View Cycle', icon: Layers, onClick: onViewCycle, group: 'lifecycle' },
+    { key: 'cycle', label: 'View Cycle Details & Logs', icon: Layers, onClick: onViewCycle, group: 'lifecycle' },
     !simplified && { key: 'logs', label: 'View Logs', icon: Eye, onClick: onViewLogs, group: 'lifecycle' },
     !simplified && canHarvest && {
       key: 'harvest',
@@ -899,10 +902,29 @@ function StockingRowActions({
   )
 }
 
-// Fisherfolk phones (< md): one card per stock instead of the wide table. Tapping the card opens the
-// Production Cycle (same as the table row); the buttons are full-height touch targets for the same
-// actions the simplified row menu offers (View Details, Edit, Record Harvest with the same gate).
-function StockingMobileCard({ row, onOpen, onViewDetails, onEdit, onRecordHarvest }) {
+// Top-right of an expanded row's pond/cage panel: opens the existing Production Cycle modal (Cycle Info,
+// Feeding Logs, Health Logs) via handleViewCycle. Only for a stock linked to a cycle - there is nothing to open
+// otherwise. It sits outside the parent row (desktop) / inside a data-no-row-click area (cards), so a click
+// never expands or collapses the row.
+function CycleDetailsButton({ rec, onViewCycle }) {
+  if (!rec.production_cycle) return null
+  return (
+    <button
+      type="button"
+      data-testid="view-cycle-details"
+      onClick={() => onViewCycle(rec)}
+      className="flex items-center gap-1.5 rounded-lg border border-[#C8D5C8] bg-white px-3 py-[5px] text-[12px] font-medium text-[#1B4D2E] transition-colors hover:bg-[#F0F4F0]"
+    >
+      <Layers className="h-3.5 w-3.5" />
+      View Cycle Details &amp; Logs
+    </button>
+  )
+}
+
+// Fisherfolk phones (< md): one card per stock instead of the wide table. Tapping the card expands its
+// ponds/cages as compact cards (same as the table row); the buttons are full-height touch targets for the
+// same actions the row menu offers (Cycle details, View Details, Edit, Record Harvest with the same gate).
+function StockingMobileCard({ row, expanded, unitsState, onToggle, onRetryUnits, onOpenCycle, onViewDetails, onEdit, onRecordHarvest }) {
   const canEdit = row.status !== 'Harvested'
   const canHarvest = row.status !== 'Total Loss' && row.status !== 'Harvested'
   const harvestGate = harvestGateInfo(row)
@@ -925,7 +947,8 @@ function StockingMobileCard({ row, onOpen, onViewDetails, onEdit, onRecordHarves
     <div
       data-testid="stock-card"
       className="cursor-pointer rounded-xl border border-[#E2E8E2] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
-      {...rowClickProps(onOpen, `Open production cycle: ${row.species_name || 'stock'}${row.production_cycle_no ? ` #${row.production_cycle_no}` : ''}`)}
+      aria-expanded={expanded}
+      {...rowClickProps(onToggle, `${expanded ? 'Hide' : 'Show'} ponds/cages: ${row.species_name || 'stock'}${row.production_cycle_no ? ` #${row.production_cycle_no}` : ''}`)}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 text-[15px] text-[#1A2B1A]">{row.species_name_cell}</div>
@@ -940,7 +963,17 @@ function StockingMobileCard({ row, onOpen, onViewDetails, onEdit, onRecordHarves
           </div>
         ))}
       </dl>
+      {expanded && (
+        // data-no-row-click: taps inside the unit list never collapse the card.
+        <div className="mt-3 cursor-default border-t border-[#F0F4F0] pt-3" data-no-row-click>
+          <ProductionUnitsCards state={unitsState} speciesName={row.species_name} onRetry={onRetryUnits}
+            headerAction={<CycleDetailsButton rec={row._rec} onViewCycle={onOpenCycle} />} />
+        </div>
+      )}
       <div className="mt-3 flex gap-2 border-t border-[#F0F4F0] pt-3">
+        <button type="button" className={`${btn} border-[#E2E8E2] text-[#1B4D2E] hover:bg-[#F0F4F0]`} onClick={onOpenCycle}>
+          <Layers size={15} /> Cycle
+        </button>
         <button type="button" className={`${btn} border-[#E2E8E2] text-[#1B4D2E] hover:bg-[#F0F4F0]`} onClick={onViewDetails}>
           <Eye size={15} /> Details
         </button>
@@ -1093,6 +1126,11 @@ export default function FisheriesRecordsPage({ asTab = false }) {
 
   useEffect(() => { refreshLockStatuses(records) }, [records, refreshLockStatuses])
 
+  // Clicking a row expands that stock's ponds/cages under it (one row at a time); clicking it again collapses.
+  const {
+    expandedId, unitsState, toggle: toggleExpanded, retry: retryUnits,
+  } = useExpandableProductionUnits(records)
+
   const handleForceUnlock = async (recordId) => {
     try {
       await api.post('/locks/release/', { record_type: 'stocking', record_id: recordId })
@@ -1108,6 +1146,9 @@ export default function FisheriesRecordsPage({ asTab = false }) {
     _rec: rec,   // the untouched record, for the mobile card actions
     species_name_cell: (
       <span className="flex items-center gap-1.5">
+        {expandedId === rec.id
+          ? <ChevronDown size={15} className="shrink-0 text-[#1B4D2E]" aria-hidden="true" />
+          : <ChevronRight size={15} className="shrink-0 text-[#7A8E7A]" aria-hidden="true" />}
         <span className="font-medium">{rec.species_name}</span>
         <DisasterIndicator disastersCount={rec.disaster_count} hasRecoveredDisaster={rec.has_recovered_disaster} />
         {lockStatuses[rec.id] && (
@@ -1143,14 +1184,15 @@ export default function FisheriesRecordsPage({ asTab = false }) {
     pond_location: rec.pond_location_barangay || '—',
     status_cell: (
       <span className="flex items-center gap-1.5">
-        {/* Overall cycle status is the backend's rec.status: it only becomes Harvested on the final harvest,
-            so force-harvesting some ponds/cages leaves it Stocked. Those units show as HP/HC badges below. */}
+        {/* Overall cycle status is the backend's display_status (rec.status with Stocked / Near Harvest / Late
+            from today's date): it only becomes Harvested on the final harvest, so force-harvesting some
+            ponds/cages leaves it active. Those units show as HP/HC badges below. */}
         {rec.harvest_count > 0 ? (
           <button type="button" data-testid="harvested-status" title="View harvest details" onClick={() => setViewingRec(rec)}>
-            <StatusPill tone={STATUS_TONES[rec.status] || 'slate'}>{rec.status}</StatusPill>
+            <StatusPill tone={STATUS_TONES[rec.display_status || rec.status] || 'slate'}>{rec.display_status || rec.status}</StatusPill>
           </button>
         ) : (
-          <StatusPill tone={STATUS_TONES[rec.status] || 'slate'}>{rec.status}</StatusPill>
+          <StatusPill tone={STATUS_TONES[rec.display_status || rec.status] || 'slate'}>{rec.display_status || rec.status}</StatusPill>
         )}
         {groupForceHarvestedUnits(forceHarvestedUnits(rec)).map(g => (
           // Count only ("HP 10"), never the unit list, so the cell stays compact; the modal lists every unit.
@@ -1224,6 +1266,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
             <option value="All Status">All Status</option>
             <option value="Stocked">Stocked</option>
             <option value="Near Harvest">Near Harvest</option>
+            <option value="Late">Late</option>
             <option value="Harvested">Harvested</option>
             <option value="Total Loss">Total Loss</option>
           </select>
@@ -1259,7 +1302,11 @@ export default function FisheriesRecordsPage({ asTab = false }) {
               <StockingMobileCard
                 key={row.id}
                 row={row}
-                onOpen={() => handleViewCycle(row._rec)}
+                expanded={expandedId === row.id}
+                unitsState={unitsState(row.id)}
+                onToggle={() => toggleExpanded(row._rec)}
+                onRetryUnits={() => retryUnits(row.id)}
+                onOpenCycle={() => handleViewCycle(row._rec)}
                 onViewDetails={() => setViewingRec(row._rec)}
                 onEdit={() => setEditingRec(row._rec)}
                 onRecordHarvest={() => setHarvestRec(row._rec)}
@@ -1302,18 +1349,34 @@ export default function FisheriesRecordsPage({ asTab = false }) {
                   </td>
                 </tr>
               ) : (
-                rows.map(row => (
-                  // The whole row opens this stock's Production Cycle (Cycle Info, Feeding Logs, Health Logs);
-                  // the badges and buttons inside it keep their own actions.
-                  <tr key={row.id} className="cursor-pointer border-b border-[#F0F4F0] transition-colors hover:bg-[#F9FAF9]"
-                    {...rowClickProps(() => handleViewCycle(row), `Open production cycle: ${row.species_name || 'stock'}${row.production_cycle_no ? ` #${row.production_cycle_no}` : ''}`)}>
-                    {COLUMNS.map(col => (
-                      <td key={col.key} className="whitespace-nowrap px-4 py-[13px] text-[13px] text-[#1A2B1A] align-middle">
-                        {row[col.key]}
-                      </td>
-                    ))}
-                  </tr>
-                ))
+                rows.map(row => {
+                  const isExpanded = expandedId === row.id
+                  return (
+                    // The whole row expands/collapses this stock's ponds/cages underneath it; the full Production
+                    // Cycle (Cycle Info, Feeding Logs, Health Logs) is "View Cycle Details & Logs" in the expanded panel
+                    // and in the row menu.
+                    // The badges and buttons inside the row keep their own actions.
+                    <Fragment key={row.id}>
+                      <tr className={`cursor-pointer border-b border-[#F0F4F0] transition-colors hover:bg-[#F9FAF9] ${isExpanded ? 'bg-[#F5F8F5]' : ''}`}
+                        aria-expanded={isExpanded}
+                        {...rowClickProps(() => toggleExpanded(row._rec), `${isExpanded ? 'Hide' : 'Show'} ponds/cages: ${row.species_name || 'stock'}${row.production_cycle_no ? ` #${row.production_cycle_no}` : ''}`)}>
+                        {COLUMNS.map(col => (
+                          <td key={col.key} className="whitespace-nowrap px-4 py-[13px] text-[13px] text-[#1A2B1A] align-middle">
+                            {row[col.key]}
+                          </td>
+                        ))}
+                      </tr>
+                      {isExpanded && (
+                        <tr className="border-b border-[#E2E8E2]">
+                          <td colSpan={COLUMNS.length} className="p-0">
+                            <ProductionUnitsTable state={unitsState(row.id)} speciesName={row.species_name} onRetry={() => retryUnits(row.id)}
+                              headerAction={<CycleDetailsButton rec={row._rec} onViewCycle={handleViewCycle} />} />
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  )
+                })
               )}
             </tbody>
           </table>

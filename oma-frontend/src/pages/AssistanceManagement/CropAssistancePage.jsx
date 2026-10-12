@@ -839,6 +839,7 @@ export default function CropAssistancePage({ asTab = false }) {
           url={FARMERS_ORG_DOMAIN.confirmOnBehalfUrl(confirmingOnBehalf.id)}
           memberName={confirmingOnBehalf.farmer_full_name}
           assistanceLabel={confirmingOnBehalf.assistance_type || 'Assistance'}
+          previousRejection={confirmingOnBehalf.latest_request_status === 'REJECTED' ? confirmingOnBehalf.latest_request_reason : ''}
           onClose={() => setConfirmingOnBehalf(null)}
           onDone={() => { setConfirmingOnBehalf(null); fetchAll() }}
         />

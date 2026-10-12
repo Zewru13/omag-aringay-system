@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Upload } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
@@ -78,8 +78,13 @@ function FisherfolkPage({ asTab = false }) {
   const [showAdd,     setShowAdd]     = useState(false)
   const [showImport,  setShowImport]  = useState(false)
   const [successMsg,  setSuccessMsg]  = useState('')
+  // The list is requested again on every filter, search and page change, and a slow earlier answer can arrive
+  // after a newer one. Only the newest request may write to the table; otherwise a stale unfiltered answer
+  // replaces the filtered list (under-60s showing under "Senior Citizens Only").
+  const latestRequest = useRef(0)
 
   const fetchFisherfolk = async (pageNum = page) => {
+    const requestId = ++latestRequest.current
     setIsLoading(true); setError('')
     try {
       const params = new URLSearchParams()
@@ -94,12 +99,13 @@ function FisherfolkPage({ asTab = false }) {
       if (registeredTo)     params.set('registered_to', registeredTo)
       params.set('page', pageNum)
       const r = await api.get(`/fisheries/fisherfolk/?${params.toString()}`)
+      if (requestId !== latestRequest.current) return   // a newer request has been sent; this answer is out of date
       setFisherfolk(normalizeList(r.data))
       setTotalCount(typeof r.data?.count === 'number' ? r.data.count : 0)
     } catch {
-      setError('Unable to load fisherfolk records.')
+      if (requestId === latestRequest.current) setError('Unable to load fisherfolk records.')
     } finally {
-      setIsLoading(false)
+      if (requestId === latestRequest.current) setIsLoading(false)
     }
   }
 

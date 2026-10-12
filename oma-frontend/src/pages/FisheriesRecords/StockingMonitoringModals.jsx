@@ -1422,9 +1422,19 @@ function unitKgTotal(units, values) {
   return units.reduce((s, u) => (validateUnitKg(values[u.id]) ? s : s + Number(values[u.id])), 0)
 }
 
+// Helper line under a unit's Actual Harvest input: that unit's OWN estimate (`estimates`, see
+// RecordStockingHarvestModal). Guidance only - never validated against or submitted.
+function UnitEstimateText({ estimates, unitId }) {
+  const kg = estimates && estimates !== 'error' ? estimates[unitId] : undefined
+  const text = estimates === null ? 'Estimated harvest: …'
+    : kg != null ? `Estimated harvest: ${Number(kg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg`
+    : 'Estimate unavailable'
+  return <p className="mt-1 text-xs text-slate-500" data-testid={`unit-estimate-${unitId}`}>{text}</p>
+}
+
 // Compact "Production Unit | Actual Harvest (kg)" table with a calculated TOTAL row. Every unit has its
 // own input and its own row-level error; the values stay keyed by production-unit id.
-function UnitKgTable({ units, values, errors, onChange }) {
+function UnitKgTable({ units, values, errors, onChange, estimates }) {
   const total = unitKgTotal(units, values)
   return (
     <div className="overflow-hidden rounded-lg border border-slate-200">
@@ -1449,6 +1459,7 @@ function UnitKgTable({ units, values, errors, onChange }) {
                   onChange={e => onChange(u.id, e.target.value)}
                   placeholder="e.g. 12.50" />
                 {errors[u.id] && <p className="mt-1 text-xs text-rose-600">{errors[u.id]}</p>}
+                <UnitEstimateText estimates={estimates} unitId={u.id} />
               </td>
             </tr>
           ))}
@@ -1523,6 +1534,23 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
     return total > 0 ? total : 0
   }
   const totalMortality = forceUnits.reduce((s, u) => s + (unitMortality(u.id) || 0), 0)
+
+  // Each pond/cage's own estimated harvest for the per-unit inputs (Force and normal harvest), from the
+  // existing production-units endpoint: calculate_estimated_harvest_kg() on THAT unit's fingerling_count with
+  // this record's survival rate / ABW - never the cycle total split or repeated. {unitId: kg | null}
+  // (null = an input is missing), null while loading, 'error' if it could not be loaded.
+  const hasUnits = harvestUnits.length > 0
+  const [unitEstimates, setUnitEstimates] = useState(null)
+  useEffect(() => {
+    if (!hasUnits) return undefined
+    let cancelled = false
+    api.get(`/fisheries/stocking/${record.id}/production-units/`)
+      .then(r => {
+        if (!cancelled) setUnitEstimates(Object.fromEntries((r.data.units || []).map(u => [u.id, u.estimated_harvest_kg])))
+      })
+      .catch(() => { if (!cancelled) setUnitEstimates('error') })
+    return () => { cancelled = true }
+  }, [hasUnits, record.id])
 
   useEffect(() => {
     api.get(`/fisheries/stocking/${record.id}/suggestions/`)
@@ -1848,7 +1876,7 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
                   <tr className="border-t border-slate-100">
                     <td colSpan={2} className="px-3 py-2">
                       <p className="mb-1.5 text-xs font-medium text-slate-700">Actual Harvest (kg) per production unit <span className="text-red-500">*</span></p>
-                      <UnitKgTable units={forceUnits} values={unitKg} errors={unitKgErrors} onChange={setOneUnitKg} />
+                      <UnitKgTable units={forceUnits} values={unitKg} errors={unitKgErrors} onChange={setOneUnitKg} estimates={unitEstimates} />
                     </td>
                   </tr>
                   <tr className="border-t border-slate-100">
@@ -1937,7 +1965,7 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
             {unitSelect ? (
               // Normal harvest of selected ponds/cages: each unit's own kg, same table as Force Harvest.
               selectedUnits.length > 0
-                ? <UnitKgTable units={selectedUnits} values={unitKg} errors={unitKgErrors} onChange={setOneUnitKg} />
+                ? <UnitKgTable units={selectedUnits} values={unitKg} errors={unitKgErrors} onChange={setOneUnitKg} estimates={unitEstimates} />
                 : <p className="text-xs text-slate-500">Select the {unitWord.toLowerCase()}s being harvested to enter each one's actual harvest.</p>
             ) : (<>
               <input type="number" step="0.01"

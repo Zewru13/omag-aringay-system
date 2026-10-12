@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, CheckCircle2, Download, Plus, Printer } from 'lucide-react'
+import { CheckCircle2, Download, Plus, Printer } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
@@ -14,16 +14,15 @@ import { fmtLong } from '../FisheriesRecords/stockingHelpers.js'
 import DisasterLogDetailsModal from './DisasterLogDetailsModal.jsx'
 import { FISHERIES_LOG, downloadLog, fetchAllStocks, printLog } from './disasterReportDocument.js'
 import FisherfolkStockDisasterModal from './FisherfolkStockDisasterModal.jsx'
-import LogFisheriesDisasterModal from './LogFisheriesDisasterModal.jsx'
 
 // DISASTER (fisherfolk accounts): My Logged Disasters + Log Disaster. The account is already the
-// Fisheries/Aquaculture context, so there is no category choice. Log Disaster -> choose the affected stock
-// -> the disaster form -> saved AND submitted to Admin in that one action (Admin is notified). Afterwards
+// Fisheries/Aquaculture context, so there is no category choice. Log Disaster -> one form: the affected
+// stock(s) with fingerlings lost per pond/cage (or "not linked to a stock") and the disaster details ->
+// saved AND submitted to Admin in that one action (Admin is notified). Afterwards
 // the fisherfolk can view, print and download what they logged - never edit it (the backend refuses).
 // The list is GET /fisheries/disaster-reports/, which the backend limits to this fisherfolk's own logs.
 
 const REPORTABLE = 'Stocked,Near Harvest'
-const GENERAL = 'general'
 const SUBMISSION_TONES = { SUBMITTED: 'green', DRAFT: 'amber' }
 
 const COLUMNS = [
@@ -37,30 +36,6 @@ const COLUMNS = [
 ]
 
 const fmtDateTime = (v) => (v ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(v)) : '—')
-const stockLabel = (s) => `${s.species_name || 'Stock'}${s.production_cycle_name ? ` · ${s.production_cycle_name}` : ''}`
-
-function ChooseStockModal({ stocks, onClose, onChoose }) {
-  const [choice, setChoice] = useState(stocks.length === 1 ? String(stocks[0].id) : (stocks.length ? '' : GENERAL))
-  const chosen = choice === GENERAL ? GENERAL : stocks.find(s => String(s.id) === choice)
-  return (
-    <ModalShell title="Log Disaster" subtitle="Which stock was affected?" icon={AlertTriangle} onClose={onClose} maxWidth="max-w-md"
-      footer={<>
-        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-        <Button type="button" disabled={!chosen} onClick={() => chosen && onChoose(chosen)}>Continue</Button>
-      </>}>
-      <FormField label="Affected Stock" required>
-        <select className={baseInputClasses} value={choice} onChange={e => setChoice(e.target.value)}>
-          {stocks.length > 0 && <option value="">Select a stock</option>}
-          {stocks.map(s => (
-            <option key={s.id} value={s.id}>{stockLabel(s)}{s.culture_phase ? ` — ${s.culture_phase}` : ''} — stocked {fmtLong(s.date_stocked)}</option>
-          ))}
-          <option value={GENERAL}>Not linked to a stock (pond, cage or equipment damage only)</option>
-        </select>
-      </FormField>
-      {stocks.length === 0 && <p className="mt-2 text-xs text-slate-500">You have no stocked aquaculture records right now.</p>}
-    </ModalShell>
-  )
-}
 
 function MarkRecoveredModal({ row, onClose, onDone }) {
   const { showToast } = useToast()
@@ -105,8 +80,7 @@ export default function FisherfolkDisasterPage() {
   const [error, setError] = useState('')
   const [version, setVersion] = useState(0)
   const reload = () => setVersion(v => v + 1)
-  const [choosing, setChoosing] = useState(false)
-  const [loggingOn, setLoggingOn] = useState(null)   // a stock, or GENERAL
+  const [logging, setLogging] = useState(false)
   const [viewingId, setViewingId] = useState(null)
   const [recovering, setRecovering] = useState(null)
   const [busyId, setBusyId] = useState(null)
@@ -129,7 +103,7 @@ export default function FisherfolkDisasterPage() {
   }, [version])
 
   const onLogged = (log) => {
-    setLoggingOn(null)
+    setLogging(false)
     reload()
     if (log?.id) setViewingId(log.id)
   }
@@ -170,7 +144,7 @@ export default function FisherfolkDisasterPage() {
       <div className="space-y-4">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-semibold text-slate-700">My Logged Disasters</h2>
-          <Button onClick={() => setChoosing(true)} disabled={isLoading || eligibility?.can_log_disaster === false}>
+          <Button onClick={() => setLogging(true)} disabled={isLoading || eligibility?.can_log_disaster === false}>
             <Plus size={15} className="mr-1" /> Log Disaster
           </Button>
         </div>
@@ -180,15 +154,10 @@ export default function FisherfolkDisasterPage() {
         {error ? <ErrorMessage message={error} /> : <DataTable columns={COLUMNS} data={data} isLoading={isLoading} onRowClick={(row) => setViewingId(row.id)} />}
       </div>
 
-      {choosing && (
-        <ChooseStockModal stocks={stocks} onClose={() => setChoosing(false)}
-          onChoose={(choice) => { setChoosing(false); setLoggingOn(choice) }} />
-      )}
-      {loggingOn && loggingOn !== GENERAL && (
-        <FisherfolkStockDisasterModal record={loggingOn} onClose={() => setLoggingOn(null)} onSaved={onLogged} />
-      )}
-      {loggingOn === GENERAL && (
-        <LogFisheriesDisasterModal onClose={() => setLoggingOn(null)} onSuccess={onLogged} />
+      {/* One form: pick one or more of your stocks (each with its fingerlings lost per pond/cage), or
+          "Not linked to a stock" for pond/cage/equipment-only damage. */}
+      {logging && (
+        <FisherfolkStockDisasterModal stocks={stocks} onClose={() => setLogging(false)} onSaved={onLogged} />
       )}
       {viewingId && <DisasterLogDetailsModal key={viewingId} kind="fisheries" logId={viewingId} onClose={() => setViewingId(null)} />}
       {recovering && <MarkRecoveredModal row={recovering} onClose={() => setRecovering(null)} onDone={() => { setRecovering(null); reload() }} />}

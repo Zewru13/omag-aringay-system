@@ -7,6 +7,7 @@ from django.db import models
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 from django.db.models import Q
+from django.utils import timezone
 
 from core.constants import BARANGAY_CHOICES
 from core.validators import validate_fishr, validate_lgu_reg, validate_rsbsa
@@ -643,22 +644,10 @@ class StockingRecord(models.Model):
         return f'{self.species.species_name} — {fisherfolk_str} ({self.season} {self.year})'
 
     def compute_production_cycle_no(self):
-        """
-        Which repeat cycle this is for this fisherfolk+species (1 = first
-        ever, 2 = second, ...), counting by stocking date then id as a
-        tiebreaker. Shared by StockingRecordSerializer and the yield-analysis
-        module so both agree on cycle numbering.
-        """
-        if not self.fisherfolk_id or not self.species_id or not self.date_stocked:
-            return 1
-        prior = StockingRecord.objects.filter(
-            fisherfolk_id=self.fisherfolk_id,
-            species_id=self.species_id,
-        ).filter(
-            Q(date_stocked__lt=self.date_stocked)
-            | Q(date_stocked=self.date_stocked, id__lt=self.id)
-        ).count()
-        return prior + 1
+        """This record's production cycle number in its fisherfolk's own sequence (see
+        production_cycle_numbers_bulk). Shared by StockingRecordSerializer, yield analysis, reports and the
+        cycle notifications so every screen and role shows the same number."""
+        return production_cycle_numbers_bulk([self])[self.id]
 
     def _harvested_unit_ids(self):
         from monitoring.models import AquacultureProductionUnit
@@ -774,6 +763,55 @@ class StockingRecord(models.Model):
         return candidates.filter(growth_stage=stage).first() or candidates.filter(growth_stage='').first()
 
 
+# ─── Displayed status (completion + harvest timing) ───────────────────────────
+# StockingRecord.status is STORED and only re-evaluated when the record is saved, so on its own it goes stale:
+# a record past its expected harvest date kept reading "Near Harvest" (save()'s "<= 7 days" check also matches
+# past dates) and a Stocked record never moved into the window by itself. The DISPLAYED status of an active
+# record is therefore derived from the dates at read time (Asia/Manila "today"):
+#   expected date passed            -> Late          (still not harvested; timing, not completion)
+#   expected date within 0..7 days  -> Near Harvest  (today included)
+#   otherwise                       -> Stocked
+# Harvested and Total Loss are terminal and shown as stored (a completed harvest's own Early / On-Time / Late is
+# harvest_timing() of its harvest records). A record whose stocking date is only an estimate keeps its stored
+# status, the same guard save() applies. The stored column itself is unchanged.
+NEAR_HARVEST_WINDOW_DAYS = 7
+DISPLAY_LATE = 'Late'
+ACTIVE_STATUSES = ('Stocked', 'Near Harvest')
+
+
+def stocking_display_status(rec, today=None):
+    if rec.status not in ACTIVE_STATUSES or not rec.expected_harvest_date or rec.date_stocked_is_estimated:
+        return rec.status
+    days = (rec.expected_harvest_date - (today or timezone.localdate())).days
+    if days < 0:
+        return DISPLAY_LATE
+    return 'Near Harvest' if days <= NEAR_HARVEST_WINDOW_DAYS else 'Stocked'
+
+
+def stocking_display_status_q(labels, today=None):
+    """Q matching the records whose stocking_display_status() is one of `labels` (the Status filter values).
+    Requesting both Stocked and Near Harvest (the "All Status" / Forecast scopes) also matches Late, so a
+    late, not-yet-harvested cycle is never dropped from those lists."""
+    today = today or timezone.localdate()
+    labels = set(labels)
+    if {'Stocked', 'Near Harvest'} <= labels:
+        labels.add(DISPLAY_LATE)
+    window_end = today + timedelta(days=NEAR_HARVEST_WINDOW_DAYS)
+    active = Q(status__in=ACTIVE_STATUSES)
+    dated = active & Q(expected_harvest_date__isnull=False, date_stocked_is_estimated=False)
+    undated = active & ~Q(expected_harvest_date__isnull=False, date_stocked_is_estimated=False)
+    by_label = {
+        DISPLAY_LATE: dated & Q(expected_harvest_date__lt=today),
+        'Near Harvest': (dated & Q(expected_harvest_date__gte=today, expected_harvest_date__lte=window_end))
+                        | (undated & Q(status='Near Harvest')),
+        'Stocked': (dated & Q(expected_harvest_date__gt=window_end)) | (undated & Q(status='Stocked')),
+    }
+    q = Q(pk__in=[])
+    for label in labels:
+        q |= by_label.get(label, Q(status=label))   # Harvested / Total Loss: the stored status
+    return q
+
+
 def _harvest_unit_rows(units, force, harvested, force_harvested):
     """The rows of StockingRecord.harvest_units() from already-loaded data: `units` (the cycle's ponds/cages,
     unit_number order), `force` ({unit_id: [reasons]} from cycle_force_status) and the harvested /
@@ -789,27 +827,43 @@ def _harvest_unit_rows(units, force, harvested, force_harvested):
 
 
 def production_cycle_numbers_bulk(records):
-    """{record_id: compute_production_cycle_no()} for many records with ONE query: the records of the same
-    fisherfolk + species stocked earlier (or the same day with a lower id), over every status, plus one.
-    Records without fisherfolk, species or stocking date get 1, as compute_production_cycle_no() does."""
+    """{record_id: production cycle number} for many stocking records with 3 queries in total.
+
+    Each fisherfolk has its OWN sequence (Cycle 1, 2, 3 ...) in logging order - date_recorded, then id -
+    over every status. Its entries are:
+      - every AquacultureProductionCycle the fisherfolk owns (counted ONCE however many stocking records,
+        ponds/cages, logs or harvests it has); a linked stocking record shows its cycle's number;
+      - every stocking record of the fisherfolk with NO production cycle (imports, older records): each is
+        one production run logged on its own.
+    Computed, not stored: nothing to backfill, and two cycles created at the same time still get distinct
+    numbers (distinct ids). Deleting an earlier entry moves the later ones up by one.
+    None for a record with no owning fisherfolk (nothing to number it against)."""
     from collections import defaultdict
-    pairs = {(r.fisherfolk_id, r.species_id) for r in records if r.fisherfolk_id and r.species_id and r.date_stocked}
-    siblings = defaultdict(list)
-    if pairs:
-        rows = StockingRecord.objects.filter(
-            fisherfolk_id__in={p[0] for p in pairs}, species_id__in={p[1] for p in pairs},
-        ).values_list('id', 'fisherfolk_id', 'species_id', 'date_stocked')
-        for rid, ff_id, sp_id, stocked in rows:
-            if (ff_id, sp_id) in pairs and stocked is not None:
-                siblings[(ff_id, sp_id)].append((stocked, rid))
-    out = {}
-    for r in records:
-        if (r.fisherfolk_id, r.species_id) not in pairs or not r.date_stocked:
-            out[r.id] = 1
-            continue
-        out[r.id] = 1 + sum(1 for stocked, rid in siblings[(r.fisherfolk_id, r.species_id)]
-                            if stocked < r.date_stocked or (stocked == r.date_stocked and rid < r.id))
-    return out
+    from monitoring.models import AquacultureProductionCycle
+    # Owner of each record: its production cycle's fisherfolk when linked (the cycle is the unit numbered),
+    # else its own fisherfolk.
+    linked_cycle_ids = {r.production_cycle_id for r in records if r.production_cycle_id}
+    cycle_owner = dict(AquacultureProductionCycle.objects.filter(id__in=linked_cycle_ids)
+                       .values_list('id', 'fisherfolk_id')) if linked_cycle_ids else {}
+    owner = {r.id: cycle_owner.get(r.production_cycle_id) if r.production_cycle_id else r.fisherfolk_id for r in records}
+    owners = {o for o in owner.values() if o}
+
+    entries = defaultdict(list)   # fisherfolk_id -> [(date_recorded, kind, id)]; kind 0 = cycle, 1 = stocking record
+    if owners:
+        for cid, ff_id, recorded in AquacultureProductionCycle.objects.filter(fisherfolk_id__in=owners) \
+                .values_list('id', 'fisherfolk_id', 'date_recorded'):
+            entries[ff_id].append((recorded, 0, cid))
+        for sid, ff_id, recorded in StockingRecord.objects.filter(fisherfolk_id__in=owners, production_cycle__isnull=True) \
+                .values_list('id', 'fisherfolk_id', 'date_recorded'):
+            entries[ff_id].append((recorded, 1, sid))
+    number = {}
+    for ff_entries in entries.values():
+        for n, (_, kind, pk) in enumerate(sorted(ff_entries), start=1):
+            number[(kind, pk)] = n
+    return {
+        r.id: number.get((0, r.production_cycle_id) if r.production_cycle_id else (1, r.id)) if owner[r.id] else None
+        for r in records
+    }
 
 
 def stocking_harvest_status_bulk(records):
@@ -1114,14 +1168,14 @@ class FisheriesDisasterReport(models.Model):
     def delete(self, *args, **kwargs):
         stocking_record_id = self.stocking_record_id
         was_total_loss = self.is_total_loss
+        # Stocks a multi-stock report closed as Total Loss (see FisheriesDisasterStockLoss) reopen the same way.
+        closed_by_rows = set(self.stock_losses.filter(is_total_loss=True).values_list('stocking_record_id', flat=True)) \
+            if self.pk else set()
         super().delete(*args, **kwargs)
-        if was_total_loss and stocking_record_id:
-            try:
-                rec = StockingRecord.objects.get(pk=stocking_record_id)
-                rec.status = rec.determine_status()
-                rec.save(update_fields=['status'])
-            except StockingRecord.DoesNotExist:
-                pass
+        reopen = closed_by_rows | ({stocking_record_id} if was_total_loss and stocking_record_id else set())
+        for rec in StockingRecord.objects.filter(pk__in=reopen, status=StockingRecord.Status.TOTAL_LOSS):
+            rec.status = rec.determine_status()
+            rec.save(update_fields=['status'])
 
     def __str__(self):
         return f'{self.disaster_type} - {self.date_of_occurrence}'
@@ -1145,6 +1199,38 @@ class FisheriesDisasterReportPhoto(models.Model):
 
     def __str__(self):
         return f'Photo {self.pk} of disaster report {self.disaster_report_id}'
+
+
+class FisheriesDisasterStockLoss(models.Model):
+    """One affected stock - and, when the stock has ponds/cages, one of its production units - of a
+    multi-stock FisheriesDisasterReport, with the fingerlings lost there and whether that stock/unit was
+    completely destroyed. The rows of a report define which stocks it covers; report.stocking_record is the
+    first of them (so every single-stock reader keeps working). Reports logged before this model existed
+    have no rows and are shown exactly as before."""
+    disaster_report  = models.ForeignKey(FisheriesDisasterReport, on_delete=models.CASCADE, related_name='stock_losses')
+    stocking_record  = models.ForeignKey(StockingRecord, on_delete=models.CASCADE, related_name='disaster_losses')
+    # NULL only for a stock with no pond/cage breakdown (one row for the whole stock).
+    production_unit  = models.ForeignKey(
+        'monitoring.AquacultureProductionUnit', on_delete=models.CASCADE, null=True, blank=True,
+        related_name='disaster_losses',
+    )
+    # NULL = not recorded (the stock/unit is affected but no count was entered); never guessed.
+    fingerlings_lost = models.PositiveIntegerField(null=True, blank=True)
+    is_total_loss    = models.BooleanField(default=False, help_text='This stock/unit was completely destroyed')
+
+    class Meta:
+        ordering = ['id']
+        constraints = [
+            models.UniqueConstraint(fields=['disaster_report', 'stocking_record', 'production_unit'],
+                                    name='unique_disaster_loss_per_stock_unit'),
+            # NULLs are distinct in a unique constraint, so the whole-stock row needs its own guard.
+            models.UniqueConstraint(fields=['disaster_report', 'stocking_record'],
+                                    condition=Q(production_unit__isnull=True),
+                                    name='unique_disaster_loss_per_stock_without_unit'),
+        ]
+
+    def __str__(self):
+        return f'Report {self.disaster_report_id} · stock {self.stocking_record_id} · unit {self.production_unit_id}: {self.fingerlings_lost}'
 
 
 # ─── Fisheries Disaster Response Rules ────────────────────────────────────────
