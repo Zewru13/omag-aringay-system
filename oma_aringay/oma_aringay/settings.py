@@ -28,7 +28,11 @@ if not SECRET_KEY:
         'print(get_random_secret_key())"` and add it to oma_aringay/.env.'
     )
 
-DEBUG = True
+# Development default. The production settings force this off, and wsgi/asgi use them unless told otherwise.
+DEBUG = os.environ.get('DJANGO_DEBUG', 'true').strip().lower() in ('1', 'true', 'yes')
+
+# The Django admin site is not used by anyone, so it is not even mounted unless this is switched on.
+ENABLE_DJANGO_ADMIN = os.environ.get('ENABLE_DJANGO_ADMIN', '').strip().lower() in ('1', 'true', 'yes')
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
@@ -57,6 +61,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    # Cache, framing and scripting rules for every /api/ answer.
+    'core.middleware.SecurityHeadersMiddleware',
     # Compress API responses (the yield analysis list alone is ~15 MB of JSON, ~0.3 MB gzipped).
     'django.middleware.gzip.GZipMiddleware',
     'corsheaders.middleware.CorsMiddleware',
@@ -275,6 +281,8 @@ REST_FRAMEWORK = {
     # renderer format (only "json"/"api" are). Disabling it here restores every
     # report endpoint's PDF/Excel export, which was silently 404ing app-wide.
     'URL_FORMAT_OVERRIDE': None,
+    # Turns "cannot delete, other records depend on it" into a 409 instead of a server error.
+    'EXCEPTION_HANDLER': 'core.exception_handler.api_exception_handler',
     # Batch 10: login throttling. 5/min keyed per submitted identifier (see
     # accounts.views.LoginRateThrottle) — enough headroom for a genuine typo
     # or two, tight enough to make scripted password-guessing against a
@@ -285,12 +293,26 @@ REST_FRAMEWORK = {
     # exactly 60s" cliff.
     'DEFAULT_THROTTLE_RATES': {
         'login': '5/min',
+        # Per network address, whatever account names are tried (see accounts.views.LoginIpRateThrottle).
+        'login_ip': '30/min',
+        # "Send me a new verification link": per e-mail address, and per network address.
+        'resend_email': '3/hour',
+        'resend_ip': '20/hour',
     },
+    # How many reverse proxies stand in front of Django. 0 = none: the client address is REMOTE_ADDR and any
+    # X-Forwarded-For header is ignored. (DRF's default, None, believes whatever header a visitor sends, which lets
+    # them dodge every per-address limit.) settings_production raises this when BEHIND_TLS_PROXY is set.
+    'NUM_PROXIES': int(os.environ.get('NUM_PROXIES') or 0),
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    # Short, because an access token cannot be taken back once it is stolen; the front end renews it silently.
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    # A refresh token works once: using it returns a new one and blacklists the old, so a copied token cannot be
+    # replayed. The front end (src/api/refreshSession.js) stores the new one every time.
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
     # When a user's password changes, every access token issued before that
     # change (not just refresh tokens) stops passing authentication on its
     # very next request — SimpleJWT embeds a hash of the password at token
@@ -346,25 +368,3 @@ TEMP_PASSWORD_VALID_DAYS = int(os.environ.get('TEMP_PASSWORD_VALID_DAYS', '7'))
 
 # Seconds to wait on the mail server before giving up (an unreachable server must not hang a request).
 EMAIL_TIMEOUT = int(os.environ.get('EMAIL_TIMEOUT', '10'))
-# ==========================================================
-# PYTHON 3.14 COMPATIBILITY PATCH FOR DJANGO 4.2 ADMIN PANELS
-# ==========================================================
-import copy
-from django.template import context
-
-def safe_context_copy(self):
-    # Create a brand new instance of the current class directly, bypassing broken super() layouts
-    duplicate = object.__new__(self.__class__)
-    
-    # Copy all top-level attributes safely
-    for key, value in self.__dict__.items():
-        if key == 'dicts':
-            # Create a shallow copy of the context list layers
-            duplicate.dicts = self.dicts[:]
-        else:
-            setattr(duplicate, key, value)
-            
-    return duplicate
-
-# Override Django's base copying mechanism globally
-context.BaseContext.__copy__ = safe_context_copy
