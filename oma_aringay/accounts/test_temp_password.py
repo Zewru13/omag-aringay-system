@@ -13,6 +13,7 @@ from rest_framework.test import APITestCase
 from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
 
 from accounts.models import User, UserLinkedRecord
+from accounts.views import LOGIN_FAILED
 from accounts.utils import _WORDS, generate_default_password, issue_temporary_password, temp_password_expired
 from accounts.validators import LOCAL_DENYLIST_TERMS
 from associations.models import FarmersOrganization
@@ -95,7 +96,7 @@ class ExpiryTests(APITestCase):
         User.objects.filter(pk=user.pk).update(temp_password_expires_at=timezone.now() - timedelta(days=1))
         response = self.login(user, 'Not#The1234')
         self.assertEqual(response.status_code, 401)
-        self.assertEqual(response.data['detail'], 'Incorrect password.')
+        self.assertEqual(response.data['detail'], LOGIN_FAILED)
 
     def test_account_without_expiry_is_unaffected(self):
         _, user = make_org_account()
