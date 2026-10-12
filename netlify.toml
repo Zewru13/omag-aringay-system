@@ -1,9 +1,10 @@
 # Netlify reads this from the repository root. The website lives in oma-frontend/.
 # (Set VITE_API_URL in Netlify's environment variables - it is the backend address.)
 [build]
+  # publish is relative to base, so it is just "dist" (a doubled oma-frontend/oma-frontend/dist failed once)
   base = "oma-frontend"
   command = "npm run build"
-  publish = "oma-frontend/dist"
+  publish = "dist"
 
 [build.environment]
   NODE_VERSION = "22"
