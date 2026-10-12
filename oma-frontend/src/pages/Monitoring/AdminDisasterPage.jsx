@@ -5,7 +5,9 @@ import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import Button from '../../components/UI/Button.jsx'
-import DataTable from '../../components/UI/DataTable.jsx'
+import GroupedDisasterTable from './GroupedDisasterTable.jsx'
+import { disasterStatusLabel } from './disasterRecovery.js'
+import { groupDisasterRows } from './disasterGroups.js'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
@@ -206,7 +208,7 @@ function FisheriesDisasterTab({ openLog }) {
     status_cell: (
       <span className="flex flex-col items-start gap-1">
         <StatusPill tone={SUBMISSION_TONES[r.submission_status] || 'slate'}>{r.submission_label}</StatusPill>
-        <span className={`text-[11px] font-semibold ${r.status === 'Active' ? 'text-amber-700' : 'text-green-700'}`}>{r.is_total_loss ? 'Total loss' : r.status}</span>
+        <span className={`text-[11px] font-semibold ${r.status === 'Active' && r.can_recover !== false ? 'text-amber-700' : r.status === 'Active' ? 'text-slate-600' : 'text-green-700'}`} title={r.recovery_block_reason || undefined}>{disasterStatusLabel(r)}</span>
       </span>
     ),
     logged_fmt: fmtDateTime(r.submitted_at || r.date_reported),
@@ -218,6 +220,7 @@ function FisheriesDisasterTab({ openLog }) {
       ]} />
     ),
   })), [rows, busyId]) // eslint-disable-line react-hooks/exhaustive-deps
+  const groups = useMemo(() => groupDisasterRows(data, { idKey: 'fisherfolk_id', nameKey: 'fisherfolk_name', barangayKey: 'fisherfolk_barangay' }), [data])
 
   return (
     <div className="space-y-4" data-testid="fisheries-disaster-tab">
@@ -233,12 +236,13 @@ function FisheriesDisasterTab({ openLog }) {
         year={year} setYear={setFilter(setYear)} placeholder="Search fisherfolk, species, disaster or reference no.…" />
       {error ? <ErrorMessage message={error} /> : (
         <>
-          <DataTable columns={[
-            { key: 'report_number', label: 'Reference No.' }, { key: 'fisherfolk_name', label: 'Fisherfolk' },
-            { key: 'stock_cell', label: 'Affected Stock' }, { key: 'date_fmt', label: 'Date' },
-            { key: 'disaster_type_label', label: 'Disaster' }, { key: 'volume_fmt', label: 'Volume Lost' },
-            { key: 'status_cell', label: 'Status' }, { key: 'logged_fmt', label: 'Logged / Submitted' }, { key: 'actions_cell', label: 'Actions' },
-          ]} data={data} isLoading={isLoading} onRowClick={(row) => openLog(row.id)} />
+          <GroupedDisasterTable personLabel="Fisherfolk" groups={groups} isLoading={isLoading} onOpen={(row) => openLog(row.id)}
+            emptyText="No fisheries disasters found."
+            columns={[
+              { key: 'report_number', label: 'Reference No.' }, { key: 'stock_cell', label: 'Affected Stock / Pond' }, { key: 'date_fmt', label: 'Date' },
+              { key: 'disaster_type_label', label: 'Disaster' }, { key: 'volume_fmt', label: 'Volume Lost' },
+              { key: 'status_cell', label: 'Status' }, { key: 'logged_fmt', label: 'Logged / Submitted' }, { key: 'actions_cell', label: 'Actions' },
+            ]} />
           <PaginationBar page={page} totalCount={count} pageSize={20} onPageChange={setPage} />
         </>
       )}
@@ -296,7 +300,7 @@ function FarmerDisasterTab() {
     ...r,
     date_fmt: fmtLong(r.date_of_occurrence),
     area_fmt: r.area_affected_ha != null ? `${Number(r.area_affected_ha).toLocaleString()} ha` : '—',
-    status_cell: <StatusPill tone={STATUS_TONES[r.status] || 'slate'}>{r.is_total_loss ? 'Total loss' : r.status}</StatusPill>,
+    status_cell: <span title={r.recovery_block_reason || undefined}><StatusPill tone={r.status === 'Active' && r.can_recover === false ? 'slate' : (STATUS_TONES[r.status] || 'slate')}>{disasterStatusLabel(r)}</StatusPill></span>,
     logged_fmt: fmtDateTime(r.date_reported),
     actions_cell: (
       <RowActions actions={[
@@ -306,6 +310,7 @@ function FarmerDisasterTab() {
       ]} />
     ),
   })), [rows, busyId]) // eslint-disable-line react-hooks/exhaustive-deps
+  const groups = useMemo(() => groupDisasterRows(data, { idKey: 'farmer_id', nameKey: 'farmer_name', barangayKey: 'location' }), [data])
 
   return (
     <div className="space-y-4" data-testid="farmer-disaster-tab">
@@ -321,12 +326,14 @@ function FarmerDisasterTab() {
         year={year} setYear={setFilter(setYear)} placeholder="Search farmer, crop, disaster or reference no.…" />
       {error ? <ErrorMessage message={error} /> : (
         <>
-          <DataTable columns={[
-            { key: 'report_number', label: 'Reference No.' }, { key: 'farmer_name', label: 'Farmer' }, { key: 'crop', label: 'Crop' },
-            { key: 'location', label: 'Location' }, { key: 'date_fmt', label: 'Date' }, { key: 'disaster_type_label', label: 'Disaster' },
-            { key: 'area_fmt', label: 'Area Affected' }, { key: 'status_cell', label: 'Status' }, { key: 'logged_fmt', label: 'Date Logged' },
-            { key: 'actions_cell', label: 'Actions' },
-          ]} data={data} isLoading={isLoading} onRowClick={(row) => setViewingId(row.id)} />
+          <GroupedDisasterTable personLabel="Farmer" groups={groups} isLoading={isLoading} onOpen={(row) => setViewingId(row.id)}
+            emptyText="No crop disasters found."
+            columns={[
+              { key: 'report_number', label: 'Reference No.' }, { key: 'crop', label: 'Crop' },
+              { key: 'location', label: 'Location' }, { key: 'date_fmt', label: 'Date' }, { key: 'disaster_type_label', label: 'Disaster' },
+              { key: 'area_fmt', label: 'Area Affected' }, { key: 'status_cell', label: 'Status' }, { key: 'logged_fmt', label: 'Date Logged' },
+              { key: 'actions_cell', label: 'Actions' },
+            ]} />
           <PaginationBar page={page} totalCount={count} pageSize={20} onPageChange={setPage} />
         </>
       )}

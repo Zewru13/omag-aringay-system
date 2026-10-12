@@ -46,6 +46,7 @@ def report_queryset():
         'stock_losses__stocking_record__species__category', 'stock_losses__stocking_record__pond',
         'stock_losses__stocking_record__production_cycle__organization',
         'stock_losses__stocking_record__production_cycle__units', 'stock_losses__production_unit',
+        'stock_losses__production_unit__harvest_quantities',
     )
 
 
@@ -426,6 +427,8 @@ def report_document(report, request=None):
         'photos': photos,
         'legacy_photo': legacy_photo,
         'status': report.status,
+        'can_recover': report.status == 'Active' and recovery_block_reason(report) is None,
+        'recovery_block_reason': recovery_block_reason(report) if report.status == 'Active' else None,
         'recovered_date': report.recovered_date,
         'recovery_note': report.recovery_note or '',
         'reported_by_name': _user_name(report.reported_by),
@@ -438,6 +441,34 @@ def report_document(report, request=None):
     }
 
 
+def recovery_block_reason(report):
+    """Why this disaster cannot be marked Recovered, or None when it can. It cannot once every stock and pond it
+    affected is harvested or a total loss (nothing is left to recover): it stays in the history only. Logs not linked
+    to a stock are unaffected."""
+    if report.status == 'Recovered':
+        return 'This disaster is already marked as recovered.'
+    if report.is_total_loss:
+        return 'A total loss cannot be marked as recovered.'
+
+    def closed(stock):
+        return stock.status in (StockingRecord.Status.HARVESTED, StockingRecord.Status.TOTAL_LOSS)
+
+    rows = list(report.stock_losses.all())
+    if rows:
+        everything_closed = all(
+            row.is_total_loss or closed(row.stocking_record)
+            or (row.production_unit_id is not None and len(row.production_unit.harvest_quantities.all()) > 0)
+            for row in rows
+        )
+    else:
+        stock = report.stocking_record if report.stocking_record_id else None
+        everything_closed = stock is not None and closed(stock)
+    if everything_closed:
+        return ('Every stock and pond in this disaster is already harvested or a total loss, so it stays in the '
+                'history and cannot be marked as recovered.')
+    return None
+
+
 def report_list_row(report):
     """One row of a disaster-log list (the full document is fetched when a log is opened)."""
     ff = report.owner_fisherfolk
@@ -446,6 +477,7 @@ def report_list_row(report):
         'id': report.id,
         'report_number': report.report_number,
         'kind': 'stock' if stock else 'general',
+        'fisherfolk_id': ff.id if ff else None,
         'fisherfolk_name': ff.full_name if ff else None,
         'fisherfolk_barangay': ff.barangay if ff else None,
         'affected_stock': affected_stocks_label(report),
@@ -455,6 +487,8 @@ def report_list_row(report):
         'volume_lost_kg': report.volume_lost_kg,
         'is_total_loss': report.is_total_loss,
         'status': report.status,
+        'can_recover': report.status == 'Active' and recovery_block_reason(report) is None,
+        'recovery_block_reason': recovery_block_reason(report) if report.status == 'Active' else None,
         'submission_status': report.submission_status,
         'submission_label': submission_label(report),
         'submitted_at': report.submitted_at,

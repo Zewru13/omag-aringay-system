@@ -5,6 +5,7 @@ import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import useRecordLock from '../../hooks/useRecordLock.js'
 import { labels } from './labels.js'
+import { canRecoverDisaster } from '../Monitoring/disasterRecovery.js'
 import usePhotoList from '../../hooks/usePhotoList.js'
 import PhotoListField from '../../components/UI/PhotoListField.jsx'
 import { CitizenScreen, CitizenSubHeader } from './citizenUI.jsx'
@@ -565,7 +566,7 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
         ) : (
           <ul className="space-y-2">
             {disasters.map((d) => {
-              const canRecover = d.status === 'Active' && !d.is_total_loss
+              const canRecover = canRecoverDisaster(d)
               return (
                 <li key={d.id} className="rounded-[12px] border-[0.5px] border-cz-border-strong bg-cz-surface p-[14px]">
                   <div className="mb-1.5 flex items-center justify-between gap-2">
@@ -598,7 +599,7 @@ export default function CitizenDisasterScreen({ domain, theme, recordId, record,
                       what actually gates marking a disaster recovered. */}
                   {(() => {
                     const resp = responseByDisaster[d.id]
-                    if (!resp || d.status === 'Recovered' || d.is_total_loss) return null
+                    if (!resp || d.status === 'Recovered' || d.is_total_loss || !canRecoverDisaster(d)) return null
                     const rules = resp.rules || []
                     if (rules.length === 0) {
                       return (

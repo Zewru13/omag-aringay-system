@@ -354,6 +354,9 @@ class CropDisasterReportSerializer(serializers.ModelSerializer):
     # The damage photos (CropDisasterReportPhoto rows, 0-10); they arrive as the multipart `photos` files of the
     # create request (see CropDisasterReportListCreateView). `photo` below is the older single photo, kept as is.
     photos = serializers.SerializerMethodField()
+    # Whether the Recovered action is offered: not for a harvested or total-loss crop (it stays in the history only).
+    can_recover = serializers.BooleanField(read_only=True)
+    recovery_block_reason = serializers.SerializerMethodField()
 
     class Meta:
         model = CropDisasterReport
@@ -362,7 +365,7 @@ class CropDisasterReportSerializer(serializers.ModelSerializer):
             'area_affected_ha', 'estimated_damage', 'production_loss', 'photo', 'photos',
             'severity',
             'is_total_loss',
-            'status', 'recovered_date', 'recovered_by', 'recovered_by_name', 'recovery_note',
+            'status', 'can_recover', 'recovery_block_reason', 'recovered_date', 'recovered_by', 'recovered_by_name', 'recovery_note',
             'reported_by', 'reported_by_name', 'date_reported',
         ]
         read_only_fields = [
@@ -381,6 +384,9 @@ class CropDisasterReportSerializer(serializers.ModelSerializer):
             {'id': p.id, 'url': request.build_absolute_uri(p.image.url) if request else p.image.url}
             for p in obj.photos.all()
         ]
+
+    def get_recovery_block_reason(self, obj):
+        return obj.recovery_block_reason if obj.status == 'Active' else None
 
     def get_reported_by_name(self, obj):
         if obj.reported_by:

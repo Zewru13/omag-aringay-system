@@ -64,6 +64,7 @@ def list_row(report):
     return {
         'id': report.id,
         'report_number': reference_number(report),
+        'farmer_id': rec.farmer_id,
         'farmer_name': owner_name(rec),
         'crop': rec.crop_type.name if rec.crop_type_id else None,
         'location': location(rec),
@@ -73,6 +74,8 @@ def list_row(report):
         'area_affected_ha': report.area_affected_ha,
         'is_total_loss': report.is_total_loss,
         'status': report.status,
+        'can_recover': report.can_recover,
+        'recovery_block_reason': report.recovery_block_reason if report.status == 'Active' else None,
         'date_reported': report.date_reported,
         'reported_by_name': _user_name(report.reported_by),
         'pdf_filename': pdf_filename(report),

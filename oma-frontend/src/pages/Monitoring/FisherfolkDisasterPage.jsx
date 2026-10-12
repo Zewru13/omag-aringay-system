@@ -10,6 +10,7 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import { canRecoverDisaster, disasterStatusLabel } from './disasterRecovery.js'
 import { fmtLong } from '../FisheriesRecords/stockingHelpers.js'
 import DisasterLogDetailsModal from './DisasterLogDetailsModal.jsx'
 import { FISHERIES_LOG, downloadLog, fetchAllStocks, printLog } from './disasterReportDocument.js'
@@ -122,7 +123,7 @@ export default function FisherfolkDisasterPage() {
       <span className="flex flex-col items-start gap-1">
         <StatusPill tone={SUBMISSION_TONES[r.submission_status] || 'slate'}>{r.submission_label}</StatusPill>
         <span className={`text-[11px] font-semibold ${r.status === 'Active' ? 'text-amber-700' : 'text-green-700'}`}>
-          {r.is_total_loss ? 'Total loss' : r.status}
+          {disasterStatusLabel(r)}
         </span>
       </span>
     ),
@@ -134,7 +135,7 @@ export default function FisherfolkDisasterPage() {
           onClick: () => act(r.id, () => printLog(FISHERIES_LOG, r.id), 'The disaster log could not be printed.') },
         { key: 'download', label: 'Download Disaster Log', icon: Download, disabled: busyId === r.id,
           onClick: () => act(r.id, () => downloadLog(FISHERIES_LOG, r.id, r.pdf_filename), 'The PDF could not be generated.') },
-        r.status === 'Active' && !r.is_total_loss && { key: 'recover', label: 'Mark Recovered', icon: CheckCircle2, group: 'lifecycle', onClick: () => setRecovering(r) },
+        canRecoverDisaster(r) && { key: 'recover', label: 'Mark Recovered', icon: CheckCircle2, group: 'lifecycle', onClick: () => setRecovering(r) },
       ]} />
     ),
   })), [rows, busyId]) // eslint-disable-line react-hooks/exhaustive-deps

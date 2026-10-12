@@ -154,6 +154,9 @@ class User(AbstractUser):
         linked_record_type/linked_record_id goes through — see those
         properties' own definitions above for the full cutover story.
         """
+        cached = getattr(self, '_prefetched_objects_cache', {}).get('linked_records')
+        if cached is not None:       # a list view that prefetched the links: no query per user
+            return min((link for link in cached if link.is_active), key=lambda link: link.pk, default=None)
         return self.linked_records.filter(is_active=True).first()
 
     def __str__(self):

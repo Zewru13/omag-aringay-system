@@ -221,7 +221,7 @@ export function StockingSuggestionsModal({ record, onClose, onApply }) {
               </h4>
               <div className="space-y-3">
                 {disasterRules.map((disaster) => {
-                  if (disaster.all_rules_done && !dismissedDisasters.has(disaster.disaster_id)) {
+                  if (disaster.can_recover !== false && disaster.all_rules_done && !dismissedDisasters.has(disaster.disaster_id)) {
                     return (
                       <div key={disaster.disaster_id} className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mt-2">
                         <div className="flex items-start gap-2">
@@ -253,7 +253,7 @@ export function StockingSuggestionsModal({ record, onClose, onApply }) {
                       </div>
                     )
                   }
-                  if (disaster.all_rules_done && dismissedDisasters.has(disaster.disaster_id)) {
+                  if (disaster.can_recover !== false && disaster.all_rules_done && dismissedDisasters.has(disaster.disaster_id)) {
                     return (
                       <div key={disaster.disaster_id} className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700">
                         <CheckCircle2 className="w-3.5 h-3.5 inline mr-1" />
@@ -300,8 +300,8 @@ export function StockingSuggestionsModal({ record, onClose, onApply }) {
                         ))}
                       </div>
                       <div className="mt-3 pt-3 border-t border-rose-100">
-                        {disaster.is_total_loss ? (
-                          <p className="text-xs text-slate-500 italic">Total Loss — this record is terminal and cannot be marked as recovered.</p>
+                        {disaster.is_total_loss || disaster.can_recover === false ? (
+                          <p className="text-xs text-slate-500 italic">{disaster.is_total_loss ? 'Total Loss — this record is terminal and cannot be marked as recovered.' : (disaster.recovery_block_reason || 'This disaster cannot be marked as recovered.')}</p>
                         ) : !showManualRecover[disaster.disaster_id] ? (
                           <button
                             onClick={() => setShowManualRecover(prev => ({ ...prev, [disaster.disaster_id]: true }))}
@@ -1555,7 +1555,7 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
   useEffect(() => {
     api.get(`/fisheries/stocking/${record.id}/suggestions/`)
       .then(r => {
-        const ready = (r.data.disaster_response || []).filter(d => d.status !== 'Recovered' && d.all_rules_done)
+        const ready = (r.data.disaster_response || []).filter(d => d.status !== 'Recovered' && d.can_recover !== false && d.all_rules_done)
         setResolvableDisasters(ready)
       })
       .catch(() => {})
