@@ -1,0 +1,2 @@
+# Netlify / Cloudflare Pages: every address is the same single-page app, so reloading /farmers etc. must not 404.
+/*    /index.html   200

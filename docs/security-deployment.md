@@ -112,3 +112,31 @@ If photos disappear, turn "Public bucket" back on; nothing is lost. Do not set `
 * `_backups/` and `*.log` are git-ignored. One backup file (3 disaster reports with a person's name in the text) was
   committed in the past and still exists in the repository's history. The repository is private; if it is ever made
   public or shared, remove it from the history first (`git filter-repo`).
+
+## 7. Cloud deployment recipe (Render + Netlify; other hosts are the same shape)
+
+**Before the first deploy**: run `python manage.py showmigrations` against the live database and look for lines starting
+`[ ]`. Anything unapplied must be migrated before the new code runs. Confirm no staff account still uses a demo password
+(`seed_data` creates `admin@omaaringay.gov.ph` / `evaluator@omaaringay.gov.ph` with known passwords).
+
+**Backend** (Render "Web Service", paid plan - free ones sleep):
+
+| Setting | Value |
+| --- | --- |
+| Root directory | `oma_aringay` |
+| Python | 3.12 or 3.13 |
+| Build command | `pip install -r requirements.txt` |
+| Start command | `gunicorn oma_aringay.wsgi --workers 1 --threads 4 --bind 0.0.0.0:$PORT` |
+
+Keep one worker: the sign-in limiter counts attempts in each worker's own memory. Environment variables:
+`DJANGO_SETTINGS_MODULE=oma_aringay.settings_production`, a **new** `SECRET_KEY`, `DJANGO_ALLOWED_HOST` (host name only),
+`CORS_ALLOWED_ORIGIN` and `FRONTEND_BASE_URL` (the website's `https://` address), `BEHIND_TLS_PROXY=1`, `DB_BACKEND=postgres`
+with the `SUPABASE_DB_*` and `SUPABASE_STORAGE_*` values, and the `EMAIL_*` values. Check `https://<backend>/api/` returns
+JSON and `/admin/` is "not found".
+
+**Website** (Netlify): base directory `oma-frontend`, build `npm run build`, publish `dist`, variable
+`VITE_API_URL=https://<backend>/api`. `public/_redirects` makes page reloads work. Then set `CORS_ALLOWED_ORIGIN` and
+`FRONTEND_BASE_URL` on the backend to the website's address and add the headers from section 4 (report-only first).
+
+**Test before announcing**: staff and citizen sign-in, a photo upload, a PDF with photos, a verification e-mail (some hosts
+block mail ports), a wrong password, and staying signed in for more than 15 minutes. Then make the bucket private (section 5).
