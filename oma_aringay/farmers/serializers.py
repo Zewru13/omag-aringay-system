@@ -18,8 +18,21 @@ from .models import Farmer, FarmCrop, FarmMachinery, FarmParcel
 # Farmer.farmers_organization field. "Main" here is the real, stored
 # is_main flag (see associations.models.FarmersOrganizationMember) — not a
 # live guess.
+def _active_memberships(farmer):
+    """The farmer's active organization memberships, oldest first. When the list view has prefetched them (see
+    FarmerListView) this reads them from memory; otherwise it is one query. Either way a page of farmers costs a fixed
+    number of queries: each query is a network round trip to the database, so one per row made the list (and the name
+    search that uses it) take seconds."""
+    cached = getattr(farmer, '_prefetched_objects_cache', {}).get('farmer_organizations')
+    if cached is not None:
+        members = [m for m in cached if m.is_active]
+    else:
+        members = list(farmer.farmer_organizations.filter(is_active=True).select_related('organization'))
+    return sorted(members, key=lambda m: m.pk)
+
+
 def _farmer_main_membership(farmer):
-    return farmer.farmer_organizations.filter(is_active=True, is_main=True).select_related('organization').first()
+    return next((m for m in _active_memberships(farmer) if m.is_main), None)
 
 
 def validate_contact_format(value, instance=None):
@@ -143,8 +156,8 @@ class FarmerListSerializer(serializers.ModelSerializer):
         ]
 
     def get_commodity(self, obj):
-        parcel = obj.farm_parcels.first()
-        return parcel.commodity_name if parcel else ''
+        parcels = sorted(obj.farm_parcels.all(), key=lambda p: p.pk)     # prefetched by the list view: no query per row
+        return parcels[0].commodity_name if parcels else ''
 
     def get_farmers_organization(self, obj):
         main = _farmer_main_membership(obj)
@@ -158,7 +171,7 @@ class FarmerListSerializer(serializers.ModelSerializer):
         return _farmer_main_membership(obj) is not None
 
     def get_organizations_count(self, obj):
-        return obj.farmer_organizations.filter(is_active=True).count()
+        return len(_active_memberships(obj))
 
 
 class FarmerDetailSerializer(serializers.ModelSerializer):

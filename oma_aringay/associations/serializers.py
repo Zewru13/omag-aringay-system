@@ -238,11 +238,13 @@ class FarmersOrganizationListSerializer(serializers.ModelSerializer):
             'email_address', 'is_active', 'member_count', 'equipment_count',
         ]
 
+    # The list view prefetches members and equipment for the whole page, so these count the prefetched lists in memory
+    # (a .count()/.filter() per row would be two database round trips per organization).
     def get_member_count(self, obj):
-        return obj.members.count()
+        return len(obj.members.all())
 
     def get_equipment_count(self, obj):
-        return obj.equipment.filter(quantity__gt=0).count()
+        return sum(1 for line in obj.equipment.all() if line.quantity > 0)
 
 
 class FarmersOrganizationDetailSerializer(serializers.ModelSerializer):
@@ -418,11 +420,13 @@ class FisherfolkOrganizationListSerializer(serializers.ModelSerializer):
             'email_address', 'is_active', 'member_count', 'equipment_count',
         ]
 
+    # The list view prefetches members and equipment for the whole page, so these count the prefetched lists in memory
+    # (a .count()/.filter() per row would be two database round trips per organization).
     def get_member_count(self, obj):
-        return obj.members.count()
+        return len(obj.members.all())
 
     def get_equipment_count(self, obj):
-        return obj.equipment.filter(quantity__gt=0).count()
+        return sum(1 for line in obj.equipment.all() if line.quantity > 0)
 
 
 class FisherfolkOrganizationDetailSerializer(serializers.ModelSerializer):

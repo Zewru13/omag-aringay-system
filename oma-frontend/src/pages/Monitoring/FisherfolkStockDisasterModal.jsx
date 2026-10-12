@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Search, X } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import FormField, { FormLabel, baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -386,59 +386,36 @@ export default function FisherfolkStockDisasterModal({ stocks, fisherfolk = null
       iconBg="bg-rose-100"
       iconColor="text-rose-600"
       onClose={onClose}
-      maxWidth="max-w-3xl"
+      maxWidth="max-w-5xl"
       footer={<>
         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
         <Button type="submit" form="ff-stock-disaster-form" isLoading={isSubmitting} disabled={isSubmitting || stocks === null}>Log Disaster</Button>
       </>}
     >
       <form id="ff-stock-disaster-form" onSubmit={handleSubmit} className="space-y-4" noValidate>
-        <FormField label="Affected Stock" required>
-          <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Affected stock">
-            <label className={radioCls(mode === LINKED)}>
-              <input type="radio" name="disaster-link" className="mt-0.5" checked={mode === LINKED} onChange={() => setMode(LINKED)} />
-              <span>One or more stocks</span>
-            </label>
-            <label className={radioCls(mode === NOT_LINKED)}>
-              <input type="radio" name="disaster-link" className="mt-0.5" checked={mode === NOT_LINKED}
-                onChange={() => { setMode(NOT_LINKED); setSelectedIds([]); setUnitsByStock({}); setLosses({}) }} />
-              <span>Not linked to a stock (pond, cage or equipment damage only)</span>
-            </label>
-          </div>
-          {mode === LINKED && (
-            <div className="mt-2">
-              {stocks === null ? <p className="text-xs text-slate-500">Loading stocks…</p>
-                : allStocks.length === 0 ? <p className="text-xs text-slate-500">No active stocks to choose from — choose “Not linked to a stock”.</p>
-                  : <StockPicker stocks={allStocks} selectedIds={selectedIds} onToggle={toggleStock} />}
+        {/* Row 1: the affected stock on the left, the equipment damaged beside it (one column each on a phone). */}
+        <div className="grid gap-4 lg:grid-cols-2">
+          <FormField label="Affected Stock" required>
+            <div className="grid gap-2" role="radiogroup" aria-label="Affected stock">
+              <label className={radioCls(mode === LINKED)}>
+                <input type="radio" name="disaster-link" className="mt-0.5" checked={mode === LINKED} onChange={() => setMode(LINKED)} />
+                <span>One or more stocks</span>
+              </label>
+              <label className={radioCls(mode === NOT_LINKED)}>
+                <input type="radio" name="disaster-link" className="mt-0.5" checked={mode === NOT_LINKED}
+                  onChange={() => { setMode(NOT_LINKED); setSelectedIds([]); setUnitsByStock({}); setLosses({}) }} />
+                <span>Not linked to a stock (pond, cage or equipment damage only)</span>
+              </label>
             </div>
-          )}
-        </FormField>
-
-        {mode === LINKED && groups.length > 0 && (
-          <FingerlingsLostTable groups={groups} values={losses} onChange={changeLoss} showErrors={showErrors} />
-        )}
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <FormField label="Date of Occurrence" required>
-            <input type="date" className={baseInputClasses} required value={form.date_of_occurrence}
-              max={todayLocal()} min={latestStocked || undefined}
-              onChange={e => set('date_of_occurrence', e.target.value)} />
-          </FormField>
-          <FormField label="Disaster Type" required>
-            <select className={baseInputClasses} value={form.disaster_type} onChange={e => set('disaster_type', e.target.value)}>
-              {FISHERFOLK_DISASTER_TYPES.map(d => <option key={d}>{d}</option>)}
-            </select>
-            {form.disaster_type === 'Other' && (
-              <input className={`${baseInputClasses} mt-2`} value={form.disaster_type_other_specify}
-                onChange={e => set('disaster_type_other_specify', e.target.value)}
-                placeholder="Specify disaster type" maxLength={150} required />
+            {mode === LINKED && (
+              <div className="mt-2">
+                {stocks === null ? <p className="text-xs text-slate-500">Loading stocks…</p>
+                  : allStocks.length === 0 ? <p className="text-xs text-slate-500">No active stocks to choose from — choose “Not linked to a stock”.</p>
+                    : <StockPicker stocks={allStocks} selectedIds={selectedIds} onToggle={toggleStock} />}
+              </div>
             )}
           </FormField>
-          <FormField label="Volume Lost (kg)">
-            <input type="number" step="0.01" min="0" className={baseInputClasses} value={form.volume_lost_kg}
-              onChange={e => set('volume_lost_kg', e.target.value)} placeholder="e.g. 150" />
-          </FormField>
-          <FormField label="Equipment Damaged" className="sm:col-span-2">
+          <FormField label="Equipment Damaged">
             <EquipmentChecklist
               groups={AQUACULTURE_EQUIPMENT_GROUPS}
               selected={form.equipment_damaged}
@@ -448,15 +425,45 @@ export default function FisherfolkStockDisasterModal({ stocks, fisherfolk = null
               inputClassName={baseInputClasses}
             />
           </FormField>
-          <FormField label="Description of Damage" className="sm:col-span-2">
-            <textarea rows={3} className={`${baseInputClasses} resize-none`} value={form.estimated_damage}
+        </div>
+
+        {mode === LINKED && groups.length > 0 && (
+          <FingerlingsLostTable groups={groups} values={losses} onChange={changeLoss} showErrors={showErrors} />
+        )}
+
+        {/* Row 2: when, what and how much on the left; the description fills the right column to the same height. */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-4">
+            <FormField label="Date of Occurrence" required>
+              <input type="date" className={baseInputClasses} required value={form.date_of_occurrence}
+                max={todayLocal()} min={latestStocked || undefined}
+                onChange={e => set('date_of_occurrence', e.target.value)} />
+            </FormField>
+            <FormField label="Disaster Type" required>
+              <select className={baseInputClasses} value={form.disaster_type} onChange={e => set('disaster_type', e.target.value)}>
+                {FISHERFOLK_DISASTER_TYPES.map(d => <option key={d}>{d}</option>)}
+              </select>
+              {form.disaster_type === 'Other' && (
+                <input className={`${baseInputClasses} mt-2`} value={form.disaster_type_other_specify}
+                  onChange={e => set('disaster_type_other_specify', e.target.value)}
+                  placeholder="Specify disaster type" maxLength={150} required />
+              )}
+            </FormField>
+            <FormField label="Volume Lost (kg)">
+              <input type="number" step="0.01" min="0" className={baseInputClasses} value={form.volume_lost_kg}
+                onChange={e => set('volume_lost_kg', e.target.value)} placeholder="e.g. 150" />
+            </FormField>
+          </div>
+          <div className="flex flex-col">
+            <FormLabel>Description of Damage</FormLabel>
+            <textarea rows={6} className="min-h-[9rem] w-full flex-1 resize-none rounded-lg border border-[#E2E8E2] bg-white px-3 py-2 text-[13px] text-[#1A2B1A] placeholder-[#A8BCA8] transition-colors focus:border-[#1B4D2E] focus:outline-none focus:ring-2 focus:ring-[#1B4D2E]/10"
+              value={form.estimated_damage}
               onChange={e => set('estimated_damage', e.target.value)}
               placeholder="Describe the damage to the stock, pond/cage and equipment" />
-          </FormField>
-          <div className="sm:col-span-2">
-            <DamagePhotosField photosState={damagePhotos} />
           </div>
         </div>
+
+        <DamagePhotosField photosState={damagePhotos} />
       </form>
     </ModalShell>
   )

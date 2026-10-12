@@ -5,6 +5,8 @@ import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import EmailInput from '../../components/UI/EmailInput.jsx'
+import PhoneInput from '../../components/UI/PhoneInput.jsx'
+import { isPhoneComplete } from '../../utils/inputGuards.js'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 
@@ -108,6 +110,7 @@ function StepDetails({ role, formData, onChange, onBack, onNext, onCancel, setFo
     if (!fd.lastName.trim())  { setError('Last name is required.'); return }
     if (!fd.firstName.trim()) { setError('First name is required.'); return }
     if (!fd.email.trim())     { setError('Email is required.'); return }
+    if (fd.contact_number && !isPhoneComplete(fd.contact_number)) { setError('Mobile number must be 11 digits and start with 09.'); return }
     setError('')
     onNextRef.current()
   }
@@ -154,13 +157,20 @@ function StepDetails({ role, formData, onChange, onBack, onNext, onCancel, setFo
           </div>
         </div>
 
-        {/* Suffix */}
-        <div>
-          <label className={labelCls}>Suffix <span className="text-[#A8BCA8] font-normal">(optional)</span></label>
-          <select className={baseInputClasses} value={formData.suffix} onChange={e => set('suffix', e.target.value)}>
-            <option value="">None</option>
-            {SUFFIX_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
+        {/* Suffix + mobile number */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className={labelCls}>Suffix <span className="text-[#A8BCA8] font-normal">(optional)</span></label>
+            <select className={baseInputClasses} value={formData.suffix} onChange={e => set('suffix', e.target.value)}>
+              <option value="">None</option>
+              {SUFFIX_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Mobile Number <span className="text-[#A8BCA8] font-normal">(optional)</span></label>
+            <PhoneInput className={baseInputClasses} value={formData.contact_number}
+              onChange={v => set('contact_number', v)} />
+          </div>
         </div>
 
         {/* Email */}
@@ -230,6 +240,7 @@ function StepReview({ role, formData, onBack, onCancel, onSuccess, setFooter }) 
         full_name: fullName,
         suffix:    formData.suffix,
         email:     formData.email,
+        contact_number: formData.contact_number,
         role,
       })
       if (r.data.email_sent) {
@@ -374,6 +385,7 @@ function StepReview({ role, formData, onBack, onCancel, onSuccess, setFooter }) 
       <div className="space-y-2">
         <Row label="Email"          value={formData.email} />
         <Row label="Name"           value={fullName} />
+        <Row label="Mobile number"  value={formData.contact_number || '—'} />
         <Row label="Role"           value={roleLabel} />
         <div className="rounded-lg bg-[#F9FAF9] border border-[#E2E8E2] px-4 py-3 text-[12px] text-[#7A8E7A]">
           A verification link and a secure random password will be sent to the user's email. The account stays inactive until they click the link.
@@ -403,7 +415,7 @@ export default function CreateUserModal({ onClose, onSuccess }) {
   const [step,     setStep]     = useState(1)
   const [role,     setRole]     = useState('')
   const [formData, setFormData] = useState({
-    lastName: '', firstName: '', suffix: '', email: '',
+    lastName: '', firstName: '', suffix: '', email: '', contact_number: '',
   })
   const [footer, setFooter] = useState(null)
 

@@ -4,6 +4,7 @@ from datetime import date
 
 from core.validators import validate_not_future_date, validate_uploaded_image
 from farmers.models import FarmParcel
+from farmers.serializers import _farmer_main_membership
 from .duplicates import ACTIVE_STATUSES, duplicate_message, find_active_duplicates
 from .naming import normalize_name
 from .parcel_link import infer_farm_parcel
@@ -535,7 +536,7 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
         # instead (associations.models.FarmersOrganizationMember.is_main).
         if not obj.farmer_id:
             return None
-        main = obj.farmer.farmer_organizations.filter(is_active=True, is_main=True).select_related('organization').first()
+        main = _farmer_main_membership(obj.farmer)
         return main.organization.name if main else None
 
     def get_farmer_barangay(self, obj):
@@ -563,39 +564,46 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
             return 0 <= delta <= 7
         return False
 
+    # The list view prefetches activity logs, labor logs, harvest records and disaster reports for the whole page, so
+    # these read them from memory (obj.<relation>.all() is the prefetched list). Calling .filter()/.count()/.first()
+    # instead would run a query per row, and over the network to the database that made this list take many seconds.
     def get_latest_condition(self, obj):
-        log = obj.activity_logs.order_by('-date_of_activity').first()
-        if log and log.plant_condition:
-            return log.plant_condition
+        logs = sorted(obj.activity_logs.all(), key=lambda l: (l.date_of_activity, l.pk), reverse=True)
+        if logs and logs[0].plant_condition:
+            return logs[0].plant_condition
         return None
 
     def get_log_count(self, obj):
-        return obj.activity_logs.count()
+        return len(obj.activity_logs.all())
 
     def get_labor_log_count(self, obj):
-        return obj.labor_logs.count()
+        return len(obj.labor_logs.all())
 
     def get_disasters_count(self, obj):
-        return obj.disaster_reports.filter(status='Active').count()
+        return sum(1 for d in obj.disaster_reports.all() if d.status == 'Active')
 
     def get_has_recovered_disaster(self, obj):
-        return obj.disaster_reports.filter(status='Recovered').exists()
+        return any(d.status == 'Recovered' for d in obj.disaster_reports.all())
+
+    def _first_harvest(self, obj):
+        harvests = sorted(obj.harvest_records.all(), key=lambda h: h.pk)
+        return harvests[0] if harvests else None
 
     def get_has_harvest(self, obj):
         return obj.status == CropMonitoringRecord.Status.HARVESTED
 
     def get_harvest_record_id(self, obj):
-        hr = obj.harvest_records.first()
+        hr = self._first_harvest(obj)
         return hr.id if hr else None
 
     def get_harvest_count(self, obj):
-        return obj.harvest_records.count()
+        return len(obj.harvest_records.all())
 
     def get_disaster_report_count(self, obj):
-        return obj.disaster_reports.count()
+        return len(obj.disaster_reports.all())
 
     def get_harvest_variance_days(self, obj):
-        hr = obj.harvest_records.first()
+        hr = self._first_harvest(obj)
         return hr.harvest_variance_days if hr else None
 
     def get_growth_stage(self, obj):

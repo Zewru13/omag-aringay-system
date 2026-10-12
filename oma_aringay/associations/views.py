@@ -184,6 +184,8 @@ class FarmersOrganizationListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         qs = FarmersOrganization.objects.all().order_by('-date_created', '-id')
+        if self.request.method == 'GET':
+            qs = qs.prefetch_related('members', 'equipment')   # the list serializer counts both: two queries, not two per row
         search = self.request.query_params.get('search', '').strip()
         if search:
             qs = qs.filter(Q(name__icontains=search) | Q(barangay__icontains=search))
@@ -508,6 +510,8 @@ class FisherfolkOrganizationListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         qs = FisherfolkOrganization.objects.all().order_by('-date_created', '-id')
+        if self.request.method == 'GET':
+            qs = qs.prefetch_related('members', 'equipment')   # the list serializer counts both: two queries, not two per row
         search = self.request.query_params.get('search', '').strip()
         if search:
             qs = qs.filter(Q(name__icontains=search) | Q(barangay__icontains=search))
