@@ -42,6 +42,7 @@ from .serializers import (
     FisherfolkBeneficiaryRecordCreateSerializer,
     FisherfolkBeneficiaryRecordUpdateSerializer,
 )
+from core.exports import SafeWorkbook
 
 
 class PendingOnlyEditMixin:
@@ -965,10 +966,9 @@ def _assistance_import_template_response(filename, id_label, sample_row, type_no
     from io import BytesIO
 
     from django.http import HttpResponse
-    from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill
 
-    wb = Workbook()
+    wb = SafeWorkbook()
     ws = wb.active
     ws.title = 'Assistance Import'
 

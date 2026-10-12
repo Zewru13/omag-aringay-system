@@ -129,10 +129,83 @@ def validate_not_future_date(value, label='Date'):
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
 ALLOWED_IMAGE_CONTENT_TYPES = {'image/jpeg', 'image/png', 'image/webp'}
 ALLOWED_IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp'}
+# A small file can decode to a huge picture (a 12000 x 12000 PNG is a few KB and ~144 MB of memory): refuse by pixel count.
+MAX_IMAGE_PIXELS = 50_000_000
+# Larger photos are scaled down to this on either side (a phone photo is 4000+ px; reports and PDFs never need that).
+MAX_IMAGE_SIDE = 3000
+
+
+_FORMATS = {'JPEG': ('.jpg', 'image/jpeg'), 'PNG': ('.png', 'image/png'), 'WEBP': ('.webp', 'image/webp')}
+
+
+def _reencode(f):
+    """Decode the upload completely and replace its content, in place, with a freshly written copy of the picture.
+
+    What a visitor can hide inside a "photo" never survives this: GPS position and device model (EXIF), text chunks,
+    bytes appended after the image data (a script, a PHP line), and anything that only a lenient viewer would accept.
+    The phone's rotation flag is applied to the pixels first, so a portrait photo does not turn sideways."""
+    import io
+    import uuid
+    import warnings
+
+    from PIL import Image, ImageOps
+
+    too_large = ValidationError('That image has too many pixels (the picture itself is too large). Please use a smaller photo.')
+    f.seek(0)
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', Image.DecompressionBombWarning)
+            image = Image.open(f)
+            fmt = image.format
+            if fmt not in _FORMATS:
+                raise ValidationError('Unsupported file type. Please upload a JPG, PNG, or WEBP image.')
+            if image.width * image.height > MAX_IMAGE_PIXELS:
+                raise too_large
+            image.load()                                   # a cut-off or corrupt file fails here, not later
+            icc_profile = image.info.get('icc_profile')
+            image = ImageOps.exif_transpose(image)
+    except Image.DecompressionBombError:
+        raise too_large
+    except ValidationError:
+        raise
+    except Exception:
+        raise ValidationError('That file is not a readable image.')
+
+    image.thumbnail((MAX_IMAGE_SIDE, MAX_IMAGE_SIDE), Image.LANCZOS)
+    if fmt == 'JPEG':
+        if image.mode not in ('RGB', 'L'):
+            image = image.convert('RGB')
+        options = {'quality': 88, 'optimize': True}
+    elif fmt == 'PNG':
+        if image.mode not in ('1', 'L', 'LA', 'P', 'RGB', 'RGBA'):
+            image = image.convert('RGBA')
+        options = {'optimize': True}
+    else:
+        if image.mode not in ('RGB', 'RGBA'):
+            image = image.convert('RGBA' if 'A' in image.mode or image.mode == 'P' else 'RGB')
+        options = {'quality': 88}
+    if icc_profile:
+        options['icc_profile'] = icc_profile           # colour profile only; it cannot carry a location
+
+    out = io.BytesIO()
+    image.save(out, fmt, **options)
+    old = f.file
+    f.file = out
+    f.size = out.tell()
+    f.name = uuid.uuid4().hex + _FORMATS[fmt][0]       # never the device's name (often a person's name or an ID number)
+    f.content_type = _FORMATS[fmt][1]
+    out.seek(0)
+    try:
+        old.close()
+    except Exception:
+        pass
 
 
 def validate_uploaded_image(f):
-    """Raise ValidationError unless `f` is a real jpg/png/webp under 5 MB."""
+    """Raise ValidationError unless `f` is a real jpg/png/webp under 5 MB; then clean it.
+
+    On success the upload object itself has been rewritten (see _reencode), so whatever the caller saves is the clean
+    copy: re-encoded, metadata-free, scaled to at most MAX_IMAGE_SIDE, with a random name and its true extension."""
     if f is None:
         return f
 
@@ -155,21 +228,7 @@ def validate_uploaded_image(f):
             'Unsupported file type. Please upload a JPG, PNG, or WEBP image.'
         )
 
-    # Actually decode it. verify() consumes the file object, so rewind after
-    # so the caller can still save it.
-    try:
-        from PIL import Image
-        f.seek(0)
-        Image.open(f).verify()
-    except ValidationError:
-        raise
-    except Exception:
-        raise ValidationError('That file is not a readable image.')
-    finally:
-        try:
-            f.seek(0)
-        except Exception:
-            pass
+    _reencode(f)
     return f
 
 

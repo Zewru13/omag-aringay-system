@@ -31,6 +31,40 @@ def _lock_payload(lock, locked=True):
 
 # ─── Record Locking ───────────────────────────────────────────────────────────
 
+LOCKABLE_TYPES = ('crop', 'stocking')
+
+
+def _lock_target(record_type, record_id):
+    """(record_type, record_id as int, None) for something that can be locked, else (None, None, a 400 Response)."""
+    if record_type not in LOCKABLE_TYPES:
+        return None, None, Response({'detail': 'record_type must be "crop" or "stocking".'}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        record_id = int(record_id)
+    except (TypeError, ValueError):
+        return None, None, Response({'detail': 'record_id must be a number.'}, status=status.HTTP_400_BAD_REQUEST)
+    if record_id < 1:
+        return None, None, Response({'detail': 'record_id must be a number.'}, status=status.HTTP_400_BAD_REQUEST)
+    return record_type, record_id, None
+
+
+def _lock_record_exists(record_type, record_id):
+    if record_type == 'crop':
+        from production.models import CropMonitoringRecord
+        return CropMonitoringRecord.objects.filter(pk=record_id).exists()
+    from fisheries.models import StockingRecord
+    return StockingRecord.objects.filter(pk=record_id).exists()
+
+
+def _lock_refusal(user, record_type, record_id):
+    """None when `user` may take or refresh a lock on this record; otherwise the Response saying why not.
+    Staff may lock any existing record. A citizen may lock only a record that is their own: a lock stops staff from
+    editing, so being able to lock anybody's record would be a way to block the office."""
+    if not _lock_record_exists(record_type, record_id):
+        return Response({'detail': 'That record does not exist.'}, status=status.HTTP_404_NOT_FOUND)
+    if user.role == 'CITIZEN' and not _citizen_owns_locked_record(user, record_type, record_id):
+        return Response({'detail': 'You can only lock your own records.'}, status=status.HTTP_403_FORBIDDEN)
+    return None
+
 class LockAcquireView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -39,6 +73,12 @@ class LockAcquireView(APIView):
         record_id = request.data.get('record_id')
         if not record_type or not record_id:
             return Response({'detail': 'record_type and record_id are required.'}, status=status.HTTP_400_BAD_REQUEST)
+        record_type, record_id, bad = _lock_target(record_type, record_id)
+        if bad:
+            return bad
+        refused = _lock_refusal(request.user, record_type, record_id)
+        if refused:
+            return refused
 
         lock = acquire_lock(request.user, record_type, record_id)
         if lock is not None:
@@ -58,6 +98,12 @@ class LockHeartbeatView(APIView):
         record_id = request.data.get('record_id')
         if not record_type or not record_id:
             return Response({'detail': 'record_type and record_id are required.'}, status=status.HTTP_400_BAD_REQUEST)
+        record_type, record_id, bad = _lock_target(record_type, record_id)
+        if bad:
+            return bad
+        refused = _lock_refusal(request.user, record_type, record_id)
+        if refused:
+            return refused
 
         try:
             lock = RecordLock.objects.select_related('locked_by').get(
@@ -111,6 +157,9 @@ class LockReleaseView(APIView):
         record_id = request.data.get('record_id')
         if not record_type or not record_id:
             return Response({'detail': 'record_type and record_id are required.'}, status=status.HTTP_400_BAD_REQUEST)
+        record_type, record_id, bad = _lock_target(record_type, record_id)
+        if bad:
+            return bad
 
         try:
             lock = RecordLock.objects.get(record_type=record_type, record_id=record_id)
@@ -164,6 +213,13 @@ class LockStatusView(APIView):
         record_id = request.query_params.get('record_id')
         if not record_type or not record_id:
             return Response({'detail': 'record_type and record_id are required.'}, status=status.HTTP_400_BAD_REQUEST)
+        record_type, record_id, bad = _lock_target(record_type, record_id)
+        if bad:
+            return bad
+        # Like the batch form: a citizen is only told about locks on their own records (who else is working on
+        # somebody else's record is not theirs to know).
+        if request.user.role == 'CITIZEN' and not _citizen_owns_locked_record(request.user, record_type, record_id):
+            return Response(_lock_payload(None, locked=False))
 
         try:
             lock = RecordLock.objects.select_related('locked_by').get(

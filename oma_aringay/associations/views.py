@@ -56,6 +56,7 @@ from .serializers import (
     FisherfolkOrganizationOfficerSerializer,
     OrganizationOfficerSerializer,
 )
+from core.exports import SafeWorkbook
 
 
 # ─── Phase B: shared is_main resolution/enforcement ─────────────────────────
@@ -1219,10 +1220,9 @@ ORG_TEMPLATE_COL_WIDTHS = [30, 20, 28, 24, 24, 22, 20, 28, 22, 18]
 
 def _org_import_template_response(filename, sample_row, agency_note):
     from django.http import HttpResponse
-    from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill
 
-    wb = Workbook()
+    wb = SafeWorkbook()
     ws = wb.active
     ws.title = 'Organization Import'
 

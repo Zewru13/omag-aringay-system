@@ -110,10 +110,12 @@ class IsStaffOrOwnRecordCitizen(BasePermission):
         # fisherfolk_id would be a raw-int collision waiting to happen).
         if request.user.linked_record_type not in ('FARMER', 'FISHERFOLK'):
             return False
-        # A view whose owner ids are Fisherfolk (or Farmer) pks declares it, so a citizen linked to the
-        # OTHER domain can never pass by a coincidental equal number (a farmer id equal to a fisherfolk id).
+        # A view whose owner ids are Fisherfolk (or Farmer) pks must declare it (owner_record_type), so a citizen
+        # linked to the OTHER domain can never pass by a coincidental equal number.
+        # Fail closed: a view that does not say which kind of record its ids are cannot be told apart from a
+        # farmer id that happens to equal a fisherfolk id, so it refuses citizens until it declares one.
         required_type = getattr(view, 'owner_record_type', None)
-        if required_type and request.user.linked_record_type != required_type:
+        if required_type is None or request.user.linked_record_type != required_type:
             return False
 
         get_target_owner_id = getattr(view, 'get_target_owner_id', None)
@@ -136,7 +138,7 @@ class IsStaffOrOwnRecordCitizen(BasePermission):
         if request.user.linked_record_type not in ('FARMER', 'FISHERFOLK'):
             return False
         required_type = getattr(view, 'owner_record_type', None)
-        if required_type and request.user.linked_record_type != required_type:
+        if required_type is None or request.user.linked_record_type != required_type:
             return False
 
         # Evaluator-parity batch: a CITIZEN may act on ANY entry belonging to
