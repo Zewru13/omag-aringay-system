@@ -1670,42 +1670,15 @@ function BeneficiaryConfirmationsTab() {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
-// Batch A: the sidebar's Reports entry now deep-links directly to each
-// report via ?tab= (same query-param convention FarmersHub/FisherfolkHub/
-// CropSettingsHub already use) — activeTab reads from the URL instead of
-// local state, so those sidebar links land straight on the right report
-// instead of always opening on Harvested Crop and requiring a manual tab
-// click. The in-page tab row stays (unlike Change 1's Farmers/Fisherfolk
-// hubs, nothing here duplicates a separate sidebar destination one-for-one
-// without it — this is the only way to switch reports when the sidebar is
-// collapsed/closed) but now drives the same URL, so it stays in sync with
-// the sidebar's active-item highlighting.
+// The sidebar's Reports group links straight to each report (?tab=...), so this page has no tab row of its own:
+// the sidebar is the one place that switches reports.
 export default function ReportsPage() {
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
   const activeTab = TABS.some(t => t.id === searchParams.get('tab')) ? searchParams.get('tab') : 'harvested'
-  const setActiveTab = (id) => setSearchParams({ tab: id }, { replace: true })
 
   return (
     <PageLayout title="Report Generation" subtitle="Generate and export data from different modules">
       <div className="space-y-5">
-        <div className="flex flex-wrap gap-2 print:hidden">
-          {TABS.map(tab => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 rounded-lg text-[13px] font-medium transition-colors flex items-center gap-1.5 ${
-                activeTab === tab.id
-                  ? 'bg-[#1B4D2E] text-white'
-                  : 'bg-white border border-[#E2E8E2] text-[#4A5E4A] hover:bg-[#F5F7F5]'
-              }`}
-            >
-              <tab.icon size={14} />
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
         {activeTab === 'harvested'           && <HarvestedCropTab />}
         {activeTab === 'organization'         && <OrganizationListTab />}
         {activeTab === 'crop_options'        && <CropOptionsTab />}

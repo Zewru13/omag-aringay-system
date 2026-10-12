@@ -18,6 +18,7 @@ import {
   ShieldCheck,
   Sprout,
   TrendingUp,
+  UserCheck,
   UserCog,
   Users,
   Waves,
@@ -51,7 +52,7 @@ const DISASTER_GROUP = {
 
 // Batch A: Reports was a single leaf item landing on ReportsPage's default
 // tab (Harvested Crop) no matter which report you actually wanted — now a
-// group of 5 deep-links, same ?tab= convention as every other tabbed hub
+// group of 7 deep-links, same ?tab= convention as every other tabbed hub
 // below, so each one lands directly on the right report.
 const REPORTS_GROUP = {
   key: "reports",
@@ -63,6 +64,8 @@ const REPORTS_GROUP = {
     { to: "/reports?tab=crop_options", icon: Leaf, label: "Crop Options" },
     { to: "/reports?tab=fisheries", icon: Fish, label: "Fisheries Production" },
     { to: "/reports?tab=farmer_crop_history", icon: History, label: "Farmer Crop History" },
+    { to: "/reports?tab=fisherfolk_stocking_history", icon: Fish, label: "Fisherfolk Stocking History" },
+    { to: "/reports?tab=beneficiary_confirmations", icon: UserCheck, label: "On-Behalf-Of Confirmations" },
   ],
 };
 
