@@ -30,9 +30,12 @@ path('farmers/', include('farmers.urls')),
 ]
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
     path('api/', include(api_urlpatterns)),
 ]
+
+# The Django admin has its own, unthrottled login form and nobody uses it, so it is off unless explicitly enabled.
+if getattr(settings, 'ENABLE_DJANGO_ADMIN', False):
+    urlpatterns.insert(0, path('admin/', admin.site.urls))
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

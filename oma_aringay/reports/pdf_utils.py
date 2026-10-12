@@ -5,6 +5,7 @@ Every PDF in the system imports from this module so all five
 downloadable documents belong to one consistent official record family.
 """
 from datetime import date as date_type, datetime
+from xml.sax.saxutils import escape
 from decimal import Decimal
 
 from reportlab.lib import colors
@@ -46,6 +47,13 @@ def fmt_field(value):
     if value is None or str(value).strip() == '':
         return 'N/A'
     return str(value)
+
+
+def pdf_text(value):
+    """`value` made safe to give to a Paragraph. A Paragraph reads <tags> and &entities; in its text, so a name or note
+    typed with "<" or "&" would be hidden, restyled, or (<img>) make the report try to open a file. Escaping shows
+    the text exactly as it was typed. Blank becomes 'N/A', like fmt_field."""
+    return escape(fmt_field(value))
 
 
 def fmt_date(value):
@@ -247,9 +255,9 @@ def build_official_header(logo_path, document_title, document_subtitle=None):
     flowables.append(HRFlowable(width='100%', thickness=0.75, color=BORDER_COLOR, spaceAfter=6))
 
     # Document title and subtitle
-    flowables.append(Paragraph(document_title, S['DocTitle']))
+    flowables.append(Paragraph(escape(str(document_title)), S['DocTitle']))
     if document_subtitle:
-        flowables.append(Paragraph(document_subtitle, S['DocSubtitle']))
+        flowables.append(Paragraph(escape(str(document_subtitle)), S['DocSubtitle']))
 
     # Date stamp box — small bordered box, centered
     date_data = [[Paragraph(f'Date Generated: {today_str}', S['DateStamp'])]]
@@ -280,7 +288,7 @@ def build_section_heading(roman_numeral, title):
     S = get_styles()
     return [
         Spacer(1, 14),
-        Paragraph(f'SECTION {roman_numeral} — {title}', S['SectionHead']),
+        Paragraph(f'SECTION {escape(str(roman_numeral))} — {escape(str(title))}', S['SectionHead']),
         HRFlowable(width='100%', thickness=1, color=PRIMARY_GREEN, spaceAfter=0),
         Spacer(1, 6),
     ]
@@ -293,7 +301,7 @@ def _kv_cell(value, style):
     from reportlab.platypus.flowables import Flowable
     if isinstance(value, Flowable):
         return value
-    return Paragraph(fmt_field(value), style)
+    return Paragraph(pdf_text(value), style)
 
 
 def build_keyvalue_grid(pairs, columns=2, page_width=468):
@@ -318,7 +326,7 @@ def build_keyvalue_grid(pairs, columns=2, page_width=468):
         row = []
         for j in range(columns):
             label, value = working[i + j]
-            row.append(Paragraph(fmt_field(label), S['KVLabel']) if label else Paragraph('', S['KVLabel']))
+            row.append(Paragraph(pdf_text(label), S['KVLabel']) if label else Paragraph('', S['KVLabel']))
             row.append(_kv_cell(value, S['KVValue']))
         table_rows.append(row)
 
@@ -367,7 +375,7 @@ def build_ledger_table(headers, rows, col_widths, extra_style_cmds=None):
     """
     S = get_styles()
 
-    header_row = [Paragraph(h, S['LedgerHeader']) for h in headers]
+    header_row = [Paragraph(escape(str(h)), S['LedgerHeader']) for h in headers]
     data_rows = []
     for row in rows:
         cells = []
@@ -376,7 +384,7 @@ def build_ledger_table(headers, rows, col_widths, extra_style_cmds=None):
             if isinstance(cell, Flowable):
                 cells.append(cell)
             else:
-                cells.append(Paragraph(fmt_field(cell), S['LedgerCell']))
+                cells.append(Paragraph(pdf_text(cell), S['LedgerCell']))
         data_rows.append(cells)
 
     tbl = Table([header_row] + data_rows, colWidths=col_widths, repeatRows=1)
@@ -412,7 +420,7 @@ def build_stats_row(stat_items, page_width=468):
     S = get_styles()
     n = len(stat_items)
     col_w = page_width / n
-    data = [[Paragraph(f'{label}: {value}', S['StatCell']) for label, value in stat_items]]
+    data = [[Paragraph(f'{escape(str(label))}: {escape(str(value))}', S['StatCell']) for label, value in stat_items]]
     tbl = Table(data, colWidths=[col_w] * n)
     tbl.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), LIGHT_GREEN),
@@ -491,17 +499,17 @@ def build_signature_block(
 
     def _sig_col(label, name, role, sub=None):
         col = [
-            Paragraph(f'{label}:', S['SigLabel']),
+            Paragraph(f'{escape(str(label))}:', S['SigLabel']),
             Spacer(1, 18),
             _sig_line(),
             Spacer(1, 3),
         ]
         if name:
-            col.append(Paragraph(name.upper(), S['SigName']))
+            col.append(Paragraph(escape(name.upper()), S['SigName']))
         if role:
-            col.append(Paragraph(role, S['SigSub']))
+            col.append(Paragraph(escape(role), S['SigSub']))
         if sub:
-            col.append(Paragraph(sub, S['SigSub']))
+            col.append(Paragraph(escape(sub), S['SigSub']))
         return col
 
     col_prepared = _sig_col(

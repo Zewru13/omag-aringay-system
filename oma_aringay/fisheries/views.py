@@ -77,6 +77,7 @@ from .serializers import (
     StockingRecordSerializer,
     TripSpeciesEntrySerializer,
 )
+from core.exports import SafeWorkbook
 
 logger = logging.getLogger(__name__)
 
@@ -414,6 +415,7 @@ class PondListCreateView(generics.ListCreateAPIView):
     """
     serializer_class = PondSerializer
     pagination_class = None
+    owner_record_type = 'FISHERFOLK'
 
     def get_permissions(self):
         if self.request.method == 'GET':
@@ -624,10 +626,9 @@ class StockingForecastingTemplateView(APIView):
         from io import BytesIO
 
         from django.http import HttpResponse
-        from openpyxl import Workbook
         from openpyxl.styles import Font, PatternFill
 
-        wb = Workbook()
+        wb = SafeWorkbook()
         ws = wb.active
         ws.title = 'Stocking Forecasting Import'
 

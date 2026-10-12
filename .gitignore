@@ -26,3 +26,9 @@ db_backups/
 
 # User-uploaded media (Django MEDIA_ROOT) — runtime content, not source
 oma_aringay/media/
+
+# Data backups and server logs: they hold real people's records and can hold tokens/addresses, so they never belong in git
+_backups/
+*.log
+*.dump
+*.bak

@@ -79,6 +79,8 @@ function LoginPage() {
         setError(err.message);
       } else if (err.code === "citizen_not_activated" || err.code === "temp_password_expired") {
         fail(err.message);
+      } else if (err.status === 429) {
+        fail("Too many sign-in attempts. Please wait a minute and try again.");
       } else if (err.status === undefined || err.status >= 500) {
         fail("The server could not be reached or had a problem. This is not your password — please try again in a moment.");
       } else {

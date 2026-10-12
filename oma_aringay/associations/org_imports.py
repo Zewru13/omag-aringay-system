@@ -29,6 +29,7 @@ from .serializers import (
     FisherfolkOrganizationEquipmentSerializer, FisherfolkOrganizationMemberSerializer,
 )
 from .views import MainChoiceRequired, _resolve_and_assign_main
+from core.exports import SafeWorkbook
 
 DOMAINS = {
     'farmers': {
@@ -69,10 +70,9 @@ def parse_import_date(raw):
 
 
 def _template_response(filename, headers, widths, sample_row, note):
-    from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill
 
-    book = Workbook()
+    book = SafeWorkbook()
     ws = book.active
     ws.title = 'Import'
     green_fill = PatternFill(start_color='1E4620', end_color='1E4620', fill_type='solid')

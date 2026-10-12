@@ -3,7 +3,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import authenticate, get_user_model
-from django.contrib.auth.hashers import UNUSABLE_PASSWORD_PREFIX
+from django.contrib.auth.hashers import UNUSABLE_PASSWORD_PREFIX, check_password, make_password
 from django.db import transaction
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
@@ -12,12 +12,13 @@ from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.parsers import FormParser, MultiPartParser
-from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.throttling import ScopedRateThrottle, SimpleRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from core.validators import validate_uploaded_image
 
+from .authentication import OptionalJWTAuthentication
 from .permissions import IsAdmin, IsAdminOrEvaluator
 from .serializers import (
     ChangePasswordSerializer,
@@ -169,11 +170,40 @@ class LoginRateThrottle(ScopedRateThrottle):
         }
 
 
+class LoginIpRateThrottle(SimpleRateThrottle):
+    """Caps login attempts per network address, whatever account names are tried. LoginRateThrottle counts per account
+    name, which a script that moves on to a new name after every guess never runs into. The default is generous (an
+    office full of people signing in at 8 a.m. must not lock each other out) but stops a script cold.
+
+    The address comes from REMOTE_ADDR unless REST_FRAMEWORK['NUM_PROXIES'] says trusted proxies sit in front, so a
+    visitor cannot reset the count by inventing an X-Forwarded-For header."""
+    scope = 'login_ip'
+
+    def get_cache_key(self, request, view):
+        return self.cache_format % {'scope': self.scope, 'ident': self.get_ident(request)}
+
+
+# The one answer for "no such account" and "wrong password", so the login form cannot be used to find out who is
+# registered. (Account states that need a human to act, such as "not activated yet", are only revealed after the
+# correct password has been given.)
+LOGIN_FAILED = 'Incorrect login details. Check your email, username, RSBSA number or registration number, and your password.'
+_DUMMY_PASSWORD_HASH = None
+
+
+def _spend_password_time(password):
+    """Do the same slow password hashing a real check would, for an account that does not exist (or has no password to
+    check), so the answer does not arrive suspiciously fast."""
+    global _DUMMY_PASSWORD_HASH
+    if _DUMMY_PASSWORD_HASH is None:
+        _DUMMY_PASSWORD_HASH = make_password('a-password-nobody-has')
+    check_password(password if isinstance(password, str) else '', _DUMMY_PASSWORD_HASH)
+
+
 class LoginView(APIView):
     permission_classes = []
     authentication_classes = []
     throttle_scope = 'login'
-    throttle_classes = [LoginRateThrottle]
+    throttle_classes = [LoginRateThrottle, LoginIpRateThrottle]
 
     def post(self, request):
         identifier = (
@@ -185,23 +215,20 @@ class LoginView(APIView):
 
         db_user = _resolve_login_identifier(identifier)
         if db_user is None:
-            return Response(
-                {'detail': 'No account found with that email, username, RSBSA number, or organization registration number.'},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+            _spend_password_time(password)
+            return Response({'detail': LOGIN_FAILED}, status=status.HTTP_401_UNAUTHORIZED)
 
         # Check the password directly, BEFORE calling authenticate(). Django's
         # ModelBackend.authenticate() silently returns None for any
         # is_active=False user even with the correct password (it calls
         # user_can_authenticate() internally) — which would collapse
-        # "unverified account" into the same generic "Incorrect password"
+        # "unverified account" into the same generic wrong-login answer
         # response as a genuinely wrong password. Checking the password
         # ourselves first lets us tell the two apart.
+        if not db_user.has_usable_password():
+            _spend_password_time(password)
         if not db_user.check_password(password):
-            return Response(
-                {'detail': 'Incorrect password.'},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+            return Response({'detail': LOGIN_FAILED}, status=status.HTTP_401_UNAUTHORIZED)
 
         # A temporary password past its expiry no longer works. Checked only after the password itself
         # is right, so a wrong guess never learns whether the account's password has expired.
@@ -248,10 +275,7 @@ class LoginView(APIView):
             password=password,
         )
         if user is None:
-            return Response(
-                {'detail': 'Incorrect password.'},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+            return Response({'detail': LOGIN_FAILED}, status=status.HTTP_401_UNAUTHORIZED)
 
         refresh = RefreshToken.for_user(user)
 
@@ -781,30 +805,73 @@ class VerifyEmailView(APIView):
         })
 
 
+class _ResendEmailThrottle(SimpleRateThrottle):
+    """A few new links per hour for any one address - enough for a lost e-mail, too few to flood somebody's inbox."""
+    scope = 'resend_email'
+
+    def allow_request(self, request, view):
+        if _is_admin(request.user):
+            return True
+        return super().allow_request(request, view)
+
+    def get_cache_key(self, request, view):
+        email = str(request.data.get('email') or '').strip().lower()
+        return self.cache_format % {'scope': self.scope, 'ident': email} if email else None
+
+
+class _ResendIpThrottle(SimpleRateThrottle):
+    scope = 'resend_ip'
+
+    def allow_request(self, request, view):
+        if _is_admin(request.user):
+            return True
+        return super().allow_request(request, view)
+
+    def get_cache_key(self, request, view):
+        return self.cache_format % {'scope': self.scope, 'ident': self.get_ident(request)}
+
+
+def _is_admin(user):
+    return bool(user and user.is_authenticated and getattr(user, 'role', None) == User.Roles.ADMIN)
+
+
+RESEND_GENERIC = {'detail': 'If that e-mail belongs to an account that still needs verifying, a new link has been sent to it.'}
+
+
 class ResendVerificationView(APIView):
     """
     Regenerates and resends the verification link. Callable both by the
     (not-yet-logged-in) user themselves from the login page, and by an admin
-    from User Management — neither requires auth, since an unverified user
-    has no valid session yet.
+    from User Management.
+
+    A visitor gets the same short answer whether or not the e-mail exists, is already verified, or could not be
+    sent: the page must not reveal who is registered, and the link itself is only ever e-mailed. A signed-in admin
+    still gets the detailed answer (404 for an unknown e-mail, and the link on screen when the mail server fails) -
+    that is what User Management shows.
     """
     permission_classes = [AllowAny]
-    authentication_classes = []
+    authentication_classes = [OptionalJWTAuthentication]
+    throttle_classes = [_ResendEmailThrottle, _ResendIpThrottle]
 
     def post(self, request):
         serializer = ResendVerificationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         email = serializer.validated_data['email'].strip()
+        detailed = _is_admin(request.user)
 
         try:
             user = User.objects.get(email__iexact=email)
         except User.DoesNotExist:
-            return Response(
-                {'detail': 'No account found with that email address.'},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            if detailed:
+                return Response(
+                    {'detail': 'No account found with that email address.'},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            return Response(RESEND_GENERIC)
 
         if user.is_email_verified:
+            if not detailed:
+                return Response(RESEND_GENERIC)
             return Response({'detail': 'This account is already verified. Please log in.', 'already_verified': True})
 
         token = generate_verification_token()
@@ -814,6 +881,11 @@ class ResendVerificationView(APIView):
 
         verification_link = build_verification_link(token, request)
         email_sent, reason = send_verification_email(user, verification_link)
+
+        if not detailed:
+            if not email_sent:
+                logger.warning('Verification e-mail for user %s was not sent: %s', user.pk, reason)
+            return Response(RESEND_GENERIC)
 
         response_data = {'email_sent': email_sent}
         if not email_sent:

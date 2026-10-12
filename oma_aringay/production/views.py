@@ -1773,8 +1773,10 @@ class BarangayCropSummaryLinkRecordsView(APIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
     def post(self, request, pk):
-        summary = BarangayCropSummary.objects.get(pk=pk)
+        summary = get_object_or_404(BarangayCropSummary, pk=pk)
         ids = request.data.get('monitoring_record_ids', [])
+        if not isinstance(ids, list) or not all(isinstance(i, int) and not isinstance(i, bool) for i in ids):
+            return Response({'monitoring_record_ids': ['Send a list of record ids (numbers).']}, status=drf_status.HTTP_400_BAD_REQUEST)
         records = CropMonitoringRecord.objects.filter(pk__in=ids)
         summary.linked_monitoring_records.add(*records)
         serializer = BarangayCropSummarySerializer(summary)

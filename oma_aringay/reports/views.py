@@ -1,7 +1,7 @@
-import csv
 import io
 import os
 from decimal import Decimal
+from xml.sax.saxutils import escape
 
 from django.conf import settings
 from django.http import HttpResponse
@@ -59,9 +59,11 @@ from .pdf_utils import (
     fmt_currency,
     fmt_date,
     fmt_field,
+    pdf_text,
     full_name,
     get_styles,
 )
+from core.exports import SafeWorkbook, safe_csv_writer
 
 LOGO_PATH = os.path.join(settings.BASE_DIR, 'static', 'images', 'LOGO_OMAg.jpg')
 
@@ -109,7 +111,7 @@ def _finish_pdf(buf, filename):
 def build_csv_response(filename, report_title, headers, rows):
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
-    writer = csv.writer(response)
+    writer = safe_csv_writer(response)
     writer.writerow(['Republic of the Philippines'])
     writer.writerow(['Office of the Municipal Agriculturist — Aringay, La Union'])
     writer.writerow([report_title])
@@ -242,10 +244,10 @@ class FarmerProfileReport(APIView):
 
                 # Parcel header bar
                 bar_text = (
-                    f'Parcel No. {fmt_field(parcel.parcel_number)}  ·  '
-                    f'Area: {fmt_field(parcel.area_hectares)} ha  ·  '
-                    f'Ownership: {fmt_field(parcel.land_ownership)}  ·  '
-                    f'Status: {fmt_field(parcel.farm_status)}'
+                    f'Parcel No. {pdf_text(parcel.parcel_number)}  ·  '
+                    f'Area: {pdf_text(parcel.area_hectares)} ha  ·  '
+                    f'Ownership: {pdf_text(parcel.land_ownership)}  ·  '
+                    f'Status: {pdf_text(parcel.farm_status)}'
                 )
                 bar = Table([[Paragraph(bar_text, parcel_hdr_style)]], colWidths=[PAGE_WIDTH])
                 bar.setStyle(TableStyle([
@@ -330,10 +332,10 @@ class FarmerProfileReport(APIView):
 
                 # Cycle header bar
                 bar_text = (
-                    f'{fmt_field(rec.crop_type.name if rec.crop_type else None)}  ·  '
-                    f'{fmt_field(rec.season)} {fmt_field(rec.year)}  ·  '
+                    f'{pdf_text(rec.crop_type.name if rec.crop_type else None)}  ·  '
+                    f'{pdf_text(rec.season)} {pdf_text(rec.year)}  ·  '
                     f'Planted: {fmt_date(rec.date_planted)}  ·  '
-                    f'Status: {fmt_field(rec.status)}'
+                    f'Status: {pdf_text(rec.status)}'
                 )
                 bar = Table([[Paragraph(bar_text, cycle_hdr_style)]], colWidths=[PAGE_WIDTH])
                 bar.setStyle(TableStyle([
@@ -577,11 +579,11 @@ class FisherfolkProfileReport(APIView):
 
                 # Cycle header bar
                 bar_text = (
-                    f'{fmt_field(rec.species.species_name if rec.species else None)}  ·  '
-                    f'Pond: {fmt_field(rec.pond.name if rec.pond else None)}  ·  '
-                    f'{fmt_field(rec.season)} {fmt_field(rec.year)}  ·  '
+                    f'{pdf_text(rec.species.species_name if rec.species else None)}  ·  '
+                    f'Pond: {pdf_text(rec.pond.name if rec.pond else None)}  ·  '
+                    f'{pdf_text(rec.season)} {pdf_text(rec.year)}  ·  '
                     f'Stocked: {fmt_date(rec.date_stocked)}  ·  '
-                    f'Status: {fmt_field(rec.status)}'
+                    f'Status: {pdf_text(rec.status)}'
                 )
                 bar = Table([[Paragraph(bar_text, cycle_hdr_style)]], colWidths=[PAGE_WIDTH])
                 bar.setStyle(TableStyle([
@@ -1484,7 +1486,7 @@ class BarangayCropSummaryReport(APIView):
         if fmt == 'csv':
             response = HttpResponse(content_type='text/csv')
             response['Content-Disposition'] = f'attachment; filename="crop_summary_{season}_{year}.csv"'
-            writer = csv.writer(response)
+            writer = safe_csv_writer(response)
             writer.writerow([
                 'No.', 'Barangay', 'Crop', 'Season', 'Year', 'Area (ha)',
                 'Farmers', 'Est. Yield (kg)', 'Act. Yield (kg)', 'Var%',
@@ -1564,7 +1566,7 @@ class BarangayCropSummaryReport(APIView):
             story.append(build_section_heading('Observed Problems / Remarks'))
             for barangay_name, cn, problem in problems:
                 story.append(Paragraph(
-                    f'<b>{barangay_name} — {cn}:</b> {problem}',
+                    f'<b>{escape(str(barangay_name))} — {escape(str(cn))}:</b> {escape(str(problem))}',
                     styles['Normal'],
                 ))
                 story.append(Spacer(1, 4))
@@ -1599,7 +1601,7 @@ class CropHistoricalReport(APIView):
         if fmt == 'csv':
             response = HttpResponse(content_type='text/csv')
             response['Content-Disposition'] = f'attachment; filename="crop_history_{crop_name}.csv"'
-            writer = csv.writer(response)
+            writer = safe_csv_writer(response)
             writer.writerow([
                 'Season', 'Year', 'Barangay', 'Area (ha)',
                 'Est. Yield (kg)', 'Act. Yield (kg)', 'Var%', 'Causal Factor',
@@ -1704,7 +1706,7 @@ class FisheriesCatchSummaryReport(APIView):
         if fmt == 'csv':
             response = HttpResponse(content_type='text/csv')
             response['Content-Disposition'] = f'attachment; filename="catch_summary_{season}_{year}.csv"'
-            writer = csv.writer(response)
+            writer = safe_csv_writer(response)
             writer.writerow(['=== BY BARANGAY ==='])
             writer.writerow(['Barangay', 'Trip Count', 'Total Catch (kg)'])
             for r in by_barangay:
@@ -1985,10 +1987,9 @@ class HarvestedCropReport(APIView):
         return _finish_pdf(buf, f'harvested_crop_report_{today}.pdf')
 
     def _build_excel(self, records, headers, row_data_fn, today):
-        import openpyxl
         from openpyxl.styles import Font, PatternFill, Alignment
 
-        wb = openpyxl.Workbook()
+        wb = SafeWorkbook()
         ws = wb.active
         ws.title = 'Harvested Crop Report'
 
@@ -2080,10 +2081,9 @@ class OrganizationListReport(APIView):
         return _finish_pdf(buf, f'organization_list_report_{today}.pdf')
 
     def _build_excel(self, records, headers, today):
-        import openpyxl
         from openpyxl.styles import Font, PatternFill, Alignment
 
-        wb = openpyxl.Workbook()
+        wb = SafeWorkbook()
         ws = wb.active
         ws.title = 'Organization List'
 
@@ -2176,10 +2176,9 @@ class CropOptionsReport(APIView):
         return _finish_pdf(buf, f'crop_options_report_{today}.pdf')
 
     def _build_excel(self, records, headers, row_data_fn, today):
-        import openpyxl
         from openpyxl.styles import Font, PatternFill, Alignment
 
-        wb = openpyxl.Workbook()
+        wb = SafeWorkbook()
         ws = wb.active
         ws.title = 'Crop Options'
 
@@ -2320,10 +2319,9 @@ class FisheriesProductionReport(APIView):
         return _finish_pdf(buf, f'fisheries_production_report_{today}.pdf')
 
     def _build_excel(self, records, headers, row_data_fn, today):
-        import openpyxl
         from openpyxl.styles import Font, PatternFill, Alignment
 
-        wb = openpyxl.Workbook()
+        wb = SafeWorkbook()
         ws = wb.active
         ws.title = 'Fisheries Production'
 
@@ -2543,10 +2541,9 @@ class FarmerCropHistoryReport(APIView):
         return _finish_pdf(buf, f'farmer_crop_history_report_{today}.pdf')
 
     def _build_excel(self, records, headers, row_data_fn, today, timeline_fn, harvest_fn):
-        import openpyxl
         from openpyxl.styles import Font, PatternFill, Alignment
 
-        wb = openpyxl.Workbook()
+        wb = SafeWorkbook()
         ws = wb.active
         ws.title = 'Farmer Crop History'
 
@@ -2757,10 +2754,9 @@ class FisherfolkStockingHistoryReport(APIView):
         return _finish_pdf(buf, f'fisherfolk_stocking_history_report_{today}.pdf')
 
     def _build_excel(self, records, headers, row_data_fn, today, timeline_fn, harvest_fn):
-        import openpyxl
         from openpyxl.styles import Font, PatternFill, Alignment
 
-        wb = openpyxl.Workbook()
+        wb = SafeWorkbook()
         ws = wb.active
         ws.title = 'Fisherfolk Stocking History'
 
@@ -2956,11 +2952,10 @@ class YieldAnalysisReport(APIView):
 
     def _build_excel(self, analyzed, agg_headers, agg_rows, detail_headers, detail_row_fn,
                       avg_variance_pct, avg_completion_pct, total_loss_count, today):
-        import openpyxl
         from openpyxl.styles import Font, PatternFill, Alignment
         from production.views import YIELD_ANALYSIS_DISCLAIMER
 
-        wb = openpyxl.Workbook()
+        wb = SafeWorkbook()
         ws = wb.active
         ws.title = 'Yield Analysis'
 
@@ -3186,11 +3181,10 @@ class FisheriesYieldAnalysisReport(APIView):
 
     def _build_excel(self, analyzed, agg_headers, agg_rows, detail_headers, detail_row_fn,
                       avg_variance_pct, avg_completion_pct, total_loss_count, cycle_trend, today):
-        import openpyxl
         from openpyxl.styles import Font, PatternFill, Alignment
         from fisheries.views import FISHERIES_YIELD_ANALYSIS_DISCLAIMER
 
-        wb = openpyxl.Workbook()
+        wb = SafeWorkbook()
         ws = wb.active
         ws.title = 'Fisheries Yield Analysis'
 
@@ -3467,10 +3461,9 @@ class BeneficiaryConfirmationReport(APIView):
         return _finish_pdf(buf, f'on_behalf_of_confirmations_report_{today}.pdf')
 
     def _build_excel(self, entries, headers, row_data_fn, today):
-        import openpyxl
         from openpyxl.styles import Alignment, Font, PatternFill
 
-        wb = openpyxl.Workbook()
+        wb = SafeWorkbook()
         ws = wb.active
         ws.title = 'On-Behalf-Of Confirmations'
 
