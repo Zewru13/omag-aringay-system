@@ -60,8 +60,8 @@ function ContactCard({ L }) {
       <div className="space-y-3">
         {rows.map(([label, value]) => (
           <div key={label}>
-            <p className="text-[11px] font-medium text-cz-text-muted">{label}</p>
-            <p className="mt-0.5 text-[13.5px] italic leading-[1.4] text-cz-text-2">{value}</p>
+            <p className="text-[12px] font-medium text-cz-text-muted">{label}</p>
+            <p className="mt-0.5 text-[14px] italic leading-[1.45] text-cz-text-2">{value}</p>
           </div>
         ))}
       </div>
@@ -86,7 +86,7 @@ function BehaviorsCard({ theme, L }) {
             </span>
             <div className="min-w-0">
               <p className="text-[13.5px] font-semibold text-cz-text">{label}</p>
-              <p className="text-[12.5px] leading-[1.4] text-cz-text-2">{desc}</p>
+              <p className="text-[13px] leading-[1.45] text-cz-text-2">{desc}</p>
             </div>
           </div>
         ))}
@@ -124,8 +124,9 @@ export default function CitizenHelpScreen({ theme, L, onBack, tabBar, bare = fal
   //    (logout already lives in the account dropdown) ────────────────────
   if (bare) {
     return (
-      <div className="mx-auto max-w-[900px] px-6 py-5">
-        <div className="grid grid-cols-[1.5fr_1fr] items-start gap-5">
+      // One column on a phone (the page already pads itself there); the two columns and the extra padding from md up.
+      <div className="mx-auto max-w-[900px] md:px-6 md:py-5">
+        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-[1.5fr_1fr] md:gap-5">
           <FaqCard L={L} openKey={openKey} setOpenKey={setOpenKey} />
           <div className="space-y-4">
             <ContactCard L={L} />
