@@ -87,11 +87,17 @@ only needed if the page uses the device camera for photos.
 
 ## 5. Uploaded photos (Supabase bucket)
 
-Profile and proof photos are in a **public** bucket: anyone who has or guesses a photo URL can open it without logging
-in, and the URLs are not secret. Files are renamed to random names and are validated and re-encoded on upload **(code)**,
-but the bucket itself should become **private**, with the API handing out short-lived signed links. That needs a change
-in the Supabase dashboard (bucket → private) together with `AWS_QUERYSTRING_AUTH=True`, so it is a planned follow-up,
-not something to flip casually on a live system.
+Photos are served through signed links that stop working after an hour **(code)**, and every upload is renamed to a random
+name and re-encoded **(code)**. The bucket itself must also be switched to **private**, or anyone who guesses an old
+unsigned address can still open a photo without logging in. Do it in this order so nothing breaks:
+
+1. Deploy this version while the bucket is still public (old and new links both work).
+2. Open the live site and check a profile photo, a report with photos, and an upload.
+3. In the Supabase dashboard: **Storage -> Buckets -> your bucket -> ... -> Edit bucket -> turn "Public bucket" off -> Save.**
+4. Reload the site: photos should still show. Then open an old unsigned photo address in a private window: it must now be refused.
+
+If photos disappear, turn "Public bucket" back on; nothing is lost. Do not set `AWS_S3_CUSTOM_DOMAIN` to the
+`/storage/v1/object/public/` path: that path serves files to anyone.
 
 ## 6. Operations
 

@@ -1,7 +1,6 @@
 import os
 from datetime import timedelta
 from pathlib import Path
-from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 
@@ -218,20 +217,15 @@ if not all([AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_STORAGE_BUCKET_NAME, A
         'SUPABASE_STORAGE_ENDPOINT, and SUPABASE_STORAGE_REGION in oma_aringay/.env '
         '(see .env.example).'
     )
-# Bucket is public (matches local-disk MEDIA_URL's own always-unauthenticated
-# serving today) — plain object URLs, no per-request query-string signing.
-AWS_QUERYSTRING_AUTH = False
-# S3Boto3Storage.url() builds URLs from AWS_S3_ENDPOINT_URL by default —
-# Supabase's S3 gateway (/storage/v1/s3/...) rejects unsigned GETs there
-# with 403 AccessDenied ("Missing signature"), confirmed by a real request.
-# Public objects are served from a DIFFERENT path instead:
-# /storage/v1/object/public/<bucket>/<key> — confirmed working (200, exact
-# content match). AWS_S3_CUSTOM_DOMAIN redirects .url() to build URLs there.
-AWS_S3_CUSTOM_DOMAIN = (
-    f'{urlparse(AWS_S3_ENDPOINT_URL).netloc}/storage/v1/object/public/{AWS_STORAGE_BUCKET_NAME}'
-)
+# The bucket is meant to be PRIVATE: every file link is a signed, short-lived link built on the S3 endpoint
+# (/storage/v1/s3/<bucket>/<key>?X-Amz-Signature=...), so a photo cannot be opened by someone who only has or guesses
+# its address - they have to get the link from the (logged-in) API, and it stops working after an hour.
+# (Do not set AWS_S3_CUSTOM_DOMAIN to the /object/public/ path: that path serves a file to anyone, with no signature.)
+AWS_QUERYSTRING_AUTH = True
+AWS_QUERYSTRING_EXPIRE = 3600
+AWS_S3_SIGNATURE_VERSION = 's3v4'
 # Supabase's S3 gateway rejects the ACL header S3Boto3Storage sends by
-# default; bucket-level public access already covers read access, so no
+# default; access is controlled by the bucket and the signed links, so no
 # per-object ACL is needed.
 AWS_DEFAULT_ACL = None
 AWS_S3_ADDRESSING_STYLE = 'path'

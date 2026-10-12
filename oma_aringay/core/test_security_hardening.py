@@ -99,3 +99,27 @@ class ProductionSettingsTests(SimpleTestCase):
             code, err = self.read(**{missing: None})
             self.assertNotEqual(code, 0, missing)
             self.assertIn(missing, err)
+
+
+class PrivateBucketSettingsTests(SimpleTestCase):
+    """Photos are served through short-lived signed links, so the storage bucket can be made private."""
+
+    def storage(self):
+        from django.conf import settings
+        from storages.backends.s3boto3 import S3Boto3Storage
+        return S3Boto3Storage(
+            access_key='AKIATEST', secret_key='secret', bucket_name='media', endpoint_url='https://x.supabase.co/storage/v1/s3',
+            region_name='ap-southeast-1', addressing_style='path', default_acl=None,
+            querystring_auth=settings.AWS_QUERYSTRING_AUTH, querystring_expire=settings.AWS_QUERYSTRING_EXPIRE,
+            signature_version=settings.AWS_S3_SIGNATURE_VERSION, custom_domain=getattr(settings, 'AWS_S3_CUSTOM_DOMAIN', None))
+
+    def test_links_are_signed_expire_and_do_not_use_the_public_path(self):
+        from django.conf import settings
+        self.assertTrue(settings.AWS_QUERYSTRING_AUTH)
+        self.assertFalse(getattr(settings, 'AWS_S3_CUSTOM_DOMAIN', None), 'the public-path domain must be gone')
+        self.assertEqual(settings.AWS_QUERYSTRING_EXPIRE, 3600)
+        url = self.storage().url('profile_pictures/farmers/a.png')
+        self.assertIn('/storage/v1/s3/media/profile_pictures/farmers/a.png', url)
+        self.assertIn('X-Amz-Signature=', url)
+        self.assertIn('X-Amz-Expires=3600', url)
+        self.assertNotIn('/object/public/', url)
