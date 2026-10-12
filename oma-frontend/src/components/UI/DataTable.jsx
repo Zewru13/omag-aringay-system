@@ -44,7 +44,7 @@ function DataTable({
                     className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white"
                     key={column.key}
                   >
-                    {column.label}
+                    {column.headerNode ?? column.label}
                   </th>
                 ))}
               </tr>
@@ -131,7 +131,7 @@ function DataTable({
                     className={`px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-wider text-white ${isActionsColumn(column) ? 'sticky right-0 bg-primary' : ''}`}
                     key={column.key}
                   >
-                    {column.label}
+                    {column.headerNode ?? column.label}
                   </th>
                 ))}
               </tr>
