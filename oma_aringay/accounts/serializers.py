@@ -12,6 +12,19 @@ def _validate_contact(value, instance=None):
     return validate_contact_number(value, instance)
 
 
+class UserListSerializer(serializers.ModelSerializer):
+    """One row of User Management: the fields that table shows and acts on. No linked-record details (those cost
+    queries per row and the table never reads them); linked_record_type tells the table what kind of account it is."""
+    linked_record_type = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'email', 'username', 'full_name', 'suffix', 'contact_number', 'role',
+            'is_active', 'must_change_password', 'is_email_verified', 'date_joined', 'linked_record_type',
+        ]
+
+
 class UserSerializer(serializers.ModelSerializer):
     # Batch 10: minimal, read-only proof-of-chain data for CITIZEN accounts —
     # None for ADMIN/EVALUATOR (no linked_record_type set). Consumed by the

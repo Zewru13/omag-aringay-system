@@ -25,6 +25,7 @@ from .serializers import (
     MeUpdateSerializer,
     ResendVerificationSerializer,
     UserCreateSerializer,
+    UserListSerializer,
     UserSerializer,
     UserUpdateSerializer,
     VerifyEmailSerializer,
@@ -540,7 +541,7 @@ class UserListView(generics.ListAPIView):
     every account regardless of type — distinct from the param being
     absent, not the same request.
     """
-    serializer_class = UserSerializer
+    serializer_class = UserListSerializer
     permission_classes = [IsAuthenticated, IsAdmin]
 
     CITIZEN_TYPE_FILTERS = {
@@ -577,19 +578,40 @@ class UserListView(generics.ListAPIView):
         if role in (User.Roles.ADMIN, User.Roles.EVALUATOR):
             qs = qs.filter(role=role)
         elif role in self.CITIZEN_TYPE_FILTERS:
-            qs = qs.filter(
-                role=User.Roles.CITIZEN,
-                linked_records__is_active=True,
-                linked_records__record_type__in=self.CITIZEN_TYPE_FILTERS[role],
-            )
+            link_types = list(self.CITIZEN_TYPE_FILTERS[role])
+            link = {'linked_records__is_active': True}
+            params = self.request.query_params
+            # One more narrowing per kind of account, all on the SAME active link (one filter() call, so one join):
+            #   Fisherfolk: ?fisherfolk_type=   Farmer: ?farmer_type=laborer|operator   Organization: ?organization_type=farmers|fisherfolk
+            if role == 'FISHERFOLK' and params.get('fisherfolk_type'):
+                from fisheries.models import Fisherfolk
+                link['linked_records__record_id__in'] = Fisherfolk.objects.filter(
+                    fisherfolk_type=params['fisherfolk_type']).values('id')
+            elif role == 'FARMER' and params.get('farmer_type') in ('laborer', 'operator'):
+                from farmers.models import Farmer
+                link['linked_records__record_id__in'] = Farmer.objects.filter(
+                    is_farm_laborer=params['farmer_type'] == 'laborer').values('id')
+            elif role == 'ORGANIZATION' and params.get('organization_type') in ('farmers', 'fisherfolk'):
+                link_types = [User.LinkedRecordType.FARMERS_ORG if params['organization_type'] == 'farmers'
+                              else User.LinkedRecordType.FISHERFOLK_ORG]
+            qs = qs.filter(role=User.Roles.CITIZEN, linked_records__record_type__in=link_types, **link)
         elif not role:
             qs = qs.filter(role__in=[User.Roles.ADMIN, User.Roles.EVALUATOR])
         # role == 'All': no further filtering — every account, explicitly requested.
         if is_active is not None:
             qs = qs.filter(is_active=is_active.lower() == 'true')
+        # Account status (the staff table's filter): active, deactivated (switched off after verifying), unverified
+        # (never clicked the e-mail link; citizens have no e-mail, so they are never "unverified"), or all.
+        status = self.request.query_params.get('status')
+        if status == 'active':
+            qs = qs.filter(is_active=True)
+        elif status == 'deactivated':
+            qs = qs.filter(is_active=False).filter(Q(is_email_verified=True) | Q(role=User.Roles.CITIZEN))
+        elif status == 'unverified':
+            qs = qs.filter(is_email_verified=False).exclude(role=User.Roles.CITIZEN)
         if search:
             qs = qs.filter(Q(full_name__icontains=search) | Q(email__icontains=search))
-        return qs
+        return qs.prefetch_related('linked_records')
 
 
 class UserCreateView(APIView):
