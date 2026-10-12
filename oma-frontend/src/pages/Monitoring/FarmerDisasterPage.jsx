@@ -10,6 +10,7 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import { canRecoverDisaster, disasterStatusLabel } from './disasterRecovery.js'
 import { fmtLong } from '../FisheriesRecords/stockingHelpers.js'
 import { DisasterReportModal as CropDisasterReportModal } from './CropMonitoringPage.jsx'
 import DisasterLogDetailsModal from './DisasterLogDetailsModal.jsx'
@@ -128,7 +129,7 @@ export default function FarmerDisasterPage() {
     ...r,
     date_fmt: fmtLong(r.date_of_occurrence),
     area_fmt: r.area_affected_ha != null ? `${Number(r.area_affected_ha).toLocaleString()} ha` : '—',
-    status_cell: <StatusPill tone={STATUS_TONES[r.status] || 'slate'}>{r.is_total_loss ? 'Total loss' : r.status}</StatusPill>,
+    status_cell: <StatusPill tone={r.status === 'Active' && !canRecoverDisaster(r) ? 'slate' : (STATUS_TONES[r.status] || 'slate')}>{disasterStatusLabel(r)}</StatusPill>,
     logged_fmt: fmtDateTime(r.date_reported),
     actions_cell: (
       // View Details is the row itself (onRowClick below), so the menu keeps only the other actions.
@@ -137,7 +138,7 @@ export default function FarmerDisasterPage() {
           onClick: () => act(r.id, () => printLog(FARMER_LOG, r.id), 'The disaster log could not be printed.') },
         { key: 'download', label: 'Download Disaster Log', icon: Download, disabled: busyId === r.id,
           onClick: () => act(r.id, () => downloadLog(FARMER_LOG, r.id, r.pdf_filename), 'The PDF could not be generated.') },
-        r.status === 'Active' && !r.is_total_loss && { key: 'recover', label: 'Mark Recovered', icon: CheckCircle2, group: 'lifecycle', onClick: () => setRecovering(r) },
+        canRecoverDisaster(r) && { key: 'recover', label: 'Mark Recovered', icon: CheckCircle2, group: 'lifecycle', onClick: () => setRecovering(r) },
       ]} />
     ),
   })), [rows, busyId]) // eslint-disable-line react-hooks/exhaustive-deps

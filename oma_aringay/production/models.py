@@ -635,6 +635,25 @@ class CropActivityLog(models.Model):
 
 
 class CropDisasterReport(models.Model):
+    @property
+    def recovery_block_reason(self):
+        """Why this disaster cannot be marked Recovered, or None when it can. A crop that is already harvested, or a
+        total loss, has nothing left to recover: its disaster stays in the history only."""
+        if self.status == 'Recovered':
+            return 'This disaster is already marked as recovered.'
+        if self.is_total_loss:
+            return 'A total loss cannot be marked as recovered.'
+        record = self.monitoring_record if self.monitoring_record_id else None
+        if record is not None and record.status == CropMonitoringRecord.Status.HARVESTED:
+            return 'The crop has already been harvested, so this disaster stays in the history and cannot be marked as recovered.'
+        if record is not None and record.status == CropMonitoringRecord.Status.TOTAL_LOSS:
+            return 'The crop was a total loss, so this disaster stays in the history and cannot be marked as recovered.'
+        return None
+
+    @property
+    def can_recover(self):
+        return self.status == 'Active' and self.recovery_block_reason is None
+
     DISASTER_TYPE_CHOICES = [
         ('Drought', 'Drought'),
         ('Flood', 'Flood'),

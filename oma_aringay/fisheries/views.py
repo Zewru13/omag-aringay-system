@@ -1194,6 +1194,9 @@ class FisheriesDisasterResolveView(APIView):
             return Response({'detail': 'Disaster is already marked as recovered.'}, status=400)
         if disaster.is_total_loss:
             return Response({'detail': 'A Total Loss record cannot be marked as recovered.'}, status=400)
+        blocked = disaster_reports.recovery_block_reason(disaster)      # everything affected is harvested or a total loss
+        if blocked:
+            return Response({'detail': blocked}, status=400)
 
         record = disaster.stocking_record
         rules_qs = FisheriesDisasterResponseRule.objects.filter(
@@ -2076,6 +2079,8 @@ class FisheriesActivitySuggestionsView(APIView):
                 'date_of_occurrence': disaster.date_of_occurrence.isoformat(),
                 'status': disaster.status,
                 'is_total_loss': disaster.is_total_loss,
+                'can_recover': disaster.status == 'Active' and disaster_reports.recovery_block_reason(disaster) is None,
+                'recovery_block_reason': disaster_reports.recovery_block_reason(disaster) if disaster.status == 'Active' else None,
                 'all_rules_done': all_rules_done,
                 'rules': rules_list,
             })

@@ -1079,6 +1079,8 @@ class CropActivitySuggestionsView(APIView):
                 'date_of_occurrence': disaster.date_of_occurrence.isoformat(),
                 'status': disaster.status,
                 'is_total_loss': disaster.is_total_loss,
+                'can_recover': disaster.can_recover,
+                'recovery_block_reason': disaster.recovery_block_reason if disaster.status == 'Active' else None,
                 'all_rules_done': all_rules_done,
                 'rules': rules_list,
             })
@@ -1553,6 +1555,9 @@ class CropDisasterResolveView(APIView):
             return Response({'detail': 'Disaster is already marked as recovered.'}, status=400)
         if disaster.is_total_loss:
             return Response({'detail': 'A Total Loss record cannot be marked as recovered.'}, status=400)
+        blocked = disaster.recovery_block_reason          # a harvested or total-loss crop: the disaster stays in the history
+        if blocked:
+            return Response({'detail': blocked}, status=400)
 
         record = disaster.monitoring_record
         rules_qs = DisasterResponseRule.objects.filter(

@@ -6,6 +6,7 @@ import { CROP_THEME, CitizenBody, CitizenHomeHeader, CitizenScreen } from './cit
 import { dayFirstShort } from './farmerDates.js'
 import { FIELD } from './farmerFormParts.jsx'
 import { labels } from './labels.js'
+import { canRecoverDisaster } from '../Monitoring/disasterRecovery.js'
 
 // Farmer reported-disasters list with its recommendation checklist and
 // the mark-as-recovered step, rebuilt to UPDATED FARMER CITIZEN UI.docx.
@@ -178,7 +179,7 @@ export default function FarmerDisasterList({
       <ul className="space-y-3">
         {!isLoading && !hasError && disasters.map((d) => {
           const isRecovered = d.status === 'Recovered'
-          const canRecover = d.status === 'Active' && !d.is_total_loss
+          const canRecover = canRecoverDisaster(d)
           const typeName = d.disaster_type === 'Other'
             ? d.disaster_type_other_specify
             : (labels.ffNew.disasterTypes[d.disaster_type] || d.disaster_type)
