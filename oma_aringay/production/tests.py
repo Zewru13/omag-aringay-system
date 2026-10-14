@@ -75,3 +75,51 @@ class YieldAnalysisQueryCountTests(APITestCase):
         self.assertGreaterEqual(row['activities_total_count'], 1)
         self.assertGreaterEqual(row['activities_completed_count'], 1)
         self.assertLessEqual(row['activities_completed_count'], row['activities_total_count'])
+
+
+class YieldAnalysisPagingTests(YieldAnalysisQueryCountTests):
+    """The page can ask for one page of the list (a farm office has thousands of harvested crops); without `page` the
+    whole list still comes back, which is what the citizen screens use."""
+
+    def test_without_page_everything_is_returned(self):
+        self.harvested(self.crops[0], 7)
+        r = self.client.get(YIELD).json()
+        self.assertEqual((r['count'], len(r['records'])), (7, 7))
+        self.assertNotIn('page', r)
+
+    def test_a_page_returns_only_its_records_and_the_total(self):
+        self.harvested(self.crops[0], 7)
+        first = self.client.get(YIELD, {'page': 1, 'page_size': 3}).json()
+        last = self.client.get(YIELD, {'page': 3, 'page_size': 3}).json()
+        self.assertEqual((first['count'], len(first['records']), first['page']), (7, 3, 1))
+        self.assertEqual(len(last['records']), 1)
+        ids = [x['id'] for x in first['records']] + [x['id'] for x in self.client.get(YIELD, {'page': 2, 'page_size': 3}).json()['records']] + [x['id'] for x in last['records']]
+        self.assertEqual(len(set(ids)), 7)
+
+    def test_the_page_size_is_capped_and_bad_numbers_fall_back(self):
+        self.harvested(self.crops[0], 2)
+        r = self.client.get(YIELD, {'page': 'x', 'page_size': '9999'}).json()
+        self.assertEqual((r['page'], r['page_size']), (1, 100))
+
+    def test_search_matches_every_word_across_crop_farmer_and_barangay(self):
+        self.harvested(self.crops[0], 2)
+        self.harvested(self.crops[1], 1)
+        crop_word = self.crops[0].name.split()[0]
+        r = self.client.get(YIELD, {'page': 1, 'search': f'maria santos {crop_word}'}).json()
+        self.assertEqual(r['count'], 2)
+        self.assertEqual(self.client.get(YIELD, {'page': 1, 'search': 'maria zzz'}).json()['count'], 0)
+        self.assertEqual(self.client.get(YIELD, {'page': 1, 'search': 'alaska'}).json()['count'], 3)
+
+    def test_summary_numbers_match_the_full_list(self):
+        self.harvested(self.crops[0], 2)
+        self.harvested(self.crops[1], 3)
+        rows = self.client.get(YIELD).json()['records']
+        s = self.client.get(SUMMARY).json()
+        o = s['overall']
+        est = [r['estimated_kg'] for r in rows if r['estimated_kg'] is not None]
+        var = [r['variance_pct'] for r in rows if r['variance_pct'] is not None and not r['is_total_loss']]
+        self.assertEqual(o['harvested_crop_count'], 5)
+        self.assertEqual(o['avg_estimated_kg'], round(sum(est) / len(est), 2))
+        self.assertEqual(o['avg_actual_kg'], round(sum(r['actual_total_kg'] for r in rows) / 5, 2))
+        self.assertEqual(o['avg_variance_pct'], round(sum(var) / len(var), 2))
+        self.assertEqual(sum(g['harvested_crop_count'] for g in s['groups']), 5)

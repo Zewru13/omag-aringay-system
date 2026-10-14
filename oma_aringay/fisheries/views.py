@@ -2466,7 +2466,7 @@ def _yield_analysis_context(records):
     return {'stages_by_species': stages_by_species, 'cycle_no': production_cycle_numbers_bulk(records)}
 
 
-def _stocking_activity_completion(rec, stages=None):
+def _stocking_activity_completion(rec, stages=None, build_breakdown=True):
     """
     Expand this stocking's SpeciesActivityStage occurrences (application_days),
     the same expansion FisheriesActivitySuggestionsView uses, and match each
@@ -2505,18 +2505,20 @@ def _stocking_activity_completion(rec, stages=None):
                 completed += 1
             elif stage.priority == SpeciesActivityStage.Priority.HIGH:
                 missed_high.append({'activity': stage.activity_name, 'scheduled_day': occurrence_day})
-            breakdown.append({
-                'activity': stage.activity_name,
-                'scheduled_day': occurrence_day,
-                'priority': stage.priority,
-                'completed': is_done,
-            })
+            if build_breakdown:
+                breakdown.append({
+                    'activity': stage.activity_name,
+                    'scheduled_day': occurrence_day,
+                    'priority': stage.priority,
+                    'completed': is_done,
+                })
 
     return total, completed, missed_high, breakdown
 
 
-def _analyze_stocking(rec, context=None):
-    """`context`: _yield_analysis_context() of the records being analyzed (no per-record queries)."""
+def _analyze_stocking(rec, context=None, light=False):
+    """`context`: _yield_analysis_context() of the records being analyzed (no per-record queries).
+    `light`: skip the per-activity breakdown (the aggregate summary only needs the counts)."""
     harvests = list(rec.harvests.all())
     actual_total_kg = sum((h.quantity_kg for h in harvests if h.quantity_kg is not None), Decimal('0'))
     estimated_kg = rec.estimated_harvest_kg
@@ -2529,7 +2531,7 @@ def _analyze_stocking(rec, context=None):
         variance_pct = None if estimated_kg == 0 else float((variance_kg / estimated_kg) * Decimal('100'))
 
     total, completed, missed_high, breakdown = _stocking_activity_completion(
-        rec, context['stages_by_species'].get(rec.species_id, []) if context else None)
+        rec, context['stages_by_species'].get(rec.species_id, []) if context else None, build_breakdown=not light)
 
     harvest_dates = sorted({
         (h.harvest_date or h.date_recorded.date()).isoformat()
@@ -2596,20 +2598,67 @@ def _cycle_trend_note(analyzed):
     )
 
 
+def _chunked(iterable, size):
+    chunk = []
+    for item in iterable:
+        chunk.append(item)
+        if len(chunk) >= size:
+            yield chunk
+            chunk = []
+    if chunk:
+        yield chunk
+
+
+def _iter_fisheries_yield_analysis(request, chunk_size=400):
+    """(record, light analysis) for every harvested stocking, a chunk at a time (see production._iter_yield_analysis)."""
+    for chunk in _chunked(_fisheries_yield_analysis_queryset(request).iterator(chunk_size=chunk_size), chunk_size):
+        context = _yield_analysis_context(chunk)
+        for rec in chunk:
+            yield rec, _analyze_stocking(rec, context, light=True)
+
+
 class FisheriesYieldAnalysisView(APIView):
     # Batch 11: CITIZEN allowed here too — _fisheries_yield_analysis_queryset()
     # scopes the actual rows returned, ADMIN/EVALUATOR stay unrestricted.
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        records = list(_fisheries_yield_analysis_queryset(request))
+        qs = _fisheries_yield_analysis_queryset(request)
+        search = request.query_params.get('search', '').strip()
+        for token in search.split():
+            qs = qs.filter(
+                Q(species__species_name__icontains=token) | Q(fisherfolk__first_name__icontains=token)
+                | Q(fisherfolk__middle_name__icontains=token) | Q(fisherfolk__last_name__icontains=token)
+                | Q(pond_location_barangay__icontains=token) | Q(fisherfolk__barangay__icontains=token))
+        paging = None
+        if 'page' in request.query_params:
+            try:
+                page = max(1, int(request.query_params.get('page') or 1))
+            except ValueError:
+                page = 1
+            try:
+                size = min(100, max(1, int(request.query_params.get('page_size') or 25)))
+            except ValueError:
+                size = 25
+            paging = (page, size)
+        if paging:
+            # One page (with its activity breakdowns) instead of every harvested stocking.
+            page, size = paging
+            total = qs.count()
+            records = list(qs[(page - 1) * size:page * size])
+        else:
+            records = list(qs)
+            total = len(records)
         context = _yield_analysis_context(records)
         data = [_analyze_stocking(rec, context) for rec in records]
-        return Response({
-            'count': len(data),
+        payload = {
+            'count': total,
             'records': data,
             'disclaimer': FISHERIES_YIELD_ANALYSIS_DISCLAIMER,
-        })
+        }
+        if paging:
+            payload.update({'page': page, 'page_size': size})
+        return Response(payload)
 
 
 class FisheriesYieldAnalysisSummaryView(APIView):
@@ -2622,15 +2671,30 @@ class FisheriesYieldAnalysisSummaryView(APIView):
         if group_by not in ('barangay', 'species'):
             group_by = 'barangay'
 
-        records = list(_fisheries_yield_analysis_queryset(request))
-        context = _yield_analysis_context(records)
-        analyzed = [_analyze_stocking(rec, context) for rec in records]
-
         groups = {}
-        for rec, a in zip(records, analyzed):
+        trend_rows = []   # only what _cycle_trend_note reads, not the whole analysis
+        n = losses = 0
+        estimated_sum = actual_sum = variance_sum = completion_sum = 0.0
+        estimated_n = variance_n = completion_n = 0
+        for rec, a in _iter_fisheries_yield_analysis(request):
             key = (rec.species.species_name if rec.species else '—') if group_by == 'species' else a['barangay']
             g = groups.setdefault(key, new_yield_group())
             accumulate_yield_group(g, a)
+            trend_rows.append({'production_cycle_no': a['production_cycle_no'], 'variance_pct': a['variance_pct'],
+                               'is_total_loss': a['is_total_loss']})
+            n += 1
+            actual_sum += a['actual_total_kg']
+            if a['is_total_loss']:
+                losses += 1
+            if a['estimated_kg'] is not None:
+                estimated_sum += a['estimated_kg']
+                estimated_n += 1
+            if a['variance_pct'] is not None and not a['is_total_loss']:
+                variance_sum += a['variance_pct']
+                variance_n += 1
+            if a['activities_total_count'] > 0:
+                completion_sum += (a['activities_completed_count'] / a['activities_total_count']) * 100
+                completion_n += 1
 
         group_results = []
         for key in sorted(groups.keys()):
@@ -2645,25 +2709,19 @@ class FisheriesYieldAnalysisSummaryView(APIView):
                 'avg_activity_completion_pct': round(g['completion_pct_sum'] / g['completion_pct_n'], 2) if g['completion_pct_n'] else None,
             })
 
-        overall_estimated  = [a['estimated_kg'] for a in analyzed if a['estimated_kg'] is not None]
-        overall_variance   = [a['variance_pct'] for a in analyzed if a['variance_pct'] is not None and not a['is_total_loss']]
-        overall_completion = [
-            (a['activities_completed_count'] / a['activities_total_count']) * 100
-            for a in analyzed if a['activities_total_count'] > 0
-        ]
         overall = {
-            'stocking_count': len(analyzed),
-            'total_loss_count': sum(1 for a in analyzed if a['is_total_loss']),
-            'avg_estimated_kg': round(sum(overall_estimated) / len(overall_estimated), 2) if overall_estimated else None,
-            'avg_actual_kg': round(sum(a['actual_total_kg'] for a in analyzed) / len(analyzed), 2) if analyzed else None,
-            'avg_variance_pct': round(sum(overall_variance) / len(overall_variance), 2) if overall_variance else None,
-            'avg_activity_completion_pct': round(sum(overall_completion) / len(overall_completion), 2) if overall_completion else None,
+            'stocking_count': n,
+            'total_loss_count': losses,
+            'avg_estimated_kg': round(estimated_sum / estimated_n, 2) if estimated_n else None,
+            'avg_actual_kg': round(actual_sum / n, 2) if n else None,
+            'avg_variance_pct': round(variance_sum / variance_n, 2) if variance_n else None,
+            'avg_activity_completion_pct': round(completion_sum / completion_n, 2) if completion_n else None,
         }
 
         return Response({
             'group_by': group_by,
             'groups': group_results,
             'overall': overall,
-            'cycle_trend': _cycle_trend_note(analyzed),
+            'cycle_trend': _cycle_trend_note(trend_rows),
             'disclaimer': FISHERIES_YIELD_ANALYSIS_DISCLAIMER,
         })

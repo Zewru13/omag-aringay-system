@@ -1166,7 +1166,7 @@ def _stages_by_crop(records):
     return grouped
 
 
-def _activity_completion(rec, stages_by_crop=None):
+def _activity_completion(rec, stages_by_crop=None, build_breakdown=True):
     """
     Expand this crop's CropActivityStage occurrences (application_days, same
     expansion the suggestions engine uses) and match each one against the
@@ -1200,17 +1200,19 @@ def _activity_completion(rec, stages_by_crop=None):
                 completed += 1
             elif stage.priority == CropActivityStage.Priority.HIGH:
                 missed_high.append({'activity': stage.stage_name, 'scheduled_day': occurrence_day})
-            breakdown.append({
-                'activity': stage.stage_name,
-                'scheduled_day': occurrence_day,
-                'priority': stage.priority,
-                'completed': is_done,
-            })
+            if build_breakdown:
+                breakdown.append({
+                    'activity': stage.stage_name,
+                    'scheduled_day': occurrence_day,
+                    'priority': stage.priority,
+                    'completed': is_done,
+                })
 
     return total, completed, missed_high, breakdown
 
 
-def _analyze_crop(rec, stages_by_crop=None):
+def _analyze_crop(rec, stages_by_crop=None, light=False):
+    """`light`: skip the per-activity breakdown (the aggregate summary only needs the counts)."""
     harvests = list(rec.harvest_records.all())
     actual_total_kg = sum((h.volume_kg for h in harvests if h.volume_kg is not None), Decimal('0'))
     estimated_kg = rec.estimated_yield_kg
@@ -1222,7 +1224,7 @@ def _analyze_crop(rec, stages_by_crop=None):
         variance_kg = actual_total_kg - estimated_kg
         variance_pct = None if estimated_kg == 0 else float((variance_kg / estimated_kg) * Decimal('100'))
 
-    total, completed, missed_high, breakdown = _activity_completion(rec, stages_by_crop)
+    total, completed, missed_high, breakdown = _activity_completion(rec, stages_by_crop, build_breakdown=not light)
 
     harvest_dates = sorted({
         (h.harvest_start_date or h.date_recorded.date()).isoformat()
@@ -1260,20 +1262,85 @@ def _analyze_crop(rec, stages_by_crop=None):
     }
 
 
+
+
+def _chunked(iterable, size):
+    chunk = []
+    for item in iterable:
+        chunk.append(item)
+        if len(chunk) >= size:
+            yield chunk
+            chunk = []
+    if chunk:
+        yield chunk
+
+
+def _page_params(request, default_size=25, max_size=100):
+    """(page, page_size) when the caller asked for one page of the yield analysis, else None (everything, as before)."""
+    if 'page' not in request.query_params:
+        return None
+    try:
+        page = max(1, int(request.query_params.get('page') or 1))
+    except ValueError:
+        page = 1
+    try:
+        size = min(max_size, max(1, int(request.query_params.get('page_size') or default_size)))
+    except ValueError:
+        size = default_size
+    return page, size
+
+
+def _yield_search(qs, text, fields):
+    """Every word of `text` must match at least one of `fields` (icontains), so "marie fontanilla" finds a farmer
+    whose first and last names are in different columns."""
+    for token in text.split():
+        cond = Q()
+        for f in fields:
+            cond |= Q(**{f + '__icontains': token})
+        qs = qs.filter(cond)
+    return qs
+
+
+def _iter_yield_analysis(request, chunk_size=400):
+    """(record, light analysis) for every harvested crop, a chunk at a time, so thousands of crops (and their
+    activity logs) are never held in memory together - the aggregate summary used to run a 512 MB server out of it."""
+    for chunk in _chunked(_yield_analysis_queryset(request).iterator(chunk_size=chunk_size), chunk_size):
+        stages = _stages_by_crop(chunk)
+        for rec in chunk:
+            yield rec, _analyze_crop(rec, stages, light=True)
+
+
 class YieldAnalysisView(APIView):
     # Batch 11: CITIZEN is allowed here too — _yield_analysis_queryset()
     # scopes the actual rows returned, ADMIN/EVALUATOR stay unrestricted.
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        records = list(_yield_analysis_queryset(request))
+        qs = _yield_analysis_queryset(request)
+        search = request.query_params.get('search', '').strip()
+        if search:
+            qs = _yield_search(qs, search, [
+                'crop_type__name', 'farmer__first_name', 'farmer__middle_name', 'farmer__last_name',
+                'farm_location_barangay', 'farmer__barangay'])
+        paging = _page_params(request)
+        if paging:
+            # One page (with its activity breakdowns) instead of every harvested crop.
+            page, size = paging
+            total = qs.count()
+            records = list(qs[(page - 1) * size:page * size])
+        else:
+            records = list(qs)
+            total = len(records)
         stages = _stages_by_crop(records)
         data = [_analyze_crop(rec, stages) for rec in records]
-        return Response({
-            'count': len(data),
+        payload = {
+            'count': total,
             'records': data,
             'disclaimer': YIELD_ANALYSIS_DISCLAIMER,
-        })
+        }
+        if paging:
+            payload.update({'page': page, 'page_size': size})
+        return Response(payload)
 
 
 class YieldAnalysisSummaryView(APIView):
@@ -1284,15 +1351,27 @@ class YieldAnalysisSummaryView(APIView):
         if group_by not in ('barangay', 'crop_type'):
             group_by = 'barangay'
 
-        records = list(_yield_analysis_queryset(request))
-        stages = _stages_by_crop(records)
-        analyzed = [_analyze_crop(rec, stages) for rec in records]
-
         groups = {}
-        for rec, a in zip(records, analyzed):
+        n = losses = 0
+        estimated_sum = actual_sum = variance_sum = completion_sum = 0.0
+        estimated_n = variance_n = completion_n = 0
+        for rec, a in _iter_yield_analysis(request):
             key = (rec.crop_type.name if rec.crop_type else '—') if group_by == 'crop_type' else a['barangay']
             g = groups.setdefault(key, new_yield_group())
             accumulate_yield_group(g, a)
+            n += 1
+            actual_sum += a['actual_total_kg']
+            if a['is_total_loss']:
+                losses += 1
+            if a['estimated_kg'] is not None:
+                estimated_sum += a['estimated_kg']
+                estimated_n += 1
+            if a['variance_pct'] is not None and not a['is_total_loss']:
+                variance_sum += a['variance_pct']
+                variance_n += 1
+            if a['activities_total_count'] > 0:
+                completion_sum += (a['activities_completed_count'] / a['activities_total_count']) * 100
+                completion_n += 1
 
         group_results = []
         for key in sorted(groups.keys()):
@@ -1307,19 +1386,13 @@ class YieldAnalysisSummaryView(APIView):
                 'avg_activity_completion_pct': round(g['completion_pct_sum'] / g['completion_pct_n'], 2) if g['completion_pct_n'] else None,
             })
 
-        overall_estimated  = [a['estimated_kg'] for a in analyzed if a['estimated_kg'] is not None]
-        overall_variance   = [a['variance_pct'] for a in analyzed if a['variance_pct'] is not None and not a['is_total_loss']]
-        overall_completion = [
-            (a['activities_completed_count'] / a['activities_total_count']) * 100
-            for a in analyzed if a['activities_total_count'] > 0
-        ]
         overall = {
-            'harvested_crop_count': len(analyzed),
-            'total_loss_count': sum(1 for a in analyzed if a['is_total_loss']),
-            'avg_estimated_kg': round(sum(overall_estimated) / len(overall_estimated), 2) if overall_estimated else None,
-            'avg_actual_kg': round(sum(a['actual_total_kg'] for a in analyzed) / len(analyzed), 2) if analyzed else None,
-            'avg_variance_pct': round(sum(overall_variance) / len(overall_variance), 2) if overall_variance else None,
-            'avg_activity_completion_pct': round(sum(overall_completion) / len(overall_completion), 2) if overall_completion else None,
+            'harvested_crop_count': n,
+            'total_loss_count': losses,
+            'avg_estimated_kg': round(estimated_sum / estimated_n, 2) if estimated_n else None,
+            'avg_actual_kg': round(actual_sum / n, 2) if n else None,
+            'avg_variance_pct': round(variance_sum / variance_n, 2) if variance_n else None,
+            'avg_activity_completion_pct': round(completion_sum / completion_n, 2) if completion_n else None,
         }
 
         return Response({

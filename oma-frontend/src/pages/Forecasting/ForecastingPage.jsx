@@ -572,14 +572,24 @@ function YieldAnalysisTab() {
     return p
   }
 
+  // The harvested list is fetched one page (25) at a time, with the search done on the server; the page resets when the
+  // filters or the search change (without an effect: the page number is remembered together with what it was for).
+  const YIELD_PAGE_SIZE = 25
+  const yieldSearch = useDebouncedValue(search.trim())
+  const yieldPageKey = JSON.stringify([[filters, farmerFilter?.id], yieldSearch])
+  const [yieldPageState, setYieldPageState] = useState({ key: '', n: 1 })
+  const yieldPage = yieldPageState.key === yieldPageKey ? yieldPageState.n : 1
+  const setYieldPage = (n) => setYieldPageState({ key: yieldPageKey, n })
+  const [yieldTotal, setYieldTotal] = useState(0)
+
   useEffect(() => {
     setIsLoading(true)
-    api.get('/production/yield-analysis/', { params: buildParams() })
-      .then(r => setRecords(r.data.records || []))
+    api.get('/production/yield-analysis/', { params: buildParams({ page: yieldPage, page_size: YIELD_PAGE_SIZE, search: yieldSearch }) })
+      .then(r => { setRecords(r.data.records || []); setYieldTotal(r.data.count || 0) })
       .catch(() => showToast('Failed to load yield analysis.', 'error'))
       .finally(() => setIsLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.crop_type, filters.barangay, filters.season, filters.year, farmerFilter])
+  }, [filters.crop_type, filters.barangay, filters.season, filters.year, farmerFilter, yieldPage, yieldSearch])
 
   useEffect(() => {
     if (isFarmer) { setIsLoadingSummary(false); return }
@@ -626,27 +636,6 @@ function YieldAnalysisTab() {
     })
   }
 
-  // Client-side quick filter over the already-fetched (unpaginated) records —
-  // the crop_type/barangay/season/year/farmer filters above are server-side
-  // and also drive the aggregate summary + export; this one is a simple text
-  // narrow-down of what's already on screen, same role as ForecastingPage's
-  // Forecast-tab search and CropMonitoringPage's search.
-  const q = search.toLowerCase()
-  const filteredRecords = records.filter(rec =>
-    !q
-    || rec.crop_type?.toLowerCase().includes(q)
-    || rec.farmer?.toLowerCase().includes(q)
-    || rec.barangay?.toLowerCase().includes(q)
-  )
-
-  // The harvested list can run to thousands of records, so it is shown 25 at a time (the page resets whenever the
-  // filters or the search change, without an effect: the page number is remembered together with the filters it was for).
-  const YIELD_PAGE_SIZE = 25
-  const yieldPageKey = JSON.stringify([[filters, farmerFilter?.id], search])
-  const [yieldPageState, setYieldPageState] = useState({ key: '', n: 1 })
-  const yieldPage = yieldPageState.key === yieldPageKey ? yieldPageState.n : 1
-  const setYieldPage = (n) => setYieldPageState({ key: yieldPageKey, n })
-  const pagedRecords = filteredRecords.slice((yieldPage - 1) * YIELD_PAGE_SIZE, yieldPage * YIELD_PAGE_SIZE)
 
 
   const buildUrl = (fmt) => {
@@ -741,11 +730,11 @@ function YieldAnalysisTab() {
         <div className="space-y-3 md:hidden">
           {isLoading ? (
             <p className="rounded-xl border border-[#E2E8E2] bg-white py-8 text-center text-[13px] text-[#7A8E7A]">Loading…</p>
-          ) : pagedRecords.length === 0 ? (
+          ) : records.length === 0 ? (
             <p className="rounded-xl border border-[#E2E8E2] bg-white px-4 py-8 text-center text-[13px] text-[#7A8E7A]">
-              {records.length === 0 ? 'No harvested crops found in scope.' : 'No crops match your search.'}
+              {yieldSearch ? 'No crops match your search.' : 'No harvested crops found in scope.'}
             </p>
-          ) : pagedRecords.map(rec => (
+          ) : records.map(rec => (
             <PhoneYieldCard
               key={rec.id}
               title={rec.crop_type}
@@ -775,11 +764,11 @@ function YieldAnalysisTab() {
             <tbody>
               {isLoading ? (
                 <tr><td colSpan={9} className="py-8 text-center text-[13px] text-[#7A8E7A]">Loading…</td></tr>
-              ) : filteredRecords.length === 0 ? (
+              ) : records.length === 0 ? (
                 <tr><td colSpan={9} className="py-8 text-center text-[13px] text-[#7A8E7A]">
-                  {records.length === 0 ? 'No harvested crops found in scope.' : 'No crops match your search.'}
+                  {yieldSearch ? 'No crops match your search.' : 'No harvested crops found in scope.'}
                 </td></tr>
-              ) : pagedRecords.map(rec => (
+              ) : records.map(rec => (
                 <Fragment key={rec.id}>
                   <tr
                     onClick={() => toggleExpand(rec.id)}
@@ -830,7 +819,7 @@ function YieldAnalysisTab() {
             </tbody>
           </table>
         </div>
-        <PaginationBar page={yieldPage} totalCount={filteredRecords.length} pageSize={YIELD_PAGE_SIZE} onPageChange={setYieldPage} />
+        <PaginationBar page={yieldPage} totalCount={yieldTotal} pageSize={YIELD_PAGE_SIZE} onPageChange={setYieldPage} />
       </div>
       </>)}
 

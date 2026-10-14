@@ -11,6 +11,7 @@ import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import PillTabs from '../../components/UI/PillTabs.jsx'
 import ViewToggle from '../../components/UI/ViewToggle.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
+import useDebouncedValue from '../../hooks/useDebouncedValue.js'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
@@ -1165,15 +1166,25 @@ export default function ForecastingTab({ asTab = false }) {
     return p
   }
 
+  // The harvested list is fetched one page (25) at a time, with the search done on the server; the page resets when the
+  // filters or the search change (without an effect: the page number is remembered together with what it was for).
+  const YIELD_PAGE_SIZE = 25
+  const yieldSearch = useDebouncedValue(search.trim())
+  const yieldPageKey = JSON.stringify([[filters, fisherfolkFilter?.id], yieldSearch])
+  const [yieldPageState, setYieldPageState] = useState({ key: '', n: 1 })
+  const yieldPage = yieldPageState.key === yieldPageKey ? yieldPageState.n : 1
+  const setYieldPage = (n) => setYieldPageState({ key: yieldPageKey, n })
+  const [yieldTotal, setYieldTotal] = useState(0)
+
   useEffect(() => {
     if (!yieldOpened) return
     setIsLoading(true)
-    api.get('/fisheries/yield-analysis/', { params: buildParams() })
-      .then(r => setRecords(r.data.records || []))
+    api.get('/fisheries/yield-analysis/', { params: buildParams({ page: yieldPage, page_size: YIELD_PAGE_SIZE, search: yieldSearch }) })
+      .then(r => { setRecords(r.data.records || []); setYieldTotal(r.data.count || 0) })
       .catch(() => showToast('Failed to load yield analysis.', 'error'))
       .finally(() => setIsLoading(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [yieldOpened, filters.species, filters.barangay, filters.year, fisherfolkFilter])
+  }, [yieldOpened, filters.species, filters.barangay, filters.year, fisherfolkFilter, yieldPage, yieldSearch])
 
   useEffect(() => {
     if (!yieldOpened) return
@@ -1231,25 +1242,6 @@ export default function ForecastingTab({ asTab = false }) {
     })
   }
 
-  // Client-side quick filter over the already-fetched (unpaginated) records —
-  // mirrors the crop Yield Analysis tab's search, same role as the
-  // species/barangay/year/fisherfolk filters' server-side counterparts.
-  const q = search.toLowerCase()
-  const filteredRecords = records.filter(rec =>
-    !q
-    || rec.species?.toLowerCase().includes(q)
-    || rec.fisherfolk?.toLowerCase().includes(q)
-    || rec.barangay?.toLowerCase().includes(q)
-  )
-
-  // The harvested list can run to thousands of records, so it is shown 25 at a time (the page resets whenever the
-  // filters or the search change, without an effect: the page number is remembered together with the filters it was for).
-  const YIELD_PAGE_SIZE = 25
-  const yieldPageKey = JSON.stringify([[filters, fisherfolkFilter?.id], search])
-  const [yieldPageState, setYieldPageState] = useState({ key: '', n: 1 })
-  const yieldPage = yieldPageState.key === yieldPageKey ? yieldPageState.n : 1
-  const setYieldPage = (n) => setYieldPageState({ key: yieldPageKey, n })
-  const pagedRecords = filteredRecords.slice((yieldPage - 1) * YIELD_PAGE_SIZE, yieldPage * YIELD_PAGE_SIZE)
 
 
   const buildUrl = (fmt) => {
@@ -1346,9 +1338,9 @@ export default function ForecastingTab({ asTab = false }) {
         <div className="space-y-3 md:hidden" data-testid="yield-cards">
           {isLoading ? (
             <p className="rounded-xl border border-[#E2E8E2] bg-white py-8 text-center text-[13px] text-[#7A8E7A]">Loading…</p>
-          ) : pagedRecords.length === 0 ? (
+          ) : records.length === 0 ? (
             <p className="rounded-xl border border-[#E2E8E2] bg-white px-4 py-8 text-center text-[13px] text-[#7A8E7A]">No harvested or total-loss stockings found in scope.</p>
-          ) : pagedRecords.map(rec => (
+          ) : records.map(rec => (
             <PhoneYieldCard
               key={rec.id}
               title={rec.species}
@@ -1377,11 +1369,11 @@ export default function ForecastingTab({ asTab = false }) {
             <tbody>
               {isLoading ? (
                 <tr><td colSpan={10} className="py-8 text-center text-[13px] text-[#7A8E7A]">Loading…</td></tr>
-              ) : filteredRecords.length === 0 ? (
+              ) : records.length === 0 ? (
                 <tr><td colSpan={10} className="py-8 text-center text-[13px] text-[#7A8E7A]">
-                  {records.length === 0 ? 'No harvested or total-loss stockings found in scope.' : 'No stockings match your search.'}
+                  {yieldSearch ? 'No stockings match your search.' : 'No harvested or total-loss stockings found in scope.'}
                 </td></tr>
-              ) : pagedRecords.map(rec => (
+              ) : records.map(rec => (
                 <Fragment key={rec.id}>
                   <tr
                     onClick={() => toggleExpand(rec.id)}
@@ -1433,7 +1425,7 @@ export default function ForecastingTab({ asTab = false }) {
             </tbody>
           </table>
         </div>
-        <PaginationBar page={yieldPage} totalCount={filteredRecords.length} pageSize={YIELD_PAGE_SIZE} onPageChange={setYieldPage} />
+        <PaginationBar page={yieldPage} totalCount={yieldTotal} pageSize={YIELD_PAGE_SIZE} onPageChange={setYieldPage} />
       </div>
       </>)}
 
