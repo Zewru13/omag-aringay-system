@@ -17,7 +17,8 @@ import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
-import { ForecastCard, STACK_TABLES } from '../../components/UI/ForecastCard.jsx'
+import { ForecastCard } from '../../components/UI/ForecastCard.jsx'
+import { ActivityBreakdown, PhoneGroupList, PhoneYieldCard } from '../../components/UI/YieldPhone.jsx'
 import useDebouncedValue from '../../hooks/useDebouncedValue.js'
 import GroupedForecast from './GroupedForecast.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
@@ -388,7 +389,18 @@ function AggregatePanel({ groupBy, setGroupBy, groups, overall, isLoading }) {
         </div>
       </div>
 
-      <div className="space-y-2">
+      {/* Phone: one small card per group, the first few open. */}
+      {!isLoading && groups.length > 0 && (
+        <div className="md:hidden">
+          <PhoneGroupList
+            groups={groups}
+            countText={g => `${g.harvested_crop_count} crop${g.harvested_crop_count !== 1 ? 's' : ''}`}
+            lossCount={g => g.total_loss_count || 0}
+          />
+        </div>
+      )}
+
+      <div className={`space-y-2 ${!isLoading && groups.length > 0 ? 'max-md:hidden' : ''}`}>
         {isLoading ? (
           <p className="text-[12px] text-[#7A8E7A] py-3 text-center">Loading…</p>
         ) : groups.length === 0 ? (
@@ -725,7 +737,33 @@ function YieldAnalysisTab() {
       <div>
         <p className="text-[13px] font-semibold text-[#1A2B1A]">Harvested crops</p>
         <p className="text-[12px] text-[#7A8E7A] mb-3">Tap a crop to see the full activity completion breakdown.</p>
-        <div className={`overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] max-md:overflow-hidden ${STACK_TABLES}`}>
+        {/* Phone: one card per harvested crop (tap for the factors and the activity breakdown). */}
+        <div className="space-y-3 md:hidden">
+          {isLoading ? (
+            <p className="rounded-xl border border-[#E2E8E2] bg-white py-8 text-center text-[13px] text-[#7A8E7A]">Loading…</p>
+          ) : pagedRecords.length === 0 ? (
+            <p className="rounded-xl border border-[#E2E8E2] bg-white px-4 py-8 text-center text-[13px] text-[#7A8E7A]">
+              {records.length === 0 ? 'No harvested crops found in scope.' : 'No crops match your search.'}
+            </p>
+          ) : pagedRecords.map(rec => (
+            <PhoneYieldCard
+              key={rec.id}
+              title={rec.crop_type}
+              badge={rec.is_total_loss ? <StatusPill tone="rose">Total loss</StatusPill> : <VarianceBadge pct={rec.variance_pct} />}
+              subtitle={[rec.farmer, rec.barangay].filter(Boolean).join(' · ')}
+              estimated={rec.estimated_kg != null ? `${rec.estimated_kg.toLocaleString()} kg` : 'N/A'}
+              actual={`${rec.actual_total_kg.toLocaleString()} kg`}
+              activities={`${rec.activities_completed_count}/${rec.activities_total_count}`}
+              factors={possibleFactorsText(rec, 'crop')}
+              expanded={expanded.has(rec.id)}
+              onToggle={() => toggleExpand(rec.id)}
+            >
+              <ActivityBreakdown items={rec.activity_breakdown} emptyText="No activity schedule defined for this crop." disclaimer={YIELD_DISCLAIMER} />
+            </PhoneYieldCard>
+          ))}
+        </div>
+
+        <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] max-md:hidden">
           <table className="min-w-full text-sm">
             <thead className="bg-[#1B4D2E] text-white">
               <tr>
