@@ -6,9 +6,10 @@ import {
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import BARANGAYS from '../../constants/barangays.js'
-import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
+import PillTabs from '../../components/UI/PillTabs.jsx'
+import ViewToggle from '../../components/UI/ViewToggle.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
@@ -29,7 +30,7 @@ const filterLabelCls = 'block text-[12px] font-medium text-[#4A5E4A] mb-1'
 
 // Same compact select style ForecastingPage.jsx (crop) uses for its FilterPanel children.
 const filterSelectCls =
-  'rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[7px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none'
+  'h-[38px] rounded-lg border border-[#E2E8E2] bg-white px-3 text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none'
 
 // Fisheries Forecasting "Forecast" tab scope: the same stocking records as the Fisheries Monitoring
 // table (Stocked, Near Harvest, Harvested; not Total Loss) - no date window.
@@ -353,16 +354,16 @@ function YASignatureModal({ purpose, onClose, onGenerate }) {
 
 function YAActionButtons({ onPdf, onExcel, isDownloading }) {
   return (
-    <div className="flex gap-2 justify-end">
+    <>
       <button type="button" onClick={onPdf} disabled={isDownloading}
-        className="flex items-center gap-1.5 bg-[#C0392B] hover:bg-[#A93226] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-60">
-        <FileText className="w-4 h-4" /> Preview PDF
+        className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#E2E8E2] px-4 py-2 text-[13px] font-medium text-[#1B4D2E] transition-colors hover:bg-[#F0F4F0] disabled:opacity-60">
+        <FileText className="h-4 w-4" /> Preview PDF
       </button>
       <button type="button" onClick={onExcel} disabled={isDownloading}
-        className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-60">
-        <Download className="w-4 h-4" /> Download Excel
+        className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38] disabled:opacity-60">
+        <Download className="h-4 w-4" /> Download Excel
       </button>
-    </div>
+    </>
   )
 }
 
@@ -769,20 +770,12 @@ function AggregatePanel({ groupBy, setGroupBy, groups, overall, cycleTrend, isLo
       <div className="flex items-center justify-between mb-4">
         <p className="text-[13px] font-semibold text-[#1A2B1A]">Aggregate summary</p>
         {showGroupToggle && (
-        <div className="flex items-center gap-1 rounded-lg border border-[#E2E8E2] p-0.5">
-          {['barangay', 'species'].map(opt => (
-            <button
-              key={opt}
-              type="button"
-              onClick={() => setGroupBy(opt)}
-              className={`px-3 py-1 rounded-md text-[12px] font-medium transition-colors ${
-                groupBy === opt ? 'bg-[#1B4D2E] text-white' : 'text-[#4A5E4A] hover:bg-[#F5F7F5]'
-              }`}
-            >
-              {opt === 'barangay' ? 'By barangay' : 'By species'}
-            </button>
-          ))}
-        </div>
+        <ViewToggle
+          ariaLabel="Group the summary by"
+          options={[{ id: 'barangay', label: 'By barangay' }, { id: 'species', label: 'By species' }]}
+          value={groupBy}
+          onChange={setGroupBy}
+        />
         )}
       </div>
 
@@ -1256,65 +1249,54 @@ export default function ForecastingTab({ asTab = false }) {
 
   const yieldAnalysisContent = (
     <div className="space-y-5">
-      {/* View toggle: existing analysis vs grouped by fisherfolk. Staff only - a fisherfolk account sees
-          only its own records, so it stays on the Analysis view (viewMode's default). */}
+      {/* One toolbar: search, filters and the report downloads. A fisherfolk account gets a view-only analysis of its
+          own records (the backend scopes them), so it has no search or filters - just the downloads. */}
+      {!isFisherfolk ? (
+        <FilterPanel
+          className=""
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search by species, fisherfolk, or barangay..."
+          activeCount={[filters.species, filters.barangay, filters.year, fisherfolkFilter?.id].filter(Boolean).length}
+          actions={viewMode === 'analysis' ? (
+            <YAActionButtons
+              onPdf={() => { setSigPurpose('pdf'); setShowSig(true) }}
+              onExcel={() => { setSigPurpose('excel'); setShowSig(true) }}
+              isDownloading={isDownloading}
+            />
+          ) : null}
+        >
+          <select className={filterSelectCls} value={filters.species} onChange={e => set('species', e.target.value)} aria-label="Species">
+            <option value="">All species</option>
+            {speciesList.map(s => <option key={s.id} value={s.id}>{s.species_name}</option>)}
+          </select>
+          <select className={filterSelectCls} value={filters.barangay} onChange={e => set('barangay', e.target.value)} aria-label="Barangay">
+            <option value="">All barangays</option>
+            {BARANGAYS.map(b => <option key={b} value={b}>{b}</option>)}
+          </select>
+          <input type="number" placeholder="Year" aria-label="Year" className={`${filterSelectCls} w-24`} value={filters.year} onChange={e => set('year', e.target.value)} />
+          <div className="w-56"><FisherfolkFilterInput selected={fisherfolkFilter} onSelect={setFisherfolkFilter} /></div>
+        </FilterPanel>
+      ) : (
+        <div className="flex justify-end gap-2">
+          <YAActionButtons
+            onPdf={() => { setSigPurpose('pdf'); setShowSig(true) }}
+            onExcel={() => { setSigPurpose('excel'); setShowSig(true) }}
+            isDownloading={isDownloading}
+          />
+        </div>
+      )}
+
       {!isFisherfolk && (
-      <div className="flex items-center gap-1 w-fit rounded-lg border border-[#E2E8E2] p-0.5">
-        {[{ id: 'analysis', label: 'Analysis' }, { id: 'grouped', label: 'Group by fisherfolk' }].map(v => (
-          <button
-            key={v.id}
-            type="button"
-            onClick={() => setViewMode(v.id)}
-            className={`px-3 py-1 rounded-md text-[12px] font-medium transition-colors ${viewMode === v.id ? 'bg-[#1B4D2E] text-white' : 'text-[#4A5E4A] hover:bg-[#F5F7F5]'}`}
-          >
-            {v.label}
-          </button>
-        ))}
-      </div>
+        <ViewToggle
+          ariaLabel="Show the yield analysis as"
+          options={[{ id: 'analysis', label: 'Analysis' }, { id: 'grouped', label: 'By fisherfolk' }]}
+          value={viewMode}
+          onChange={setViewMode}
+        />
       )}
 
       {viewMode === 'analysis' && <DisclaimerBanner />}
-
-      {/* Filters - staff only. A fisherfolk account gets a view-only analysis of its own records
-          (the backend scopes them); the filters simply stay at their empty defaults. */}
-      {!isFisherfolk && (
-      <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
-        <p className="text-[13px] font-semibold text-[#1A2B1A] mb-4">Filter Options</p>
-        <div className="flex flex-wrap gap-3">
-          <div className="w-44">
-            <label className={filterLabelCls}>Species</label>
-            <select className={baseInputClasses} value={filters.species} onChange={e => set('species', e.target.value)}>
-              <option value="">All Species</option>
-              {speciesList.map(s => <option key={s.id} value={s.id}>{s.species_name}</option>)}
-            </select>
-          </div>
-          <div className="w-44">
-            <label className={filterLabelCls}>Barangay</label>
-            <BarangaySelect value={filters.barangay} onChange={e => set('barangay', e.target.value)} includeAllOption />
-          </div>
-          <div className="w-28">
-            <label className={filterLabelCls}>Year</label>
-            <input type="number" placeholder="e.g. 2026" className={baseInputClasses} value={filters.year} onChange={e => set('year', e.target.value)} />
-          </div>
-          <div className="w-56">
-            <label className={filterLabelCls}>Fisherfolk</label>
-            <FisherfolkFilterInput selected={fisherfolkFilter} onSelect={setFisherfolkFilter} />
-          </div>
-          <div className="w-56">
-            <label className={filterLabelCls}>Search</label>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#A8BCA8] pointer-events-none" />
-              <input
-                className={`${baseInputClasses} pl-7`}
-                placeholder="Species, fisherfolk, or barangay..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-      )}
 
       {viewMode === 'grouped' ? (
         <GroupedForecast
@@ -1327,12 +1309,6 @@ export default function ForecastingTab({ asTab = false }) {
       ) : (<>
       <AggregatePanel groupBy={groupBy} setGroupBy={setGroupBy} groups={groups} overall={overall} cycleTrend={cycleTrend} isLoading={isLoadingSummary}
         showGroupToggle={!isFisherfolk} />
-
-      <YAActionButtons
-        onPdf={() => { setSigPurpose('pdf'); setShowSig(true) }}
-        onExcel={() => { setSigPurpose('excel'); setShowSig(true) }}
-        isDownloading={isDownloading}
-      />
 
       {/* Per-stocking table */}
       <div>
@@ -1446,7 +1422,7 @@ export default function ForecastingTab({ asTab = false }) {
                     <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.actual_total_kg.toLocaleString()}</td>
                     <td className="px-3 py-[11px] whitespace-nowrap"><VarianceBadge pct={rec.variance_pct} /></td>
                     <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.activities_completed_count}/{rec.activities_total_count}</td>
-                    <td className="px-3 py-[11px] text-[12px] text-[#4A5E4A] max-w-xs">{possibleFactorsText(rec, 'fisheries')}</td>
+                    <td className="px-3 py-[11px] text-[12px] text-[#4A5E4A] max-w-xs"><span className="line-clamp-2" title={possibleFactorsText(rec, 'fisheries')}>{possibleFactorsText(rec, 'fisheries')}</span></td>
                   </tr>
                   {expanded.has(rec.id) && (
                     <tr className="border-b border-[#F0F4F0] bg-[#F9FAF9]">
@@ -1487,10 +1463,8 @@ export default function ForecastingTab({ asTab = false }) {
 
   const forecastContent = (
     <div className="space-y-4">
-      {/* Staff toolbar (and its hidden import input). Not rendered for a fisherfolk account, so no empty
-          row is left above the table. */}
+      {/* The spreadsheet picker behind Import Excel (staff only). */}
       {!isFisherfolk && (
-      <div className="flex items-center justify-end gap-2">
         <input
           ref={fcFileInputRef}
           type="file"
@@ -1498,56 +1472,56 @@ export default function ForecastingTab({ asTab = false }) {
           className="hidden"
           onChange={handleFcImportFile}
         />
-        {/* Staff tools (bulk Add Stocking page, spreadsheet import/template - staff-only endpoints). A
-            fisherfolk starts their cycles from Fisheries Monitoring; everything else on this page is theirs. */}
-        <>
-          <button
-            type="button"
-            onClick={() => navigate('/fisheries-monitoring/add')}
-            className="flex items-center gap-1.5 rounded-lg border border-[#C8D5C8] px-3 py-[5px] text-[12px] font-medium text-[#4A5E4A] transition-colors hover:bg-[#F5F7F5]"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            Add Stocking
-          </button>
-          <button
-            type="button"
-            disabled={fcImporting}
-            onClick={() => fcFileInputRef.current?.click()}
-            className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 py-[5px] text-[12px] font-medium text-white transition-colors hover:bg-[#235E38] disabled:opacity-60"
-          >
-            {fcImporting
-              ? <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              : <Upload className="h-3.5 w-3.5" />
-            }
-            {fcImporting ? 'Importing…' : 'Import Excel'}
-          </button>
-          <button
-            type="button"
-            onClick={handleFcDownloadTemplate}
-            className="flex items-center gap-1.5 rounded-lg border border-[#C8D5C8] px-3 py-[5px] text-[12px] font-medium text-[#4A5E4A] transition-colors hover:bg-[#F5F7F5]"
-          >
-            <Download className="h-3.5 w-3.5" />
-            Template
-          </button>
-        </>
-      </div>
       )}
 
-      {/* Search, filters and the Flat / Group by fisherfolk toggle are staff tools; a fisherfolk account
-          sees only its own stockings, so it gets the plain table (fcView stays 'flat', filters stay empty). */}
+      {/* Search, filters and the stocking tools are staff tools; a fisherfolk account sees only its own stockings
+          (and starts its cycles from Aquaculture Monitoring), so it gets the plain table (fcView stays 'flat'). */}
       {!isFisherfolk && (
       <FilterPanel
+        className=""
         search={fcSearch}
         onSearchChange={setFcSearch}
-        searchPlaceholder="Search by fisherfolk, RSBSA / LGU no., species, or barangay..."
+        searchPlaceholder="Search by fisherfolk, species, or barangay..."
         activeCount={[Boolean(fcBarangayFilter), Boolean(fcSpeciesFilter)].filter(Boolean).length}
+        actions={(
+          <>
+            <button
+              type="button"
+              onClick={handleFcDownloadTemplate}
+              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#E2E8E2] px-4 py-2 text-[13px] font-medium text-[#1B4D2E] transition-colors hover:bg-[#F0F4F0]"
+            >
+              <Download className="h-4 w-4" />
+              Import Template
+            </button>
+            <button
+              type="button"
+              disabled={fcImporting}
+              onClick={() => fcFileInputRef.current?.click()}
+              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#E2E8E2] px-4 py-2 text-[13px] font-medium text-[#1B4D2E] transition-colors hover:bg-[#F0F4F0] disabled:opacity-60"
+            >
+              {fcImporting
+                ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#1B4D2E] border-t-transparent" />
+                : <Upload className="h-4 w-4" />
+              }
+              {fcImporting ? 'Importing…' : 'Import Stockings'}
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/fisheries-monitoring/add')}
+              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38]"
+            >
+              <Plus className="h-4 w-4" />
+              Add Stocking
+            </button>
+          </>
+        )}
       >
-        <select className={filterSelectCls} value={fcSpeciesFilter} onChange={e => setFcSpeciesFilter(e.target.value)}>
-          <option value="">All Species</option>
+        <select className={filterSelectCls} value={fcSpeciesFilter} onChange={e => setFcSpeciesFilter(e.target.value)} aria-label="Species">
+          <option value="">All species</option>
           {speciesList.map(s => <option key={s.id} value={s.id}>{s.species_name}</option>)}
         </select>
-        <select className={filterSelectCls} value={fcBarangayFilter} onChange={e => setFcBarangayFilter(e.target.value)}>
-          <option value="">All Barangays</option>
+        <select className={filterSelectCls} value={fcBarangayFilter} onChange={e => setFcBarangayFilter(e.target.value)} aria-label="Barangay">
+          <option value="">All barangays</option>
           {BARANGAYS.map(b => <option key={b} value={b}>{b}</option>)}
         </select>
       </FilterPanel>
@@ -1555,25 +1529,14 @@ export default function ForecastingTab({ asTab = false }) {
 
       {fcError && <ErrorMessage message={fcError} />}
 
-      {/* View toggle: flat per-record table vs grouped by fisherfolk (staff only, see above) */}
+      {/* How the stockings are shown (staff only, see above) */}
       {!isFisherfolk && (
-      <div className="flex items-center gap-1 w-fit rounded-lg border border-[#E2E8E2] p-0.5">
-        {[
-          { id: 'flat',    label: 'Flat' },
-          { id: 'grouped', label: 'Group by fisherfolk' },
-        ].map(v => (
-          <button
-            key={v.id}
-            type="button"
-            onClick={() => setFcView(v.id)}
-            className={`px-3 py-1 rounded-md text-[12px] font-medium transition-colors ${
-              fcView === v.id ? 'bg-[#1B4D2E] text-white' : 'text-[#4A5E4A] hover:bg-[#F5F7F5]'
-            }`}
-          >
-            {v.label}
-          </button>
-        ))}
-      </div>
+        <ViewToggle
+          ariaLabel="Show stockings as"
+          options={[{ id: 'flat', label: 'All stockings' }, { id: 'grouped', label: 'By fisherfolk' }]}
+          value={fcView}
+          onChange={setFcView}
+        />
       )}
 
       {fcView === 'flat' ? (
@@ -1625,30 +1588,15 @@ export default function ForecastingTab({ asTab = false }) {
 
   const innerContent = (
     <div className="space-y-4">
-      {/* Top-level tab bar — structural parity with crop's ForecastingPage.jsx.
-          "Yield Analysis" wraps the pre-existing page content unchanged
-          (Analysis/Grouped toggle, filters, AggregatePanel, Cycle Trend,
-          Harvested/Total-Loss table); "Forecast" is new. */}
-      <div className="flex flex-wrap gap-2">
-        {[
+      <PillTabs
+        ariaLabel="Forecasting views"
+        tabs={[
           { id: 'forecast',       icon: TrendingUp, label: 'Forecast' },
-          { id: 'yield_analysis', icon: BarChart2,  label: 'Yield Analysis' },
-        ].map(tab => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => { setActiveTab(tab.id); if (tab.id === 'yield_analysis') setYieldOpened(true) }}
-            className={`px-4 py-2 rounded-lg text-[13px] font-medium transition-colors flex items-center gap-1.5 ${
-              activeTab === tab.id
-                ? 'bg-[#1B4D2E] text-white'
-                : 'bg-white border border-[#E2E8E2] text-[#4A5E4A] hover:bg-[#F5F7F5]'
-            }`}
-          >
-            <tab.icon size={14} />
-            {tab.label}
-          </button>
-        ))}
-      </div>
+          { id: 'yield_analysis', icon: BarChart2,  label: 'Yield analysis' },
+        ]}
+        value={activeTab}
+        onChange={(id) => { setActiveTab(id); if (id === 'yield_analysis') setYieldOpened(true) }}
+      />
 
       {activeTab === 'forecast' ? forecastContent : yieldAnalysisContent}
 

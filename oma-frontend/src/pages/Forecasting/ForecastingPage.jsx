@@ -8,10 +8,11 @@ import api from '../../api/axiosInstance.js'
 import CropRecordImportModal from '../../components/CropRecordImportModal.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import BARANGAYS from '../../constants/barangays.js'
-import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
+import PillTabs from '../../components/UI/PillTabs.jsx'
+import ViewToggle from '../../components/UI/ViewToggle.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
@@ -29,7 +30,7 @@ const filterLabelCls = 'block text-[12px] font-medium text-[#4A5E4A] mb-1'
 // Same compact select style CropMonitoringPage.jsx/FisheriesRecordsPage.jsx
 // already use for their FilterPanel children.
 const filterSelectCls =
-  'rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[7px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none'
+  'h-[38px] rounded-lg border border-[#E2E8E2] bg-white px-3 text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none'
 
 const COLUMNS = [
   { key: 'crop_cell',         label: 'CROP' },
@@ -296,28 +297,29 @@ function YASignatureModal({ purpose, onClose, onGenerate }) {
   )
 }
 
+// The report buttons, shown at the right end of the toolbar (outline + primary, like every other page's actions).
 function YAActionButtons({ onPdf, onExcel, isDownloading }) {
   return (
-    <div className="flex gap-2 justify-end">
+    <>
       <button
         type="button"
         onClick={onPdf}
         disabled={isDownloading}
-        className="flex items-center gap-1.5 bg-[#C0392B] hover:bg-[#A93226] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
+        className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#E2E8E2] px-4 py-2 text-[13px] font-medium text-[#1B4D2E] transition-colors hover:bg-[#F0F4F0] disabled:opacity-60"
       >
-        <FileText className="w-4 h-4" />
+        <FileText className="h-4 w-4" />
         Preview PDF
       </button>
       <button
         type="button"
         onClick={onExcel}
         disabled={isDownloading}
-        className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
+        className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38] disabled:opacity-60"
       >
-        <Download className="w-4 h-4" />
+        <Download className="h-4 w-4" />
         Download Excel
       </button>
-    </div>
+    </>
   )
 }
 
@@ -355,20 +357,12 @@ function AggregatePanel({ groupBy, setGroupBy, groups, overall, isLoading }) {
     <div className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-5">
       <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
         <p className="text-[13px] font-semibold text-[#1A2B1A]">Aggregate summary</p>
-        <div className="flex items-center gap-1 rounded-lg border border-[#E2E8E2] p-0.5">
-          {['barangay', 'crop_type'].map(opt => (
-            <button
-              key={opt}
-              type="button"
-              onClick={() => setGroupBy(opt)}
-              className={`px-3 py-1 rounded-md text-[12px] font-medium transition-colors ${
-                groupBy === opt ? 'bg-[#1B4D2E] text-white' : 'text-[#4A5E4A] hover:bg-[#F5F7F5]'
-              }`}
-            >
-              {opt === 'barangay' ? 'By barangay' : 'By crop type'}
-            </button>
-          ))}
-        </div>
+        <ViewToggle
+          ariaLabel="Group the summary by"
+          options={[{ id: 'barangay', label: 'By barangay' }, { id: 'crop_type', label: 'By crop type' }]}
+          value={groupBy}
+          onChange={setGroupBy}
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-3 mb-4 lg:grid-cols-4">
@@ -653,63 +647,55 @@ function YieldAnalysisTab() {
 
   return (
     <div className="space-y-5">
-      {/* View toggle: existing analysis vs grouped by farmer */}
-      {!isFarmer && <div className="flex items-center gap-1 w-fit rounded-lg border border-[#E2E8E2] p-0.5">
-        {[{ id: 'analysis', label: 'Analysis' }, { id: 'grouped', label: 'By farmer' }].map(v => (
-          <button
-            key={v.id}
-            type="button"
-            onClick={() => setViewMode(v.id)}
-            className={`px-3 py-1 rounded-md text-[12px] font-medium transition-colors ${viewMode === v.id ? 'bg-[#1B4D2E] text-white' : 'text-[#4A5E4A] hover:bg-[#F5F7F5]'}`}
-          >
-            {v.label}
-          </button>
-        ))}
-      </div>}
-
-      {viewMode === 'analysis' && <DisclaimerBanner />}
-
-      {/* Filters */}
+      {/* One toolbar: search, filters and (staff) the report downloads. */}
       <FilterPanel
+        className=""
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder={isFarmer ? 'Crop or barangay...' : 'Crop, farmer, or barangay...'}
+        searchPlaceholder={isFarmer ? 'Search by crop or barangay...' : 'Search by crop, farmer, or barangay...'}
         activeCount={[filters.crop_type, filters.barangay, filters.season, filters.year, farmerFilter?.id].filter(Boolean).length}
-      >
-        <div className="w-44">
-          <label className={filterLabelCls}>Crop Type</label>
-          <select className={baseInputClasses} value={filters.crop_type} onChange={e => set('crop_type', e.target.value)}>
-            <option value="">All Crops</option>
-            {cropTypes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </div>
-        <div className="w-44">
-          <label className={filterLabelCls}>Barangay</label>
-          <BarangaySelect value={filters.barangay} onChange={e => set('barangay', e.target.value)} includeAllOption />
-        </div>
-        <div className="w-32">
-          <label className={filterLabelCls}>Season</label>
-          <select className={baseInputClasses} value={filters.season} onChange={e => set('season', e.target.value)}>
-            <option value="">All Seasons</option>
-            <option value="Dry">Dry</option>
-            <option value="Wet">Wet</option>
-          </select>
-        </div>
-        <div className="w-28">
-          <label className={filterLabelCls}>Year</label>
-          <input
-            type="number"
-            placeholder="e.g. 2026"
-            className={baseInputClasses}
-            value={filters.year}
-            onChange={e => set('year', e.target.value)}
+        actions={!isFarmer && viewMode === 'analysis' ? (
+          <YAActionButtons
+            onPdf={() => { setSigPurpose('pdf'); setShowSig(true) }}
+            onExcel={() => { setSigPurpose('excel'); setShowSig(true) }}
+            isDownloading={isDownloading}
           />
-        </div>
-        {!isFarmer && <div className="w-56">
-          <label className={filterLabelCls}>Farmer</label>
-          <FarmerFilterInput selected={farmerFilter} onSelect={setFarmerFilter} />
-        </div>}
+        ) : null}
+      >
+        <select className={filterSelectCls} value={filters.crop_type} onChange={e => set('crop_type', e.target.value)} aria-label="Crop type">
+          <option value="">All crops</option>
+          {cropTypes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+        <select className={filterSelectCls} value={filters.barangay} onChange={e => set('barangay', e.target.value)} aria-label="Barangay">
+          <option value="">All barangays</option>
+          {BARANGAYS.map(b => <option key={b} value={b}>{b}</option>)}
+        </select>
+        <select className={filterSelectCls} value={filters.season} onChange={e => set('season', e.target.value)} aria-label="Season">
+          <option value="">All seasons</option>
+          <option value="Dry">Dry season</option>
+          <option value="Wet">Wet season</option>
+        </select>
+        <input
+          type="number"
+          placeholder="Year"
+          aria-label="Year"
+          className={`${filterSelectCls} w-24`}
+          value={filters.year}
+          onChange={e => set('year', e.target.value)}
+        />
+        {!isFarmer && <div className="w-56"><FarmerFilterInput selected={farmerFilter} onSelect={setFarmerFilter} /></div>}
       </FilterPanel>
+
+      {!isFarmer && (
+        <ViewToggle
+          ariaLabel="Show the yield analysis as"
+          options={[{ id: 'analysis', label: 'Analysis' }, { id: 'grouped', label: 'By farmer' }]}
+          value={viewMode}
+          onChange={setViewMode}
+        />
+      )}
+
+      {viewMode === 'analysis' && <DisclaimerBanner />}
 
       {viewMode === 'grouped' ? (
         <GroupedForecast
@@ -721,12 +707,6 @@ function YieldAnalysisTab() {
         />
       ) : (<>
       {!isFarmer && <AggregatePanel groupBy={groupBy} setGroupBy={setGroupBy} groups={groups} overall={overall} isLoading={isLoadingSummary} />}
-
-      {!isFarmer && <YAActionButtons
-        onPdf={() => { setSigPurpose('pdf'); setShowSig(true) }}
-        onExcel={() => { setSigPurpose('excel'); setShowSig(true) }}
-        isDownloading={isDownloading}
-      />}
 
       {/* Per-crop table */}
       <div>
@@ -769,7 +749,7 @@ function YieldAnalysisTab() {
                     <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.actual_total_kg.toLocaleString()}</td>
                     <td className="px-3 py-[11px] whitespace-nowrap"><VarianceBadge pct={rec.variance_pct} /></td>
                     <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.activities_completed_count}/{rec.activities_total_count}</td>
-                    <td className="px-3 py-[11px] text-[12px] text-[#4A5E4A] max-w-xs">{possibleFactorsText(rec, 'crop')}</td>
+                    <td className="px-3 py-[11px] text-[12px] text-[#4A5E4A] max-w-xs"><span className="line-clamp-2" title={possibleFactorsText(rec, 'crop')}>{possibleFactorsText(rec, 'crop')}</span></td>
                   </tr>
                   {expanded.has(rec.id) && (
                     <tr className="border-b border-[#F0F4F0] bg-[#F9FAF9]">
@@ -966,63 +946,50 @@ export default function ForecastingPage() {
       subtitle="Expected harvest dates and yields for crops still growing, and how past harvests compared with their estimates."
     >
       <div className="space-y-4">
-        {/* Tabs on the left, the page's actions on the right — one row. */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-2">
-            {[
-              { id: 'forecast',       icon: TrendingUp, label: 'Forecast' },
-              { id: 'yield_analysis', icon: BarChart2,  label: 'Yield analysis' },
-            ].map(tab => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 rounded-lg text-[13px] font-medium transition-colors flex items-center gap-1.5 ${
-                  activeTab === tab.id
-                    ? 'bg-[#1B4D2E] text-white'
-                    : 'bg-white border border-[#E2E8E2] text-[#4A5E4A] hover:bg-[#F5F7F5]'
-                }`}
-              >
-                <tab.icon size={14} />
-                {tab.label}
-              </button>
-            ))}
-          </div>
-          {activeTab === 'forecast' && !isFarmer && (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => navigate('/crop-records/add')}
-                className="flex items-center gap-1.5 rounded-lg border border-[#C8D5C8] px-3 py-[7px] text-[13px] font-medium text-[#4A5E4A] transition-colors hover:bg-[#F5F7F5]"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Add crop
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowRsbsaImportModal(true)}
-                className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 py-[7px] text-[13px] font-medium text-white transition-colors hover:bg-[#235E38]"
-              >
-                <Upload className="h-3.5 w-3.5" />
-                Import file
-              </button>
-            </div>
-          )}
-        </div>
+        <PillTabs
+          ariaLabel="Forecasting views"
+          tabs={[
+            { id: 'forecast',       icon: TrendingUp, label: 'Forecast' },
+            { id: 'yield_analysis', icon: BarChart2,  label: 'Yield analysis' },
+          ]}
+          value={activeTab}
+          onChange={setActiveTab}
+        />
 
         {activeTab === 'forecast' && (
           <div className="space-y-4">
             <FilterPanel
-                    search={search}
+              className=""
+              search={search}
               onSearchChange={setSearch}
               searchPlaceholder={isFarmer ? 'Search by crop or barangay...' : 'Search by farmer, RSBSA, crop, or organization...'}
               activeCount={[Boolean(barangayFilter), Boolean(cropTypeFilter)].filter(Boolean).length}
+              actions={!isFarmer ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setShowRsbsaImportModal(true)}
+                    className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#E2E8E2] px-4 py-2 text-[13px] font-medium text-[#1B4D2E] transition-colors hover:bg-[#F0F4F0]"
+                  >
+                    <Upload className="h-4 w-4" />
+                    Import Crop Records
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/crop-records/add')}
+                    className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38]"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Crop Record
+                  </button>
+                </>
+              ) : null}
             >
-              <select className={filterSelectCls} value={cropTypeFilter} onChange={e => setCropTypeFilter(e.target.value)}>
+              <select className={filterSelectCls} value={cropTypeFilter} onChange={e => setCropTypeFilter(e.target.value)} aria-label="Crop type">
                 <option value="">All crops</option>
                 {cropTypes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
-              <select className={filterSelectCls} value={barangayFilter} onChange={e => setBarangayFilter(e.target.value)}>
+              <select className={filterSelectCls} value={barangayFilter} onChange={e => setBarangayFilter(e.target.value)} aria-label="Barangay">
                 <option value="">All barangays</option>
                 {BARANGAYS.map(b => <option key={b} value={b}>{b}</option>)}
               </select>
@@ -1030,25 +997,16 @@ export default function ForecastingPage() {
 
             {error && <ErrorMessage message={error} />}
 
-            {/* View toggle on the left, how many crops this shows on the right. */}
+            {/* How the crops are shown on the left, how many there are on the right. */}
             <div className="flex flex-wrap items-center justify-between gap-2">
-              {isFarmer ? <span /> : <div className="flex items-center gap-1 w-fit rounded-lg border border-[#E2E8E2] p-0.5">
-                {[
-                  { id: 'flat',    label: 'All crops' },
-                  { id: 'grouped', label: 'By farmer' },
-                ].map(v => (
-                  <button
-                    key={v.id}
-                    type="button"
-                    onClick={() => setForecastView(v.id)}
-                    className={`px-3 py-1 rounded-md text-[12px] font-medium transition-colors ${
-                      forecastView === v.id ? 'bg-[#1B4D2E] text-white' : 'text-[#4A5E4A] hover:bg-[#F5F7F5]'
-                    }`}
-                  >
-                    {v.label}
-                  </button>
-                ))}
-              </div>}
+              {isFarmer ? <span /> : (
+                <ViewToggle
+                  ariaLabel="Show crops as"
+                  options={[{ id: 'flat', label: 'All crops' }, { id: 'grouped', label: 'By farmer' }]}
+                  value={forecastView}
+                  onChange={setForecastView}
+                />
+              )}
               {forecastView === 'flat' && !isLoading && (
                 <p className="text-[12px] text-[#7A8E7A]">
                   {totalCount.toLocaleString()} growing crop{totalCount === 1 ? '' : 's'}, soonest harvest first

@@ -51,7 +51,7 @@ function FilterPanel({ search, onSearchChange, searchPlaceholder, activeCount = 
           </button>
         )}
         {actions && (
-          <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto sm:shrink-0 [&>*]:flex-1 [&>*]:justify-center sm:[&>*]:flex-none">
+          <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto sm:shrink-0 sm:flex-nowrap [&>*]:min-w-[8.5rem] [&>*]:flex-1 [&>*]:justify-center sm:[&>*]:min-w-0 sm:[&>*]:flex-none">
             {actions}
           </div>
         )}
