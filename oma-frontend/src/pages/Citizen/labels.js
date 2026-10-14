@@ -420,11 +420,6 @@ export const labels = {
       roleSubtitleFarmer: 'Farmer',
       roleSubtitleFisherfolk: 'Fisherfolk',
 
-      // Switchable-identity chip — only ever shown to a dual-linked
-      // citizen (see CitizenProfileScreen's otherLink).
-      switchDomainCta: (otherLabel) => `Switch to ${otherLabel}`,
-      switchDomainSwitching: 'Switching…',
-
       // Field-status legend (three fixed states). This is deliberately its
       // own copy from labels.farmerHelp.behaviors* -- that block is the Help
       // screen's legend, a different screen with different wording; this is

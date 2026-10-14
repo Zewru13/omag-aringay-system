@@ -311,7 +311,7 @@ class RsbsaUpdateImportPreviewView(APIView):
         result_rows = []
         summary = {
             'matched_with_changes': 0, 'matched_no_changes': 0,
-            'classification_mismatch': 0, 'unmatched': 0, 'duplicate_in_file': 0, 'invalid': 0,
+            'unmatched': 0, 'duplicate_in_file': 0, 'invalid': 0,
         }
         # Real bug this fixes: without this check, two rows for the same
         # RSBSA number (one person appearing more than once in the file —
@@ -380,8 +380,6 @@ class RsbsaUpdateImportPreviewView(APIView):
                     'matched_record_id': None,
                     'matched_record_type': None,
                     'matched_record_name': None,
-                    'classification_mismatch': False,
-                    'mismatch_note': None,
                     'changes': [],
                     'incoming_values': None,
                     'current_values': None,
@@ -414,6 +412,33 @@ class RsbsaUpdateImportPreviewView(APIView):
                     matched_table = other_table
                     classification_mismatch = True
 
+            if classification_mismatch:
+                # One RSBSA number belongs to ONE person record: a person who is both a farmer and a fisherfolk has a
+                # different RSBSA number for each, so a number already registered in the other list is a data error.
+                summary['invalid'] += 1
+                file_role = 'Farmer/Farmworker' if is_farmer else 'Fisherfolk'
+                emit({
+                    'row_number': row_number,
+                    'rsbsa_number': rsbsa,
+                    'classification': disposition,
+                    'status': 'invalid',
+                    'hold_back_reason': 'rsbsa_in_other_registry',
+                    'detail': (
+                        f"The file classifies this row as {file_role}, but RSBSA number {rsbsa} already belongs to "
+                        f"{record.full_name}, a registered {matched_table.title()}. A person who is both a farmer and "
+                        f"a fisherfolk needs a different RSBSA number for each, so this row was not imported. "
+                        f"Correct the number in the file, or leave the row out."
+                    ),
+                    'warnings': [],
+                    'matched_record_id': record.id,
+                    'matched_record_type': matched_table,
+                    'matched_record_name': record.full_name,
+                    'changes': [],
+                    'incoming_values': None,
+                    'current_values': None,
+                }, dup_of)
+                continue
+
             field_specs = FARMER_FIELDS if matched_table == 'FARMER' else FISHERFOLK_FIELDS
 
             if record is None and not any(pt.match(rsbsa) for pt in RSBSA_PATTERNS):
@@ -437,8 +462,6 @@ class RsbsaUpdateImportPreviewView(APIView):
                     'matched_record_id': None,
                     'matched_record_type': None,
                     'matched_record_name': None,
-                    'classification_mismatch': False,
-                    'mismatch_note': None,
                     'changes': [],
                     'incoming_values': None,
                     'current_values': None,
@@ -456,8 +479,6 @@ class RsbsaUpdateImportPreviewView(APIView):
                     'matched_record_id': None,
                     'matched_record_type': None,
                     'matched_record_name': None,
-                    'classification_mismatch': False,
-                    'mismatch_note': None,
                     'changes': [],
                     'warnings': p['incoming']['_warnings'] + [
                         f'Possible duplicate person: {d}. Check before registering.'
@@ -474,35 +495,8 @@ class RsbsaUpdateImportPreviewView(APIView):
 
             changes = _diff_fields(record, p['incoming'], field_specs)
 
-            if classification_mismatch:
-                status_key = 'classification_mismatch'
-                summary[status_key] += 1
-                file_role = 'Farmer/Farmworker' if is_farmer else 'Fisherfolk'
-                mismatch_note = (
-                    f"Classification mismatch: the file's flags classify this row as "
-                    f"{file_role}, but RSBSA number {rsbsa} matches an existing "
-                    f"{matched_table.title()} record instead (not {primary_table.title()}, "
-                    f"as the file's classification would expect). Treated as a legitimate "
-                    f"dual registration, not a data error: committing this row creates the "
-                    f"missing {primary_table.title()} record with this same RSBSA number, "
-                    f"alongside (never replacing) the existing {matched_table.title()} record "
-                    f"above — no second citizen login is created; the person's existing "
-                    f"{matched_table.title()} account remains their only one."
-                )
-                # Full field set for the domain the FILE wants (primary_table),
-                # built from the FULL parsed row (p['incoming']) — deliberately
-                # NOT derived from `changes` below, which is only a diff against
-                # the WRONG-domain record for human review and would silently
-                # omit any field that happens to already match it.
-                create_domain = primary_table
-                create_field_specs = FARMER_FIELDS if is_farmer else FISHERFOLK_FIELDS
-                create_incoming_values = {field: p['incoming'][field] for field, _ in create_field_specs}
-            else:
-                status_key = 'matched_with_changes' if changes else 'matched_no_changes'
-                summary[status_key] += 1
-                mismatch_note = None
-                create_domain = None
-                create_incoming_values = None
+            status_key = 'matched_with_changes' if changes else 'matched_no_changes'
+            summary[status_key] += 1
 
             emit({
                 'row_number': row_number,
@@ -517,8 +511,6 @@ class RsbsaUpdateImportPreviewView(APIView):
                 # have to weigh a flagged change against — see updated_at's
                 # own model-field comment for why it's not a full history.
                 'matched_record_updated_at': record.updated_at,
-                'classification_mismatch': classification_mismatch,
-                'mismatch_note': mismatch_note,
                 'changes': changes,
                 'warnings': p['incoming']['_warnings'],
                 # Raw (not display-formatted) values backing `changes` above,
@@ -533,12 +525,6 @@ class RsbsaUpdateImportPreviewView(APIView):
                 # row is refused rather than silently overwritten.
                 'incoming_values': {c['field']: p['incoming'][c['field']] for c in changes},
                 'current_values': {c['field']: getattr(record, c['field']) for c in changes},
-                # Only populated for classification_mismatch — everything the
-                # commit view needs to create the missing-domain record. None
-                # for every other status, including matched_with_changes/
-                # matched_no_changes, which have nothing to "create".
-                'create_domain': create_domain,
-                'create_incoming_values': create_incoming_values,
             }, dup_of)
 
         return Response({
@@ -594,8 +580,7 @@ class RsbsaUpdateImportCommitView(APIView):
     POST {"rows": [<row dicts from RsbsaUpdateImportPreviewView's response,
     exactly as returned — only the ones staff selected>]}.
 
-    Writes ONLY 'matched_with_changes', 'unmatched', and
-    'classification_mismatch' rows — anything else ('matched_no_changes':
+    Writes ONLY 'matched_with_changes' and 'unmatched' rows — anything else ('matched_no_changes':
     nothing to write; 'invalid': nothing to write to) is refused. For a
     'matched_with_changes' row, every field in that row's
     own `current_values` is re-checked against the record's LIVE value
@@ -611,15 +596,6 @@ class RsbsaUpdateImportCommitView(APIView):
     FarmerListView/FisherfolkListView.perform_create already use for
     manual registration (including Farmer's is_farm_laborer exclusion —
     farm laborers never get a citizen shell) — not a new pattern.
-
-    'classification_mismatch' rows register a dual registration: the same
-    physical person already has a record under the OTHER domain (see that
-    status's own mismatch_note), and this creates the missing domain's
-    record too, using this row's own values and the same rsbsa_number,
-    without ever touching the existing wrong-domain record. No second
-    citizen shell is created — create_inactive_citizen_shell() (accounts.
-    utils) detects the person's existing shell under the other domain and
-    skips creating a second one on its own.
 
     The whole batch is one transaction.atomic(): every row succeeds or none
     do, matching PondBulkCreateView / CropMonitoringBulkCreateView /
@@ -718,8 +694,6 @@ class RsbsaUpdateImportCommitView(APIView):
                 return self._commit_update(row, row_number, batch_id, user, log_entries)
             if status_ == 'unmatched':
                 return self._commit_create(row, row_number, batch_id, user, log_entries)
-            if status_ == 'classification_mismatch':
-                return self._commit_dual_registration(row, row_number, batch_id, user, log_entries)
         except ValueError as exc:
             # _coerce_incoming/_values_match raise plain ValueError — they
             # don't have row_number in scope, so it's attached here instead.
@@ -727,8 +701,7 @@ class RsbsaUpdateImportCommitView(APIView):
 
         raise CommitRowError(
             row_number,
-            f'status "{status_}" is not committable — only matched_with_changes, unmatched, '
-            f'and classification_mismatch rows can be.',
+            f'status "{status_}" is not committable — only matched_with_changes and unmatched rows can be.',
         )
 
     def _commit_update(self, row, row_number, batch_id, user, log_entries):
@@ -788,14 +761,8 @@ class RsbsaUpdateImportCommitView(APIView):
         }
 
     def _create_record(self, record_type, rsbsa_number, incoming_values, row_number, batch_id, user, log_entries):
-        """Shared by _commit_create ('unmatched' rows) and
-        _commit_dual_registration ('classification_mismatch' rows) — both
-        ultimately do the same thing: create a brand-new Farmer or
-        Fisherfolk row for an RSBSA number that has no row in THAT table
-        yet. Returns (record, shell_or_None) — shell is None exactly when
-        create_inactive_citizen_shell() decided a second citizen login
-        would be unsafe (see its own docstring); farm-laborer exclusion is
-        the other, older reason a Farmer might get None here.
+        """Used by _commit_create ('unmatched' rows): create a brand-new Farmer or Fisherfolk row. Returns
+        (record, shell_or_None) — shell is None for a farm laborer (they get no citizen login).
         """
         model = self.MODELS[record_type]
         field_specs = self.FIELD_SPECS[record_type]
@@ -865,62 +832,4 @@ class RsbsaUpdateImportCommitView(APIView):
             'row_number': row_number, 'action': 'CREATE', 'record_type': record_type,
             'record_id': record.pk, 'record_name': record.full_name,
             'fields_changed': [f for f, _ in field_specs if f in incoming_values],
-        }
-
-    def _commit_dual_registration(self, row, row_number, batch_id, user, log_entries):
-        """A `classification_mismatch` row: the file's own flags say this
-        person is one domain (e.g. Farmer/Farmworker), but their RSBSA
-        number already matches an existing record in the OTHER domain
-        (e.g. Fisherfolk) — treated as a real, legitimate dual registration
-        (the same physical person, genuinely active in both), not a data
-        error. Creates the missing-domain record with this row's own
-        values and the SAME rsbsa_number, alongside — never replacing —
-        the existing wrong-domain record. Citizen-shell creation goes
-        through the exact same _create_record path 'unmatched' rows use;
-        create_inactive_citizen_shell() detects on its own that this exact
-        rsbsa_number already has a shell under the other domain and skips
-        creating a second one — nothing dual-registration-specific has to
-        be handled here for that part (see accounts.utils's own docstring
-        for why a second one would be unsafe, not just redundant).
-        """
-        create_domain = row.get('create_domain')
-        if create_domain not in self.MODELS:
-            raise CommitRowError(row_number, f'unrecognized create_domain "{create_domain}".')
-
-        rsbsa_number = (row.get('rsbsa_number') or '').strip()
-        incoming_values = row.get('create_incoming_values') or {}
-        if not rsbsa_number or not incoming_values:
-            raise CommitRowError(row_number, 'is missing rsbsa_number or create_incoming_values — cannot register.')
-
-        # Re-verify the wrong-domain match this row was flagged against
-        # still exists live — same drift-safety discipline as every other
-        # commit path here. If it's gone (deleted, or already resolved by
-        # an earlier row/commit in the meantime), this row's whole premise
-        # is stale.
-        other_type = row.get('matched_record_type')
-        other_model = self.MODELS.get(other_type)
-        other_id = row.get('matched_record_id')
-        if other_model is None or other_id is None or not other_model.objects.filter(
-            pk=other_id, rsbsa_number=rsbsa_number,
-        ).exists():
-            raise CommitRowError(
-                row_number,
-                'The existing record this row was matched against no longer matches this '
-                'RSBSA number — re-run the preview and try again.',
-            )
-
-        field_specs = self.FIELD_SPECS[create_domain]
-        record, shell = self._create_record(create_domain, rsbsa_number, incoming_values, row_number, batch_id, user, log_entries)
-
-        note = (
-            f'Record created, no new login — citizen already has access via their existing '
-            f'{other_type.title()} account (#{other_id}).' if shell is None
-            else 'New citizen shell created.'
-        )
-        return {
-            'row_number': row_number, 'action': 'CREATE_DUAL_REGISTRATION', 'record_type': create_domain,
-            'record_id': record.pk, 'record_name': record.full_name,
-            'fields_changed': [f for f, _ in field_specs if f in incoming_values],
-            'citizen_shell_created': shell is not None,
-            'note': note,
         }

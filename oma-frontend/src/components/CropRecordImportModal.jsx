@@ -21,7 +21,6 @@ const STATUS_TONE = {
   duplicate_in_file: 'amber',
   duplicate_in_database: 'amber',
   farmer_not_found: 'rose',
-  dual_citizen: 'rose',
   invalid: 'rose',
 }
 const STATUS_LABEL = {
@@ -29,7 +28,6 @@ const STATUS_LABEL = {
   duplicate_in_file: 'Duplicate In File',
   duplicate_in_database: 'Already Exists',
   farmer_not_found: 'Farmer Not Found',
-  dual_citizen: 'Dual Citizen',
   invalid: 'Invalid',
 }
 
@@ -117,7 +115,6 @@ export default function CropRecordImportModal({ onClose, onCommitted }) {
     { key: 'duplicate_in_file', label: `${preview.summary.duplicate_in_file} In-File Dupe` },
     { key: 'duplicate_in_database', label: `${preview.summary.duplicate_in_database} Already Exists` },
     { key: 'farmer_not_found', label: `${preview.summary.farmer_not_found} Farmer Not Found` },
-    { key: 'dual_citizen', label: `${preview.summary.dual_citizen} Dual Citizen` },
     { key: 'invalid', label: `${preview.summary.invalid} Invalid` },
   ].filter((t) => t.key === 'all' || !t.label.startsWith('0 ')) : []
 
@@ -278,7 +275,6 @@ export default function CropRecordImportModal({ onClose, onCommitted }) {
             <StatTile value={preview.summary.duplicate_in_file} label="Duplicate In File" />
             <StatTile value={preview.summary.duplicate_in_database} label="Already Exists" />
             <StatTile value={preview.summary.farmer_not_found} label="Farmer Not Found" />
-            <StatTile value={preview.summary.dual_citizen} label="Dual Citizen" />
             <StatTile value={preview.summary.invalid} label="Invalid Rows" />
           </div>
 

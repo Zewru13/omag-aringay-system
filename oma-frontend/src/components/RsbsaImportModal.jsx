@@ -22,15 +22,13 @@ const STATUS_TONE = {
   matched_with_changes: 'amber',
   matched_no_changes: 'green',
   unmatched: 'slate',
-  classification_mismatch: 'amber',
   duplicate_in_file: 'rose',
   invalid: 'rose',
 }
 const STATUS_LABEL = {
   matched_with_changes: 'Changes Found',
   matched_no_changes: 'No Changes',
-  unmatched: 'Unmatched',
-  classification_mismatch: 'Dual Registration',
+  unmatched: 'New Person',
   duplicate_in_file: 'Duplicate In File',
   invalid: 'Invalid',
 }
@@ -42,6 +40,7 @@ const HOLD_BACK_REASON_TEXT = {
   unparseable_birthday: 'Birthdate could not be read',
   invalid_person_data: 'This row cannot become a valid person record',
   invalid_rsbsa_format: 'RSBSA number is not in an accepted format',
+  rsbsa_in_other_registry: 'RSBSA number already belongs to a person in the other list (farmer / fisherfolk)',
 }
 
 const PAGE_SIZE = 25
@@ -55,10 +54,7 @@ const COMMIT_BATCH_SIZE = 50
 const effectiveStatus = (r) => (r.status === 'duplicate_in_file' ? r.underlying_status : r.status)
 const isCommittable = (r) => {
   const st = effectiveStatus(r)
-  // classification_mismatch = the person already exists under the OTHER
-  // registry; committing creates their missing second record (a dual
-  // registration) and never touches the existing one.
-  return st === 'matched_with_changes' || st === 'unmatched' || st === 'classification_mismatch'
+  return st === 'matched_with_changes' || st === 'unmatched'
 }
 
 function formatLastUpdated(iso) {
@@ -189,8 +185,7 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
     { key: 'all', label: `All ${preview.total_rows}` },
     { key: 'matched_with_changes', label: `${preview.summary.matched_with_changes} Changes Found` },
     { key: 'matched_no_changes', label: `${preview.summary.matched_no_changes} No Changes` },
-    { key: 'unmatched', label: `${preview.summary.unmatched} Unmatched` },
-    { key: 'classification_mismatch', label: `${preview.summary.classification_mismatch || 0} Dual Registration` },
+    { key: 'unmatched', label: `${preview.summary.unmatched} New People` },
     { key: 'duplicate_in_file', label: `${preview.summary.duplicate_in_file} Duplicate In File` },
     { key: 'invalid', label: `${preview.summary.invalid} Invalid` },
   ] : []
@@ -228,7 +223,6 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
   )
   const selectedUpdateCount = selectedRowObjects.filter((r) => effectiveStatus(r) === 'matched_with_changes').length
   const selectedCreateCount = selectedRowObjects.filter((r) => effectiveStatus(r) === 'unmatched').length
-  const selectedDualCount = selectedRowObjects.filter((r) => effectiveStatus(r) === 'classification_mismatch').length
 
   const goToConfirm = () => {
     if (undecidedGroups.length > 0) { showToast('Decide every duplicate RSBSA number first.', 'error'); return }
@@ -381,8 +375,7 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
             <StatTile value={preview.summary.matched_with_changes} label="Changes Found" />
             <StatTile value={preview.summary.matched_no_changes} label="No Changes" />
-            <StatTile value={preview.summary.unmatched} label="Unmatched" />
-            <StatTile value={preview.summary.classification_mismatch || 0} label="Dual Registration" />
+            <StatTile value={preview.summary.unmatched} label="New People" />
             <StatTile value={preview.summary.duplicate_in_file} label="Duplicate In File" />
             <StatTile value={preview.summary.invalid} label="Invalid Rows" />
           </div>
@@ -426,8 +419,7 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
                                 <span className="block text-[#5A6B5C]">
                                   {effectiveStatus(r) === 'matched_with_changes' ? 'Matches an existing record with changes'
                                     : effectiveStatus(r) === 'unmatched' ? 'Not in the system yet — will be registered'
-                                      : effectiveStatus(r) === 'classification_mismatch' ? 'Dual registration'
-                                        : 'Matches the existing record — nothing to commit'}
+                                      : 'Matches the existing record — nothing to commit'}
                                 </span>
                                 {(r.changes || []).slice(0, 4).map((c) => (
                                   <span key={c.field} className="block text-[#8A5207]">{c.label}: {c.current || '—'} → {c.incoming}</span>
@@ -526,9 +518,6 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
                           {r.status === 'unmatched' && (
                             <p className="mt-0.5 text-[12px] text-[#5A6B5C]">Not yet in the system — commit will register this person as new.</p>
                           )}
-                          {r.status === 'classification_mismatch' && (
-                            <p className="mt-0.5 text-[12px] text-[#8A5207]">{r.mismatch_note}</p>
-                          )}
                           {r.status === 'duplicate_in_file' && (
                             <>
                               <p className="mt-0.5 text-[12px] text-rose-600">{r.detail}</p>
@@ -539,9 +528,6 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
                               )}
                               {r.underlying_status === 'unmatched' && (
                                 <p className="mt-0.5 text-[12px] text-[#5A6B5C]">Not yet in the system — commit will register this person as new.</p>
-                              )}
-                              {r.underlying_status === 'classification_mismatch' && (
-                                <p className="mt-0.5 text-[12px] text-[#8A5207]">{r.mismatch_note}</p>
                               )}
                               {r.underlying_status === 'matched_no_changes' && (
                                 <p className="mt-0.5 text-[12px] text-[#5A6B5C]">Matches the existing record — nothing to commit.</p>
@@ -622,13 +608,6 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
             <p className="text-[13px] text-[#B7CBBB]">
               <span className="font-semibold text-white">{selectedUpdateCount}</span> existing record{selectedUpdateCount === 1 ? '' : 's'} updated,{' '}
               <span className="font-semibold text-white">{selectedCreateCount}</span> new registrant{selectedCreateCount === 1 ? '' : 's'} created
-              {selectedDualCount > 0 && (
-                <>
-                  ,{' '}
-                  <span className="font-semibold text-white">{selectedDualCount}</span> dual registration{selectedDualCount === 1 ? '' : 's'}
-                  {' '}(an existing person gets their missing second record)
-                </>
-              )}
             </p>
           </div>
 
@@ -664,17 +643,14 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
                       {r.matched_record_name || r.rsbsa_number}
                     </p>
                     <StatusPill tone={effectiveStatus(r) === 'matched_with_changes' ? 'amber' : 'slate'}>
-                      {effectiveStatus(r) === 'unmatched' ? 'Register New'
-                        : effectiveStatus(r) === 'classification_mismatch' ? 'Dual Registration' : 'Update'}
+                      {effectiveStatus(r) === 'unmatched' ? 'Register New' : 'Update'}
                     </StatusPill>
                   </div>
                   <p className="mt-0.5 text-[12px] text-[#7A8E7A]">
                     Row {r.row_number} · {r.rsbsa_number} ·{' '}
                     {effectiveStatus(r) === 'unmatched'
                       ? `${Object.keys(r.incoming_values || {}).length} field(s) will be set`
-                      : effectiveStatus(r) === 'classification_mismatch'
-                        ? `creates their ${r.create_domain === 'FARMER' ? 'Farmer' : 'Fisherfolk'} record alongside the existing one`
-                        : r.changes.map((c) => c.label).join(', ')}
+                      : r.changes.map((c) => c.label).join(', ')}
                   </p>
                 </div>
               ))}
@@ -715,7 +691,7 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
                     </p>
                   </div>
                   <StatusPill tone={r.action === 'UPDATE' ? 'green' : 'slate'}>
-                    {r.action === 'CREATE' ? 'Registered' : r.action === 'CREATE_DUAL_REGISTRATION' ? 'Dual Registered' : 'Updated'}
+                    {r.action === 'CREATE' ? 'Registered' : 'Updated'}
                   </StatusPill>
                 </div>
               ))}

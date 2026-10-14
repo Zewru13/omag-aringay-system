@@ -280,6 +280,13 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
 
         if self.instance:
             queryset = queryset.exclude(pk=self.instance.pk)
+            if value and value.upper() != (self.instance.rsbsa_number or '').upper():
+                from fisheries.models import Fisherfolk
+                if Fisherfolk.objects.filter(rsbsa_number__iexact=value).exists():
+                    raise serializers.ValidationError(
+                        'This RSBSA number already belongs to a registered fisherfolk. A person who is both a farmer '
+                        'and a fisherfolk needs a different RSBSA number for each.'
+                    )
 
         if queryset.exists():
             raise serializers.ValidationError(
@@ -377,6 +384,12 @@ class FarmerCreateSerializer(serializers.ModelSerializer):
         if Farmer.objects.filter(rsbsa_number__iexact=value).exists():
             raise serializers.ValidationError(
                 'A farmer with this RSBSA number is already registered in the system.'
+            )
+        from fisheries.models import Fisherfolk
+        if Fisherfolk.objects.filter(rsbsa_number__iexact=value).exists():
+            raise serializers.ValidationError(
+                'This RSBSA number already belongs to a registered fisherfolk. A person who is both a farmer and a '
+                'fisherfolk needs a different RSBSA number for each.'
             )
         return value
 

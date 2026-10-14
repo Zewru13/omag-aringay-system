@@ -217,12 +217,9 @@ def build_incoming(row, crop_type, variety_used):
 
 
 def resolve_farmer(rsbsa, farmers_by_rsbsa, fisherfolk_by_rsbsa):
-    """Farmer-only resolution with a Fisherfolk fallback used purely to tell
-    "not registered at all" apart from "registered, but as Fisherfolk — this
-    import can't attach a crop record to that". Returns (farmer_or_None,
-    is_dual_citizen: bool, fisherfolk_or_None).
-    CropMonitoringRecord.farmer has no Fisherfolk equivalent, so the second
-    case is never committable — it's reported, not silently resolved."""
+    """Farmer-only resolution. The Fisherfolk lookup exists only to tell "not registered at all" apart from "this
+    RSBSA number belongs to a Fisherfolk" (a person who is both has a different number for each, so that row is an
+    error, not something to attach a crop record to). Returns (farmer_or_None, belongs_to_a_fisherfolk, fisherfolk_or_None)."""
     farmer = farmers_by_rsbsa.get(rsbsa)
     if farmer is not None:
         return farmer, False, None
