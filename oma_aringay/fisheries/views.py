@@ -6,7 +6,8 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.files.storage import default_storage
 from django.db import transaction
-from django.db.models import Count, F, Q, Sum
+from django.db.models import Case, CharField, Count, F, Q, Sum, Value, When
+from django.db.models.functions import Cast, Concat
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status as drf_status
@@ -27,6 +28,8 @@ from core.notifications import notify_staff, notify_user, resolve_owner_user
 from core.utils import accumulate_yield_group, build_name_search_q, day_range_bounds, filter_people_search, harvest_gate_status, is_plain_int, new_yield_group
 from core.photos import discard_uploaded_files, validated_photos
 from core.validators import validate_uploaded_image
+
+from monitoring.models import AquacultureProductionUnit
 
 from . import disaster_reports
 from .eligibility import NO_PONDS_MESSAGE, fisherfolk_has_ponds
@@ -491,6 +494,18 @@ class PondDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 # ─── Stocking Record ──────────────────────────────────────────────────────────
 
+def stocking_pond_q(text):
+    """Stockings whose Pond is named like `text`, or that have a production unit labelled like it ("Pond 2", "Cage 1").
+    Case-insensitive and partial; a stock listed through several matching units still appears once (no join)."""
+    unit_cycles = AquacultureProductionUnit.objects.annotate(
+        label=Concat(
+            Case(When(unit_type='pond', then=Value('Pond')), default=Value('Cage'), output_field=CharField()),
+            Value(' '), Cast('unit_number', CharField()), output_field=CharField(),
+        ),
+    ).filter(label__icontains=text).values('production_cycle_id')
+    return Q(pond__name__icontains=text) | Q(production_cycle_id__in=unit_cycles)
+
+
 class StockingListCreateView(generics.ListCreateAPIView):
     def get_permissions(self):
         # Batch 11: CITIZEN may list (own records only, scoped below) but
@@ -536,6 +551,9 @@ class StockingListCreateView(generics.ListCreateAPIView):
             qs = qs.filter(species_id=params['species'])
         if params.get('barangay'):
             qs = qs.filter(pond_location_barangay__iexact=params['barangay'])
+        pond = (params.get('pond') or '').strip()
+        if pond:
+            qs = qs.filter(stocking_pond_q(pond))
         # Fisherfolk by name in any order or by RSBSA / LGU / FishR number
         # (as typed or without dashes), plus species and barangay.
         qs = filter_people_search(

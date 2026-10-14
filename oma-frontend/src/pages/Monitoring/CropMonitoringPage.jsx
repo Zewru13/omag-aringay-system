@@ -2021,6 +2021,14 @@ export default function CropMonitoringPage() {
   const [seasonFilter,     setSeasonFilter]     = useState('')
   const [yearFilter,       setYearFilter]       = useState('')
   const [barangayFilter,   setBarangayFilter]   = useState(() => searchParams.get('barangay') || '')
+  // Crop name: one of the active crop types (the same list Forecasting filters by).
+  const [cropFilter,       setCropFilter]       = useState('')
+  const [cropTypes,        setCropTypes]        = useState([])
+  useEffect(() => {
+    api.get('/production/crop-types/', { params: { is_active: 'true' } })
+      .then(r => setCropTypes(Array.isArray(r.data) ? r.data : (r.data.results || [])))
+      .catch(() => {})
+  }, [])
   const [viewLogsRecord,   setViewLogsRecord]   = useState(null)
   const [disasterRecord,   setDisasterRecord]   = useState(null)
   const [harvestRecord,    setHarvestRecord]    = useState(null)
@@ -2049,6 +2057,7 @@ export default function CropMonitoringPage() {
       if (seasonFilter)   params.season   = seasonFilter
       if (yearFilter)     params.year     = yearFilter
       if (barangayFilter) params.barangay = barangayFilter
+      if (cropFilter)     params.crop_type = cropFilter
       if (debouncedSearch) params.search = debouncedSearch
       const r = await api.get('/production/monitoring/', { params })
       if (seq !== requestSeq.current) return
@@ -2057,9 +2066,9 @@ export default function CropMonitoringPage() {
     } catch {
       if (seq === requestSeq.current) setError('Failed to load crop monitoring records.')
     } finally { if (seq === requestSeq.current) setIsLoading(false) }
-  }, [statusFilter, seasonFilter, yearFilter, barangayFilter, debouncedSearch])
+  }, [statusFilter, seasonFilter, yearFilter, barangayFilter, cropFilter, debouncedSearch])
 
-  useEffect(() => { setPage(1) }, [statusFilter, seasonFilter, yearFilter, barangayFilter, debouncedSearch])
+  useEffect(() => { setPage(1) }, [statusFilter, seasonFilter, yearFilter, barangayFilter, cropFilter, debouncedSearch])
   useEffect(() => { fetchRecords(page) }, [fetchRecords, page])
 
   // Lock indicators for the currently-visible page only — bounded to page
@@ -2183,8 +2192,12 @@ export default function CropMonitoringPage() {
           search={search}
           onSearchChange={setSearch}
           searchPlaceholder={isFarmer ? 'Search by crop or barangay...' : 'Search by farmer, RSBSA, crop, or organization...'}
-          activeCount={[statusFilter !== 'Planted,Near Harvest', Boolean(seasonFilter), Boolean(yearFilter), Boolean(barangayFilter)].filter(Boolean).length}
+          activeCount={[statusFilter !== 'Planted,Near Harvest', Boolean(seasonFilter), Boolean(yearFilter), Boolean(barangayFilter), Boolean(cropFilter)].filter(Boolean).length}
         >
+          <select className={filterSelectCls} value={cropFilter} onChange={e => setCropFilter(e.target.value)} aria-label="Crop name">
+            <option value="">All Crops</option>
+            {cropTypes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
           <select className={filterSelectCls} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
             <option value="Planted,Near Harvest">Active Crops</option>
             <option value="Near Harvest">Near Harvest</option>
