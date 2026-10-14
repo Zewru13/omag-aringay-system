@@ -182,7 +182,7 @@ export default function EditUserModal({ user, onClose, onSuccess }) {
           {/* Status */}
           <div>
             <label className={labelCls}>Status</label>
-            <label className="mt-1.5 flex cursor-pointer items-center gap-2">
+            <label className="mt-1.5 flex cursor-pointer items-center gap-2 max-md:min-h-[40px]">
               <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)}
                 className="h-4 w-4 rounded accent-[#1B4D2E]" />
               <span className="text-[13px] font-medium text-[#4A5E4A]">{isActive ? 'Active' : 'Deactivated'}</span>

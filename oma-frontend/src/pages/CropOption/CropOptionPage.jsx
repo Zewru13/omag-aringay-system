@@ -653,8 +653,8 @@ export default function CropOptionPage({ asTab = false }) {
       {error && <ErrorMessage message={error} />}
 
       <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-        <table className="min-w-full text-sm">
-          <thead className="bg-[#1B4D2E] text-white">
+        <table className="min-w-full text-sm max-md:block">
+          <thead className="bg-[#1B4D2E] text-white max-md:hidden">
             <tr>
               {COLUMNS.map(col => (
                 <th
@@ -672,11 +672,11 @@ export default function CropOptionPage({ asTab = false }) {
               ))}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="max-md:block">
             {isLoading ? (
-              <tr><td colSpan={COLUMNS.length} className="py-10 text-center text-[13px] text-[#7A8E7A]">Loading…</td></tr>
+              <tr><td colSpan={COLUMNS.length} className="max-md:block py-10 text-center text-[13px] text-[#7A8E7A]">Loading…</td></tr>
             ) : rows.length === 0 ? (
-              <tr><td colSpan={COLUMNS.length} className="py-12 text-center">
+              <tr><td colSpan={COLUMNS.length} className="max-md:block py-12 text-center">
                 <div className="flex flex-col items-center gap-2 text-[#C8D5C8]">
                   <svg width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 4v4m0 4h.01"/></svg>
                   <p className="text-[14px] font-medium text-[#4A5E4A]">No crop types found</p>
@@ -685,9 +685,9 @@ export default function CropOptionPage({ asTab = false }) {
               </td></tr>
             ) : (
               rows.map((row) => (
-                <tr key={row.id} className={`border-b border-[#F0F4F0] transition-colors hover:bg-[#F9FAF9] ${row._rowClassName}`}>
+                <tr key={row.id} className={`border-b border-[#F0F4F0] transition-colors hover:bg-[#F9FAF9] max-md:block max-md:px-3 max-md:py-2 ${row._rowClassName}`}>
                   {COLUMNS.map(col => (
-                    <td key={col.key} className="px-4 py-[13px] text-[13px] text-[#1A2B1A] align-middle">{row[col.key]}</td>
+                    <td key={col.key} data-label={col.key === 'name' || col.key === 'actions' ? undefined : col.label} className="px-4 py-[13px] text-[13px] text-[#1A2B1A] align-middle max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">{row[col.key]}</td>
                   ))}
                 </tr>
               ))

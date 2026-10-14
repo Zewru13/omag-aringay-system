@@ -116,7 +116,7 @@ function AuditLogPage() {
         {/* Filters — no free-text search field exists for this list, so the
             panel is filters-only (see FilterPanel's optional search box). */}
         <FilterPanel activeCount={activeFilterCount}>
-          <label className="flex items-center gap-1.5 text-[13px] text-[#4A5E4A]">
+          <label className="flex items-center gap-1.5 text-[13px] text-[#4A5E4A] max-md:grid max-md:w-full max-md:grid-cols-[5.5rem_1fr]">
             Model
             <select
               className={baseInputClasses}
@@ -129,7 +129,7 @@ function AuditLogPage() {
             </select>
           </label>
 
-          <label className="flex items-center gap-1.5 text-[13px] text-[#4A5E4A]">
+          <label className="flex items-center gap-1.5 text-[13px] text-[#4A5E4A] max-md:grid max-md:w-full max-md:grid-cols-[5.5rem_1fr]">
             Action
             <select
               className={baseInputClasses}
@@ -142,7 +142,7 @@ function AuditLogPage() {
             </select>
           </label>
 
-          <label className="flex items-center gap-1.5 text-[13px] text-[#4A5E4A]">
+          <label className="flex items-center gap-1.5 text-[13px] text-[#4A5E4A] max-md:grid max-md:w-full max-md:grid-cols-[5.5rem_1fr]">
             Date From
             <input
               className={baseInputClasses}
@@ -152,7 +152,7 @@ function AuditLogPage() {
             />
           </label>
 
-          <label className="flex items-center gap-1.5 text-[13px] text-[#4A5E4A]">
+          <label className="flex items-center gap-1.5 text-[13px] text-[#4A5E4A] max-md:grid max-md:w-full max-md:grid-cols-[5.5rem_1fr]">
             Date To
             <input
               className={baseInputClasses}

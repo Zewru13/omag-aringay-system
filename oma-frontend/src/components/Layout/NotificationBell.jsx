@@ -223,7 +223,7 @@ function NotificationBell({ variant = 'dark' }) {
               <button
                 type="button"
                 onClick={handleMarkAllRead}
-                className="text-[11px] font-medium text-[#1B4D2E] hover:underline"
+                className="text-[11px] font-medium text-[#1B4D2E] hover:underline max-md:min-h-[36px] max-md:px-2 max-md:text-[12px]"
               >
                 Mark all as read
               </button>

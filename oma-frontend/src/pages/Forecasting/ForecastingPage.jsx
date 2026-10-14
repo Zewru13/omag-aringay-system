@@ -236,7 +236,7 @@ function YASignatureModal({ purpose, onClose, onGenerate }) {
           type="text"
           value={position}
           onChange={e => setPosition(e.target.value)}
-          placeholder="ENTER YOUR POSITION..."
+          placeholder="Your position or designation"
           className={baseInputClasses}
         />
       </div>
@@ -246,7 +246,7 @@ function YASignatureModal({ purpose, onClose, onGenerate }) {
       <div className="mb-1">
         <div className="flex items-center justify-between">
           <p className="text-[13px] font-semibold text-[#1A2B1A]">
-            * Reviewed by <span className="text-[11px] text-[#A8BCA8] font-normal">(optional)</span>
+            Reviewed by <span className="text-[11px] text-[#A8BCA8] font-normal">(optional)</span>
           </p>
           <button
             type="button"
@@ -272,7 +272,7 @@ function YASignatureModal({ purpose, onClose, onGenerate }) {
       <div className="mb-1">
         <div className="flex items-center justify-between">
           <p className="text-[13px] font-semibold text-[#1A2B1A]">
-            * Noted by <span className="text-[11px] text-[#A8BCA8] font-normal">(optional)</span>
+            Noted by <span className="text-[11px] text-[#A8BCA8] font-normal">(optional)</span>
           </p>
           <button
             type="button"

@@ -131,8 +131,8 @@ function PanelHead({ title, count, action, onAction, subtitle, right }) {
   )
 }
 
-const TH = 'px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.05em] text-text-muted'
-const TD = 'px-5 py-3 text-[14px]'
+const TH = 'px-3 py-2.5 md:px-5 text-left text-[11px] font-semibold uppercase tracking-[0.05em] text-text-muted'
+const TD = 'px-3 py-3 md:px-5 text-[14px]'
 
 export default function StaffDashboard({ user }) {
   const navigate = useNavigate()
@@ -377,7 +377,7 @@ export default function StaffDashboard({ user }) {
               }
             />
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[520px] border-collapse">
+              <table className="w-full border-collapse md:min-w-[520px]">
                 <thead>
                   <tr className="border-b border-border">
                     <th className={TH}>Barangay</th>
@@ -423,26 +423,28 @@ export default function StaffDashboard({ user }) {
                 {disasters.map((d, i) => (
                   <li key={`${d.domain}-${d.id}`}
                       className={`flex flex-wrap items-start gap-3 px-5 py-3.5 ${i === disasters.length - 1 ? '' : 'border-b border-border'}`}>
-                    <Pill kind="disaster">{d.disaster_type}</Pill>
-                    <div className="min-w-0 flex-1">
+                    <span className="max-md:hidden"><Pill kind="disaster">{d.disaster_type}</Pill></span>
+                    <div className="min-w-0 flex-1 max-md:basis-full">
                       <p className="text-[14px] font-semibold text-text-primary">
                         {d.disaster_type} — {d.barangay || 'Unspecified barangay'}
                       </p>
                       <div className="mt-1 flex flex-wrap items-center gap-2">
                         <Pill kind={d.domain}>{d.domain === 'crop' ? 'Crop' : 'Fish'}</Pill>
                         <span className="text-[12.5px] text-text-secondary">{d.subject || '—'}</span>
-                        <span className="text-[12.5px] text-text-muted">· {d.area_affected_ha} ha affected</span>
+                        {d.area_affected_ha != null && d.area_affected_ha !== '' && (
+                          <span className="text-[12.5px] text-text-muted">· {d.area_affected_ha} ha affected</span>
+                        )}
                         {d.is_total_loss && (
                           <span className="text-[12.5px] font-semibold text-[color:var(--color-semantic-critical)]">· Total loss</span>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 shrink-0">
+                    <div className="flex shrink-0 items-center gap-3 max-md:w-full max-md:justify-between">
                       <span className="text-[12.5px] text-text-muted tabular-nums">{d.date_of_occurrence}</span>
                       <button
                         type="button"
                         onClick={() => navigate(d.domain === 'crop' ? '/crop-monitoring' : '/fisheries-monitoring')}
-                        className="rounded-[6px] border border-border-strong bg-surface px-3 py-1.5 transition-colors hover:bg-surface-2 cursor-pointer"
+                        className="rounded-[6px] border border-border-strong bg-surface px-3 py-1.5 max-md:min-h-[36px] max-md:px-4 transition-colors hover:bg-surface-2 cursor-pointer"
                       >
                         <span className="text-[12px] font-semibold text-text-secondary">Open</span>
                       </button>
@@ -460,14 +462,14 @@ export default function StaffDashboard({ user }) {
               subtitle="Estimated at planting vs actual harvest · municipality average"
             />
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[560px] border-collapse">
+              <table className="w-full border-collapse md:min-w-[560px]">
                 <thead>
                   <tr className="border-b border-border">
                     <th className={TH}>Crop</th>
                     <th className={TH}>Target</th>
                     <th className={TH}>Actual</th>
                     <th className={TH}>Variance</th>
-                    <th className={TH}>Season</th>
+                    <th className={`${TH} max-md:hidden`}>Season</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -479,13 +481,13 @@ export default function StaffDashboard({ user }) {
                     const up = (v.variance_pct ?? 0) >= 0
                     return (
                       <tr key={v.crop} className={i === variance.length - 1 ? '' : 'border-b border-border'}>
-                        <td className={`${TD} font-semibold text-text-primary`}>{v.crop}</td>
+                        <td className={`${TD} font-semibold text-text-primary`}>{v.crop}<span className="block text-[11px] font-normal text-text-muted md:hidden">{v.season} {v.year}</span></td>
                         <td className={`${TD} text-text-muted tabular-nums`}>{v.target_mt_ha} mt/ha</td>
                         <td className={`${TD} text-text-primary tabular-nums`}>{v.actual_mt_ha} mt/ha</td>
                         <td className={`${TD} font-bold tabular-nums ${up ? 'text-[color:var(--color-semantic-safe)]' : 'text-[color:var(--color-semantic-critical)]'}`}>
                           {up ? '▲' : '▼'} {Math.abs(v.variance_pct ?? 0)}%
                         </td>
-                        <td className={`${TD} text-text-muted tabular-nums`}>{v.season} {v.year}</td>
+                        <td className={`${TD} text-text-muted tabular-nums max-md:hidden`}>{v.season} {v.year}</td>
                       </tr>
                     )
                   })}

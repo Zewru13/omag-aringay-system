@@ -513,8 +513,8 @@ export default function SpeciesOptionPage({ asTab = false }) {
       />
 
       <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-        <table className="min-w-full text-sm">
-          <thead className="bg-[#1B4D2E] text-white">
+        <table className="min-w-full text-sm max-md:block">
+          <thead className="bg-[#1B4D2E] text-white max-md:hidden">
             <tr>
               {COLUMNS.map(col => (
                 <th
@@ -532,7 +532,7 @@ export default function SpeciesOptionPage({ asTab = false }) {
               ))}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="max-md:block">
             {isLoading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i} className="border-b border-[#F0F4F0] animate-pulse">
@@ -541,24 +541,24 @@ export default function SpeciesOptionPage({ asTab = false }) {
               ))
             ) : paginated.length === 0 ? (
               <tr>
-                <td colSpan={COLUMNS.length} className="py-10 text-center text-[13px] text-[#7A8E7A] italic">
+                <td colSpan={COLUMNS.length} className="max-md:block py-10 text-center text-[13px] text-[#7A8E7A] italic">
                   No species found.
                 </td>
               </tr>
             ) : (
               paginated.map(s => (
-                <tr key={s.id} className="border-b border-[#F0F4F0] hover:bg-[#F9FAF9] transition-colors">
-                  <td className="px-4 py-[11px] text-[13px] text-[#1A2B1A] font-medium">{s.species_name}</td>
-                  <td className="px-4 py-[11px] text-[13px] text-[#4A5E4A]">{s.category_name || '—'}</td>
-                  <td className="px-4 py-[11px] text-[13px] text-[#4A5E4A]">{s.culture_environment}</td>
-                  <td className="px-4 py-[11px] text-[13px] text-[#4A5E4A]">{s.culture_duration_days}</td>
-                  <td className="px-4 py-[11px] text-[13px] text-[#4A5E4A]">
+                <tr key={s.id} className="border-b border-[#F0F4F0] hover:bg-[#F9FAF9] transition-colors max-md:block max-md:px-3 max-md:py-2">
+                  <td className="px-4 py-[11px] text-[13px] text-[#1A2B1A] font-medium max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] ">{s.species_name}</td>
+                  <td data-label="Category" className="px-4 py-[11px] text-[13px] text-[#4A5E4A] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">{s.category_name || '—'}</td>
+                  <td data-label="Environment" className="px-4 py-[11px] text-[13px] text-[#4A5E4A] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">{s.culture_environment}</td>
+                  <td data-label="Culture duration (days)" className="px-4 py-[11px] text-[13px] text-[#4A5E4A] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">{s.culture_duration_days}</td>
+                  <td data-label="Survival %" className="px-4 py-[11px] text-[13px] text-[#4A5E4A] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">
                     {s.default_survival_rate_pct ? `${Number(s.default_survival_rate_pct).toFixed(1)}%` : '—'}
                   </td>
-                  <td className="px-4 py-[11px] text-[13px] text-[#4A5E4A]">
+                  <td data-label="Avg weight (kg)" className="px-4 py-[11px] text-[13px] text-[#4A5E4A] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">
                     {s.default_avg_body_weight_kg ? Number(s.default_avg_body_weight_kg).toFixed(3) : '—'}
                   </td>
-                  <td className="px-4 py-[11px]">
+                  <td className="px-4 py-[11px] max-md:block max-md:px-0 max-md:py-1">
                     <RowActions actions={[
                       { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => { setEditSpecies(s); setShowModal(true) } },
                       { key: 'delete', label: 'Delete', icon: Trash2, onClick: () => setDeletingSpec(s), tone: 'rose' },
