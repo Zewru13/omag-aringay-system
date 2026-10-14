@@ -17,6 +17,9 @@ import { declaredCropName, sameCrop } from '../../utils/cropNames.js'
 import AddFarmParcelModal from './AddFarmParcelModal.jsx'
 import EditFarmerModal from './EditFarmerModal.jsx'
 
+// Phone: every table inside the wrapper stacks into labelled cards (each <td data-label="..."> shows its label above the value).
+const STACK_TABLES = 'max-md:[&_tr]:border-b max-md:[&_tr]:border-[#F0F4F0] max-md:[&_table]:block max-md:[&_tbody]:block max-md:[&_thead]:hidden max-md:[&_tr]:block max-md:[&_tr]:px-3 max-md:[&_tr]:py-2 max-md:[&_td]:block max-md:[&_td]:w-full max-md:[&_td]:px-0 max-md:[&_td]:py-1 max-md:[&_td]:text-left max-md:[&_td[data-label]]:before:mb-0.5 max-md:[&_td[data-label]]:before:block max-md:[&_td[data-label]]:before:text-[11px] max-md:[&_td[data-label]]:before:font-semibold max-md:[&_td[data-label]]:before:uppercase max-md:[&_td[data-label]]:before:tracking-wide max-md:[&_td[data-label]]:before:text-[#7A8E7A] max-md:[&_td[data-label]]:before:content-[attr(data-label)]'
+
 const MONITORING_STATUS_TONES = { Planted: 'green', 'Near Harvest': 'amber', Harvested: 'blue', 'Total Loss': 'rose' }
 
 function formatDate(value) {
@@ -94,7 +97,7 @@ function SubTable({ columns, rows, emptyText }) {
         {rows.map((row, i) => (
           <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAF9]'}>
             {columns.map((col) => (
-              <td key={col.key} className="px-3 py-2 text-[#1A2B1A]">
+              <td key={col.key} data-label={col.key === 'main_crop_pill' ? 'Main crop' : col.label} className="px-3 py-2 text-[#1A2B1A]">
                 {row[col.key] ?? '-'}
               </td>
             ))}
@@ -137,15 +140,15 @@ function CropMonitoringSubSection({ parcelId }) {
         {records.map((r, i) => (
           <React.Fragment key={r.id}>
             <tr className={i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAF9]'}>
-              <td className="px-3 py-1.5 text-[#1A2B1A]">{r.crop_type_name}</td>
-              <td className="px-3 py-1.5 text-[#1A2B1A]">{r.season} {r.year}</td>
-              <td className="px-3 py-1.5 text-[#1A2B1A]">{fmt(r.date_planted)}</td>
-              <td className="px-3 py-1.5 text-[#1A2B1A]">{fmt(r.expected_harvest_date)}</td>
-              <td className="px-3 py-1.5">
+              <td data-label="Crop" className="px-3 py-1.5 text-[#1A2B1A]">{r.crop_type_name}</td>
+              <td data-label="Season/Year" className="px-3 py-1.5 text-[#1A2B1A]">{r.season} {r.year}</td>
+              <td data-label="Date Planted" className="px-3 py-1.5 text-[#1A2B1A]">{fmt(r.date_planted)}</td>
+              <td data-label="Exp. Harvest" className="px-3 py-1.5 text-[#1A2B1A]">{fmt(r.expected_harvest_date)}</td>
+              <td data-label="Status" className="px-3 py-1.5">
                 <StatusPill tone={MONITORING_STATUS_TONES[r.status] || 'slate'}>{r.status}</StatusPill>
               </td>
-              <td className="px-3 py-1.5 text-[#1A2B1A]">{r.estimated_yield_kg ? parseFloat(r.estimated_yield_kg).toLocaleString() : '—'}</td>
-              <td className="px-3 py-1.5 text-[#1A2B1A]">{r.actual_yield_kg ? parseFloat(r.actual_yield_kg).toLocaleString() : '—'}</td>
+              <td data-label="Est. Yield (kg)" className="px-3 py-1.5 text-[#1A2B1A]">{r.estimated_yield_kg ? parseFloat(r.estimated_yield_kg).toLocaleString() : '—'}</td>
+              <td data-label="Act. Yield (kg)" className="px-3 py-1.5 text-[#1A2B1A]">{r.actual_yield_kg ? parseFloat(r.actual_yield_kg).toLocaleString() : '—'}</td>
             </tr>
             <tr className={i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAF9]'}>
               <td colSpan={7} className="px-3 pb-2 pt-0 text-[11px] text-[#7A8E7A]">
@@ -181,11 +184,11 @@ function ParcelRow({ parcel }) {
   return (
     <>
       <tr className="border-b border-[#F0F4F0] bg-white hover:bg-[#F9FAF9] transition-colors">
-        <td className="px-4 py-3 text-[13px] text-[#1A2B1A]">{parcel.parcel_number}</td>
-        <td className="px-4 py-3 text-[13px] text-[#1A2B1A]">{parcel.area_hectares}</td>
-        <td className="px-4 py-3 text-[13px] text-[#1A2B1A]">{parcel.land_ownership}</td>
-        <td className="px-4 py-3 text-[13px] text-[#1A2B1A]">{parcel.commodity_name || '-'}</td>
-        <td className="px-4 py-3">
+        <td data-label="Parcel No." className="px-4 py-3 text-[13px] text-[#1A2B1A]">{parcel.parcel_number || '—'}</td>
+        <td data-label="Area (ha)" className="px-4 py-3 text-[13px] text-[#1A2B1A]">{parcel.area_hectares}</td>
+        <td data-label="Ownership" className="px-4 py-3 text-[13px] text-[#1A2B1A]">{parcel.land_ownership}</td>
+        <td data-label="Commodity" className="px-4 py-3 text-[13px] text-[#1A2B1A]">{parcel.commodity_name || '-'}</td>
+        <td data-label="Status" className="px-4 py-3">
           <span
             className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${
               parcel.farm_status === 'Active'
@@ -198,7 +201,7 @@ function ParcelRow({ parcel }) {
         </td>
         <td className="px-4 py-3 text-right">
           <button
-            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-medium text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors"
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-medium text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors max-md:min-h-[40px] max-md:border max-md:border-[#C8D5C8] max-md:px-4"
             onClick={() => setExpanded((v) => !v)}
             type="button"
           >
@@ -610,7 +613,7 @@ function FarmerDetailPage() {
               No farm parcels registered.
             </p>
           ) : (
-            <div className="overflow-hidden rounded-lg border border-[#E2E8E2]">
+            <div className={`overflow-hidden rounded-lg border border-[#E2E8E2] ${STACK_TABLES}`}>
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-[#1B4D2E] text-xs font-semibold uppercase tracking-wide text-white">
                   <tr>
@@ -654,7 +657,7 @@ function FarmerDetailPage() {
               No crop monitoring records for this farmer.
             </p>
           ) : (
-            <div className="overflow-hidden rounded-lg border border-[#E2E8E2]">
+            <div className={`overflow-hidden rounded-lg border border-[#E2E8E2] ${STACK_TABLES}`}>
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-[#1B4D2E] text-xs font-semibold uppercase tracking-wide text-white">
                   <tr>
@@ -668,15 +671,15 @@ function FarmerDetailPage() {
                     const fmt = (v) => v ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(v)) : '—'
                     return (
                       <tr key={r.id} className={i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAF9]'}>
-                        <td className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{r.crop_type_name}</td>
-                        <td className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{r.season} {r.year}</td>
-                        <td className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{fmt(r.date_planted)}</td>
-                        <td className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{fmt(r.expected_harvest_date)}</td>
-                        <td className="px-4 py-2.5">
+                        <td data-label="Crop" className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{r.crop_type_name}</td>
+                        <td data-label="Season/Year" className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{r.season} {r.year}</td>
+                        <td data-label="Date Planted" className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{fmt(r.date_planted)}</td>
+                        <td data-label="Exp. Harvest" className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{fmt(r.expected_harvest_date)}</td>
+                        <td data-label="Status" className="px-4 py-2.5">
                           <StatusPill tone={MONITORING_STATUS_TONES[r.status] || 'slate'}>{r.status}</StatusPill>
                         </td>
-                        <td className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{r.estimated_yield_kg ? parseFloat(r.estimated_yield_kg).toLocaleString() : '—'}</td>
-                        <td className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{r.actual_yield_kg ? parseFloat(r.actual_yield_kg).toLocaleString() : '—'}</td>
+                        <td data-label="Est. Yield (kg)" className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{r.estimated_yield_kg ? parseFloat(r.estimated_yield_kg).toLocaleString() : '—'}</td>
+                        <td data-label="Act. Yield (kg)" className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{r.actual_yield_kg ? parseFloat(r.actual_yield_kg).toLocaleString() : '—'}</td>
                       </tr>
                     )
                   })}
@@ -687,7 +690,7 @@ function FarmerDetailPage() {
                         <span className="mt-0.5 block text-[11px] font-normal text-[#7A8E7A]">
                           Declared on {parcel.parcel_number ? `parcel ${parcel.parcel_number}` : `parcel #${parcel.id}`} · {parseFloat(crop.area_hectares)} ha{crop.is_main_crop ? ' · Main crop' : ''}
                         </span>
-                        {(isAdmin || isEvaluator) && (
+                        {farmer && (isAdmin || isEvaluator) && (
                           <Link
                             to="/crop-records/add"
                             state={{ prefill: {
@@ -703,14 +706,14 @@ function FarmerDetailPage() {
                           </Link>
                         )}
                       </td>
-                      <td className="px-4 py-2.5 text-[13px] text-[#7A8E7A]">—</td>
-                      <td className="px-4 py-2.5 text-[13px] text-[#7A8E7A]">—</td>
-                      <td className="px-4 py-2.5 text-[13px] text-[#7A8E7A]">—</td>
-                      <td className="px-4 py-2.5">
+                      <td className="px-4 py-2.5 text-[13px] text-[#7A8E7A] max-md:hidden">—</td>
+                      <td className="px-4 py-2.5 text-[13px] text-[#7A8E7A] max-md:hidden">—</td>
+                      <td className="px-4 py-2.5 text-[13px] text-[#7A8E7A] max-md:hidden">—</td>
+                      <td data-label="Status" className="px-4 py-2.5">
                         <StatusPill tone="slate">Not yet monitored</StatusPill>
                       </td>
-                      <td className="px-4 py-2.5 text-[13px] text-[#7A8E7A]">—</td>
-                      <td className="px-4 py-2.5 text-[13px] text-[#7A8E7A]">—</td>
+                      <td className="px-4 py-2.5 text-[13px] text-[#7A8E7A] max-md:hidden">—</td>
+                      <td className="px-4 py-2.5 text-[13px] text-[#7A8E7A] max-md:hidden">—</td>
                     </tr>
                   ))}
                 </tbody>
@@ -727,7 +730,7 @@ function FarmerDetailPage() {
           ) : visitHistory.length === 0 ? (
             <p className="text-[13px] italic text-[#7A8E7A]">No farm visits recorded for this farmer.</p>
           ) : (
-            <div className="overflow-hidden rounded-lg border border-[#E2E8E2]">
+            <div className={`overflow-hidden rounded-lg border border-[#E2E8E2] ${STACK_TABLES}`}>
               <table className="min-w-full text-sm">
                 <thead className="bg-[#1B4D2E] text-xs font-semibold uppercase tracking-wide text-white">
                   <tr>
@@ -741,10 +744,10 @@ function FarmerDetailPage() {
                     const fmt = (d) => d ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(d)) : '—'
                     return (
                       <tr key={v.id} className={i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAF9]'}>
-                        <td className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{fmt(v.visit_date)}</td>
-                        <td className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{fmt(v.next_visit_date)}</td>
-                        <td className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{v.purpose}</td>
-                        <td className="px-4 py-2.5 text-[13px] text-[#7A8E7A]">{v.notes || '—'}</td>
+                        <td data-label="Visit Date" className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{fmt(v.visit_date)}</td>
+                        <td data-label="Next Visit" className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{fmt(v.next_visit_date)}</td>
+                        <td data-label="Purpose" className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{v.purpose}</td>
+                        <td data-label="Notes" className="px-4 py-2.5 text-[13px] text-[#7A8E7A]">{v.notes || '—'}</td>
                       </tr>
                     )
                   })}
