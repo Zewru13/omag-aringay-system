@@ -18,6 +18,8 @@ import PageLayout from '../../components/Layout/PageLayout.jsx'
 import GroupedForecast from '../Forecasting/GroupedForecast.jsx'
 import { fmtActualHarvestKg } from '../FisheriesRecords/stockingHelpers.js'
 import { ProductionUnitsCards, ProductionUnitsTable } from '../FisheriesRecords/ProductionUnitsPanel.jsx'
+import StatusPill from '../../components/UI/StatusPill.jsx'
+import { ForecastCard } from '../../components/UI/ForecastCard.jsx'
 import useExpandableProductionUnits from '../FisheriesRecords/useExpandableProductionUnits.js'
 import AquacultureCycleDetailModal from './AquacultureCycleDetailModal.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
@@ -1025,6 +1027,8 @@ export default function ForecastingTab({ asTab = false }) {
     expandedId: fcExpandedId, unitsState: fcUnitsState, toggle: toggleFcRow, retry: retryFcUnits,
   } = useExpandableProductionUnits(fcRecords)
 
+  const FC_STATUS_TONE = { Stocked: 'green', 'Near Harvest': 'amber', Late: 'rose', Harvested: 'teal', 'Total Loss': 'rose' }
+
   const FC_COLUMNS = [
     { key: 'species_cell',      label: 'SPECIES' },
     { key: 'fisherfolk_name',   label: 'FISHERFOLK' },
@@ -1316,8 +1320,8 @@ export default function ForecastingTab({ asTab = false }) {
         <p className="text-[12px] text-[#7A8E7A] mb-3">
           {isFisherfolk ? <><span className="md:hidden">Tap a card</span><span className="hidden md:inline">Click a row</span></> : 'Click a row'} to see the full activity completion breakdown.
         </p>
-        {/* Fisherfolk phones: one card per stocking (the table returns at md and up). */}
-        {isFisherfolk && (
+        {/* Phones: one card per stocking (the table returns at md and up). */}
+        {(
           <div className="space-y-3 md:hidden" data-testid="yield-cards">
             {isLoading ? (
               <p className="rounded-xl border border-[#E2E8E2] bg-white py-8 text-center text-[13px] text-[#7A8E7A]">Loading…</p>
@@ -1338,7 +1342,7 @@ export default function ForecastingTab({ asTab = false }) {
                         <span className="ml-1.5 whitespace-nowrap rounded-full bg-rose-50 border border-rose-200 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">Total Loss</span>
                       )}
                     </p>
-                    <p className="text-[12px] text-[#7A8E7A]">Cycle #{rec.production_cycle_no} · {rec.barangay}</p>
+                    <p className="text-[12px] text-[#7A8E7A]">{[!isFisherfolk && rec.fisherfolk, `Cycle #${rec.production_cycle_no}`, rec.barangay].filter(Boolean).join(' · ')}</p>
                   </div>
                   <span className="shrink-0 text-[#7A8E7A]">{expanded.has(rec.id) ? <ChevronDown size={18} /> : <ChevronRight size={18} />}</span>
                 </div>
@@ -1357,7 +1361,7 @@ export default function ForecastingTab({ asTab = false }) {
                 </dl>
                 <div className="mt-2.5">
                   <p className="text-[11px] font-medium uppercase tracking-wide text-[#7A8E7A]">Possible Factors</p>
-                  <p className="mt-0.5 break-words text-[12px] text-[#4A5E4A]">{possibleFactorsText(rec, 'fisheries')}</p>
+                  <p className={`mt-0.5 break-words text-[12px] text-[#4A5E4A] ${expanded.has(rec.id) ? '' : 'line-clamp-3'}`}>{possibleFactorsText(rec, 'fisheries')}</p>
                 </div>
                 {expanded.has(rec.id) && (
                   <div className="mt-3 border-t border-[#F0F4F0] pt-3">
@@ -1384,7 +1388,7 @@ export default function ForecastingTab({ asTab = false }) {
             ))}
           </div>
         )}
-        <div className={`overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] ${isFisherfolk ? 'hidden md:block' : ''}`}>
+        <div className={`overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] max-md:hidden`}>
           <table className="min-w-full text-sm">
             <thead className="bg-[#1B4D2E] text-white">
               <tr>
@@ -1541,6 +1545,43 @@ export default function ForecastingTab({ asTab = false }) {
 
       {fcView === 'flat' ? (
         <>
+          {/* Phone: one compact card per stocking (tap to show its ponds / cages); the table stays for larger screens. */}
+          {!fcLoading && fcRows.length > 0 && (
+            <div className="space-y-3 md:hidden" data-testid="forecast-cards">
+              {fcRows.map(row => (
+                <ForecastCard
+                  key={row.id}
+                  title={row.species_name}
+                  status={<StatusPill tone={FC_STATUS_TONE[row.status_cell] || 'slate'}>{row.status_cell}</StatusPill>}
+                  subtitle={[row.fisherfolk_name, row.culture_type].filter(Boolean).join(' · ')}
+                  stats={[
+                    { label: 'Stocked', value: row.stocked_cell },
+                    { label: 'Fingerlings', value: row.fingerlings_cell },
+                    { label: 'Est. yield', value: row.yield_cell },
+                    { label: 'Est. harvest', value: row.harvest_date_cell },
+                    { label: 'Actual (kg)', value: row.actual_harvest_cell },
+                    { label: 'Harvested on', value: row.actual_harvest_date_cell },
+                  ]}
+                  onOpen={() => toggleFcRow(row._rec)}
+                  expanded={fcExpandedId === row.id}
+                  openLabel={fcExpandedId === row.id ? 'Hide ponds / cages' : 'Show ponds / cages'}
+                >
+                  {fcExpandedId === row.id && (
+                    <div className="mt-3 border-t border-[#F0F4F0] pt-3">
+                      <ProductionUnitsCards
+                        forecast
+                        state={fcUnitsState(row.id)}
+                        speciesName={row.species_name}
+                        estimatedHarvestDate={row.expected_harvest_date}
+                        onRetry={() => retryFcUnits(row.id)}
+                      />
+                    </div>
+                  )}
+                </ForecastCard>
+              ))}
+            </div>
+          )}
+          <div className={!fcLoading && fcRows.length > 0 ? 'max-md:hidden' : ''}>
           <DataTable
             columns={FC_COLUMNS}
             data={fcRows}
@@ -1567,6 +1608,7 @@ export default function ForecastingTab({ asTab = false }) {
               />
             )}
           />
+          </div>
           <PaginationBar
             page={fcPage}
             totalCount={fcTotalCount}

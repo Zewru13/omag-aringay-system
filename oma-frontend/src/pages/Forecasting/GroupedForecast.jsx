@@ -1,5 +1,6 @@
 import { Fragment, useMemo, useState } from 'react'
 import { ChevronDown, ChevronRight, Info } from 'lucide-react'
+import { STACK_TABLES } from '../../components/UI/ForecastCard.jsx'
 
 // Shared grouped-by-person view for BOTH crop (by farmer) and fisheries
 // (by fisherfolk) forecasting. Callers pass a normalized `records` array so
@@ -87,7 +88,7 @@ export default function GroupedForecast({
         <p className="text-[12px] text-amber-800 leading-relaxed">{DISCLAIMER}</p>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+      <div className={`overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] max-md:overflow-hidden ${STACK_TABLES}`}>
         <table className="min-w-full text-sm">
           <thead className="bg-[#1B4D2E] text-white">
             <tr>
@@ -105,12 +106,12 @@ export default function GroupedForecast({
               const isOpen = expanded.has(g.person)
               return (
                 <Fragment key={g.person}>
-                  <tr onClick={() => toggle(g.person)} className="border-b border-[#F0F4F0] hover:bg-[#F9FAF9] cursor-pointer">
-                    <td className="px-3 py-[11px] text-[#7A8E7A]">{isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</td>
-                    <td className="px-3 py-[11px] text-[13px] font-semibold text-[#1A2B1A] whitespace-nowrap">{g.person}</td>
-                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A]">{g.count}</td>
-                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A]">{g.harvestedCount}</td>
-                    <td className="px-3 py-[11px]">
+                  <tr onClick={() => toggle(g.person)} className="border-b border-[#F0F4F0] hover:bg-[#F9FAF9] cursor-pointer max-md:grid! max-md:grid-cols-3 max-md:gap-x-3">
+                    <td className="px-3 py-[11px] text-[#7A8E7A] max-md:hidden!">{isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}</td>
+                    <td className="max-md:col-span-3 max-md:flex! max-md:items-center max-md:justify-between gap-2 px-3 py-[11px] text-[13px] font-semibold text-[#1A2B1A] max-md:text-[15px] md:whitespace-nowrap">{g.person}<span className="text-[#7A8E7A] md:hidden">{isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}</span></td>
+                    <td data-label="Records" className="px-3 py-[11px] text-[13px] text-[#1A2B1A]">{g.count}</td>
+                    <td data-label="Harvested" className="px-3 py-[11px] text-[13px] text-[#1A2B1A]">{g.harvestedCount}</td>
+                    <td data-label="Avg variance" className="px-3 py-[11px]">
                       <Pill pct={g.avgVar} label={g.avgVar === null ? 'N/A' : undefined} />
                     </td>
                   </tr>
@@ -128,18 +129,18 @@ export default function GroupedForecast({
                             </thead>
                             <tbody>
                               {g.recs.map(r => (
-                                <tr key={r.id} className="border-b border-[#F5F7F5] last:border-0">
-                                  <td className="px-3 py-2 text-[#1A2B1A] whitespace-nowrap">
+                                <tr key={r.id} className="border-b border-[#F5F7F5] last:border-0 max-md:grid! max-md:grid-cols-2 max-md:gap-x-3">
+                                  <td className="px-3 py-2 font-semibold text-[#1A2B1A] max-md:col-span-2 md:whitespace-nowrap">
                                     {r.commodity}
                                     {r.isTotalLoss && (
                                       <span className="ml-1.5 rounded-full bg-rose-50 border border-rose-200 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">Total Loss</span>
                                     )}
                                   </td>
-                                  <td className="px-3 py-2 text-[#4A5E4A] whitespace-nowrap">{r.landStatus || '—'}</td>
-                                  <td className="px-3 py-2 text-[#4A5E4A] whitespace-nowrap">{fmtDate(r.dateField)}</td>
-                                  <td className="px-3 py-2 text-[#4A5E4A] whitespace-nowrap">{r.status}</td>
-                                  <td className="px-3 py-2 text-[#4A5E4A] whitespace-nowrap">{r.status === 'Harvested' ? fmtDate(r.harvestDate) : '—'}</td>
-                                  <td className="px-3 py-2 whitespace-nowrap"><RecordVariance rec={r} /></td>
+                                  <td data-label="Land status" className="px-3 py-2 text-[#4A5E4A] md:whitespace-nowrap">{r.landStatus || '—'}</td>
+                                  <td data-label={dateLabel} className="px-3 py-2 text-[#4A5E4A] md:whitespace-nowrap">{fmtDate(r.dateField)}</td>
+                                  <td data-label="Status" className="px-3 py-2 text-[#4A5E4A] md:whitespace-nowrap">{r.status}</td>
+                                  <td data-label="Harvest date" className="px-3 py-2 text-[#4A5E4A] md:whitespace-nowrap">{r.status === 'Harvested' ? fmtDate(r.harvestDate) : '—'}</td>
+                                  <td data-label="Variance" className="px-3 py-2 md:whitespace-nowrap"><RecordVariance rec={r} /></td>
                                 </tr>
                               ))}
                             </tbody>
