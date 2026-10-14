@@ -17,6 +17,7 @@ import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
+import { ForecastCard, STACK_TABLES } from '../../components/UI/ForecastCard.jsx'
 import useDebouncedValue from '../../hooks/useDebouncedValue.js'
 import GroupedForecast from './GroupedForecast.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
@@ -393,13 +394,14 @@ function AggregatePanel({ groupBy, setGroupBy, groups, overall, isLoading }) {
         ) : groups.length === 0 ? (
           <p className="text-[12px] text-[#7A8E7A] py-3 text-center">No harvested crops in scope.</p>
         ) : groups.map(g => (
-          <div key={g.group} className="flex items-center gap-3 text-[12px]">
-            <span className="w-32 shrink-0 truncate text-[#4A5E4A] font-medium" title={g.group}>{g.group}</span>
-            <span className="w-14 shrink-0 text-[#7A8E7A]" title={g.total_loss_count > 0 ? `Avg variance excludes ${g.total_loss_count} total-loss record${g.total_loss_count !== 1 ? 's' : ''}` : undefined}>
+          <div key={g.group} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-[#F0F4F0] pb-3 text-[12px] last:border-0 last:pb-0 md:flex-nowrap md:border-0 md:pb-0">
+            <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-[#1A2B1A] md:w-32 md:flex-none md:text-[12px] md:font-medium md:text-[#4A5E4A]" title={g.group}>{g.group}</span>
+            <span className="shrink-0 text-[#7A8E7A] md:w-14" title={g.total_loss_count > 0 ? `Avg variance excludes ${g.total_loss_count} total-loss record${g.total_loss_count !== 1 ? 's' : ''}` : undefined}>
               {g.harvested_crop_count} crop{g.harvested_crop_count !== 1 ? 's' : ''}
               {g.total_loss_count > 0 && <span className="text-rose-500"> ({g.total_loss_count} loss)</span>}
             </span>
-            <div className="flex-1 flex items-center gap-1.5">
+            <div className="flex basis-full items-center gap-1.5 md:flex-1 md:basis-auto">
+              <span className="w-[72px] shrink-0 text-[11px] text-[#7A8E7A] md:hidden">Variance</span>
               <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
                 {g.avg_variance_pct != null && (
                   <div
@@ -412,7 +414,8 @@ function AggregatePanel({ groupBy, setGroupBy, groups, overall, isLoading }) {
                 {g.avg_variance_pct != null ? `${g.avg_variance_pct >= 0 ? '+' : ''}${g.avg_variance_pct.toFixed(1)}%` : 'N/A'}
               </span>
             </div>
-            <div className="flex-1 flex items-center gap-1.5">
+            <div className="flex basis-full items-center gap-1.5 md:flex-1 md:basis-auto">
+              <span className="w-[72px] shrink-0 text-[11px] text-[#7A8E7A] md:hidden">Activities</span>
               <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
                 {g.avg_activity_completion_pct != null && (
                   <div className="h-full bg-[#1B4D2E]" style={{ width: `${Math.min(100, g.avg_activity_completion_pct)}%` }} />
@@ -425,7 +428,7 @@ function AggregatePanel({ groupBy, setGroupBy, groups, overall, isLoading }) {
           </div>
         ))}
         {groups.length > 0 && (
-          <div className="flex items-center gap-3 text-[11px] text-[#A8BCA8] pt-1">
+          <div className="flex items-center gap-3 pt-1 text-[11px] text-[#A8BCA8] max-md:hidden">
             <span className="w-32 shrink-0" />
             <span className="w-14 shrink-0" />
             <span className="flex-1 text-right pr-16">avg variance %</span>
@@ -624,6 +627,16 @@ function YieldAnalysisTab() {
     || rec.barangay?.toLowerCase().includes(q)
   )
 
+  // The harvested list can run to thousands of records, so it is shown 25 at a time (the page resets whenever the
+  // filters or the search change, without an effect: the page number is remembered together with the filters it was for).
+  const YIELD_PAGE_SIZE = 25
+  const yieldPageKey = JSON.stringify([[filters, farmerFilter?.id], search])
+  const [yieldPageState, setYieldPageState] = useState({ key: '', n: 1 })
+  const yieldPage = yieldPageState.key === yieldPageKey ? yieldPageState.n : 1
+  const setYieldPage = (n) => setYieldPageState({ key: yieldPageKey, n })
+  const pagedRecords = filteredRecords.slice((yieldPage - 1) * YIELD_PAGE_SIZE, yieldPage * YIELD_PAGE_SIZE)
+
+
   const buildUrl = (fmt) => {
     const p = new URLSearchParams({ ...buildParams({ group_by: groupBy }), format: fmt })
     return `/reports/yield-analysis/?${p}`
@@ -711,8 +724,8 @@ function YieldAnalysisTab() {
       {/* Per-crop table */}
       <div>
         <p className="text-[13px] font-semibold text-[#1A2B1A]">Harvested crops</p>
-        <p className="text-[12px] text-[#7A8E7A] mb-3">Click a row to see the full activity completion breakdown.</p>
-        <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <p className="text-[12px] text-[#7A8E7A] mb-3">Tap a crop to see the full activity completion breakdown.</p>
+        <div className={`overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] max-md:overflow-hidden ${STACK_TABLES}`}>
           <table className="min-w-full text-sm">
             <thead className="bg-[#1B4D2E] text-white">
               <tr>
@@ -728,28 +741,28 @@ function YieldAnalysisTab() {
                 <tr><td colSpan={9} className="py-8 text-center text-[13px] text-[#7A8E7A]">
                   {records.length === 0 ? 'No harvested crops found in scope.' : 'No crops match your search.'}
                 </td></tr>
-              ) : filteredRecords.map(rec => (
+              ) : pagedRecords.map(rec => (
                 <Fragment key={rec.id}>
                   <tr
                     onClick={() => toggleExpand(rec.id)}
-                    className="border-b border-[#F0F4F0] hover:bg-[#F9FAF9] cursor-pointer"
+                    className="border-b border-[#F0F4F0] hover:bg-[#F9FAF9] cursor-pointer max-md:grid! max-md:grid-cols-2 max-md:gap-x-3"
                   >
-                    <td className="px-3 py-[11px] text-[#7A8E7A]">
+                    <td className="px-3 py-[11px] text-[#7A8E7A] max-md:hidden!">
                       {expanded.has(rec.id) ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     </td>
-                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">
+                    <td className="px-3 py-[11px] text-[13px] font-semibold text-[#1A2B1A] max-md:col-span-2 max-md:text-[15px] md:whitespace-nowrap">
                       {rec.crop_type}
                       {rec.is_total_loss && (
                         <span className="ml-1.5 rounded-full bg-rose-50 border border-rose-200 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">Total Loss</span>
                       )}
                     </td>
-                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.farmer}</td>
-                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.barangay}</td>
-                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.estimated_kg != null ? rec.estimated_kg.toLocaleString() : 'N/A'}</td>
-                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.actual_total_kg.toLocaleString()}</td>
-                    <td className="px-3 py-[11px] whitespace-nowrap"><VarianceBadge pct={rec.variance_pct} /></td>
-                    <td className="px-3 py-[11px] text-[13px] text-[#1A2B1A] whitespace-nowrap">{rec.activities_completed_count}/{rec.activities_total_count}</td>
-                    <td className="px-3 py-[11px] text-[12px] text-[#4A5E4A] max-w-xs"><span className="line-clamp-2" title={possibleFactorsText(rec, 'crop')}>{possibleFactorsText(rec, 'crop')}</span></td>
+                    <td data-label="Farmer" className="px-3 py-[11px] text-[13px] text-[#1A2B1A] md:whitespace-nowrap">{rec.farmer}</td>
+                    <td data-label="Barangay" className="px-3 py-[11px] text-[13px] text-[#1A2B1A] md:whitespace-nowrap">{rec.barangay}</td>
+                    <td data-label="Estimated (kg)" className="px-3 py-[11px] text-[13px] text-[#1A2B1A] md:whitespace-nowrap">{rec.estimated_kg != null ? rec.estimated_kg.toLocaleString() : 'N/A'}</td>
+                    <td data-label="Actual (kg)" className="px-3 py-[11px] text-[13px] text-[#1A2B1A] md:whitespace-nowrap">{rec.actual_total_kg.toLocaleString()}</td>
+                    <td data-label="Variance" className="px-3 py-[11px] md:whitespace-nowrap"><VarianceBadge pct={rec.variance_pct} /></td>
+                    <td data-label="Activities" className="px-3 py-[11px] text-[13px] text-[#1A2B1A] md:whitespace-nowrap">{rec.activities_completed_count}/{rec.activities_total_count}</td>
+                    <td data-label="Possible factors" className="px-3 py-[11px] text-[12px] text-[#4A5E4A] max-md:col-span-2 md:max-w-xs"><span className="line-clamp-2" title={possibleFactorsText(rec, 'crop')}>{possibleFactorsText(rec, 'crop')}</span></td>
                   </tr>
                   {expanded.has(rec.id) && (
                     <tr className="border-b border-[#F0F4F0] bg-[#F9FAF9]">
@@ -779,6 +792,7 @@ function YieldAnalysisTab() {
             </tbody>
           </table>
         </div>
+        <PaginationBar page={yieldPage} totalCount={filteredRecords.length} pageSize={YIELD_PAGE_SIZE} onPageChange={setYieldPage} />
       </div>
       </>)}
 
@@ -1016,7 +1030,31 @@ export default function ForecastingPage() {
 
             {forecastView === 'flat' ? (
               <>
-                <DataTable columns={isFarmer ? COLUMNS.filter(c => c.key !== 'farmer_cell') : COLUMNS} data={rows} isLoading={isLoading} />
+                {/* Phone: one compact card per crop; the standard table stays for larger screens (and for loading / empty). */}
+                {!isLoading && rows.length > 0 && (
+                  <div className="space-y-3 md:hidden">
+                    {rows.map(rec => {
+                      const overdue = (daysUntil(rec.expected_harvest_date) ?? 0) < 0
+                      return (
+                        <ForecastCard
+                          key={rec.id}
+                          title={rec.crop_type_name}
+                          status={rec.status_cell}
+                          subtitle={[!isFarmer && rec.farmer_name, rec.farmer_barangay, !isFarmer && rec.organization_name].filter(Boolean).join(' · ')}
+                          stats={[
+                            { label: 'Area (ha)', value: rec.area_planted_ha ? Number(rec.area_planted_ha).toFixed(2) : '—' },
+                            { label: 'Est. yield', value: rec.estimated_yield_kg ? `${Number(rec.estimated_yield_kg).toLocaleString()} kg` : '—' },
+                            { label: 'Harvest', value: fmtShortDate(rec.expected_harvest_date), sub: countdownText(rec.expected_harvest_date), subTone: overdue ? 'rose' : 'muted' },
+                          ]}
+                          onOpen={() => setDetailRecord(rec)}
+                        />
+                      )
+                    })}
+                  </div>
+                )}
+                <div className={!isLoading && rows.length > 0 ? 'max-md:hidden' : ''}>
+                  <DataTable columns={isFarmer ? COLUMNS.filter(c => c.key !== 'farmer_cell') : COLUMNS} data={rows} isLoading={isLoading} />
+                </div>
                 <PaginationBar
                   page={page}
                   totalCount={totalCount}
