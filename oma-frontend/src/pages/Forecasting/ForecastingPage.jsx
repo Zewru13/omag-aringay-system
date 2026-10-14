@@ -627,6 +627,16 @@ function YieldAnalysisTab() {
     || rec.barangay?.toLowerCase().includes(q)
   )
 
+  // The harvested list can run to thousands of records, so it is shown 25 at a time (the page resets whenever the
+  // filters or the search change, without an effect: the page number is remembered together with the filters it was for).
+  const YIELD_PAGE_SIZE = 25
+  const yieldPageKey = JSON.stringify([[filters, farmerFilter?.id], search])
+  const [yieldPageState, setYieldPageState] = useState({ key: '', n: 1 })
+  const yieldPage = yieldPageState.key === yieldPageKey ? yieldPageState.n : 1
+  const setYieldPage = (n) => setYieldPageState({ key: yieldPageKey, n })
+  const pagedRecords = filteredRecords.slice((yieldPage - 1) * YIELD_PAGE_SIZE, yieldPage * YIELD_PAGE_SIZE)
+
+
   const buildUrl = (fmt) => {
     const p = new URLSearchParams({ ...buildParams({ group_by: groupBy }), format: fmt })
     return `/reports/yield-analysis/?${p}`
@@ -731,7 +741,7 @@ function YieldAnalysisTab() {
                 <tr><td colSpan={9} className="py-8 text-center text-[13px] text-[#7A8E7A]">
                   {records.length === 0 ? 'No harvested crops found in scope.' : 'No crops match your search.'}
                 </td></tr>
-              ) : filteredRecords.map(rec => (
+              ) : pagedRecords.map(rec => (
                 <Fragment key={rec.id}>
                   <tr
                     onClick={() => toggleExpand(rec.id)}
@@ -782,6 +792,7 @@ function YieldAnalysisTab() {
             </tbody>
           </table>
         </div>
+        <PaginationBar page={yieldPage} totalCount={filteredRecords.length} pageSize={YIELD_PAGE_SIZE} onPageChange={setYieldPage} />
       </div>
       </>)}
 

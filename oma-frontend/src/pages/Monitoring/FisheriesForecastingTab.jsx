@@ -1230,6 +1230,16 @@ export default function ForecastingTab({ asTab = false }) {
     || rec.barangay?.toLowerCase().includes(q)
   )
 
+  // The harvested list can run to thousands of records, so it is shown 25 at a time (the page resets whenever the
+  // filters or the search change, without an effect: the page number is remembered together with the filters it was for).
+  const YIELD_PAGE_SIZE = 25
+  const yieldPageKey = JSON.stringify([[filters, fisherfolkFilter?.id], search])
+  const [yieldPageState, setYieldPageState] = useState({ key: '', n: 1 })
+  const yieldPage = yieldPageState.key === yieldPageKey ? yieldPageState.n : 1
+  const setYieldPage = (n) => setYieldPageState({ key: yieldPageKey, n })
+  const pagedRecords = filteredRecords.slice((yieldPage - 1) * YIELD_PAGE_SIZE, yieldPage * YIELD_PAGE_SIZE)
+
+
   const buildUrl = (fmt) => {
     const p = new URLSearchParams({ ...buildParams({ group_by: groupBy }), format: fmt })
     return `/reports/fisheries-yield-analysis/?${p}`
@@ -1327,7 +1337,7 @@ export default function ForecastingTab({ asTab = false }) {
               <p className="rounded-xl border border-[#E2E8E2] bg-white py-8 text-center text-[13px] text-[#7A8E7A]">Loading…</p>
             ) : filteredRecords.length === 0 ? (
               <p className="rounded-xl border border-[#E2E8E2] bg-white px-4 py-8 text-center text-[13px] text-[#7A8E7A]">No harvested or total-loss stockings found in scope.</p>
-            ) : filteredRecords.map(rec => (
+            ) : pagedRecords.map(rec => (
               <div
                 key={rec.id} data-testid="yield-card" role="button" tabIndex={0} aria-expanded={expanded.has(rec.id)}
                 onClick={() => toggleExpand(rec.id)}
@@ -1404,7 +1414,7 @@ export default function ForecastingTab({ asTab = false }) {
                 <tr><td colSpan={10} className="py-8 text-center text-[13px] text-[#7A8E7A]">
                   {records.length === 0 ? 'No harvested or total-loss stockings found in scope.' : 'No stockings match your search.'}
                 </td></tr>
-              ) : filteredRecords.map(rec => (
+              ) : pagedRecords.map(rec => (
                 <Fragment key={rec.id}>
                   <tr
                     onClick={() => toggleExpand(rec.id)}
@@ -1456,6 +1466,7 @@ export default function ForecastingTab({ asTab = false }) {
             </tbody>
           </table>
         </div>
+        <PaginationBar page={yieldPage} totalCount={filteredRecords.length} pageSize={YIELD_PAGE_SIZE} onPageChange={setYieldPage} />
       </div>
       </>)}
 
