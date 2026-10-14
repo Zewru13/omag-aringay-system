@@ -20,10 +20,11 @@ export function DamagePhotosField(props) {
 }
 
 // Equipment Damaged checklist. `groups` = [{ label, options }]; a null label renders the options ungrouped.
-export function EquipmentChecklist({ groups, selected, onToggle, otherValue, onOtherChange, inputClassName }) {
+// `fill`: from lg up the list takes whatever height its (flex column) parent has, instead of a fixed maximum, so it can match a neighbouring column.
+export function EquipmentChecklist({ groups, selected, onToggle, otherValue, onOtherChange, inputClassName, fill = false }) {
   return (
     <>
-      <div className={`${groups.some(g => g.label) ? 'max-h-56' : 'max-h-44'} overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 space-y-2`}>
+      <div className={`${groups.some(g => g.label) ? 'max-h-56' : 'max-h-44'} ${fill ? 'lg:max-h-none lg:min-h-0 lg:flex-1' : ''} overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 space-y-2`}>
         {groups.map((group, gi) => (
           <div key={group.label || `group-${gi}`} className="space-y-2">
             {group.label && (
