@@ -193,34 +193,32 @@ export default function CropRecordImportModal({ onClose, onCommitted }) {
 
   const footerContent = {
     upload: (
-      <>
+      <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto [&>*]:min-h-[44px] sm:[&>*]:min-h-0">
         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
         <Button type="button" isLoading={isBusy} onClick={handlePreview} disabled={!file}>
           Preview Rows
         </Button>
-      </>
+      </div>
     ),
     preview: preview ? (
-      <div className="flex w-full items-center justify-between gap-2">
-        <Button type="button" variant="outline" onClick={handleStartOver}>Upload a Different File</Button>
-        <div className="flex items-center gap-3">
-          <span className="text-[12.5px] text-[#7A8E7A]">{selectedRows.size} row{selectedRows.size === 1 ? '' : 's'} selected</span>
-          <Button type="button" onClick={goToConfirm} disabled={selectedRows.size === 0}>
+      <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <span className="text-center text-[12.5px] text-[#7A8E7A] sm:order-2 sm:ml-auto">{selectedRows.size} row{selectedRows.size === 1 ? '' : 's'} selected</span>
+        <div className="grid grid-cols-2 gap-2 sm:contents [&>*]:min-h-[44px] [&>*]:px-2 sm:[&>*]:min-h-0 sm:[&>*]:px-4">
+          <Button type="button" variant="outline" onClick={handleStartOver} className="sm:order-1">Upload a Different File</Button>
+          <Button type="button" onClick={goToConfirm} disabled={selectedRows.size === 0} className="sm:order-3">
             Continue to Confirm
           </Button>
         </div>
       </div>
     ) : null,
     confirm: (
-      <div className="flex w-full items-center justify-between">
-        <button type="button" onClick={() => setStep('preview')} className="text-[13px] font-medium text-[#7A8E7A] hover:text-[#1A2B1A] transition-colors">
-          Back to Review
-        </button>
+      <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:items-center sm:justify-between [&>*]:min-h-[44px] sm:[&>*]:min-h-0">
+        <Button type="button" variant="outline" onClick={() => setStep('preview')} className="sm:border-transparent sm:text-[#7A8E7A]">Back to Review</Button>
         <Button type="button" isLoading={isBusy} onClick={handleCommit}>Confirm &amp; Create</Button>
       </div>
     ),
     result: commitResult ? (
-      <Button type="button" onClick={onClose}>Close</Button>
+      <Button type="button" onClick={onClose} className="max-sm:min-h-[44px] max-sm:w-full">Close</Button>
     ) : null,
   }[step]
 
@@ -296,9 +294,9 @@ export default function CropRecordImportModal({ onClose, onCommitted }) {
                 ))}
               </div>
               {committableVisible.length > 0 && (
-                <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[12px] font-medium text-[#4A5E4A]">
+                <label className="flex shrink-0 cursor-pointer items-center gap-2 text-[12px] font-medium text-[#4A5E4A] max-sm:min-h-[44px] max-sm:w-full max-sm:rounded-lg max-sm:bg-[#F5F8F5] max-sm:px-3">
                   <input type="checkbox" checked={allVisibleSelected} onChange={toggleSelectAllVisible}
-                    className="h-3.5 w-3.5 rounded border-[#C8D5C8] text-[#1B4D2E] focus:ring-[#1B4D2E]/30" />
+                    className="h-5 w-5 rounded border-[#C8D5C8] text-[#1B4D2E] focus:ring-[#1B4D2E]/30 sm:h-3.5 sm:w-3.5" />
                   Select all shown ({committableVisible.length})
                 </label>
               )}
@@ -311,23 +309,24 @@ export default function CropRecordImportModal({ onClose, onCommitted }) {
               {paginatedRows.map((r) => {
                 const committable = isCommittable(r)
                 return (
-                  <div key={r.row_number} className={`flex items-center gap-3 px-5 py-3 ${selectedRows.has(r.row_number) ? 'bg-[#F5FAF6]' : ''}`}>
-                    <div className="w-5 shrink-0">
+                  <div key={r.row_number} className={`flex items-start gap-2 px-3 py-3 sm:items-center sm:gap-3 sm:px-5 ${selectedRows.has(r.row_number) ? 'bg-[#F5FAF6]' : ''}`}>
+                    <div className="flex w-8 shrink-0 justify-center pt-0.5 sm:w-5 sm:pt-0">
                       {committable && (
                         <input
                           type="checkbox"
                           checked={selectedRows.has(r.row_number)}
                           onChange={() => toggleRow(r.row_number)}
                           aria-label={`Select row ${r.row_number} for commit`}
-                          className="h-3.5 w-3.5 rounded border-[#C8D5C8] text-[#1B4D2E] focus:ring-[#1B4D2E]/30"
+                          className="h-6 w-6 rounded border-[#C8D5C8] text-[#1B4D2E] focus:ring-[#1B4D2E]/30 sm:h-3.5 sm:w-3.5"
                         />
                       )}
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-medium text-[#1A2B1A]">
+                    <div className="flex min-w-0 flex-1 flex-col items-start gap-1.5 sm:flex-row sm:items-center sm:gap-3">
+                    <div className="min-w-0 flex-1 max-sm:w-full">
+                      <p className="break-words text-[13px] font-medium text-[#1A2B1A] sm:truncate">
                         {r.farmer_name || r.fisherfolk_name || r.rsbsa_number || `Row ${r.row_number}`}
                       </p>
-                      <p className="mt-0.5 text-[11px] text-[#A8BCA8]">
+                      <p className="mt-0.5 break-words text-[11px] text-[#7A8E7A]">
                         Row {r.row_number} · {r.rsbsa_number || '(blank RSBSA no.)'}
                         {r.crop_type_name ? ` · ${r.crop_type_name}${r.variety_used ? ` (${r.variety_used})` : ''}` : ''}
                         {r.date_planted ? ` · ${r.date_planted}` : ''}
@@ -337,27 +336,28 @@ export default function CropRecordImportModal({ onClose, onCommitted }) {
                           <HelpCircle className="h-3 w-3" aria-hidden="true" /> Planting date is estimated (see warning before commit)
                         </p>
                       )}
-                      <p className="mt-0.5 text-[12px] text-[#5A6B5C]">{r.detail}</p>
+                      <p className="mt-0.5 break-words text-[12px] text-[#5A6B5C]">{r.detail}</p>
                     </div>
-                    <StatusPill tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</StatusPill>
+                    <span className="max-sm:order-first"><StatusPill tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</StatusPill></span>
+                    </div>
                   </div>
                 )
               })}
             </div>
 
             {totalPages > 1 && (
-              <div className="mt-4 flex items-center justify-between">
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-[12px] text-[#7A8E7A]">
                   Showing {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, filteredRows.length)} of {filteredRows.length}
                 </p>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 max-sm:justify-between">
                   <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-                    className="rounded-lg border border-[#E2E8E2] px-2.5 py-1 text-[12px] text-[#4A5E4A] hover:bg-[#F5F7F5] disabled:opacity-40">
+                    className="rounded-lg border border-[#E2E8E2] px-2.5 py-1 text-[12px] text-[#4A5E4A] hover:bg-[#F5F7F5] disabled:opacity-40 max-sm:min-h-[44px] max-sm:px-5">
                     Previous
                   </button>
                   <span className="px-2 text-[12px] font-medium text-[#1A2B1A]">{page} / {totalPages}</span>
                   <button type="button" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                    className="rounded-lg border border-[#E2E8E2] px-2.5 py-1 text-[12px] text-[#4A5E4A] hover:bg-[#F5F7F5] disabled:opacity-40">
+                    className="rounded-lg border border-[#E2E8E2] px-2.5 py-1 text-[12px] text-[#4A5E4A] hover:bg-[#F5F7F5] disabled:opacity-40 max-sm:min-h-[44px] max-sm:px-5">
                     Next
                   </button>
                 </div>
@@ -371,7 +371,7 @@ export default function CropRecordImportModal({ onClose, onCommitted }) {
 
       {step === 'confirm' && (
         <div className="stagger-item mt-6 space-y-4">
-          <div className="rounded-2xl bg-[#1B4D2E] p-6 text-white">
+          <div className="rounded-2xl bg-[#1B4D2E] p-5 text-white sm:p-6">
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#9DC2A8]">You Are About to Create</p>
             <p className="mt-2 text-[26px] font-semibold leading-tight">
               {selectedRowObjects.length} crop record{selectedRowObjects.length === 1 ? '' : 's'}
@@ -422,16 +422,16 @@ export default function CropRecordImportModal({ onClose, onCommitted }) {
             <p className="border-b border-[#E2E8E2] px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-[#7A8E7A]">
               Rows to Commit
             </p>
-            <div className="max-h-72 divide-y divide-[#F0F4F0] overflow-y-auto">
+            <div className="divide-y divide-[#F0F4F0] sm:max-h-72 sm:overflow-y-auto">
               {selectedRowObjects.map((r) => (
                 <div key={r.row_number} className="px-4 py-2.5">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="min-w-0 truncate text-[13px] font-medium text-[#1A2B1A]">
+                  <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                    <p className="min-w-0 break-words text-[13px] font-medium text-[#1A2B1A] sm:truncate">
                       {r.farmer_name || r.rsbsa_number}
                     </p>
                     <StatusPill tone="green">Register New</StatusPill>
                   </div>
-                  <p className="mt-0.5 text-[12px] text-[#7A8E7A]">
+                  <p className="mt-0.5 break-words text-[12px] text-[#7A8E7A]">
                     Row {r.row_number} · {r.crop_type_name}{r.variety_used ? ` (${r.variety_used})` : ''} · {r.date_planted} (estimated)
                   </p>
                 </div>
@@ -457,18 +457,18 @@ export default function CropRecordImportModal({ onClose, onCommitted }) {
               <p className="mt-0.5 text-[13px] text-[#1A2B1A]">
                 <span className="font-semibold">{commitResult.committed}</span> record{commitResult.committed === 1 ? '' : 's'} created.
               </p>
-              <p className="mt-1 text-[11px] text-[#5A6B5C]">Batch ID: {commitResult.batch_id}</p>
+              <p className="mt-1 break-all text-[11px] text-[#5A6B5C]">Batch ID: {commitResult.batch_id}</p>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-[#E2E8E2] bg-white p-5">
+          <div className="rounded-2xl border border-[#E2E8E2] bg-white p-4 sm:p-5">
             <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-[#7A8E7A]">Records Created</p>
-            <div className="-mx-5 divide-y divide-[#F0F4F0]">
+            <div className="-mx-4 divide-y divide-[#F0F4F0] sm:-mx-5">
               {commitResult.results.map((r) => (
-                <div key={r.row_number} className="flex items-center gap-3 px-5 py-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-medium text-[#1A2B1A]">{r.farmer_name}</p>
-                    <p className="mt-0.5 text-[11px] text-[#7A8E7A]">
+                <div key={r.row_number} className="flex flex-col items-start gap-1.5 px-4 py-3 sm:flex-row sm:items-center sm:gap-3 sm:px-5">
+                  <div className="min-w-0 flex-1 max-sm:w-full">
+                    <p className="break-words text-[13px] font-medium text-[#1A2B1A] sm:truncate">{r.farmer_name}</p>
+                    <p className="mt-0.5 break-words text-[11px] text-[#7A8E7A]">
                       Row {r.row_number} · {r.crop_type_name}{r.variety_used ? ` (${r.variety_used})` : ''} · {r.date_planted}
                     </p>
                   </div>

@@ -25,10 +25,10 @@ function ModalShell({ title, subtitle, icon: Icon, iconBg = 'bg-primary-light', 
           )}
           <div className="min-w-0 flex-1">
             <h2 className="text-[15px] font-semibold text-text-primary">{title}</h2>
-            {subtitle && <p className="mt-0.5 text-[12px] text-text-muted">{subtitle}</p>}
+            {subtitle && <p className="mt-0.5 text-[12px] text-text-muted max-sm:line-clamp-2">{subtitle}</p>}
           </div>
           <button
-            className="press-scale ml-auto flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-text-muted transition-colors hover:bg-surface-2 hover:text-text-primary"
+            className="press-scale ml-auto flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md max-sm:h-10 max-sm:w-10 text-text-muted transition-colors hover:bg-surface-2 hover:text-text-primary"
             onClick={onClose}
             type="button"
             aria-label="Close"
