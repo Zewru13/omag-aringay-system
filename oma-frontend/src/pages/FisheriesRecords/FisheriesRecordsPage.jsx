@@ -1286,8 +1286,8 @@ export default function FisheriesRecordsPage({ asTab = false }) {
 
         {error && <ErrorMessage message={error} />}
 
-        {/* Fisherfolk phones: cards instead of the wide table (the table returns at md and up). */}
-        {isFisherfolk && (
+        {/* Phones: cards instead of the wide table (the table returns at md and up). */}
+        {(
           <div className="space-y-3 md:hidden" data-testid="stock-cards">
             {isLoading ? (
               Array.from({ length: 3 }).map((_, i) => (
@@ -1316,7 +1316,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
         )}
 
         {/* Table */}
-        <div className={`overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] ${isFisherfolk ? 'hidden md:block' : ''}`}>
+        <div className={`overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] hidden md:block`}>
           <table className="min-w-full text-sm">
             <thead className="bg-[#1B4D2E] text-white">
               <tr>

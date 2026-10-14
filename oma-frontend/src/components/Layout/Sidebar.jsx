@@ -476,3 +476,8 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
 }
 
 export default Sidebar;
+
+// The staff phone shell (StaffPhoneShell) builds its bottom-tab menu from these same groups, so the sidebar stays the one
+// place the navigation is defined.
+// eslint-disable-next-line react-refresh/only-export-components
+export { ADMIN_GROUP, DASHBOARD_ITEM, DISASTER_GROUP, GROUPS, REPORTS_GROUP, isItemActive };

@@ -4,6 +4,7 @@ import useIsPhone from '../../hooks/useIsPhone.js'
 import CitizenPhoneShell from '../../pages/Citizen/CitizenPhoneShell.jsx'
 import Navbar from './Navbar.jsx'
 import Sidebar from './Sidebar.jsx'
+import StaffPhoneShell from './StaffPhoneShell.jsx'
 
 // `subtitle` is still accepted from the pages but no longer shown.
 function PageLayout({ title, action, children }) {
@@ -47,6 +48,10 @@ function PageLayout({ title, action, children }) {
   // instead of the admin sidebar layout. Everyone else, and tablets/desktops, keep the layout below untouched.
   if ((isFisherfolk || isFarmer || isOrg) && isPhone) {
     return <CitizenPhoneShell title={title} action={action}>{children}</CitizenPhoneShell>
+  }
+  // Admin and Focal Person on a phone: the staff shell (top bar and bottom tabs) instead of the sidebar drawer.
+  if (isPhone) {
+    return <StaffPhoneShell title={title} action={action}>{children}</StaffPhoneShell>
   }
 
   return (

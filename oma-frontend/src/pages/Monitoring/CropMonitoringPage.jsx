@@ -8,6 +8,7 @@ import api from '../../api/axiosInstance.js'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
+import useIsPhone from '../../hooks/useIsPhone.js'
 import DisasterIndicator from '../../components/UI/DisasterIndicator.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
@@ -2001,6 +2002,7 @@ const COLUMNS = [
 ]
 
 export default function CropMonitoringPage() {
+  const isPhone = useIsPhone()
   const [searchParams] = useSearchParams()
   const { showToast } = useToast()
 
@@ -2215,9 +2217,10 @@ export default function CropMonitoringPage() {
 
         {error && <ErrorMessage message={error} />}
 
-        {isFarmer ? (
-          // A farmer account gets the system's standard table: cards on a phone, a table on a larger screen
-          // (the same DataTable the Fisheries pages use), instead of this page's sideways-scrolling staff table.
+        {isFarmer || isPhone ? (
+          // A farmer account, and any account on a phone, gets the system's standard table: cards on a phone, a table
+          // on a larger screen (the same DataTable the Fisheries pages use), instead of this page's sideways-scrolling
+          // staff table.
           <DataTable
             columns={columns}
             data={rows}
@@ -2225,7 +2228,7 @@ export default function CropMonitoringPage() {
             emptyState={(
               <div className="px-4 py-12 text-center">
                 <p className="text-[14px] font-medium text-[#4A5E4A]">No monitoring records found</p>
-                <p className="text-[13px] text-[#7A8E7A]">Your crops will appear here once the office registers them.</p>
+                <p className="text-[13px] text-[#7A8E7A]">{isFarmer ? 'Your crops will appear here once the office registers them.' : 'Add crop records to begin monitoring'}</p>
               </div>
             )}
           />
