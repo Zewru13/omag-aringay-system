@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import DataTable from '../../components/UI/DataTable.jsx';
+import useIsPhone from '../../hooks/useIsPhone.js';
 import useDebouncedValue from "../../hooks/useDebouncedValue.js";
 import {
   Eye,
@@ -1032,6 +1034,7 @@ function CropRowActionsMenu({ rec, isAdmin, onViewDetails, onEdit, onRemarks, on
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function CropInformationPage() {
+  const isPhone = useIsPhone();
   const { isAdmin } = useAuth();
   const navigate = useNavigate();
   const [records, setRecords] = useState([]);
@@ -1211,7 +1214,10 @@ export default function CropInformationPage() {
 
         {error && <ErrorMessage message={error} />}
 
-        {/* Table */}
+        {/* A phone gets cards (the standard table component); larger screens keep the table below. */}
+        {isPhone ? (
+          <DataTable columns={COLUMNS} data={rows} isLoading={isLoading} />
+        ) : (
         <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
           <table className="min-w-full text-sm">
             <thead className="bg-[#1B4D2E] text-white">
@@ -1285,6 +1291,7 @@ export default function CropInformationPage() {
             </tbody>
           </table>
         </div>
+        )}
 
         <PaginationBar
           page={page}

@@ -229,7 +229,7 @@ function FisheriesDisasterTab({ openLog }) {
           <h2 className="text-sm font-semibold text-slate-700">Fisheries Disasters</h2>
           <p className="text-xs text-slate-500">All fisherfolk aquaculture disaster logs, including those fisherfolk submit when they log.</p>
         </div>
-        <Button onClick={() => setStep({ name: 'person' })}><Plus size={15} className="mr-1" /> Log Disaster</Button>
+        <Button className="shrink-0 whitespace-nowrap" onClick={() => setStep({ name: 'person' })}><Plus size={15} className="mr-1" /> Log Disaster</Button>
       </div>
       <Filters search={search} setSearch={setFilter(setSearch)} barangay={barangay} setBarangay={setFilter(setBarangay)}
         type={type} setType={setFilter(setType)} types={FISHERFOLK_DISASTER_TYPES} status={status} setStatus={setFilter(setStatus)}
@@ -319,7 +319,7 @@ function FarmerDisasterTab() {
           <h2 className="text-sm font-semibold text-slate-700">Farmer Disasters</h2>
           <p className="text-xs text-slate-500">All disaster logs on farmers' crop records.</p>
         </div>
-        <Button onClick={() => setStep({ name: 'person' })}><Plus size={15} className="mr-1" /> Log Disaster</Button>
+        <Button className="shrink-0 whitespace-nowrap" onClick={() => setStep({ name: 'person' })}><Plus size={15} className="mr-1" /> Log Disaster</Button>
       </div>
       <Filters search={search} setSearch={setFilter(setSearch)} barangay={barangay} setBarangay={setFilter(setBarangay)}
         type={type} setType={setFilter(setType)} types={CROP_TYPES} status={status} setStatus={setFilter(setStatus)}
