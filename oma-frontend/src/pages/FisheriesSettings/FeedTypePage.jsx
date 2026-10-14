@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Pencil, Plus, Trash2, Wheat } from 'lucide-react'
+import AddButton from '../../components/UI/AddButton.jsx'
+import CardHeader from '../../components/UI/CardHeader.jsx'
+import { Pencil, Trash2, Wheat } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
@@ -130,17 +132,12 @@ export default function FeedTypePage({ asTab = false }) {
     <div className="space-y-4">
       {error && <ErrorMessage message={error} />}
       <div className="bg-white rounded-xl border border-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#F0F4F0]">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-[3px] bg-[#1B4D2E]" />
-            <h2 className="text-[13px] font-semibold text-[#1A2B1A]">Feed Types</h2>
-          </div>
-          <button type="button" onClick={() => { setEditing(null); setShowModal(true) }}
-            className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 py-1.5 text-[12px] font-medium text-white hover:bg-[#235E38]">
-            <Plus size={12} /> Add Feed Type
-          </button>
-        </div>
-        <DataTable columns={COLUMNS} data={rows} isLoading={isLoading} />
+        <CardHeader
+            title="Feed Types"
+            markerClass="bg-[#1B4D2E]"
+            action={<AddButton onClick={() => { setEditing(null); setShowModal(true) }}>Add Feed Type</AddButton>}
+          />
+        <DataTable bare columns={COLUMNS} data={rows} isLoading={isLoading} />
       </div>
 
       {showModal && (

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Pencil, Plus, Sprout, Trash2 } from 'lucide-react'
+import AddButton from '../../components/UI/AddButton.jsx'
+import CardHeader from '../../components/UI/CardHeader.jsx'
+import { ChevronLeft, ChevronRight, Pencil, Sprout, Trash2 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
@@ -254,20 +256,15 @@ export default function CropVarietyPage({ asTab = false }) {
     ),
   }))
 
-  const actionBtn = (
-    <Button size="sm" onClick={() => { setEditVariety(null); setShowModal(true) }}>
-      <Plus size={15} />
-      Add New Variety
-    </Button>
-  )
+  const actionBtn = <AddButton onClick={() => { setEditVariety(null); setShowModal(true) }}>Add Variety</AddButton>
 
   const innerContent = (
     <div className="space-y-4">
-      {asTab && <div className="flex justify-end">{actionBtn}</div>}
       {error && <ErrorMessage message={error} />}
 
       <div className="bg-white rounded-xl border border-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-        <DataTable columns={COLUMNS} data={rows} isLoading={isLoading} />
+        <CardHeader title="Varieties" count={varieties.length} action={actionBtn} />
+        <DataTable bare columns={COLUMNS} data={rows} isLoading={isLoading} />
       </div>
 
       {!isLoading && totalPages > 1 && (
@@ -328,7 +325,6 @@ export default function CropVarietyPage({ asTab = false }) {
     <PageLayout
       title="Crop Variety Management"
       subtitle="Manage crop varieties used across the system."
-      action={actionBtn}
     >
       {innerContent}
     </PageLayout>

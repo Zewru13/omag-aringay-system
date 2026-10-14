@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Droplets, Pencil, Plus, Trash2 } from 'lucide-react'
+import AddButton from '../../components/UI/AddButton.jsx'
+import CardHeader from '../../components/UI/CardHeader.jsx'
+import { ChevronLeft, ChevronRight, Droplets, Pencil, Trash2 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
@@ -135,20 +137,15 @@ export default function SeedSourcePage({ asTab = false }) {
     ),
   }))
 
-  const actionBtn = (
-    <Button size="sm" onClick={() => { setEditSource(null); setShowModal(true) }}>
-      <Plus size={15} />
-      Add New Seed Source
-    </Button>
-  )
+  const actionBtn = <AddButton onClick={() => { setEditSource(null); setShowModal(true) }}>Add Seed Source</AddButton>
 
   const innerContent = (
     <div className="space-y-4">
-      {asTab && <div className="flex justify-end">{actionBtn}</div>}
       {error && <ErrorMessage message={error} />}
 
       <div className="bg-white rounded-xl border border-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-        <DataTable columns={COLUMNS} data={rows} isLoading={isLoading} />
+        <CardHeader title="Seed Sources" count={sources.length} action={actionBtn} />
+        <DataTable bare columns={COLUMNS} data={rows} isLoading={isLoading} />
       </div>
 
       {!isLoading && totalPages > 1 && (
@@ -208,7 +205,6 @@ export default function SeedSourcePage({ asTab = false }) {
     <PageLayout
       title="Seed Source Management"
       subtitle="Manage seed source options used across the system."
-      action={actionBtn}
     >
       {innerContent}
     </PageLayout>

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Fish, Pencil, Plus, Trash2 } from 'lucide-react'
+import AddButton from '../../components/UI/AddButton.jsx'
+import CardHeader from '../../components/UI/CardHeader.jsx'
+import { Fish, Pencil, Trash2 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
@@ -112,21 +114,12 @@ export default function SpeciesCategoryPage({ asTab = false }) {
       {error && <ErrorMessage message={error} />}
 
       <div className="bg-white rounded-xl border border-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#F0F4F0]">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-[3px] bg-[#1B4D2E]" />
-            <h2 className="text-[13px] font-semibold text-[#1A2B1A]">Species Categories</h2>
-          </div>
-          <button
-            type="button"
-            onClick={() => { setEditCat(null); setShowModal(true) }}
-            className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 py-1.5 text-[12px] font-medium text-white hover:bg-[#235E38] transition-colors"
-          >
-            <Plus size={12} />
-            Add Category
-          </button>
-        </div>
-        <DataTable columns={COLUMNS} data={rows} isLoading={isLoading} />
+        <CardHeader
+            title="Species Categories"
+            markerClass="bg-[#1B4D2E]"
+            action={<AddButton onClick={() => { setEditCat(null); setShowModal(true) }}>Add Category</AddButton>}
+          />
+        <DataTable bare columns={COLUMNS} data={rows} isLoading={isLoading} />
       </div>
 
       {showModal && (
