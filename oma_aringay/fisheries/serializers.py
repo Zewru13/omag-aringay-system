@@ -199,6 +199,13 @@ class FisherfolkDetailSerializer(serializers.ModelSerializer):
         # number belong in the registry.
         if not (value or '').strip():
             raise serializers.ValidationError('RSBSA number is required and cannot be removed.')
+        if self.instance is not None and value.strip().upper() != (self.instance.rsbsa_number or '').upper():
+            from farmers.models import Farmer
+            if Farmer.objects.filter(rsbsa_number__iexact=value.strip()).exists():
+                raise serializers.ValidationError(
+                    'This RSBSA number already belongs to a registered farmer. A person who is both a farmer and a '
+                    'fisherfolk needs a different RSBSA number for each.'
+                )
         return value
 
     def validate_lgu_registration_number(self, value):
@@ -350,6 +357,14 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     'A fisherfolk with this RSBSA number is already registered in the system.'
                 )
+            # One RSBSA number = one person record: a farmer who also fishes needs a different number for each.
+            if self.instance is None or value.upper() != (self.instance.rsbsa_number or '').upper():
+                from farmers.models import Farmer
+                if Farmer.objects.filter(rsbsa_number__iexact=value).exists():
+                    raise serializers.ValidationError(
+                        'This RSBSA number already belongs to a registered farmer. A person who is both a farmer and a '
+                        'fisherfolk needs a different RSBSA number for each.'
+                    )
         return value
 
     def create(self, validated_data):

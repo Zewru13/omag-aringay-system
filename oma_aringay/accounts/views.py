@@ -377,51 +377,6 @@ class MeView(APIView):
         return Response(UserSerializer(updated_user).data)
 
 
-class SwitchActiveDomainView(APIView):
-    """
-    Switchable-identity feature, Phase 4. POST {"record_type": "FARMER" |
-    "FISHERFOLK"}. Flips which of the caller's OWN UserLinkedRecord rows is
-    active — the exact same mechanism Phase 3 proved end-to-end on
-    disposable data, now reachable for real, by the account it actually
-    belongs to, through no path but its own rows.
-
-    Deliberately narrow: only ever touches rows where user=request.user —
-    a citizen can never activate a link they don't already have (this view
-    does not and cannot create a new UserLinkedRecord; that only ever
-    happens at registration, via accounts.utils.create_inactive_citizen_shell
-    or the RSBSA/crop importers' dual-registration commit paths). Requesting
-    a record_type the caller has no row for is a plain 400, not a 403 —
-    there's nothing to authorize or deny, the row just doesn't exist.
-
-    Returns the fresh UserSerializer payload for convenience/testing, but
-    the frontend does a full page reload on switch (confirmed design, not
-    a SPA-style in-place update) — every other screen's data (dashboard,
-    permissions, notifications) already re-resolves correctly against the
-    new active row on the next request regardless of what this response
-    body contains, per Phase 3.
-    """
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        if request.user.role != User.Roles.CITIZEN:
-            return Response(
-                {'detail': 'Only citizen accounts have a switchable linked record.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        target_type = request.data.get('record_type')
-        target_link = UserLinkedRecord.objects.filter(user=request.user, record_type=target_type).first()
-        if target_link is None:
-            return Response(
-                {'detail': f'This account has no "{target_type}" linked record to switch to.'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        with transaction.atomic():
-            UserLinkedRecord.objects.filter(user=request.user).exclude(pk=target_link.pk).update(is_active=False)
-            UserLinkedRecord.objects.filter(pk=target_link.pk).update(is_active=True)
-        request.user.refresh_from_db()
-        return Response(UserSerializer(request.user).data)
-
-
 class MyProfileImageUploadView(APIView):
     """
     POST multipart with `image`. Replaces the caller's OWN profile_picture.
