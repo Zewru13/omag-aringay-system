@@ -216,7 +216,7 @@ export default function CropRecordImportModal({ onClose, onCommitted }) {
     ) : null,
     confirm: (
       <div className="flex w-full items-center justify-between">
-        <button type="button" onClick={() => setStep('preview')} className="text-[13px] font-medium text-[#7A8E7A] hover:text-[#1A2B1A] transition-colors">
+        <button type="button" onClick={() => setStep('preview')} className="text-[13px] font-medium text-[#7A8E7A] hover:text-[#1A2B1A] transition-colors max-md:min-h-[40px] max-md:pr-2">
           Back to Review
         </button>
         <Button type="button" isLoading={isBusy} onClick={handleCommit}>Confirm &amp; Create</Button>

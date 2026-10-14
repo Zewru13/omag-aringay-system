@@ -19,6 +19,7 @@ import { CONDITIONS, apiMessage, conditionTone, groupEquipment, openRequestCount
 import { filterOptions } from "../../utils/orgListFilter.js";
 import { agencyLabel } from "./agencyOptions.js";
 import BorrowedPanel from "./BorrowedPanel.jsx";
+import ConfirmedForMembersPanel from "./ConfirmedForMembersPanel.jsx";
 import EquipmentGroupBody from "./EquipmentGroupBody.jsx";
 import OrgCompactList from "./OrgCompactList.jsx";
 import {
@@ -897,10 +898,12 @@ function OrganizationDetailPage({ own = false }) {
         { value: "equipment", label: "Equipment" },
         { value: "borrowed", label: openRequestCount(loans) > 0 ? `Borrowed (${openRequestCount(loans)})` : "Borrowed" },
         { value: "officers", label: "Officers" },
+        { value: "confirmed", label: "Confirmed for Members" },
       ]
     : [
         { value: "members", label: "Members" },
         { value: "equipment", label: "Equipment Inventory" },
+        { value: "confirmed", label: "Confirmed for Members" },
       ];
 
   const [organization, setOrganization] = useState(null);
@@ -909,7 +912,7 @@ function OrganizationDetailPage({ own = false }) {
   const [searchParams] = useSearchParams();
   // An organization account can open straight onto a tab (the bell links to ?tab=borrowed, the Home shortcuts to the others).
   const [activeSection, setActiveSection] = useState(
-    own && ["members", "equipment", "borrowed", "officers"].includes(searchParams.get("tab")) ? searchParams.get("tab") : "members",
+    own && ["members", "equipment", "borrowed", "officers", "confirmed"].includes(searchParams.get("tab")) ? searchParams.get("tab") : "members",
   );
   const [showAddMember, setShowAddMember] = useState(false);
   const [showAddEquipment, setShowAddEquipment] = useState(false);
@@ -1278,7 +1281,7 @@ function OrganizationDetailPage({ own = false }) {
                         Lend equipment
                       </button>
                     </div>
-                  ) : own && activeSection === "officers" ? (
+                  ) : activeSection === "confirmed" ? null : own && activeSection === "officers" ? (
                     <div className={ACTION_ROW}>
                       <button className={BTN_OUTLINE} onClick={() => setShowOfficerHistory(true)} type="button">
                         Officer History
@@ -1478,6 +1481,11 @@ function OrganizationDetailPage({ own = false }) {
 
               {own && activeSection === "borrowed" && (
                 <BorrowedPanel type={type} loans={loans} onChanged={() => setRefreshKey((k) => k + 1)} />
+              )}
+
+              {/* The history of what this organization confirmed for its members (final, no staff review) */}
+              {activeSection === "confirmed" && (
+                <ConfirmedForMembersPanel type={type} organizationId={organization.id} />
               )}
 
               {/* Officers tab (an organization's own page) */}
