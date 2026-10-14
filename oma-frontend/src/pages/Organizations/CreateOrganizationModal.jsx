@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Building2, Copy, KeyRound, Phone } from 'lucide-react'
+import { Building2, Copy, KeyRound } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
@@ -186,7 +186,6 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
           {/* Organization Name */}
           <div>
             <label className={labelCls}>
-              <Building2 size={12} className="inline mr-1 text-[#7A8E7A]" />
               Organization Name <span className="text-rose-500">*</span>
             </label>
             <input className={baseInputClasses} required value={form.name}
@@ -211,7 +210,7 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
           </div>
 
           {/* Date Organized + Date Registered */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-3">
             <div>
               <label className={labelCls}>Date Organized <span className="text-rose-500">*</span></label>
               <input type="date" className={`${baseInputClasses}${formErrors.date_organized ? ' border-rose-400' : ''}`} value={form.date_organized}
@@ -270,14 +269,14 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
           </div>
 
           {/* Contact Person — side by side */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-3">
             <div>
-              <label className={labelCls}>Contact Person — Last Name <span className="text-rose-500">*</span></label>
+              <label className={labelCls}>Contact Person Last Name <span className="text-rose-500">*</span></label>
               <input className={baseInputClasses} value={form.contact_person_last}
                 onChange={e => set('contact_person_last', e.target.value)} />
             </div>
             <div>
-              <label className={labelCls}>First Name</label>
+              <label className={labelCls}>Contact Person First Name <span className="font-normal text-[#7A8E7A] text-[12px]">(optional)</span></label>
               <input className={baseInputClasses} value={form.contact_person_first}
                 onChange={e => set('contact_person_first', e.target.value)} />
             </div>
@@ -286,7 +285,6 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
           {/* Contact Number */}
           <div>
             <label className={labelCls}>
-              <Phone size={12} className="inline mr-1 text-[#7A8E7A]" />
               Contact Number <span className="text-rose-500">*</span>
             </label>
             <PhoneInput className={baseInputClasses} required

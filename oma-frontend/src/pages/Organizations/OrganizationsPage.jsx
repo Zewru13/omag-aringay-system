@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Pencil, Plus, Upload } from 'lucide-react'
+import RowActions from '../../components/UI/RowActions.jsx'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import ImportFileModal from '../../components/ImportFileModal.jsx'
@@ -72,18 +73,9 @@ function OrganizationsPage({ asTab = false }) {
     ...a,
     address_cell: [a.street_address, a.barangay].filter(Boolean).join(', ') || '—',
     actions_cell: (
-      <div className="flex items-center gap-1">
-        {(isAdmin || isEvaluator) && (
-          <button
-            type="button"
-            className="rounded-lg p-1.5 text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors"
-            title="Edit"
-            onClick={(e) => { e.stopPropagation(); setEditOrganization(a) }}
-          >
-            <Pencil size={14} />
-          </button>
-        )}
-      </div>
+      <RowActions actions={[
+        (isAdmin || isEvaluator) && { key: 'edit', label: 'Edit organization', icon: Pencil, onClick: () => setEditOrganization(a) },
+      ]} />
     ),
   }))
 
