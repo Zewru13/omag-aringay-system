@@ -20,6 +20,7 @@ import { fmtActualHarvestKg } from '../FisheriesRecords/stockingHelpers.js'
 import { ProductionUnitsCards, ProductionUnitsTable } from '../FisheriesRecords/ProductionUnitsPanel.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { ForecastCard } from '../../components/UI/ForecastCard.jsx'
+import { ActivityBreakdown, PhoneGroupList, PhoneYieldCard } from '../../components/UI/YieldPhone.jsx'
 import useExpandableProductionUnits from '../FisheriesRecords/useExpandableProductionUnits.js'
 import AquacultureCycleDetailModal from './AquacultureCycleDetailModal.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
@@ -803,7 +804,18 @@ function AggregatePanel({ groupBy, setGroupBy, groups, overall, cycleTrend, isLo
         </div>
       </div>
 
-      <div className="space-y-2">
+      {/* Phone: one small card per group, the first few open. */}
+      {!isLoading && groups.length > 0 && (
+        <div className="md:hidden">
+          <PhoneGroupList
+            groups={groups}
+            countText={g => `${g.stocking_count} stocking${g.stocking_count !== 1 ? 's' : ''}`}
+            lossCount={g => g.total_loss_count || 0}
+          />
+        </div>
+      )}
+
+      <div className={`space-y-2 ${!isLoading && groups.length > 0 ? 'max-md:hidden' : ''}`}>
         {isLoading ? (
           <p className="text-[12px] text-[#7A8E7A] py-3 text-center">Loading…</p>
         ) : groups.length === 0 ? (
@@ -1331,73 +1343,28 @@ export default function ForecastingTab({ asTab = false }) {
           {isFisherfolk ? <><span className="md:hidden">Tap a card</span><span className="hidden md:inline">Click a row</span></> : 'Click a row'} to see the full activity completion breakdown.
         </p>
         {/* Phones: one card per stocking (the table returns at md and up). */}
-        {(
-          <div className="space-y-3 md:hidden" data-testid="yield-cards">
-            {isLoading ? (
-              <p className="rounded-xl border border-[#E2E8E2] bg-white py-8 text-center text-[13px] text-[#7A8E7A]">Loading…</p>
-            ) : filteredRecords.length === 0 ? (
-              <p className="rounded-xl border border-[#E2E8E2] bg-white px-4 py-8 text-center text-[13px] text-[#7A8E7A]">No harvested or total-loss stockings found in scope.</p>
-            ) : pagedRecords.map(rec => (
-              <div
-                key={rec.id} data-testid="yield-card" role="button" tabIndex={0} aria-expanded={expanded.has(rec.id)}
-                onClick={() => toggleExpand(rec.id)}
-                onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggleExpand(rec.id) } }}
-                className="cursor-pointer rounded-xl border border-[#E2E8E2] bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-[15px] font-medium text-[#1A2B1A]">
-                      {rec.species}
-                      {rec.is_total_loss && (
-                        <span className="ml-1.5 whitespace-nowrap rounded-full bg-rose-50 border border-rose-200 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">Total Loss</span>
-                      )}
-                    </p>
-                    <p className="text-[12px] text-[#7A8E7A]">{[!isFisherfolk && rec.fisherfolk, `Cycle #${rec.production_cycle_no}`, rec.barangay].filter(Boolean).join(' · ')}</p>
-                  </div>
-                  <span className="shrink-0 text-[#7A8E7A]">{expanded.has(rec.id) ? <ChevronDown size={18} /> : <ChevronRight size={18} />}</span>
-                </div>
-                <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5">
-                  {[
-                    ['Estimated (kg)', rec.estimated_kg != null ? rec.estimated_kg.toLocaleString() : 'N/A'],
-                    ['Actual (kg)', rec.actual_total_kg.toLocaleString()],
-                    ['Variance', <VarianceBadge key="variance" pct={rec.variance_pct} />],
-                    ['Activities', `${rec.activities_completed_count}/${rec.activities_total_count}`],
-                  ].map(([label, value]) => (
-                    <div key={label} className="min-w-0">
-                      <dt className="text-[11px] font-medium uppercase tracking-wide text-[#7A8E7A]">{label}</dt>
-                      <dd className="mt-0.5 text-[13px] text-[#1A2B1A]">{value}</dd>
-                    </div>
-                  ))}
-                </dl>
-                <div className="mt-2.5">
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-[#7A8E7A]">Possible Factors</p>
-                  <p className={`mt-0.5 break-words text-[12px] text-[#4A5E4A] ${expanded.has(rec.id) ? '' : 'line-clamp-3'}`}>{possibleFactorsText(rec, 'fisheries')}</p>
-                </div>
-                {expanded.has(rec.id) && (
-                  <div className="mt-3 border-t border-[#F0F4F0] pt-3">
-                    <p className="text-[12px] font-semibold text-[#1A2B1A] mb-2">Activity completion breakdown</p>
-                    {rec.activity_breakdown.length === 0 ? (
-                      <p className="text-[12px] text-[#7A8E7A]">No activity schedule defined for this species.</p>
-                    ) : (
-                      <div className="grid gap-1">
-                        {rec.activity_breakdown.map((b, i) => (
-                          <div key={i} className={`flex min-w-0 items-center gap-1.5 text-[12px] rounded-lg border px-2 py-1 ${
-                            b.completed ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'
-                          }`}>
-                            <span className="font-medium">{b.completed ? '✓' : '✗'}</span>
-                            <span className="truncate">{b.activity} (Day {b.scheduled_day})</span>
-                            {b.priority === 'HIGH' && <span className="text-[10px] uppercase tracking-wide opacity-70 shrink-0">high</span>}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <p className="text-[11px] text-[#A8BCA8] italic mt-3">{YIELD_DISCLAIMER}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+        <div className="space-y-3 md:hidden" data-testid="yield-cards">
+          {isLoading ? (
+            <p className="rounded-xl border border-[#E2E8E2] bg-white py-8 text-center text-[13px] text-[#7A8E7A]">Loading…</p>
+          ) : pagedRecords.length === 0 ? (
+            <p className="rounded-xl border border-[#E2E8E2] bg-white px-4 py-8 text-center text-[13px] text-[#7A8E7A]">No harvested or total-loss stockings found in scope.</p>
+          ) : pagedRecords.map(rec => (
+            <PhoneYieldCard
+              key={rec.id}
+              title={rec.species}
+              badge={rec.is_total_loss ? <StatusPill tone="rose">Total loss</StatusPill> : <VarianceBadge pct={rec.variance_pct} />}
+              subtitle={[!isFisherfolk && rec.fisherfolk, `Cycle #${rec.production_cycle_no}`, rec.barangay].filter(Boolean).join(' · ')}
+              estimated={rec.estimated_kg != null ? `${rec.estimated_kg.toLocaleString()} kg` : 'N/A'}
+              actual={`${rec.actual_total_kg.toLocaleString()} kg`}
+              activities={`${rec.activities_completed_count}/${rec.activities_total_count}`}
+              factors={possibleFactorsText(rec, 'fisheries')}
+              expanded={expanded.has(rec.id)}
+              onToggle={() => toggleExpand(rec.id)}
+            >
+              <ActivityBreakdown items={rec.activity_breakdown} emptyText="No activity schedule defined for this species." disclaimer={YIELD_DISCLAIMER} />
+            </PhoneYieldCard>
+          ))}
+        </div>
         <div className={`overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)] max-md:hidden`}>
           <table className="min-w-full text-sm">
             <thead className="bg-[#1B4D2E] text-white">
