@@ -334,7 +334,7 @@ function AddMemberModal({ type, organizationId, organizationName, own = false, o
 
         {/* Date Joined */}
         <div>
-          <label className={labelCls}>Date Joined</label>
+          <label className={labelCls}>Date Joined <span className="text-rose-500">*</span></label>
           <input
             className={`${baseInputClasses} mt-1`}
             required
@@ -781,7 +781,7 @@ function AddEquipmentModal({ type, organizationId, onClose, onSuccess }) {
         <div className="grid gap-4 md:grid-cols-2">
           {/* Quantity */}
           <div>
-            <label className={labelCls}>Quantity</label>
+            <label className={labelCls}>Quantity <span className="text-rose-500">*</span></label>
             <input
               className={`${baseInputClasses} mt-1`}
               min={1}

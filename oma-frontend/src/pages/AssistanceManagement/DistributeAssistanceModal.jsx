@@ -501,7 +501,7 @@ export default function DistributeAssistanceModal({ domain, fixedOrg = null, onC
                     type="button"
                     onClick={() => setResultFilter(t.key)}
                     className={
-                      'rounded-full px-3 py-1 text-[11px] font-semibold transition-colors ' +
+                      'rounded-full px-3 py-1 text-[11px] font-semibold transition-colors max-md:min-h-[36px] ' +
                       (resultFilter === t.key ? 'bg-[#1B4D2E] text-white' : 'bg-[#F0F4F0] text-[#5A6B5C] hover:bg-[#E2E8E2]')
                     }
                   >

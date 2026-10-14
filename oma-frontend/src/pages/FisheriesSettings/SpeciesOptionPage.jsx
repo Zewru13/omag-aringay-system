@@ -262,6 +262,10 @@ function SpeciesModal({ species, categories, onClose, onSaved }) {
     e.preventDefault()
     if (!form.species_name.trim())    { showToast('Species name is required.', 'error'); return }
     if (!form.culture_duration_days)  { showToast('Culture duration is required.', 'error'); return }
+    // The server requires these three too (they used to be labelled optional, and saving without them failed with no reason).
+    if (!form.category)                   { showToast('Choose a category.', 'error'); return }
+    if (form.default_survival_rate_pct === '') { showToast('Default survival rate is required.', 'error'); return }
+    if (form.default_avg_body_weight_kg === '') { showToast('Default average body weight is required.', 'error'); return }
     const stageDays = [form.fingerling_start_day, form.juvenile_start_day, form.adult_start_day]
     const stageDaysSet = stageDays.filter(d => d !== '')
     if (stageDaysSet.length > 0 && stageDaysSet.length < 3) {
@@ -275,9 +279,9 @@ function SpeciesModal({ species, categories, onClose, onSaved }) {
     }
     setPendingPayload({
       ...form,
-      category:                   form.category || null,
-      default_survival_rate_pct:  form.default_survival_rate_pct  || null,
-      default_avg_body_weight_kg: form.default_avg_body_weight_kg || null,
+      category:                   form.category,
+      default_survival_rate_pct:  form.default_survival_rate_pct,
+      default_avg_body_weight_kg: form.default_avg_body_weight_kg,
       fingerling_start_day:       form.fingerling_start_day === '' ? null : form.fingerling_start_day,
       juvenile_start_day:         form.juvenile_start_day   === '' ? null : form.juvenile_start_day,
       adult_start_day:            form.adult_start_day      === '' ? null : form.adult_start_day,
@@ -299,7 +303,10 @@ function SpeciesModal({ species, categories, onClose, onSaved }) {
       if (nameErr) {
         setNameError(nameErr)
       } else {
-        showToast(err?.response?.data?.detail || 'Failed to save species.', 'error')
+        // Say what the server refused instead of a bare "Failed": its detail, or the first field it named.
+        const data = err?.response?.data
+        const field = data && typeof data === 'object' ? Object.entries(data).find(([, v]) => Array.isArray(v) && v[0]) : null
+        showToast(data?.detail || (field ? `${field[0].replace(/_/g, ' ')}: ${field[1][0]}` : 'Failed to save species.'), 'error')
       }
     } finally {
       setIsSubmitting(false)
@@ -334,13 +341,13 @@ function SpeciesModal({ species, categories, onClose, onSaved }) {
               autoFocus
             />
           </FormField>
-          <FormField label="Category">
+          <FormField label="Category" required>
             <select
               className={baseInputClasses}
               value={form.category}
               onChange={e => set('category', e.target.value)}
             >
-              <option value="">— None —</option>
+              <option value="" disabled>Select category…</option>
               {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </FormField>
@@ -386,7 +393,7 @@ function SpeciesModal({ species, categories, onClose, onSaved }) {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <FormField label="Default Survival Rate (%)">
+            <FormField label="Default Survival Rate (%)" required>
               <input
                 type="number"
                 min="0"
@@ -398,7 +405,7 @@ function SpeciesModal({ species, categories, onClose, onSaved }) {
                 onChange={e => set('default_survival_rate_pct', e.target.value)}
               />
             </FormField>
-            <FormField label="Default Avg Body Weight (kg)">
+            <FormField label="Default Avg Body Weight (kg)" required>
               <input
                 type="number"
                 min="0"

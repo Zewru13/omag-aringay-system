@@ -3,7 +3,11 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 import axiosInstance from '../../api/axiosInstance';
+import { History } from 'lucide-react';
 import BarangaySelect from '../../components/UI/BarangaySelect';
+import Button from '../../components/UI/Button.jsx';
+import { baseInputClasses } from '../../components/UI/FormField.jsx';
+import ModalShell from '../../components/UI/ModalShell.jsx';
 
 const FISHERFOLK_TYPES = [
   { value: '', label: 'All Types' },
@@ -48,14 +52,15 @@ export default function FisheriesHistoryModal({ onClose }) {
   })) || [];
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-container" style={{ maxWidth: 820, maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
-        <div className="modal-header">
-          <h2 className="modal-title">Fisheries Historical Timeline</h2>
-          <button className="modal-close" onClick={onClose}>✕</button>
-        </div>
-
-        <div className="modal-body" style={{ overflowY: 'auto' }}>
+    <ModalShell
+      title="Fisheries Historical Timeline"
+      subtitle="Catch volume by season, municipality-wide or per barangay."
+      icon={History}
+      onClose={onClose}
+      maxWidth="max-w-4xl"
+      footer={<Button type="button" variant="outline" onClick={onClose}>Close</Button>}
+    >
+        <div>
           <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: 180 }}>
               <label style={{ fontSize: 12, color: '#666', display: 'block', marginBottom: 4 }}>Barangay</label>
@@ -69,7 +74,7 @@ export default function FisheriesHistoryModal({ onClose }) {
             </div>
             <div style={{ flex: 1, minWidth: 180 }}>
               <label style={{ fontSize: 12, color: '#666', display: 'block', marginBottom: 4 }}>Fisherfolk Type</label>
-              <select value={fisherfolkType} onChange={e => setFisherfolkType(e.target.value)} className="form-control">
+              <select value={fisherfolkType} onChange={e => setFisherfolkType(e.target.value)} className={baseInputClasses}>
                 {FISHERFOLK_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>
@@ -144,12 +149,6 @@ export default function FisheriesHistoryModal({ onClose }) {
             </>
           )}
         </div>
-
-        <div className="modal-footer">
-          <div style={{ flex: 1 }} />
-          <button className="btn btn-secondary" onClick={onClose}>Close</button>
-        </div>
-      </div>
-    </div>
+    </ModalShell>
   );
 }
