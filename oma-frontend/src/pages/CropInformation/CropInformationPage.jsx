@@ -197,7 +197,7 @@ function AddRemarkModal({ record, onClose, onSuccess }) {
       </ModalShell>
 
       {showConfirm && (
-        <ConfirmDialog
+        <ConfirmDialog variant="primary"
           title="Confirm Add Remark"
           message="Are you sure you want to save this remark?"
           confirmLabel="Yes, Save Remark"

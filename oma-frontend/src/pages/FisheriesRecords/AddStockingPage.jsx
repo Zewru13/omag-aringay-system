@@ -729,7 +729,7 @@ export default function AddStockingPage() {
       </form>
 
       {showConfirm && (
-        <ConfirmDialog
+        <ConfirmDialog variant="primary"
           title="Confirm Add Stocking"
           message={`Add ${records.length} stocking record${records.length > 1 ? 's' : ''} for ${fisherfolkInfo.full_name}?`}
           confirmLabel="Confirm"

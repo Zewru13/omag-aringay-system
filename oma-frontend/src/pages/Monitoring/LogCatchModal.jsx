@@ -246,7 +246,7 @@ function LogCatchModal({ onClose, onSuccess }) {
       }
     >
       <form id="log-catch-form" onSubmit={handleSubmit} className="space-y-4">
-        <FormField label="Fisherfolk (Capture / Inland Fishery)">
+        <FormField label="Fisherfolk (Capture / Inland Fishery)" required>
           <SearchBar
             value={ffSearch}
             onChange={handleFfSearch}
@@ -329,9 +329,10 @@ function LogCatchModal({ onClose, onSuccess }) {
 
           <div className="space-y-2">
             {speciesRows.map((row, i) => (
-              <div key={i} className="grid gap-2 items-end" style={{ gridTemplateColumns: '2fr 1fr 1fr auto' }}>
-                <div>
-                  {i === 0 && <label className="text-xs text-slate-500 mb-1 block">Species Name</label>}
+              <div key={i} className="grid grid-cols-2 items-end gap-2 rounded-lg border border-slate-100 p-2 sm:grid-cols-[2fr_1fr_1fr_auto] sm:rounded-none sm:border-0 sm:p-0">
+                {/* On a phone each row is its own little card with its labels; from sm up one aligned row, labels on the first only. */}
+                <div className="col-span-2 sm:col-span-1">
+                  <label className={`text-xs text-slate-500 mb-1 block ${i === 0 ? '' : 'sm:hidden'}`}>Species Name</label>
                   <ComboboxWithOther
                     options={SPECIES_NAME_OPTIONS.filter(o => o !== 'Other')}
                     value={row.species_name}
@@ -342,7 +343,7 @@ function LogCatchModal({ onClose, onSuccess }) {
                   />
                 </div>
                 <div>
-                  {i === 0 && <label className="text-xs text-slate-500 mb-1 block">Volume (kg)</label>}
+                  <label className={`text-xs text-slate-500 mb-1 block ${i === 0 ? '' : 'sm:hidden'}`}>Volume (kg)</label>
                   <input
                     type="number"
                     step="0.01"
@@ -354,7 +355,7 @@ function LogCatchModal({ onClose, onSuccess }) {
                   />
                 </div>
                 <div>
-                  {i === 0 && <label className="text-xs text-slate-500 mb-1 block">Est. Value (₱)</label>}
+                  <label className={`text-xs text-slate-500 mb-1 block ${i === 0 ? '' : 'sm:hidden'}`}>Est. Value (₱)</label>
                   <input
                     type="number"
                     step="0.01"
@@ -369,10 +370,11 @@ function LogCatchModal({ onClose, onSuccess }) {
                   type="button"
                   onClick={() => removeSpeciesRow(i)}
                   disabled={speciesRows.length === 1}
-                  className="text-slate-400 hover:text-red-500 disabled:opacity-30 pb-1 px-1"
+                  className="col-span-2 justify-self-end rounded-md px-2 py-1 text-sm text-slate-400 hover:text-red-500 disabled:opacity-30 max-sm:min-h-[36px] sm:col-span-1 sm:pb-1 sm:px-1"
                   title="Remove row"
+                  aria-label="Remove species row"
                 >
-                  ✕
+                  <span aria-hidden="true">✕</span><span className="sm:hidden"> Remove</span>
                 </button>
               </div>
             ))}

@@ -133,7 +133,7 @@ export default function ImportFileModal({
               type="button"
               onClick={handleDownloadTemplate}
               disabled={isDownloading}
-              className="mb-3 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-[#1B4D2E] hover:underline disabled:opacity-50"
+              className="mb-3 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-[#1B4D2E] hover:underline disabled:opacity-50 max-md:min-h-[40px]"
             >
               <Download size={14} aria-hidden="true" />
               {isDownloading ? 'Downloading…' : 'Download the Excel template'}

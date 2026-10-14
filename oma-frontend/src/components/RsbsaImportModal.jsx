@@ -357,7 +357,7 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
 
           <div className="flex items-center justify-between rounded-2xl border border-[#E2E8E2] bg-[#F9FAF9] px-5 py-3">
             <p className="text-[12.5px] text-[#4A5A4C]">Committed an import by mistake? You can review and reverse a recent one.</p>
-            <button type="button" onClick={() => { setUndoBatchId(null); setStep('undo') }} className="shrink-0 text-[13px] font-semibold text-[#1B4D2E] hover:underline">
+            <button type="button" onClick={() => { setUndoBatchId(null); setStep('undo') }} className="shrink-0 text-[13px] font-semibold text-[#1B4D2E] hover:underline max-md:min-h-[40px] max-md:px-1">
               Undo a recent import
             </button>
           </div>

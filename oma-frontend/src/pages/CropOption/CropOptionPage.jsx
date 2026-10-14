@@ -525,7 +525,7 @@ function CropTypeModal({ crop, categories, subcategories, onClose, onSaved }) {
       </ModalShell>
 
       {pendingPayload && (
-        <ConfirmDialog
+        <ConfirmDialog variant="primary"
           title="Confirm Action"
           message={isEdit ? `Save changes to "${pendingPayload.name}"?` : `Add "${pendingPayload.name}" as a new crop?`}
           confirmLabel="Confirm"

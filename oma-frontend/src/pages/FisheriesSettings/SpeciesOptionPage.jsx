@@ -417,7 +417,7 @@ function SpeciesModal({ species, categories, onClose, onSaved }) {
       </ModalShell>
 
       {pendingPayload && (
-        <ConfirmDialog
+        <ConfirmDialog variant="primary"
           title="Confirm Action"
           message={isEdit ? `Save changes to "${pendingPayload.species_name}"?` : `Add "${pendingPayload.species_name}" as a new species?`}
           confirmLabel="Confirm"

@@ -505,9 +505,10 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
           <div className="space-y-3 rounded-xl border border-green-200 bg-[#f0f7f0] p-4">
             <p className="text-sm font-semibold text-[#1E4620]">{unitLabel} Details</p>
             {/* One table for all ponds/cages: one row per unit, numbered by its unit number (1..N). */}
-            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
-              <table className="w-full min-w-[560px] text-sm" data-testid="unit-table">
-                <thead>
+            {/* A table from sm up; on a phone each pond/cage is its own card with labelled fields. */}
+            <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white max-sm:overflow-visible max-sm:border-0 max-sm:bg-transparent">
+              <table className="w-full min-w-[560px] text-sm max-sm:block max-sm:min-w-0" data-testid="unit-table">
+                <thead className="max-sm:hidden">
                   <tr className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                     <th className="px-3 py-2">{unitLabel} No.</th>
                     <th className="px-3 py-2">Length (m) <span className="text-red-500">*</span></th>
@@ -516,24 +517,24 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
                     <th className="px-3 py-2">Number of Fingerlings <span className="text-red-500">*</span></th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="max-sm:block">
                   {shownUnits.map((u, i) => (
-                    <tr key={i} className="border-t border-slate-100">
-                      <td className="px-3 py-2 font-medium text-slate-800">{unitLabel} {i + 1}</td>
-                      <td className="px-3 py-1.5">
+                    <tr key={i} className="border-t border-slate-100 max-sm:mb-2 max-sm:grid max-sm:grid-cols-2 max-sm:gap-2 max-sm:rounded-xl max-sm:border max-sm:border-slate-200 max-sm:bg-white max-sm:p-3">
+                      <td className="px-3 py-2 font-medium text-slate-800 max-sm:col-span-2 max-sm:p-0">{unitLabel} {i + 1}</td>
+                      <td data-label="Length (m) *" className="px-3 py-1.5 max-sm:block max-sm:p-0 max-sm:before:mb-1 max-sm:before:block max-sm:before:text-[11px] max-sm:before:font-semibold max-sm:before:uppercase max-sm:before:tracking-wide max-sm:before:text-slate-500 max-sm:before:content-[attr(data-label)]">
                         <input
                           type="number" className={baseInputClasses} required min="0.01" step="0.01" aria-label={`${unitLabel} ${i + 1} length (m)`}
                           value={u.length_m} onChange={e => setUnitField(i, 'length_m', e.target.value)}
                         />
                       </td>
-                      <td className="px-3 py-1.5">
+                      <td data-label="Width (m) *" className="px-3 py-1.5 max-sm:block max-sm:p-0 max-sm:before:mb-1 max-sm:before:block max-sm:before:text-[11px] max-sm:before:font-semibold max-sm:before:uppercase max-sm:before:tracking-wide max-sm:before:text-slate-500 max-sm:before:content-[attr(data-label)]">
                         <input
                           type="number" className={baseInputClasses} required min="0.01" step="0.01" aria-label={`${unitLabel} ${i + 1} width (m)`}
                           value={u.width_m} onChange={e => setUnitField(i, 'width_m', e.target.value)}
                         />
                       </td>
-                      <td className="px-3 py-2 font-medium text-slate-800" data-testid="unit-area">{u.area > 0 ? u.area.toFixed(2) : '—'}</td>
-                      <td className="px-3 py-1.5">
+                      <td data-label="Area (m²)" className="px-3 py-2 font-medium text-slate-800 max-sm:block max-sm:p-0 max-sm:before:mb-1 max-sm:before:block max-sm:before:text-[11px] max-sm:before:font-semibold max-sm:before:uppercase max-sm:before:tracking-wide max-sm:before:text-slate-500 max-sm:before:content-[attr(data-label)]" data-testid="unit-area">{u.area > 0 ? u.area.toFixed(2) : '—'}</td>
+                      <td data-label="Number of fingerlings *" className="px-3 py-1.5 max-sm:block max-sm:p-0 max-sm:before:mb-1 max-sm:before:block max-sm:before:text-[11px] max-sm:before:font-semibold max-sm:before:uppercase max-sm:before:tracking-wide max-sm:before:text-slate-500 max-sm:before:content-[attr(data-label)] max-sm:col-span-2">
                         <input
                           type="number" className={baseInputClasses} required min="1" step="1" aria-label={`${unitLabel} ${i + 1} number of fingerlings`}
                           value={u.actual} onChange={e => setUnitField(i, 'fingerling_count', e.target.value)}
@@ -542,13 +543,13 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
                     </tr>
                   ))}
                 </tbody>
-                <tfoot>
-                  <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold text-slate-800" data-testid="unit-total-row">
-                    <td className="px-3 py-2">TOTAL</td>
-                    <td className="px-3 py-2">—</td>
-                    <td className="px-3 py-2">—</td>
-                    <td className="px-3 py-2" data-testid="total-area">{totalArea.toFixed(2)}</td>
-                    <td className="px-3 py-2" data-testid="total-fingerlings">{fmtInt(totalFingerlings)}</td>
+                <tfoot className="max-sm:block">
+                  <tr className="border-t-2 border-slate-200 bg-slate-50 font-semibold text-slate-800 max-sm:grid max-sm:grid-cols-2 max-sm:gap-2 max-sm:rounded-xl max-sm:border max-sm:border-slate-200 max-sm:p-3" data-testid="unit-total-row">
+                    <td className="px-3 py-2 max-sm:col-span-2 max-sm:p-0">TOTAL</td>
+                    <td className="px-3 py-2 max-sm:hidden">—</td>
+                    <td className="px-3 py-2 max-sm:hidden">—</td>
+                    <td data-label="Total area (m²)" className="px-3 py-2 max-sm:block max-sm:p-0 max-sm:before:mb-1 max-sm:before:block max-sm:before:text-[11px] max-sm:before:font-semibold max-sm:before:uppercase max-sm:before:tracking-wide max-sm:before:text-slate-500 max-sm:before:content-[attr(data-label)]" data-testid="total-area">{totalArea.toFixed(2)}</td>
+                    <td data-label="Total fingerlings" className="px-3 py-2 max-sm:block max-sm:p-0 max-sm:before:mb-1 max-sm:before:block max-sm:before:text-[11px] max-sm:before:font-semibold max-sm:before:uppercase max-sm:before:tracking-wide max-sm:before:text-slate-500 max-sm:before:content-[attr(data-label)]" data-testid="total-fingerlings">{fmtInt(totalFingerlings)}</td>
                   </tr>
                 </tfoot>
               </table>

@@ -99,7 +99,7 @@ function SignatureModal({ purpose, onClose, onGenerate }) {
           <button
             type="button"
             onClick={() => setShowReviewer(v => !v)}
-            className="text-[12px] font-medium text-[#1B4D2E] hover:underline"
+            className="text-[12px] font-medium text-[#1B4D2E] hover:underline max-md:min-h-[40px] max-md:px-2"
           >
             {showReviewer ? 'Remove' : 'Add'}
           </button>
@@ -125,7 +125,7 @@ function SignatureModal({ purpose, onClose, onGenerate }) {
           <button
             type="button"
             onClick={() => setShowNotedBy(v => !v)}
-            className="text-[12px] font-medium text-[#1B4D2E] hover:underline"
+            className="text-[12px] font-medium text-[#1B4D2E] hover:underline max-md:min-h-[40px] max-md:px-2"
           >
             {showNotedBy ? 'Remove' : 'Add'}
           </button>

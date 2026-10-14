@@ -713,7 +713,7 @@ function AddFarmParcelModal({ farmerId, onClose, onSuccess }) {
       </ModalShell>
 
       {showConfirm && (
-        <ConfirmDialog
+        <ConfirmDialog variant="primary"
           title="Confirm Save"
           subtitle="This will be submitted to the system"
           message={<>Save <strong className="font-semibold text-[#1A2B1A]">{parcels.length} parcel{parcels.length > 1 ? 's' : ''}</strong> for this farmer?</>}

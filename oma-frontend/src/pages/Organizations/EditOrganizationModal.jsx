@@ -282,7 +282,7 @@ export default function EditOrganizationModal({ organization, type, onClose, onS
       </ModalShell>
 
       {showConfirm && (
-        <ConfirmDialog
+        <ConfirmDialog variant="primary"
           title="Confirm Action"
           message={`Save changes to "${form.name}"?`}
           confirmLabel="Confirm"

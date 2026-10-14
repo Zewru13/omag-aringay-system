@@ -198,7 +198,7 @@ export default function EditUserModal({ user, onClose, onSuccess }) {
       </ModalShell>
 
       {showConfirm && (
-        <ConfirmDialog
+        <ConfirmDialog variant="primary"
           title="Confirm Action"
           message={`Save changes to "${user.full_name}"?`}
           confirmLabel="Confirm"

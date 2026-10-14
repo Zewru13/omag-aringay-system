@@ -320,7 +320,7 @@ function FisherfolkDetailPage() {
             Back to Fisherfolk Registry
           </Link>
           {!isLoading && fisherfolk && (
-            <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto md:flex-wrap [&>*]:w-full [&>*]:justify-center md:[&>*]:w-auto">
+            <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto md:flex-wrap [&>*]:w-full [&>*]:justify-center md:[&>*]:w-auto [&>*:last-child:nth-child(odd)]:col-span-2 md:[&>*:last-child:nth-child(odd)]:col-span-1">
               <Button icon={ClipboardList} onClick={openHistory} variant="outline">
                 View Assistance History
               </Button>
