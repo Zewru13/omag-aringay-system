@@ -43,10 +43,10 @@ function SegmentedIdInput({ parts, value: initialValue, onChange, disabled }) {
   }
 
   return (
-    <div className="flex items-center gap-1 flex-wrap">
+    <div className="flex items-center gap-0.5 sm:gap-1">
       {parts.map((part, i) =>
         part.type === 'text' ? (
-          <span key={i} className="text-[13px] font-mono text-slate-500 select-none">
+          <span key={i} className="shrink-0 text-[11px] sm:text-[13px] font-mono text-slate-500 select-none">
             {part.value}
           </span>
         ) : (
@@ -55,7 +55,7 @@ function SegmentedIdInput({ parts, value: initialValue, onChange, disabled }) {
             type="text"
             inputMode="numeric"
             disabled={disabled}
-            className="h-[38px] px-2 border border-[#E2E8E2] rounded-lg text-[13px] font-mono text-[#1A2B1A] bg-white placeholder-[#A8BCA8] focus:outline-none focus:border-[#1B4D2E] focus:ring-2 focus:ring-[#1B4D2E]/10 transition-colors disabled:bg-slate-100 disabled:text-slate-400"
+            className="h-[38px] min-w-0 shrink px-0.5 text-center text-[12px] sm:px-2 sm:text-left sm:text-[13px] border border-[#E2E8E2] rounded-lg font-mono text-[#1A2B1A] bg-white placeholder-[#A8BCA8] focus:outline-none focus:border-[#1B4D2E] focus:ring-2 focus:ring-[#1B4D2E]/10 transition-colors disabled:bg-slate-100 disabled:text-slate-400"
             style={{ width: `${Math.max(part.length, 4) * 11 + 16}px` }}
             placeholder={part.placeholder || '0'.repeat(part.length)}
             maxLength={part.length}
