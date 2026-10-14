@@ -65,12 +65,13 @@ function rowError(row, value) {
   return ''
 }
 
-function StockPicker({ stocks, selectedIds, onToggle }) {
+// `disabled`: shown but not usable (the report is not linked to a stock); choosing "One or more stocks" enables it again.
+function StockPicker({ stocks, selectedIds, onToggle, disabled = false }) {
   const [query, setQuery] = useState('')
   const q = query.trim().toLowerCase()
   const shown = stocks.filter(s => !q || `${stockOptionLabel(s)} ${stockOptionDetail(s)}`.toLowerCase().includes(q))
   return (
-    <div className="space-y-2" data-testid="stock-picker">
+    <div className={`space-y-2 ${disabled ? 'opacity-60' : ''}`} data-testid="stock-picker" aria-disabled={disabled}>
       {selectedIds.length > 0 && (
         <ul className="flex flex-wrap gap-1.5" aria-label="Selected stocks">
           {selectedIds.map(id => {
@@ -88,17 +89,17 @@ function StockPicker({ stocks, selectedIds, onToggle }) {
       )}
       <div className="relative">
         <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input type="search" className={`${baseInputClasses} pl-8`} value={query} onChange={e => setQuery(e.target.value)}
-          placeholder={`Search ${stocks.length} stock${stocks.length === 1 ? '' : 's'} by species, cycle or location`} aria-label="Search stocks" />
+        <input type="search" className={`${baseInputClasses} pl-8 ${disabled ? 'cursor-not-allowed bg-slate-100' : ''}`} value={query} onChange={e => setQuery(e.target.value)} disabled={disabled}
+          placeholder={disabled ? 'Select “One or more stocks” first' : `Search ${stocks.length} stock${stocks.length === 1 ? '' : 's'} by species, cycle or location`} aria-label="Search stocks" />
       </div>
-      <ul className="max-h-56 overflow-y-auto rounded-lg border border-slate-200" role="listbox" aria-multiselectable="true" aria-label="Affected stocks">
+      <ul className="max-h-56 min-h-[8rem] overflow-y-auto rounded-lg border border-slate-200" role="listbox" aria-multiselectable="true" aria-label="Affected stocks" aria-disabled={disabled}>
         {shown.length === 0 && <li className="px-3 py-3 text-xs text-slate-500">No stock matches “{query}”.</li>}
         {shown.map(s => {
           const checked = selectedIds.includes(s.id)
           return (
             <li key={s.id} role="option" aria-selected={checked} className="border-b border-slate-100 last:border-b-0">
-              <label className={`flex min-h-[44px] cursor-pointer items-start gap-2.5 px-3 py-2 ${checked ? 'bg-[#f0f7f0]' : 'hover:bg-slate-50'}`}>
-                <input type="checkbox" className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#1E4620]" checked={checked} onChange={() => onToggle(s.id)} />
+              <label className={`flex min-h-[44px] items-start gap-2.5 px-3 py-2 ${disabled ? 'cursor-not-allowed' : `cursor-pointer ${checked ? '' : 'hover:bg-slate-50'}`} ${checked ? 'bg-[#f0f7f0]' : ''}`}>
+                <input type="checkbox" className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#1E4620]" checked={checked} disabled={disabled} onChange={() => onToggle(s.id)} />
                 <span className="min-w-0">
                   <span className="block text-sm font-medium text-slate-800">{stockOptionLabel(s)}</span>
                   <span className="block text-xs text-slate-500">{stockOptionDetail(s)}</span>
@@ -376,7 +377,7 @@ export default function FisherfolkStockDisasterModal({ stocks, fisherfolk = null
     } finally { setIsSubmitting(false) }
   }
 
-  const radioCls = (on) => `flex min-h-[44px] cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 text-sm ${on ? 'border-green-400 bg-[#f0f7f0]' : 'border-slate-200 hover:bg-slate-50'}`
+  const radioCls = (on) => `flex h-full min-h-[44px] cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 text-sm ${on ? 'border-green-400 bg-[#f0f7f0]' : 'border-slate-200 hover:bg-slate-50'}`
 
   return (
     <ModalShell
@@ -393,38 +394,48 @@ export default function FisherfolkStockDisasterModal({ stocks, fisherfolk = null
       </>}
     >
       <form id="ff-stock-disaster-form" onSubmit={handleSubmit} className="space-y-4" noValidate>
-        {/* Row 1: the affected stock on the left, the equipment damaged beside it (one column each on a phone). */}
+        {/* Row 1: the affected stock on the left, the equipment damaged beside it. From lg up the equipment list is
+            laid out inside the right cell (absolute) so it is exactly as tall as the stock side, with no gap under it. */}
         <div className="grid gap-4 lg:grid-cols-2">
           <FormField label="Affected Stock" required>
-            <div className="grid gap-2" role="radiogroup" aria-label="Affected stock">
+            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="Affected stock">
               <label className={radioCls(mode === LINKED)}>
-                <input type="radio" name="disaster-link" className="mt-0.5" checked={mode === LINKED} onChange={() => setMode(LINKED)} />
-                <span>One or more stocks</span>
+                <input type="radio" name="disaster-link" className="mt-0.5 shrink-0" checked={mode === LINKED} onChange={() => setMode(LINKED)} />
+                <span>
+                  <span className="block font-medium text-slate-800">One or more stocks</span>
+                  <span className="block text-xs text-slate-500">Choose the affected stocks below</span>
+                </span>
               </label>
               <label className={radioCls(mode === NOT_LINKED)}>
-                <input type="radio" name="disaster-link" className="mt-0.5" checked={mode === NOT_LINKED}
+                <input type="radio" name="disaster-link" className="mt-0.5 shrink-0" checked={mode === NOT_LINKED}
                   onChange={() => { setMode(NOT_LINKED); setSelectedIds([]); setUnitsByStock({}); setLosses({}) }} />
-                <span>Not linked to a stock (pond, cage or equipment damage only)</span>
+                <span>
+                  <span className="block font-medium text-slate-800">Not linked to a stock</span>
+                  <span className="block text-xs text-slate-500">(pond, cage or equipment damage only)</span>
+                </span>
               </label>
             </div>
-            {mode === LINKED && (
-              <div className="mt-2">
-                {stocks === null ? <p className="text-xs text-slate-500">Loading stocks…</p>
-                  : allStocks.length === 0 ? <p className="text-xs text-slate-500">No active stocks to choose from — choose “Not linked to a stock”.</p>
-                    : <StockPicker stocks={allStocks} selectedIds={selectedIds} onToggle={toggleStock} />}
-              </div>
-            )}
+            {/* Always shown; greyed out and unusable while the report is not linked to a stock. */}
+            <div className="mt-2">
+              {stocks === null ? <p className="text-xs text-slate-500">Loading stocks…</p>
+                : allStocks.length === 0 ? <p className="text-xs text-slate-500">No active stocks to choose from — choose “Not linked to a stock”.</p>
+                  : <StockPicker stocks={allStocks} selectedIds={selectedIds} onToggle={toggleStock} disabled={mode === NOT_LINKED} />}
+            </div>
           </FormField>
-          <FormField label="Equipment Damaged">
-            <EquipmentChecklist
-              groups={AQUACULTURE_EQUIPMENT_GROUPS}
-              selected={form.equipment_damaged}
-              onToggle={toggleEquipment}
-              otherValue={form.equipment_damaged_other}
-              onOtherChange={(v) => set('equipment_damaged_other', v)}
-              inputClassName={baseInputClasses}
-            />
-          </FormField>
+          <div className="lg:relative">
+            <div className="flex flex-col lg:absolute lg:inset-0">
+              <FormLabel>Equipment Damaged</FormLabel>
+              <EquipmentChecklist
+                fill
+                groups={AQUACULTURE_EQUIPMENT_GROUPS}
+                selected={form.equipment_damaged}
+                onToggle={toggleEquipment}
+                otherValue={form.equipment_damaged_other}
+                onOtherChange={(v) => set('equipment_damaged_other', v)}
+                inputClassName={baseInputClasses}
+              />
+            </div>
+          </div>
         </div>
 
         {mode === LINKED && groups.length > 0 && (
