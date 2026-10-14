@@ -293,7 +293,10 @@ class FisherfolkAccountlessConfirmableSerializer(serializers.ModelSerializer):
 
 class BeneficiaryConfirmationRequestSerializer(serializers.ModelSerializer):
     farmer_full_name = serializers.CharField(source='beneficiary_record.farmer.full_name', read_only=True)
+    member_rsbsa = serializers.CharField(source='beneficiary_record.farmer.rsbsa_number', read_only=True)
     assistance_type = serializers.CharField(source='beneficiary_record.assistance_type', read_only=True)
+    quantity = serializers.CharField(source='beneficiary_record.quantity', read_only=True)
+    source_agencies = serializers.ListField(source='beneficiary_record.source_agencies', read_only=True)
     date_given = serializers.DateField(source='beneficiary_record.date_given', read_only=True)
     submitted_by_organization_name = serializers.CharField(source='submitted_by_organization.name', read_only=True)
     submitted_by_name = serializers.CharField(source='submitted_by.full_name', read_only=True, default=None)
@@ -304,7 +307,8 @@ class BeneficiaryConfirmationRequestSerializer(serializers.ModelSerializer):
     class Meta:
         model = BeneficiaryConfirmationRequest
         fields = [
-            'id', 'beneficiary_record', 'farmer_full_name', 'assistance_type', 'date_given',
+            'id', 'beneficiary_record', 'farmer_full_name', 'member_rsbsa', 'assistance_type', 'quantity',
+            'source_agencies', 'date_given',
             'submitted_by_organization', 'submitted_by_organization_name',
             'submitted_by', 'submitted_by_name', 'photo_url', 'photo_urls',
             'status', 'submitted_at', 'reviewed_by', 'reviewed_by_name',
@@ -322,7 +326,10 @@ class BeneficiaryConfirmationRequestSerializer(serializers.ModelSerializer):
 
 class FisherfolkBeneficiaryConfirmationRequestSerializer(serializers.ModelSerializer):
     fisherfolk_full_name = serializers.CharField(source='beneficiary_record.fisherfolk.full_name', read_only=True)
+    member_rsbsa = serializers.CharField(source='beneficiary_record.fisherfolk.rsbsa_number', read_only=True)
     assistance_type = serializers.CharField(source='beneficiary_record.assistance_type', read_only=True)
+    quantity = serializers.CharField(source='beneficiary_record.quantity', read_only=True)
+    source_agencies = serializers.ListField(source='beneficiary_record.source_agencies', read_only=True)
     date_given = serializers.DateField(source='beneficiary_record.date_given', read_only=True)
     submitted_by_organization_name = serializers.CharField(source='submitted_by_organization.name', read_only=True)
     submitted_by_name = serializers.CharField(source='submitted_by.full_name', read_only=True, default=None)
@@ -333,7 +340,8 @@ class FisherfolkBeneficiaryConfirmationRequestSerializer(serializers.ModelSerial
     class Meta:
         model = FisherfolkBeneficiaryConfirmationRequest
         fields = [
-            'id', 'beneficiary_record', 'fisherfolk_full_name', 'assistance_type', 'date_given',
+            'id', 'beneficiary_record', 'fisherfolk_full_name', 'member_rsbsa', 'assistance_type', 'quantity',
+            'source_agencies', 'date_given',
             'submitted_by_organization', 'submitted_by_organization_name',
             'submitted_by', 'submitted_by_name', 'photo_url', 'photo_urls',
             'status', 'submitted_at', 'reviewed_by', 'reviewed_by_name',
