@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Leaf, Pencil, Plus, Power, X } from 'lucide-react'
+import AddButton from '../../components/UI/AddButton.jsx'
+import FilterPanel from '../../components/UI/FilterPanel.jsx'
+import { ChevronLeft, ChevronRight, Leaf, Pencil, Power, X } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
@@ -636,37 +638,17 @@ export default function CropOptionPage({ asTab = false }) {
     }
   })
 
-  const actionBtn = (
-    <Button size="sm" onClick={() => { setEditCrop(null); setShowModal(true) }}>
-      <Plus size={15} />
-      Add New Crop
-    </Button>
-  )
+  const actionBtn = <AddButton onClick={() => { setEditCrop(null); setShowModal(true) }}>Add Crop</AddButton>
 
   const innerContent = (
     <div className="space-y-4">
-      {asTab && (
-        <div className="flex justify-end">{actionBtn}</div>
-      )}
-
-      <div className="flex items-center gap-3 bg-white border border-[#E2E8E2] rounded-lg px-4 py-2.5">
-        <div className="relative flex-1">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8BCA8]">
-            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-          </span>
-          <input
-            className="w-full border-none bg-transparent pl-8 pr-2 text-[13px] text-[#1A2B1A] placeholder-[#A8BCA8] focus:outline-none"
-            placeholder="Search crops by name, category, or subcategory..."
-            value={search}
-            onChange={e => { setSearch(e.target.value); setPage(1) }}
-          />
-        </div>
-        {filteredCrops.length !== crops.length && (
-          <span className="text-[12px] text-[#7A8E7A] whitespace-nowrap">
-            {filteredCrops.length} of {crops.length}
-          </span>
-        )}
-      </div>
+      <FilterPanel
+        className=""
+        search={search}
+        onSearchChange={(v) => { setSearch(v); setPage(1) }}
+        searchPlaceholder="Search crops by name, category, or subcategory..."
+        actions={actionBtn}
+      />
 
       {error && <ErrorMessage message={error} />}
 
@@ -784,7 +766,6 @@ export default function CropOptionPage({ asTab = false }) {
     <PageLayout
       title="Crop Option Management"
       subtitle="Add, edit, or remove crops and their details used across the system."
-      action={actionBtn}
     >
       {innerContent}
     </PageLayout>

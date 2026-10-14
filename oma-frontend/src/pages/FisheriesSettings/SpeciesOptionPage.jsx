@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Fish, Pencil, Plus, Trash2, X } from 'lucide-react'
+import AddButton from '../../components/UI/AddButton.jsx'
+import { ChevronLeft, ChevronRight, Fish, Pencil, Trash2, X } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
@@ -495,20 +496,13 @@ export default function SpeciesOptionPage({ asTab = false }) {
     <div className="space-y-3">
       {error && <ErrorMessage message={error} />}
 
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={() => { setEditSpecies(null); setShowModal(true) }}
-          className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
-        >
-          <Plus size={14} /> Add Species
-        </button>
-      </div>
 
       <FilterPanel
+        className=""
         search={search}
         onSearchChange={(v) => { setSearch(v); setPage(1) }}
         searchPlaceholder="Search species..."
+        actions={<AddButton onClick={() => { setEditSpecies(null); setShowModal(true) }}>Add Species</AddButton>}
       />
 
       <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">

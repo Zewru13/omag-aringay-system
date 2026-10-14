@@ -21,11 +21,14 @@ const isBlank = (value) => value === undefined || value === null || value === ''
 // Optional, opt-in expandable rows (no effect when omitted): `expandedRowId` is the id of the open row;
 // `renderExpanded(row)` is drawn in a full-width row under it on desktop, `renderExpandedMobile(row)` inside
 // its card on phones (taps inside it never re-trigger onRowClick). `rowClickLabel(row)` labels the clickable row.
+// `bare`: no border, shadow or rounded corners of its own on larger screens, for a table that sits inside a card
+// that already has them (the card's own header sits above it).
 function DataTable({
-  columns, data, isLoading, loading, onRowClick, emptyState, cardColumns = 1,
+  columns, data, isLoading, loading, onRowClick, emptyState, cardColumns = 1, bare = false,
   expandedRowId, renderExpanded, renderExpandedMobile, rowClickLabel,
 }) {
   const showLoading = isLoading || loading
+  const frame = bare ? '' : 'bg-surface border border-border rounded-[var(--radius-md)] shadow-sm'
   const expandable = Boolean(renderExpanded || renderExpandedMobile)
   const isExpanded = (row) => expandable && expandedRowId != null && row.id === expandedRowId
   const clickProps = (row) => (onRowClick
@@ -34,8 +37,8 @@ function DataTable({
 
   if (showLoading) {
     return (
-      <div className="bg-surface border border-border rounded-[var(--radius-md)] shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className={`${frame} overflow-hidden`}>
+        <div className="overflow-x-auto overflow-y-hidden">
           <table className="min-w-full text-left">
             <thead>
               <tr className="bg-primary">
@@ -63,13 +66,13 @@ function DataTable({
   if (!data?.length) {
     if (emptyState) {
       return (
-        <div className="bg-surface border border-border rounded-[var(--radius-md)] shadow-sm overflow-hidden">
+        <div className={`${frame} overflow-hidden`}>
           {emptyState}
         </div>
       )
     }
     return (
-      <div className="bg-surface border border-border rounded-[var(--radius-md)] shadow-sm overflow-hidden flex flex-col items-center justify-center min-h-[200px] gap-2 py-10">
+      <div className={`${frame} overflow-hidden flex flex-col items-center justify-center min-h-[200px] gap-2 py-10`}>
         <InboxIcon size={36} className="text-border-strong" aria-hidden="true" />
         <p className="text-[13px] font-medium text-text-primary">No records found</p>
         <p className="text-[12px] text-text-muted">Records will appear here once added.</p>
@@ -121,8 +124,8 @@ function DataTable({
       </div>
 
       {/* Desktop: table */}
-      <div className="hidden bg-surface border border-border rounded-[var(--radius-md)] shadow-sm overflow-hidden md:block">
-        <div className="overflow-x-auto">
+      <div className={`hidden ${frame} overflow-hidden md:block`}>
+        <div className="overflow-x-auto overflow-y-hidden">
           <table className="min-w-full text-left">
             <thead>
               <tr className="bg-primary">

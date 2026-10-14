@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, ListChecks, Pencil, Plus, Power } from 'lucide-react'
+import AddButton from '../../components/UI/AddButton.jsx'
+import CardHeader from '../../components/UI/CardHeader.jsx'
+import { ChevronLeft, ChevronRight, ListChecks, Pencil, Power } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
@@ -166,16 +168,10 @@ export default function ActivityTypePageBase({ asTab = false, endpoint, dropdown
     }
   })
 
-  const actionBtn = (
-    <Button size="sm" onClick={() => { setEditType(null); setShowModal(true) }}>
-      <Plus size={15} />
-      Add New Activity Type
-    </Button>
-  )
+  const actionBtn = <AddButton onClick={() => { setEditType(null); setShowModal(true) }}>Add Activity Type</AddButton>
 
   const innerContent = (
     <div className="space-y-4">
-      {asTab && <div className="flex justify-end">{actionBtn}</div>}
 
       <p className="text-[12px] text-[#7A8E7A] bg-[#F9FAF9] border border-[#E2E8E2] rounded-lg px-3 py-2">
         Custom types use a general-purpose logging form (date, notes, and condition only) — bespoke fields
@@ -185,7 +181,8 @@ export default function ActivityTypePageBase({ asTab = false, endpoint, dropdown
       {error && <ErrorMessage message={error} />}
 
       <div className="bg-white rounded-xl border border-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-        <DataTable columns={COLUMNS} data={rows} isLoading={isLoading} />
+        <CardHeader title="Activity Types" count={types.length} action={actionBtn} />
+        <DataTable bare columns={COLUMNS} data={rows} isLoading={isLoading} />
       </div>
 
       {!isLoading && totalPages > 1 && (
@@ -250,7 +247,6 @@ export default function ActivityTypePageBase({ asTab = false, endpoint, dropdown
     <PageLayout
       title="Activity Type Management"
       subtitle="Add, edit, or deactivate activity types used in monitoring logs."
-      action={actionBtn}
     >
       {innerContent}
     </PageLayout>

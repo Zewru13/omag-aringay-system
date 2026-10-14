@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Leaf, Pencil, Plus, Tag, Trash2 } from 'lucide-react'
+import AddButton from '../../components/UI/AddButton.jsx'
+import CardHeader from '../../components/UI/CardHeader.jsx'
+import { Leaf, Pencil, Tag, Trash2 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
@@ -207,44 +209,25 @@ export default function CropCategoryPage({ asTab = false }) {
 
       {/* Categories card */}
       <div className="bg-white rounded-xl border border-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#F0F4F0]">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-[3px] bg-[#1B4D2E]" />
-            <h2 className="text-[13px] font-semibold text-[#1A2B1A]">Crop Categories</h2>
-          </div>
-          <button
-            type="button"
-            onClick={() => { setEditCat(null); setCatModal(true) }}
-            className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 py-1.5 text-[12px] font-medium text-white hover:bg-[#235E38] transition-colors"
-          >
-            <Plus size={12} />
-            Add Category
-          </button>
-        </div>
+        <CardHeader
+            title="Crop Categories"
+            markerClass="bg-[#1B4D2E]"
+            action={<AddButton onClick={() => { setEditCat(null); setCatModal(true) }}>Add Category</AddButton>}
+          />
         <div className="p-0">
-          <DataTable columns={CAT_COLUMNS} data={catRows} isLoading={isLoading} />
+          <DataTable bare columns={CAT_COLUMNS} data={catRows} isLoading={isLoading} />
         </div>
       </div>
 
       {/* Subcategories card */}
       <div className="bg-white rounded-xl border border-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#F0F4F0]">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-[3px] bg-[#2D7A4F]" />
-            <h2 className="text-[13px] font-semibold text-[#1A2B1A]">Crop Subcategories</h2>
-          </div>
-          <button
-            type="button"
-            onClick={() => { setEditSubcat(null); setSubcatModal(true) }}
-            disabled={categories.length === 0}
-            className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 py-1.5 text-[12px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50"
-          >
-            <Plus size={12} />
-            Add Subcategory
-          </button>
-        </div>
+        <CardHeader
+            title="Crop Subcategories"
+            markerClass="bg-[#2D7A4F]"
+            action={<AddButton onClick={() => { setEditSubcat(null); setSubcatModal(true) }} disabled={categories.length === 0}>Add Subcategory</AddButton>}
+          />
         <div className="p-0">
-          <DataTable columns={SUBCAT_COLUMNS} data={subcatRows} isLoading={isLoading} />
+          <DataTable bare columns={SUBCAT_COLUMNS} data={subcatRows} isLoading={isLoading} />
         </div>
       </div>
 
