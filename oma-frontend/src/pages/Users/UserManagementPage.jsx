@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ChevronLeft, ChevronRight, KeyRound, MailWarning, Pencil, RotateCcw } from 'lucide-react'
+import { ChevronLeft, ChevronRight, KeyRound, MailWarning, Pencil, Plus, RotateCcw } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
@@ -34,7 +34,7 @@ const PAGE_SIZE = 10
 
 // One table for one kind of account. The page gives it a `key` of the tab, so switching tabs starts a fresh table:
 // its own filters, search and page. `reloadKey` changes when a user was created, to fetch the list again.
-function UsersTable({ tab, reloadKey, onEdit }) {
+function UsersTable({ tab, reloadKey, onEdit, actions }) {
   const { showToast } = useToast()
   const { user: me } = useAuth()
   // The last answer received and the request it answers; the table is "loading" whenever that is not the current request.
@@ -174,6 +174,7 @@ function UsersTable({ tab, reloadKey, onEdit }) {
   return (
     <div className="space-y-4">
       <FilterPanel
+        actions={actions}
         search={search}
         onSearchChange={(v) => { setSearch(v); setPage(1) }}
         searchPlaceholder="Search by name or email..."
@@ -297,15 +298,6 @@ export default function UserManagementPage() {
     <PageLayout
       title="User Management"
       subtitle={USER_TABS.find((t) => t.id === tab).subtitle}
-      action={
-        <button
-          type="button"
-          className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38]"
-          onClick={() => setShowCreateModal(true)}
-        >
-          <span className="text-base leading-none">+</span> Create User
-        </button>
-      }
     >
       <div className="space-y-4">
         <div className="flex flex-wrap gap-2" role="tablist" aria-label="Kinds of account">
@@ -327,7 +319,18 @@ export default function UserManagementPage() {
           ))}
         </div>
 
-        <UsersTable key={tab} tab={tab} reloadKey={reloadKey} onEdit={setEditUser} />
+        <UsersTable
+          key={tab} tab={tab} reloadKey={reloadKey} onEdit={setEditUser}
+          actions={
+            <button
+              type="button"
+              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38]"
+              onClick={() => setShowCreateModal(true)}
+            >
+              <Plus size={15} /> Create User
+            </button>
+          }
+        />
       </div>
 
       {showCreateModal && (

@@ -94,7 +94,7 @@ function OrganizationsPage({ asTab = false }) {
         onClick={() => setShowImportModal(true)}
       >
         <Upload size={16} />
-        Import File
+        Import Organizations
       </button>
       <button
         className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
@@ -108,11 +108,9 @@ function OrganizationsPage({ asTab = false }) {
 
   const innerContent = (
     <>
-      {asTab && actionBtn && (
-        <div className="flex justify-end mb-3">{actionBtn}</div>
-      )}
 
       <FilterPanel
+        actions={actionBtn}
         search={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder="Search organizations by name or address..."
@@ -170,7 +168,6 @@ function OrganizationsPage({ asTab = false }) {
     <PageLayout
       title="Farmer Organization Management"
       subtitle="Manage all farmer organizations in your area."
-      action={actionBtn}
     >
       {innerContent}
     </PageLayout>
