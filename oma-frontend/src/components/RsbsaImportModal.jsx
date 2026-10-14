@@ -267,39 +267,39 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
 
   const footerContent = {
     upload: (
-      <>
+      <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto [&>*]:min-h-[44px] sm:[&>*]:min-h-0">
         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
         <Button type="button" isLoading={isBusy} onClick={handlePreview} disabled={!file}>
           Preview Changes
         </Button>
-      </>
+      </div>
     ),
     preview: preview ? (
-      <div className="flex w-full items-center justify-between gap-2">
-        <Button type="button" variant="outline" onClick={handleStartOver}>Upload a Different File</Button>
-        <div className="flex items-center gap-3">
-          <span className="text-[12.5px] text-[#7A8E7A]">{selectedRows.size} row{selectedRows.size === 1 ? '' : 's'} selected</span>
+      <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+        <div className="text-center text-[12.5px] sm:order-2 sm:ml-auto sm:flex sm:items-center sm:gap-3 sm:text-left">
+          <span className="text-[#7A8E7A]">{selectedRows.size} row{selectedRows.size === 1 ? '' : 's'} selected</span>
           {undecidedGroups.length > 0 && (
-            <span className="text-[12.5px] font-medium text-rose-700" data-testid="undecided-groups">
+            <span className="block font-medium text-rose-700 sm:inline" data-testid="undecided-groups">
               {undecidedGroups.length} duplicate group{undecidedGroups.length === 1 ? ' needs' : 's need'} a decision
             </span>
           )}
-          <Button type="button" onClick={goToConfirm} disabled={selectedRows.size === 0 || undecidedGroups.length > 0}>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:contents [&>*]:min-h-[44px] [&>*]:px-2 sm:[&>*]:min-h-0 sm:[&>*]:px-4">
+          <Button type="button" variant="outline" onClick={handleStartOver} className="sm:order-1">Upload a Different File</Button>
+          <Button type="button" onClick={goToConfirm} disabled={selectedRows.size === 0 || undecidedGroups.length > 0} className="sm:order-3">
             Continue to Confirm
           </Button>
         </div>
       </div>
     ) : null,
     confirm: (
-      <div className="flex w-full items-center justify-between">
-        <button type="button" onClick={() => setStep('preview')} className="text-[13px] font-medium text-[#7A8E7A] hover:text-[#1A2B1A] transition-colors">
-          Back to Review
-        </button>
+      <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:items-center sm:justify-between [&>*]:min-h-[44px] sm:[&>*]:min-h-0">
+        <Button type="button" variant="outline" onClick={() => setStep('preview')} className="sm:border-transparent sm:text-[#7A8E7A]">Back to Review</Button>
         <Button type="button" isLoading={isBusy} onClick={handleCommit}>Confirm &amp; Commit</Button>
       </div>
     ),
     result: commitResult ? (
-      <div className="flex w-full items-center justify-between gap-2">
+      <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:items-center sm:justify-between [&>*]:min-h-[44px] sm:[&>*]:min-h-0">
         <Button type="button" variant="outline" onClick={() => { setUndoBatchId(commitResult.batch_id); setStep('undo') }}>
           Undo this import
         </Button>
@@ -307,10 +307,10 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
       </div>
     ) : null,
     undo: (
-      <div className="flex w-full items-center justify-between gap-2">
-        <button type="button" onClick={() => { setUndoBatchId(null); setStep(commitResult ? 'result' : 'upload') }} className="text-[13px] font-medium text-[#7A8E7A] hover:text-[#1A2B1A] transition-colors">
+      <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:items-center sm:justify-between [&>*]:min-h-[44px] sm:[&>*]:min-h-0">
+        <Button type="button" variant="outline" onClick={() => { setUndoBatchId(null); setStep(commitResult ? 'result' : 'upload') }}>
           {commitResult ? 'Back to results' : 'Back to upload'}
-        </button>
+        </Button>
         <Button type="button" variant="outline" onClick={onClose}>Close</Button>
       </div>
     ),
@@ -349,9 +349,9 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
             </label>
           </div>
 
-          <div className="flex items-center justify-between rounded-2xl border border-[#E2E8E2] bg-[#F9FAF9] px-5 py-3">
+          <div className="flex flex-col gap-2 rounded-2xl border border-[#E2E8E2] bg-[#F9FAF9] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
             <p className="text-[12.5px] text-[#4A5A4C]">Committed an import by mistake? You can review and reverse a recent one.</p>
-            <button type="button" onClick={() => { setUndoBatchId(null); setStep('undo') }} className="shrink-0 text-[13px] font-semibold text-[#1B4D2E] hover:underline max-md:min-h-[40px] max-md:px-1">
+            <button type="button" onClick={() => { setUndoBatchId(null); setStep('undo') }} className="shrink-0 rounded-lg border border-[#C8D5C8] bg-white text-[13px] font-semibold text-[#1B4D2E] hover:bg-[#F0F4F0] max-sm:min-h-[44px] max-sm:w-full sm:border-transparent sm:bg-transparent sm:hover:underline">
               Undo a recent import
             </button>
           </div>
@@ -464,9 +464,9 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
                 ))}
               </div>
               {committableVisible.length > 0 && (
-                <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-[12px] font-medium text-[#4A5E4A]">
+                <label className="flex shrink-0 cursor-pointer items-center gap-2 text-[12px] font-medium text-[#4A5E4A] max-sm:min-h-[44px] max-sm:w-full max-sm:rounded-lg max-sm:bg-[#F5F8F5] max-sm:px-3">
                   <input type="checkbox" checked={allVisibleSelected} onChange={toggleSelectAllVisible}
-                    className="h-3.5 w-3.5 rounded border-[#C8D5C8] text-[#1B4D2E] focus:ring-[#1B4D2E]/30" />
+                    className="h-5 w-5 rounded border-[#C8D5C8] text-[#1B4D2E] focus:ring-[#1B4D2E]/30 sm:h-3.5 sm:w-3.5" />
                   Select all shown ({committableVisible.length})
                 </label>
               )}
@@ -482,28 +482,28 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
                 const committable = isCommittable(r)
                 return (
                   <div key={r.row_number} className={selectedRows.has(r.row_number) ? 'bg-[#F5FAF6]' : ''}>
-                    <div className="flex items-center gap-3 px-5 py-3">
-                      <div className="w-5 shrink-0">
+                    <div className="flex items-start gap-2 px-3 py-3 sm:items-center sm:gap-3 sm:px-5">
+                      <div className="flex w-8 shrink-0 justify-center pt-0.5 sm:w-5 sm:pt-0">
                         {committable && (
                           <input
                             type="checkbox"
                             checked={selectedRows.has(r.row_number)}
                             onChange={() => toggleRow(r.row_number)}
                             aria-label={`Select row ${r.row_number} for commit`}
-                            className="h-3.5 w-3.5 rounded border-[#C8D5C8] text-[#1B4D2E] focus:ring-[#1B4D2E]/30"
+                            className="h-6 w-6 rounded border-[#C8D5C8] text-[#1B4D2E] focus:ring-[#1B4D2E]/30 sm:h-3.5 sm:w-3.5"
                           />
                         )}
                       </div>
                       <button
                         type="button"
                         onClick={() => canExpand && setExpandedRow(isExpanded ? null : r.row_number)}
-                        className={`flex min-w-0 flex-1 items-center gap-3 text-left transition-colors ${canExpand ? 'hover:opacity-80' : ''}`}
+                        className={`flex min-w-0 flex-1 flex-col items-start gap-1.5 text-left transition-colors sm:flex-row sm:items-center sm:gap-3 ${canExpand ? 'hover:opacity-80' : ''}`}
                       >
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[13px] font-medium text-[#1A2B1A]">
+                        <div className="min-w-0 flex-1 max-sm:w-full">
+                          <p className="break-words text-[13px] font-medium text-[#1A2B1A] sm:truncate">
                             {r.matched_record_name || r.rsbsa_number || `Row ${r.row_number}`}
                           </p>
-                          <p className="mt-0.5 text-[11px] text-[#A8BCA8]">
+                          <p className="mt-0.5 break-words text-[11px] text-[#7A8E7A]">
                             Row {r.row_number} · {r.rsbsa_number || '(blank RSBSA no.)'}
                             {r.classification && r.classification !== 'HOLD-BACK' ? ` · ${r.classification === 'IMPORT-FARMER' ? 'Farmer' : 'Fisherfolk'}` : ''}
                           </p>
@@ -545,12 +545,21 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
                             </>
                           )}
                         </div>
-                        <StatusPill tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</StatusPill>
+                        <span className="max-sm:order-first"><StatusPill tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</StatusPill></span>
                       </button>
                     </div>
                     {isExpanded && (
-                      <div className="bg-[#F9FAF9] px-5 py-3">
-                        <table className="w-full text-[12px]">
+                      <div className="bg-[#F9FAF9] px-3 py-3 sm:px-5">
+                        <div className="space-y-2 sm:hidden">
+                          {r.changes.map((c) => (
+                            <div key={c.field} className="rounded-lg border border-[#E2E8E2] bg-white p-2.5 text-[12px]">
+                              <p className="font-semibold text-[#1A2B1A]">{c.label}</p>
+                              <p className="mt-1 break-words text-[#4A5A4C]"><span className="text-[#7A8E7A]">Now: </span>{c.current || '—'}</p>
+                              <p className="break-words font-medium text-[#8A5207]"><span className="font-normal text-[#7A8E7A]">File: </span>{c.incoming || '—'}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <table className="hidden w-full text-[12px] sm:table">
                           <thead>
                             <tr className="text-left text-[#7A8E7A]">
                               <th className="pb-1.5 font-medium">Field</th>
@@ -576,18 +585,18 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
             </div>
 
             {totalPages > 1 && (
-              <div className="mt-4 flex items-center justify-between">
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-[12px] text-[#7A8E7A]">
                   Showing {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, filteredRows.length)} of {filteredRows.length}
                 </p>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 max-sm:justify-between">
                   <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
-                    className="rounded-lg border border-[#E2E8E2] px-2.5 py-1 text-[12px] text-[#4A5E4A] hover:bg-[#F5F7F5] disabled:opacity-40">
+                    className="rounded-lg border border-[#E2E8E2] px-2.5 py-1 text-[12px] text-[#4A5E4A] hover:bg-[#F5F7F5] disabled:opacity-40 max-sm:min-h-[44px] max-sm:px-5">
                     Previous
                   </button>
                   <span className="px-2 text-[12px] font-medium text-[#1A2B1A]">{page} / {totalPages}</span>
                   <button type="button" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}
-                    className="rounded-lg border border-[#E2E8E2] px-2.5 py-1 text-[12px] text-[#4A5E4A] hover:bg-[#F5F7F5] disabled:opacity-40">
+                    className="rounded-lg border border-[#E2E8E2] px-2.5 py-1 text-[12px] text-[#4A5E4A] hover:bg-[#F5F7F5] disabled:opacity-40 max-sm:min-h-[44px] max-sm:px-5">
                     Next
                   </button>
                 </div>
@@ -635,18 +644,18 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
             <p className="border-b border-[#E2E8E2] px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide text-[#7A8E7A]">
               Rows to Commit
             </p>
-            <div className="max-h-72 divide-y divide-[#F0F4F0] overflow-y-auto">
+            <div className="divide-y divide-[#F0F4F0] sm:max-h-72 sm:overflow-y-auto">
               {selectedRowObjects.map((r) => (
                 <div key={r.row_number} className="px-4 py-2.5">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="min-w-0 truncate text-[13px] font-medium text-[#1A2B1A]">
+                  <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                    <p className="min-w-0 break-words text-[13px] font-medium text-[#1A2B1A] sm:truncate">
                       {r.matched_record_name || r.rsbsa_number}
                     </p>
                     <StatusPill tone={effectiveStatus(r) === 'matched_with_changes' ? 'amber' : 'slate'}>
                       {effectiveStatus(r) === 'unmatched' ? 'Register New' : 'Update'}
                     </StatusPill>
                   </div>
-                  <p className="mt-0.5 text-[12px] text-[#7A8E7A]">
+                  <p className="mt-0.5 break-words text-[12px] text-[#7A8E7A]">
                     Row {r.row_number} · {r.rsbsa_number} ·{' '}
                     {effectiveStatus(r) === 'unmatched'
                       ? `${Object.keys(r.incoming_values || {}).length} field(s) will be set`
@@ -675,19 +684,20 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
               <p className="mt-0.5 text-[13px] text-[#1A2B1A]">
                 <span className="font-semibold">{commitResult.committed}</span> row{commitResult.committed === 1 ? '' : 's'} committed.
               </p>
-              <p className="mt-1 text-[11px] text-[#5A6B5C]">Batch ID: {commitResult.batch_id}</p>
+              <p className="mt-1 break-all text-[11px] text-[#5A6B5C]">Batch ID: {commitResult.batch_id}</p>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-[#E2E8E2] bg-white p-5">
+          <div className="rounded-2xl border border-[#E2E8E2] bg-white p-4 sm:p-5">
             <p className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-[#7A8E7A]">What Changed</p>
-            <div className="-mx-5 divide-y divide-[#F0F4F0]">
+            <div className="-mx-4 divide-y divide-[#F0F4F0] sm:-mx-5">
               {commitResult.results.map((r) => (
-                <div key={r.row_number} className="flex items-center gap-3 px-5 py-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-medium text-[#1A2B1A]">{r.record_name}</p>
-                    <p className="mt-0.5 text-[11px] text-[#7A8E7A]">
-                      Row {r.row_number} · {r.fields_changed.length} field{r.fields_changed.length === 1 ? '' : 's'}: {r.fields_changed.join(', ')}
+                <div key={r.row_number} className="flex flex-col items-start gap-1.5 px-4 py-3 sm:flex-row sm:items-center sm:gap-3 sm:px-5">
+                  <div className="min-w-0 flex-1 max-sm:w-full">
+                    <p className="break-words text-[13px] font-medium text-[#1A2B1A] sm:truncate">{r.record_name}</p>
+                    <p className="mt-0.5 break-words text-[11px] text-[#7A8E7A]">
+                      Row {r.row_number} · {r.fields_changed.length} field{r.fields_changed.length === 1 ? '' : 's'}
+                      <span className="max-sm:hidden">: {r.fields_changed.join(', ')}</span>
                     </p>
                   </div>
                   <StatusPill tone={r.action === 'UPDATE' ? 'green' : 'slate'}>
