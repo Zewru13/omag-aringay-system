@@ -2,9 +2,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, Fish, PackageX, Sprout } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
-import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
-import PhotoLinks from '../../components/UI/PhotoLinks.jsx'
-import { resolveMediaUrl } from '../../utils/mediaUrl.js'
 import { approvalLines, hasApproved } from '../../utils/approvalStatus.js'
 
 // The admin/evaluator dashboard, built to the approved staff reference
@@ -138,47 +135,14 @@ export default function StaffDashboard({ user }) {
   const navigate = useNavigate()
   const [board, setBoard] = useState(null)
   const [requests, setRequests] = useState([])
-  const [confirmationRequests, setConfirmationRequests] = useState([])
   const [activity, setActivity] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [busyId, setBusyId] = useState(null)
   const [tableDomain, setTableDomain] = useState('crop')
-  // Rejecting an organization's on-behalf-of confirmation needs a note; the organization receives it.
-  const [rejecting, setRejecting] = useState(null)
-  const [rejectNote, setRejectNote] = useState('')
-  const [rejectError, setRejectError] = useState('')
-
   const loadRequests = useCallback(() => {
     api.get('/staff/change-requests/', { params: { status: 'PENDING' } })
       .then((r) => setRequests(Array.isArray(r.data) ? r.data : r.data?.results || []))
       .catch(() => setRequests([]))
-  }, [])
-
-  // Accountless-beneficiary on-behalf-of confirmation (Piece 2). Two
-  // separate models/endpoints (BeneficiaryConfirmationRequest and its
-  // fisherfolk mirror — see interventions/models.py's own comment for why
-  // this is two mirrored models rather than one polymorphic one, matching
-  // this codebase's dominant per-domain convention), merged into ONE queue
-  // here so it can sit as ONE panel next to Pending Change Requests rather
-  // than two separate ones — each row keeps a `domain` tag so the decide
-  // action below knows which endpoint pair it belongs to.
-  const loadConfirmationRequests = useCallback(() => {
-    Promise.allSettled([
-      api.get('/interventions/beneficiary-confirmation-requests/', { params: { status: 'PENDING' } }),
-      api.get('/interventions/fisherfolk-beneficiary-confirmation-requests/', { params: { status: 'PENDING' } }),
-    ]).then(([farmerRes, ffRes]) => {
-      const farmerRows = farmerRes.status === 'fulfilled'
-        ? (Array.isArray(farmerRes.value.data) ? farmerRes.value.data : farmerRes.value.data?.results || [])
-        : []
-      const ffRows = ffRes.status === 'fulfilled'
-        ? (Array.isArray(ffRes.value.data) ? ffRes.value.data : ffRes.value.data?.results || [])
-        : []
-      const merged = [
-        ...farmerRows.map((r) => ({ ...r, domain: 'farmer', personName: r.farmer_full_name })),
-        ...ffRows.map((r) => ({ ...r, domain: 'fisherfolk', personName: r.fisherfolk_full_name })),
-      ].sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at))
-      setConfirmationRequests(merged)
-    })
   }, [])
 
   useEffect(() => {
@@ -192,9 +156,8 @@ export default function StaffDashboard({ user }) {
       if (a.status === 'fulfilled') setActivity(a.value.data?.results || [])
     }).finally(() => { if (!cancelled) setIsLoading(false) })
     loadRequests()
-    loadConfirmationRequests()
     return () => { cancelled = true }
-  }, [loadRequests, loadConfirmationRequests])
+  }, [loadRequests])
 
   const decide = async (req, action) => {
     setBusyId(req.id)
@@ -207,34 +170,6 @@ export default function StaffDashboard({ user }) {
       loadRequests()
       setBusyId(null)
     }
-  }
-
-  const confirmationBase = (req) => (req.domain === 'farmer'
-    ? '/interventions/beneficiary-confirmation-requests/'
-    : '/interventions/fisherfolk-beneficiary-confirmation-requests/')
-
-  const approveConfirmation = async (req) => {
-    setBusyId(`confirmation-${req.id}`)
-    try {
-      await api.post(`${confirmationBase(req)}${req.id}/approve/`, {})
-      loadConfirmationRequests()
-    } finally { setBusyId(null) }
-  }
-
-  const openRejection = (req) => { setRejecting(req); setRejectNote(''); setRejectError('') }
-
-  const submitRejection = async () => {
-    const note = rejectNote.trim()
-    if (!note || !rejecting) return
-    setBusyId(`confirmation-${rejecting.id}`)
-    try {
-      await api.post(`${confirmationBase(rejecting)}${rejecting.id}/reject/`, { rejection_reason: note })
-      setRejecting(null)
-      loadConfirmationRequests()
-    } catch (err) {
-      const d = err?.response?.data
-      setRejectError(d?.rejection_reason?.[0] || d?.detail || 'The confirmation could not be rejected. Please try again.')
-    } finally { setBusyId(null) }
   }
 
   const today = new Date().toLocaleDateString('en-PH', {
@@ -557,75 +492,6 @@ export default function StaffDashboard({ user }) {
             )}
           </div>
 
-          {/* Accountless-beneficiary on-behalf-of confirmation (Piece 2) —
-              same placement convention as Pending Change Requests above:
-              next to it, not a new location. Shows the submitting
-              organization, beneficiary, assistance details, submission
-              timestamp, and the actual photo (not a yes/no flag) so staff
-              can review responsibly. */}
-          <div className={CARD}>
-            <PanelHead
-              title="Pending On-Behalf-Of Confirmations" count={confirmationRequests.length}
-            />
-            {confirmationRequests.length === 0 ? (
-              <p className="px-5 py-8 text-center text-[13px] italic text-text-muted">
-                No on-behalf-of confirmations waiting for review.
-              </p>
-            ) : (
-              <ul>
-                {confirmationRequests.map((r, i) => (
-                  <li key={`${r.domain}-${r.id}`} className={`px-5 py-3.5 ${i === confirmationRequests.length - 1 ? '' : 'border-b border-border'}`}>
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="text-[14px] font-semibold text-text-primary truncate">
-                        {r.personName || `Request #${r.id}`}
-                      </p>
-                      <span className="text-[12px] text-text-muted shrink-0 tabular-nums">
-                        {r.submitted_at ? new Date(r.submitted_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
-                      </span>
-                    </div>
-                    <p className="mt-0.5 text-[12.5px] text-text-muted">
-                      Submitted by <span className="font-medium text-text-secondary">{r.submitted_by_organization_name}</span>
-                    </p>
-                    <div className="mt-2 flex items-start justify-between gap-3 flex-wrap">
-                      <div className="flex min-w-0 items-start gap-3">
-                        {(r.photo_urls?.length > 0 || r.photo_url) ? (
-                          // every proof photo can be opened (the older single photo first)
-                          <PhotoLinks
-                            className="max-w-[9.5rem] shrink-0"
-                            legacy={r.photo_url ? resolveMediaUrl(r.photo_url) : null}
-                            photos={(r.photo_urls || []).map((url, i) => ({ id: i, url: resolveMediaUrl(url) }))}
-                          />
-                        ) : (
-                          <span className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[8px] border border-dashed border-border-strong text-[10px] text-text-muted">
-                            No photo
-                          </span>
-                        )}
-                        <div className="min-w-0">
-                          <p className="text-[13px] text-[color:var(--color-semantic-info)]">
-                            {r.assistance_type || 'Assistance'}
-                          </p>
-                          <p className="mt-0.5 text-[12.5px] text-text-muted">
-                            {new Date(r.date_given).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2 shrink-0">
-                        <button type="button" disabled={busyId === `confirmation-${r.id}`} onClick={() => approveConfirmation(r)}
-                          className="rounded-[6px] border border-[color:var(--color-semantic-safe)] px-3 py-1.5 transition-colors hover:bg-[color:var(--color-semantic-safe-bg)] disabled:opacity-50 cursor-pointer">
-                          <span className="text-[12px] font-semibold text-[color:var(--color-semantic-safe)]">Approve</span>
-                        </button>
-                        <button type="button" disabled={busyId === `confirmation-${r.id}`} onClick={() => openRejection(r)}
-                          className="rounded-[6px] border border-border-strong px-3 py-1.5 transition-colors hover:bg-surface-2 disabled:opacity-50 cursor-pointer">
-                          <span className="text-[12px] font-semibold text-text-secondary">Reject</span>
-                        </button>
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
           <div className={CARD}>
             <PanelHead title="Recent Activity" action="View all →" onAction={() => navigate('/audit-log')} />
             {activity.length === 0 ? (
@@ -662,20 +528,6 @@ export default function StaffDashboard({ user }) {
           </div>
         </div>
       </div>
-      {rejecting && (
-        <ConfirmDialog
-          title="Reject this confirmation?"
-          subtitle={`${rejecting.personName || 'Beneficiary'} · ${rejecting.assistance_type || 'Assistance'}`}
-          message={`The note below is sent to ${rejecting.submitted_by_organization_name || 'the organization'}, so they know what to fix.`}
-          confirmLabel="Reject" variant="danger"
-          showReasonInput reasonLabel="Why is it rejected? (required)" reasonMaxLength={255}
-          reasonPlaceholder="e.g. The photos do not show the assistance being received."
-          reasonValue={rejectNote} onReasonChange={(v) => { setRejectNote(v); setRejectError('') }}
-          details={rejectError || null}
-          confirmDisabled={!rejectNote.trim() || busyId === `confirmation-${rejecting.id}`}
-          onConfirm={submitRejection} onCancel={() => setRejecting(null)}
-        />
-      )}
     </div>
   )
 }

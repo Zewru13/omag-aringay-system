@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics
 from rest_framework import status as drf_status
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -660,6 +660,39 @@ class FisherfolkBeneficiaryConfirmOnBehalfBulkView(APIView):
 
     def post(self, request):
         return Response(org_confirmation.confirm_for_members(request, 'fisheries'), status=drf_status.HTTP_201_CREATED)
+
+
+class OrgConfirmedForMembersView(generics.ListAPIView):
+    """The history of what one organization has confirmed for its members, newest first (each row is one member's
+    assistance, with the proof photos the organization sent). Staff can read any organization's; an organization account
+    only its own. Nothing here is a queue: those confirmations were final when the organization sent them."""
+    permission_classes = [IsAuthenticated]
+
+    DOMAINS = {
+        'farmers': (BeneficiaryConfirmationRequest, BeneficiaryConfirmationRequestSerializer, 'FARMERS_ORG', 'beneficiary_record__farmer'),
+        'fisherfolk': (FisherfolkBeneficiaryConfirmationRequest, FisherfolkBeneficiaryConfirmationRequestSerializer,
+                       'FISHERFOLK_ORG', 'beneficiary_record__fisherfolk'),
+    }
+
+    def _domain(self):
+        org_type = self.kwargs['org_type']
+        if org_type not in self.DOMAINS:
+            raise NotFound()
+        return self.DOMAINS[org_type]
+
+    def get_serializer_class(self):
+        return self._domain()[1]
+
+    def get_queryset(self):
+        model, _, linked_type, person = self._domain()
+        user = self.request.user
+        org_id = self.kwargs['pk']
+        if user.role not in ('ADMIN', 'EVALUATOR'):
+            if not (user.role == 'CITIZEN' and user.linked_record_type == linked_type and user.linked_record_id == org_id):
+                raise PermissionDenied('You do not have permission to perform this action.')
+        return model.objects.filter(submitted_by_organization_id=org_id, status=model.Status.APPROVED).select_related(
+            'beneficiary_record', person, 'submitted_by', 'reviewed_by',
+        ).prefetch_related('photos').order_by('-reviewed_at', '-id')
 
 
 class BeneficiaryConfirmationRequestListView(generics.ListAPIView):
