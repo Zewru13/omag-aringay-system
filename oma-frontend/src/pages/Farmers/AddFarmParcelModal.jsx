@@ -14,6 +14,9 @@ import SegmentedIdInput from '../../components/UI/SegmentedIdInput.jsx'
 // system (01-33-02 = Region I / La Union / Aringay) — same fixed prefix
 // already used for RSBSA and FishR numbers elsewhere in the app. Barangay-
 // Section-Block-Lot are the only parts that vary per parcel.
+// Phone: the added-crop / added-machinery tables stack into labelled cards so the Remove button stays reachable.
+const STACK_TABLES = 'max-md:[&_tr]:border-b max-md:[&_tr]:border-[#F0F4F0] max-md:[&_table]:block max-md:[&_tbody]:block max-md:[&_thead]:hidden max-md:[&_tr]:block max-md:[&_tr]:px-3 max-md:[&_tr]:py-2 max-md:[&_td]:block max-md:[&_td]:w-full max-md:[&_td]:px-0 max-md:[&_td]:py-1 max-md:[&_td]:text-left max-md:[&_td[data-label]]:before:mb-0.5 max-md:[&_td[data-label]]:before:block max-md:[&_td[data-label]]:before:text-[11px] max-md:[&_td[data-label]]:before:font-semibold max-md:[&_td[data-label]]:before:uppercase max-md:[&_td[data-label]]:before:tracking-wide max-md:[&_td[data-label]]:before:text-[#7A8E7A] max-md:[&_td[data-label]]:before:content-[attr(data-label)]'
+
 const PARCEL_NUMBER_PARTS = [
   { type: 'text', value: '01-33-02-' },
   { type: 'input', key: 'barangay', length: 3, placeholder: '000' },
@@ -432,7 +435,7 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
             </div>
 
             {parcel.crops.length > 0 && (
-              <div className="overflow-hidden rounded-lg border border-[#E2E8E2]">
+              <div className={`overflow-hidden rounded-lg border border-[#E2E8E2] ${STACK_TABLES}`}>
                 <table className="min-w-full text-sm">
                   <thead className="bg-[#EBF5EE] text-[11px] font-semibold uppercase tracking-wide text-[#4A5E4A]">
                     <tr>
@@ -445,15 +448,15 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
                   <tbody className="divide-y divide-[#F0F4F0]">
                     {parcel.crops.map(c => (
                       <tr key={c._uid} className="bg-white hover:bg-[#F9FAF9]">
-                        <td className="px-3 py-2 text-[13px] text-[#1A2B1A]">
+                        <td data-label="Crop" className="px-3 py-2 text-[13px] text-[#1A2B1A]">
                           {c.crop_name === 'Other' ? c.crop_name_other : c.crop_name}
                           {c.is_main_crop && <span className="ml-1.5 rounded-full bg-[#EBF5EE] px-2 py-0.5 text-[10px] font-semibold text-[#1B4D2E]">Main</span>}
                         </td>
-                        <td className="px-3 py-2 text-[12px] text-[#7A8E7A]">{c.variety_used || '—'}</td>
-                        <td className="px-3 py-2 text-[13px] text-[#1A2B1A]">{c.area_hectares}</td>
+                        <td data-label="Variety" className="px-3 py-2 text-[12px] text-[#7A8E7A]">{c.variety_used || '—'}</td>
+                        <td data-label="Area (ha)" className="px-3 py-2 text-[13px] text-[#1A2B1A]">{c.area_hectares}</td>
                         <td className="px-3 py-2 text-right">
-                          <button type="button" onClick={() => removeCrop(c._uid)} className="text-rose-400 hover:text-rose-600">
-                            <Trash2 size={13} />
+                          <button type="button" onClick={() => removeCrop(c._uid)} aria-label="Remove crop" className="inline-flex items-center gap-1.5 text-rose-400 hover:text-rose-600 max-md:min-h-[40px] max-md:rounded-lg max-md:border max-md:border-rose-200 max-md:px-4 max-md:text-[13px] max-md:font-medium max-md:text-rose-600">
+                            <Trash2 size={13} /><span className="md:hidden">Remove</span>
                           </button>
                         </td>
                       </tr>
@@ -507,7 +510,7 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
             </div>
 
             {parcel.machinery.length > 0 && (
-              <div className="overflow-hidden rounded-lg border border-[#E2E8E2]">
+              <div className={`overflow-hidden rounded-lg border border-[#E2E8E2] ${STACK_TABLES}`}>
                 <table className="min-w-full text-sm">
                   <thead className="bg-[#EBF5EE] text-[11px] font-semibold uppercase tracking-wide text-[#4A5E4A]">
                     <tr>
@@ -520,12 +523,12 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
                   <tbody className="divide-y divide-[#F0F4F0]">
                     {parcel.machinery.map(m => (
                       <tr key={m._uid} className="bg-white hover:bg-[#F9FAF9]">
-                        <td className="px-3 py-2 text-[13px] text-[#1A2B1A]">{m.machinery_type === 'Other' ? m.machinery_type_other : m.machinery_type}</td>
-                        <td className="px-3 py-2 text-[13px] text-[#1A2B1A]">{m.quantity}</td>
-                        <td className="px-3 py-2 text-[13px] text-[#1A2B1A]">{m.ownership}</td>
+                        <td data-label="Machinery" className="px-3 py-2 text-[13px] text-[#1A2B1A]">{m.machinery_type === 'Other' ? m.machinery_type_other : m.machinery_type}</td>
+                        <td data-label="Qty" className="px-3 py-2 text-[13px] text-[#1A2B1A]">{m.quantity}</td>
+                        <td data-label="Ownership" className="px-3 py-2 text-[13px] text-[#1A2B1A]">{m.ownership}</td>
                         <td className="px-3 py-2 text-right">
-                          <button type="button" onClick={() => removeMachinery(m._uid)} className="text-rose-400 hover:text-rose-600">
-                            <Trash2 size={13} />
+                          <button type="button" onClick={() => removeMachinery(m._uid)} aria-label="Remove machinery" className="inline-flex items-center gap-1.5 text-rose-400 hover:text-rose-600 max-md:min-h-[40px] max-md:rounded-lg max-md:border max-md:border-rose-200 max-md:px-4 max-md:text-[13px] max-md:font-medium max-md:text-rose-600">
+                            <Trash2 size={13} /><span className="md:hidden">Remove</span>
                           </button>
                         </td>
                       </tr>
