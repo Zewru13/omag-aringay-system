@@ -5,7 +5,8 @@ import CitizenPhoneShell from '../../pages/Citizen/CitizenPhoneShell.jsx'
 import Navbar from './Navbar.jsx'
 import Sidebar from './Sidebar.jsx'
 
-function PageLayout({ title, subtitle, action, children }) {
+// `subtitle` is still accepted from the pages but no longer shown.
+function PageLayout({ title, action, children }) {
   const { isFisherfolk, isFarmer, isOrg, isFisherfolkOrg } = useAuth()
   const isPhone = useIsPhone()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -45,7 +46,7 @@ function PageLayout({ title, subtitle, action, children }) {
   // A fisherfolk, farmer or organization account on a phone gets the citizen-style shell (header, avatar menu, bottom tabs)
   // instead of the admin sidebar layout. Everyone else, and tablets/desktops, keep the layout below untouched.
   if ((isFisherfolk || isFarmer || isOrg) && isPhone) {
-    return <CitizenPhoneShell title={title} subtitle={subtitle} action={action}>{children}</CitizenPhoneShell>
+    return <CitizenPhoneShell title={title} action={action}>{children}</CitizenPhoneShell>
   }
 
   return (
@@ -62,15 +63,10 @@ function PageLayout({ title, subtitle, action, children }) {
         style={{ '--sidebar-w': sidebarCollapsed ? '64px' : '248px' }}
       >
         <main className="p-4 sm:p-6">
-          {(title || action) && (
-            <div className="flex items-start justify-between mb-5 gap-4 flex-wrap">
-              <div>
-                {title && <h1 className="font-display text-[22px] font-semibold text-text-primary leading-tight tracking-tight">{title}</h1>}
-                {subtitle && <p className="text-[13px] text-text-secondary mt-0.5">{subtitle}</p>}
-              </div>
-              {action && <div className="ml-auto flex-shrink-0">{action}</div>}
-            </div>
-          )}
+          {/* No visible page title block: the sidebar already shows where you are. The title stays for screen readers
+              and the page's action button (e.g. Create User) sits in a slim row above the content. */}
+          {title && <h1 className="sr-only">{title}</h1>}
+          {action && <div className="mb-4 flex justify-end">{action}</div>}
           {children}
         </main>
       </div>

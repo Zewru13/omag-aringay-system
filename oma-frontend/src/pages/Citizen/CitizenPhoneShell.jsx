@@ -48,7 +48,7 @@ function activeTabKey(tabs, pathname) {
   return hit ? hit.key : null
 }
 
-export default function CitizenPhoneShell({ title, subtitle, action, children }) {
+export default function CitizenPhoneShell({ title, action, children }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const { user, logout, isFarmer, isOrg, orgType } = useAuth()
@@ -76,15 +76,9 @@ export default function CitizenPhoneShell({ title, subtitle, action, children })
 
       {/* pb clears the fixed tab bar (60px) plus the device's home-indicator inset. */}
       <main className="px-4 pb-[calc(60px+env(safe-area-inset-bottom)+20px)] pt-4">
-        {(title || action) && (
-          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-            <div>
-              {title && <h1 className="font-display text-[20px] font-semibold leading-tight tracking-tight text-cz-text">{title}</h1>}
-              {subtitle && <p className="mt-0.5 text-[13px] text-cz-text-2">{subtitle}</p>}
-            </div>
-            {action && <div className="ml-auto flex-shrink-0">{action}</div>}
-          </div>
-        )}
+        {/* Same as PageLayout: no visible title block (the bottom tabs show where you are); the title stays for screen readers. */}
+        {title && <h1 className="sr-only">{title}</h1>}
+        {action && <div className="mb-4 flex justify-end">{action}</div>}
         {children}
       </main>
 
