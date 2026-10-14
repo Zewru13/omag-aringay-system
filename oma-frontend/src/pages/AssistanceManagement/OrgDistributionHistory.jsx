@@ -4,6 +4,7 @@ import api from '../../api/axiosInstance.js'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
+import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { formatDateTime, formatStamp } from '../../utils/distributionHelpers.js'
@@ -281,12 +282,10 @@ export default function OrgDistributionHistory({ domain = 'crop', refreshKey = 0
                       <span className="mt-1 block"><StatusCounts counts={item.status_counts} /></span>
                     </td>
                     <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                      <button type="button" disabled={removable === 0}
-                        title={removable === 0 ? 'Every member already confirmed, so nothing can be removed' : undefined}
-                        onClick={() => setRemoving({ item })}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 px-2.5 py-1.5 text-[12px] font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40">
-                        <Trash2 size={13} aria-hidden="true" /> Remove from the list
-                      </button>
+                      {/* Disabled (not hidden) once every member has confirmed: nothing is left to remove. */}
+                      <RowActions alwaysMenu actions={[
+                        { key: 'remove', label: removable === 0 ? 'Remove (all members confirmed)' : 'Remove from the list', icon: Trash2, tone: 'rose', disabled: removable === 0, onClick: () => setRemoving({ item }) },
+                      ]} />
                     </td>
                   </tr>,
                   isOpen && (

@@ -75,7 +75,7 @@ const REPORTS_GROUP = {
 // page's back-navigation) still correctly highlights "Farmers", not nothing.
 // /reports mirrors the same idea for its default "harvested" report.
 // /disaster mirrors the same idea: a bare /disaster opens the Crop view (see AdminDisasterPage).
-const DEFAULT_TAB_BY_PATH = { "/farmers": "registry", "/fisherfolk": "registry", "/reports": "harvested", "/disaster": "farmer" };
+const DEFAULT_TAB_BY_PATH = { "/farmers": "registry", "/fisherfolk": "registry", "/reports": "harvested", "/disaster": "farmer", "/fisheries-monitoring": "stocking" };
 
 const GROUPS = [
   {
@@ -109,8 +109,10 @@ const GROUPS = [
     key: "fisheries-management",
     label: "Fisheries Management",
     icon: Waves,
+    // One page, two views (?tab=stocking | ?tab=capture): each gets its own menu entry instead of tabs inside the page.
     items: [
-      { to: "/fisheries-monitoring", icon: Activity, label: "Fisheries Monitoring" },
+      { to: "/fisheries-monitoring?tab=stocking", icon: Waves, label: "Aquaculture Monitoring" },
+      { to: "/fisheries-monitoring?tab=capture", icon: Fish, label: "Capture Monitoring" },
     ],
   },
   {
@@ -137,10 +139,9 @@ const GROUPS = [
 // English. Activity logs, Health Log, Harvest and Force Harvest are the workflows inside Fisheries
 // Monitoring > Aquaculture, exactly as for Admin. A fisherfolk account is already an aquaculture
 // context, so there is no Capture Fishing and no Aquaculture/Capture category choice anywhere here.
-// Five direct links, no submenus: the account itself is the context, so Fisheries Monitoring IS the
-// aquaculture monitoring and Disaster IS the fisherfolk disaster page (My Logged Disasters + Log Disaster).
+// Direct links, no submenus: the account itself is the context, so Aquaculture Monitoring is its only monitoring and Disaster IS the fisherfolk disaster page (My Logged Disasters + Log Disaster).
 const FISHERFOLK_NAV = [
-  { to: "/fisheries-monitoring", icon: Waves, label: "Fisheries Monitoring" },
+  { to: "/fisheries-monitoring", icon: Waves, label: "Aquaculture Monitoring" },
   { to: "/fisheries-forecasting", icon: TrendingUp, label: "Forecasting" },
   { to: "/disaster", icon: AlertTriangle, label: "Disaster" },
   { to: "/fisheries-assistance", icon: HandHeart, label: "Assistance" },

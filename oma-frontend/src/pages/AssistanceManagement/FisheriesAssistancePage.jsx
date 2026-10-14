@@ -443,19 +443,19 @@ export default function FisheriesAssistancePage({ asTab = false }) {
     // An organization's table is the "Confirm for Members" list only; its history is OrgDistributionHistory.
     actions_cell: isOrg ? (
       a.latest_request_status === 'PENDING' ? '—' : (
-        <RowActions inline actions={[
+        <RowActions alwaysMenu actions={[
           { key: 'confirm', label: 'Confirm for Member', icon: UserCheck, onClick: () => setConfirmingOnBehalf([a]) },
         ]} />
       )
     ) : isFisherfolk ? (
       a.status === 'AWAITING_CONFIRMATION' ? (
-        <RowActions inline actions={[
+        <RowActions actions={[
           { key: 'confirm', label: 'Confirm Received', icon: CheckCircle2, onClick: () => confirmReceived(a) },
           { key: 'not-received', label: 'Report Not Received', icon: XCircle, tone: 'rose', onClick: () => setReportingNotReceived(a) },
         ]} />
       ) : '—'
     ) : (
-      <RowActions inline actions={[
+      <RowActions actions={[
         { key: 'view', label: 'View', icon: Eye, onClick: () => setViewing(a) },
         EDITABLE_STATUSES.has(a.status) && { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditing(a) },
         CANCELLABLE_STATUSES.has(a.status) && { key: 'cancel', label: 'Cancel assistance', icon: Ban, tone: 'rose', onClick: () => setCancelling(a) },

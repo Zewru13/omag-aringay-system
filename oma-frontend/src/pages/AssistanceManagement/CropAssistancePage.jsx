@@ -703,19 +703,19 @@ export default function CropAssistancePage({ asTab = false }) {
     // An organization's table is the "Confirm for Members" list only; its history is OrgDistributionHistory.
     actions_cell: isOrg ? (
       r.latest_request_status === 'PENDING' ? '—' : (
-        <RowActions inline actions={[
+        <RowActions alwaysMenu actions={[
           { key: 'confirm', label: 'Confirm for Member', icon: UserCheck, onClick: () => setConfirmingOnBehalf([r]) },
         ]} />
       )
     ) : isFarmer ? (
       r.status === 'AWAITING_CONFIRMATION' ? (
-        <RowActions inline actions={[
+        <RowActions actions={[
           { key: 'confirm', label: 'Confirm Received', icon: CheckCircle2, onClick: () => setConfirmingReceived(r) },
           { key: 'not-received', label: 'Report Not Received', icon: XCircle, tone: 'rose', onClick: () => setReportingNotReceived(r) },
         ]} />
       ) : '—'
     ) : (
-      <RowActions inline actions={[
+      <RowActions actions={[
         { key: 'view', label: 'View', icon: Eye, onClick: () => setViewing(r) },
         EDITABLE_STATUSES.has(r.status) && { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditing(r) },
         CANCELLABLE_STATUSES.has(r.status) && { key: 'cancel', label: 'Cancel assistance', icon: Ban, tone: 'rose', onClick: () => setCancelling(r) },
