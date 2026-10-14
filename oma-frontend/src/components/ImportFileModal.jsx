@@ -102,7 +102,7 @@ export default function ImportFileModal({
   const paginatedRows = filteredRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   // Phone: two equal-width buttons side by side (a row of two never runs past the screen); larger screens keep them at the right.
-  const FOOT = 'grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto [&>*]:min-h-[44px] [&>*]:px-2 sm:[&>*]:min-h-0 sm:[&>*]:px-4'
+  const FOOT = 'flex w-full flex-col-reverse gap-2 min-[420px]:grid min-[420px]:grid-cols-2 sm:flex sm:flex-row sm:w-auto [&>*]:min-h-[44px] max-sm:[&>*]:h-auto max-sm:[&>*]:py-2 max-sm:[&>*]:leading-tight [&>*]:px-2 sm:[&>*]:min-h-0 sm:[&>*]:px-4'
   const footerContent = step === 'upload' ? (
     <div className={FOOT}>
       <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>

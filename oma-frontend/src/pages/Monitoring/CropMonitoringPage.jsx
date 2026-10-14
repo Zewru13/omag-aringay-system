@@ -2238,6 +2238,8 @@ export default function CropMonitoringPage() {
             columns={columns}
             data={rows}
             isLoading={isLoading}
+            phoneTitleKey="crop_cell"
+            phoneSubtitleKey="farmer_col"
             emptyState={(
               <div className="px-4 py-12 text-center">
                 <p className="text-[14px] font-medium text-[#4A5E4A]">No monitoring records found</p>

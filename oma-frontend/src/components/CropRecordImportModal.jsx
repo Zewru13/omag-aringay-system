@@ -193,7 +193,7 @@ export default function CropRecordImportModal({ onClose, onCommitted }) {
 
   const footerContent = {
     upload: (
-      <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto [&>*]:min-h-[44px] sm:[&>*]:min-h-0">
+      <div className="flex w-full flex-col-reverse gap-2 min-[420px]:grid min-[420px]:grid-cols-2 sm:flex sm:flex-row sm:w-auto [&>*]:min-h-[44px] max-sm:[&>*]:h-auto max-sm:[&>*]:py-2 max-sm:[&>*]:leading-tight sm:[&>*]:min-h-0">
         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
         <Button type="button" isLoading={isBusy} onClick={handlePreview} disabled={!file}>
           Preview Rows
@@ -203,7 +203,7 @@ export default function CropRecordImportModal({ onClose, onCommitted }) {
     preview: preview ? (
       <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
         <span className="text-center text-[12.5px] text-[#7A8E7A] sm:order-2 sm:ml-auto">{selectedRows.size} row{selectedRows.size === 1 ? '' : 's'} selected</span>
-        <div className="grid grid-cols-2 gap-2 sm:contents [&>*]:min-h-[44px] [&>*]:px-2 sm:[&>*]:min-h-0 sm:[&>*]:px-4">
+        <div className="flex flex-col-reverse gap-2 min-[420px]:grid min-[420px]:grid-cols-2 sm:contents [&>*]:min-h-[44px] max-sm:[&>*]:h-auto max-sm:[&>*]:py-2 max-sm:[&>*]:leading-tight [&>*]:px-2 sm:[&>*]:min-h-0 sm:[&>*]:px-4">
           <Button type="button" variant="outline" onClick={handleStartOver} className="sm:order-1">Upload a Different File</Button>
           <Button type="button" onClick={goToConfirm} disabled={selectedRows.size === 0} className="sm:order-3">
             Continue to Confirm
@@ -212,7 +212,7 @@ export default function CropRecordImportModal({ onClose, onCommitted }) {
       </div>
     ) : null,
     confirm: (
-      <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:items-center sm:justify-between [&>*]:min-h-[44px] sm:[&>*]:min-h-0">
+      <div className="flex w-full flex-col-reverse gap-2 min-[420px]:grid min-[420px]:grid-cols-2 sm:flex sm:flex-row sm:items-center sm:justify-between [&>*]:min-h-[44px] max-sm:[&>*]:h-auto max-sm:[&>*]:py-2 max-sm:[&>*]:leading-tight sm:[&>*]:min-h-0">
         <Button type="button" variant="outline" onClick={() => setStep('preview')} className="sm:border-transparent sm:text-[#7A8E7A]">Back to Review</Button>
         <Button type="button" isLoading={isBusy} onClick={handleCommit}>Confirm &amp; Create</Button>
       </div>

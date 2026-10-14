@@ -9,10 +9,12 @@ const VARIANT = {
   ghost:     'text-primary hover:bg-primary-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary',
 }
 
+// A fixed height used to let a label that wraps onto a second line (long text, narrow phone) spill out of the button; on a phone
+// the height is a minimum instead, so the button grows to hold its text.
 const SIZE = {
-  sm: 'h-9 px-3 text-[12px] min-w-9',
-  md: 'h-10 px-4 text-[13px] min-w-10',
-  lg: 'h-11 px-5 text-[13px] min-w-11',
+  sm: 'h-9 px-3 text-[12px] min-w-9 max-sm:h-auto max-sm:min-h-9 max-sm:py-1.5 max-sm:leading-tight',
+  md: 'h-10 px-4 text-[13px] min-w-10 max-sm:h-auto max-sm:min-h-10 max-sm:py-2 max-sm:leading-tight',
+  lg: 'h-11 px-5 text-[13px] min-w-11 max-sm:h-auto max-sm:min-h-11 max-sm:py-2 max-sm:leading-tight',
 }
 
 function Button({

@@ -270,6 +270,8 @@ function FarmersPage({ asTab = false }) {
         data={tableData}
         isLoading={isLoading}
         onRowClick={(farmer) => navigate(`/farmers/${farmer.id}`)}
+        phoneTitleKey="full_name"
+        phoneOpenLabel="Open farmer profile"
       />
 
       <PaginationBar
