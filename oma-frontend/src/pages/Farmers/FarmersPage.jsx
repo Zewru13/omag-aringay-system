@@ -167,7 +167,7 @@ function FarmersPage({ asTab = false }) {
         type="button"
       >
         <Upload size={16} />
-        Import File
+        Import Farmers
       </button>
       <button
         className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
@@ -182,12 +182,10 @@ function FarmersPage({ asTab = false }) {
 
   const innerContent = (
     <>
-      {asTab && actionBtn && (
-        <div className="flex justify-end mb-3">{actionBtn}</div>
-      )}
 
       {/* Search + filters */}
       <FilterPanel
+        actions={actionBtn}
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder="Search by name, RSBSA, or barangay"
@@ -303,7 +301,6 @@ function FarmersPage({ asTab = false }) {
     <PageLayout
       title="Farmer Registry"
       subtitle="Registered farmers and their farm parcels"
-      action={actionBtn}
     >
       {innerContent}
     </PageLayout>

@@ -171,7 +171,7 @@ function FisherfolkPage({ asTab = false }) {
         type="button"
       >
         <Upload size={16} />
-        Import File
+        Import Fisherfolk
       </button>
       <button
         className="flex items-center gap-1.5 bg-[#1B4D2E] hover:bg-[#235E38] text-white text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
@@ -186,12 +186,10 @@ function FisherfolkPage({ asTab = false }) {
 
   const innerContent = (
     <>
-      {asTab && actionBtn && (
-        <div className="flex justify-end mb-3">{actionBtn}</div>
-      )}
 
       {/* Search + filters */}
       <FilterPanel
+        actions={actionBtn}
         search={search}
         onSearchChange={setSearch}
         searchPlaceholder="Search by name, LGU Reg. No., FishR No., or barangay"
@@ -310,7 +308,6 @@ function FisherfolkPage({ asTab = false }) {
     <PageLayout
       title="Fisherfolk Registry"
       subtitle="Registered fisherfolk and their records"
-      action={actionBtn}
     >
       {innerContent}
     </PageLayout>

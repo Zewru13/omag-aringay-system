@@ -1158,27 +1158,27 @@ export default function CropInformationPage() {
     <PageLayout
       title="Crop Information Management"
       subtitle="Monitor and manage crop records and activities."
-      action={
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            className="flex items-center gap-1.5 rounded-lg border border-[#E2E8E2] px-4 py-2 text-[13px] font-medium text-[#1B4D2E] hover:bg-[#F0F4F0] transition-colors"
-            onClick={() => setShowRsbsaImportModal(true)}
-          >
-            <Upload size={15} /> Import File
-          </button>
-          <button
-            type="button"
-            className="flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors"
-            onClick={() => navigate("/crop-records/add")}
-          >
-            <Plus size={15} /> Add Crop
-          </button>
-        </div>
-      }
     >
       <div className="space-y-4">
         <FilterPanel
+          actions={
+            <>
+              <button
+                type="button"
+                className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#E2E8E2] px-4 py-2 text-[13px] font-medium text-[#1B4D2E] hover:bg-[#F0F4F0] transition-colors"
+                onClick={() => setShowRsbsaImportModal(true)}
+              >
+                <Upload size={15} /> Import Crop Records
+              </button>
+              <button
+                type="button"
+                className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors"
+                onClick={() => navigate("/crop-records/add")}
+              >
+                <Plus size={15} /> Add Crop Record
+              </button>
+            </>
+          }
           search={search}
           onSearchChange={setSearch}
           searchPlaceholder="Search by farmer, RSBSA, crop, or organization..."
