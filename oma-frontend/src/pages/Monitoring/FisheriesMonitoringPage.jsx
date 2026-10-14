@@ -492,7 +492,7 @@ export default function FisheriesMonitoringPage() {
 
             {errorCatch
               ? <ErrorMessage message={errorCatch} />
-              : <DataTable columns={CATCH_COLUMNS} data={catchData} isLoading={isLoadingCatch} />
+              : <DataTable columns={CATCH_COLUMNS} data={catchData} isLoading={isLoadingCatch} phoneTitleKey="fisherfolk_name" phoneSubtitleKey="trip_date_fmt" />
             }
           </div>
         )}

@@ -277,6 +277,8 @@ function FisherfolkPage({ asTab = false }) {
         data={tableData}
         isLoading={isLoading}
         onRowClick={(row) => navigate(`/fisheries/${row.id}`)}
+        phoneTitleKey="full_name"
+        phoneOpenLabel="Open fisherfolk profile"
       />
 
       <PaginationBar

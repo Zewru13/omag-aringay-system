@@ -113,6 +113,8 @@ function OrganizationsPage({ asTab = false }) {
         data={tableData}
         isLoading={isLoading}
         onRowClick={handleRowClick}
+        phoneTitleKey="name"
+        phoneOpenLabel="Open organization profile"
       />
 
       <PaginationBar

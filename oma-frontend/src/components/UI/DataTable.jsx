@@ -1,5 +1,5 @@
-import { Fragment } from 'react'
-import { InboxIcon } from 'lucide-react'
+import { Fragment, useState } from 'react'
+import { ChevronDown, InboxIcon } from 'lucide-react'
 import { rowClickProps } from '../../utils/rowClick.js'
 
 function SkeletonRow({ columnCount }) {
@@ -21,12 +21,17 @@ const isBlank = (value) => value === undefined || value === null || value === ''
 // Optional, opt-in expandable rows (no effect when omitted): `expandedRowId` is the id of the open row;
 // `renderExpanded(row)` is drawn in a full-width row under it on desktop, `renderExpandedMobile(row)` inside
 // its card on phones (taps inside it never re-trigger onRowClick). `rowClickLabel(row)` labels the clickable row.
+// `phoneTitleKey` (optional): on a phone each card shows ONLY that column (the person's / organization's / crop's name,
+// plus `phoneSubtitleKey` underneath when given); tapping the card opens it to show every other column and, when the
+// table has `onRowClick`, a button to open the full page. Larger screens are unchanged. `phoneOpenLabel` names that button.
 // `bare`: no border, shadow or rounded corners of its own on larger screens, for a table that sits inside a card
 // that already has them (the card's own header sits above it).
 function DataTable({
   columns, data, isLoading, loading, onRowClick, emptyState, cardColumns = 1, bare = false,
   expandedRowId, renderExpanded, renderExpandedMobile, rowClickLabel,
+  phoneTitleKey, phoneSubtitleKey, phoneOpenLabel = 'View full details',
 }) {
+  const [phoneOpenId, setPhoneOpenId] = useState(null)
   const showLoading = isLoading || loading
   const frame = bare ? '' : 'bg-surface border border-border rounded-[var(--radius-md)] shadow-sm'
   const expandable = Boolean(renderExpanded || renderExpandedMobile)
@@ -84,7 +89,63 @@ function DataTable({
     <>
       {/* Mobile: card view */}
       <div className="block space-y-3 md:hidden">
-        {data.map((row, rowIndex) => (
+        {phoneTitleKey && data.map((row, rowIndex) => {
+          const rowId = row.id ?? rowIndex
+          const open = phoneOpenId === rowId
+          const detailColumns = columns.filter((c) => c.key !== phoneTitleKey && c.key !== phoneSubtitleKey && !isActionsColumn(c))
+          const actionColumns = columns.filter((c) => isActionsColumn(c) && !isBlank(row[c.key]) && row[c.key] !== '—')
+          const subtitle = phoneSubtitleKey ? row[phoneSubtitleKey] : null
+          return (
+            <div
+              key={rowId}
+              className="stagger-item overflow-hidden rounded-[var(--radius-md)] border border-border bg-surface shadow-xs"
+              style={{ '--stagger-index': Math.min(rowIndex, 8) }}
+            >
+              <button
+                type="button"
+                aria-expanded={open}
+                onClick={() => setPhoneOpenId(open ? null : rowId)}
+                className="flex min-h-[56px] w-full items-center justify-between gap-3 px-4 py-3 text-left"
+              >
+                <span className="min-w-0">
+                  <span className="block break-words text-[15px] font-semibold leading-snug text-text-primary">
+                    {isBlank(row[phoneTitleKey]) ? '—' : row[phoneTitleKey]}
+                  </span>
+                  {!isBlank(subtitle) && <span className="mt-0.5 block break-words text-[12px] text-text-muted">{subtitle}</span>}
+                </span>
+                <ChevronDown size={18} aria-hidden="true" className={`shrink-0 text-text-muted transition-transform ${open ? 'rotate-180' : ''}`} />
+              </button>
+              {open && (
+                <div className="border-t border-border px-4 pb-4 pt-3">
+                  <dl className={cardColumns === 2 ? 'grid grid-cols-2 gap-x-3 gap-y-2.5' : 'space-y-2'}>
+                    {detailColumns.map((column) => (
+                      <div key={column.key} className="min-w-0 break-words">
+                        <dt className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">{column.label}</dt>
+                        <dd className="mt-0.5 text-[13px] text-text-primary">{isBlank(row[column.key]) ? '—' : row[column.key]}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  {actionColumns.map((column) => (
+                    <div key={column.key} className="mt-3 border-t border-border pt-3">{row[column.key]}</div>
+                  ))}
+                  {isExpanded(row) && renderExpandedMobile && (
+                    <div className="mt-3 border-t border-border pt-3">{renderExpandedMobile(row)}</div>
+                  )}
+                  {onRowClick && (
+                    <button
+                      type="button"
+                      onClick={() => onRowClick(row)}
+                      className="mt-3 flex min-h-[44px] w-full items-center justify-center rounded-lg border border-border-strong text-[13px] font-medium text-primary transition-colors hover:bg-surface-2"
+                    >
+                      {phoneOpenLabel} →
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )
+        })}
+        {!phoneTitleKey && data.map((row, rowIndex) => (
           <div
             key={row.id || rowIndex}
             className={[

@@ -951,47 +951,54 @@ function StockingMobileCard({ row, expanded, unitsState, onToggle, onRetryUnits,
       aria-expanded={expanded}
       {...rowClickProps(onToggle, `${expanded ? 'Hide' : 'Show'} ponds/cages: ${row.species_name || 'stock'}${row.production_cycle_no ? ` #${row.production_cycle_no}` : ''}`)}
     >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 text-[15px] text-[#1A2B1A]">{row.species_name_cell}</div>
-        <span className="shrink-0 text-[12px] font-semibold text-[#4A5E4A]">Cycle {row.cycle_cell}</span>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="break-words text-[15px] text-[#1A2B1A] [&>span>svg:first-child]:hidden">{row.species_name_cell}</div>
+          <p className="mt-0.5 break-words text-[12px] text-[#7A8E7A]">
+            {[row.fisherfolk_cell, row.cycle_cell && row.cycle_cell !== '—' ? `Cycle ${row.cycle_cell}` : null].filter((x) => x && x !== '—').join(' · ')}
+          </p>
+        </div>
+        <ChevronDown size={18} aria-hidden="true" className={`shrink-0 text-[#7A8E7A] transition-transform ${expanded ? 'rotate-180' : ''}`} />
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">{row.status_cell}</div>
-      <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2.5">
-        {fields.map(([label, value]) => (
-          <div key={label} className="min-w-0">
-            <dt className="text-[11px] font-medium uppercase tracking-wide text-[#7A8E7A]">{label}</dt>
-            <dd className="mt-0.5 break-words text-[13px] text-[#1A2B1A]">{value}</dd>
-          </div>
-        ))}
-      </dl>
       {expanded && (
-        // data-no-row-click: taps inside the unit list never collapse the card.
-        <div className="mt-3 cursor-default border-t border-[#F0F4F0] pt-3" data-no-row-click>
-          <ProductionUnitsCards state={unitsState} speciesName={row.species_name} onRetry={onRetryUnits}
-            headerAction={<CycleDetailsButton rec={row._rec} onViewCycle={onOpenCycle} />} />
+        // Everything else opens when the card is tapped; data-no-row-click: taps inside never collapse it.
+        <div className="mt-3 cursor-default space-y-3 border-t border-[#F0F4F0] pt-3" data-no-row-click>
+          <div className="flex flex-wrap items-center gap-1.5">{row.status_cell}</div>
+          <dl className="grid grid-cols-2 gap-x-3 gap-y-2.5">
+            {fields.map(([label, value]) => (
+              <div key={label} className="min-w-0">
+                <dt className="text-[11px] font-medium uppercase tracking-wide text-[#7A8E7A]">{label}</dt>
+                <dd className="mt-0.5 break-words text-[13px] text-[#1A2B1A]">{value}</dd>
+              </div>
+            ))}
+          </dl>
+          <div className="border-t border-[#F0F4F0] pt-3">
+            <ProductionUnitsCards state={unitsState} speciesName={row.species_name} onRetry={onRetryUnits}
+              headerAction={<CycleDetailsButton rec={row._rec} onViewCycle={onOpenCycle} />} />
+          </div>
+          <div className="grid grid-cols-2 gap-2 border-t border-[#F0F4F0] pt-3 min-[420px]:flex">
+            <button type="button" className={`${btn} border-[#E2E8E2] text-[#1B4D2E] hover:bg-[#F0F4F0]`} onClick={onOpenCycle}>
+              <Layers size={15} /> Cycle
+            </button>
+            <button type="button" className={`${btn} border-[#E2E8E2] text-[#1B4D2E] hover:bg-[#F0F4F0]`} onClick={onViewDetails}>
+              <Eye size={15} /> Details
+            </button>
+            {canEdit && (
+              <button type="button" className={`${btn} border-[#E2E8E2] text-[#1B4D2E] hover:bg-[#F0F4F0]`} onClick={onEdit}>
+                <Pencil size={15} /> Edit
+              </button>
+            )}
+            <button
+              type="button" data-testid="card-harvest" data-force={force ? 'true' : 'false'}
+              title={harvestTitle} aria-label={harvestTitle} disabled={!netActive} onClick={onRecordHarvest}
+              className={`${btn} ${!netActive ? 'cursor-not-allowed border-[#E2E8E2] text-[#C8D5C8]'
+                : force ? 'border-red-300 text-red-600 hover:bg-red-50' : 'border-[#E2E8E2] text-[#1B4D2E] hover:bg-[#F0F4F0]'}`}
+            >
+              <FishingNetIcon size={16} /> Harvest
+            </button>
+          </div>
         </div>
       )}
-      <div className="mt-3 flex gap-2 border-t border-[#F0F4F0] pt-3">
-        <button type="button" className={`${btn} border-[#E2E8E2] text-[#1B4D2E] hover:bg-[#F0F4F0]`} onClick={onOpenCycle}>
-          <Layers size={15} /> Cycle
-        </button>
-        <button type="button" className={`${btn} border-[#E2E8E2] text-[#1B4D2E] hover:bg-[#F0F4F0]`} onClick={onViewDetails}>
-          <Eye size={15} /> Details
-        </button>
-        {canEdit && (
-          <button type="button" className={`${btn} border-[#E2E8E2] text-[#1B4D2E] hover:bg-[#F0F4F0]`} onClick={onEdit}>
-            <Pencil size={15} /> Edit
-          </button>
-        )}
-        <button
-          type="button" data-testid="card-harvest" data-force={force ? 'true' : 'false'}
-          title={harvestTitle} aria-label={harvestTitle} disabled={!netActive} onClick={onRecordHarvest}
-          className={`${btn} ${!netActive ? 'cursor-not-allowed border-[#E2E8E2] text-[#C8D5C8]'
-            : force ? 'border-red-300 text-red-600 hover:bg-red-50' : 'border-[#E2E8E2] text-[#1B4D2E] hover:bg-[#F0F4F0]'}`}
-        >
-          <FishingNetIcon size={16} /> Harvest
-        </button>
-      </div>
     </div>
   )
 }
