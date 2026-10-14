@@ -1011,6 +1011,9 @@ export default function FisheriesRecordsPage({ asTab = false }) {
   // Server-side search over every record (fisherfolk name or RSBSA / LGU / FishR number, species,
   // barangay) - debounced; the latest-request guard below already drops any slower, older answer.
   const debouncedSearch = useDebouncedValue(search.trim())
+  // Pond / cage name: the stock's pond name or one of its units ("Pond 2", "Cage 1"); typed, so debounced like the search.
+  const [pondFilter,   setPondFilter]   = useState('')
+  const debouncedPond = useDebouncedValue(pondFilter.trim())
   const [statusFilter, setStatusFilter] = useState('All Status')
   const [seasonFilter, setSeasonFilter] = useState('')
   const [yearFilter,   setYearFilter]   = useState('')
@@ -1087,6 +1090,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
     try {
       const params = new URLSearchParams({ page: pageNum })
       if (debouncedSearch) params.set('search', debouncedSearch)
+      if (debouncedPond) params.set('pond', debouncedPond)
       if (statusFilter === 'All Status') {
         params.set('status', 'Stocked,Near Harvest,Harvested')
       } else if (statusFilter !== 'All Status') {
@@ -1103,13 +1107,13 @@ export default function FisheriesRecordsPage({ asTab = false }) {
     } finally {
       if (fetchId === latestFetch.current) setIsLoading(false)
     }
-  }, [statusFilter, seasonFilter, yearFilter, debouncedSearch])
+  }, [statusFilter, seasonFilter, yearFilter, debouncedSearch, debouncedPond])
 
   // ONE fetch per page view: changing a filter also resets the page to 1 in the same update (changeFilter
   // below), so this single effect runs once with the new filters and page.
   useEffect(() => { fetchRecords(page) }, [fetchRecords, page])
   // A new search starts from the first page.
-  useEffect(() => { setPage(1) }, [debouncedSearch])
+  useEffect(() => { setPage(1) }, [debouncedSearch, debouncedPond])
   const changeFilter = (setter) => (value) => { setter(value); setPage(1) }
 
   // Lock indicators for the currently-visible page only - one batched request for all its rows.
@@ -1260,8 +1264,16 @@ export default function FisheriesRecordsPage({ asTab = false }) {
           search={search}
           onSearchChange={setSearch}
           searchPlaceholder="Search by fisherfolk, RSBSA / LGU no., species, or barangay..."
-          activeCount={[statusFilter !== 'All Status', Boolean(seasonFilter), Boolean(yearFilter)].filter(Boolean).length}
+          activeCount={[statusFilter !== 'All Status', Boolean(seasonFilter), Boolean(yearFilter), Boolean(pondFilter.trim())].filter(Boolean).length}
         >
+          <input
+            type="search"
+            className={`${filterSelectCls} w-44`}
+            placeholder="Pond / cage name"
+            aria-label="Pond or cage name"
+            value={pondFilter}
+            onChange={e => setPondFilter(e.target.value)}
+          />
           <select className={filterSelectCls} value={statusFilter} onChange={e => changeFilter(setStatusFilter)(e.target.value)}>
             <option value="All Status">All Status</option>
             <option value="Stocked">Stocked</option>
