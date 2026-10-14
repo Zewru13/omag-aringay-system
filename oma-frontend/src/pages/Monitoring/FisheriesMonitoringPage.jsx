@@ -48,24 +48,6 @@ function MetricCard({ label, value, sub, accent }) {
   )
 }
 
-function SubTabBar({ options, value, onChange }) {
-  return (
-    <div className="flex w-fit overflow-hidden rounded-xl border border-slate-200">
-      {options.map((opt) => (
-        <button
-          key={opt.value}
-          onClick={() => onChange(opt.value)}
-          className={`border-none px-5 py-2 text-sm font-semibold transition-colors cursor-pointer ${
-            value === opt.value ? 'bg-[#1E4620] text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
-          }`}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
-  )
-}
-
 // ─── Table Row Actions: View Details / Edit ────────────────────────────────────
 // Delete lives inside each Edit modal now, not as a standalone icon — Batch 5.
 // onViewDetails is optional (kept for callers that only need Edit), but
@@ -323,11 +305,12 @@ function EditCatchModal({ record, onClose, onSaved }) {
   )
 }
 
-// Staff accounts get the Aquaculture | Capture category tabs; a fisherfolk account sees Aquaculture only.
+// Two views of one page, chosen from the sidebar (Aquaculture Monitoring / Capture Monitoring, ?tab=stocking | capture);
+// a fisherfolk account only ever has Aquaculture.
 // Disaster management lives in its own module (Admin > Disaster > Fisheries Disaster), not here.
 export default function FisheriesMonitoringPage() {
   const { isFisherfolk } = useAuth()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [searchParams] = useSearchParams()
   const rawTab = searchParams.get('tab') || 'stocking'
   // Forecasting moved out to its own /fisheries-forecasting route (Batch C),
   // Assistance moved out to /fisheries-assistance (Batch 5), disasters to /disaster — an old
@@ -335,9 +318,8 @@ export default function FisheriesMonitoringPage() {
   // default tab instead of rendering nothing.
   const staffTab = rawTab === 'capture' ? 'capture' : 'stocking'
   const subTab = isFisherfolk ? 'stocking' : staffTab
-  const setSubTab = (tab) => setSearchParams({ tab }, { replace: true })
-  const pageTitle = 'Fisheries Monitoring'
-  const pageSubtitle = !isFisherfolk ? 'Aquaculture and capture fishing'
+  const pageTitle = subTab === 'capture' ? 'Capture Monitoring' : 'Aquaculture Monitoring'
+  const pageSubtitle = subTab === 'capture' ? 'Catch logs and capture fishing activity'
     : 'Aquaculture production cycles, stocking, logs and harvests'
 
   const [barangay, setBarangay] = useState('')
@@ -427,20 +409,19 @@ export default function FisheriesMonitoringPage() {
         {/* Filters + Actions — not applicable to Stocking & Culture, which has its own filter bar */}
         {subTab !== 'stocking' && (
           <>
-            <div className="flex justify-end gap-2">
-              {subTab === 'capture' && (
+            <FilterPanel
+              activeCount={[barangay, year].filter(Boolean).length}
+              actions={subTab === 'capture' && (
                 <>
                   <Button variant="outline" onClick={() => setShowFisheriesHistory(true)}>
-                    <History size={15} className="mr-1" /> Historical
+                    <History size={15} className="mr-1" /> Historical Timeline
                   </Button>
                   <Button onClick={() => setShowAddCatch(true)}>
                     <Plus size={15} className="mr-1" /> Log Catch
                   </Button>
                 </>
               )}
-            </div>
-
-            <FilterPanel activeCount={[barangay, year].filter(Boolean).length}>
+            >
               {/* A fisherfolk only ever sees their own records, so a barangay filter means nothing to them. */}
               {!isFisherfolk && (
                 <div className="w-48">
@@ -457,18 +438,6 @@ export default function FisheriesMonitoringPage() {
               </select>
             </FilterPanel>
           </>
-        )}
-
-        {/* Category tabs are a staff tool; a fisherfolk account is already in its own context. */}
-        {!isFisherfolk && (
-          <SubTabBar
-            options={[
-              { value: 'stocking',   label: 'Aquaculture' },
-              { value: 'capture',    label: 'Capture' },
-            ]}
-            value={subTab}
-            onChange={setSubTab}
-          />
         )}
 
         {/* Stocking & Culture — the existing FisheriesRecordsPage, mounted as-is */}

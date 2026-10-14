@@ -53,6 +53,7 @@ function PhoneActions({ visible, alwaysVisible = false }) {
 }
 
 // `inline`: show every action as a labelled button at every width instead of the icon / ⋮ menu on larger screens.
+// `alwaysMenu`: a ⋮ menu on larger screens even when only one action applies (so a column of rows looks the same).
 function RowActions(props) {
   const visible = props.actions.filter(Boolean)
   if (visible.length === 0) return null
@@ -65,8 +66,8 @@ function RowActions(props) {
   )
 }
 
-function DesktopActions({ visible, menuTitle = 'Actions', menuWidthClassName = 'w-52' }) {
-  if (visible.length <= 1) {
+function DesktopActions({ visible, menuTitle = 'Actions', menuWidthClassName = 'w-52', alwaysMenu = false }) {
+  if (visible.length <= 1 && !alwaysMenu) {
     return (
       <div className="flex items-center gap-0.5">
         {visible.map((a) => (
