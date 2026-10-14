@@ -931,7 +931,7 @@ export default function ForecastingPage() {
       actions: (
         <button
           type="button"
-          className="text-sm font-medium text-[#1B4D2E] hover:underline"
+          className="text-sm font-medium text-[#1B4D2E] hover:underline max-md:min-h-[40px] max-md:px-3"
           onClick={() => setDetailRecord(rec)}
         >
           View

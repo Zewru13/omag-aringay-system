@@ -216,7 +216,7 @@ function NotificationBell({ variant = 'dark' }) {
       </button>
 
       {open && (
-        <div className="modal-content absolute right-0 top-full mt-1 z-50 bg-white border border-[#E2E8E2] rounded-xl shadow-[0_8px_24px_rgba(0,0,0,0.08)] w-80 max-h-96 flex flex-col origin-top-right">
+        <div className="modal-content absolute right-0 top-full mt-1 z-50 bg-white border border-[#E2E8E2] rounded-xl shadow-[0_8px_24px_rgba(0,0,0,0.08)] w-80 max-h-96 flex flex-col origin-top-right max-md:fixed max-md:inset-x-3 max-md:top-[60px] max-md:mt-0 max-md:w-auto max-md:max-h-[70vh]">
           <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#F0F4F0] flex-shrink-0">
             <p className="text-[13px] font-semibold text-[#1A2B1A]">Notifications</p>
             {unreadCount > 0 && (

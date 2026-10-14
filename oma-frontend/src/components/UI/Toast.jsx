@@ -31,7 +31,7 @@ function Toast() {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 space-y-2">
+    <div className="fixed bottom-4 right-4 z-50 space-y-2 max-md:bottom-[calc(72px+env(safe-area-inset-bottom))] max-md:left-4">
       {toasts.map((toast) => {
         const styles = getStyles(toast.type)
 

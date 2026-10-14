@@ -237,9 +237,9 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
 
   return (
     <>
-      <tr className={`border-b border-[#F0F4F0] align-top ${error ? 'bg-rose-50/40' : ''}`}>
-        <td className="px-3 py-3 text-center text-[13px] text-[#7A8E7A]" style={{ width: COL_WIDTH.index }}>{index + 1}</td>
-        <td className="px-3 py-3 overflow-hidden" style={{ width: COL_WIDTH.barangay }}>
+      <tr className={`border-b border-[#F0F4F0] align-top max-md:block max-md:mb-3 max-md:rounded-xl max-md:border max-md:border-[#E2E8E2] max-md:p-3 ${error ? 'bg-rose-50/40' : 'max-md:bg-white'}`}>
+        <td data-label="Crop record" className="px-3 py-3 text-center text-[13px] text-[#7A8E7A] max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.index }}>{index + 1}</td>
+        <td data-label="Barangay *" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.barangay }}>
           <select
             className={`${bulkCellInputClasses} w-full`}
             value={rec.farm_location_barangay}
@@ -249,7 +249,7 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
             {BARANGAYS.map(b => <option key={b} value={b}>{b}</option>)}
           </select>
         </td>
-        <td className="px-3 py-3 overflow-hidden" style={{ width: COL_WIDTH.landStatus }}>
+        <td data-label="Land status *" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.landStatus }}>
           <ComboboxWithOther
             options={['Owner', 'Lessee', 'Tenant']}
             value={rec.land_status}
@@ -261,7 +261,7 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
             chevronSize={13}
           />
         </td>
-        <td className="px-3 py-3 overflow-hidden" style={{ width: COL_WIDTH.cropType }}>
+        <td data-label="Crop type *" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.cropType }}>
           <select className={`${bulkCellInputClasses} w-full`} value={rec.crop_type}
             onChange={e => set('crop_type', e.target.value)}>
             <option value="">Select crop…</option>
@@ -275,7 +275,7 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
             </p>
           )}
         </td>
-        <td className="px-3 py-3 overflow-hidden" style={{ width: COL_WIDTH.datePlanted }}>
+        <td data-label="Date planted *" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.datePlanted }}>
           <input type="date" className={`${bulkCellInputClasses} w-full`} value={rec.date_planted}
             max={new Date().toISOString().split('T')[0]}
             onChange={e => {
@@ -292,20 +292,20 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
             </p>
           )}
         </td>
-        <td className="px-3 py-3 overflow-hidden" style={{ width: COL_WIDTH.area }}>
+        <td data-label="Area (ha) *" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.area }}>
           <DecimalInput decimals={2} className={`${bulkCellInputClasses} w-full`}
             placeholder="0.00"
             value={rec.area_planted_ha}
             onChange={v => set('area_planted_ha', v)} />
         </td>
-        <td className="px-3 py-3 overflow-hidden" style={{ width: COL_WIDTH.season }}>
+        <td data-label="Season" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.season }}>
           <select className={`${bulkCellInputClasses} w-full`} value={rec.season}
             onChange={e => set('season', e.target.value)}>
             <option value="Wet">Wet</option>
             <option value="Dry">Dry</option>
           </select>
         </td>
-        <td className="px-3 py-3 overflow-hidden" style={{ width: COL_WIDTH.variety }}>
+        <td data-label="Variety" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.variety }}>
           <ComboboxWithOther
             options={relevantVarieties.map(v => v.name)}
             value={rec.variety_used_is_other ? 'Other' : rec.variety_used}
@@ -320,7 +320,7 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
             chevronSize={13}
           />
         </td>
-        <td className="px-3 py-3 overflow-hidden" style={{ width: COL_WIDTH.seedSource }}>
+        <td data-label="Seed source" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.seedSource }}>
           <ComboboxWithOther
             options={seedSources.filter(s => s.is_active).map(s => s.name)}
             value={rec.seed_source}
@@ -332,14 +332,14 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
             chevronSize={13}
           />
         </td>
-        <td className="px-3 py-3 overflow-hidden" style={{ width: COL_WIDTH.qtySeeds }}>
+        <td data-label="Qty of seeds (kg)" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.qtySeeds }}>
           <input type="number" step="0.01" min="0" className={`${bulkCellInputClasses} w-full`}
             placeholder="0"
             value={rec.quantity_of_seeds}
             onChange={e => set('quantity_of_seeds', e.target.value)} />
         </td>
         {showParcelColumn && (
-          <td className="px-3 py-3 overflow-hidden" style={{ width: COL_WIDTH.farmParcel }}>
+          <td data-label="Farm parcel" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.farmParcel }}>
             <select className={`${bulkCellInputClasses} w-full`} value={rec.farm_parcel}
               onChange={e => set('farm_parcel', e.target.value)}>
               <option value="">Not linked</option>
@@ -351,19 +351,19 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
             </select>
           </td>
         )}
-        <td className="px-3 py-3 text-center" style={{ width: COL_WIDTH.remove }}>
+        <td className="px-3 py-3 text-center max-md:block max-md:w-full! max-md:px-0 max-md:py-1 max-md:text-right" style={{ width: COL_WIDTH.remove }}>
           {total > 1 && (
             <button type="button" onClick={() => onRemove(rec._id)} title="Remove row"
-              className="inline-flex items-center rounded-md p-1.5 text-rose-500 hover:bg-rose-50 transition-colors">
-              <Trash2 size={13} />
+              className="inline-flex items-center gap-1.5 rounded-md p-1.5 text-rose-500 hover:bg-rose-50 transition-colors max-md:min-h-[40px] max-md:px-3 max-md:text-[13px] max-md:font-medium">
+              <Trash2 size={13} /> <span className="md:hidden">Remove record</span>
             </button>
           )}
         </td>
       </tr>
       {error && (
-        <tr className="border-b border-[#F0F4F0] bg-rose-50/40">
-          <td />
-          <td colSpan={colCount - 1} className="px-3 pb-2.5 -mt-1 text-[12px] text-rose-600">{error}</td>
+        <tr className="border-b border-[#F0F4F0] bg-rose-50/40 max-md:block max-md:-mt-2 max-md:mb-3 max-md:rounded-b-xl max-md:px-3 max-md:pb-2">
+          <td className="max-md:hidden" />
+          <td colSpan={colCount - 1} className="px-3 pb-2.5 -mt-1 text-[12px] text-rose-600 max-md:block max-md:px-0">{error}</td>
         </tr>
       )}
     </>
@@ -635,7 +635,7 @@ export default function AddCropMonitoringPage() {
       <button
         type="button"
         onClick={goBack}
-        className="mb-4 inline-flex items-center gap-1 text-[13px] text-[#1B4D2E] hover:underline"
+        className="mb-4 inline-flex items-center gap-1 text-[13px] text-[#1B4D2E] hover:underline max-md:min-h-[40px]"
       >
         <ArrowLeft size={14} /> Back to Crop Records
       </button>
@@ -682,10 +682,10 @@ export default function AddCropMonitoringPage() {
           </p>
         )}
 
-        {/* Crop records — horizontal table, every field visible (no expand toggle) */}
-        <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white">
-          <table className="table-fixed text-sm">
-            <thead className="bg-[#1B4D2E] text-white">
+        {/* Crop records — a horizontal table, every field visible (no expand toggle); on a phone each record is a stacked card */}
+        <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white max-md:overflow-visible max-md:border-0 max-md:bg-transparent">
+          <table className="table-fixed text-sm max-md:block max-md:w-full">
+            <thead className="bg-[#1B4D2E] text-white max-md:hidden">
               <tr>
                 <th className={`${bulkThCenterClasses} overflow-hidden`} style={{ width: COL_WIDTH.index }}>#</th>
                 <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.barangay }}>Barangay <span className="text-white/70">*</span></th>
@@ -701,7 +701,7 @@ export default function AddCropMonitoringPage() {
                 <th className={bulkThCenterClasses} style={{ width: COL_WIDTH.remove }}></th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="max-md:block">
               {records.map((rec, i) => (
                 <CropRecordRow
                   key={rec._id}

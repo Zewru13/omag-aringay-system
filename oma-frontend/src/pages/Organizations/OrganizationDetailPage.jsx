@@ -1115,7 +1115,7 @@ function OrganizationDetailPage({ own = false }) {
             the real destination is the type-specific hub's Organizations tab. */}
         {!own && <div className="flex flex-wrap items-center justify-between gap-3">
           <Link
-            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#4A5E4A] hover:text-[#1A2B1A] transition-colors"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#4A5E4A] hover:text-[#1A2B1A] transition-colors max-md:min-h-[40px]"
             to={type === "farmers" ? "/farmers?tab=organizations" : "/fisherfolk?tab=organizations"}
           >
             <ArrowLeft size={15} />

@@ -313,14 +313,14 @@ function FisherfolkDetailPage() {
       <div className="space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Link
-            className="inline-flex items-center gap-1 text-[13px] text-[#155E82] hover:underline"
+            className="inline-flex items-center gap-1 text-[13px] text-[#155E82] hover:underline max-md:min-h-[40px]"
             to="/fisherfolk"
           >
             <ArrowLeft size={14} />
             Back to Fisherfolk Registry
           </Link>
           {!isLoading && fisherfolk && (
-            <div className="flex flex-wrap gap-2">
+            <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto md:flex-wrap [&>*]:w-full [&>*]:justify-center md:[&>*]:w-auto">
               <Button icon={ClipboardList} onClick={openHistory} variant="outline">
                 View Assistance History
               </Button>

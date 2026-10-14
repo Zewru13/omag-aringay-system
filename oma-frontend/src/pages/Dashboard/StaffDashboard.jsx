@@ -85,7 +85,7 @@ function MonitoringBlock({ tone, icon: Icon, title, data, linkLabel, onLink, isL
       <button
         type="button"
         onClick={onLink}
-        className={`mt-3 ${accent} transition-opacity hover:opacity-75 cursor-pointer`}
+        className={`mt-3 ${accent} transition-opacity hover:opacity-75 cursor-pointer max-md:flex max-md:min-h-[40px] max-md:items-center`}
       >
         <span className="text-[12.5px]">{linkLabel} →</span>
       </button>
@@ -123,7 +123,7 @@ function PanelHead({ title, count, action, onAction, subtitle, right }) {
       </div>
       {right}
       {action && (
-        <button type="button" onClick={onAction} className="shrink-0 text-text-secondary transition-colors hover:text-primary cursor-pointer">
+        <button type="button" onClick={onAction} className="shrink-0 text-text-secondary transition-colors hover:text-primary cursor-pointer max-md:flex max-md:min-h-[40px] max-md:items-center">
           <span className="text-[13px]">{action}</span>
         </button>
       )}
@@ -327,7 +327,7 @@ export default function StaffDashboard({ user }) {
                   <button
                     type="button"
                     onClick={() => navigate('/crop-assistance?tab=needs-follow-up')}
-                    className="mt-3 text-primary transition-opacity hover:opacity-75 cursor-pointer"
+                    className="mt-3 text-primary transition-opacity hover:opacity-75 cursor-pointer max-md:flex max-md:min-h-[40px] max-md:items-center"
                   >
                     <span className="text-[12.5px]">Review crop cases →</span>
                   </button>
@@ -343,7 +343,7 @@ export default function StaffDashboard({ user }) {
                   <button
                     type="button"
                     onClick={() => navigate('/fisheries-assistance?tab=needs-follow-up')}
-                    className="mt-3 text-[color:var(--color-semantic-info)] transition-opacity hover:opacity-75 cursor-pointer"
+                    className="mt-3 text-[color:var(--color-semantic-info)] transition-opacity hover:opacity-75 cursor-pointer max-md:flex max-md:min-h-[40px] max-md:items-center"
                   >
                     <span className="text-[12.5px]">Review fisheries cases →</span>
                   </button>
