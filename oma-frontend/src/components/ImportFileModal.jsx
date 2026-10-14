@@ -133,7 +133,7 @@ export default function ImportFileModal({
               type="button"
               onClick={handleDownloadTemplate}
               disabled={isDownloading}
-              className="mb-3 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-[#1B4D2E] hover:underline disabled:opacity-50"
+              className="mb-3 inline-flex items-center gap-1.5 text-[12.5px] font-medium text-[#1B4D2E] hover:underline disabled:opacity-50 max-md:min-h-[40px]"
             >
               <Download size={14} aria-hidden="true" />
               {isDownloading ? 'Downloading…' : 'Download the Excel template'}
@@ -223,7 +223,7 @@ export default function ImportFileModal({
                   type="button"
                   onClick={() => { setStatusFilter(t.key); setPage(1) }}
                   className={
-                    'rounded-full px-3 py-1 text-[11px] font-semibold transition-colors ' +
+                    'rounded-full px-3 py-1 text-[11px] font-semibold transition-colors max-md:min-h-[36px] ' +
                     (statusFilter === t.key ? 'bg-[#1B4D2E] text-white' : 'bg-[#F0F4F0] text-[#5A6B5C] hover:bg-[#E2E8E2]')
                   }
                 >

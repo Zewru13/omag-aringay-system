@@ -412,14 +412,14 @@ function FarmerDetailPage() {
         {/* Back link + actions */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Link
-            className="inline-flex items-center gap-1 text-[13px] text-[#1B4D2E] hover:underline"
+            className="inline-flex items-center gap-1 text-[13px] text-[#1B4D2E] hover:underline max-md:min-h-[40px]"
             to="/farmers"
           >
             <ArrowLeft size={14} />
             Back to Farmers
           </Link>
           {!isLoadingFarmer && farmer && (
-            <div className="flex flex-wrap gap-2">
+            <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto md:flex-wrap [&>*]:w-full [&>*]:justify-center md:[&>*]:w-auto [&>*:last-child:nth-child(odd)]:col-span-2 md:[&>*:last-child:nth-child(odd)]:col-span-1">
               <Button icon={ClipboardList} onClick={openHistory} variant="outline">
                 View Assistance History
               </Button>

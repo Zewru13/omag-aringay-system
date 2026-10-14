@@ -408,7 +408,7 @@ function ProfilePage() {
       )}
 
       {showPwConfirm && (
-        <ConfirmDialog
+        <ConfirmDialog variant="primary"
           title="Change Password"
           message="Your other profile changes have been saved. Your current session will end after the password is changed and you will need to log in again."
           confirmLabel="Change Password"

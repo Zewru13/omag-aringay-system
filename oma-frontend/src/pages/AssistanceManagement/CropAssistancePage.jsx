@@ -760,7 +760,7 @@ export default function CropAssistancePage({ asTab = false }) {
           </Button>
         </div>
       )}
-      {!isFarmer && !isOrg && <div className="flex flex-wrap justify-end gap-2">
+      {!isFarmer && !isOrg && <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:justify-end [&>*]:w-full [&>*]:justify-center sm:[&>*]:w-auto">
         <Button variant="outline" onClick={() => setShowImport(true)}>
           <Upload size={15} className="mr-1" /> Import File
         </Button>

@@ -357,7 +357,7 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
 
           <div className="flex items-center justify-between rounded-2xl border border-[#E2E8E2] bg-[#F9FAF9] px-5 py-3">
             <p className="text-[12.5px] text-[#4A5A4C]">Committed an import by mistake? You can review and reverse a recent one.</p>
-            <button type="button" onClick={() => { setUndoBatchId(null); setStep('undo') }} className="shrink-0 text-[13px] font-semibold text-[#1B4D2E] hover:underline">
+            <button type="button" onClick={() => { setUndoBatchId(null); setStep('undo') }} className="shrink-0 text-[13px] font-semibold text-[#1B4D2E] hover:underline max-md:min-h-[40px] max-md:px-1">
               Undo a recent import
             </button>
           </div>
@@ -463,7 +463,7 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
                     type="button"
                     onClick={() => { setStatusFilter(t.key); setPage(1) }}
                     className={
-                      'rounded-full px-3 py-1 text-[11px] font-semibold transition-colors ' +
+                      'rounded-full px-3 py-1 text-[11px] font-semibold transition-colors max-md:min-h-[36px] ' +
                       (statusFilter === t.key ? 'bg-[#1B4D2E] text-white' : 'bg-[#F0F4F0] text-[#5A6B5C] hover:bg-[#E2E8E2]')
                     }
                   >

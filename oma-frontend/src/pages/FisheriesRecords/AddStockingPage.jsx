@@ -289,12 +289,12 @@ function StockingRecordRow({ rec, index, total, speciesList, cycles, fisherfolkI
 
   return (
     <>
-      <tr className={`border-b border-[#F0F4F0] ${error ? 'bg-rose-50/40' : ''}`}>
-        <td className={`${bulkTdClasses} text-center text-[13px] text-[#7A8E7A]`}>{index + 1}</td>
-        <td className={`${bulkTdClasses} min-w-[180px]`}>
+      <tr className={`border-b border-[#F0F4F0] max-md:block max-md:mb-3 max-md:rounded-xl max-md:border max-md:border-[#E2E8E2] max-md:p-3 ${error ? 'bg-rose-50/40' : 'max-md:bg-white'}`}>
+        <td data-label="Stocking record" className={`${bulkTdClasses} text-center text-[13px] text-[#7A8E7A] max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]`}>{index + 1}</td>
+        <td data-label="Pond" className={`${bulkTdClasses} min-w-[180px] max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]`}>
           <PondCell fisherfolkId={fisherfolkId} value={rec.pond} onSelectPond={handlePondSelect} />
         </td>
-        <td className={`${bulkTdClasses} min-w-[190px]`}>
+        <td data-label="Species *" className={`${bulkTdClasses} min-w-[190px] max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]`}>
           <select className={bulkCellInputClasses} value={rec.species} onChange={e => handleSpeciesChange(e.target.value)}>
             <option value="">Select species…</option>
             {speciesList.map(s => (
@@ -302,14 +302,14 @@ function StockingRecordRow({ rec, index, total, speciesList, cycles, fisherfolkI
             ))}
           </select>
         </td>
-        <td className={`${bulkTdClasses} min-w-[130px]`}>
+        <td data-label="Culture type" className={`${bulkTdClasses} min-w-[130px] max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]`}>
           <select className={bulkCellInputClasses} value={rec.culture_type} onChange={e => set('culture_type', e.target.value)}>
             <option value="Pond">Pond</option>
             <option value="Cage">Cage</option>
             <option value="Pen">Pen</option>
           </select>
         </td>
-        <td className={`${bulkTdClasses} min-w-[160px]`}>
+        <td data-label="Date stocked *" className={`${bulkTdClasses} min-w-[160px] max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]`}>
           <input type="date" className={bulkCellInputClasses} value={rec.date_stocked}
             max={new Date().toISOString().split('T')[0]}
             onChange={e => {
@@ -317,46 +317,47 @@ function StockingRecordRow({ rec, index, total, speciesList, cycles, fisherfolkI
               set('season', detectSeason(e.target.value))
             }} />
         </td>
-        <td className={`${bulkTdClasses} min-w-[130px]`}>
+        <td data-label="No. of fingerlings *" className={`${bulkTdClasses} min-w-[130px] max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]`}>
           <input type="number" min="1" className={bulkCellInputClasses}
             placeholder={isShellfish ? 'Spat/pcs' : 'e.g. 500'} value={rec.number_of_fingerlings}
             onChange={e => set('number_of_fingerlings', e.target.value)} />
         </td>
-        <td className={`${bulkTdClasses} min-w-[120px]`}>
+        <td data-label="Season" className={`${bulkTdClasses} min-w-[120px] max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]`}>
           <select className={bulkCellInputClasses} value={rec.season} onChange={e => set('season', e.target.value)}>
             <option value="Wet">Wet</option>
             <option value="Dry">Dry</option>
           </select>
         </td>
-        <td className={`${bulkTdClasses} text-center`}>
+        <td data-label="More fields" className={`${bulkTdClasses} text-center max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]`}>
           <button
             type="button"
             onClick={() => onToggleExpand(rec._id)}
             title="More fields (land status, culture phase, survival rate...)"
-            className="inline-flex items-center gap-0.5 rounded-md px-1.5 py-1.5 text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors"
+            className="inline-flex items-center gap-0.5 rounded-md px-1.5 py-1.5 text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors max-md:min-h-[40px] max-md:gap-1.5 max-md:px-3 max-md:text-[13px] max-md:font-medium"
           >
             {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            <span className="md:hidden">{expanded ? 'Hide extra fields' : 'Land status, phase, survival rate…'}</span>
           </button>
         </td>
-        <td className={`${bulkTdClasses} text-center`}>
+        <td className={`${bulkTdClasses} text-center max-md:block max-md:w-full! max-md:px-0 max-md:py-1 max-md:text-right`}>
           {total > 1 && (
             <button type="button" onClick={() => onRemove(rec._id)} title="Remove row"
-              className="inline-flex items-center rounded-md p-1.5 text-rose-500 hover:bg-rose-50 transition-colors">
-              <Trash2 size={13} />
+              className="inline-flex items-center gap-1.5 rounded-md p-1.5 text-rose-500 hover:bg-rose-50 transition-colors max-md:min-h-[40px] max-md:px-3 max-md:text-[13px] max-md:font-medium">
+              <Trash2 size={13} /> <span className="md:hidden">Remove record</span>
             </button>
           )}
         </td>
       </tr>
       {error && (
-        <tr className="border-b border-[#F0F4F0]">
-          <td />
-          <td colSpan={8} className="px-3 pb-3 -mt-1 text-[12px] text-rose-600">{error}</td>
+        <tr className="border-b border-[#F0F4F0] max-md:block max-md:-mt-2 max-md:mb-3 max-md:px-3">
+          <td className="max-md:hidden" />
+          <td colSpan={8} className="px-3 pb-3 -mt-1 text-[12px] text-rose-600 max-md:block max-md:px-0">{error}</td>
         </tr>
       )}
       {expanded && (
-        <tr className="border-b border-[#F0F4F0] bg-[#F9FAF9]">
-          <td />
-          <td colSpan={8} className="px-3 py-4">
+        <tr className="border-b border-[#F0F4F0] bg-[#F9FAF9] max-md:block max-md:-mt-2 max-md:mb-3 max-md:rounded-b-xl max-md:border max-md:border-t-0 max-md:border-[#E2E8E2]">
+          <td className="max-md:hidden" />
+          <td colSpan={8} className="px-3 py-4 max-md:block">
             <div className="grid gap-4 sm:grid-cols-4">
               <div>
                 <p className={bulkSubLabelClasses}>Production Cycle (optional)</p>
@@ -629,7 +630,7 @@ export default function AddStockingPage() {
       <button
         type="button"
         onClick={goBack}
-        className="mb-4 inline-flex items-center gap-1 text-[13px] text-[#1B4D2E] hover:underline"
+        className="mb-4 inline-flex items-center gap-1 text-[13px] text-[#1B4D2E] hover:underline max-md:min-h-[40px]"
       >
         <ArrowLeft size={14} /> Back to Fisheries Monitoring
       </button>
@@ -658,9 +659,9 @@ export default function AddStockingPage() {
         </div>
 
         {/* Stocking records — horizontal table, one row per record */}
-        <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white">
-          <table className="min-w-full text-sm">
-            <thead className="bg-[#1B4D2E] text-white">
+        <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white max-md:overflow-visible max-md:border-0 max-md:bg-transparent">
+          <table className="min-w-full text-sm max-md:block max-md:w-full">
+            <thead className="bg-[#1B4D2E] text-white max-md:hidden">
               <tr>
                 <th className={bulkThCenterClasses}>#</th>
                 <th className={bulkThClasses}>Pond</th>
@@ -673,7 +674,7 @@ export default function AddStockingPage() {
                 <th className={bulkThCenterClasses}></th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="max-md:block">
               {(() => {
                 const speciesCounts = {}
                 return records.map((rec, i) => {
@@ -728,7 +729,7 @@ export default function AddStockingPage() {
       </form>
 
       {showConfirm && (
-        <ConfirmDialog
+        <ConfirmDialog variant="primary"
           title="Confirm Add Stocking"
           message={`Add ${records.length} stocking record${records.length > 1 ? 's' : ''} for ${fisherfolkInfo.full_name}?`}
           confirmLabel="Confirm"

@@ -8,7 +8,7 @@ export default function ViewToggle({ options, value, onChange, ariaLabel }) {
           type="button"
           aria-pressed={value === id}
           onClick={() => onChange(id)}
-          className={`rounded-md px-3 py-1 text-[12px] font-medium transition-colors ${
+          className={`rounded-md px-3 py-1 text-[12px] font-medium transition-colors max-md:min-h-[36px] max-md:px-4 max-md:text-[13px] ${
             value === id ? 'bg-[#1B4D2E] text-white' : 'text-[#4A5E4A] hover:bg-[#F5F7F5]'
           }`}
         >

@@ -309,7 +309,7 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
       </ModalShell>
 
       {showConfirm && (
-        <ConfirmDialog
+        <ConfirmDialog variant="primary"
           title="Confirm Action"
           message={`Add new ${typeLabel} "${form.name}"?`}
           confirmLabel="Confirm"

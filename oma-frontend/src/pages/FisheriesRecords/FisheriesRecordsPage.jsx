@@ -195,8 +195,20 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
       icon={Pencil}
       onClose={onClose}
       maxWidth="max-w-lg"
+      footer={(
+        <>
+          <button type="button" onClick={onClose}
+            className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
+            Cancel
+          </button>
+          <button type="submit" form="edit-stocking-form" disabled={isSubmitting || !isDirty}
+            className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50">
+            {isSubmitting ? 'Saving…' : 'Save Changes'}
+          </button>
+        </>
+      )}
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form id="edit-stocking-form" onSubmit={handleSubmit} className="space-y-4">
         {/* Species info — read-only */}
         <div className="rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] px-4 py-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8] mb-1">Species (Read-Only)</p>
@@ -412,17 +424,6 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
             </button>
           </div>
         )}
-
-        <div className="flex justify-end gap-2 border-t border-[#F0F4F0] pt-3">
-          <button type="button" onClick={onClose}
-            className="rounded-lg border border-[#C8D5C8] px-4 py-2 text-[13px] font-medium text-[#4A5E4A] hover:bg-[#F5F7F5] transition-colors">
-            Cancel
-          </button>
-          <button type="submit" disabled={isSubmitting || !isDirty}
-            className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors disabled:opacity-50">
-            {isSubmitting ? 'Saving…' : 'Save Changes'}
-          </button>
-        </div>
       </form>
 
       {showDeleteConfirm && (

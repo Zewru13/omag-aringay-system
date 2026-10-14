@@ -327,7 +327,7 @@ function StepReview({ role, formData, onBack, onCancel, onSuccess, setFooter }) 
       <div className="space-y-4">
         <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#7A8E7A]">User Created</p>
         <div className="rounded-lg bg-[#FEF3C7] border border-[#FDE68A] px-4 py-3 text-[12px] text-[#92400E]">
-          The verification email could not be sent{result.reason ? ` (${result.reason})` : ''}. Give the user these details directly:
+          The verification email could not be sent{result.reason ? ` (${result.reason.replace(/[.\s]+$/, '')})` : ''}. Give the user these details directly:
         </div>
         <div>
           <label className={labelCls}>Temporary Password (shown once)</label>

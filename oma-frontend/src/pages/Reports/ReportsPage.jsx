@@ -68,7 +68,7 @@ function SignatureModal({ purpose, onClose, onGenerate }) {
       </p>
 
       <p className="text-[13px] font-semibold text-[#1A2B1A] mb-2">* Prepared by</p>
-      <div>
+      <div className="max-md:w-full">
         <label className={labelCls}>Name:</label>
         <input
           type="text"
@@ -84,7 +84,7 @@ function SignatureModal({ purpose, onClose, onGenerate }) {
           type="text"
           value={position}
           onChange={e => setPosition(e.target.value)}
-          placeholder="ENTER YOUR POSITION..."
+          placeholder="Your position or designation"
           className={baseInputClasses}
         />
       </div>
@@ -94,12 +94,12 @@ function SignatureModal({ purpose, onClose, onGenerate }) {
       <div className="mb-1">
         <div className="flex items-center justify-between">
           <p className="text-[13px] font-semibold text-[#1A2B1A]">
-            * Reviewed by <span className="text-[11px] text-[#A8BCA8] font-normal">(optional)</span>
+            Reviewed by <span className="text-[11px] text-[#A8BCA8] font-normal">(optional)</span>
           </p>
           <button
             type="button"
             onClick={() => setShowReviewer(v => !v)}
-            className="text-[12px] font-medium text-[#1B4D2E] hover:underline"
+            className="text-[12px] font-medium text-[#1B4D2E] hover:underline max-md:min-h-[40px] max-md:px-2"
           >
             {showReviewer ? 'Remove' : 'Add'}
           </button>
@@ -120,12 +120,12 @@ function SignatureModal({ purpose, onClose, onGenerate }) {
       <div className="mb-1">
         <div className="flex items-center justify-between">
           <p className="text-[13px] font-semibold text-[#1A2B1A]">
-            * Noted by <span className="text-[11px] text-[#A8BCA8] font-normal">(optional)</span>
+            Noted by <span className="text-[11px] text-[#A8BCA8] font-normal">(optional)</span>
           </p>
           <button
             type="button"
             onClick={() => setShowNotedBy(v => !v)}
-            className="text-[12px] font-medium text-[#1B4D2E] hover:underline"
+            className="text-[12px] font-medium text-[#1B4D2E] hover:underline max-md:min-h-[40px] max-md:px-2"
           >
             {showNotedBy ? 'Remove' : 'Add'}
           </button>
@@ -152,7 +152,7 @@ function SignatureModal({ purpose, onClose, onGenerate }) {
 // switcher below are hidden on print.
 function ActionButtons({ onPdf, onExcel, isDownloading }) {
   return (
-    <div className="flex gap-2 justify-end print:hidden">
+    <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end print:hidden [&>*:last-child:nth-child(odd)]:col-span-2 [&>*]:justify-center max-md:[&>*]:min-h-[40px]">
       <button
         type="button"
         onClick={() => window.print()}
@@ -341,33 +341,33 @@ function HarvestedCropTab() {
       {/* Filters */}
       <div className="print:hidden">
         <FilterPanel activeCount={Object.values(filters).filter(Boolean).length}>
-          <div>
+          <div className="max-md:w-full">
             <label className={labelCls}>Harvest Start Date</label>
             <input type="date" className={baseInputClasses} value={filters.start_date} onChange={e => set('start_date', e.target.value)} />
           </div>
-          <div>
+          <div className="max-md:w-full">
             <label className={labelCls}>Harvest End Date</label>
             <input type="date" className={baseInputClasses} value={filters.end_date} onChange={e => set('end_date', e.target.value)} />
           </div>
-          <div className="w-44">
+          <div className="w-full sm:w-44">
             <label className={labelCls}>Barangay</label>
             <BarangaySelect value={filters.barangay} onChange={e => set('barangay', e.target.value)} includeAllOption />
           </div>
-          <div>
+          <div className="max-md:w-full">
             <label className={labelCls}>Organization</label>
             <select className={baseInputClasses} value={filters.organization} onChange={e => set('organization', e.target.value)}>
               <option value="">All Organizations</option>
               {organizations.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
           </div>
-          <div>
+          <div className="max-md:w-full">
             <label className={labelCls}>Crop Type</label>
             <select className={baseInputClasses} value={filters.crop_name} onChange={e => set('crop_name', e.target.value)}>
               <option value="">All Crops</option>
               {cropTypes.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
             </select>
           </div>
-          <div>
+          <div className="max-md:w-full">
             <label className={labelCls}>Yield Performance</label>
             <select className={baseInputClasses} value={filters.yield_performance} onChange={e => set('yield_performance', e.target.value)}>
               <option value="">All</option>
@@ -494,11 +494,11 @@ function OrganizationListTab() {
     <div className="space-y-5">
       <div className="print:hidden">
         <FilterPanel activeCount={[filters.barangay, filters.type !== 'all'].filter(Boolean).length}>
-          <div className="w-44">
+          <div className="w-full sm:w-44">
             <label className={labelCls}>Barangay</label>
             <BarangaySelect value={filters.barangay} onChange={e => set('barangay', e.target.value)} includeAllOption />
           </div>
-          <div>
+          <div className="max-md:w-full">
             <label className={labelCls}>Type</label>
             <select className={baseInputClasses} value={filters.type} onChange={e => set('type', e.target.value)}>
               <option value="all">All Organizations</option>
@@ -610,7 +610,7 @@ function CropOptionsTab() {
     <div className="space-y-5">
       <div className="print:hidden">
         <FilterPanel activeCount={Object.values(filters).filter(Boolean).length}>
-          <div>
+          <div className="max-md:w-full">
             <label className={labelCls}>Category</label>
             <select
               className={baseInputClasses}
@@ -621,7 +621,7 @@ function CropOptionsTab() {
               {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
-          <div>
+          <div className="max-md:w-full">
             <label className={labelCls}>Sub Category</label>
             <select
               className={baseInputClasses}
@@ -748,33 +748,33 @@ function FisheriesProductionTab() {
     <div className="space-y-5">
       <div className="print:hidden">
         <FilterPanel activeCount={Object.values(filters).filter(Boolean).length}>
-          <div>
+          <div className="max-md:w-full">
             <label className={labelCls}>Harvest Start Date</label>
             <input type="date" className={baseInputClasses} value={filters.start_date} onChange={e => set('start_date', e.target.value)} />
           </div>
-          <div>
+          <div className="max-md:w-full">
             <label className={labelCls}>Harvest End Date</label>
             <input type="date" className={baseInputClasses} value={filters.end_date} onChange={e => set('end_date', e.target.value)} />
           </div>
-          <div className="w-44">
+          <div className="w-full sm:w-44">
             <label className={labelCls}>Pond Barangay</label>
             <BarangaySelect value={filters.barangay} onChange={e => set('barangay', e.target.value)} includeAllOption />
           </div>
-          <div>
+          <div className="max-md:w-full">
             <label className={labelCls}>Organization</label>
             <select className={baseInputClasses} value={filters.organization} onChange={e => set('organization', e.target.value)}>
               <option value="">All Organizations</option>
               {organizations.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
             </select>
           </div>
-          <div>
+          <div className="max-md:w-full">
             <label className={labelCls}>Species</label>
             <select className={baseInputClasses} value={filters.species} onChange={e => set('species', e.target.value)}>
               <option value="">All Species</option>
               {speciesList.map(s => <option key={s.id} value={s.id}>{s.species_name}</option>)}
             </select>
           </div>
-          <div>
+          <div className="max-md:w-full">
             <label className={labelCls}>Culture Type</label>
             <select className={baseInputClasses} value={filters.culture_type} onChange={e => set('culture_type', e.target.value)}>
               <option value="">All Types</option>
@@ -994,14 +994,14 @@ function FarmerCropHistoryTab() {
           <div className="w-56">
             <FarmerFilterSearch selected={farmer} onSelect={setFarmer} />
           </div>
-          <div className="w-44">
+          <div className="w-full sm:w-44">
             <label className={labelCls}>Crop Type</label>
             <select className={baseInputClasses} value={filters.crop_type} onChange={e => set('crop_type', e.target.value)}>
               <option value="">All Crops</option>
               {cropTypes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
-          <div className="w-44">
+          <div className="w-full sm:w-44">
             <label className={labelCls}>Barangay</label>
             <BarangaySelect value={filters.barangay} onChange={e => set('barangay', e.target.value)} includeAllOption />
           </div>
@@ -1334,14 +1334,14 @@ function FisherfolkStockingHistoryTab() {
           <div className="w-56">
             <FisherfolkFilterSearch selected={fisherfolk} onSelect={setFisherfolk} />
           </div>
-          <div className="w-44">
+          <div className="w-full sm:w-44">
             <label className={labelCls}>Species</label>
             <select className={baseInputClasses} value={filters.species} onChange={e => set('species', e.target.value)}>
               <option value="">All Species</option>
               {speciesList.map(s => <option key={s.id} value={s.id}>{s.species_name}</option>)}
             </select>
           </div>
-          <div className="w-44">
+          <div className="w-full sm:w-44">
             <label className={labelCls}>Barangay</label>
             <BarangaySelect value={filters.barangay} onChange={e => set('barangay', e.target.value)} includeAllOption />
           </div>
@@ -1562,15 +1562,15 @@ function BeneficiaryConfirmationsTab() {
       {/* Filters */}
       <div className="print:hidden">
         <FilterPanel activeCount={Object.values(filters).filter(Boolean).length}>
-          <div className="w-40">
+          <div className="w-full sm:w-40">
             <label className={labelCls}>From</label>
             <input type="date" className={baseInputClasses} value={filters.date_from} onChange={e => set('date_from', e.target.value)} />
           </div>
-          <div className="w-40">
+          <div className="w-full sm:w-40">
             <label className={labelCls}>To</label>
             <input type="date" className={baseInputClasses} value={filters.date_to} onChange={e => set('date_to', e.target.value)} />
           </div>
-          <div className="w-40">
+          <div className="w-full sm:w-40">
             <label className={labelCls}>Status</label>
             <select className={baseInputClasses} value={filters.status} onChange={e => set('status', e.target.value)}>
               <option value="">All Statuses</option>
@@ -1579,7 +1579,7 @@ function BeneficiaryConfirmationsTab() {
               <option value="REJECTED">Rejected</option>
             </select>
           </div>
-          <div className="w-44">
+          <div className="w-full sm:w-44">
             <label className={labelCls}>Type</label>
             <select className={baseInputClasses} value={filters.type} onChange={e => set('type', e.target.value)}>
               <option value="">All Types</option>

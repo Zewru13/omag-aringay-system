@@ -37,6 +37,8 @@ function ForceChangePasswordPage() {
       // The backend just invalidated every token for this account (including
       // this request's own access token) — the only valid next step is a
       // fresh login with the new password.
+      // The sign-in page shows this once, so it is clear why they are being asked to sign in again.
+      try { sessionStorage.setItem('omag_login_notice', 'Password changed. Sign in with your new password.') } catch { /* no storage: just no note */ }
       setTimeout(() => { logout() }, 1200)
     } catch (err) {
       const data = err.response?.data
@@ -81,7 +83,7 @@ function ForceChangePasswordPage() {
         </p>
 
         <form onSubmit={handleSubmit}>
-          <label className="text-sm font-medium text-slate-700 block mb-1">Current (temporary) password</label>
+          <label className="text-sm font-medium text-slate-700 block mb-1">Current (temporary) password <span className="text-rose-500">*</span></label>
           <input
             type={show ? 'text' : 'password'}
             autoComplete="current-password"
@@ -92,7 +94,7 @@ function ForceChangePasswordPage() {
             className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-[#1B4D2E] focus:border-[#1B4D2E] transition-colors"
           />
 
-          <label className="text-sm font-medium text-slate-700 block mb-1">New password</label>
+          <label className="text-sm font-medium text-slate-700 block mb-1">New password <span className="text-rose-500">*</span></label>
           <div className="relative mb-2">
             <input
               type={show ? 'text' : 'password'}
@@ -117,7 +119,7 @@ function ForceChangePasswordPage() {
             <PasswordRequirementChecklist password={newPassword} />
           </div>
 
-          <label className="text-sm font-medium text-slate-700 block mb-1">Confirm new password</label>
+          <label className="text-sm font-medium text-slate-700 block mb-1">Confirm new password <span className="text-rose-500">*</span></label>
           <input
             type={show ? 'text' : 'password'}
             autoComplete="new-password"

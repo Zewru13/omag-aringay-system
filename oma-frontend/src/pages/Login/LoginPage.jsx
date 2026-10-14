@@ -44,6 +44,14 @@ function LoginPage() {
   const [error, setError] = useState("");
   const [errorCount, setErrorCount] = useState(0); // remounts the field so the shake plays on every failed attempt
   const [needsVerification, setNeedsVerification] = useState(false);
+  // A one-off note left by the page that sent you here (e.g. "Password changed"); read once, then forgotten.
+  const [notice] = useState(() => {
+    try {
+      const text = sessionStorage.getItem('omag_login_notice');
+      if (text) sessionStorage.removeItem('omag_login_notice');
+      return text || '';
+    } catch { return ''; }
+  });
   const [resendState, setResendState] = useState("idle"); // idle | sending | sent | error
   const passwordRef = useRef(null);
 
@@ -158,6 +166,11 @@ function LoginPage() {
             <p className="login-rise mt-1.5 text-[14px] leading-relaxed text-text-secondary" style={{ "--i": 1 }}>
               Use the username or email OMAg gave you.
             </p>
+            {notice && (
+              <p role="status" className="login-rise mt-4 rounded-[var(--radius-sm)] border border-primary/20 bg-primary-light px-3.5 py-3 text-[13px] leading-snug text-primary" style={{ "--i": 1 }}>
+                {notice}
+              </p>
+            )}
 
             <form onSubmit={handleSubmit} className="mt-8" noValidate>
               <div className="login-rise" style={{ "--i": 2 }}>

@@ -198,8 +198,8 @@ function UsersTable({ tab, reloadKey, onEdit, actions }) {
 
       {/* Table */}
       <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-        <table className="min-w-full text-sm">
-          <thead className="bg-[#1B4D2E] text-white">
+        <table className="min-w-full text-sm max-md:block">
+          <thead className="bg-[#1B4D2E] text-white max-md:hidden">
             <tr>
               {COLUMNS.map(col => (
                 <th key={col.key} className="px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-[0.06em]">
@@ -208,14 +208,14 @@ function UsersTable({ tab, reloadKey, onEdit, actions }) {
               ))}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="max-md:block">
             {isLoading ? (
               <tr>
-                <td colSpan={COLUMNS.length} className="py-10 text-center text-[13px] text-[#7A8E7A]">Loading…</td>
+                <td colSpan={COLUMNS.length} className="max-md:block py-10 text-center text-[13px] text-[#7A8E7A]">Loading…</td>
               </tr>
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={COLUMNS.length} className="py-12 text-center">
+                <td colSpan={COLUMNS.length} className="max-md:block py-12 text-center">
                   <div className="flex flex-col items-center gap-2 text-[#C8D5C8]">
                     <svg width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                     <p className="text-[14px] font-medium text-[#4A5E4A]">No users found</p>
@@ -227,9 +227,9 @@ function UsersTable({ tab, reloadKey, onEdit, actions }) {
               </tr>
             ) : (
               rows.map(row => (
-                <tr key={row.id} className="border-b border-[#F0F4F0] transition-colors hover:bg-[#F9FAF9]">
+                <tr key={row.id} className="border-b border-[#F0F4F0] transition-colors hover:bg-[#F9FAF9] max-md:block max-md:px-3 max-md:py-2">
                   {COLUMNS.map(col => (
-                    <td key={col.key} className="px-4 py-[13px] text-[13px] text-[#1A2B1A] align-middle">
+                    <td key={col.key} data-label={col.key === 'name_cell' || col.key === 'actions' ? undefined : col.label} className={`px-4 py-[13px] text-[13px] text-[#1A2B1A] align-middle max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]`}>
                       {row[col.key]}
                     </td>
                   ))}
@@ -300,7 +300,7 @@ export default function UserManagementPage() {
       subtitle={USER_TABS.find((t) => t.id === tab).subtitle}
     >
       <div className="space-y-4">
-        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Kinds of account">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap" role="tablist" aria-label="Kinds of account">
           {USER_TABS.map((t) => (
             <button
               key={t.id}
@@ -308,7 +308,7 @@ export default function UserManagementPage() {
               role="tab"
               aria-selected={tab === t.id}
               onClick={() => openTab(t.id)}
-              className={`rounded-lg px-4 py-2 text-[13px] font-medium transition-colors ${
+              className={`rounded-lg px-4 py-2 max-md:min-h-[40px] text-[13px] font-medium transition-colors ${
                 tab === t.id
                   ? 'bg-[#1B4D2E] text-white'
                   : 'border border-[#E2E8E2] bg-white text-[#4A5E4A] hover:bg-[#F5F7F5]'

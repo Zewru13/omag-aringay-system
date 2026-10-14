@@ -334,7 +334,7 @@ function AddMemberModal({ type, organizationId, organizationName, own = false, o
 
         {/* Date Joined */}
         <div>
-          <label className={labelCls}>Date Joined</label>
+          <label className={labelCls}>Date Joined <span className="text-rose-500">*</span></label>
           <input
             className={`${baseInputClasses} mt-1`}
             required
@@ -781,7 +781,7 @@ function AddEquipmentModal({ type, organizationId, onClose, onSuccess }) {
         <div className="grid gap-4 md:grid-cols-2">
           {/* Quantity */}
           <div>
-            <label className={labelCls}>Quantity</label>
+            <label className={labelCls}>Quantity <span className="text-rose-500">*</span></label>
             <input
               className={`${baseInputClasses} mt-1`}
               min={1}
@@ -1115,7 +1115,7 @@ function OrganizationDetailPage({ own = false }) {
             the real destination is the type-specific hub's Organizations tab. */}
         {!own && <div className="flex flex-wrap items-center justify-between gap-3">
           <Link
-            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#4A5E4A] hover:text-[#1A2B1A] transition-colors"
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#4A5E4A] hover:text-[#1A2B1A] transition-colors max-md:min-h-[40px]"
             to={type === "farmers" ? "/farmers?tab=organizations" : "/fisherfolk?tab=organizations"}
           >
             <ArrowLeft size={15} />
@@ -1325,8 +1325,8 @@ function OrganizationDetailPage({ own = false }) {
                 ) : (
                   <div className="overflow-hidden rounded-xl border border-[#E2E8E2]">
                     <div className="overflow-x-auto">
-                      <table className="min-w-full text-left">
-                        <thead>
+                      <table className="min-w-full text-left max-md:block">
+                        <thead className="max-md:hidden">
                           <tr className="bg-[#1B4D2E]">
                             <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Full Name</th>
                             <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">{memberIdLabel}</th>
@@ -1339,33 +1339,33 @@ function OrganizationDetailPage({ own = false }) {
                             )}
                           </tr>
                         </thead>
-                        <tbody>
+                        <tbody className="max-md:block">
                           {organization.members.map((m) => {
                             const isActive = m.is_active !== false;
                             return (
-                            <tr key={m.id} className={`border-b border-[#F0F4F0] hover:bg-[#F9FAF9] transition-colors ${isActive ? '' : 'opacity-60'}`}>
-                              <td className="px-4 py-[13px] text-[13px] font-medium text-[#1A2B1A]">
+                            <tr key={m.id} className={`border-b border-[#F0F4F0] hover:bg-[#F9FAF9] transition-colors max-md:block max-md:px-3 max-md:py-2 ${isActive ? '' : 'opacity-60'}`}>
+                              <td data-label="Full name" className="px-4 py-[13px] text-[13px] font-medium text-[#1A2B1A] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">
                                 {m[memberNameField]}
                               </td>
-                              <td className="px-4 py-[13px] text-[13px] text-[#4A5E4A]">
+                              <td data-label={memberIdLabel} className="px-4 py-[13px] text-[13px] text-[#4A5E4A] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">
                                 {m[memberIdField]}
                               </td>
-                              <td className="px-4 py-[13px]">
+                              <td data-label="Position" className="px-4 py-[13px] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">
                                 <StatusPill tone={positionTone(m.position)}>
                                   {m.position}
                                 </StatusPill>
                               </td>
-                              <td className="px-4 py-[13px] text-[13px] text-[#4A5E4A]">
+                              <td data-label="Date joined" className="px-4 py-[13px] text-[13px] text-[#4A5E4A] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">
                                 {formatDate(m.date_joined)}
                               </td>
-                              <td className="px-4 py-[13px]">
+                              <td data-label="Main" className="px-4 py-[13px] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">
                                 {m.is_main ? (
                                   <StatusPill tone="green">Main</StatusPill>
                                 ) : isActive && isStaff ? (
                                   <button
                                     type="button"
                                     onClick={() => handleSetMain(m.id)}
-                                    className="text-[12px] font-medium text-[#7A8E7A] hover:text-[#1B4D2E] transition-colors underline decoration-dotted underline-offset-2"
+                                    className="text-[12px] font-medium text-[#7A8E7A] hover:text-[#1B4D2E] transition-colors underline decoration-dotted underline-offset-2 max-md:min-h-[36px]"
                                   >
                                     Set as main
                                   </button>
@@ -1373,13 +1373,13 @@ function OrganizationDetailPage({ own = false }) {
                                   <span className="text-[12px] text-[#A8BCA8]">—</span>
                                 )}
                               </td>
-                              <td className="px-4 py-[13px]">
+                              <td data-label="Status" className="px-4 py-[13px] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">
                                 <span title={!isActive ? m.deactivation_reason || '' : undefined}>
                                   <StatusPill tone={isActive ? 'green' : 'slate'}>{isActive ? 'Active' : 'Inactive'}</StatusPill>
                                 </span>
                               </td>
                               {canManage && (
-                                <td className="px-4 py-[13px]">
+                                <td className="px-4 py-[13px] max-md:block max-md:w-full max-md:px-0 max-md:py-1">
                                   <Button
                                     className={isActive ? '!text-rose-600' : '!text-[#1B4D2E]'}
                                     icon={Power}
@@ -1415,8 +1415,8 @@ function OrganizationDetailPage({ own = false }) {
                 ) : (
                   <div className="overflow-hidden rounded-xl border border-[#E2E8E2]">
                     <div className="overflow-x-auto">
-                      <table className="min-w-full text-left">
-                        <thead>
+                      <table className="min-w-full text-left max-md:block">
+                        <thead className="max-md:hidden">
                           <tr className="bg-[#1B4D2E]">
                             <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Equipment</th>
                             <th className="px-4 py-[11px] text-[11px] font-semibold uppercase tracking-wider text-white">Qty</th>
@@ -1428,32 +1428,32 @@ function OrganizationDetailPage({ own = false }) {
                             )}
                           </tr>
                         </thead>
-                        <tbody>
+                        <tbody className="max-md:block">
                           {organization.equipment.map((eq) => (
-                            <tr key={eq.id} className="border-b border-[#F0F4F0] hover:bg-[#F9FAF9] transition-colors">
-                              <td className="px-4 py-[13px] text-[13px] font-medium text-[#1A2B1A]">
+                            <tr key={eq.id} className="border-b border-[#F0F4F0] hover:bg-[#F9FAF9] transition-colors max-md:block max-md:px-3 max-md:py-2">
+                              <td data-label="Equipment" className="px-4 py-[13px] text-[13px] font-medium text-[#1A2B1A] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">
                                 {eq.equipment_name === "Other" &&
                                 eq.equipment_name_other
                                   ? `Other — ${eq.equipment_name_other}`
                                   : eq.equipment_name}
                               </td>
-                              <td className="px-4 py-[13px] text-[13px] text-[#4A5E4A]">
+                              <td data-label="Qty" className="px-4 py-[13px] text-[13px] text-[#4A5E4A] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">
                                 {eq.quantity}
                                 {eq.on_loan ? ` (${eq.on_loan} on loan)` : ""}
                               </td>
-                              <td className="px-4 py-[13px]">
+                              <td data-label="Condition" className="px-4 py-[13px] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">
                                 <StatusPill tone={conditionTone(eq.condition)}>
                                   {eq.condition}
                                 </StatusPill>
                               </td>
-                              <td className="px-4 py-[13px] text-[13px] text-[#4A5E4A]">
+                              <td data-label="Acquired" className="px-4 py-[13px] text-[13px] text-[#4A5E4A] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">
                                 {formatDate(eq.acquisition_date)}
                               </td>
-                              <td className="px-4 py-[13px] text-[13px] text-[#4A5E4A]">
+                              <td data-label="Remarks" className="px-4 py-[13px] text-[13px] text-[#4A5E4A] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">
                                 {eq.remarks || "—"}
                               </td>
                               {canManage && (
-                                <td className="px-4 py-[13px]">
+                                <td className="px-4 py-[13px] max-md:block max-md:w-full max-md:px-0 max-md:py-1">
                                   <Button
                                     className="!text-rose-600"
                                     icon={Trash2}

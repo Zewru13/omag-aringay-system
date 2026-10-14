@@ -418,7 +418,7 @@ function SuggestionsModal({ record, onClose, onApply }) {
       </div>
 
       {earlyConfirm && (
-        <ConfirmDialog
+        <ConfirmDialog variant="primary"
           title="Log Activity Early?"
           message={`"${earlyConfirm.activity_name}" is scheduled for Day ${earlyConfirm.day_after_planting}. It's ${Math.abs(earlyConfirm.days_diff)} day${Math.abs(earlyConfirm.days_diff) !== 1 ? 's' : ''} away. Log it now anyway?`}
           confirmLabel="Yes, Log Early"
@@ -1159,7 +1159,7 @@ function ViewLogsModal({ record, onClose, onLogAdded }) {
       </ModalShell>
 
       {showConfirm && (
-        <ConfirmDialog
+        <ConfirmDialog variant="primary"
           title="Confirm Action"
           message={editingLogId ? 'Are you sure you want to save your changes to this activity log?' : 'Are you sure you want to add this activity log?'}
           confirmLabel="Confirm"
@@ -1530,7 +1530,7 @@ export function DisasterReportModal({ record, onClose, onSuccess }) {
       </ModalShell>
 
       {showConfirm && (
-        <ConfirmDialog
+        <ConfirmDialog variant="primary"
           title="Confirm Disaster Report"
           message={`Are you sure you want to log this disaster event for ${cropName}? This will be recorded in the monitoring history.`}
           confirmLabel="Yes, Report"
@@ -1885,7 +1885,7 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
       </ModalShell>
 
       {showConfirm && (
-        <ConfirmDialog
+        <ConfirmDialog variant="primary"
           title="Confirm Harvest Record"
           message={`Are you sure you want to record the harvest for ${cropName}?`}
           confirmLabel="Yes, Record Harvest"
