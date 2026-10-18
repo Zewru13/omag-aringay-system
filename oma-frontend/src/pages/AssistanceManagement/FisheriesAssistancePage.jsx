@@ -29,6 +29,7 @@ import { FISHERFOLK_DISTRIBUTION_DOMAIN } from './distributionDomains.js'
 import { SourceAgencyMultiSelect, TypeConditionalFields } from './sharedAssistanceFields.jsx'
 import {
   EMPTY_TYPE_CONDITIONAL_FIELDS, buildTypeConditionalPayload, validateTrainingDuration, isTrainingType,
+  isCashType, cashAmountError, cashAmountFrom, formatAssistanceQuantity,
 } from './assistanceFieldHelpers.js'
 
 // interventions.models.DistributionStatus — see CropAssistancePage.jsx's
@@ -113,7 +114,7 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
     assistance_type: record.assistance_type || '',
     source_agencies: record.source_agencies || [],
     date_received: record.date_given || '',
-    quantity: record.quantity != null ? String(record.quantity) : '',
+    quantity: isCashType(record.assistance_type) ? cashAmountFrom(record.quantity) : (record.quantity != null ? String(record.quantity) : ''),
     description: record.description || '',
     remarks: record.remarks || '',
     training_duration_days: record.training_duration_days != null ? String(record.training_duration_days) : '',
@@ -134,6 +135,8 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
     e.preventDefault()
     const trainingError = validateTrainingDuration(form.assistance_type, form)
     if (trainingError) { showToast(trainingError, 'error'); return }
+    const cashError = cashAmountError(form.assistance_type, form.quantity)
+    if (cashError) { showToast(cashError, 'error'); return }
     setError(''); setIsSubmitting(true)
     try {
       const { date_received, quantity, ...rest } = form
@@ -202,7 +205,7 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
               </select>
             </FormField>
             {!isTraining && (
-              <FormField label="Quantity / Amount" required>
+              <FormField label={isCashType(form.assistance_type) ? 'Amount (₱)' : 'Quantity'} required>
                 <DecimalInput decimals={2} className={baseInputClasses} value={form.quantity}
                   onChange={(v) => set('quantity', v)} />
               </FormField>
@@ -431,7 +434,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
     ...a,
     select_cell: <SelectCell record={a} name={a.fisherfolk_full_name} selection={selection} />,
     source_agency: (a.source_agencies || []).join(', '),
-    quantity: a.quantity || '—',
+    quantity: formatAssistanceQuantity(a.assistance_type, a.quantity) || a.quantity || '—',
     date_received_fmt: formatDate(a.date_given),
     status_cell: a.status ? <StatusPill status={a.status}>{(isOrg ? ORG_STATUS_LABELS : STATUS_LABELS)[a.status] || a.status}</StatusPill> : '—',
     // Confirm for Members list: where the member's request to OMAg stands
@@ -623,7 +626,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
             { label: 'Organization', value: viewing.attributed_fisherfolk_organization_name },
             { label: 'Assistance type', value: viewing.assistance_type },
             { label: 'Source of assistance', value: (viewing.source_agencies || []).join(', ') },
-            { label: 'Quantity / amount', value: viewing.quantity },
+            { label: isCashType(viewing.assistance_type) ? 'Amount' : 'Quantity', value: formatAssistanceQuantity(viewing.assistance_type, viewing.quantity) },
             { label: 'Date received', value: formatDate(viewing.date_given) },
             { label: 'Status', value: STATUS_LABELS[viewing.status] || viewing.status },
             { label: 'Recorded by', value: viewing.recorded_by_name },

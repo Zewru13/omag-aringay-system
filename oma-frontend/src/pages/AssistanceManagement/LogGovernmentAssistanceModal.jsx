@@ -300,7 +300,7 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess, memberUrl = null }) 
           </FormField>
 
           {!isTraining && (
-            <FormField label={isCashType ? 'Amount Received (₱)' : 'Quantity / Amount'} required>
+            <FormField label={isCashType ? 'Amount Received (₱)' : 'Quantity'} required>
               <input
                 type="number"
                 step="0.01"

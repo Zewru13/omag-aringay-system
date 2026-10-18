@@ -1,4 +1,5 @@
 from datetime import date
+from core.idnumbers import by_id_key, id_key
 from core.validators import validate_contact_number
 
 from rest_framework import serializers
@@ -45,8 +46,9 @@ class FarmCropSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'farm_parcel', 'crop_name', 'crop_name_other', 'area_hectares', 'is_main_crop',
             'number_of_trees', 'variety_used', 'seed_source', 'quantity_of_seeds_used', 'seeds_unit',
+            'has_pcic_insurance', 'pcic_form_photo',
         ]
-        read_only_fields = ['id']
+        read_only_fields = ['id', 'pcic_form_photo']
         extra_kwargs = {
             'farm_parcel': {'required': False},
         }
@@ -276,13 +278,13 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
         return value
 
     def validate_rsbsa_number(self, value):
-        queryset = Farmer.objects.filter(rsbsa_number__iexact=value)
+        queryset = by_id_key(Farmer.objects.all(), 'rsbsa_number', value)
 
         if self.instance:
             queryset = queryset.exclude(pk=self.instance.pk)
-            if value and value.upper() != (self.instance.rsbsa_number or '').upper():
+            if value and id_key(value) != id_key(self.instance.rsbsa_number):
                 from fisheries.models import Fisherfolk
-                if Fisherfolk.objects.filter(rsbsa_number__iexact=value).exists():
+                if by_id_key(Fisherfolk.objects.all(), 'rsbsa_number', value).exists():
                     raise serializers.ValidationError(
                         'This RSBSA number already belongs to a registered fisherfolk. A person who is both a farmer '
                         'and a fisherfolk needs a different RSBSA number for each.'
@@ -381,12 +383,12 @@ class FarmerCreateSerializer(serializers.ModelSerializer):
         return value
 
     def validate_rsbsa_number(self, value):
-        if Farmer.objects.filter(rsbsa_number__iexact=value).exists():
+        if by_id_key(Farmer.objects.all(), 'rsbsa_number', value).exists():
             raise serializers.ValidationError(
                 'A farmer with this RSBSA number is already registered in the system.'
             )
         from fisheries.models import Fisherfolk
-        if Fisherfolk.objects.filter(rsbsa_number__iexact=value).exists():
+        if by_id_key(Fisherfolk.objects.all(), 'rsbsa_number', value).exists():
             raise serializers.ValidationError(
                 'This RSBSA number already belongs to a registered fisherfolk. A person who is both a farmer and a '
                 'fisherfolk needs a different RSBSA number for each.'

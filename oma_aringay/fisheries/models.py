@@ -10,6 +10,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from core.constants import BARANGAY_CHOICES
+from core.models import PcicInsurance
 from core.validators import validate_fishr, validate_lgu_reg, validate_rsbsa
 
 
@@ -459,7 +460,7 @@ WATER_SOURCE_CHOICES = [
 ]
 
 
-class Pond(models.Model):
+class Pond(PcicInsurance):
     fisherfolk = models.ForeignKey(Fisherfolk, on_delete=models.CASCADE, related_name='ponds')
     name = models.CharField(
         max_length=100, blank=True,
@@ -490,7 +491,7 @@ class Pond(models.Model):
 
 # ─── Stocking Record ──────────────────────────────────────────────────────────
 
-class StockingRecord(models.Model):
+class StockingRecord(PcicInsurance):
     class Status(models.TextChoices):
         STOCKED      = 'Stocked',      'Stocked'
         NEAR_HARVEST = 'Near Harvest', 'Near Harvest'

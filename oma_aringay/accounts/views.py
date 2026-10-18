@@ -16,6 +16,7 @@ from rest_framework.throttling import ScopedRateThrottle, SimpleRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from core.idnumbers import by_id_key
 from core.validators import validate_uploaded_image
 
 from .authentication import OptionalJWTAuthentication
@@ -112,13 +113,14 @@ def _resolve_login_identifier(identifier):
     except User.DoesNotExist:
         pass
 
-    farmer = Farmer.objects.filter(rsbsa_number__iexact=identifier).first()
+    # By number without dashes: "013302014058212" signs in the same person as "01-33-02-014-058212".
+    farmer = by_id_key(Farmer.objects.all(), 'rsbsa_number', identifier).first()
     if farmer:
         linked = _linked_user_for(User.LinkedRecordType.FARMER, farmer.id)
         if linked:
             return linked
 
-    fisherfolk = Fisherfolk.objects.filter(rsbsa_number__iexact=identifier).first()
+    fisherfolk = by_id_key(Fisherfolk.objects.all(), 'rsbsa_number', identifier).first()
     if fisherfolk:
         linked = _linked_user_for(User.LinkedRecordType.FISHERFOLK, fisherfolk.id)
         if linked:

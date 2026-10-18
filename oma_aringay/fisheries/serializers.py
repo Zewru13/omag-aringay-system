@@ -9,6 +9,7 @@ from accounts.models import User
 from accounts.utils import citizen_account_info
 from associations.models import FisherfolkOrganizationMember
 from core.constants import validate_prefix_gender
+from core.idnumbers import by_id_key, id_key
 from core.validators import validate_not_future_date, validate_philsys, validate_rsbsa, validate_uploaded_image, validate_contact_number
 from monitoring.models import AquacultureProductionUnit
 
@@ -199,9 +200,9 @@ class FisherfolkDetailSerializer(serializers.ModelSerializer):
         # number belong in the registry.
         if not (value or '').strip():
             raise serializers.ValidationError('RSBSA number is required and cannot be removed.')
-        if self.instance is not None and value.strip().upper() != (self.instance.rsbsa_number or '').upper():
+        if self.instance is not None and id_key(value) != id_key(self.instance.rsbsa_number):
             from farmers.models import Farmer
-            if Farmer.objects.filter(rsbsa_number__iexact=value.strip()).exists():
+            if by_id_key(Farmer.objects.all(), 'rsbsa_number', value).exists():
                 raise serializers.ValidationError(
                     'This RSBSA number already belongs to a registered farmer. A person who is both a farmer and a '
                     'fisherfolk needs a different RSBSA number for each.'
@@ -350,7 +351,7 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
         if value is not None and not value.strip():
             return None
         if value:
-            taken = Fisherfolk.objects.filter(rsbsa_number__iexact=value)
+            taken = by_id_key(Fisherfolk.objects.all(), 'rsbsa_number', value)
             if self.instance is not None:
                 taken = taken.exclude(pk=self.instance.pk)
             if taken.exists():
@@ -358,9 +359,9 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
                     'A fisherfolk with this RSBSA number is already registered in the system.'
                 )
             # One RSBSA number = one person record: a farmer who also fishes needs a different number for each.
-            if self.instance is None or value.upper() != (self.instance.rsbsa_number or '').upper():
+            if self.instance is None or id_key(value) != id_key(self.instance.rsbsa_number):
                 from farmers.models import Farmer
-                if Farmer.objects.filter(rsbsa_number__iexact=value).exists():
+                if by_id_key(Farmer.objects.all(), 'rsbsa_number', value).exists():
                     raise serializers.ValidationError(
                         'This RSBSA number already belongs to a registered farmer. A person who is both a farmer and a '
                         'fisherfolk needs a different RSBSA number for each.'
@@ -1017,8 +1018,9 @@ class PondSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'fisherfolk', 'name', 'barangay', 'area_hectares', 'water_source',
             'is_active', 'date_created', 'stocking_record_count',
+            'has_pcic_insurance', 'pcic_form_photo',
         ]
-        read_only_fields = ['id', 'date_created', 'fisherfolk']
+        read_only_fields = ['id', 'date_created', 'fisherfolk', 'pcic_form_photo']
 
     def get_stocking_record_count(self, obj):
         return obj.stocking_records.count()
@@ -1155,9 +1157,10 @@ class StockingRecordSerializer(serializers.ModelSerializer):
             'actual_harvest_timing', 'actual_harvest_timing_label', 'actual_harvest_timing_days',
             'stocking_density', 'production_cycle_no', 'next_feeding_date',
             'growth_stage', 'recommended_feed_type_id', 'recommended_feed_type_name',
+            'has_pcic_insurance', 'pcic_form_photo',
         ]
         read_only_fields = [
-            'id', 'fisherfolk_name', 'pond_name', 'production_cycle_name', 'organization_name', 'species_name', 'category_name',
+            'id', 'pcic_form_photo', 'fisherfolk_name', 'pond_name', 'production_cycle_name', 'organization_name', 'species_name', 'category_name',
             'expected_harvest_date', 'estimated_harvest_kg',
             'recorded_by', 'date_recorded', 'display_status',
             'is_near_harvest', 'log_count', 'disaster_count', 'disaster_report_count',

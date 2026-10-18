@@ -294,3 +294,10 @@ class FarmerDuplicateCheckView(APIView):
             for f in qs[:5]
         ]
         return Response({'duplicates': duplicates})
+
+
+from core.pcic import PcicFormPhotoMixin  # noqa: E402
+
+
+class FarmCropPcicFormView(PcicFormPhotoMixin, FarmCropDeleteView):
+    """POST/DELETE the photo of a registered crop's PCIC insurance form (staff, same as the crop's other edits)."""

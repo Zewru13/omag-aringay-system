@@ -1373,6 +1373,9 @@ def _run_organization_import(model, serializer_class, linked_record_type, agency
             invalid(row_num, 'Registration Number is required for import — it is how duplicate rows/records are '
                              'detected and how the organization\'s citizen account gets linked.')
             continue
+        if len(reg_number) > 15:
+            invalid(row_num, f'Registration Number "{reg_number}" is longer than 15 characters.')
+            continue
 
         key = reg_number.lower()
         ready.append({'row_num': row_num, 'parsed': parsed, 'key': key})

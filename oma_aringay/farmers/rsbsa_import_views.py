@@ -88,7 +88,8 @@ from accounts.permissions import IsAdminOrEvaluator
 from accounts.utils import create_inactive_citizen_shell
 from farmers.models import Farmer, RsbsaImportChangeLog
 from core.utils import MAX_IMPORT_ROWS
-from core.validators import RSBSA_PATTERNS
+from core.idnumbers import by_id_key, canonical_numbers, id_key
+from core.validators import is_valid_rsbsa
 from farmers.rsbsa_import import (
     InvalidPersonData,
     build_last_name,
@@ -298,6 +299,15 @@ class RsbsaUpdateImportPreviewView(APIView):
         # exists, one query away, in the other one. See the
         # classification_mismatch handling below, which surfaces this to
         # staff instead of resolving it invisibly. ──
+        # A number typed without dashes (or the other way round) is the same person: read each row's number as the
+        # one already on file before matching, grouping duplicates and comparing.
+        canonical = canonical_numbers(
+            (Farmer, Fisherfolk), 'rsbsa_number',
+            [p['row']['rsbsa_no'].strip() for p in parsed if p['disposition'] != 'HOLD-BACK'])
+        for p in parsed:
+            if p['disposition'] != 'HOLD-BACK':
+                typed = p['row']['rsbsa_no'].strip()
+                p['row']['rsbsa_no'] = canonical.get(id_key(typed), typed)
         matchable_rsbsa = [
             p['row']['rsbsa_no'].strip() for p in parsed if p['disposition'] != 'HOLD-BACK'
         ]
@@ -394,9 +404,9 @@ class RsbsaUpdateImportPreviewView(APIView):
             # committed per batch — enforced by the commit view and by the
             # modal's selection — since a second write would trip its own
             # drift check against the first's just-applied change.
-            dup_of = seen_rsbsa_rows.get(rsbsa)
+            dup_of = seen_rsbsa_rows.get(id_key(rsbsa))
             if dup_of is None:
-                seen_rsbsa_rows[rsbsa] = row_number
+                seen_rsbsa_rows[id_key(rsbsa)] = row_number
 
             is_farmer = disposition == 'IMPORT-FARMER'
             primary_dict, primary_table = (farmers_by_rsbsa, 'FARMER') if is_farmer else (fisherfolk_by_rsbsa, 'FISHERFOLK')
@@ -441,7 +451,7 @@ class RsbsaUpdateImportPreviewView(APIView):
 
             field_specs = FARMER_FIELDS if matched_table == 'FARMER' else FISHERFOLK_FIELDS
 
-            if record is None and not any(pt.match(rsbsa) for pt in RSBSA_PATTERNS):
+            if record is None and not is_valid_rsbsa(rsbsa):
                 # Registering someone with an RSBSA number the registration
                 # form itself would refuse would create a record that can't
                 # be re-saved through the app. Existing records with such
@@ -768,7 +778,7 @@ class RsbsaUpdateImportCommitView(APIView):
         field_specs = self.FIELD_SPECS[record_type]
         field_labels = dict(field_specs)
 
-        if model.objects.filter(rsbsa_number=rsbsa_number).exists():
+        if by_id_key(model.objects.all(), 'rsbsa_number', rsbsa_number).exists():
             raise CommitRowError(
                 row_number,
                 f'{record_type.title()} with RSBSA number "{rsbsa_number}" already exists — '

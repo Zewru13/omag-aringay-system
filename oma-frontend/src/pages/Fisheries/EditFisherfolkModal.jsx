@@ -7,14 +7,13 @@ import { baseInputClasses, FormLabel } from '../../components/UI/FormField.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
-import SegmentedIdInput from '../../components/UI/SegmentedIdInput.jsx'
+import IdNumberInput from '../../components/UI/IdNumberInput.jsx'
+import { FISHR_GROUPS, RSBSA_GROUPS } from '../../utils/idNumbers.js'
 import PhoneInput from '../../components/UI/PhoneInput.jsx'
 import { tidyPhone } from '../../utils/inputGuards.js'
-import { BARANGAY_RSBSA_CODES } from '../../constants/barangays.js'
 import { getPrefixOptions, isPrefixValidForGender } from '../../utils/prefixOptions.js'
 
 const labelCls = 'block text-xs font-medium text-slate-600'
-const currentYear = String(new Date().getFullYear())
 
 const validateContact = (value) => {
   if (!value) return ''
@@ -121,19 +120,6 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
     return (m < 0 || (m === 0 && today.getDate() < birth.getDate())) ? a - 1 : a
   })()
   const isSenior = age !== null && age >= 60
-  const barangayCode = BARANGAY_RSBSA_CODES[form.barangay] || '000'
-
-  const fishrParts = [
-    { type: 'text', value: '01-33-02-' },
-    { type: 'input', key: 'year', length: 4, placeholder: currentYear },
-    { type: 'text', value: '-' },
-    { type: 'input', key: 'seq', length: 4, placeholder: '0000' },
-  ]
-  const rsbsaParts = [
-    { type: 'text', value: '01-33-02-' },
-    { type: 'text', value: `${barangayCode}-` },
-    { type: 'input', key: 'seq', length: 6, placeholder: '000000' },
-  ]
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -147,7 +133,7 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
     }
 
     if (!form.rsbsa_number) {
-      setFieldErrors({ rsbsa_number: 'RSBSA number is required and must be complete.' })
+      setFieldErrors({ rsbsa_number: 'RSBSA number is required.' })
       return
     }
 
@@ -268,9 +254,10 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
 
             <div>
               <FormLabel className={labelCls}>FishR Number</FormLabel>
-              <SegmentedIdInput
-                parts={fishrParts}
+              <IdNumberInput
+                groups={FISHR_GROUPS}
                 value={form.fishr_number}
+                placeholder="01-33-02-2026-0415"
                 onChange={(v) => setForm((c) => ({ ...c, fishr_number: v }))}
               />
               {fieldErrors.fishr_number && <p className="mt-1 text-xs text-rose-600">{fieldErrors.fishr_number}</p>}
@@ -278,9 +265,10 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
 
             <div>
               <FormLabel className={labelCls} required>RSBSA Number</FormLabel>
-              <SegmentedIdInput
-                parts={rsbsaParts}
+              <IdNumberInput
+                groups={RSBSA_GROUPS}
                 value={form.rsbsa_number}
+                placeholder="01-33-02-014-058212"
                 onChange={(v) => setForm((c) => ({ ...c, rsbsa_number: v }))}
               />
               {fieldErrors.rsbsa_number && <p className="mt-1 text-xs text-rose-600">{fieldErrors.rsbsa_number}</p>}

@@ -40,6 +40,8 @@ from .views import (
     StockingForecastingImportView,
     StockingHistoryView,
     StockingDetailView,
+    StockingPcicFormView,
+    PondPcicFormView,
     StockingActivityLogListCreateView,
     StockingActivityLogDeleteView,
     StockingActivityLogDetailView,
@@ -66,6 +68,7 @@ urlpatterns = [
     path('fisherfolk/<int:fisherfolk_id>/ponds/', PondListCreateView.as_view(), name='fisherfolk-ponds-list-create'),
     path('fisherfolk/<int:fisherfolk_id>/ponds/bulk/', PondBulkCreateView.as_view(), name='fisherfolk-ponds-bulk-create'),
     path('ponds/<int:pk>/', PondDetailView.as_view(), name='pond-detail'),
+    path('ponds/<int:pk>/pcic-form/', PondPcicFormView.as_view(), name='pond-pcic-form'),
 
     # ── Species categories ──────────────────────────────────────────────────
     path('species-categories/', SpeciesCategoryListCreateView.as_view(), name='species-category-list'),
@@ -97,6 +100,7 @@ urlpatterns = [
     path('stocking/forecasting/import/', StockingForecastingImportView.as_view(), name='stocking-forecasting-import'),
     path('stocking/history/', StockingHistoryView.as_view(), name='stocking-history'),
     path('stocking/<int:pk>/', StockingDetailView.as_view(), name='stocking-detail'),
+    path('stocking/<int:pk>/pcic-form/', StockingPcicFormView.as_view(), name='stocking-pcic-form'),
 
     # ── Nested stocking sub-resources ───────────────────────────────────────
     path('stocking/<int:stocking_id>/logs/', StockingActivityLogListCreateView.as_view(), name='stocking-logs'),

@@ -6,6 +6,7 @@ from .views import (
     FarmCropDeleteView,
     FarmCropListCreateView,
     FarmerCreateView,
+    FarmCropPcicFormView,
     FarmerDeleteView,
     FarmerDetailView,
     FarmerDuplicateCheckView,
@@ -42,6 +43,7 @@ urlpatterns = [
         name='farm-crops-list-create',
     ),
     path('crops/<int:id>/', FarmCropDeleteView.as_view(), name='farm-crops-delete'),
+    path('crops/<int:id>/pcic-form/', FarmCropPcicFormView.as_view(), name='farm-crops-pcic-form'),
     # Machinery
     path(
         'parcels/<int:parcel_id>/machinery/',

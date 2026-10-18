@@ -500,9 +500,10 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
             'has_harvest', 'harvest_record_id', 'harvest_count', 'disaster_report_count',
             'harvest_variance_days',
             'growth_stage', 'recommended_input_type_id', 'recommended_input_type_name',
+            'has_pcic_insurance', 'pcic_form_photo',
         ]
         read_only_fields = [
-            'id', 'farmer_name', 'farmer_barangay', 'farmer_full_name', 'farmer_organization_name',
+            'id', 'pcic_form_photo', 'farmer_name', 'farmer_barangay', 'farmer_full_name', 'farmer_organization_name',
             'parcel_number', 'organization_name',
             'crop_type_name', 'crop_suggested_activities', 'crop_allowed_units',
             'expected_harvest_date', 'estimated_yield_kg',

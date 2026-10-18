@@ -3,12 +3,14 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path
+
+from core.constants import SYSTEM_TITLE
 from rest_framework_simplejwt.views import TokenRefreshView
 
 
 def api_root(request):
     return JsonResponse({
-        'system': 'Integrated Agricultural Monitoring and Production Management System',
+        'system': SYSTEM_TITLE,
         'office': 'Office of the Municipal Agriculturist of Aringay',
         'municipality': 'Aringay, La Union',
     })

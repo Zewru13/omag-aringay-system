@@ -29,6 +29,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.permissions import IsAdminOrEvaluator
+from core.idnumbers import canonical_numbers, id_key
 from core.utils import MAX_IMPORT_ROWS
 from farmers.models import Farmer, RsbsaImportChangeLog
 from fisheries.models import Fisherfolk
@@ -109,6 +110,11 @@ class CropRecordImportPreviewView(APIView):
         # RSBSA preview's classification_mismatch handling (see this
         # module's docstring for why: a Farmer-only lookup would silently
         # misreport a real Fisherfolk-registered person as "not found"). ──
+        # A number typed without dashes is the same person as the one on file: read it as stored before matching.
+        canonical = canonical_numbers((Farmer, Fisherfolk), 'rsbsa_number', [p['rsbsa'] for p in parsed if p['status'] is None])
+        for p in parsed:
+            if p['status'] is None:
+                p['rsbsa'] = canonical.get(id_key(p['rsbsa']), p['rsbsa'])
         matchable_rsbsa = [p['rsbsa'] for p in parsed if p['status'] is None]
         farmers_by_rsbsa = {f.rsbsa_number: f for f in Farmer.objects.filter(rsbsa_number__in=matchable_rsbsa)}
         fisherfolk_by_rsbsa = {f.rsbsa_number: f for f in Fisherfolk.objects.filter(rsbsa_number__in=matchable_rsbsa)}

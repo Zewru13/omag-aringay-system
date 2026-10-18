@@ -4,6 +4,25 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
+from core.pcic import pcic_form_path
+
+
+class PcicInsurance(models.Model):
+    """Fields for a record that can be covered by PCIC crop insurance: the box, and the photo of the insurance form
+    (see core.pcic). Unticking the box removes the photo."""
+    has_pcic_insurance = models.BooleanField(default=False)
+    pcic_form_photo = models.ImageField(upload_to=pcic_form_path, null=True, blank=True)
+
+    class Meta:
+        abstract = True
+
+    def save(self, *args, **kwargs):
+        if not self.has_pcic_insurance and self.pcic_form_photo:
+            self.pcic_form_photo.delete(save=False)
+            self.pcic_form_photo = None
+        super().save(*args, **kwargs)
+
+
 # ─── Record Locking ───────────────────────────────────────────────────────────
 #
 # RecordLock uses an explicit (record_type, record_id) pair rather than

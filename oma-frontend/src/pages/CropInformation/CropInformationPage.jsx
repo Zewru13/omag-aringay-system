@@ -31,6 +31,9 @@ import PaginationBar from "../../components/UI/PaginationBar.jsx";
 import StatusPill from "../../components/UI/StatusPill.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
+import PcicInsuranceField from "../../components/UI/PcicInsuranceField.jsx";
+import PcicBadge from "../../components/UI/PcicBadge.jsx";
+import { pcicError, pcicPayload, pcicStateFrom, uploadPcicForm } from "../../utils/pcic.js";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -272,6 +275,7 @@ function RemarksModal({ record, onClose }) {
                     : "—",
                 },
                 { label: "Date Planted", value: fmtLong(record.date_planted) },
+                { label: "PCIC Insurance", value: <PcicBadge insured={record.has_pcic_insurance} url={record.pcic_form_photo} none="No" /> },
                 {
                   label: "Est. Harvest Date",
                   value: fmtLong(record.expected_harvest_date),
@@ -416,6 +420,7 @@ function EditCropModal({ record, onClose, onSaved }) {
     seed_quantity_unit: record.seed_quantity_unit || "kg",
   };
   const [form, setForm] = useState(originalData);
+  const [pcic, setPcic] = useState(() => pcicStateFrom(record));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
@@ -425,7 +430,8 @@ function EditCropModal({ record, onClose, onSaved }) {
   const isDirty =
     Object.keys(originalData).some(
       (k) => normalize(form[k]) !== normalize(originalData[k]),
-    ) || selectedFarmer.farmer_id !== (record.farmer || null);
+    ) || selectedFarmer.farmer_id !== (record.farmer || null)
+    || pcic.insured !== !!record.has_pcic_insurance || !!pcic.file;
 
   useEffect(() => {
     api
@@ -543,11 +549,17 @@ function EditCropModal({ record, onClose, onSaved }) {
       setError("Please fix the highlighted fields.");
       return;
     }
+    const pcicProblem = pcicError(pcic);
+    if (pcicProblem) {
+      setError(pcicProblem);
+      return;
+    }
     setFieldErrors({});
     setError("");
     setIsSubmitting(true);
     try {
       await api.patch(`/production/monitoring/${record.id}/`, {
+        ...pcicPayload(pcic),
         farmer: selectedFarmer.farmer_id,
         farmers_organization: selectedFarmer.farmer_assoc_id || null,
         farm_location_barangay: form.farm_location_barangay,
@@ -565,6 +577,11 @@ function EditCropModal({ record, onClose, onSaved }) {
           : null,
         seed_quantity_unit: form.seed_quantity_unit,
       });
+      try {
+        await uploadPcicForm(api, "planting", record.id, pcic);
+      } catch {
+        showToast("The record was saved, but the PCIC form photo could not be uploaded. Try again.", "error");
+      }
       showToast("Crop record updated successfully.", "success");
       onSaved();
     } catch (err) {
@@ -872,6 +889,8 @@ function EditCropModal({ record, onClose, onSaved }) {
           </div>
         </div>
 
+        <PcicInsuranceField value={pcic} onChange={setPcic} subject="planting" />
+
         {error && (
           <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">
             {error}
@@ -911,6 +930,7 @@ function CropDetailModal({ record, onClose }) {
     ["Land Status", landStatusDisplay],
     ["Season / Year", `${record.season || "—"} ${record.year || ""}`],
     ["Date Planted", fmtLong(record.date_planted)],
+    ["PCIC Insurance", <PcicBadge key="pcic" insured={record.has_pcic_insurance} url={record.pcic_form_photo} none="No" />],
     ["Area Planted (ha)", record.area_planted_ha ? Number(record.area_planted_ha).toFixed(2) : "—"],
     ["Expected Harvest Date", fmtLong(record.expected_harvest_date)],
     [

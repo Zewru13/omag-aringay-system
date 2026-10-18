@@ -6,6 +6,8 @@ from django.conf import settings
 from django.core.mail import send_mail
 from django.utils import timezone
 
+from core.constants import SYSTEM_TITLE
+
 
 def citizen_account_info(linked_record_type, record_id):
     """
@@ -150,6 +152,7 @@ def existing_citizen_shell_for_rsbsa(rsbsa_number, exclude_record_type=None):
     """
     from accounts.models import User
     from farmers.models import Farmer
+    from core.idnumbers import by_id_key
     from fisheries.models import Fisherfolk
 
     for model, rtype in (
@@ -158,7 +161,7 @@ def existing_citizen_shell_for_rsbsa(rsbsa_number, exclude_record_type=None):
     ):
         if rtype == exclude_record_type:
             continue
-        other = model.objects.filter(rsbsa_number=rsbsa_number).first()
+        other = by_id_key(model.objects.all(), 'rsbsa_number', rsbsa_number).first()
         if other is None:
             continue
         # Switchable-identity Phase 2: query through UserLinkedRecord, not
@@ -350,8 +353,7 @@ def send_organization_credentials_email(org, plain_password, expires_at):
     subject = 'Your OMA Aringay account is ready'
     message = (
         f'Hello {org.contact_person or org.name},\n\n'
-        f'An account for {org.name} has been created on the OMA Aringay Integrated Agricultural Monitoring '
-        f'and Production Management System.\n\n'
+        f'An account for {org.name} has been created on the {SYSTEM_TITLE}.\n\n'
         f'Log in with:\n'
         f'Login: {org.registration_number}\n'
         f'Temporary password: {plain_password}\n\n'
