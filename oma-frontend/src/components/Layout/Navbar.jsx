@@ -4,7 +4,6 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
 import ConfirmDialog from '../UI/ConfirmDialog.jsx'
 import NotificationBell from './NotificationBell.jsx'
-import { SYSTEM_TITLE } from '../../constants/appInfo.js'
 
 function formatDate(d) {
   return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -58,11 +57,8 @@ function Navbar({ onToggleSidebar, isCollapsed }) {
           >
             <Menu size={20} aria-hidden="true" />
           </button>
-          <span
-            className="hidden md:block min-w-0 max-w-[min(62vw,860px)] truncate font-display text-[12px] font-semibold uppercase tracking-wide text-text-primary"
-            title={SYSTEM_TITLE}
-          >
-            {SYSTEM_TITLE}
+          <span className="hidden md:block font-display text-[14px] font-semibold text-text-primary tracking-tight">
+            OMAg Aringay
           </span>
         </div>
 
