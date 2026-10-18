@@ -30,6 +30,7 @@ import { FARMER_DISTRIBUTION_DOMAIN } from './distributionDomains.js'
 import { SourceAgencyMultiSelect, TypeConditionalFields } from './sharedAssistanceFields.jsx'
 import {
   EMPTY_TYPE_CONDITIONAL_FIELDS, buildTypeConditionalPayload, validateTrainingDuration, isTrainingType,
+  isCashType, cashAmountError, cashAmountFrom, formatAssistanceQuantity,
 } from './assistanceFieldHelpers.js'
 
 // interventions.models.DistributionStatus — the scheduled distribution +
@@ -233,6 +234,8 @@ function AddAssistanceModal({ onClose, onSuccess, memberUrl = null }) {
     }
     const trainingError = validateTrainingDuration(form.assistance_type, form)
     if (trainingError) { showToast(trainingError, 'error'); return }
+    const cashError = cashAmountError(form.assistance_type, form.quantity)
+    if (cashError) { showToast(cashError, 'error'); return }
     setError(''); setIsSubmitting(true)
     try {
       const { description, date_received, quantity, ...rest } = form
@@ -287,7 +290,12 @@ function AddAssistanceModal({ onClose, onSuccess, memberUrl = null }) {
                 if (v) set('year', new Date(v).getFullYear())
               }} />
           </FormField>
-          {!isTraining && (
+          {isCashType(form.assistance_type) ? (
+            <FormField label="Amount (₱)" required>
+              <input type="number" step="0.01" min="0.01" inputMode="decimal" className={baseInputClasses} value={form.quantity}
+                onChange={(e) => set('quantity', e.target.value)} placeholder="e.g. 1500.00" />
+            </FormField>
+          ) : !isTraining && (
             <FormField label="Quantity">
               <input className={baseInputClasses} value={form.quantity} onChange={(e) => set('quantity', e.target.value)} placeholder="e.g. 2 bags" />
             </FormField>
@@ -328,7 +336,7 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
   const originalData = {
     assistance_type: record.assistance_type || '',
     description: record.remarks || '',
-    quantity: record.quantity || '',
+    quantity: isCashType(record.assistance_type) ? cashAmountFrom(record.quantity) : (record.quantity || ''),
     date_received: record.date_given || '',
     source_agencies: record.source_agencies || [],
     season: record.season || '',
@@ -353,6 +361,8 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
     e.preventDefault()
     const trainingError = validateTrainingDuration(form.assistance_type, form)
     if (trainingError) { showToast(trainingError, 'error'); return }
+    const cashError = cashAmountError(form.assistance_type, form.quantity)
+    if (cashError) { showToast(cashError, 'error'); return }
     setError(''); setIsSubmitting(true)
     try {
       const { description, date_received, quantity, ...rest } = form
@@ -419,7 +429,12 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
                 max={new Date().toISOString().split('T')[0]}
                 onChange={(e) => set('date_received', e.target.value)} />
             </FormField>
-            {!isTraining && (
+            {isCashType(form.assistance_type) ? (
+              <FormField label="Amount (₱)" required>
+                <input type="number" step="0.01" min="0.01" inputMode="decimal" className={baseInputClasses} value={form.quantity}
+                  onChange={(e) => set('quantity', e.target.value)} />
+              </FormField>
+            ) : !isTraining && (
               <FormField label="Quantity">
                 <input className={baseInputClasses} value={form.quantity} onChange={(e) => set('quantity', e.target.value)} />
               </FormField>
@@ -692,6 +707,7 @@ export default function CropAssistancePage({ asTab = false }) {
     select_cell: <SelectCell record={r} name={r.farmer_full_name} selection={selection} />,
     source_agency: (r.source_agencies || []).join(', '),
     date_received_fmt: formatDate(r.date_given),
+    quantity: formatAssistanceQuantity(r.assistance_type, r.quantity),
     season_year_cell: [r.season, r.year].filter(Boolean).join(' '),
     status_cell: r.status ? <StatusPill status={r.status}>{((isFarmer || isOrg) ? FARMER_STATUS_LABELS : STATUS_LABELS)[r.status] || r.status}</StatusPill> : '—',
     // Confirm for Members list: where the member's request to OMAg stands
@@ -862,7 +878,7 @@ export default function CropAssistancePage({ asTab = false }) {
             { label: 'Organization', value: viewing.attributed_organization_name },
             { label: 'Assistance type', value: viewing.assistance_type },
             { label: 'Source agency', value: (viewing.source_agencies || []).join(', ') },
-            { label: 'Quantity', value: viewing.quantity },
+            { label: isCashType(viewing.assistance_type) ? 'Amount' : 'Quantity', value: formatAssistanceQuantity(viewing.assistance_type, viewing.quantity) },
             { label: 'Date received', value: formatDate(viewing.date_given) },
             { label: 'Season / year', value: [viewing.season, viewing.year].filter(Boolean).join(' ') },
             { label: 'Status', value: STATUS_LABELS[viewing.status] || viewing.status },

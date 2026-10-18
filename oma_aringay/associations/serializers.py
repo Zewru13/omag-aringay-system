@@ -226,6 +226,22 @@ class FarmersOrganizationEquipmentSerializer(_EquipmentLineValidation, serialize
         return value
 
 
+MAX_REGISTRATION_NUMBER_LENGTH = 15
+
+
+class _RegistrationNumberLimit:
+    """Registration numbers are 15 characters at most. Applies to what is typed: an organization that already has a
+    longer number can still be edited while that field is left as it is."""
+
+    def validate_registration_number(self, value):
+        value = (value or '').strip()
+        if len(value) > MAX_REGISTRATION_NUMBER_LENGTH and not (
+                self.instance is not None and value == (self.instance.registration_number or '')):
+            raise serializers.ValidationError(
+                f'The registration number can be at most {MAX_REGISTRATION_NUMBER_LENGTH} characters.')
+        return value
+
+
 class FarmersOrganizationListSerializer(serializers.ModelSerializer):
     member_count = serializers.SerializerMethodField()
     equipment_count = serializers.SerializerMethodField()
@@ -247,7 +263,7 @@ class FarmersOrganizationListSerializer(serializers.ModelSerializer):
         return sum(1 for line in obj.equipment.all() if line.quantity > 0)
 
 
-class FarmersOrganizationDetailSerializer(serializers.ModelSerializer):
+class FarmersOrganizationDetailSerializer(_RegistrationNumberLimit, serializers.ModelSerializer):
     members   = FarmersOrganizationMemberSerializer(many=True, read_only=True)
     # Lines with no units left (all moved to other conditions) stay in the database for their history but are not listed.
     equipment = serializers.SerializerMethodField()
@@ -429,7 +445,7 @@ class FisherfolkOrganizationListSerializer(serializers.ModelSerializer):
         return sum(1 for line in obj.equipment.all() if line.quantity > 0)
 
 
-class FisherfolkOrganizationDetailSerializer(serializers.ModelSerializer):
+class FisherfolkOrganizationDetailSerializer(_RegistrationNumberLimit, serializers.ModelSerializer):
     members   = FisherfolkOrganizationMemberSerializer(many=True, read_only=True)
     equipment = serializers.SerializerMethodField()
     officers  = serializers.SerializerMethodField()

@@ -9,6 +9,11 @@ import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import SegmentedIdInput from '../../components/UI/SegmentedIdInput.jsx'
+import IdNumberInput from '../../components/UI/IdNumberInput.jsx'
+import PcicInsuranceField from '../../components/UI/PcicInsuranceField.jsx'
+import { useToast } from '../../context/ToastContext.jsx'
+import { EMPTY_PCIC, pcicError, pcicPayload, uploadPcicForm } from '../../utils/pcic.js'
+import { RSBSA_GROUPS, isValidIdNumber } from '../../utils/idNumbers.js'
 
 // Region-Province-Municipality is fixed for every parcel in this LGU-only
 // system (01-33-02 = Region I / La Union / Aringay) — same fixed prefix
@@ -40,15 +45,8 @@ const TAX_DECLARATION_RE = /^\d{2}-\d{3}-\d{5}-\d{4}-\d{4}$/
 // pattern above (that's locked to the CURRENT farmer's own barangay); a
 // plain validated text field is the right shape here, same as
 // tax_declaration_number just above.
-const RSBSA_PATTERNS = [
-  /^01-33-02-\d{3}-\d{6}$/,
-  /^BF-01-033-02-\d{3}-\d{8}$/,
-  /^01-033-02-\d{3}-\d{6}$/,
-  /^BF-01-033-02-\d{3}-\d{6}$/,
-]
-const isValidRsbsa = (value) => !value || RSBSA_PATTERNS.some(re => re.test(value))
-const RSBSA_FORMAT_ERROR = 'Invalid RSBSA number. Expected one of: 01-33-02-014-058212, ' +
-  'BF-01-033-02-023-00000033, 01-033-02-019-000151, or BF-01-033-02-004-000007.'
+const isValidRsbsa = isValidIdNumber
+const RSBSA_FORMAT_ERROR = 'Invalid RSBSA number. Type the digits only (up to 20); the dashes are added as you type.'
 
 const CROP_OPTIONS = [
   'Palay (Rice)', 'Corn (Mais)', 'Onion', 'Garlic', 'Tomato',
@@ -128,6 +126,8 @@ const makeParcel = (n) => ({
   _cropSeedsUnit: 'kg',
   _cropIsMain: false,
   _cropTrees: '',
+  _cropPcic: { ...EMPTY_PCIC },
+  _cropPcicError: '',
   // machinery form state
   _machineryType: 'Hand Tractor',
   _machineryTypeOther: '',
@@ -160,7 +160,10 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
   const addCrop = () => {
     if (!parcel._cropArea) return
     if (parcel._cropName === 'Other' && !parcel._cropNameOther.trim()) return
+    const pcicProblem = pcicError(parcel._cropPcic)
+    if (pcicProblem) { onUpdate(parcel._id, '_cropPcicError', pcicProblem); return }
     const entry = {
+      pcic: parcel._cropPcic,
       _uid: Date.now(),
       crop_name: parcel._cropName,
       crop_name_other: parcel._cropName === 'Other' ? parcel._cropNameOther : '',
@@ -183,6 +186,8 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
     onUpdate(parcel._id, '_cropVariety', '')
     onUpdate(parcel._id, '_cropQtySeeds', '')
     onUpdate(parcel._id, '_cropTrees', '')
+    onUpdate(parcel._id, '_cropPcic', { ...EMPTY_PCIC })
+    onUpdate(parcel._id, '_cropPcicError', '')
   }
 
   const removeCrop = (uid) => onUpdate(parcel._id, 'crops', parcel.crops.filter(c => c._uid !== uid))
@@ -303,9 +308,11 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
                 </div>
                 <div>
                   <label className={labelCls}>Land Owner RSBSA Number</label>
-                  <input className={baseInputClasses} value={parcel.land_owner_rsbsa_number}
+                  <IdNumberInput
+                    groups={RSBSA_GROUPS}
+                    value={parcel.land_owner_rsbsa_number}
                     placeholder="01-33-02-014-058212"
-                    onChange={e => set('land_owner_rsbsa_number', e.target.value)} />
+                    onChange={value => set('land_owner_rsbsa_number', value)} />
                   {parcel.land_owner_rsbsa_number && !isValidRsbsa(parcel.land_owner_rsbsa_number) ? (
                     <p className="mt-1 text-[11px] text-rose-500">{RSBSA_FORMAT_ERROR}</p>
                   ) : (
@@ -422,6 +429,13 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
               </div>
             </div>
 
+            <PcicInsuranceField
+              value={parcel._cropPcic}
+              error={parcel._cropPcicError}
+              subject="crop"
+              onChange={(next) => { set('_cropPcic', next); set('_cropPcicError', '') }}
+            />
+
             <div className="flex items-center justify-between gap-3 pt-1">
               <label className="flex cursor-pointer items-center gap-2">
                 <input type="checkbox" className="h-4 w-4 accent-[#1B4D2E]"
@@ -451,6 +465,7 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
                         <td data-label="Crop" className="px-3 py-2 text-[13px] text-[#1A2B1A]">
                           {c.crop_name === 'Other' ? c.crop_name_other : c.crop_name}
                           {c.is_main_crop && <span className="ml-1.5 rounded-full bg-[#EBF5EE] px-2 py-0.5 text-[10px] font-semibold text-[#1B4D2E]">Main</span>}
+                          {c.pcic?.insured && <span className="ml-1.5 rounded-full bg-[#E8F0FE] px-2 py-0.5 text-[10px] font-semibold text-[#1A4FA0]">PCIC</span>}
                         </td>
                         <td data-label="Variety" className="px-3 py-2 text-[12px] text-[#7A8E7A]">{c.variety_used || '—'}</td>
                         <td data-label="Area (ha)" className="px-3 py-2 text-[13px] text-[#1A2B1A]">{c.area_hectares}</td>
@@ -547,6 +562,7 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
 // ─── Main Modal ───────────────────────────────────────────────────────────────
 
 function AddFarmParcelModal({ farmerId, onClose, onSuccess }) {
+  const { showToast } = useToast()
   const [parcels, setParcels] = useState([makeParcel(1)])
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
@@ -603,6 +619,7 @@ function AddFarmParcelModal({ farmerId, onClose, onSuccess }) {
     setShowConfirm(false)
     setIsSaving(true)
     setError('')
+    const photoFailures = []
     try {
       for (const parcel of parcels) {
         const { data: created } = await api.post(`/farmers/${farmerId}/parcels/`, {
@@ -622,14 +639,22 @@ function AddFarmParcelModal({ farmerId, onClose, onSuccess }) {
         })
 
         for (const crop of parcel.crops) {
-          const { _uid, ...cropPayload } = crop
-          await api.post(`/farmers/parcels/${created.id}/crops/`, cropPayload)
+          const { _uid, pcic, ...cropPayload } = crop
+          const { data: savedCrop } = await api.post(`/farmers/parcels/${created.id}/crops/`, { ...cropPayload, ...pcicPayload(pcic) })
+          try {
+            await uploadPcicForm(api, 'crop', savedCrop.id, pcic)
+          } catch {
+            photoFailures.push(crop.crop_name === 'Other' ? crop.crop_name_other : crop.crop_name)
+          }
         }
 
         for (const mach of parcel.machinery) {
           const { _uid, ...machPayload } = mach
           await api.post(`/farmers/parcels/${created.id}/machinery/`, machPayload)
         }
+      }
+      if (photoFailures.length) {
+        showToast(`Saved, but the PCIC form photo could not be uploaded for: ${photoFailures.join(', ')}. Tell your administrator to add it later.`, 'error')
       }
       setSavedCount(parcels.length)
       onSuccess()

@@ -200,9 +200,9 @@ export default function EditOrganizationModal({ organization, type, onClose, onS
           {/* Registration Number */}
           <div>
             <label className={labelCls}>Registration Number <span className="text-rose-500">*</span></label>
-            <input className={`${baseInputClasses}${formErrors.registration_number ? ' border-rose-400' : ''}`} placeholder="e.g. CN200626622"
+            <input className={`${baseInputClasses}${formErrors.registration_number ? ' border-rose-400' : ''}`} placeholder="e.g. CN200626622" maxLength={15}
               value={form.registration_number}
-              onChange={e => set('registration_number', e.target.value.toUpperCase())} />
+              onChange={e => set('registration_number', e.target.value.toUpperCase().slice(0, 15))} />
             {formErrors.registration_number
               ? <p className="mt-1 text-[12px] text-rose-600">{formErrors.registration_number}</p>
               : (

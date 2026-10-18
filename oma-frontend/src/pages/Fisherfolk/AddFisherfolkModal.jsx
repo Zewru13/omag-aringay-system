@@ -9,12 +9,11 @@ import EmailInput from '../../components/UI/EmailInput.jsx'
 import { guardPhilsys as formatPhilsys } from '../../utils/inputGuards.js'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
-import SegmentedIdInput from '../../components/UI/SegmentedIdInput.jsx'
-import { BARANGAY_RSBSA_CODES } from '../../constants/barangays.js'
+import IdNumberInput from '../../components/UI/IdNumberInput.jsx'
+import { FISHR_GROUPS, RSBSA_GROUPS } from '../../utils/idNumbers.js'
 import { getPrefixOptions, isPrefixValidForGender } from '../../utils/prefixOptions.js'
 
 const labelCls = 'text-[13px] font-medium text-[#4A5E4A] mb-1.5 block'
-const currentYear = String(new Date().getFullYear())
 
 // Section heading — a real divider + title, not just a faint uppercase
 // label buried inside a field's own FormLabel. Groups the form into the
@@ -200,7 +199,7 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
     setFormError('')
     setFieldErrors({})
     setIdTouched({ fishr: true, rsbsa: true })
-    if (!form.rsbsa_number) { setFormError('RSBSA number is required and must be complete.'); return }
+    if (!form.rsbsa_number) { setFormError('RSBSA number is required.'); return }
     const ageErr = validateAge(form.birthdate)
     if (ageErr) { setBirthdateError(ageErr); return }
     const philsysErr = validatePhilsys(form.philsys_number)
@@ -260,19 +259,6 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
 
   const age = computeAge(form.birthdate)
   const isSenior = age !== null && age >= 60
-  const barangayCode = BARANGAY_RSBSA_CODES[form.barangay] || '000'
-
-  const fishrParts = [
-    { type: 'text', value: '01-33-02-' },
-    { type: 'input', key: 'year', length: 4, placeholder: currentYear },
-    { type: 'text', value: '-' },
-    { type: 'input', key: 'seq', length: 4, placeholder: '0000' },
-  ]
-  const rsbsaParts = [
-    { type: 'text', value: '01-33-02-' },
-    { type: 'text', value: `${barangayCode}-` },
-    { type: 'input', key: 'seq', length: 6, placeholder: '000000' },
-  ]
 
   return (
     <ModalShell
@@ -385,18 +371,15 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <FormLabel required>RSBSA Number</FormLabel>
-              <SegmentedIdInput
-                parts={rsbsaParts}
+              <IdNumberInput
+                groups={RSBSA_GROUPS}
                 value={form.rsbsa_number}
+                placeholder="01-33-02-014-058212"
                 onChange={(v) => setForm((c) => ({ ...c, rsbsa_number: v }))}
               />
-              <p className="mt-1 text-[11px] text-[#7A8E7A]">
-                {form.barangay
-                  ? `Barangay code ${barangayCode} auto-filled from ${form.barangay}.`
-                  : 'Select a barangay below to auto-fill the barangay code.'}
-              </p>
+              <p className="mt-1 text-[11px] text-[#7A8E7A]">Type the digits only (up to 20). The dashes are added as you type.</p>
               {idTouched.rsbsa && !form.rsbsa_number && (
-                <p className="mt-1 text-[12px] font-medium text-red-600">RSBSA number is required and must be complete.</p>
+                <p className="mt-1 text-[12px] font-medium text-red-600">RSBSA number is required.</p>
               )}
               {fieldErrors.rsbsa_number && (
                 <p className="mt-1 text-[12px] text-rose-600">{fieldErrors.rsbsa_number}</p>
@@ -405,11 +388,13 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
 
             <div>
               <FormLabel>FishR Number</FormLabel>
-              <SegmentedIdInput
-                parts={fishrParts}
+              <IdNumberInput
+                groups={FISHR_GROUPS}
                 value={form.fishr_number}
+                placeholder="01-33-02-2026-0415"
                 onChange={(v) => setForm((c) => ({ ...c, fishr_number: v }))}
               />
+              <p className="mt-1 text-[11px] text-[#7A8E7A]">Optional. Digits only, up to 20.</p>
               {fieldErrors.fishr_number && (
                 <p className="mt-1 text-[12px] text-rose-600">{fieldErrors.fishr_number}</p>
               )}

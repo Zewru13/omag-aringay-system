@@ -4,6 +4,7 @@ from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
 from core.constants import BARANGAY_CHOICES
+from core.models import PcicInsurance
 from core.validators import (
     validate_parcel_number,
     validate_philsys,
@@ -242,7 +243,7 @@ class FarmParcel(models.Model):
         return f'{self.farmer.rsbsa_number} - Parcel {self.parcel_number}'
 
 
-class FarmCrop(models.Model):
+class FarmCrop(PcicInsurance):
     class CropName(models.TextChoices):
         PALAY = 'Palay (Rice)', 'Palay (Rice)'
         CORN = 'Corn (Mais)', 'Corn (Mais)'

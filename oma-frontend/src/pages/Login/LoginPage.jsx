@@ -19,6 +19,7 @@ import api from "../../api/axiosInstance.js";
 import { useAuth } from "../../context/AuthContext.jsx";
 import logo from "../../assets/LOGO OMAg.jpg";
 import LoginArt from "./LoginArt.jsx";
+import { SYSTEM_TITLE } from "../../constants/appInfo.js";
 
 // What the system covers, shown beside the form so a first-time visitor knows where they are.
 const MODULES = [
@@ -126,8 +127,8 @@ function LoginPage() {
               <br />
               Aringay
             </h2>
-            <p className="login-rise mt-4 text-[15px] leading-relaxed text-white/80" style={{ "--i": 2 }}>
-              Integrated Agricultural Monitoring and Production Management System for the Office of the Municipal Agriculturist.
+            <p className="login-rise mt-4 text-[13px] font-medium uppercase leading-relaxed tracking-wide text-white/85" style={{ "--i": 2 }}>
+              {SYSTEM_TITLE}
             </p>
 
             <ul className="login-rise mt-8 grid grid-cols-2 gap-x-6 gap-y-3" style={{ "--i": 3 }}>
@@ -153,7 +154,7 @@ function LoginPage() {
             <img src={logo} alt="" className="h-11 w-11 flex-none rounded-lg bg-white/95 object-contain p-0.5" />
             <div className="text-white">
               <p className="text-[17px] font-bold leading-tight tracking-tight">OMAg Aringay</p>
-              <p className="text-[12px] text-white/75">Municipality of Aringay, La Union</p>
+              <p className="mt-1 max-w-[17rem] text-[10px] font-medium uppercase leading-snug tracking-wide text-white/80 short:hidden">{SYSTEM_TITLE}</p>
             </div>
           </div>
         </header>

@@ -16,6 +16,31 @@ export const EMPTY_TYPE_CONDITIONAL_FIELDS = {
   fertilizer_type: '',
 }
 
+export const isCashType = (t) => t === 'Cash Assistance'
+
+// Cash is an amount of pesos, not a quantity: the forms ask for "Amount (₱)" and the lists show it as ₱1,500.00.
+// Text an older record stored ("₱500 per head") is shown as it was written.
+export function formatAssistanceQuantity(type, quantity) {
+  if (quantity == null || quantity === '') return ''
+  if (!isCashType(type)) return quantity
+  const text = String(quantity).trim()
+  if (!/^[₱\s]*\d[\d,]*(\.\d+)?\s*$/.test(text)) return quantity
+  const amount = Number(text.replace(/[₱,\s]/g, ''))
+  return `₱${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+// The number inside what an older cash record stored, for the edit form's amount box.
+export function cashAmountFrom(quantity) {
+  const match = String(quantity ?? '').replace(/,/g, '').match(/\d+(\.\d+)?/)
+  return match ? match[0] : ''
+}
+
+export function cashAmountError(type, quantity) {
+  if (!isCashType(type)) return ''
+  const amount = Number(String(quantity ?? '').trim())
+  return Number.isFinite(amount) && amount > 0 && String(quantity ?? '').trim() !== '' ? '' : 'Enter the amount of cash given.'
+}
+
 export const isTrainingType = (t) => t === 'Training'
 export const isEquipmentType = (t) => t === 'Equipment'
 export const isSeedsType = (t) => t === 'Seeds'

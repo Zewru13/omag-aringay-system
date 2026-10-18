@@ -19,6 +19,7 @@ from accounts.permissions import (
 from accounts.utils import accountless_or_unactivated_ids
 from associations.models import FarmersOrganizationMember, FisherfolkOrganizationMember
 from core.notifications import notify_staff, notify_user, resolve_owner_user
+from core.idnumbers import by_id_key
 from core.photos import discard_uploaded_files, validated_photos
 from core.validators import validate_uploaded_image
 
@@ -972,7 +973,7 @@ def _run_assistance_import(person_model, record_model, serializer_class, person_
             invalid(row_num, 'RSBSA Number, Assistance Type, and Date Given are required.')
             continue
 
-        person = person_model.objects.filter(rsbsa_number__iexact=id_number).first()
+        person = by_id_key(person_model.objects.all(), 'rsbsa_number', id_number).first()
         if not person:
             invalid(row_num, f'No record found with RSBSA number "{id_number}".')
             continue

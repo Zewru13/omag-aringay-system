@@ -8,6 +8,8 @@ import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import PcicInsuranceField from '../../components/UI/PcicInsuranceField.jsx'
+import { EMPTY_PCIC, pcicError, pcicPayload, uploadPcicForm } from '../../utils/pcic.js'
 import { computeHarvestPreview, detectSeason, fmtLong } from './stockingHelpers.js'
 import PondModal from '../Fisheries/PondModal.jsx'
 
@@ -190,6 +192,7 @@ function makeRecord(n) {
     culture_phase:        '',
     culture_phase_other_specify: '',
     seed_cost_php:        '',
+    pcic:                 { ...EMPTY_PCIC },
     season:               detectSeason(''),
     _speciesObj:          null,
   }
@@ -454,6 +457,9 @@ function StockingRecordRow({ rec, index, total, speciesList, cycles, fisherfolkI
                   onChange={e => set('seed_cost_php', e.target.value)} />
               </div>
               <div className="col-span-full">
+                <PcicInsuranceField value={rec.pcic} onChange={(next) => set('pcic', next)} subject="stocking record" />
+              </div>
+              <div className="col-span-full">
                 <HarvestPreviewBox
                   species={rec._speciesObj}
                   dateStocked={rec.date_stocked}
@@ -568,6 +574,7 @@ export default function AddStockingPage() {
       seed_cost_php:            rec.seed_cost_php !== '' ? parseFloat(rec.seed_cost_php) : null,
       season:                   rec.season,
       year,
+      ...pcicPayload(rec.pcic),
     }
   }
 
@@ -579,8 +586,11 @@ export default function AddStockingPage() {
       if (!rec.species) missing.push('species')
       if (!rec.date_stocked) missing.push('date stocked')
       if (!rec.number_of_fingerlings) missing.push('number of fingerlings')
+      const pcicProblem = pcicError(rec.pcic)
       if (missing.length > 0) {
         nextRowErrors[rec._id] = `Row ${i + 1}: missing ${missing.join(', ')}.`
+      } else if (pcicProblem) {
+        nextRowErrors[rec._id] = `Row ${i + 1}: ${pcicProblem}`
       }
     })
     if (Object.keys(nextRowErrors).length > 0) {
@@ -601,7 +611,18 @@ export default function AddStockingPage() {
   const handleConfirmed = async () => {
     setShowConfirm(false); setIsSubmitting(true)
     try {
-      await api.post('/fisheries/stocking/bulk/', records.map(buildPayload))
+      const { data: created } = await api.post('/fisheries/stocking/bulk/', records.map(buildPayload))
+      const photoFailures = []
+      for (let i = 0; i < records.length; i += 1) {
+        try {
+          await uploadPcicForm(api, 'stocking', created[i].id, records[i].pcic)
+        } catch {
+          photoFailures.push(`row ${i + 1}`)
+        }
+      }
+      if (photoFailures.length) {
+        showToast(`Records saved, but the PCIC form photo could not be uploaded for ${photoFailures.join(', ')}. Edit the record to try again.`, 'error')
+      }
       showToast(`${records.length} stocking record${records.length > 1 ? 's' : ''} added.`, 'success')
       navigate('/fisheries-monitoring?tab=stocking')
     } catch (err) {

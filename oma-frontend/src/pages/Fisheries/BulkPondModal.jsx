@@ -6,12 +6,15 @@ import Button from '../../components/UI/Button.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
+import PcicInsuranceField from '../../components/UI/PcicInsuranceField.jsx'
+import { useToast } from '../../context/ToastContext.jsx'
+import { EMPTY_PCIC, pcicError, pcicPayload, uploadPcicForm } from '../../utils/pcic.js'
 
 // Must match fisheries.models.WATER_SOURCE_CHOICES on the backend exactly
 // (same list as PondModal.jsx).
 const WATER_SOURCE_OPTIONS = ['River', 'Spring', 'Rain-fed', 'Deep Well', 'Other']
 
-const emptyRow = (name) => ({ name, barangay: '', area_hectares: '', water_source: '' })
+const emptyRow = (name) => ({ name, barangay: '', area_hectares: '', water_source: '', pcic: { ...EMPTY_PCIC } })
 
 // Batch D — bulk pond creation, alongside PondModal's existing single-add
 // flow (untouched). Opens with one row already visible; "+ Add Another
@@ -21,6 +24,7 @@ const emptyRow = (name) => ({ name, barangay: '', area_hectares: '', water_sourc
 // flows never diverge — the suggestion is just a pre-filled, still-editable
 // default.
 function BulkPondModal({ fisherfolkId, existingPondCount, onClose, onSuccess }) {
+  const { showToast } = useToast()
   const [rows, setRows] = useState([emptyRow(`Pond ${existingPondCount + 1}`)])
   const [rowErrors, setRowErrors] = useState([{}])
   const [formError, setFormError] = useState('')
@@ -43,15 +47,31 @@ function BulkPondModal({ fisherfolkId, existingPondCount, onClose, onSuccess }) 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setFormError('')
+    for (let i = 0; i < rows.length; i += 1) {
+      const problem = pcicError(rows[i].pcic)
+      if (problem) { setFormError(`Pond ${i + 1}: ${problem}`); return }
+    }
     setIsSubmitting(true)
     const payload = rows.map((r) => ({
       name: r.name,
       barangay: r.barangay,
       area_hectares: r.area_hectares !== '' ? parseFloat(r.area_hectares) : null,
       water_source: r.water_source,
+      ...pcicPayload(r.pcic),
     }))
     try {
-      await api.post(`/fisheries/fisherfolk/${fisherfolkId}/ponds/bulk/`, payload)
+      const { data: created } = await api.post(`/fisheries/fisherfolk/${fisherfolkId}/ponds/bulk/`, payload)
+      const failed = []
+      for (let i = 0; i < rows.length; i += 1) {
+        try {
+          await uploadPcicForm(api, 'pond', created[i].id, rows[i].pcic)
+        } catch {
+          failed.push(created[i]?.name || `Pond ${i + 1}`)
+        }
+      }
+      if (failed.length) {
+        showToast(`Ponds saved, but the PCIC form photo could not be uploaded for: ${failed.join(', ')}. Edit the pond to try again.`, 'error')
+      }
       onSuccess()
       onClose()
     } catch (err) {
@@ -140,6 +160,9 @@ function BulkPondModal({ fisherfolkId, existingPondCount, onClose, onSuccess }) 
                     {WATER_SOURCE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </FormField>
+                <div className="sm:col-span-2">
+                  <PcicInsuranceField value={row.pcic} onChange={(next) => setRowField(i, 'pcic', next)} subject="pond" />
+                </div>
               </div>
             </div>
           ))}

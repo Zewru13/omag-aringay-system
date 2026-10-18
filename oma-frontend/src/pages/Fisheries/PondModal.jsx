@@ -6,6 +6,9 @@ import Button from '../../components/UI/Button.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
+import PcicInsuranceField from '../../components/UI/PcicInsuranceField.jsx'
+import { useToast } from '../../context/ToastContext.jsx'
+import { pcicError, pcicPayload, pcicStateFrom, uploadPcicForm } from '../../utils/pcic.js'
 
 // Must match fisheries.models.WATER_SOURCE_CHOICES on the backend exactly.
 const WATER_SOURCE_OPTIONS = ['River', 'Spring', 'Rain-fed', 'Deep Well', 'Other']
@@ -21,6 +24,8 @@ function PondModal({ fisherfolkId, pond, onClose, onSuccess }) {
     area_hectares: pond?.area_hectares != null ? String(pond.area_hectares) : '',
     water_source: pond?.water_source || '',
   })
+  const { showToast } = useToast()
+  const [pcic, setPcic] = useState(() => pcicStateFrom(pond))
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
@@ -29,18 +34,24 @@ function PondModal({ fisherfolkId, pond, onClose, onSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    const pcicProblem = pcicError(pcic)
+    if (pcicProblem) { setError(pcicProblem); return }
     setIsSubmitting(true)
     const payload = {
       name: form.name,
       barangay: form.barangay,
       area_hectares: form.area_hectares !== '' ? parseFloat(form.area_hectares) : null,
       water_source: form.water_source,
+      ...pcicPayload(pcic),
     }
     try {
-      if (isEdit) {
-        await api.patch(`/fisheries/ponds/${pond.id}/`, payload)
-      } else {
-        await api.post(`/fisheries/fisherfolk/${fisherfolkId}/ponds/`, payload)
+      const { data: saved } = isEdit
+        ? await api.patch(`/fisheries/ponds/${pond.id}/`, payload)
+        : await api.post(`/fisheries/fisherfolk/${fisherfolkId}/ponds/`, payload)
+      try {
+        await uploadPcicForm(api, 'pond', saved.id, pcic)
+      } catch {
+        showToast('The pond was saved, but the PCIC form photo could not be uploaded. Edit the pond to try again.', 'error')
       }
       onSuccess()
       onClose()
@@ -104,6 +115,8 @@ function PondModal({ fisherfolkId, pond, onClose, onSuccess }) {
             {WATER_SOURCE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
         </FormField>
+
+        <PcicInsuranceField value={pcic} onChange={setPcic} subject="pond" />
 
         {error && (
           <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] font-medium text-red-700">{error}</p>

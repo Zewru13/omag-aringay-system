@@ -12,6 +12,8 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import PcicInsuranceField from '../../components/UI/PcicInsuranceField.jsx'
+import { EMPTY_PCIC, pcicError, pcicPayload, uploadPcicForm } from '../../utils/pcic.js'
 
 // Fixed pixel width per column, shared by every <th>/<td> in that column so
 // header and body can never drift out of alignment (table-fixed sizes every
@@ -40,6 +42,7 @@ function detectSeason(dateStr) {
 
 const makeRecord = (n) => ({
   _id: n,
+  pcic: { ...EMPTY_PCIC },
   farm_location_barangay: '',
   land_status: '',
   land_status_other_specify: '',
@@ -360,6 +363,11 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
           )}
         </td>
       </tr>
+      <tr className="border-b border-[#F0F4F0] max-md:block">
+        <td colSpan={colCount} className="px-3 pb-3 max-md:block max-md:px-0">
+          <PcicInsuranceField value={rec.pcic} onChange={(next) => set('pcic', next)} subject="planting" />
+        </td>
+      </tr>
       {error && (
         <tr className="border-b border-[#F0F4F0] bg-rose-50/40 max-md:block max-md:-mt-2 max-md:mb-3 max-md:rounded-b-xl max-md:px-3 max-md:pb-2">
           <td className="max-md:hidden" />
@@ -561,6 +569,7 @@ export default function AddCropMonitoringPage() {
       quantity_of_seeds:      rec.quantity_of_seeds ? parseFloat(rec.quantity_of_seeds) : null,
       seed_quantity_unit:     rec.seed_quantity_unit || 'kg',
       farm_parcel:            rec.farm_parcel || null,
+      ...pcicPayload(rec.pcic),
     }
   }
 
@@ -574,8 +583,11 @@ export default function AddCropMonitoringPage() {
       if (!rec.crop_type) missing.push('crop type')
       if (!rec.date_planted) missing.push('date planted')
       if (!rec.area_planted_ha) missing.push('area planted')
+      const pcicProblem = pcicError(rec.pcic)
       if (missing.length > 0) {
         nextRowErrors[rec._id] = `Row ${i + 1}: missing ${missing.join(', ')}.`
+      } else if (pcicProblem) {
+        nextRowErrors[rec._id] = `Row ${i + 1}: ${pcicProblem}`
       }
     })
     if (Object.keys(nextRowErrors).length > 0) {
@@ -597,8 +609,19 @@ export default function AddCropMonitoringPage() {
   const handleConfirmed = async () => {
     setIsSubmitting(true)
     try {
-      await api.post('/production/monitoring/bulk/', records.map(buildPayload))
+      const { data: created } = await api.post('/production/monitoring/bulk/', records.map(buildPayload))
+      const photoFailures = []
+      for (let i = 0; i < records.length; i += 1) {
+        try {
+          await uploadPcicForm(api, 'planting', created[i].id, records[i].pcic)
+        } catch {
+          photoFailures.push(`row ${i + 1}`)
+        }
+      }
       setShowConfirm(false)
+      if (photoFailures.length) {
+        showToast(`Records saved, but the PCIC form photo could not be uploaded for ${photoFailures.join(', ')}. Edit the record to try again.`, 'error')
+      }
       showToast(`${records.length} crop monitoring record${records.length > 1 ? 's' : ''} added.`, 'success')
       navigate('/crop-records')
     } catch (err) {

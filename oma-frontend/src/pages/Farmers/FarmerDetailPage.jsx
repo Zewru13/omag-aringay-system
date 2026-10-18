@@ -10,6 +10,7 @@ import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import LoadingSpinner from '../../components/UI/LoadingSpinner.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
+import PcicBadge from '../../components/UI/PcicBadge.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
@@ -168,7 +169,12 @@ function ParcelRow({ parcel }) {
   const [expanded, setExpanded] = useState(false)
 
   const cropRows = (parcel.crops || []).map((c) => ({
-    crop_name: c.crop_name === 'Other' ? c.crop_name_other : c.crop_name,
+    crop_name: (
+      <>
+        {c.crop_name === 'Other' ? c.crop_name_other : c.crop_name}
+        <PcicBadge insured={c.has_pcic_insurance} url={c.pcic_form_photo} />
+      </>
+    ),
     area_hectares: c.area_hectares,
     main_crop_pill: c.is_main_crop ? (
       <StatusPill tone="green">Main</StatusPill>

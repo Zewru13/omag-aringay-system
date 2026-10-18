@@ -4,6 +4,8 @@ from datetime import date
 from django.core.exceptions import ValidationError
 from rest_framework import serializers
 
+from core.idnumbers import MAX_ID_DIGITS, is_free_id
+
 # Batch 8: the real RSBSA/BFAR registry import surfaced 4 distinct real
 # formats in actual use — not one canonical shape. Each is matched
 # separately and stored/validated in its own source format (no forced
@@ -43,14 +45,20 @@ PARCEL_NUMBER_RE = re.compile(r'^\d{2}-\d{2}-\d{2}-\d{3}-\d{3}-\d{2}-\d{3}$')
 TAX_DECLARATION_RE = re.compile(r'^\d{2}-\d{3}-\d{5}-\d{4}-\d{4}$')
 
 
+def is_valid_rsbsa(value):
+    """Typed by hand: digit groups with single dashes, 20 digits at most. The five older shapes (BF- prefix, letters
+    in the last group) are still accepted so records saved with them can be saved again."""
+    value = (value or '').strip()
+    return is_free_id(value) or any(pattern.match(value) for pattern in RSBSA_PATTERNS)
+
+
 def validate_rsbsa(value):
     if not value:
         return
-    if not any(pattern.match(value) for pattern in RSBSA_PATTERNS):
+    if not is_valid_rsbsa(value):
         raise ValidationError(
-            'Invalid RSBSA number. Expected one of: 01-33-02-014-058212, '
-            'BF-01-033-02-023-00000033, 01-033-02-019-000151, '
-            'BF-01-033-02-004-000007, or 01-033-02-011-XIIRZA.'
+            f'Invalid RSBSA number. Use digits only, up to {MAX_ID_DIGITS} digits; the dashes are added as you type '
+            '(for example 01-33-02-014-058212).'
         )
 
 
@@ -77,10 +85,10 @@ def validate_lgu_reg(value):
 def validate_fishr(value):
     if not value:
         return
-    if not FISHR_RE.match(value):
+    if not (is_free_id(value) or FISHR_RE.match(value)):
         raise ValidationError(
-            'Invalid FishR number. Expected format: 01-33-02-YYYY-NNNN '
-            '(e.g. 01-33-02-2026-0415).'
+            f'Invalid FishR number. Use digits only, up to {MAX_ID_DIGITS} digits; the dashes are added as you type '
+            '(for example 01-33-02-2026-0415).'
         )
 
 

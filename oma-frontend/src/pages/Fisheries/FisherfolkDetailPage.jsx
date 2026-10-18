@@ -11,6 +11,7 @@ import LoadingSpinner from '../../components/UI/LoadingSpinner.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
+import PcicBadge from '../../components/UI/PcicBadge.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -293,7 +294,10 @@ function FisherfolkDetailPage() {
     water_source: p.water_source || '—',
     history_fmt: `${p.stocking_record_count} record${p.stocking_record_count === 1 ? '' : 's'}`,
     status_pill: (
-      <StatusPill tone={p.is_active ? 'green' : 'slate'}>{p.is_active ? 'Active' : 'Inactive'}</StatusPill>
+      <>
+        <StatusPill tone={p.is_active ? 'green' : 'slate'}>{p.is_active ? 'Active' : 'Inactive'}</StatusPill>
+        <PcicBadge insured={p.has_pcic_insurance} url={p.pcic_form_photo} />
+      </>
     ),
     actions_cell: (isAdmin || isEvaluator) ? (
       <div className="flex justify-end">

@@ -26,6 +26,7 @@ from accounts.utils import create_inactive_citizen_shell
 from core.locking import assert_not_locked_by_other
 from core.notifications import notify_staff, notify_user, resolve_owner_user
 from core.utils import accumulate_yield_group, build_name_search_q, day_range_bounds, filter_people_search, harvest_gate_status, is_plain_int, new_yield_group
+from core.idnumbers import by_id_key
 from core.photos import discard_uploaded_files, validated_photos
 from core.validators import validate_uploaded_image
 
@@ -757,7 +758,7 @@ class StockingForecastingImportView(APIView):
                 continue
 
             try:
-                fisherfolk = Fisherfolk.objects.filter(rsbsa_number__iexact=rsbsa).first()
+                fisherfolk = by_id_key(Fisherfolk.objects.all(), 'rsbsa_number', rsbsa).first()
                 if not fisherfolk:
                     invalid(row_num, f'Fisherfolk with RSBSA number "{rsbsa}" not found.')
                     continue
@@ -2725,3 +2726,14 @@ class FisheriesYieldAnalysisSummaryView(APIView):
             'cycle_trend': _cycle_trend_note(trend_rows),
             'disclaimer': FISHERIES_YIELD_ANALYSIS_DISCLAIMER,
         })
+
+
+from core.pcic import PcicFormPhotoMixin  # noqa: E402
+
+
+class PondPcicFormView(PcicFormPhotoMixin, PondDetailView):
+    """POST/DELETE the photo of a pond's PCIC insurance form."""
+
+
+class StockingPcicFormView(PcicFormPhotoMixin, StockingDetailView):
+    """POST/DELETE the photo of a stocking record's PCIC insurance form (staff, or the fisherfolk who owns it)."""

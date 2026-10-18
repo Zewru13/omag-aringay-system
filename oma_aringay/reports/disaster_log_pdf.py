@@ -19,6 +19,8 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.platypus import Image, KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
+from core.constants import SYSTEM_TITLE
+
 from .pdf_utils import (
     BORDER_COLOR, MUTED_TEXT, NumberedCanvas, build_keyvalue_grid, build_official_header, build_section_heading,
     get_styles,
@@ -108,7 +110,7 @@ def build_disaster_log_pdf(*, title, header_rows, sections, photo_paths, referen
             page_width=page_width,
         )
 
-    story = build_official_header(LOGO_PATH, title, 'OMAg · Aringay, La Union — Integrated Agricultural Monitoring System')
+    story = build_official_header(LOGO_PATH, title, SYSTEM_TITLE)
     story.append(grid(header_rows))
 
     def section(numeral, heading, *content):

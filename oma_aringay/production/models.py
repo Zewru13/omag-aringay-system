@@ -9,6 +9,7 @@ from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
 from core.constants import BARANGAY_CHOICES
+from core.models import PcicInsurance
 from farmers.models import FarmParcel, Farmer
 
 
@@ -312,7 +313,7 @@ class CropActivityStage(models.Model):
         return f'{self.crop_type.name} — Day {self.day_after_planting}: {self.stage_name}'
 
 
-class CropMonitoringRecord(models.Model):
+class CropMonitoringRecord(PcicInsurance):
     class Status(models.TextChoices):
         PLANTED = 'Planted', 'Planted'
         NEAR_HARVEST = 'Near Harvest', 'Near Harvest'

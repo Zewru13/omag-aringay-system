@@ -19,6 +19,8 @@ import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import PcicInsuranceField from '../../components/UI/PcicInsuranceField.jsx'
+import { pcicError, pcicPayload, pcicStateFrom, uploadPcicForm } from '../../utils/pcic.js'
 import AquacultureCycleDetailModal from '../Monitoring/AquacultureCycleDetailModal.jsx'
 import { rowClickProps } from '../../utils/rowClick.js'
 import StartProductionCycleModal from '../Monitoring/StartProductionCycleModal.jsx'
@@ -31,6 +33,7 @@ import PondSelector from './PondSelector.jsx'
 import { ProductionUnitsCards, ProductionUnitsTable } from './ProductionUnitsPanel.jsx'
 import useExpandableProductionUnits from './useExpandableProductionUnits.js'
 import { computeHarvestPreview, detectSeason, fmtActualHarvestKg, fmtLong, fmtShort, harvestGateStatus } from './stockingHelpers.js'
+import PcicBadge from '../../components/UI/PcicBadge.jsx'
 
 const filterSelectCls =
   'rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[7px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none'
@@ -111,11 +114,13 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
     season:                 record.season || '',
   }
   const [form, setForm]           = useState(originalData)
+  const [pcic, setPcic]           = useState(() => pcicStateFrom(record))
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError]         = useState('')
 
   const normalize = (v) => (v === null || v === undefined ? '' : String(v).trim())
   const isDirty = Object.keys(originalData).some(k => normalize(form[k]) !== normalize(originalData[k]))
+    || pcic.insured !== !!record.has_pcic_insurance || !!pcic.file
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -152,9 +157,12 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
     e.preventDefault()
     if (!form.date_stocked)          { setError('Date stocked is required.'); return }
     if (!form.number_of_fingerlings) { setError('Number of fingerlings is required.'); return }
+    const pcicProblem = pcicError(pcic)
+    if (pcicProblem) { setError(pcicProblem); return }
     setError(''); setIsSubmitting(true)
     try {
       await api.patch(`/fisheries/stocking/${record.id}/`, {
+        ...pcicPayload(pcic),
         pond:                    form.pond || null,
         production_cycle:        form.production_cycle || null,
         pond_location_barangay: form.pond_location_barangay,
@@ -179,6 +187,11 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
         seed_cost_php:          form.seed_cost_php !== '' ? parseFloat(form.seed_cost_php) : null,
         season:                 form.season,
       })
+      try {
+        await uploadPcicForm(api, 'stocking', record.id, pcic)
+      } catch {
+        showToast('The record was saved, but the PCIC form photo could not be uploaded. Try again.', 'error')
+      }
       showToast('Stocking record updated.', 'success')
       onSaved()
     } catch {
@@ -404,6 +417,8 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
             <option value="Dry">Dry</option>
           </select>
         </div>
+
+        <PcicInsuranceField value={pcic} onChange={setPcic} subject="stocking record" />
 
         {error && (
           <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>
@@ -746,6 +761,7 @@ function StockingDetailModal({ record, onClose }) {
     ['Culture Phase', culturePhaseDisplay],
     ['Season / Year', `${record.season || '—'} ${record.year || ''}`],
     ['Date Stocked', fmtLong(record.date_stocked)],
+    ['PCIC Insurance', <PcicBadge key="pcic" insured={record.has_pcic_insurance} url={record.pcic_form_photo} none="No" />],
     ['Area (ha)', record.area_hectares ? Number(record.area_hectares).toFixed(4) : '—'],
     ['Number of Fingerlings', record.number_of_fingerlings ?? '—'],
     ['Survival Rate (%)', record.survival_rate_pct ?? '—'],

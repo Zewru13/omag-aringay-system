@@ -16,6 +16,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.permissions import IsOwnOrgOrStaff
+from core.idnumbers import by_id_key
 from core.utils import ImportFileError, cell_text, is_plain_int, read_template_rows, run_import_atomically
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk
@@ -134,7 +135,7 @@ def run_member_import(domain, organization, file, dry_run, by_staff=True):
             if not rsbsa:
                 add(row_num, 'invalid', label, 'RSBSA Number is required.')
                 continue
-            person = person_model.objects.filter(rsbsa_number__iexact=rsbsa).first()
+            person = by_id_key(person_model.objects.all(), 'rsbsa_number', rsbsa).first()
             if person is None:
                 add(row_num, 'not_found', label,
                     f'No registered {fk} has this RSBSA number. Register them first.')

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Info, BookOpen, HelpCircle, ChevronDown } from "lucide-react";
 import PageLayout from "../../components/Layout/PageLayout.jsx";
+import { SYSTEM_TITLE } from "../../constants/appInfo.js";
 
 function FaqItem({ question, answer }) {
   const [open, setOpen] = useState(false);
@@ -120,10 +121,7 @@ function HelpPage() {
             <p className="text-[10px] font-semibold text-[#A8BCA8] uppercase tracking-[0.08em] mb-2">
               System Name
             </p>
-            <p className="text-[13px] font-medium text-[#1A2B1A]">
-              Integrated Agricultural Monitoring and Production Management
-              System
-            </p>
+            <p className="text-[13px] font-medium text-[#1A2B1A]">{SYSTEM_TITLE}</p>
           </div>
           <div className="bg-[#F9FAF9] rounded-lg p-4 border border-[#E2E8E2]">
             <p className="text-[10px] font-semibold text-[#A8BCA8] uppercase tracking-[0.08em] mb-2">

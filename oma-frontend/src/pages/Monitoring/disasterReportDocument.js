@@ -1,5 +1,6 @@
 import api from '../../api/axiosInstance.js'
 import logo from '../../assets/LOGO OMAg.jpg'
+import { SYSTEM_TITLE } from '../../constants/appInfo.js'
 
 // Disaster Log documents: formatting, Print Disaster Log and Download Disaster Log, for both the Fisheries
 // logs (GET /fisheries/disaster-reports/<id>/) and the Farmer logs (GET /production/disaster-logs/<id>/).
@@ -236,7 +237,7 @@ export function buildPrintHtml(spec) {
     <img src="${esc(new URL(logo, window.location.href).href)}" alt="">
     <div class="org">OMAg</div>
     <div class="sub">Aringay, La Union</div>
-    <div class="sub">Integrated Agricultural Monitoring System</div>
+    <div class="sub">${esc(SYSTEM_TITLE)}</div>
   </header>
   <h1>${esc(spec.title)}</h1>
   ${kvTable(spec.header)}

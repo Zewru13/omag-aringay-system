@@ -2431,3 +2431,12 @@ class CropDisasterLogPdfView(APIView):
         response['Content-Disposition'] = f'attachment; filename="{doc["pdf_filename"]}"'
         response['Cache-Control'] = 'no-store'
         return response
+
+
+from core.pcic import PcicFormPhotoMixin  # noqa: E402
+
+
+class CropMonitoringPcicFormView(PcicFormPhotoMixin, CropMonitoringDetailView):
+    """POST/DELETE the photo of a planting record's PCIC insurance form. Staff only: a farmer can read their own
+    planting records but not change them, and the form is part of the record."""
+    farmer_blocked_methods = ('POST', 'PUT', 'PATCH', 'DELETE')
