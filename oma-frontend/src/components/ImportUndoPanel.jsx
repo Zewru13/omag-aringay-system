@@ -47,7 +47,10 @@ export default function ImportUndoPanel({ type, onChanged }) {
   const openBatch = (id) => { setPlan(null); setOutcome(null); setError(''); setBatchId(id) }
   const backToList = () => { setBatchId(null); setBatches(null); setPlan(null); setOutcome(null); setError('') }
 
-  const itemIds = plan ? plan.items.filter((i) => i.can_undo).map((i) => i.item_id) : []
+  // Every record is sent, not only the removable ones: the server re-checks each one live and marks the ones it
+  // keeps as resolved, so the batch closes once nothing is left to decide. The button counts what will go.
+  const itemIds = plan ? plan.items.map((i) => i.item_id) : []
+  const removable = plan ? plan.items.filter((i) => i.can_undo).length : 0
 
   const runUndo = async () => {
     const results = []
@@ -135,7 +138,7 @@ export default function ImportUndoPanel({ type, onChanged }) {
             ))}
           </div>
 
-          {itemIds.length > 0 && !outcome && (
+          {removable > 0 && !outcome && (
             <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
               <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-700" aria-hidden="true" />
               <p className="text-[13px] text-amber-800">
@@ -165,11 +168,11 @@ export default function ImportUndoPanel({ type, onChanged }) {
             </p>
           )}
 
-          {itemIds.length > 0 && !outcome && (
+          {removable > 0 && !outcome && (
             <div className="flex justify-end">
               <Button type="button" isLoading={busy} className="max-sm:w-full" onClick={runUndo}>
                 <RotateCcw size={14} className="mr-1.5" aria-hidden="true" />
-                Undo {itemIds.length} record{itemIds.length === 1 ? '' : 's'}
+                Undo {removable} record{removable === 1 ? '' : 's'}
               </Button>
             </div>
           )}
