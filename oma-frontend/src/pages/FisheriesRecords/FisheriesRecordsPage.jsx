@@ -1498,6 +1498,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
           importUrl="/fisheries/stocking/forecasting/import/"
           templateUrl="/fisheries/stocking/forecasting/template/"
           templateFilename="stocking_forecasting_template.xlsx"
+          undoType="stocking"
           helpText="Each row logs one stocking event for a fisherfolk. Fisherfolk + Species + Date Stocked identifies duplicates."
           onClose={() => setShowImportModal(false)}
           onImported={() => fetchRecords(page)}

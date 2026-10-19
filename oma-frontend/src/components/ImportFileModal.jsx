@@ -6,6 +6,8 @@ import ModalShell from './UI/ModalShell.jsx'
 import StatTile from './UI/StatTile.jsx'
 import StatusPill from './UI/StatusPill.jsx'
 import StepIndicator from './UI/StepIndicator.jsx'
+import ImportUndoPanel, { ImportUndoBanner } from './ImportUndoPanel.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { downloadFile } from '../utils/fileDownload.js'
 import { STATUS_META, filterTabs as buildFilterTabs, summaryTiles } from '../utils/importSummary.js'
@@ -32,9 +34,12 @@ const PAGE_SIZE = 25
 // RsbsaImportModal.jsx, which only ever previews updates to existing
 // records and has no commit step at all.
 export default function ImportFileModal({
-  title, subtitle, importUrl, templateUrl, templateFilename, helpText, onClose, onImported,
+  title, subtitle, importUrl, templateUrl, templateFilename, helpText, onClose, onImported, undoType,
 }) {
   const { showToast } = useToast()
+  const { isAdmin, isEvaluator } = useAuth()
+  // Only OMAg staff can undo an import; an organization account importing its own members sees no undo.
+  const canUndo = Boolean(undoType) && (isAdmin || isEvaluator)
   const [step, setStep] = useState('upload')
   const [file, setFile] = useState(null)
   const [isBusy, setIsBusy] = useState(false)
@@ -103,7 +108,12 @@ export default function ImportFileModal({
 
   // Phone: two equal-width buttons side by side (a row of two never runs past the screen); larger screens keep them at the right.
   const FOOT = 'flex w-full flex-col-reverse gap-2 min-[420px]:grid min-[420px]:grid-cols-2 sm:flex sm:flex-row sm:w-auto [&>*]:min-h-[44px] max-sm:[&>*]:h-auto max-sm:[&>*]:py-2 max-sm:[&>*]:leading-tight [&>*]:px-2 sm:[&>*]:min-h-0 sm:[&>*]:px-4'
-  const footerContent = step === 'upload' ? (
+  const footerContent = step === 'undo' ? (
+    <div className={FOOT}>
+      <Button type="button" variant="outline" onClick={() => setStep(result ? 'done' : 'upload')}>Back</Button>
+      <Button type="button" onClick={onClose}>Close</Button>
+    </div>
+  ) : step === 'upload' ? (
     <div className={FOOT}>
       <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
       <Button type="button" isLoading={isBusy} onClick={() => runImport(true)} disabled={!file}>
@@ -125,7 +135,13 @@ export default function ImportFileModal({
 
   return (
     <ModalShell title={title} subtitle={subtitle} icon={FileSpreadsheet} onClose={onClose} maxWidth="max-w-4xl" footer={footerContent}>
-      <StepIndicator steps={STEPS} currentIndex={STEP_INDEX[step]} />
+      {step !== 'undo' && <StepIndicator steps={STEPS} currentIndex={STEP_INDEX[step]} />}
+
+      {step === 'undo' && (
+        <div className="mt-2">
+          <ImportUndoPanel type={undoType} onChanged={() => onImported?.()} />
+        </div>
+      )}
 
       {step === 'upload' && (
         <div className="stagger-item mt-6 space-y-4">
@@ -149,6 +165,8 @@ export default function ImportFileModal({
               <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileChange} />
             </label>
           </div>
+
+          {canUndo && <ImportUndoBanner onOpen={() => setStep('undo')} />}
 
           {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
         </div>
