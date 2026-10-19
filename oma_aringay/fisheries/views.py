@@ -721,7 +721,10 @@ class StockingForecastingImportView(APIView):
         import datetime as dt
         from collections import defaultdict
 
+        from core.import_batches import record_created, start_batch
         from core.utils import ImportFileError, cell_text, read_template_rows
+
+        import_batch = None   # opened with the first record actually created; never on a preview
 
         try:
             rows_iter = read_template_rows(
@@ -862,6 +865,9 @@ class StockingForecastingImportView(APIView):
                         year=date_stocked.year,
                         recorded_by=request.user,
                     )
+                    if import_batch is None:
+                        import_batch = start_batch('stocking', request.user, label=file.name)
+                    record_created(import_batch, record)
                 created += 1
                 rows.append({'row': row_num, 'status': 'ready', 'label': label, 'detail': f'Created (record #{record.id}).'})
             except Exception as exc:
