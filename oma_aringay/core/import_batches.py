@@ -40,10 +40,13 @@ def fingerprint(obj):
 
 
 def record_created(batch, obj):
-    """Call AFTER the import has finished changing `obj` (a later save by the import would change its fingerprint)."""
+    """Call AFTER the import has finished changing `obj` (a later save by the import would change its fingerprint).
+    The fingerprint is taken from the row as the database holds it (decimals and dates normalised), because that is
+    what the undo will compare against."""
+    stored = type(obj)._default_manager.get(pk=obj.pk)
     ImportBatchItem.objects.create(
         batch=batch, model_label=obj._meta.label_lower, object_id=obj.pk,
-        action=ImportBatchItem.Action.CREATE, fingerprint=fingerprint(obj))
+        action=ImportBatchItem.Action.CREATE, fingerprint=fingerprint(stored))
     ImportBatch.objects.filter(pk=batch.pk).update(row_count=batch.row_count + 1)
     batch.row_count += 1
 
