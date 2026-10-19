@@ -20,6 +20,21 @@
 - Things undo cannot take back, stated on screen: emails already sent, notifications already delivered.
 - One additive migration in `core` (two tables). No existing table changes. Tests run on a throwaway MariaDB, never the live database; commit after each task; do not push or touch the live database. The user applies the SQL to Supabase project `omag-aringay` (ref `zqvemhtzrccbofvwneph`) before merging.
 
+## Build notes (2026-10-19)
+
+- The security key is **parked** at the user's request; this plan was built without it. `core/import_batch_views.py` has a
+  `_before_undo(request)` placeholder where `require_security_key(request)` goes when that plan is built. Migration number
+  is `core 0007` (not 0008) because the key plan's migration was not built.
+- The member import does **not** change a person's other memberships (it passes no explicit main choice), so there is
+  nothing to restore: Task 6 only records the new members, and the "restore the other membership flag" test was replaced
+  by "other memberships are left alone".
+- `register_cleanup(model_label, check, before_delete=None)` takes two separate callables (a check that may keep the
+  record, and an action that runs just before deletion), not one hook.
+- `record_created` fingerprints the row as the database stores it (normalised decimals and dates).
+- Records whose delete is protected by other records (e.g. equipment with loans) count as having dependents.
+- The panel sends every record of a batch (not only the removable ones) so kept records are marked resolved and the batch
+  closes; the button counts only what will be removed.
+
 ## Review Focus
 
 1. A dry-run import of every type leaves zero `ImportBatch` rows — pinned in each import task.
