@@ -516,8 +516,8 @@ function FisherfolkDetailPage() {
                       onRowClick={(row) => navigate(`/fisheries-monitoring?tab=stocking&record=${row.id}`)}
                       rowClickLabel={(row) => `Open ${row.species_name} stocking record`}
                       phoneTitleKey="species_name"
-                      phoneSubtitleKey="date_stocked_fmt"
-                      phoneOpenLabel="Open stocking record"
+                      phoneOpenLabel="Monitor"
+                      phoneOpenHidden={(row) => row.status === 'Harvested'}
                     />
                   </div>
                 )}

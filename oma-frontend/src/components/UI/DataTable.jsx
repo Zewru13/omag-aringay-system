@@ -29,7 +29,7 @@ const isBlank = (value) => value === undefined || value === null || value === ''
 function DataTable({
   columns, data, isLoading, loading, onRowClick, emptyState, cardColumns = 1, bare = false,
   expandedRowId, renderExpanded, renderExpandedMobile, rowClickLabel,
-  phoneTitleKey, phoneSubtitleKey, phoneOpenLabel = 'View full details',
+  phoneTitleKey, phoneSubtitleKey, phoneOpenLabel = 'View full details', phoneOpenHidden,
 }) {
   const [phoneOpenId, setPhoneOpenId] = useState(null)
   const showLoading = isLoading || loading
@@ -131,7 +131,7 @@ function DataTable({
                   {isExpanded(row) && renderExpandedMobile && (
                     <div className="mt-3 border-t border-border pt-3">{renderExpandedMobile(row)}</div>
                   )}
-                  {onRowClick && (
+                  {onRowClick && !(phoneOpenHidden && phoneOpenHidden(row)) && (
                     <button
                       type="button"
                       onClick={() => onRowClick(row)}

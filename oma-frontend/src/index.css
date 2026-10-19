@@ -402,13 +402,28 @@
   }
 }
 
-/* A native date box has its own minimum width (wider on some phones); inside a grid or flex row that stops it from
-   shrinking to its form and pushes it past the edge. Every date box may shrink and never exceeds its container. */
-input[type="date"],
-input[type="datetime-local"],
-input[type="time"] {
-  min-width: 0;
-  max-width: 100%;
+/* A native date box has its own intrinsic width (wider on some phones). A grid cell or flex item holding one will not
+   shrink below that width, so the box is pushed past the edge of its form. Two guards, both in the base layer so any
+   explicit width class still wins:
+   - a cell that directly holds a date box may shrink (min-width: 0);
+   - a full-width date box contributes no intrinsic width to its cell (contain: inline-size) and never exceeds it. */
+@layer base {
+  :where(div, label, td, li, span):has(> input[type="date"], > input[type="datetime-local"], > input[type="time"]) {
+    min-width: 0;
+  }
+
+  input[type="date"],
+  input[type="datetime-local"],
+  input[type="time"] {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  input[type="date"].w-full,
+  input[type="datetime-local"].w-full,
+  input[type="time"].w-full {
+    contain: inline-size;
+  }
 }
 
 body {

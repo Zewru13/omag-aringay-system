@@ -12,6 +12,7 @@ import LoadingSpinner from '../../components/UI/LoadingSpinner.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import PcicBadge from '../../components/UI/PcicBadge.jsx'
+import RecordCard from '../../components/UI/RecordCard.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
@@ -112,6 +113,32 @@ function SubTable({ columns, rows, emptyText }) {
   )
 }
 
+const fmtDate = (v) => (v ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(v)) : '—')
+
+// A phone card for one crop monitoring record: the crop name, and on tap the details plus a Monitor button that
+// opens that record's monitoring. A harvested crop has nothing left to monitor, so it gets no button.
+function MonitoringRecordCard({ r, navigate }) {
+  const logs = r.log_count ?? 0
+  const ops = r.labor_log_count ?? 0
+  return (
+    <RecordCard
+      title={r.crop_type_name}
+      details={[
+        ['Season / Year', `${r.season} ${r.year}`],
+        ['Date planted', fmtDate(r.date_planted)],
+        ['Exp. harvest', fmtDate(r.expected_harvest_date)],
+        ['Status', <StatusPill key="s" tone={MONITORING_STATUS_TONES[r.status] || 'slate'}>{r.status}</StatusPill>],
+        ['Est. yield (kg)', r.estimated_yield_kg ? parseFloat(r.estimated_yield_kg).toLocaleString() : '—'],
+        ['Act. yield (kg)', r.actual_yield_kg ? parseFloat(r.actual_yield_kg).toLocaleString() : '—'],
+        ['Logged', `${logs} activity log${logs !== 1 ? 's' : ''} · ${ops} operation${ops !== 1 ? 's' : ''}`],
+      ]}
+      action={r.status === 'Harvested' ? null : (
+        <Button type="button" className="w-full" onClick={() => navigate(`/crop-monitoring?record=${r.id}`)}>Monitor</Button>
+      )}
+    />
+  )
+}
+
 function CropMonitoringSubSection({ parcelId }) {
   const navigate = useNavigate()
   const [records, setRecords] = useState([])
@@ -133,7 +160,11 @@ function CropMonitoringSubSection({ parcelId }) {
   if (records.length === 0) return <p className="py-1 text-[12px] italic text-[#7A8E7A]">No monitoring records for this parcel.</p>
 
   return (
-    <table className="min-w-full text-xs">
+    <>
+    <div className="space-y-2 md:hidden">
+      {records.map((r) => <MonitoringRecordCard key={r.id} r={r} navigate={navigate} />)}
+    </div>
+    <table className="hidden min-w-full text-xs md:table">
       <thead className="bg-[#1B4D2E] text-xs font-semibold uppercase tracking-wide text-white">
         <tr>
           {['Crop', 'Season/Year', 'Date Planted', 'Exp. Harvest', 'Status', 'Est. Yield (kg)', 'Act. Yield (kg)'].map((h) => (
@@ -169,6 +200,7 @@ function CropMonitoringSubSection({ parcelId }) {
         ))}
       </tbody>
     </table>
+    </>
   )
 }
 
@@ -674,7 +706,37 @@ function FarmerDetailPage() {
               No crop monitoring records for this farmer.
             </p>
           ) : (
-            <div className={`overflow-hidden rounded-lg border border-[#E2E8E2] ${STACK_TABLES}`}>
+            <>
+            <div className="space-y-2 md:hidden">
+              {cropRecords.map((r) => <MonitoringRecordCard key={r.id} r={r} navigate={navigate} />)}
+              {unmonitoredCrops.map(({ id: rowId, parcel, crop, name }) => (
+                <RecordCard
+                  key={rowId}
+                  title={name}
+                  details={[
+                    ['Status', <StatusPill key="s" tone="slate">Not yet monitored</StatusPill>],
+                    ['Declared on', parcel.parcel_number ? `parcel ${parcel.parcel_number}` : `parcel #${parcel.id}`],
+                    ['Area', `${parseFloat(crop.area_hectares)} ha${crop.is_main_crop ? ' · Main crop' : ''}`],
+                  ]}
+                  action={farmer && (isAdmin || isEvaluator) ? (
+                    <Link
+                      to="/crop-records/add"
+                      state={{ prefill: {
+                        farmerId: farmer.id,
+                        rsbsa: farmer.rsbsa_number,
+                        parcel: { id: parcel.id, barangay: parcel.barangay, landOwnership: parcel.land_ownership },
+                        cropName: name,
+                        areaHa: parseFloat(crop.area_hectares),
+                      } }}
+                      className="flex min-h-[44px] w-full items-center justify-center rounded-lg bg-[#1B4D2E] text-[13px] font-semibold text-white"
+                    >
+                      Start monitoring
+                    </Link>
+                  ) : null}
+                />
+              ))}
+            </div>
+            <div className="hidden overflow-hidden rounded-lg border border-[#E2E8E2] md:block">
               <table className="min-w-full text-left text-sm">
                 <thead className="bg-[#1B4D2E] text-xs font-semibold uppercase tracking-wide text-white">
                   <tr>
@@ -740,6 +802,7 @@ function FarmerDetailPage() {
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </div>
 
