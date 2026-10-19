@@ -1,3 +1,4 @@
+import uuid
 from datetime import timedelta
 
 from django.conf import settings
@@ -245,3 +246,45 @@ class ProfileChangeRequest(models.Model):
         return (f'{self.linked_record_type}#{self.linked_record_id} '
                 f'{self.field_name}: {self.old_value!r} -> {self.requested_value!r} '
                 f'({self.status})')
+
+
+class ImportBatch(models.Model):
+    """One committed import: what it added is remembered (ImportBatchItem) so staff can undo it. Written in the same
+    transaction as the import, so an import that rolls back leaves no batch. See core.import_batches."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    import_type = models.CharField(max_length=30, db_index=True)
+    label = models.CharField(max_length=255, blank=True)
+    performed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='import_batches')
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    row_count = models.PositiveIntegerField(default=0)
+    undone_at = models.DateTimeField(null=True, blank=True)
+    undone_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+')
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.import_type} import {self.created_at:%Y-%m-%d %H:%M}'
+
+
+class ImportBatchItem(models.Model):
+    class Action(models.TextChoices):
+        CREATE = 'CREATE', 'Created by the import'
+        RESTORE = 'RESTORE', 'Changed by the import (can be put back)'
+
+    batch = models.ForeignKey(ImportBatch, on_delete=models.CASCADE, related_name='items')
+    model_label = models.CharField(max_length=100)
+    object_id = models.PositiveIntegerField()
+    action = models.CharField(max_length=10, choices=Action.choices)
+    field_name = models.CharField(max_length=50, blank=True)
+    old_value = models.TextField(blank=True)
+    new_value = models.TextField(blank=True)
+    fingerprint = models.CharField(max_length=64, blank=True)
+    undone_at = models.DateTimeField(null=True, blank=True)
+    kept_reason = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=['batch', 'action'])]
+        ordering = ['id']
