@@ -146,6 +146,7 @@ function FisherfolkOrganizationsPage({ asTab = false }) {
           importUrl="/organizations/fisherfolk/import/"
           templateUrl="/organizations/fisherfolk/import/template/"
           templateFilename="fisherfolk_organizations_import_template.xlsx"
+          undoType="fisherfolk_org"
           helpText="Each row creates one new Fisherfolk Organization. Registration Number identifies duplicates, so it's required for every row."
           onClose={() => setShowImportModal(false)}
           onImported={() => setRefreshKey((k) => k + 1)}

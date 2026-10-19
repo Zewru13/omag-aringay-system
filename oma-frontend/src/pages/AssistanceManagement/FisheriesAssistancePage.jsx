@@ -587,6 +587,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
           importUrl="/interventions/fisherfolk-beneficiaries/adhoc/import/"
           templateUrl="/interventions/fisherfolk-beneficiaries/adhoc/import/template/"
           templateFilename="fisheries_assistance_import_template.xlsx"
+          undoType="fisheries_assistance"
           helpText="Each row logs one assistance-given event, matched to a fisherfolk by RSBSA number."
           onClose={() => setShowImport(false)}
           onImported={fetchAssistance}

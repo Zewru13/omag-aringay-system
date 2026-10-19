@@ -826,6 +826,7 @@ export default function CropAssistancePage({ asTab = false }) {
           importUrl="/interventions/beneficiaries/adhoc/import/"
           templateUrl="/interventions/beneficiaries/adhoc/import/template/"
           templateFilename="crop_assistance_import_template.xlsx"
+          undoType="crop_assistance"
           helpText="Each row logs one assistance-given event, matched to a farmer by RSBSA number."
           onClose={() => setShowImport(false)}
           onImported={fetchAll}

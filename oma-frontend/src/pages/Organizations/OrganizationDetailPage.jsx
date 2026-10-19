@@ -1591,6 +1591,7 @@ function OrganizationDetailPage({ own = false }) {
           importUrl={`/organizations/${type}/${id}/members/import/`}
           templateUrl={`/organizations/${type}/${id}/members/import/template/`}
           templateFilename={`${type}_organization_members_import_template.xlsx`}
+          undoType={`${type}_org_members`}
           onClose={() => setShowImportMembers(false)}
           onImported={handleMemberAdded}
         />
@@ -1603,6 +1604,7 @@ function OrganizationDetailPage({ own = false }) {
           importUrl={`/organizations/${type}/${id}/equipment/import/`}
           templateUrl={`/organizations/${type}/${id}/equipment/import/template/`}
           templateFilename={`${type}_organization_equipment_import_template.xlsx`}
+          undoType={`${type}_org_equipment`}
           onClose={() => setShowImportEquipment(false)}
           onImported={handleEquipmentAdded}
         />

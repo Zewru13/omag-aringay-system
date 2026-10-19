@@ -30,6 +30,7 @@ from rest_framework.views import APIView
 
 from accounts.permissions import IsAdminOrEvaluator
 from core.idnumbers import canonical_numbers, id_key
+from core.import_batches import record_created, start_batch
 from core.utils import MAX_IMPORT_ROWS
 from farmers.models import Farmer, RsbsaImportChangeLog
 from fisheries.models import Fisherfolk
@@ -304,8 +305,9 @@ class CropRecordImportCommitView(APIView):
 
         try:
             with transaction.atomic():
+                import_batch = start_batch('crop_records', request.user, label=f'{len(rows)} planting record(s)')
                 for row in rows:
-                    created.append(self._commit_one_row(row, batch_id, request.user, log_entries))
+                    created.append(self._commit_one_row(row, batch_id, request.user, log_entries, import_batch))
                 # Written last, inside the same atomic block: if anything
                 # above raised, none of these exist either — same pattern
                 # RsbsaUpdateImportCommitView already uses.
@@ -323,7 +325,7 @@ class CropRecordImportCommitView(APIView):
 
         return Response({'batch_id': str(batch_id), 'committed': len(created), 'results': created}, status=200)
 
-    def _commit_one_row(self, row, batch_id, user, log_entries):
+    def _commit_one_row(self, row, batch_id, user, log_entries, import_batch):
         row_number = row.get('row_number')
         status = row.get('status')
 
@@ -341,9 +343,9 @@ class CropRecordImportCommitView(APIView):
         except Farmer.DoesNotExist:
             raise _CommitRowError(row_number, f'Farmer #{farmer_id} no longer exists.')
 
-        return self._create_crop_record(row, row_number, farmer, user)
+        return self._create_crop_record(row, row_number, farmer, user, import_batch)
 
-    def _create_crop_record(self, row, row_number, farmer, user):
+    def _create_crop_record(self, row, row_number, farmer, user, import_batch):
         """One CropMonitoringRecord attached to `farmer`."""
         crop_type_id = row.get('crop_type_id')
         variety_used = row.get('variety_used') or ''
@@ -400,6 +402,8 @@ class CropRecordImportCommitView(APIView):
             record.status = CropMonitoringRecord.Status.HARVESTED
             record.notes = SYSTEM_HARVEST_NOTE
             record.save()
+
+        record_created(import_batch, record)   # after the final save, so the fingerprint is the finished record
 
         return {
             'row_number': row_number, 'record_id': record.id,

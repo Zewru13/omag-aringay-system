@@ -925,7 +925,10 @@ def _run_assistance_import(person_model, record_model, serializer_class, person_
     import datetime as dt
     from collections import defaultdict
 
+    from core.import_batches import record_created, start_batch
     from core.utils import ImportFileError, cell_text, read_template_rows
+
+    import_batch = None   # opened with the first record actually created; never on a preview
 
     # The header row is located by content and must carry THIS page's id
     # label ("Farmer RSBSA Number" vs "Fisherfolk RSBSA Number"): a file from
@@ -1053,6 +1056,10 @@ def _run_assistance_import(person_model, record_model, serializer_class, person_
             # An import loads assistance that already happened, so past-dated rows stay Confirmed (they must not
             # flood every recipient with old confirmations); future-dated rows stay Pending as before.
             record_model.objects.filter(pk=record.pk).update(status=DistributionStatus.CONFIRMED)
+        if import_batch is None:
+            import_batch = start_batch(
+                'crop_assistance' if person_field == 'farmer' else 'fisheries_assistance', user, label=file.name)
+        record_created(import_batch, record)   # after the status is settled, so the fingerprint is the finished record
         created += 1
         rows_out.append({'row': row_num, 'status': 'ready', 'label': label, 'detail': f'Created (record #{record.id}).'})
 

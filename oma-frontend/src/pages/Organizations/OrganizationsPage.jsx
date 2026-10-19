@@ -148,6 +148,7 @@ function OrganizationsPage({ asTab = false }) {
           importUrl="/organizations/farmers/import/"
           templateUrl="/organizations/farmers/import/template/"
           templateFilename="farmers_organizations_import_template.xlsx"
+          undoType="farmers_org"
           helpText="Each row creates one new Farmers Organization. Registration Number identifies duplicates, so it's required for every row."
           onClose={() => setShowImportModal(false)}
           onImported={() => setRefreshKey((k) => k + 1)}

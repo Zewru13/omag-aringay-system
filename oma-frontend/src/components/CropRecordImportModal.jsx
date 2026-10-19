@@ -6,6 +6,8 @@ import ModalShell from './UI/ModalShell.jsx'
 import StatTile from './UI/StatTile.jsx'
 import StatusPill from './UI/StatusPill.jsx'
 import StepIndicator from './UI/StepIndicator.jsx'
+import ImportUndoPanel, { ImportUndoBanner } from './ImportUndoPanel.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 
 const STEPS = [
@@ -52,6 +54,8 @@ const isCommittable = (r) => r.status === 'ready'
 // explicitly, before commit, not after.
 export default function CropRecordImportModal({ onClose, onCommitted }) {
   const { showToast } = useToast()
+  const { isAdmin, isEvaluator } = useAuth()
+  const canUndo = isAdmin || isEvaluator
   const [step, setStep] = useState('upload')
   const [file, setFile] = useState(null)
   const [isBusy, setIsBusy] = useState(false)
@@ -192,6 +196,12 @@ export default function CropRecordImportModal({ onClose, onCommitted }) {
   }
 
   const footerContent = {
+    undo: (
+      <div className="flex w-full flex-col-reverse gap-2 min-[420px]:grid min-[420px]:grid-cols-2 sm:flex sm:flex-row sm:w-auto [&>*]:min-h-[44px] max-sm:[&>*]:h-auto max-sm:[&>*]:py-2 max-sm:[&>*]:leading-tight sm:[&>*]:min-h-0">
+        <Button type="button" variant="outline" onClick={() => setStep(commitResult ? 'result' : 'upload')}>Back</Button>
+        <Button type="button" onClick={onClose}>Close</Button>
+      </div>
+    ),
     upload: (
       <div className="flex w-full flex-col-reverse gap-2 min-[420px]:grid min-[420px]:grid-cols-2 sm:flex sm:flex-row sm:w-auto [&>*]:min-h-[44px] max-sm:[&>*]:h-auto max-sm:[&>*]:py-2 max-sm:[&>*]:leading-tight sm:[&>*]:min-h-0">
         <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
@@ -231,7 +241,13 @@ export default function CropRecordImportModal({ onClose, onCommitted }) {
       maxWidth="max-w-4xl"
       footer={footerContent}
     >
-      <StepIndicator steps={STEPS} currentIndex={STEP_INDEX[step]} />
+      {step !== 'undo' && <StepIndicator steps={STEPS} currentIndex={STEP_INDEX[step]} />}
+
+      {step === 'undo' && (
+        <div className="mt-2">
+          <ImportUndoPanel type="crop_records" onChanged={() => onCommitted?.()} />
+        </div>
+      )}
 
       {step === 'upload' && (
         <div className="stagger-item mt-6 space-y-4">
@@ -251,6 +267,8 @@ export default function CropRecordImportModal({ onClose, onCommitted }) {
               <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileChange} />
             </label>
           </div>
+
+          {canUndo && <ImportUndoBanner onOpen={() => setStep('undo')} />}
 
           {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
         </div>
@@ -450,6 +468,7 @@ export default function CropRecordImportModal({ onClose, onCommitted }) {
 
       {step === 'result' && commitResult && (
         <div className="stagger-item mt-6 space-y-4">
+          {canUndo && <ImportUndoBanner onOpen={() => setStep('undo')} />}
           <div className="flex items-start gap-3 rounded-2xl border border-[#BFE3CC] bg-[#EBF5EE] p-4">
             <CheckCircle2 size={20} className="mt-0.5 shrink-0 text-[#1E5637]" aria-hidden="true" />
             <div>

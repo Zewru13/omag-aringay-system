@@ -1333,9 +1333,17 @@ def _parse_org_import_row(row, agency_choices):
     return payload
 
 
+ORG_IMPORT_TYPE = {
+    User.LinkedRecordType.FARMERS_ORG: 'farmers_org',
+    User.LinkedRecordType.FISHERFOLK_ORG: 'fisherfolk_org',
+}
+
+
 def _run_organization_import(model, serializer_class, linked_record_type, agency_choices, file, dry_run, user, sample_row=None,
                              pending=None):
     from collections import defaultdict
+    from core.import_batches import record_created, start_batch
+    import_batch = None   # opened with the first organization actually created; never on a preview
 
     from core.utils import ImportFileError, read_template_rows
 
@@ -1417,6 +1425,9 @@ def _run_organization_import(model, serializer_class, linked_record_type, agency
             instance = serializer.save()
             create_inactive_citizen_shell(linked_record_type, instance)
             activation = activate_organization_account(linked_record_type, instance)
+            if import_batch is None:
+                import_batch = start_batch(ORG_IMPORT_TYPE[linked_record_type], user, label=file.name)
+            record_created(import_batch, instance)
         if activation is not None and pending is not None:
             pending.append((row_num, activation))
         created += 1

@@ -1,5 +1,6 @@
 from django.urls import path
 
+from .import_batch_views import ImportBatchListView, ImportBatchPlanView, ImportBatchUndoView
 from .views import (
     LockAcquireView,
     LockHeartbeatView,
@@ -35,4 +36,9 @@ urlpatterns = [
     path('notifications/', NotificationListView.as_view(), name='notifications-list'),
     path('notifications/<int:pk>/read/', NotificationMarkReadView.as_view(), name='notifications-mark-read'),
     path('notifications/read-all/', NotificationMarkAllReadView.as_view(), name='notifications-mark-all-read'),
+
+    # ── Undo a recent import (every import except the RSBSA registry, which has its own) ──
+    path('imports/batches/', ImportBatchListView.as_view(), name='import-batches'),
+    path('imports/batches/<uuid:batch_id>/undo-plan/', ImportBatchPlanView.as_view(), name='import-batch-plan'),
+    path('imports/batches/<uuid:batch_id>/undo/', ImportBatchUndoView.as_view(), name='import-batch-undo'),
 ]
