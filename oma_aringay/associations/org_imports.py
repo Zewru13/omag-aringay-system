@@ -17,6 +17,7 @@ from rest_framework.views import APIView
 
 from accounts.permissions import IsOwnOrgOrStaff
 from core.idnumbers import by_id_key
+from core.import_batches import record_created, start_batch
 from core.utils import ImportFileError, cell_text, is_plain_int, read_template_rows, run_import_atomically
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk
@@ -111,7 +112,7 @@ def _response(created, rows_out, errors, dry_run, statuses):
 
 # ── members ──────────────────────────────────────────────────────────────────
 
-def run_member_import(domain, organization, file, dry_run, by_staff=True):
+def run_member_import(domain, organization, file, dry_run, by_staff=True, user=None):
     cfg = DOMAINS[domain]
     member_model, person_model, fk = cfg['member_model'], cfg['person_model'], cfg['person_fk']
     positions = {value.lower(): value for value in member_model.Position.values}
@@ -122,6 +123,7 @@ def run_member_import(domain, organization, file, dry_run, by_staff=True):
 
     rows_out, errors, created = [], [], 0
     seen = set()
+    import_batch = None   # opened with the first member actually added; never on a preview
 
     def add(row_num, status, label, detail):
         rows_out.append({'row': row_num, 'status': status, 'label': label, 'detail': detail})
@@ -180,6 +182,10 @@ def run_member_import(domain, organization, file, dry_run, by_staff=True):
                         person.barangay,
                         None,
                     )
+                    if not dry_run:
+                        if import_batch is None:
+                            import_batch = start_batch(f'{domain}_org_members', user, label=organization.name)
+                        record_created(import_batch, member)   # after the main-organization decision is saved
             except MainChoiceRequired:
                 # Only staff can choose a main organization (the Add Member form ignores the choice from an
                 # organization account), so an organization is told to ask staff instead.
@@ -214,7 +220,7 @@ def _equipment_sample(domain):
     return [DOMAINS[domain]['equipment_model'].EquipmentName.values[0], 1, 'Good', '2026-01-15', 'Optional notes']
 
 
-def run_equipment_import(domain, organization, file, dry_run):
+def run_equipment_import(domain, organization, file, dry_run, user=None):
     cfg = DOMAINS[domain]
     model = cfg['equipment_model']
     names = {_norm(v): v for v in model.EquipmentName.values}
@@ -224,6 +230,7 @@ def run_equipment_import(domain, organization, file, dry_run):
         return error_response
 
     rows_out, errors, created = [], [], 0
+    import_batch = None   # opened with the first line actually added; never on a preview
 
     def add(row_num, status, label, detail):
         rows_out.append({'row': row_num, 'status': status, 'label': label, 'detail': detail})
@@ -290,7 +297,11 @@ def run_equipment_import(domain, organization, file, dry_run):
                     first = next(iter(serializer.errors.values()))
                     add(row_num, 'invalid', label, str(first[0] if isinstance(first, list) else first))
                     continue
-                serializer.save(organization=organization)
+                line = serializer.save(organization=organization)
+                if not dry_run:
+                    if import_batch is None:
+                        import_batch = start_batch(f'{domain}_org_equipment', user, label=organization.name)
+                    record_created(import_batch, line)
             seen.add(key)
             created += 1
             add(row_num, 'ready', label, f'{note}{"Will be added." if dry_run else "Added."}')
@@ -330,7 +341,7 @@ class MemberImportView(_OrgImportView):
             return Response({'error': 'No file uploaded.'}, status=400)
         dry_run = str(request.data.get('dry_run', '')).strip().lower() in ('1', 'true', 'yes')
         by_staff = request.user.role in ('ADMIN', 'EVALUATOR')
-        return run_import_atomically(lambda: run_member_import(self.domain, organization, file, dry_run, by_staff))
+        return run_import_atomically(lambda: run_member_import(self.domain, organization, file, dry_run, by_staff, request.user))
 
 
 def _for_domain(view_class, domain):
@@ -367,7 +378,7 @@ class EquipmentImportView(_OrgImportView):
         if not file:
             return Response({'error': 'No file uploaded.'}, status=400)
         dry_run = str(request.data.get('dry_run', '')).strip().lower() in ('1', 'true', 'yes')
-        return run_import_atomically(lambda: run_equipment_import(self.domain, organization, file, dry_run))
+        return run_import_atomically(lambda: run_equipment_import(self.domain, organization, file, dry_run, request.user))
 
 
 def equipment_import_view(domain):

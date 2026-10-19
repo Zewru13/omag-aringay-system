@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 from django.apps import apps
 from django.db import transaction
+from django.db.models import ProtectedError
 from django.db.models.deletion import Collector
 from django.utils import timezone
 
@@ -45,7 +46,11 @@ def dependents(instance):
     """Names of the models (other than the instance's own) that deleting it would cascade to, including the ones
     Django deletes through its fast-delete path, which never appear in collector.data."""
     collector = Collector(using='default')
-    collector.collect([instance])
+    try:
+        collector.collect([instance])
+    except ProtectedError as exc:
+        # Something protects this record (e.g. equipment that has loans): that is a dependent by definition.
+        return sorted({type(o).__name__ for o in exc.protected_objects} or {'ProtectedRecords'})
     names = {m.__name__ for m in collector.data if m is not type(instance)}
     for qs in collector.fast_deletes:
         for q in (qs if isinstance(qs, (list, tuple)) else [qs]):

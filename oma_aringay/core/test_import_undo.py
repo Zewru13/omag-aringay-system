@@ -144,3 +144,15 @@ class ImportUndoEngineTests(TestCase):
         foreign = list(ImportBatchItem.objects.filter(batch=other).values_list('id', flat=True))
         self.assertEqual(execute_items(self.batch, foreign, self.user), [])
         self.assertTrue(FarmVisit.objects.filter(pk=v.pk).exists())
+
+    def test_a_record_that_other_records_protect_counts_as_having_dependents(self):
+        from unittest import mock
+
+        from django.db.models import ProtectedError
+        v = self.visit()
+        protector = FarmVisit.objects.create(farmer=self.farmer, visit_date=date(2026, 5, 4), purpose='protects')
+        with mock.patch('core.import_undo.Collector') as collector:
+            collector.return_value.collect.side_effect = ProtectedError('protected', [protector])
+            results = execute_items(self.batch, self.ids(), self.user)
+        self.assertEqual((results[0]['result'], results[0]['reason']), ('kept', 'Other records depend on it.'))
+        self.assertTrue(FarmVisit.objects.filter(pk=v.pk).exists())
