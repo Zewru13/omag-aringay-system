@@ -402,6 +402,15 @@
   }
 }
 
+/* A native date box has its own minimum width (wider on some phones); inside a grid or flex row that stops it from
+   shrinking to its form and pushes it past the edge. Every date box may shrink and never exceeds its container. */
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"] {
+  min-width: 0;
+  max-width: 100%;
+}
+
 body {
   font-family: var(--font-sans);
   font-size: 14px;

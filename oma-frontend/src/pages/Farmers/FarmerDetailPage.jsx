@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import { ArrowLeft, ChevronDown, ChevronRight, ClipboardList, Edit, FileText, Plus } from 'lucide-react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import ActivateCitizenAccountButton from '../../components/ActivateCitizenAccountButton.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
+import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import LoadingSpinner from '../../components/UI/LoadingSpinner.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
@@ -14,9 +15,11 @@ import PcicBadge from '../../components/UI/PcicBadge.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
+import { rowClickProps } from '../../utils/rowClick.js'
 import { declaredCropName, sameCrop } from '../../utils/cropNames.js'
 import AddFarmParcelModal from './AddFarmParcelModal.jsx'
 import EditFarmerModal from './EditFarmerModal.jsx'
+import RecordFarmVisitModal from './RecordFarmVisitModal.jsx'
 
 // Phone: every table inside the wrapper stacks into labelled cards (each <td data-label="..."> shows its label above the value).
 const STACK_TABLES = 'max-md:[&_tr]:border-b max-md:[&_tr]:border-[#F0F4F0] max-md:[&_table]:block max-md:[&_tbody]:block max-md:[&_thead]:hidden max-md:[&_tr]:block max-md:[&_tr]:px-3 max-md:[&_tr]:py-2 max-md:[&_td]:block max-md:[&_td]:w-full max-md:[&_td]:px-0 max-md:[&_td]:py-1 max-md:[&_td]:text-left max-md:[&_td[data-label]]:before:mb-0.5 max-md:[&_td[data-label]]:before:block max-md:[&_td[data-label]]:before:text-[11px] max-md:[&_td[data-label]]:before:font-semibold max-md:[&_td[data-label]]:before:uppercase max-md:[&_td[data-label]]:before:tracking-wide max-md:[&_td[data-label]]:before:text-[#7A8E7A] max-md:[&_td[data-label]]:before:content-[attr(data-label)]'
@@ -110,6 +113,7 @@ function SubTable({ columns, rows, emptyText }) {
 }
 
 function CropMonitoringSubSection({ parcelId }) {
+  const navigate = useNavigate()
   const [records, setRecords] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [loaded, setLoaded] = useState(false)
@@ -140,7 +144,10 @@ function CropMonitoringSubSection({ parcelId }) {
       <tbody className="divide-y divide-[#F0F4F0]">
         {records.map((r, i) => (
           <React.Fragment key={r.id}>
-            <tr className={i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAF9]'}>
+            <tr
+              className={`cursor-pointer hover:bg-[#EBF5EE]/60 ${i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAF9]'}`}
+              {...rowClickProps(() => navigate(`/crop-monitoring?record=${r.id}`), `Open ${r.crop_type_name} monitoring record`)}
+            >
               <td data-label="Crop" className="px-3 py-1.5 text-[#1A2B1A]">{r.crop_type_name}</td>
               <td data-label="Season/Year" className="px-3 py-1.5 text-[#1A2B1A]">{r.season} {r.year}</td>
               <td data-label="Date Planted" className="px-3 py-1.5 text-[#1A2B1A]">{fmt(r.date_planted)}</td>
@@ -290,6 +297,10 @@ function FarmerDetailPage() {
   const [historyError, setHistoryError] = useState('')
   const [cropError, setCropError] = useState('')
   const [isParcelModalOpen, setIsParcelModalOpen] = useState(false)
+  const navigate = useNavigate()
+  const [visitModal, setVisitModal] = useState(null)   // null | 'new' | the visit being edited
+  const [deletingVisit, setDeletingVisit] = useState(null)
+  const [isDeletingVisit, setIsDeletingVisit] = useState(false)
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isGeneratingReport, setIsGeneratingReport] = useState(false)
@@ -676,7 +687,11 @@ function FarmerDetailPage() {
                   {cropRecords.map((r, i) => {
                     const fmt = (v) => v ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(v)) : '—'
                     return (
-                      <tr key={r.id} className={i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAF9]'}>
+                      <tr
+                        key={r.id}
+                        className={`cursor-pointer hover:bg-[#EBF5EE]/60 ${i % 2 === 0 ? 'bg-white' : 'bg-[#F9FAF9]'}`}
+                        {...rowClickProps(() => navigate(`/crop-monitoring?record=${r.id}`), `Open ${r.crop_type_name} monitoring record`)}
+                      >
                         <td data-label="Crop" className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{r.crop_type_name}</td>
                         <td data-label="Season/Year" className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{r.season} {r.year}</td>
                         <td data-label="Date Planted" className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{fmt(r.date_planted)}</td>
@@ -730,7 +745,14 @@ function FarmerDetailPage() {
 
         {/* Visit History */}
         <div className="bg-white border border-[#E2E8E2] rounded-xl p-6">
-          <h2 className="text-[14px] font-semibold text-[#1A2B1A] mb-4">Visit History</h2>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-[14px] font-semibold text-[#1A2B1A]">Visit History</h2>
+            {(isAdmin || isEvaluator) && (
+              <Button type="button" size="sm" onClick={() => setVisitModal('new')}>
+                <Plus size={14} className="mr-1" /> Record Farm Visit
+              </Button>
+            )}
+          </div>
           {isLoadingVisits ? (
             <LoadingSpinner />
           ) : visitHistory.length === 0 ? (
@@ -740,7 +762,7 @@ function FarmerDetailPage() {
               <table className="min-w-full text-sm">
                 <thead className="bg-[#1B4D2E] text-xs font-semibold uppercase tracking-wide text-white">
                   <tr>
-                    {['Visit Date', 'Next Visit', 'Purpose', 'Notes'].map((h) => (
+                    {['Visit Date', 'Next Visit', 'Purpose', 'Notes', ...((isAdmin || isEvaluator) ? ['Actions'] : [])].map((h) => (
                       <th key={h} className="px-4 py-2.5 text-left">{h}</th>
                     ))}
                   </tr>
@@ -754,6 +776,16 @@ function FarmerDetailPage() {
                         <td data-label="Next Visit" className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{fmt(v.next_visit_date)}</td>
                         <td data-label="Purpose" className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{v.purpose}</td>
                         <td data-label="Notes" className="px-4 py-2.5 text-[13px] text-[#7A8E7A]">{v.notes || '—'}</td>
+                        {(isAdmin || isEvaluator) && (
+                          <td data-label="Actions" className="px-4 py-2.5">
+                            <div className="flex gap-2">
+                              <button type="button" onClick={() => setVisitModal(v)}
+                                className="min-h-[36px] rounded-lg border border-[#C8D5C8] px-3 text-[12px] font-medium text-[#1B4D2E] hover:bg-[#F0F4F0]">Edit</button>
+                              <button type="button" onClick={() => setDeletingVisit(v)}
+                                className="min-h-[36px] rounded-lg border border-rose-200 px-3 text-[12px] font-medium text-rose-600 hover:bg-rose-50">Delete</button>
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     )
                   })}
@@ -763,6 +795,38 @@ function FarmerDetailPage() {
           )}
         </div>
       </div>
+
+      {visitModal && (
+        <RecordFarmVisitModal
+          farmerId={id}
+          visit={visitModal === 'new' ? null : visitModal}
+          onClose={() => setVisitModal(null)}
+          onSaved={fetchVisits}
+        />
+      )}
+
+      {deletingVisit && (
+        <ConfirmDialog
+          title="Delete this farm visit?"
+          message={`The visit on ${deletingVisit.visit_date} (${deletingVisit.purpose}) will be removed from this farmer's history.`}
+          confirmLabel={isDeletingVisit ? 'Deleting…' : 'Delete Visit'}
+          variant="danger"
+          onConfirm={async () => {
+            setIsDeletingVisit(true)
+            try {
+              await api.delete(`/monitoring/farm-visits/${deletingVisit.id}/`)
+              showToast('Farm visit deleted.', 'success')
+              setDeletingVisit(null)
+              fetchVisits()
+            } catch {
+              showToast('Could not delete the farm visit.', 'error')
+            } finally {
+              setIsDeletingVisit(false)
+            }
+          }}
+          onCancel={() => setDeletingVisit(null)}
+        />
+      )}
 
       {isParcelModalOpen && (
         <AddFarmParcelModal

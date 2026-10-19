@@ -1082,6 +1082,16 @@ export default function FisheriesRecordsPage({ asTab = false }) {
 
   // ?cycle=<id> (a Fisheries notification link): open that production cycle's existing details. The cycle
   // endpoint applies the usual ownership rules, so a fisherfolk can only ever open their own cycle.
+  // ?record=<id> (a link from a fisherfolk's profile): open that stocking record's details window.
+  const linkedRecordId = searchParams.get('record')
+  useEffect(() => {
+    if (!linkedRecordId) return undefined
+    let cancelled = false
+    api.get(`/fisheries/stocking/${linkedRecordId}/`)
+      .then(r => { if (!cancelled) setViewingRec(r.data) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [linkedRecordId])
   const linkedCycleId = searchParams.get('cycle')
   useEffect(() => {
     if (!linkedCycleId) return undefined

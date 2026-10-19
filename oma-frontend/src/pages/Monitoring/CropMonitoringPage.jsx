@@ -2041,6 +2041,18 @@ export default function CropMonitoringPage() {
     if (barangay) setBarangayFilter(barangay)
   }, [])
 
+  // ?record=<id> (a link from a farmer's profile): open that record's details window. The endpoint applies the usual
+  // access rules, so a record that cannot be opened simply does not open.
+  const linkedRecordId = searchParams.get('record')
+  useEffect(() => {
+    if (!linkedRecordId) return undefined
+    let cancelled = false
+    api.get(`/production/monitoring/${linkedRecordId}/`)
+      .then(r => { if (!cancelled) setViewLogsRecord(r.data) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [linkedRecordId])
+
   const fetchRecords = useCallback(async (pageNum = 1) => {
     const seq = ++requestSeq.current
     setIsLoading(true); setError('')
