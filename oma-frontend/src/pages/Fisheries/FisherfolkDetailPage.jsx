@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft, ClipboardList, Edit, FileText, Layers, Pencil, Plus, Power, Trash2 } from 'lucide-react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import ActivateCitizenAccountButton from '../../components/ActivateCitizenAccountButton.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
@@ -162,6 +162,7 @@ function FisherfolkDetailPage() {
   const [historyError, setHistoryError]   = useState('')
   const [stockingRecords, setStockingRecords]       = useState([])
   const [isLoadingStocking, setIsLoadingStocking]   = useState(false)
+  const navigate = useNavigate()
   const [ponds, setPonds]                 = useState([])
   const [isLoadingPonds, setIsLoadingPonds] = useState(false)
   const [isPondModalOpen, setIsPondModalOpen] = useState(false)
@@ -508,7 +509,16 @@ function FisherfolkDetailPage() {
                   </p>
                 ) : (
                   <div className="[&_thead_tr]:!bg-[#155E82]">
-                    <DataTable columns={STOCKING_COLUMNS} data={stockingData} isLoading={false} />
+                    <DataTable
+                      columns={STOCKING_COLUMNS}
+                      data={stockingData}
+                      isLoading={false}
+                      onRowClick={(row) => navigate(`/fisheries-monitoring?tab=stocking&record=${row.id}`)}
+                      rowClickLabel={(row) => `Open ${row.species_name} stocking record`}
+                      phoneTitleKey="species_name"
+                      phoneSubtitleKey="date_stocked_fmt"
+                      phoneOpenLabel="Open stocking record"
+                    />
                   </div>
                 )}
               </section>

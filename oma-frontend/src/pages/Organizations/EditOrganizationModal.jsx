@@ -179,7 +179,7 @@ export default function EditOrganizationModal({ organization, type, onClose, onS
           </div>
 
           {/* Date Organized + Date Registered */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-3 [&>*]:min-w-0 [&_input[type=date]]:min-w-0 [&_input[type=date]]:max-w-full">
             <div>
               <label className={labelCls}>Date Organized <span className="text-rose-500">*</span></label>
               <input type="date" className={`${baseInputClasses}${formErrors.date_organized ? ' border-rose-400' : ''}`} value={form.date_organized}

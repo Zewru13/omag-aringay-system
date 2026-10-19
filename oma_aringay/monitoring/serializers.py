@@ -30,7 +30,14 @@ class FarmVisitSerializer(serializers.ModelSerializer):
     def validate_visit_date(self, value):
         validate_not_future_date(value, 'Visit date')
         return value
-    # next_visit_date deliberately NOT capped — it's a planned future visit.
+    # next_visit_date deliberately NOT capped — it's a planned future visit — but it cannot come before the visit.
+
+    def validate(self, attrs):
+        visit = attrs.get('visit_date', getattr(self.instance, 'visit_date', None))
+        following = attrs.get('next_visit_date', getattr(self.instance, 'next_visit_date', None))
+        if visit and following and following < visit:
+            raise serializers.ValidationError({'next_visit_date': 'The next visit cannot be before the visit date.'})
+        return attrs
 
 
 # ─── Aquaculture Production Cycle (RESTORED from commit 4da000a0) ────────────
