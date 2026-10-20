@@ -5,10 +5,12 @@ import Button from '../../components/UI/Button.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import PcicInsuranceField from '../../components/UI/PcicInsuranceField.jsx'
 import SearchBar from '../../components/UI/SearchBar.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { detectSeason } from '../FisheriesRecords/stockingHelpers.js'
+import { EMPTY_PCIC, pcicError, pcicPayload, uploadPcicForm } from '../../utils/pcic.js'
 
 // Aquaculture production cycles: ponds or cages only (the backend accepts only these for a new cycle).
 const CULTURE_SYSTEMS = ['Fishpond', 'Fishcage']
@@ -64,6 +66,8 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
   }, [isFisherfolk, prefilledFf, showToast])
   const fixedFf = prefilledFf || ownFf
   const [isSubmitting, setIsSubmitting] = useState(false)
+  // PCIC insurance of this stocking: the box travels with the cycle, the form photo is uploaded once the cycle exists.
+  const [pcic, setPcic] = useState({ ...EMPTY_PCIC })
   const [speciesList, setSpeciesList] = useState([])
   const [isLoadingSpecies, setIsLoadingSpecies] = useState(true)
   const [form, setForm] = useState({
@@ -256,6 +260,8 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
     }
     const unitError = validateUnits()
     if (unitError) { showToast(unitError, 'error'); return }
+    const pcicProblem = pcicError(pcic)
+    if (pcicProblem) { showToast(pcicProblem, 'error'); return }
     setIsSubmitting(true)
     try {
       const normalizedCycleName = form.cycle_name === 'Other'
@@ -283,8 +289,17 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
               area_sqm: form.area_sqm ? parseFloat(form.area_sqm) : null,
             }),
         target_harvest_date: form.target_harvest_date || null,
+        ...pcicPayload(pcic),
       })
-      showToast('Production cycle started.', 'success')
+      // The cycle exists now; a failed photo upload must not read as a failed cycle.
+      let photoFailed = false
+      try {
+        await uploadPcicForm(api, 'stocking', res.data.stocking_record_id, pcic)
+      } catch {
+        photoFailed = true
+      }
+      if (photoFailed) showToast('Production cycle started, but the PCIC form photo could not be uploaded. Open the record and add it again.', 'error')
+      else showToast('Production cycle started.', 'success')
       onSuccess(res.data)
       onClose()
     } catch (err) {
@@ -571,6 +586,7 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
             </div>
           </div>
         )}
+        <PcicInsuranceField value={pcic} onChange={setPcic} subject="stocking" />
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
           <Button type="submit" isLoading={isSubmitting}>Start Cycle</Button>

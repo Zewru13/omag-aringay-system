@@ -17,7 +17,6 @@ import ForceChangePasswordPage from "./pages/Auth/ForceChangePasswordPage.jsx";
 import VerifyEmailPage from "./pages/Auth/VerifyEmailPage.jsx";
 import CropMonitoringPage from "./pages/Monitoring/CropMonitoringPage.jsx";
 import FisheriesMonitoringPage from "./pages/Monitoring/FisheriesMonitoringPage.jsx";
-import AddStockingPage from "./pages/FisheriesRecords/AddStockingPage.jsx";
 import FisheriesForecastingTab from "./pages/Monitoring/FisheriesForecastingTab.jsx";
 import ProductionPage from "./pages/Production/ProductionPage.jsx";
 import ProfilePage from "./pages/Profile/ProfilePage.jsx";
@@ -203,6 +202,8 @@ function App() {
           />
           {/* Fisheries Records was consolidated into the unified Fisheries Monitoring page */}
           <Route path="/fisheries-records" element={<Navigate to="/fisheries-monitoring?tab=stocking" replace />} />
+          {/* The manual Add Stocking page is gone: stocking is created by Start Production Cycle. */}
+          <Route path="/fisheries-monitoring/add" element={<Navigate to="/fisheries-monitoring?tab=stocking" replace />} />
           <Route
             path="/fisheries-settings"
             element={
@@ -226,17 +227,6 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFisherfolk>
                 <FisheriesMonitoringPage />
-              </ProtectedRoute>
-            }
-          />
-          {/* Full-screen bulk-entry page — was a floating modal inside
-              FisheriesRecordsPage, moved to its own route so the table gets
-              the full viewport instead of a max-w-6xl dialog box. */}
-          <Route
-            path="/fisheries-monitoring/add"
-            element={
-              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
-                <AddStockingPage />
               </ProtectedRoute>
             }
           />

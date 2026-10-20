@@ -240,6 +240,11 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
     pond_location = serializers.SerializerMethodField()
     water_source = serializers.ChoiceField(choices=WATER_SOURCE_CHOICES, write_only=True, required=False)
     water_source_other_specify = serializers.CharField(max_length=150, write_only=True, required=False, allow_blank=True)
+    # Create-only: the PCIC insurance box, stored on the linked StockingRecord (core.models.PcicInsurance). The photo of
+    # the PCIC form is uploaded afterwards to /fisheries/stocking/<stocking_record_id>/pcic-form/.
+    has_pcic_insurance = serializers.BooleanField(write_only=True, required=False, default=False)
+    # Read-only: the stocking record this cycle created (None for legacy cycles without one).
+    stocking_record_id = serializers.SerializerMethodField()
 
     class Meta:
         model = AquacultureProductionCycle
@@ -252,7 +257,7 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
             'feeding_logs', 'health_logs', 'input_logs', 'species_option', 'units',
             'estimated_harvest_kg', 'season',
             'pond_location_barangay', 'pond_location_other_specify', 'pond_location',
-            'water_source', 'water_source_other_specify',
+            'water_source', 'water_source_other_specify', 'has_pcic_insurance', 'stocking_record_id',
         ]
         read_only_fields = [
             'id', 'fisherfolk_name', 'fisherfolk_barangay',
@@ -282,6 +287,10 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
     def get_season(self, obj):
         return season_for_date(obj.stocking_date)
 
+    def get_stocking_record_id(self, obj):
+        record = next(iter(obj.stocking_records.all()), None)
+        return record.id if record else None
+
     def get_estimated_harvest_kg(self, obj):
         # Sum over the linked stocking record(s) - normally exactly one; None for legacy cycles without one.
         values = [r.estimated_harvest_kg for r in obj.stocking_records.all() if r.estimated_harvest_kg is not None]
@@ -310,6 +319,8 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({'units': f'At most {self.MAX_UNITS} {label}s are allowed.'})
         elif units:
             raise serializers.ValidationError({'units': 'Pond/cage details apply only to Fishpond and Fishcage cycles.'})
+        if data.get('has_pcic_insurance') and not data.get('species_option') and not self.instance:
+            raise serializers.ValidationError({'has_pcic_insurance': 'PCIC insurance is recorded with the stocking, so choose a species first.'})
         if data.get('species_option'):
             # With units the count is derived from them, so it is only required otherwise.
             if not units and not data.get('stocking_count'):
@@ -334,6 +345,7 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
         water_source = validated_data.pop('water_source', '')
         water_source_other = validated_data.pop('water_source_other_specify', '')
         units = validated_data.pop('units', None) or []
+        has_pcic_insurance = validated_data.pop('has_pcic_insurance', False)
         if units:
             # Totals are always derived from the units — any client-sent values are overridden.
             validated_data['stocking_count'] = sum(u['fingerling_count'] for u in units)
@@ -365,6 +377,7 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
                 water_source_other_specify=water_source_other.strip() if water_source == 'Other' else '',
                 season=season_for_date(date_stocked),
                 year=date_stocked.year,
+                has_pcic_insurance=has_pcic_insurance,
                 notes=cycle.notes,
                 recorded_by=cycle.recorded_by,
             )
@@ -372,6 +385,7 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         validated_data.pop('species_option', None)
         validated_data.pop('units', None)
+        validated_data.pop('has_pcic_insurance', None)
         for field in ('pond_location_barangay', 'pond_location_other_specify', 'water_source', 'water_source_other_specify'):
             validated_data.pop(field, None)
         return super().update(instance, validated_data)

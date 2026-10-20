@@ -265,8 +265,7 @@ class FisherfolkOwnershipTests(FisherfolkOwnershipBase):
         self.assertEqual(self.client.delete(f'{STOCKING}{self.rec_a.id}/').status_code, 403)
         self.assertEqual(self.client.delete(f'/api/monitoring/fisherfolk-disasters/{self.disaster_a.id}/').status_code, 403)
         self.assertEqual(self.client.delete(f'/api/fisheries/fishing-trips/{self.trip_a.id}/').status_code, 403)
-        self.assertEqual(self.client.post(STOCKING, {}, format='json').status_code, 403)
-        self.assertEqual(self.client.get(f'{STOCKING}forecasting/template/').status_code, 403)
+        self.assertEqual(self.client.post(STOCKING, {}, format='json').status_code, 405)   # stocking is only created by a cycle
         self.assertEqual(self.client.post('/api/fisheries/species/', {'species_name': 'X'}, format='json').status_code, 403)
         self.assertEqual(self.client.post('/api/interventions/fisherfolk-beneficiaries/adhoc/', {'fisherfolk': self.ff_a.id,
                          'date_given': str(date.today())}, format='json').status_code, 403)

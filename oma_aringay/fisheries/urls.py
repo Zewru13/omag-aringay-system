@@ -34,10 +34,7 @@ from .views import (
     SpeciesOptionDetailView,
     SpeciesActivityStageListCreateView,
     SpeciesActivityStageDeleteView,
-    StockingListCreateView,
-    StockingBulkCreateView,
-    StockingForecastingTemplateView,
-    StockingForecastingImportView,
+    StockingListView,
     StockingHistoryView,
     StockingDetailView,
     StockingPcicFormView,
@@ -94,10 +91,7 @@ urlpatterns = [
 
     # ── Stocking records ────────────────────────────────────────────────────
     path('stocking/form-options/', StockingFormOptionsView.as_view(), name='stocking-form-options'),
-    path('stocking/', StockingListCreateView.as_view(), name='stocking-list'),
-    path('stocking/bulk/', StockingBulkCreateView.as_view(), name='stocking-bulk-create'),
-    path('stocking/forecasting/template/', StockingForecastingTemplateView.as_view(), name='stocking-forecasting-template'),
-    path('stocking/forecasting/import/', StockingForecastingImportView.as_view(), name='stocking-forecasting-import'),
+    path('stocking/', StockingListView.as_view(), name='stocking-list'),
     path('stocking/history/', StockingHistoryView.as_view(), name='stocking-history'),
     path('stocking/<int:pk>/', StockingDetailView.as_view(), name='stocking-detail'),
     path('stocking/<int:pk>/pcic-form/', StockingPcicFormView.as_view(), name='stocking-pcic-form'),

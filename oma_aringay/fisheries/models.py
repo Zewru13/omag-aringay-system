@@ -588,7 +588,7 @@ class StockingRecord(PcicInsurance):
     date_recorded = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        # Backstop matching StockingListCreateView's own explicit
+        # Backstop matching StockingListView's own explicit
         # -date_recorded, -id ordering — see CropMonitoringRecord.Meta for why.
         ordering = ['-date_recorded', '-id']
         indexes = [

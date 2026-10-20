@@ -848,8 +848,7 @@ class FisherfolkBeneficiaryConfirmationRequestDecisionView(APIView):
 # dry_run convention as associations._run_organization_distribution and the
 # same two-pass in-file-then-database duplicate detection as Crop/Fisheries
 # Forecasting's imports (production/views.py ForecastingImportView,
-# fisheries/views.py StockingForecastingImportView, associations/views.py
-# _run_organization_import) — see any of those for the full rationale.
+# associations/views.py _run_organization_import) — see any of those for the full rationale.
 #
 # Identity is (person, assistance_type, date_given): the three facts that
 # together answer "is this the same assistance-giving event" from what this
