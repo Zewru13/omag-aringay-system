@@ -21,7 +21,6 @@ function calcAge(birthdate) {
 }
 
 const columns = [
-  { key: 'lgu_registration_number', label: 'LGU Reg. No.' },
   { key: 'fishr_number',            label: 'FishR No.' },
   { key: 'rsbsa_number',            label: 'RSBSA No.' },
   { key: 'full_name',               label: 'Full Name' },
@@ -192,7 +191,7 @@ function FisherfolkPage({ asTab = false }) {
         actions={actionBtn}
         search={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Search by name, LGU Reg. No., FishR No., or barangay"
+        searchPlaceholder="Search by name, RSBSA No., FishR No., or barangay"
         activeCount={activeFilterCount}
       >
         <select className={filterSelectCls} value={status} onChange={(e) => setStatus(e.target.value)}>

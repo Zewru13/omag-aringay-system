@@ -617,7 +617,7 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
                 <li key={d.id} className="text-[12px] text-amber-800">
                   <span className="font-medium">{d.full_name}</span>
                   {d.barangay ? ` — ${d.barangay}` : ''}
-                  {d.lgu_registration_number ? ` (LGU: ${d.lgu_registration_number})` : ''}
+                  {d.rsbsa_number ? ` (RSBSA: ${d.rsbsa_number})` : ''}
                 </li>
               ))}
             </ul>

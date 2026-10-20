@@ -15,7 +15,7 @@
 //                        farmer_rsbsa_number, position, date_joined,
 //                        is_active, deactivation_reason, is_main}]
 //   fisherfolk members [{id, fisherfolk, fisherfolk_full_name,
-//                        fisherfolk_barangay, fisherfolk_lgu_number,
+//                        fisherfolk_barangay, fisherfolk_rsbsa_number,
 //                        position, date_joined, is_active,
 //                        deactivation_reason, is_main}]
 //   `id` is the JOIN ROW id on both — removal/set-active/set-main address
@@ -198,7 +198,7 @@ export const FISHERFOLK_ORG_DOMAIN = {
   rowBarangay: (row) => row.fisherfolk_barangay,
   rowIsActive: (row) => row.is_active !== false,
   rowIsMain: (row) => row.is_main === true,
-  rowIdNumber: (row) => row.fisherfolk_lgu_number,
+  rowIdNumber: (row) => row.fisherfolk_rsbsa_number,
   officerPersonId: (o) => o.fisherfolk_id,
   // Multi-org is legitimate here, so adding someone never reassigns them.
   // Existing memberships are still worth SHOWING, so an officer can
@@ -212,7 +212,7 @@ export const FISHERFOLK_ORG_DOMAIN = {
   memberSearchUrl: (orgId) => `/organizations/fisherfolk/${orgId}/members/`,
   memberIdOf: (m) => m.fisherfolk,
   memberLabel: (m) => m.fisherfolk_full_name,
-  memberSubtitle: (m) => [m.fisherfolk_lgu_number, m.fisherfolk_barangay].filter(Boolean).join(' · '),
+  memberSubtitle: (m) => [m.fisherfolk_rsbsa_number, m.fisherfolk_barangay].filter(Boolean).join(' · '),
   createUrl: '/interventions/fisherfolk-beneficiaries/adhoc/',
   detailUrl: (id) => `/interventions/fisherfolk-beneficiaries/${id}/detail/`,
   historyUrl: '/interventions/my-org-fisherfolk-beneficiary-history/',

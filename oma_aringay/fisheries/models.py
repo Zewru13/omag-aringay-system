@@ -11,7 +11,7 @@ from django.utils import timezone
 
 from core.constants import BARANGAY_CHOICES
 from core.models import PcicInsurance
-from core.validators import validate_fishr, validate_lgu_reg, validate_rsbsa
+from core.validators import validate_fishr, validate_rsbsa
 
 
 def calculate_estimated_harvest_kg(number_of_fingerlings, survival_rate_pct, avg_body_weight_kg):
@@ -77,11 +77,6 @@ class Fisherfolk(models.Model):
     ]
 
     prefix = models.CharField(max_length=10, choices=Prefix.choices, blank=True, default='')
-    lgu_registration_number = models.CharField(
-        max_length=50, unique=True, null=True, blank=True,
-        validators=[validate_lgu_reg],
-        help_text='Manually entered — format YYYY-03302-NNNN',
-    )
     fishr_number = models.CharField(
         max_length=50, unique=True, null=True, blank=True,
         validators=[validate_fishr],
@@ -190,7 +185,7 @@ class Fisherfolk(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f'{self.lgu_registration_number} - {self.full_name}'
+        return f'{self.rsbsa_number} - {self.full_name}'
 
 
 # ─── Legacy per-type sub-records (unchanged) ──────────────────────────────────
@@ -214,7 +209,7 @@ class AquacultureRecord(models.Model):
     production_volume_kg = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     def __str__(self):
-        return f'Aquaculture - {self.fisherfolk.lgu_registration_number}'
+        return f'Aquaculture - {self.fisherfolk.rsbsa_number}'
 
 
 class CaptureRecord(models.Model):
@@ -240,7 +235,7 @@ class CaptureRecord(models.Model):
     average_catch_per_trip_kg   = models.DecimalField(max_digits=10, decimal_places=2)
 
     def __str__(self):
-        return f'Capture - {self.fisherfolk.lgu_registration_number}'
+        return f'Capture - {self.fisherfolk.rsbsa_number}'
 
 
 # ─── Species reference data ────────────────────────────────────────────────────

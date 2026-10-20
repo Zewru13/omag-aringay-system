@@ -481,7 +481,7 @@ class FisherfolkProfileReport(APIView):
         doc.build(self._build_story(fisherfolk, request), canvasmaker=NumberedCanvas)
         return _finish_pdf(
             buf,
-            f'fisherfolk_profile_{fmt_field(fisherfolk.lgu_registration_number)}_{_today()}.pdf',
+            f'fisherfolk_profile_{fmt_field(fisherfolk.rsbsa_number)}_{_today()}.pdf',
         )
 
     def _build_story(self, fisherfolk, request):  # noqa: C901
@@ -492,7 +492,7 @@ class FisherfolkProfileReport(APIView):
         story += build_official_header(
             LOGO_PATH,
             'Fisherfolk Profile Record',
-            f'LGU Registration No. {fmt_field(fisherfolk.lgu_registration_number)}',
+            f'RSBSA No. {fmt_field(fisherfolk.rsbsa_number)}',
         )
 
         # ── Section I — Personal Information ──────────────────────────────────
@@ -501,7 +501,6 @@ class FisherfolkProfileReport(APIView):
         pairs = [
             ('Full Name',           full_name(fisherfolk)),
             ('Fisherfolk ID',       f'FISHR-{fisherfolk.id:06d}'),
-            ('LGU Registration No.',fmt_field(fisherfolk.lgu_registration_number)),
             ('FishR No.',           fmt_field(fisherfolk.fishr_number)),
             ('RSBSA No.',           fmt_field(fisherfolk.rsbsa_number)),
             ('PhilSys No.',         fmt_field(fisherfolk.philsys_number)),
@@ -807,10 +806,10 @@ class FisherfolkMasterlistReport(APIView):
         if wants_pdf(request):
             return self._build_pdf(fisherfolk, today)
 
-        csv_headers = ['LGU Number', 'Full Name', 'Type', 'Barangay', 'Status', 'Date Registered']
+        csv_headers = ['RSBSA Number', 'Full Name', 'Type', 'Barangay', 'Status', 'Date Registered']
         rows = [
             [
-                fmt_field(p.lgu_registration_number),
+                fmt_field(p.rsbsa_number),
                 fmt_field(p.full_name),
                 fmt_field(p.fisherfolk_type),
                 fmt_field(p.barangay),
@@ -844,12 +843,12 @@ class FisherfolkMasterlistReport(APIView):
         ], page_width=PAGE_WIDTH))
         story.append(Spacer(1, 14))
 
-        # col_widths: 25+80+110+68+68+50+67 = 468pt
+        # col_widths: 25+96+105+62+62+48+70 = 468pt (96 fits a full RSBSA number on one line)
         rows = []
         for i, p in enumerate(fisherfolk, 1):
             rows.append([
                 str(i),
-                fmt_field(p.lgu_registration_number),
+                fmt_field(p.rsbsa_number),
                 fmt_field(p.full_name),
                 fmt_field(p.barangay),
                 fmt_field(p.fisherfolk_type),
@@ -858,9 +857,9 @@ class FisherfolkMasterlistReport(APIView):
             ])
 
         story.append(build_ledger_table(
-            ['No.', 'LGU Reg. No.', 'Full Name', 'Barangay', 'Fishery Type', 'Status', 'Date Registered'],
+            ['No.', 'RSBSA No.', 'Full Name', 'Barangay', 'Fishery Type', 'Status', 'Date Registered'],
             rows,
-            col_widths=[25, 80, 110, 68, 68, 50, 67],
+            col_widths=[25, 96, 105, 62, 62, 48, 70],
         ))
         story.append(Spacer(1, 30))
         story.append(build_signature_block(

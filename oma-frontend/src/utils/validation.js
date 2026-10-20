@@ -18,19 +18,6 @@ export const validateRSBSA = (value) => {
   return null;
 };
 
-export const validateLGUNumber = (value) => {
-  if (!value) {
-    return "LGU Registration Number must be 6 to 15 alphanumeric characters.";
-  }
-
-  const lguRegex = /^[a-zA-Z0-9]{6,15}$/;
-  if (!lguRegex.test(value.trim())) {
-    return "LGU Registration Number must be 6 to 15 alphanumeric characters.";
-  }
-
-  return null;
-};
-
 export const validatePhone = (value) => {
   if (!value) {
     return null; // phone is optional

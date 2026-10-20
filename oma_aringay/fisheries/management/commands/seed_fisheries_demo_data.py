@@ -15,7 +15,7 @@ Stocking records — 15 total (Batch E reduction), composed deliberately:
   - 2 with a RECOVERED stocking-level disaster (Batch D terminology)
 
 Plus, kept intentionally sparse so those tabs aren't empty:
-  - 15 demo fisherfolk (marker: lgu_registration_number starting '2099-')
+  - 15 demo fisherfolk (marker: rsbsa_number starting '01-33-02-999-')
   - Capture: a few FishingTripLog + TripSpeciesEntry (at least one
     multi-species trip)
   - Assistance records
@@ -50,7 +50,8 @@ from fisheries.models import (
 
 User = get_user_model()
 
-DEMO_LGU_YEAR = '2099'  # unmistakably-fake registration year used as the demo marker
+DEMO_LGU_YEAR = '2099'  # unmistakably-fake registration year used in the demo FishR numbers
+DEMO_RSBSA_PREFIX = '01-33-02-999-'  # unmistakably-fake barangay code: the marker that identifies demo fisherfolk
 SEED_TAG = 'Seeded by seed_fisheries_demo_data command.'
 
 # first, last, gender, birth_year, barangay, fisherfolk_type, pwd, icc, fourps, has_fishr, has_rsbsa
@@ -227,7 +228,7 @@ class Command(BaseCommand):
 
     def _flush(self):
         demo_ff_ids = list(Fisherfolk.objects.filter(
-            lgu_registration_number__startswith=f'{DEMO_LGU_YEAR}-'
+            rsbsa_number__startswith=DEMO_RSBSA_PREFIX
         ).values_list('id', flat=True))
 
         # StockingRecord.fisherfolk is SET_NULL, not CASCADE — delete explicitly
@@ -269,7 +270,7 @@ class Command(BaseCommand):
         created = []
         for idx, (first, last, gender, birth_year, barangay, ftype, pwd, icc, fourps,
                    has_fishr, has_rsbsa) in enumerate(FISHERFOLK_DATA):
-            lgu_reg = f'{DEMO_LGU_YEAR}-03302-{idx + 1:04d}'
+            rsbsa = f'{DEMO_RSBSA_PREFIX}{idx + 1:06d}'
             birth_month = (idx % 12) + 1
             birth_day = min((idx % 28) + 1, 28)
             birthdate = date(birth_year, birth_month, birth_day)
@@ -291,12 +292,10 @@ class Command(BaseCommand):
                 'is_capture_fishery': ftype == 'Capture',
                 'is_inland_fishery': ftype == 'Inland',
                 'fishr_number': f'01-33-02-{DEMO_LGU_YEAR}-{idx + 1:04d}' if has_fishr else None,
-                # Always set: the registry only accepts fisherfolk with an RSBSA number.
-                'rsbsa_number': f'01-33-02-999-{idx + 1:06d}',
                 'contact_number': f'0917{idx + 1:07d}',
             }
             ff, was_created = Fisherfolk.objects.get_or_create(
-                lgu_registration_number=lgu_reg,
+                rsbsa_number=rsbsa,
                 defaults=defaults,
             )
             created.append(ff)

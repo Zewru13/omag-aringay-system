@@ -106,9 +106,6 @@ class BeneficiaryRecordUpdateSerializer(BeneficiaryRecordCreateSerializer):
 
 class FisherfolkBeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
     fisherfolk_full_name = serializers.CharField(source='fisherfolk.full_name', read_only=True)
-    fisherfolk_lgu_registration_number = serializers.CharField(
-        source='fisherfolk.lgu_registration_number', read_only=True,
-    )
     fisherfolk_barangay = serializers.CharField(source='fisherfolk.barangay', read_only=True)
     fisherfolk_type = serializers.CharField(source='fisherfolk.fisherfolk_type', read_only=True)
     recorded_by_name = serializers.SerializerMethodField()
@@ -123,7 +120,6 @@ class FisherfolkBeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
             'id',
             'fisherfolk',
             'fisherfolk_full_name',
-            'fisherfolk_lgu_registration_number',
             'fisherfolk_barangay',
             'fisherfolk_type',
             'date_given',
@@ -147,7 +143,6 @@ class FisherfolkBeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
         read_only_fields = [
             'id',
             'fisherfolk_full_name',
-            'fisherfolk_lgu_registration_number',
             'fisherfolk_barangay',
             'fisherfolk_type',
             'recorded_by',

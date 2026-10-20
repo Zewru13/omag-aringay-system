@@ -1030,7 +1030,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
   const [isLoading,    setIsLoading]    = useState(true)
   const [error,        setError]        = useState('')
   const [search,       setSearch]       = useState('')
-  // Server-side search over every record (fisherfolk name or RSBSA / LGU / FishR number, species,
+  // Server-side search over every record (fisherfolk name or RSBSA / FishR number, species,
   // barangay) - debounced; the latest-request guard below already drops any slower, older answer.
   const debouncedSearch = useDebouncedValue(search.trim())
   // Pond / cage name: the stock's pond name or one of its units ("Pond 2", "Cage 1"); typed, so debounced like the search.
@@ -1277,7 +1277,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
         <FilterPanel
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Search by fisherfolk, RSBSA / LGU no., species, or barangay..."
+          searchPlaceholder="Search by fisherfolk, RSBSA no., species, or barangay..."
           activeCount={[statusFilter !== 'All Status', Boolean(seasonFilter), Boolean(yearFilter), Boolean(pondFilter.trim())].filter(Boolean).length}
         >
           <input

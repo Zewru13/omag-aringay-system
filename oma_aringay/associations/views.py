@@ -894,7 +894,7 @@ class FisherfolkOrganizationAddCandidateSearchView(_AddCandidateSearchBase):
             Fisherfolk.objects
             .filter(_name_or_number_q(
                 search, ['first_name', 'middle_name', 'last_name'],
-                ['lgu_registration_number', 'fishr_number', 'rsbsa_number'],
+                ['fishr_number', 'rsbsa_number'],
             ))
             .prefetch_related('fisherfolk_organizations__organization')
         )
@@ -992,9 +992,8 @@ def _run_organization_distribution(record_model, person_field, organization, mem
     results = []
     for person in members:
         person_filter = {person_field: person}
-        # Real identifying number, not fabricated — Farmer's RSBSA number or
-        # Fisherfolk's LGU registration number, whichever the model has.
-        id_number = getattr(person, 'rsbsa_number', None) or getattr(person, 'lgu_registration_number', None)
+        # Real identifying number, not fabricated: the RSBSA number (Farmer and Fisherfolk both have one).
+        id_number = person.rsbsa_number
 
         # Safeguard (blocking): same assistance_type already delivered to
         # this person within the last 30 days, by a DIFFERENT organization.

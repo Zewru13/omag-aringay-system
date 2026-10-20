@@ -181,9 +181,9 @@ class Command(BaseCommand):
     def create_fisherfolk(self):
         """Create 2 sample fisherfolk: 1 Aquaculture, 1 Capture"""
         # Aquaculture fisherfolk
-        if not Fisherfolk.objects.filter(lgu_registration_number='LGU-FISH-001').exists():
+        if not Fisherfolk.objects.filter(rsbsa_number='01-33-02-999-000901').exists():
             fisherfolk1 = Fisherfolk.objects.create(
-                lgu_registration_number='LGU-FISH-001',
+                rsbsa_number='01-33-02-999-000901',
                 full_name='Marcelino Santos',
                 gender='Male',
                 date_of_birth='1980-04-12',
@@ -206,9 +206,9 @@ class Command(BaseCommand):
             self.stdout.write('  Aquaculture fisherfolk already exists, skipping')
 
         # Capture fisherfolk
-        if not Fisherfolk.objects.filter(lgu_registration_number='LGU-FISH-002').exists():
+        if not Fisherfolk.objects.filter(rsbsa_number='01-33-02-999-000902').exists():
             fisherfolk2 = Fisherfolk.objects.create(
-                lgu_registration_number='LGU-FISH-002',
+                rsbsa_number='01-33-02-999-000902',
                 full_name='Roberto Lara',
                 gender='Male',
                 date_of_birth='1975-06-20',

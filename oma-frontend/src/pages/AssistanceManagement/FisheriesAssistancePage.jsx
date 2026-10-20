@@ -523,7 +523,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
       ) : (
       <>
       <FilterPanel
-        {...(isOrg ? {} : { search, onSearchChange: setSearch, searchPlaceholder: 'Search fisherfolk or LGU no.' })}
+        {...(isOrg ? {} : { search, onSearchChange: setSearch, searchPlaceholder: 'Search fisherfolk or RSBSA no.' })}
         activeCount={(isOrg ? [Boolean(year)] : [Boolean(barangay), Boolean(source), Boolean(type), Boolean(year)]).filter(Boolean).length}
       >
         {!isOrg && <BarangaySelect value={barangay} onChange={(e) => setBarangay(e.target.value)} includeAllOption />}

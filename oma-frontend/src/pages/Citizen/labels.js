@@ -1136,7 +1136,6 @@ export const labels = {
       fullName: 'Full name',
       rsbsaNumber: 'RSBSA number',
       fishrNumber: 'FishR number',
-      lguRegistrationNumber: 'LGU registration no.',
       barangay: 'Barangay',
       address: 'Address',
       classification: 'Classification',

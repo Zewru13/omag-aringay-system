@@ -72,6 +72,8 @@ def validate_philsys(value):
         )
 
 
+# No longer used by any model (the fisherfolk LGU registration number was removed); kept only because the historical
+# migration fisheries/0026 still refers to it by name.
 def validate_lgu_reg(value):
     if not value:
         return

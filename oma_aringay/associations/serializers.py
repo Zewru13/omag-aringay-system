@@ -74,7 +74,7 @@ class FisherfolkAddCandidateSerializer(serializers.ModelSerializer):
         fields = ['id', 'full_name', 'barangay', 'id_hint', 'current_organizations']
 
     def get_id_hint(self, obj):
-        return _id_hint(obj.lgu_registration_number or obj.fishr_number or obj.rsbsa_number)
+        return _id_hint(obj.rsbsa_number or obj.fishr_number)
 
     def get_current_organizations(self, obj):
         # A list, not a single value: fisherfolk membership is a real join
@@ -321,14 +321,14 @@ class FarmersOrganizationDetailSerializer(_RegistrationNumberLimit, serializers.
 
 class FisherfolkOrganizationMemberSerializer(serializers.ModelSerializer):
     fisherfolk_full_name = serializers.CharField(source='fisherfolk.full_name', read_only=True)
-    fisherfolk_lgu_number = serializers.CharField(source='fisherfolk.lgu_registration_number', read_only=True)
+    fisherfolk_rsbsa_number = serializers.CharField(source='fisherfolk.rsbsa_number', read_only=True)
     fisherfolk_barangay = serializers.CharField(source='fisherfolk.barangay', read_only=True)
 
     class Meta:
         model = FisherfolkOrganizationMember
         fields = [
             'id', 'organization', 'fisherfolk', 'fisherfolk_full_name',
-            'fisherfolk_lgu_number', 'fisherfolk_barangay', 'position', 'date_joined',
+            'fisherfolk_rsbsa_number', 'fisherfolk_barangay', 'position', 'date_joined',
             'is_active', 'deactivation_reason', 'is_main',
         ]
         # is_active is never written through the generic create/list path

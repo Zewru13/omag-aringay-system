@@ -112,7 +112,7 @@ class FisherfolkListView(generics.ListCreateAPIView):
             qs = filter_people_search(
                 qs, search,
                 name_fields=['first_name', 'middle_name', 'last_name'],
-                id_fields=['rsbsa_number', 'lgu_registration_number', 'fishr_number'],
+                id_fields=['rsbsa_number', 'fishr_number'],
                 other_fields=['barangay'],
             )
         if params.get('status'):
@@ -204,7 +204,7 @@ class FisherfolkDuplicateCheckView(APIView):
                 'id': f.id,
                 'full_name': f.full_name,
                 'barangay': f.barangay,
-                'lgu_registration_number': f.lgu_registration_number,
+                'rsbsa_number': f.rsbsa_number,
                 'birth_date': str(f.birthdate) if f.birthdate else None,
             }
             for f in qs[:5]
@@ -556,7 +556,7 @@ class StockingListView(generics.ListAPIView):
         qs = filter_people_search(
             qs, params.get('search'),
             name_fields=['fisherfolk__first_name', 'fisherfolk__middle_name', 'fisherfolk__last_name'],
-            id_fields=['fisherfolk__rsbsa_number', 'fisherfolk__lgu_registration_number', 'fisherfolk__fishr_number'],
+            id_fields=['fisherfolk__rsbsa_number', 'fisherfolk__fishr_number'],
             other_fields=['species__species_name', 'pond_location_barangay'],
         )
         # Fisheries Forecasting "Forecast" tab: day-window scope over the real
@@ -613,7 +613,7 @@ class StockingHistoryView(generics.ListAPIView):
             qs = filter_people_search(
                 qs, params.get('search'),
                 name_fields=['fisherfolk__first_name', 'fisherfolk__middle_name', 'fisherfolk__last_name'],
-                id_fields=['fisherfolk__rsbsa_number', 'fisherfolk__lgu_registration_number', 'fisherfolk__fishr_number'],
+                id_fields=['fisherfolk__rsbsa_number', 'fisherfolk__fishr_number'],
                 other_fields=['species__species_name', 'pond_location_barangay'],
             )
         return qs
