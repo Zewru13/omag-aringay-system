@@ -186,7 +186,7 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
           </>
         }
       >
-        <p className="mb-4 text-sm text-slate-500">{fisherfolk.lgu_registration_number || 'No LGU number assigned'}</p>
+        <p className="mb-4 text-sm text-slate-500">{fisherfolk.rsbsa_number}</p>
         <form id="edit-fisherfolk-form" onSubmit={handleSubmit} className="space-y-5">
           <div className="grid gap-4 md:grid-cols-2">
             <div>

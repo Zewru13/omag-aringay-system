@@ -118,7 +118,7 @@ function LogCatchModal({ onClose, onSuccess }) {
       const firstName = (ff.first_name || '').toLowerCase()
       const middleName = (ff.middle_name || '').toLowerCase()
       const lastName = (ff.last_name || '').toLowerCase()
-      const lgu = (ff.lgu_registration_number || '').toLowerCase()
+      const rsbsa = (ff.rsbsa_number || '').toLowerCase()
       return (
         fullName.includes(q)
         || firstName.includes(q)
@@ -127,7 +127,7 @@ function LogCatchModal({ onClose, onSuccess }) {
         || `${firstName} ${middleName} ${lastName}`.replace(/\s+/g, ' ').trim().includes(q)
         || `${firstName} ${lastName}`.trim().includes(q)
         || `${lastName} ${firstName}`.trim().includes(q)
-        || lgu.includes(q)
+        || rsbsa.includes(q)
       )
     })
   }, [ffResults, ffSearch])
@@ -250,7 +250,7 @@ function LogCatchModal({ onClose, onSuccess }) {
           <SearchBar
             value={ffSearch}
             onChange={handleFfSearch}
-            placeholder="Search by name or LGU number…"
+            placeholder="Search by name or RSBSA number…"
           />
           {isDropdownOpen && (
             <ul className="mt-1 max-h-44 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg">
@@ -263,7 +263,7 @@ function LogCatchModal({ onClose, onSuccess }) {
                       onClick={() => handleSelectFf(ff)}
                     >
                       <span className="font-medium">{ff.full_name || `${ff.first_name || ''} ${ff.last_name || ''}`.trim()}</span>
-                      <span className="ml-2 text-slate-400">({ff.lgu_registration_number})</span>
+                      <span className="ml-2 text-slate-400">({ff.rsbsa_number})</span>
                       <span className="ml-2 text-slate-400">{ff.fisherfolk_type}</span>
                     </button>
                   </li>

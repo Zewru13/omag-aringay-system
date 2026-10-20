@@ -105,7 +105,7 @@ class FisherfolkListSerializer(serializers.ModelSerializer):
     class Meta:
         model  = Fisherfolk
         fields = [
-            'id', 'lgu_registration_number', 'fishr_number', 'prefix', 'full_name',
+            'id', 'fishr_number', 'prefix', 'full_name',
             'gender', 'birthdate', 'barangay', 'fisherfolk_type',
             'is_active', 'is_senior_citizen', 'date_registered',
             'rsbsa_number',
@@ -140,7 +140,7 @@ class FisherfolkDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model  = Fisherfolk
         fields = [
-            'id', 'lgu_registration_number', 'fishr_number',
+            'id', 'fishr_number',
             'prefix', 'first_name', 'last_name', 'middle_name', 'full_name',
             'gender', 'birthdate', 'contact_number', 'barangay', 'municipality',
             'civil_status', 'highest_education', 'philsys_number',
@@ -207,11 +207,6 @@ class FisherfolkDetailSerializer(serializers.ModelSerializer):
                     'This RSBSA number already belongs to a registered farmer. A person who is both a farmer and a '
                     'fisherfolk needs a different RSBSA number for each.'
                 )
-        return value
-
-    def validate_lgu_registration_number(self, value):
-        if value is not None and not value.strip():
-            return None
         return value
 
     def validate(self, data):

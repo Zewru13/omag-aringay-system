@@ -76,12 +76,12 @@ def on_farm_parcel_delete(sender, instance, **kwargs):
 @receiver(post_save, sender=Fisherfolk)
 def on_fisherfolk_save(sender, instance, created, **kwargs):
     action = AuditLogEntry.Action.CREATE if created else AuditLogEntry.Action.UPDATE
-    _log(action, 'Fisherfolk', f'{instance.first_name} {instance.last_name} (LGU: {instance.lgu_registration_number})')
+    _log(action, 'Fisherfolk', f'{instance.first_name} {instance.last_name} (RSBSA: {instance.rsbsa_number})')
 
 
 @receiver(post_delete, sender=Fisherfolk)
 def on_fisherfolk_delete(sender, instance, **kwargs):
-    _log(AuditLogEntry.Action.DELETE, 'Fisherfolk', f'{instance.first_name} {instance.last_name} (LGU: {instance.lgu_registration_number})')
+    _log(AuditLogEntry.Action.DELETE, 'Fisherfolk', f'{instance.first_name} {instance.last_name} (RSBSA: {instance.rsbsa_number})')
 
 
 # ── interventions.BeneficiaryRecord ──────────────────────────────────────────

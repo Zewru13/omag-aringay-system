@@ -137,9 +137,8 @@ function AddMemberModal({ type, organizationId, organizationName, own = false, o
 
   const searchEndpoint = type === "farmers" ? "/farmers/" : "/fisheries/fisherfolk/";
   const memberKey = type === "farmers" ? "farmer" : "fisherfolk";
-  const idLabel =
-    type === "farmers" ? "rsbsa_number" : "lgu_registration_number";
-  const idDisplayLabel = type === "farmers" ? "RSBSA No." : "LGU No.";
+  const idLabel = "rsbsa_number";
+  const idDisplayLabel = "RSBSA No.";
   // The organization-scoped candidate search returns a masked id hint instead of the full registry number.
   const idOf = (item) => (own ? item.id_hint : item[idLabel]);
 
@@ -932,9 +931,9 @@ function OrganizationDetailPage({ own = false }) {
   const [showOfficerHistory, setShowOfficerHistory] = useState(false);
 
   const typeLabel = type === "farmers" ? "Farmers" : "Fisherfolk";
-  const memberIdLabel = type === "farmers" ? "RSBSA Number" : "LGU Number";
+  const memberIdLabel = "RSBSA Number";
   const memberIdField =
-    type === "farmers" ? "farmer_rsbsa_number" : "fisherfolk_lgu_number";
+    type === "farmers" ? "farmer_rsbsa_number" : "fisherfolk_rsbsa_number";
   const memberNameField =
     type === "farmers" ? "farmer_full_name" : "fisherfolk_full_name";
 

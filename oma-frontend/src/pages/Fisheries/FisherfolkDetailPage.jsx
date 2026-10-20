@@ -393,11 +393,6 @@ function FisherfolkDetailPage() {
                   <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#155E82]">RSBSA Number</p>
                   <p className="mt-1 text-[13px] font-semibold text-[#1A2B1A]">{fisherfolk.rsbsa_number}</p>
                 </div>
-
-                <div className="mt-3 rounded-xl border border-[#E2E8E2] bg-[#EAF1F5] px-4 py-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#155E82]">LGU Registration Number</p>
-                  <p className="mt-1 text-[13px] font-semibold text-[#1A2B1A]">{fisherfolk.lgu_registration_number || '—'}</p>
-                </div>
               </div>
 
               <div className="space-y-4 lg:sticky lg:top-20">

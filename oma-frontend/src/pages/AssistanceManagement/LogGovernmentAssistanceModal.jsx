@@ -77,7 +77,7 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess, memberUrl = null }) 
         const activeRows = memberUrl
           ? rows.map((m) => ({
             id: m.fisherfolk, full_name: m.fisherfolk_full_name,
-            lgu_registration_number: m.fisherfolk_lgu_number, barangay: m.fisherfolk_barangay,
+            rsbsa_number: m.fisherfolk_rsbsa_number, barangay: m.fisherfolk_barangay,
           }))
           : rows.filter((ff) => ff?.is_active !== false)
         if (mounted) setFfResults(activeRows)
@@ -97,7 +97,7 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess, memberUrl = null }) 
       const firstName = (ff.first_name || '').toLowerCase()
       const middleName = (ff.middle_name || '').toLowerCase()
       const lastName = (ff.last_name || '').toLowerCase()
-      const lgu = (ff.lgu_registration_number || '').toLowerCase()
+      const rsbsa = (ff.rsbsa_number || '').toLowerCase()
       const barangay = (ff.barangay || '').toLowerCase()
       return (
         fullName.includes(q)
@@ -107,7 +107,7 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess, memberUrl = null }) 
         || `${firstName} ${middleName} ${lastName}`.replace(/\s+/g, ' ').trim().includes(q)
         || `${firstName} ${lastName}`.trim().includes(q)
         || `${lastName} ${firstName}`.trim().includes(q)
-        || lgu.includes(q)
+        || rsbsa.includes(q)
         || barangay.includes(q)
       )
     })
@@ -244,7 +244,7 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess, memberUrl = null }) 
               if (!val.trim()) setSelectedFisherfolk(null)
             }}
             onFocus={() => setIsDropdownOpen(true)}
-            placeholder="Search by name or LGU registration number"
+            placeholder="Search by name or RSBSA number"
           />
           {isDropdownOpen && (
             <div className="absolute left-0 right-0 mt-1 max-h-52 overflow-auto rounded-xl border border-slate-200 bg-white shadow-sm z-20">
@@ -264,7 +264,7 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess, memberUrl = null }) 
                   >
                     <div className="text-sm font-medium text-slate-700">{ff.full_name || `${ff.first_name || ''} ${ff.last_name || ''}`.trim()}</div>
                     <div className="text-xs text-slate-500">
-                      LGU: {ff.lgu_registration_number || '—'} • {ff.barangay || 'No barangay'}
+                      RSBSA: {ff.rsbsa_number || '—'} • {ff.barangay || 'No barangay'}
                     </div>
                   </button>
                 ))

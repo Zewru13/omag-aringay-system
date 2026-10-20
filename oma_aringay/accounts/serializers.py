@@ -116,7 +116,6 @@ class UserSerializer(serializers.ModelSerializer):
                 # Farmer — Farmer has no such columns, and emitting null keys
                 # for them would invite the frontend to render empty rows.
                 data['fishr_number'] = record.fishr_number
-                data['lgu_registration_number'] = record.lgu_registration_number
                 data['fisherfolk_type'] = record.fisherfolk_type
             # Batch (profile self-service): the raw name parts are needed
             # because a change request is filed per part, not against the
