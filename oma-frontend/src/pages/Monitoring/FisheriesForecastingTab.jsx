@@ -1,9 +1,8 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import {
-  AlertTriangle, BarChart2, ChevronDown, ChevronRight, Download, FileText,
-  Info, Plus, Search, TrendingUp, Upload, User,
+  BarChart2, ChevronDown, ChevronRight, Download, FileText,
+  Info, Search, TrendingUp, User,
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import BARANGAYS from '../../constants/barangays.js'
 import DataTable from '../../components/UI/DataTable.jsx'
@@ -155,63 +154,6 @@ function StockingForecastDetailModal({ record, onClose, onUpdated }) {
 }
 
 const labelCls = 'text-[10px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8]'
-
-// ── Import Errors Modal (mirrors ImportErrorsModal in crop's ForecastingPage.jsx) ──
-
-function StockingImportErrorsModal({ errors, duplicates = [], created, onClose }) {
-  const hasIssues = errors.length > 0 || duplicates.length > 0
-  return (
-    <ModalShell
-      title="Import Results"
-      subtitle={`${created} record${created !== 1 ? 's' : ''} created`}
-      icon={AlertTriangle}
-      onClose={onClose}
-      maxWidth="max-w-lg"
-    >
-      {!hasIssues ? (
-        <p className="text-sm text-[#1B4D2E] font-medium py-2">All rows imported successfully.</p>
-      ) : (
-        <div className="space-y-4 max-h-72 overflow-y-auto pr-1">
-          {duplicates.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-[12px] text-[#7A8E7A]">
-                {duplicates.length} row{duplicates.length !== 1 ? 's' : ''} skipped as duplicate{duplicates.length !== 1 ? 's' : ''} — not created:
-              </p>
-              {duplicates.map((d, i) => (
-                <div key={i} className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-                  <span className="text-xs font-semibold text-amber-700 shrink-0">Row {d.row}</span>
-                  <span className="text-xs text-amber-800">{d.error}</span>
-                </div>
-              ))}
-            </div>
-          )}
-          {errors.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-[12px] text-[#7A8E7A]">{errors.length} row{errors.length !== 1 ? 's' : ''} had errors:</p>
-              {errors.map((e, i) => (
-                <div key={i} className="flex items-start gap-2 rounded-lg border border-rose-100 bg-rose-50 px-3 py-2">
-                  <span className="text-xs font-semibold text-rose-600 shrink-0">Row {e.row}</span>
-                  <span className="text-xs text-rose-700">{e.error}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-      <div className="flex justify-end pt-4 border-t border-[#F0F4F0] mt-4">
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38]"
-        >
-          Close
-        </button>
-      </div>
-    </ModalShell>
-  )
-}
-
-// ── Fisherfolk Search Filter (debounced, same pattern used elsewhere in the app) ──
 
 function FisherfolkFilterInput({ selected, onSelect }) {
   const [query, setQuery] = useState('')
@@ -896,7 +838,6 @@ function AggregatePanel({ groupBy, setGroupBy, groups, overall, cycleTrend, isLo
 // ── Forecasting Tab (fisheries yield analysis) ───────────────────────────────
 
 export default function ForecastingTab({ asTab = false }) {
-  const navigate = useNavigate()
   const { showToast } = useToast()
   // Fisherfolk accounts use this same page; the backend returns only their own records.
   const { isFisherfolk } = useAuth()
@@ -917,14 +858,11 @@ export default function ForecastingTab({ asTab = false }) {
   const [fcDetail,         setFcDetail]         = useState(null)
   const [varianceRec,      setVarianceRec]      = useState(null)   // row whose Harvest Variance Details is open
   const [timingRec,        setTimingRec]        = useState(null)   // row whose Harvest Timing Details is open
-  const [fcImporting,      setFcImporting]      = useState(false)
-  const [fcImportResults,  setFcImportResults]  = useState(null)
   const [fcView,           setFcView]           = useState('flat') // 'flat' | 'grouped'
   const [fcGrouped,        setFcGrouped]        = useState([])
   const [fcGroupedLoading, setFcGroupedLoading] = useState(false)
   const [fcSpeciesFilter,  setFcSpeciesFilter]  = useState('')
   const [fcBarangayFilter, setFcBarangayFilter] = useState('')
-  const fcFileInputRef = useRef(null)
 
   const fetchForecastRecords = useCallback(async (pageNum = 1, isCancelled = () => false) => {
     setFcLoading(true); setFcError('')
@@ -1001,34 +939,6 @@ export default function ForecastingTab({ asTab = false }) {
     return () => { cancelled = true }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fcView, fcBarangayFilter, fcSpeciesFilter, fcSearchDebounced])
-
-  const handleFcDownloadTemplate = async () => {
-    try {
-      await downloadFile(api, '/fisheries/stocking/forecasting/template/', 'stocking_forecasting_template.xlsx')
-    } catch {
-      showToast('Failed to download template.', 'error')
-    }
-  }
-
-  const handleFcImportFile = async (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    e.target.value = ''
-    setFcImporting(true)
-    try {
-      const formData = new FormData()
-      formData.append('file', file)
-      const r = await api.post('/fisheries/stocking/forecasting/import/', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
-      setFcImportResults(r.data)
-      if (r.data.created > 0) fetchForecastRecords(fcPage)
-    } catch (err) {
-      showToast(err?.response?.data?.error || 'Import failed.', 'error')
-    } finally {
-      setFcImporting(false)
-    }
-  }
 
   // Both views are searched server-side (name, RSBSA, species, barangay), so they always agree.
   const fcFiltered = fcRecords
@@ -1437,19 +1347,8 @@ export default function ForecastingTab({ asTab = false }) {
 
   const forecastContent = (
     <div className="space-y-4">
-      {/* The spreadsheet picker behind Import Excel (staff only). */}
-      {!isFisherfolk && (
-        <input
-          ref={fcFileInputRef}
-          type="file"
-          accept=".xlsx,.xls,.csv"
-          className="hidden"
-          onChange={handleFcImportFile}
-        />
-      )}
-
-      {/* Search, filters and the stocking tools are staff tools; a fisherfolk account sees only its own stockings
-          (and starts its cycles from Aquaculture Monitoring), so it gets the plain table (fcView stays 'flat'). */}
+      {/* Search and filters are staff tools; a fisherfolk account sees only its own stockings (and starts its
+          cycles from Aquaculture Monitoring), so it gets the plain table (fcView stays 'flat'). */}
       {!isFisherfolk && (
       <FilterPanel
         className=""
@@ -1457,38 +1356,6 @@ export default function ForecastingTab({ asTab = false }) {
         onSearchChange={setFcSearch}
         searchPlaceholder="Search by fisherfolk, species, or barangay..."
         activeCount={[Boolean(fcBarangayFilter), Boolean(fcSpeciesFilter)].filter(Boolean).length}
-        actions={(
-          <>
-            <button
-              type="button"
-              onClick={handleFcDownloadTemplate}
-              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#E2E8E2] px-4 py-2 text-[13px] font-medium text-[#1B4D2E] transition-colors hover:bg-[#F0F4F0]"
-            >
-              <Download className="h-4 w-4" />
-              Import Template
-            </button>
-            <button
-              type="button"
-              disabled={fcImporting}
-              onClick={() => fcFileInputRef.current?.click()}
-              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#E2E8E2] px-4 py-2 text-[13px] font-medium text-[#1B4D2E] transition-colors hover:bg-[#F0F4F0] disabled:opacity-60"
-            >
-              {fcImporting
-                ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#1B4D2E] border-t-transparent" />
-                : <Upload className="h-4 w-4" />
-              }
-              {fcImporting ? 'Importing…' : 'Import Stockings'}
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/fisheries-monitoring/add')}
-              className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38]"
-            >
-              <Plus className="h-4 w-4" />
-              Add Stocking
-            </button>
-          </>
-        )}
       >
         <select className={filterSelectCls} value={fcSpeciesFilter} onChange={e => setFcSpeciesFilter(e.target.value)} aria-label="Species">
           <option value="">All species</option>
@@ -1634,15 +1501,6 @@ export default function ForecastingTab({ asTab = false }) {
           record={fcDetail}
           onClose={() => setFcDetail(null)}
           onUpdated={() => fetchForecastRecords(fcPage)}
-        />
-      )}
-
-      {fcImportResults && (
-        <StockingImportErrorsModal
-          created={fcImportResults.created}
-          errors={fcImportResults.errors}
-          duplicates={fcImportResults.duplicates}
-          onClose={() => setFcImportResults(null)}
         />
       )}
     </div>

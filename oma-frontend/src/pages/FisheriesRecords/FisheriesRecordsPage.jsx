@@ -1,9 +1,8 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import useDebouncedValue from '../../hooks/useDebouncedValue.js'
-import { AlertTriangle, ChevronDown, ChevronRight, Eye, Fish, HelpCircle, Layers, Lock, Pencil, Trash2, Unlock, Upload, Wheat } from 'lucide-react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { AlertTriangle, ChevronDown, ChevronRight, Eye, Fish, HelpCircle, Layers, Lock, Pencil, Trash2, Unlock, Wheat } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
-import ImportFileModal from '../../components/ImportFileModal.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
@@ -1023,7 +1022,6 @@ function StockingMobileCard({ row, expanded, unitsState, onToggle, onRetryUnits,
 
 export default function FisheriesRecordsPage({ asTab = false }) {
   const { user, isFisherfolk } = useAuth()
-  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { showToast } = useToast()
   const [records,      setRecords]      = useState([])
@@ -1047,7 +1045,6 @@ export default function FisheriesRecordsPage({ asTab = false }) {
   const [viewLogsRec,  setViewLogsRec]  = useState(null)
   const [disasterRec,  setDisasterRec]  = useState(null)
   const [harvestRec,   setHarvestRec]   = useState(null)
-  const [showImportModal, setShowImportModal] = useState(false)
   const [showStartCycle, setShowStartCycle] = useState(false)
   const [viewingCycle,   setViewingCycle]   = useState(null)
   const [forceUnitView,  setForceUnitView]  = useState(null)   // { rec, units } for an HP/HC badge group
@@ -1072,13 +1069,6 @@ export default function FisheriesRecordsPage({ asTab = false }) {
       showToast(err?.response?.data?.detail || 'Failed to refresh production cycle.', 'error')
     }
   }
-
-  // Handle ?action=add from fisheries monitoring "Add Stocking" button —
-  // the bulk-entry form moved to its own full-screen route, this just
-  // forwards any existing deep link there.
-  useEffect(() => {
-    if (searchParams.get('action') === 'add') navigate('/fisheries-monitoring/add', { replace: true })
-  }, [])
 
   // ?cycle=<id> (a Fisheries notification link): open that production cycle's existing details. The cycle
   // endpoint applies the usual ownership rules, so a fisherfolk can only ever open their own cycle.
@@ -1271,16 +1261,6 @@ export default function FisheriesRecordsPage({ asTab = false }) {
   const innerContent = (
     <div className="space-y-4">
       <div className="flex justify-end gap-2">
-        {/* Bulk spreadsheet import is a staff tool (staff-only endpoint); a fisherfolk starts cycles below. */}
-        {!isFisherfolk && (
-          <button
-            type="button"
-            className="flex items-center gap-1.5 rounded-lg border border-[#E2E8E2] px-4 py-2 text-[13px] font-medium text-[#1B4D2E] hover:bg-[#F0F4F0] transition-colors"
-            onClick={() => setShowImportModal(true)}
-          >
-            <Upload size={15} /> Import File
-          </button>
-        )}
         <button
           type="button"
           className={`flex items-center gap-1.5 rounded-lg border border-[#E2E8E2] px-4 py-2 text-[13px] font-medium text-[#1B4D2E] hover:bg-[#F0F4F0] transition-colors ${isFisherfolk ? 'min-h-[44px] w-full justify-center md:min-h-0 md:w-auto' : ''}`}
@@ -1498,20 +1478,6 @@ export default function FisheriesRecordsPage({ asTab = false }) {
           // A saved/deleted Health Log can start or clear Force Harvest: reload the rows so the
           // existing fishing-net button reflects it without a manual page reload.
           onHealthChanged={() => fetchRecords(page)}
-        />
-      )}
-
-      {showImportModal && (
-        <ImportFileModal
-          title="Import Stocking Records"
-          subtitle="Upload a spreadsheet to log multiple stocking events at once."
-          importUrl="/fisheries/stocking/forecasting/import/"
-          templateUrl="/fisheries/stocking/forecasting/template/"
-          templateFilename="stocking_forecasting_template.xlsx"
-          undoType="stocking"
-          helpText="Each row logs one stocking event for a fisherfolk. Fisherfolk + Species + Date Stocked identifies duplicates."
-          onClose={() => setShowImportModal(false)}
-          onImported={() => fetchRecords(page)}
         />
       )}
     </div>

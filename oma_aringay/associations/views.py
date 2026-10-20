@@ -1205,7 +1205,7 @@ class FisherfolkOrganizationDistributeAssistanceView(APIView):
 # above (one endpoint, `dry_run` truthy => preview only, falsy => commit) and
 # the same two-pass in-file-then-database duplicate detection already
 # shipped for Crop/Fisheries Forecasting's imports (production/views.py
-# ForecastingImportView, fisheries/views.py StockingForecastingImportView).
+# ForecastingImportView).
 # Identity is the organization's own `registration_number` — already
 # unique=True on both models. blank=True on FisherfolkOrganization means the
 # model itself would allow a blank value, but this import requires a

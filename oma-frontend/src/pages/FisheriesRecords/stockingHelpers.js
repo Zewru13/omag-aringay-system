@@ -1,7 +1,5 @@
-// Small pure helpers shared between FisheriesRecordsPage.jsx (the list view
-// and EditStockingModal) and AddStockingPage.jsx (the full-screen bulk-entry
-// page) — split out so the bulk-entry page didn't need to reach back into
-// the list-page file for four unrelated-looking functions.
+// Small pure helpers shared by FisheriesRecordsPage.jsx (the list view and EditStockingModal) and
+// StartProductionCycleModal.jsx.
 
 // Whole calendar days from YYYY-MM-DD `a` to `b` (UTC arithmetic, so no timezone/DST drift).
 function daysBetween(a, b) {
