@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Download, Eye, Plus, Printer, Users } from 'lucide-react'
+import { Download, Eye, Plus, Printer, Users } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
@@ -10,7 +10,7 @@ import { disasterStatusLabel } from './disasterRecovery.js'
 import { groupDisasterRows } from './disasterGroups.js'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import FormField from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
@@ -18,7 +18,7 @@ import SearchBar from '../../components/UI/SearchBar.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { fmtLong } from '../FisheriesRecords/stockingHelpers.js'
-import { DisasterReportModal as CropDisasterReportModal } from './CropMonitoringPage.jsx'
+import { ChooseCropsModal, MultiCropDisasterModal } from './MultiCropDisaster.jsx'
 import DisasterLogDetailsModal from './DisasterLogDetailsModal.jsx'
 import { FARMER_LOG, FISHERIES_LOG, downloadLog, fetchAllStocks, printLog } from './disasterReportDocument.js'
 import { FISHERFOLK_DISASTER_TYPES } from './fisheriesDisasterConstants.js'
@@ -37,7 +37,6 @@ const YEARS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - i)
 const CROP_TYPES = ['Drought', 'Flood', 'Typhoon', 'Strong Winds', 'Pest Outbreak', 'Other']
 const SUBMISSION_TONES = { SUBMITTED: 'green', DRAFT: 'amber' }
 const STATUS_TONES = { Active: 'amber', Recovered: 'green' }
-const GENERAL = 'general'
 
 const fmtDateTime = (v) => (v ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(v)) : '—')
 const listOf = (data) => (Array.isArray(data) ? data : (data?.results || []))
@@ -121,32 +120,6 @@ function ChoosePersonModal({ title, label, searchUrl, onClose, onChoose }) {
         ))}
         {!shown.length && <li className="px-4 py-3 text-sm text-slate-400">{query.trim() ? 'No matches.' : 'Type a name to search.'}</li>}
       </ul>
-    </ModalShell>
-  )
-}
-
-// Step 2: choose what was affected (the person's stock / crop record).
-function ChooseRecordModal({ title, person, label, options, allowGeneral, blockedMessage, onBack, onClose, onChoose }) {
-  const [choice, setChoice] = useState('')
-  const chosen = blockedMessage ? null : (choice === GENERAL ? GENERAL : options?.find(o => String(o.id) === choice))
-  return (
-    <ModalShell title={title} subtitle={`Step 2 of 3 — ${person.full_name}`} icon={AlertTriangle} onClose={onClose} maxWidth="max-w-md"
-      footer={<>
-        <Button type="button" variant="outline" onClick={onBack}>Back</Button>
-        <Button type="button" disabled={!chosen} onClick={() => chosen && onChoose(chosen)}>Continue</Button>
-      </>}>
-      {options === null ? <p className="text-sm text-slate-500">Loading…</p> : blockedMessage ? (
-        <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm text-rose-700" data-testid="disaster-blocked">{blockedMessage}</p>
-      ) : (
-        <FormField label={label} required>
-          <select className={baseInputClasses} value={choice} onChange={e => setChoice(e.target.value)}>
-            <option value="">Select…</option>
-            {options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-            {allowGeneral && <option value={GENERAL}>Not linked to a stock (pond, cage or equipment damage only)</option>}
-          </select>
-          {options.length === 0 && !allowGeneral && <p className="mt-2 text-xs text-rose-600">This person has no active records to log a disaster on.</p>}
-        </FormField>
-      )}
     </ModalShell>
   )
 }
@@ -343,13 +316,15 @@ function FarmerDisasterTab() {
         <ChoosePersonModal title="Log Farmer Disaster" label="Farmer" searchUrl="/farmers/" onClose={() => setStep(null)} onChoose={choosePerson} />
       )}
       {step?.name === 'record' && (
-        <ChooseRecordModal title="Log Farmer Disaster" person={step.person} label="Affected Crop" options={step.options}
+        <ChooseCropsModal title="Log Farmer Disaster" subtitle={`Step 2 of 3 — ${step.person.full_name}: choose the affected crops`} crops={step.options}
           onBack={() => setStep({ name: 'person' })} onClose={() => setStep(null)}
-          onChoose={(record) => setStep({ name: 'form', person: step.person, record })} />
+          onContinue={(chosen) => setStep({ name: 'form', person: step.person, options: step.options, crops: chosen })} />
       )}
       {step?.name === 'form' && (
-        // The existing crop disaster form, unchanged (it posts to /production/monitoring/<id>/disasters/).
-        <CropDisasterReportModal record={step.record} onClose={() => setStep(null)} onSuccess={() => setVersion(v => v + 1)} />
+        // One form for every chosen crop (it posts to /production/disasters/multi/, one report per crop).
+        <MultiCropDisasterModal crops={step.crops}
+          onBack={() => setStep({ name: 'record', person: step.person, options: step.options })}
+          onClose={() => setStep(null)} onSuccess={() => setVersion(v => v + 1)} />
       )}
     </div>
   )

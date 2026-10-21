@@ -410,7 +410,9 @@ class CropDisasterReportSerializer(serializers.ModelSerializer):
             })
 
         area_affected_ha = data.get('area_affected_ha')
-        monitoring_record = data.get('monitoring_record')
+        # The crop comes from the request body, from the multi-crop endpoint (which validates one crop at a time and
+        # passes it in the context), or from the single-crop endpoint's URL below.
+        monitoring_record = data.get('monitoring_record') or self.context.get('monitoring_record')
         if not monitoring_record:
             monitoring_id = self.context.get('view').kwargs.get('monitoring_id') if self.context.get('view') else None
             if monitoring_id:
