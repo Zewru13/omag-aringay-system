@@ -62,13 +62,14 @@ function usePagedLogs(url, filters, version) {
   return state
 }
 
-function Filters({ search, setSearch, barangay, setBarangay, type, setType, types, status, setStatus, year, setYear, placeholder }) {
+function Filters({ search, setSearch, barangay, setBarangay, type, setType, types, status, setStatus, year, setYear, placeholder, actions }) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="flex min-w-[260px] flex-1 items-center rounded-xl border border-slate-300 bg-white">
-        <SearchBar value={search} onChange={setSearch} placeholder={placeholder} />
-      </div>
-      <FilterPanel activeCount={[barangay, type, status, year].filter(Boolean).length}>
+    <FilterPanel
+      className=""
+      search={search} onSearchChange={setSearch} searchPlaceholder={placeholder}
+      actions={actions}
+      activeCount={[barangay, type, status, year].filter(Boolean).length}
+    >
         <div className="w-48"><BarangaySelect value={barangay} onChange={e => setBarangay(e.target.value)} includeAllOption /></div>
         <select className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm" value={type} onChange={e => setType(e.target.value)} aria-label="Disaster type">
           <option value="">All Disaster Types</option>
@@ -83,8 +84,7 @@ function Filters({ search, setSearch, barangay, setBarangay, type, setType, type
           <option value="">All Years</option>
           {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
-      </FilterPanel>
-    </div>
+    </FilterPanel>
   )
 }
 
@@ -224,16 +224,14 @@ function FisheriesDisasterTab({ openLog }) {
 
   return (
     <div className="space-y-4" data-testid="fisheries-disaster-tab">
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-700">Fisheries Disasters</h2>
-          <p className="text-xs text-slate-500">All fisherfolk aquaculture disaster logs, including those fisherfolk submit when they log.</p>
-        </div>
-        <Button className="shrink-0 whitespace-nowrap" onClick={() => setStep({ name: 'person' })}><Plus size={15} className="mr-1" /> Log Disaster</Button>
+      <div>
+        <h2 className="text-sm font-semibold text-slate-700">Fisheries Disasters</h2>
+        <p className="text-xs text-slate-500">All fisherfolk aquaculture disaster logs, including those fisherfolk submit when they log.</p>
       </div>
       <Filters search={search} setSearch={setFilter(setSearch)} barangay={barangay} setBarangay={setFilter(setBarangay)}
         type={type} setType={setFilter(setType)} types={FISHERFOLK_DISASTER_TYPES} status={status} setStatus={setFilter(setStatus)}
-        year={year} setYear={setFilter(setYear)} placeholder="Search fisherfolk, species, disaster or reference no.…" />
+        year={year} setYear={setFilter(setYear)} placeholder="Search fisherfolk, species, disaster or reference no.…"
+        actions={<Button className="shrink-0 whitespace-nowrap" onClick={() => setStep({ name: 'person' })}><Plus size={15} className="mr-1" /> Log Disaster</Button>} />
       {error ? <ErrorMessage message={error} /> : (
         <>
           <GroupedDisasterTable personLabel="Fisherfolk" groups={groups} isLoading={isLoading} onOpen={(row) => openLog(row.id)}
@@ -314,16 +312,14 @@ function FarmerDisasterTab() {
 
   return (
     <div className="space-y-4" data-testid="farmer-disaster-tab">
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-700">Farmer Disasters</h2>
-          <p className="text-xs text-slate-500">All disaster logs on farmers' crop records.</p>
-        </div>
-        <Button className="shrink-0 whitespace-nowrap" onClick={() => setStep({ name: 'person' })}><Plus size={15} className="mr-1" /> Log Disaster</Button>
+      <div>
+        <h2 className="text-sm font-semibold text-slate-700">Farmer Disasters</h2>
+        <p className="text-xs text-slate-500">All disaster logs on farmers' crop records.</p>
       </div>
       <Filters search={search} setSearch={setFilter(setSearch)} barangay={barangay} setBarangay={setFilter(setBarangay)}
         type={type} setType={setFilter(setType)} types={CROP_TYPES} status={status} setStatus={setFilter(setStatus)}
-        year={year} setYear={setFilter(setYear)} placeholder="Search farmer, crop, disaster or reference no.…" />
+        year={year} setYear={setFilter(setYear)} placeholder="Search farmer, crop, disaster or reference no.…"
+        actions={<Button className="shrink-0 whitespace-nowrap" onClick={() => setStep({ name: 'person' })}><Plus size={15} className="mr-1" /> Log Disaster</Button>} />
       {error ? <ErrorMessage message={error} /> : (
         <>
           <GroupedDisasterTable personLabel="Farmer" groups={groups} isLoading={isLoading} onOpen={(row) => setViewingId(row.id)}
