@@ -714,7 +714,14 @@ class CropMonitoringDetailSerializer(CropMonitoringRecordSerializer):
         ]
 
 
+# The unit a harvest is measured in: one of the standard codes (kg, bags, cavan, ...) or one of the units the harvested
+# crop allows in Crop Options ("Cavan (50kg)", "Sack", "Metric Ton", ...). Checked in _validate_harvest_record().
+def _harvest_unit_field():
+    return serializers.CharField(max_length=20, required=False, allow_blank=True)
+
+
 class HarvestRecordSerializer(serializers.ModelSerializer):
+    unit_of_measure = _harvest_unit_field()
     farmer_name = serializers.SerializerMethodField()
     rsbsa_number = serializers.SerializerMethodField()
     barangay = serializers.SerializerMethodField()
@@ -787,6 +794,13 @@ def _validate_harvest_record(data, instance):
 
     monitoring_record = data.get('monitoring_record', getattr(instance, 'monitoring_record', None))
 
+    unit = data.get('unit_of_measure')
+    if unit:
+        standard = {code for code, _label in HarvestRecord.UNIT_OF_MEASURE_CHOICES}
+        crop_units = (monitoring_record.crop_type.allowed_units or []) if monitoring_record and monitoring_record.crop_type_id else []
+        if unit not in standard and unit not in crop_units:
+            raise serializers.ValidationError({'unit_of_measure': f'"{unit}" is not a unit this crop is harvested in.'})
+
     # The parcel must be one of the crop's own farmer: otherwise a harvest could carry someone else's parcel, and
     # the harvest detail would show that parcel owner's name and RSBSA number to whoever can read the harvest.
     parcel = data.get('farm_parcel', getattr(instance, 'farm_parcel', None))
@@ -812,6 +826,7 @@ def _validate_harvest_record(data, instance):
 
 
 class HarvestRecordCreateSerializer(serializers.ModelSerializer):
+    unit_of_measure = _harvest_unit_field()
     farm_parcel = serializers.PrimaryKeyRelatedField(
         queryset=FarmParcel.objects.all(),
         required=False, allow_null=True,
