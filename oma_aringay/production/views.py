@@ -820,7 +820,9 @@ class CropMonitoringListCreateView(generics.ListCreateAPIView):
             qs = qs.filter(status__in=statuses)
         else:
             qs = qs.exclude(status=CropMonitoringRecord.Status.TOTAL_LOSS)
-        if params.get('farm_parcel'):
+        if params.get('farm_parcel') == 'none':
+            qs = qs.filter(farm_parcel__isnull=True)       # the records no parcel is on file for
+        elif params.get('farm_parcel'):
             qs = qs.filter(farm_parcel_id=params['farm_parcel'])
         if params.get('farmer'):
             qs = qs.filter(farmer_id=params['farmer'])
