@@ -31,6 +31,7 @@ import { groupActivityOptions, overdueStepDay } from '../../utils/activityPicker
 import { cycleProgress, filterCycleActivities } from '../../utils/cycleActivity.js'
 import { todayISO as localToday } from '../../utils/localDate.js'
 import CycleDayBanner from '../../components/UI/CycleDayBanner.jsx'
+import CropDetailsModal from './CropDetailsModal.jsx'
 import GroupedMonitoringTable from './GroupedMonitoringTable.jsx'
 import { DEFAULT_GROUP, GROUP_OPTIONS, monitoringParams } from './monitoringGroups.js'
 import { printSpec } from './disasterReportDocument.js'
@@ -2092,6 +2093,7 @@ export default function CropMonitoringPage() {
   const [groupBy,          setGroupBy]          = useState(DEFAULT_GROUP)
   const [version,          setVersion]          = useState(0)
   const [viewLogsRecord,   setViewLogsRecord]   = useState(null)
+  const [detailsRecord,    setDetailsRecord]    = useState(null)   // the read-only crop details window
   const [logsStartForm,    setLogsStartForm]    = useState(false)   // open the logs window on the add-activity form
   const [disasterRecord,   setDisasterRecord]   = useState(null)
   const [harvestRecord,    setHarvestRecord]    = useState(null)
@@ -2111,7 +2113,7 @@ export default function CropMonitoringPage() {
     if (!linkedRecordId) return undefined
     let cancelled = false
     api.get(`/production/monitoring/${linkedRecordId}/`)
-      .then(r => { if (!cancelled) setViewLogsRecord(r.data) })
+      .then(r => { if (!cancelled) setDetailsRecord(r.data) })
       .catch(() => {})
     return () => { cancelled = true }
   }, [linkedRecordId])
@@ -2228,7 +2230,7 @@ export default function CropMonitoringPage() {
           rec.status !== 'Total Loss' && rec.status !== 'Harvested' && {
             key: 'activity', label: 'Record Activity', icon: ClipboardList, onClick: () => { setLogsStartForm(true); setViewLogsRecord(rec) },
           },
-          { key: 'logs', label: 'View Crop Details', icon: Eye, onClick: () => { setLogsStartForm(false); setViewLogsRecord(rec) } },
+          { key: 'details', label: 'View Crop Details', icon: Eye, onClick: () => setDetailsRecord(rec) },
           rec.status !== 'Total Loss' && rec.status !== 'Harvested' && (() => {
             const gate = harvestGateInfo(rec)
             return {
@@ -2391,6 +2393,24 @@ export default function CropMonitoringPage() {
         />
         </>)}
       </div>
+
+      {detailsRecord && (
+        <CropDetailsModal
+          record={detailsRecord}
+          onClose={() => setDetailsRecord(null)}
+          onAction={(action) => {
+            const rec = detailsRecord
+            setDetailsRecord(null)
+            if (action === 'activity') { setLogsStartForm(true); setViewLogsRecord(rec) }
+            else if (action === 'disaster') setDisasterRecord(rec)
+            else if (action === 'harvest') {
+              const gate = harvestGateInfo(rec)
+              if (gate.gated) showToast(gate.message, 'error')
+              else setHarvestRecord(rec)
+            }
+          }}
+        />
+      )}
 
       {viewLogsRecord && (
         <ViewLogsModal
