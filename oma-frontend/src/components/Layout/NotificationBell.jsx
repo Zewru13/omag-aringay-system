@@ -27,6 +27,8 @@ const STAFF_ROUTES = {
   // Fisheries production-cycle events (record_id = the production cycle): open that cycle's details.
   fisheries_cycle_started: (id) => `/fisheries-monitoring?tab=stocking${id ? `&cycle=${id}` : ''}`,
   fisheries_force_harvest: (id) => `/fisheries-monitoring?tab=stocking${id ? `&cycle=${id}` : ''}`,
+  // The emergency Force Harvest (record_id = the saved harvest): opens its details window.
+  fisheries_emergency_force_harvest: (id) => `/fisheries-monitoring?tab=stocking${id ? `&forced=${id}` : ''}`,
   fisheries_harvest_reminder_7d: (id) => `/fisheries-monitoring?tab=stocking${id ? `&cycle=${id}` : ''}`,
   fisheries_harvest_reminder_3d: (id) => `/fisheries-monitoring?tab=stocking${id ? `&cycle=${id}` : ''}`,
   beneficiary: '/crop-assistance?tab=needs-follow-up',
@@ -48,6 +50,7 @@ const FISHERFOLK_RECORD_TYPE_ROUTES = {
   fisherfolk_disaster: '/disaster',
   fisheries_cycle_started: (id) => `/fisheries-monitoring${id ? `?cycle=${id}` : ''}`,
   fisheries_force_harvest: (id) => `/fisheries-monitoring${id ? `?cycle=${id}` : ''}`,
+  fisheries_emergency_force_harvest: (id) => `/fisheries-monitoring${id ? `?forced=${id}` : ''}`,
   fisheries_harvest_reminder_7d: (id) => `/fisheries-monitoring${id ? `?cycle=${id}` : ''}`,
   fisheries_harvest_reminder_3d: (id) => `/fisheries-monitoring${id ? `?cycle=${id}` : ''}`,
 }
@@ -56,6 +59,7 @@ const FISHERFOLK_RECORD_TYPE_ROUTES = {
 const RECORD_TYPE_TITLES = {
   fisheries_cycle_started: 'Production Cycle Started',
   fisheries_force_harvest: 'Force Harvest Recorded',
+  fisheries_emergency_force_harvest: 'Emergency Force Harvest Recorded',
   fisheries_harvest_reminder_7d: 'Harvest in 7 Days',
   fisheries_harvest_reminder_3d: 'Harvest in 3 Days',
   fisheries_disaster_report: 'New Fisherfolk Disaster Report',

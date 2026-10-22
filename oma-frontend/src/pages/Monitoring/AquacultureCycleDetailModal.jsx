@@ -12,6 +12,7 @@ import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { cycleProgress } from '../../utils/cycleActivity.js'
 import { todayISO as localToday } from '../../utils/localDate.js'
+import { ForcedHarvestLabel } from '../FisheriesRecords/ForcedHarvestDetails.jsx'
 
 const labelCls = 'block text-xs font-medium text-slate-600'
 const CYCLE_STATUS_TONES = { Active: 'green', Harvested: 'blue', Failed: 'rose', Abandoned: 'slate' }
@@ -118,6 +119,20 @@ function InfoField({ label, value }) {
 function CycleInfoTab({ cycle, onRefresh }) {
   const { showToast } = useToast()
   const [editMode, setEditMode] = useState(false)
+  // The emergency Force Harvests saved for this cycle (read from the database): unit id -> harvest id, for the FORCED HARVEST label.
+  const [forcedByUnit, setForcedByUnit] = useState({})
+  useEffect(() => {
+    let alive = true
+    api.get('/fisheries/force-harvest/', { params: { production_cycle: cycle.id } })
+      .then(r => {
+        if (!alive) return
+        const map = {}
+        ;(r.data.harvests || []).forEach(h => h.units.forEach(u => { map[u.id] = h.id }))
+        setForcedByUnit(map)
+      })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [cycle.id, cycle.status])
   const [form, setForm] = useState({
     status: cycle.status,
     actual_harvest_date: cycle.actual_harvest_date || '',
@@ -223,7 +238,10 @@ function CycleInfoTab({ cycle, onRefresh }) {
                 return (
                   <li key={u.id} className="py-2 text-sm">
                     <div className="flex items-center justify-between">
-                      <span className="font-medium text-slate-800">{label} {u.unit_number}</span>
+                      <span className="flex items-center gap-2 font-medium text-slate-800">
+                        {label} {u.unit_number}
+                        {forcedByUnit[u.id] && <ForcedHarvestLabel harvestId={forcedByUnit[u.id]} />}
+                      </span>
                       <span className="text-slate-600">
                         {hasDims ? `${fmt(u.length_m)}m × ${fmt(u.width_m)}m · ` : ''}{fmt(u.size_sqm)} sq.m.
                       </span>

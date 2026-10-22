@@ -1297,6 +1297,20 @@ def harvest_timing(harvest_date, estimated_harvest_date):
 
 # ─── Fisheries Harvest Record (partial harvests) ──────────────────────────────
 
+# Why an emergency Force Harvest (the Aquaculture Monitoring ⋮ menu > Force Harvest) was done. Exactly these six, no
+# "Other": the reason is the only justification that workflow collects. Stored in
+# FisheriesHarvestRecord.force_harvest_reason; blank on every other harvest record.
+EMERGENCY_FORCE_HARVEST_REASONS = [
+    ('upcoming_typhoon', 'Upcoming Typhoon'),
+    ('super_typhoon', 'Super Typhoon'),
+    ('el_nino', 'El Niño'),
+    ('drought', 'Drought'),
+    ('possible_flooding', 'Possible Flooding'),
+    ('pest_or_virus', 'Fish Pest or Virus Spreading'),
+]
+EMERGENCY_FORCE_HARVEST_REASON_LABELS = dict(EMERGENCY_FORCE_HARVEST_REASONS)
+
+
 class FisheriesHarvestRecord(models.Model):
     stocking_record         = models.ForeignKey(StockingRecord, on_delete=models.CASCADE, related_name='harvests')
     harvest_date            = models.DateField()
@@ -1317,6 +1331,12 @@ class FisheriesHarvestRecord(models.Model):
     # True only for a Force Harvest (every listed unit was awaiting Force Harvest per its own Health Log).
     # Set by the serializer, never by the client. A normal harvest - with or without units - is False.
     is_force_harvest        = models.BooleanField(default=False)
+    # Emergency Force Harvest (Aquaculture Monitoring ⋮ menu): why. Blank for every other harvest, including the
+    # Health Log Force Harvest above (which never sets this and keeps is_force_harvest). Set only by the
+    # force-harvest endpoint (fisheries/emergency_force_harvest.py), never by the client through the harvest form.
+    force_harvest_reason    = models.CharField(
+        max_length=20, blank=True, default='', choices=EMERGENCY_FORCE_HARVEST_REASONS,
+    )
     notes                  = models.TextField(blank=True)
     recorded_by             = models.ForeignKey(
         settings.AUTH_USER_MODEL,

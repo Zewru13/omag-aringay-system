@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import useDebouncedValue from '../../hooks/useDebouncedValue.js'
-import { AlertTriangle, ChevronDown, ChevronRight, Eye, Fish, HelpCircle, Layers, Lock, Pencil, Printer, Trash2, Unlock, Wheat } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronRight, Eye, Fish, HelpCircle, Layers, Lock, Pencil, Printer, Trash2, Unlock, Wheat, Zap } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import RowActions from '../../components/UI/RowActions.jsx'
@@ -36,6 +36,9 @@ import PcicBadge from '../../components/UI/PcicBadge.jsx'
 import Button from '../../components/UI/Button.jsx'
 import { printSpec } from '../Monitoring/disasterReportDocument.js'
 import { buildForceHarvestSpec, forceHarvestRows, forceHarvestTable } from './forceHarvestTable.js'
+import ForceHarvestModal from './ForceHarvestModal.jsx'
+import { ForcedHarvestDetailsModal, ForcedHarvestLabel } from './ForcedHarvestDetails.jsx'
+import { canForceHarvest, cycleStatusText } from './emergencyForceHarvest.js'
 
 const filterSelectCls =
   'rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[7px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none'
@@ -44,6 +47,7 @@ const filterSelectCls =
 
 const STATUS_TONES = {
   Stocked:         'green',
+  'In Progress':   'green',   // a cycle with some ponds / cages emergency force harvested and others still growing
   'Near Harvest':  'amber',
   Late:            'rose',    // display_status only: past the expected harvest date, not yet harvested
   Harvested:       'blue',
@@ -868,7 +872,7 @@ function harvestGateInfo(rec) {
 // menu; disasters through Disaster. Evaluator accounts keep the full menu.
 function StockingRowActions({
   rec, isAdmin, isLocked, lockedByName, simplified = false,
-  onViewDetails, onEdit, onViewCycle, onViewLogs, onRecordHarvest, onReportDisaster, onForceUnlock, showToast,
+  onViewDetails, onEdit, onViewCycle, onForceHarvest, onViewLogs, onRecordHarvest, onReportDisaster, onForceUnlock, showToast,
 }) {
   const canEdit = rec.status !== 'Harvested'
   const canHarvest = rec.status !== 'Total Loss' && rec.status !== 'Harvested'
@@ -879,6 +883,9 @@ function StockingRowActions({
     { key: 'view', label: 'View Details', icon: Eye, onClick: onViewDetails, group: 'crud' },
     canEdit && { key: 'edit', label: 'Edit', icon: Pencil, onClick: onEdit, group: 'crud' },
     { key: 'cycle', label: 'View Cycle Details & Logs', icon: Layers, onClick: onViewCycle, group: 'lifecycle' },
+    // The emergency Force Harvest (reason, several cycles / ponds / cages). A separate workflow: the fishing-net button (normal
+    // harvest) and the Health Log Force Harvest are unchanged.
+    canForceHarvest(rec) && { key: 'force-harvest', label: 'Force Harvest', icon: Zap, onClick: onForceHarvest, tone: 'rose', group: 'lifecycle' },
     !simplified && { key: 'logs', label: 'View Logs', icon: Eye, onClick: onViewLogs, group: 'lifecycle' },
     !simplified && canHarvest && {
       key: 'harvest',
@@ -952,7 +959,7 @@ function CycleDetailsButton({ rec, onViewCycle }) {
 // Fisherfolk phones (< md): one card per stock instead of the wide table. Tapping the card expands its
 // ponds/cages as compact cards (same as the table row); the buttons are full-height touch targets for the
 // same actions the row menu offers (Cycle details, View Details, Edit, Record Harvest with the same gate).
-function StockingMobileCard({ row, expanded, unitsState, onToggle, onRetryUnits, onOpenCycle, onViewDetails, onEdit, onRecordHarvest }) {
+function StockingMobileCard({ row, expanded, unitsState, onToggle, onRetryUnits, onOpenCycle, onViewDetails, onEdit, onRecordHarvest, onForceHarvest }) {
   const canEdit = row.status !== 'Harvested'
   const canHarvest = row.status !== 'Total Loss' && row.status !== 'Harvested'
   const harvestGate = harvestGateInfo(row)
@@ -1023,6 +1030,11 @@ function StockingMobileCard({ row, expanded, unitsState, onToggle, onRetryUnits,
             >
               <FishingNetIcon size={16} /> Harvest
             </button>
+            {canForceHarvest(row) && (
+              <button type="button" data-testid="card-force-harvest" className={`${btn} border-red-300 text-red-600 hover:bg-red-50`} onClick={onForceHarvest}>
+                <Zap size={15} /> Force Harvest
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -1062,6 +1074,14 @@ export default function FisheriesRecordsPage({ asTab = false }) {
   const [showStartCycle, setShowStartCycle] = useState(false)
   const [viewingCycle,   setViewingCycle]   = useState(null)
   const [forceUnitView,  setForceUnitView]  = useState(null)   // { rec, units } for an HP/HC badge group
+  const [forceRec,       setForceRec]       = useState(null)   // the record whose ⋮ > Force Harvest form is open
+  // ?forced=<id> (an emergency Force Harvest notification): open that saved Force Harvest's details.
+  const linkedForcedId = searchParams.get('forced')
+  const closeLinkedForced = () => {
+    const next = new URLSearchParams(searchParams)
+    next.delete('forced')
+    setSearchParams(next, { replace: true })
+  }
 
   // View Cycle uses the real production_cycle FK — never production_cycle_no.
   const handleViewCycle = async (rec) => {
@@ -1231,10 +1251,10 @@ export default function FisheriesRecordsPage({ asTab = false }) {
             ponds/cages leaves it active. Those units show as HP/HC badges below. */}
         {rec.harvest_count > 0 ? (
           <button type="button" data-testid="harvested-status" title="View harvest details" onClick={() => setViewingRec(rec)}>
-            <StatusPill tone={STATUS_TONES[rec.display_status || rec.status] || 'slate'}>{rec.display_status || rec.status}</StatusPill>
+            <StatusPill tone={STATUS_TONES[cycleStatusText(rec)] || 'slate'}>{cycleStatusText(rec)}</StatusPill>
           </button>
         ) : (
-          <StatusPill tone={STATUS_TONES[rec.display_status || rec.status] || 'slate'}>{rec.display_status || rec.status}</StatusPill>
+          <StatusPill tone={STATUS_TONES[cycleStatusText(rec)] || 'slate'}>{cycleStatusText(rec)}</StatusPill>
         )}
         {groupForceHarvestedUnits(forceHarvestedUnits(rec)).map(g => (
           // Count only ("HP 10"), never the unit list, so the cell stays compact; the modal lists every unit.
@@ -1250,6 +1270,8 @@ export default function FisheriesRecordsPage({ asTab = false }) {
             {g.code}
           </button>
         ))}
+        {/* ONE FORCED HARVEST label for the cycle (however many emergency Force Harvests it has); it opens their saved details. */}
+        {(rec.forced_harvests || []).length > 0 && <ForcedHarvestLabel harvestIds={rec.forced_harvests.map(f => f.id)} />}
         <HarvestVarianceBadge days={rec.harvest_variance_days} />
       </span>
     ),
@@ -1263,6 +1285,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
         onViewDetails={() => setViewingRec(rec)}
         onEdit={() => setEditingRec(rec)}
         onViewCycle={() => handleViewCycle(rec)}
+        onForceHarvest={() => setForceRec(rec)}
         onViewLogs={() => setViewLogsRec(rec)}
         onRecordHarvest={() => setHarvestRec(rec)}
         onReportDisaster={() => setDisasterRec(rec)}
@@ -1350,6 +1373,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
                 onViewDetails={() => setViewingRec(row._rec)}
                 onEdit={() => setEditingRec(row._rec)}
                 onRecordHarvest={() => setHarvestRec(row._rec)}
+                onForceHarvest={() => setForceRec(row._rec)}
               />
             ))}
           </div>
@@ -1451,6 +1475,22 @@ export default function FisheriesRecordsPage({ asTab = false }) {
           units={forceUnitView.units}
           onClose={() => setForceUnitView(null)}
         />
+      )}
+
+      {forceRec && (
+        <ForceHarvestModal
+          stockingRecord={forceRec}
+          onClose={() => setForceRec(null)}
+          onRecorded={(harvests) => {
+            setForceRec(null)
+            showToast(`Force Harvest recorded for ${harvests.length} production cycle${harvests.length === 1 ? '' : 's'}.`, 'success')
+            fetchRecords(page)
+          }}
+        />
+      )}
+
+      {linkedForcedId && (
+        <ForcedHarvestDetailsModal harvestId={linkedForcedId} onClose={closeLinkedForced} />
       )}
 
       {viewLogsRec && (

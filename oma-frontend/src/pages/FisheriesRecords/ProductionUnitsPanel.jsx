@@ -1,4 +1,5 @@
 import StatusPill from '../../components/UI/StatusPill.jsx'
+import { ForcedHarvestLabel } from './ForcedHarvestDetails.jsx'
 import { fmtLong } from './stockingHelpers.js'
 
 // The ponds/cages of ONE stocking record's production cycle, shown under its row in Fisheries Monitoring and
@@ -16,11 +17,12 @@ const UNIT_STATUS = {
   awaiting_force_harvest: { label: 'Awaiting Force Harvest', tone: 'rose' },
   harvested:              { label: 'Harvested',              tone: 'teal' },
   force_harvested:        { label: 'Force Harvested',        tone: 'rose' },
+  forced_harvest:         { label: 'Forced Harvested',       tone: 'rose' },   // the emergency Force Harvest (⋮ menu); the Health Log one stays 'Force Harvested'
   cycle_harvested:        { label: 'Cycle Harvested (not itemized)', tone: 'slate' },
   total_loss:             { label: 'Total Loss',             tone: 'rose' },
 }
 
-const HARVESTED_STATUSES = new Set(['harvested', 'force_harvested'])
+const HARVESTED_STATUSES = new Set(['harvested', 'force_harvested', 'forced_harvest'])
 
 const fmtKg = (v) => (v == null ? '—'
   : Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
@@ -34,6 +36,16 @@ function actualKgCell(u) {
   // Harvested inside an older combined record: only the record's total exists, so no own kg is shown.
   if (u.in_combined_harvest) return <span className="text-[#7A8E7A]" title="Recorded only as a combined total with other units">— (combined)</span>
   return '—'
+}
+
+// The pond / cage name; an emergency-force-harvested one carries the clickable FORCED HARVEST label (its saved details).
+function UnitName({ unit }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      {unit.label}
+      {unit.forced_harvest && <ForcedHarvestLabel harvestId={unit.forced_harvest.id} />}
+    </span>
+  )
 }
 
 function UnitStatus({ unit }) {
@@ -73,7 +85,7 @@ function StateMessage({ state, onRetry, compact }) {
 // Column definitions shared by the table and the cards; `forecast` adds the estimated date column.
 function unitFields({ speciesName, forecast, estimatedHarvestDate }) {
   return [
-    { label: 'Production Unit', align: 'text-left', cell: u => u.label, card: false, strong: true },
+    { label: 'Production Unit', align: 'text-left', cell: u => <UnitName unit={u} />, card: false, strong: true },
     { label: 'Species', align: 'text-left', cell: () => speciesName || '—' },
     { label: forecast ? 'Fingerlings Count' : 'Fingerlings', align: 'text-right', cell: u => fmtCount(u.fingerling_count) },
     { label: 'Dimensions', align: 'text-left', cell: fmtDims },
@@ -143,7 +155,7 @@ export function ProductionUnitsCards({ state, speciesName, onRetry, forecast = f
       {!units?.length ? <StateMessage state={state} onRetry={onRetry} compact /> : units.map(u => (
         <div key={u.id} className="rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] p-3" data-testid="production-unit-card">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[13px] font-semibold text-[#1A2B1A]">{u.label}</span>
+            <span className="text-[13px] font-semibold text-[#1A2B1A]"><UnitName unit={u} /></span>
             <UnitStatus unit={u} />
           </div>
           <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[12px]">

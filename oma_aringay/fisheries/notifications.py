@@ -10,10 +10,12 @@ can never fail the save itself (the helpers are non-fatal).
 """
 from django.db import transaction
 
-from core.notifications import notify_owner_and_staff, resolve_owner_user
+from core.notifications import _safe_bulk, build_owner_and_staff_notifications, notify_owner_and_staff, resolve_owner_user
 
 CYCLE_STARTED = 'fisheries_cycle_started'
 FORCE_HARVEST = 'fisheries_force_harvest'
+# The emergency Force Harvest (Aquaculture Monitoring ⋮ menu): Admin accounts only; record_id is the harvest record.
+EMERGENCY_FORCE_HARVEST = 'fisheries_emergency_force_harvest'
 HARVEST_REMINDER_7D = 'fisheries_harvest_reminder_7d'
 HARVEST_REMINDER_3D = 'fisheries_harvest_reminder_3d'
 HARVEST_REMINDERS = {7: HARVEST_REMINDER_7D, 3: HARVEST_REMINDER_3D}
@@ -95,6 +97,45 @@ def queue_force_harvest(harvest, actor):
         unit_labels = [f'{u.get_unit_type_display()} {u.unit_number}' for u in units]
         owner_text, staff_text = force_harvest_texts(harvest, stock, cycle, unit_labels)
         notify_owner_and_staff(_owner(cycle), actor, FORCE_HARVEST, cycle.pk, owner_text, staff_text)
+    transaction.on_commit(send)
+
+
+def queue_emergency_force_harvest(harvest, actor):
+    """After an emergency Force Harvest commits: ONE notification per recorded harvest (one production cycle) to every
+    active ADMIN account - not the fisherfolk owner and not Focal Person accounts. It names the fisherfolk, species and
+    cycle, the ponds/cages, the harvest date, the total actual kg and the reason; clicking it opens that Force Harvest.
+    Written only once the transaction commits (never for a rolled-back request), never raises into the save, and never
+    twice for the same harvest. The Health Log Force Harvest (queue_force_harvest above) is not affected."""
+    def send():
+        from django.contrib.auth import get_user_model
+        from core.models import Notification
+        from .models import EMERGENCY_FORCE_HARVEST_REASON_LABELS, FisheriesHarvestRecord
+
+        try:
+            if Notification.objects.filter(record_type=EMERGENCY_FORCE_HARVEST, record_id=harvest.pk).exists():
+                return
+            saved = FisheriesHarvestRecord.objects.select_related(
+                'stocking_record__species', 'stocking_record__production_cycle', 'stocking_record__fisherfolk',
+            ).prefetch_related('production_units').get(pk=harvest.pk)
+            stock = saved.stocking_record
+            cycle = stock.production_cycle
+            units = sorted(saved.production_units.all(), key=lambda u: (u.unit_type, u.unit_number))
+            unit_labels = [f'{u.get_unit_type_display()} {u.unit_number}' for u in units]
+            label = cycle_label(stock, cycle, stock.compute_production_cycle_no())
+            owner_name = stock.fisherfolk.full_name if stock.fisherfolk_id else ''
+            text = (
+                'recorded an emergency Force Harvest:',
+                join(label, f'for {owner_name}' if owner_name else None),
+                join(units_summary(unit_labels), fmt_date(saved.harvest_date), f'{saved.quantity_kg} kg',
+                     EMERGENCY_FORCE_HARVEST_REASON_LABELS.get(saved.force_harvest_reason)),
+            )
+            admins = get_user_model().objects.filter(is_active=True, role='ADMIN')
+            rows = build_owner_and_staff_notifications(None, admins, actor, EMERGENCY_FORCE_HARVEST, saved.pk, text, text)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception('emergency force harvest notification failed (non-fatal): harvest=%s', harvest.pk)
+            return
+        _safe_bulk(rows, f'emergency_force_harvest harvest={harvest.pk}')
     transaction.on_commit(send)
 
 
