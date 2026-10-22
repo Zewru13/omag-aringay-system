@@ -1,0 +1,151 @@
+import { useEffect, useState } from 'react'
+import { HeartHandshake, Pencil, Trash2 } from 'lucide-react'
+import api from '../../api/axiosInstance.js'
+import PageLayout from '../../components/Layout/PageLayout.jsx'
+import AddButton from '../../components/UI/AddButton.jsx'
+import Button from '../../components/UI/Button.jsx'
+import CardHeader from '../../components/UI/CardHeader.jsx'
+import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
+import DataTable from '../../components/UI/DataTable.jsx'
+import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
+import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import ModalShell from '../../components/UI/ModalShell.jsx'
+import RowActions from '../../components/UI/RowActions.jsx'
+import StatusPill from '../../components/UI/StatusPill.jsx'
+import { useToast } from '../../context/ToastContext.jsx'
+import { resetAssistanceAgencies } from './useAssistanceAgencies.js'
+
+// Assistance Settings: the list of source agencies that every assistance form offers in its Source Agency dropdown. Hiding an
+// agency stops it being offered; renaming or hiding never changes assistance that was already recorded (records keep the name
+// they were saved with).
+
+const COLUMNS = [
+  { key: 'name', label: 'AGENCY' },
+  { key: 'status', label: 'STATUS' },
+  { key: 'actions', label: 'ACTIONS' },
+]
+
+function AgencyModal({ agency, onClose, onSaved }) {
+  const { showToast } = useToast()
+  const isEdit = Boolean(agency)
+  const original = { name: agency?.name || '', is_active: agency?.is_active ?? true }
+  const [form, setForm] = useState(original)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const hasChanges = !isEdit || JSON.stringify(form) !== JSON.stringify(original)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!form.name.trim()) { showToast('Enter the agency name.', 'error'); return }
+    setIsSubmitting(true)
+    try {
+      if (isEdit) await api.patch(`/interventions/agencies/${agency.id}/`, form)
+      else await api.post('/interventions/agencies/', form)
+      showToast(`Agency ${isEdit ? 'updated' : 'added'}.`, 'success')
+      onSaved(); onClose()
+    } catch (err) {
+      showToast(err?.response?.data?.name?.[0] || 'Failed to save the agency.', 'error')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <ModalShell
+      title={isEdit ? 'Edit Agency' : 'Add Agency'}
+      subtitle={isEdit ? `Update ${agency.name}` : 'A source agency for assistance'}
+      icon={HeartHandshake}
+      onClose={onClose}
+      maxWidth="max-w-sm"
+      footer={(
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+          <Button type="submit" form="assistance-agency-form" isLoading={isSubmitting} disabled={isSubmitting || !hasChanges}>
+            {isEdit ? 'Update Agency' : 'Add Agency'}
+          </Button>
+        </>
+      )}
+    >
+      <form id="assistance-agency-form" onSubmit={handleSubmit} className="space-y-4">
+        <FormField label="Agency Name" required>
+          <input className={baseInputClasses} value={form.name} autoFocus placeholder="e.g. PCIC"
+            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
+        </FormField>
+        <label className="flex min-h-[40px] cursor-pointer items-center gap-2 text-[13px] text-[#1A2B1A]">
+          <input type="checkbox" className="h-4 w-4 accent-[#1B4D2E]" checked={form.is_active}
+            onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.checked }))} />
+          Offer this agency in the assistance forms
+        </label>
+      </form>
+    </ModalShell>
+  )
+}
+
+export default function AssistanceAgenciesPage() {
+  const { showToast } = useToast()
+  const [agencies, setAgencies] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [editing, setEditing] = useState(undefined)   // undefined = closed, null = adding, object = editing
+  const [deleting, setDeleting] = useState(null)
+
+  // `version` bumps after a save or delete, which loads the list again.
+  const [version, setVersion] = useState(0)
+
+  useEffect(() => {
+    let alive = true
+    api.get('/interventions/agencies/')
+      .then((r) => { if (alive) { setAgencies(Array.isArray(r.data) ? r.data : (r.data.results || [])); setError('') } })
+      .catch(() => { if (alive) setError('Failed to load the agencies.') })
+      .finally(() => { if (alive) setIsLoading(false) })
+    return () => { alive = false }
+  }, [version])
+
+  const refresh = () => { resetAssistanceAgencies(); setVersion((v) => v + 1) }
+
+  const rows = agencies.map((a) => ({
+    ...a,
+    status: <StatusPill tone={a.is_active ? 'green' : 'slate'}>{a.is_active ? 'Offered' : 'Hidden'}</StatusPill>,
+    actions: (
+      <RowActions actions={[
+        { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditing(a) },
+        { key: 'delete', label: 'Delete', icon: Trash2, onClick: () => setDeleting(a), tone: 'rose' },
+      ]} />
+    ),
+  }))
+
+  return (
+    <PageLayout title="Assistance Settings" subtitle="The source agencies offered when assistance is recorded or distributed.">
+      <div className="space-y-4">
+        {error && <ErrorMessage message={error} />}
+        <div className="overflow-hidden rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+          <CardHeader title="Source Agencies" count={agencies.length} action={<AddButton onClick={() => setEditing(null)}>Add Agency</AddButton>} />
+          <DataTable bare columns={COLUMNS} data={rows} isLoading={isLoading} />
+        </div>
+      </div>
+
+      {editing !== undefined && <AgencyModal agency={editing} onClose={() => setEditing(undefined)} onSaved={refresh} />}
+
+      {deleting && (
+        <ConfirmDialog
+          title="Delete Agency"
+          message={`Delete "${deleting.name}" from the list? Assistance already recorded with it keeps the name.`}
+          confirmLabel="Delete"
+          variant="danger"
+          requireTypedConfirmation
+          typedConfirmationText="DELETE"
+          onConfirm={async () => {
+            try {
+              await api.delete(`/interventions/agencies/${deleting.id}/`)
+              showToast(`"${deleting.name}" deleted.`, 'success')
+              setDeleting(null); refresh()
+            } catch {
+              showToast('Failed to delete the agency.', 'error')
+              setDeleting(null)
+            }
+          }}
+          onCancel={() => setDeleting(null)}
+        />
+      )}
+    </PageLayout>
+  )
+}

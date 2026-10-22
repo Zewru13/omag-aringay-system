@@ -8,6 +8,20 @@ from farmers.models import Farmer
 from fisheries.models import Fisherfolk
 
 
+class AssistanceAgency(models.Model):
+    """A source agency staff can pick when recording assistance. Records keep the agency NAME they were saved with (their
+    `source_agencies` is a plain list), so renaming or hiding an agency here never changes past assistance."""
+    name = models.CharField(max_length=150, unique=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name_plural = 'assistance agencies'
+
+    def __str__(self):
+        return self.name
+
+
 class DistributionStatus(models.TextChoices):
     """
     Shared by both BeneficiaryRecord and FisherfolkBeneficiaryRecord — one

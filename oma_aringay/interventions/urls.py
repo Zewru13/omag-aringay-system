@@ -1,6 +1,8 @@
 from django.urls import path
 
 from .views import (
+    AssistanceAgencyDetailView,
+    AssistanceAgencyListCreateView,
     BeneficiaryAdHocDetailView,
     BeneficiaryAdHocListCreateView,
     BeneficiaryConfirmationRequestDecisionView,
@@ -59,6 +61,8 @@ urlpatterns = [
         MyOrgFisherfolkBeneficiaryHistoryView.as_view(),
         name='my-org-fisherfolk-beneficiary-history',
     ),
+    path('agencies/', AssistanceAgencyListCreateView.as_view(), name='assistance-agencies'),
+    path('agencies/<int:pk>/', AssistanceAgencyDetailView.as_view(), name='assistance-agency-detail'),
     path('assistance-removals/', AssistanceRemovalView.as_view(), name='assistance-removals'),
     path('my-org-distributions/', MyOrgDistributionsView.as_view(), name='my-org-distributions'),
     path('my-org-fisherfolk-distributions/', MyOrgFisherfolkDistributionsView.as_view(),

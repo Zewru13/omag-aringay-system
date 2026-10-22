@@ -21,6 +21,8 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import AssistanceViewDialog from './AssistanceViewDialog.jsx'
 import ConfirmMembersDialog from './ConfirmMembersDialog.jsx'
+import ConfirmedReportModal from './ConfirmedReportModal.jsx'
+import { buildAssistanceReportSpec } from './assistanceReport.js'
 import { ConfirmActionBar, SelectCell, SelectHeader } from './OrgConfirmControls.jsx'
 import useConfirmSelection from './useConfirmSelection.js'
 import DistributeAssistanceModal from './DistributeAssistanceModal.jsx'
@@ -30,8 +32,9 @@ import { FARMER_DISTRIBUTION_DOMAIN } from './distributionDomains.js'
 import { SourceAgencyMultiSelect, TypeConditionalFields } from './sharedAssistanceFields.jsx'
 import {
   EMPTY_TYPE_CONDITIONAL_FIELDS, buildTypeConditionalPayload, validateTrainingDuration, isTrainingType,
-  isCashType, cashAmountError, cashAmountFrom, formatAssistanceQuantity,
+  isCashType, cashAmountError, cashAmountFrom, formatAssistanceQuantity, assistanceDateProblem, assistanceMinDate,
 } from './assistanceFieldHelpers.js'
+import { todayISO } from '../../utils/localDate.js'
 
 // interventions.models.DistributionStatus — the scheduled distribution +
 // confirmation lifecycle. Records created the old way (today/past-dated)
@@ -56,7 +59,6 @@ const CANCELLABLE_STATUSES = new Set(['PENDING', 'AWAITING_CONFIRMATION'])
 // Must match interventions.models.BeneficiaryRecord.AssistanceType exactly
 // (Batch 6: absorbed from production.models.CropAssistanceRecord).
 const ASSISTANCE_TYPE_OPTIONS = ['Fertilizer', 'Seeds', 'Equipment', 'Cash Assistance', 'Training', 'Other']
-const SEASON_OPTIONS = ['Dry', 'Wet']
 const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: 6 }, (_, i) => CURRENT_YEAR - i)
 
@@ -67,7 +69,7 @@ const COLUMNS = [
   { key: 'assistance_type',               label: 'Assistance Type' },
   { key: 'source_agency',                 label: 'Source Agency' },
   { key: 'quantity',                      label: 'Quantity' },
-  { key: 'season_year_cell',              label: 'Season / Year' },
+  { key: 'year_cell',                     label: 'Year' },
   { key: 'recorded_by_name',              label: 'Logged By' },
   { key: 'status_cell',                   label: 'Status' },
   { key: 'actions_cell',                  label: 'Actions' },
@@ -214,7 +216,7 @@ function AddAssistanceModal({ onClose, onSuccess, memberUrl = null }) {
   const [farmer, setFarmer] = useState({ id: null, full_name: '', barangay: '' })
   const [form, setForm] = useState({
     assistance_type: '', description: '', quantity: '', date_received: '',
-    source_agencies: [], season: '', year: CURRENT_YEAR,
+    source_agencies: [], year: CURRENT_YEAR,
     ...EMPTY_TYPE_CONDITIONAL_FIELDS,
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -232,6 +234,8 @@ function AddAssistanceModal({ onClose, onSuccess, memberUrl = null }) {
     if (!form.assistance_type || !form.date_received) {
       showToast('Fill in all required fields.', 'error'); return
     }
+    const dateError = assistanceDateProblem(form.date_received, { today: todayISO() })
+    if (dateError) { showToast(dateError, 'error'); return }
     const trainingError = validateTrainingDuration(form.assistance_type, form)
     if (trainingError) { showToast(trainingError, 'error'); return }
     const cashError = cashAmountError(form.assistance_type, form.quantity)
@@ -281,9 +285,9 @@ function AddAssistanceModal({ onClose, onSuccess, memberUrl = null }) {
               {ASSISTANCE_TYPE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
             </select>
           </FormField>
-          <FormField label={memberUrl ? 'Date Given' : 'Date Received'} required>
+          <FormField label="Date Given" required>
             <input type="date" className={baseInputClasses} value={form.date_received}
-              max={memberUrl ? undefined : new Date().toISOString().split('T')[0]}
+              min={assistanceMinDate({ today: todayISO() })}
               onChange={(e) => {
                 const v = e.target.value
                 set('date_received', v)
@@ -301,12 +305,6 @@ function AddAssistanceModal({ onClose, onSuccess, memberUrl = null }) {
             </FormField>
           )}
           <TypeConditionalFields assistanceType={form.assistance_type} form={form} set={set} />
-          <FormField label="Season">
-            <select className={baseInputClasses} value={form.season} onChange={(e) => set('season', e.target.value)}>
-              <option value="">Select…</option>
-              {SEASON_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-            </select>
-          </FormField>
           <FormField label="Year" required>
             <select className={baseInputClasses} value={form.year} onChange={(e) => set('year', e.target.value)}>
               {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
@@ -339,7 +337,6 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
     quantity: isCashType(record.assistance_type) ? cashAmountFrom(record.quantity) : (record.quantity || ''),
     date_received: record.date_given || '',
     source_agencies: record.source_agencies || [],
-    season: record.season || '',
     year: record.year,
     training_duration_days: record.training_duration_days != null ? String(record.training_duration_days) : '',
     equipment_type: record.equipment_type || '',
@@ -359,6 +356,8 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    const dateError = assistanceDateProblem(form.date_received, { today: todayISO(), original: originalData.date_received })
+    if (dateError) { showToast(dateError, 'error'); return }
     const trainingError = validateTrainingDuration(form.assistance_type, form)
     if (trainingError) { showToast(trainingError, 'error'); return }
     const cashError = cashAmountError(form.assistance_type, form.quantity)
@@ -424,9 +423,9 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
                 {ASSISTANCE_TYPE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
               </select>
             </FormField>
-            <FormField label="Date Received" required>
+            <FormField label="Date Given" required>
               <input type="date" className={baseInputClasses} value={form.date_received}
-                max={new Date().toISOString().split('T')[0]}
+                min={assistanceMinDate({ today: todayISO(), original: originalData.date_received })}
                 onChange={(e) => set('date_received', e.target.value)} />
             </FormField>
             {isCashType(form.assistance_type) ? (
@@ -440,12 +439,6 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
               </FormField>
             )}
             <TypeConditionalFields assistanceType={form.assistance_type} form={form} set={set} />
-            <FormField label="Season">
-              <select className={baseInputClasses} value={form.season} onChange={(e) => set('season', e.target.value)}>
-                <option value="">Select…</option>
-                {SEASON_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </FormField>
             <FormField label="Year" required>
               <select className={baseInputClasses} value={form.year} onChange={(e) => set('year', e.target.value)}>
                 {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
@@ -556,6 +549,7 @@ function ConfirmReceivedModal({ record, onClose, onDone }) {
   const photosState = usePhotoList()
   const [note, setNote] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [done, setDone] = useState(false)
   const handleSubmit = async (e) => {
     e.preventDefault()
     setIsSubmitting(true)
@@ -565,12 +559,16 @@ function ConfirmReceivedModal({ record, onClose, onDone }) {
       if (note.trim()) body.append('confirmation_note', note.trim())
       await api.post(`/interventions/beneficiaries/${record.id}/confirm-received/`, body)
       showToast('Confirmed as received.', 'success')
-      onDone()
+      setDone(true)
     } catch (err) {
       const d = err?.response?.data
       const photoError = d?.confirmation_photos && [].concat(d.confirmation_photos).join(' ')
       showToast(photoError || extractErrorMessage(err, 'Failed to confirm.'), 'error')
     } finally { setIsSubmitting(false) }
+  }
+  if (done) {
+    const spec = buildAssistanceReportSpec({ domain: 'crop', records: [record], confirmedOn: new Date().toISOString(), organizationName: record.attributed_organization_name || '' })
+    return <ConfirmedReportModal message="Marked as received." spec={spec} onClose={onDone} />
   }
   return (
     <ModalShell title="Confirm Received" subtitle={`${record.assistance_type || 'Assistance'} · ${formatDate(record.date_given)}`} onClose={onClose}
@@ -708,7 +706,7 @@ export default function CropAssistancePage({ asTab = false }) {
     source_agency: (r.source_agencies || []).join(', '),
     date_received_fmt: formatDate(r.date_given),
     quantity: formatAssistanceQuantity(r.assistance_type, r.quantity),
-    season_year_cell: [r.season, r.year].filter(Boolean).join(' '),
+    year_cell: r.year || '',
     status_cell: r.status ? <StatusPill status={r.status}>{((isFarmer || isOrg) ? FARMER_STATUS_LABELS : STATUS_LABELS)[r.status] || r.status}</StatusPill> : '—',
     // Confirm for Members list: where the member's request to OMAg stands
     review_cell: r.latest_request_status === 'PENDING'
@@ -864,6 +862,7 @@ export default function CropAssistancePage({ asTab = false }) {
       {confirmingOnBehalf && (
         <ConfirmMembersDialog
           url={FARMERS_ORG_DOMAIN.confirmOnBehalfBulkUrl}
+          domain="crop"
           records={confirmingOnBehalf}
           nameOf={(r) => r.farmer_full_name}
           onClose={() => setConfirmingOnBehalf(null)}
@@ -881,7 +880,7 @@ export default function CropAssistancePage({ asTab = false }) {
             { label: 'Source agency', value: (viewing.source_agencies || []).join(', ') },
             { label: isCashType(viewing.assistance_type) ? 'Amount' : 'Quantity', value: formatAssistanceQuantity(viewing.assistance_type, viewing.quantity) },
             { label: 'Date received', value: formatDate(viewing.date_given) },
-            { label: 'Season / year', value: [viewing.season, viewing.year].filter(Boolean).join(' ') },
+            { label: 'Year', value: viewing.year || '' },
             { label: 'Status', value: STATUS_LABELS[viewing.status] || viewing.status },
             { label: 'Logged by', value: viewing.recorded_by_name },
             { label: 'Remarks', value: viewing.remarks },

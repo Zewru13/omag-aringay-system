@@ -19,6 +19,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import AssistanceViewDialog from './AssistanceViewDialog.jsx'
 import ConfirmMembersDialog from './ConfirmMembersDialog.jsx'
+import ConfirmReceivedDialog from './ConfirmReceivedDialog.jsx'
 import { ConfirmActionBar, SelectCell, SelectHeader } from './OrgConfirmControls.jsx'
 import useConfirmSelection from './useConfirmSelection.js'
 import LogGovernmentAssistanceModal from './LogGovernmentAssistanceModal.jsx'
@@ -29,8 +30,9 @@ import { FISHERFOLK_DISTRIBUTION_DOMAIN } from './distributionDomains.js'
 import { SourceAgencyMultiSelect, TypeConditionalFields } from './sharedAssistanceFields.jsx'
 import {
   EMPTY_TYPE_CONDITIONAL_FIELDS, buildTypeConditionalPayload, validateTrainingDuration, isTrainingType,
-  isCashType, cashAmountError, cashAmountFrom, formatAssistanceQuantity,
+  isCashType, cashAmountError, cashAmountFrom, formatAssistanceQuantity, assistanceDateProblem, assistanceMinDate,
 } from './assistanceFieldHelpers.js'
+import { todayISO } from '../../utils/localDate.js'
 
 // interventions.models.DistributionStatus — see CropAssistancePage.jsx's
 // identical comment; same lifecycle, fisherfolk domain.
@@ -133,6 +135,8 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    const dateError = assistanceDateProblem(form.date_received, { today: todayISO(), original: originalData.date_received })
+    if (dateError) { showToast(dateError, 'error'); return }
     const trainingError = validateTrainingDuration(form.assistance_type, form)
     if (trainingError) { showToast(trainingError, 'error'); return }
     const cashError = cashAmountError(form.assistance_type, form.quantity)
@@ -192,9 +196,9 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
       >
         <form id="edit-fisheries-assistance-form" onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
-            <FormField label="Date Received" required>
+            <FormField label="Date Given" required>
               <input type="date" className={baseInputClasses} value={form.date_received}
-                max={new Date().toISOString().split('T')[0]}
+                min={assistanceMinDate({ today: todayISO(), original: originalData.date_received })}
                 onChange={(e) => set('date_received', e.target.value)} />
             </FormField>
             <FormField label="Assistance Type" required>
@@ -420,15 +424,8 @@ export default function FisheriesAssistancePage({ asTab = false }) {
     setSearchParams(params, { replace: true })
   }
 
-  const confirmReceived = useCallback(async (a) => {
-    try {
-      await api.post(`/interventions/fisherfolk-beneficiaries/${a.id}/confirm-received/`)
-      showToast('Confirmed as received.', 'success')
-      fetchAssistance()
-    } catch (err) {
-      showToast(extractErrorMessage(err, 'Failed to confirm.'), 'error')
-    }
-  }, [fetchAssistance, showToast])
+  const [confirmingReceived, setConfirmingReceived] = useState(null)   // the record whose Confirm Received window is open
+  const confirmReceived = useCallback((a) => setConfirmingReceived(a), [])
 
   const rows = useMemo(() => assistance.map((a) => ({
     ...a,
@@ -611,10 +608,20 @@ export default function FisheriesAssistancePage({ asTab = false }) {
       {confirmingOnBehalf && (
         <ConfirmMembersDialog
           url={FISHERFOLK_ORG_DOMAIN.confirmOnBehalfBulkUrl}
+          domain="fisheries"
           records={confirmingOnBehalf}
           nameOf={(r) => r.fisherfolk_full_name}
           onClose={() => setConfirmingOnBehalf(null)}
           onDone={() => { setConfirmingOnBehalf(null); selection.clear(); fetchAssistance() }}
+        />
+      )}
+      {confirmingReceived && (
+        <ConfirmReceivedDialog
+          record={confirmingReceived}
+          url={`/interventions/fisherfolk-beneficiaries/${confirmingReceived.id}/confirm-received/`}
+          domain="fisheries"
+          onClose={() => setConfirmingReceived(null)}
+          onDone={() => { setConfirmingReceived(null); fetchAssistance() }}
         />
       )}
       {viewing && !isOrg && !isFisherfolk && (

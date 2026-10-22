@@ -1,13 +1,26 @@
 // Plain constants/functions split out of sharedAssistanceFields.jsx so that
 // file can export components only (react-refresh/only-export-components).
 
-export const SOURCE_AGENCY_OPTIONS = [
-  'LGU - Aringay',
-  'Office of the Provincial Agriculturist',
-  'Department of Agriculture (DA)',
-  'Department of Agrarian Reform (DAR)',
-  'Non-Government Organization (NGO)',
-]
+// The agencies a form offers: the active ones from the managed list (Assistance Settings), plus any already chosen on the
+// record (hidden since, or typed long ago), alphabetical. `agencies` is [{ name, is_active }] or null while it loads.
+export function agencyChoices(agencies, selected = []) {
+  const names = new Set((agencies || []).filter((a) => a.is_active).map((a) => a.name))
+  for (const name of selected || []) names.add(name)
+  return [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+}
+
+// Assistance is recorded for today or a future date. A record that already has a (past) date may keep it.
+export const PAST_DATE_MESSAGE = 'Assistance can only be recorded for today or a future date.'
+export function assistanceDateProblem(value, { today, original = '' } = {}) {
+  if (!value) return 'Choose the date the assistance is given.'
+  if (original && value === original) return ''
+  return value < today ? PAST_DATE_MESSAGE : ''
+}
+
+// The `min` of the date box. An old record has none (its own date is allowed, so a minimum would mark it invalid).
+export function assistanceMinDate({ today, original = '' } = {}) {
+  return original && original < today ? undefined : today
+}
 
 export const EMPTY_TYPE_CONDITIONAL_FIELDS = {
   training_duration_days: '',

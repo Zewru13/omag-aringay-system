@@ -26,6 +26,7 @@ from core.validators import validate_uploaded_image
 from . import org_confirmation
 from .lifecycle import advance_due_distributions, advance_due_distributions_for_org, notify_assistance_recorded
 from .models import (
+    AssistanceAgency,
     BeneficiaryConfirmationRequestPhoto, BeneficiaryRecordPhoto, FisherfolkBeneficiaryConfirmationRequestPhoto,
     BeneficiaryConfirmationRequest,
     BeneficiaryRecord,
@@ -36,6 +37,7 @@ from .models import (
 from .distributions import build_distributions, filter_records, remove_records
 from .serializers import (
     AccountlessConfirmableSerializer,
+    AssistanceAgencySerializer,
     BeneficiaryConfirmationRequestSerializer,
     BeneficiaryRecordCreateSerializer,
     BeneficiaryRecordUpdateSerializer,
@@ -1040,7 +1042,8 @@ def _run_assistance_import(person_model, record_model, serializer_class, person_
             'season': item['season'],
             text_field: item['text_value'],
         }
-        serializer = serializer_class(data=payload)
+        # An imported file carries assistance that already happened, so the "today or later" rule of the forms does not apply.
+        serializer = serializer_class(data=payload, context={'allow_past_dates': True})
         if not serializer.is_valid():
             detail = '; '.join(f'{field}: {"; ".join(str(m) for m in msgs)}' for field, msgs in serializer.errors.items())
             invalid(row_num, detail or 'Invalid row.')
@@ -1130,3 +1133,25 @@ class FisheriesAssistanceImportView(APIView):
             Fisherfolk, FisherfolkBeneficiaryRecord, FisherfolkBeneficiaryRecordCreateSerializer,
             'fisherfolk', 'description', file, dry_run, request.user,
         ))
+
+
+# ─── Source agencies ────────────────────────────────────────────────────────────
+
+class AssistanceAgencyListCreateView(generics.ListCreateAPIView):
+    """The managed list of source agencies. Everyone signed in reads it (every assistance form uses it); only staff change it."""
+    serializer_class = AssistanceAgencySerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        return sorted(AssistanceAgency.objects.all(), key=lambda a: a.name.lower())
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsAdminOrEvaluator()]
+
+
+class AssistanceAgencyDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = AssistanceAgencySerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    queryset = AssistanceAgency.objects.all()

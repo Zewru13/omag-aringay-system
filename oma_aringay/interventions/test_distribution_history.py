@@ -81,8 +81,13 @@ class DistributionHistoryTests(APITestCase):
         self.client.force_authenticate(ctx['user'])
         body = {'assistance_type': kind or cfg['type'], 'source_agencies': list(agencies), 'quantity': quantity,
                 'date_given': str(when or timezone.localdate()), 'member_ids': [ctx['people'][i].id for i in member_idx]}
+        today = timezone.localdate()
+        if when is not None and when < today:
+            body['date_given'] = str(today)      # the form only takes today or later; the past date is put back below
         res = self.client.post(cfg['distribute'].format(ctx['org'].id), body, format='json')
         self.assertEqual(res.status_code, 200, res.data)
+        if when is not None and when < today:
+            cfg['record'].objects.filter(distribution_batch=res.data['distribution_id']).update(date_given=when)
         return res.data['distribution_id']
 
     def legacy(self, domain, user, person, kind=None, when=None, quantity='1 unit', agencies=('DA',), status=None):
