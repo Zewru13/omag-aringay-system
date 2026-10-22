@@ -8,6 +8,7 @@ import OrganizationDetailPage from "./pages/Organizations/OrganizationDetailPage
 import MyEquipmentPage from "./pages/Equipment/MyEquipmentPage.jsx";
 import DashboardPage from "./pages/Dashboard/DashboardPage.jsx";
 import FarmerDetailPage from "./pages/Farmers/FarmerDetailPage.jsx";
+import AssistanceAgenciesPage from "./pages/AssistanceManagement/AssistanceAgenciesPage.jsx";
 import FarmersHub from "./pages/Farmers/FarmersHub.jsx";
 import FisherfolkDetailPage from "./pages/Fisheries/FisherfolkDetailPage.jsx";
 import FisherfolkHub from "./pages/Fisherfolk/FisherfolkHub.jsx";
@@ -317,6 +318,16 @@ function App() {
           />
           <Route path="/crop-options" element={<Navigate to="/crop-settings?tab=options" replace />} />
           <Route path="/crop-categories" element={<Navigate to="/crop-settings?tab=categories" replace />} />
+
+          {/* Assistance settings: the source agencies offered in the assistance forms (admin only) */}
+          <Route
+            path="/assistance-settings"
+            element={
+              <ProtectedRoute allowedRoles={["ADMIN"]}>
+                <AssistanceAgenciesPage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Activity settings hub — tabs: Crop Activities + Fisheries Activities (admin only) */}
           <Route

@@ -1,11 +1,31 @@
+from django.utils import timezone
 from rest_framework import serializers
 
 from .models import (
+    AssistanceAgency,
     BeneficiaryConfirmationRequest,
     BeneficiaryRecord,
     FisherfolkBeneficiaryConfirmationRequest,
     FisherfolkBeneficiaryRecord,
 )
+
+
+class AssistanceAgencySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AssistanceAgency
+        fields = ['id', 'name', 'is_active']
+        read_only_fields = ['id']
+
+    def validate_name(self, value):
+        name = ' '.join((value or '').split())
+        if not name:
+            raise serializers.ValidationError('Enter the agency name.')
+        clash = AssistanceAgency.objects.filter(name__iexact=name)
+        if self.instance is not None:
+            clash = clash.exclude(pk=self.instance.pk)
+        if clash.exists():
+            raise serializers.ValidationError('That agency is already in the list.')
+        return name
 
 
 def _photo_list(obj, request):
@@ -16,7 +36,19 @@ def _photo_list(obj, request):
     ]
 
 
-class BeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
+class NotInThePastMixin:
+    """Assistance is recorded for today or a future date. A new record needs such a date; an existing one keeps the date it has
+    (so a typo in its notes can still be fixed) and can only be moved to today or later."""
+    def validate_date_given(self, value):
+        if self.context.get('allow_past_dates'):
+            return value
+        unchanged = self.instance is not None and getattr(self.instance, 'date_given', None) == value
+        if not unchanged and value < timezone.localdate():
+            raise serializers.ValidationError('Assistance can only be recorded for today or a future date.')
+        return value
+
+
+class BeneficiaryRecordCreateSerializer(NotInThePastMixin, serializers.ModelSerializer):
     confirmation_photos = serializers.SerializerMethodField()
     farmer_full_name = serializers.CharField(source='farmer.full_name', read_only=True)
     farmer_rsbsa_number = serializers.CharField(source='farmer.rsbsa_number', read_only=True)
@@ -104,7 +136,7 @@ class BeneficiaryRecordUpdateSerializer(BeneficiaryRecordCreateSerializer):
         read_only_fields = BeneficiaryRecordCreateSerializer.Meta.read_only_fields + ['farmer']
 
 
-class FisherfolkBeneficiaryRecordCreateSerializer(serializers.ModelSerializer):
+class FisherfolkBeneficiaryRecordCreateSerializer(NotInThePastMixin, serializers.ModelSerializer):
     fisherfolk_full_name = serializers.CharField(source='fisherfolk.full_name', read_only=True)
     fisherfolk_barangay = serializers.CharField(source='fisherfolk.barangay', read_only=True)
     fisherfolk_type = serializers.CharField(source='fisherfolk.fisherfolk_type', read_only=True)
@@ -167,7 +199,7 @@ class FisherfolkBeneficiaryRecordUpdateSerializer(FisherfolkBeneficiaryRecordCre
         read_only_fields = FisherfolkBeneficiaryRecordCreateSerializer.Meta.read_only_fields + ['fisherfolk']
 
 
-class OrganizationDistributionRequestSerializer(serializers.Serializer):
+class OrganizationDistributionRequestSerializer(NotInThePastMixin, serializers.Serializer):
     """
     Per-organization bulk assistance distribution (associations app's
     Farmers/FisherfolkOrganizationDistributeAssistanceView). Validates only

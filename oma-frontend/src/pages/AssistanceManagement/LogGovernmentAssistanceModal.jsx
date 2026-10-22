@@ -7,8 +7,9 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { SourceAgencyMultiSelect, TypeConditionalFields } from './sharedAssistanceFields.jsx'
 import {
-  EMPTY_TYPE_CONDITIONAL_FIELDS, buildTypeConditionalPayload, validateTrainingDuration, isTrainingType,
+  EMPTY_TYPE_CONDITIONAL_FIELDS, buildTypeConditionalPayload, validateTrainingDuration, isTrainingType, assistanceDateProblem, assistanceMinDate,
 } from './assistanceFieldHelpers.js'
+import { todayISO } from '../../utils/localDate.js'
 
 // Must match interventions.models.FisherfolkBeneficiaryRecord.AssistanceType exactly
 // (Batch 6: absorbed from fisheries.models.FisheriesAssistanceRecord) — this is a
@@ -160,6 +161,9 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess, memberUrl = null }) 
     const trainingError = validateTrainingDuration(form.assistance_type, form)
     if (trainingError) { showToast(trainingError, 'error'); return }
 
+    const dateError = assistanceDateProblem(form.date_received, { today: todayISO() })
+    if (dateError) { showToast(dateError, 'error'); return }
+
     const assistanceType = form.assistance_type === 'Other' ? form.assistance_type_other.trim() : form.assistance_type
     const unit = isCashType ? 'PHP' : (form.unit === 'Other' ? form.unit_other.trim() : form.unit)
 
@@ -278,12 +282,12 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess, memberUrl = null }) 
             <input className={baseInputClasses} value={selectedFisherfolk?.barangay || ''} readOnly />
           </FormField>
 
-          <FormField label={memberUrl ? 'Date Given' : 'Date Received'} required>
+          <FormField label="Date Given" required>
             <input
               type="date"
               className={baseInputClasses}
               value={form.date_received}
-              max={memberUrl ? undefined : new Date().toISOString().split('T')[0]}
+              min={assistanceMinDate({ today: todayISO() })}
               onChange={(e) => set('date_received', e.target.value)}
             />
           </FormField>

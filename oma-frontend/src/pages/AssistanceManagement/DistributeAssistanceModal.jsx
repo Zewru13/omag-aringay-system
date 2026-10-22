@@ -16,7 +16,7 @@ import { todayISO } from '../../utils/localDate.js'
 import { SourceAgencyMultiSelect, TypeConditionalFields } from './sharedAssistanceFields.jsx'
 import {
   EMPTY_TYPE_CONDITIONAL_FIELDS, buildTypeConditionalPayload, validateTrainingDuration,
-  isTrainingType, isEquipmentType, isSeedsType, isFertilizerType,
+  isTrainingType, isEquipmentType, isSeedsType, isFertilizerType, assistanceDateProblem, assistanceMinDate,
 } from './assistanceFieldHelpers.js'
 
 const STEPS = [
@@ -26,7 +26,7 @@ const STEPS = [
 ]
 const STEP_INDEX = { form: 0, confirm: 1, result: 2 }
 
-const EMPTY_FORM = (domain) => ({
+const EMPTY_FORM = () => ({
   assistance_type: '',
   assistance_type_other: '',
   source_agencies: [],
@@ -34,7 +34,6 @@ const EMPTY_FORM = (domain) => ({
   quantity: '',
   cash_amount: '',
   description: '',
-  season: domain.seasonOptions ? domain.seasonOptions[0] : '',
   // Type-conditional fields — only the one matching the selected
   // assistance_type is ever shown/submitted; see sharedAssistanceFields.jsx.
   ...EMPTY_TYPE_CONDITIONAL_FIELDS,
@@ -66,7 +65,7 @@ export default function DistributeAssistanceModal({ domain, fixedOrg = null, onC
   const [orgResults, setOrgResults] = useState([])
   const [org, setOrg] = useState(fixedOrg)
 
-  const [form, setForm] = useState(EMPTY_FORM(domain))
+  const [form, setForm] = useState(EMPTY_FORM())
   const [preview, setPreview] = useState(null) // dry-run response
   const [selectedIds, setSelectedIds] = useState(new Set()) // person ids that will receive the assistance
   const [finalResult, setFinalResult] = useState(null)
@@ -117,7 +116,6 @@ export default function DistributeAssistanceModal({ domain, fixedOrg = null, onC
       date_given: form.date_given,
       quantity,
       description: form.description,
-      season: form.season,
       // Only the field matching the CURRENT type is ever sent — even if
       // something stale slipped past the reset above, it never reaches
       // the request for the wrong type.
@@ -133,6 +131,8 @@ export default function DistributeAssistanceModal({ domain, fixedOrg = null, onC
     if (!form.assistance_type || !form.date_given) {
       showToast('Fill in all required fields.', 'error'); return
     }
+    const dateError = assistanceDateProblem(form.date_given, { today: todayISO() })
+    if (dateError) { showToast(dateError, 'error'); return }
     if (form.assistance_type === 'Other' && !form.assistance_type_other.trim()) {
       showToast('Please specify the assistance type.', 'error'); return
     }
@@ -177,7 +177,7 @@ export default function DistributeAssistanceModal({ domain, fixedOrg = null, onC
   const handleStartNew = () => {
     setOrg(fixedOrg)
     setOrgSearch('')
-    setForm(EMPTY_FORM(domain))
+    setForm(EMPTY_FORM())
     setPreview(null)
     setSelectedIds(new Set())
     setFinalResult(null)
@@ -357,21 +357,10 @@ export default function DistributeAssistanceModal({ domain, fixedOrg = null, onC
 
             <div className="grid gap-4 sm:grid-cols-2">
               <FormField label="Distribution Date" required pillLabel>
-                <input type="date" className={baseInputClasses} value={form.date_given} onChange={(e) => set('date_given', e.target.value)} />
-                <p className="mt-1 text-[11px] text-[#7A8E7A]">A future date schedules the distribution — it stays Pending until that date arrives.</p>
+                <input type="date" className={baseInputClasses} value={form.date_given} min={assistanceMinDate({ today: todayISO() })}
+                  onChange={(e) => set('date_given', e.target.value)} />
+                <p className="mt-1 text-[11px] text-[#7A8E7A]">Today or a later date. A future date schedules the distribution — it stays Pending until that date arrives.</p>
               </FormField>
-              {domain.seasonOptions ? (
-                <FormField label="Season" pillLabel>
-                  <select className={baseInputClasses} value={form.season} onChange={(e) => set('season', e.target.value)}>
-                    <option value="">Select…</option>
-                    {domain.seasonOptions.map((o) => <option key={o} value={o}>{o}</option>)}
-                  </select>
-                </FormField>
-              ) : (
-                <FormField label="Season" pillLabel>
-                  <input className={baseInputClasses} value={form.season} onChange={(e) => set('season', e.target.value)} />
-                </FormField>
-              )}
             </div>
 
             <FormField label="Description" pillLabel>

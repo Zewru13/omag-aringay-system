@@ -7,16 +7,19 @@ import PhotoListField from '../../components/UI/PhotoListField.jsx'
 import usePhotoList from '../../hooks/usePhotoList.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { PROOF_MIN, confirmProblem, namesPreview } from './orgConfirmSelection.js'
+import ConfirmedReportModal from './ConfirmedReportModal.jsx'
+import { buildAssistanceReportSpec } from './assistanceReport.js'
 
 // An organization confirms that the assistance reached the members it picked (one or many) with ONE set of proof photos
 // for all of them. The confirmation is final: the members become Confirmed straight away, OMAg staff are told but do
 // not have to approve. Shared by the crop and fisheries assistance pages in organization mode.
 //   url: the "confirm for members" endpoint. records: the picked assistance rows. nameOf(record): the member's name.
-export default function ConfirmMembersDialog({ url, records, nameOf, onClose, onDone }) {
+export default function ConfirmMembersDialog({ url, records, nameOf, onClose, onDone, domain = 'crop', organizationName = '' }) {
   const { showToast } = useToast()
   const photosState = usePhotoList()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [confirmedCount, setConfirmedCount] = useState(null)   // set once the confirmation went through: the report is offered next
   const count = photosState.photos.length
   const problem = confirmProblem(records.length, count)
   const names = records.map(nameOf)
@@ -34,7 +37,7 @@ export default function ConfirmMembersDialog({ url, records, nameOf, onClose, on
       const r = await api.post(url, payload)
       const done = r.data?.confirmed ?? records.length
       showToast(`${done} member${done === 1 ? '' : 's'} confirmed.`, 'success')
-      onDone()
+      setConfirmedCount(done)
     } catch (err) {
       const data = err?.response?.data
       const messages = data && typeof data === 'object' ? Object.values(data).flat().filter((m) => typeof m === 'string') : []
@@ -42,6 +45,17 @@ export default function ConfirmMembersDialog({ url, records, nameOf, onClose, on
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  if (confirmedCount !== null) {
+    const spec = buildAssistanceReportSpec({ domain, records, confirmedOn: new Date().toISOString(), organizationName })
+    return (
+      <ConfirmedReportModal
+        message={`${confirmedCount} member${confirmedCount === 1 ? '' : 's'} confirmed.`}
+        spec={spec}
+        onClose={onDone}
+      />
+    )
   }
 
   return (

@@ -15,6 +15,7 @@ import {
   Leaf,
   LineChart,
   Settings2,
+  HeartHandshake,
   ShieldCheck,
   Sprout,
   TrendingUp,
@@ -172,6 +173,7 @@ const ADMIN_GROUP = {
     { to: "/crop-settings", icon: Leaf, label: "Crop Settings" },
     { to: "/fisheries-settings", icon: Settings2, label: "Fisheries Settings" },
     { to: "/activity-settings", icon: Activity, label: "Activity Settings" },
+    { to: "/assistance-settings", icon: HeartHandshake, label: "Assistance Settings" },
     { to: "/users", icon: UserCog, label: "User Management" },
   ],
 };

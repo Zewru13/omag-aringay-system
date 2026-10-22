@@ -9,7 +9,6 @@ export const FARMER_DISTRIBUTION_DOMAIN = {
   orgSearchUrl: '/organizations/farmers/',
   distributeUrl: (orgId) => `/organizations/farmers/${orgId}/distribute-assistance/`,
   assistanceTypeOptions: ['Fertilizer', 'Seeds', 'Equipment', 'Cash Assistance', 'Training', 'Other'],
-  seasonOptions: ['Dry', 'Wet'],
 }
 
 export const FISHERFOLK_DISTRIBUTION_DOMAIN = {
@@ -26,5 +25,4 @@ export const FISHERFOLK_DISTRIBUTION_DOMAIN = {
   // has neither 'Fertilizer' nor plain 'Seeds' — swapping in the farmer set
   // here would submit values the backend rejects.
   assistanceTypeOptions: ['Fishing Gear', 'Boat/Vessel', 'Fingerlings/Seeds', 'Feed', 'Equipment', 'Cash Assistance', 'Training', 'Other'],
-  seasonOptions: null,
 }

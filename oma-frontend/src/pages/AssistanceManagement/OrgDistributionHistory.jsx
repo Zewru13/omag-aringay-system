@@ -8,7 +8,7 @@ import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { formatDateTime, formatStamp } from '../../utils/distributionHelpers.js'
-import { SOURCE_AGENCY_OPTIONS } from './assistanceFieldHelpers.js'
+import useAssistanceAgencies from './useAssistanceAgencies.js'
 
 // An organization's assistance history as distributions: one row per distribution, expandable to the members it went to.
 // Used by the crop and the fisheries assistance pages in organization mode.
@@ -75,6 +75,7 @@ function MemberList({ item, onRemove }) {
 
 export default function OrgDistributionHistory({ domain = 'crop', refreshKey = 0, onChanged }) {
   const config = DOMAINS[domain]
+  const agencies = useAssistanceAgencies()
   const { showToast } = useToast()
   const [filters, setFilters] = useState(EMPTY_FILTERS)
   const [memberInput, setMemberInput] = useState('')
@@ -172,7 +173,7 @@ export default function OrgDistributionHistory({ domain = 'crop', refreshKey = 0
         </select>
         <select className={SELECT} value={filters.source_agency} onChange={setFilter('source_agency')} aria-label="Source agency">
           <option value="">All source agencies</option>
-          {SOURCE_AGENCY_OPTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
+          {(agencies || []).map((a) => <option key={a.id} value={a.name}>{a.name}</option>)}
         </select>
         <label className="flex items-center gap-1.5 text-[12px] text-[#4A5A4C]">
           From

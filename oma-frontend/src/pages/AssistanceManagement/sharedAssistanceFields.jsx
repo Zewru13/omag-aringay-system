@@ -1,9 +1,10 @@
-import { useState } from 'react'
-import { X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ChevronDown, X } from 'lucide-react'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import {
-  SOURCE_AGENCY_OPTIONS, isTrainingType, isEquipmentType, isSeedsType, isFertilizerType,
+  agencyChoices, isTrainingType, isEquipmentType, isSeedsType, isFertilizerType,
 } from './assistanceFieldHelpers.js'
+import useAssistanceAgencies from './useAssistanceAgencies.js'
 
 // Single source of truth for the Source Agency + type-conditional field
 // components, built first for DistributeAssistanceModal.jsx and reused as-is
@@ -14,79 +15,71 @@ import {
 // these live in assistanceFieldHelpers.js (kept out of this file so it can
 // export components only — see react-refresh/only-export-components).
 
-// Source Agency, single -> multiple: checkboxes for the known agencies plus
-// a free-text add for anything else, all flattened into one source_agencies
-// array — no separate "Other" sentinel value the way ComboboxWithOther uses,
-// since more than one of either kind can be selected at once.
+// Source Agency: one multi-select dropdown. The choices are the active agencies of the managed list (Assistance Settings);
+// the chosen ones show as chips, and an agency already on a record (hidden since, or typed long ago) stays selectable.
 export function SourceAgencyMultiSelect({ value, onChange }) {
-  const [customInput, setCustomInput] = useState('')
+  const agencies = useAssistanceAgencies()
+  const [open, setOpen] = useState(false)
+  const box = useRef(null)
+  const choices = agencyChoices(agencies, value)
 
-  const toggle = (agency) => {
-    onChange(value.includes(agency) ? value.filter((a) => a !== agency) : [...value, agency])
-  }
+  useEffect(() => {
+    if (!open) return undefined
+    const away = (e) => { if (box.current && !box.current.contains(e.target)) setOpen(false) }
+    const esc = (e) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', away)
+    document.addEventListener('keydown', esc)
+    return () => { document.removeEventListener('mousedown', away); document.removeEventListener('keydown', esc) }
+  }, [open])
 
-  const addCustom = () => {
-    const v = customInput.trim()
-    if (!v || value.includes(v)) return
-    onChange([...value, v])
-    setCustomInput('')
-  }
-
-  const removeCustom = (agency) => onChange(value.filter((a) => a !== agency))
-
-  const customEntries = value.filter((a) => !SOURCE_AGENCY_OPTIONS.includes(a))
+  const toggle = (agency) => onChange(value.includes(agency) ? value.filter((a) => a !== agency) : [...value, agency])
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap gap-2">
-        {SOURCE_AGENCY_OPTIONS.map((opt) => (
-          <label
-            key={opt}
-            className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12px] transition-colors ${
-              value.includes(opt)
-                ? 'border-[#1B4D2E] bg-[#EBF5EE] text-[#1B4D2E] font-medium'
-                : 'border-[#E2E8E2] text-[#4A5A4C] hover:bg-[#F5F7F5]'
-            }`}
-          >
-            <input
-              type="checkbox"
-              className="sr-only"
-              checked={value.includes(opt)}
-              onChange={() => toggle(opt)}
-            />
-            {opt}
-          </label>
-        ))}
-      </div>
-      {customEntries.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {customEntries.map((c) => (
-            <span key={c} className="inline-flex items-center gap-1 rounded-full bg-[#EBF5EE] px-2 py-0.5 text-[12px] font-medium text-[#1B4D2E]">
-              {c}
-              <button type="button" onClick={() => removeCustom(c)} className="ml-0.5 hover:text-rose-600">
-                <X className="h-3 w-3" />
-              </button>
+    <div ref={box} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className={`${baseInputClasses} flex min-h-[40px] w-full items-center justify-between gap-2 text-left`}
+      >
+        <span className="flex min-w-0 flex-wrap gap-1.5">
+          {value.length === 0 ? (
+            <span className="text-[#9AAB9A]">Select source agencies…</span>
+          ) : value.map((a) => (
+            <span key={a} className="inline-flex max-w-full items-center gap-1 rounded-full bg-[#EBF5EE] px-2 py-0.5 text-[12px] font-medium text-[#1B4D2E]">
+              <span className="truncate">{a}</span>
+              <span
+                role="button"
+                tabIndex={0}
+                aria-label={`Remove ${a}`}
+                onClick={(e) => { e.stopPropagation(); toggle(a) }}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); toggle(a) } }}
+                className="hover:text-rose-600"
+              >
+                <X className="h-3 w-3" aria-hidden="true" />
+              </span>
             </span>
           ))}
-        </div>
+        </span>
+        <ChevronDown className={`h-4 w-4 shrink-0 text-[#7A8E7A] transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
+      </button>
+      {open && (
+        <ul role="listbox" aria-multiselectable="true" className="absolute z-30 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-[#E2E8E2] bg-white py-1 shadow-lg">
+          {choices.length === 0 && <li className="px-3 py-2 text-[12.5px] italic text-[#7A8E7A]">No agencies in the list yet. Add them in Assistance Settings.</li>}
+          {choices.map((opt) => {
+            const checked = value.includes(opt)
+            return (
+              <li key={opt} role="option" aria-selected={checked}>
+                <label className="flex min-h-[40px] cursor-pointer items-center gap-2 px-3 py-1.5 text-[13px] text-[#1A2B1A] hover:bg-[#F5F7F5]">
+                  <input type="checkbox" className="h-4 w-4 accent-[#1B4D2E]" checked={checked} onChange={() => toggle(opt)} />
+                  {opt}
+                </label>
+              </li>
+            )
+          })}
+        </ul>
       )}
-      <div className="flex gap-2">
-        <input
-          type="text"
-          placeholder="Add another source agency…"
-          className={`${baseInputClasses} flex-1`}
-          value={customInput}
-          onChange={(e) => setCustomInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ',' || e.key === 'Tab') { e.preventDefault(); addCustom() } }}
-        />
-        <button
-          type="button"
-          onClick={addCustom}
-          className="rounded-lg bg-[#EBF5EE] px-3 py-1.5 text-[12px] font-medium text-[#1B4D2E] transition-colors hover:bg-[#D4EDDA]"
-        >
-          Add
-        </button>
-      </div>
     </div>
   )
 }
