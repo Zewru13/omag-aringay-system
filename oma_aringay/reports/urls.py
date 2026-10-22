@@ -20,9 +20,11 @@ from .views import (
     SeasonalVarianceReport,
     YieldAnalysisReport,
 )
+from .registered import RegisteredRecordsReport
 
 
 urlpatterns = [
+    path('registered/', RegisteredRecordsReport.as_view(), name='report-registered'),
     path('farmers/masterlist/', FarmerMasterlistReport.as_view(), name='report-farmer-masterlist'),
     path('farmers/<int:farmer_id>/profile/', FarmerProfileReport.as_view(), name='report-farmer-profile'),
     path('fisheries/<int:fisherfolk_id>/profile/', FisherfolkProfileReport.as_view(), name='report-fisherfolk-profile'),
