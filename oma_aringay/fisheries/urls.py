@@ -1,5 +1,7 @@
 from django.urls import path
 
+from .emergency_force_harvest import ForceHarvestCreateView, ForceHarvestDetailView, ForceHarvestEligibleView
+
 from .views import (
     DiseaseResponseGuideDetailView,
     DiseaseResponseGuideListCreateView,
@@ -115,6 +117,11 @@ urlpatterns = [
     path('stocking/<int:stocking_id>/suggestions/', FisheriesActivitySuggestionsView.as_view(), name='stocking-suggestions'),
     path('stocking/<int:pk>/variance-details/', StockingVarianceDetailsView.as_view(), name='stocking-variance-details'),
     path('stocking/<int:pk>/production-units/', StockingProductionUnitsView.as_view(), name='stocking-production-units'),
+
+    # ── Emergency Force Harvest (Aquaculture Monitoring ⋮ menu) - separate from the Health Log Force Harvest ──
+    path('force-harvest/eligible/', ForceHarvestEligibleView.as_view(), name='force-harvest-eligible'),
+    path('force-harvest/', ForceHarvestCreateView.as_view(), name='force-harvest-create'),
+    path('force-harvest/<int:pk>/', ForceHarvestDetailView.as_view(), name='force-harvest-detail'),
 
     # ── Legacy Capture Fishing / Assistance (relocated from monitoring) ──────
     path('fishing-trips/', FishingTripLogListCreateView.as_view(), name='fishing-trip-list-create'),

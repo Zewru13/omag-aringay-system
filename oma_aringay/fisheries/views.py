@@ -36,6 +36,7 @@ from . import disaster_reports
 from .eligibility import NO_PONDS_MESSAGE, fisherfolk_has_ponds
 from .notifications import queue_force_harvest
 from .models import (
+    EMERGENCY_FORCE_HARVEST_REASON_LABELS,
     HARVEST_TIMING_LABELS,
     DiseaseResponseGuide,
     DiseaseType,
@@ -1605,9 +1606,15 @@ class StockingProductionUnitsView(APIView):
         units = list(AquacultureProductionUnit.objects.filter(production_cycle_id=rec.production_cycle_id).order_by('unit_type', 'unit_number'))
         harvests = rec.harvests.prefetch_related('production_units', 'unit_harvests')
         unit_kg, unit_dates, combined_units = {}, {}, set()
+        forced_by_unit = {}   # unit id -> the emergency Force Harvest record that harvested it
         for h in harvests:
             rows = {row.production_unit_id: row.quantity_kg for row in h.unit_harvests.all()}
             for u in h.production_units.all():
+                if h.force_harvest_reason:
+                    forced_by_unit[u.id] = {
+                        'id': h.id, 'reason': h.force_harvest_reason,
+                        'reason_label': EMERGENCY_FORCE_HARVEST_REASON_LABELS.get(h.force_harvest_reason, ''),
+                    }
                 unit_dates.setdefault(u.id, set()).add(h.harvest_date)
                 if u.id in rows:
                     unit_kg[u.id] = unit_kg.get(u.id, Decimal('0')) + rows[u.id]
@@ -1620,6 +1627,8 @@ class StockingProductionUnitsView(APIView):
             st = status_by_id.get(u.id, {})
             if st.get('force_harvested'):
                 status = 'force_harvested'
+            elif u.id in forced_by_unit:
+                status = 'forced_harvest'   # the emergency Force Harvest (separate from the Health Log one above)
             elif st.get('harvested'):
                 status = 'harvested'
             elif record_closed:
@@ -1642,6 +1651,7 @@ class StockingProductionUnitsView(APIView):
                 'fingerling_count': u.fingerling_count,
                 'estimated_harvest_kg': str(estimate) if estimate is not None else None,
                 'actual_harvest_kg': str(kg) if kg is not None else None,
+                'forced_harvest': forced_by_unit.get(u.id),
                 'in_combined_harvest': u.id in combined_units and kg is None,
                 'harvest_dates': [str(d) for d in dates],
                 'status': status,
