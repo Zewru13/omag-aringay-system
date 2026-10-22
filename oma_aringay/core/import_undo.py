@@ -28,10 +28,11 @@ REASON_DONE = 'Already undone.'
 CLEANUPS = {}
 
 
-def register_cleanup(model_label, check, before_delete=None):
+def register_cleanup(model_label, check, before_delete=None, ignore_dependents=()):
     """`check(obj)` returns a reason to KEEP the record (or None); `before_delete(obj, user)` runs inside the undo's
-    transaction just before the record is deleted (for example to remove a login the import created)."""
-    CLEANUPS[model_label] = {'check': check, 'before_delete': before_delete}
+    transaction just before the record is deleted (for example to remove a login the import created). `ignore_dependents` names
+    models that go with the record and are not a reason to keep it by themselves; `check` then decides whether they may go."""
+    CLEANUPS[model_label] = {'check': check, 'before_delete': before_delete, 'ignore_dependents': set(ignore_dependents)}
 
 
 @dataclass
@@ -76,9 +77,10 @@ def _evaluate(item):
         return 'keep', REASON_CHANGED, obj
     if fingerprint(obj) != item.fingerprint:
         return 'keep', REASON_EDITED, obj
-    if dependents(obj):
-        return 'keep', REASON_DEPENDENTS, obj
     cleanup = CLEANUPS.get(item.model_label)
+    ignored = cleanup['ignore_dependents'] if cleanup else set()
+    if [d for d in dependents(obj) if d not in ignored]:
+        return 'keep', REASON_DEPENDENTS, obj
     if cleanup:
         reason = cleanup['check'](obj)
         if reason:

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react'
-import { ArrowLeft, ChevronDown, ChevronRight, ClipboardList, Edit, FileText, Plus } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronRight, ClipboardList, Edit, FileText, Plus, Upload } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import ActivateCitizenAccountButton from '../../components/ActivateCitizenAccountButton.jsx'
+import ImportFileModal from '../../components/ImportFileModal.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
@@ -329,6 +330,7 @@ function FarmerDetailPage() {
   const [historyError, setHistoryError] = useState('')
   const [cropError, setCropError] = useState('')
   const [isParcelModalOpen, setIsParcelModalOpen] = useState(false)
+  const [isParcelImportOpen, setIsParcelImportOpen] = useState(false)
   const navigate = useNavigate()
   const [visitModal, setVisitModal] = useState(null)   // null | 'new' | the visit being edited
   const [deletingVisit, setDeletingVisit] = useState(null)
@@ -481,6 +483,11 @@ function FarmerDetailPage() {
               {(isAdmin || isEvaluator) && (
                 <Button icon={Plus} onClick={() => setIsParcelModalOpen(true)} variant="outline">
                   Add Farm Parcel
+                </Button>
+              )}
+              {(isAdmin || isEvaluator) && (
+                <Button icon={Upload} onClick={() => setIsParcelImportOpen(true)} variant="outline">
+                  Import Farm Parcels
                 </Button>
               )}
               {(isAdmin || isEvaluator) && (
@@ -896,6 +903,21 @@ function FarmerDetailPage() {
           farmerId={id}
           onClose={() => setIsParcelModalOpen(false)}
           onSuccess={fetchParcels}
+          onImportParcels={() => { setIsParcelModalOpen(false); setIsParcelImportOpen(true) }}
+        />
+      )}
+
+      {isParcelImportOpen && (
+        <ImportFileModal
+          title="Import Farm Parcels"
+          subtitle={`Add farm parcels, with the crops grown on them, to ${farmer?.full_name || 'this farmer'} from a spreadsheet.`}
+          helpText="One row per crop, with the parcel columns repeated. Rows with the same Parcel Number become one parcel; a parcel without crops is one row with the crop columns left blank."
+          importUrl={`/farmers/${id}/parcels/import/`}
+          templateUrl="/farmers/parcels/import/template/"
+          templateFilename="farm_parcels_import_template.xlsx"
+          undoType="farm_parcels"
+          onClose={() => setIsParcelImportOpen(false)}
+          onImported={fetchParcels}
         />
       )}
 
