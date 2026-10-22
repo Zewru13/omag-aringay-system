@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Clock, Leaf } from 'lucide-react'
+import { AlertTriangle, BarChart2, CloudLightning, Clock, Leaf, Sprout } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import WelcomeBand from '../../components/dashboard/WelcomeBand.jsx'
+import { useAuth } from '../../context/AuthContext.jsx'
 import { DonutCard, HarvestBarsCard } from './HomeChartCards.jsx'
 import fetchAllPages from './fetchAllPages.js'
 import { disasterSlices, harvestBars, statusSlices } from './homeCharts.js'
@@ -18,7 +20,7 @@ const rows = (res) => (Array.isArray(res.data) ? res.data : (res.data?.results |
 
 function StatTile({ value, label }) {
   return (
-    <div className="rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface px-[15px] py-[16px]">
+    <div className="rounded-[12px] border-[0.5px] border-cz-crop-300 bg-cz-crop-pale px-[15px] py-[16px]">
       <p className="text-[22px] font-bold leading-[1.15] text-cz-crop-header">{value}</p>
       <p className="mt-2.5 text-[11.5px] text-cz-text-2">{label}</p>
     </div>
@@ -74,6 +76,7 @@ function CropCard({ rec, suggestion, onOpen, onDisaster }) {
 
 export default function FarmerPhoneHome() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const { showToast } = useToast()
   const [isLoading, setIsLoading] = useState(true)
   const [active, setActive] = useState([])
@@ -132,6 +135,12 @@ export default function FarmerPhoneHome() {
 
   return (
     <PageLayout title="Home">
+      <WelcomeBand
+        className="mb-3"
+        theme="crop"
+        title={user?.linked_record?.label ? `Welcome, ${user.linked_record.label}` : 'Welcome'}
+        subtitle={`Farmer account · ${new Date().toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}`}
+      />
       {isLoading ? (
         <p className="text-[15px] italic text-cz-text-2">Loading your crops…</p>
       ) : (
@@ -144,8 +153,9 @@ export default function FarmerPhoneHome() {
           </div>
 
           <div className="grid gap-3 lg:grid-cols-3">
-            <DonutCard title="My crops by stage" slices={statusSlices(crops)} unit="crops" emptyText="No crops to chart yet." />
+            <DonutCard icon={Sprout} accent="#2D7A4F" title="My crops by stage" slices={statusSlices(crops)} unit="crops" emptyText="No crops to chart yet." />
             <HarvestBarsCard
+              icon={BarChart2}
               title="Harvest vs estimate"
               hint="Latest harvested crops, in kg"
               bars={harvestBars(crops.filter((r) => r.status === 'Harvested'), {
@@ -154,7 +164,7 @@ export default function FarmerPhoneHome() {
               color="#1B4D2E"
               emptyText="Harvest results appear here once a crop is harvested."
             />
-            <DonutCard title="Disasters by type" slices={disasterSlices(disasters)} unit="reports" emptyText="You have not logged any disasters." />
+            <DonutCard icon={CloudLightning} accent="#B4531B" title="Disasters by type" slices={disasterSlices(disasters)} unit="reports" emptyText="You have not logged any disasters." />
           </div>
 
           {needsAttention.length > 0 && (

@@ -9,11 +9,20 @@ const GRID = '#E2E8E2'
 const AXIS = '#4A5E4A'
 const ESTIMATE_COLOR = '#B9C9B9'
 
-function ChartCard({ title, hint, children }) {
+function ChartCard({ title, hint, accent = '#1B4D2E', icon: Icon, children }) {
   return (
-    <section className="rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface px-[15px] py-[15px]">
-      <h2 className="text-[13px] font-bold text-cz-text">{title}</h2>
-      {hint && <p className="mt-0.5 text-[11px] text-cz-text-2">{hint}</p>}
+    <section className="overflow-hidden rounded-[12px] border-[0.5px] border-t-[3px] border-cz-border bg-cz-surface px-[15px] py-[15px]" style={{ borderTopColor: accent }}>
+      <div className="flex items-center gap-2.5">
+        {Icon && (
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg" style={{ backgroundColor: `${accent}1A`, color: accent }}>
+            <Icon size={15} aria-hidden="true" />
+          </span>
+        )}
+        <div className="min-w-0">
+          <h2 className="text-[13px] font-bold text-cz-text">{title}</h2>
+          {hint && <p className="mt-0.5 text-[11px] text-cz-text-2">{hint}</p>}
+        </div>
+      </div>
       <div className="mt-3">{children}</div>
     </section>
   )
@@ -24,12 +33,12 @@ function Empty({ children }) {
 }
 
 // A donut with its legend beside it (under it when the card is narrow). `slices` = [{ name, value, color }].
-export function DonutCard({ title, hint, slices, emptyText, unit = '' }) {
-  if (!hasData(slices)) return <ChartCard title={title} hint={hint}><Empty>{emptyText}</Empty></ChartCard>
+export function DonutCard({ title, hint, slices, emptyText, unit = '', accent, icon }) {
+  if (!hasData(slices)) return <ChartCard title={title} hint={hint} accent={accent} icon={icon}><Empty>{emptyText}</Empty></ChartCard>
   const total = slices.reduce((sum, s) => sum + s.value, 0)
   const summary = slices.map((s) => `${s.name} ${s.value}`).join(', ')
   return (
-    <ChartCard title={title} hint={hint}>
+    <ChartCard title={title} hint={hint} accent={accent} icon={icon}>
       <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
         <div className="relative h-[132px] w-[132px] shrink-0" role="img" aria-label={`${title}: ${summary}`}>
           <ResponsiveContainer width="100%" height="100%">
@@ -62,11 +71,11 @@ export function DonutCard({ title, hint, slices, emptyText, unit = '' }) {
 const fmtKg = (value) => `${Number(value).toLocaleString(undefined, { maximumFractionDigits: 1 })} kg`
 
 // Estimated against actual harvest, a pair of bars per crop or cycle.
-export function HarvestBarsCard({ title, hint, bars, color, emptyText }) {
-  if (!hasBars(bars)) return <ChartCard title={title} hint={hint}><Empty>{emptyText}</Empty></ChartCard>
+export function HarvestBarsCard({ title, hint, bars, color, emptyText, icon, accent = color }) {
+  if (!hasBars(bars)) return <ChartCard title={title} hint={hint} accent={accent} icon={icon}><Empty>{emptyText}</Empty></ChartCard>
   const summary = bars.map((b) => `${b.name}: estimate ${fmtKg(b.estimate)}, actual ${fmtKg(b.actual)}`).join('; ')
   return (
-    <ChartCard title={title} hint={hint}>
+    <ChartCard title={title} hint={hint} accent={accent} icon={icon}>
       <div className="h-[190px] w-full" role="img" aria-label={`${title}. ${summary}`}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={bars} margin={{ top: 4, right: 4, bottom: 0, left: -18 }} barGap={2}>
@@ -88,11 +97,11 @@ export function HarvestBarsCard({ title, hint, bars, color, emptyText }) {
 }
 
 // A count per month of one year.
-export function MonthlyBarsCard({ title, hint, months, color, emptyText }) {
-  if (!hasMonthly(months)) return <ChartCard title={title} hint={hint}><Empty>{emptyText}</Empty></ChartCard>
+export function MonthlyBarsCard({ title, hint, months, color, emptyText, icon, accent = color }) {
+  if (!hasMonthly(months)) return <ChartCard title={title} hint={hint} accent={accent} icon={icon}><Empty>{emptyText}</Empty></ChartCard>
   const summary = months.filter((m) => m.value > 0).map((m) => `${m.month} ${m.value}`).join(', ')
   return (
-    <ChartCard title={title} hint={hint}>
+    <ChartCard title={title} hint={hint} accent={accent} icon={icon}>
       <div className="h-[170px] w-full" role="img" aria-label={`${title}: ${summary}`}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={months} margin={{ top: 4, right: 4, bottom: 0, left: -22 }}>
