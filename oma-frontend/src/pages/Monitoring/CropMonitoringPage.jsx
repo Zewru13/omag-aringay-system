@@ -54,6 +54,8 @@ const todayISO = () => new Date().toISOString().slice(0, 10)
 // vendor, and region. Returning null here means the comparison below falls
 // back to treating the entered number as already-kg, same as this form's
 // original (pre-conversion) behavior, rather than applying a guessed factor.
+const STANDARD_HARVEST_UNITS = ['kg', 'bags', 'cavan', 'sacks', 'pieces', 'bundles', 'boxes']
+
 function unitToKgFactor(unit) {
   const normalized = (unit || '').trim().toLowerCase()
   if (normalized === 'kg') return 1
@@ -1223,11 +1225,18 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
   const [isLoading,    setIsLoading]    = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [dateError,    setDateError]    = useState('')
+  // The units this harvest's crop allows (Crop Options); the standard codes when the harvest has no crop record.
+  const [cropUnits,    setCropUnits]    = useState(null)
 
   useEffect(() => {
     api.get(`/production/${harvestId}/`)
       .then(r => {
         const d = r.data
+        if (d.monitoring_record) {
+          api.get(`/production/monitoring/${d.monitoring_record}/`)
+            .then(m => setCropUnits(m.data.crop_allowed_units?.length ? m.data.crop_allowed_units : null))
+            .catch(() => {})
+        }
         setForm({
           harvest_start_date:      d.harvest_start_date || '',
           harvest_end_date:        d.harvest_end_date || '',
@@ -1314,13 +1323,8 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
               <label className="mb-1 block text-xs font-medium text-slate-700">Unit</label>
               <select className={baseInputClasses} value={form.unit_of_measure}
                 onChange={e => handleChange('unit_of_measure', e.target.value)}>
-                <option value="kg">kg</option>
-                <option value="bags">bags</option>
-                <option value="cavan">cavan</option>
-                <option value="sacks">sacks</option>
-                <option value="pieces">pieces</option>
-                <option value="bundles">bundles</option>
-                <option value="boxes">boxes</option>
+                {/* The crop's own units, always including the unit already saved on this harvest. */}
+                {[...new Set([...(cropUnits || STANDARD_HARVEST_UNITS), form.unit_of_measure])].map(u => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
           </div>
