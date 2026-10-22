@@ -130,12 +130,21 @@ def build_pdf(doc, request, filename_stem):
     return _finish_pdf(buf, f'{filename_stem}_{_today()}.pdf')
 
 
+SHEET_TITLE_FORBIDDEN = r'\/?*[]:'
+
+
+def _sheet_title(title):
+    """A worksheet name Excel accepts: at most 31 characters and none of the characters  \\ / ? * [ ] :"""
+    cleaned = ''.join(' ' if ch in SHEET_TITLE_FORBIDDEN else ch for ch in (title or '')).strip()
+    return ' '.join(cleaned.split())[:31] or 'Report'
+
+
 def build_excel(doc, filename_stem):
     from openpyxl.styles import Alignment, Font, PatternFill
 
     wb = SafeWorkbook()
     ws = wb.active
-    ws.title = (doc['title'] or 'Report')[:31]
+    ws.title = _sheet_title(doc['title'])
     header_fill = PatternFill('solid', fgColor='1E4620')
     header_font = Font(bold=True, color='FFFFFF', size=10)
 
