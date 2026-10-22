@@ -1,0 +1,187 @@
+"""
+One small "document" model shared by the new Reports page reports.
+
+A report builds a plain dict:
+
+    {
+      'title':    'Registered Farmers',
+      'subtitle': 'Barangay: Alaska',                       # optional one line under the title
+      'stats':    [['Total Farmers', 12], ...],             # optional summary figures
+      'sections': [                                         # one or more
+          {'title': 'Details', 'pairs': [['RSBSA No.', '01-...'], ...]},                      # label / value grid
+          {'title': 'Farm Parcels', 'headers': ['Parcel', 'Area'], 'rows': [[...], ...],      # table
+           'empty': 'No parcels on record.'},
+      ],
+    }
+
+and this module turns the SAME dict into the page's JSON preview, the official PDF (letterhead, signature block) and the Excel
+file, so the three can never disagree. Every value is a string or number; the JSON is exactly what the preview table shows.
+"""
+import io
+from datetime import date
+
+from django.http import HttpResponse
+from reportlab.lib.pagesizes import landscape, letter
+from reportlab.platypus import Spacer
+
+from core.exports import SafeWorkbook
+from rest_framework.response import Response
+
+from .pdf_utils import (
+    NumberedCanvas,
+    build_keyvalue_grid,
+    build_ledger_table,
+    build_official_header,
+    build_section_heading,
+    build_signature_block,
+    build_stats_row,
+    fmt_field,
+)
+from .views import LOGO_PATH, PAGE_WIDTH, _empty_state, _finish_pdf, _make_doc, _sig_params, _today
+
+ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
+
+
+def make_document(title, subtitle='', stats=None, sections=None):
+    return {'title': title, 'subtitle': subtitle or '', 'stats': stats or [], 'sections': sections or []}
+
+
+def text(value):
+    """A value as the report shows it: blank / None become a dash-free 'N/A'-like empty string handled by the caller."""
+    if value is None:
+        return ''
+    if isinstance(value, date):
+        return value.strftime('%b %d, %Y')
+    return str(value)
+
+
+WIDE_TABLE_COLUMNS = 8       # a table with this many columns gets a landscape page
+LANDSCAPE_WIDTH = 648        # 792 - 72 - 72
+
+
+def _longest_word(values):
+    return max((len(word) for value in values for word in str(value).split()), default=1)
+
+
+def column_widths(headers, rows, total=PAGE_WIDTH):
+    """Column widths (points) that add up exactly to `total`. Each column first gets room for its longest single word (so
+    "Female" or "Inactive" never breaks mid-word), then the rest is shared by how much text the column holds."""
+    weights, minimums = [], []
+    for i, header in enumerate(headers):
+        column = [row[i] for row in rows if i < len(row)]
+        longest = max([len(str(header)) * 0.7] + [min(len(str(v)), 34) for v in column])
+        weights.append(max(longest, 6))
+        minimums.append(_longest_word([header] + column[:200]) * 4.6 + 12)
+    extra = total - sum(minimums)
+    if extra <= 0:
+        scale = total / sum(minimums)
+        widths = [round(m * scale, 1) for m in minimums]
+    else:
+        spare = sum(weights)
+        widths = [round(m + extra * w / spare, 1) for m, w in zip(minimums, weights)]
+    widths[-1] = round(total - sum(widths[:-1]), 1)
+    return widths
+
+
+def _is_wide(doc):
+    return any(len(section.get('headers', ())) >= WIDE_TABLE_COLUMNS for section in doc.get('sections', []))
+
+
+def as_json(doc):
+    return Response(doc)
+
+
+def build_pdf(doc, request, filename_stem):
+    sig = _sig_params(request)
+    wide = _is_wide(doc)
+    width = LANDSCAPE_WIDTH if wide else PAGE_WIDTH
+    buf, pdf = _make_doc()
+    if wide:
+        pdf.pagesize = landscape(letter)
+        pdf.width = width
+    story = build_official_header(LOGO_PATH, doc['title'], doc.get('subtitle') or None)
+    if doc.get('stats'):
+        story.append(build_stats_row([(label, value) for label, value in doc['stats']], page_width=width))
+        story.append(Spacer(1, 10))
+    sections = doc.get('sections', [])
+    for index, section in enumerate(sections):
+        if len(sections) > 1 or section.get('title'):
+            story += build_section_heading(ROMAN[index] if index < len(ROMAN) else str(index + 1), section.get('title', ''))
+        if 'pairs' in section:
+            story.append(build_keyvalue_grid([(label, fmt_field(value)) for label, value in section['pairs']], columns=2, page_width=width))
+        else:
+            headers, rows = section['headers'], section['rows']
+            if rows:
+                story.append(build_ledger_table(headers, rows, col_widths=column_widths(headers, rows, width)))
+            else:
+                story.append(_empty_state(section.get('empty', 'No records found.')))
+    story.append(Spacer(1, 30))
+    story.append(build_signature_block(
+        left_label='Prepared by',
+        left_name=sig.get('prepared_by') or None,
+        left_role=sig.get('position') or 'OMAg Records Officer',
+        reviewed_by=sig.get('reviewed_by'),
+        reviewed_role=sig.get('reviewed_role'),
+        noted_by=sig.get('noted_by'),
+        noted_role=sig.get('noted_role'),
+        page_width=width,
+    ))
+    pdf.build(story, canvasmaker=NumberedCanvas)
+    return _finish_pdf(buf, f'{filename_stem}_{_today()}.pdf')
+
+
+def build_excel(doc, filename_stem):
+    from openpyxl.styles import Alignment, Font, PatternFill
+
+    wb = SafeWorkbook()
+    ws = wb.active
+    ws.title = (doc['title'] or 'Report')[:31]
+    header_fill = PatternFill('solid', fgColor='1E4620')
+    header_font = Font(bold=True, color='FFFFFF', size=10)
+
+    ws.append(['Republic of the Philippines'])
+    ws.append(['Office of the Municipal Agriculturist — Aringay, La Union'])
+    ws.append([doc['title']])
+    if doc.get('subtitle'):
+        ws.append([doc['subtitle']])
+    ws.append([f'Date Generated: {_today()}'])
+    for label, value in doc.get('stats', []):
+        ws.append([label, value])
+    for section in doc.get('sections', []):
+        ws.append([])
+        if section.get('title'):
+            ws.append([section['title']])
+            ws.cell(row=ws.max_row, column=1).font = Font(bold=True, size=11)
+        if 'pairs' in section:
+            for label, value in section['pairs']:
+                ws.append([label, fmt_field(value)])
+                ws.cell(row=ws.max_row, column=1).font = Font(bold=True)
+        else:
+            ws.append(list(section['headers']))
+            for cell in ws[ws.max_row]:
+                cell.fill, cell.font, cell.alignment = header_fill, header_font, Alignment(horizontal='center')
+            if section['rows']:
+                for row in section['rows']:
+                    ws.append(list(row))
+            else:
+                ws.append([section.get('empty', 'No records found.')])
+    for column in ws.columns:
+        longest = max((len(str(c.value)) for c in column if c.value is not None), default=8)
+        ws.column_dimensions[column[0].column_letter].width = min(max(longest + 2, 10), 48)
+
+    out = io.BytesIO()
+    wb.save(out)
+    out.seek(0)
+    response = HttpResponse(out.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename="{filename_stem}_{_today()}.xlsx"'
+    return response
+
+
+def respond(doc, request, filename_stem):
+    """The report in the format the request asks for: format=json (the page preview, default), pdf or excel."""
+    fmt = request.query_params.get('format', 'json').lower()
+    if fmt == 'pdf':
+        return build_pdf(doc, request, filename_stem)
+    if fmt in ('excel', 'xlsx'):
+        return build_excel(doc, filename_stem)
+    return as_json(doc)
