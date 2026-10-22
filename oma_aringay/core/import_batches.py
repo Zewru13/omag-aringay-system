@@ -19,6 +19,7 @@ IMPORT_TYPES = {
     'crop_assistance': 'Crop assistance',
     'fisheries_assistance': 'Fisheries assistance',
     'stocking': 'Stocking records',
+    'farm_parcels': 'Farm parcels',
 }
 
 

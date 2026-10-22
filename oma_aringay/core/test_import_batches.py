@@ -29,10 +29,11 @@ class ImportBatchRecorderTests(TestCase):
     def visit(self, purpose='x'):
         return FarmVisit.objects.create(farmer=self.farmer, visit_date=date(2026, 5, 1), purpose=purpose)
 
-    def test_the_ten_import_types_are_registered(self):
+    def test_the_eleven_import_types_are_registered(self):
         self.assertEqual(set(IMPORT_TYPES), {
             'crop_records', 'farmers_org', 'fisherfolk_org', 'farmers_org_members', 'fisherfolk_org_members',
-            'farmers_org_equipment', 'fisherfolk_org_equipment', 'crop_assistance', 'fisheries_assistance', 'stocking'})
+            'farmers_org_equipment', 'fisherfolk_org_equipment', 'crop_assistance', 'fisheries_assistance', 'stocking',
+            'farm_parcels'})
 
     def test_start_batch_rejects_an_unknown_type(self):
         with self.assertRaises(ValueError):

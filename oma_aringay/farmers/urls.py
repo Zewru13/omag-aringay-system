@@ -1,5 +1,6 @@
 from django.urls import path
 
+from .parcel_import import FarmParcelImportView, ParcelCropsParseView, ParcelCropsTemplateView, ParcelImportTemplateView
 from .rsbsa_import_undo import RsbsaImportBatchListView, RsbsaImportUndoView
 from .rsbsa_import_views import RsbsaUpdateImportCommitView, RsbsaUpdateImportPreviewView
 from .views import (
@@ -22,6 +23,9 @@ from .views import (
 urlpatterns = [
     path('', FarmerListView.as_view(), name='farmers-list'),
     path('check-duplicate/', FarmerDuplicateCheckView.as_view(), name='farmers-check-duplicate'),
+    path('parcels/import/template/', ParcelImportTemplateView.as_view(), name='farm-parcels-import-template'),
+    path('parcel-crops/template/', ParcelCropsTemplateView.as_view(), name='farm-parcel-crops-template'),
+    path('parcel-crops/parse/', ParcelCropsParseView.as_view(), name='farm-parcel-crops-parse'),
     path('me/parcels/', MyFarmParcelListView.as_view(), name='farm-parcels-mine'),
     path('rsbsa-import/preview/', RsbsaUpdateImportPreviewView.as_view(), name='rsbsa-import-preview'),
     path('rsbsa-import/commit/', RsbsaUpdateImportCommitView.as_view(), name='rsbsa-import-commit'),
@@ -31,6 +35,7 @@ urlpatterns = [
     path('<int:id>/', FarmerDetailView.as_view(), name='farmers-detail'),
     path('<int:id>/delete/', FarmerDeleteView.as_view(), name='farmers-delete'),
     path('<int:farmer_id>/parcels/', FarmParcelListView.as_view(), name='farm-parcels-list'),
+    path('<int:farmer_id>/parcels/import/', FarmParcelImportView.as_view(), name='farm-parcels-import'),
     path(
         '<int:farmer_id>/parcels/create/',
         FarmParcelCreateView.as_view(),
