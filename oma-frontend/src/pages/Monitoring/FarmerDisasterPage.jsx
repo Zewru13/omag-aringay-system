@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { CheckCircle2, Download, Plus, Printer } from 'lucide-react'
+import { CheckCircle2, Download, History, Printer } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
@@ -14,7 +14,7 @@ import { canRecoverDisaster, disasterStatusLabel } from './disasterRecovery.js'
 import { fmtLong } from '../FisheriesRecords/stockingHelpers.js'
 import { ChooseCropsModal, MultiCropDisasterModal } from './MultiCropDisaster.jsx'
 import DisasterLogDetailsModal from './DisasterLogDetailsModal.jsx'
-import CompactExpandList from '../../components/UI/CompactExpandList.jsx'
+import DisasterHistoryModal from './DisasterHistoryModal.jsx'
 import { FARMER_LOG, downloadLog, printLog } from './disasterReportDocument.js'
 
 // DISASTER (farmer accounts): My Logged Disasters + Log Disaster, the farmer counterpart of
@@ -69,8 +69,8 @@ export default function FarmerDisasterPage() {
   const [error, setError] = useState('')
   const [version, setVersion] = useState(0)
   const reload = () => setVersion(v => v + 1)
-  const [choosing, setChoosing] = useState(false)
-  const [loggingOn, setLoggingOn] = useState(null)   // the crops chosen for the disaster
+  const [loggingOn, setLoggingOn] = useState(null)   // the crops chosen for the disaster (null = still choosing)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const [viewingId, setViewingId] = useState(null)
   const [recovering, setRecovering] = useState(null)
   const [busyId, setBusyId] = useState(null)
@@ -122,47 +122,52 @@ export default function FarmerDisasterPage() {
   const cropChoices = useMemo(() => crops.map(c => ({ ...c, label: cropLabel(c) })), [crops])
   const linkedCrop = linkedCropId && !linkUsed ? cropChoices.find(c => String(c.id) === linkedCropId) : null
 
+  const historyColumns = [
+    { key: 'report_number', label: 'Reference No.' },
+    { key: 'crop', label: 'Crop' },
+    { key: 'disaster_type_label', label: 'Disaster Type' },
+    { key: 'date_fmt', label: 'Date of Occurrence' },
+    { key: 'area_fmt', label: 'Area Affected', align: 'right' },
+    { key: 'status_cell', label: 'Status' },
+    { key: 'logged_fmt', label: 'Date Logged' },
+  ]
+
   return (
-    <PageLayout title="Crop Disaster" subtitle="Disasters on your crops. Each one you log is sent to the Office of the Municipal Agriculturist.">
+    <PageLayout
+      title="Crop Disaster"
+      action={(
+        <Button variant="outline" onClick={() => setHistoryOpen(true)}>
+          <History size={15} className="mr-1.5" /> Disaster history
+        </Button>
+      )}
+    >
       <div className="space-y-4">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-slate-700">My Logged Disasters</h2>
-          <Button onClick={() => setChoosing(true)} disabled={isLoading || crops.length === 0}>
-            <Plus size={15} className="mr-1" /> Log Disaster
-          </Button>
-        </div>
         {noCrops && (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800" data-testid="disaster-blocked">
             You can only log a disaster on a crop you have on record. Your crops appear here once the office registers them.
           </p>
         )}
-        {error ? <ErrorMessage message={error} /> : (
-          <CompactExpandList
-            isLoading={isLoading}
-            emptyText="You have not logged any disasters."
-            items={data.map(r => ({
-              id: r.id,
-              title: r.crop || 'Crop',
-              subtitle: r.disaster_type_label,
-              details: [['Reference No.', r.report_number], ['Location', r.location], ['Date', r.date_fmt], ['Area affected', r.area_fmt], ['Status', r.status_cell], ['Date logged', r.logged_fmt]],
-              actions: (<>
-                <Button variant="outline" onClick={() => setViewingId(r.id)}>View full details</Button>
-                {r.actions_cell}
-              </>),
-            }))}
-          />
-        )}
+        {error && <ErrorMessage message={error} />}
+        {/* The page IS the Log Disaster form (the existing two steps, shown on the page): tick the affected crops, then fill the
+            one disaster form for all of them (one report is saved for each crop). After saving it starts again from the crops. */}
+        {!error && !noCrops && (loggingOn || linkedCrop ? (
+          <MultiCropDisasterModal inline crops={loggingOn || [linkedCrop]}
+            onBack={() => { endLink(); setLoggingOn(null) }}
+            onClose={() => { endLink(); setLoggingOn(null) }} onSuccess={reload} />
+        ) : (
+          <ChooseCropsModal inline subtitle="Step 1 of 2: choose the affected crops" crops={isLoading ? null : cropChoices}
+            onContinue={(chosen) => setLoggingOn(chosen)} />
+        ))}
       </div>
 
-      {choosing && (
-        <ChooseCropsModal subtitle="Step 1 of 2 — choose the affected crops" crops={cropChoices}
-          onClose={() => setChoosing(false)} onContinue={(chosen) => { setChoosing(false); setLoggingOn(chosen) }} />
-      )}
-      {(loggingOn || linkedCrop) && (
-        // The existing crop disaster form, unchanged (it posts to /production/monitoring/<id>/disasters/).
-        <MultiCropDisasterModal crops={loggingOn || [linkedCrop]}
-          onBack={() => { endLink(); setLoggingOn(null); setChoosing(true) }}
-          onClose={() => { endLink(); setLoggingOn(null) }} onSuccess={reload} />
+      {historyOpen && (
+        <DisasterHistoryModal
+          subtitle="Every disaster you have logged on your crops"
+          columns={historyColumns} rows={data} isLoading={isLoading} error={error}
+          actionsFor={(r) => r.actions_cell}
+          onView={(id) => setViewingId(id)}
+          onClose={() => setHistoryOpen(false)}
+        />
       )}
       {viewingId && <DisasterLogDetailsModal key={viewingId} kind="farmer" logId={viewingId} onClose={() => setViewingId(null)} />}
       {recovering && <MarkRecoveredModal row={recovering} onClose={() => setRecovering(null)} onDone={() => { setRecovering(null); reload() }} />}

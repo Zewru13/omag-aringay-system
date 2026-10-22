@@ -22,7 +22,7 @@ import {
 const DISASTER_TYPES = ['Drought', 'Flood', 'Typhoon', 'Strong Winds', 'Pest Outbreak']
 
 // Step 2. crops = the farmer's crops (null while loading); each has an id, a `label` and crop_type_name.
-export function ChooseCropsModal({ title = 'Log Disaster', subtitle, crops, blockedMessage = '', onBack, onClose, onContinue }) {
+export function ChooseCropsModal({ title = 'Log Disaster', subtitle, crops, blockedMessage = '', onBack, onClose, onContinue, inline = false }) {
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState(() => new Set())
   const shown = useMemo(() => (crops ? filterCrops(crops, query) : []), [crops, query])
@@ -42,10 +42,10 @@ export function ChooseCropsModal({ title = 'Log Disaster', subtitle, crops, bloc
   const chosen = (crops || []).filter((c) => selected.has(c.id))
 
   return (
-    <ModalShell title={title} subtitle={subtitle} icon={AlertTriangle} onClose={onClose} maxWidth="max-w-md"
+    <ModalShell title={title} subtitle={subtitle} icon={AlertTriangle} onClose={onClose} maxWidth={inline ? 'max-w-2xl' : 'max-w-md'} inline={inline}
       footer={(
         <>
-          <Button type="button" variant="outline" onClick={onBack || onClose}>{onBack ? 'Back' : 'Cancel'}</Button>
+          {!(inline && !onBack) && <Button type="button" variant="outline" onClick={onBack || onClose}>{onBack ? 'Back' : 'Cancel'}</Button>}
           <Button type="button" disabled={!chosen.length || tooMany} onClick={() => onContinue(chosen)}>Continue</Button>
         </>
       )}>
@@ -85,7 +85,7 @@ export function ChooseCropsModal({ title = 'Log Disaster', subtitle, crops, bloc
 }
 
 // Step 3. crops = the chosen crop records (id, label, crop_type_name, area_planted_ha, date_planted).
-export function MultiCropDisasterModal({ crops, onBack, onClose, onSuccess }) {
+export function MultiCropDisasterModal({ crops, onBack, onClose, onSuccess, inline = false }) {
   const { showToast } = useToast()
   const [disasterType, setDisasterType] = useState('')
   const [other, setOther] = useState('')
@@ -147,7 +147,8 @@ export function MultiCropDisasterModal({ crops, onBack, onClose, onSuccess }) {
         iconBg="bg-rose-100"
         iconColor="text-rose-600"
         onClose={onClose}
-        maxWidth="max-w-lg"
+        maxWidth={inline ? 'max-w-2xl' : 'max-w-lg'}
+        inline={inline}
         footer={(
           <>
             <button type="button" onClick={onBack || onClose}
