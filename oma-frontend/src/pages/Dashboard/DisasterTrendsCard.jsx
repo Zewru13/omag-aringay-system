@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
+import { CloudLightning } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import api from '../../api/axiosInstance.js'
+import DashPanel from './DashPanel.jsx'
 import { chartData, defaultRange, rangeProblem, rangeTitle, typeBars } from './disasterChart.js'
 
 // Disaster reports per month between a From and a To month (default: this calendar year), crop and fisheries stacked, with the
@@ -8,8 +10,7 @@ import { chartData, defaultRange, rangeProblem, rangeTitle, typeBars } from './d
 
 const CROP = '#2D7A4F'
 const FISH = '#4E8DB8'
-const CARD = 'bg-surface border border-border rounded-[var(--radius-md)] shadow-sm overflow-hidden'
-const MONTH_INPUT = 'min-h-[40px] rounded-lg border border-border bg-surface-2 px-3 text-[13px] text-text-primary focus:border-primary focus:outline-none'
+const MONTH_INPUT = 'min-h-[36px] rounded-lg border border-border bg-surface-2 px-2.5 text-[13px] text-text-primary focus:border-primary focus:outline-none'
 
 function CountTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null
@@ -47,24 +48,24 @@ export default function DisasterTrendsCard() {
   const animate = !prefersReducedMotion()
 
   return (
-    <div className={CARD} data-testid="disaster-trends-card">
-      <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border px-5 py-3.5">
-        <div className="min-w-0">
-          <h3 className="text-[15px] font-semibold text-text-primary">Disaster Reports Over Time</h3>
-          <p className="mt-0.5 text-[12.5px] text-text-muted">{problem ? 'Choose a range of months.' : rangeTitle(from, to)}</p>
-        </div>
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="text-[12px] font-medium text-text-secondary">
+    <DashPanel
+      testId="disaster-trends-card"
+      title="Disaster Reports Over Time"
+      icon={CloudLightning}
+      subtitle={problem ? 'Choose a range of months.' : rangeTitle(from, to)}
+      right={(
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center sm:gap-x-3">
+          <label className="flex min-w-0 flex-col gap-1 text-[12px] font-medium text-text-secondary sm:flex-row sm:items-center sm:gap-1.5">
             From
-            <input type="month" className={`${MONTH_INPUT} mt-1 block`} value={from} max={to || undefined} onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))} aria-label="From month" />
+            <input type="month" className={`${MONTH_INPUT} w-full`} value={from} max={to || undefined} onChange={(e) => setRange((r) => ({ ...r, from: e.target.value }))} aria-label="From month" />
           </label>
-          <label className="text-[12px] font-medium text-text-secondary">
+          <label className="flex min-w-0 flex-col gap-1 text-[12px] font-medium text-text-secondary sm:flex-row sm:items-center sm:gap-1.5">
             To
-            <input type="month" className={`${MONTH_INPUT} mt-1 block`} value={to} min={from || undefined} onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))} aria-label="To month" />
+            <input type="month" className={`${MONTH_INPUT} w-full`} value={to} min={from || undefined} onChange={(e) => setRange((r) => ({ ...r, to: e.target.value }))} aria-label="To month" />
           </label>
         </div>
-      </div>
-
+      )}
+    >
       {problem ? (
         <p role="alert" className="px-5 py-8 text-center text-[13px] font-medium text-[color:var(--color-semantic-critical)]">{problem}</p>
       ) : isLoading ? (
@@ -88,7 +89,7 @@ export default function DisasterTrendsCard() {
           ) : (
             <>
               <div className="overflow-x-auto">
-                <div style={{ minWidth: Math.max(rows.length * 44, 280) }} className="h-56" role="img"
+                <div style={{ minWidth: Math.max(rows.length * 32, 280) }} className="h-56" role="img"
                   aria-label={`Disaster reports per month, ${rangeTitle(from, to)}: ${data.totals.crop} crop and ${data.totals.fisheries} fisheries.`}>
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={rows} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap="25%">
@@ -119,6 +120,6 @@ export default function DisasterTrendsCard() {
           )}
         </div>
       )}
-    </div>
+    </DashPanel>
   )
 }

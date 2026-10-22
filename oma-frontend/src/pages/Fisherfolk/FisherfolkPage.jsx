@@ -7,7 +7,6 @@ import RsbsaImportModal from '../../components/RsbsaImportModal.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
-import HarvestComparisonCard from '../../components/dashboard/HarvestComparisonCard.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import AddFisherfolkModal from './AddFisherfolkModal.jsx'
 
@@ -266,7 +265,6 @@ function FisherfolkPage({ asTab = false }) {
         </label>
       </FilterPanel>
 
-      <HarvestComparisonCard url="/fisheries/fisherfolk/harvest-comparison/" listQuery={listFilterParams().toString()} noun="fisherfolk" nounOne="fisherfolk" />
 
       {successMsg && (
         <div className="rounded-lg border border-[#C8D5C8] bg-[#EBF5EE] px-4 py-3 text-[13px] font-medium text-[#1B4D2E] mb-4">

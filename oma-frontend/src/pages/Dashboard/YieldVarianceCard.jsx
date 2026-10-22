@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
+import { BarChart2 } from 'lucide-react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import DashPanel from './DashPanel.jsx'
 import { axisMax, chartRows, formatValue, rowDescription, varianceChip } from './yieldChart.js'
 
 // Season Snapshot: estimated vs actual yield as a 3D column chart, for crops (metric tons per hectare) or for fisheries
@@ -66,12 +68,12 @@ export default function YieldVarianceCard({ crop, fisheries, isLoading }) {
   const animate = !prefersReducedMotion()
 
   return (
-    <div className="bg-surface border border-border rounded-[var(--radius-md)] shadow-sm overflow-hidden" data-testid="yield-variance-card">
-      <div className="flex flex-wrap items-start justify-between gap-3 px-5 py-3.5 border-b border-border">
-        <div className="min-w-0">
-          <h3 className="text-[15px] font-semibold text-text-primary">Season Snapshot — {tab.title}</h3>
-          <p className="mt-0.5 text-[12.5px] text-text-muted">{tab.note}</p>
-        </div>
+    <DashPanel
+      testId="yield-variance-card"
+      title={`Season Snapshot — ${tab.title}`}
+      icon={BarChart2}
+      subtitle={tab.note}
+      right={(
         <div role="tablist" aria-label="Yield variance for" className="inline-flex shrink-0 rounded-lg border border-border bg-surface-2 p-0.5">
           {TABS.map((t) => (
             <button
@@ -83,20 +85,21 @@ export default function YieldVarianceCard({ crop, fisheries, isLoading }) {
             </button>
           ))}
         </div>
-      </div>
-
+      )}
+    >
       {rows.length === 0 ? (
         <p className="px-5 py-10 text-center text-[13px] italic text-text-muted">{isLoading ? 'Loading…' : tab.empty}</p>
       ) : (
-        <div className="px-3 pb-4 pt-3 md:px-5">
+        <div className="flex flex-1 flex-col px-3 pb-4 pt-3 md:px-5">
           <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-text-secondary" aria-hidden="true">
             <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: TARGET }} />Target</span>
             <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: ACTUAL }} />Actual</span>
             <span className="text-text-muted">{unit}</span>
           </div>
 
-          <div className="overflow-x-auto">
-            <div style={{ minWidth: Math.max(rows.length * 96, 300) }} className="h-64" role="img" aria-label={`Estimated versus actual yield. ${rows.map(rowDescription).join('. ')}.`}>
+          <div className="relative min-h-[256px] flex-1">
+            <div className="absolute inset-0 overflow-x-auto">
+            <div style={{ minWidth: Math.max(rows.length * 96, 300) }} className="h-full" role="img" aria-label={`Estimated versus actual yield. ${rows.map(rowDescription).join('. ')}.`}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={rows} margin={{ top: DEPTH + 6, right: DEPTH + 6, left: 0, bottom: 0 }} barGap={4} barCategoryGap="22%">
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border, #E2E8E2)" vertical={false} />
@@ -107,6 +110,7 @@ export default function YieldVarianceCard({ crop, fisheries, isLoading }) {
                   <Bar dataKey="actual" name="Actual" isAnimationActive={animate} shape={(props) => <Column3D {...props} color={ACTUAL} />} />
                 </BarChart>
               </ResponsiveContainer>
+            </div>
             </div>
           </div>
 
@@ -133,6 +137,6 @@ export default function YieldVarianceCard({ crop, fisheries, isLoading }) {
           </table>
         </div>
       )}
-    </div>
+    </DashPanel>
   )
 }

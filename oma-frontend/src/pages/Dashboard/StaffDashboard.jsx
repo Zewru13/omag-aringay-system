@@ -1,78 +1,69 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, Fish, PackageX, Sprout } from 'lucide-react'
+import { AlertTriangle, ClipboardCheck, Fish, MapPin, PackageX, Sprout, Wheat } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
+import HarvestComparisonCard from '../../components/dashboard/HarvestComparisonCard.jsx'
 import { approvalLines, hasApproved } from '../../utils/approvalStatus.js'
+import DashPanel from './DashPanel.jsx'
 import DisasterTrendsCard from './DisasterTrendsCard.jsx'
 import YieldVarianceCard from './YieldVarianceCard.jsx'
 
 // The admin/evaluator dashboard, built to the approved staff reference
-// ("New Dashboard base.docx", three frames).
+// ("New Dashboard base.docx", three frames), then rearranged into rows of equal-height cards that share one header style
+// (DashPanel) so nothing leaves a gap:
+//   sector cards -> disaster reports over time + season snapshot -> harvest against estimate (farmers, fisherfolk)
+//   -> needs attention + pending change requests -> activity status by barangay.
 //
 // Everything here is fed by real endpoints. The per-domain activity counts, the
-// per-barangay table, the cross-domain disaster feed, the sector totals and the
-// yield variance all come from /production/dashboard/activity-status/, which
-// reuses the same overdue/due/upcoming classifier the record detail screens use
-// so the dashboard can never disagree with the screen it links to.
+// per-barangay table, the sector totals and the yield variance all come from
+// /production/dashboard/activity-status/, which reuses the same overdue/due/upcoming
+// classifier the record detail screens use so the dashboard can never disagree with
+// the screen it links to.
 //
 // ONE deliberate omission from the reference: its Activity Status table draws an
 // "Assigned Evaluator" column. No staff-to-barangay assignment exists anywhere
 // in this system, so the column is dropped rather than filled with invented
 // names — agreed before building.
 
-const CARD = 'bg-surface border border-border rounded-[var(--radius-md)] shadow-sm overflow-hidden'
 const num = (n) => (n ?? 0).toLocaleString()
+const ROW = 'grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-5'
+// Phone order (lg and up keep the page order): sectors, attention, requests and activity, then the charts.
+const PHONE_ORDER = { sectors: 'order-1', attention: 'order-2', lists: 'order-3', charts: 'order-4', pies: 'order-5' }
+const LG_FLOW = 'lg:order-none'
 
-// Sector card — two figures under a tinted band, per frame 1.
-function SectorCard({ tone, icon: Icon, title, primaryLabel, primaryValue, primaryNote,
+// Sector card: a compact panel with two figures side by side.
+function SectorCard({ tone, icon, title, primaryLabel, primaryValue, primaryNote,
                       secondaryLabel, secondaryValue, secondaryNote, isLoading }) {
-  const t = tone === 'crop'
-    ? { band: 'bg-primary-light', text: 'text-primary' }
-    : { band: 'bg-[color:var(--color-semantic-info-bg)]', text: 'text-[color:var(--color-semantic-info)]' }
-  return (
-    <div className={CARD}>
-      <div className={`flex items-center gap-2 px-5 py-3 ${t.band}`}>
-        <Icon size={15} className={t.text} aria-hidden="true" />
-        <h3 className={`text-[12px] font-bold uppercase tracking-[0.06em] ${t.text}`}>{title}</h3>
-      </div>
-      <div className="grid grid-cols-2">
-        <div className="px-5 py-4 border-r border-border">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-text-muted">{primaryLabel}</p>
-          <p className="mt-1.5 text-[30px] font-bold leading-none tabular-nums text-text-primary">
-            {isLoading ? '—' : num(primaryValue)}
-          </p>
-          <p className={`mt-2 text-[12px] ${primaryNote?.startsWith('+') ? t.text : 'text-text-muted'}`}>
-            {primaryNote}
-          </p>
-        </div>
-        <div className="px-5 py-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.05em] text-text-muted">{secondaryLabel}</p>
-          <p className="mt-1.5 text-[30px] font-bold leading-none tabular-nums text-text-primary">
-            {isLoading ? '—' : num(secondaryValue)}
-          </p>
-          <p className="mt-2 text-[12px] text-text-muted">{secondaryNote}</p>
-        </div>
-      </div>
+  const accent = tone === 'crop' ? 'text-primary' : 'text-[color:var(--color-semantic-info)]'
+  const figure = (label, value, note, highlight) => (
+    <div className="min-w-0 px-4 py-3 md:px-5">
+      <p className="text-[11px] font-semibold uppercase leading-tight tracking-[0.05em] text-text-muted">{label}</p>
+      <p className="mt-1 text-[26px] font-bold leading-none tabular-nums text-text-primary">{isLoading ? '—' : num(value)}</p>
+      <p className={`mt-1.5 text-[12px] ${highlight ? accent : 'text-text-muted'}`}>{note || ' '}</p>
     </div>
+  )
+  return (
+    <DashPanel title={title} icon={icon} tone={tone}>
+      <div className="grid flex-1 grid-cols-1 divide-y divide-border sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+        {figure(primaryLabel, primaryValue, primaryNote, primaryNote?.startsWith('+'))}
+        {figure(secondaryLabel, secondaryValue, secondaryNote, false)}
+      </div>
+    </DashPanel>
   )
 }
 
-// The three-figure block inside the amber "Needs attention" banner.
+// The three-figure block inside the "Needs attention" panel.
 function MonitoringBlock({ tone, icon: Icon, title, data, linkLabel, onLink, isLoading }) {
-  const accent = tone === 'crop'
-    ? 'text-primary'
-    : 'text-[color:var(--color-semantic-info)]'
+  const accent = tone === 'crop' ? 'text-primary' : 'text-[color:var(--color-semantic-info)]'
   const cell = (label, value, cls) => (
-    <div>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-text-muted">{label}</p>
-      <p className={`mt-1 text-[26px] font-bold leading-none tabular-nums ${cls}`}>
-        {isLoading ? '—' : num(value)}
-      </p>
+    <div className="min-w-0">
+      <p className="text-[11px] font-semibold uppercase leading-tight tracking-[0.04em] text-text-muted">{label}</p>
+      <p className={`mt-1 text-[24px] font-bold leading-none tabular-nums ${cls}`}>{isLoading ? '—' : num(value)}</p>
     </div>
   )
   return (
-    <div className="flex-1 min-w-[240px] px-5 py-4">
-      <div className="flex items-center gap-2 mb-3">
+    <div className="flex min-w-0 flex-col px-4 py-4 md:px-5">
+      <div className="mb-3 flex items-center gap-2">
         <Icon size={14} className={accent} aria-hidden="true" />
         <h4 className={`text-[12px] font-bold uppercase tracking-[0.05em] ${accent}`}>{title}</h4>
       </div>
@@ -84,48 +75,10 @@ function MonitoringBlock({ tone, icon: Icon, title, data, linkLabel, onLink, isL
       <button
         type="button"
         onClick={onLink}
-        className={`mt-3 ${accent} transition-opacity hover:opacity-75 cursor-pointer max-md:flex max-md:min-h-[40px] max-md:items-center`}
+        className={`mt-auto flex min-h-[40px] items-center pt-2 ${accent} cursor-pointer transition-opacity hover:opacity-75`}
       >
         <span className="text-[12.5px]">{linkLabel} →</span>
       </button>
-    </div>
-  )
-}
-
-function Pill({ children, kind = 'neutral' }) {
-  const map = {
-    crop: 'bg-primary-light text-primary',
-    fisheries: 'bg-[color:var(--color-semantic-info-bg)] text-[color:var(--color-semantic-info)]',
-    disaster: 'bg-[color:var(--color-semantic-critical-bg)] text-[color:var(--color-semantic-critical)]',
-    neutral: 'bg-surface-2 text-text-muted',
-  }
-  return (
-    <span className={`inline-block shrink-0 rounded-[5px] px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.04em] ${map[kind]}`}>
-      {children}
-    </span>
-  )
-}
-
-function PanelHead({ title, count, action, onAction, subtitle, right }) {
-  return (
-    <div className="flex items-start justify-between gap-3 px-5 py-3.5 border-b border-border flex-wrap">
-      <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          <h3 className="text-[15px] font-semibold text-text-primary truncate">{title}</h3>
-          {count > 0 && (
-            <span className="shrink-0 rounded-full bg-[color:var(--color-semantic-warning-bg)] px-2 py-0.5 text-[11px] font-bold text-[color:var(--color-semantic-warning)] tabular-nums">
-              {count}
-            </span>
-          )}
-        </div>
-        {subtitle && <p className="mt-0.5 text-[12.5px] text-text-muted">{subtitle}</p>}
-      </div>
-      {right}
-      {action && (
-        <button type="button" onClick={onAction} className="shrink-0 text-text-secondary transition-colors hover:text-primary cursor-pointer max-md:flex max-md:min-h-[40px] max-md:items-center">
-          <span className="text-[13px]">{action}</span>
-        </button>
-      )}
     </div>
   )
 }
@@ -174,24 +127,24 @@ export default function StaffDashboard({ user }) {
   })
   const roleLabel = user?.role === 'ADMIN' ? 'Administrator view' : 'Focal Person view'
   const rows = board?.[tableDomain]?.by_barangay || []
-  const disasters = board?.active_disasters || []
   const variance = board?.yield_variance || []
   const fisheriesVariance = board?.fisheries_yield_variance || []
+  const followUp = board?.not_received_count || {}
 
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col gap-4 lg:gap-5">
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <div className="min-w-0">
-        <h1 className="text-[24px] font-bold leading-tight text-text-primary">What needs attention today</h1>
-        <p className="mt-1 text-[13px] text-text-muted">{today} · {roleLabel} · Aringay, La Union</p>
+        <h1 className="text-[20px] font-bold leading-tight text-text-primary md:text-[24px]">What needs attention today</h1>
+        <p className="mt-1 text-[12.5px] text-text-muted md:text-[13px]">{today} · {roleLabel} · Aringay, La Union</p>
       </div>
 
       {/* ── Sector cards ────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className={`grid grid-cols-2 gap-3 lg:gap-5 ${PHONE_ORDER.sectors} ${LG_FLOW}`}>
         <SectorCard
           tone="crop" icon={Sprout} title="Crop Sector" isLoading={isLoading}
           primaryLabel="Registered Farmers" primaryValue={board?.sectors?.crop?.registered}
-          primaryNote={board ? `+${num(board.sectors.crop.new_this_month)} this month →` : ''}
+          primaryNote={board ? `+${num(board.sectors.crop.new_this_month)} this month` : ''}
           secondaryLabel="Farmers Organizations" secondaryValue={board?.sectors?.crop?.organizations}
           secondaryNote="active & registered"
         />
@@ -204,251 +157,174 @@ export default function StaffDashboard({ user }) {
         />
       </div>
 
-      {/* ── Two-column body ─────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] lg:items-start">
-        <div className="space-y-5 min-w-0 lg:sticky lg:top-20">
-          {/* Needs attention — activity overdue */}
-          <div className={CARD}>
-            <div className="flex items-center justify-between gap-3 px-5 py-3 bg-[color:var(--color-semantic-warning-bg)] border-b border-border flex-wrap">
-              <div className="flex items-center gap-2">
-                <AlertTriangle size={15} className="text-[color:var(--color-semantic-critical)]" aria-hidden="true" />
-                <h3 className="text-[12.5px] font-bold uppercase tracking-[0.05em] text-[color:var(--color-semantic-critical)]">
-                  Needs Attention — Activity Overdue
-                </h3>
-              </div>
-              <span className="text-[12px] text-text-muted">Both domains shown</span>
-            </div>
-            <div className="flex flex-wrap divide-x divide-border">
-              <MonitoringBlock
-                tone="crop" icon={Sprout} title="Crop Monitoring" data={board?.crop} isLoading={isLoading}
-                linkLabel="View crop activities" onLink={() => navigate('/crop-monitoring')}
-              />
-              <MonitoringBlock
-                tone="fisheries" icon={Fish} title="Fisheries Monitoring" data={board?.fisheries} isLoading={isLoading}
-                linkLabel="View fisheries activities" onLink={() => navigate('/fisheries-monitoring')}
-              />
-            </div>
-          </div>
+      {/* ── Disaster reports over time + season snapshot ───────────────── */}
+      <div className={`${ROW} ${PHONE_ORDER.charts} ${LG_FLOW}`}>
+        <DisasterTrendsCard />
+        <YieldVarianceCard crop={variance} fisheries={fisheriesVariance} isLoading={isLoading} />
+      </div>
 
-          {/* Needs attention — assistance not received */}
-          {(board?.not_received_count?.total || 0) > 0 && (
-            <div className={CARD}>
-              <div className="flex items-center justify-between gap-3 px-5 py-3 bg-[color:var(--color-semantic-warning-bg)] border-b border-border flex-wrap">
-                <div className="flex items-center gap-2">
-                  <PackageX size={15} className="text-[color:var(--color-semantic-critical)]" aria-hidden="true" />
-                  <h3 className="text-[12.5px] font-bold uppercase tracking-[0.05em] text-[color:var(--color-semantic-critical)]">
-                    Needs Follow-up — Assistance Not Received
-                  </h3>
-                </div>
-                <span className="text-[12px] text-text-muted">Both domains shown</span>
-              </div>
-              <div className="flex flex-wrap divide-x divide-border">
-                <div className="flex-1 min-w-[200px] px-5 py-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Sprout size={14} className="text-primary" aria-hidden="true" />
-                    <h4 className="text-[12px] font-bold uppercase tracking-[0.05em] text-primary">Crop</h4>
+      {/* ── Harvest compared with the estimate ─────────────────────────── */}
+      <div className={`${ROW} ${PHONE_ORDER.pies} ${LG_FLOW}`}>
+        <HarvestComparisonCard
+          url="/farmers/harvest-comparison/" title="Farmers — Harvest vs Estimate"
+          noun="farmers" nounOne="farmer" icon={Wheat} tone="crop"
+        />
+        <HarvestComparisonCard
+          url="/fisheries/fisherfolk/harvest-comparison/" title="Fisherfolk — Harvest vs Estimate"
+          noun="fisherfolk" nounOne="fisherfolk" icon={Fish} tone="fisheries"
+        />
+      </div>
+
+      {/* ── Needs attention (and follow-up, when there are cases) ─────── */}
+      <div className={`${(followUp.total || 0) > 0 ? ROW : 'grid grid-cols-1 gap-4'} ${PHONE_ORDER.attention} ${LG_FLOW}`}>
+        <DashPanel title="Needs Attention — Activity Overdue" icon={AlertTriangle} tone="critical" subtitle="Crop and fisheries monitoring">
+          <div className="grid flex-1 grid-cols-1 divide-y divide-border md:grid-cols-2 md:divide-x md:divide-y-0">
+            <MonitoringBlock
+              tone="crop" icon={Sprout} title="Crop Monitoring" data={board?.crop} isLoading={isLoading}
+              linkLabel="View crop activities" onLink={() => navigate('/crop-monitoring')}
+            />
+            <MonitoringBlock
+              tone="fisheries" icon={Fish} title="Fisheries Monitoring" data={board?.fisheries} isLoading={isLoading}
+              linkLabel="View fisheries activities" onLink={() => navigate('/fisheries-monitoring')}
+            />
+          </div>
+        </DashPanel>
+
+        {(followUp.total || 0) > 0 && (
+          <DashPanel title="Needs Follow-up — Assistance Not Received" icon={PackageX} tone="critical" subtitle="Crop and fisheries assistance">
+            <div className="grid flex-1 grid-cols-1 divide-y divide-border md:grid-cols-2 md:divide-x md:divide-y-0">
+              {[
+                { key: 'crop', tone: 'crop', Icon: Sprout, title: 'Crop', value: followUp.crop, label: 'Review crop cases →', to: '/crop-assistance?tab=needs-follow-up' },
+                { key: 'fisheries', tone: 'fisheries', Icon: Fish, title: 'Fisheries', value: followUp.fisheries, label: 'Review fisheries cases →', to: '/fisheries-assistance?tab=needs-follow-up' },
+              ].map(({ key, tone, Icon, title, value, label, to }) => {
+                const accent = tone === 'crop' ? 'text-primary' : 'text-[color:var(--color-semantic-info)]'
+                return (
+                  <div key={key} className="flex min-w-0 flex-col px-4 py-4 md:px-5">
+                    <div className="mb-3 flex items-center gap-2">
+                      <Icon size={14} className={accent} aria-hidden="true" />
+                      <h4 className={`text-[12px] font-bold uppercase tracking-[0.05em] ${accent}`}>{title}</h4>
+                    </div>
+                    <p className="text-[24px] font-bold leading-none tabular-nums text-[color:var(--color-semantic-critical)]">{num(value)}</p>
+                    <button type="button" onClick={() => navigate(to)}
+                      className={`mt-auto flex min-h-[40px] items-center pt-2 ${accent} cursor-pointer transition-opacity hover:opacity-75`}>
+                      <span className="text-[12.5px]">{label}</span>
+                    </button>
                   </div>
-                  <p className="text-[26px] font-bold leading-none tabular-nums text-[color:var(--color-semantic-critical)]">
-                    {num(board?.not_received_count?.crop)}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/crop-assistance?tab=needs-follow-up')}
-                    className="mt-3 text-primary transition-opacity hover:opacity-75 cursor-pointer max-md:flex max-md:min-h-[40px] max-md:items-center"
-                  >
-                    <span className="text-[12.5px]">Review crop cases →</span>
-                  </button>
-                </div>
-                <div className="flex-1 min-w-[200px] px-5 py-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Fish size={14} className="text-[color:var(--color-semantic-info)]" aria-hidden="true" />
-                    <h4 className="text-[12px] font-bold uppercase tracking-[0.05em] text-[color:var(--color-semantic-info)]">Fisheries</h4>
-                  </div>
-                  <p className="text-[26px] font-bold leading-none tabular-nums text-[color:var(--color-semantic-critical)]">
-                    {num(board?.not_received_count?.fisheries)}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/fisheries-assistance?tab=needs-follow-up')}
-                    className="mt-3 text-[color:var(--color-semantic-info)] transition-opacity hover:opacity-75 cursor-pointer max-md:flex max-md:min-h-[40px] max-md:items-center"
-                  >
-                    <span className="text-[12.5px]">Review fisheries cases →</span>
-                  </button>
-                </div>
-              </div>
+                )
+              })}
+            </div>
+          </DashPanel>
+        )}
+      </div>
+
+      {/* ── Activity status by barangay (left) and pending change requests (right) ── */}
+      <div className={`${ROW} ${PHONE_ORDER.lists} ${LG_FLOW}`}>
+        <DashPanel
+          title="Barangay Activity Status" icon={MapPin}
+          subtitle="Overdue, due today and upcoming"
+          right={(
+            <div className="flex shrink-0 overflow-hidden rounded-[var(--radius-sm)] border border-border-strong">
+              {[
+                { key: 'crop', label: 'Crop', Icon: Sprout },
+                { key: 'fisheries', label: 'Fisheries', Icon: Fish },
+              ].map(({ key, label, Icon }) => (
+                <button
+                  key={key} type="button" onClick={() => setTableDomain(key)}
+                  className={`flex min-h-[36px] cursor-pointer items-center gap-1.5 px-4 transition-colors ${
+                    tableDomain === key ? 'bg-primary text-white' : 'bg-surface text-text-secondary hover:bg-surface-2'
+                  }`}
+                >
+                  <Icon size={13} aria-hidden="true" />
+                  <span className="text-[12.5px] font-semibold">{label}</span>
+                </button>
+              ))}
             </div>
           )}
-
-          {/* Activity status — all barangays */}
-          <div className={CARD}>
-            <PanelHead
-              title="Activity Status — All Barangays"
-              subtitle="Per-barangay breakdown for selected domain"
-              right={
-                <div className="flex overflow-hidden rounded-[var(--radius-sm)] border border-border-strong shrink-0">
-                  {[
-                    { key: 'crop', label: 'Crop', Icon: Sprout },
-                    { key: 'fisheries', label: 'Fisheries', Icon: Fish },
-                  ].map(({ key, label, Icon }) => (
-                    <button
-                      key={key} type="button" onClick={() => setTableDomain(key)}
-                      className={`flex items-center gap-1.5 px-4 py-2 transition-colors cursor-pointer ${
-                        tableDomain === key ? 'bg-primary text-white' : 'bg-surface text-text-secondary hover:bg-surface-2'
-                      }`}
-                    >
-                      <Icon size={13} aria-hidden="true" />
-                      <span className="text-[12.5px] font-semibold">{label}</span>
-                    </button>
-                  ))}
-                </div>
-              }
-            />
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse md:min-w-[520px]">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className={TH}>Barangay</th>
-                    <th className={TH}>Overdue</th>
-                    <th className={TH}>Due Today</th>
-                    <th className={TH}>Upcoming</th>
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className={TH}>Barangay</th>
+                  <th className={TH}>Overdue</th>
+                  <th className={TH}>Due Today</th>
+                  <th className={TH}>Upcoming</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.length === 0 ? (
+                  <tr><td className={`${TD} italic text-text-muted`} colSpan={4}>
+                    {isLoading ? 'Loading…' : 'No outstanding activities in any barangay.'}
+                  </td></tr>
+                ) : rows.map((r, i) => (
+                  <tr key={r.barangay} className={i === rows.length - 1 ? '' : 'border-b border-border'}>
+                    <td className={`${TD} text-text-primary`}>{r.barangay}</td>
+                    <td className={`${TD} font-bold tabular-nums ${r.overdue ? 'text-[color:var(--color-semantic-critical)]' : 'text-text-muted'}`}>
+                      {r.overdue || '—'}
+                    </td>
+                    <td className={`${TD} font-bold tabular-nums ${r.due_today ? 'text-[color:var(--color-semantic-warning)]' : 'text-text-muted'}`}>
+                      {r.due_today || '—'}
+                    </td>
+                    <td className={`${TD} tabular-nums text-text-secondary`}>{r.upcoming || '—'}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {rows.length === 0 ? (
-                    <tr><td className={`${TD} text-text-muted italic`} colSpan={4}>
-                      {isLoading ? 'Loading…' : 'No outstanding activities in any barangay.'}
-                    </td></tr>
-                  ) : rows.map((r, i) => (
-                    <tr key={r.barangay} className={i === rows.length - 1 ? '' : 'border-b border-border'}>
-                      <td className={`${TD} text-text-primary`}>{r.barangay}</td>
-                      <td className={`${TD} font-bold tabular-nums ${r.overdue ? 'text-[color:var(--color-semantic-critical)]' : 'text-text-muted'}`}>
-                        {r.overdue || '—'}
-                      </td>
-                      <td className={`${TD} font-bold tabular-nums ${r.due_today ? 'text-[color:var(--color-semantic-warning)]' : 'text-text-muted'}`}>
-                        {r.due_today || '—'}
-                      </td>
-                      <td className={`${TD} tabular-nums text-text-secondary`}>{r.upcoming || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Active disaster reports */}
-          <div className={CARD}>
-            <PanelHead
-              title="Active Disaster Reports" count={disasters.length}
-              action="View all →" onAction={() => navigate('/crop-monitoring')}
-            />
-            {disasters.length === 0 ? (
-              <p className="px-5 py-8 text-center text-[13px] italic text-text-muted">
-                {isLoading ? 'Loading…' : 'No active disaster reports.'}
-              </p>
-            ) : (
-              <ul>
-                {disasters.map((d, i) => (
-                  <li key={`${d.domain}-${d.id}`}
-                      className={`flex flex-wrap items-start gap-3 px-5 py-3.5 ${i === disasters.length - 1 ? '' : 'border-b border-border'}`}>
-                    <span className="max-md:hidden"><Pill kind="disaster">{d.disaster_type}</Pill></span>
-                    <div className="min-w-0 flex-1 max-md:basis-full">
-                      <p className="text-[14px] font-semibold text-text-primary">
-                        {d.disaster_type} — {d.barangay || 'Unspecified barangay'}
-                      </p>
-                      <div className="mt-1 flex flex-wrap items-center gap-2">
-                        <Pill kind={d.domain}>{d.domain === 'crop' ? 'Crop' : 'Fish'}</Pill>
-                        <span className="text-[12.5px] text-text-secondary">{d.subject || '—'}</span>
-                        {d.area_affected_ha != null && d.area_affected_ha !== '' && (
-                          <span className="text-[12.5px] text-text-muted">· {d.area_affected_ha} ha affected</span>
-                        )}
-                        {d.is_total_loss && (
-                          <span className="text-[12.5px] font-semibold text-[color:var(--color-semantic-critical)]">· Total loss</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-3 max-md:w-full max-md:justify-between">
-                      <span className="text-[12.5px] text-text-muted tabular-nums">{d.date_of_occurrence}</span>
-                      <button
-                        type="button"
-                        onClick={() => navigate(d.domain === 'crop' ? '/crop-monitoring' : '/fisheries-monitoring')}
-                        className="rounded-[6px] border border-border-strong bg-surface px-3 py-1.5 max-md:min-h-[36px] max-md:px-4 transition-colors hover:bg-surface-2 cursor-pointer"
-                      >
-                        <span className="text-[12px] font-semibold text-text-secondary">Open</span>
-                      </button>
-                    </div>
-                  </li>
                 ))}
-              </ul>
-            )}
+              </tbody>
+            </table>
           </div>
-
-          {/* Disaster reports per month, with a From and To month */}
-          <DisasterTrendsCard />
-
-          {/* Season snapshot — yield variance (3D columns, crop or fisheries) */}
-          <YieldVarianceCard crop={variance} fisheries={fisheriesVariance} isLoading={isLoading} />
-        </div>
-
-        {/* ── Right column ──────────────────────────────────────────────── */}
-        <div className="space-y-5 min-w-0 lg:sticky lg:top-20">
-          <div className={CARD}>
-            <PanelHead
-              title="Pending Change Requests" count={requests.length}
-              action={requests.length ? 'Review all →' : null} onAction={() => navigate('/users')}
-            />
-            {requests.length === 0 ? (
-              <p className="px-5 py-8 text-center text-[13px] italic text-text-muted">
-                No change requests waiting for review.
-              </p>
-            ) : (
-              <ul>
-                {requests.map((r, i) => (
-                  <li key={r.id} className={`px-5 py-3.5 ${i === requests.length - 1 ? '' : 'border-b border-border'}`}>
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="text-[14px] font-semibold text-text-primary truncate">
-                        {r.record_label || r.requested_by_name || `Request #${r.id}`}
-                      </p>
-                      <span className="text-[12px] text-text-muted shrink-0 tabular-nums">
-                        {r.requested_at ? new Date(r.requested_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
-                      </span>
-                    </div>
-                    <div className="mt-1 flex items-start justify-between gap-3 flex-wrap">
-                      <div className="min-w-0">
-                        <p className="text-[13px] text-[color:var(--color-semantic-info)] capitalize">
-                          {r.field_label || (r.field_name || '').replace(/_/g, ' ') || 'Change request'}
-                        </p>
-                        <p className="mt-0.5 break-words text-[12.5px] text-text-muted">
-                          {r.old_value || '—'} → {r.requested_value || '—'}
-                        </p>
-                        {r.requires_both && (
-                          <p className="mt-1 text-[12px] text-text-secondary" data-testid="approval-lines">
-                            {approvalLines(r).map((line, idx) => (
-                              <span key={line.role}>
-                                {idx > 0 ? ' · ' : ''}
-                                {line.done ? `${line.role} ✓ ${line.by}`.trim() : `${line.role} pending`}
-                              </span>
-                            ))}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex gap-2 shrink-0">
-                        <button type="button" disabled={busyId === r.id || hasApproved(r, user?.role)} onClick={() => decide(r, 'approve')}
-                          title={hasApproved(r, user?.role) ? 'You already approved this' : undefined}
-                          className="rounded-[6px] border border-[color:var(--color-semantic-safe)] px-3 py-1.5 transition-colors hover:bg-[color:var(--color-semantic-safe-bg)] disabled:opacity-50 cursor-pointer">
-                          <span className="text-[12px] font-semibold text-[color:var(--color-semantic-safe)]">Approve</span>
-                        </button>
-                        <button type="button" disabled={busyId === r.id} onClick={() => decide(r, 'reject')}
-                          className="rounded-[6px] border border-border-strong px-3 py-1.5 transition-colors hover:bg-surface-2 disabled:opacity-50 cursor-pointer">
-                          <span className="text-[12px] font-semibold text-text-secondary">Reject</span>
-                        </button>
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
+        </DashPanel>
+        <DashPanel
+          className="order-first lg:order-none"
+          title="Pending Change Requests" icon={ClipboardCheck} count={requests.length}
+          action={requests.length ? 'Review all →' : null} onAction={() => navigate('/users')}
+        >
+          {requests.length === 0 ? (
+            <p className="flex flex-1 items-center justify-center px-5 py-8 text-center text-[13px] italic text-text-muted">
+              No change requests waiting for review.
+            </p>
+          ) : (
+            <ul className="lg:max-h-[268px] lg:overflow-y-auto">
+              {requests.map((r, i) => (
+                <li key={r.id} className={`px-4 py-3.5 md:px-5 ${i === requests.length - 1 ? '' : 'border-b border-border'}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="truncate text-[14px] font-semibold text-text-primary">
+                      {r.record_label || r.requested_by_name || `Request #${r.id}`}
+                    </p>
+                    <span className="shrink-0 text-[12px] tabular-nums text-text-muted">
+                      {r.requested_at ? new Date(r.requested_at).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }) : ''}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[13px] capitalize text-[color:var(--color-semantic-info)]">
+                    {r.field_label || (r.field_name || '').replace(/_/g, ' ') || 'Change request'}
+                  </p>
+                  <p className="mt-0.5 break-words text-[12.5px] text-text-muted">
+                    {r.old_value || '—'} → {r.requested_value || '—'}
+                  </p>
+                  {r.requires_both && (
+                    <p className="mt-1 text-[12px] text-text-secondary" data-testid="approval-lines">
+                      {approvalLines(r).map((line, idx) => (
+                        <span key={line.role}>
+                          {idx > 0 ? ' · ' : ''}
+                          {line.done ? `${line.role} ✓ ${line.by}`.trim() : `${line.role} pending`}
+                        </span>
+                      ))}
+                    </p>
+                  )}
+                  <div className="mt-2.5 flex gap-2">
+                    <button type="button" disabled={busyId === r.id || hasApproved(r, user?.role)} onClick={() => decide(r, 'approve')}
+                      title={hasApproved(r, user?.role) ? 'You already approved this' : undefined}
+                      className="min-h-[40px] flex-1 cursor-pointer rounded-[6px] border border-[color:var(--color-semantic-safe)] px-3 transition-colors hover:bg-[color:var(--color-semantic-safe-bg)] disabled:opacity-50 md:min-h-[34px] md:flex-none">
+                      <span className="text-[12px] font-semibold text-[color:var(--color-semantic-safe)]">Approve</span>
+                    </button>
+                    <button type="button" disabled={busyId === r.id} onClick={() => decide(r, 'reject')}
+                      className="min-h-[40px] flex-1 cursor-pointer rounded-[6px] border border-border-strong px-3 transition-colors hover:bg-surface-2 disabled:opacity-50 md:min-h-[34px] md:flex-none">
+                      <span className="text-[12px] font-semibold text-text-secondary">Reject</span>
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </DashPanel>
       </div>
     </div>
   )

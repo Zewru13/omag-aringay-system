@@ -7,7 +7,6 @@ import RsbsaImportModal from '../../components/RsbsaImportModal.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
-import HarvestComparisonCard from '../../components/dashboard/HarvestComparisonCard.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import AddFarmerModal from './AddFarmerModal.jsx'
 
@@ -260,7 +259,6 @@ function FarmersPage({ asTab = false }) {
         </label>
       </FilterPanel>
 
-      <HarvestComparisonCard url="/farmers/harvest-comparison/" listQuery={listFilterParams().toString()} noun="farmers" nounOne="farmer" />
 
       {successMessage && (
         <div className="rounded-lg border border-[#C8D5C8] bg-[#EBF5EE] px-4 py-3 text-[13px] font-medium text-[#1B4D2E] mb-4">
