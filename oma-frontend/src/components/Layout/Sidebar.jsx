@@ -11,6 +11,7 @@ import {
   Fish,
   HandHeart,
   History,
+  Home,
   LayoutDashboard,
   Leaf,
   LineChart,
@@ -141,6 +142,7 @@ const GROUPS = [
 // context, so there is no Capture Fishing and no Aquaculture/Capture category choice anywhere here.
 // Direct links, no submenus: the account itself is the context, so Aquaculture Monitoring is its only monitoring and Disaster IS the fisherfolk disaster page (My Logged Disasters + Log Disaster).
 const FISHERFOLK_NAV = [
+  { to: "/my-account", icon: Home, label: "Home" },
   { to: "/fisheries-monitoring", icon: Waves, label: "Aquaculture Monitoring" },
   { to: "/fisheries-forecasting", icon: TrendingUp, label: "Forecasting" },
   { to: "/disaster", icon: AlertTriangle, label: "Disaster" },
@@ -150,6 +152,7 @@ const FISHERFOLK_NAV = [
 // Farmer accounts: the same Admin crop pages (the backend returns only their own records), in English, as plain
 // top-level links like the fisherfolk menu. A farmer cannot create crop records, so there is no Crop Records.
 const FARMER_NAV = [
+  { to: "/my-account", icon: Home, label: "Home" },
   { to: "/crop-monitoring", icon: Sprout, label: "Crop Monitoring" },
   { to: "/forecasting", icon: TrendingUp, label: "Forecasting" },
   { to: "/disaster", icon: AlertTriangle, label: "Disaster" },
@@ -159,6 +162,7 @@ const FARMER_NAV = [
 // Organization accounts: their own organization and its assistance, as plain top-level links. The assistance
 // page is the one of the organization's own domain (crop or fisheries).
 const orgNav = (orgType) => [
+  { to: "/my-account", icon: Home, label: "Home" },
   { to: "/my-organization", icon: Building2, label: "My Organization" },
   { to: orgType === "FISHERFOLK_ORG" ? "/fisheries-assistance" : "/crop-assistance", icon: HandHeart, label: "Assistance" },
 ];

@@ -5,6 +5,8 @@ import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import { DonutCard, MonthlyBarsCard } from './HomeChartCards.jsx'
+import { assistanceTypeSlices, memberSlices, monthlyCounts } from './homeCharts.js'
 import { FARMERS_ORG_DOMAIN, FISHERFOLK_ORG_DOMAIN } from './orgDomainConfig.js'
 
 // Home tab of the organization phone shell: four summary tiles, an attention card for members waiting on a
@@ -87,18 +89,31 @@ export default function OrgPhoneHome() {
   const reportedThisYear = history.filter((r) => String(r.date_given || '').startsWith(thisYear)).length
   // Members whose awaiting record still needs the organization (a request already sent is waiting on OMAg).
   const needConfirmation = confirmables.filter((r) => r.latest_request_status !== 'PENDING').length
+  const chartColor = isFisherfolkOrg ? '#155E82' : '#1B4D2E'
 
   return (
-    <PageLayout>
+    <PageLayout title="Home">
       {isLoading ? (
         <p className="text-[15px] italic text-cz-text-2">Loading your organization…</p>
       ) : (
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <StatTile value={activeMembers} label="Active members" tone={tone.text} />
             <StatTile value={`${officers.filter((o) => o.is_member !== false).length} of ${domain.officerPositions.length}`} label="Officer positions filled" tone={tone.text} />
             <StatTile value={reportedThisYear} label="Assistance given this year" tone={tone.text} />
             <StatTile value={needConfirmation} label="Members awaiting confirmation" tone={tone.text} />
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-3">
+            <DonutCard title="Members" slices={memberSlices(members, (m) => domain.rowIsActive(m))} unit="members" emptyText="No members to chart yet." />
+            <MonthlyBarsCard
+              title={`Assistance reported in ${thisYear}`}
+              hint="Records per month"
+              months={monthlyCounts(history, (r) => r.date_given, thisYear)}
+              color={chartColor}
+              emptyText="No assistance reported this year yet."
+            />
+            <DonutCard title="Assistance by type" slices={assistanceTypeSlices(history)} unit="records" emptyText="No assistance reported yet." />
           </div>
 
           {needConfirmation > 0 && (
@@ -117,7 +132,7 @@ export default function OrgPhoneHome() {
             </div>
           )}
 
-          <div className="space-y-2">
+          <div className="space-y-2 lg:grid lg:grid-cols-3 lg:gap-2 lg:space-y-0">
             <QuickAction icon={HandHeart} label="Distribute assistance" tone={tone} onClick={() => navigate(assistancePath)} />
             <QuickAction icon={Users} label="Members" tone={tone} onClick={() => navigate('/my-organization')} />
             <QuickAction icon={UserCog} label="Officers" tone={tone} onClick={() => navigate('/my-organization?tab=officers')} />

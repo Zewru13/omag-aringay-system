@@ -4,6 +4,9 @@ import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import { DonutCard, HarvestBarsCard } from './HomeChartCards.jsx'
+import fetchAllPages from './fetchAllPages.js'
+import { disasterSlices, harvestBars, statusSlices } from './homeCharts.js'
 
 // Home tab of the fisherfolk phone shell: four summary tiles, an attention card and one card per active
 // production cycle, laid out like the farmer's home. Presentation only - it reads the same own-record-scoped
@@ -101,6 +104,8 @@ export default function FisherfolkPhoneHome() {
   const [activeCount, setActiveCount] = useState(0)
   const [harvestedCount, setHarvestedCount] = useState(0)
   const [openDisasters, setOpenDisasters] = useState(0)
+  const [stocks, setStocks] = useState([])           // every production cycle record, any status (the charts count them all)
+  const [disasters, setDisasters] = useState([])
 
   useEffect(() => {
     let cancelled = false
@@ -108,8 +113,11 @@ export default function FisherfolkPhoneHome() {
       api.get('/fisheries/stocking/', { params: { status: ACTIVE_STATUSES } }),
       api.get('/fisheries/stocking/', { params: { status: 'Harvested' } }),
       api.get('/fisheries/disaster-reports/'),
-    ]).then(([activeRes, harvestedRes, disasterRes]) => {
+      fetchAllPages('/fisheries/stocking/', { status: 'Stocked,Near Harvest,Late,Harvested,Total Loss' }),
+    ]).then(([activeRes, harvestedRes, disasterRes, allStocks]) => {
       if (cancelled) return
+      setStocks(allStocks)
+      setDisasters(rows(disasterRes))
       const activeRows = rows(activeRes)
       setActive(activeRows)
       setActiveCount(total(activeRes, activeRows.length))
@@ -129,16 +137,30 @@ export default function FisherfolkPhoneHome() {
   const openCycle = (rec) => navigate(`/fisheries-monitoring?cycle=${rec.production_cycle}`)
 
   return (
-    <PageLayout>
+    <PageLayout title="Home">
       {isLoading ? (
         <p className="text-[15px] italic text-cz-text-2">Loading your production cycles…</p>
       ) : (
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <StatTile value={activeCount} label="Active cycles" />
             <StatTile value={unitCount} label="Ponds and cages" />
             <StatTile value={harvestedCount} label="Harvested cycles" />
             <StatTile value={openDisasters} label="Open disasters" />
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-3">
+            <DonutCard title="My cycles by stage" slices={statusSlices(stocks)} unit="cycles" emptyText="No production cycles to chart yet." />
+            <HarvestBarsCard
+              title="Harvest vs estimate"
+              hint="Latest harvested cycles, in kg"
+              bars={harvestBars(stocks.filter((r) => r.status === 'Harvested'), {
+                nameOf: (r) => r.species_name || 'Cycle', estimateKey: 'estimated_harvest_kg', actualKey: 'total_harvested_kg', dateOf: (r) => r.actual_harvest_date,
+              })}
+              color="#155E82"
+              emptyText="Harvest results appear here once a cycle is harvested."
+            />
+            <DonutCard title="Disasters by type" slices={disasterSlices(disasters)} unit="reports" emptyText="You have not logged any disasters." />
           </div>
 
           {needsAttention.length > 0 && (
@@ -174,7 +196,7 @@ export default function FisherfolkPhoneHome() {
               </button>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
               {active.map((rec) => (
                 <CycleCard key={rec.id} rec={rec} onOpen={openCycle} onDisaster={() => navigate('/disaster')} />
               ))}
@@ -182,7 +204,7 @@ export default function FisherfolkPhoneHome() {
                 <button
                   type="button"
                   onClick={() => navigate('/fisheries-monitoring')}
-                  className="w-full rounded-[8px] border-[0.5px] border-cz-border-strong bg-cz-surface px-5 py-[11px] transition-colors hover:bg-cz-page"
+                  className="w-full rounded-[8px] border-[0.5px] border-cz-border-strong bg-cz-surface px-5 py-[11px] transition-colors hover:bg-cz-page lg:col-span-2"
                 >
                   <span className="text-[13px] font-semibold text-cz-text">See all {activeCount} cycles</span>
                 </button>

@@ -4,6 +4,9 @@ import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import { DonutCard, HarvestBarsCard } from './HomeChartCards.jsx'
+import fetchAllPages from './fetchAllPages.js'
+import { disasterSlices, harvestBars, statusSlices } from './homeCharts.js'
 
 // Home tab of the farmer phone shell: four summary tiles, an attention card and one card per active crop, laid
 // out like the fisherfolk phone Home. Presentation only - it reads the own-record-scoped endpoints the Crop
@@ -77,18 +80,21 @@ export default function FarmerPhoneHome() {
   const [harvestedThisMonth, setHarvestedThisMonth] = useState(0)
   const [harvestedArea, setHarvestedArea] = useState(0)
   const [parcelCount, setParcelCount] = useState(0)
+  const [crops, setCrops] = useState([])             // every crop record, any status (the charts count them all)
+  const [disasters, setDisasters] = useState([])
   const [suggestions, setSuggestions] = useState({})   // crop id -> [{ activity_name, status, day_after_planting }]
 
   useEffect(() => {
     let cancelled = false
     ;(async () => {
       try {
-        const [activeRes, harvestedRes, parcelRes] = await Promise.all([
-          api.get('/production/monitoring/', { params: { status: ACTIVE_CROPS } }),
-          api.get('/production/monitoring/', { params: { status: 'Harvested' } }),
+        const [allCrops, parcelRes, disasterRes] = await Promise.all([
+          fetchAllPages('/production/monitoring/', { status: 'Planted,Near Harvest,Harvested,Total Loss' }),
           api.get('/farmers/me/parcels/').catch(() => null),
+          api.get('/production/disaster-logs/').catch(() => null),
         ])
-        const activeRows = rows(activeRes)
+        const activeRows = allCrops.filter((r) => ACTIVE_CROPS.split(',').includes(r.status))
+        const harvestedRows = allCrops.filter((r) => r.status === 'Harvested')
         const found = await Promise.all(activeRows.map((rec) =>
           api.get(`/production/monitoring/${rec.id}/suggestions/`)
             .then((res) => [rec.id, res.data.suggestions || []])
@@ -96,8 +102,10 @@ export default function FarmerPhoneHome() {
         if (cancelled) return
         const now = new Date()
         setActive(activeRows)
-        setHarvestedArea(rows(harvestedRes).reduce((sum, r) => sum + (Number(r.area_planted_ha) || 0), 0))
-        setHarvestedThisMonth(rows(harvestedRes).filter((r) => {
+        setCrops(allCrops)
+        setDisasters(disasterRes ? rows(disasterRes) : [])
+        setHarvestedArea(harvestedRows.reduce((sum, r) => sum + (Number(r.area_planted_ha) || 0), 0))
+        setHarvestedThisMonth(harvestedRows.filter((r) => {
           const d = r.actual_harvest_date ? new Date(r.actual_harvest_date) : null
           return d && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
         }).length)
@@ -123,16 +131,30 @@ export default function FarmerPhoneHome() {
   const needsAttention = active.filter((rec) => (suggestions[rec.id] || []).some((s) => s.status === 'overdue' || s.status === 'due_now'))
 
   return (
-    <PageLayout>
+    <PageLayout title="Home">
       {isLoading ? (
         <p className="text-[15px] italic text-cz-text-2">Loading your crops…</p>
       ) : (
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <StatTile value={parcelCount} label="Farm parcels" />
             <StatTile value={active.length} label="Active crops" />
             <StatTile value={`${totalArea.toFixed(totalArea % 1 === 0 ? 0 : 1)} ha`} label="Total area" />
             <StatTile value={harvestedThisMonth} label="Harvests this month" />
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-3">
+            <DonutCard title="My crops by stage" slices={statusSlices(crops)} unit="crops" emptyText="No crops to chart yet." />
+            <HarvestBarsCard
+              title="Harvest vs estimate"
+              hint="Latest harvested crops, in kg"
+              bars={harvestBars(crops.filter((r) => r.status === 'Harvested'), {
+                nameOf: (r) => r.crop_type_name || 'Crop', estimateKey: 'estimated_yield_kg', actualKey: 'actual_yield_kg', dateOf: (r) => r.actual_harvest_date,
+              })}
+              color="#1B4D2E"
+              emptyText="Harvest results appear here once a crop is harvested."
+            />
+            <DonutCard title="Disasters by type" slices={disasterSlices(disasters)} unit="reports" emptyText="You have not logged any disasters." />
           </div>
 
           {needsAttention.length > 0 && (
@@ -161,7 +183,7 @@ export default function FarmerPhoneHome() {
               You have no active crops yet. Your crops appear here once the office registers them.
             </p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
               {active.map((rec) => (
                 <CropCard
                   key={rec.id}
