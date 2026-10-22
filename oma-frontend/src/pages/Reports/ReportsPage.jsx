@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Building2, ChevronDown, ChevronRight, Download, FileText, Fish, History, Leaf, Printer, Search, User, UserCheck, Wheat } from 'lucide-react'
-import { useSearchParams } from 'react-router-dom'
+import { ArrowLeft, ArrowRight, Building2, ChevronDown, ChevronRight, Download, FileText, Fish, History, Leaf, Printer, Search, User, UserCheck, Waves, Wheat } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
@@ -13,14 +13,15 @@ import { downloadFile } from '../../utils/fileDownload.js'
 
 const labelCls = 'block text-[12px] font-medium text-[#4A5E4A] mb-1'
 
+// One entry per report: `id` is the ?tab= value that opens it, and the rest feeds its card on the landing page.
 const TABS = [
-  { id: 'harvested',           icon: Wheat,     label: 'Harvested Crop Report' },
-  { id: 'organization',         icon: Building2, label: 'Organization List Report' },
-  { id: 'crop_options',        icon: Leaf,      label: 'Crop Options Report' },
-  { id: 'fisheries',           icon: Fish,      label: 'Fisheries Production Report' },
-  { id: 'farmer_crop_history', icon: History,   label: 'Farmer Crop History' },
-  { id: 'fisherfolk_stocking_history', icon: Fish, label: 'Fisherfolk Stocking History' },
-  { id: 'beneficiary_confirmations', icon: UserCheck, label: 'On-Behalf-Of Confirmations' },
+  { id: 'harvested',           icon: Wheat,     label: 'Harvested Crop Report',       description: 'View harvested crop records and yield details.' },
+  { id: 'organization',         icon: Building2, label: 'Organization List',           description: 'View registered farmer and fisherfolk organizations.' },
+  { id: 'crop_options',        icon: Leaf,      label: 'Crop Options',                description: 'View configured crop types, growth duration, and yield estimates.' },
+  { id: 'fisheries',           icon: Fish,      label: 'Fisheries Production',        description: 'Review fisheries harvest and production records.' },
+  { id: 'farmer_crop_history', icon: History,   label: 'Farmer Crop History',         description: 'Review crop planting, activities, and harvest history.' },
+  { id: 'fisherfolk_stocking_history', icon: Waves, label: 'Fisherfolk Stocking History', description: 'Review aquaculture stocking and production-cycle history.' },
+  { id: 'beneficiary_confirmations', icon: UserCheck, label: 'On-Behalf-Of Confirmations', description: 'Review assistance confirmation records and decisions.' },
 ]
 
 // ── Signature Modal ────────────────────────────────────────────────────────────
@@ -1670,14 +1671,51 @@ function BeneficiaryConfirmationsTab() {
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
-// The sidebar's Reports group links straight to each report (?tab=...), so this page has no tab row of its own:
-// the sidebar is the one place that switches reports.
+// The sidebar's single Reports link opens /reports with no tab: a landing page of report cards. Each card links to
+// /reports?tab=<id>, which renders that report with a link back here. Existing ?tab= deep links (notifications,
+// bookmarks) open their report directly; an unknown tab falls back to the landing page.
+function ReportSelection() {
+  return (
+    <div>
+      <p className="text-[13px] text-[#4A5E4A] mb-4">Select a report to continue.</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {TABS.map(({ id, icon: Icon, label, description }) => (
+          <Link
+            key={id}
+            to={`/reports?tab=${id}`}
+            className="group flex flex-col rounded-xl border border-[#E2E8E2] bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-[#1B4D2E] hover:shadow-[0_4px_12px_rgba(27,77,46,0.12)] focus-visible:outline-none focus-visible:border-[#1B4D2E] focus-visible:ring-2 focus-visible:ring-[#1B4D2E]/30"
+          >
+            <span className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-[#EAF2EC] text-[#1B4D2E] transition-colors duration-200 group-hover:bg-[#1B4D2E] group-hover:text-white group-focus-visible:bg-[#1B4D2E] group-focus-visible:text-white">
+              <Icon size={20} aria-hidden="true" />
+            </span>
+            <span className="text-[15px] font-semibold text-[#1A2B1A]">{label}</span>
+            <span className="mt-1 flex-1 text-[13px] text-[#7A8E7A]">{description}</span>
+            <span className="mt-4 inline-flex items-center gap-1 text-[13px] font-medium text-[#1B4D2E]">
+              Open Report
+              <ArrowRight size={14} aria-hidden="true" className="transition-transform duration-200 group-hover:translate-x-0.5" />
+            </span>
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function ReportsPage() {
   const [searchParams] = useSearchParams()
-  const activeTab = TABS.some(t => t.id === searchParams.get('tab')) ? searchParams.get('tab') : 'harvested'
+  const activeTab = TABS.some(t => t.id === searchParams.get('tab')) ? searchParams.get('tab') : null
 
   return (
     <PageLayout title="Report Generation" subtitle="Generate and export data from different modules">
+      {!activeTab && <ReportSelection />}
+      {activeTab && (
+        <Link
+          to="/reports"
+          className="mb-4 inline-flex items-center gap-1 text-[13px] text-[#1B4D2E] hover:underline print:hidden"
+        >
+          <ArrowLeft size={14} aria-hidden="true" /> Back to Reports
+        </Link>
+      )}
       <div className="space-y-5">
         {activeTab === 'harvested'           && <HarvestedCropTab />}
         {activeTab === 'organization'         && <OrganizationListTab />}

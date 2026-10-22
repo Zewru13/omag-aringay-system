@@ -10,7 +10,6 @@ import {
   FileBarChart,
   Fish,
   HandHeart,
-  History,
   Home,
   LayoutDashboard,
   Leaf,
@@ -20,7 +19,6 @@ import {
   ShieldCheck,
   Sprout,
   TrendingUp,
-  UserCheck,
   UserCog,
   Users,
   Waves,
@@ -52,32 +50,19 @@ const DISASTER_GROUP = {
   ],
 };
 
-// Batch A: Reports was a single leaf item landing on ReportsPage's default
-// tab (Harvested Crop) no matter which report you actually wanted — now a
-// group of 7 deep-links, same ?tab= convention as every other tabbed hub
-// below, so each one lands directly on the right report.
-const REPORTS_GROUP = {
-  key: "reports",
-  label: "Reports",
-  icon: FileBarChart,
-  items: [
-    { to: "/reports?tab=harvested", icon: Wheat, label: "Harvested Crop Report" },
-    { to: "/reports?tab=organization", icon: Building2, label: "Organization List" },
-    { to: "/reports?tab=crop_options", icon: Leaf, label: "Crop Options" },
-    { to: "/reports?tab=fisheries", icon: Fish, label: "Fisheries Production" },
-    { to: "/reports?tab=farmer_crop_history", icon: History, label: "Farmer Crop History" },
-    { to: "/reports?tab=fisherfolk_stocking_history", icon: Fish, label: "Fisherfolk Stocking History" },
-    { to: "/reports?tab=beneficiary_confirmations", icon: UserCheck, label: "On-Behalf-Of Confirmations" },
-  ],
-};
+// Reports is one leaf: /reports opens ReportsPage's report-selection cards.
+// The link carries no ?tab=, so isItemActive keeps it highlighted on the
+// landing page and on every /reports?tab=... report view. The phone menu
+// (StaffPhoneShell) lists it as a one-item group, REPORTS_GROUP.
+const REPORTS_ITEM = { to: "/reports", icon: FileBarChart, label: "Reports" };
+const REPORTS_GROUP = { key: "reports", label: "Reports", icon: FileBarChart, items: [REPORTS_ITEM] };
 
 // FarmersHub/FisherfolkHub both default to the "registry" tab when the URL
 // carries no ?tab= at all (`searchParams.get('tab') || 'registry'`) — this
 // mirrors that so a bare /farmers (e.g. an old link, or the farmer detail
 // page's back-navigation) still correctly highlights "Farmers", not nothing.
-// /reports mirrors the same idea for its default "harvested" report.
 // /disaster mirrors the same idea: a bare /disaster opens the Crop view (see AdminDisasterPage).
-const DEFAULT_TAB_BY_PATH = { "/farmers": "registry", "/fisherfolk": "registry", "/reports": "harvested", "/disaster": "farmer", "/fisheries-monitoring": "stocking" };
+const DEFAULT_TAB_BY_PATH = { "/farmers": "registry", "/fisherfolk": "registry", "/disaster": "farmer", "/fisheries-monitoring": "stocking" };
 
 const GROUPS = [
   {
@@ -465,7 +450,9 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
 
               <NavGroup group={DISASTER_GROUP} isCollapsed={isCollapsed} />
 
-              <NavGroup group={REPORTS_GROUP} isCollapsed={isCollapsed} />
+              <div className={isCollapsed ? "" : "mt-4"}>
+                <LeafItem {...REPORTS_ITEM} isCollapsed={isCollapsed} />
+              </div>
 
               {isAdmin && (
                 <>
