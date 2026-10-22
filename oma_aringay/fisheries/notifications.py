@@ -16,9 +16,6 @@ CYCLE_STARTED = 'fisheries_cycle_started'
 FORCE_HARVEST = 'fisheries_force_harvest'
 # The emergency Force Harvest (Aquaculture Monitoring ⋮ menu): Admin accounts only; record_id is the harvest record.
 EMERGENCY_FORCE_HARVEST = 'fisheries_emergency_force_harvest'
-HARVEST_REMINDER_7D = 'fisheries_harvest_reminder_7d'
-HARVEST_REMINDER_3D = 'fisheries_harvest_reminder_3d'
-HARVEST_REMINDERS = {7: HARVEST_REMINDER_7D, 3: HARVEST_REMINDER_3D}
 MAX_UNITS_LISTED = 4
 
 
@@ -139,66 +136,33 @@ def queue_emergency_force_harvest(harvest, actor):
     transaction.on_commit(send)
 
 
-# ─── Harvest reminders (sent by the send_fisheries_harvest_reminders command) ──
+# ─── Harvest reminders (see core.harvest_reminders: 30 / 7 / 3 days before, the harvest day, 7 days overdue) ──
 
-def reminder_texts(days, stock, cycle, location):
-    label = cycle_label(stock, cycle)
-    detail = join(f'expected {fmt_date(stock.expected_harvest_date)}', cycle.culture_system, location)
-    owner_name = stock.fisherfolk.full_name if stock.fisherfolk_id else ''
-    return ((f'Harvest expected in {days} days for your', label, detail),
-            (f'Harvest expected in {days} days for', join(owner_name, label), detail))
+# The notification types, which the bell titles and links; the 7- and 3-day ones are the original reminder types.
+HARVEST_REMINDER_PREFIX = 'fisheries_harvest_reminder'
 
 
-def due_harvest_reminders(today):
-    """{cycle_id: (days, stocking_record)} for every ACTIVE production cycle whose expected harvest date - the
-    same StockingRecord.expected_harvest_date Forecasting shows - is exactly 7 or 3 days after `today`.
-    Skips cycles already harvested (final harvest / Total Loss, or the cycle itself no longer Active); a cycle
-    with only some ponds/cages harvested is still Stocked/Near Harvest and Active, so it is still reminded."""
+def harvest_reminder_candidates(today):
+    """One candidate per ACTIVE production cycle whose expected harvest date - the same StockingRecord.expected_harvest_date
+    Forecasting shows - is close enough for a reminder. Cycles already harvested (final harvest / Total Loss, or the cycle
+    itself no longer Active) are left out; a cycle with only some ponds/cages harvested is still Stocked/Near Harvest and
+    Active, so it is still reminded."""
     from datetime import timedelta
+    from core.harvest_reminders import EARLIEST_DAYS_LEFT, LATEST_DAYS_LEFT, Candidate
     from .models import StockingRecord
-    days_by_date = {today + timedelta(days=d): d for d in HARVEST_REMINDERS}
     stocks = StockingRecord.objects.filter(
         production_cycle__isnull=False, production_cycle__status='Active',
         status__in=[StockingRecord.Status.STOCKED, StockingRecord.Status.NEAR_HARVEST],
-        expected_harvest_date__in=list(days_by_date),
+        expected_harvest_date__gte=today + timedelta(days=LATEST_DAYS_LEFT),
+        expected_harvest_date__lte=today + timedelta(days=EARLIEST_DAYS_LEFT),
+        fisherfolk__isnull=False,
     ).select_related('fisherfolk', 'species', 'production_cycle').order_by('production_cycle_id', 'id')
-    due = {}
+    found, seen = [], set()
     for stock in stocks:
-        due.setdefault(stock.production_cycle_id, (days_by_date[stock.expected_harvest_date], stock))
-    return due
-
-
-def build_harvest_reminders(today):
-    """The unsaved reminder notifications due `today`, and how many reminder events were already sent.
-    Idempotent: a cycle that already has its 7-day (or 3-day) reminder - for any recipient, ever - gets no
-    second one, so re-running the same day (or after the date moved) never duplicates it."""
-    from django.contrib.auth import get_user_model
-    from accounts.models import UserLinkedRecord
-    from core.models import Notification
-    from core.notifications import STAFF_NOTIFICATION_ROLES, build_owner_and_staff_notifications
-
-    due = due_harvest_reminders(today)
-    if not due:
-        return [], 0, 0
-    sent = set(Notification.objects.filter(
-        record_type__in=HARVEST_REMINDERS.values(), record_id__in=list(due),
-    ).values_list('record_type', 'record_id').distinct())
-    pending = {cid: v for cid, v in due.items() if (HARVEST_REMINDERS[v[0]], cid) not in sent}
-    if not pending:
-        return [], 0, len(due)
-    User = get_user_model()
-    staff = list(User.objects.filter(is_active=True, role__in=STAFF_NOTIFICATION_ROLES))
-    # The fisherfolk's own active citizen account (what resolve_owner_user() picks), for all cycles at once.
-    ff_ids = {stock.fisherfolk_id for _, stock in pending.values() if stock.fisherfolk_id}
-    links = UserLinkedRecord.objects.filter(
-        record_type=User.LinkedRecordType.FISHERFOLK, record_id__in=ff_ids, is_active=True, user__is_active=True,
-    ).select_related('user').order_by('user_id')
-    owner_by_ff = {}
-    for link in links:
-        owner_by_ff.setdefault(link.record_id, link.user)
-    rows = []
-    for cycle_id, (days, stock) in pending.items():
-        owner_text, staff_text = reminder_texts(days, stock, stock.production_cycle, stock.pond_location_barangay or None)
-        rows += build_owner_and_staff_notifications(owner_by_ff.get(stock.fisherfolk_id), staff, None,
-                                                    HARVEST_REMINDERS[days], cycle_id, owner_text, staff_text)
-    return rows, len(pending), len(due) - len(pending)
+        if stock.production_cycle_id in seen:
+            continue
+        seen.add(stock.production_cycle_id)
+        found.append(Candidate(HARVEST_REMINDER_PREFIX, stock.production_cycle_id, 'fisherfolk', stock.fisherfolk_id,
+                               stock.expected_harvest_date, cycle_label(stock, stock.production_cycle),
+                               stock.pond_location_barangay or ''))
+    return found

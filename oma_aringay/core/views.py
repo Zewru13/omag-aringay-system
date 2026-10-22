@@ -7,6 +7,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .harvest_reminders import run_daily_once
 from .locking import acquire_lock
 from .models import Notification, RecordLock
 from .serializers import NotificationSerializer
@@ -301,6 +302,8 @@ class NotificationListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        # The first poll of the day creates that day's harvest reminders (core.harvest_reminders); never raises.
+        run_daily_once()
         qs = Notification.objects.filter(recipient=request.user).select_related('actor')
         unread_count = qs.filter(is_read=False).count()
 

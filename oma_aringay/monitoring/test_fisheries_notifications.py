@@ -25,6 +25,8 @@ def _rsbsa():
     return '01-033-02-019-%06d' % next(_RSBSA)
 
 
+REMINDER_7D = 'fisheries_harvest_reminder_7d'
+REMINDER_3D = 'fisheries_harvest_reminder_3d'
 CYCLES = '/api/monitoring/aquaculture-cycles/'
 STOCKING = '/api/fisheries/stocking/'
 GENERAL_DISASTERS = '/api/monitoring/fisherfolk-disasters/'
@@ -201,11 +203,9 @@ class FisheriesNotificationTests(APITestCase):
         self.assertEqual(Notification.objects.count(), 0)
         out = self.reminders(harvest_on - timedelta(days=7))
         self.assertIn('Sent 1 reminder event', out)
-        self.assertEqual(self.notes(fn.HARVEST_REMINDER_7D, recipient=self.user_a, record_id=cid).count(), 1)
-        self.assertEqual(self.notes(fn.HARVEST_REMINDER_7D, recipient=self.admin).count(), 1)
-        self.assertEqual(self.notes(fn.HARVEST_REMINDER_7D, recipient=self.evaluator).count(), 1)
-        self.assertFalse(self.notes(fn.HARVEST_REMINDER_7D, recipient=self.inactive_admin).exists())
-        n = self.notes(fn.HARVEST_REMINDER_7D, recipient=self.user_a).get()
+        self.assertEqual(self.notes(REMINDER_7D, recipient=self.user_a, record_id=cid).count(), 1)
+        self.assertFalse(self.notes(REMINDER_7D, recipient__in=[self.admin, self.evaluator, self.inactive_admin]).exists())   # owner only
+        n = self.notes(REMINDER_7D, recipient=self.user_a).get()
         self.assertIsNone(n.actor_id)                                         # an automatic reminder
         self.assertIn('7 days', n.verb)
         self.assertIn(harvest_on.strftime('%b %d, %Y'), n.detail)
@@ -218,18 +218,18 @@ class FisheriesNotificationTests(APITestCase):
         cid, stock, harvest_on = self._cycle_with_harvest_date()
         self.reminders(harvest_on - timedelta(days=3))
         self.reminders(harvest_on - timedelta(days=3))
-        self.assertEqual(self.notes(fn.HARVEST_REMINDER_3D, recipient=self.user_a, record_id=cid).count(), 1)
-        self.assertEqual(self.notes(fn.HARVEST_REMINDER_3D, recipient=self.admin).count(), 1)
-        self.assertFalse(self.notes(fn.HARVEST_REMINDER_7D).exists())
+        self.assertEqual(self.notes(REMINDER_3D, recipient=self.user_a, record_id=cid).count(), 1)
+        self.assertFalse(self.notes(REMINDER_3D, recipient=self.admin).exists())
+        self.assertFalse(self.notes(REMINDER_7D).exists())
 
     def test_moved_harvest_date_does_not_repeat_a_sent_reminder(self):
         cid, stock, harvest_on = self._cycle_with_harvest_date()
         self.reminders(harvest_on - timedelta(days=7))
         StockingRecord.objects.filter(pk=stock.pk).update(expected_harvest_date=harvest_on + timedelta(days=10))
         self.reminders(harvest_on + timedelta(days=3))                          # 7 days before the NEW date
-        self.assertEqual(self.notes(fn.HARVEST_REMINDER_7D, recipient=self.user_a).count(), 1)
+        self.assertEqual(self.notes(REMINDER_7D, recipient=self.user_a).count(), 1)
         self.reminders(harvest_on + timedelta(days=7))                          # 3 days before the new date
-        self.assertEqual(self.notes(fn.HARVEST_REMINDER_3D, recipient=self.user_a).count(), 1)
+        self.assertEqual(self.notes(REMINDER_3D, recipient=self.user_a).count(), 1)
 
     def test_dry_run_saves_nothing(self):
         cid, stock, harvest_on = self._cycle_with_harvest_date()
@@ -247,7 +247,7 @@ class FisheriesNotificationTests(APITestCase):
         self.assertEqual(stock.status, StockingRecord.Status.HARVESTED)
         self.reminders(harvest_on - timedelta(days=7))
         self.reminders(harvest_on - timedelta(days=3))
-        self.assertFalse(Notification.objects.filter(record_type__in=fn.HARVEST_REMINDERS.values()).exists())
+        self.assertFalse(Notification.objects.filter(record_type__in=(REMINDER_7D, REMINDER_3D)).exists())
 
     def test_partially_harvested_cycle_still_gets_reminders(self):
         cid, (p1, p2), stock = self._two_affected_ponds()
@@ -256,7 +256,7 @@ class FisheriesNotificationTests(APITestCase):
         stock.refresh_from_db()
         self.assertNotEqual(stock.status, StockingRecord.Status.HARVESTED)
         self.reminders(harvest_on - timedelta(days=7))
-        self.assertEqual(self.notes(fn.HARVEST_REMINDER_7D, recipient=self.user_a).count(), 1)
+        self.assertEqual(self.notes(REMINDER_7D, recipient=self.user_a).count(), 1)
 
     def test_inactive_cycle_or_total_loss_gets_no_reminder(self):
         cid, stock, harvest_on = self._cycle_with_harvest_date()
@@ -284,11 +284,11 @@ class FisheriesNotificationTests(APITestCase):
     # ── I. Date handling ──
     def test_command_uses_django_local_date(self):
         cid, stock, harvest_on = self._cycle_with_harvest_date()
-        target = 'fisheries.management.commands.send_fisheries_harvest_reminders.timezone.localdate'
+        target = 'core.management.commands.send_harvest_reminders.timezone.localdate'
         with mock.patch(target, return_value=harvest_on - timedelta(days=3)) as localdate:
             call_command('send_fisheries_harvest_reminders', stdout=StringIO())
         localdate.assert_called_once()
-        self.assertEqual(self.notes(fn.HARVEST_REMINDER_3D, recipient=self.user_a).count(), 1)
+        self.assertEqual(self.notes(REMINDER_3D, recipient=self.user_a).count(), 1)
 
     # ── Fisherfolk disaster -> Admin notification (existing submit-on-log path) ──
     def disaster(self, user, **over):

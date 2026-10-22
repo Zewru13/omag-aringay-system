@@ -53,15 +53,31 @@ const FISHERFOLK_RECORD_TYPE_ROUTES = {
   fisheries_emergency_force_harvest: (id) => `/fisheries-monitoring${id ? `?forced=${id}` : ''}`,
   fisheries_harvest_reminder_7d: (id) => `/fisheries-monitoring${id ? `?cycle=${id}` : ''}`,
   fisheries_harvest_reminder_3d: (id) => `/fisheries-monitoring${id ? `?cycle=${id}` : ''}`,
+  fisheries_harvest_reminder_30d: (id) => `/fisheries-monitoring${id ? `?cycle=${id}` : ''}`,
+  fisheries_harvest_reminder_today: (id) => `/fisheries-monitoring${id ? `?cycle=${id}` : ''}`,
+  fisheries_harvest_reminder_overdue: (id) => `/fisheries-monitoring${id ? `?cycle=${id}` : ''}`,
 }
+
+// Harvest reminders go to the farmer / fisherfolk who owns the crop record / production cycle: 30 and 7 and 3 days before,
+// on the harvest day, and 7 days overdue (core/harvest_reminders.py). The type is `<prefix>_<milestone>`.
+const HARVEST_REMINDER_TITLES = {
+  '30d': 'Harvest in 30 Days',
+  '7d': 'Harvest in 7 Days',
+  '3d': 'Harvest in 3 Days',
+  today: 'Harvest Day',
+  overdue: 'Harvest Overdue',
+}
+const harvestReminderTitles = Object.fromEntries(
+  ['crop_harvest_reminder', 'fisheries_harvest_reminder'].flatMap(prefix =>
+    Object.entries(HARVEST_REMINDER_TITLES).map(([key, title]) => [`${prefix}_${key}`, title])),
+)
 
 // A short title shown above the message for these event types (other notifications are unchanged).
 const RECORD_TYPE_TITLES = {
+  ...harvestReminderTitles,
   fisheries_cycle_started: 'Production Cycle Started',
   fisheries_force_harvest: 'Force Harvest Recorded',
   fisheries_emergency_force_harvest: 'Emergency Force Harvest Recorded',
-  fisheries_harvest_reminder_7d: 'Harvest in 7 Days',
-  fisheries_harvest_reminder_3d: 'Harvest in 3 Days',
   fisheries_disaster_report: 'New Fisherfolk Disaster Report',
   equipment_loan: 'Equipment Loan',
 }
