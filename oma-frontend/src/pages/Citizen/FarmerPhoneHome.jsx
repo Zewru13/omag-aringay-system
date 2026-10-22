@@ -167,8 +167,8 @@ export default function FarmerPhoneHome() {
                   key={rec.id}
                   rec={rec}
                   suggestion={suggestionFor(rec)}
-                  onOpen={() => navigate('/crop-monitoring')}
-                  onDisaster={() => navigate('/disaster')}
+                  onOpen={() => navigate(`/crop-monitoring?record=${rec.id}`)}
+                  onDisaster={() => navigate(`/disaster?crop=${rec.id}`)}
                 />
               ))}
             </div>

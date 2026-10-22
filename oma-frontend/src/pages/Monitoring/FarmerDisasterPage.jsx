@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { CheckCircle2, Download, Plus, Printer } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
-import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
@@ -14,6 +14,7 @@ import { canRecoverDisaster, disasterStatusLabel } from './disasterRecovery.js'
 import { fmtLong } from '../FisheriesRecords/stockingHelpers.js'
 import { ChooseCropsModal, MultiCropDisasterModal } from './MultiCropDisaster.jsx'
 import DisasterLogDetailsModal from './DisasterLogDetailsModal.jsx'
+import CompactExpandList from '../../components/UI/CompactExpandList.jsx'
 import { FARMER_LOG, downloadLog, printLog } from './disasterReportDocument.js'
 
 // DISASTER (farmer accounts): My Logged Disasters + Log Disaster, the farmer counterpart of
@@ -24,18 +25,6 @@ import { FARMER_LOG, downloadLog, printLog } from './disasterReportDocument.js'
 
 const ACTIVE_CROPS = 'Planted,Near Harvest'
 const STATUS_TONES = { Active: 'amber', Recovered: 'green' }
-
-const COLUMNS = [
-  { key: 'report_number',       label: 'Reference No.' },
-  { key: 'crop',                label: 'Crop' },
-  { key: 'location',            label: 'Location' },
-  { key: 'date_fmt',            label: 'Date' },
-  { key: 'disaster_type_label', label: 'Disaster' },
-  { key: 'area_fmt',            label: 'Area Affected' },
-  { key: 'status_cell',         label: 'Status' },
-  { key: 'logged_fmt',          label: 'Date Logged' },
-  { key: 'actions_cell',        label: 'Actions' },
-]
 
 const fmtDateTime = (v) => (v ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(v)) : '—')
 const listOf = (data) => (Array.isArray(data) ? data : (data?.results || []))
@@ -85,6 +74,11 @@ export default function FarmerDisasterPage() {
   const [viewingId, setViewingId] = useState(null)
   const [recovering, setRecovering] = useState(null)
   const [busyId, setBusyId] = useState(null)
+  // ?crop=<id> (from the phone home): log a disaster on that crop straight away.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const linkedCropId = searchParams.get('crop')
+  const [linkUsed, setLinkUsed] = useState(false)
+  const endLink = () => { setLinkUsed(true); if (linkedCropId) setSearchParams({}, { replace: true }) }
 
   useEffect(() => {
     let cancelled = false
@@ -126,6 +120,7 @@ export default function FarmerDisasterPage() {
 
   const noCrops = !isLoading && !error && crops.length === 0
   const cropChoices = useMemo(() => crops.map(c => ({ ...c, label: cropLabel(c) })), [crops])
+  const linkedCrop = linkedCropId && !linkUsed ? cropChoices.find(c => String(c.id) === linkedCropId) : null
 
   return (
     <PageLayout title="Crop Disaster" subtitle="Disasters on your crops. Each one you log is sent to the Office of the Municipal Agriculturist.">
@@ -141,18 +136,33 @@ export default function FarmerDisasterPage() {
             You can only log a disaster on a crop you have on record. Your crops appear here once the office registers them.
           </p>
         )}
-        {error ? <ErrorMessage message={error} /> : <DataTable columns={COLUMNS} data={data} isLoading={isLoading} onRowClick={(row) => setViewingId(row.id)} />}
+        {error ? <ErrorMessage message={error} /> : (
+          <CompactExpandList
+            isLoading={isLoading}
+            emptyText="You have not logged any disasters."
+            items={data.map(r => ({
+              id: r.id,
+              title: r.crop || 'Crop',
+              subtitle: r.disaster_type_label,
+              details: [['Reference No.', r.report_number], ['Location', r.location], ['Date', r.date_fmt], ['Area affected', r.area_fmt], ['Status', r.status_cell], ['Date logged', r.logged_fmt]],
+              actions: (<>
+                <Button variant="outline" onClick={() => setViewingId(r.id)}>View full details</Button>
+                {r.actions_cell}
+              </>),
+            }))}
+          />
+        )}
       </div>
 
       {choosing && (
         <ChooseCropsModal subtitle="Step 1 of 2 — choose the affected crops" crops={cropChoices}
           onClose={() => setChoosing(false)} onContinue={(chosen) => { setChoosing(false); setLoggingOn(chosen) }} />
       )}
-      {loggingOn && (
+      {(loggingOn || linkedCrop) && (
         // The existing crop disaster form, unchanged (it posts to /production/monitoring/<id>/disasters/).
-        <MultiCropDisasterModal crops={loggingOn}
-          onBack={() => { setLoggingOn(null); setChoosing(true) }}
-          onClose={() => setLoggingOn(null)} onSuccess={reload} />
+        <MultiCropDisasterModal crops={loggingOn || [linkedCrop]}
+          onBack={() => { endLink(); setLoggingOn(null); setChoosing(true) }}
+          onClose={() => { endLink(); setLoggingOn(null) }} onSuccess={reload} />
       )}
       {viewingId && <DisasterLogDetailsModal key={viewingId} kind="farmer" logId={viewingId} onClose={() => setViewingId(null)} />}
       {recovering && <MarkRecoveredModal row={recovering} onClose={() => setRecovering(null)} onDone={() => { setRecovering(null); reload() }} />}

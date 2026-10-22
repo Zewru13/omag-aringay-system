@@ -1022,6 +1022,8 @@ function StockingMobileCard({ row, expanded, unitsState, onToggle, onRetryUnits,
 
 export default function FisheriesRecordsPage({ asTab = false }) {
   const { user, isFisherfolk } = useAuth()
+  // A fisherfolk account sees only its own cycles, so its own name is not a column.
+  const columns = isFisherfolk ? COLUMNS.filter(c => c.key !== 'fisherfolk_cell') : COLUMNS
   const [searchParams, setSearchParams] = useSearchParams()
   const { showToast } = useToast()
   const [records,      setRecords]      = useState([])
@@ -1189,7 +1191,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
         )}
       </span>
     ),
-    fisherfolk_cell:      rec.fisherfolk_name || '—',
+    fisherfolk_cell:      isFisherfolk ? '—' : (rec.fisherfolk_name || '—'),
     cycle_cell:           rec.production_cycle_no ? `#${rec.production_cycle_no}` : '—',
     date_stocked_fmt:     rec.date_stocked_is_estimated ? (
       <span className="flex flex-col gap-0.5">
@@ -1346,7 +1348,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
           <table className="min-w-full text-sm">
             <thead className="bg-[#1B4D2E] text-white">
               <tr>
-                {COLUMNS.map(col => (
+                {columns.map(col => (
                   <th key={col.key} className="whitespace-nowrap px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-[0.06em]">
                     {col.label}
                   </th>
@@ -1357,7 +1359,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
               {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b border-[#F0F4F0] animate-pulse">
-                    {COLUMNS.map(col => (
+                    {columns.map(col => (
                       <td key={col.key} className="px-4 py-[13px]">
                         <div className="h-4 bg-[#E8EEE8] rounded w-3/4" />
                       </td>
@@ -1366,7 +1368,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
                 ))
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={COLUMNS.length} className="py-12 text-center">
+                  <td colSpan={columns.length} className="py-12 text-center">
                     <div className="flex flex-col items-center gap-2 text-[#C8D5C8]">
                       <svg width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 0 1 0 10h-2"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
                       <p className="text-[14px] font-medium text-[#4A5E4A]">No stocking records found</p>
@@ -1386,7 +1388,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
                       <tr className={`cursor-pointer border-b border-[#F0F4F0] transition-colors hover:bg-[#F9FAF9] ${isExpanded ? 'bg-[#F5F8F5]' : ''}`}
                         aria-expanded={isExpanded}
                         {...rowClickProps(() => toggleExpanded(row._rec), `${isExpanded ? 'Hide' : 'Show'} ponds/cages: ${row.species_name || 'stock'}${row.production_cycle_no ? ` #${row.production_cycle_no}` : ''}`)}>
-                        {COLUMNS.map(col => (
+                        {columns.map(col => (
                           <td key={col.key} className="whitespace-nowrap px-4 py-[13px] text-[13px] text-[#1A2B1A] align-middle">
                             {row[col.key]}
                           </td>
@@ -1394,7 +1396,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
                       </tr>
                       {isExpanded && (
                         <tr className="border-b border-[#E2E8E2]">
-                          <td colSpan={COLUMNS.length} className="p-0">
+                          <td colSpan={columns.length} className="p-0">
                             <ProductionUnitsTable state={unitsState(row.id)} speciesName={row.species_name} onRetry={() => retryUnits(row.id)}
                               headerAction={<CycleDetailsButton rec={row._rec} onViewCycle={handleViewCycle} />} />
                           </td>

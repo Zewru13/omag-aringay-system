@@ -1,12 +1,15 @@
-// Crop Monitoring grouped by crop or by farmer (GET /production/monitoring/groups/). Pure helpers, no screen and no
+// Crop Monitoring grouped by crop, by farmer or by farm parcel (GET /production/monitoring/groups/). Pure helpers, no screen and no
 // network, so the rules can be tested on their own.
 
 export const GROUP_OPTIONS = [
   { value: 'crop', label: 'Crop / Variety' },
   { value: 'farmer', label: 'Farmer' },
+  { value: 'parcel', label: 'Farm Parcel' },
   { value: 'none', label: 'No grouping' },
 ]
 export const DEFAULT_GROUP = 'crop'
+// A farmer account's crops are always grouped by its own farm parcels.
+export const FARMER_GROUP = 'parcel'
 
 // "Due / Ready / Overdue" are not real statuses: they split Near Harvest by how far the expected date is, and the server
 // does that split when it is given display_status.
@@ -32,6 +35,7 @@ export function monitoringParams({ statusFilter, season, year, barangay, cropTyp
 // What to add to the list's filters to get one group's records; null when the group has nothing to open onto.
 export function groupChildParams(groupBy, group) {
   if (groupBy === 'crop') return { crop_type: group.id }
+  if (groupBy === 'parcel') return { farm_parcel: group.id || 'none' }   // the crops with no parcel are ?farm_parcel=none
   if (String(group.key).startsWith('o')) return { farmers_organization: group.id }
   if (group.id) return { farmer: group.id }
   return null
@@ -47,4 +51,4 @@ export function groupSummary(group) {
   return parts.join(' · ')
 }
 
-export const groupHeading = (groupBy, group) => (groupBy === 'farmer' && group.barangay ? `${group.name} · ${group.barangay}` : group.name)
+export const groupHeading = (groupBy, group) => (groupBy !== 'crop' && group.barangay ? `${group.name} · ${group.barangay}` : group.name)

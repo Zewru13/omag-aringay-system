@@ -176,7 +176,7 @@ export default function FisherfolkPhoneHome() {
           ) : (
             <div className="space-y-3">
               {active.map((rec) => (
-                <CycleCard key={rec.id} rec={rec} onOpen={openCycle} onDisaster={() => navigate('/disaster')} />
+                <CycleCard key={rec.id} rec={rec} onOpen={openCycle} onDisaster={() => navigate(`/disaster?stock=${rec.id}`)} />
               ))}
               {activeCount > active.length && (
                 <button
