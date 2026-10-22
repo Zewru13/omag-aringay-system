@@ -1,6 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import useDebouncedValue from '../../hooks/useDebouncedValue.js'
-import { AlertTriangle, ChevronDown, ChevronRight, Eye, Fish, HelpCircle, Layers, Lock, Pencil, Trash2, Unlock, Wheat } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronRight, Eye, Fish, HelpCircle, Layers, Lock, Pencil, Printer, Trash2, Unlock, Wheat } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import RowActions from '../../components/UI/RowActions.jsx'
@@ -33,6 +33,9 @@ import { ProductionUnitsCards, ProductionUnitsTable } from './ProductionUnitsPan
 import useExpandableProductionUnits from './useExpandableProductionUnits.js'
 import { computeHarvestPreview, detectSeason, fmtActualHarvestKg, fmtLong, fmtShort, harvestGateStatus } from './stockingHelpers.js'
 import PcicBadge from '../../components/UI/PcicBadge.jsx'
+import Button from '../../components/UI/Button.jsx'
+import { printSpec } from '../Monitoring/disasterReportDocument.js'
+import { buildForceHarvestSpec, forceHarvestRows, forceHarvestTable } from './forceHarvestTable.js'
 
 const filterSelectCls =
   'rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[7px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none'
@@ -507,9 +510,14 @@ function ForceHarvestDetailsModal({ record, units, onClose }) {
   const [logs, setLogs] = useState(record.production_cycle ? null : [])
   const [harvestFailed, setHarvestFailed] = useState(false)
   const [logsFailed, setLogsFailed] = useState(false)
+  const [estimates, setEstimates] = useState(null)   // each unit's own estimated kg (null while loading, 'error' if unavailable)
+  const [isPrinting, setIsPrinting] = useState(false)
 
   useEffect(() => {
     let cancelled = false
+    api.get(`/fisheries/stocking/${record.id}/production-units/`)
+      .then(r => { if (!cancelled) setEstimates(Object.fromEntries((r.data.units || []).map(u => [u.id, u.estimated_harvest_kg]))) })
+      .catch(() => { if (!cancelled) setEstimates('error') })
     api.get(`/fisheries/stocking/${record.id}/`)
       .then(r => { if (!cancelled) setHarvests(r.data.harvests || []) })
       .catch(() => { if (!cancelled) setHarvestFailed(true) })
@@ -532,13 +540,6 @@ function ForceHarvestDetailsModal({ record, units, onClose }) {
   const harvestFor = (u) => (harvests || []).find(h => h.is_force_harvest && ((h.production_units || []).includes(u.id)
     || (h.production_unit_details || []).some(d => d.id === u.id)))
   const harvest = harvestFor(unit)
-  // A unit's own recorded kg for the "Force Harvested Units" list (combined total for older records).
-  const unitKgText = (u) => {
-    const h = harvestFor(u)
-    if (!h) return harvests === null ? '…' : '—'
-    const own = (h.unit_harvests || []).find(r => r.production_unit === u.id)
-    return own ? `${fmtKg(own.quantity_kg)} kg` : `${fmtKg(h.quantity_kg)} kg combined`
-  }
   const harvestedWith = harvest ? (harvest.production_unit_details || []).map(d => d.label) : []
   // Per-unit actual kg of that Force Harvest (FisheriesHarvestUnit rows). Empty for older records,
   // which only have the combined quantity_kg.
@@ -579,38 +580,72 @@ function ForceHarvestDetailsModal({ record, units, onClose }) {
 
   const loading = (harvests === null && !harvestFailed) || (logs === null && !logsFailed)
 
+  // One row per force-harvested unit of this badge, as the table on screen and in the printed report.
+  const tableRows = forceHarvestRows({ units, harvests, logs, estimates })
+  const summary = forceHarvestTable(tableRows)
+  const printTable = async () => {
+    setIsPrinting(true)
+    try {
+      await printSpec(buildForceHarvestSpec({ record, rows: tableRows }))
+    } catch {
+      // the browser blocked or failed the print window; nothing was changed
+    } finally {
+      setIsPrinting(false)
+    }
+  }
+
   return (
     <ModalShell
       title={`Force Harvest Details — ${unit.label}`}
       subtitle={`${record.species_name || ''}${record.fisherfolk_name ? ` · ${record.fisherfolk_name}` : ''}`}
       icon={AlertTriangle}
       onClose={onClose}
-      maxWidth="max-w-lg"
+      maxWidth="max-w-4xl"
+      footer={(
+        <>
+          <Button type="button" variant="ghost" onClick={onClose}>Close</Button>
+          <Button type="button" icon={Printer} isLoading={isPrinting} disabled={loading} onClick={printTable}>Print report</Button>
+        </>
+      )}
     >
       <div className="space-y-3" data-testid="force-harvest-details">
-        {units.length > 1 && (
-          // Every force-harvested unit of this badge with its own kg; picking one shows its full details below.
+        {!loading && (
+          // All force-harvested units of this badge at once; picking a row shows that unit's full details below.
           <div>
             <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#7A8E7A]">
-              Force Harvested Units ({units.length})
+              Force Harvested Production Units ({units.length})
             </p>
-            <div className="max-h-56 overflow-y-auto rounded-lg border border-[#E2E8E2]" role="tablist" aria-orientation="vertical" data-testid="force-unit-switcher">
-              {units.map(u => (
-                <button
-                  key={u.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={u.id === unit.id}
-                  onClick={() => setActiveUnitId(u.id)}
-                  data-testid="force-unit-row"
-                  className={`flex w-full items-center justify-between gap-3 border-b border-[#F0F4F0] px-3 py-1.5 text-left text-[12px] transition-colors last:border-b-0 ${
-                    u.id === unit.id ? 'bg-red-600 font-semibold text-white' : 'text-[#1A2B1A] hover:bg-red-50'
-                  }`}
-                >
-                  <span>{u.label}</span>
-                  <span className="whitespace-nowrap tabular-nums">{unitKgText(u)}</span>
-                </button>
-              ))}
+            <div className="overflow-x-auto rounded-xl border border-[#E2E8E2]" data-testid="force-harvest-table">
+              <table className="min-w-full text-[13px]">
+                <thead className="bg-[#F9FAF9] text-[11px] uppercase tracking-[0.06em] text-[#7A8E7A]">
+                  <tr>
+                    {summary.head.map((h, i) => (
+                      <th key={h} className={`whitespace-nowrap px-3 py-2 font-semibold ${i >= 2 && i !== 3 && i !== 4 ? 'text-right' : 'text-left'}`}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {summary.rows.map((cells, i) => {
+                    const isTotal = i === summary.rows.length - 1
+                    const row = tableRows[i]
+                    const active = !isTotal && row.id === unit.id
+                    return (
+                      <tr
+                        key={isTotal ? 'total' : row.id}
+                        data-testid={isTotal ? 'force-harvest-total' : 'force-unit-row'}
+                        onClick={isTotal ? undefined : () => setActiveUnitId(row.id)}
+                        className={`border-t border-[#F0F4F0] ${isTotal ? 'bg-[#F9FAF9] font-bold' : `cursor-pointer ${active ? 'bg-red-50' : 'hover:bg-red-50/40'}`}`}
+                      >
+                        {cells.map((cell, j) => (
+                          <td key={j} className={`px-3 py-2 ${j === 0 ? 'whitespace-nowrap font-semibold text-[#1A2B1A]' : 'text-[#1A2B1A]'} ${j >= 2 && j !== 3 && j !== 4 ? 'whitespace-nowrap text-right tabular-nums' : ''}`}>
+                            {cell}
+                          </td>
+                        ))}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
@@ -620,6 +655,7 @@ function ForceHarvestDetailsModal({ record, units, onClose }) {
           <p className="text-[12px] text-[#7A8E7A]">Loading force harvest details…</p>
         ) : (
           <div className="overflow-hidden rounded-xl border border-[#E2E8E2]">
+            <p className="bg-red-600 px-3 py-1.5 text-[12px] font-semibold text-white">Details — {unit.label}</p>
             <table className="min-w-full text-[13px]">
               <thead className="bg-[#F9FAF9] text-[11px] uppercase tracking-[0.06em] text-[#7A8E7A]">
                 <tr>
@@ -636,30 +672,6 @@ function ForceHarvestDetailsModal({ record, units, onClose }) {
                 ))}
               </tbody>
             </table>
-          </div>
-        )}
-        {!loading && unitHarvests.length > 1 && (
-          // Every unit harvested in this same Force Harvest event, each with its own recorded kg.
-          <div className="space-y-1.5" data-testid="force-harvest-unit-kg">
-            <p className="text-[12px] font-semibold text-[#4A5E4A]">Units harvested in this Force Harvest</p>
-            <div className="overflow-hidden rounded-xl border border-[#E2E8E2]">
-              <table className="min-w-full text-[13px]">
-                <thead className="bg-[#F9FAF9] text-[11px] uppercase tracking-[0.06em] text-[#7A8E7A]">
-                  <tr>
-                    <th className="px-3 py-2 text-left font-semibold">Production Unit</th>
-                    <th className="px-3 py-2 text-right font-semibold">Actual Harvest (kg)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {unitHarvests.map(r => (
-                    <tr key={r.production_unit} className={`border-t border-[#F0F4F0] ${r.production_unit === unit.id ? 'bg-red-50/60' : ''}`}>
-                      <td className="px-3 py-2 font-medium text-[#1A2B1A]">{r.label}</td>
-                      <td className="px-3 py-2 text-right font-semibold text-[#1A2B1A]">{fmtKg(r.quantity_kg)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
           </div>
         )}
       </div>
