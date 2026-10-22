@@ -1,5 +1,6 @@
 import json
 from collections import defaultdict
+from datetime import timedelta
 from decimal import Decimal
 from io import BytesIO
 
@@ -10,6 +11,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status as drf_status
 from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -757,6 +759,103 @@ class CropTypeDetailView(generics.RetrieveUpdateAPIView):
 
 # ─── Module 2: CropMonitoringRecord ──────────────────────────────────────────
 
+def _filter_monitoring_queryset(qs, request):
+    """The access rule and every filter of the Crop Monitoring list, shared by the record list and by the grouped view
+    (CropMonitoringGroupsView), so a group's count is always the number of records its list shows."""
+    if request.user.role == 'CITIZEN':
+        farmer_id = request.user.get_linked_farmer_id()
+        qs = qs.filter(farmer_id=farmer_id if farmer_id else -1)
+    params = request.query_params
+    if params.get('year'):
+        qs = qs.filter(year=params['year'])
+    if params.get('season'):
+        qs = qs.filter(season__iexact=params['season'])
+    if params.get('barangay'):
+        # Forecasting-filters batch: was farm_parcel__barangay, which
+        # only matches records with an OPTIONAL parcel link and silently
+        # missed everything else — farm_location_barangay is the
+        # record's own required field (see CropMonitoringRecordSerializer)
+        # and what _yield_analysis_queryset already filters on.
+        qs = qs.filter(farm_location_barangay__iexact=params['barangay'])
+    if params.get('crop_type'):
+        qs = qs.filter(crop_type_id=params['crop_type'])
+    raw_status = params.get('status', '')
+    if raw_status:
+        statuses = [s.strip() for s in raw_status.split(',') if s.strip()]
+        qs = qs.filter(status__in=statuses)
+    else:
+        qs = qs.exclude(status=CropMonitoringRecord.Status.TOTAL_LOSS)
+    # The page splits "Near Harvest" by how far the expected date is (the same days the page used to compute itself):
+    # Due Harvest = still ahead, Ready for Harvest = today or up to 7 days past, Overdue = more than 7 days past.
+    display = params.get('display_status')
+    if display in ('Due Harvest', 'Ready for Harvest', 'Overdue'):
+        today = timezone.localdate()
+        qs = qs.filter(status=CropMonitoringRecord.Status.NEAR_HARVEST)
+        if display == 'Due Harvest':
+            qs = qs.filter(expected_harvest_date__gt=today)
+        elif display == 'Ready for Harvest':
+            qs = qs.filter(expected_harvest_date__lte=today, expected_harvest_date__gte=today - timedelta(days=7))
+        else:
+            qs = qs.filter(expected_harvest_date__lt=today - timedelta(days=7))
+    if params.get('farm_parcel'):
+        qs = qs.filter(farm_parcel_id=params['farm_parcel'])
+    if params.get('farmer'):
+        qs = qs.filter(farmer_id=params['farmer'])
+    if params.get('farmers_organization'):
+        qs = qs.filter(farmers_organization_id=params['farmers_organization'])
+    # Typed in the list's search bar: the farmer (name in any order, or an
+    # RSBSA number as typed or without its dashes), the crop, the
+    # organization or the barangay — searched across ALL records, not just
+    # the page currently on screen.
+    return filter_people_search(
+        qs, params.get('search'),
+        name_fields=['farmer__first_name', 'farmer__middle_name', 'farmer__last_name'],
+        id_fields=['farmer__rsbsa_number'],
+        other_fields=['crop_type__name', 'farmers_organization__name', 'farm_location_barangay'],
+    )
+
+
+class CropMonitoringGroupsView(APIView):
+    """GET ?group_by=crop|farmer plus the list's own filters: the Crop Monitoring table grouped, paged ten groups at a
+    time. A group is one crop type, or one farmer (an organization's own crops form a group per organization); it carries
+    how many records it holds, their total planted area and how many are near harvest. Opening a group is the ordinary
+    list scoped to it (?crop_type=, ?farmer=, ?farmers_organization=), so counts and rows always agree."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        group_by = request.query_params.get('group_by')
+        if group_by not in ('crop', 'farmer'):
+            raise ValidationError({'group_by': 'Use group_by=crop or group_by=farmer.'})
+        qs = _filter_monitoring_queryset(CropMonitoringRecord.objects.all(), request)
+        totals = dict(
+            count=Count('id'), area=Sum('area_planted_ha'),
+            near_harvest=Count('id', filter=Q(status=CropMonitoringRecord.Status.NEAR_HARVEST)),
+        )
+        if group_by == 'crop':
+            rows = qs.values('crop_type_id', 'crop_type__name').annotate(**totals).order_by('crop_type__name', 'crop_type_id')
+        else:
+            rows = qs.values(
+                'farmer_id', 'farmers_organization_id', 'farmer__first_name', 'farmer__middle_name', 'farmer__last_name',
+                'farmer__barangay', 'farmers_organization__name', 'farmers_organization__barangay',
+            ).annotate(**totals).order_by('farmer__last_name', 'farmer__first_name', 'farmers_organization__name', 'farmer_id', 'farmers_organization_id')
+        paginator = PageNumberPagination()
+        page = paginator.paginate_queryset(rows, request, view=self)
+        return paginator.get_paginated_response([self._shape(group_by, row) for row in page])
+
+    @staticmethod
+    def _shape(group_by, row):
+        shared = {'count': row['count'], 'area_planted_ha': float(row['area'] or 0), 'near_harvest': row['near_harvest']}
+        if group_by == 'crop':
+            return {'key': f"c{row['crop_type_id']}", 'id': row['crop_type_id'], 'name': row['crop_type__name'], 'barangay': '', **shared}
+        if row['farmer_id']:
+            name = ' '.join(n for n in (row['farmer__first_name'], row['farmer__middle_name'], row['farmer__last_name']) if n)
+            return {'key': f"f{row['farmer_id']}", 'id': row['farmer_id'], 'name': name, 'barangay': row['farmer__barangay'] or '', **shared}
+        if row['farmers_organization_id']:
+            return {'key': f"o{row['farmers_organization_id']}", 'id': row['farmers_organization_id'],
+                    'name': row['farmers_organization__name'], 'barangay': row['farmers_organization__barangay'] or '', **shared}
+        return {'key': 'none', 'id': None, 'name': 'Not linked to a farmer', 'barangay': '', **shared}
+
+
 class CropMonitoringListCreateView(generics.ListCreateAPIView):
     serializer_class = CropMonitoringRecordSerializer
 
@@ -798,43 +897,8 @@ class CropMonitoringListCreateView(generics.ListCreateAPIView):
                 )
             )
         )
-        if self.request.user.role == 'CITIZEN':
-            farmer_id = self.request.user.get_linked_farmer_id()
-            qs = qs.filter(farmer_id=farmer_id if farmer_id else -1)
+        qs = _filter_monitoring_queryset(qs, self.request)
         params = self.request.query_params
-        if params.get('year'):
-            qs = qs.filter(year=params['year'])
-        if params.get('season'):
-            qs = qs.filter(season__iexact=params['season'])
-        if params.get('barangay'):
-            # Forecasting-filters batch: was farm_parcel__barangay, which
-            # only matches records with an OPTIONAL parcel link and silently
-            # missed everything else — farm_location_barangay is the
-            # record's own required field (see CropMonitoringRecordSerializer)
-            # and what _yield_analysis_queryset already filters on.
-            qs = qs.filter(farm_location_barangay__iexact=params['barangay'])
-        if params.get('crop_type'):
-            qs = qs.filter(crop_type_id=params['crop_type'])
-        raw_status = params.get('status', '')
-        if raw_status:
-            statuses = [s.strip() for s in raw_status.split(',') if s.strip()]
-            qs = qs.filter(status__in=statuses)
-        else:
-            qs = qs.exclude(status=CropMonitoringRecord.Status.TOTAL_LOSS)
-        if params.get('farm_parcel'):
-            qs = qs.filter(farm_parcel_id=params['farm_parcel'])
-        if params.get('farmer'):
-            qs = qs.filter(farmer_id=params['farmer'])
-        # Typed in the list's search bar: the farmer (name in any order, or an
-        # RSBSA number as typed or without its dashes), the crop, the
-        # organization or the barangay — searched across ALL records, not just
-        # the page currently on screen.
-        qs = filter_people_search(
-            qs, params.get('search'),
-            name_fields=['farmer__first_name', 'farmer__middle_name', 'farmer__last_name'],
-            id_fields=['farmer__rsbsa_number'],
-            other_fields=['crop_type__name', 'farmers_organization__name', 'farm_location_barangay'],
-        )
         # Forecast lists ask for the soonest expected harvest first; any other
         # value is ignored (the default newest-first order stays).
         ordering = params.get('ordering')

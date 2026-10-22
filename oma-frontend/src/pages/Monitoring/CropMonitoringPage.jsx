@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import useDebouncedValue from '../../hooks/useDebouncedValue.js'
 import {
-  AlertTriangle, Bug, CheckCircle, CheckCircle2, ChevronDown, Eye, FileText, HelpCircle, Leaf, Lock, MapPin, Pencil, Printer, Trash2, Unlock, User, Wheat,
+  AlertTriangle, Bug, CheckCircle, CheckCircle2, ChevronDown, ClipboardList, Eye, FileText, HelpCircle, Leaf, Lock, MapPin, Pencil, Printer, Trash2, Unlock, User, Wheat,
 } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
@@ -31,6 +31,8 @@ import { groupActivityOptions, overdueStepDay } from '../../utils/activityPicker
 import { cycleProgress, filterCycleActivities } from '../../utils/cycleActivity.js'
 import { todayISO as localToday } from '../../utils/localDate.js'
 import CycleDayBanner from '../../components/UI/CycleDayBanner.jsx'
+import GroupedMonitoringTable from './GroupedMonitoringTable.jsx'
+import { DEFAULT_GROUP, GROUP_OPTIONS, monitoringParams } from './monitoringGroups.js'
 import { printSpec } from './disasterReportDocument.js'
 import {
   EARLY_REASONS, LATE_REASONS, OTHER_REASON, buildHarvestReportSpec, composeReason, harvestTiming, reasonProblem,
@@ -438,13 +440,13 @@ function SuggestionsModal({ record, onClose, onApply }) {
 
 // ── View Logs Modal ───────────────────────────────────────────────────────────
 
-function ViewLogsModal({ record, onClose, onLogAdded }) {
+function ViewLogsModal({ record, onClose, onLogAdded, initialForm = false }) {
   const { showToast } = useToast()
   const [logs,              setLogs]              = useState([])
   const [disasters,         setDisasters]         = useState([])
   const [isLoading,         setIsLoading]         = useState(true)
   const { isAdmin, isFarmer } = useAuth()
-  const [showForm,          setShowForm]          = useState(false)
+  const [showForm,          setShowForm]          = useState(Boolean(initialForm))
   const [showHistory,       setShowHistory]       = useState(false)   // the past activity stays closed until asked for
   const recordLock = useRecordLock('crop', record.id, showForm)
   const [showSuggest,       setShowSuggest]       = useState(false)
@@ -2047,6 +2049,7 @@ function getCropDisplayStatus(rec) {
 
 const COLUMNS = [
   { key: 'crop_cell',       label: 'CROP' },
+  { key: 'variety_col',     label: 'VARIETY' },
   { key: 'farmer_col',      label: 'FARMER' },
   { key: 'organization_col', label: 'ORGANIZATION' },
   { key: 'location_col',    label: 'BARANGAY' },
@@ -2085,7 +2088,11 @@ export default function CropMonitoringPage() {
       .then(r => setCropTypes(Array.isArray(r.data) ? r.data : (r.data.results || [])))
       .catch(() => {})
   }, [])
+  // Grouped by crop (default), by farmer, or a plain list. `version` makes an open grouped table load again after an action.
+  const [groupBy,          setGroupBy]          = useState(DEFAULT_GROUP)
+  const [version,          setVersion]          = useState(0)
   const [viewLogsRecord,   setViewLogsRecord]   = useState(null)
+  const [logsStartForm,    setLogsStartForm]    = useState(false)   // open the logs window on the add-activity form
   const [disasterRecord,   setDisasterRecord]   = useState(null)
   const [harvestRecord,    setHarvestRecord]    = useState(null)
 
@@ -2113,20 +2120,7 @@ export default function CropMonitoringPage() {
     const seq = ++requestSeq.current
     setIsLoading(true); setError('')
     try {
-      // 'Due Harvest'/'Ready for Harvest'/'Overdue' aren't real backend
-      // values (see getCropDisplayStatus) — all three are display-only
-      // splits of the single real 'Near Harvest' status, so all three query
-      // the backend for that and the split itself is applied client-side
-      // below, on whatever page of 'Near Harvest' rows comes back.
-      const backendStatus = (
-        statusFilter === 'Due Harvest' || statusFilter === 'Ready for Harvest' || statusFilter === 'Overdue'
-      ) ? 'Near Harvest' : statusFilter
-      const params = backendStatus === 'all' ? { page: pageNum } : { status: backendStatus, page: pageNum }
-      if (seasonFilter)   params.season   = seasonFilter
-      if (yearFilter)     params.year     = yearFilter
-      if (barangayFilter) params.barangay = barangayFilter
-      if (cropFilter)     params.crop_type = cropFilter
-      if (debouncedSearch) params.search = debouncedSearch
+      const params = { ...monitoringParams({ statusFilter, season: seasonFilter, year: yearFilter, barangay: barangayFilter, cropType: cropFilter, search: debouncedSearch }), page: pageNum }
       const r = await api.get('/production/monitoring/', { params })
       if (seq !== requestSeq.current) return
       setRecords(Array.isArray(r.data) ? r.data : (r.data.results || []))
@@ -2137,7 +2131,9 @@ export default function CropMonitoringPage() {
   }, [statusFilter, seasonFilter, yearFilter, barangayFilter, cropFilter, debouncedSearch])
 
   useEffect(() => { setPage(1) }, [statusFilter, seasonFilter, yearFilter, barangayFilter, cropFilter, debouncedSearch])
-  useEffect(() => { fetchRecords(page) }, [fetchRecords, page])
+  // The plain list is only fetched when it is the chosen view; grouped views fetch their own groups.
+  useEffect(() => { if (groupBy === 'none') fetchRecords(page) }, [fetchRecords, page, groupBy])
+  const refreshAll = useCallback(() => { setVersion(v => v + 1); if (groupBy === 'none') fetchRecords(page) }, [groupBy, fetchRecords, page])
 
   // Lock indicators for the currently-visible page only — bounded to page
   // size, not a full-table N+1 poll.
@@ -2158,7 +2154,18 @@ export default function CropMonitoringPage() {
     setLockStatuses(Object.fromEntries(entries.filter(([, v]) => v)))
   }, [])
 
-  useEffect(() => { if (!isFarmer) refreshLockStatuses(records) }, [records, refreshLockStatuses, isFarmer])
+  useEffect(() => { if (!isFarmer && groupBy === 'none') refreshLockStatuses(records) }, [records, refreshLockStatuses, isFarmer, groupBy])
+  // Records of an opened group: add their lock state to what is already known (same lookup as the list's).
+  const addLockStatuses = useCallback(async (recs) => {
+    if (isFarmer || !recs.length) return
+    const entries = await Promise.all(recs.map(async rec => {
+      try {
+        const r = await api.get('/locks/status/', { params: { record_type: 'crop', record_id: rec.id } })
+        return [rec.id, r.data.locked ? r.data : null]
+      } catch { return [rec.id, null] }
+    }))
+    setLockStatuses(prev => ({ ...prev, ...Object.fromEntries(entries.filter(([, v]) => v)) }))
+  }, [isFarmer])
 
   const handleForceUnlock = async (recordId) => {
     try {
@@ -2167,25 +2174,11 @@ export default function CropMonitoringPage() {
     } catch { /* ignore */ }
   }
 
-  const filtered = useMemo(() => {
-    return records.filter(rec => {
-      // Client-side half of the Due/Ready/Overdue split — the fetched page
-      // already contains only real 'Near Harvest' rows for these three
-      // filter values (see fetchRecords), so this narrows it further to the
-      // one the user actually picked. Note: totalCount/pagination below
-      // still reflect the full Near-Harvest count, not this narrower
-      // client-side split — acceptable since that window is already small
-      // in practice, but a real limitation of doing this without a backend
-      // change.
-      if (statusFilter === 'Due Harvest' || statusFilter === 'Ready for Harvest' || statusFilter === 'Overdue') {
-        return getCropDisplayStatus(rec) === statusFilter
-      }
-      return true
-    })
-  }, [records, statusFilter])
+  const filtered = records   // the server already applied every filter, including the Due / Ready / Overdue split
 
-  const rows = filtered.map(rec => ({
+  const buildRow = (rec) => ({
     ...rec,
+    variety_col: rec.variety_used || <span className="text-[#A8BCA8]">—</span>,
     crop_cell: (
       <span className="flex items-center gap-1.5">
         <span className="font-medium">{rec.crop_type_name}</span>
@@ -2232,7 +2225,10 @@ export default function CropMonitoringPage() {
     actions: (
       <RowActions
         actions={[
-          { key: 'logs', label: 'View Logs', icon: Eye, onClick: () => setViewLogsRecord(rec) },
+          rec.status !== 'Total Loss' && rec.status !== 'Harvested' && {
+            key: 'activity', label: 'Record Activity', icon: ClipboardList, onClick: () => { setLogsStartForm(true); setViewLogsRecord(rec) },
+          },
+          { key: 'logs', label: 'View Crop Details', icon: Eye, onClick: () => { setLogsStartForm(false); setViewLogsRecord(rec) } },
           rec.status !== 'Total Loss' && rec.status !== 'Harvested' && (() => {
             const gate = harvestGateInfo(rec)
             return {
@@ -2251,7 +2247,11 @@ export default function CropMonitoringPage() {
         ]}
       />
     ),
-  }))
+  })
+  const rows = filtered.map(buildRow)
+
+  // Inside a group the grouping column is left out: its name is the group's heading.
+  const groupedColumns = columns.filter(c => c.key !== (groupBy === 'farmer' ? 'farmer_col' : 'crop_cell'))
 
   return (
     <PageLayout title="Crop Monitoring" subtitle={isFarmer ? 'Track activities and progress for your crops.' : 'Track activities and progress for each crop.'}>
@@ -2260,8 +2260,11 @@ export default function CropMonitoringPage() {
           search={search}
           onSearchChange={setSearch}
           searchPlaceholder={isFarmer ? 'Search by crop or barangay...' : 'Search by farmer, RSBSA, crop, or organization...'}
-          activeCount={[statusFilter !== 'Planted,Near Harvest', Boolean(seasonFilter), Boolean(yearFilter), Boolean(barangayFilter), Boolean(cropFilter)].filter(Boolean).length}
+          activeCount={[statusFilter !== 'Planted,Near Harvest', Boolean(seasonFilter), Boolean(yearFilter), Boolean(barangayFilter), Boolean(cropFilter), groupBy !== DEFAULT_GROUP].filter(Boolean).length}
         >
+          <select className={filterSelectCls} value={groupBy} onChange={e => setGroupBy(e.target.value)} aria-label="Group by">
+            {GROUP_OPTIONS.filter(o => !(isFarmer && o.value === 'farmer')).map(o => <option key={o.value} value={o.value}>{o.value === 'none' ? o.label : `Group by ${o.label}`}</option>)}
+          </select>
           <select className={filterSelectCls} value={cropFilter} onChange={e => setCropFilter(e.target.value)} aria-label="Crop name">
             <option value="">All Crops</option>
             {cropTypes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -2296,6 +2299,20 @@ export default function CropMonitoringPage() {
           )}
         </FilterPanel>
 
+        {groupBy !== 'none' ? (
+          <GroupedMonitoringTable
+            key={`${groupBy}|${JSON.stringify(monitoringParams({ statusFilter, season: seasonFilter, year: yearFilter, barangay: barangayFilter, cropType: cropFilter, search: debouncedSearch }))}`}
+            groupBy={groupBy}
+            params={monitoringParams({ statusFilter, season: seasonFilter, year: yearFilter, barangay: barangayFilter, cropType: cropFilter, search: debouncedSearch })}
+            version={version}
+            columns={groupedColumns}
+            buildRow={buildRow}
+            phoneTitleKey={groupBy === 'farmer' ? 'crop_cell' : 'variety_col'}
+            phoneSubtitleKey={groupBy === 'farmer' ? 'variety_col' : 'farmer_col'}
+            onRecordsLoaded={addLockStatuses}
+            emptyText={isFarmer ? 'Your crops will appear here once the office registers them.' : 'No monitoring records found'}
+          />
+        ) : (<>
         {error && <ErrorMessage message={error} />}
 
         {isFarmer || isPhone ? (
@@ -2372,13 +2389,15 @@ export default function CropMonitoringPage() {
           pageSize={10}
           onPageChange={setPage}
         />
+        </>)}
       </div>
 
       {viewLogsRecord && (
         <ViewLogsModal
           record={viewLogsRecord}
-          onClose={() => setViewLogsRecord(null)}
-          onLogAdded={fetchRecords}
+          initialForm={logsStartForm}
+          onClose={() => { setViewLogsRecord(null); setLogsStartForm(false) }}
+          onLogAdded={refreshAll}
         />
       )}
 
@@ -2386,7 +2405,7 @@ export default function CropMonitoringPage() {
         <DisasterReportModal
           record={disasterRecord}
           onClose={() => setDisasterRecord(null)}
-          onSuccess={fetchRecords}
+          onSuccess={refreshAll}
         />
       )}
 
@@ -2394,7 +2413,7 @@ export default function CropMonitoringPage() {
         <RecordHarvestFromMonitoringModal
           record={harvestRecord}
           onClose={() => setHarvestRecord(null)}
-          onSuccess={() => fetchRecords(page)}
+          onSuccess={refreshAll}
         />
       )}
 
