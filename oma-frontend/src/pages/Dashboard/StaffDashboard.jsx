@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, Fish, PackageX, Sprout } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { approvalLines, hasApproved } from '../../utils/approvalStatus.js'
+import YieldVarianceCard from './YieldVarianceCard.jsx'
 
 // The admin/evaluator dashboard, built to the approved staff reference
 // ("New Dashboard base.docx", three frames).
@@ -135,7 +136,6 @@ export default function StaffDashboard({ user }) {
   const navigate = useNavigate()
   const [board, setBoard] = useState(null)
   const [requests, setRequests] = useState([])
-  const [activity, setActivity] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [busyId, setBusyId] = useState(null)
   const [tableDomain, setTableDomain] = useState('crop')
@@ -147,14 +147,10 @@ export default function StaffDashboard({ user }) {
 
   useEffect(() => {
     let cancelled = false
-    Promise.allSettled([
-      api.get('/production/dashboard/activity-status/'),
-      api.get('/auditlog/', { params: { page_size: 8 } }),
-    ]).then(([b, a]) => {
-      if (cancelled) return
-      if (b.status === 'fulfilled') setBoard(b.value.data)
-      if (a.status === 'fulfilled') setActivity(a.value.data?.results || [])
-    }).finally(() => { if (!cancelled) setIsLoading(false) })
+    api.get('/production/dashboard/activity-status/')
+      .then((r) => { if (!cancelled) setBoard(r.data) })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setIsLoading(false) })
     loadRequests()
     return () => { cancelled = true }
   }, [loadRequests])
@@ -179,12 +175,7 @@ export default function StaffDashboard({ user }) {
   const rows = board?.[tableDomain]?.by_barangay || []
   const disasters = board?.active_disasters || []
   const variance = board?.yield_variance || []
-
-  // The audit log carries no domain field; the reference tags each row CROP or
-  // FISH, so it is derived from the model that was touched.
-  const domainOf = (modelName = '') =>
-    /fish|stocking|pond|species/i.test(modelName) ? 'fisheries'
-      : /crop|harvest|planting|farm/i.test(modelName) ? 'crop' : null
+  const fisheriesVariance = board?.fisheries_yield_variance || []
 
   return (
     <div className="space-y-5">
@@ -390,46 +381,8 @@ export default function StaffDashboard({ user }) {
             )}
           </div>
 
-          {/* Season snapshot — yield variance */}
-          <div className={CARD}>
-            <PanelHead
-              title="Season Snapshot — Crop Yield Variance"
-              subtitle="Estimated at planting vs actual harvest · municipality average"
-            />
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse md:min-w-[560px]">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className={TH}>Crop</th>
-                    <th className={TH}>Target</th>
-                    <th className={TH}>Actual</th>
-                    <th className={TH}>Variance</th>
-                    <th className={`${TH} max-md:hidden`}>Season</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {variance.length === 0 ? (
-                    <tr><td className={`${TD} text-text-muted italic`} colSpan={5}>
-                      {isLoading ? 'Loading…' : 'No harvested records with both an estimate and an actual yield.'}
-                    </td></tr>
-                  ) : variance.map((v, i) => {
-                    const up = (v.variance_pct ?? 0) >= 0
-                    return (
-                      <tr key={v.crop} className={i === variance.length - 1 ? '' : 'border-b border-border'}>
-                        <td className={`${TD} font-semibold text-text-primary`}>{v.crop}<span className="block text-[11px] font-normal text-text-muted md:hidden">{v.season} {v.year}</span></td>
-                        <td className={`${TD} text-text-muted tabular-nums`}>{v.target_mt_ha} mt/ha</td>
-                        <td className={`${TD} text-text-primary tabular-nums`}>{v.actual_mt_ha} mt/ha</td>
-                        <td className={`${TD} font-bold tabular-nums ${up ? 'text-[color:var(--color-semantic-safe)]' : 'text-[color:var(--color-semantic-critical)]'}`}>
-                          {up ? '▲' : '▼'} {Math.abs(v.variance_pct ?? 0)}%
-                        </td>
-                        <td className={`${TD} text-text-muted tabular-nums max-md:hidden`}>{v.season} {v.year}</td>
-                      </tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          {/* Season snapshot — yield variance (3D columns, crop or fisheries) */}
+          <YieldVarianceCard crop={variance} fisheries={fisheriesVariance} isLoading={isLoading} />
         </div>
 
         {/* ── Right column ──────────────────────────────────────────────── */}
@@ -488,41 +441,6 @@ export default function StaffDashboard({ user }) {
                     </div>
                   </li>
                 ))}
-              </ul>
-            )}
-          </div>
-
-          <div className={CARD}>
-            <PanelHead title="Recent Activity" action="View all →" onAction={() => navigate('/audit-log')} />
-            {activity.length === 0 ? (
-              <p className="px-5 py-8 text-center text-[13px] italic text-text-muted">
-                {isLoading ? 'Loading…' : 'No recorded activity yet.'}
-              </p>
-            ) : (
-              <ul className="px-5">
-                {activity.map((a, i) => {
-                  const dom = domainOf(a.model_name)
-                  return (
-                    <li key={a.id} className={`flex gap-3 py-3.5 ${i === activity.length - 1 ? '' : 'border-b border-border'}`}>
-                      <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
-                        a.action === 'DELETE' ? 'bg-[color:var(--color-semantic-critical)]'
-                          : a.action === 'CREATE' ? 'bg-[color:var(--color-semantic-safe)]'
-                          : 'bg-text-muted'
-                      }`} aria-hidden="true" />
-                      <div className="min-w-0">
-                        {dom && <Pill kind={dom}>{dom === 'crop' ? 'Crop' : 'Fish'}</Pill>}
-                        <p className="mt-1 text-[13px] leading-snug text-text-primary">
-                          {a.action === 'CREATE' ? 'Created' : a.action === 'DELETE' ? 'Deleted' : 'Updated'}{' '}
-                          {a.model_name} — {a.object_repr}
-                        </p>
-                        <p className="mt-0.5 text-[12px] text-text-muted">
-                          {new Date(a.timestamp).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
-                          {a.user?.full_name ? ` · ${a.user.full_name}` : ''}
-                        </p>
-                      </div>
-                    </li>
-                  )
-                })}
               </ul>
             )}
           </div>
