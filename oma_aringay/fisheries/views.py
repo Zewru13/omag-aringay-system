@@ -2441,3 +2441,32 @@ class PondPcicFormView(PcicFormPhotoMixin, PondDetailView):
 
 class StockingPcicFormView(PcicFormPhotoMixin, StockingDetailView):
     """POST/DELETE the photo of a stocking record's PCIC insurance form (staff, or the fisherfolk who owns it)."""
+
+
+class FisherfolkHarvestComparisonView(FisherfolkListView):
+    """The fisherfolk side of FarmerHarvestComparisonView: each fisherfolk's recorded harvests against the estimates of their
+    harvested stockings in ?year= (default this year, or "all"), over the same filters as the list."""
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsAdminOrEvaluator()]
+
+    def get(self, request, *args, **kwargs):
+        from django.db.models import Sum
+        from django.utils import timezone
+        from rest_framework.exceptions import ValidationError
+
+        from production.dashboard_activity import classify_comparison, parse_comparison_year
+
+        try:
+            year = parse_comparison_year(request.query_params.get('year'), timezone.localdate().year)
+        except ValueError as exc:
+            raise ValidationError(str(exc))
+        ids = list(self.get_queryset().values_list('id', flat=True))
+        stockings = StockingRecord.objects.filter(fisherfolk_id__in=ids, status='Harvested', estimated_harvest_kg__isnull=False)
+        if year is not None:
+            stockings = stockings.filter(year=year)
+        per_person = {}
+        for row in stockings.annotate(actual=Sum('harvests__quantity_kg')).exclude(actual__isnull=True).values('fisherfolk_id', 'estimated_harvest_kg', 'actual'):
+            est, act = per_person.get(row['fisherfolk_id'], (0.0, 0.0))
+            per_person[row['fisherfolk_id']] = (est + float(row['estimated_harvest_kg']), act + float(row['actual']))
+        return Response({'year': year, **classify_comparison(per_person, len(ids))})

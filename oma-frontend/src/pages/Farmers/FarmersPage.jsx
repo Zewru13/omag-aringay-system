@@ -7,6 +7,7 @@ import RsbsaImportModal from '../../components/RsbsaImportModal.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
+import HarvestComparisonCard from '../../components/dashboard/HarvestComparisonCard.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import AddFarmerModal from './AddFarmerModal.jsx'
 
@@ -73,21 +74,27 @@ function FarmersPage({ asTab = false }) {
   // replaces the filtered list (under-60s showing under "Senior Citizens Only").
   const latestRequest = useRef(0)
 
+  // The list's filters (without its page), shared by the list request and the harvest comparison above it.
+  const listFilterParams = () => {
+    const params = new URLSearchParams()
+    if (search.trim())    params.set('search', search.trim())
+    if (status !== 'all') params.set('status', status)
+    if (gender !== 'all') params.set('gender', gender)
+    if (farmerType !== 'all') params.set('is_farm_laborer', farmerType)
+    if (seniorOnly)       params.set('is_senior', 'true')
+    if (filterICC)        params.set('is_icc_ip', 'true')
+    if (filterPWD)        params.set('is_pwd', 'true')
+    if (registeredFrom)   params.set('registered_from', registeredFrom)
+    if (registeredTo)     params.set('registered_to', registeredTo)
+    return params
+  }
+
   const fetchFarmers = async (pageNum = page) => {
     const requestId = ++latestRequest.current
     setIsLoading(true)
     setError('')
     try {
-      const params = new URLSearchParams()
-      if (search.trim())    params.set('search', search.trim())
-      if (status !== 'all') params.set('status', status)
-      if (gender !== 'all') params.set('gender', gender)
-      if (farmerType !== 'all') params.set('is_farm_laborer', farmerType)
-      if (seniorOnly)       params.set('is_senior', 'true')
-      if (filterICC)        params.set('is_icc_ip', 'true')
-      if (filterPWD)        params.set('is_pwd', 'true')
-      if (registeredFrom)   params.set('registered_from', registeredFrom)
-      if (registeredTo)     params.set('registered_to', registeredTo)
+      const params = listFilterParams()
       params.set('page', pageNum)
       const response = await api.get(`/farmers/?${params.toString()}`)
       if (requestId !== latestRequest.current) return   // a newer request has been sent; this answer is out of date
@@ -252,6 +259,8 @@ function FarmersPage({ asTab = false }) {
           />
         </label>
       </FilterPanel>
+
+      <HarvestComparisonCard url="/farmers/harvest-comparison/" listQuery={listFilterParams().toString()} noun="farmers" nounOne="farmer" />
 
       {successMessage && (
         <div className="rounded-lg border border-[#C8D5C8] bg-[#EBF5EE] px-4 py-3 text-[13px] font-medium text-[#1B4D2E] mb-4">

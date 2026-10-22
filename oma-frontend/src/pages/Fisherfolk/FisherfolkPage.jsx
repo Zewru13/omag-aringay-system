@@ -7,6 +7,7 @@ import RsbsaImportModal from '../../components/RsbsaImportModal.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
+import HarvestComparisonCard from '../../components/dashboard/HarvestComparisonCard.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import AddFisherfolkModal from './AddFisherfolkModal.jsx'
 
@@ -82,20 +83,26 @@ function FisherfolkPage({ asTab = false }) {
   // replaces the filtered list (under-60s showing under "Senior Citizens Only").
   const latestRequest = useRef(0)
 
+  // The list's filters (without its page), shared by the list request and the harvest comparison above it.
+  const listFilterParams = () => {
+    const params = new URLSearchParams()
+    if (search.trim())    params.set('search', search.trim())
+    if (status !== 'all') params.set('status', status)
+    if (gender !== 'all') params.set('gender', gender)
+    if (typeFilter !== 'all') params.set('fisherfolk_type', typeFilter)
+    if (seniorOnly)       params.set('is_senior', 'true')
+    if (filterPWD)        params.set('is_pwd', 'true')
+    if (filter4Ps)        params.set('is_4ps', 'true')
+    if (registeredFrom)   params.set('registered_from', registeredFrom)
+    if (registeredTo)     params.set('registered_to', registeredTo)
+    return params
+  }
+
   const fetchFisherfolk = async (pageNum = page) => {
     const requestId = ++latestRequest.current
     setIsLoading(true); setError('')
     try {
-      const params = new URLSearchParams()
-      if (search.trim())    params.set('search', search.trim())
-      if (status !== 'all') params.set('status', status)
-      if (gender !== 'all') params.set('gender', gender)
-      if (typeFilter !== 'all') params.set('fisherfolk_type', typeFilter)
-      if (seniorOnly)       params.set('is_senior', 'true')
-      if (filterPWD)        params.set('is_pwd', 'true')
-      if (filter4Ps)        params.set('is_4ps', 'true')
-      if (registeredFrom)   params.set('registered_from', registeredFrom)
-      if (registeredTo)     params.set('registered_to', registeredTo)
+      const params = listFilterParams()
       params.set('page', pageNum)
       const r = await api.get(`/fisheries/fisherfolk/?${params.toString()}`)
       if (requestId !== latestRequest.current) return   // a newer request has been sent; this answer is out of date
@@ -258,6 +265,8 @@ function FisherfolkPage({ asTab = false }) {
           />
         </label>
       </FilterPanel>
+
+      <HarvestComparisonCard url="/fisheries/fisherfolk/harvest-comparison/" listQuery={listFilterParams().toString()} noun="fisherfolk" nounOne="fisherfolk" />
 
       {successMsg && (
         <div className="rounded-lg border border-[#C8D5C8] bg-[#EBF5EE] px-4 py-3 text-[13px] font-medium text-[#1B4D2E] mb-4">

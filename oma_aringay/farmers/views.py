@@ -332,3 +332,36 @@ from core.pcic import PcicFormPhotoMixin  # noqa: E402
 
 class FarmCropPcicFormView(PcicFormPhotoMixin, FarmCropDeleteView):
     """POST/DELETE the photo of a registered crop's PCIC insurance form (staff, same as the crop's other edits)."""
+
+
+class FarmerHarvestComparisonView(FarmerListView):
+    """How many of the farmers the list is showing (same filters) harvested MORE than estimated, less, or exactly the estimate:
+    each farmer's total actual yield against their total estimate over their harvested crop records of ?year= (default this
+    year, or "all"). Farmers with no harvested record that has both figures are counted as no_data."""
+
+    def get_permissions(self):
+        return [IsAuthenticated(), IsAdminOrEvaluator()]
+
+    def get(self, request, *args, **kwargs):
+        from django.db.models import Sum
+        from django.utils import timezone
+        from rest_framework.exceptions import ValidationError
+
+        from production.dashboard_activity import classify_comparison, parse_comparison_year
+        from production.models import CropMonitoringRecord
+
+        try:
+            year = parse_comparison_year(request.query_params.get('year'), timezone.localdate().year)
+        except ValueError as exc:
+            raise ValidationError(str(exc))
+        people = self.get_queryset()
+        ids = list(people.values_list('id', flat=True))
+        records = CropMonitoringRecord.objects.filter(
+            farmer_id__in=ids, status='Harvested', estimated_yield_kg__isnull=False, actual_yield_kg__isnull=False)
+        if year is not None:
+            records = records.filter(year=year)
+        per_person = {
+            row['farmer_id']: (float(row['est'] or 0), float(row['act'] or 0))
+            for row in records.values('farmer_id').annotate(est=Sum('estimated_yield_kg'), act=Sum('actual_yield_kg'))
+        }
+        return Response({'year': year, **classify_comparison(per_person, len(ids))})
