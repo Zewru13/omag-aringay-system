@@ -234,7 +234,7 @@ function FingerlingsLostTable({ groups, values, onChange, showErrors }) {
   )
 }
 
-export default function FisherfolkStockDisasterModal({ stocks, fisherfolk = null, initialStockIds = [], onClose, onSaved }) {
+export default function FisherfolkStockDisasterModal({ stocks, fisherfolk = null, initialStockIds = [], onClose, onSaved, inline = false }) {
   const { showToast } = useToast()
   const { isFisherfolk } = useAuth()
   const damagePhotos = useDamagePhotos()
@@ -388,8 +388,9 @@ export default function FisherfolkStockDisasterModal({ stocks, fisherfolk = null
       iconColor="text-rose-600"
       onClose={onClose}
       maxWidth="max-w-5xl"
+      inline={inline}
       footer={<>
-        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+        {!inline && <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>}
         <Button type="submit" form="ff-stock-disaster-form" isLoading={isSubmitting} disabled={isSubmitting || stocks === null}>Log Disaster</Button>
       </>}
     >

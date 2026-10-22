@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { CheckCircle2, Download, Plus, Printer } from 'lucide-react'
+import { CheckCircle2, Download, History, Printer } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
@@ -13,7 +13,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { canRecoverDisaster, disasterStatusLabel } from './disasterRecovery.js'
 import { fmtLong } from '../FisheriesRecords/stockingHelpers.js'
 import DisasterLogDetailsModal from './DisasterLogDetailsModal.jsx'
-import CompactExpandList from '../../components/UI/CompactExpandList.jsx'
+import DisasterHistoryModal from './DisasterHistoryModal.jsx'
 import { FISHERIES_LOG, downloadLog, fetchAllStocks, printLog } from './disasterReportDocument.js'
 import FisherfolkStockDisasterModal from './FisherfolkStockDisasterModal.jsx'
 
@@ -72,7 +72,8 @@ export default function FisherfolkDisasterPage() {
   const [error, setError] = useState('')
   const [version, setVersion] = useState(0)
   const reload = () => setVersion(v => v + 1)
-  const [logging, setLogging] = useState(false)
+  const [formKey, setFormKey] = useState(0)          // a new key empties the form after a disaster is saved
+  const [historyOpen, setHistoryOpen] = useState(false)
   const [viewingId, setViewingId] = useState(null)
   const [recovering, setRecovering] = useState(null)
   const [busyId, setBusyId] = useState(null)
@@ -100,7 +101,7 @@ export default function FisherfolkDisasterPage() {
   }, [version])
 
   const onLogged = (log) => {
-    setLogging(false)
+    setFormKey(k => k + 1)
     reload()
     if (log?.id) setViewingId(log.id)
   }
@@ -138,44 +139,51 @@ export default function FisherfolkDisasterPage() {
 
   const linkedStock = linkedStockId && !linkUsed && eligibility?.can_log_disaster !== false ? stocks.find(st => st.id === linkedStockId) : null
 
+  const historyColumns = [
+    { key: 'report_number', label: 'Reference No.' },
+    { key: 'stock_cell', label: 'Stock / Cycle' },
+    { key: 'disaster_type_label', label: 'Disaster Type' },
+    { key: 'date_fmt', label: 'Date' },
+    { key: 'volume_fmt', label: 'Volume Lost', align: 'right' },
+    { key: 'status_cell', label: 'Status' },
+    { key: 'logged_fmt', label: 'Date Logged' },
+  ]
+  const blocked = eligibility?.can_log_disaster === false
+
   return (
-    <PageLayout title="Disaster" subtitle="Disasters you have logged. Each one is sent to the Office of the Municipal Agriculturist when you log it.">
+    <PageLayout
+      title="Disaster"
+      action={(
+        <Button variant="outline" onClick={() => setHistoryOpen(true)}>
+          <History size={15} className="mr-1.5" /> Disaster history
+        </Button>
+      )}
+    >
       <div className="space-y-4">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-slate-700">My Logged Disasters</h2>
-          <Button onClick={() => setLogging(true)} disabled={isLoading || eligibility?.can_log_disaster === false}>
-            <Plus size={15} className="mr-1" /> Log Disaster
-          </Button>
-        </div>
-        {eligibility?.can_log_disaster === false && (
+        {blocked && (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800" data-testid="disaster-blocked">{eligibility.message}</p>
         )}
-        {error ? <ErrorMessage message={error} /> : (
-          <CompactExpandList
-            isLoading={isLoading}
-            emptyText="You have not logged any disasters."
-            items={data.map(r => ({
-              id: r.id,
-              title: r.affected_stock || 'Not linked to a stock',
-              subtitle: r.disaster_type_label,
-              details: [['Date', r.date_fmt], ['Volume lost', r.volume_fmt], ['Status', r.status_cell], ['Date logged', r.logged_fmt]],
-              actions: (<>
-                <Button variant="outline" onClick={() => setViewingId(r.id)}>View full details</Button>
-                {r.actions_cell}
-              </>),
-            }))}
-          />
+        {error && <ErrorMessage message={error} />}
+        {/* The page IS the Log Disaster form: the affected stock(s) with fingerlings lost per pond/cage (or "not linked to a stock") and
+            the disaster details, saved AND submitted to Admin in that one action. After saving, the form is emptied again. */}
+        {isLoading && !error && <p className="text-sm italic text-slate-500">Loading…</p>}
+        {!isLoading && !error && !blocked && (
+          <FisherfolkStockDisasterModal key={formKey} inline stocks={stocks} initialStockIds={linkedStock ? [linkedStock.id] : []}
+            onClose={endLink} onSaved={(log) => { endLink(); onLogged(log) }} />
         )}
       </div>
 
-      {/* One form: pick one or more of your stocks (each with its fingerlings lost per pond/cage), or
-          "Not linked to a stock" for pond/cage/equipment-only damage. */}
-      {(logging || linkedStock) && (
-        <FisherfolkStockDisasterModal stocks={stocks} initialStockIds={linkedStock && !logging ? [linkedStock.id] : []}
-          onClose={() => { endLink(); setLogging(false) }} onSaved={(log) => { endLink(); onLogged(log) }} />
+      {historyOpen && (
+        <DisasterHistoryModal
+          subtitle="Every disaster you have logged"
+          columns={historyColumns} rows={data} isLoading={isLoading} error={error}
+          actionsFor={(r) => r.actions_cell}
+          onView={(id) => setViewingId(id)}
+          onClose={() => setHistoryOpen(false)}
+        />
       )}
       {viewingId && <DisasterLogDetailsModal key={viewingId} kind="fisheries" logId={viewingId} onClose={() => setViewingId(null)} />}
-      {recovering && <MarkRecoveredModal row={recovering} onClose={() => setRecovering(null)} onDone={() => { setRecovering(null); reload() }} />}
+      {recovering && <MarkRecoveredModal row={recovering} onDone={() => { setRecovering(null); reload() }} onClose={() => setRecovering(null)} />}
     </PageLayout>
   )
 }
