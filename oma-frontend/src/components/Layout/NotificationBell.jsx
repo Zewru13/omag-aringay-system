@@ -35,9 +35,9 @@ const STAFF_ROUTES = {
   ff_beneficiary: '/fisheries-assistance?tab=needs-follow-up',
   beneficiary_obo: '/dashboard',
   ff_beneficiary_obo: '/dashboard',
-  // An organization's confirmation for its members is final: staff only need to see it (the report lists every one).
-  beneficiary_obo_confirmed: '/reports',
-  ff_beneficiary_obo_confirmed: '/reports',
+  // An organization's confirmation for its members is final: staff only need to see it (the Organization Assistance report lists every one).
+  beneficiary_obo_confirmed: '/reports?tab=organization_assistance',
+  ff_beneficiary_obo_confirmed: '/reports?tab=organization_assistance',
   FARMER: '/dashboard',
   FISHERFOLK: '/dashboard',
   FARMERS_ORG: '/dashboard',

@@ -21,10 +21,12 @@ from .views import (
     YieldAnalysisReport,
 )
 from .disasters import CropDisasterReportsReport, FisheriesDisasterReportsReport
+from .org_assistance import OrganizationAssistanceReport
 from .registered import RegisteredRecordsReport
 
 
 urlpatterns = [
+    path('organization-assistance/', OrganizationAssistanceReport.as_view(), name='report-organization-assistance'),
     path('registered/', RegisteredRecordsReport.as_view(), name='report-registered'),
     path('disasters/fisheries/', FisheriesDisasterReportsReport.as_view(), name='report-disasters-fisheries'),
     path('disasters/crops/', CropDisasterReportsReport.as_view(), name='report-disasters-crops'),

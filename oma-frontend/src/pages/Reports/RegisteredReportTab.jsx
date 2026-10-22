@@ -33,7 +33,7 @@ function useDebounced(value, ms = 300) {
 
 // Search-and-pick one record: the matches come from the report's own `options` list so the staff see the same people the
 // report will contain.
-function RecordPicker({ kind, label, picked, onPick }) {
+export function RecordPicker({ kind, label, picked, onPick }) {
   const [term, setTerm] = useState('')
   const debounced = useDebounced(term.trim())
   const [result, setResult] = useState({ key: null, items: [] })
