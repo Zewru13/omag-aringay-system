@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import AddButton from '../../components/UI/AddButton.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
-import { ChevronLeft, ChevronRight, Leaf, Pencil, Power, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Leaf, Pencil, X } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
@@ -27,7 +27,6 @@ const COLUMNS = [
   { key: 'subcategory_name', label: 'SUBCATEGORY',            sortable: false },
   { key: 'days_to_harvest',  label: 'GROWTH DURATION (DAYS)', sortable: true },
   { key: 'yield_display',    label: 'YIELD PER HA (KG)',       sortable: true },
-  { key: 'status',           label: 'STATUS',                 sortable: false },
   { key: 'actions',          label: 'ACTIONS',                sortable: false },
 ]
 
@@ -540,8 +539,7 @@ function CropTypeModal({ crop, categories, subcategories, onClose, onSaved }) {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function CropOptionPage({ asTab = false }) {
-  const { showToast } = useToast()
-  const [crops,         setCrops]         = useState([])
+  const [crops,        setCrops]         = useState([])
   const [categories,    setCategories]    = useState([])
   const [subcategories, setSubcategories] = useState([])
   const [isLoading,     setIsLoading]     = useState(true)
@@ -549,7 +547,6 @@ export default function CropOptionPage({ asTab = false }) {
   const [search,        setSearch]        = useState('')
   const [showModal,     setShowModal]     = useState(false)
   const [editCrop,      setEditCrop]      = useState(null)
-  const [togglingCrop,  setTogglingCrop]  = useState(null)
   // No default sort key — until staff click a column header, the table
   // shows the backend's own order (newest-first, matching every other list
   // in this app). Defaulting this to 'name' used to force alphabetical
@@ -611,28 +608,14 @@ export default function CropOptionPage({ asTab = false }) {
   const paginated  = sortedCrops.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const rows = paginated.map(c => {
-    const isActive = c.is_active !== false
     return {
       ...c,
       category_name:    c.category_name    || '—',
       subcategory_name: c.subcategory_name || '—',
       yield_display:    c.yield_per_ha_kg  ? `${Number(c.yield_per_ha_kg).toLocaleString()} kg/ha` : '—',
-      _rowClassName:    isActive ? '' : 'opacity-60',
-      status: (
-        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
-          isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
-        }`}>
-          {isActive ? 'Active' : 'Inactive'}
-        </span>
-      ),
       actions: (
         <RowActions actions={[
           { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => { setEditCrop(c); setShowModal(true) } },
-          {
-            key: 'toggle', label: isActive ? 'Deactivate' : 'Activate', icon: Power,
-            onClick: () => setTogglingCrop({ id: c.id, name: c.name, targetActive: !isActive }),
-            tone: isActive ? 'rose' : 'default',
-          },
         ]} />
       ),
     }
@@ -730,31 +713,6 @@ export default function CropOptionPage({ asTab = false }) {
           subcategories={subcategories}
           onClose={() => { setShowModal(false); setEditCrop(null) }}
           onSaved={fetchAll}
-        />
-      )}
-
-      {togglingCrop && (
-        <ConfirmDialog
-          title={togglingCrop.targetActive ? 'Activate Crop' : 'Deactivate Crop'}
-          message={
-            togglingCrop.targetActive
-              ? `Reactivate "${togglingCrop.name}"? It will reappear in the Add Crop Monitoring dropdown.`
-              : `Deactivate "${togglingCrop.name}"? It will disappear from the Add Crop Monitoring dropdown, but existing monitoring records that reference it are unaffected.`
-          }
-          confirmLabel={togglingCrop.targetActive ? 'Activate' : 'Deactivate'}
-          variant={togglingCrop.targetActive ? 'default' : 'danger'}
-          onConfirm={async () => {
-            try {
-              await api.patch(`/production/crop-types/${togglingCrop.id}/`, { is_active: togglingCrop.targetActive })
-              showToast(`"${togglingCrop.name}" ${togglingCrop.targetActive ? 'activated' : 'deactivated'}.`, 'success')
-              setTogglingCrop(null)
-              fetchAll()
-            } catch {
-              showToast('Failed to update crop status.', 'error')
-              setTogglingCrop(null)
-            }
-          }}
-          onCancel={() => setTogglingCrop(null)}
         />
       )}
     </div>

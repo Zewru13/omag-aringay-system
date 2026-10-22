@@ -17,7 +17,6 @@ const PAGE_SIZE = 10
 
 const COLUMNS = [
   { key: 'name',        label: 'SEED SOURCE NAME' },
-  { key: 'status',      label: 'STATUS' },
   { key: 'actions',     label: 'ACTIONS' },
 ]
 
@@ -76,15 +75,6 @@ function SeedSourceModal({ source, onClose, onSaved }) {
             placeholder="e.g. DA, Local Market"
           />
         </FormField>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            className="h-4 w-4 accent-[#1B4D2E]"
-            checked={form.is_active}
-            onChange={e => set('is_active', e.target.checked)}
-          />
-          <span className="text-[13px] text-[#1A2B1A]">Active (visible in Add Crop dropdown)</span>
-        </label>
       </form>
     </ModalShell>
   )
@@ -122,13 +112,6 @@ export default function SeedSourcePage({ asTab = false }) {
 
   const rows = paginated.map(s => ({
     ...s,
-    status: (
-      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
-        s.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
-      }`}>
-        {s.is_active ? 'Active' : 'Inactive'}
-      </span>
-    ),
     actions: (
       <RowActions actions={[
         { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => { setEditSource(s); setShowModal(true) } },

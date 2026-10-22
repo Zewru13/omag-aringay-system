@@ -36,7 +36,6 @@ const COLUMNS = [
   { key: 'name',           label: 'VARIETY NAME' },
   { key: 'crop_type_disp', label: 'CROP' },
   { key: 'days_to_harvest_disp', label: 'GROWTH DURATION (DAYS)' },
-  { key: 'status',         label: 'STATUS' },
   { key: 'actions',        label: 'ACTIONS' },
 ]
 
@@ -181,16 +180,6 @@ function CropVarietyModal({ variety, cropTypes, onClose, onSaved }) {
             </FormField>
           </div>
         </div>
-
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            className="h-4 w-4 accent-[#1B4D2E]"
-            checked={form.is_active}
-            onChange={e => set('is_active', e.target.checked)}
-          />
-          <span className="text-[13px] text-[#1A2B1A]">Active (visible in Add Crop dropdown)</span>
-        </label>
       </form>
     </ModalShell>
   )
@@ -241,13 +230,6 @@ export default function CropVarietyPage({ asTab = false }) {
     days_to_harvest_disp: v.days_to_harvest != null
       ? <span className="font-medium text-[#1A2B1A]">{v.days_to_harvest}</span>
       : <span className="text-[#A8BCA8]">— (uses crop's own)</span>,
-    status: (
-      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${
-        v.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
-      }`}>
-        {v.is_active ? 'Active' : 'Inactive'}
-      </span>
-    ),
     actions: (
       <RowActions actions={[
         { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => { setEditVariety(v); setShowModal(true) } },
