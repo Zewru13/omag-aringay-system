@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, CheckCircle2, Download, Plus, Printer } from 'lucide-react'
+import { CheckCircle2, Download, Plus, Printer } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
@@ -12,15 +12,15 @@ import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { canRecoverDisaster, disasterStatusLabel } from './disasterRecovery.js'
 import { fmtLong } from '../FisheriesRecords/stockingHelpers.js'
-import { DisasterReportModal as CropDisasterReportModal } from './CropMonitoringPage.jsx'
+import { ChooseCropsModal, MultiCropDisasterModal } from './MultiCropDisaster.jsx'
 import DisasterLogDetailsModal from './DisasterLogDetailsModal.jsx'
 import { FARMER_LOG, downloadLog, printLog } from './disasterReportDocument.js'
 
 // DISASTER (farmer accounts): My Logged Disasters + Log Disaster, the farmer counterpart of
 // FisherfolkDisasterPage. Own logs come from GET /production/disaster-logs/ (the backend limits it to this
-// farmer's crops). Log Disaster -> choose the affected crop (one of their own active crops) -> the existing crop
-// disaster form. A farmer with no active crop has nothing to log against, so the button is disabled with the
-// reason instead of opening a form.
+// farmer's crops). Log Disaster -> tick the affected crops (their own active crops) -> one disaster form for all of
+// them (one report is saved for each crop). A farmer with no active crop has nothing to log against, so the button
+// is disabled with the reason instead of opening a form.
 
 const ACTIVE_CROPS = 'Planted,Near Harvest'
 const STATUS_TONES = { Active: 'amber', Recovered: 'green' }
@@ -40,25 +40,6 @@ const COLUMNS = [
 const fmtDateTime = (v) => (v ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(v)) : '—')
 const listOf = (data) => (Array.isArray(data) ? data : (data?.results || []))
 const cropLabel = (c) => `${c.crop_type_name || 'Crop'}${c.season ? ` · ${c.season} ${c.year}` : ''} — planted ${fmtLong(c.date_planted)}${c.farm_location_barangay ? ` · ${c.farm_location_barangay}` : ''}`
-
-function ChooseCropModal({ crops, onClose, onChoose }) {
-  const [choice, setChoice] = useState(crops.length === 1 ? String(crops[0].id) : '')
-  const chosen = crops.find(c => String(c.id) === choice)
-  return (
-    <ModalShell title="Log Disaster" subtitle="Which crop was affected?" icon={AlertTriangle} onClose={onClose} maxWidth="max-w-md"
-      footer={<>
-        <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-        <Button type="button" disabled={!chosen} onClick={() => chosen && onChoose(chosen)}>Continue</Button>
-      </>}>
-      <FormField label="Affected Crop" required>
-        <select className={baseInputClasses} value={choice} onChange={e => setChoice(e.target.value)}>
-          {crops.length !== 1 && <option value="">Select a crop</option>}
-          {crops.map(c => <option key={c.id} value={c.id}>{cropLabel(c)}</option>)}
-        </select>
-      </FormField>
-    </ModalShell>
-  )
-}
 
 function MarkRecoveredModal({ row, onClose, onDone }) {
   const { showToast } = useToast()
@@ -100,7 +81,7 @@ export default function FarmerDisasterPage() {
   const [version, setVersion] = useState(0)
   const reload = () => setVersion(v => v + 1)
   const [choosing, setChoosing] = useState(false)
-  const [loggingOn, setLoggingOn] = useState(null)   // a crop record
+  const [loggingOn, setLoggingOn] = useState(null)   // the crops chosen for the disaster
   const [viewingId, setViewingId] = useState(null)
   const [recovering, setRecovering] = useState(null)
   const [busyId, setBusyId] = useState(null)
@@ -144,6 +125,7 @@ export default function FarmerDisasterPage() {
   })), [rows, busyId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const noCrops = !isLoading && !error && crops.length === 0
+  const cropChoices = useMemo(() => crops.map(c => ({ ...c, label: cropLabel(c) })), [crops])
 
   return (
     <PageLayout title="Crop Disaster" subtitle="Disasters on your crops. Each one you log is sent to the Office of the Municipal Agriculturist.">
@@ -163,11 +145,14 @@ export default function FarmerDisasterPage() {
       </div>
 
       {choosing && (
-        <ChooseCropModal crops={crops} onClose={() => setChoosing(false)} onChoose={(crop) => { setChoosing(false); setLoggingOn(crop) }} />
+        <ChooseCropsModal subtitle="Step 1 of 2 — choose the affected crops" crops={cropChoices}
+          onClose={() => setChoosing(false)} onContinue={(chosen) => { setChoosing(false); setLoggingOn(chosen) }} />
       )}
       {loggingOn && (
         // The existing crop disaster form, unchanged (it posts to /production/monitoring/<id>/disasters/).
-        <CropDisasterReportModal record={loggingOn} onClose={() => setLoggingOn(null)} onSuccess={() => { setLoggingOn(null); reload() }} />
+        <MultiCropDisasterModal crops={loggingOn}
+          onBack={() => { setLoggingOn(null); setChoosing(true) }}
+          onClose={() => setLoggingOn(null)} onSuccess={reload} />
       )}
       {viewingId && <DisasterLogDetailsModal key={viewingId} kind="farmer" logId={viewingId} onClose={() => setViewingId(null)} />}
       {recovering && <MarkRecoveredModal row={recovering} onClose={() => setRecovering(null)} onDone={() => { setRecovering(null); reload() }} />}

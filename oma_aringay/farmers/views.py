@@ -1,5 +1,5 @@
 from django.db import transaction
-from django.db.models import Prefetch, Q
+from django.db.models import Count, Prefetch, Q
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -18,6 +18,7 @@ from .serializers import (
     FarmerDetailSerializer,
     FarmerListSerializer,
     FarmMachinerySerializer,
+    FarmParcelDirectorySerializer,
     FarmParcelSerializer,
 )
 
@@ -196,6 +197,36 @@ class FarmParcelListView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(farmer_id=self.kwargs['farmer_id'])
+
+
+class FarmParcelDirectoryView(generics.ListAPIView):
+    """Every farm parcel of every farmer, one row each, for the Crop Records page. The crop records on a parcel are
+    read from the crop monitoring list (`?farm_parcel=<id>`) when its row is opened. Staff only."""
+    serializer_class = FarmParcelDirectorySerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get_queryset(self):
+        qs = FarmParcel.objects.select_related('farmer').annotate(
+            # Total Loss records are left out of the crop list under a parcel (as on Crop Monitoring), so out of the count.
+            crop_count=Count('monitoring_records', filter=~Q(monitoring_records__status='Total Loss')),
+        ).order_by('farmer__last_name', 'farmer__first_name', 'farmer_id', 'id')
+        params = self.request.query_params
+        if params.get('farmer'):
+            qs = qs.filter(farmer_id=params['farmer'])
+        if params.get('barangay'):
+            qs = qs.filter(barangay__iexact=params['barangay'])
+        if params.get('farm_status'):
+            qs = qs.filter(farm_status=params['farm_status'])
+        search = params.get('search')
+        if search:
+            matched = filter_people_search(
+                qs, search,
+                name_fields=['farmer__first_name', 'farmer__middle_name', 'farmer__last_name'],
+                id_fields=['farmer__rsbsa_number'],
+                other_fields=['parcel_number'],
+            )
+            qs = matched
+        return qs
 
 
 class MyFarmParcelListView(generics.ListAPIView):

@@ -1,0 +1,50 @@
+// Crop Monitoring grouped by crop or by farmer (GET /production/monitoring/groups/). Pure helpers, no screen and no
+// network, so the rules can be tested on their own.
+
+export const GROUP_OPTIONS = [
+  { value: 'crop', label: 'Crop / Variety' },
+  { value: 'farmer', label: 'Farmer' },
+  { value: 'none', label: 'No grouping' },
+]
+export const DEFAULT_GROUP = 'crop'
+
+// "Due / Ready / Overdue" are not real statuses: they split Near Harvest by how far the expected date is, and the server
+// does that split when it is given display_status.
+export const DISPLAY_STATUSES = ['Due Harvest', 'Ready for Harvest', 'Overdue']
+
+// The filters the list AND the groups are asked with, so a group's count is always the number of records it opens onto.
+export function monitoringParams({ statusFilter, season, year, barangay, cropType, search }) {
+  const params = {}
+  if (DISPLAY_STATUSES.includes(statusFilter)) {
+    params.status = 'Near Harvest'
+    params.display_status = statusFilter
+  } else if (statusFilter && statusFilter !== 'all') {
+    params.status = statusFilter
+  }
+  if (season) params.season = season
+  if (year) params.year = year
+  if (barangay) params.barangay = barangay
+  if (cropType) params.crop_type = cropType
+  if (search) params.search = search
+  return params
+}
+
+// What to add to the list's filters to get one group's records; null when the group has nothing to open onto.
+export function groupChildParams(groupBy, group) {
+  if (groupBy === 'crop') return { crop_type: group.id }
+  if (String(group.key).startsWith('o')) return { farmers_organization: group.id }
+  if (group.id) return { farmer: group.id }
+  return null
+}
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
+
+export function groupSummary(group) {
+  const parts = [plural(group.count, 'record')]
+  const area = Math.round((group.area_planted_ha || 0) * 100) / 100
+  if (area > 0) parts.push(`${area} ha`)
+  if (group.near_harvest > 0) parts.push(`${group.near_harvest} near harvest`)
+  return parts.join(' · ')
+}
+
+export const groupHeading = (groupBy, group) => (groupBy === 'farmer' && group.barangay ? `${group.name} · ${group.barangay}` : group.name)

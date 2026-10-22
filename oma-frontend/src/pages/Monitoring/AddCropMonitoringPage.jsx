@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { AlertTriangle, ArrowLeft, CheckCircle2, Info, Plus, Search, Trash2, User } from 'lucide-react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { sameCrop } from '../../utils/cropNames.js'
+import { ownerParcelFill, parcelProblem } from '../CropInformation/parcelRecords.js'
 import api from '../../api/axiosInstance.js'
 import useSuggestSearch from '../../hooks/useSuggestSearch.js'
 import BARANGAYS from '../../constants/barangays.js'
@@ -344,8 +345,17 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
         {showParcelColumn && (
           <td data-label="Farm parcel" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.farmParcel }}>
             <select className={`${bulkCellInputClasses} w-full`} value={rec.farm_parcel}
-              onChange={e => set('farm_parcel', e.target.value)}>
-              <option value="">Not linked</option>
+              onChange={e => {
+                const value = e.target.value
+                set('farm_parcel', value)
+                // The parcel knows its barangay and the farmer's tenure there; fill them in only where still blank.
+                const parcel = farmerParcels.find(p => String(p.id) === value)
+                if (parcel) {
+                  if (!rec.farm_location_barangay) set('farm_location_barangay', parcel.barangay || '')
+                  if (!rec.land_status && ['Owner', 'Tenant', 'Lessee'].includes(parcel.land_ownership)) set('land_status', parcel.land_ownership)
+                }
+              }}>
+              <option value="">Choose parcel</option>
               {farmerParcels.map(p => (
                 <option key={p.id} value={p.id}>
                   {p.parcel_number ? `Parcel ${p.parcel_number}` : `Parcel #${p.id}`} — {p.barangay}
@@ -480,6 +490,7 @@ export default function AddCropMonitoringPage() {
     farmer_assoc_name: '',
   })
   const [farmerParcels, setFarmerParcels] = useState([])
+  const [parcelsReadyFor, setParcelsReadyFor] = useState(null)
 
   // Resolve the prefilled farmer through the same list the search box uses, so
   // the farmer's organization comes through exactly as if they were picked there.
@@ -514,12 +525,21 @@ export default function AddCropMonitoringPage() {
   useEffect(() => {
     setRecords(r => r.map(x => ({ ...x, farm_parcel: '' })))
     if (!farmerInfo.farmer_id) { setFarmerParcels([]); return }
-    api.get(`/farmers/${farmerInfo.farmer_id}/parcels/`)
-      .then(r => setFarmerParcels(Array.isArray(r.data) ? r.data : (r.data.results || [])))
-      .catch(() => setFarmerParcels([]))
+    const farmerId = farmerInfo.farmer_id
+    api.get(`/farmers/${farmerId}/parcels/`)
+      .then(r => {
+        const list = Array.isArray(r.data) ? r.data : (r.data.results || [])
+        setFarmerParcels(list)
+        setParcelsReadyFor(farmerId)
+        // A farmer with a single parcel does not have to choose it.
+        setRecords(rs => rs.map(x => ({ ...x, ...ownerParcelFill(list, x) })))
+      })
+      .catch(() => { setFarmerParcels([]); setParcelsReadyFor(null) })
   }, [farmerInfo.farmer_id])
 
   const showParcelColumn = farmerParcels.length > 0
+  const parcelsReady = Boolean(farmerInfo.farmer_id) && parcelsReadyFor === farmerInfo.farmer_id
+  const hasNoParcel = parcelsReady && farmerParcels.length === 0
 
   // Once the crop catalog and the farmer's parcels are in, fill the first row
   // from the prefill (once).
@@ -575,6 +595,8 @@ export default function AddCropMonitoringPage() {
 
   const validate = () => {
     if (!farmerInfo.farmer_id) { setError('Please select a farmer.'); return false }
+    const noParcel = parcelProblem({ farmerId: farmerInfo.farmer_id, ready: parcelsReady, parcels: farmerParcels, rows: records })
+    if (noParcel) { setError(noParcel); return false }
     const nextRowErrors = {}
     records.forEach((rec, i) => {
       const missing = []
@@ -698,10 +720,22 @@ export default function AddCropMonitoringPage() {
           </p>
         </div>
 
+        {hasNoParcel && (
+          <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-[13px] text-amber-900">
+            <AlertTriangle size={16} className="shrink-0" aria-hidden="true" />
+            <span className="min-w-0 flex-1">
+              <span className="font-semibold">{farmerInfo.farmer_full_name || 'This farmer'} has no farm parcel yet.</span>{' '}
+              A crop is recorded on a farm parcel, so add the parcel first, then come back to add the crop.
+            </span>
+            <Link to={`/farmers/${farmerInfo.farmer_id}`} className="inline-flex min-h-[40px] items-center rounded-lg bg-amber-900 px-3 font-semibold text-white hover:bg-amber-950">
+              Open the farmer's profile
+            </Link>
+          </div>
+        )}
         {showParcelColumn && (
           <p className="text-[12px] text-[#4A5E4A]">
-            <span className="font-semibold">Farm Parcel:</span> leave it blank and the record is linked automatically
-            when exactly one of this farmer's parcels grows the crop (in the same barangay). Choose one to be explicit.
+            <span className="font-semibold">Farm Parcel:</span> every crop is grown on one of this farmer's parcels. A farmer
+            with a single parcel has it chosen already; with several, choose one for each row.
           </p>
         )}
 
@@ -720,7 +754,7 @@ export default function AddCropMonitoringPage() {
                 <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.variety }}>Variety<OptBadge /></th>
                 <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.seedSource }}>Seed Source<OptBadge /></th>
                 <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.qtySeeds }}>Qty of Seeds (kg)<OptBadge /></th>
-                {showParcelColumn && <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.farmParcel }}>Farm Parcel<OptBadge /></th>}
+                {showParcelColumn && <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.farmParcel }}>Farm Parcel <span className="text-white/70">*</span></th>}
                 <th className={bulkThCenterClasses} style={{ width: COL_WIDTH.remove }}></th>
               </tr>
             </thead>

@@ -15,6 +15,7 @@ from .views import (
     FarmMachineryDeleteView,
     FarmMachineryListCreateView,
     FarmParcelCreateView,
+    FarmParcelDirectoryView,
     FarmParcelListView,
     MyFarmParcelListView,
 )
@@ -26,6 +27,7 @@ urlpatterns = [
     path('parcels/import/template/', ParcelImportTemplateView.as_view(), name='farm-parcels-import-template'),
     path('parcel-crops/template/', ParcelCropsTemplateView.as_view(), name='farm-parcel-crops-template'),
     path('parcel-crops/parse/', ParcelCropsParseView.as_view(), name='farm-parcel-crops-parse'),
+    path('parcels/directory/', FarmParcelDirectoryView.as_view(), name='farm-parcels-directory'),
     path('me/parcels/', MyFarmParcelListView.as_view(), name='farm-parcels-mine'),
     path('rsbsa-import/preview/', RsbsaUpdateImportPreviewView.as_view(), name='rsbsa-import-preview'),
     path('rsbsa-import/commit/', RsbsaUpdateImportCommitView.as_view(), name='rsbsa-import-commit'),

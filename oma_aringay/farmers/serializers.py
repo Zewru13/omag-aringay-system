@@ -71,6 +71,23 @@ class FarmMachinerySerializer(serializers.ModelSerializer):
         }
 
 
+class FarmParcelDirectorySerializer(serializers.ModelSerializer):
+    """One line of the Crop Records page: a parcel, whose it is, and how many crop records sit on it."""
+    farmer_name = serializers.SerializerMethodField()
+    rsbsa_number = serializers.CharField(source='farmer.rsbsa_number', read_only=True)
+    crop_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = FarmParcel
+        fields = ['id', 'farmer', 'farmer_name', 'rsbsa_number', 'parcel_number', 'barangay', 'area_hectares',
+                  'land_ownership', 'farm_status', 'commodity_name', 'crop_count']
+        read_only_fields = fields
+
+    def get_farmer_name(self, obj):
+        f = obj.farmer
+        return ' '.join(part for part in (f.first_name, f.last_name) if part)
+
+
 class FarmParcelSerializer(serializers.ModelSerializer):
     crops = FarmCropSerializer(many=True, read_only=True)
     machinery = FarmMachinerySerializer(many=True, read_only=True)
