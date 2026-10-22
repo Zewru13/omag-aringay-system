@@ -126,15 +126,19 @@ export default function YieldVarianceCard({ crop, fisheries, isLoading }) {
             })}
           </ul>
 
-          <table className="sr-only">
-            <caption>{tab.title}: {tab.note}</caption>
-            <thead><tr><th>{domain === 'crop' ? 'Crop' : 'Species'}</th><th>Target ({unit})</th><th>Actual ({unit})</th><th>Variance</th><th>Season</th></tr></thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.name}><td>{r.name}</td><td>{r.target}</td><td>{r.actual}</td><td>{varianceChip(r.variancePct).text}</td><td>{r.season}</td></tr>
-              ))}
-            </tbody>
-          </table>
+          {/* The screen-reader table sits inside an sr-only <div>: sr-only on the <table> itself is ignored (a table
+              sizes to its content), so its 500px+ width stretched the page and made a phone zoom out to fit it. */}
+          <div className="sr-only">
+            <table>
+              <caption>{tab.title}: {tab.note}</caption>
+              <thead><tr><th>{domain === 'crop' ? 'Crop' : 'Species'}</th><th>Target ({unit})</th><th>Actual ({unit})</th><th>Variance</th><th>Season</th></tr></thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.name}><td>{r.name}</td><td>{r.target}</td><td>{r.actual}</td><td>{varianceChip(r.variancePct).text}</td><td>{r.season}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </DashPanel>
