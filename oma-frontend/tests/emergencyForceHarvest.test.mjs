@@ -149,3 +149,15 @@ test('a cycle with no emergency Force Harvest (or no harvested pond) is shown ex
   assert.equal(cycleStatusText({ status: 'Stocked', forced_harvests: [{ id: 1 }], harvest_units: unitRows(false, false) }), 'Stocked')
   assert.equal(cycleStatusText({ status: 'Stocked', forced_harvests: [{ id: 1 }] }), 'Stocked')   // no unit data: unchanged
 })
+
+test('a web page or no reply is never shown as an error message', () => {
+  const html = '<!doctype html> <html lang="en"> <head> <title>Not Found</title> </head> <body> <h1>Not Found</h1><p>The requested resource was not found on this server.</p> </body> </html>'
+  const notFound = errorMessage({ response: { status: 404, data: html } })
+  assert.match(notFound, /does not have Force Harvest yet/)
+  assert.ok(!/<|doctype/i.test(notFound))
+  assert.match(errorMessage({ response: { status: 500, data: '<html><body>Server Error</body></html>' } }), /server had a problem/i)
+  assert.match(errorMessage({ response: { status: 502, data: '<html>Bad gateway</html>' } }), /server had a problem/i)
+  assert.match(errorMessage({ message: 'Network Error' }), /Could not reach the server/)
+  assert.equal(errorMessage({ response: { status: 400, data: 'Plain text reason' } }), 'Plain text reason')
+  assert.equal(errorMessage({ response: { status: 400, data: { cycles: ['Pond 1 has already been harvested.'] } } }), 'Pond 1 has already been harvested.')
+})

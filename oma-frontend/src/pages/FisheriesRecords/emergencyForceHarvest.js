@@ -139,11 +139,21 @@ export function reviewRows({ rows, selected, actual }) {
   }))
 }
 
-// A readable message from an API error (the first message of the first field, or the detail).
+const looksLikeHtml = (text) => /^\s*<(!doctype|html|body|head)/i.test(text)
+
+// A readable message from an API error: the first message of the first field, or the detail. A reply that is not from the API
+// (a web page such as the server's own "Not Found", or no reply at all) is never shown as it is: it becomes a plain sentence that
+// says what to do.
 export function errorMessage(error, fallback = 'The Force Harvest could not be recorded. Nothing was saved.') {
+  const status = error?.response?.status
   const data = error?.response?.data
+  if (!error?.response) return 'Could not reach the server. Check the connection and try again. Nothing was saved.'
+  if (typeof data === 'string') {
+    if (!looksLikeHtml(data)) return data.length > 300 ? fallback : data
+    if (status === 404) return 'This server does not have Force Harvest yet. The backend needs to be updated and restarted, then try again. Nothing was saved.'
+    return status >= 500 ? 'The server had a problem. Nothing was saved. Please try again.' : fallback
+  }
   if (!data) return fallback
-  if (typeof data === 'string') return data
   if (data.detail) return String(data.detail)
   const first = Object.values(data).flat()[0]
   return typeof first === 'string' ? first : fallback
