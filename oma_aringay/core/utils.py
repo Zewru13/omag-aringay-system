@@ -325,13 +325,16 @@ def run_import_atomically(run):
 
 def harvest_gate_status(start_date, expected_date):
     """
-    Record Harvest (crop and fisheries alike) is gated until at least 50%
+    Record Harvest for FISHERIES is gated until at least 50%
     of the record's expected growth/culture duration has elapsed since
     planting/stocking. Reuses the same start_date/expected_date pair that
     already drives expected_harvest_date and the Activity Suggestion
     Engine's progress display (CropType.days_to_harvest /
     SpeciesOption.culture_duration_days), rather than a second duration
     field or lookup.
+
+    Crops no longer use this gate: a crop can be harvested early (with a reason when it is more than 7 days
+    early), see HarvestRecordCreateView and HarvestRecordSerializer in production.
 
     Returns (is_gated, message) — message is None when not gated. A record
     missing either date, or with a non-positive computed duration, is never

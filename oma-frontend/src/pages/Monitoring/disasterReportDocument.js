@@ -231,6 +231,8 @@ export function buildPrintHtml(spec) {
   .photos figure { margin: 0; border: 1px solid #cbd5e1; height: 230px; display: flex; align-items: center; justify-content: center; break-inside: avoid; }
   .photos img { max-width: 100%; max-height: 100%; object-fit: contain; }
   footer { margin-top: 16px; border-top: 1px solid #15803d; padding-top: 4px; color: #64748b; font-size: 9px; text-align: center; }
+  .sigs { display: flex; gap: 40px; margin-top: 38px; }
+  .sig { flex: 1; border-top: 1px solid #0f172a; padding-top: 3px; text-align: center; font-size: 10px; }
 </style></head>
 <body>
   <header>
@@ -243,7 +245,8 @@ export function buildPrintHtml(spec) {
   ${kvTable(spec.header)}
   ${body}
   ${photos}
-  <footer>Printed ${esc(fmtDateTime(new Date().toISOString()))} from the saved disaster log ${esc(spec.reference)} — OMAg Aringay Integrated Agricultural Monitoring System.</footer>
+  ${spec.signatures ? `<div class="sigs">${spec.signatures.map(label => `<div class="sig">${esc(label)}</div>`).join('')}</div>` : ''}
+  <footer>Printed ${esc(fmtDateTime(new Date().toISOString()))} from the saved ${esc(spec.footerLabel || 'disaster log')} ${esc(spec.reference)} — OMAg Aringay Integrated Agricultural Monitoring System.</footer>
 </body></html>`
 }
 

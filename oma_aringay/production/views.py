@@ -19,7 +19,7 @@ from accounts.permissions import (
 from core.constants import BARANGAY_CHOICES
 from core.locking import assert_not_locked_by_other
 from core.notifications import notify_staff, notify_user, resolve_owner_user
-from core.utils import accumulate_yield_group, filter_people_search, harvest_gate_status, is_plain_int, new_yield_group
+from core.utils import accumulate_yield_group, filter_people_search, is_plain_int, new_yield_group
 from associations.models import FarmersOrganizationMember
 from farmers.models import FarmParcel, Farmer
 from fisheries.models import Fisherfolk
@@ -132,9 +132,8 @@ class HarvestRecordCreateView(generics.CreateAPIView):
                     )
                 # date_planted is only an approximation for records imported
                 # from a registry timestamp (see the field's own comment) —
-                # the 50%-duration math below would be measuring against a
-                # made-up start date, so this blocks outright rather than
-                # gating by a duration that means nothing yet. Same pattern as
+                # how early or late a harvest is would be measured against a
+                # made-up start date, so this blocks outright. Same pattern as
                 # FishingTripLog.clean()'s block on an unclassified fisherfolk_type:
                 # the record needs a real confirmed value before this action
                 # is meaningful at all.
@@ -147,9 +146,8 @@ class HarvestRecordCreateView(generics.CreateAPIView):
                         )},
                         status=drf_status.HTTP_400_BAD_REQUEST,
                     )
-                is_gated, message = harvest_gate_status(record.date_planted, record.expected_harvest_date)
-                if is_gated:
-                    return Response({'detail': message}, status=drf_status.HTTP_400_BAD_REQUEST)
+                # No "half the growing time" block any more: a crop can be harvested early. HarvestRecordSerializer
+                # requires a reason when the harvest is more than 7 days before (or after) the expected date.
             except CropMonitoringRecord.DoesNotExist:
                 pass
             assert_not_locked_by_other(request.user, 'crop', monitoring_id)
