@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { AlertTriangle, CheckCircle2, FileSpreadsheet, Upload } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Download, FileSpreadsheet, Upload } from 'lucide-react'
 import api from '../api/axiosInstance.js'
 import Button from './UI/Button.jsx'
 import ModalShell from './UI/ModalShell.jsx'
@@ -9,6 +9,7 @@ import StepIndicator from './UI/StepIndicator.jsx'
 import RsbsaUndoPanel from './RsbsaUndoPanel.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { duplicateGroups, groupDecision, groupNeedsDecision } from '../utils/distributionHelpers.js'
+import { downloadFile } from '../utils/fileDownload.js'
 
 const STEPS = [
   { key: 'upload', label: 'Upload File' },
@@ -88,6 +89,19 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
   const [commitResult, setCommitResult] = useState(null)
   const [commitProgress, setCommitProgress] = useState(null)
   const [undoBatchId, setUndoBatchId] = useState(null)
+
+  const [isDownloading, setIsDownloading] = useState(false)
+
+  const handleDownloadTemplate = async () => {
+    setIsDownloading(true)
+    try {
+      await downloadFile(api, '/farmers/rsbsa-import/template/', 'rsbsa_registry_import_template.xlsx')
+    } catch {
+      showToast('Failed to download the template.', 'error')
+    } finally {
+      setIsDownloading(false)
+    }
+  }
 
   const handleFileChange = (e) => {
     const f = e.target.files?.[0] || null
@@ -339,12 +353,21 @@ export default function RsbsaImportModal({ onClose, onCommitted }) {
               isn't in the system yet — it matches rows to existing records by RSBSA number. Nothing is written
               here; the next screen only ever shows what would change, and you choose exactly which rows to commit.
             </p>
+            <button
+              type="button"
+              onClick={handleDownloadTemplate}
+              disabled={isDownloading}
+              className="mb-3 inline-flex items-center justify-center gap-1.5 rounded-lg text-[12.5px] font-medium text-[#1B4D2E] hover:underline disabled:opacity-50 max-sm:min-h-[44px] max-sm:w-full max-sm:border max-sm:border-[#C8D5C8] max-sm:bg-white"
+            >
+              <Download size={14} aria-hidden="true" />
+              {isDownloading ? 'Downloading…' : 'Download the Excel template'}
+            </button>
             <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#D8E2D8] bg-[#F9FAF9] px-6 py-8 text-center transition-colors hover:bg-[#F0F4F0]">
               <Upload size={22} className="text-[#7A8E7A]" aria-hidden="true" />
               <span className="text-[13px] font-medium text-[#1A2B1A]">
                 {file ? file.name : 'Click to choose a .csv, .xlsx, or .xls file'}
               </span>
-              <span className="text-[11px] text-[#7A8E7A]">The real RSBSA/BFAR export format (.csv) or the older .xlsx/.xls shape</span>
+              <span className="text-[11px] text-[#7A8E7A]">Paste the export rows under the template's header row, or upload the real RSBSA/BFAR export (.csv) as it is</span>
               <input type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleFileChange} />
             </label>
           </div>

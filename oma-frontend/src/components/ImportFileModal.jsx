@@ -161,7 +161,7 @@ export default function ImportFileModal({
               <span className="text-[13px] font-medium text-[#1A2B1A]">
                 <span className="break-all">{file ? file.name : 'Click to choose a .xlsx, .xls, or .csv file'}</span>
               </span>
-              <span className="text-[11px] text-[#7A8E7A]">Fill it in starting row 3, using the same columns as the template</span>
+              <span className="text-[11px] text-[#7A8E7A]">Fill it in under the header row, using the same columns as the template</span>
               <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleFileChange} />
             </label>
           </div>

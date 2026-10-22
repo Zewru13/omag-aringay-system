@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .parcel_import import FarmParcelImportView, ParcelCropsParseView, ParcelCropsTemplateView, ParcelImportTemplateView
+from .rsbsa_template import RsbsaImportTemplateView
 from .rsbsa_import_undo import RsbsaImportBatchListView, RsbsaImportUndoView
 from .rsbsa_import_views import RsbsaUpdateImportCommitView, RsbsaUpdateImportPreviewView
 from .views import (
@@ -29,6 +30,7 @@ urlpatterns = [
     path('parcel-crops/parse/', ParcelCropsParseView.as_view(), name='farm-parcel-crops-parse'),
     path('parcels/directory/', FarmParcelDirectoryView.as_view(), name='farm-parcels-directory'),
     path('me/parcels/', MyFarmParcelListView.as_view(), name='farm-parcels-mine'),
+    path('rsbsa-import/template/', RsbsaImportTemplateView.as_view(), name='rsbsa-import-template'),
     path('rsbsa-import/preview/', RsbsaUpdateImportPreviewView.as_view(), name='rsbsa-import-preview'),
     path('rsbsa-import/commit/', RsbsaUpdateImportCommitView.as_view(), name='rsbsa-import-commit'),
     path('rsbsa-import/batches/', RsbsaImportBatchListView.as_view(), name='rsbsa-import-batches'),
