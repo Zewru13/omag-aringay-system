@@ -1,8 +1,6 @@
 import { LogOut } from 'lucide-react'
-import { Navigate } from 'react-router-dom'
 import logo from '../../assets/LOGO OMAg.jpg'
 import { useAuth } from '../../context/AuthContext.jsx'
-import useIsPhone from '../../hooks/useIsPhone.js'
 import FisherfolkPhoneHome from './FisherfolkPhoneHome.jsx'
 import { FARMERS_ORG_DOMAIN, FISHERFOLK_ORG_DOMAIN } from './orgDomainConfig.js'
 import FarmerPhoneHome from './FarmerPhoneHome.jsx'
@@ -22,7 +20,6 @@ const RECORD_TYPE_LABELS_LOWER = labels.home.recordTypeLabels
 
 export default function CitizenHomePage() {
   const { user, logout } = useAuth()
-  const isPhone = useIsPhone()
   const record = user?.linked_record
   const recordType = user?.linked_record_type
   const isFarmersOrg = recordType === 'FARMERS_ORG'
@@ -31,23 +28,13 @@ export default function CitizenHomePage() {
   const isFisherfolk = recordType === 'FISHERFOLK'
   const orgDomain = isFarmersOrg ? FARMERS_ORG_DOMAIN : isFisherfolkOrg ? FISHERFOLK_ORG_DOMAIN : null
 
-  // Farmer, Fisherfolk and Organization accounts use the Admin pages for their own records (see below).
-  // Farmer accounts use the Admin crop pages (backend-scoped to their own records). On a phone they land on a Home
-  // inside the phone shell (see CitizenPhoneShell); on a larger screen they go straight to Crop Monitoring.
-  if (isFarmer && record) {
-    return isPhone ? <FarmerPhoneHome /> : <Navigate to="/crop-monitoring" replace />
-  }
-  // Fisherfolk accounts use the Admin Fisheries pages (backend-scoped to their own records). On a phone they
-  // land on a farmer-style Home inside the phone shell (see CitizenPhoneShell); on a larger screen they go
-  // straight to Fisheries Monitoring. The older stocking-log portal is no longer their entry point.
-  if (isFisherfolk && record) {
-    return isPhone ? <FisherfolkPhoneHome /> : <Navigate to="/fisheries-monitoring" replace />
-  }
-  // Organization accounts use the Admin pages for their own organization. On a phone they land on a Home inside
-  // the phone shell (see CitizenPhoneShell); on a larger screen they go straight to My Organization.
-  if (orgDomain && record) {
-    return isPhone ? <OrgPhoneHome /> : <Navigate to="/my-organization" replace />
-  }
+  // Farmer, Fisherfolk and Organization accounts land on a Home dashboard (summary tiles and charts) built from
+  // their own records; the backend limits every list it reads to this account. On a phone it sits inside the phone
+  // shell (see CitizenPhoneShell), on a larger screen inside the sidebar layout, and the Home entry in the menu
+  // brings them back to it. The pages they work in (monitoring, disaster, assistance) are one tap away.
+  if (isFarmer && record) return <FarmerPhoneHome />
+  if (isFisherfolk && record) return <FisherfolkPhoneHome />
+  if (orgDomain && record) return <OrgPhoneHome />
 
   // Fallback only: a CITIZEN whose account has no linked record at all, and
   // any role that somehow reaches this route. Kept deliberately plain —
