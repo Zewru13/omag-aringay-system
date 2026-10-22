@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Clock, Fish } from 'lucide-react'
+import { AlertTriangle, BarChart2, CloudLightning, Clock, Fish } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import WelcomeBand from '../../components/dashboard/WelcomeBand.jsx'
+import { useAuth } from '../../context/AuthContext.jsx'
 import { DonutCard, HarvestBarsCard } from './HomeChartCards.jsx'
 import fetchAllPages from './fetchAllPages.js'
 import { disasterSlices, harvestBars, statusSlices } from './homeCharts.js'
@@ -25,7 +27,7 @@ function formatDate(v) {
 
 function StatTile({ value, label }) {
   return (
-    <div className="rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface px-[15px] py-[16px]">
+    <div className="rounded-[12px] border-[0.5px] border-cz-fish-300 bg-cz-fish-pale px-[15px] py-[16px]">
       <p className="text-[22px] font-bold leading-[1.15] text-cz-fish-header">{value}</p>
       <p className="mt-2.5 text-[11.5px] text-cz-text-2">{label}</p>
     </div>
@@ -98,6 +100,7 @@ function CycleCard({ rec, onOpen, onDisaster }) {
 
 export default function FisherfolkPhoneHome() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const { showToast } = useToast()
   const [isLoading, setIsLoading] = useState(true)
   const [active, setActive] = useState([])
@@ -138,6 +141,12 @@ export default function FisherfolkPhoneHome() {
 
   return (
     <PageLayout title="Home">
+      <WelcomeBand
+        className="mb-3"
+        theme="fisheries"
+        title={user?.linked_record?.label ? `Welcome, ${user.linked_record.label}` : 'Welcome'}
+        subtitle={`Fisherfolk account · ${new Date().toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}`}
+      />
       {isLoading ? (
         <p className="text-[15px] italic text-cz-text-2">Loading your production cycles…</p>
       ) : (
@@ -150,8 +159,9 @@ export default function FisherfolkPhoneHome() {
           </div>
 
           <div className="grid gap-3 lg:grid-cols-3">
-            <DonutCard title="My cycles by stage" slices={statusSlices(stocks)} unit="cycles" emptyText="No production cycles to chart yet." />
+            <DonutCard icon={Fish} accent="#155E82" title="My cycles by stage" slices={statusSlices(stocks)} unit="cycles" emptyText="No production cycles to chart yet." />
             <HarvestBarsCard
+              icon={BarChart2}
               title="Harvest vs estimate"
               hint="Latest harvested cycles, in kg"
               bars={harvestBars(stocks.filter((r) => r.status === 'Harvested'), {
@@ -160,7 +170,7 @@ export default function FisherfolkPhoneHome() {
               color="#155E82"
               emptyText="Harvest results appear here once a cycle is harvested."
             />
-            <DonutCard title="Disasters by type" slices={disasterSlices(disasters)} unit="reports" emptyText="You have not logged any disasters." />
+            <DonutCard icon={CloudLightning} accent="#B4531B" title="Disasters by type" slices={disasterSlices(disasters)} unit="reports" emptyText="You have not logged any disasters." />
           </div>
 
           {needsAttention.length > 0 && (

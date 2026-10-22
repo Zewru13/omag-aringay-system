@@ -52,6 +52,7 @@ export default function DisasterTrendsCard() {
       testId="disaster-trends-card"
       title="Disaster Reports Over Time"
       icon={CloudLightning}
+      tone="disaster"
       subtitle={problem ? 'Choose a range of months.' : rangeTitle(from, to)}
       right={(
         <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:items-center sm:gap-x-3">

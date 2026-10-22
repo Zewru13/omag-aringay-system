@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, ClipboardCheck, Fish, MapPin, PackageX, Sprout, Wheat } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import HarvestComparisonCard from '../../components/dashboard/HarvestComparisonCard.jsx'
+import WelcomeBand from '../../components/dashboard/WelcomeBand.jsx'
 import { approvalLines, hasApproved } from '../../utils/approvalStatus.js'
 import DashPanel from './DashPanel.jsx'
 import DisasterTrendsCard from './DisasterTrendsCard.jsx'
@@ -34,16 +35,19 @@ const LG_FLOW = 'lg:order-none'
 // Sector card: a compact panel with two figures side by side.
 function SectorCard({ tone, icon, title, primaryLabel, primaryValue, primaryNote,
                       secondaryLabel, secondaryValue, secondaryNote, isLoading }) {
-  const accent = tone === 'crop' ? 'text-primary' : 'text-[color:var(--color-semantic-info)]'
-  const figure = (label, value, note, highlight) => (
+  const value = tone === 'crop' ? 'text-[#2D7A4F]' : 'text-[#275E63]'
+  const pill = tone === 'crop' ? 'bg-[#E7F5EC] text-[#2D7A4F]' : 'bg-[#DCEEF0] text-[#275E63]'
+  const figure = (label, amount, note, highlight) => (
     <div className="min-w-0 px-4 py-3 md:px-5">
       <p className="text-[11px] font-semibold uppercase leading-tight tracking-[0.05em] text-text-muted">{label}</p>
-      <p className="mt-1 text-[26px] font-bold leading-none tabular-nums text-text-primary">{isLoading ? '—' : num(value)}</p>
-      <p className={`mt-1.5 text-[12px] ${highlight ? accent : 'text-text-muted'}`}>{note || ' '}</p>
+      <p className={`mt-1 text-[26px] font-bold leading-none tabular-nums ${value}`}>{isLoading ? '—' : num(amount)}</p>
+      <p className="mt-1.5 text-[12px] text-text-muted">
+        {highlight && note ? <span className={`inline-block rounded-full px-2 py-0.5 text-[11.5px] font-semibold ${pill}`}>{note}</span> : (note || ' ')}
+      </p>
     </div>
   )
   return (
-    <DashPanel title={title} icon={icon} tone={tone}>
+    <DashPanel title={title} icon={icon} tone={tone} headClassName="min-h-[72px] sm:min-h-[56px]">
       <div className="grid flex-1 grid-cols-1 divide-y divide-border sm:grid-cols-2 sm:divide-x sm:divide-y-0">
         {figure(primaryLabel, primaryValue, primaryNote, primaryNote?.startsWith('+'))}
         {figure(secondaryLabel, secondaryValue, secondaryNote, false)}
@@ -134,10 +138,7 @@ export default function StaffDashboard({ user }) {
   return (
     <div className="flex flex-col gap-4 lg:gap-5">
       {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div className="min-w-0">
-        <h1 className="text-[20px] font-bold leading-tight text-text-primary md:text-[24px]">What needs attention today</h1>
-        <p className="mt-1 text-[12.5px] text-text-muted md:text-[13px]">{today} · {roleLabel} · Aringay, La Union</p>
-      </div>
+      <WelcomeBand title="What needs attention today" subtitle={`${today} · ${roleLabel} · Aringay, La Union`} theme="staff" />
 
       {/* ── Sector cards ────────────────────────────────────────────────── */}
       <div className={`grid grid-cols-2 gap-3 lg:gap-5 ${PHONE_ORDER.sectors} ${LG_FLOW}`}>
@@ -177,7 +178,7 @@ export default function StaffDashboard({ user }) {
 
       {/* ── Needs attention (and follow-up, when there are cases) ─────── */}
       <div className={`${(followUp.total || 0) > 0 ? ROW : 'grid grid-cols-1 gap-4'} ${PHONE_ORDER.attention} ${LG_FLOW}`}>
-        <DashPanel title="Needs Attention — Activity Overdue" icon={AlertTriangle} tone="critical" subtitle="Crop and fisheries monitoring">
+        <DashPanel title="Needs Attention — Activity Overdue" icon={AlertTriangle} tone="warn" subtitle="Crop and fisheries monitoring">
           <div className="grid flex-1 grid-cols-1 divide-y divide-border md:grid-cols-2 md:divide-x md:divide-y-0">
             <MonitoringBlock
               tone="crop" icon={Sprout} title="Crop Monitoring" data={board?.crop} isLoading={isLoading}
@@ -191,7 +192,7 @@ export default function StaffDashboard({ user }) {
         </DashPanel>
 
         {(followUp.total || 0) > 0 && (
-          <DashPanel title="Needs Follow-up — Assistance Not Received" icon={PackageX} tone="critical" subtitle="Crop and fisheries assistance">
+          <DashPanel title="Needs Follow-up — Assistance Not Received" icon={PackageX} tone="warn" subtitle="Crop and fisheries assistance">
             <div className="grid flex-1 grid-cols-1 divide-y divide-border md:grid-cols-2 md:divide-x md:divide-y-0">
               {[
                 { key: 'crop', tone: 'crop', Icon: Sprout, title: 'Crop', value: followUp.crop, label: 'Review crop cases →', to: '/crop-assistance?tab=needs-follow-up' },

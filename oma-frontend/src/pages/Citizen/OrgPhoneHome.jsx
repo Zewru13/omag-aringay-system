@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Building2, ClipboardCheck, HandHeart, HandHelping, Package, UserCog, Users } from 'lucide-react'
+import { BarChart2, Building2, ClipboardCheck, HandHeart, HandHelping, Package, UserCog, Users } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import WelcomeBand from '../../components/dashboard/WelcomeBand.jsx'
 import { DonutCard, MonthlyBarsCard } from './HomeChartCards.jsx'
 import { assistanceTypeSlices, memberSlices, monthlyCounts } from './homeCharts.js'
 import { FARMERS_ORG_DOMAIN, FISHERFOLK_ORG_DOMAIN } from './orgDomainConfig.js'
@@ -79,20 +80,27 @@ export default function OrgPhoneHome() {
 
   return (
     <PageLayout title="Home">
+      <WelcomeBand
+        className="mb-3"
+        theme={isFisherfolkOrg ? 'fisheries' : 'crop'}
+        title={user?.linked_record?.label ? `Welcome, ${user.linked_record.label}` : 'Welcome'}
+        subtitle={`${isFisherfolkOrg ? 'Fisherfolk' : 'Farmers'} organization account · ${new Date().toLocaleDateString('en-PH', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}`}
+      />
       {isLoading ? (
         <p className="text-[15px] italic text-cz-text-2">Loading your organization…</p>
       ) : (
         <div className="space-y-3">
           <div className="grid gap-3 lg:grid-cols-3">
-            <DonutCard title="Members" slices={memberSlices(members, (m) => domain.rowIsActive(m))} unit="members" emptyText="No members to chart yet." />
+            <DonutCard icon={Users} accent={chartColor} title="Members" slices={memberSlices(members, (m) => domain.rowIsActive(m))} unit="members" emptyText="No members to chart yet." />
             <MonthlyBarsCard
+              icon={BarChart2}
               title={`Assistance reported in ${thisYear}`}
               hint="Records per month"
               months={monthlyCounts(history, (r) => r.date_given, thisYear)}
               color={chartColor}
               emptyText="No assistance reported this year yet."
             />
-            <DonutCard title="Assistance by type" slices={assistanceTypeSlices(history)} unit="records" emptyText="No assistance reported yet." />
+            <DonutCard icon={HandHeart} accent="#B4531B" title="Assistance by type" slices={assistanceTypeSlices(history)} unit="records" emptyText="No assistance reported yet." />
           </div>
 
           {needConfirmation > 0 && (
