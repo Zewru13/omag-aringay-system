@@ -1,11 +1,8 @@
 from django.urls import path
 
 from .views import (
-    OrganizationListReport,
     BarangayCropSummaryReport,
-    BeneficiaryConfirmationReport,
     CropHistoricalReport,
-    CropOptionsReport,
     DamageReportsExport,
     FarmVisitReport,
     FarmerCropHistoryReport,
@@ -16,7 +13,6 @@ from .views import (
     FisheriesYieldAnalysisReport,
     FisherfolkMasterlistReport,
     FisherfolkProfileReport,
-    FisherfolkStockingHistoryReport,
     HarvestProductionReport,
     HarvestedCropReport,
     PlantingRecordsReport,
@@ -24,9 +20,14 @@ from .views import (
     SeasonalVarianceReport,
     YieldAnalysisReport,
 )
+from .disasters import CropDisasterReportsReport, FisheriesDisasterReportsReport
+from .registered import RegisteredRecordsReport
 
 
 urlpatterns = [
+    path('registered/', RegisteredRecordsReport.as_view(), name='report-registered'),
+    path('disasters/fisheries/', FisheriesDisasterReportsReport.as_view(), name='report-disasters-fisheries'),
+    path('disasters/crops/', CropDisasterReportsReport.as_view(), name='report-disasters-crops'),
     path('farmers/masterlist/', FarmerMasterlistReport.as_view(), name='report-farmer-masterlist'),
     path('farmers/<int:farmer_id>/profile/', FarmerProfileReport.as_view(), name='report-farmer-profile'),
     path('fisheries/<int:fisherfolk_id>/profile/', FisherfolkProfileReport.as_view(), name='report-fisherfolk-profile'),
@@ -36,7 +37,6 @@ urlpatterns = [
     path('production/barangay-crop-summary/', BarangayCropSummaryReport.as_view(), name='report-barangay-crop-summary'),
     path('production/crop-history/', CropHistoricalReport.as_view(), name='report-crop-history'),
     path('farmer-crop-history/', FarmerCropHistoryReport.as_view(), name='report-farmer-crop-history'),
-    path('fisherfolk-stocking-history/', FisherfolkStockingHistoryReport.as_view(), name='report-fisherfolk-stocking-history'),
     path('yield-analysis/', YieldAnalysisReport.as_view(), name='report-yield-analysis'),
     path('fisheries-yield-analysis/', FisheriesYieldAnalysisReport.as_view(), name='report-fisheries-yield-analysis'),
     path(
@@ -49,8 +49,5 @@ urlpatterns = [
     path('monitoring/seasonal-catch/', SeasonalCatchReport.as_view(), name='report-seasonal-catch'),
     path('monitoring/catch-summary/', FisheriesCatchSummaryReport.as_view(), name='report-catch-summary'),
     path('production/harvested-crop/', HarvestedCropReport.as_view(), name='report-harvested-crop'),
-    path('organizations/list/', OrganizationListReport.as_view(), name='report-organization-list'),
-    path('production/crop-options/', CropOptionsReport.as_view(), name='report-crop-options'),
     path('fisheries/production/', FisheriesProductionReport.as_view(), name='report-fisheries-production'),
-    path('beneficiary-confirmations/', BeneficiaryConfirmationReport.as_view(), name='report-beneficiary-confirmations'),
 ]

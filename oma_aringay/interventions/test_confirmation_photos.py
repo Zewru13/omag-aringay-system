@@ -296,11 +296,3 @@ class ConfirmationPhotoTests(APITestCase):
         self.client.force_authenticate(self.staff)
         rows = self.client.get('/api/interventions/beneficiary-confirmation-requests/').json()
         self.assertEqual(len(rows[0]['photo_urls']), 2)
-
-    def test_report_counts_a_request_with_only_photo_rows(self):
-        self.client.force_authenticate(self.farm_org_user)
-        self.on_behalf(self.farmer_url(self.awaiting_farmer_record(self.lonely_farmer)), [('photos', png('a.png')), ('photos', png('b.png'))])
-        self.client.force_authenticate(self.staff)
-        report = self.client.get('/api/reports/beneficiary-confirmations/?format=json').json()
-        self.assertTrue(report['records'][0]['has_photo'])
-        self.assertEqual(report['summary']['with_photo'], 1)

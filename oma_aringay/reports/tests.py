@@ -6,6 +6,7 @@ from datetime import date
 
 import openpyxl
 from django.contrib.auth import get_user_model
+from django.urls import Resolver404, resolve
 from rest_framework.test import APITestCase
 
 from associations.models import FarmersOrganization
@@ -101,3 +102,21 @@ class ParcellessProductionReportTests(APITestCase):
         header = next(i for i, row in enumerate(rows) if 'Barangay' in row)
         body = [row for row in rows[header + 1:] if any(row)]
         self.assertEqual([dict(zip(rows[header], row))['Barangay'] for row in body], ['Samara'])
+
+
+class RemovedReportRoutesTests(APITestCase):
+    """The Reports page now offers only the six agreed reports; the report endpoints that only the removed tabs used are gone,
+    and the ones other pages still use (and the two kept reports) are still routed. Checked by resolving the URLs, so no request
+    is made."""
+
+    def test_the_endpoints_of_the_removed_reports_are_gone(self):
+        for url in ('/api/reports/organizations/list/', '/api/reports/production/crop-options/',
+                    '/api/reports/fisherfolk-stocking-history/', '/api/reports/beneficiary-confirmations/'):
+            with self.assertRaises(Resolver404, msg=url):
+                resolve(url)
+
+    def test_the_kept_reports_and_the_ones_other_pages_use_are_still_routed(self):
+        for url in ('/api/reports/production/harvested-crop/', '/api/reports/fisheries/production/',
+                    '/api/reports/farmer-crop-history/', '/api/reports/farmers/masterlist/', '/api/reports/fisheries/masterlist/',
+                    '/api/reports/farmers/1/profile/', '/api/reports/fisheries/1/profile/'):
+            self.assertIsNotNone(resolve(url), url)
