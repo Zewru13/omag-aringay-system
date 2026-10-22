@@ -1,7 +1,7 @@
 """
 One-time (but safely repeatable) data correction for CropMonitoringRecord
 rows created by the crop-record importer (production.crop_record_import_views
-._create_crop_record) BEFORE commit 6b049ae added that function's
+._create_crop_record, since removed) BEFORE commit 6b049ae added that function's
 retroactive-Harvested check. That check only ever runs at the moment a row
 is created — it has no way to reach back and correct rows that already
 existed when it was added, so any such row is stuck at "Planted" forever
@@ -28,8 +28,15 @@ from datetime import date
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from production.crop_record_import_views import SYSTEM_HARVEST_NOTE
 from production.models import CropMonitoringRecord
+
+# The note the (since removed) crop-record file import wrote on the rows it marked Harvested itself. Bracketed so it reads as
+# machine-generated and never as a real staff remark.
+SYSTEM_HARVEST_NOTE = (
+    "[SYSTEM-GENERATED — IMPORT] Automatically marked Harvested: estimated "
+    "planting date exceeds this crop's expected growth duration. No real "
+    "harvest record exists for this cycle — reflects imported registry data only."
+)
 
 
 class Command(BaseCommand):

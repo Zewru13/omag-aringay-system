@@ -17,8 +17,6 @@ from production.models import CropType
 RSBSA = '01-033-02-019-960001'
 PREVIEW = '/api/farmers/rsbsa-import/preview/'
 COMMIT = '/api/farmers/rsbsa-import/commit/'
-CROP_PREVIEW = '/api/production/crop-record-import/preview/'
-CROP_COMMIT = '/api/production/crop-record-import/commit/'
 
 
 def workbook(rows):
@@ -77,21 +75,6 @@ class NoDualRegistrationTests(APITestCase):
         r = self.client.post(COMMIT, {'rows': [{
             'row_number': 2, 'status': 'classification_mismatch', 'rsbsa_number': RSBSA,
             'create_domain': 'FARMER', 'create_incoming_values': {'first_name': 'X'}}]}, format='json')
-        self.assertEqual(r.status_code, 400, r.content)
-        self.assertFalse(Farmer.objects.filter(rsbsa_number=RSBSA).exists())
-
-    # ── crop-record import ───────────────────────────────────────────────
-    def test_a_crop_row_for_a_fisherfolks_number_is_invalid(self):
-        r = self.client.post(CROP_PREVIEW, {'file': workbook([registry_row(RSBSA)])}, format='multipart')
-        self.assertEqual(r.status_code, 200, r.content)
-        data = r.json()
-        row = data['rows'][0]
-        self.assertEqual((row['status'], row['hold_back_reason']), ('invalid', 'rsbsa_in_other_registry'))
-        self.assertIn('Fisherfolk', row['detail'])
-        self.assertNotIn('dual_citizen', data['summary'])
-
-    def test_the_crop_commit_refuses_a_dual_citizen_row(self):
-        r = self.client.post(CROP_COMMIT, {'rows': [{'row_number': 2, 'status': 'dual_citizen', 'rsbsa_number': RSBSA}]}, format='json')
         self.assertEqual(r.status_code, 400, r.content)
         self.assertFalse(Farmer.objects.filter(rsbsa_number=RSBSA).exists())
 

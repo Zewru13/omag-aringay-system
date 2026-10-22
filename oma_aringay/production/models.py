@@ -351,7 +351,7 @@ class CropMonitoringRecord(PcicInsurance):
     season = models.CharField(max_length=10, choices=[('Dry', 'Dry'), ('Wet', 'Wet')])
     year = models.PositiveIntegerField()
     date_planted = models.DateField()
-    # Batch: set only by the crop-record import (production/crop_record_import.py),
+    # Batch: set only by the crop-record file import (since removed),
     # which has no real planting date to work with — its source files (the RSBSA/
     # BFAR registry export) carry only a record-registration timestamp
     # (date_created), used here as the closest available approximation. False by

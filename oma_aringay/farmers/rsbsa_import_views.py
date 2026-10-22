@@ -332,8 +332,8 @@ class RsbsaUpdateImportPreviewView(APIView):
         # re-fetches the record, so it always sees "changed since this
         # preview was generated" even though nothing external touched it;
         # the row's own sibling in the same batch did. Rows after the first
-        # occurrence are flagged duplicate_in_file (same pattern
-        # CropRecordImportPreviewView already uses); staff may commit any ONE
+        # occurrence are flagged duplicate_in_file (the same pattern the
+        # other import previews use); staff may commit any ONE
         # row per RSBSA number — the modal deselects the others and the
         # commit view refuses a batch containing two — so this
         # self-collision still can't happen.
