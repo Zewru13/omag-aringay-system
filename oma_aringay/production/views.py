@@ -1,14 +1,16 @@
+import json
 from collections import defaultdict
 from datetime import timedelta
 from decimal import Decimal
 from io import BytesIO
 
+from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import Avg, Case, CharField, Count, Exists, F, IntegerField, OuterRef, Prefetch, Q, Sum, Value, When
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import generics, status as drf_status
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -16,12 +18,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.permissions import (
-    IsAdmin, IsAdminOrEvaluator, IsStaffOrFarmer, IsStaffOrFarmerReadOnly, IsStaffOrOwnRecordCitizen, scope_to_farmer,
+    IsAdmin, IsAdminOrEvaluator, IsStaffOrFarmer, IsStaffOrFarmerReadOnly, IsStaffOrOwnRecordCitizen, STAFF_ROLES,
+    farmer_scope, scope_to_farmer,
 )
 from core.constants import BARANGAY_CHOICES
 from core.locking import assert_not_locked_by_other
 from core.notifications import notify_staff, notify_user, resolve_owner_user
-from core.utils import accumulate_yield_group, filter_people_search, harvest_gate_status, is_plain_int, new_yield_group
+from core.utils import accumulate_yield_group, filter_people_search, is_plain_int, new_yield_group
 from associations.models import FarmersOrganizationMember
 from farmers.models import FarmParcel, Farmer
 from fisheries.models import Fisherfolk
@@ -134,9 +137,8 @@ class HarvestRecordCreateView(generics.CreateAPIView):
                     )
                 # date_planted is only an approximation for records imported
                 # from a registry timestamp (see the field's own comment) —
-                # the 50%-duration math below would be measuring against a
-                # made-up start date, so this blocks outright rather than
-                # gating by a duration that means nothing yet. Same pattern as
+                # how early or late a harvest is would be measured against a
+                # made-up start date, so this blocks outright. Same pattern as
                 # FishingTripLog.clean()'s block on an unclassified fisherfolk_type:
                 # the record needs a real confirmed value before this action
                 # is meaningful at all.
@@ -149,9 +151,8 @@ class HarvestRecordCreateView(generics.CreateAPIView):
                         )},
                         status=drf_status.HTTP_400_BAD_REQUEST,
                     )
-                is_gated, message = harvest_gate_status(record.date_planted, record.expected_harvest_date)
-                if is_gated:
-                    return Response({'detail': message}, status=drf_status.HTTP_400_BAD_REQUEST)
+                # No "half the growing time" block any more: a crop can be harvested early. HarvestRecordSerializer
+                # requires a reason when the harvest is more than 7 days before (or after) the expected date.
             except CropMonitoringRecord.DoesNotExist:
                 pass
             assert_not_locked_by_other(request.user, 'crop', monitoring_id)
@@ -1634,27 +1635,126 @@ class CropDisasterReportListCreateView(generics.ListCreateAPIView):
             monitoring_record_id=monitoring_id,
             reported_by=self.request.user,
         )
-        notify_staff(
-            actor=self.request.user,
+        _notify_crop_disaster(self.request.user, monitoring, disaster)
+
+
+def _notify_crop_disaster(user, monitoring, disaster):
+    """Tell the staff (and, when staff logged it, the crop's owner) that a disaster was reported on this crop."""
+    notify_staff(
+        actor=user,
+        verb='reported a disaster on',
+        record_type='crop',
+        record_id=monitoring.id,
+        record_label=_crop_record_label(monitoring),
+        detail=disaster.disaster_type,
+    )
+    if user.role != 'CITIZEN':
+        notify_user(
+            recipient=resolve_owner_user(
+                farmer_id=monitoring.farmer_id,
+                farmers_organization_id=monitoring.farmers_organization_id,
+            ),
+            actor=user,
             verb='reported a disaster on',
             record_type='crop',
-            record_id=monitoring_id,
+            record_id=monitoring.id,
             record_label=_crop_record_label(monitoring),
             detail=disaster.disaster_type,
         )
-        if self.request.user.role != 'CITIZEN':
-            notify_user(
-                recipient=resolve_owner_user(
-                    farmer_id=monitoring.farmer_id,
-                    farmers_organization_id=monitoring.farmers_organization_id,
-                ),
-                actor=self.request.user,
-                verb='reported a disaster on',
-                record_type='crop',
-                record_id=monitoring_id,
-                record_label=_crop_record_label(monitoring),
-                detail=disaster.disaster_type,
-            )
+
+
+MAX_MULTI_DISASTER_CROPS = 50
+
+
+class CropDisasterReportMultiCreateView(APIView):
+    """One disaster event on several of ONE farmer's crops, logged in a single request.
+
+    Body (JSON, or multipart when there are photos - then `crops` is a JSON string): the shared fields of the single-crop
+    form (disaster_type, disaster_type_other_specify, date_of_occurrence, estimated_damage, production_loss, severity,
+    photos) and `crops`: [{monitoring_record, area_affected_ha, is_total_loss}, ...]. It creates one CropDisasterReport
+    per crop, each validated exactly like the single-crop endpoint and each with its own copy of the photos, so every
+    report keeps its own recovery, Total Loss and photos. All or nothing: one problem saves nothing.
+
+    Staff may log for any farmer's crops; a farmer account only for its own; nobody else.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if not hasattr(request.data, 'items'):
+            raise ValidationError({'detail': 'Send the report as a form or a JSON object.'})
+        items = request.data.get('crops')
+        if isinstance(items, str):
+            try:
+                items = json.loads(items)
+            except ValueError:
+                raise ValidationError({'crops': 'The list of crops could not be read.'})
+        if not isinstance(items, list) or not items:
+            raise ValidationError({'crops': 'Choose at least one crop.'})
+        if len(items) > MAX_MULTI_DISASTER_CROPS:
+            raise ValidationError({'crops': f'At most {MAX_MULTI_DISASTER_CROPS} crops can be logged at once.'})
+        try:
+            ids = [int(item['monitoring_record']) for item in items]
+        except (TypeError, KeyError, ValueError):
+            raise ValidationError({'crops': 'Each crop needs its record id.'})
+        if len(set(ids)) != len(ids):
+            raise ValidationError({'crops': 'The same crop is listed twice.'})
+
+        records = {
+            r.id: r for r in CropMonitoringRecord.objects.select_related('crop_type', 'farmer', 'farmers_organization').filter(pk__in=ids)
+        }
+        if len(records) != len(ids):
+            raise ValidationError({'crops': 'One of the crops could not be found.'})
+        owners = {r.farmer_id for r in records.values()}
+        if len(owners) != 1 or None in owners:
+            raise ValidationError({'crops': 'All the crops must belong to the same farmer.'})
+        farmer_id = owners.pop()
+        user = request.user
+        if user.role not in STAFF_ROLES and farmer_scope(user) != farmer_id:
+            raise PermissionDenied('You can only report a disaster on your own crops.')
+
+        photos = validated_photos(request, 'photos', legacy_field='photo', limit=CropDisasterReportPhoto.MAX_PER_PARENT)
+        contents = [(f.name, f.read()) for f in photos]
+        if hasattr(request.data, 'getlist'):   # multipart: one value per field, photo files excluded
+            shared = {k: request.data.get(k) for k in request.data.keys() if k not in ('photos', 'photo', 'crops')}
+        else:
+            shared = {k: v for k, v in request.data.items() if k not in ('photos', 'photo', 'crops')}
+
+        validated, errors = [], []
+        for item in items:
+            record = records[int(item['monitoring_record'])]
+            fields = {**shared, 'area_affected_ha': item.get('area_affected_ha'), 'is_total_loss': bool(item.get('is_total_loss', False))}
+            serializer = CropDisasterReportSerializer(data=fields, context={'request': request, 'monitoring_record': record})
+            if serializer.is_valid():
+                validated.append((record, serializer))
+            else:
+                errors.append({'monitoring_record': record.id, 'errors': serializer.errors})
+        if errors:
+            first = errors[0]
+            problem = next(iter(first['errors'].values()))
+            message = problem[0] if isinstance(problem, (list, tuple)) and problem else str(problem)
+            return Response({
+                'detail': f"{_crop_record_label(records[first['monitoring_record']])}: {message}",
+                'errors': errors,
+            }, status=drf_status.HTTP_400_BAD_REQUEST)
+
+        written, report_ids = [], []
+        try:
+            with transaction.atomic():
+                for record, serializer in validated:
+                    assert_not_locked_by_other(user, 'crop', record.id)
+                    report = serializer.save(monitoring_record=record, reported_by=user)
+                    for name, blob in contents:
+                        row = CropDisasterReportPhoto.objects.create(
+                            disaster_report=report, image=ContentFile(blob, name=name), uploaded_by=user)
+                        written.append(row.image.name)
+                    _notify_crop_disaster(user, record, report)
+                    report_ids.append(report.pk)
+                created = CropDisasterReport.objects.prefetch_related('photos').filter(pk__in=report_ids).order_by('id')
+                response_data = CropDisasterReportSerializer(created, many=True, context={'request': request}).data
+        except Exception:
+            discard_uploaded_files(written)
+            raise
+        return Response(response_data, status=drf_status.HTTP_201_CREATED)
 
 
 class CropDisasterResolveView(APIView):

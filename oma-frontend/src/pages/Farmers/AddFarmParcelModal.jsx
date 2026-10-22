@@ -39,6 +39,9 @@ const PARCEL_NUMBER_PARTS = [
 // only the format (not a confirmed fixed prefix) is known, this stays a
 // plain validated text field rather than a segmented input.
 const TAX_DECLARATION_RE = /^\d{2}-\d{3}-\d{5}-\d{4}-\d{4}$/
+// Typed as digits with the dashes added for you, and stopped at 18 digits.
+const TAX_DECLARATION_GROUPS = [2, 3, 5, 4]
+const TAX_DECLARATION_DIGITS = 18
 // Mirrors core.validators.RSBSA_PATTERNS/validate_rsbsa exactly — the land
 // owner (Tenant/Lessee parcels) is a different person from the farmer, so
 // this can't reuse SegmentedIdInput's fixed-prefix-plus-own-barangay-code
@@ -256,11 +259,11 @@ function ParcelSection({ parcel, index, total, onUpdate, onRemove }) {
               </div>
               <div>
                 <label className={labelCls}>Tax Dec Number</label>
-                <input className={baseInputClasses} value={parcel.tax_declaration_number}
-                  placeholder="01-002-00005-2023-0142"
-                  onChange={e => set('tax_declaration_number', e.target.value)} />
+                <IdNumberInput groups={TAX_DECLARATION_GROUPS} maxDigits={TAX_DECLARATION_DIGITS}
+                  value={parcel.tax_declaration_number} placeholder="01-002-00005-2023-0142"
+                  onChange={v => set('tax_declaration_number', v)} />
                 {parcel.tax_declaration_number && !TAX_DECLARATION_RE.test(parcel.tax_declaration_number) ? (
-                  <p className="mt-1 text-[11px] text-rose-500">Format: RR-MMM-BBBBB-YYYY-NNNN, e.g. 01-002-00005-2023-0142.</p>
+                  <p className="mt-1 text-[11px] text-rose-500">Needs all 18 digits: RR-MMM-BBBBB-YYYY-NNNN, e.g. 01-002-00005-2023-0142.</p>
                 ) : (
                   <p className="mt-1 text-[11px] text-[#A8BCA8]">Optional — but Parcel Number is required if you provide this.</p>
                 )}

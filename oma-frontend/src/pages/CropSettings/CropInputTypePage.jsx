@@ -22,7 +22,6 @@ const COLUMNS = [
   { key: 'name',              label: 'INPUT TYPE' },
   { key: 'input_type_cell',   label: 'CATEGORY' },
   { key: 'growth_stage_cell', label: 'GROWTH STAGE' },
-  { key: 'status_pill',       label: 'STATUS' },
   { key: 'actions',           label: 'ACTIONS' },
 ]
 
@@ -33,7 +32,7 @@ function CropInputTypeModal({ inputType, onClose, onSaved }) {
   const [description, setDescription] = useState(inputType?.description || '')
   const [category,    setCategory]    = useState(inputType?.input_type || '')
   const [growthStage, setGrowthStage] = useState(inputType?.growth_stage || '')
-  const [isActive,    setIsActive]    = useState(inputType?.is_active ?? true)
+  const isActive = inputType?.is_active ?? true   // the Active tick box is gone: a saved input type keeps its value, a new one is active
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e) => {
@@ -93,10 +92,6 @@ function CropInputTypeModal({ inputType, onClose, onSaved }) {
             Narrows this input type to a specific growth stage for the automatic input recommendation. Leave as "Any stage" for a general-purpose input.
           </p>
         </FormField>
-        <label className="flex items-center gap-2 text-[13px] text-slate-700">
-          <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
-          Active
-        </label>
       </form>
     </ModalShell>
   )
@@ -131,7 +126,6 @@ export default function CropInputTypePage({ asTab = false }) {
     growth_stage_cell: it.growth_stage
       ? <StatusPill tone="slate">{it.growth_stage}</StatusPill>
       : <span className="text-[12px] text-slate-400">Any stage</span>,
-    status_pill: <StatusPill tone={it.is_active ? 'green' : 'slate'}>{it.is_active ? 'Active' : 'Inactive'}</StatusPill>,
     actions: (
       <RowActions actions={[
         { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => { setEditing(it); setShowModal(true) } },

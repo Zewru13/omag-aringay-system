@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import useDebouncedValue from '../../hooks/useDebouncedValue.js'
 import {
-  AlertTriangle, Bug, CheckCircle, CheckCircle2, ChevronDown, ClipboardList, Eye, FileText, HelpCircle, Leaf, Lock, MapPin, Pencil, Trash2, Unlock, User, Wheat,
+  AlertTriangle, Bug, CheckCircle, CheckCircle2, ChevronDown, ClipboardList, Eye, FileText, HelpCircle, Leaf, Lock, MapPin, Pencil, Printer, Trash2, Unlock, User, Wheat,
 } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
@@ -33,6 +33,10 @@ import { todayISO as localToday } from '../../utils/localDate.js'
 import CycleDayBanner from '../../components/UI/CycleDayBanner.jsx'
 import GroupedMonitoringTable from './GroupedMonitoringTable.jsx'
 import { DEFAULT_GROUP, GROUP_OPTIONS, monitoringParams } from './monitoringGroups.js'
+import { printSpec } from './disasterReportDocument.js'
+import {
+  EARLY_REASONS, LATE_REASONS, OTHER_REASON, buildHarvestReportSpec, composeReason, harvestTiming, reasonProblem,
+} from './harvestReport.js'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
 
@@ -52,6 +56,8 @@ const todayISO = () => new Date().toISOString().slice(0, 10)
 // vendor, and region. Returning null here means the comparison below falls
 // back to treating the entered number as already-kg, same as this form's
 // original (pre-conversion) behavior, rather than applying a guessed factor.
+const STANDARD_HARVEST_UNITS = ['kg', 'bags', 'cavan', 'sacks', 'pieces', 'bundles', 'boxes']
+
 function unitToKgFactor(unit) {
   const normalized = (unit || '').trim().toLowerCase()
   if (normalized === 'kg') return 1
@@ -1221,11 +1227,18 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
   const [isLoading,    setIsLoading]    = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [dateError,    setDateError]    = useState('')
+  // The units this harvest's crop allows (Crop Options); the standard codes when the harvest has no crop record.
+  const [cropUnits,    setCropUnits]    = useState(null)
 
   useEffect(() => {
     api.get(`/production/${harvestId}/`)
       .then(r => {
         const d = r.data
+        if (d.monitoring_record) {
+          api.get(`/production/monitoring/${d.monitoring_record}/`)
+            .then(m => setCropUnits(m.data.crop_allowed_units?.length ? m.data.crop_allowed_units : null))
+            .catch(() => {})
+        }
         setForm({
           harvest_start_date:      d.harvest_start_date || '',
           harvest_end_date:        d.harvest_end_date || '',
@@ -1312,13 +1325,8 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
               <label className="mb-1 block text-xs font-medium text-slate-700">Unit</label>
               <select className={baseInputClasses} value={form.unit_of_measure}
                 onChange={e => handleChange('unit_of_measure', e.target.value)}>
-                <option value="kg">kg</option>
-                <option value="bags">bags</option>
-                <option value="cavan">cavan</option>
-                <option value="sacks">sacks</option>
-                <option value="pieces">pieces</option>
-                <option value="bundles">bundles</option>
-                <option value="boxes">boxes</option>
+                {/* The crop's own units, always including the unit already saved on this harvest. */}
+                {[...new Set([...(cropUnits || STANDARD_HARVEST_UNITS), form.unit_of_measure])].map(u => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
           </div>
@@ -1556,7 +1564,10 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
   )
   const [quantityHarvested, setQuantityHarvested] = useState('')
   const [harvestNotes,      setHarvestNotes]      = useState('')
-  const [earlyLateReason,   setEarlyLateReason]   = useState('')
+  const [reasonChoice,      setReasonChoice]      = useState('')
+  const [reasonDetail,      setReasonDetail]      = useState('')
+  const [saved,             setSaved]             = useState(null)   // { harvest, reason } once the harvest is recorded
+  const [isPrinting,        setIsPrinting]        = useState(false)
   const [showConfirm,       setShowConfirm]       = useState(false)
   const [isSubmitting,      setIsSubmitting]      = useState(false)
   const [dateError,         setDateError]         = useState('')
@@ -1599,14 +1610,17 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
   const daysFromNowToExpected = expectedHarvestDate
     ? Math.round((new Date(expectedHarvestDate + 'T00:00:00') - new Date(new Date().toDateString())) / 86400000)
     : null
-  const harvestVarianceDays = (expectedHarvestDate && harvestStartDate)
-    ? Math.round((new Date(harvestStartDate + 'T00:00:00') - new Date(expectedHarvestDate + 'T00:00:00')) / 86400000)
-    : null
-  const isEarly = harvestVarianceDays !== null && harvestVarianceDays < -7
-  const isLate = harvestVarianceDays !== null && harvestVarianceDays > 7
+  const timing = harvestTiming(record.date_planted, expectedHarvestDate, harvestStartDate)
+  const harvestVarianceDays = timing.varianceDays
+  const { isEarly, isLate } = timing
   const reasonRequired = isEarly || isLate
-  const EARLY_REASONS = ['Emergency harvest — disaster damage', 'Buyer demand', 'Crop matured early', 'Other']
-  const LATE_REASONS = ['Delayed field visit', 'Weather', 'Labor unavailable', 'Other']
+  const reasonText = composeReason(reasonChoice, reasonDetail)
+  const reasonOptions = isEarly ? EARLY_REASONS : LATE_REASONS
+  const changeHarvestDate = (v) => {
+    setHarvestStartDate(v)
+    // The early and late lists differ: a reason picked for one is not carried over to the other.
+    setReasonChoice(''); setReasonDetail('')
+  }
 
   const handleEndDateChange = (v) => {
     setHarvestEndDate(v)
@@ -1638,8 +1652,8 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
     setAreaError(aErr)
     setQuantityError(qErr)
     if (aErr || qErr || dateError) return
-    if (reasonRequired && !earlyLateReason.trim()) {
-      showToast(`A reason is required — this harvest is ${Math.abs(harvestVarianceDays)} days ${isEarly ? 'early' : 'late'}.`, 'error')
+    if (reasonRequired && reasonProblem(reasonChoice, reasonDetail)) {
+      showToast(`A reason is required — this harvest is ${Math.abs(harvestVarianceDays)} days ${isEarly ? 'early' : 'late'}. ${reasonProblem(reasonChoice, reasonDetail)}`, 'error')
       return
     }
     setShowConfirm(true)
@@ -1653,7 +1667,7 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
       const season = (month >= 6 && month <= 11) ? 'Wet' : 'Dry'
       const year   = new Date(harvestStartDate).getFullYear()
 
-      await api.post('/production/create/', {
+      const res = await api.post('/production/create/', {
         monitoring_record:       record.id,
         farm_parcel:             record.farm_parcel || null,
         season,
@@ -1664,16 +1678,67 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
         area_harvested_hectares: parseFloat(areaHarvested),
         volume_kg:               parseFloat(quantityHarvested),
         unit_of_measure:         unitOfMeasure,
-        early_late_reason:       reasonRequired ? earlyLateReason.trim() : '',
+        early_late_reason:       reasonRequired ? reasonText : '',
         remarks:                 harvestNotes,
       })
 
       showToast('Harvest recorded successfully!', 'success')
-      onSuccess()
-      onClose()
+      setSaved({ harvest: res.data, reason: reasonRequired ? reasonText : '', recordedOn: localToday() })
+      onSuccess()   // refreshes the list behind this window; the window stays open for Print report
     } catch (err) {
       showToast(extractErrorMessage(err, 'Failed to record harvest.'), 'error')
     } finally { setIsSubmitting(false) }
+  }
+
+  const handlePrint = async () => {
+    setIsPrinting(true)
+    try {
+      await printSpec(buildHarvestReportSpec({
+        record, harvest: saved.harvest, reason: saved.reason, notes: harvestNotes, recordedOn: saved.recordedOn,
+      }))
+    } catch {
+      showToast('The report could not be printed. Please try again.', 'error')
+    } finally { setIsPrinting(false) }
+  }
+
+  if (saved) {
+    const t = harvestTiming(record.date_planted, expectedHarvestDate, saved.harvest.harvest_start_date)
+    return (
+      <ModalShell
+        title="Harvest Recorded"
+        subtitle={`${cropName} — saved`}
+        icon={CheckCircle2}
+        iconBg="bg-emerald-100"
+        iconColor="text-emerald-600"
+        onClose={onClose}
+        maxWidth="max-w-md"
+        footer={
+          <>
+            <button type="button" onClick={onClose}
+              className="rounded-xl px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-100 transition-colors">
+              Close
+            </button>
+            <button type="button" onClick={handlePrint} disabled={isPrinting}
+              className="inline-flex items-center gap-1.5 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-60 transition-colors">
+              <Printer size={15} /> {isPrinting ? 'Preparing…' : 'Print report'}
+            </button>
+          </>
+        }
+      >
+        <div className="space-y-3 text-sm text-slate-700">
+          <p>The harvest of <span className="font-medium">{cropName}</span> was recorded. You can print a report of it now.</p>
+          <dl className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-1 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs">
+            <dt className="text-slate-500">Harvest date</dt><dd className="font-medium">{saved.harvest.harvest_start_date}</dd>
+            {t.varianceDays !== null && (<><dt className="text-slate-500">Timing</dt><dd className="font-medium">
+              {t.varianceDays === 0 ? 'On the expected date'
+                : `${Math.abs(t.varianceDays)} day${Math.abs(t.varianceDays) === 1 ? '' : 's'} ${t.varianceDays < 0 ? 'earlier' : 'later'} than expected`}
+            </dd></>)}
+            {saved.reason && (<><dt className="text-slate-500">Reason</dt><dd className="font-medium">{saved.reason}</dd></>)}
+            <dt className="text-slate-500">Quantity</dt><dd className="font-medium">{saved.harvest.volume_kg} {saved.harvest.unit_of_measure}</dd>
+          </dl>
+        </div>
+      </ModalShell>
+    )
   }
 
   return (
@@ -1693,7 +1758,7 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
               Cancel
             </button>
             <button type="button" onClick={handleSubmitClick}
-              disabled={isSubmitting || (reasonRequired && !earlyLateReason.trim())}
+              disabled={isSubmitting || (reasonRequired && Boolean(reasonProblem(reasonChoice, reasonDetail)))}
               className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-60 transition-colors">
               {isSubmitting ? 'Saving…' : 'Save Harvest Record'}
             </button>
@@ -1758,7 +1823,7 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
               <input type="date" className={baseInputClasses} value={harvestStartDate}
                 max={todayISO()}
                 onChange={e => {
-                  setHarvestStartDate(e.target.value)
+                  changeHarvestDate(e.target.value)
                   if (harvestEndDate && harvestEndDate < e.target.value) {
                     setDateError('End date must be on or after the start date.')
                   } else { setDateError('') }
@@ -1777,24 +1842,28 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
           {dateError && <p className="text-xs font-medium text-rose-600">{dateError}</p>}
 
           {reasonRequired && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3" data-testid="harvest-reason">
               <p className="text-xs font-medium text-amber-800 mb-2">
-                This is {Math.abs(harvestVarianceDays)} days {isEarly ? 'earlier' : 'later'} than the expected harvest date.
+                This is {Math.abs(harvestVarianceDays)} days {isEarly ? 'earlier' : 'later'} than the expected harvest date
+                {isEarly && timing.percentGrown !== null ? ` — the crop has grown ${timing.percentGrown}% of its expected growing time` : ''}.
               </p>
               <label className="mb-1 block text-xs font-medium text-slate-700">
                 Reason for {isEarly ? 'early' : 'late'} harvest *
               </label>
-              <input
-                type="text"
-                list="harvest-reason-options"
-                className={baseInputClasses}
-                value={earlyLateReason}
-                onChange={e => setEarlyLateReason(e.target.value)}
-                placeholder="Select or type a reason"
-              />
-              <datalist id="harvest-reason-options">
-                {(isEarly ? EARLY_REASONS : LATE_REASONS).map(r => <option key={r} value={r} />)}
-              </datalist>
+              <select className={baseInputClasses} value={reasonChoice} onChange={e => setReasonChoice(e.target.value)}>
+                <option value="">Choose a reason</option>
+                {reasonOptions.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+              {reasonChoice && (
+                <div className="mt-2">
+                  <label className="mb-1 block text-xs font-medium text-slate-700">
+                    {reasonChoice === OTHER_REASON ? 'Describe the reason *' : 'Details (optional)'}
+                  </label>
+                  <input type="text" className={baseInputClasses} value={reasonDetail} maxLength={200}
+                    onChange={e => setReasonDetail(e.target.value)}
+                    placeholder={reasonChoice === OTHER_REASON ? 'What made you harvest early?' : 'e.g. signal no. 3 expected on Friday'} />
+                </div>
+              )}
             </div>
           )}
 
@@ -1910,10 +1979,9 @@ function isNearHarvest(row) {
   return diffDays <= 14
 }
 
-// Mirrors core.utils.harvest_gate_status AND HarvestRecordCreateView.create()'s
-// date_planted_is_estimated block on the backend (the real enforcement — this
-// is client-side UX only, to explain the gate before the user even opens the
-// modal rather than after a rejected submit).
+// Mirrors HarvestRecordCreateView.create()'s date_planted_is_estimated block on the backend (the real
+// enforcement - this is client-side UX only, to explain it before the user opens the modal rather than after a
+// rejected submit). A crop can otherwise be harvested at any time: an early harvest asks for a reason in the form.
 function harvestGateInfo(row) {
   if (row.date_planted_is_estimated) {
     return {
@@ -1923,19 +1991,7 @@ function harvestGateInfo(row) {
         'corrects the real planting date.',
     }
   }
-  if (!row.date_planted || !row.expected_harvest_date) return { gated: false, message: null }
-  const planted = new Date(row.date_planted + 'T00:00:00')
-  const expected = new Date(row.expected_harvest_date + 'T00:00:00')
-  const totalDays = (expected - planted) / (1000 * 60 * 60 * 24)
-  if (totalDays <= 0) return { gated: false, message: null }
-  const halfwayDays = totalDays / 2
-  const elapsedDays = (new Date() - planted) / (1000 * 60 * 60 * 24)
-  if (elapsedDays >= halfwayDays) return { gated: false, message: null }
-  const daysRemaining = Math.ceil(halfwayDays - elapsedDays)
-  return {
-    gated: true,
-    message: `Harvest can only be recorded once at least half the expected growth duration has passed. Available in about ${daysRemaining} more day(s).`,
-  }
+  return { gated: false, message: null }
 }
 
 // ── Main Page ─────────────────────────────────────────────────────────────────
@@ -2357,7 +2413,7 @@ export default function CropMonitoringPage() {
         <RecordHarvestFromMonitoringModal
           record={harvestRecord}
           onClose={() => setHarvestRecord(null)}
-          onSuccess={() => { setHarvestRecord(null); refreshAll() }}
+          onSuccess={refreshAll}
         />
       )}
 
