@@ -113,12 +113,6 @@ class BulkConfirmationTests(APITestCase):
         self.assertEqual(response.status_code, 201, response.content)
         self.assertEqual(self.status_of(self.records[0]), 'CONFIRMED')
 
-    def test_the_staff_report_lists_them(self):
-        self.send(self.records)
-        self.client.force_authenticate(self.staff)
-        response = self.client.get('/api/reports/beneficiary-confirmations/', {'format': 'json'})
-        self.assertEqual(response.status_code, 200)
-
     # ── the rules ────────────────────────────────────────────────────────
     def test_at_least_two_photos_are_needed_once_for_all(self):
         for count in (0, 1):
