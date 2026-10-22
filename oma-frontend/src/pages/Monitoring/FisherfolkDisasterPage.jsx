@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { CheckCircle2, Download, Plus, Printer } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
-import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
@@ -13,6 +13,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { canRecoverDisaster, disasterStatusLabel } from './disasterRecovery.js'
 import { fmtLong } from '../FisheriesRecords/stockingHelpers.js'
 import DisasterLogDetailsModal from './DisasterLogDetailsModal.jsx'
+import CompactExpandList from '../../components/UI/CompactExpandList.jsx'
 import { FISHERIES_LOG, downloadLog, fetchAllStocks, printLog } from './disasterReportDocument.js'
 import FisherfolkStockDisasterModal from './FisherfolkStockDisasterModal.jsx'
 
@@ -25,16 +26,6 @@ import FisherfolkStockDisasterModal from './FisherfolkStockDisasterModal.jsx'
 
 const REPORTABLE = 'Stocked,Near Harvest'
 const SUBMISSION_TONES = { SUBMITTED: 'green', DRAFT: 'amber' }
-
-const COLUMNS = [
-  { key: 'date_fmt',            label: 'Date' },
-  { key: 'disaster_type_label', label: 'Disaster Type' },
-  { key: 'stock_cell',          label: 'Affected Stock' },
-  { key: 'volume_fmt',          label: 'Volume Lost' },
-  { key: 'status_cell',         label: 'Status' },
-  { key: 'logged_fmt',          label: 'Date Logged' },
-  { key: 'actions_cell',        label: 'Actions' },
-]
 
 const fmtDateTime = (v) => (v ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(v)) : '—')
 
@@ -85,6 +76,11 @@ export default function FisherfolkDisasterPage() {
   const [viewingId, setViewingId] = useState(null)
   const [recovering, setRecovering] = useState(null)
   const [busyId, setBusyId] = useState(null)
+  // ?stock=<id> (from the phone home): log a disaster on that stock straight away.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const linkedStockId = Number(searchParams.get('stock')) || null
+  const [linkUsed, setLinkUsed] = useState(false)
+  const endLink = () => { setLinkUsed(true); if (linkedStockId) setSearchParams({}, { replace: true }) }
 
   useEffect(() => {
     let cancelled = false
@@ -140,6 +136,8 @@ export default function FisherfolkDisasterPage() {
     ),
   })), [rows, busyId]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  const linkedStock = linkedStockId && !linkUsed && eligibility?.can_log_disaster !== false ? stocks.find(st => st.id === linkedStockId) : null
+
   return (
     <PageLayout title="Disaster" subtitle="Disasters you have logged. Each one is sent to the Office of the Municipal Agriculturist when you log it.">
       <div className="space-y-4">
@@ -152,13 +150,29 @@ export default function FisherfolkDisasterPage() {
         {eligibility?.can_log_disaster === false && (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800" data-testid="disaster-blocked">{eligibility.message}</p>
         )}
-        {error ? <ErrorMessage message={error} /> : <DataTable columns={COLUMNS} data={data} isLoading={isLoading} onRowClick={(row) => setViewingId(row.id)} />}
+        {error ? <ErrorMessage message={error} /> : (
+          <CompactExpandList
+            isLoading={isLoading}
+            emptyText="You have not logged any disasters."
+            items={data.map(r => ({
+              id: r.id,
+              title: r.affected_stock || 'Not linked to a stock',
+              subtitle: r.disaster_type_label,
+              details: [['Date', r.date_fmt], ['Volume lost', r.volume_fmt], ['Status', r.status_cell], ['Date logged', r.logged_fmt]],
+              actions: (<>
+                <Button variant="outline" onClick={() => setViewingId(r.id)}>View full details</Button>
+                {r.actions_cell}
+              </>),
+            }))}
+          />
+        )}
       </div>
 
       {/* One form: pick one or more of your stocks (each with its fingerlings lost per pond/cage), or
           "Not linked to a stock" for pond/cage/equipment-only damage. */}
-      {logging && (
-        <FisherfolkStockDisasterModal stocks={stocks} onClose={() => setLogging(false)} onSaved={onLogged} />
+      {(logging || linkedStock) && (
+        <FisherfolkStockDisasterModal stocks={stocks} initialStockIds={linkedStock && !logging ? [linkedStock.id] : []}
+          onClose={() => { endLink(); setLogging(false) }} onSaved={(log) => { endLink(); onLogged(log) }} />
       )}
       {viewingId && <DisasterLogDetailsModal key={viewingId} kind="fisheries" logId={viewingId} onClose={() => setViewingId(null)} />}
       {recovering && <MarkRecoveredModal row={recovering} onClose={() => setRecovering(null)} onDone={() => { setRecovering(null); reload() }} />}

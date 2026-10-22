@@ -26,6 +26,7 @@ import LogGovernmentAssistanceModal from './LogGovernmentAssistanceModal.jsx'
 import { FISHERFOLK_ORG_DOMAIN } from '../Citizen/orgDomainConfig.js'
 import DistributeAssistanceModal from './DistributeAssistanceModal.jsx'
 import OrgDistributionHistory from './OrgDistributionHistory.jsx'
+import CompactExpandList from '../../components/UI/CompactExpandList.jsx'
 import { FISHERFOLK_DISTRIBUTION_DOMAIN } from './distributionDomains.js'
 import { SourceAgencyMultiSelect, TypeConditionalFields } from './sharedAssistanceFields.jsx'
 import {
@@ -566,7 +567,20 @@ export default function FisheriesAssistancePage({ asTab = false }) {
       {isOrg && !error && !isLoading && (
         <ConfirmActionBar selection={selection} records={assistance} onConfirm={() => setConfirmingOnBehalf(selection.selectedRecords)} />
       )}
-      {error ? <ErrorMessage message={error} /> : <DataTable columns={tableColumns} data={rows} isLoading={isLoading} cardColumns={2} />}
+      {error ? <ErrorMessage message={error} /> : isFisherfolk ? (
+        // A fisherfolk account sees each assistance as its name and date; tapping it shows the rest and the confirm actions.
+        <CompactExpandList
+          isLoading={isLoading}
+          emptyText="No assistance has been recorded for you yet."
+          items={rows.map(r => ({
+            id: r.id,
+            title: r.assistance_type || 'Assistance',
+            subtitle: r.date_received_fmt,
+            details: [['Quantity', r.quantity], ['Source of assistance', r.source_agency], ['Year', r.year], ['Status', r.status_cell], ['Logged by', r.recorded_by_name]],
+            actions: r.actions_cell && r.actions_cell !== '—' ? r.actions_cell : null,
+          }))}
+        />
+      ) : <DataTable columns={tableColumns} data={rows} isLoading={isLoading} cardColumns={2} />}
       </>
       )}
 

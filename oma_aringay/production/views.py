@@ -821,16 +821,17 @@ def _filter_monitoring_queryset(qs, request):
 
 
 class CropMonitoringGroupsView(APIView):
-    """GET ?group_by=crop|farmer plus the list's own filters: the Crop Monitoring table grouped, paged ten groups at a
-    time. A group is one crop type, or one farmer (an organization's own crops form a group per organization); it carries
+    """GET ?group_by=crop|farmer|parcel plus the list's own filters: the Crop Monitoring table grouped, paged ten groups at a
+    time. A group is one crop type, one farmer (an organization's own crops form a group per organization) or one farm parcel
+    (records with no parcel form a last group); it carries
     how many records it holds, their total planted area and how many are near harvest. Opening a group is the ordinary
     list scoped to it (?crop_type=, ?farmer=, ?farmers_organization=), so counts and rows always agree."""
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         group_by = request.query_params.get('group_by')
-        if group_by not in ('crop', 'farmer'):
-            raise ValidationError({'group_by': 'Use group_by=crop or group_by=farmer.'})
+        if group_by not in ('crop', 'farmer', 'parcel'):
+            raise ValidationError({'group_by': 'Use group_by=crop, group_by=farmer or group_by=parcel.'})
         qs = _filter_monitoring_queryset(CropMonitoringRecord.objects.all(), request)
         totals = dict(
             count=Count('id'), area=Sum('area_planted_ha'),
@@ -838,6 +839,10 @@ class CropMonitoringGroupsView(APIView):
         )
         if group_by == 'crop':
             rows = qs.values('crop_type_id', 'crop_type__name').annotate(**totals).order_by('crop_type__name', 'crop_type_id')
+        elif group_by == 'parcel':
+            # Parcels in order, the records with no parcel last.
+            rows = qs.values('farm_parcel_id', 'farm_parcel__parcel_number', 'farm_parcel__barangay').annotate(**totals).order_by(
+                F('farm_parcel_id').asc(nulls_last=True), 'farm_parcel__parcel_number')
         else:
             rows = qs.values(
                 'farmer_id', 'farmers_organization_id', 'farmer__first_name', 'farmer__middle_name', 'farmer__last_name',
@@ -852,6 +857,11 @@ class CropMonitoringGroupsView(APIView):
         shared = {'count': row['count'], 'area_planted_ha': float(row['area'] or 0), 'near_harvest': row['near_harvest']}
         if group_by == 'crop':
             return {'key': f"c{row['crop_type_id']}", 'id': row['crop_type_id'], 'name': row['crop_type__name'], 'barangay': '', **shared}
+        if group_by == 'parcel':
+            if not row['farm_parcel_id']:
+                return {'key': 'none', 'id': None, 'name': 'No farm parcel on file', 'barangay': '', **shared}
+            return {'key': f"p{row['farm_parcel_id']}", 'id': row['farm_parcel_id'],
+                    'name': row['farm_parcel__parcel_number'] or f"Parcel #{row['farm_parcel_id']}", 'barangay': row['farm_parcel__barangay'] or '', **shared}
         if row['farmer_id']:
             name = ' '.join(n for n in (row['farmer__first_name'], row['farmer__middle_name'], row['farmer__last_name']) if n)
             return {'key': f"f{row['farmer_id']}", 'id': row['farmer_id'], 'name': name, 'barangay': row['farmer__barangay'] or '', **shared}

@@ -8,7 +8,7 @@ let n = 0
 const eq = (actual, expected, label) => { assert.deepEqual(actual, expected, `${label}: got ${JSON.stringify(actual)}, wanted ${JSON.stringify(expected)}`); n++ }
 
 // ── the choices
-eq(GROUP_OPTIONS.map((o) => o.value), ['crop', 'farmer', 'none'], 'group-by choices')
+eq(GROUP_OPTIONS.map((o) => o.value), ['crop', 'farmer', 'parcel', 'none'], 'group-by choices')
 eq(DEFAULT_GROUP, 'crop', 'default is by crop')
 eq(DISPLAY_STATUSES, ['Due Harvest', 'Ready for Harvest', 'Overdue'], 'display statuses')
 
@@ -26,6 +26,8 @@ for (const label of DISPLAY_STATUSES) {
 eq(groupChildParams('crop', { key: 'c7', id: 7 }), { crop_type: 7 }, 'a crop group')
 eq(groupChildParams('farmer', { key: 'f12', id: 12 }), { farmer: 12 }, 'a farmer group')
 eq(groupChildParams('farmer', { key: 'o5', id: 5 }), { farmers_organization: 5 }, "an organization's group")
+eq(groupChildParams('parcel', { key: 'p9', id: 9 }), { farm_parcel: 9 }, 'a parcel group')
+eq(groupChildParams('parcel', { key: 'none', id: null }), { farm_parcel: 'none' }, 'the crops with no parcel')
 eq(groupChildParams('farmer', { key: 'none', id: null }), null, 'a group with nothing to open onto')
 
 // ── the group line
@@ -35,5 +37,7 @@ eq(groupSummary({ count: 2, area_planted_ha: 0, near_harvest: 0 }), '2 records',
 eq(groupSummary({ count: 2, area_planted_ha: 1.23456, near_harvest: 2 }), '2 records · 1.23 ha · 2 near harvest', 'area rounded to 2 places')
 eq(groupHeading('crop', { name: 'Palay (Rice)', barangay: '' }), 'Palay (Rice)', 'crop heading')
 eq(groupHeading('farmer', { name: 'Ana Cruz', barangay: 'Alaska' }), 'Ana Cruz · Alaska', 'farmer heading includes the barangay')
+eq(groupHeading('parcel', { name: '01-33-02-005-001-02-003', barangay: 'Alaska' }), '01-33-02-005-001-02-003 · Alaska', 'parcel heading includes the barangay')
+eq(groupHeading('parcel', { name: 'No farm parcel on file', barangay: '' }), 'No farm parcel on file', 'the no-parcel heading')
 
 console.log(`monitoringGroups: ${n} checks passed`)

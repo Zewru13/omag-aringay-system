@@ -27,6 +27,7 @@ import { ConfirmActionBar, SelectCell, SelectHeader } from './OrgConfirmControls
 import useConfirmSelection from './useConfirmSelection.js'
 import DistributeAssistanceModal from './DistributeAssistanceModal.jsx'
 import OrgDistributionHistory from './OrgDistributionHistory.jsx'
+import CompactExpandList from '../../components/UI/CompactExpandList.jsx'
 import { FARMERS_ORG_DOMAIN } from '../Citizen/orgDomainConfig.js'
 import { FARMER_DISTRIBUTION_DOMAIN } from './distributionDomains.js'
 import { SourceAgencyMultiSelect, TypeConditionalFields } from './sharedAssistanceFields.jsx'
@@ -806,7 +807,20 @@ export default function CropAssistancePage({ asTab = false }) {
       {isOrg && !error && !isLoading && (
         <ConfirmActionBar selection={selection} records={records} onConfirm={() => setConfirmingOnBehalf(selection.selectedRecords)} />
       )}
-      {error ? <ErrorMessage message={error} /> : <DataTable columns={tableColumns} data={rows} isLoading={isLoading} cardColumns={2} />}
+      {error ? <ErrorMessage message={error} /> : isFarmer ? (
+        // A farmer account sees each assistance as its name and date; tapping it shows the rest and the confirm actions.
+        <CompactExpandList
+          isLoading={isLoading}
+          emptyText="No assistance has been recorded for you yet."
+          items={rows.map(r => ({
+            id: r.id,
+            title: r.assistance_type || 'Assistance',
+            subtitle: r.date_received_fmt,
+            details: [['Quantity', r.quantity], ['Source agency', r.source_agency], ['Year', r.year], ['Status', r.status_cell], ['Logged by', r.recorded_by_name]],
+            actions: r.actions_cell && r.actions_cell !== '—' ? r.actions_cell : null,
+          }))}
+        />
+      ) : <DataTable columns={tableColumns} data={rows} isLoading={isLoading} cardColumns={2} />}
       </>
       )}
 

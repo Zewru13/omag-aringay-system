@@ -77,7 +77,7 @@ export default function GroupedMonitoringTable({
       {error && <ErrorMessage message={error} />}
       <div className="overflow-hidden rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]" data-testid="grouped-monitoring-table">
         <div className="hidden bg-[#1B4D2E] px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-white sm:block">
-          {groupBy === 'farmer' ? 'Farmer' : 'Crop'}
+          {{ farmer: 'Farmer', parcel: 'Farm parcel' }[groupBy] || 'Crop'}
         </div>
         {isLoading && <p className="px-4 py-8 text-center text-sm text-slate-500">Loading…</p>}
         {!isLoading && !error && groups.length === 0 && (

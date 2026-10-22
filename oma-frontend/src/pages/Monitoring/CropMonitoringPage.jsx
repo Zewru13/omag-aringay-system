@@ -33,7 +33,7 @@ import { todayISO as localToday } from '../../utils/localDate.js'
 import CycleDayBanner from '../../components/UI/CycleDayBanner.jsx'
 import CropDetailsModal from './CropDetailsModal.jsx'
 import GroupedMonitoringTable from './GroupedMonitoringTable.jsx'
-import { DEFAULT_GROUP, GROUP_OPTIONS, monitoringParams } from './monitoringGroups.js'
+import { DEFAULT_GROUP, FARMER_GROUP, GROUP_OPTIONS, monitoringParams } from './monitoringGroups.js'
 import { printSpec } from './disasterReportDocument.js'
 import {
   EARLY_REASONS, LATE_REASONS, OTHER_REASON, buildHarvestReportSpec, composeReason, harvestTiming, reasonProblem,
@@ -2090,7 +2090,8 @@ export default function CropMonitoringPage() {
       .catch(() => {})
   }, [])
   // Grouped by crop (default), by farmer, or a plain list. `version` makes an open grouped table load again after an action.
-  const [groupBy,          setGroupBy]          = useState(DEFAULT_GROUP)
+  const farmerAccount = useAuth().isFarmer
+  const [groupBy,          setGroupBy]          = useState(farmerAccount ? FARMER_GROUP : DEFAULT_GROUP)
   const [version,          setVersion]          = useState(0)
   const [viewLogsRecord,   setViewLogsRecord]   = useState(null)
   const [detailsRecord,    setDetailsRecord]    = useState(null)   // the read-only crop details window
@@ -2253,7 +2254,7 @@ export default function CropMonitoringPage() {
   const rows = filtered.map(buildRow)
 
   // Inside a group the grouping column is left out: its name is the group's heading.
-  const groupedColumns = columns.filter(c => c.key !== (groupBy === 'farmer' ? 'farmer_col' : 'crop_cell'))
+  const groupedColumns = columns.filter(c => !(groupBy === 'farmer' && c.key === 'farmer_col') && !(groupBy === 'crop' && c.key === 'crop_cell'))
 
   return (
     <PageLayout title="Crop Monitoring" subtitle={isFarmer ? 'Track activities and progress for your crops.' : 'Track activities and progress for each crop.'}>
@@ -2262,11 +2263,14 @@ export default function CropMonitoringPage() {
           search={search}
           onSearchChange={setSearch}
           searchPlaceholder={isFarmer ? 'Search by crop or barangay...' : 'Search by farmer, RSBSA, crop, or organization...'}
-          activeCount={[statusFilter !== 'Planted,Near Harvest', Boolean(seasonFilter), Boolean(yearFilter), Boolean(barangayFilter), Boolean(cropFilter), groupBy !== DEFAULT_GROUP].filter(Boolean).length}
+          activeCount={[statusFilter !== 'Planted,Near Harvest', Boolean(seasonFilter), Boolean(yearFilter), Boolean(barangayFilter), Boolean(cropFilter), !isFarmer && groupBy !== DEFAULT_GROUP].filter(Boolean).length}
         >
-          <select className={filterSelectCls} value={groupBy} onChange={e => setGroupBy(e.target.value)} aria-label="Group by">
-            {GROUP_OPTIONS.filter(o => !(isFarmer && o.value === 'farmer')).map(o => <option key={o.value} value={o.value}>{o.value === 'none' ? o.label : `Group by ${o.label}`}</option>)}
-          </select>
+          {/* A farmer account always sees its own farm parcels, so it has no grouping choice. */}
+          {!isFarmer && (
+            <select className={filterSelectCls} value={groupBy} onChange={e => setGroupBy(e.target.value)} aria-label="Group by">
+              {GROUP_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.value === 'none' ? o.label : `Group by ${o.label}`}</option>)}
+            </select>
+          )}
           <select className={filterSelectCls} value={cropFilter} onChange={e => setCropFilter(e.target.value)} aria-label="Crop name">
             <option value="">All Crops</option>
             {cropTypes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -2309,8 +2313,8 @@ export default function CropMonitoringPage() {
             version={version}
             columns={groupedColumns}
             buildRow={buildRow}
-            phoneTitleKey={groupBy === 'farmer' ? 'crop_cell' : 'variety_col'}
-            phoneSubtitleKey={groupBy === 'farmer' ? 'variety_col' : 'farmer_col'}
+            phoneTitleKey={groupBy === 'crop' ? 'variety_col' : 'crop_cell'}
+            phoneSubtitleKey={groupBy === 'crop' ? 'farmer_col' : (isFarmer || groupBy === 'farmer' ? 'variety_col' : 'farmer_col')}
             onRecordsLoaded={addLockStatuses}
             emptyText={isFarmer ? 'Your crops will appear here once the office registers them.' : 'No monitoring records found'}
           />
