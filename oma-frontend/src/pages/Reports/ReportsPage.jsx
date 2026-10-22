@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, ArrowRight, CloudLightning, Fish, Users, Waves, Wheat } from 'lucide-react'
+import { ArrowLeft, ArrowRight, CloudLightning, Fish, HandHeart, Users, Waves, Wheat } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
@@ -10,18 +10,20 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
 import { ActionButtons, PreviewTable, SignatureModal, labelCls } from './ReportParts.jsx'
 import DisasterReportTab from './DisasterReportTab.jsx'
+import OrganizationAssistanceReportTab from './OrganizationAssistanceReportTab.jsx'
 import RegisteredReportTab from './RegisteredReportTab.jsx'
 
 // One entry per report: `id` is the ?tab= value that opens it, and the rest feeds its card on the landing page.
 // The agreed reports (the Reports page offers exactly these; more are added as they are built):
 //   1. Registered Farmers / Fisherfolk / Organizations   2. Crop Records Harvested   3. Fisheries Production Harvested
-//   4. Fisheries Disaster Reports   5. Crop / Parcel Disaster Reports
+//   4. Fisheries Disaster Reports   5. Crop / Parcel Disaster Reports   6. Organization Assistance
 const TABS = [
   { id: 'registered',          icon: Users,     label: 'Registered Farmers, Fisherfolk & Organizations', description: 'Registration records for everyone at once, filtered by barangay, status and date registered, or for one record.' },
   { id: 'harvested',           icon: Wheat,     label: 'Crop Records Harvested',        description: 'Harvested crop records with their yield, by farmer, crop, barangay and season.' },
   { id: 'fisheries',           icon: Fish,      label: 'Fisheries Production Harvested', description: 'Harvested aquaculture production, by fisherfolk, species, barangay and season.' },
   { id: 'disaster_fisheries',  icon: Waves,     label: 'Fisheries Disaster Reports',     description: 'Disasters logged against fisherfolk and their stocks, with the volume lost and recovery status.' },
   { id: 'disaster_crops',      icon: CloudLightning, label: 'Crop / Parcel Disaster Reports', description: 'Disasters logged against crops and farm parcels, with the area affected and recovery status.' },
+  { id: 'organization_assistance', icon: HandHeart, label: 'Organization Assistance', description: 'Assistance organizations gave to their members, for one organization or all, with who received it.' },
 ]
 
 // ── Harvested Crop Tab ─────────────────────────────────────────────────────────
@@ -438,6 +440,7 @@ export default function ReportsPage() {
         {activeTab === 'fisheries'           && <FisheriesProductionTab />}
         {activeTab === 'disaster_fisheries'  && <DisasterReportTab kind="fisheries" />}
         {activeTab === 'disaster_crops'      && <DisasterReportTab kind="crops" />}
+        {activeTab === 'organization_assistance' && <OrganizationAssistanceReportTab />}
       </div>
     </PageLayout>
   )
