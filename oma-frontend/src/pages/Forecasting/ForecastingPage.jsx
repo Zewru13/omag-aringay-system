@@ -1,11 +1,10 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import {
   BarChart2, ChevronDown, ChevronRight, Download, FileText,
-  Info, Plus, Search, TrendingUp, Upload, User,
+  Info, Plus, Search, TrendingUp, User,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
-import CropRecordImportModal from '../../components/CropRecordImportModal.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import BARANGAYS from '../../constants/barangays.js'
 import DataTable from '../../components/UI/DataTable.jsx'
@@ -847,7 +846,6 @@ export default function ForecastingPage() {
   // filtered after the fact on just the ten rows on screen.
   const debouncedSearch = useDebouncedValue(search.trim())
   const [detailRecord,  setDetailRecord]  = useState(null)
-  const [showRsbsaImportModal, setShowRsbsaImportModal] = useState(false)
   const [forecastView,  setForecastView]  = useState('flat') // 'flat' | 'grouped'
   const [grouped,       setGrouped]       = useState([])
   const [isLoadingGrouped, setIsLoadingGrouped] = useState(false)
@@ -1006,24 +1004,14 @@ export default function ForecastingPage() {
               searchPlaceholder={isFarmer ? 'Search by crop or barangay...' : 'Search by farmer, RSBSA, crop, or organization...'}
               activeCount={[Boolean(barangayFilter), Boolean(cropTypeFilter)].filter(Boolean).length}
               actions={!isFarmer ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setShowRsbsaImportModal(true)}
-                    className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#E2E8E2] px-4 py-2 text-[13px] font-medium text-[#1B4D2E] transition-colors hover:bg-[#F0F4F0]"
-                  >
-                    <Upload className="h-4 w-4" />
-                    Import Crop Records
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => navigate('/crop-records/add')}
-                    className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38]"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Crop Record
-                  </button>
-                </>
+                <button
+                  type="button"
+                  onClick={() => navigate('/crop-records/add')}
+                  className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38]"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Crop Record
+                </button>
               ) : null}
             >
               <select className={filterSelectCls} value={cropTypeFilter} onChange={e => setCropTypeFilter(e.target.value)} aria-label="Crop type">
@@ -1109,13 +1097,6 @@ export default function ForecastingPage() {
           record={detailRecord}
           onClose={() => setDetailRecord(null)}
           onUpdated={() => fetchRecords(page)}
-        />
-      )}
-
-      {showRsbsaImportModal && !isFarmer && (
-        <CropRecordImportModal
-          onClose={() => setShowRsbsaImportModal(false)}
-          onCommitted={() => fetchRecords(page)}
         />
       )}
     </PageLayout>
