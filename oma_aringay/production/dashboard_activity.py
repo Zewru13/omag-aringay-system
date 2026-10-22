@@ -27,6 +27,7 @@ from collections import defaultdict
 from datetime import datetime, time, timedelta
 
 from django.apps import apps
+from django.db.models import Sum
 from django.utils import timezone
 
 from .schedule_rules import done_date as step_done_date, is_setup_stage, step_status
@@ -316,4 +317,48 @@ def crop_yield_variance(limit=8):
             'records': b['n'],
         })
     out.sort(key=lambda r: -abs(r['variance_pct'] or 0))
+    return out[:limit]
+
+
+def fisheries_yield_variance(limit=8):
+    """Season Snapshot, fisheries side: estimated vs actual harvest per species.
+
+    "Target" is the stocking's own `estimated_harvest_kg` (fingerlings x survival % x average body weight, set when it
+    was stocked); "actual" is everything recorded in its harvests. Ponds and cages have no comparable area, so these are
+    totals in kg per species, not per hectare. Only HARVESTED stockings that have both an estimate and at least one
+    recorded harvest appear: a variance against a missing figure would be meaningless. Same shape as
+    crop_yield_variance(), biggest variance first.
+    """
+    Stocking = apps.get_model('fisheries', 'StockingRecord')
+    qs = (
+        Stocking.objects.filter(status='Harvested')
+        .exclude(estimated_harvest_kg__isnull=True)
+        .annotate(actual_kg=Sum('harvests__quantity_kg'))
+        .exclude(actual_kg__isnull=True)
+        .select_related('species')
+        .order_by('-year', '-id')
+    )
+    by_species = defaultdict(lambda: {'est': 0.0, 'act': 0.0, 'n': 0, 'season': '', 'year': None})
+    for r in qs:
+        b = by_species[r.species.species_name]
+        b['est'] += float(r.estimated_harvest_kg or 0)
+        b['act'] += float(r.actual_kg or 0)
+        b['n'] += 1
+        if b['year'] is None or (r.year or 0) > b['year']:
+            b['year'], b['season'] = r.year, r.season
+
+    out = []
+    for name, b in by_species.items():
+        if not b['est']:
+            continue
+        out.append({
+            'species': name,
+            'target_kg': round(b['est'], 1),
+            'actual_kg': round(b['act'], 1),
+            'variance_pct': round((b['act'] - b['est']) / b['est'] * 100.0, 1),
+            'season': b['season'],
+            'year': b['year'],
+            'records': b['n'],
+        })
+    out.sort(key=lambda r: -abs(r['variance_pct']))
     return out[:limit]
