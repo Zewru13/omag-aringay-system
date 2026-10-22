@@ -34,6 +34,8 @@ from .duplicates import find_active_duplicates, same_place
 from .naming import normalize_name
 from .schedule_rules import done_date as step_done_date, is_setup_stage, step_status
 from .dashboard_activity import (
+    disaster_trends,
+    month_range,
     active_disaster_rows, barangay_rows, crop_activity_status,
     crop_yield_variance, fisheries_activity_status, fisheries_yield_variance, not_received_count, sector_summary,
 )
@@ -2607,3 +2609,28 @@ class CropMonitoringPcicFormView(PcicFormPhotoMixin, CropMonitoringDetailView):
     """POST/DELETE the photo of a planting record's PCIC insurance form. Staff only: a farmer can read their own
     planting records but not change them, and the form is part of the record."""
     farmer_blocked_methods = ('POST', 'PUT', 'PATCH', 'DELETE')
+
+
+class DashboardDisasterTrendsView(APIView):
+    """Disaster reports per month between ?from=YYYY-MM and ?to=YYYY-MM (default: the last 12 months), for the staff dashboard."""
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    MAX_MONTHS = 36
+
+    @staticmethod
+    def _month(raw):
+        import re
+        match = re.fullmatch(r'(\d{4})-(\d{2})', raw or '')
+        if not match or not 1 <= int(match.group(2)) <= 12:
+            raise ValidationError('Use months like 2026-01.')
+        return int(match.group(1)), int(match.group(2))
+
+    def get(self, request):
+        today = timezone.localdate()
+        raw_from, raw_to = request.query_params.get('from'), request.query_params.get('to')
+        end = self._month(raw_to) if raw_to else (today.year, today.month)
+        start = self._month(raw_from) if raw_from else ((end[0] - 1, end[1] + 1) if end[1] < 12 else (end[0], 1))
+        if start > end:
+            raise ValidationError('The From month must not be after the To month.')
+        if len(month_range(start, end)) > self.MAX_MONTHS:
+            raise ValidationError(f'Choose a range of at most {self.MAX_MONTHS} months.')
+        return Response(disaster_trends(start, end))

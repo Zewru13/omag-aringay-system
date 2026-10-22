@@ -12,6 +12,7 @@ from .views import (
     FarmerDetailView,
     FarmerDuplicateCheckView,
     FarmerListView,
+    FarmerHarvestComparisonView,
     FarmMachineryDeleteView,
     FarmMachineryListCreateView,
     FarmParcelCreateView,
@@ -23,6 +24,7 @@ from .views import (
 
 urlpatterns = [
     path('', FarmerListView.as_view(), name='farmers-list'),
+    path('harvest-comparison/', FarmerHarvestComparisonView.as_view(), name='farmers-harvest-comparison'),
     path('check-duplicate/', FarmerDuplicateCheckView.as_view(), name='farmers-check-duplicate'),
     path('parcels/import/template/', ParcelImportTemplateView.as_view(), name='farm-parcels-import-template'),
     path('parcel-crops/template/', ParcelCropsTemplateView.as_view(), name='farm-parcel-crops-template'),

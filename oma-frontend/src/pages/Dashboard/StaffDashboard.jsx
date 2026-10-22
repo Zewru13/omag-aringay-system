@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, Fish, PackageX, Sprout } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { approvalLines, hasApproved } from '../../utils/approvalStatus.js'
+import DisasterTrendsCard from './DisasterTrendsCard.jsx'
 import YieldVarianceCard from './YieldVarianceCard.jsx'
 
 // The admin/evaluator dashboard, built to the approved staff reference
@@ -380,6 +381,9 @@ export default function StaffDashboard({ user }) {
               </ul>
             )}
           </div>
+
+          {/* Disaster reports per month, with a From and To month */}
+          <DisasterTrendsCard />
 
           {/* Season snapshot — yield variance (3D columns, crop or fisheries) */}
           <YieldVarianceCard crop={variance} fisheries={fisheriesVariance} isLoading={isLoading} />

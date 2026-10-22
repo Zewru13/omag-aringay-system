@@ -362,3 +362,67 @@ def fisheries_yield_variance(limit=8):
         })
     out.sort(key=lambda r: -abs(r['variance_pct']))
     return out[:limit]
+
+
+def month_range(start, end):
+    """The (year, month) pairs from `start` to `end` inclusive; both are (year, month)."""
+    months, (y, m) = [], start
+    while (y, m) <= end:
+        months.append((y, m))
+        y, m = (y + 1, 1) if m == 12 else (y, m + 1)
+    return months
+
+
+def disaster_trends(start, end):
+    """Disaster reports per month (crop and fisheries) from the first day of `start` to the last day of `end`, both (year, month),
+    plus the same range broken down by disaster type. "Other" shows the name the person typed. Counts only: the figures are the
+    reports as they were saved."""
+    from calendar import monthrange
+    from datetime import date
+
+    Crop = apps.get_model('production', 'CropDisasterReport')
+    Fish = apps.get_model('fisheries', 'FisheriesDisasterReport')
+    first, last = date(start[0], start[1], 1), date(end[0], end[1], monthrange(end[0], end[1])[1])
+    months = {ym: {'month': f'{ym[0]}-{ym[1]:02d}', 'crop': 0, 'fisheries': 0} for ym in month_range(start, end)}
+    by_type, active = {}, 0
+    for domain, model in (('crop', Crop), ('fisheries', Fish)):
+        rows = model.objects.filter(date_of_occurrence__range=(first, last)).values_list(
+            'date_of_occurrence', 'disaster_type', 'disaster_type_other_specify', 'status')
+        for when, kind, other, status in rows:
+            months[(when.year, when.month)][domain] += 1
+            name = (other or '').strip() or kind
+            entry = by_type.setdefault(name, {'type': name, 'crop': 0, 'fisheries': 0, 'total': 0})
+            entry[domain] += 1
+            entry['total'] += 1
+            active += 1 if status == 'Active' else 0
+    month_list = list(months.values())
+    crop_total, fish_total = sum(m['crop'] for m in month_list), sum(m['fisheries'] for m in month_list)
+    return {
+        'months': month_list,
+        'by_type': sorted(by_type.values(), key=lambda t: (-t['total'], t['type'])),
+        'totals': {'reports': crop_total + fish_total, 'active': active, 'crop': crop_total, 'fisheries': fish_total},
+    }
+
+
+def classify_comparison(per_person, total_people):
+    """Counts of people whose total actual harvest exceeded (increased), fell short of (decreased) or matched (on_target) their
+    total estimate. `per_person` is {person_id: (estimated, actual)} for the people that have both figures; everyone else in
+    `total_people` is no_data."""
+    increased = sum(1 for est, act in per_person.values() if act > est)
+    decreased = sum(1 for est, act in per_person.values() if act < est)
+    on_target = len(per_person) - increased - decreased
+    return {
+        'total': total_people, 'compared': len(per_person), 'increased': increased, 'decreased': decreased,
+        'on_target': on_target, 'no_data': total_people - len(per_person),
+    }
+
+
+def parse_comparison_year(raw, default):
+    """The `year` query value: a four-digit year, 'all' (None) or, when absent, `default`. Raises ValueError otherwise."""
+    if raw in (None, ''):
+        return default
+    if str(raw).lower() == 'all':
+        return None
+    if not str(raw).isdigit() or len(str(raw)) != 4:
+        raise ValueError('year must be a four-digit year or "all".')
+    return int(raw)

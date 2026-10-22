@@ -8,6 +8,7 @@ from .views import (
     FeedTypeDetailView,
     FeedTypeListCreateView,
     FisherfolkListView,
+    FisherfolkHarvestComparisonView,
     FisherfolkDetailView,
     FisherfolkDuplicateCheckView,
     FisheriesActivitySuggestionsView,
@@ -57,6 +58,7 @@ from .views import (
 
 urlpatterns = [
     # ── Fisherfolk ──────────────────────────────────────────────────────────
+    path('fisherfolk/harvest-comparison/', FisherfolkHarvestComparisonView.as_view(), name='fisherfolk-harvest-comparison'),
     path('fisherfolk/', FisherfolkListView.as_view(), name='fisherfolk-list'),
     path('fisherfolk/check-duplicate/', FisherfolkDuplicateCheckView.as_view(), name='fisherfolk-check-duplicate'),
     path('fisherfolk/<int:id>/', FisherfolkDetailView.as_view(), name='fisherfolk-detail'),
