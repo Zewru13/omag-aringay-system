@@ -9,21 +9,12 @@ import { DonutCard, MonthlyBarsCard } from './HomeChartCards.jsx'
 import { assistanceTypeSlices, memberSlices, monthlyCounts } from './homeCharts.js'
 import { FARMERS_ORG_DOMAIN, FISHERFOLK_ORG_DOMAIN } from './orgDomainConfig.js'
 
-// Home tab of the organization phone shell: four summary tiles, an attention card for members waiting on a
+// Home of the organization account: charts, an attention card for members waiting on a
 // confirmation, and quick actions, laid out like the farmer and fisherfolk phone Homes. Presentation only: it reads
 // the same organization-scoped endpoints the older organization home read (the backend limits each to this
 // organization), and every action opens the page that does the work.
 
 const rows = (res) => (Array.isArray(res.data) ? res.data : (res.data?.results || []))
-
-function StatTile({ value, label, tone }) {
-  return (
-    <div className="rounded-[12px] border-[0.5px] border-cz-border bg-cz-surface px-[15px] py-[16px]">
-      <p className={`text-[22px] font-bold leading-[1.15] ${tone}`}>{value}</p>
-      <p className="mt-2.5 text-[11.5px] text-cz-text-2">{label}</p>
-    </div>
-  )
-}
 
 function QuickAction({ icon: Icon, label, onClick, tone }) {
   return (
@@ -54,7 +45,6 @@ export default function OrgPhoneHome() {
 
   const [isLoading, setIsLoading] = useState(true)
   const [members, setMembers] = useState([])
-  const [officers, setOfficers] = useState([])
   const [history, setHistory] = useState([])
   const [confirmables, setConfirmables] = useState([])
 
@@ -63,15 +53,13 @@ export default function OrgPhoneHome() {
     let cancelled = false
     ;(async () => {
       try {
-        const [m, o, h, c] = await Promise.all([
+        const [m, h, c] = await Promise.all([
           api.get(domain.membersUrl(orgId)),
-          api.get(domain.officersUrl(orgId)),
           api.get(domain.historyUrl),
           api.get(domain.accountlessConfirmablesUrl),
         ])
         if (cancelled) return
         setMembers(rows(m))
-        setOfficers(rows(o))
         setHistory(rows(h))
         setConfirmables(rows(c))
       } catch {
@@ -85,8 +73,6 @@ export default function OrgPhoneHome() {
   }, [orgId])
 
   const thisYear = String(new Date().getFullYear())
-  const activeMembers = members.filter((m) => domain.rowIsActive(m)).length
-  const reportedThisYear = history.filter((r) => String(r.date_given || '').startsWith(thisYear)).length
   // Members whose awaiting record still needs the organization (a request already sent is waiting on OMAg).
   const needConfirmation = confirmables.filter((r) => r.latest_request_status !== 'PENDING').length
   const chartColor = isFisherfolkOrg ? '#155E82' : '#1B4D2E'
@@ -97,13 +83,6 @@ export default function OrgPhoneHome() {
         <p className="text-[15px] italic text-cz-text-2">Loading your organization…</p>
       ) : (
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <StatTile value={activeMembers} label="Active members" tone={tone.text} />
-            <StatTile value={`${officers.filter((o) => o.is_member !== false).length} of ${domain.officerPositions.length}`} label="Officer positions filled" tone={tone.text} />
-            <StatTile value={reportedThisYear} label="Assistance given this year" tone={tone.text} />
-            <StatTile value={needConfirmation} label="Members awaiting confirmation" tone={tone.text} />
-          </div>
-
           <div className="grid gap-3 lg:grid-cols-3">
             <DonutCard title="Members" slices={memberSlices(members, (m) => domain.rowIsActive(m))} unit="members" emptyText="No members to chart yet." />
             <MonthlyBarsCard
