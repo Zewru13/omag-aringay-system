@@ -89,11 +89,14 @@ class CropRecordDuplicateTests(APITestCase):
         self.assertEqual(self.client.post('/api/production/monitoring/', payload(
             stranger, self.crop, parcel), format='json').status_code, 201)
 
-    def test_without_a_parcel_the_barangay_decides(self):
+    def test_a_new_record_needs_a_parcel_so_the_barangay_no_longer_decides(self):
+        # A new farmer crop record must name its parcel (see test_parcel_required); the barangay-only rule now
+        # only matters for records made before that, which this farmer's list can still hold.
         make_record(self.farmer, self.crop, None, farm_location_barangay='Alaska')
-        response = self.post(farm_parcel=None, farm_location_barangay='alaska')
-        self.assertIn('in alaska', self.refused(response))
-        self.assertEqual(self.post(farm_parcel=None, farm_location_barangay='Basca').status_code, 201)
+        for barangay in ('alaska', 'Basca'):
+            response = self.post(farm_parcel=None, farm_location_barangay=barangay)
+            self.assertEqual(response.status_code, 400)
+            self.assertIn('farm_parcel', response.json())
 
     def test_a_new_parcel_record_is_not_blocked_by_a_barangay_only_record_but_the_same_parcel_is(self):
         make_record(self.farmer, self.crop, None, farm_location_barangay='Alaska', variety_used='Mix')

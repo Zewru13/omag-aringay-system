@@ -1,23 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import DataTable from '../../components/UI/DataTable.jsx';
 import useIsPhone from '../../hooks/useIsPhone.js';
 import useDebouncedValue from "../../hooks/useDebouncedValue.js";
 import {
+  ChevronDown,
   Eye,
   FileText,
   MessageCircle,
   Pencil,
   Plus,
   Search,
-  Trash2,
-  Upload,
   User,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import BarangaySelect from "../../components/UI/BarangaySelect.jsx";
 import ComboboxWithOther from "../../components/UI/ComboboxWithOther.jsx";
 import api from "../../api/axiosInstance.js";
-import CropRecordImportModal from "../../components/CropRecordImportModal.jsx";
 import PageLayout from "../../components/Layout/PageLayout.jsx";
 import RowActions from "../../components/UI/RowActions.jsx";
 import ConfirmDialog from "../../components/UI/ConfirmDialog.jsx";
@@ -29,11 +26,12 @@ import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import ModalShell from "../../components/UI/ModalShell.jsx";
 import PaginationBar from "../../components/UI/PaginationBar.jsx";
 import StatusPill from "../../components/UI/StatusPill.jsx";
-import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import PcicInsuranceField from "../../components/UI/PcicInsuranceField.jsx";
 import PcicBadge from "../../components/UI/PcicBadge.jsx";
 import { pcicError, pcicPayload, pcicStateFrom, uploadPcicForm } from "../../utils/pcic.js";
+import { ARINGAY_BARANGAYS } from "../../constants/barangays.js";
+import { addCropState, cropCountLabel, directoryParams, noParcelParams, parcelLabel, recordActionKeys } from "./parcelRecords.js";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -83,29 +81,8 @@ const STATUS_TONES = {
   "Total Loss": "rose",
 };
 
-const COLUMNS = [
-  { key: "crop_type_name", label: "CROP" },
-  { key: "farmer_col", label: "FARMER" },
-  { key: "area_ha_fmt", label: "AREA PLANTED (HA)" },
-  { key: "date_planted_fmt", label: "DATE PLANTED" },
-  { key: "expected_harvest_fmt", label: "ESTIMATED HARVEST DATE" },
-  { key: "est_yield_fmt", label: "ESTIMATED YIELD (KG)" },
-  { key: "assoc_name", label: "ORGANIZATION" },
-  { key: "status_cell", label: "STATUS" },
-  { key: "actions_cell", label: "ACTIONS" },
-];
-
 const filterSelectCls =
   "rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[7px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none";
-
-const STATUS_FILTER_OPTIONS = [
-  "All Status",
-  "Planted",
-  "Near Harvest",
-  "Overdue",
-  "Harvested",
-  "Total Loss",
-];
 
 // ─── Add Remark Modal ─────────────────────────────────────────────────────────
 
@@ -997,336 +974,435 @@ function CropDetailModal({ record, onClose }) {
   );
 }
 
-// ─── Delete Modal (Trash, type-DELETE, admin only) ────────────────────────────
+// ─── A crop's row menu: View Details / Edit / Remarks (records are not deleted from this page) ───────────────────────
 
-function DeleteCropModal({ record, onClose, onDeleted }) {
-  const { showToast } = useToast();
-  const [isDeleting, setIsDeleting] = useState(false);
+const ROW_ACTIONS = {
+  view: { label: 'View Details', icon: Eye },
+  edit: { label: 'Edit', icon: Pencil },
+  remarks: { label: 'View/Add Remarks', icon: FileText },
+};
 
-  const handleConfirm = async () => {
-    setIsDeleting(true);
-    try {
-      await api.delete(`/production/monitoring/${record.id}/`);
-      showToast("Crop record deleted.", "success");
-      onDeleted();
-    } catch (err) {
-      showToast(err?.response?.data?.detail || "Failed to delete crop record.", "error");
-    } finally {
-      setIsDeleting(false);
-    }
-  };
-
-  const details = `${record.log_count ?? 0} activity log(s), ${record.disaster_report_count ?? 0} disaster report(s), ${record.harvest_count ?? 0} harvest record(s).`;
-
-  return (
-    <ConfirmDialog
-      title={`Delete ${record.crop_type_name}?`}
-      message="This action cannot be undone."
-      details={details}
-      confirmLabel={isDeleting ? "Deleting…" : "Delete Record"}
-      requireTypedConfirmation
-      typedConfirmationText="DELETE"
-      variant="danger"
-      onConfirm={handleConfirm}
-      onCancel={onClose}
-    />
-  );
-}
-
-// ─── Row Actions: View Details / Edit / Remarks / Delete ──────────────────────
-// Admin sees up to 4 (always ⋮); Evaluator sees up to 3, or 2 (View Details +
-// Remarks) once the record is Harvested — RowActions' own action-count rule
-// still renders that 2-action case as a ⋮, same as every other row here.
-
-function CropRowActionsMenu({ rec, isAdmin, onViewDetails, onEdit, onRemarks, onDelete }) {
-  const canEdit = rec.status !== "Harvested";
-
-  const actions = [
-    { key: 'view', label: 'View Details', icon: Eye, onClick: onViewDetails },
-    canEdit && { key: 'edit', label: 'Edit', icon: Pencil, onClick: onEdit },
-    { key: 'remarks', label: 'View/Add Remarks', icon: FileText, onClick: onRemarks },
-    isAdmin && { key: 'delete', label: 'Delete', icon: Trash2, onClick: onDelete, tone: 'rose' },
-  ];
-
+function CropRowActionsMenu({ rec, handlers }) {
+  const actions = recordActionKeys(rec).map((key) => ({ key, ...ROW_ACTIONS[key], onClick: () => handlers[key](rec) }));
   return <RowActions actions={actions} menuWidthClassName="w-48" />;
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+// ─── The crop records on one parcel (or on no parcel at all), loaded when its row is opened ──────────────────────────
 
-export default function CropInformationPage() {
-  const isPhone = useIsPhone();
-  const { isAdmin } = useAuth();
-  const navigate = useNavigate();
-  const [records, setRecords] = useState([]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [page, setPage] = useState(1);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All Status");
-  const [seasonFilter, setSeasonFilter] = useState("");
-  const [yearFilter, setYearFilter] = useState("");
-  const [remarksRec, setRemarksRec] = useState(null);
-  const [editingRec, setEditingRec] = useState(null);
-  const [viewingRec, setViewingRec] = useState(null);
-  const [deletingRec, setDeletingRec] = useState(null);
-  const [showRsbsaImportModal, setShowRsbsaImportModal] = useState(false);
+// `params` are the extra filters for the crop list; the parcel itself is `farm_parcel`. A crop edited elsewhere on the page
+// bumps `version`, which loads the list again.
+function useParcelCrops(parcelId, search, barangay, version) {
+  const [state, setState] = useState({ key: "", items: [], count: 0, page: 0, failed: false });
+  const [loadingMore, setLoadingMore] = useState(false);
+  const key = JSON.stringify([parcelId, search, barangay, version]);
 
-  // Server-side search over every record (farmer, RSBSA, crop, organization,
-  // barangay) — debounced, and a slower earlier answer never overwrites the
-  // one for what is typed now.
-  const debouncedSearch = useDebouncedValue(search.trim());
-  const requestSeq = useRef(0);
-
-  const fetchRecords = useCallback(
-    async (pageNum = 1) => {
-      const seq = ++requestSeq.current;
-      setIsLoading(true);
-      setError("");
-      try {
-        const params = new URLSearchParams({ page: pageNum });
-        if (debouncedSearch) params.set("search", debouncedSearch);
-        if (seasonFilter) params.set("season", seasonFilter);
-        if (yearFilter) params.set("year", yearFilter);
-        // "Near Harvest" and "Overdue" are both partly client-derived (see
-        // getDisplayStatus) from records still stored as "Planted" or "Near
-        // Harvest" whose expected_harvest_date has crept close or passed —
-        // don't filter either server-side or those records go missing.
-        if (
-          statusFilter &&
-          statusFilter !== "All Status" &&
-          statusFilter !== "Near Harvest" &&
-          statusFilter !== "Overdue"
-        ) {
-          params.set("status", statusFilter);
-        }
-        const r = await api.get(`/production/monitoring/?${params.toString()}`);
-        if (seq !== requestSeq.current) return;
-        setRecords(Array.isArray(r.data) ? r.data : r.data.results || []);
-        setTotalCount(typeof r.data?.count === "number" ? r.data.count : 0);
-      } catch {
-        if (seq === requestSeq.current) setError("Failed to load crop records.");
-      } finally {
-        if (seq === requestSeq.current) setIsLoading(false);
-      }
+  const request = useCallback(
+    (page) => {
+      const params = parcelId === "none" ? noParcelParams({ search, barangay }) : { farm_parcel: parcelId };
+      return api.get("/production/monitoring/", { params: { ...params, page } });
     },
-    [seasonFilter, yearFilter, statusFilter, debouncedSearch],
+    [parcelId, search, barangay],
   );
 
   useEffect(() => {
-    setPage(1);
-    fetchRecords(1);
-  }, [seasonFilter, yearFilter, statusFilter, debouncedSearch]);
-
-  useEffect(() => {
-    fetchRecords(page);
-  }, [fetchRecords, page]);
-
-  const filtered = useMemo(() => {
-    return records.filter((rec) => {
-      const displayStatus = getDisplayStatus(rec);
-      return statusFilter === "All Status" || displayStatus === statusFilter;
-    });
-  }, [records, statusFilter]);
-
-  const rows = filtered.map((rec) => {
-    const displayStatus = getDisplayStatus(rec);
-    return {
-      ...rec,
-      area_ha_fmt: rec.area_planted_ha
-        ? Number(rec.area_planted_ha).toFixed(2)
-        : "—",
-      farmer_col: rec.farmer_name || rec.farmer_full_name || "—",
-      date_planted_fmt: fmtShort(rec.date_planted),
-      expected_harvest_fmt: fmtShort(rec.expected_harvest_date),
-      est_yield_fmt:
-        rec.status === "Harvested" && rec.actual_yield_kg ? (
-          <span className="text-slate-400">
-            {Number(rec.actual_yield_kg).toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}
-          </span>
-        ) : rec.estimated_yield_kg ? (
-          Number(rec.estimated_yield_kg).toLocaleString(undefined, {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })
-        ) : (
-          "—"
-        ),
-      assoc_name: rec.organization_name || "—",
-      status_cell: (
-        <span className="flex items-center gap-1.5">
-          <StatusPill tone={STATUS_TONES[displayStatus] || "slate"}>
-            {displayStatus}
-          </StatusPill>
-          <HarvestVarianceBadge days={rec.harvest_variance_days} />
-        </span>
-      ),
-      actions_cell: (
-        <CropRowActionsMenu
-          rec={rec}
-          isAdmin={isAdmin}
-          onViewDetails={() => setViewingRec(rec)}
-          onEdit={() => setEditingRec(rec)}
-          onRemarks={() => setRemarksRec(rec)}
-          onDelete={() => setDeletingRec(rec)}
-        />
-      ),
+    let alive = true;
+    request(1)
+      .then((r) => {
+        if (!alive) return;
+        const items = Array.isArray(r.data) ? r.data : r.data.results || [];
+        setState({ key, items, count: typeof r.data?.count === "number" ? r.data.count : items.length, page: 1, failed: false });
+      })
+      .catch(() => alive && setState({ key, items: [], count: 0, page: 1, failed: true }));
+    return () => {
+      alive = false;
     };
-  });
+  }, [key, request]);
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      const r = await request(state.page + 1);
+      const items = Array.isArray(r.data) ? r.data : r.data.results || [];
+      setState((s) => ({ ...s, items: [...s.items, ...items], page: s.page + 1 }));
+    } catch {
+      setState((s) => ({ ...s, failed: true }));
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  return { ...state, isLoading: state.key !== key, loadingMore, loadMore };
+}
+
+const CROP_COLUMNS = ["Crop", "Variety", "Season", "Date planted", "Est. harvest", "Area (ha)", "Status", ""];
+
+function cropCells(rec) {
+  const status = getDisplayStatus(rec);
+  return {
+    crop: rec.crop_type_name,
+    variety: rec.variety_used || "—",
+    season: [rec.season, rec.year].filter(Boolean).join(" ") || "—",
+    planted: fmtShort(rec.date_planted),
+    harvest: fmtShort(rec.expected_harvest_date),
+    area: rec.area_planted_ha ? Number(rec.area_planted_ha).toFixed(2) : "—",
+    status: (
+      <span className="flex items-center gap-1.5">
+        <StatusPill tone={STATUS_TONES[status] || "slate"}>{status}</StatusPill>
+        <HarvestVarianceBadge days={rec.harvest_variance_days} />
+      </span>
+    ),
+  };
+}
+
+function ParcelCrops({ parcelId, search, barangay, version, isPhone, handlers, emptyText }) {
+  const { items, count, isLoading, failed, loadingMore, loadMore } = useParcelCrops(parcelId, search, barangay, version);
+
+  if (isLoading) return <p className="px-4 py-4 text-[13px] italic text-[#7A8E7A]">Loading crop records…</p>;
+  if (failed) return <p className="px-4 py-4 text-[13px] text-rose-700">Failed to load the crop records for this parcel.</p>;
+  if (items.length === 0) return <p className="px-4 py-4 text-[13px] italic text-[#7A8E7A]">{emptyText}</p>;
 
   return (
-    <PageLayout
-      title="Crop Information Management"
-      subtitle="Monitor and manage crop records and activities."
-    >
-      <div className="space-y-4">
-        <FilterPanel
-          actions={
-            <>
-              <button
-                type="button"
-                className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[#E2E8E2] px-4 py-2 text-[13px] font-medium text-[#1B4D2E] hover:bg-[#F0F4F0] transition-colors"
-                onClick={() => setShowRsbsaImportModal(true)}
-              >
-                <Upload size={15} /> Import Crop Records
-              </button>
-              <button
-                type="button"
-                className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors"
-                onClick={() => navigate("/crop-records/add")}
-              >
-                <Plus size={15} /> Add Crop Record
-              </button>
-            </>
-          }
-          search={search}
-          onSearchChange={setSearch}
-          searchPlaceholder="Search by farmer, RSBSA, crop, or organization..."
-          activeCount={[statusFilter !== 'All Status', Boolean(seasonFilter), Boolean(yearFilter)].filter(Boolean).length}
-        >
-          <select className={filterSelectCls} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            {STATUS_FILTER_OPTIONS.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-          <select className={filterSelectCls} value={seasonFilter} onChange={(e) => setSeasonFilter(e.target.value)}>
-            <option value="">All Seasons</option>
-            <option value="Dry">Dry Season</option>
-            <option value="Wet">Wet Season</option>
-          </select>
-          <select className={filterSelectCls} value={yearFilter} onChange={(e) => setYearFilter(e.target.value)}>
-            <option value="">All Years</option>
-            {Array.from(
-              { length: 8 },
-              (_, i) => new Date().getFullYear() + 1 - i,
-            ).map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-        </FilterPanel>
-
-        {error && <ErrorMessage message={error} />}
-
-        {/* A phone gets cards (the standard table component); larger screens keep the table below. */}
-        {isPhone ? (
-          <DataTable columns={COLUMNS} data={rows} isLoading={isLoading} />
-        ) : (
-        <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+    <div className="px-3 pb-3 pt-1 sm:px-4">
+      {isPhone ? (
+        <ul className="space-y-2">
+          {items.map((rec) => {
+            const c = cropCells(rec);
+            return (
+              <li key={rec.id} className="rounded-lg border border-[#E2E8E2] bg-white p-3">
+                <div className="flex flex-col gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[14px] font-semibold text-[#1A2B1A]">{c.crop}</p>
+                    <p className="text-[12px] text-[#7A8E7A]">{[c.variety !== "—" && c.variety, c.season !== "—" && c.season].filter(Boolean).join(" · ") || "—"}</p>
+                  </div>
+                  <CropRowActionsMenu rec={rec} handlers={handlers} />
+                </div>
+                <div className="mt-2">{c.status}</div>
+                <p className="mt-2 text-[12px] text-[#4A5E4A]">
+                  Planted {c.planted} · Est. harvest {c.harvest} · {c.area} ha
+                </p>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-[#E2E8E2] bg-white">
           <table className="min-w-full text-sm">
-            <thead className="bg-[#1B4D2E] text-white">
+            <thead className="bg-[#F0F4F0] text-[#4A5E4A]">
               <tr>
-                {COLUMNS.map((col) => (
-                  <th
-                    key={col.key}
-                    className="whitespace-nowrap px-4 py-[11px] text-left text-[11px] font-semibold uppercase tracking-[0.06em]"
-                  >
-                    {col.label}
+                {CROP_COLUMNS.map((label) => (
+                  <th key={label || "actions"} className="whitespace-nowrap px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.06em]">
+                    {label}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {isLoading ? (
-                Array.from({ length: 5 }).map((_, i) => (
-                  <tr
-                    key={i}
-                    className="border-b border-[#F0F4F0] animate-pulse"
-                  >
-                    {COLUMNS.map((col) => (
-                      <td key={col.key} className="px-4 py-[13px]">
-                        <div className="h-4 bg-[#E8EEE8] rounded w-3/4" />
-                      </td>
-                    ))}
+              {items.map((rec) => {
+                const c = cropCells(rec);
+                return (
+                  <tr key={rec.id} className="border-t border-[#F0F4F0]">
+                    <td className="whitespace-nowrap px-3 py-2.5 text-[13px] font-medium text-[#1A2B1A]">{c.crop}</td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#4A5E4A]">{c.variety}</td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#4A5E4A]">{c.season}</td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#4A5E4A]">{c.planted}</td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#4A5E4A]">{c.harvest}</td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#4A5E4A]">{c.area}</td>
+                    <td className="whitespace-nowrap px-3 py-2.5">{c.status}</td>
+                    <td className="px-3 py-2.5 text-right">
+                      <CropRowActionsMenu rec={rec} handlers={handlers} />
+                    </td>
                   </tr>
-                ))
-              ) : rows.length === 0 ? (
-                <tr>
-                  <td colSpan={COLUMNS.length} className="py-12 text-center">
-                    <div className="flex flex-col items-center gap-2 text-[#C8D5C8]">
-                      <svg
-                        width="48"
-                        height="48"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        viewBox="0 0 24 24"
-                      >
-                        <path d="M9 17H7A5 5 0 0 1 7 7h2" />
-                        <path d="M15 7h2a5 5 0 0 1 0 10h-2" />
-                        <line x1="8" y1="12" x2="16" y2="12" />
-                      </svg>
-                      <p className="text-[14px] font-medium text-[#4A5E4A]">
-                        No crop records found
-                      </p>
-                      <p className="text-[13px] text-[#7A8E7A]">
-                        Try adjusting your search or filters
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                rows.map((row) => (
-                  <tr
-                    key={row.id}
-                    className="border-b border-[#F0F4F0] transition-colors hover:bg-[#F9FAF9]"
-                  >
-                    {COLUMNS.map((col) => (
-                      <td
-                        key={col.key}
-                        className="whitespace-nowrap px-4 py-[13px] text-[13px] text-[#1A2B1A] align-middle"
-                      >
-                        {row[col.key]}
-                      </td>
-                    ))}
-                  </tr>
-                ))
-              )}
+                );
+              })}
             </tbody>
           </table>
         </div>
+      )}
+      {items.length < count && (
+        <div className="mt-2 flex items-center justify-between gap-2 text-[12px] text-[#7A8E7A]">
+          <span>
+            Showing {items.length} of {count}
+          </span>
+          <button
+            type="button"
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="min-h-[36px] rounded-lg border border-[#E2E8E2] px-3 font-medium text-[#1B4D2E] hover:bg-[#F0F4F0] disabled:opacity-60"
+          >
+            {loadingMore ? "Loading…" : "Show more"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── One parcel: its details, "Add crop records", and (when opened) the crops on it ──────────────────────────────────
+
+const STATUS_TONE = { Active: "green", Inactive: "slate" };
+
+function AddCropButton({ parcel, onAdd }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onAdd(parcel)}
+      className="inline-flex min-h-[36px] items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#1B4D2E] px-3 text-[12.5px] font-semibold text-white transition-colors hover:bg-[#235E38] max-md:min-h-[44px]"
+    >
+      <Plus size={14} aria-hidden="true" /> Add crop records
+    </button>
+  );
+}
+
+function ParcelRow({ parcel, open, onToggle, onAdd, isPhone, ...cropProps }) {
+  const panelId = `parcel-crops-${parcel.id}`;
+  const title = parcelLabel(parcel);
+
+  const toggle = (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={open}
+      aria-controls={panelId}
+      aria-label={`${open ? "Hide" : "Show"} the crops on ${title}`}
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-[#4A5E4A] hover:bg-[#E8EEE8] max-md:h-10 max-md:w-10"
+    >
+      <ChevronDown size={16} className={`transition-transform ${open ? "rotate-180" : "-rotate-90"}`} aria-hidden="true" />
+    </button>
+  );
+
+  if (isPhone) {
+    return (
+      <li className="rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <div className="flex items-start gap-2 p-3">
+          {toggle}
+          <div className="min-w-0 flex-1">
+            <p className="break-words text-[14px] font-semibold text-[#1A2B1A]">{title}</p>
+            <p className="text-[13px] text-[#4A5E4A]">
+              {parcel.farmer_name} · {parcel.barangay}
+            </p>
+            <p className="text-[12px] text-[#7A8E7A]">
+              {Number(parcel.area_hectares).toFixed(2)} ha · {parcel.land_ownership} · {cropCountLabel(parcel.crop_count)}
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <StatusPill tone={STATUS_TONE[parcel.farm_status] || "slate"}>{parcel.farm_status}</StatusPill>
+              <AddCropButton parcel={parcel} onAdd={onAdd} />
+            </div>
+          </div>
+        </div>
+        {open && (
+          <div id={panelId} className="border-t border-[#F0F4F0] bg-[#F9FAF9]">
+            <ParcelCrops parcelId={parcel.id} isPhone emptyText="No crop records on this parcel yet." {...cropProps} />
+          </div>
+        )}
+      </li>
+    );
+  }
+
+  return (
+    <>
+      <tr className={`border-b border-[#F0F4F0] transition-colors hover:bg-[#F9FAF9] ${open ? "bg-[#F9FAF9]" : ""}`}>
+        <td className="w-12 px-2 py-2.5">{toggle}</td>
+        <td className="whitespace-nowrap px-3 py-2.5 text-[13px] font-medium text-[#1A2B1A]">{title}</td>
+        <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#1A2B1A]">
+          <p className="font-medium">{parcel.farmer_name}</p>
+          <p className="text-[11.5px] text-[#7A8E7A]">{parcel.rsbsa_number}</p>
+        </td>
+        <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#4A5E4A]">{parcel.barangay}</td>
+        <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#4A5E4A]">{Number(parcel.area_hectares).toFixed(2)}</td>
+        <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#4A5E4A]">{parcel.land_ownership}</td>
+        <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#4A5E4A]">{cropCountLabel(parcel.crop_count)}</td>
+        <td className="whitespace-nowrap px-3 py-2.5">
+          <StatusPill tone={STATUS_TONE[parcel.farm_status] || "slate"}>{parcel.farm_status}</StatusPill>
+        </td>
+        <td className="whitespace-nowrap px-3 py-2.5 text-right">
+          <AddCropButton parcel={parcel} onAdd={onAdd} />
+        </td>
+      </tr>
+      {open && (
+        <tr id={panelId} className="border-b border-[#F0F4F0] bg-[#F9FAF9]">
+          <td colSpan={PARCEL_COLUMNS.length + 1} className="p-0">
+            <ParcelCrops parcelId={parcel.id} isPhone={false} emptyText="No crop records on this parcel yet." {...cropProps} />
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+const PARCEL_COLUMNS = ["Parcel", "Farmer", "Barangay", "Area (ha)", "Ownership", "Crops", "Status", "Actions"];
+
+// ─── The crops with no parcel on file (older records and organization crops) ─────────────────────────────────────────
+
+function NoParcelGroup({ search, barangay, version, isPhone, handlers }) {
+  const [open, setOpen] = useState(false);
+  // Only the count is needed until it is opened; the list loads itself then.
+  const [count, setCount] = useState({ key: "", value: 0 });
+  const key = JSON.stringify([search, barangay, version]);
+
+  useEffect(() => {
+    let alive = true;
+    api
+      .get("/production/monitoring/", { params: { ...noParcelParams({ search, barangay }), page: 1 } })
+      .then((r) => alive && setCount({ key, value: typeof r.data?.count === "number" ? r.data.count : (r.data?.length ?? 0) }))
+      .catch(() => alive && setCount({ key, value: 0 }));
+    return () => {
+      alive = false;
+    };
+  }, [key, search, barangay]);
+
+  if (count.key !== key || count.value === 0) return null;
+
+  return (
+    <section className="rounded-xl border border-dashed border-[#C8D5C8] bg-white">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="flex min-h-[48px] w-full items-center gap-2 px-4 py-3 text-left"
+      >
+        <ChevronDown size={16} className={`shrink-0 text-[#4A5E4A] transition-transform ${open ? "rotate-180" : "-rotate-90"}`} aria-hidden="true" />
+        <span className="text-[14px] font-semibold text-[#1A2B1A]">No farm parcel on file</span>
+        <span className="text-[13px] text-[#7A8E7A]">
+          {count.value} crop record{count.value === 1 ? "" : "s"} · older records and organization crops
+        </span>
+      </button>
+      {open && (
+        <div className="border-t border-[#F0F4F0] bg-[#F9FAF9]">
+          <ParcelCrops parcelId="none" search={search} barangay={barangay} version={version} isPhone={isPhone} handlers={handlers} emptyText="No crop records." />
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+
+const PARCEL_STATUS_OPTIONS = ["Active", "Inactive"];
+
+export default function CropInformationPage() {
+  const isPhone = useIsPhone();
+  const navigate = useNavigate();
+  const [search, setSearch] = useState("");
+  const [barangay, setBarangay] = useState("");
+  const [farmStatus, setFarmStatus] = useState("");
+  const [page, setPage] = useState(1);
+  const [version, setVersion] = useState(0);
+  const [openIds, setOpenIds] = useState([]);
+  const [remarksRec, setRemarksRec] = useState(null);
+  const [editingRec, setEditingRec] = useState(null);
+  const [viewingRec, setViewingRec] = useState(null);
+
+  // Server-side search over every parcel (farmer, RSBSA, parcel number) — debounced, so a slower earlier answer can never
+  // replace the one for what is typed now (the answer is stored with the request it belongs to).
+  const debouncedSearch = useDebouncedValue(search.trim());
+  const requestKey = JSON.stringify([debouncedSearch, barangay, farmStatus, page, version]);
+  const [result, setResult] = useState({ key: "", rows: [], count: 0, failed: false });
+
+  useEffect(() => {
+    let alive = true;
+    api
+      .get("/farmers/parcels/directory/", { params: directoryParams({ search: debouncedSearch, barangay, farmStatus, page }) })
+      .then((r) => {
+        if (!alive) return;
+        const rows = Array.isArray(r.data) ? r.data : r.data.results || [];
+        setResult({ key: requestKey, rows, count: typeof r.data?.count === "number" ? r.data.count : rows.length, failed: false });
+      })
+      .catch(() => alive && setResult({ key: requestKey, rows: [], count: 0, failed: true }));
+    return () => {
+      alive = false;
+    };
+  }, [requestKey, debouncedSearch, barangay, farmStatus, page]);
+
+  const isLoading = result.key !== requestKey;
+  const refresh = () => setVersion((v) => v + 1);
+  const toggle = (id) => setOpenIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
+  const addCrops = (parcel) => navigate("/crop-records/add", { state: addCropState(parcel) });
+  const handlers = { view: setViewingRec, edit: setEditingRec, remarks: setRemarksRec };
+  const changeFilter = (setter) => (value) => {
+    setter(value);
+    setPage(1);
+  };
+
+  const cropProps = { search: debouncedSearch, barangay, version, handlers };
+  // Parcel crop lists are not filtered by the typed search (the search chose the parcels); only the no-parcel group is.
+  const parcelCropProps = { search: "", barangay: "", version, handlers };
+
+  return (
+    <PageLayout title="Crop Records" subtitle="Farm parcels and the crops grown on them. Open a parcel to see its crops.">
+      <div className="space-y-4">
+        <FilterPanel
+          search={search}
+          onSearchChange={changeFilter(setSearch)}
+          searchPlaceholder="Search by farmer, RSBSA, or parcel number..."
+          activeCount={[Boolean(barangay), Boolean(farmStatus)].filter(Boolean).length}
+        >
+          <select className={filterSelectCls} value={barangay} onChange={(e) => changeFilter(setBarangay)(e.target.value)} aria-label="Barangay">
+            <option value="">All Barangays</option>
+            {ARINGAY_BARANGAYS.map((b) => (
+              <option key={b} value={b}>
+                {b}
+              </option>
+            ))}
+          </select>
+          <select className={filterSelectCls} value={farmStatus} onChange={(e) => changeFilter(setFarmStatus)(e.target.value)} aria-label="Parcel status">
+            <option value="">All Parcel Status</option>
+            {PARCEL_STATUS_OPTIONS.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </FilterPanel>
+
+        {result.failed && !isLoading && <ErrorMessage message="Failed to load farm parcels." />}
+
+        {isLoading ? (
+          <div className="space-y-2" aria-busy="true">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="h-14 animate-pulse rounded-xl border border-[#E2E8E2] bg-[#E8EEE8]/60" />
+            ))}
+          </div>
+        ) : result.rows.length === 0 ? (
+          <div className="rounded-xl border border-[#E2E8E2] bg-white py-12 text-center">
+            <p className="text-[14px] font-medium text-[#4A5E4A]">No farm parcels found</p>
+            <p className="text-[13px] text-[#7A8E7A]">Try adjusting your search or filters. A farm parcel is added from the farmer&apos;s profile.</p>
+          </div>
+        ) : isPhone ? (
+          <ul className="space-y-2">
+            {result.rows.map((parcel) => (
+              <ParcelRow key={parcel.id} parcel={parcel} open={openIds.includes(parcel.id)} onToggle={() => toggle(parcel.id)} onAdd={addCrops} isPhone {...parcelCropProps} />
+            ))}
+          </ul>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+            <table className="min-w-full text-sm">
+              <thead className="bg-[#1B4D2E] text-white">
+                <tr>
+                  <th className="w-12 px-2 py-[11px]">
+                    <span className="sr-only">Open</span>
+                  </th>
+                  {PARCEL_COLUMNS.map((label) => (
+                    <th key={label} className="whitespace-nowrap px-3 py-[11px] text-left text-[11px] font-semibold uppercase tracking-[0.06em]">
+                      {label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {result.rows.map((parcel) => (
+                  <ParcelRow key={parcel.id} parcel={parcel} open={openIds.includes(parcel.id)} onToggle={() => toggle(parcel.id)} onAdd={addCrops} isPhone={false} {...parcelCropProps} />
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
 
-        <PaginationBar
-          page={page}
-          totalCount={totalCount}
-          pageSize={10}
-          onPageChange={(p) => {
-            setPage(p);
-          }}
-        />
+        <PaginationBar page={page} totalCount={result.count} pageSize={10} onPageChange={setPage} />
+
+        <NoParcelGroup {...cropProps} isPhone={isPhone} />
       </div>
 
-
-      {remarksRec && (
-        <RemarksModal record={remarksRec} onClose={() => setRemarksRec(null)} />
-      )}
+      {remarksRec && <RemarksModal record={remarksRec} onClose={() => setRemarksRec(null)} />}
 
       {editingRec && (
         <EditCropModal
@@ -1334,32 +1410,12 @@ export default function CropInformationPage() {
           onClose={() => setEditingRec(null)}
           onSaved={() => {
             setEditingRec(null);
-            fetchRecords();
+            refresh();
           }}
         />
       )}
 
-      {viewingRec && (
-        <CropDetailModal record={viewingRec} onClose={() => setViewingRec(null)} />
-      )}
-
-      {deletingRec && (
-        <DeleteCropModal
-          record={deletingRec}
-          onClose={() => setDeletingRec(null)}
-          onDeleted={() => {
-            setDeletingRec(null);
-            fetchRecords(page);
-          }}
-        />
-      )}
-
-      {showRsbsaImportModal && (
-        <CropRecordImportModal
-          onClose={() => setShowRsbsaImportModal(false)}
-          onCommitted={() => fetchRecords(page)}
-        />
-      )}
+      {viewingRec && <CropDetailModal record={viewingRec} onClose={() => setViewingRec(null)} />}
     </PageLayout>
   );
 }

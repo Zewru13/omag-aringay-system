@@ -14,6 +14,7 @@ from .views import (
     FarmMachineryDeleteView,
     FarmMachineryListCreateView,
     FarmParcelCreateView,
+    FarmParcelDirectoryView,
     FarmParcelListView,
     MyFarmParcelListView,
 )
@@ -22,6 +23,7 @@ from .views import (
 urlpatterns = [
     path('', FarmerListView.as_view(), name='farmers-list'),
     path('check-duplicate/', FarmerDuplicateCheckView.as_view(), name='farmers-check-duplicate'),
+    path('parcels/directory/', FarmParcelDirectoryView.as_view(), name='farm-parcels-directory'),
     path('me/parcels/', MyFarmParcelListView.as_view(), name='farm-parcels-mine'),
     path('rsbsa-import/preview/', RsbsaUpdateImportPreviewView.as_view(), name='rsbsa-import-preview'),
     path('rsbsa-import/commit/', RsbsaUpdateImportCommitView.as_view(), name='rsbsa-import-commit'),

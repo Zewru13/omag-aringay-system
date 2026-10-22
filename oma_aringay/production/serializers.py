@@ -658,6 +658,18 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
             if inferred:
                 data['farm_parcel'] = inferred
 
+        # A new farmer crop record belongs to one of the farmer's parcels: the only parcel is used as it is, and
+        # with none or several to choose from the person must pick (or add) one. Records made before this rule,
+        # and ones that are edited, are left as they are.
+        if self.instance is None and farmer and not data.get('farm_parcel'):
+            parcels = list(FarmParcel.objects.filter(farmer_id=farmer.id).order_by('id')[:2])
+            if len(parcels) == 1:
+                data['farm_parcel'] = parcels[0]
+            elif not parcels:
+                raise serializers.ValidationError({'farm_parcel': 'This farmer has no farm parcel yet. Add a farm parcel first, then add the crop.'})
+            else:
+                raise serializers.ValidationError({'farm_parcel': 'Choose the farm parcel this crop is grown on.'})
+
         # One farmer cannot have two active records of the same crop and variety in the same place. A new record
         # is always checked. An existing one is checked only while it is still active and only when something
         # that decides the rule really changes (the edit form re-sends every field, changed or not), so a
