@@ -25,6 +25,7 @@ from core.exports import SafeWorkbook
 from core.import_batches import record_created, start_batch
 from core.utils import ImportFileError, cell_text, read_template_rows, run_import_atomically
 
+from . import area_rules
 from .models import FarmCrop, FarmParcel, Farmer, ParcelClassification
 from .rsbsa_import import normalize_barangay
 from .serializers import FarmCropSerializer, FarmParcelSerializer
@@ -306,6 +307,12 @@ def _judge(farmer, items):
         return 'duplicate_in_file', f'Rows {rows_text} are the same parcel but give different details for it. Nothing was imported for it.'
     if sum(1 for i in items if i['crop'] and i['crop']['is_main_crop']) > 1:
         return 'invalid', f'A parcel has only one main crop; more than one of rows {rows_text} says Yes.'
+    crop_items = [i for i in items if i['crop']]
+    messages = area_rules.crop_area_problems(
+        first['area_hectares'], first.get('cropping_schedule', ''), [i['crop']['area_hectares'] for i in crop_items])
+    for item, message in zip(crop_items, messages):
+        if message:
+            return 'invalid', f'Row {item["row"]}: {message}'
     number = first['parcel_number']
     if number and FarmParcel.objects.filter(farmer=farmer, parcel_number__iexact=number).exists():
         return 'duplicate_in_database', f'This farmer already has parcel {number}. Not imported again.'

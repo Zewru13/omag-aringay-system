@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 const {
   makeParcelRow, makeCropRow, makeMachineryRow, addImportedCrops, canSkipSchedule, toggleClassification, cropLabel, machineryLabel,
   rowProblem, cropProblem, machineryProblem, validateRows, duplicateNumberProblems, parcelPayload, cropPayload, machineryPayload,
-  buildPayload, pcicUploads, serverErrorsToMessages, PERENNIAL_CROPS,
+  buildPayload, pcicUploads, serverErrorsToMessages, PERENNIAL_CROPS, cropsAreaUsed, cropCapacity, cropAreaProblems,
 } = await import(new URL('../src/pages/Farmers/parcelRows.js', import.meta.url).href)
 
 let n = 0
@@ -56,6 +56,26 @@ eq(machineryProblem({ machinery_type: 'Hand Tractor', quantity: '0', ownership: 
 eq(machineryProblem({ machinery_type: 'Other', machinery_type_other: '', quantity: '1' }), 'type the machinery name', 'other machinery')
 eq(rowProblem(ok(1, { machinery: [makeMachineryRow(1)] })), '', 'good machinery')
 eq(rowProblem(ok(1, { machinery: [{ ...makeMachineryRow(1), quantity: '' }] })), 'machinery 1: enter a quantity of at least 1', 'machinery in a row')
+
+// ── how much land the crops may use
+const five = (over = {}) => ok(1, { area_hectares: '5', ...over })
+eq(cropsAreaUsed(five({ crops: [crop({ area_hectares: '3' }), crop({ area_hectares: '1.5' })] })), 4.5, 'area used so far')
+eq(cropsAreaUsed(five()), 0, 'no crops use nothing')
+eq(cropCapacity(five()), 5, 'one cropping a year: the parcel area')
+eq(cropCapacity(five({ cropping_schedule: 'Double Cropping' })), 10, 'double cropping: twice the area')
+eq(cropCapacity(five({ cropping_schedule: 'Triple Cropping' })), 15, 'triple cropping: three times the area')
+eq(cropCapacity(five({ cropping_schedule: 'Triple Cropping', crops: [crop({ crop_name: 'Mango', is_main_crop: true })] })), 5, 'a tree main crop has no schedule')
+eq(cropAreaProblems(five({ crops: [crop({ area_hectares: '3' }), crop({ area_hectares: '2' })] })), ['', ''], 'crops that exactly fill the parcel')
+eq(cropAreaProblems(five({ crops: [crop({ area_hectares: '5.5' })] })), ['a crop cannot be bigger than its parcel (5.5 ha crop, 5 ha parcel)'], 'one crop too big')
+eq(cropAreaProblems(five({ crops: [crop({ area_hectares: '3' }), crop({ area_hectares: '2.5' })] })), ['', 'the crops would come to 5.5 ha, more than the 5 ha this parcel allows'], 'the crop that tips the total over')
+eq(cropAreaProblems(five({ cropping_schedule: 'Double Cropping', crops: [crop({ area_hectares: '5' }), crop({ area_hectares: '4' })] })), ['', ''], 'double cropping may use twice the area')
+eq(cropAreaProblems(five({ cropping_schedule: 'Double Cropping', crops: [crop({ area_hectares: '6' })] })).length, 1, 'still one message per crop')
+assert.match(cropAreaProblems(five({ cropping_schedule: 'Triple Cropping', crops: [crop({ area_hectares: '6' })] }))[0], /bigger than its parcel/); n++
+eq(cropAreaProblems(ok(1, { area_hectares: '', crops: [crop({ area_hectares: '9' })] })), [''], 'no parcel area yet: nothing to compare with')
+eq(cropAreaProblems(five({ crops: [crop({ area_hectares: '0.1' }), crop({ area_hectares: '0.2' }), crop({ area_hectares: '4.7' })] })), ['', '', ''], 'decimals add up without float drift')
+eq(rowProblem(five({ crops: [crop({ area_hectares: '5.5' })] })), 'crop 1: a crop cannot be bigger than its parcel (5.5 ha crop, 5 ha parcel)', 'the row cannot be saved')
+eq(rowProblem(five({ crops: [crop({ area_hectares: '3' }), crop({ area_hectares: '2.5' })] })), 'crop 2: the crops would come to 5.5 ha, more than the 5 ha this parcel allows', 'the total is named')
+eq(rowProblem(five({ crops: [crop({ area_hectares: '3' }), crop({ area_hectares: '2' })] })), '', 'crops that fit')
 
 // ── the whole form
 eq(validateRows([ok(1), ok(2)]), {}, 'all fine')

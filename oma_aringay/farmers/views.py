@@ -1,6 +1,10 @@
+from decimal import Decimal
+
 from django.db import transaction
 from django.db.models import Count, Prefetch, Q
+from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -11,6 +15,7 @@ from accounts.utils import create_inactive_citizen_shell
 from associations.models import FarmersOrganizationMember
 from core.utils import day_range_bounds, filter_people_search
 
+from . import area_rules
 from .models import Farmer, FarmCrop, FarmMachinery, FarmParcel, ParcelClassification
 from .serializers import (
     FarmCropSerializer,
@@ -263,6 +268,12 @@ class FarmCropListCreateView(generics.ListCreateAPIView):
         return FarmCrop.objects.filter(farm_parcel_id=self.kwargs['parcel_id'])
 
     def perform_create(self, serializer):
+        parcel = get_object_or_404(FarmParcel, pk=self.kwargs['parcel_id'])
+        declared = sum((c.area_hectares for c in parcel.crops.all()), Decimal(0))
+        message = area_rules.crop_area_problems(
+            parcel.area_hectares, parcel.cropping_schedule, [serializer.validated_data['area_hectares']], declared)[0]
+        if message:
+            raise ValidationError({'area_hectares': [message]})
         if serializer.validated_data.get('is_main_crop'):
             FarmCrop.objects.filter(
                 farm_parcel_id=self.kwargs['parcel_id'],

@@ -21,6 +21,7 @@ from rest_framework.views import APIView
 
 from accounts.permissions import IsAdminOrEvaluator
 
+from . import area_rules
 from .models import FarmCrop, FarmMachinery, FarmParcel, Farmer
 from .serializers import FarmCropSerializer, FarmMachinerySerializer, FarmParcelSerializer
 
@@ -76,6 +77,13 @@ class FarmParcelBulkCreateView(APIView):
                 problems['crops'] = crop_errors
             elif sum(1 for c in (row.get('crops') or []) if c.get('is_main_crop')) > 1:
                 problems['crops'] = [{'is_main_crop': ['Only one crop can be the main crop.']}]
+            elif crop_serializers and 'area_hectares' not in problems and not parcel_serializer.errors:
+                # A crop cannot use more land than its parcel has (see farmers.area_rules).
+                messages = area_rules.crop_area_problems(
+                    parcel_serializer.validated_data['area_hectares'], parcel_serializer.validated_data.get('cropping_schedule', ''),
+                    [s.validated_data['area_hectares'] for s in crop_serializers])
+                if any(messages):
+                    problems['crops'] = [{'area_hectares': [m]} if m else {} for m in messages]
             machinery_serializers, machinery_errors = _check_nested(row.get('machinery'), FarmMachinerySerializer, 'machinery')
             if machinery_errors:
                 problems['machinery'] = machinery_errors
