@@ -108,6 +108,35 @@ export function machineryProblem(m) {
   return ''
 }
 
+// ── how much land the crops may use (mirrors farmers/area_rules.py; the server is the one that enforces it)
+// One crop can never be bigger than its parcel; all the crops together cannot be more than the parcel, except that a Double or
+// Triple Cropping parcel may declare up to 2 or 3 times its area.
+export const SCHEDULE_TIMES = { 'Double Cropping': 2, 'Triple Cropping': 3 }
+const round4 = (value) => Math.round((Number(value) || 0) * 10000) / 10000
+export const fmtHa = (value) => String(round4(value))
+
+export function cropCapacity(row) {
+  const schedule = canSkipSchedule(row) ? '' : row.cropping_schedule
+  return round4(Number(row.area_hectares) * (SCHEDULE_TIMES[schedule] || 1))
+}
+
+export const cropsAreaUsed = (row) => round4((row.crops || []).reduce((sum, c) => sum + (Number(c.area_hectares) || 0), 0))
+
+// One message ('' when fine) per crop of the row: too big for the parcel, or the one that tips the total over what the parcel allows.
+export function cropAreaProblems(row) {
+  const area = round4(row.area_hectares)
+  if (!(area > 0)) return (row.crops || []).map(() => '')
+  const limit = cropCapacity(row)
+  let running = 0
+  return (row.crops || []).map((c) => {
+    const cropArea = round4(c.area_hectares)
+    running = round4(running + cropArea)
+    if (cropArea > area) return `a crop cannot be bigger than its parcel (${fmtHa(cropArea)} ha crop, ${fmtHa(area)} ha parcel)`
+    if (running > limit) return `the crops would come to ${fmtHa(running)} ha, more than the ${fmtHa(limit)} ha this parcel allows`
+    return ''
+  })
+}
+
 export function rowProblem(row) {
   if (!positive(row.area_hectares)) return 'enter the area (ha)'
   if (!row.barangay) return 'choose the barangay'
@@ -121,6 +150,10 @@ export function rowProblem(row) {
     if (problem) return `crop ${i + 1}: ${problem}`
   }
   if (row.crops.filter((c) => c.is_main_crop).length > 1) return 'only one crop can be the main crop'
+  const tooBig = cropAreaProblems(row)
+  for (let i = 0; i < tooBig.length; i += 1) {
+    if (tooBig[i]) return `crop ${i + 1}: ${tooBig[i]}`
+  }
   for (let i = 0; i < row.machinery.length; i += 1) {
     const problem = machineryProblem(row.machinery[i])
     if (problem) return `machinery ${i + 1}: ${problem}`

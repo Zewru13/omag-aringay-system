@@ -19,8 +19,8 @@ import { uploadPcicForm } from '../../utils/pcic.js'
 import ParcelCropsImportModal from '../Farmers/ParcelCropsImportModal.jsx'
 import {
   CROP_OPTIONS, CROPPING_SCHEDULE_OPTIONS, FARM_TYPE_OPTIONS, LAND_OWNERSHIP_OPTIONS, MACHINERY_OPTIONS, MAX_PARCELS, OWNERSHIP_OPTIONS,
-  PERENNIAL_CROPS, SEED_SOURCE_OPTIONS, SEEDS_UNIT_OPTIONS, addImportedCrops, buildPayload, canSkipSchedule, cropLabel, isTenure,
-  makeCropRow, makeMachineryRow, makeParcelRow, machineryLabel, pcicUploads, serverErrorsToMessages, toggleClassification, validateRows,
+  PERENNIAL_CROPS, SEED_SOURCE_OPTIONS, SEEDS_UNIT_OPTIONS, addImportedCrops, buildPayload, canSkipSchedule, cropAreaProblems, cropCapacity,
+  cropLabel, cropsAreaUsed, fmtHa, isTenure, makeCropRow, makeMachineryRow, makeParcelRow, machineryLabel, pcicUploads, serverErrorsToMessages, toggleClassification, validateRows,
 } from '../Farmers/parcelRows.js'
 import useParcelClassifications from '../Farmers/useParcelClassifications.js'
 
@@ -70,8 +70,12 @@ const Opt = () => <span className="ml-1.5 inline-flex items-center rounded px-1 
 
 // ── the crops of one parcel ───────────────────────────────────────────────────
 
-function CropsTable({ crops, onChange, onImport }) {
+function CropsTable({ parcel, crops, onChange, onImport }) {
   const nextUid = useRef(1)
+  const tooBig = cropAreaProblems(parcel)
+  const parcelArea = Number(parcel.area_hectares) || 0
+  const used = cropsAreaUsed(parcel)
+  const over = parcelArea > 0 && used > cropCapacity(parcel)
   const update = (uid, patch) => onChange(crops.map((c) => (c._uid === uid ? { ...c, ...patch } : c)))
   const setMain = (uid, on) => onChange(crops.map((c) => ({ ...c, is_main_crop: c._uid === uid ? on : (on ? false : c.is_main_crop) })))
   const add = () => onChange([...crops, makeCropRow(Date.now() + nextUid.current++)])
@@ -79,7 +83,14 @@ function CropsTable({ crops, onChange, onImport }) {
     <div>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <p className="text-[12px] font-semibold uppercase tracking-wide text-[#4A5E4A]">Crops grown <span className="font-normal normal-case text-[#7A8E7A]">(optional) — what grows on this land; a season's planting is recorded in Crop Monitoring</span></p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {parcelArea > 0 && crops.length > 0 && (
+            <p role="status" className={`mr-1 text-[12px] font-semibold ${over ? 'text-rose-600' : 'text-[#4A5E4A]'}`}>
+              {fmtHa(used)} of {fmtHa(cropCapacity(parcel))} ha used
+              {cropCapacity(parcel) > parcelArea && <span className="font-normal text-[#7A8E7A]"> ({parcel.cropping_schedule.toLowerCase()})</span>}
+              {over && ' — too much for this parcel'}
+            </p>
+          )}
           <button type="button" onClick={onImport} className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-[#1B4D2E]/30 bg-[#EBF5EE]/50 px-3 text-[12px] font-semibold text-[#1B4D2E] hover:bg-[#EBF5EE]">
             <Upload size={13} aria-hidden="true" /> Import crops
           </button>
@@ -106,7 +117,7 @@ function CropsTable({ crops, onChange, onImport }) {
             </thead>
             <tbody className="max-md:block">
               {crops.map((c, i) => (
-                <CropRow key={c._uid} crop={c} index={i} onUpdate={update} onMain={setMain} onRemove={(uid) => onChange(crops.filter((x) => x._uid !== uid))} />
+                <CropRow key={c._uid} crop={c} index={i} areaProblem={tooBig[i]} onUpdate={update} onMain={setMain} onRemove={(uid) => onChange(crops.filter((x) => x._uid !== uid))} />
               ))}
             </tbody>
           </table>
@@ -116,7 +127,7 @@ function CropsTable({ crops, onChange, onImport }) {
   )
 }
 
-function CropRow({ crop, index, onUpdate, onMain, onRemove }) {
+function CropRow({ crop, index, areaProblem, onUpdate, onMain, onRemove }) {
   const set = (patch) => onUpdate(crop._uid, patch)
   const tree = PERENNIAL_CROPS.includes(crop.crop_name)
   return (
@@ -128,7 +139,8 @@ function CropRow({ crop, index, onUpdate, onMain, onRemove }) {
             onChange={(v) => set({ crop_name: v })} onOtherChange={(v) => set({ crop_name_other: v })} />
         </td>
         <td data-label="Area (ha) *" className={SUB_CELL} style={{ width: 110 }}>
-          <DecimalInput decimals={4} className={bulkCellInputClasses} placeholder="0.00" value={crop.area_hectares} onChange={(v) => set({ area_hectares: v })} />
+          <DecimalInput decimals={4} className={`${bulkCellInputClasses}${areaProblem ? ' border-rose-500! bg-rose-50!' : ''}`} placeholder="0.00" value={crop.area_hectares}
+            title={areaProblem ? areaProblem.charAt(0).toUpperCase() + areaProblem.slice(1) : undefined} aria-invalid={areaProblem ? true : undefined} onChange={(v) => set({ area_hectares: v })} />
         </td>
         <td data-label="Variety" className={SUB_CELL} style={{ width: 160 }}>
           <input className={bulkCellInputClasses} placeholder="e.g. NSIC Rc 222" value={crop.variety_used} onChange={(e) => set({ variety_used: e.target.value })} />
@@ -308,7 +320,7 @@ function ParcelRow({ row, index, total, offered, panelWidth, error, onUpdate, on
                 {offered.length === 0 && <p className="text-[12px] text-[#7A8E7A]">None set up. An Admin can add them in Classification Settings.</p>}
               </div>
             </div>
-            <CropsTable crops={row.crops} onChange={(crops) => set('crops', crops)} onImport={() => onImportCrops(row._id)} />
+            <CropsTable parcel={row} crops={row.crops} onChange={(crops) => set('crops', crops)} onImport={() => onImportCrops(row._id)} />
             <MachineryTable machinery={row.machinery} onChange={(machinery) => set('machinery', machinery)} />
           </div>
         </td>

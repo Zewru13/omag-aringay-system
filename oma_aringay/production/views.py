@@ -30,7 +30,8 @@ from farmers.models import FarmParcel, Farmer
 from fisheries.models import Fisherfolk
 
 from core.photos import discard_uploaded_files, validated_photos
-from .duplicates import find_active_duplicates, same_place
+from farmers.area_rules import growing_area_problem
+from .duplicates import find_active_duplicates, growing_area_on_parcel, same_place
 from .naming import normalize_name
 from .schedule_rules import done_date as step_done_date, is_setup_stage, step_status
 from .dashboard_activity import (
@@ -968,6 +969,19 @@ class CropMonitoringBulkCreateView(APIView):
                 ):
                     batch_errors[i] = {'crop_type': [f'This record duplicates row {j + 1} of this form.']}
                     break
+        # The rows of one form that share a parcel must also fit it together (each row was checked alone above).
+        planted_here = {}
+        for i, current in enumerate(item_serializers):
+            row = current.validated_data
+            parcel, area = row.get('farm_parcel'), row.get('area_planted_ha')
+            if not parcel or not area:
+                continue
+            earlier = planted_here.get(parcel.id, Decimal(0))
+            if earlier and not batch_errors[i]:
+                message = growing_area_problem(parcel.area_hectares, growing_area_on_parcel(parcel.id) + earlier, area)
+                if message:
+                    batch_errors[i] = {'area_planted_ha': [message]}
+            planted_here[parcel.id] = earlier + area
         if any(batch_errors):
             return Response({'errors': batch_errors}, status=drf_status.HTTP_400_BAD_REQUEST)
 

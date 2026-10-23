@@ -5,7 +5,8 @@ from datetime import date
 from core.validators import validate_not_future_date, validate_uploaded_image
 from farmers.models import FarmParcel
 from farmers.serializers import _farmer_main_membership
-from .duplicates import ACTIVE_STATUSES, duplicate_message, find_active_duplicates
+from farmers.area_rules import growing_area_problem
+from .duplicates import ACTIVE_STATUSES, duplicate_message, find_active_duplicates, growing_area_on_parcel
 from .naming import normalize_name
 from .parcel_link import infer_farm_parcel
 
@@ -699,6 +700,19 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
             if same and not record_parcel:
                 same = (record_barangay or '').strip().lower() == (self.instance.farm_location_barangay or '').strip().lower()
             return not same
+
+        # The plantings growing now (Planted, Near Harvest) on one parcel cannot be more than the parcel's area. Checked for a new
+        # record, and for an edit only when it changes the area or the parcel, so a record that was saved before this rule can
+        # still be corrected in other ways.
+        record_area = data['area_planted_ha'] if 'area_planted_ha' in data else stored('area_planted_ha')
+        moves_land = self.instance is None or (
+            ('area_planted_ha' in data and data['area_planted_ha'] != self.instance.area_planted_ha)
+            or ('farm_parcel' in data and getattr(data['farm_parcel'], 'id', None) != self.instance.farm_parcel_id))
+        if record_parcel and record_area and moves_land and (self.instance is None or self.instance.status in ACTIVE_STATUSES):
+            other = growing_area_on_parcel(record_parcel.id, exclude_id=self.instance.pk if self.instance else None)
+            message = growing_area_problem(record_parcel.area_hectares, other, record_area)
+            if message:
+                raise serializers.ValidationError({'area_planted_ha': message})
 
         if record_farmer and record_crop and decisive_change():
             found = find_active_duplicates(

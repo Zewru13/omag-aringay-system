@@ -18,7 +18,8 @@ def make_farmer(first):
 
 
 def make_parcel(farmer, barangay='Alaska'):
-    return FarmParcel.objects.create(farmer=farmer, area_hectares='2.00', land_ownership='Owner', barangay=barangay)
+    # big enough that the area rule (production.test_planting_area) never gets in the way of these duplicate-rule tests
+    return FarmParcel.objects.create(farmer=farmer, area_hectares='5.00', land_ownership='Owner', barangay=barangay)
 
 
 def make_record(farmer, crop, parcel=None, **over):

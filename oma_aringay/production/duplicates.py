@@ -5,10 +5,22 @@ variety (compared with production.naming.normalize_name), the other record is st
 Harvest), and it is in the same place: the same parcel when the record has one, otherwise the same barangay.
 The serializer, the bulk add view and the add-form warning all use this one rule, so they never disagree.
 """
+from decimal import Decimal
+
+from django.db.models import Sum
+
 from .models import CropMonitoringRecord
 from .naming import normalize_name
 
 ACTIVE_STATUSES = (CropMonitoringRecord.Status.PLANTED, CropMonitoringRecord.Status.NEAR_HARVEST)
+
+
+def growing_area_on_parcel(parcel_id, exclude_id=None):
+    """The hectares of the plantings growing now (Planted, Near Harvest) on one parcel, leaving out one record (the one being edited)."""
+    records = CropMonitoringRecord.objects.filter(farm_parcel_id=parcel_id, status__in=ACTIVE_STATUSES)
+    if exclude_id:
+        records = records.exclude(pk=exclude_id)
+    return records.aggregate(total=Sum('area_planted_ha'))['total'] or Decimal(0)
 
 
 def _barangay_key(value):
