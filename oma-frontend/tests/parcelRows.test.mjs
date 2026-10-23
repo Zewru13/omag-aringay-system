@@ -4,7 +4,7 @@ const {
   makeParcelRow, makeCropRow, makeMachineryRow, addImportedCrops, canSkipSchedule, toggleClassification, cropLabel, machineryLabel,
   rowProblem, cropProblem, machineryProblem, validateRows, duplicateNumberProblems, parcelPayload, cropPayload, machineryPayload,
   buildPayload, pcicUploads, serverErrorsToMessages, PERENNIAL_CROPS, cropsAreaUsed, cropCapacity, cropAreaProblems,
-  parcelToForm, parcelSkipsSchedule, editProblem, editPayload, editServerErrors, PARCEL_NUMBER_PARTS,
+  parcelToForm, parcelSkipsSchedule, editProblem, editPayload, editServerErrors, PARCEL_NUMBER_GROUPS, PARCEL_NUMBER_DIGITS, PARCEL_NUMBER_RE,
 } = await import(new URL('../src/pages/Farmers/parcelRows.js', import.meta.url).href)
 
 let n = 0
@@ -142,7 +142,10 @@ eq(editPayload(form, stored), {
 eq(editPayload({ ...form, land_ownership: 'Owner' }, stored).land_owner_name, '', 'an owner parcel sends no land owner')
 eq(parcelSkipsSchedule(stored), false, 'an onion parcel has a schedule')
 eq(editPayload(form, { ...stored, crops: [{ crop_name: 'Mango', is_main_crop: true }] }).cropping_schedule, '', 'a tree main crop sends no schedule')
-eq(PARCEL_NUMBER_PARTS.filter((p) => p.type === 'input').length, 4, 'the parcel number has four editable parts')
+eq([PARCEL_NUMBER_GROUPS.reduce((a, b) => a + b, 0), PARCEL_NUMBER_DIGITS], [17, 17], 'the parcel number is 17 digits')
+assert.ok(PARCEL_NUMBER_RE.test(NO) && !PARCEL_NUMBER_RE.test('01-33-02-005-001-02')); n++
+assert.match(rowProblem(ok(1, { parcel_number: '01-33-02-005' })), /17 digits/); n++
+eq(rowProblem(ok(1, { parcel_number: NO })), '', 'a full parcel number is fine')
 eq(editServerErrors({ area_hectares: ['too small'], parcel_number: ['taken'], detail: 'Nope.', crops: ['x'] }),
   { area_hectares: 'too small', parcel_number: 'taken', general: 'Nope.' }, 'server errors by field')
 eq(editServerErrors(undefined), {}, 'no errors')

@@ -26,18 +26,12 @@ export const CROPPING_SCHEDULE_OPTIONS = ['Single Cropping', 'Double Cropping', 
 export const SEED_SOURCE_OPTIONS = ['Certified Seed', 'Farmer-saved Seed', 'Hybrid Seed', 'OPV Seed', 'Other']
 export const SEEDS_UNIT_OPTIONS = ['kg', 'bag', 'piece']
 
-// Region-Province-Municipality is fixed for every parcel in this LGU-only system (01-33-02 = Region I / La Union / Aringay);
-// barangay code, section, block and lot are the only parts that vary per parcel.
-export const PARCEL_NUMBER_PARTS = [
-  { type: 'text', value: '01-33-02-' },
-  { type: 'input', key: 'barangay', length: 3, placeholder: '000' },
-  { type: 'text', value: '-' },
-  { type: 'input', key: 'section', length: 3, placeholder: '000' },
-  { type: 'text', value: '-' },
-  { type: 'input', key: 'block', length: 2, placeholder: '00' },
-  { type: 'text', value: '-' },
-  { type: 'input', key: 'lot', length: 3, placeholder: '000' },
-]
+// Parcel number RR-PP-MM-BBB-SSS-LL-NNN (Region-Province-Municipality-Barangay-Section-Block-Lot, e.g. 01-33-02-005-001-02-003): typed as
+// digits in one box with the dashes added for you, stopped at 17 digits, like the tax declaration number.
+export const PARCEL_NUMBER_GROUPS = [2, 2, 2, 3, 3, 2, 3]
+export const PARCEL_NUMBER_DIGITS = 17
+export const PARCEL_NUMBER_RE = /^\d{2}-\d{2}-\d{2}-\d{3}-\d{3}-\d{2}-\d{3}$/
+export const PARCEL_NUMBER_PLACEHOLDER = '01-33-02-005-001-02-003'
 // Tax Declaration Number: typed as digits with the dashes added for you, stopped at 18 digits (RR-MMM-BBBBB-YYYY-NNNN).
 export const TAX_DECLARATION_GROUPS = [2, 3, 5, 4]
 export const TAX_DECLARATION_DIGITS = 18
@@ -157,6 +151,7 @@ export function cropAreaProblems(row) {
 export function rowProblem(row) {
   if (!positive(row.area_hectares)) return 'enter the area (ha)'
   if (!row.barangay) return 'choose the barangay'
+  if (row.parcel_number && !PARCEL_NUMBER_RE.test(row.parcel_number)) return `the parcel number needs all ${PARCEL_NUMBER_DIGITS} digits: RR-PP-MM-BBB-SSS-LL-NNN, e.g. ${PARCEL_NUMBER_PLACEHOLDER}`
   const taxDec = (row.tax_declaration_number || '').trim()
   if (taxDec && !TAX_DECLARATION_RE.test(taxDec)) return 'the tax declaration number needs all 18 digits: RR-MMM-BBBBB-YYYY-NNNN, e.g. 01-002-00005-2023-0142'
   if (taxDec && !row.parcel_number) return 'a parcel number is required when a tax declaration number is given'
