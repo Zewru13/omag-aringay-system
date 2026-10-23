@@ -119,21 +119,40 @@ class MultiCropDisasterTests(APITestCase):
                                    disaster_type_other_specify='Locusts').status_code, 201)
 
     # --- which crops are allowed together
-    def test_crops_of_two_different_farmers_are_refused(self):
+    def test_staff_can_log_one_event_on_the_crops_of_several_farmers(self):
+        r = self.post([{'monitoring_record': self.a1.id, 'area_affected_ha': '1.00'}, {'monitoring_record': self.b1.id, 'area_affected_ha': '1.00', 'is_total_loss': True}])
+        self.assertEqual(r.status_code, 201, r.content)
+        reports = CropDisasterReport.objects.select_related('monitoring_record').order_by('id')
+        self.assertEqual([x.monitoring_record.farmer_id for x in reports], [self.ana.id, self.ben.id])
+        self.assertEqual([x.is_total_loss for x in reports], [False, True])
+        self.assertEqual({x.disaster_type for x in reports}, {'Typhoon'})
+
+    def test_one_bad_crop_of_another_farmer_saves_nothing_for_anyone(self):
+        r = self.post([{'monitoring_record': self.a1.id, 'area_affected_ha': '1.00'}, {'monitoring_record': self.b1.id, 'area_affected_ha': '9.00'}])
+        self.assertEqual(r.status_code, 400)
+        self.assertEqual(CropDisasterReport.objects.count(), 0)
+
+    def test_a_farmer_account_still_cannot_mix_farmers(self):
+        self.client.force_authenticate(self.ana_user)
         r = self.post([{'monitoring_record': self.a1.id, 'area_affected_ha': '1.00'}, {'monitoring_record': self.b1.id, 'area_affected_ha': '1.00'}])
         self.assertEqual(r.status_code, 400)
         self.assertEqual(CropDisasterReport.objects.count(), 0)
+
+    def test_a_crop_with_no_farmer_is_refused(self):
+        orphan = make_record(None, '1.00')
+        r = self.post([{'monitoring_record': orphan.id, 'area_affected_ha': '1.00'}])
+        self.assertEqual(r.status_code, 400)
 
     def test_an_unknown_crop_the_same_crop_twice_and_an_empty_list_are_refused(self):
         self.assertEqual(self.post([{'monitoring_record': 999999, 'area_affected_ha': '1.00'}]).status_code, 400)
         self.assertEqual(self.post([{'monitoring_record': self.a1.id, 'area_affected_ha': '1.00'}, {'monitoring_record': self.a1.id, 'area_affected_ha': '0.50'}]).status_code, 400)
         self.assertEqual(self.post([]).status_code, 400)
 
-    def test_more_than_fifty_crops_are_refused(self):
-        crops = [{'monitoring_record': i, 'area_affected_ha': '1.00'} for i in range(1, 52)]
+    def test_more_than_two_hundred_crops_are_refused(self):
+        crops = [{'monitoring_record': i, 'area_affected_ha': '1.00'} for i in range(1, 203)]
         r = self.post(crops)
         self.assertEqual(r.status_code, 400)
-        self.assertIn('50', json.dumps(r.json()))
+        self.assertIn('200', json.dumps(r.json()))
 
     # --- who may use it
     def test_a_farmer_can_log_on_their_own_crops(self):

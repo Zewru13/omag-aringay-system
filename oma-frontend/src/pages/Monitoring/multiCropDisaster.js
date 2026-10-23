@@ -1,7 +1,7 @@
 // Logging one disaster on several of a farmer's crops at once (POST /production/disasters/multi/). Pure functions - no
 // screen, no network - so the rules can be tested on their own. The server checks everything again.
 
-export const MAX_CROPS = 50
+export const MAX_CROPS = 200
 
 const WHOLE_AREA_TOLERANCE = 0.00005   // the same tolerance the single-crop form uses
 

@@ -1690,11 +1690,12 @@ def _notify_crop_disaster(user, monitoring, disaster):
         )
 
 
-MAX_MULTI_DISASTER_CROPS = 50
+MAX_MULTI_DISASTER_CROPS = 200
 
 
 class CropDisasterReportMultiCreateView(APIView):
-    """One disaster event on several of ONE farmer's crops, logged in a single request.
+    """One disaster event on several crops, logged in a single request. Staff may pick crops of MANY farmers (a typhoon hits a whole
+    barangay); a farmer account only crops of its own.
 
     Body (JSON, or multipart when there are photos - then `crops` is a JSON string): the shared fields of the single-crop
     form (disaster_type, disaster_type_other_specify, date_of_occurrence, estimated_damage, production_loss, severity,
@@ -1702,7 +1703,7 @@ class CropDisasterReportMultiCreateView(APIView):
     per crop, each validated exactly like the single-crop endpoint and each with its own copy of the photos, so every
     report keeps its own recovery, Total Loss and photos. All or nothing: one problem saves nothing.
 
-    Staff may log for any farmer's crops; a farmer account only for its own; nobody else.
+    Staff may log for any farmers' crops, several farmers at once; a farmer account only for its own crops; nobody else.
     """
     permission_classes = [IsAuthenticated]
 
@@ -1732,12 +1733,14 @@ class CropDisasterReportMultiCreateView(APIView):
         if len(records) != len(ids):
             raise ValidationError({'crops': 'One of the crops could not be found.'})
         owners = {r.farmer_id for r in records.values()}
-        if len(owners) != 1 or None in owners:
-            raise ValidationError({'crops': 'All the crops must belong to the same farmer.'})
-        farmer_id = owners.pop()
+        if None in owners:
+            raise ValidationError({'crops': 'Every crop must belong to a farmer.'})
         user = request.user
-        if user.role not in STAFF_ROLES and farmer_scope(user) != farmer_id:
-            raise PermissionDenied('You can only report a disaster on your own crops.')
+        if user.role not in STAFF_ROLES:
+            if len(owners) != 1:
+                raise ValidationError({'crops': 'All the crops must belong to the same farmer.'})
+            if farmer_scope(user) != next(iter(owners)):
+                raise PermissionDenied('You can only report a disaster on your own crops.')
 
         photos = validated_photos(request, 'photos', legacy_field='photo', limit=CropDisasterReportPhoto.MAX_PER_PARENT)
         contents = [(f.name, f.read()) for f in photos]
