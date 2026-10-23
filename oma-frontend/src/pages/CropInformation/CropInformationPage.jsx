@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useIsPhone from '../../hooks/useIsPhone.js';
 import useDebouncedValue from "../../hooks/useDebouncedValue.js";
 import {
+  Archive,
   ChevronDown,
   Eye,
   FileText,
@@ -20,6 +21,10 @@ import AddButton from "../../components/UI/AddButton.jsx";
 import RowActions from "../../components/UI/RowActions.jsx";
 import ConfirmDialog from "../../components/UI/ConfirmDialog.jsx";
 import ErrorMessage from "../../components/UI/ErrorMessage.jsx";
+import PillTabs from "../../components/UI/PillTabs.jsx";
+import EditParcelModal from "../Farmers/EditParcelModal.jsx";
+import PurgeParcelModal from "./PurgeParcelModal.jsx";
+import PurgedParcelsTable from "./PurgedParcelsTable.jsx";
 import FilterPanel from "../../components/UI/FilterPanel.jsx";
 import HarvestVarianceBadge from "../../components/UI/HarvestVarianceBadge.jsx";
 import FormField, { baseInputClasses } from "../../components/UI/FormField.jsx";
@@ -32,7 +37,7 @@ import PcicInsuranceField from "../../components/UI/PcicInsuranceField.jsx";
 import PcicBadge from "../../components/UI/PcicBadge.jsx";
 import { pcicError, pcicPayload, pcicStateFrom, uploadPcicForm } from "../../utils/pcic.js";
 import { ARINGAY_BARANGAYS } from "../../constants/barangays.js";
-import { addCropState, cropCountLabel, directoryParams, noParcelParams, parcelLabel, recordActionKeys } from "./parcelRecords.js";
+import { addCropsLockedState, cropCountLabel, directoryParams, noParcelParams, parcelLabel, recordActionKeys } from "./parcelRecords.js";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -1140,19 +1145,21 @@ function ParcelCrops({ parcelId, search, barangay, version, isPhone, handlers, e
 
 // ─── One parcel: its details, "Add crop records", and (when opened) the crops on it ──────────────────────────────────
 
-function AddCropButton({ parcel, onAdd }) {
+// A parcel's ⋮ menu (labelled buttons on a phone): add crops to it, edit it, or purge it once it was sold or transferred.
+function ParcelActions({ parcel, actions }) {
   return (
-    <button
-      type="button"
-      onClick={() => onAdd(parcel)}
-      className="inline-flex min-h-[36px] items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#1B4D2E] px-3 text-[12.5px] font-semibold text-white transition-colors hover:bg-[#235E38] max-md:min-h-[44px]"
-    >
-      <Plus size={14} aria-hidden="true" /> Add crop records
-    </button>
+    <RowActions
+      menuWidthClassName="w-48"
+      actions={[
+        { key: "add-crops", label: "Add crops", icon: Plus, onClick: () => actions.addCrops(parcel) },
+        { key: "edit", label: "Edit parcel", icon: Pencil, onClick: () => actions.edit(parcel) },
+        { key: "purge", label: "Purge parcel", icon: Archive, tone: "rose", group: "danger", onClick: () => actions.purge(parcel) },
+      ]}
+    />
   );
 }
 
-function ParcelRow({ parcel, open, onToggle, onAdd, isPhone, ...cropProps }) {
+function ParcelRow({ parcel, open, onToggle, actions, isPhone, ...cropProps }) {
   const panelId = `parcel-crops-${parcel.id}`;
   const title = parcelLabel(parcel);
 
@@ -1183,7 +1190,7 @@ function ParcelRow({ parcel, open, onToggle, onAdd, isPhone, ...cropProps }) {
               {Number(parcel.area_hectares).toFixed(2)} ha · {parcel.land_ownership} · {cropCountLabel(parcel.crop_count)}
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <AddCropButton parcel={parcel} onAdd={onAdd} />
+              <ParcelActions parcel={parcel} actions={actions} />
             </div>
           </div>
         </div>
@@ -1210,7 +1217,7 @@ function ParcelRow({ parcel, open, onToggle, onAdd, isPhone, ...cropProps }) {
         <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#4A5E4A]">{parcel.land_ownership}</td>
         <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#4A5E4A]">{cropCountLabel(parcel.crop_count)}</td>
         <td className="whitespace-nowrap px-3 py-2.5 text-right">
-          <AddCropButton parcel={parcel} onAdd={onAdd} />
+          <ParcelActions parcel={parcel} actions={actions} />
         </td>
       </tr>
       {open && (
@@ -1283,6 +1290,10 @@ export default function CropInformationPage() {
   const [remarksRec, setRemarksRec] = useState(null);
   const [editingRec, setEditingRec] = useState(null);
   const [viewingRec, setViewingRec] = useState(null);
+  const [tab, setTab] = useState("parcels");
+  const [editingParcel, setEditingParcel] = useState(null);
+  const [purgingParcel, setPurgingParcel] = useState(null);
+  const { showToast } = useToast();
 
   // Server-side search over every parcel (farmer, RSBSA, parcel number) — debounced, so a slower earlier answer can never
   // replace the one for what is typed now (the answer is stored with the request it belongs to).
@@ -1308,7 +1319,14 @@ export default function CropInformationPage() {
   const isLoading = result.key !== requestKey;
   const refresh = () => setVersion((v) => v + 1);
   const toggle = (id) => setOpenIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
-  const addCrops = (parcel) => navigate("/crop-records/add", { state: addCropState(parcel) });
+  const addCrops = (parcel) => navigate("/crop-records/add", { state: addCropsLockedState(parcel) });
+  // The Edit Parcel window needs the whole parcel (its crops decide whether it has a cropping schedule), so it is fetched first.
+  const editParcel = (parcel) =>
+    api
+      .get(`/farmers/parcels/${parcel.id}/`)
+      .then((r) => setEditingParcel(r.data))
+      .catch(() => showToast("Unable to open this parcel. Please try again.", "error"));
+  const parcelActions = { addCrops, edit: editParcel, purge: setPurgingParcel };
   const handlers = { view: setViewingRec, edit: setEditingRec, remarks: setRemarksRec };
   const changeFilter = (setter) => (value) => {
     setter(value);
@@ -1322,6 +1340,17 @@ export default function CropInformationPage() {
   return (
     <PageLayout title="Crop Records" subtitle="Farm parcels and the crops grown on them. Open a parcel to see its crops.">
       <div className="space-y-4">
+        <PillTabs
+          ariaLabel="Crop Records views"
+          value={tab}
+          onChange={setTab}
+          tabs={[{ id: "parcels", label: "Farm Parcels" }, { id: "purged", label: "Purged Parcels" }]}
+        />
+
+        {tab === "purged" ? (
+          <PurgedParcelsTable isPhone={isPhone} />
+        ) : (
+          <>
         <FilterPanel
           search={search}
           onSearchChange={changeFilter(setSearch)}
@@ -1355,7 +1384,7 @@ export default function CropInformationPage() {
         ) : isPhone ? (
           <ul className="space-y-2">
             {result.rows.map((parcel) => (
-              <ParcelRow key={parcel.id} parcel={parcel} open={openIds.includes(parcel.id)} onToggle={() => toggle(parcel.id)} onAdd={addCrops} isPhone {...parcelCropProps} />
+              <ParcelRow key={parcel.id} parcel={parcel} open={openIds.includes(parcel.id)} onToggle={() => toggle(parcel.id)} actions={parcelActions} isPhone {...parcelCropProps} />
             ))}
           </ul>
         ) : (
@@ -1375,7 +1404,7 @@ export default function CropInformationPage() {
               </thead>
               <tbody>
                 {result.rows.map((parcel) => (
-                  <ParcelRow key={parcel.id} parcel={parcel} open={openIds.includes(parcel.id)} onToggle={() => toggle(parcel.id)} onAdd={addCrops} isPhone={false} {...parcelCropProps} />
+                  <ParcelRow key={parcel.id} parcel={parcel} open={openIds.includes(parcel.id)} onToggle={() => toggle(parcel.id)} actions={parcelActions} isPhone={false} {...parcelCropProps} />
                 ))}
               </tbody>
             </table>
@@ -1385,6 +1414,8 @@ export default function CropInformationPage() {
         <PaginationBar page={page} totalCount={result.count} pageSize={10} onPageChange={setPage} />
 
         <NoParcelGroup {...cropProps} isPhone={isPhone} />
+          </>
+        )}
       </div>
 
       {remarksRec && <RemarksModal record={remarksRec} onClose={() => setRemarksRec(null)} />}
@@ -1401,6 +1432,26 @@ export default function CropInformationPage() {
       )}
 
       {viewingRec && <CropDetailModal record={viewingRec} onClose={() => setViewingRec(null)} />}
+
+      {editingParcel && (
+        <EditParcelModal
+          parcel={editingParcel}
+          onClose={() => setEditingParcel(null)}
+          onSuccess={refresh}
+        />
+      )}
+
+      {purgingParcel && (
+        <PurgeParcelModal
+          parcel={purgingParcel}
+          onClose={() => setPurgingParcel(null)}
+          onDone={() => {
+            setPurgingParcel(null);
+            setOpenIds((ids) => ids.filter((id) => id !== purgingParcel.id));
+            refresh();
+          }}
+        />
+      )}
     </PageLayout>
   );
 }

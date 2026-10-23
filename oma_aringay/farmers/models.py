@@ -148,6 +148,15 @@ class ParcelClassification(models.Model):
         return self.name
 
 
+class FarmParcelManager(models.Manager):
+    """`FarmParcel.objects`: the parcels in use. A purged parcel (sold or transferred) is left out, so every list, picker and rule that
+    reads parcels ignores it without each one having to ask; `FarmParcel.all_objects` has them all. A crop record that sits on a purged
+    parcel still reaches it through its own link."""
+
+    def get_queryset(self):
+        return super().get_queryset().filter(purged_at__isnull=True)
+
+
 class FarmParcel(models.Model):
     class LandOwnership(models.TextChoices):
         OWNER = 'Owner', 'Owner'
@@ -226,6 +235,23 @@ class FarmParcel(models.Model):
     # The names of the ParcelClassification entries ticked for this parcel (see that model).
     classifications = models.JSONField(default=list, blank=True)
     cropping_schedule = models.CharField(max_length=20, choices=CROPPING_SCHEDULE_CHOICES, blank=True)
+
+    # A parcel that was sold or transferred to someone else is purged: it leaves Crop Records and Crop Monitoring and is kept in the
+    # Purged Parcels table, with why, when and by whom. All empty while the parcel is in use.
+    class PurgeReason(models.TextChoices):
+        SOLD = 'Sold', 'Sold'
+        TRANSFERRED = 'Transferred', 'Transferred to someone else'
+
+    purged_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    purge_reason = models.CharField(max_length=20, choices=PurgeReason.choices, blank=True)
+    purge_date = models.DateField(null=True, blank=True, help_text='The day it was sold or transferred.')
+    purge_note = models.TextField(blank=True)
+    purged_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+',
+    )
+
+    objects = FarmParcelManager()
+    all_objects = models.Manager()
 
     def update_commodity(self):
         top_crop = (

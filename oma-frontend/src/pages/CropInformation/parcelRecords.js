@@ -62,3 +62,41 @@ export function parcelProblem({ farmerId, ready, parcels, rows }) {
   const index = rows.findIndex((row) => !row.farm_parcel)
   return index === -1 ? '' : `Row ${index + 1}: choose the farm parcel this crop is grown on.`
 }
+
+// "Add crops" in a parcel's ⋮ menu: the Add Crop Records page locked to this parcel, so its farmer and parcel cannot be changed there
+// and every row is recorded on it.
+export const addCropsLockedState = (parcel) => {
+  const { prefill } = addCropState(parcel)
+  return { prefill: { ...prefill, lockParcel: true, parcelLabel: parcelLabel(parcel), parcelAreaHa: parcel.area_hectares, farmerName: parcel.farmer_name } }
+}
+
+// ── purging a parcel that was sold or transferred
+export const PURGE_REASONS = [
+  { value: 'Sold', label: 'Sold' },
+  { value: 'Transferred', label: 'Transferred to someone else' },
+]
+export const PURGE_NOTE_MAX = 500
+export const purgeReasonLabel = (reason) => PURGE_REASONS.find((r) => r.value === reason)?.label || reason || '—'
+
+// Why the Purge Parcel form cannot be sent yet ('' when it can). `today` is YYYY-MM-DD.
+export function purgeProblem({ reason, date, note }, today) {
+  if (!PURGE_REASONS.some((r) => r.value === reason)) return 'Choose why the parcel is leaving: sold or transferred.'
+  if (date && date > today) return 'The date cannot be in the future.'
+  if ((note || '').length > PURGE_NOTE_MAX) return `Keep the note under ${PURGE_NOTE_MAX} characters.`
+  return ''
+}
+
+export const purgePayload = ({ reason, date, note }) => ({ reason, date: date || null, note: (note || '').trim() })
+
+// The server's answer to a refused purge as one sentence.
+export function purgeServerMessage(data) {
+  const first = (value) => (Array.isArray(value) ? value[0] : value)
+  return first(data?.detail) || first(data?.reason) || first(data?.date) || first(data?.note) || 'Unable to purge the parcel. Please try again.'
+}
+
+// The Purged Parcels table's request: only what is typed is sent.
+export function purgedParams({ search, page } = {}) {
+  const params = { page: page || 1 }
+  if (typed(search)) params.search = typed(search)
+  return params
+}

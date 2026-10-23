@@ -119,7 +119,7 @@ function useCropDuplicateCheck(farmerId, rec) {
 
 // ── Crop Record Row (tabular, every field flat — no expand/collapse) ─────────
 
-function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, farmerId, showParcelColumn, farmerParcels, error, onUpdate, onRemove }) {
+function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, farmerId, showParcelColumn, farmerParcels, parcelLocked, error, onUpdate, onRemove }) {
   const set = (field, value) => onUpdate(rec._id, field, value)
   const { duplicates, isChecking } = useCropDuplicateCheck(farmerId, rec)
 
@@ -240,7 +240,8 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
         </td>
         {showParcelColumn && (
           <td data-label="Farm parcel" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.farmParcel }}>
-            <select className={`${bulkCellInputClasses} w-full`} value={rec.farm_parcel}
+            <select className={`${bulkCellInputClasses} w-full disabled:bg-[#F5F7F5]`} value={rec.farm_parcel} disabled={parcelLocked}
+              title={parcelLocked ? 'Every crop on this page is added to this parcel' : undefined}
               onChange={e => {
                 const value = e.target.value
                 set('farm_parcel', value)
@@ -360,6 +361,8 @@ export default function AddCropMonitoringPage() {
   // crop) carries the farmer, parcel, crop and area to start the first row from.
   // The planting date is left for staff: a declared crop has none.
   const prefill = useLocation().state?.prefill || null
+  // "Add crops" in a parcel's ⋮ menu (Crop Records) locks the page to that parcel: its farmer and parcel cannot be changed.
+  const lockedParcel = prefill?.lockParcel ? prefill.parcel : null
   const prefillApplied = useRef(false)
   const { showToast } = useToast()
   const [cropTypes,    setCropTypes]    = useState([])
@@ -424,14 +427,15 @@ export default function AddCropMonitoringPage() {
     const farmerId = farmerInfo.farmer_id
     api.get(`/farmers/${farmerId}/parcels/`)
       .then(r => {
-        const list = Array.isArray(r.data) ? r.data : (r.data.results || [])
+        const all = Array.isArray(r.data) ? r.data : (r.data.results || [])
+        const list = lockedParcel ? all.filter(p => p.id === lockedParcel.id) : all
         setFarmerParcels(list)
         setParcelsReadyFor(farmerId)
         // A farmer with a single parcel does not have to choose it.
         setRecords(rs => rs.map(x => ({ ...x, ...ownerParcelFill(list, x) })))
       })
       .catch(() => { setFarmerParcels([]); setParcelsReadyFor(null) })
-  }, [farmerInfo.farmer_id])
+  }, [farmerInfo.farmer_id, lockedParcel])
 
   const showParcelColumn = farmerParcels.length > 0
   const parcelsReady = Boolean(farmerInfo.farmer_id) && parcelsReadyFor === farmerInfo.farmer_id
@@ -457,7 +461,9 @@ export default function AddCropMonitoringPage() {
 
   const addRecord = () => {
     const id = nextIdRef.current++
-    setRecords(r => [...r, makeRecord(id)])
+    // A farmer with one parcel (or a page locked to one) does not have to choose it on every new row either.
+    const row = makeRecord(id)
+    setRecords(r => [...r, { ...row, ...ownerParcelFill(farmerParcels, row) }])
   }
 
   const removeRecord = (id) => setRecords(r => r.filter(x => x._id !== id))
@@ -570,8 +576,10 @@ export default function AddCropMonitoringPage() {
 
   return (
     <PageLayout
-      title="Add Crop Monitoring Records"
-      subtitle="Each row is one crop record for this reporting period. Fill all required fields before submitting."
+      title={lockedParcel ? 'Add Crops to Parcel' : 'Add Crop Monitoring Records'}
+      subtitle={lockedParcel
+        ? `Every row is a crop recorded on parcel ${prefill.parcelLabel}. Fill all required fields before submitting.`
+        : 'Each row is one crop record for this reporting period. Fill all required fields before submitting.'}
     >
       <button
         type="button"
@@ -591,9 +599,16 @@ export default function AddCropMonitoringPage() {
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400 mb-3">
             Farmer Information
           </p>
-          <div className="max-w-xl">
-            <FarmerSearchInput onSelect={setFarmerInfo} selected={farmerInfo} />
-          </div>
+          {lockedParcel ? (
+            <div className="max-w-xl rounded-lg border border-[#E2E8E2] bg-white px-3 py-2.5">
+              <p className="text-[14px] font-semibold text-[#1A2B1A]">{farmerInfo.farmer_full_name || prefill.farmerName}</p>
+              <p className="text-[12px] text-[#7A8E7A]">{prefill.rsbsa}</p>
+            </div>
+          ) : (
+            <div className="max-w-xl">
+              <FarmerSearchInput onSelect={setFarmerInfo} selected={farmerInfo} />
+            </div>
+          )}
           {farmerInfo.farmer_id && (
             <div className="grid grid-cols-2 gap-3 mt-3 max-w-xl">
               <div>
@@ -628,7 +643,15 @@ export default function AddCropMonitoringPage() {
             </Link>
           </div>
         )}
-        {showParcelColumn && (
+        {lockedParcel && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-[#C8D5C8] bg-[#EBF5EE] px-4 py-3 text-[13px] text-[#1B4D2E]">
+            <span><span className="font-semibold">Parcel:</span> {prefill.parcelLabel}</span>
+            <span><span className="font-semibold">Area:</span> {Number(prefill.parcelAreaHa).toFixed(2)} ha</span>
+            <span><span className="font-semibold">Barangay:</span> {lockedParcel.barangay}</span>
+            <span className="text-[#4A5E4A]">You can only add crops to this parcel. The crops growing on it together cannot be more than its area.</span>
+          </div>
+        )}
+        {showParcelColumn && !lockedParcel && (
           <p className="text-[12px] text-[#4A5E4A]">
             <span className="font-semibold">Farm Parcel:</span> every crop is grown on one of this farmer's parcels. A farmer
             with a single parcel has it chosen already; with several, choose one for each row.
@@ -667,6 +690,7 @@ export default function AddCropMonitoringPage() {
                   farmerId={farmerInfo.farmer_id}
                   showParcelColumn={showParcelColumn}
                   farmerParcels={farmerParcels}
+                  parcelLocked={Boolean(lockedParcel)}
                   error={rowErrors[rec._id]}
                   onUpdate={updateRecord}
                   onRemove={removeRecord}

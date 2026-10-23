@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 
 const {
   parcelLabel, cropCountLabel, directoryParams, noParcelParams, addCropState, recordActionKeys, ownerParcelFill, parcelProblem,
+  addCropsLockedState, PURGE_REASONS, purgeReasonLabel, purgeProblem, purgePayload, purgeServerMessage, purgedParams,
 } = await import(new URL('../src/pages/CropInformation/parcelRecords.js', import.meta.url).href)
 
 let n = 0
@@ -60,5 +61,28 @@ eq(parcelProblem({ farmerId: 1, ready: true, parcels: [], rows: [{ farm_parcel: 
 eq(parcelProblem({ farmerId: 1, ready: true, parcels: [owner, { ...owner, id: 4 }], rows: [{ farm_parcel: '3' }, { farm_parcel: '' }] }),
   'Row 2: choose the farm parcel this crop is grown on.', 'row without a parcel')
 eq(parcelProblem({ farmerId: 1, ready: true, parcels: [owner, { ...owner, id: 4 }], rows: [{ farm_parcel: '3' }, { farm_parcel: '4' }] }), '', 'all chosen')
+
+// ── "Add crops" from a parcel's menu locks the Add Crop Records page to that parcel
+const parcelRow = { id: 3, farmer: 9, farmer_name: 'Ana Cruz', rsbsa_number: '01-033-02-019-000001', parcel_number: '01-33-02-005-001-02-003', barangay: 'Alaska', land_ownership: 'Owner', area_hectares: '5.00' }
+const locked = addCropsLockedState(parcelRow)
+eq([locked.prefill.lockParcel, locked.prefill.farmerId, locked.prefill.parcel.id, locked.prefill.parcelLabel, locked.prefill.farmerName, locked.prefill.parcelAreaHa],
+  [true, 9, 3, '01-33-02-005-001-02-003', 'Ana Cruz', '5.00'], 'locked add-crops state')
+eq(addCropState(parcelRow).prefill.lockParcel, undefined, 'the plain prefill is not locked')
+
+// ── purging a parcel
+eq(PURGE_REASONS.map((r) => r.value), ['Sold', 'Transferred'], 'the two reasons')
+eq(purgeReasonLabel('Transferred'), 'Transferred to someone else', 'reason label')
+eq(purgeReasonLabel(''), '—', 'no reason')
+eq(purgeProblem({ reason: '', date: '2026-10-01', note: '' }, '2026-10-23'), 'Choose why the parcel is leaving: sold or transferred.', 'reason needed')
+eq(purgeProblem({ reason: 'Sold', date: '2026-10-30', note: '' }, '2026-10-23'), 'The date cannot be in the future.', 'no future date')
+eq(purgeProblem({ reason: 'Sold', date: '', note: '' }, '2026-10-23'), '', 'the date may be left blank (today)')
+eq(purgeProblem({ reason: 'Sold', date: '2026-10-23', note: 'x'.repeat(501) }, '2026-10-23'), 'Keep the note under 500 characters.', 'note length')
+eq(purgeProblem({ reason: 'Transferred', date: '2026-10-01', note: 'to his son' }, '2026-10-23'), '', 'a good form')
+eq(purgePayload({ reason: 'Sold', date: '', note: '  to a neighbour ' }), { reason: 'Sold', date: null, note: 'to a neighbour' }, 'payload trims and sends no blank date')
+eq(purgeServerMessage({ detail: '2 crop records are still growing.' }), '2 crop records are still growing.', 'growing refusal')
+eq(purgeServerMessage({ reason: ['Choose why.'] }), 'Choose why.', 'field refusal')
+eq(purgeServerMessage(undefined), 'Unable to purge the parcel. Please try again.', 'unknown failure')
+eq(purgedParams({ search: ' Ana ', page: 2 }), { page: 2, search: 'Ana' }, 'purged table request')
+eq(purgedParams({}), { page: 1 }, 'purged table, nothing typed')
 
 console.log(`parcelRecords: ${n} checks passed`)
