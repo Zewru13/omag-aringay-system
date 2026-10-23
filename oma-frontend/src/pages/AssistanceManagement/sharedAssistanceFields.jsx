@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, X } from 'lucide-react'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import {
-  agencyChoices, isTrainingType, isEquipmentType, isSeedsType, isFertilizerType,
+  agencyChipSummary, agencyChoices, isTrainingType, isEquipmentType, isSeedsType, isFertilizerType,
 } from './assistanceFieldHelpers.js'
 import useAssistanceAgencies from './useAssistanceAgencies.js'
 
@@ -22,6 +22,7 @@ export function SourceAgencyMultiSelect({ value, onChange }) {
   const [open, setOpen] = useState(false)
   const box = useRef(null)
   const choices = agencyChoices(agencies, value)
+  const summary = agencyChipSummary(value)
 
   useEffect(() => {
     if (!open) return undefined
@@ -41,13 +42,14 @@ export function SourceAgencyMultiSelect({ value, onChange }) {
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="listbox"
         aria-expanded={open}
+        title={value.length > 3 ? value.join(', ') : undefined}
         className={`${baseInputClasses} flex min-h-[40px] w-full items-center justify-between gap-2 text-left`}
       >
-        <span className="flex min-w-0 flex-wrap gap-1.5">
+        <span className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
           {value.length === 0 ? (
             <span className="text-[#9AAB9A]">Select source agencies…</span>
-          ) : value.map((a) => (
-            <span key={a} className="inline-flex max-w-full items-center gap-1 rounded-full bg-[#EBF5EE] px-2 py-0.5 text-[12px] font-medium text-[#1B4D2E]">
+          ) : summary.shown.map((a) => (
+            <span key={a} className="inline-flex min-w-0 shrink items-center gap-1 rounded-full bg-[#EBF5EE] px-2 py-0.5 text-[12px] font-medium text-[#1B4D2E]">
               <span className="truncate">{a}</span>
               <span
                 role="button"
@@ -61,6 +63,7 @@ export function SourceAgencyMultiSelect({ value, onChange }) {
               </span>
             </span>
           ))}
+          {summary.more > 0 && <span className="shrink-0 whitespace-nowrap text-[12px] font-medium text-[#4A5E4A]">and {summary.more} more</span>}
         </span>
         <ChevronDown className={`h-4 w-4 shrink-0 text-[#7A8E7A] transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden="true" />
       </button>

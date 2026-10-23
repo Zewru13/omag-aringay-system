@@ -9,6 +9,13 @@ export function agencyChoices(agencies, selected = []) {
   return [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
 }
 
+// The chosen agencies as the box shows them: the first `max` by name, and how many more there are (shown as "and N more", the
+// full list stays in the tooltip), so a long selection can never stretch the box.
+export function agencyChipSummary(selected, max = 3) {
+  const list = selected || []
+  return { shown: list.slice(0, max), more: Math.max(0, list.length - max) }
+}
+
 // Assistance is recorded for today or a future date. A record that already has a (past) date may keep it.
 export const PAST_DATE_MESSAGE = 'Assistance can only be recorded for today or a future date.'
 export function assistanceDateProblem(value, { today, original = '' } = {}) {

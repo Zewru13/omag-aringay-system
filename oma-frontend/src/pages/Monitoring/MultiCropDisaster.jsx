@@ -12,7 +12,7 @@ import usePhotoList from '../../hooks/usePhotoList.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { todayISO } from '../../utils/localDate.js'
 import {
-  MAX_CROPS, areaProblem, buildRequest, dateProblem, filterCrops, isWholeArea, selectionSummary, toRows, withArea, withTotal,
+  MAX_CROPS, allTotal, areaProblem, buildRequest, dateProblem, filterCrops, isWholeArea, selectionSummary, toRows, withAllTotal, withArea, withTotal,
 } from './multiCropDisaster.js'
 
 // Log Disaster on a farmer's crops: tick the crops that were hit (step 2), then fill ONE form for the whole event (step 3):
@@ -190,6 +190,16 @@ export function MultiCropDisasterModal({ crops, onBack, onClose, onSuccess, inli
 
           <fieldset className="space-y-2" data-testid="crop-rows">
             <legend className="mb-1 text-xs font-medium text-slate-700">Affected crops: area affected for each</legend>
+            {rows.length > 1 && (
+              <label className="flex min-h-[44px] cursor-pointer items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 p-2 text-xs">
+                <input type="checkbox" className="mt-0.5 h-4 w-4 flex-none rounded border-rose-300 text-rose-600 focus:ring-rose-500"
+                  checked={allTotal(rows)} onChange={(e) => setRows((prev) => withAllTotal(prev, e.target.checked))} />
+                <span>
+                  <span className="font-medium text-rose-800">Mark all {rows.length} crops as total loss</span>
+                  <span className="block text-rose-500">Every crop is completely destroyed: the area affected is set to the whole planted area.</span>
+                </span>
+              </label>
+            )}
             {rows.map((row, i) => (
               <div key={row.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                 <p className="mb-2 break-words text-sm font-medium text-slate-800">{row.label}</p>

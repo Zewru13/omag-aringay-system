@@ -12,13 +12,12 @@ import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import IdNumberInput from '../../components/UI/IdNumberInput.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import PcicInsuranceField from '../../components/UI/PcicInsuranceField.jsx'
-import SegmentedIdInput from '../../components/UI/SegmentedIdInput.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { RSBSA_GROUPS } from '../../utils/idNumbers.js'
 import { uploadPcicForm } from '../../utils/pcic.js'
 import ParcelCropsImportModal from '../Farmers/ParcelCropsImportModal.jsx'
 import {
-  CROP_OPTIONS, CROPPING_SCHEDULE_OPTIONS, PARCEL_NUMBER_PARTS, TAX_DECLARATION_DIGITS, TAX_DECLARATION_GROUPS, FARM_TYPE_OPTIONS, LAND_OWNERSHIP_OPTIONS, MACHINERY_OPTIONS, MAX_PARCELS, OWNERSHIP_OPTIONS,
+  CROP_OPTIONS, CROPPING_SCHEDULE_OPTIONS, PARCEL_NUMBER_DIGITS, PARCEL_NUMBER_GROUPS, PARCEL_NUMBER_PLACEHOLDER, TAX_DECLARATION_DIGITS, TAX_DECLARATION_GROUPS, FARM_TYPE_OPTIONS, LAND_OWNERSHIP_OPTIONS, MACHINERY_OPTIONS, MAX_PARCELS, OWNERSHIP_OPTIONS,
   PERENNIAL_CROPS, SEED_SOURCE_OPTIONS, SEEDS_UNIT_OPTIONS, addImportedCrops, buildPayload, canSkipSchedule, cropAreaProblems, cropCapacity,
   cropLabel, cropsAreaUsed, fmtHa, isTenure, makeCropRow, makeMachineryRow, makeParcelRow, machineryLabel, pcicUploads, serverErrorsToMessages, toggleClassification, validateRows,
 } from '../Farmers/parcelRows.js'
@@ -229,7 +228,8 @@ function ParcelRow({ row, index, total, offered, panelWidth, error, onUpdate, on
       <tr className={`border-b border-[#F0F4F0] align-top max-md:block max-md:mb-3 max-md:rounded-xl max-md:border max-md:border-[#E2E8E2] max-md:p-3 ${error ? 'bg-rose-50/40' : 'max-md:bg-white'}`}>
         <td data-label="Parcel" className={`${CELL} text-center text-[13px] text-[#7A8E7A] max-md:text-left`} style={{ width: COL_WIDTH.index }}>{index + 1}</td>
         <td data-label={`Parcel number${taxDecFilled ? ' *' : ''}`} className={`${CELL} overflow-visible`} style={{ width: COL_WIDTH.number }}>
-          <SegmentedIdInput parts={PARCEL_NUMBER_PARTS} value={row.parcel_number} onChange={(v) => set('parcel_number', v)} />
+          <IdNumberInput groups={PARCEL_NUMBER_GROUPS} maxDigits={PARCEL_NUMBER_DIGITS} value={row.parcel_number}
+            placeholder={PARCEL_NUMBER_PLACEHOLDER} onChange={(v) => set('parcel_number', v)} />
         </td>
         <td data-label="Barangay *" className={CELL} style={{ width: COL_WIDTH.barangay }}>
           <select className={bulkCellInputClasses} value={row.barangay} onChange={(e) => set('barangay', e.target.value)}>

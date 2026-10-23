@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 
 const {
-  MAX_CROPS, toRows, isWholeArea, areaProblem, withArea, withTotal, dateProblem, buildRequest, selectionSummary, filterCrops,
+  MAX_CROPS, toRows, isWholeArea, areaProblem, withArea, withTotal, dateProblem, buildRequest, selectionSummary, filterCrops, withAllTotal, allTotal,
 } = await import(new URL('../src/pages/Monitoring/multiCropDisaster.js', import.meta.url).href)
 
 let n = 0
@@ -58,5 +58,17 @@ eq(filterCrops(crops, 'corn').map((c) => c.id), [2], 'search by crop name')
 eq(filterCrops(crops, '').length, 3, 'no search shows all')
 eq(filterCrops(crops, 'wet 2026').map((c) => c.id), [1, 2], 'search by season')
 assert.equal(MAX_CROPS, 50); n++
+
+// ── mark all as total loss
+const allRows = toRows(crops).map((r) => (r.id === 1 ? { ...r, area: '0.5' } : r))
+const marked = withAllTotal(allRows, true)
+eq(marked.map((r) => [r.id, r.area, r.total]), [[1, '1.5', true], [2, '2', true], [3, '', true]], 'every crop gets its whole planted area and the mark')
+eq(allTotal(marked), true, 'all marked')
+eq(allTotal(allRows), false, 'none marked yet')
+eq(allTotal([]), false, 'no crops is not all marked')
+const cleared = withAllTotal(marked, false)
+eq(cleared.map((r) => [r.area, r.total]), [['1.5', false], ['2', false], ['', false]], 'un-marking clears the marks and keeps the areas')
+eq(allTotal(withTotal(marked[0], false) && [withTotal(marked[0], false), marked[1]]), false, 'one crop un-marked, so not all are')
+eq(buildRequest({ disasterType: 'Flood', other: '', date: '2026-10-01', damage: '', loss: '' }, marked).crops.map((c) => c.is_total_loss), [true, true, true], 'all are sent as total losses')
 
 console.log(`multiCropDisaster: ${n} checks passed`)

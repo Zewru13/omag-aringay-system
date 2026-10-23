@@ -7,11 +7,10 @@ import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import IdNumberInput from '../../components/UI/IdNumberInput.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
-import SegmentedIdInput from '../../components/UI/SegmentedIdInput.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { RSBSA_GROUPS } from '../../utils/idNumbers.js'
 import {
-  CROPPING_SCHEDULE_OPTIONS, FARM_TYPE_OPTIONS, LAND_OWNERSHIP_OPTIONS, PARCEL_NUMBER_PARTS, TAX_DECLARATION_DIGITS, TAX_DECLARATION_GROUPS,
+  CROPPING_SCHEDULE_OPTIONS, FARM_TYPE_OPTIONS, LAND_OWNERSHIP_OPTIONS, PARCEL_NUMBER_DIGITS, PARCEL_NUMBER_GROUPS, PARCEL_NUMBER_PLACEHOLDER, TAX_DECLARATION_DIGITS, TAX_DECLARATION_GROUPS,
   editPayload, editProblem, editServerErrors, isTenure, parcelSkipsSchedule, parcelToForm, toggleClassification,
 } from './parcelRows.js'
 import useParcelClassifications from './useParcelClassifications.js'
@@ -72,7 +71,8 @@ function EditParcelModal({ parcel, onClose, onSuccess }) {
         {errors.general && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700">{errors.general}</p>}
 
         <FormField label="Parcel number" error={errors.parcel_number}>
-          <SegmentedIdInput parts={PARCEL_NUMBER_PARTS} value={form.parcel_number} onChange={(v) => set('parcel_number', v)} />
+          <IdNumberInput groups={PARCEL_NUMBER_GROUPS} maxDigits={PARCEL_NUMBER_DIGITS} value={form.parcel_number}
+            placeholder={PARCEL_NUMBER_PLACEHOLDER} onChange={(v) => set('parcel_number', v)} />
         </FormField>
 
         <div className="grid gap-4 sm:grid-cols-2">

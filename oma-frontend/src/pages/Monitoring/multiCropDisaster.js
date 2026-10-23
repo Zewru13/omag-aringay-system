@@ -33,6 +33,13 @@ export const withArea = (row, value) => {
 
 export const withTotal = (row, checked) => ({ ...row, total: Boolean(checked) && isWholeArea(row) })
 
+// "Mark all as total loss": every crop becomes a total loss over its whole planted area (a crop with no recorded area has no limit to
+// fill, so it just gets the mark). Un-marking only clears the marks and keeps the areas typed.
+export const withAllTotal = (rows, checked) => rows.map((r) => (
+  checked ? { ...r, area: r.plantedHa === null ? r.area : String(r.plantedHa), total: true } : { ...r, total: false }
+))
+export const allTotal = (rows) => rows.length > 0 && rows.every((r) => r.total)
+
 export function areaProblem(row) {
   if (row.area === '' || row.area === null || row.area === undefined) return 'Area affected is required.'
   const area = parseFloat(row.area)
