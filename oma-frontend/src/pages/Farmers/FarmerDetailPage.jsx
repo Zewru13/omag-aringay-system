@@ -20,6 +20,7 @@ import { downloadFile } from '../../utils/fileDownload.js'
 import { rowClickProps } from '../../utils/rowClick.js'
 import { declaredCropName, sameCrop } from '../../utils/cropNames.js'
 import EditFarmerModal from './EditFarmerModal.jsx'
+import EditParcelModal from './EditParcelModal.jsx'
 import RecordFarmVisitModal from './RecordFarmVisitModal.jsx'
 
 // Phone: every table inside the wrapper stacks into labelled cards (each <td data-label="..."> shows its label above the value).
@@ -204,7 +205,7 @@ function CropMonitoringSubSection({ parcelId }) {
   )
 }
 
-function ParcelRow({ parcel }) {
+function ParcelRow({ parcel, onEdit }) {
   const [expanded, setExpanded] = useState(false)
 
   const cropRows = (parcel.crops || []).map((c) => ({
@@ -234,6 +235,16 @@ function ParcelRow({ parcel }) {
         <td data-label="Ownership" className="px-4 py-3 text-[13px] text-[#1A2B1A]">{parcel.land_ownership}</td>
         <td data-label="Commodity" className="px-4 py-3 text-[13px] text-[#1A2B1A]">{parcel.commodity_name || '-'}</td>
         <td className="px-4 py-3 text-right">
+          {onEdit && (
+            <button
+              className="mr-1 inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-medium text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors max-md:mr-2 max-md:min-h-[40px] max-md:border max-md:border-[#C8D5C8] max-md:px-4"
+              onClick={() => onEdit(parcel)}
+              type="button"
+            >
+              <Edit size={13} />
+              Edit
+            </button>
+          )}
           <button
             className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-medium text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors max-md:min-h-[40px] max-md:border max-md:border-[#C8D5C8] max-md:px-4"
             onClick={() => setExpanded((v) => !v)}
@@ -315,6 +326,7 @@ function FarmerDetailPage() {
   const { showToast } = useToast()
   const [farmer, setFarmer] = useState(null)
   const [parcels, setParcels] = useState([])
+  const [editingParcel, setEditingParcel] = useState(null)
   const [history, setHistory] = useState([])
   const [visitHistory, setVisitHistory] = useState([])
   const [cropRecords, setCropRecords] = useState([])
@@ -676,7 +688,7 @@ function FarmerDetailPage() {
                 </thead>
                 <tbody>
                   {parcels.map((parcel) => (
-                    <ParcelRow key={parcel.id} parcel={parcel} />
+                    <ParcelRow key={parcel.id} parcel={parcel} onEdit={isAdmin || isEvaluator ? setEditingParcel : null} />
                   ))}
                 </tbody>
               </table>
@@ -911,6 +923,14 @@ function FarmerDetailPage() {
           history={history}
           isLoading={isLoadingHistory}
           onClose={() => setIsHistoryModalOpen(false)}
+        />
+      )}
+
+      {editingParcel && (
+        <EditParcelModal
+          parcel={editingParcel}
+          onClose={() => setEditingParcel(null)}
+          onSuccess={fetchParcels}
         />
       )}
 

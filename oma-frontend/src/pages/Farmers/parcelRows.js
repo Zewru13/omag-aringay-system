@@ -26,6 +26,23 @@ export const CROPPING_SCHEDULE_OPTIONS = ['Single Cropping', 'Double Cropping', 
 export const SEED_SOURCE_OPTIONS = ['Certified Seed', 'Farmer-saved Seed', 'Hybrid Seed', 'OPV Seed', 'Other']
 export const SEEDS_UNIT_OPTIONS = ['kg', 'bag', 'piece']
 
+// Region-Province-Municipality is fixed for every parcel in this LGU-only system (01-33-02 = Region I / La Union / Aringay);
+// barangay code, section, block and lot are the only parts that vary per parcel.
+export const PARCEL_NUMBER_PARTS = [
+  { type: 'text', value: '01-33-02-' },
+  { type: 'input', key: 'barangay', length: 3, placeholder: '000' },
+  { type: 'text', value: '-' },
+  { type: 'input', key: 'section', length: 3, placeholder: '000' },
+  { type: 'text', value: '-' },
+  { type: 'input', key: 'block', length: 2, placeholder: '00' },
+  { type: 'text', value: '-' },
+  { type: 'input', key: 'lot', length: 3, placeholder: '000' },
+]
+// Tax Declaration Number: typed as digits with the dashes added for you, stopped at 18 digits (RR-MMM-BBBBB-YYYY-NNNN).
+export const TAX_DECLARATION_GROUPS = [2, 3, 5, 4]
+export const TAX_DECLARATION_DIGITS = 18
+
+
 export const isTenure = (ownership) => ownership === 'Tenant' || ownership === 'Lessee'
 export const cropLabel = (crop) => (crop.crop_name === 'Other' ? crop.crop_name_other : crop.crop_name)
 export const machineryLabel = (m) => (m.machinery_type === 'Other' ? m.machinery_type_other : m.machinery_type)
@@ -270,4 +287,50 @@ export function serverErrorsToMessages(errors, rows) {
     if (parts.length) messages[rows[i]._id] = `Parcel ${i + 1}: ${parts.join(' · ')}`
   })
   return messages
+}
+
+// ── editing one parcel that exists (the Edit Parcel window on the farmer profile)
+const EDIT_FIELDS = ['parcel_number', 'barangay', 'land_ownership', 'land_owner_name', 'land_owner_rsbsa_number', 'tax_declaration_number', 'farm_type', 'cropping_schedule']
+
+// The window's form values, from the parcel as the server sent it.
+export function parcelToForm(parcel) {
+  const form = { area_hectares: String(parseFloat(parcel.area_hectares)), classifications: [...(parcel.classifications || [])] }
+  EDIT_FIELDS.forEach((field) => { form[field] = parcel[field] || '' })
+  return form
+}
+
+// Whether the main crop already declared on the parcel is a tree crop (then it has no cropping schedule).
+export const parcelSkipsSchedule = (parcel) => canSkipSchedule({ crops: parcel.crops || [] })
+
+// What is wrong with the edit form ('' when nothing). The server still decides whether the area and schedule fit the crops.
+export function editProblem(form) {
+  return rowProblem({ ...form, crops: [], machinery: [] })
+}
+
+// The PATCH body: only what this window edits, with a tenant's land owner dropped for an owner parcel.
+export function editPayload(form, parcel) {
+  const body = {
+    parcel_number: form.parcel_number,
+    area_hectares: Number(form.area_hectares),
+    land_ownership: form.land_ownership,
+    land_owner_name: isTenure(form.land_ownership) ? form.land_owner_name : '',
+    land_owner_rsbsa_number: isTenure(form.land_ownership) ? form.land_owner_rsbsa_number : '',
+    tax_declaration_number: form.tax_declaration_number,
+    barangay: form.barangay,
+    farm_type: form.farm_type,
+    classifications: form.classifications || [],
+    cropping_schedule: parcelSkipsSchedule(parcel) ? '' : form.cropping_schedule,
+  }
+  return body
+}
+
+// The server's field errors ({ field: [messages] }) as { field: 'first message' }, plus a `general` one for anything else.
+export function editServerErrors(data) {
+  const errors = {}
+  Object.entries(data || {}).forEach(([field, value]) => {
+    const message = firstMessage(value)
+    if (EDIT_FIELDS.includes(field) || field === 'area_hectares' || field === 'classifications') errors[field] = message
+    else if (field === 'detail' || field === 'non_field_errors') errors.general = message
+  })
+  return errors
 }

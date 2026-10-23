@@ -18,6 +18,7 @@ from .views import (
     FarmMachineryDeleteView,
     FarmMachineryListCreateView,
     FarmParcelCreateView,
+    FarmParcelDetailView,
     FarmParcelDirectoryView,
     FarmParcelListView,
     MyFarmParcelListView,
@@ -53,6 +54,7 @@ urlpatterns = [
         FarmParcelCreateView.as_view(),
         name='farm-parcels-create',
     ),
+    path('parcels/<int:id>/', FarmParcelDetailView.as_view(), name='farm-parcels-detail'),
     # Crops
     path(
         'parcels/<int:parcel_id>/crops/',

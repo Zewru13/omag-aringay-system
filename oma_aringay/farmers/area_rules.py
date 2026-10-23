@@ -70,3 +70,22 @@ def growing_area_problem(parcel_area, other_growing_area, new_area):
         return (f'Only {fmt(free)} ha of this {fmt(area)} ha parcel is free: {fmt(other)} ha is already growing other crops. '
                 f'Harvest or close those records first, or plant a smaller area.')
     return None
+
+
+def parcel_change_problem(parcel_area, cropping_schedule, crop_areas, growing_area):
+    """A message when a parcel of `parcel_area` ha and `cropping_schedule` cannot hold what is already on it: the crops declared on
+    it (`crop_areas`) or the plantings growing on it now (`growing_area` ha). None when it can. Used when a parcel is edited."""
+    area = _ha(parcel_area)
+    limit = capacity(area, cropping_schedule)
+    crops = [_ha(a) for a in crop_areas]
+    biggest = max(crops, default=Decimal(0))
+    if biggest > area:
+        return f'The parcel cannot be smaller than its biggest crop ({fmt(biggest)} ha). Shrink or remove that crop first.'
+    declared = sum(crops, Decimal(0))
+    if declared > limit:
+        return (f'The crops declared on this parcel come to {fmt(declared)} ha, more than the {fmt(limit)} ha allowed. '
+                f'Shrink or remove a crop first, or keep the larger area or cropping schedule.')
+    if _ha(growing_area) > area:
+        return (f'{fmt(growing_area)} ha is growing on this parcel now, more than {fmt(area)} ha. '
+                f'Harvest or close those Crop Monitoring records first.')
+    return None
