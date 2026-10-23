@@ -10,7 +10,7 @@ from core.constants import validate_prefix_gender
 
 from associations.models import FarmersOrganization as AssocFarmersOrganization, FarmersOrganizationMember
 
-from .models import Farmer, FarmCrop, FarmMachinery, FarmParcel
+from .models import Farmer, FarmCrop, FarmMachinery, FarmParcel, ParcelClassification
 
 
 # Batch (Phase B — multi-org membership): shared accessors for the farmer's
@@ -53,6 +53,11 @@ class FarmCropSerializer(serializers.ModelSerializer):
             'farm_parcel': {'required': False},
         }
 
+    def validate_area_hectares(self, value):
+        if value <= 0:
+            raise serializers.ValidationError('The crop area must be more than 0.')
+        return value
+
 
 class FarmMachinerySerializer(serializers.ModelSerializer):
     class Meta:
@@ -70,6 +75,11 @@ class FarmMachinerySerializer(serializers.ModelSerializer):
             'farm_parcel': {'required': False},
         }
 
+    def validate_quantity(self, value):
+        if value is not None and value < 1:
+            raise serializers.ValidationError('The quantity must be at least 1.')
+        return value
+
 
 class FarmParcelDirectorySerializer(serializers.ModelSerializer):
     """One line of the Crop Records page: a parcel, whose it is, and how many crop records sit on it."""
@@ -86,6 +96,24 @@ class FarmParcelDirectorySerializer(serializers.ModelSerializer):
     def get_farmer_name(self, obj):
         f = obj.farmer
         return ' '.join(part for part in (f.first_name, f.last_name) if part)
+
+
+class ParcelClassificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ParcelClassification
+        fields = ['id', 'name', 'is_active']
+        read_only_fields = ['id']
+
+    def validate_name(self, value):
+        name = ' '.join((value or '').split())
+        if not name:
+            raise serializers.ValidationError('Enter the classification name.')
+        clash = ParcelClassification.objects.filter(name__iexact=name)
+        if self.instance is not None:
+            clash = clash.exclude(pk=self.instance.pk)
+        if clash.exists():
+            raise serializers.ValidationError('That classification is already in the list.')
+        return name
 
 
 class FarmParcelSerializer(serializers.ModelSerializer):
@@ -107,9 +135,7 @@ class FarmParcelSerializer(serializers.ModelSerializer):
             'commodity_name',
             'barangay',
             'farm_type',
-            'is_organic',
-            'within_ancestral_domain',
-            'is_agrarian_reform_beneficiary',
+            'classifications',
             'cropping_schedule',
             'crops',
             'machinery',
@@ -118,6 +144,30 @@ class FarmParcelSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'farmer': {'required': False},
         }
+
+    def validate_area_hectares(self, value):
+        if value <= 0:
+            raise serializers.ValidationError('The parcel area must be more than 0.')
+        return value
+
+    def validate_classifications(self, value):
+        """The ticked classification names, each as spelled in Classification Settings. A name has to be one of the offered
+        (not hidden) classifications, unless this parcel already carries it (so editing a parcel never loses an old one)."""
+        if not isinstance(value, list):
+            raise serializers.ValidationError('Send the classifications as a list of names.')
+        offered = {c.name.lower(): c.name for c in ParcelClassification.objects.filter(is_active=True)}
+        kept = {str(n).lower(): str(n) for n in (getattr(self.instance, 'classifications', None) or [])}
+        names = []
+        for raw in value:
+            name = ' '.join(str(raw or '').split())
+            if not name:
+                continue
+            canonical = offered.get(name.lower()) or kept.get(name.lower())
+            if canonical is None:
+                raise serializers.ValidationError(f'"{name}" is not one of the parcel classifications. Ask an Admin to add it in Classification Settings.')
+            if canonical not in names:
+                names.append(canonical)
+        return names
 
     def validate(self, data):
         # Cross-field rule: Parcel Number becomes required only once a Tax

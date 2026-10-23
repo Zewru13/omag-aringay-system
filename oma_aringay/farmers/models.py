@@ -134,6 +134,21 @@ class Farmer(models.Model):
         return f'{self.rsbsa_number} - {self.full_name}'
 
 
+class ParcelClassification(models.Model):
+    """A "check all that apply" classification a farm parcel can carry (Organic Farm, Within Ancestral Domain, ...). Managed by
+    the Admin in Classification Settings, like the assistance source agencies: a parcel keeps the NAME it was saved with
+    (FarmParcel.classifications is a plain list of names), so renaming, hiding or deleting one here never changes parcels that
+    already have it."""
+    name = models.CharField(max_length=150, unique=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
 class FarmParcel(models.Model):
     class LandOwnership(models.TextChoices):
         OWNER = 'Owner', 'Owner'
@@ -209,9 +224,8 @@ class FarmParcel(models.Model):
     ]
 
     farm_type = models.CharField(max_length=20, choices=FARM_TYPE_CHOICES, blank=True)
-    is_organic = models.BooleanField(default=False)
-    within_ancestral_domain = models.BooleanField(default=False)
-    is_agrarian_reform_beneficiary = models.BooleanField(default=False)
+    # The names of the ParcelClassification entries ticked for this parcel (see that model).
+    classifications = models.JSONField(default=list, blank=True)
     cropping_schedule = models.CharField(max_length=20, choices=CROPPING_SCHEDULE_CHOICES, blank=True)
 
     def update_commodity(self):

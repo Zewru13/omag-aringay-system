@@ -9,6 +9,7 @@ import MyEquipmentPage from "./pages/Equipment/MyEquipmentPage.jsx";
 import DashboardPage from "./pages/Dashboard/DashboardPage.jsx";
 import FarmerDetailPage from "./pages/Farmers/FarmerDetailPage.jsx";
 import AssistanceAgenciesPage from "./pages/AssistanceManagement/AssistanceAgenciesPage.jsx";
+import ClassificationSettingsPage from "./pages/Farmers/ClassificationSettingsPage.jsx";
 import FarmersHub from "./pages/Farmers/FarmersHub.jsx";
 import FisherfolkDetailPage from "./pages/Fisheries/FisherfolkDetailPage.jsx";
 import FisherfolkHub from "./pages/Fisherfolk/FisherfolkHub.jsx";
@@ -25,6 +26,7 @@ import ReportsPage from "./pages/Reports/ReportsPage.jsx";
 import ForecastingPage from "./pages/Forecasting/ForecastingPage.jsx";
 import CropInformationPage from "./pages/CropInformation/CropInformationPage.jsx";
 import AddCropMonitoringPage from "./pages/Monitoring/AddCropMonitoringPage.jsx";
+import AddFarmParcelsPage from "./pages/CropInformation/AddFarmParcelsPage.jsx";
 import CropSettingsHub from "./pages/CropSettings/CropSettingsHub.jsx";
 import ActivitySettingsHub from "./pages/ActivitySettings/ActivitySettingsHub.jsx";
 import UserManagementPage from "./pages/Users/UserManagementPage.jsx";
@@ -305,6 +307,15 @@ function App() {
               </ProtectedRoute>
             }
           />
+          {/* Add several farm parcels (a table, one row per parcel) to a farmer chosen on the page or by ?farmer=<id> */}
+          <Route
+            path="/crop-records/add-parcels"
+            element={
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
+                <AddFarmParcelsPage />
+              </ProtectedRoute>
+            }
+          />
           <Route path="/crop-information" element={<Navigate to="/crop-records" replace />} />
 
           {/* Crop settings hub — tabs: Options + Categories (admin only) */}
@@ -325,6 +336,16 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["ADMIN"]}>
                 <AssistanceAgenciesPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Classification settings: the parcel classifications offered in the farm parcel forms (admin only) */}
+          <Route
+            path="/classification-settings"
+            element={
+              <ProtectedRoute allowedRoles={["ADMIN"]}>
+                <ClassificationSettingsPage />
               </ProtectedRoute>
             }
           />
