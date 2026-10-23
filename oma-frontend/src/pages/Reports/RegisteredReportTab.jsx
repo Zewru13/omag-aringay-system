@@ -16,7 +16,7 @@ const KINDS = [
   { id: 'fisherfolk_orgs', label: 'Fisherfolk Organizations', one: 'fisherfolk organization', stem: 'registered_fisherfolk_organizations' },
 ]
 
-const NO_FILTERS = { barangay: '', status: '', registered_from: '', registered_to: '', search: '' }
+const NO_FILTERS = { barangay: '', registered_from: '', registered_to: '', search: '' }
 
 const pill = (active) => `rounded-lg border px-3 py-2 text-[13px] font-medium transition-colors max-md:min-h-[40px] ${
   active ? 'border-[#1B4D2E] bg-[#1B4D2E] text-white' : 'border-[#C8D5C8] bg-white text-[#4A5E4A] hover:bg-[#F5F7F5]'
@@ -147,20 +147,12 @@ export default function RegisteredReportTab() {
               search={filters.search}
               onSearchChange={v => set('search', v)}
               searchPlaceholder="Search name or number"
-              activeCount={['barangay', 'status', 'registered_from', 'registered_to'].filter(k => filters[k]).length}
+              activeCount={['barangay', 'registered_from', 'registered_to'].filter(k => filters[k]).length}
               className=""
             >
               <div className="w-full sm:w-44">
                 <label className={labelCls}>Barangay</label>
                 <BarangaySelect value={filters.barangay} onChange={e => set('barangay', e.target.value)} includeAllOption />
-              </div>
-              <div className="max-md:w-full">
-                <label className={labelCls}>Status</label>
-                <select className={baseInputClasses} value={filters.status} onChange={e => set('status', e.target.value)}>
-                  <option value="">All</option>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
               </div>
               <div className="max-md:w-full">
                 <label className={labelCls}>Registered From</label>

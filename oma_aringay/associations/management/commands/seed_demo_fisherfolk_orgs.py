@@ -71,7 +71,6 @@ class Command(BaseCommand):
                     contact_number='09000000000',
                     date_organized=today - datetime.timedelta(days=730),
                     date_registered=today - datetime.timedelta(days=700),
-                    is_active=True,
                 ),
             )
             self.stdout.write(

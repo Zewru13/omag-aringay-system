@@ -80,7 +80,7 @@ function LogGovernmentAssistanceModal({ onClose, onSuccess, memberUrl = null }) 
             id: m.fisherfolk, full_name: m.fisherfolk_full_name,
             rsbsa_number: m.fisherfolk_rsbsa_number, barangay: m.fisherfolk_barangay,
           }))
-          : rows.filter((ff) => ff?.is_active !== false)
+          : rows
         if (mounted) setFfResults(activeRows)
       } catch {
         if (mounted) setFfResults([])

@@ -70,7 +70,6 @@ class Farmer(models.Model):
     is_icc_ip_member = models.BooleanField(default=False)
     icc_ip_name = models.CharField(max_length=150, blank=True)
     is_senior_citizen = models.BooleanField(default=False)
-    is_active = models.BooleanField(default=True)
     # Batch 8: visibility/reporting flag only, distinguishing farm laborers
     # (farmworker=YES, farmer!=YES in the RSBSA/BFAR import) from farm
     # operators. No UI restrictions are tied to this flag.
@@ -148,10 +147,6 @@ class FarmParcel(models.Model):
         HIGH_VALUE_CROPS = 'High-Value Crops', 'High-Value Crops'
         OTHER = 'Other', 'Other'
 
-    class FarmStatus(models.TextChoices):
-        ACTIVE = 'Active', 'Active'
-        INACTIVE = 'Inactive', 'Inactive'
-
     farmer = models.ForeignKey(
         Farmer,
         on_delete=models.CASCADE,
@@ -191,11 +186,6 @@ class FarmParcel(models.Model):
     )
     commodity_type = models.CharField(max_length=50, blank=True)
     commodity_name = models.CharField(max_length=100, blank=True)
-    farm_status = models.CharField(
-        max_length=20,
-        choices=FarmStatus.choices,
-        default=FarmStatus.ACTIVE,
-    )
     barangay = models.CharField(max_length=100, choices=BARANGAY_CHOICES)
 
     # Matches the official DA RSBSA Enrollment Form's Farm Type legend

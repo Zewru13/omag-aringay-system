@@ -4,7 +4,6 @@ import api from '../../api/axiosInstance.js'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import Button from '../../components/UI/Button.jsx'
 import { baseInputClasses, FormLabel } from '../../components/UI/FormField.jsx'
-import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import IdNumberInput from '../../components/UI/IdNumberInput.jsx'
@@ -49,7 +48,6 @@ const getMaxBirthdate = () => {
 }
 
 function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
-  const { isAdmin } = useAuth()
   const { showToast } = useToast()
 
   const [form, setForm] = useState({
@@ -61,7 +59,6 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
     birthdate: fisherfolk.birthdate || '',
     contact_number: tidyPhone(fisherfolk.contact_number || ''),   // an older number with dashes opens in the plain format
     barangay: fisherfolk.barangay || '',
-    is_active: fisherfolk.is_active,
     fishr_number: fisherfolk.fishr_number || '',
     rsbsa_number: fisherfolk.rsbsa_number || '',
     is_aquaculture: fisherfolk.is_aquaculture ?? true,
@@ -146,11 +143,7 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
     setIsSubmitting(true)
 
     try {
-      // is_active is admin-only server-side; omit it entirely for evaluators
-      // so their save isn't rejected just for carrying an unchanged field.
-      const { is_active, ...rest } = form
-      const payload = isAdmin ? form : rest
-      await api.patch(`/fisheries/fisherfolk/${fisherfolk.id}/`, payload)
+      await api.patch(`/fisheries/fisherfolk/${fisherfolk.id}/`, form)
       showToast('Fisherfolk profile updated successfully.', 'success')
       onSuccess()
       onClose()
@@ -338,22 +331,6 @@ function EditFisherfolkModal({ fisherfolk, onClose, onSuccess }) {
                 Vessel and gear details for capture fisherfolk are set at registration; contact an administrator to change them.
               </p>
             </div>
-
-            {isAdmin && (
-              <div className="md:col-span-2">
-                <FormLabel className={labelCls} hideIndicator>Status</FormLabel>
-                <div className="mt-2 flex gap-4">
-                  <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
-                    <input type="radio" name="is_active" value="true" checked={form.is_active === true} onChange={() => updateField('is_active', true)} className="accent-green-600" />
-                    Active
-                  </label>
-                  <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-slate-700">
-                    <input type="radio" name="is_active" value="false" checked={form.is_active === false} onChange={() => updateField('is_active', false)} className="accent-green-600" />
-                    Inactive
-                  </label>
-                </div>
-              </div>
-            )}
           </div>
 
           {error && (

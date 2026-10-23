@@ -43,8 +43,8 @@ def crop_row(name='Palay (Rice)', area='1.5', main='Yes', variety='NSIC Rc 222',
 
 
 def parcel_row(number=PARCEL_NO, area='2.5', barangay='Alaska', ownership='Owner', owner='', owner_rsbsa='', tax='',
-               status='Active', farm_type='Irrigated', organic='No', ancestral='No', arb='No', schedule='Double Cropping', crop=None):
-    return [number, area, barangay, ownership, owner, owner_rsbsa, tax, status, farm_type, organic, ancestral, arb, schedule,
+               farm_type='Irrigated', organic='No', ancestral='No', arb='No', schedule='Double Cropping', crop=None):
+    return [number, area, barangay, ownership, owner, owner_rsbsa, tax, farm_type, organic, ancestral, arb, schedule,
             *(crop if crop is not None else crop_row())]
 
 
@@ -153,7 +153,8 @@ class ParcelImportTests(APITestCase):
 
     def test_the_header_is_one_row_per_crop_with_the_parcel_columns_first(self):
         self.assertEqual(PARCEL_HEADERS[:3], ['Parcel Number', 'Area (ha)', 'Barangay'])
-        self.assertEqual(PARCEL_HEADERS[13:], CROP_HEADERS)
+        self.assertEqual(PARCEL_HEADERS[12:], CROP_HEADERS)
+        self.assertNotIn('Farm Status', PARCEL_HEADERS)
 
     def test_a_preview_reports_every_row_and_writes_nothing(self):
         res = self.post([parcel_row(), parcel_row(crop=crop_row('Onion', '1', 'No', '', '', '', '', ''))], dry_run=True)
@@ -180,10 +181,10 @@ class ParcelImportTests(APITestCase):
 
     def test_classification_and_land_owner_columns_are_saved(self):
         self.post([parcel_row(ownership='Tenant', owner='Juan Dela Cruz', owner_rsbsa='01-33-02-014-058212', tax='01-002-00005-2023-0142',
-                              status='Inactive', organic='Yes', ancestral='yes', arb='Y')])
+                              organic='Yes', ancestral='yes', arb='Y')])
         parcel = FarmParcel.objects.get(farmer=self.farmer)
-        self.assertEqual((parcel.land_ownership, parcel.land_owner_name, parcel.land_owner_rsbsa_number, parcel.tax_declaration_number, parcel.farm_status),
-                         ('Tenant', 'Juan Dela Cruz', '01-33-02-014-058212', '01-002-00005-2023-0142', 'Inactive'))
+        self.assertEqual((parcel.land_ownership, parcel.land_owner_name, parcel.land_owner_rsbsa_number, parcel.tax_declaration_number),
+                         ('Tenant', 'Juan Dela Cruz', '01-33-02-014-058212', '01-002-00005-2023-0142'))
         self.assertEqual((parcel.is_organic, parcel.within_ancestral_domain, parcel.is_agrarian_reform_beneficiary), (True, True, True))
 
     def test_a_parcel_without_crops_is_one_row_with_the_crop_cells_blank(self):

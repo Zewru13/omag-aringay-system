@@ -9,7 +9,7 @@ const eq = (actual, expected, label) => { assert.deepEqual(actual, expected, `${
 
 const base = () => ({
   parcel_number: '', area_hectares: '', land_ownership: 'Owner', land_owner_name: '', land_owner_rsbsa_number: '',
-  tax_declaration_number: '', farm_status: 'Active', barangay: '', farm_type: '', is_organic: false,
+  tax_declaration_number: '', barangay: '', farm_type: '', is_organic: false,
   within_ancestral_domain: false, is_agrarian_reform_beneficiary: false, cropping_schedule: '', crops: [], machinery: [],
   _cropArea: '',
 })
@@ -53,7 +53,7 @@ assert.ok(PERENNIAL_CROPS.includes('Banana (Saging)')); n++
 // ── the request that saves the parcel
 eq(parcelPayload({ ...core, parcel_number: '01-33-02-005-001-02-003', area_hectares: '2.50', farm_type: 'Irrigated', is_organic: true }), {
   parcel_number: '01-33-02-005-001-02-003', area_hectares: 2.5, land_ownership: 'Owner', land_owner_name: '', land_owner_rsbsa_number: '',
-  tax_declaration_number: '', farm_status: 'Active', barangay: 'Alaska', farm_type: 'Irrigated', is_organic: true,
+  tax_declaration_number: '', barangay: 'Alaska', farm_type: 'Irrigated', is_organic: true,
   within_ancestral_domain: false, is_agrarian_reform_beneficiary: false, cropping_schedule: '',
 }, 'parcel payload')
 

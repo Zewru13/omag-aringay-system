@@ -80,7 +80,7 @@ class FarmParcelDirectorySerializer(serializers.ModelSerializer):
     class Meta:
         model = FarmParcel
         fields = ['id', 'farmer', 'farmer_name', 'rsbsa_number', 'parcel_number', 'barangay', 'area_hectares',
-                  'land_ownership', 'farm_status', 'commodity_name', 'crop_count']
+                  'land_ownership', 'commodity_name', 'crop_count']
         read_only_fields = fields
 
     def get_farmer_name(self, obj):
@@ -105,7 +105,6 @@ class FarmParcelSerializer(serializers.ModelSerializer):
             'tax_declaration_number',
             'commodity_type',
             'commodity_name',
-            'farm_status',
             'barangay',
             'farm_type',
             'is_organic',
@@ -164,7 +163,6 @@ class FarmerListSerializer(serializers.ModelSerializer):
             'birthdate',
             'barangay',
             'commodity',
-            'is_active',
             'is_senior_citizen',
             'is_farm_laborer',
             'date_registered',
@@ -233,7 +231,6 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
             'icc_ip_name',
             'is_senior_citizen',
             'is_farm_laborer',
-            'is_active',
             'date_registered',
             'registered_by',
             'farm_parcels',
@@ -363,7 +360,6 @@ class FarmerCreateSerializer(serializers.ModelSerializer):
             'is_icc_ip_member',
             'icc_ip_name',
             'is_senior_citizen',
-            'is_active',
             'date_registered',
             'registered_by',
             'farmers_organization',

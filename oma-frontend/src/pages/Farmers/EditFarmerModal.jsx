@@ -6,7 +6,6 @@ import Button from '../../components/UI/Button.jsx'
 import { baseInputClasses, FormLabel } from '../../components/UI/FormField.jsx'
 import PhoneInput from '../../components/UI/PhoneInput.jsx'
 import { guardPhilsys as formatPhilsys, tidyPhone } from '../../utils/inputGuards.js'
-import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import { getPrefixOptions, isPrefixValidForGender } from '../../utils/prefixOptions.js'
@@ -55,7 +54,6 @@ const getMaxBirthdate = () => {
 }
 
 function EditFarmerModal({ farmer, onClose, onSuccess }) {
-  const { isAdmin } = useAuth()
   const { showToast } = useToast()
 
   const original = {
@@ -70,7 +68,6 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
     civil_status: farmer.civil_status || 'Single',
     highest_education: farmer.highest_education || '',
     philsys_number: farmer.philsys_number || '',
-    is_active: farmer.is_active,
     is_pwd: farmer.is_pwd || false,
     is_4ps_beneficiary: farmer.is_4ps_beneficiary || false,
     is_icc_ip_member: farmer.is_icc_ip_member || false,
@@ -141,10 +138,7 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
     setIsSubmitting(true)
 
     try {
-      // is_active is admin-only server-side; omit it entirely for evaluators
-      // so their save isn't rejected just for carrying an unchanged field.
-      const { is_active, ...rest } = form
-      const payload = isAdmin ? { ...form, is_senior_citizen: isSenior } : { ...rest, is_senior_citizen: isSenior }
+      const payload = { ...form, is_senior_citizen: isSenior }
       await api.patch(`/farmers/${farmer.id}/`, payload)
       showToast('Farmer profile updated successfully.', 'success')
       onSuccess()
@@ -324,19 +318,6 @@ function EditFarmerModal({ farmer, onClose, onSuccess }) {
             <div className="mt-3">
               <FormLabel>ICC/IP Group Name</FormLabel>
               <input className={baseInputClasses} id="icc_ip_name" value={form.icc_ip_name} onChange={(e) => updateField('icc_ip_name', e.target.value)} />
-            </div>
-          )}
-        </div>
-
-        {/* Status (admin only) */}
-        <div className="grid gap-4 md:grid-cols-2">
-          {isAdmin && (
-            <div>
-              <FormLabel hideIndicator>Status</FormLabel>
-              <select className={baseInputClasses} id="is_active" onChange={(e) => updateField('is_active', e.target.value === 'true')} value={form.is_active ? 'true' : 'false'}>
-                <option value="true">Active</option>
-                <option value="false">Inactive</option>
-              </select>
             </div>
           )}
         </div>

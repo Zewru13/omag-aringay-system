@@ -46,7 +46,6 @@ class FarmerListView(generics.ListCreateAPIView):
                 'farm_parcels',
             )
         search = self.request.query_params.get('search')
-        status_filter = self.request.query_params.get('status')
         gender_filter = self.request.query_params.get('gender')
         is_senior = self.request.query_params.get('is_senior')
 
@@ -64,13 +63,6 @@ class FarmerListView(generics.ListCreateAPIView):
                 id_fields=['rsbsa_number'],
                 other_fields=['barangay'],
             )
-
-        if status_filter:
-            status_value = status_filter.lower()
-            if status_value in ['active', 'true', '1']:
-                queryset = queryset.filter(is_active=True)
-            elif status_value in ['inactive', 'false', '0']:
-                queryset = queryset.filter(is_active=False)
 
         if gender_filter:
             queryset = queryset.filter(gender__iexact=gender_filter)
@@ -168,15 +160,6 @@ class FarmerDetailView(generics.RetrieveUpdateAPIView):
     http_method_names = ['get', 'patch']
     lookup_field = 'id'
 
-    def update(self, request, *args, **kwargs):
-        if 'is_active' in request.data and request.user.role != 'ADMIN':
-            return Response(
-                {'detail': 'Only an Admin can change a farmer\'s status.'},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        return super().update(request, *args, **kwargs)
-
 
 class FarmerDeleteView(generics.DestroyAPIView):
     queryset = Farmer.objects.all()
@@ -215,8 +198,6 @@ class FarmParcelDirectoryView(generics.ListAPIView):
             qs = qs.filter(farmer_id=params['farmer'])
         if params.get('barangay'):
             qs = qs.filter(barangay__iexact=params['barangay'])
-        if params.get('farm_status'):
-            qs = qs.filter(farm_status=params['farm_status'])
         search = params.get('search')
         if search:
             matched = filter_people_search(

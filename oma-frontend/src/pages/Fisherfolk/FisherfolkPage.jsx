@@ -28,7 +28,6 @@ const columns = [
   { key: 'activity_badges',         label: 'Activities' },
   { key: 'barangay',                label: 'Barangay' },
   { key: 'age',                     label: 'Age' },
-  { key: 'status',                  label: 'Status' },
   { key: 'date_registered_disp',    label: 'Date Registered' },
 ]
 
@@ -63,7 +62,6 @@ function FisherfolkPage({ asTab = false }) {
   const [fisherfolk,  setFisherfolk]  = useState([])
   const [totalCount,  setTotalCount]  = useState(0)
   const [search,      setSearch]      = useState('')
-  const [status,      setStatus]      = useState('all')
   const [gender,      setGender]      = useState('all')
   const [typeFilter,  setTypeFilter]  = useState('all')
   const [seniorOnly,  setSeniorOnly]  = useState(false)
@@ -86,7 +84,6 @@ function FisherfolkPage({ asTab = false }) {
   const listFilterParams = () => {
     const params = new URLSearchParams()
     if (search.trim())    params.set('search', search.trim())
-    if (status !== 'all') params.set('status', status)
     if (gender !== 'all') params.set('gender', gender)
     if (typeFilter !== 'all') params.set('fisherfolk_type', typeFilter)
     if (seniorOnly)       params.set('is_senior', 'true')
@@ -117,12 +114,11 @@ function FisherfolkPage({ asTab = false }) {
   useEffect(() => {
     setPage(1)
     fetchFisherfolk(1)
-  }, [search, status, gender, typeFilter, seniorOnly, filterPWD, filter4Ps, registeredFrom, registeredTo])
+  }, [search, gender, typeFilter, seniorOnly, filterPWD, filter4Ps, registeredFrom, registeredTo])
 
   useEffect(() => { fetchFisherfolk(page) }, [page])
 
   const activeFilterCount = [
-    status !== 'all',
     gender !== 'all',
     typeFilter !== 'all',
     seniorOnly,
@@ -158,7 +154,6 @@ function FisherfolkPage({ asTab = false }) {
           )}
         </span>
       ),
-      status: f.is_active ? 'Active' : 'Inactive',
       date_registered_disp: formatDate(f.date_registered),
     }
   }), [fisherfolk])
@@ -200,11 +195,6 @@ function FisherfolkPage({ asTab = false }) {
         searchPlaceholder="Search by name, RSBSA No., FishR No., or barangay"
         activeCount={activeFilterCount}
       >
-        <select className={filterSelectCls} value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="all">All Status</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
         <select className={filterSelectCls} value={gender} onChange={(e) => setGender(e.target.value)}>
           <option value="all">All Gender</option>
           <option value="Male">Male</option>

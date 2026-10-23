@@ -1167,11 +1167,6 @@ function OrganizationDetailPage({ own = false }) {
                         <h1 className="mt-0.5 text-[16px] font-semibold text-[#1A2B1A]">
                           {organization.name}
                         </h1>
-                        <div className="mt-1.5 flex flex-wrap gap-1.5">
-                          <StatusPill tone={organization.is_active ? "green" : "slate"}>
-                            {organization.is_active ? "Active" : "Inactive"}
-                          </StatusPill>
-                        </div>
                         <p className="mt-1.5 text-[12px] text-[#7A8E7A]">{typeLabel} Organization</p>
                       </div>
                     </section>

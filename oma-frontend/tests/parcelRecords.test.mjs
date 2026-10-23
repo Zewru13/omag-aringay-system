@@ -18,7 +18,7 @@ eq(cropCountLabel(4), '4 crops', 'many')
 eq(cropCountLabel(undefined), 'No crops yet', 'unknown counts as none')
 
 // ── the request for the parcel list: blanks are left out
-eq(directoryParams({ search: ' Ana ', barangay: '', farmStatus: 'Inactive', page: 2 }), { page: 2, search: 'Ana', farm_status: 'Inactive' }, 'filters')
+eq(directoryParams({ search: ' Ana ', barangay: '', page: 2 }), { page: 2, search: 'Ana' }, 'filters')
 eq(directoryParams({}), { page: 1 }, 'nothing typed')
 eq(directoryParams({ barangay: 'Alaska', page: 3 }), { page: 3, barangay: 'Alaska' }, 'barangay only')
 

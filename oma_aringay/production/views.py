@@ -243,8 +243,6 @@ class ProductionDashboardView(APIView):
 
         return Response({
             'total_farmers': Farmer.objects.count(),
-            'active_farms': FarmParcel.objects.filter(farm_status='Active').count(),
-            'inactive_farms': FarmParcel.objects.filter(farm_status='Inactive').count(),
             'total_volume_kg_this_year': total_volume,
             'top_commodity': top_commodity_record['crop_name'] if top_commodity_record else None,
             'total_fisherfolk': Fisherfolk.objects.count(),
@@ -709,14 +707,12 @@ class DashboardExtendedSummaryView(APIView):
 
     def get(self, request):
         # Fisherfolk counts
-        fisherfolk_active = Fisherfolk.objects.filter(is_active=True).count()
         fisherfolk_breakdown = {
             'aquaculture': Fisherfolk.objects.filter(fisherfolk_type='Aquaculture').count(),
             'capture': Fisherfolk.objects.filter(fisherfolk_type='Capture').count(),
         }
 
         return Response({
-            'fisherfolk_active': fisherfolk_active,
             'fisherfolk_breakdown': fisherfolk_breakdown,
         })
 

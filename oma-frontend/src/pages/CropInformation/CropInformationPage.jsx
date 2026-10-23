@@ -1139,8 +1139,6 @@ function ParcelCrops({ parcelId, search, barangay, version, isPhone, handlers, e
 
 // ─── One parcel: its details, "Add crop records", and (when opened) the crops on it ──────────────────────────────────
 
-const STATUS_TONE = { Active: "green", Inactive: "slate" };
-
 function AddCropButton({ parcel, onAdd }) {
   return (
     <button
@@ -1184,7 +1182,6 @@ function ParcelRow({ parcel, open, onToggle, onAdd, isPhone, ...cropProps }) {
               {Number(parcel.area_hectares).toFixed(2)} ha · {parcel.land_ownership} · {cropCountLabel(parcel.crop_count)}
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <StatusPill tone={STATUS_TONE[parcel.farm_status] || "slate"}>{parcel.farm_status}</StatusPill>
               <AddCropButton parcel={parcel} onAdd={onAdd} />
             </div>
           </div>
@@ -1211,9 +1208,6 @@ function ParcelRow({ parcel, open, onToggle, onAdd, isPhone, ...cropProps }) {
         <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#4A5E4A]">{Number(parcel.area_hectares).toFixed(2)}</td>
         <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#4A5E4A]">{parcel.land_ownership}</td>
         <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#4A5E4A]">{cropCountLabel(parcel.crop_count)}</td>
-        <td className="whitespace-nowrap px-3 py-2.5">
-          <StatusPill tone={STATUS_TONE[parcel.farm_status] || "slate"}>{parcel.farm_status}</StatusPill>
-        </td>
         <td className="whitespace-nowrap px-3 py-2.5 text-right">
           <AddCropButton parcel={parcel} onAdd={onAdd} />
         </td>
@@ -1229,7 +1223,7 @@ function ParcelRow({ parcel, open, onToggle, onAdd, isPhone, ...cropProps }) {
   );
 }
 
-const PARCEL_COLUMNS = ["Parcel", "Farmer", "Barangay", "Area (ha)", "Ownership", "Crops", "Status", "Actions"];
+const PARCEL_COLUMNS = ["Parcel", "Farmer", "Barangay", "Area (ha)", "Ownership", "Crops", "Actions"];
 
 // ─── The crops with no parcel on file (older records and organization crops) ─────────────────────────────────────────
 
@@ -1277,14 +1271,11 @@ function NoParcelGroup({ search, barangay, version, isPhone, handlers }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-const PARCEL_STATUS_OPTIONS = ["Active", "Inactive"];
-
 export default function CropInformationPage() {
   const isPhone = useIsPhone();
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [barangay, setBarangay] = useState("");
-  const [farmStatus, setFarmStatus] = useState("");
   const [page, setPage] = useState(1);
   const [version, setVersion] = useState(0);
   const [openIds, setOpenIds] = useState([]);
@@ -1295,13 +1286,13 @@ export default function CropInformationPage() {
   // Server-side search over every parcel (farmer, RSBSA, parcel number) — debounced, so a slower earlier answer can never
   // replace the one for what is typed now (the answer is stored with the request it belongs to).
   const debouncedSearch = useDebouncedValue(search.trim());
-  const requestKey = JSON.stringify([debouncedSearch, barangay, farmStatus, page, version]);
+  const requestKey = JSON.stringify([debouncedSearch, barangay, page, version]);
   const [result, setResult] = useState({ key: "", rows: [], count: 0, failed: false });
 
   useEffect(() => {
     let alive = true;
     api
-      .get("/farmers/parcels/directory/", { params: directoryParams({ search: debouncedSearch, barangay, farmStatus, page }) })
+      .get("/farmers/parcels/directory/", { params: directoryParams({ search: debouncedSearch, barangay, page }) })
       .then((r) => {
         if (!alive) return;
         const rows = Array.isArray(r.data) ? r.data : r.data.results || [];
@@ -1311,7 +1302,7 @@ export default function CropInformationPage() {
     return () => {
       alive = false;
     };
-  }, [requestKey, debouncedSearch, barangay, farmStatus, page]);
+  }, [requestKey, debouncedSearch, barangay, page]);
 
   const isLoading = result.key !== requestKey;
   const refresh = () => setVersion((v) => v + 1);
@@ -1334,21 +1325,13 @@ export default function CropInformationPage() {
           search={search}
           onSearchChange={changeFilter(setSearch)}
           searchPlaceholder="Search by farmer, RSBSA, or parcel number..."
-          activeCount={[Boolean(barangay), Boolean(farmStatus)].filter(Boolean).length}
+          activeCount={[Boolean(barangay)].filter(Boolean).length}
         >
           <select className={filterSelectCls} value={barangay} onChange={(e) => changeFilter(setBarangay)(e.target.value)} aria-label="Barangay">
             <option value="">All Barangays</option>
             {ARINGAY_BARANGAYS.map((b) => (
               <option key={b} value={b}>
                 {b}
-              </option>
-            ))}
-          </select>
-          <select className={filterSelectCls} value={farmStatus} onChange={(e) => changeFilter(setFarmStatus)(e.target.value)} aria-label="Parcel status">
-            <option value="">All Parcel Status</option>
-            {PARCEL_STATUS_OPTIONS.map((s) => (
-              <option key={s} value={s}>
-                {s}
               </option>
             ))}
           </select>

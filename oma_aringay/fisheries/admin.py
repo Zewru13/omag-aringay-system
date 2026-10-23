@@ -20,8 +20,8 @@ from .models import (
 
 @admin.register(Fisherfolk)
 class FisherfolkAdmin(admin.ModelAdmin):
-    list_display = ['rsbsa_number', 'full_name', 'fisherfolk_type', 'barangay', 'is_active']
-    list_filter  = ['fisherfolk_type', 'barangay', 'is_active', 'gender']
+    list_display = ['rsbsa_number', 'full_name', 'fisherfolk_type', 'barangay']
+    list_filter  = ['fisherfolk_type', 'barangay', 'gender']
     search_fields = ['first_name', 'last_name', 'rsbsa_number', 'fishr_number']
     ordering = ['-date_registered']
 

@@ -251,7 +251,7 @@ class FarmersOrganizationListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'barangay', 'street_address', 'contact_person', 'contact_number',
             'registration_number', 'registration_agency', 'date_organized', 'date_registered',
-            'email_address', 'is_active', 'member_count', 'equipment_count',
+            'email_address', 'member_count', 'equipment_count',
         ]
 
     # The list view prefetches members and equipment for the whole page, so these count the prefetched lists in memory
@@ -433,7 +433,7 @@ class FisherfolkOrganizationListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'barangay', 'street_address', 'contact_person', 'contact_number',
             'registration_number', 'registration_agency', 'date_organized', 'date_registered',
-            'email_address', 'is_active', 'member_count', 'equipment_count',
+            'email_address', 'member_count', 'equipment_count',
         ]
 
     # The list view prefetches members and equipment for the whole page, so these count the prefetched lists in memory
