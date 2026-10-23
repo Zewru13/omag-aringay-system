@@ -524,7 +524,7 @@ function ViewLogsModal({ record, onClose, onLogAdded, initialForm = false }) {
     api.get('/production/activity-types/')
       .then(r => {
         const all = Array.isArray(r.data) ? r.data : (r.data.results || [])
-        setActivityTypeOptions(all.filter(t => t.is_active).map(t => t.name))
+        setActivityTypeOptions(all.map(t => t.name))
       })
       .catch(() => setActivityTypeOptions([]))
   }, [])
@@ -2077,7 +2077,7 @@ export default function CropMonitoringPage() {
   // can never overwrite the one for what is typed now.
   const debouncedSearch = useDebouncedValue(search.trim())
   const requestSeq = useRef(0)
-  const [statusFilter,     setStatusFilter]     = useState('Planted,Near Harvest')
+  const [statusFilter,     setStatusFilter]     = useState('all')
   const [seasonFilter,     setSeasonFilter]     = useState('')
   const [yearFilter,       setYearFilter]       = useState('')
   const [barangayFilter,   setBarangayFilter]   = useState(() => searchParams.get('barangay') || '')
@@ -2263,7 +2263,7 @@ export default function CropMonitoringPage() {
           search={search}
           onSearchChange={setSearch}
           searchPlaceholder={isFarmer ? 'Search by crop or barangay...' : 'Search by farmer, RSBSA, crop, or organization...'}
-          activeCount={[statusFilter !== 'Planted,Near Harvest', Boolean(seasonFilter), Boolean(yearFilter), Boolean(barangayFilter), Boolean(cropFilter), !isFarmer && groupBy !== DEFAULT_GROUP].filter(Boolean).length}
+          activeCount={[statusFilter !== 'all', Boolean(seasonFilter), Boolean(yearFilter), Boolean(barangayFilter), Boolean(cropFilter), !isFarmer && groupBy !== DEFAULT_GROUP].filter(Boolean).length}
         >
           {/* A farmer account always sees its own farm parcels, so it has no grouping choice. */}
           {!isFarmer && (
@@ -2276,14 +2276,14 @@ export default function CropMonitoringPage() {
             {cropTypes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
           <select className={filterSelectCls} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-            <option value="Planted,Near Harvest">Active Crops</option>
+            <option value="all">All Status</option>
+            <option value="Planted">Planted</option>
             <option value="Near Harvest">Near Harvest</option>
             <option value="Due Harvest">Due Harvest</option>
             <option value="Ready for Harvest">Ready for Harvest</option>
             <option value="Overdue">Overdue</option>
             <option value="Harvested">Harvested</option>
             <option value="Total Loss">Total Loss</option>
-            <option value="all">All Status</option>
           </select>
           <select className={filterSelectCls} value={seasonFilter} onChange={e => setSeasonFilter(e.target.value)}>
             <option value="">All Seasons</option>

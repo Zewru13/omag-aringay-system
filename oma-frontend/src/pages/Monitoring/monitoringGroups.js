@@ -2,7 +2,7 @@
 // network, so the rules can be tested on their own.
 
 export const GROUP_OPTIONS = [
-  { value: 'crop', label: 'Crop / Variety' },
+  { value: 'crop', label: 'Crop' },
   { value: 'farmer', label: 'Farmer' },
   { value: 'parcel', label: 'Farm Parcel' },
   { value: 'none', label: 'No grouping' },

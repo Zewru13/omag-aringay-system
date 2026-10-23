@@ -11,23 +11,21 @@ import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
-import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { resetParcelClassifications } from './useParcelClassifications.js'
 
-// Classification Settings: the list of "check all that apply" classifications every farm parcel form offers. Hiding one stops it
-// being offered; renaming, hiding or deleting never changes parcels that already have it (a parcel keeps the name it was saved with).
+// Classification Settings: the list of "check all that apply" classifications every farm parcel form offers. Adding one offers it
+// straight away; renaming or deleting never changes parcels that already have it (a parcel keeps the name it was saved with).
 
 const COLUMNS = [
   { key: 'name', label: 'CLASSIFICATION' },
-  { key: 'status', label: 'STATUS' },
   { key: 'actions', label: 'ACTIONS' },
 ]
 
 function ClassificationModal({ classification, onClose, onSaved }) {
   const { showToast } = useToast()
   const isEdit = Boolean(classification)
-  const original = { name: classification?.name || '', is_active: classification?.is_active ?? true }
+  const original = { name: classification?.name || '' }
   const [form, setForm] = useState(original)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const hasChanges = !isEdit || JSON.stringify(form) !== JSON.stringify(original)
@@ -69,11 +67,6 @@ function ClassificationModal({ classification, onClose, onSaved }) {
           <input className={baseInputClasses} value={form.name} autoFocus placeholder="e.g. Irrigated by NIA"
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
         </FormField>
-        <label className="flex min-h-[40px] cursor-pointer items-center gap-2 text-[13px] text-[#1A2B1A]">
-          <input type="checkbox" className="h-4 w-4 accent-[#1B4D2E]" checked={form.is_active}
-            onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.checked }))} />
-          Offer this classification in the parcel forms
-        </label>
       </form>
     </ModalShell>
   )
@@ -103,7 +96,6 @@ export default function ClassificationSettingsPage() {
 
   const rows = classifications.map((c) => ({
     ...c,
-    status: <StatusPill tone={c.is_active ? 'green' : 'slate'}>{c.is_active ? 'Offered' : 'Hidden'}</StatusPill>,
     actions: (
       <RowActions actions={[
         { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditing(c) },

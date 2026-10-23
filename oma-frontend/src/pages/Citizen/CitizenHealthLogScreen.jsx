@@ -124,7 +124,7 @@ export default function CitizenHealthLogScreen({ records, onBack, onSaved, tabBa
       .then((r) => {
         if (cancelled) return
         const rows = Array.isArray(r.data) ? r.data : (r.data?.results || [])
-        setDiseaseTypes(rows.filter((x) => x.is_active !== false))
+        setDiseaseTypes(rows)
       })
       .catch(() => { if (!cancelled) setDiseaseTypes([]) })
     return () => { cancelled = true }

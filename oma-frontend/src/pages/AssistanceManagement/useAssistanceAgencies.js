@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import api from '../../api/axiosInstance.js'
 
-// The managed list of source agencies ([{ id, name, is_active }]), loaded once per visit and shared by every form and filter
+// The managed list of source agencies ([{ id, name }]), loaded once per visit and shared by every form and filter
 // that asks for it. `null` while it loads (or if it cannot be loaded: the forms then offer only what a record already has).
 let cached = null
 let pending = null

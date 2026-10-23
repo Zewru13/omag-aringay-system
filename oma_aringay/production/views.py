@@ -2376,9 +2376,8 @@ class ActivityTypeListCreateView(generics.ListCreateAPIView):
         return [IsAuthenticated(), IsAdminOrEvaluator()]
 
 
-class ActivityTypeDetailView(generics.RetrieveUpdateAPIView):
-    """Toggle-not-delete, same as CropTypeDetailView — see ActivityType's
-    own model docstring for why."""
+class ActivityTypeDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """A type can be deleted: logs keep the activity name they were saved with (a plain text field), so none is affected."""
     serializer_class = ActivityTypeSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
     queryset = ActivityType.objects.all()

@@ -11,24 +11,21 @@ import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
-import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { resetAssistanceAgencies } from './useAssistanceAgencies.js'
 
-// Assistance Settings: the list of source agencies that every assistance form offers in its Source Agency dropdown. Hiding an
-// agency stops it being offered; renaming or hiding never changes assistance that was already recorded (records keep the name
-// they were saved with).
+// Assistance Settings: the list of source agencies that every assistance form offers in its Source Agency dropdown. Renaming or
+// deleting one never changes assistance that was already recorded (records keep the name they were saved with).
 
 const COLUMNS = [
   { key: 'name', label: 'AGENCY' },
-  { key: 'status', label: 'STATUS' },
   { key: 'actions', label: 'ACTIONS' },
 ]
 
 function AgencyModal({ agency, onClose, onSaved }) {
   const { showToast } = useToast()
   const isEdit = Boolean(agency)
-  const original = { name: agency?.name || '', is_active: agency?.is_active ?? true }
+  const original = { name: agency?.name || '' }
   const [form, setForm] = useState(original)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const hasChanges = !isEdit || JSON.stringify(form) !== JSON.stringify(original)
@@ -70,11 +67,6 @@ function AgencyModal({ agency, onClose, onSaved }) {
           <input className={baseInputClasses} value={form.name} autoFocus placeholder="e.g. PCIC"
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />
         </FormField>
-        <label className="flex min-h-[40px] cursor-pointer items-center gap-2 text-[13px] text-[#1A2B1A]">
-          <input type="checkbox" className="h-4 w-4 accent-[#1B4D2E]" checked={form.is_active}
-            onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.checked }))} />
-          Offer this agency in the assistance forms
-        </label>
       </form>
     </ModalShell>
   )
@@ -104,7 +96,6 @@ export default function AssistanceAgenciesPage() {
 
   const rows = agencies.map((a) => ({
     ...a,
-    status: <StatusPill tone={a.is_active ? 'green' : 'slate'}>{a.is_active ? 'Offered' : 'Hidden'}</StatusPill>,
     actions: (
       <RowActions actions={[
         { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditing(a) },

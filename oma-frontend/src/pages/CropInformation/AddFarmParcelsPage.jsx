@@ -390,7 +390,7 @@ export default function AddFarmParcelsPage() {
   const [searchParams] = useSearchParams()
   const startFarmerId = searchParams.get('farmer')
   const classifications = useParcelClassifications()
-  const offered = (classifications || []).filter((c) => c.is_active).map((c) => c.name)
+  const offered = (classifications || []).map((c) => c.name)
 
   const [farmerInfo, setFarmerInfo] = useState(NO_FARMER)
   const [existing, setExisting] = useState(null)               // the farmer's parcels already on file

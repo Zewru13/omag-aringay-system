@@ -148,7 +148,7 @@ class FarmParcelBulkTests(APITestCase):
         r = self.post([parcel(NO_1, classifications=['Made Up'])])
         self.assertEqual(r.status_code, 400)
         self.assertIn('classifications', r.json()['errors'][0])
-        ParcelClassification.objects.filter(name='Organic Farm').update(is_active=False)
+        ParcelClassification.objects.filter(name='Organic Farm').delete()
         self.assertEqual(self.post([parcel(NO_1, classifications=['Organic Farm'])]).status_code, 400)
 
     # --- the shape of the request

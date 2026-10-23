@@ -1,10 +1,10 @@
 // Plain constants/functions split out of sharedAssistanceFields.jsx so that
 // file can export components only (react-refresh/only-export-components).
 
-// The agencies a form offers: the active ones from the managed list (Assistance Settings), plus any already chosen on the
-// record (hidden since, or typed long ago), alphabetical. `agencies` is [{ name, is_active }] or null while it loads.
+// The agencies a form offers: the managed list (Assistance Settings), plus any already chosen on the record (deleted since, or
+// typed long ago), alphabetical. `agencies` is [{ name }] or null while it loads.
 export function agencyChoices(agencies, selected = []) {
-  const names = new Set((agencies || []).filter((a) => a.is_active).map((a) => a.name))
+  const names = new Set((agencies || []).map((a) => a.name))
   for (const name of selected || []) names.add(name)
   return [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
 }

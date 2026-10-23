@@ -76,14 +76,14 @@ class FisheriesActivityLogAdmin(admin.ModelAdmin):
 
 @admin.register(FeedType)
 class FeedTypeAdmin(admin.ModelAdmin):
-    list_display = ['name', 'growth_stage', 'is_active']
-    list_filter  = ['growth_stage', 'is_active']
+    list_display = ['name', 'growth_stage']
+    list_filter  = ['growth_stage']
     filter_horizontal = ['species_options']
 
 
 @admin.register(DiseaseType)
 class DiseaseTypeAdmin(admin.ModelAdmin):
-    list_display = ['name', 'is_active']
+    list_display = ['name']
 
 
 @admin.register(DiseaseResponseGuide)

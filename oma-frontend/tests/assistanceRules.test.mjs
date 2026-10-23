@@ -5,10 +5,10 @@ const { agencyChoices, assistanceDateProblem, assistanceMinDate } = await import
 let n = 0
 const eq = (actual, expected, label) => { assert.deepEqual(actual, expected, `${label}: got ${JSON.stringify(actual)}, wanted ${JSON.stringify(expected)}`); n++ }
 
-// ── the agencies offered in the dropdown: the active ones, plus any already on the record, in alphabetical order
-const list = [{ name: 'LGU - Aringay', is_active: true }, { name: 'Department of Agriculture (DA)', is_active: true }, { name: 'Old Agency', is_active: false }]
-eq(agencyChoices(list, []), ['Department of Agriculture (DA)', 'LGU - Aringay'], 'active only, alphabetical')
-eq(agencyChoices(list, ['Old Agency']), ['Department of Agriculture (DA)', 'LGU - Aringay', 'Old Agency'], 'a hidden agency stays when it is already chosen')
+// ── the agencies offered in the dropdown: the list, plus any already on the record, in alphabetical order
+const list = [{ name: 'LGU - Aringay' }, { name: 'Department of Agriculture (DA)' }]
+eq(agencyChoices(list, []), ['Department of Agriculture (DA)', 'LGU - Aringay'], 'the list, alphabetical')
+eq(agencyChoices(list, ['Old Agency']), ['Department of Agriculture (DA)', 'LGU - Aringay', 'Old Agency'], 'a deleted agency stays when it is already chosen')
 eq(agencyChoices(list, ['Typed Long Ago']), ['Department of Agriculture (DA)', 'LGU - Aringay', 'Typed Long Ago'], 'an old free-text agency stays when chosen')
 eq(agencyChoices(list, ['LGU - Aringay']), ['Department of Agriculture (DA)', 'LGU - Aringay'], 'no duplicates')
 eq(agencyChoices([], []), [], 'empty list')

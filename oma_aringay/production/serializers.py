@@ -27,7 +27,7 @@ class SeedSourceSerializer(serializers.ModelSerializer):
 class ActivityTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ActivityType
-        fields = ['id', 'name', 'is_active']
+        fields = ['id', 'name']
         read_only_fields = ['id']
 
 
