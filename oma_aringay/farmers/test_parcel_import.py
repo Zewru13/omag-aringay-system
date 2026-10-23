@@ -43,8 +43,8 @@ def crop_row(name='Palay (Rice)', area='1.5', main='Yes', variety='NSIC Rc 222',
 
 
 def parcel_row(number=PARCEL_NO, area='2.5', barangay='Alaska', ownership='Owner', owner='', owner_rsbsa='', tax='',
-               farm_type='Irrigated', organic='No', ancestral='No', arb='No', schedule='Double Cropping', crop=None):
-    return [number, area, barangay, ownership, owner, owner_rsbsa, tax, farm_type, organic, ancestral, arb, schedule,
+               farm_type='Irrigated', classifications='', schedule='Double Cropping', crop=None):
+    return [number, area, barangay, ownership, owner, owner_rsbsa, tax, farm_type, classifications, schedule,
             *(crop if crop is not None else crop_row())]
 
 
@@ -153,7 +153,7 @@ class ParcelImportTests(APITestCase):
 
     def test_the_header_is_one_row_per_crop_with_the_parcel_columns_first(self):
         self.assertEqual(PARCEL_HEADERS[:3], ['Parcel Number', 'Area (ha)', 'Barangay'])
-        self.assertEqual(PARCEL_HEADERS[12:], CROP_HEADERS)
+        self.assertEqual(PARCEL_HEADERS[10:], CROP_HEADERS)
         self.assertNotIn('Farm Status', PARCEL_HEADERS)
 
     def test_a_preview_reports_every_row_and_writes_nothing(self):
@@ -181,11 +181,11 @@ class ParcelImportTests(APITestCase):
 
     def test_classification_and_land_owner_columns_are_saved(self):
         self.post([parcel_row(ownership='Tenant', owner='Juan Dela Cruz', owner_rsbsa='01-33-02-014-058212', tax='01-002-00005-2023-0142',
-                              organic='Yes', ancestral='yes', arb='Y')])
+                              classifications='organic farm; Within Ancestral Domain , Agrarian Reform Beneficiary')])
         parcel = FarmParcel.objects.get(farmer=self.farmer)
         self.assertEqual((parcel.land_ownership, parcel.land_owner_name, parcel.land_owner_rsbsa_number, parcel.tax_declaration_number),
                          ('Tenant', 'Juan Dela Cruz', '01-33-02-014-058212', '01-002-00005-2023-0142'))
-        self.assertEqual((parcel.is_organic, parcel.within_ancestral_domain, parcel.is_agrarian_reform_beneficiary), (True, True, True))
+        self.assertEqual(parcel.classifications, ['Organic Farm', 'Within Ancestral Domain', 'Agrarian Reform Beneficiary'])
 
     def test_a_parcel_without_crops_is_one_row_with_the_crop_cells_blank(self):
         res = self.post([parcel_row(crop=['', '', '', '', '', '', '', ''])])
@@ -223,13 +223,13 @@ class ParcelImportTests(APITestCase):
             parcel_row(number='01-33-02-008-001-01-001', farm_type='Swamp'),
             parcel_row(number='not-a-number'),
             parcel_row(number='01-33-02-009-001-01-001', tax='01-002-00005-2023-0142', crop=['', '', '', '', '', '', '', '']),
-            parcel_row(number='01-33-02-010-001-01-001', organic='maybe'),
+            parcel_row(number='01-33-02-010-001-01-001', classifications='Made Up'),
         ])
         data = res.json()
         statuses = [r['status'] for r in data['rows']]
         self.assertEqual(statuses, ['invalid', 'invalid', 'invalid', 'invalid', 'invalid', 'ready', 'invalid'])
         details = ' | '.join(r['detail'].lower() for r in data['rows'])
-        for word in ('land owner', 'barangay', 'area', 'farm type', 'parcel number', 'yes or no'):
+        for word in ('land owner', 'barangay', 'area', 'farm type', 'parcel number', 'classification'):
             self.assertIn(word, details)
         self.assertEqual(FarmParcel.objects.filter(farmer=self.farmer).count(), 1)
 

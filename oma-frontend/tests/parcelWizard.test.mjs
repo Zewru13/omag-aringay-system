@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 
 const {
-  STEPS, PERENNIAL_CROPS, TAX_DECLARATION_RE, validateStep, cropLabel, machineryLabel, parcelPayload, summarizeParcel, canSkipSchedule, cropPayload, machineryPayload, addImportedCrops,
+  STEPS, PERENNIAL_CROPS, TAX_DECLARATION_RE, validateStep, cropLabel, machineryLabel, parcelPayload, summarizeParcel, canSkipSchedule, cropPayload, machineryPayload, addImportedCrops, toggleClassification,
 } = await import(new URL('../src/pages/Farmers/parcelWizard.js', import.meta.url).href)
 
 let n = 0
@@ -9,8 +9,7 @@ const eq = (actual, expected, label) => { assert.deepEqual(actual, expected, `${
 
 const base = () => ({
   parcel_number: '', area_hectares: '', land_ownership: 'Owner', land_owner_name: '', land_owner_rsbsa_number: '',
-  tax_declaration_number: '', barangay: '', farm_type: '', is_organic: false,
-  within_ancestral_domain: false, is_agrarian_reform_beneficiary: false, cropping_schedule: '', crops: [], machinery: [],
+  tax_declaration_number: '', barangay: '', farm_type: '', classifications: [], cropping_schedule: '', crops: [], machinery: [],
   _cropArea: '',
 })
 
@@ -50,11 +49,17 @@ eq(canSkipSchedule({ crops: [{ crop_name: 'Mango', is_main_crop: false }, { crop
 eq(canSkipSchedule({ crops: [] }), false, 'no crops yet')
 assert.ok(PERENNIAL_CROPS.includes('Banana (Saging)')); n++
 
+// ── ticking and un-ticking classifications keeps each name once, in the order ticked
+eq(toggleClassification([], 'Organic Farm', true), ['Organic Farm'], 'tick the first')
+eq(toggleClassification(['Organic Farm'], 'Within Ancestral Domain', true), ['Organic Farm', 'Within Ancestral Domain'], 'tick another')
+eq(toggleClassification(['Organic Farm'], 'Organic Farm', true), ['Organic Farm'], 'ticking twice adds nothing')
+eq(toggleClassification(['Organic Farm', 'Within Ancestral Domain'], 'Organic Farm', false), ['Within Ancestral Domain'], 'un-tick')
+eq(toggleClassification(undefined, 'Organic Farm', true), ['Organic Farm'], 'nothing yet')
+
 // ── the request that saves the parcel
-eq(parcelPayload({ ...core, parcel_number: '01-33-02-005-001-02-003', area_hectares: '2.50', farm_type: 'Irrigated', is_organic: true }), {
+eq(parcelPayload({ ...core, parcel_number: '01-33-02-005-001-02-003', area_hectares: '2.50', farm_type: 'Irrigated', classifications: ['Organic Farm'] }), {
   parcel_number: '01-33-02-005-001-02-003', area_hectares: 2.5, land_ownership: 'Owner', land_owner_name: '', land_owner_rsbsa_number: '',
-  tax_declaration_number: '', barangay: 'Alaska', farm_type: 'Irrigated', is_organic: true,
-  within_ancestral_domain: false, is_agrarian_reform_beneficiary: false, cropping_schedule: '',
+  tax_declaration_number: '', barangay: 'Alaska', farm_type: 'Irrigated', classifications: ['Organic Farm'], cropping_schedule: '',
 }, 'parcel payload')
 
 // ── crop and machinery rows are sent without the form's own bookkeeping
@@ -79,7 +84,7 @@ eq(existing[0].is_main_crop, true, 'the old list is not changed in place')
 // ── the confirmation page lists everything that will be saved
 const full = {
   ...core, parcel_number: '01-33-02-005-001-02-003', area_hectares: '2.5', farm_type: 'Irrigated', cropping_schedule: 'Double Cropping',
-  is_organic: true, is_agrarian_reform_beneficiary: true,
+  classifications: ['Organic Farm', 'Agrarian Reform Beneficiary'],
   crops: [{ crop_name: 'Palay (Rice)', area_hectares: 2, is_main_crop: true, variety_used: 'NSIC Rc 222', pcic: { insured: true } },
           { crop_name: 'Other', crop_name_other: 'Dragon fruit', area_hectares: 0.5, is_main_crop: false, variety_used: '', pcic: { insured: false } }],
   machinery: [{ machinery_type: 'Hand Tractor', quantity: 2, ownership: 'Owned' }],
@@ -89,7 +94,7 @@ eq(summary.map((s) => s.title), ['Core Parcel Details', 'RSBSA Parcel Classifica
 eq(summary[0].rows.find(([k]) => k === 'Parcel number')[1], '01-33-02-005-001-02-003', 'summary parcel number')
 eq(summary[0].rows.find(([k]) => k === 'Area (ha)')[1], '2.5', 'summary area')
 eq(summary[0].rows.find(([k]) => k === 'Tax declaration number')[1], '—', 'blank tax dec')
-eq(summary[1].rows.find(([k]) => k === 'Classification')[1], 'Organic farm, Agrarian reform beneficiary', 'summary classification')
+eq(summary[1].rows.find(([k]) => k === 'Classification')[1], 'Organic Farm, Agrarian Reform Beneficiary', 'summary classification')
 eq(summary[1].rows.find(([k]) => k === 'Cropping schedule')[1], 'Double Cropping', 'summary schedule')
 eq(summary[2].rows, [['Palay (Rice)', '2 ha · Main crop · NSIC Rc 222 · PCIC insured'], ['Dragon fruit', '0.5 ha']], 'summary crops')
 eq(summary[3].rows, [['Hand Tractor', 'Qty 2 · Owned']], 'summary machinery')
