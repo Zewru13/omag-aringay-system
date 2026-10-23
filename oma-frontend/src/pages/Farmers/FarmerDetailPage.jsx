@@ -19,7 +19,6 @@ import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
 import { rowClickProps } from '../../utils/rowClick.js'
 import { declaredCropName, sameCrop } from '../../utils/cropNames.js'
-import AddFarmParcelModal from './AddFarmParcelModal.jsx'
 import EditFarmerModal from './EditFarmerModal.jsx'
 import RecordFarmVisitModal from './RecordFarmVisitModal.jsx'
 
@@ -328,7 +327,6 @@ function FarmerDetailPage() {
   const [parcelError, setParcelError] = useState('')
   const [historyError, setHistoryError] = useState('')
   const [cropError, setCropError] = useState('')
-  const [isParcelModalOpen, setIsParcelModalOpen] = useState(false)
   const [isParcelImportOpen, setIsParcelImportOpen] = useState(false)
   const navigate = useNavigate()
   const [visitModal, setVisitModal] = useState(null)   // null | 'new' | the visit being edited
@@ -480,7 +478,7 @@ function FarmerDetailPage() {
                 Generate Report
               </Button>
               {(isAdmin || isEvaluator) && (
-                <Button icon={Plus} onClick={() => setIsParcelModalOpen(true)} variant="outline">
+                <Button icon={Plus} onClick={() => navigate(`/crop-records/add-parcels?farmer=${id}`)} variant="outline">
                   Add Farm Parcel
                 </Button>
               )}
@@ -890,15 +888,6 @@ function FarmerDetailPage() {
             }
           }}
           onCancel={() => setDeletingVisit(null)}
-        />
-      )}
-
-      {isParcelModalOpen && (
-        <AddFarmParcelModal
-          farmerId={id}
-          onClose={() => setIsParcelModalOpen(false)}
-          onSuccess={fetchParcels}
-          onImportParcels={() => { setIsParcelModalOpen(false); setIsParcelImportOpen(true) }}
         />
       )}
 

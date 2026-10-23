@@ -16,6 +16,7 @@ import BarangaySelect from "../../components/UI/BarangaySelect.jsx";
 import ComboboxWithOther from "../../components/UI/ComboboxWithOther.jsx";
 import api from "../../api/axiosInstance.js";
 import PageLayout from "../../components/Layout/PageLayout.jsx";
+import AddButton from "../../components/UI/AddButton.jsx";
 import RowActions from "../../components/UI/RowActions.jsx";
 import ConfirmDialog from "../../components/UI/ConfirmDialog.jsx";
 import ErrorMessage from "../../components/UI/ErrorMessage.jsx";
@@ -1326,6 +1327,7 @@ export default function CropInformationPage() {
           onSearchChange={changeFilter(setSearch)}
           searchPlaceholder="Search by farmer, RSBSA, or parcel number..."
           activeCount={[Boolean(barangay)].filter(Boolean).length}
+          actions={<AddButton onClick={() => navigate("/crop-records/add-parcels")}>Add Farm Parcel</AddButton>}
         >
           <select className={filterSelectCls} value={barangay} onChange={(e) => changeFilter(setBarangay)(e.target.value)} aria-label="Barangay">
             <option value="">All Barangays</option>

@@ -53,6 +53,11 @@ class FarmCropSerializer(serializers.ModelSerializer):
             'farm_parcel': {'required': False},
         }
 
+    def validate_area_hectares(self, value):
+        if value <= 0:
+            raise serializers.ValidationError('The crop area must be more than 0.')
+        return value
+
 
 class FarmMachinerySerializer(serializers.ModelSerializer):
     class Meta:
@@ -69,6 +74,11 @@ class FarmMachinerySerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'farm_parcel': {'required': False},
         }
+
+    def validate_quantity(self, value):
+        if value is not None and value < 1:
+            raise serializers.ValidationError('The quantity must be at least 1.')
+        return value
 
 
 class FarmParcelDirectorySerializer(serializers.ModelSerializer):
@@ -134,6 +144,11 @@ class FarmParcelSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'farmer': {'required': False},
         }
+
+    def validate_area_hectares(self, value):
+        if value <= 0:
+            raise serializers.ValidationError('The parcel area must be more than 0.')
+        return value
 
     def validate_classifications(self, value):
         """The ticked classification names, each as spelled in Classification Settings. A name has to be one of the offered
