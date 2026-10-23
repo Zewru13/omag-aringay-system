@@ -57,7 +57,7 @@ eq(selectionSummary([]), 'No crops selected', 'none')
 eq(filterCrops(crops, 'corn').map((c) => c.id), [2], 'search by crop name')
 eq(filterCrops(crops, '').length, 3, 'no search shows all')
 eq(filterCrops(crops, 'wet 2026').map((c) => c.id), [1, 2], 'search by season')
-assert.equal(MAX_CROPS, 50); n++
+assert.equal(MAX_CROPS, 200); n++
 
 // ── mark all as total loss
 const allRows = toRows(crops).map((r) => (r.id === 1 ? { ...r, area: '0.5' } : r))

@@ -18,7 +18,7 @@ import SearchBar from '../../components/UI/SearchBar.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { fmtLong } from '../FisheriesRecords/stockingHelpers.js'
-import { ChooseCropsModal, MultiCropDisasterModal } from './MultiCropDisaster.jsx'
+import LogCropDisasterModal from './LogCropDisasterModal.jsx'
 import DisasterLogDetailsModal from './DisasterLogDetailsModal.jsx'
 import { FARMER_LOG, FISHERIES_LOG, downloadLog, fetchAllStocks, printLog } from './disasterReportDocument.js'
 import { FISHERFOLK_DISASTER_TYPES } from './fisheriesDisasterConstants.js'
@@ -254,19 +254,6 @@ function FarmerDisasterTab() {
     try { await fn() } catch (err) { showToast(err?.message || failMsg, 'error') } finally { setBusyId(null) }
   }
 
-  const choosePerson = async (person) => {
-    setStep({ name: 'record', person, options: null })
-    try {
-      const r = await api.get('/production/monitoring/', { params: { farmer: person.id } })
-      setStep({ name: 'record', person, options: listOf(r.data).filter(c => c.status !== 'Harvested').map(c => ({
-        ...c, label: `${c.crop_type_name || 'Crop'}${c.season ? ` · ${c.season} ${c.year}` : ''} — planted ${fmtLong(c.date_planted)}${c.farm_location_barangay ? ` · ${c.farm_location_barangay}` : ''}`,
-      })) })
-    } catch {
-      showToast('Failed to load this farmer\'s crop records.', 'error')
-      setStep({ name: 'record', person, options: [] })
-    }
-  }
-
   const data = useMemo(() => rows.map(r => ({
     ...r,
     date_fmt: fmtLong(r.date_of_occurrence),
@@ -292,7 +279,7 @@ function FarmerDisasterTab() {
       <Filters search={search} setSearch={setFilter(setSearch)} barangay={barangay} setBarangay={setFilter(setBarangay)}
         type={type} setType={setFilter(setType)} types={CROP_TYPES} status={status} setStatus={setFilter(setStatus)}
         year={year} setYear={setFilter(setYear)} placeholder="Search farmer, crop, disaster or reference no.…"
-        actions={<Button className="shrink-0 whitespace-nowrap" onClick={() => setStep({ name: 'person' })}><Plus size={15} className="mr-1" /> Log Disaster</Button>} />
+        actions={<Button className="shrink-0 whitespace-nowrap" onClick={() => setStep({ name: 'log' })}><Plus size={15} className="mr-1" /> Log Disaster</Button>} />
       {error ? <ErrorMessage message={error} /> : (
         <>
           <GroupedDisasterTable personLabel="Farmer" groups={groups} isLoading={isLoading} onOpen={(row) => setViewingId(row.id)}
@@ -308,20 +295,7 @@ function FarmerDisasterTab() {
       )}
 
       {viewingId && <DisasterLogDetailsModal key={viewingId} kind="farmer" logId={viewingId} onClose={() => setViewingId(null)} />}
-      {step?.name === 'person' && (
-        <ChoosePersonModal title="Log Farmer Disaster" label="Farmer" searchUrl="/farmers/" onClose={() => setStep(null)} onChoose={choosePerson} />
-      )}
-      {step?.name === 'record' && (
-        <ChooseCropsModal title="Log Farmer Disaster" subtitle={`Step 2 of 3 — ${step.person.full_name}: choose the affected crops`} crops={step.options}
-          onBack={() => setStep({ name: 'person' })} onClose={() => setStep(null)}
-          onContinue={(chosen) => setStep({ name: 'form', person: step.person, options: step.options, crops: chosen })} />
-      )}
-      {step?.name === 'form' && (
-        // One form for every chosen crop (it posts to /production/disasters/multi/, one report per crop).
-        <MultiCropDisasterModal crops={step.crops}
-          onBack={() => setStep({ name: 'record', person: step.person, options: step.options })}
-          onClose={() => setStep(null)} onSuccess={() => setVersion(v => v + 1)} />
-      )}
+      {step?.name === 'log' && <LogCropDisasterModal onClose={() => setStep(null)} onSuccess={() => setVersion(v => v + 1)} />}
     </div>
   )
 }
