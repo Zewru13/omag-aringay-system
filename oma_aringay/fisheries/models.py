@@ -263,7 +263,6 @@ class FisheriesActivityType(models.Model):
     (activity_other_specify).
     """
     name = models.CharField(max_length=150, unique=True)
-    is_active = models.BooleanField(default=True)
 
     class Meta:
         ordering = ['name']
@@ -383,7 +382,6 @@ class FeedType(models.Model):
 
     name        = models.CharField(max_length=100, unique=True)
     description = models.TextField(blank=True)
-    is_active   = models.BooleanField(default=True)
     species_options = models.ManyToManyField(
         SpeciesOption, blank=True, related_name='feed_types',
         help_text='Species this feed type applies to. Seeded by linking every '
@@ -413,7 +411,6 @@ class FeedType(models.Model):
 class DiseaseType(models.Model):
     name        = models.CharField(max_length=150, unique=True)
     description = models.TextField(blank=True)
-    is_active   = models.BooleanField(default=True)
     # Batch C — mirrors FeedType.species_options exactly: which species this
     # disease category applies to, so the activity-log form can scope its
     # Disease Type dropdown to the stocking record's own species.
@@ -754,7 +751,7 @@ class StockingRecord(PcicInsurance):
         stage = self.compute_growth_stage()
         if not stage or not self.species_id:
             return None
-        candidates = self.species.feed_types.filter(is_active=True)
+        candidates = self.species.feed_types.all()
         return candidates.filter(growth_stage=stage).first() or candidates.filter(growth_stage='').first()
 
 

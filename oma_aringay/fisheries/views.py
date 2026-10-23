@@ -231,7 +231,7 @@ class FisheriesActivityTypeListCreateView(generics.ListCreateAPIView):
         return [IsAuthenticated(), IsAdminOrEvaluator()]
 
 
-class FisheriesActivityTypeDetailView(generics.RetrieveUpdateAPIView):
+class FisheriesActivityTypeDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Toggle-not-delete — see FisheriesActivityType's own model docstring."""
     serializer_class = FisheriesActivityTypeSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]

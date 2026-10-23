@@ -354,6 +354,27 @@ function NavGroup({ group, isCollapsed, depth = 0 }) {
   );
 }
 
+// A top-level link that looks like a group heading (same size, case and icon as REGISTRATION, DISASTER, ...) but has nothing to open:
+// used for Reports, which is one page, so it is no bigger than the sections around it. The page it opens is highlighted.
+function GroupLink({ to, icon: Icon, label, isCollapsed }) {
+  const location = useLocation();
+  if (isCollapsed) return <LeafItem to={to} icon={Icon} label={label} isCollapsed />;
+  const isActive = isItemActive(to, location);
+  return (
+    <NavLink to={to} className="mt-4 block">
+      <div
+        className={[
+          "flex items-center gap-2 px-4 py-2 rounded-[var(--radius-sm)] transition-colors duration-200 ease-in-out cursor-pointer",
+          isActive ? "bg-nav-active text-nav-item-on" : "text-nav-label hover:text-nav-item-on",
+        ].join(" ")}
+      >
+        <Icon className="w-[14px] h-[14px] flex-shrink-0" aria-hidden="true" />
+        <span className="truncate text-[11px] font-semibold uppercase tracking-[0.06em]">{label}</span>
+      </div>
+    </NavLink>
+  );
+}
+
 function Sidebar({ isOpen, onClose, isCollapsed }) {
   const { user, isFisherfolk, isFarmer, isOrg, orgType } = useAuth();
   const baseNav = isFisherfolk ? FISHERFOLK_NAV : isFarmer ? FARMER_NAV : isOrg ? orgNav(orgType) : null;
@@ -452,9 +473,7 @@ function Sidebar({ isOpen, onClose, isCollapsed }) {
 
               <NavGroup group={DISASTER_GROUP} isCollapsed={isCollapsed} />
 
-              <div className={isCollapsed ? "" : "mt-4"}>
-                <LeafItem {...REPORTS_ITEM} isCollapsed={isCollapsed} />
-              </div>
+              <GroupLink {...REPORTS_ITEM} isCollapsed={isCollapsed} />
 
               {isAdmin && (
                 <>

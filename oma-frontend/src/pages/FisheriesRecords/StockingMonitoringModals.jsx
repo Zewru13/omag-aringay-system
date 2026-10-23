@@ -478,7 +478,7 @@ export function ViewStockingLogsModal({ record, onClose, onLogAdded }) {
     api.get('/fisheries/activity-types/')
       .then(r => {
         const all = Array.isArray(r.data) ? r.data : (r.data.results || [])
-        setActivityTypeOptions(all.filter(t => t.is_active).map(t => t.name))
+        setActivityTypeOptions(all.map(t => t.name))
       })
       .catch(() => setActivityTypeOptions([]))
   }, [])

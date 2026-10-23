@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import api from '../../api/axiosInstance.js'
 
-// The managed list of parcel classifications ([{ id, name, is_active }]), loaded once per visit and shared by every form that
+// The managed list of parcel classifications ([{ id, name }]), loaded once per visit and shared by every form that
 // asks for it. `null` while it loads (or if it cannot be loaded: the forms then offer nothing to tick).
 let cached = null
 let pending = null

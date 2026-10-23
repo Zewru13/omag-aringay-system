@@ -13,7 +13,7 @@ from .models import (
 class AssistanceAgencySerializer(serializers.ModelSerializer):
     class Meta:
         model = AssistanceAgency
-        fields = ['id', 'name', 'is_active']
+        fields = ['id', 'name']
         read_only_fields = ['id']
 
     def validate_name(self, value):

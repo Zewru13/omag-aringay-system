@@ -10,7 +10,6 @@ import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
-import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 
 function DiseaseTypeModal({ diseaseType, onClose, onSaved }) {
@@ -18,7 +17,6 @@ function DiseaseTypeModal({ diseaseType, onClose, onSaved }) {
   const isEdit = Boolean(diseaseType)
   const [name,        setName]        = useState(diseaseType?.name || '')
   const [description, setDescription] = useState(diseaseType?.description || '')
-  const [isActive,    setIsActive]    = useState(diseaseType?.is_active ?? true)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e) => {
@@ -26,7 +24,7 @@ function DiseaseTypeModal({ diseaseType, onClose, onSaved }) {
     if (!name.trim()) { showToast('Disease name is required.', 'error'); return }
     setIsSubmitting(true)
     try {
-      const payload = { name, description, is_active: isActive }
+      const payload = { name, description }
       if (isEdit) await api.patch(`/fisheries/disease-types/${diseaseType.id}/`, payload)
       else await api.post('/fisheries/disease-types/', payload)
       showToast(`Disease type ${isEdit ? 'updated' : 'added'}.`, 'success')
@@ -58,10 +56,6 @@ function DiseaseTypeModal({ diseaseType, onClose, onSaved }) {
         <FormField label="Description (optional)">
           <textarea rows={2} className={`${baseInputClasses} resize-none`} value={description} onChange={e => setDescription(e.target.value)} />
         </FormField>
-        <label className="flex items-center gap-2 text-[13px] text-slate-700">
-          <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} />
-          Active
-        </label>
       </form>
     </ModalShell>
   )
@@ -181,7 +175,6 @@ export default function DiseaseSettingsPage({ asTab = false }) {
                     <button type="button" className="flex items-center gap-2 text-left" onClick={() => toggle(dt.id)}>
                       {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                       <span className="text-[13px] font-medium text-[#1A2B1A]">{dt.name}</span>
-                      <StatusPill tone={dt.is_active ? 'green' : 'slate'}>{dt.is_active ? 'Active' : 'Inactive'}</StatusPill>
                       {!guide?.recommended_treatment && (
                         <span className="text-[11px] italic text-slate-400">No recommended treatment configured</span>
                       )}

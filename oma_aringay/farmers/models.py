@@ -137,10 +137,9 @@ class Farmer(models.Model):
 class ParcelClassification(models.Model):
     """A "check all that apply" classification a farm parcel can carry (Organic Farm, Within Ancestral Domain, ...). Managed by
     the Admin in Classification Settings, like the assistance source agencies: a parcel keeps the NAME it was saved with
-    (FarmParcel.classifications is a plain list of names), so renaming, hiding or deleting one here never changes parcels that
-    already have it."""
+    (FarmParcel.classifications is a plain list of names), so renaming or deleting one here never changes parcels that already
+    have it. Everything in the list is offered in the parcel forms."""
     name = models.CharField(max_length=150, unique=True)
-    is_active = models.BooleanField(default=True)
 
     class Meta:
         ordering = ['name']

@@ -201,7 +201,7 @@ export default function CitizenActivityLogScreen({
       .then((r) => {
         if (cancelled) return
         const rows = Array.isArray(r.data) ? r.data : (r.data?.results || [])
-        setDiseaseTypes(rows.filter((x) => x.is_active !== false))
+        setDiseaseTypes(rows)
       })
       .catch(() => { if (!cancelled) setDiseaseTypes([]) })
     return () => { cancelled = true }
@@ -213,7 +213,7 @@ export default function CitizenActivityLogScreen({
       .then((r) => {
         if (cancelled) return
         const rows = Array.isArray(r.data) ? r.data : (r.data?.results || [])
-        setActivityTypeOptions(rows.filter((x) => x.is_active).map((x) => x.name))
+        setActivityTypeOptions(rows.map((x) => x.name))
       })
       .catch(() => { if (!cancelled) setActivityTypeOptions([]) })
     return () => { cancelled = true }

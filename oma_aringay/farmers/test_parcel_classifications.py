@@ -47,13 +47,12 @@ class ParcelClassificationApiTests(APITestCase):
         self.client.force_authenticate(self.focal)
         self.assertEqual(self.client.post(LIST, {'name': 'Irrigated'}).status_code, 201)
 
-    def test_add_rename_hide_and_delete(self):
+    def test_add_rename_and_delete(self):
         self.client.force_authenticate(self.admin)
-        created = self.client.post(LIST, {'name': '  Rainfed   Area ', 'is_active': True}).json()
+        created = self.client.post(LIST, {'name': '  Rainfed   Area '}).json()
         self.assertEqual(created['name'], 'Rainfed Area')
         url = f'{LIST}{created["id"]}/'
         self.assertEqual(self.client.patch(url, {'name': 'Rainfed Farm'}).json()['name'], 'Rainfed Farm')
-        self.assertFalse(self.client.patch(url, {'is_active': False}).json()['is_active'])
         self.assertEqual(self.client.delete(url).status_code, 204)
         self.assertNotIn('Rainfed Farm', self.names())
 
@@ -79,17 +78,16 @@ class ParcelClassificationApiTests(APITestCase):
         r = self.client.post(f'/api/farmers/{self.farmer.id}/parcels/', {**body, 'classifications': ['Made Up']}, format='json')
         self.assertEqual(r.status_code, 400)
         self.assertIn('classifications', r.json())
-        ParcelClassification.objects.filter(name='Organic Farm').update(is_active=False)      # hidden = no longer offered
+        ParcelClassification.objects.filter(name='Organic Farm').delete()      # no longer in the list = no longer offered
         r = self.client.post(f'/api/farmers/{self.farmer.id}/parcels/', {**body, 'classifications': ['Organic Farm']}, format='json')
         self.assertEqual(r.status_code, 400)
         r = self.client.post(f'/api/farmers/{self.farmer.id}/parcels/', {**body, 'classifications': 'Organic Farm'}, format='json')
         self.assertEqual(r.status_code, 400)
 
-    def test_a_parcel_keeps_a_classification_that_was_renamed_hidden_or_deleted(self):
+    def test_a_parcel_keeps_a_classification_that_was_renamed_or_deleted(self):
         parcel = FarmParcel.objects.create(farmer=self.farmer, area_hectares='1.00', barangay='Alaska', classifications=['Organic Farm'])
         organic = ParcelClassification.objects.get(name='Organic Farm')
         organic.name = 'Certified Organic'
-        organic.is_active = False
         organic.save()
         self.assertEqual(FarmParcel.objects.get(pk=parcel.pk).classifications, ['Organic Farm'])
         organic.delete()
@@ -103,12 +101,12 @@ class ParcelClassificationApiTests(APITestCase):
 
 
 class ParcelImportTemplateTests(APITestCase):
-    def test_the_template_names_what_is_offered_right_now_and_not_what_is_hidden(self):
+    def test_the_template_names_what_is_in_the_list_right_now(self):
         import io
         import openpyxl
         admin = get_user_model().objects.create_user(username='adm', password='pw', role='ADMIN', email='a@x.test')
         self.client.force_authenticate(admin)
-        ParcelClassification.objects.filter(name='Organic Farm').update(is_active=False)
+        ParcelClassification.objects.filter(name='Organic Farm').delete()
         ParcelClassification.objects.create(name='Irrigated by NIA')
         r = self.client.get('/api/farmers/parcels/import/template/')
         self.assertEqual(r.status_code, 200)

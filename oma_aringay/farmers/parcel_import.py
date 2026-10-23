@@ -209,7 +209,7 @@ CROP_NOTE = (
 )
 def parcel_note():
     """The template's instructions; the Classifications line names what Classification Settings offers right now."""
-    offered = ', '.join(ParcelClassification.objects.filter(is_active=True).order_by('name').values_list('name', flat=True)) or 'none set up yet'
+    offered = ', '.join(ParcelClassification.objects.order_by('name').values_list('name', flat=True)) or 'none set up yet'
     return (
         f'{PARCEL_NOTE_PREFIX} one row per CROP, with the parcel columns repeated; rows with the same Parcel Number are one parcel. '
         'A parcel with no crops is one row with the crop columns left blank. Rows without a Parcel Number are separate parcels. '

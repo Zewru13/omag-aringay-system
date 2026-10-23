@@ -116,14 +116,13 @@ class AgencyListTests(APITestCase):
         self.assertEqual(self.client.get(AGENCIES).status_code, 200)
         self.assertEqual(self.client.post(AGENCIES, {'name': 'Sneaky'}, format='json').status_code, 403)
 
-    def test_staff_add_rename_hide_and_delete(self):
+    def test_staff_add_rename_and_delete(self):
         self.client.force_authenticate(self.admin)
         created = self.client.post(AGENCIES, {'name': 'PCIC'}, format='json')
         self.assertEqual(created.status_code, 201, created.content)
         pk = created.json()['id']
-        self.assertTrue(created.json()['is_active'])
+        self.assertNotIn('is_active', created.json())
         self.assertEqual(self.client.patch(f'{AGENCIES}{pk}/', {'name': 'PCIC Region 1'}, format='json').json()['name'], 'PCIC Region 1')
-        self.assertFalse(self.client.patch(f'{AGENCIES}{pk}/', {'is_active': False}, format='json').json()['is_active'])
         self.assertEqual(self.client.delete(f'{AGENCIES}{pk}/').status_code, 204)
         self.assertFalse(AssistanceAgency.objects.filter(pk=pk).exists())
 

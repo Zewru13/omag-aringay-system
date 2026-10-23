@@ -416,7 +416,7 @@ class SpeciesCategorySerializer(serializers.ModelSerializer):
 class FisheriesActivityTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = FisheriesActivityType
-        fields = ['id', 'name', 'is_active']
+        fields = ['id', 'name']
         read_only_fields = ['id']
 
 
@@ -1032,14 +1032,14 @@ class PondSerializer(serializers.ModelSerializer):
 class FeedTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = FeedType
-        fields = ['id', 'name', 'description', 'is_active', 'species_options', 'growth_stage']
+        fields = ['id', 'name', 'description', 'species_options', 'growth_stage']
         read_only_fields = ['id']
 
 
 class DiseaseTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = DiseaseType
-        fields = ['id', 'name', 'description', 'is_active', 'species_options']
+        fields = ['id', 'name', 'description', 'species_options']
         read_only_fields = ['id']
 
 
@@ -1072,7 +1072,7 @@ def _stocking_list_context(records):
     feeds_by_species = defaultdict(list)
     if species_ids:
         links = FeedType.species_options.through.objects.filter(
-            speciesoption_id__in=species_ids, feedtype__is_active=True,
+            speciesoption_id__in=species_ids,
         ).select_related('feedtype')
         for link in links:
             feeds_by_species[link.speciesoption_id].append(link.feedtype)

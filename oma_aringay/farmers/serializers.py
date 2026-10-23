@@ -101,7 +101,7 @@ class FarmParcelDirectorySerializer(serializers.ModelSerializer):
 class ParcelClassificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = ParcelClassification
-        fields = ['id', 'name', 'is_active']
+        fields = ['id', 'name']
         read_only_fields = ['id']
 
     def validate_name(self, value):
@@ -151,11 +151,11 @@ class FarmParcelSerializer(serializers.ModelSerializer):
         return value
 
     def validate_classifications(self, value):
-        """The ticked classification names, each as spelled in Classification Settings. A name has to be one of the offered
-        (not hidden) classifications, unless this parcel already carries it (so editing a parcel never loses an old one)."""
+        """The ticked classification names, each as spelled in Classification Settings. A name has to be in that list, unless
+        this parcel already carries it (so editing a parcel never loses an old one)."""
         if not isinstance(value, list):
             raise serializers.ValidationError('Send the classifications as a list of names.')
-        offered = {c.name.lower(): c.name for c in ParcelClassification.objects.filter(is_active=True)}
+        offered = {c.name.lower(): c.name for c in ParcelClassification.objects.all()}
         kept = {str(n).lower(): str(n) for n in (getattr(self.instance, 'classifications', None) or [])}
         names = []
         for raw in value:
