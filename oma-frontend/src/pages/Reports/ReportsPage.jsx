@@ -18,7 +18,7 @@ import RegisteredReportTab from './RegisteredReportTab.jsx'
 //   1. Registered Farmers / Fisherfolk / Organizations   2. Crop Records Harvested   3. Fisheries Production Harvested
 //   4. Fisheries Disaster Reports   5. Crop / Parcel Disaster Reports   6. Organization Assistance
 const TABS = [
-  { id: 'registered',          icon: Users,     label: 'Registered Farmers, Fisherfolk & Organizations', description: 'Registration records for everyone at once, filtered by barangay, status and date registered, or for one record.' },
+  { id: 'registered',          icon: Users,     label: 'Registered Farmers, Fisherfolk & Organizations', description: 'Registration records for everyone at once, filtered by barangay and date registered, or for one record.' },
   { id: 'harvested',           icon: Wheat,     label: 'Crop Records Harvested',        description: 'Harvested crop records with their yield, by farmer, crop, barangay and season.' },
   { id: 'fisheries',           icon: Fish,      label: 'Fisheries Production Harvested', description: 'Harvested aquaculture production, by fisherfolk, species, barangay and season.' },
   { id: 'disaster_fisheries',  icon: Waves,     label: 'Fisheries Disaster Reports',     description: 'Disasters logged against fisherfolk and their stocks, with the volume lost and recovery status.' },

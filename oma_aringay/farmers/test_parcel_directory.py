@@ -19,9 +19,9 @@ def make_farmer(first, last, barangay='Alaska'):
         birthdate=date(1985, 1, 1), barangay=barangay, civil_status='Single')
 
 
-def make_parcel(farmer, number='', barangay='Alaska', area='1.50', status='Active'):
+def make_parcel(farmer, number='', barangay='Alaska', area='1.50'):
     return FarmParcel.objects.create(
-        farmer=farmer, parcel_number=number, area_hectares=area, land_ownership='Owner', barangay=barangay, farm_status=status)
+        farmer=farmer, parcel_number=number, area_hectares=area, land_ownership='Owner', barangay=barangay)
 
 
 def make_crop(farmer, parcel, status='Planted'):
@@ -43,7 +43,7 @@ class ParcelDirectoryTests(APITestCase):
         cls.ana = make_farmer('Ana', 'Parcelo')
         cls.ben = make_farmer('Ben', 'Dizon', barangay='Poblacion')
         cls.p1 = make_parcel(cls.ana, '01-33-02-005-001-02-003')
-        cls.p2 = make_parcel(cls.ana, '', barangay='Poblacion', status='Inactive')
+        cls.p2 = make_parcel(cls.ana, '', barangay='Poblacion')
         cls.p3 = make_parcel(cls.ben, '01-33-02-006-001-02-004', barangay='Poblacion')
         make_crop(cls.ana, cls.p1); make_crop(cls.ana, cls.p1)
         make_crop(cls.ben, cls.p3)
@@ -63,8 +63,9 @@ class ParcelDirectoryTests(APITestCase):
         self.assertEqual(rows[self.p1.id]['crop_count'], 2)
         self.assertEqual(rows[self.p2.id]['crop_count'], 0)
         self.assertEqual(rows[self.p3.id]['crop_count'], 1)
-        for key in ('parcel_number', 'barangay', 'area_hectares', 'land_ownership', 'farm_status'):
+        for key in ('parcel_number', 'barangay', 'area_hectares', 'land_ownership'):
             self.assertIn(key, rows[self.p1.id])
+        self.assertNotIn('farm_status', rows[self.p1.id])
 
     def test_total_loss_records_are_not_counted_in_the_list_but_the_count_matches_the_page(self):
         # The crop list under a parcel hides Total Loss records (same as Crop Monitoring), so the count must too.
@@ -78,9 +79,8 @@ class ParcelDirectoryTests(APITestCase):
         self.assertEqual({r['id'] for r in self.get(search='01-33-02-006').json()['results']}, {self.p3.id})
         self.assertEqual(self.get(search='nobody-here').json()['count'], 0)
 
-    def test_filter_by_parcel_barangay_and_status(self):
+    def test_filter_by_parcel_barangay(self):
         self.assertEqual({r['id'] for r in self.get(barangay='Poblacion').json()['results']}, {self.p2.id, self.p3.id})
-        self.assertEqual({r['id'] for r in self.get(farm_status='Inactive').json()['results']}, {self.p2.id})
 
     def test_filter_by_farmer(self):
         self.assertEqual({r['id'] for r in self.get(farmer=self.ben.id).json()['results']}, {self.p3.id})

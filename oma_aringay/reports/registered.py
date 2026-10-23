@@ -6,7 +6,6 @@ GET /api/reports/registered/
     id               one record's id: the report of that single farmer / fisherfolk / organization (profile style)
                      (leave it out for the bulk list)
     barangay         bulk only: exactly this barangay
-    status           bulk only: active | inactive (default: both)
     registered_from  bulk only: registered on or after this date (YYYY-MM-DD)
     registered_to    bulk only: registered on or before this date
     search           bulk only: name, RSBSA / registration number
@@ -75,9 +74,6 @@ class Filters:
     def __init__(self, request):
         q = request.query_params
         self.barangay = q.get('barangay', '').strip()
-        self.status = q.get('status', '').strip().lower()
-        if self.status not in ('', 'active', 'inactive'):
-            raise ValidationError({'status': ['Use active or inactive.']})
         self.frm = _parse_date(request, 'registered_from')
         self.to = _parse_date(request, 'registered_to')
         if self.frm and self.to and self.frm > self.to:
@@ -88,8 +84,6 @@ class Filters:
         parts = []
         if self.barangay:
             parts.append(f'Barangay: {self.barangay}')
-        if self.status:
-            parts.append(f'Status: {self.status.capitalize()}')
         if self.frm or self.to:
             span = ' '.join(x for x in (f'from {text(self.frm)}' if self.frm else '', f'to {text(self.to)}' if self.to else '') if x)
             parts.append(f'Registered {span}')
@@ -100,8 +94,6 @@ class Filters:
     def apply_people(self, qs, number_field):
         if self.barangay:
             qs = qs.filter(barangay__iexact=self.barangay)
-        if self.status:
-            qs = qs.filter(is_active=self.status == 'active')
         if self.frm:
             qs = qs.filter(date_registered__gte=day_range_bounds(self.frm.isoformat()))
         if self.to:
@@ -117,8 +109,6 @@ class Filters:
     def apply_orgs(self, qs):
         if self.barangay:
             qs = qs.filter(barangay__iexact=self.barangay)
-        if self.status:
-            qs = qs.filter(is_active=self.status == 'active')
         if self.frm:
             qs = qs.filter(date_registered__gte=self.frm)
         if self.to:
@@ -144,8 +134,8 @@ def bulk_farmers(filters):
         parcels = list(f.farm_parcels.all())
         area = sum((p.area_hectares or 0) for p in parcels)
         rows.append([f.rsbsa_number, full_name(f), f.gender, f.barangay, f.contact_number or '—', len(parcels),
-                     f'{area:.2f}', _orgs_of(f.farmer_organizations.all()), _status(f.is_active), _date(f.date_registered)])
-    headers = ['RSBSA No.', 'Name', 'Sex', 'Barangay', 'Contact No.', 'Parcels', 'Area (ha)', 'Organization', 'Status', 'Date Registered']
+                     f'{area:.2f}', _orgs_of(f.farmer_organizations.all()), _date(f.date_registered)])
+    headers = ['RSBSA No.', 'Name', 'Sex', 'Barangay', 'Contact No.', 'Parcels', 'Area (ha)', 'Organization', 'Date Registered']
     return make_document('Registered Farmers', filters.subtitle(), [['Total Farmers', len(rows)]],
                          [{'title': 'Farmers', 'headers': headers, 'rows': rows, 'empty': 'No farmers match these filters.'}])
 
@@ -157,8 +147,8 @@ def bulk_fisherfolk(filters):
     rows = []
     for f in qs:
         rows.append([f.rsbsa_number or '—', full_name(f), f.gender, f.barangay, f.contact_number or '—', f.fisherfolk_type,
-                     _orgs_of(f.fisherfolk_organizations.all()), _status(f.is_active), _date(f.date_registered)])
-    headers = ['RSBSA No.', 'Name', 'Sex', 'Barangay', 'Contact No.', 'Type', 'Organization', 'Status', 'Date Registered']
+                     _orgs_of(f.fisherfolk_organizations.all()), _date(f.date_registered)])
+    headers = ['RSBSA No.', 'Name', 'Sex', 'Barangay', 'Contact No.', 'Type', 'Organization', 'Date Registered']
     return make_document('Registered Fisherfolk', filters.subtitle(), [['Total Fisherfolk', len(rows)]],
                          [{'title': 'Fisherfolk', 'headers': headers, 'rows': rows, 'empty': 'No fisherfolk match these filters.'}])
 
@@ -169,8 +159,8 @@ def _bulk_orgs(model, title, filters):
     for o in qs:
         active = sum(1 for m in o.members.all() if m.is_active)
         rows.append([o.name, o.registration_number or '—', o.barangay, o.contact_person or '—', o.contact_number or '—',
-                     active, _status(o.is_active), _date(o.date_registered) or '—'])
-    headers = ['Organization', 'Registration No.', 'Barangay', 'Contact Person', 'Contact No.', 'Active Members', 'Status', 'Date Registered']
+                     active, _date(o.date_registered) or '—'])
+    headers = ['Organization', 'Registration No.', 'Barangay', 'Contact Person', 'Contact No.', 'Active Members', 'Date Registered']
     return make_document(title, filters.subtitle(), [['Total Organizations', len(rows)]],
                          [{'title': 'Organizations', 'headers': headers, 'rows': rows, 'empty': 'No organizations match these filters.'}])
 
@@ -187,14 +177,14 @@ def one_farmer(pk):
         ['RSBSA No.', f.rsbsa_number], ['Name', full_name(f)], ['Sex', f.gender], ['Birthdate', text(f.birthdate)],
         ['Civil Status', f.civil_status], ['Barangay', f.barangay], ['Contact No.', f.contact_number], ['Email', f.email],
         ['Highest Education', f.highest_education], ['PWD', _yes(f.is_pwd)], ['4Ps Beneficiary', _yes(f.is_4ps_beneficiary)],
-        ['Senior Citizen', _yes(f.is_senior_citizen)], ['Status', _status(f.is_active)], ['Date Registered', _date(f.date_registered)],
+        ['Senior Citizen', _yes(f.is_senior_citizen)], ['Date Registered', _date(f.date_registered)],
     ]
-    parcels = [[p.parcel_number or '—', p.barangay, f'{p.area_hectares:.2f}', p.land_ownership or '—', p.commodity_name or '—', p.farm_status or '—']
+    parcels = [[p.parcel_number or '—', p.barangay, f'{p.area_hectares:.2f}', p.land_ownership or '—', p.commodity_name or '—']
                for p in f.farm_parcels.all()]
     orgs = [[m.organization.name, m.position, text(m.date_joined), _status(m.is_active)] for m in f.farmer_organizations.all()]
     return make_document(ONE_TITLES['farmers'], full_name(f), [], [
         {'title': 'Farmer Details', 'pairs': details},
-        {'title': 'Farm Parcels', 'headers': ['Parcel No.', 'Barangay', 'Area (ha)', 'Ownership', 'Commodity', 'Farm Status'],
+        {'title': 'Farm Parcels', 'headers': ['Parcel No.', 'Barangay', 'Area (ha)', 'Ownership', 'Commodity'],
          'rows': parcels, 'empty': 'No farm parcels on record.'},
         {'title': 'Organizations', 'headers': ['Organization', 'Position', 'Date Joined', 'Status'], 'rows': orgs,
          'empty': 'Not a member of any organization.'},
@@ -207,7 +197,7 @@ def one_fisherfolk(pk):
         ['RSBSA No.', f.rsbsa_number], ['Name', full_name(f)], ['Sex', f.gender], ['Birthdate', text(f.birthdate)],
         ['Civil Status', f.civil_status], ['Barangay', f.barangay], ['Contact No.', f.contact_number], ['Email', f.email],
         ['Type', f.fisherfolk_type], ['Highest Education', f.highest_education], ['PWD', _yes(f.is_pwd)],
-        ['4Ps Beneficiary', _yes(f.is_4ps_beneficiary)], ['Senior Citizen', _yes(f.is_senior_citizen)], ['Status', _status(f.is_active)],
+        ['4Ps Beneficiary', _yes(f.is_4ps_beneficiary)], ['Senior Citizen', _yes(f.is_senior_citizen)],
         ['Date Registered', _date(f.date_registered)],
     ]
     orgs = [[m.organization.name, m.position, text(m.date_joined), _status(m.is_active)] for m in f.fisherfolk_organizations.all()]
@@ -224,7 +214,7 @@ def _one_org(model, member_label, person_field, kind, pk):
         ['Name', o.name], ['Registration No.', o.registration_number], ['Registration Agency', o.registration_agency],
         ['Barangay', o.barangay], ['Address', o.street_address], ['Contact Person', o.contact_person],
         ['Contact No.', o.contact_number], ['Email', o.email_address], ['Date Organized', text(o.date_organized)],
-        ['Date Registered', text(o.date_registered)], ['Status', _status(o.is_active)],
+        ['Date Registered', text(o.date_registered)],
         ['Active Members', sum(1 for m in o.members.all() if m.is_active)],
     ]
     officers = [[off.position, off.full_name, text(off.term_start_date), _status(off.is_active)] for off in o.officers.all()]

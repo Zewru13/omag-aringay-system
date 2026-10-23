@@ -104,7 +104,6 @@ class Fisherfolk(models.Model):
     is_icc_ip_member   = models.BooleanField(default=False)
     icc_ip_name        = models.CharField(max_length=150, blank=True)
     is_senior_citizen  = models.BooleanField(default=False)
-    is_active          = models.BooleanField(default=True)
 
     # OMAg fisheries field-form identifiers and activity profile flags
     # Required, like a farmer's: only people with an RSBSA number are accepted

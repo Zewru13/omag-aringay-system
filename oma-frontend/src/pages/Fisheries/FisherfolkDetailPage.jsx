@@ -375,9 +375,6 @@ function FisherfolkDetailPage() {
                     <h1 className="mt-0.5 text-[16px] font-semibold text-[#1A2B1A]">{fisherfolk.full_name}</h1>
                     <p className="mt-0.5 text-xs text-[#7A8E7A]">{fisherfolk.fisherfolk_type}</p>
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
-                      <StatusPill tone={fisherfolk.is_active ? 'green' : 'rose'}>
-                        {fisherfolk.is_active ? 'Active' : 'Inactive'}
-                      </StatusPill>
                       {fisherfolk.is_senior_citizen && <StatusPill tone="amber">Senior Citizen</StatusPill>}
                       {(fisherfolk.fisherfolk_type === 'Capture' || fisherfolk.fisherfolk_type === 'Mariculture') && (
                         fisherfolk.has_vessel

@@ -308,7 +308,7 @@ class IdCollisionAndParcelTests(APITestCase):
         cls.farmer_a, cls.farmer_b = make_farmer('Ana', 'Alpha'), make_farmer('Ben', 'Bravo')
         cls.user_a = make_citizen('collide-a', 'FARMER', cls.farmer_a.id)
         cls.crop_a, cls.crop_b = make_crop(cls.farmer_a), make_crop(cls.farmer_b)
-        parcel = dict(barangay='Alaska', area_hectares='1.00', land_ownership='Owner', commodity_type='Rice', farm_status='Active')
+        parcel = dict(barangay='Alaska', area_hectares='1.00', land_ownership='Owner', commodity_type='Rice')
         cls.parcel_a = FarmParcel.objects.create(farmer=cls.farmer_a, **parcel)
         cls.parcel_b = FarmParcel.objects.create(farmer=cls.farmer_b, **parcel)
         # a fisherfolk citizen whose own record id is the same number as farmer A's id

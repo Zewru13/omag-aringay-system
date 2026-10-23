@@ -195,8 +195,6 @@ class FarmerProfileReport(APIView):
             ('Senior Citizen',   'Yes' if farmer.is_senior_citizen else 'No'),
             ('Farm Laborer',     'Yes' if farmer.is_farm_laborer else 'No'),
             ('ICC/IP Member',    f'Yes — {fmt_field(farmer.icc_ip_name)}' if farmer.is_icc_ip_member else 'No'),
-            ('Status',           build_status_badge(farmer.is_active)),
-            ('', ''),   # pad to even number for 2-column grid
         ]
         story.append(build_keyvalue_grid(pairs, columns=2, page_width=PAGE_WIDTH))
         story.append(Spacer(1, 12))
@@ -244,8 +242,7 @@ class FarmerProfileReport(APIView):
                 bar_text = (
                     f'Parcel No. {pdf_text(parcel.parcel_number)}  ·  '
                     f'Area: {pdf_text(parcel.area_hectares)} ha  ·  '
-                    f'Ownership: {pdf_text(parcel.land_ownership)}  ·  '
-                    f'Status: {pdf_text(parcel.farm_status)}'
+                    f'Ownership: {pdf_text(parcel.land_ownership)}'
                 )
                 bar = Table([[Paragraph(bar_text, parcel_hdr_style)]], colWidths=[PAGE_WIDTH])
                 bar.setStyle(TableStyle([
@@ -516,7 +513,6 @@ class FisherfolkProfileReport(APIView):
             ('Senior Citizen',       'Yes' if fisherfolk.is_senior_citizen else 'No'),
             ('ICC/IP Member',        f'Yes — {fmt_field(fisherfolk.icc_ip_name)}' if fisherfolk.is_icc_ip_member else 'No'),
             ('Has Vessel',           'Yes' if fisherfolk.has_vessel else 'No'),
-            ('Status',               build_status_badge(fisherfolk.is_active)),
         ]
         story.append(build_keyvalue_grid(pairs, columns=2, page_width=PAGE_WIDTH))
         story.append(Spacer(1, 12))
@@ -709,7 +705,7 @@ class FarmerMasterlistReport(APIView):
 
         csv_headers = [
             'RSBSA Number', 'Full Name', 'Barangay',
-            'Land Area (ha)', 'Commodity', 'Farm Status', 'Date Registered',
+            'Land Area (ha)', 'Commodity', 'Date Registered',
         ]
         rows = []
         for farmer in farmers:
@@ -717,7 +713,7 @@ class FarmerMasterlistReport(APIView):
             if not parcels:
                 rows.append([
                     fmt_field(farmer.rsbsa_number), full_name(farmer),
-                    fmt_field(farmer.barangay), 'N/A', 'N/A', 'N/A',
+                    fmt_field(farmer.barangay), 'N/A', 'N/A',
                     fmt_date(farmer.date_registered),
                 ])
             else:
@@ -725,7 +721,7 @@ class FarmerMasterlistReport(APIView):
                     rows.append([
                         fmt_field(farmer.rsbsa_number), full_name(farmer),
                         fmt_field(farmer.barangay), fmt_field(p.area_hectares),
-                        fmt_field(p.commodity_name), fmt_field(p.farm_status),
+                        fmt_field(p.commodity_name),
                         fmt_date(farmer.date_registered),
                     ])
         return build_csv_response(
@@ -744,15 +740,12 @@ class FarmerMasterlistReport(APIView):
             'Office of the Municipal Agriculturist · Aringay, La Union',
         )
 
-        total    = farmers.count()
-        active   = farmers.filter(is_active=True).count()
-        inactive = total - active
         story.append(build_stats_row([
-            ('Total Farmers', total), ('Active', active), ('Inactive', inactive),
+            ('Total Farmers', farmers.count()),
         ], page_width=PAGE_WIDTH))
         story.append(Spacer(1, 14))
 
-        # col_widths: 25+75+110+65+65+55+73 = 468pt
+        # col_widths: 25+85+125+80+80+73 = 468pt
         rows = []
         no = 0
         for farmer in farmers:
@@ -762,7 +755,6 @@ class FarmerMasterlistReport(APIView):
                 rows.append([
                     str(no), fmt_field(farmer.rsbsa_number), full_name(farmer),
                     fmt_field(farmer.barangay), 'N/A',
-                    build_status_badge(farmer.is_active),
                     fmt_date(farmer.date_registered),
                 ])
             else:
@@ -771,14 +763,13 @@ class FarmerMasterlistReport(APIView):
                     rows.append([
                         str(no), fmt_field(farmer.rsbsa_number), full_name(farmer),
                         fmt_field(farmer.barangay), fmt_field(p.commodity_name),
-                        build_status_badge(farmer.is_active),
                         fmt_date(farmer.date_registered),
                     ])
 
         story.append(build_ledger_table(
-            ['No.', 'RSBSA No.', 'Full Name', 'Barangay', 'Commodity', 'Status', 'Date Registered'],
+            ['No.', 'RSBSA No.', 'Full Name', 'Barangay', 'Commodity', 'Date Registered'],
             rows,
-            col_widths=[25, 75, 110, 65, 65, 55, 73],
+            col_widths=[25, 85, 125, 80, 80, 73],
         ))
         story.append(Spacer(1, 30))
         story.append(build_signature_block(
@@ -803,14 +794,13 @@ class FisherfolkMasterlistReport(APIView):
         if wants_pdf(request):
             return self._build_pdf(fisherfolk, today)
 
-        csv_headers = ['RSBSA Number', 'Full Name', 'Type', 'Barangay', 'Status', 'Date Registered']
+        csv_headers = ['RSBSA Number', 'Full Name', 'Type', 'Barangay', 'Date Registered']
         rows = [
             [
                 fmt_field(p.rsbsa_number),
                 fmt_field(p.full_name),
                 fmt_field(p.fisherfolk_type),
                 fmt_field(p.barangay),
-                'Active' if p.is_active else 'Inactive',
                 fmt_date(p.date_registered),
             ]
             for p in fisherfolk
@@ -840,7 +830,7 @@ class FisherfolkMasterlistReport(APIView):
         ], page_width=PAGE_WIDTH))
         story.append(Spacer(1, 14))
 
-        # col_widths: 25+96+105+62+62+48+70 = 468pt (96 fits a full RSBSA number on one line)
+        # col_widths: 25+96+115+70+72+90 = 468pt (96 fits a full RSBSA number on one line)
         rows = []
         for i, p in enumerate(fisherfolk, 1):
             rows.append([
@@ -849,14 +839,13 @@ class FisherfolkMasterlistReport(APIView):
                 fmt_field(p.full_name),
                 fmt_field(p.barangay),
                 fmt_field(p.fisherfolk_type),
-                build_status_badge(p.is_active),
                 fmt_date(p.date_registered),
             ])
 
         story.append(build_ledger_table(
-            ['No.', 'RSBSA No.', 'Full Name', 'Barangay', 'Fishery Type', 'Status', 'Date Registered'],
+            ['No.', 'RSBSA No.', 'Full Name', 'Barangay', 'Fishery Type', 'Date Registered'],
             rows,
-            col_widths=[25, 96, 105, 62, 62, 48, 70],
+            col_widths=[25, 96, 115, 70, 72, 90],
         ))
         story.append(Spacer(1, 30))
         story.append(build_signature_block(

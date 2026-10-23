@@ -116,12 +116,6 @@ class FisherfolkListView(generics.ListCreateAPIView):
                 id_fields=['rsbsa_number', 'fishr_number'],
                 other_fields=['barangay'],
             )
-        if params.get('status'):
-            v = params['status'].lower()
-            if v in ('active', 'true', '1'):
-                qs = qs.filter(is_active=True)
-            elif v in ('inactive', 'false', '0'):
-                qs = qs.filter(is_active=False)
         if params.get('gender'):
             qs = qs.filter(gender__iexact=params['gender'])
         if params.get('fisherfolk_type'):
@@ -171,14 +165,6 @@ class FisherfolkDetailView(generics.RetrieveUpdateAPIView):
 
     def get_serializer_class(self):
         return FisherfolkCreateSerializer if self.request.method == 'PATCH' else FisherfolkDetailSerializer
-
-    def update(self, request, *args, **kwargs):
-        if 'is_active' in request.data and request.user.role != 'ADMIN':
-            return Response(
-                {'detail': "Only an Admin can change a fisherfolk's status."},
-                status=drf_status.HTTP_403_FORBIDDEN,
-            )
-        return super().update(request, *args, **kwargs)
 
 
 class FisherfolkDuplicateCheckView(APIView):

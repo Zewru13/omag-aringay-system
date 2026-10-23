@@ -12,15 +12,14 @@ export function cropCountLabel(count) {
 const typed = (value) => (typeof value === 'string' ? value.trim() : value)
 
 // The parcel list's request: only what is typed or chosen is sent.
-export function directoryParams({ search, barangay, farmStatus, page } = {}) {
+export function directoryParams({ search, barangay, page } = {}) {
   const params = { page: page || 1 }
   if (typed(search)) params.search = typed(search)
   if (barangay) params.barangay = barangay
-  if (farmStatus) params.farm_status = farmStatus
   return params
 }
 
-// The crops with no parcel on file (older records, organization crops). A parcel's own status does not apply to them.
+// The crops with no parcel on file (older records, organization crops). A parcel filter does not apply to them.
 export function noParcelParams({ search, barangay } = {}) {
   const params = { farm_parcel: 'none' }
   if (typed(search)) params.search = typed(search)

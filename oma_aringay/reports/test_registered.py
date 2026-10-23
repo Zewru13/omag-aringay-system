@@ -44,12 +44,12 @@ class RegisteredReportTests(APITestCase):
         cls.admin = User.objects.create_user(username='admin1', password='pw', role='ADMIN', email='a@x.test')
         cls.citizen = User.objects.create_user(username='cit1', password='pw', role='CITIZEN', email='c@x.test')
         cls.maria = _farmer('01-033-02-019-000151', 'Maria', 'Santos')
-        cls.jose = _farmer('01-033-02-019-000152', 'Jose', 'Reyes', barangay='Baracbac', is_active=False)
+        cls.jose = _farmer('01-033-02-019-000152', 'Jose', 'Reyes', barangay='Baracbac')
         FarmParcel.objects.create(farmer=cls.maria, parcel_number='P-1', area_hectares='1.50', barangay='Alaska')
         cls.org = _org(FarmersOrganization, 'Alaska Farmers Org', 'ORG-1')
         FarmersOrganizationMember.objects.create(organization=cls.org, farmer=cls.maria, date_joined=date(2022, 1, 1))
         OrganizationOfficer.objects.create(organization=cls.org, farmer=cls.maria, position='President', full_name='Maria Santos')
-        cls.other_org = _org(FarmersOrganization, 'Baracbac Org', 'ORG-2', barangay='Baracbac', is_active=False)
+        cls.other_org = _org(FarmersOrganization, 'Baracbac Org', 'ORG-2', barangay='Baracbac')
         cls.fisher = _fisher('Pedro', 'Cruz', '01-033-02-019-000201')
         cls.fisher2 = _fisher('Ana', 'Lim', '01-033-02-019-000202', barangay='Baracbac')
         cls.forg = _org(FisherfolkOrganization, 'Alaska Fisherfolk Org', 'FORG-1')
@@ -75,9 +75,8 @@ class RegisteredReportTests(APITestCase):
         self.assertEqual(self.client.get(URL).status_code, 400)
         self.assertEqual(self.client.get(URL, {'kind': 'trees'}).status_code, 400)
 
-    def test_bad_dates_status_and_range_are_a_400(self):
+    def test_bad_dates_and_range_are_a_400(self):
         self.assertEqual(self.client.get(URL, {'kind': 'farmers', 'registered_from': 'soon'}).status_code, 400)
-        self.assertEqual(self.client.get(URL, {'kind': 'farmers', 'status': 'maybe'}).status_code, 400)
         self.assertEqual(self.client.get(URL, {'kind': 'farmers', 'registered_from': '2030-01-02', 'registered_to': '2030-01-01'}).status_code, 400)
         self.assertEqual(self.client.get(URL, {'kind': 'farmers', 'id': 'abc'}).status_code, 400)
 
@@ -92,12 +91,11 @@ class RegisteredReportTests(APITestCase):
         self.assertEqual(maria[5], 1)
         self.assertEqual(maria[6], '1.50')
         self.assertEqual(maria[7], 'Alaska Farmers Org')
-        self.assertEqual(maria[8], 'Active')
-        self.assertEqual(by_name['Jose Reyes'][8], 'Inactive')
+        self.assertEqual(len(maria), 9)    # the last column is the date registered: there is no Status column
+        self.assertNotIn('Active', maria)
 
-    def test_bulk_filters_narrow_by_barangay_status_and_search(self):
+    def test_bulk_filters_narrow_by_barangay_and_search(self):
         self.assertEqual([r[1] for r in self.rows(self.get(kind='farmers', barangay='Baracbac'))], ['Jose Reyes'])
-        self.assertEqual([r[1] for r in self.rows(self.get(kind='farmers', status='active'))], ['Maria Santos'])
         self.assertEqual([r[1] for r in self.rows(self.get(kind='farmers', search='000152'))], ['Jose Reyes'])
         self.assertEqual([r[1] for r in self.rows(self.get(kind='farmers', search='maria santos'))], ['Maria Santos'])
 
@@ -125,7 +123,6 @@ class RegisteredReportTests(APITestCase):
         self.assertEqual(sorted(r[0] for r in self.rows(doc)), ['Alaska Farmers Org', 'Baracbac Org'])
         alaska = next(r for r in self.rows(doc) if r[0] == 'Alaska Farmers Org')
         self.assertEqual(alaska[5], 1)  # active members
-        self.assertEqual([r[0] for r in self.rows(self.get(kind='farmers_orgs', status='inactive'))], ['Baracbac Org'])
         self.assertEqual([r[0] for r in self.rows(self.get(kind='farmers_orgs', search='ORG-2'))], ['Baracbac Org'])
         self.assertEqual([r[0] for r in self.rows(self.get(kind='fisherfolk_orgs'))], ['Alaska Fisherfolk Org'])
         self.assertEqual(self.rows(self.get(kind='fisherfolk_orgs', registered_from='2022-01-01')), [])
@@ -159,7 +156,7 @@ class RegisteredReportTests(APITestCase):
             one_farmer(999999)
 
     def test_one_record_ignores_the_bulk_filters(self):
-        doc = self.get(kind='farmers', id=self.maria.id, barangay='Baracbac', status='inactive')
+        doc = self.get(kind='farmers', id=self.maria.id, barangay='Baracbac')
         self.assertEqual(doc['subtitle'], 'Maria Santos')
 
     # --- the "one record" picker

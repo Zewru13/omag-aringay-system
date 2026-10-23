@@ -54,7 +54,6 @@ export const parcelPayload = (parcel) => ({
   land_owner_name: parcel.land_owner_name,
   land_owner_rsbsa_number: parcel.land_owner_rsbsa_number,
   tax_declaration_number: parcel.tax_declaration_number,
-  farm_status: parcel.farm_status,
   barangay: parcel.barangay,
   farm_type: parcel.farm_type,
   is_organic: parcel.is_organic,
@@ -89,7 +88,6 @@ export function summarizeParcel(parcel) {
     ['Barangay', dash(parcel.barangay)],
     ['Land ownership', dash(parcel.land_ownership)],
     ...(owner ? [['Land owner', dash(parcel.land_owner_name)], ['Land owner RSBSA', dash(parcel.land_owner_rsbsa_number)]] : []),
-    ['Farm status', dash(parcel.farm_status)],
   ]
   const flags = [
     parcel.is_organic && 'Organic farm',

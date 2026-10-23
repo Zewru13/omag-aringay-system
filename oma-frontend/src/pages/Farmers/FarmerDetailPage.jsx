@@ -234,17 +234,6 @@ function ParcelRow({ parcel }) {
         <td data-label="Area (ha)" className="px-4 py-3 text-[13px] text-[#1A2B1A]">{parcel.area_hectares}</td>
         <td data-label="Ownership" className="px-4 py-3 text-[13px] text-[#1A2B1A]">{parcel.land_ownership}</td>
         <td data-label="Commodity" className="px-4 py-3 text-[13px] text-[#1A2B1A]">{parcel.commodity_name || '-'}</td>
-        <td data-label="Status" className="px-4 py-3">
-          <span
-            className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-              parcel.farm_status === 'Active'
-                ? 'bg-[#EBF5EE] text-[#1B4D2E]'
-                : 'bg-[#F0F4F0] text-[#7A8E7A]'
-            }`}
-          >
-            {parcel.farm_status}
-          </span>
-        </td>
         <td className="px-4 py-3 text-right">
           <button
             className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-medium text-[#1B4D2E] hover:bg-[#EBF5EE] transition-colors max-md:min-h-[40px] max-md:border max-md:border-[#C8D5C8] max-md:px-4"
@@ -531,9 +520,6 @@ function FarmerDetailPage() {
                   <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#A8BCA8]">Name</p>
                   <h1 className="mt-0.5 text-[16px] font-semibold text-[#1A2B1A]">{farmer.full_name}</h1>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    <StatusPill tone={farmer.is_active ? 'green' : 'rose'}>
-                      {farmer.is_active ? 'Active' : 'Inactive'}
-                    </StatusPill>
                     {farmer.is_senior_citizen && <StatusPill tone="amber">Senior Citizen</StatusPill>}
                   </div>
                 </div>
@@ -677,7 +663,6 @@ function FarmerDetailPage() {
                     <th className="px-4 py-3">Area (ha)</th>
                     <th className="px-4 py-3">Ownership</th>
                     <th className="px-4 py-3">Commodity</th>
-                    <th className="px-4 py-3">Status</th>
                     <th className="px-4 py-3" />
                   </tr>
                 </thead>

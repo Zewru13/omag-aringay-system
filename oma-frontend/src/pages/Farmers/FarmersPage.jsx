@@ -26,7 +26,6 @@ const columns = [
   { key: 'barangay', label: 'Barangay' },
   { key: 'age', label: 'Age' },
   { key: 'farmer_type', label: 'Farmer Type' },
-  { key: 'status', label: 'Status' },
   { key: 'date_registered_display', label: 'Date Registered' },
 ]
 
@@ -54,7 +53,6 @@ function FarmersPage({ asTab = false }) {
   const [farmers, setFarmers] = useState([])
   const [totalCount, setTotalCount] = useState(0)
   const [search, setSearch] = useState('')
-  const [status, setStatus] = useState('all')
   const [gender, setGender] = useState('all')
   const [farmerType, setFarmerType] = useState('all')
   const [seniorOnly, setSeniorOnly] = useState(false)
@@ -77,7 +75,6 @@ function FarmersPage({ asTab = false }) {
   const listFilterParams = () => {
     const params = new URLSearchParams()
     if (search.trim())    params.set('search', search.trim())
-    if (status !== 'all') params.set('status', status)
     if (gender !== 'all') params.set('gender', gender)
     if (farmerType !== 'all') params.set('is_farm_laborer', farmerType)
     if (seniorOnly)       params.set('is_senior', 'true')
@@ -109,14 +106,13 @@ function FarmersPage({ asTab = false }) {
   useEffect(() => {
     setPage(1)
     fetchFarmers(1)
-  }, [search, status, gender, farmerType, seniorOnly, filterICC, filterPWD, registeredFrom, registeredTo])
+  }, [search, gender, farmerType, seniorOnly, filterICC, filterPWD, registeredFrom, registeredTo])
 
   useEffect(() => {
     fetchFarmers(page)
   }, [page])
 
   const activeFilterCount = [
-    status !== 'all',
     gender !== 'all',
     farmerType !== 'all',
     seniorOnly,
@@ -154,7 +150,6 @@ function FarmersPage({ asTab = false }) {
           )}
         </span>
       ),
-      status: farmer.is_active ? 'Active' : 'Inactive',
       date_registered_display: formatDate(farmer.date_registered),
     }
   }), [farmers])
@@ -197,11 +192,6 @@ function FarmersPage({ asTab = false }) {
         searchPlaceholder="Search by name, RSBSA, or barangay"
         activeCount={activeFilterCount}
       >
-        <select className={filterSelectCls} onChange={(e) => setStatus(e.target.value)} value={status}>
-          <option value="all">All Status</option>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
         <select className={filterSelectCls} onChange={(e) => setGender(e.target.value)} value={gender}>
           <option value="all">All Gender</option>
           <option value="Male">Male</option>

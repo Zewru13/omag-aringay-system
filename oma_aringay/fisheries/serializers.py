@@ -108,7 +108,7 @@ class FisherfolkListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'fishr_number', 'prefix', 'full_name',
             'gender', 'birthdate', 'barangay', 'fisherfolk_type',
-            'is_active', 'is_senior_citizen', 'date_registered',
+            'is_senior_citizen', 'date_registered',
             'rsbsa_number',
             'is_aquaculture', 'is_capture_fishery', 'is_mariculture', 'is_inland_fishery',
         ]
@@ -148,7 +148,7 @@ class FisherfolkDetailSerializer(serializers.ModelSerializer):
             'fisherfolk_type',
             'is_pwd', 'is_4ps_beneficiary', 'is_icc_ip_member', 'icc_ip_name', 'is_senior_citizen',
             'fisherfolk_organization', 'organization_position', 'organization_names',
-            'is_active', 'date_registered', 'registered_by',
+            'date_registered', 'registered_by',
             'aquaculture_record', 'capture_record',
             'facility_location', 'pond_area_ha', 'number_of_ponds', 'water_source',
             'number_of_cages', 'cage_dimensions', 'fish_registration_number',
@@ -265,7 +265,7 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
             'fisherfolk_type',
             'is_pwd', 'is_4ps_beneficiary', 'is_icc_ip_member', 'icc_ip_name', 'is_senior_citizen',
             'fisherfolk_organization', 'organization_position',
-            'is_active', 'date_registered', 'registered_by',
+            'date_registered', 'registered_by',
             'culture_type', 'culture_type_other_specify',
             'species_cultured', 'species_cultured_other_specify',
             'area_hectares', 'fingerlings_stocked', 'production_volume_kg',

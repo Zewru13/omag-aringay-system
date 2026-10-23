@@ -287,7 +287,6 @@ class Command(BaseCommand):
                 'is_pwd': pwd,
                 'is_icc_ip_member': icc,
                 'is_4ps_beneficiary': fourps,
-                'is_active': True,
                 'is_aquaculture': ftype == 'Aquaculture',
                 'is_capture_fishery': ftype == 'Capture',
                 'is_inland_fishery': ftype == 'Inland',

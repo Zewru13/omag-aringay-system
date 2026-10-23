@@ -105,7 +105,6 @@ const makeParcel = () => ({
   land_owner_name: '',
   land_owner_rsbsa_number: '',
   tax_declaration_number: '',
-  farm_status: 'Active',
   barangay: '',
   farm_type: '',
   is_organic: false,
@@ -204,14 +203,6 @@ function CoreStep({ parcel, set, onImportParcels }) {
               <option value="Owner">Owner</option>
               <option value="Tenant">Tenant</option>
               <option value="Lessee">Lessee</option>
-            </select>
-          </div>
-          <div>
-            <label className={labelCls}>Farm Status</label>
-            <select className={baseInputClasses} value={parcel.farm_status}
-              onChange={e => set('farm_status', e.target.value)}>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
             </select>
           </div>
         </div>

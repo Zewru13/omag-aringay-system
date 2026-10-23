@@ -285,7 +285,6 @@ class Command(BaseCommand):
                     'email_address':        data['email_address'],
                     'contact_person':       data['contact_person'],
                     'contact_number':       data['contact_number'],
-                    'is_active':            True,
                 },
             )
             created.append(assoc)
@@ -336,7 +335,6 @@ class Command(BaseCommand):
                     'is_icc_ip_member':    icc,
                     'is_4ps_beneficiary':  fourps,
                     'is_senior_citizen':   is_senior,
-                    'is_active':           True,
                 },
             )
             # Batch (Phase B): membership is a real FarmersOrganizationMember
