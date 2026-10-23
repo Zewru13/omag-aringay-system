@@ -251,6 +251,15 @@ class ParcelClassificationDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = ParcelClassification.objects.all()
 
 
+class FarmParcelDetailView(generics.RetrieveUpdateAPIView):
+    """One parcel, and editing its own details (staff only). Its crops and machinery have their own endpoints."""
+    queryset = FarmParcel.objects.all()
+    serializer_class = FarmParcelSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    lookup_field = 'id'
+    http_method_names = ['get', 'patch', 'head', 'options']
+
+
 class FarmParcelCreateView(generics.CreateAPIView):
     serializer_class = FarmParcelSerializer
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]

@@ -4,6 +4,7 @@ const {
   makeParcelRow, makeCropRow, makeMachineryRow, addImportedCrops, canSkipSchedule, toggleClassification, cropLabel, machineryLabel,
   rowProblem, cropProblem, machineryProblem, validateRows, duplicateNumberProblems, parcelPayload, cropPayload, machineryPayload,
   buildPayload, pcicUploads, serverErrorsToMessages, PERENNIAL_CROPS, cropsAreaUsed, cropCapacity, cropAreaProblems,
+  parcelToForm, parcelSkipsSchedule, editProblem, editPayload, editServerErrors, PARCEL_NUMBER_PARTS,
 } = await import(new URL('../src/pages/Farmers/parcelRows.js', import.meta.url).href)
 
 let n = 0
@@ -121,6 +122,30 @@ eq(pcicUploads(rows, undefined), [], 'no answer, nothing to upload')
 const imported = addImportedCrops([crop({ _uid: 1, is_main_crop: true })], [{ crop_name: 'Onion', area_hectares: 0.5, is_main_crop: true, quantity_of_seeds_used: null, number_of_trees: null }], 100)
 eq(imported.map((c) => [c.crop_name, c.is_main_crop, c.area_hectares, c._uid]), [['Palay (Rice)', false, '1', 1], ['Onion', true, '0.5', 100]], 'a main crop in the file replaces the old one')
 eq(addImportedCrops([], [], 1), [], 'an empty file adds nothing')
+
+// ── editing one parcel
+const stored = { id: 9, parcel_number: NO, area_hectares: '2.5000', land_ownership: 'Tenant', land_owner_name: 'Juan', land_owner_rsbsa_number: '',
+  tax_declaration_number: '', barangay: 'Alaska', farm_type: null, cropping_schedule: 'Double Cropping', classifications: ['Organic Farm'],
+  crops: [{ crop_name: 'Onion', is_main_crop: true }], machinery: [] }
+const form = parcelToForm(stored)
+eq(form.area_hectares, '2.5', 'the area is shown without trailing zeros')
+eq([form.parcel_number, form.farm_type, form.cropping_schedule, form.classifications], [NO, '', 'Double Cropping', ['Organic Farm']], 'the form starts from the parcel')
+assert.notEqual(form.classifications, stored.classifications); n++
+eq(editProblem(form), '', 'an untouched parcel is fine')
+eq(editProblem({ ...form, area_hectares: '' }), 'enter the area (ha)', 'area needed')
+assert.match(editProblem({ ...form, land_owner_name: '' }), /land owner name/); n++
+assert.match(editProblem({ ...form, tax_declaration_number: '01-002-00005-2023-0142', parcel_number: '' }), /parcel number is required/); n++
+eq(editPayload(form, stored), {
+  parcel_number: NO, area_hectares: 2.5, land_ownership: 'Tenant', land_owner_name: 'Juan', land_owner_rsbsa_number: '',
+  tax_declaration_number: '', barangay: 'Alaska', farm_type: '', classifications: ['Organic Farm'], cropping_schedule: 'Double Cropping',
+}, 'the PATCH body')
+eq(editPayload({ ...form, land_ownership: 'Owner' }, stored).land_owner_name, '', 'an owner parcel sends no land owner')
+eq(parcelSkipsSchedule(stored), false, 'an onion parcel has a schedule')
+eq(editPayload(form, { ...stored, crops: [{ crop_name: 'Mango', is_main_crop: true }] }).cropping_schedule, '', 'a tree main crop sends no schedule')
+eq(PARCEL_NUMBER_PARTS.filter((p) => p.type === 'input').length, 4, 'the parcel number has four editable parts')
+eq(editServerErrors({ area_hectares: ['too small'], parcel_number: ['taken'], detail: 'Nope.', crops: ['x'] }),
+  { area_hectares: 'too small', parcel_number: 'taken', general: 'Nope.' }, 'server errors by field')
+eq(editServerErrors(undefined), {}, 'no errors')
 
 // ── the server's answer, mapped onto the rows
 eq(serverErrorsToMessages([{}, { area_hectares: ['A valid number is required.'], crops: [{}, { area_hectares: ['The crop area must be more than 0.'] }], machinery: [{ quantity: ['The quantity must be at least 1.'] }] }, { parcel_number: ['This farmer already has parcel X.'] }],

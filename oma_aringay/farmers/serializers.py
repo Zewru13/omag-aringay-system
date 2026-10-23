@@ -10,6 +10,7 @@ from core.constants import validate_prefix_gender
 
 from associations.models import FarmersOrganization as AssocFarmersOrganization, FarmersOrganizationMember
 
+from .area_rules import parcel_change_problem
 from .models import Farmer, FarmCrop, FarmMachinery, FarmParcel, ParcelClassification
 
 
@@ -183,7 +184,30 @@ class FarmParcelSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 'parcel_number': 'Parcel Number is required when a Tax Declaration Number is provided.'
             })
+        if self.instance is not None:
+            self._check_edit(data)
         return data
+
+    def _check_edit(self, data):
+        """Rules for editing a parcel that exists. A parcel is never moved to another farmer. The parcel number stays unique for the
+        farmer. A new area or cropping schedule must still hold the crops declared on the parcel and the plantings growing on it
+        (only checked when one of them changes, so a parcel that was already over can still have other details corrected)."""
+        from production.duplicates import growing_area_on_parcel
+        parcel = self.instance
+        data.pop('farmer', None)
+        number = (data.get('parcel_number') or '').strip()
+        if number and number.lower() != (parcel.parcel_number or '').lower() and FarmParcel.objects.filter(
+                farmer_id=parcel.farmer_id, parcel_number__iexact=number).exclude(pk=parcel.pk).exists():
+            raise serializers.ValidationError({'parcel_number': f'This farmer already has parcel {number}.'})
+        area = data.get('area_hectares', parcel.area_hectares)
+        schedule = data.get('cropping_schedule', parcel.cropping_schedule)
+        area_changed = 'area_hectares' in data and data['area_hectares'] != parcel.area_hectares
+        schedule_changed = 'cropping_schedule' in data and data['cropping_schedule'] != parcel.cropping_schedule
+        if area_changed or schedule_changed:
+            message = parcel_change_problem(
+                area, schedule, [c.area_hectares for c in parcel.crops.all()], growing_area_on_parcel(parcel.id))
+            if message:
+                raise serializers.ValidationError({'area_hectares' if area_changed else 'cropping_schedule': message})
 
 
 class FarmerListSerializer(serializers.ModelSerializer):

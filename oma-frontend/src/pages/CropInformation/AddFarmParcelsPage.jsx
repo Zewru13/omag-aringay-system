@@ -18,7 +18,7 @@ import { RSBSA_GROUPS } from '../../utils/idNumbers.js'
 import { uploadPcicForm } from '../../utils/pcic.js'
 import ParcelCropsImportModal from '../Farmers/ParcelCropsImportModal.jsx'
 import {
-  CROP_OPTIONS, CROPPING_SCHEDULE_OPTIONS, FARM_TYPE_OPTIONS, LAND_OWNERSHIP_OPTIONS, MACHINERY_OPTIONS, MAX_PARCELS, OWNERSHIP_OPTIONS,
+  CROP_OPTIONS, CROPPING_SCHEDULE_OPTIONS, PARCEL_NUMBER_PARTS, TAX_DECLARATION_DIGITS, TAX_DECLARATION_GROUPS, FARM_TYPE_OPTIONS, LAND_OWNERSHIP_OPTIONS, MACHINERY_OPTIONS, MAX_PARCELS, OWNERSHIP_OPTIONS,
   PERENNIAL_CROPS, SEED_SOURCE_OPTIONS, SEEDS_UNIT_OPTIONS, addImportedCrops, buildPayload, canSkipSchedule, cropAreaProblems, cropCapacity,
   cropLabel, cropsAreaUsed, fmtHa, isTenure, makeCropRow, makeMachineryRow, makeParcelRow, machineryLabel, pcicUploads, serverErrorsToMessages, toggleClassification, validateRows,
 } from '../Farmers/parcelRows.js'
@@ -37,22 +37,6 @@ const CELL = 'px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 
 const SUB_CELL = 'px-2 py-2 align-top max-md:block max-md:w-full! max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]'
 const SUB_TH = 'px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-[#4A5E4A] whitespace-nowrap'
 const REMOVE_BTN = 'inline-flex items-center gap-1.5 rounded-md p-1.5 text-rose-500 hover:bg-rose-50 transition-colors max-md:min-h-[40px] max-md:px-3 max-md:text-[13px] max-md:font-medium'
-
-// Region-Province-Municipality is fixed for every parcel in this LGU-only system (01-33-02 = Region I / La Union / Aringay);
-// barangay code, section, block and lot are the only parts that vary per parcel.
-const PARCEL_NUMBER_PARTS = [
-  { type: 'text', value: '01-33-02-' },
-  { type: 'input', key: 'barangay', length: 3, placeholder: '000' },
-  { type: 'text', value: '-' },
-  { type: 'input', key: 'section', length: 3, placeholder: '000' },
-  { type: 'text', value: '-' },
-  { type: 'input', key: 'block', length: 2, placeholder: '00' },
-  { type: 'text', value: '-' },
-  { type: 'input', key: 'lot', length: 3, placeholder: '000' },
-]
-// Tax Declaration Number: typed as digits with the dashes added for you, stopped at 18 digits (RR-MMM-BBBBB-YYYY-NNNN).
-const TAX_DECLARATION_GROUPS = [2, 3, 5, 4]
-const TAX_DECLARATION_DIGITS = 18
 
 function Legend() {
   return (
