@@ -20,6 +20,8 @@ from .views import (
     FarmParcelDirectoryView,
     FarmParcelListView,
     MyFarmParcelListView,
+    ParcelClassificationDetailView,
+    ParcelClassificationListCreateView,
 )
 
 
@@ -30,6 +32,8 @@ urlpatterns = [
     path('parcels/import/template/', ParcelImportTemplateView.as_view(), name='farm-parcels-import-template'),
     path('parcel-crops/template/', ParcelCropsTemplateView.as_view(), name='farm-parcel-crops-template'),
     path('parcel-crops/parse/', ParcelCropsParseView.as_view(), name='farm-parcel-crops-parse'),
+    path('parcel-classifications/', ParcelClassificationListCreateView.as_view(), name='parcel-classifications'),
+    path('parcel-classifications/<int:pk>/', ParcelClassificationDetailView.as_view(), name='parcel-classification-detail'),
     path('parcels/directory/', FarmParcelDirectoryView.as_view(), name='farm-parcels-directory'),
     path('me/parcels/', MyFarmParcelListView.as_view(), name='farm-parcels-mine'),
     path('rsbsa-import/template/', RsbsaImportTemplateView.as_view(), name='rsbsa-import-template'),

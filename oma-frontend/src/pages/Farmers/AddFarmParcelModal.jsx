@@ -17,8 +17,9 @@ import { EMPTY_PCIC, pcicError, pcicPayload, uploadPcicForm } from '../../utils/
 import { RSBSA_GROUPS, isValidIdNumber } from '../../utils/idNumbers.js'
 import {
   STEPS, PERENNIAL_CROPS, TAX_DECLARATION_RE, RSBSA_FORMAT_ERROR, canSkipSchedule, cropLabel, machineryLabel,
-  addImportedCrops, cropPayload, machineryPayload, parcelPayload, summarizeParcel, validateStep,
+  addImportedCrops, cropPayload, machineryPayload, parcelPayload, summarizeParcel, toggleClassification, validateStep,
 } from './parcelWizard.js'
+import useParcelClassifications from './useParcelClassifications.js'
 
 // Region-Province-Municipality is fixed for every parcel in this LGU-only
 // system (01-33-02 = Region I / La Union / Aringay) — same fixed prefix
@@ -107,9 +108,7 @@ const makeParcel = () => ({
   tax_declaration_number: '',
   barangay: '',
   farm_type: '',
-  is_organic: false,
-  within_ancestral_domain: false,
-  is_agrarian_reform_beneficiary: false,
+  classifications: [],
   cropping_schedule: '',
   crops: [],
   machinery: [],
@@ -241,6 +240,8 @@ function CoreStep({ parcel, set, onImportParcels }) {
 // ─── Step 2: RSBSA Parcel Classification ──────────────────────────────────────
 
 function ClassificationStep({ parcel, set }) {
+  const classifications = useParcelClassifications()
+  const offered = (classifications || []).filter(c => c.is_active).map(c => c.name)
   return (
     <div className="space-y-5">
       <SectionHeader icon={ClipboardCheck} title="RSBSA Parcel Classification" subtitle="Optional — how the RSBSA enrollment form classifies this parcel" />
@@ -266,17 +267,16 @@ function ClassificationStep({ parcel, set }) {
       <div className="rounded-xl bg-[#EBF5EE]/60 p-4">
         <p className="text-[13px] font-medium text-[#4A5E4A]">Check all that apply to this parcel</p>
         <div className="mt-3 flex flex-wrap gap-4">
-          {[
-            ['is_organic', 'Organic Farm'],
-            ['within_ancestral_domain', 'Within Ancestral Domain'],
-            ['is_agrarian_reform_beneficiary', 'Agrarian Reform Beneficiary'],
-          ].map(([field, label]) => (
-            <label key={field} className="flex min-h-[40px] cursor-pointer items-center gap-2">
+          {offered.map(name => (
+            <label key={name} className="flex min-h-[40px] cursor-pointer items-center gap-2">
               <input type="checkbox" className="h-4 w-4 accent-[#1B4D2E]"
-                checked={parcel[field]} onChange={e => set(field, e.target.checked)} />
-              <span className="text-[13px] text-[#1A2B1A]">{label}</span>
+                checked={(parcel.classifications || []).includes(name)} onChange={e => set('classifications', toggleClassification(parcel.classifications, name, e.target.checked))} />
+              <span className="text-[13px] text-[#1A2B1A]">{name}</span>
             </label>
           ))}
+          {classifications && offered.length === 0 && (
+            <p className="text-[12px] text-[#7A8E7A]">No classifications are set up. An Admin can add them in Classification Settings.</p>
+          )}
         </div>
       </div>
     </div>

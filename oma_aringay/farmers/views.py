@@ -11,7 +11,7 @@ from accounts.utils import create_inactive_citizen_shell
 from associations.models import FarmersOrganizationMember
 from core.utils import day_range_bounds, filter_people_search
 
-from .models import Farmer, FarmCrop, FarmMachinery, FarmParcel
+from .models import Farmer, FarmCrop, FarmMachinery, FarmParcel, ParcelClassification
 from .serializers import (
     FarmCropSerializer,
     FarmerCreateSerializer,
@@ -20,6 +20,7 @@ from .serializers import (
     FarmMachinerySerializer,
     FarmParcelDirectorySerializer,
     FarmParcelSerializer,
+    ParcelClassificationSerializer,
 )
 
 
@@ -223,6 +224,26 @@ class MyFarmParcelListView(generics.ListAPIView):
         user = self.request.user
         farmer_id = user.get_linked_farmer_id() if user.role == 'CITIZEN' else None
         return FarmParcel.objects.filter(farmer_id=farmer_id if farmer_id else -1).order_by('id')
+
+
+class ParcelClassificationListCreateView(generics.ListCreateAPIView):
+    """The managed list of parcel classifications. Everyone signed in reads it (the parcel forms use it); only staff change it."""
+    serializer_class = ParcelClassificationSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        return sorted(ParcelClassification.objects.all(), key=lambda c: c.name.lower())
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsAdminOrEvaluator()]
+
+
+class ParcelClassificationDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = ParcelClassificationSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    queryset = ParcelClassification.objects.all()
 
 
 class FarmParcelCreateView(generics.CreateAPIView):

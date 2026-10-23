@@ -17,6 +17,12 @@ export const RSBSA_FORMAT_ERROR = 'Invalid RSBSA number. Type the digits only (u
 // Tree and perennial crops have no "times per year" cropping schedule.
 export const PERENNIAL_CROPS = ['Mango', 'Cacao (Kakaw)', 'Banana (Saging)', 'Coffee (Kape)', 'Other Fruits']
 
+// The ticked classification names after one is ticked or un-ticked (each name once, in the order they were ticked).
+export const toggleClassification = (current, name, on) => {
+  const without = (current || []).filter((n) => n !== name)
+  return on ? [...without, name] : without
+}
+
 export const cropLabel = (crop) => (crop.crop_name === 'Other' ? crop.crop_name_other : crop.crop_name)
 export const machineryLabel = (m) => (m.machinery_type === 'Other' ? m.machinery_type_other : m.machinery_type)
 
@@ -56,9 +62,7 @@ export const parcelPayload = (parcel) => ({
   tax_declaration_number: parcel.tax_declaration_number,
   barangay: parcel.barangay,
   farm_type: parcel.farm_type,
-  is_organic: parcel.is_organic,
-  within_ancestral_domain: parcel.within_ancestral_domain,
-  is_agrarian_reform_beneficiary: parcel.is_agrarian_reform_beneficiary,
+  classifications: parcel.classifications || [],
   cropping_schedule: parcel.cropping_schedule,
 })
 
@@ -89,11 +93,7 @@ export function summarizeParcel(parcel) {
     ['Land ownership', dash(parcel.land_ownership)],
     ...(owner ? [['Land owner', dash(parcel.land_owner_name)], ['Land owner RSBSA', dash(parcel.land_owner_rsbsa_number)]] : []),
   ]
-  const flags = [
-    parcel.is_organic && 'Organic farm',
-    parcel.within_ancestral_domain && 'Within ancestral domain',
-    parcel.is_agrarian_reform_beneficiary && 'Agrarian reform beneficiary',
-  ].filter(Boolean)
+  const flags = parcel.classifications || []
   const classification = [
     ['Farm type', dash(parcel.farm_type)],
     ['Cropping schedule', canSkipSchedule(parcel) ? 'Not applicable (perennial main crop)' : dash(parcel.cropping_schedule)],

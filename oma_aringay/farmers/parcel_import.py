@@ -25,23 +25,22 @@ from core.exports import SafeWorkbook
 from core.import_batches import record_created, start_batch
 from core.utils import ImportFileError, cell_text, read_template_rows, run_import_atomically
 
-from .models import FarmCrop, FarmParcel, Farmer
+from .models import FarmCrop, FarmParcel, Farmer, ParcelClassification
 from .rsbsa_import import normalize_barangay
 from .serializers import FarmCropSerializer, FarmParcelSerializer
 
 PARCEL_COLUMNS = [
     'Parcel Number', 'Area (ha)', 'Barangay', 'Land Ownership', 'Land Owner Name', 'Land Owner RSBSA Number',
-    'Tax Dec Number', 'Farm Type', 'Organic Farm (Yes/No)', 'Within Ancestral Domain (Yes/No)',
-    'Agrarian Reform Beneficiary (Yes/No)', 'Cropping Schedule',
+    'Tax Dec Number', 'Farm Type', 'Classifications', 'Cropping Schedule',
 ]
 CROP_HEADERS = [
     'Crop Name', 'Crop Area (ha)', 'Main Crop (Yes/No)', 'Variety Used', 'Seed Source', 'Qty of Seeds', 'Seeds Unit', 'No. of Trees',
 ]
 PARCEL_HEADERS = PARCEL_COLUMNS + CROP_HEADERS
-PARCEL_WIDTHS = [26, 12, 20, 16, 24, 26, 26, 20, 16, 20, 22, 20, 24, 14, 14, 20, 18, 12, 12, 12]
+PARCEL_WIDTHS = [26, 12, 20, 16, 24, 26, 26, 20, 34, 20, 24, 14, 14, 20, 18, 12, 12, 12]
 CROP_WIDTHS = PARCEL_WIDTHS[len(PARCEL_COLUMNS):]
 
-PARCEL_SAMPLE = ['01-33-02-005-001-02-003', '2.50', 'Alaska', 'Owner', '', '', '', 'Irrigated', 'No', 'No', 'No', 'Double Cropping']
+PARCEL_SAMPLE = ['01-33-02-005-001-02-003', '2.50', 'Alaska', 'Owner', '', '', '', 'Irrigated', 'Organic Farm', 'Double Cropping']
 CROP_SAMPLE = ['Palay (Rice)', '2.5', 'Yes', 'NSIC Rc 222', 'Certified Seed', '40', 'kg', '']
 PARCEL_NOTE_PREFIX = 'How to fill this in:'
 CROP_NOTE_PREFIX = 'How to fill this in:'
@@ -148,7 +147,7 @@ def parse_crop_cells(row, offset=0):
 
 def parse_parcel_cells(row):
     """The parcel columns of a row as a dict for FarmParcelSerializer, or ValueError with a sentence."""
-    number, area, barangay, ownership, owner, owner_rsbsa, tax, farm_type, organic, ancestral, arb, schedule = (
+    number, area, barangay, ownership, owner, owner_rsbsa, tax, farm_type, classifications, schedule = (
         _text(row, i) for i in range(len(PARCEL_COLUMNS)))
     if not area:
         raise ValueError('Area (ha) is required.')
@@ -169,9 +168,7 @@ def parse_parcel_cells(row):
         'land_owner_rsbsa_number': owner_rsbsa if land_ownership in ('Tenant', 'Lessee') else '',
         'tax_declaration_number': tax,
         'farm_type': _choice(farm_type, FARM_TYPES, 'Farm type'),
-        'is_organic': _yes_no(organic, 'Organic Farm'),
-        'within_ancestral_domain': _yes_no(ancestral, 'Within Ancestral Domain'),
-        'is_agrarian_reform_beneficiary': _yes_no(arb, 'Agrarian Reform Beneficiary'),
+        'classifications': [c.strip() for c in classifications.replace(';', ',').split(',') if c.strip()],
         'cropping_schedule': _choice(schedule, CROPPING_SCHEDULES, 'Cropping schedule'),
     }
     check = FarmParcelSerializer(data=parcel)
@@ -210,13 +207,17 @@ CROP_NOTE = (
     f'Main Crop: Yes for the one main crop, otherwise No. Seed Source: {", ".join(SEED_SOURCES)}. Seeds Unit: {", ".join(SEED_UNITS)}. '
     'No. of Trees is for tree crops only. Delete the sample row.'
 )
-PARCEL_NOTE = (
-    f'{PARCEL_NOTE_PREFIX} one row per CROP, with the parcel columns repeated; rows with the same Parcel Number are one parcel. '
-    'A parcel with no crops is one row with the crop columns left blank. Rows without a Parcel Number are separate parcels. '
-    f'Land Ownership: {", ".join(OWNERSHIPS)} (a Tenant or Lessee also needs the Land Owner Name). '
-    f'Farm Type: {", ".join(FARM_TYPES)}. Cropping Schedule: {", ".join(CROPPING_SCHEDULES)}. Barangay must be an Aringay barangay. '
-    f'Crop columns: {CROP_NOTE[len(CROP_NOTE_PREFIX) + 1:]}'
-)
+def parcel_note():
+    """The template's instructions; the Classifications line names what Classification Settings offers right now."""
+    offered = ', '.join(ParcelClassification.objects.filter(is_active=True).order_by('name').values_list('name', flat=True)) or 'none set up yet'
+    return (
+        f'{PARCEL_NOTE_PREFIX} one row per CROP, with the parcel columns repeated; rows with the same Parcel Number are one parcel. '
+        'A parcel with no crops is one row with the crop columns left blank. Rows without a Parcel Number are separate parcels. '
+        f'Land Ownership: {", ".join(OWNERSHIPS)} (a Tenant or Lessee also needs the Land Owner Name). '
+        f'Farm Type: {", ".join(FARM_TYPES)}. Classifications: any of {offered}, separated by commas (leave blank for none). '
+        f'Cropping Schedule: {", ".join(CROPPING_SCHEDULES)}. Barangay must be an Aringay barangay. '
+        f'Crop columns: {CROP_NOTE[len(CROP_NOTE_PREFIX) + 1:]}'
+    )
 
 
 class ParcelCropsTemplateView(APIView):
@@ -230,7 +231,7 @@ class ParcelImportTemplateView(APIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
     def get(self, request):
-        return _template_response('farm_parcels_import_template.xlsx', PARCEL_HEADERS, PARCEL_WIDTHS, PARCEL_SAMPLE + CROP_SAMPLE, PARCEL_NOTE)
+        return _template_response('farm_parcels_import_template.xlsx', PARCEL_HEADERS, PARCEL_WIDTHS, PARCEL_SAMPLE + CROP_SAMPLE, parcel_note())
 
 
 def _read(file, headers, sample, prefix, max_rows):

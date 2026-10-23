@@ -16,6 +16,7 @@ import {
   LineChart,
   Settings2,
   HeartHandshake,
+  ListChecks,
   ShieldCheck,
   Sprout,
   TrendingUp,
@@ -163,6 +164,7 @@ const ADMIN_GROUP = {
     { to: "/fisheries-settings", icon: Settings2, label: "Fisheries Settings" },
     { to: "/activity-settings", icon: Activity, label: "Activity Settings" },
     { to: "/assistance-settings", icon: HeartHandshake, label: "Assistance Settings" },
+    { to: "/classification-settings", icon: ListChecks, label: "Classification Settings" },
     { to: "/users", icon: UserCog, label: "User Management" },
   ],
 };

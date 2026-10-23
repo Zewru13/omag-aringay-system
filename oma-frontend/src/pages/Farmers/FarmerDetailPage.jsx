@@ -248,8 +248,18 @@ function ParcelRow({ parcel }) {
 
       {expanded && (
         <tr>
-          <td colSpan={6} className="bg-[#EBF5EE]/20 px-6 py-4">
+          <td colSpan={5} className="bg-[#EBF5EE]/20 px-6 py-4">
             <div className="space-y-4">
+              {(parcel.classifications || []).length > 0 && (
+                <div>
+                  <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#7A8E7A]">
+                    Classifications
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {parcel.classifications.map((name) => <StatusPill key={name} tone="green">{name}</StatusPill>)}
+                  </div>
+                </div>
+              )}
               <div>
                 <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#7A8E7A]">
                   Crops Grown
