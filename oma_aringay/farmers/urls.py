@@ -5,6 +5,7 @@ from .parcel_import import FarmParcelImportView, ParcelCropsParseView, ParcelCro
 from .rsbsa_template import RsbsaImportTemplateView
 from .rsbsa_import_undo import RsbsaImportBatchListView, RsbsaImportUndoView
 from .rsbsa_import_views import RsbsaUpdateImportCommitView, RsbsaUpdateImportPreviewView
+from .parcel_purge import FarmParcelPurgeView, PurgedParcelListView
 from .views import (
     FarmCropDeleteView,
     FarmCropListCreateView,
@@ -55,6 +56,8 @@ urlpatterns = [
         name='farm-parcels-create',
     ),
     path('parcels/<int:id>/', FarmParcelDetailView.as_view(), name='farm-parcels-detail'),
+    path('parcels/<int:id>/purge/', FarmParcelPurgeView.as_view(), name='farm-parcels-purge'),
+    path('parcels/purged/', PurgedParcelListView.as_view(), name='farm-parcels-purged'),
     # Crops
     path(
         'parcels/<int:parcel_id>/crops/',

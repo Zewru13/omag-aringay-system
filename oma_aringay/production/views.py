@@ -910,6 +910,8 @@ class CropMonitoringListCreateView(generics.ListCreateAPIView):
             )
         )
         qs = _filter_monitoring_queryset(qs, self.request)
+        # The crop records of a purged parcel (sold or transferred) leave Crop Monitoring with it.
+        qs = qs.filter(Q(farm_parcel__isnull=True) | Q(farm_parcel__purged_at__isnull=True))
         params = self.request.query_params
         # Forecast lists ask for the soonest expected harvest first; any other
         # value is ignored (the default newest-first order stays).
