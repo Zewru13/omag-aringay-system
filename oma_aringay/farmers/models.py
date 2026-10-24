@@ -241,10 +241,12 @@ class FarmParcel(models.Model):
     class PurgeReason(models.TextChoices):
         SOLD = 'Sold', 'Sold'
         TRANSFERRED = 'Transferred', 'Transferred to someone else'
+        OTHER = 'Other', 'Others'
 
     purged_at = models.DateTimeField(null=True, blank=True, db_index=True)
     purge_reason = models.CharField(max_length=20, choices=PurgeReason.choices, blank=True)
-    purge_date = models.DateField(null=True, blank=True, help_text='The day it was sold or transferred.')
+    purge_reason_other = models.CharField(max_length=100, blank=True, help_text='The reason as typed by staff, when the reason is Other.')
+    purge_date = models.DateField(null=True, blank=True, help_text='The date of occurrence: the day it was sold, transferred or otherwise left.')
     purge_note = models.TextField(blank=True)
     purged_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='+',

@@ -115,33 +115,53 @@ export const addCropsLockedState = (parcel) => {
   return { prefill: { ...prefill, lockParcel: true, parcelLabel: parcelLabel(parcel), parcelAreaHa: parcel.area_hectares, farmerName: parcel.farmer_name } }
 }
 
-// ── purging a parcel that was sold or transferred
+// ── purging a parcel that was sold, transferred or otherwise left the farmer's records
+export const OTHER_REASON = 'Other'
 export const PURGE_REASONS = [
   { value: 'Sold', label: 'Sold' },
   { value: 'Transferred', label: 'Transferred to someone else' },
+  { value: OTHER_REASON, label: 'Others' },
 ]
 export const PURGE_NOTE_MAX = 500
-export const purgeReasonLabel = (reason) => PURGE_REASONS.find((r) => r.value === reason)?.label || reason || '—'
+export const PURGE_OTHER_MAX = 100
+
+// The reason as shown: what the staff member typed when it was Others, else the choice's own label.
+export function purgeReasonLabel(reason, other = '') {
+  if (reason === OTHER_REASON) return (other || '').trim() || 'Others'
+  return PURGE_REASONS.find((r) => r.value === reason)?.label || reason || '—'
+}
 
 // Why the Purge Parcel form cannot be sent yet ('' when it can). `today` is YYYY-MM-DD.
-export function purgeProblem({ reason, date, note }, today) {
-  if (!PURGE_REASONS.some((r) => r.value === reason)) return 'Choose why the parcel is leaving: sold or transferred.'
+export function purgeProblem({ reason, reasonOther, date, note }, today) {
+  if (!PURGE_REASONS.some((r) => r.value === reason)) return 'Choose why the parcel is leaving.'
+  if (reason === OTHER_REASON) {
+    const typedReason = (reasonOther || '').trim()
+    if (!typedReason) return 'Type the reason, since you chose Others.'
+    if (typedReason.length > PURGE_OTHER_MAX) return `Keep the reason under ${PURGE_OTHER_MAX} characters.`
+  }
   if (date && date > today) return 'The date cannot be in the future.'
   if ((note || '').length > PURGE_NOTE_MAX) return `Keep the note under ${PURGE_NOTE_MAX} characters.`
   return ''
 }
 
-export const purgePayload = ({ reason, date, note }) => ({ reason, date: date || null, note: (note || '').trim() })
+export const purgePayload = ({ reason, reasonOther, date, note }) => ({
+  reason,
+  ...(reason === OTHER_REASON ? { reason_other: (reasonOther || '').trim() } : {}),
+  date: date || null,
+  note: (note || '').trim(),
+})
 
 // The server's answer to a refused purge as one sentence.
 export function purgeServerMessage(data) {
   const first = (value) => (Array.isArray(value) ? value[0] : value)
-  return first(data?.detail) || first(data?.reason) || first(data?.date) || first(data?.note) || 'Unable to purge the parcel. Please try again.'
+  return first(data?.detail) || first(data?.reason) || first(data?.reason_other) || first(data?.date) || first(data?.note) || 'Unable to purge the parcel. Please try again.'
 }
 
-// The Purged Parcels table's request: only what is typed is sent.
-export function purgedParams({ search, page } = {}) {
+// The Purged Parcels table's request: only what is typed or chosen is sent. The dates are the date of occurrence, ends included.
+export function purgedParams({ search, dateFrom, dateTo, page } = {}) {
   const params = { page: page || 1 }
   if (typed(search)) params.search = typed(search)
+  if (dateFrom) params.date_from = dateFrom
+  if (dateTo) params.date_to = dateTo
   return params
 }

@@ -1,14 +1,16 @@
 """
-Purge a farm parcel that was sold or transferred to someone else, and the table of purged parcels.
+Purge a farm parcel that was sold, transferred or otherwise left the farmer's records, and the table of purged parcels.
 
 POST /api/farmers/parcels/<id>/purge/
-    body: { reason: 'Sold' | 'Transferred', date: 'YYYY-MM-DD' (optional, today by default; not in the future), note: '' (optional) }
+    body: { reason: 'Sold' | 'Transferred' | 'Other', reason_other: 'why, in words' (required, up to 100 characters, when the reason is
+    Other; ignored otherwise), date: 'YYYY-MM-DD' (the date of occurrence; optional, today by default; not in the future), note: '' (optional) }
     Refused while any crop on the parcel is still growing (Planted or Near Harvest): harvest or close those records first, so no
     active crop disappears silently. A purged parcel leaves Crop Records, the parcel pickers and Crop Monitoring; its finished crop
     records (Harvested, Total Loss) are kept. Staff only.
 
-GET /api/farmers/parcels/purged/?search=&page=
-    The purged parcels, newest first (paged). Staff only.
+GET /api/farmers/parcels/purged/?search=&date_from=&date_to=&page=
+    The purged parcels, newest first (paged). date_from / date_to (YYYY-MM-DD, either or both) keep those whose date of occurrence falls
+    in the range, ends included. Staff only.
 """
 from django.db import transaction
 from django.db.models import Count
@@ -26,6 +28,7 @@ from core.utils import filter_people_search
 from .models import FarmParcel
 
 MAX_NOTE_LENGTH = 500
+MAX_REASON_OTHER_LENGTH = 100
 
 
 class PurgedParcelSerializer(serializers.ModelSerializer):
@@ -38,7 +41,8 @@ class PurgedParcelSerializer(serializers.ModelSerializer):
     class Meta:
         model = FarmParcel
         fields = ['id', 'farmer', 'farmer_name', 'rsbsa_number', 'parcel_number', 'barangay', 'area_hectares', 'land_ownership',
-                  'commodity_name', 'record_count', 'purge_reason', 'purge_date', 'purge_note', 'purged_at', 'purged_by_name']
+                  'commodity_name', 'record_count', 'purge_reason', 'purge_reason_other', 'purge_date', 'purge_note', 'purged_at',
+                  'purged_by_name']
         read_only_fields = fields
 
     def get_farmer_name(self, obj):
@@ -73,7 +77,15 @@ class FarmParcelPurgeView(APIView):
         today = timezone.localdate()
         reason = request.data.get('reason')
         if reason not in FarmParcel.PurgeReason.values:
-            raise ValidationError({'reason': 'Choose why the parcel is leaving: Sold or Transferred.'})
+            raise ValidationError({'reason': 'Choose why the parcel is leaving.'})
+        raw_other = request.data.get('reason_other')
+        reason_other = raw_other.strip() if isinstance(raw_other, str) else ''
+        if reason != FarmParcel.PurgeReason.OTHER:
+            reason_other = ''
+        elif not reason_other:
+            raise ValidationError({'reason_other': 'Type the reason, since you chose Others.'})
+        elif len(reason_other) > MAX_REASON_OTHER_LENGTH:
+            raise ValidationError({'reason_other': f'Keep the reason under {MAX_REASON_OTHER_LENGTH} characters.'})
         raw_date = request.data.get('date') or None
         date = today
         if raw_date:
@@ -97,10 +109,11 @@ class FarmParcelPurgeView(APIView):
                 raise ValidationError({'detail': blocked})
             parcel.purged_at = timezone.now()
             parcel.purge_reason = reason
+            parcel.purge_reason_other = reason_other
             parcel.purge_date = date
             parcel.purge_note = note
             parcel.purged_by = request.user
-            parcel.save(update_fields=['purged_at', 'purge_reason', 'purge_date', 'purge_note', 'purged_by'])
+            parcel.save(update_fields=['purged_at', 'purge_reason', 'purge_reason_other', 'purge_date', 'purge_note', 'purged_by'])
         return Response({'id': parcel.id, 'purged_at': parcel.purged_at}, status=status.HTTP_200_OK)
 
 
@@ -123,4 +136,12 @@ class PurgedParcelListView(generics.ListAPIView):
                 id_fields=['farmer__rsbsa_number'],
                 other_fields=['parcel_number'],
             )
+        params = self.request.query_params
+        for name, lookup in (('date_from', 'purge_date__gte'), ('date_to', 'purge_date__lte')):
+            raw = params.get(name)
+            if raw:
+                try:
+                    qs = qs.filter(**{lookup: serializers.DateField().run_validation(raw)})
+                except serializers.ValidationError:
+                    raise ValidationError({name: 'Enter the date as YYYY-MM-DD.'})
         return qs
