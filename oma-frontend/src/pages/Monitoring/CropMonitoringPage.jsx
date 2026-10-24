@@ -34,7 +34,8 @@ import { todayISO as localToday } from '../../utils/localDate.js'
 import CycleDayBanner from '../../components/UI/CycleDayBanner.jsx'
 import CropDetailsModal from './CropDetailsModal.jsx'
 import GroupedMonitoringTable from './GroupedMonitoringTable.jsx'
-import { DEFAULT_GROUP, FARMER_GROUP, GROUP_OPTIONS, monitoringParams } from './monitoringGroups.js'
+import { DEFAULT_GROUP, DEFAULT_STATUS, FARMER_GROUP, GROUP_OPTIONS, monitoringParams } from './monitoringGroups.js'
+import { harvestAreaHint, harvestAreaProblem } from './harvestArea.js'
 import { printSpec } from './disasterReportDocument.js'
 import {
   FORCED_OTHER, FORCED_REASONS, LATE_REASONS, OTHER_REASON, buildHarvestReportSpec, composeForcedReason, composeReason, forcedProblem,
@@ -1231,6 +1232,8 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   // The units this harvest's crop allows (Crop Options); the standard codes when the harvest has no crop record.
   const [cropUnits,    setCropUnits]    = useState(null)
+  // The area this crop was planted on: the most the harvest can cover (null when the harvest has no crop record).
+  const [plantedHa,    setPlantedHa]    = useState(null)
 
   useEffect(() => {
     api.get(`/production/${harvestId}/`)
@@ -1238,7 +1241,10 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
         const d = r.data
         if (d.monitoring_record) {
           api.get(`/production/monitoring/${d.monitoring_record}/`)
-            .then(m => setCropUnits(m.data.crop_allowed_units?.length ? m.data.crop_allowed_units : null))
+            .then(m => {
+              setCropUnits(m.data.crop_allowed_units?.length ? m.data.crop_allowed_units : null)
+              setPlantedHa(m.data.area_planted_ha ?? null)
+            })
             .catch(() => {})
         }
         setForm({
@@ -1258,6 +1264,8 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
 
   const handleSubmit = async () => {
     if (!form.harvest_start_date) { showToast('Harvested date is required.', 'error'); return }
+    const areaProblem = harvestAreaProblem(form.area_harvested_hectares, plantedHa)
+    if (areaProblem) { showToast(`Area harvested: ${areaProblem}`, 'error'); return }
     if (!form.volume_kg || parseFloat(form.volume_kg) <= 0) { showToast('Volume must be greater than 0.', 'error'); return }
     setIsSubmitting(true)
     try {
@@ -1273,7 +1281,7 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
       showToast('Harvest record updated.', 'success')
       onSuccess()
     } catch (err) {
-      showToast(err?.response?.data?.detail || 'Failed to update harvest record.', 'error')
+      showToast(extractErrorMessage(err, 'Failed to update harvest record.'), 'error')
     } finally { setIsSubmitting(false) }
   }
 
@@ -1306,10 +1314,11 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700">Area Harvested (ha) *</label>
-              <DecimalInput decimals={2} className={baseInputClasses}
+              <DecimalInput decimals={2} className={baseInputClasses} max={plantedHa === null ? undefined : Number(plantedHa)}
                 value={form.area_harvested_hectares}
                 onChange={v => handleChange('area_harvested_hectares', v)}
                 placeholder="e.g. 2.50" />
+              {harvestAreaHint(plantedHa) && <p className="mt-1 text-[11px] text-slate-400">{harvestAreaHint(plantedHa)}</p>}
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700">Unit</label>
@@ -1612,12 +1621,9 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
     setReasonChoice(''); setReasonDetail('')
   }
 
-  const validateArea = (val) => {
-    if (!val) return 'Area harvested is required.'
-    const n = parseFloat(val)
-    if (isNaN(n) || n <= 0) return 'Area must be greater than 0.'
-    return ''
-  }
+  // Never more than the area this crop was planted on.
+  const plantedHa = record.area_planted_ha ?? null
+  const validateArea = (val) => harvestAreaProblem(val, plantedHa)
 
   const validateQuantity = (val) => {
     if (!val) return 'Quantity harvested is required.'
@@ -1841,12 +1847,14 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700">Area Harvested (ha) *</label>
-              <input type="number" step="0.0001"
+              <input type="number" step="0.0001" max={plantedHa ?? undefined}
                 className={`${baseInputClasses} ${areaError ? 'border-rose-400' : ''}`}
                 value={areaHarvested}
                 onChange={e => { setAreaHarvested(e.target.value); setAreaError(validateArea(e.target.value)) }}
                 placeholder="e.g. 2.50" />
-              {areaError && <p className="mt-1 text-xs text-rose-600">{areaError}</p>}
+              {areaError
+                ? <p className="mt-1 text-xs text-rose-600">{areaError}</p>
+                : harvestAreaHint(plantedHa) && <p className="mt-1 text-[11px] text-slate-400">{harvestAreaHint(plantedHa)}</p>}
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700">Unit of Measure *</label>
@@ -2047,7 +2055,7 @@ export default function CropMonitoringPage() {
   // can never overwrite the one for what is typed now.
   const debouncedSearch = useDebouncedValue(search.trim())
   const requestSeq = useRef(0)
-  const [statusFilter,     setStatusFilter]     = useState('all')
+  const [statusFilter,     setStatusFilter]     = useState(DEFAULT_STATUS)
   const [seasonFilter,     setSeasonFilter]     = useState('')
   const [yearFilter,       setYearFilter]       = useState('')
   const [barangayFilter,   setBarangayFilter]   = useState(() => searchParams.get('barangay') || '')
@@ -2234,7 +2242,7 @@ export default function CropMonitoringPage() {
           search={search}
           onSearchChange={setSearch}
           searchPlaceholder={isFarmer ? 'Search by crop or barangay...' : 'Search by farmer, RSBSA, crop, or organization...'}
-          activeCount={[statusFilter !== 'all', Boolean(seasonFilter), Boolean(yearFilter), Boolean(barangayFilter), Boolean(cropFilter), !isFarmer && groupBy !== DEFAULT_GROUP].filter(Boolean).length}
+          activeCount={[statusFilter !== DEFAULT_STATUS, Boolean(seasonFilter), Boolean(yearFilter), Boolean(barangayFilter), Boolean(cropFilter), !isFarmer && groupBy !== DEFAULT_GROUP].filter(Boolean).length}
         >
           {/* A farmer account always sees its own farm parcels, so it has no grouping choice. */}
           {!isFarmer && (
