@@ -11,13 +11,58 @@ export function cropCountLabel(count) {
 
 const typed = (value) => (typeof value === 'string' ? value.trim() : value)
 
+// How the parcels can be grouped and sorted. The first sort is the server's own order (farmer A-Z), so it is not sent.
+export const GROUP_OPTIONS = [
+  { value: 'none', label: 'No grouping' },
+  { value: 'farmer', label: 'Farmer' },
+  { value: 'barangay', label: 'Barangay' },
+  { value: 'ownership', label: 'Land ownership' },
+]
+export const SORT_OPTIONS = [
+  { value: 'name', label: 'Farmer A–Z' },
+  { value: 'crops', label: 'Most crops first' },
+  { value: 'crops_asc', label: 'Fewest crops first' },
+  { value: 'area', label: 'Largest area first' },
+  { value: 'number', label: 'Parcel number' },
+]
+export const DEFAULT_GROUP = 'none'
+export const DEFAULT_SORT = 'name'
+
 // The parcel list's request: only what is typed or chosen is sent.
-export function directoryParams({ search, barangay, page } = {}) {
+export function directoryParams({ search, barangay, ordering, page } = {}) {
   const params = { page: page || 1 }
   if (typed(search)) params.search = typed(search)
   if (barangay) params.barangay = barangay
+  if (ordering && ordering !== DEFAULT_SORT) params.ordering = ordering
   return params
 }
+
+// The same filters and sort, without the page: what the groups are asked with (plus group_by) and what an opened group adds to.
+export function groupFilterParams(filters) {
+  const params = directoryParams(filters)
+  delete params.page
+  return params
+}
+
+// What to add to the filters to get one group's parcels; null when the group has nothing to open onto.
+export function groupChildParams(groupBy, group) {
+  if (groupBy === 'farmer') return group.id ? { farmer: group.id } : null
+  if (groupBy === 'barangay') return group.id ? { barangay: group.id } : null
+  if (groupBy === 'ownership') return group.id ? { land_ownership: group.id } : null
+  return null
+}
+
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`
+
+export function groupSummary(group) {
+  const parts = [plural(group.parcels, 'parcel')]
+  const area = Math.round((group.area_hectares || 0) * 100) / 100
+  if (area > 0) parts.push(`${area} ha`)
+  parts.push(cropCountLabel(group.crops))
+  return parts.join(' · ')
+}
+
+export const groupHeading = (groupBy, group) => (groupBy === 'farmer' && group.barangay ? `${group.name} · ${group.barangay}` : group.name)
 
 // The crops with no parcel on file (older records, organization crops). A parcel filter does not apply to them.
 export function noParcelParams({ search, barangay } = {}) {
