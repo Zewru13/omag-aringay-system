@@ -53,7 +53,7 @@ class ProductionCycleBase(APITestCase):
     def payload(self, **over):
         data = {
             'fisherfolk': self.ff_a.id, 'cycle_name': 'Grow-out Phase', 'species_farmed': 'Tilapia',
-            'species_option': self.species.id, 'ownership': 'Owner', 'culture_system': 'Fishpond',
+            'species_option': self.species.id, 'ownership': 'Owner', 'target_harvest_date': str(date.today() + timedelta(days=90)), 'culture_system': 'Fishpond',
             'pond_location_barangay': 'Poblacion', 'water_source': 'River',
             'stocking_date': str(date.today() - timedelta(days=1)),
             'units': [{'length_m': 4, 'width_m': 2, 'fingerling_count': 20},
@@ -878,7 +878,7 @@ class ProductionCycleOrganizationTests(ProductionCycleBase):
         cycles, stocks = AquacultureProductionCycle.objects.count(), StockingRecord.objects.count()
         r = self.client.post(self.CYCLES, {
             'fisherfolk': self.ff_a.id, 'organization': self.org_a.id, 'cycle_name': 'Grow-out Phase',
-            'species_farmed': 'Tilapia', 'species_option': self.species.id, 'ownership': 'Owner', 'culture_system': 'Fishpen',
+            'species_farmed': 'Tilapia', 'species_option': self.species.id, 'ownership': 'Owner', 'target_harvest_date': str(date.today() + timedelta(days=90)), 'culture_system': 'Fishpen',
             'pond_location_barangay': 'Poblacion', 'water_source': 'River',
             'stocking_date': str(date.today() - timedelta(days=1)), 'stocking_count': 500,
         }, format='json')

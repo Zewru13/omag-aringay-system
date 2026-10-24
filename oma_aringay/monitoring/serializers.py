@@ -375,6 +375,9 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
             if not units and not data.get('stocking_count'):
                 raise serializers.ValidationError({'stocking_count': 'Stocking count is required to record the stocking.'})
             validate_not_future_date(data['stocking_date'], 'Stocking date')
+            # Start Production Cycle: the season comes from the stocking date (always set), and the target harvest date is required.
+            if not data.get('target_harvest_date'):
+                raise serializers.ValidationError({'target_harvest_date': 'Target harvest date is required.'})
             # Both are recorded on the StockingRecord this creates, so both are mandatory here.
             for field, label in (('pond_location_barangay', 'Pond location'), ('water_source', 'Water source')):
                 if not data.get(field):

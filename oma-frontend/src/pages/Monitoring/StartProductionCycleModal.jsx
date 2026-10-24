@@ -256,6 +256,8 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
     e.preventDefault()
     // Fisherfolk is required: nothing is sent without one.
     if (!selectedFf) { setFfError('Fisherfolk is required.'); showToast('Select a fisherfolk.', 'error'); return }
+    if (!form.stocking_date) { showToast('Stocking date is required, so the season can be detected.', 'error'); return }
+    if (!form.target_harvest_date) { showToast('Target harvest date is required.', 'error'); return }
     if (form.target_harvest_date && form.stocking_date && form.target_harvest_date < form.stocking_date) {
       showToast('Target harvest date cannot be earlier than the stocking date.', 'error'); return
     }
@@ -482,17 +484,17 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
           <FormField label="Stocking Date" required>
             <input type="date" className={baseInputClasses} required value={form.stocking_date} onChange={e => handleStockingDateChange(e.target.value)} />
           </FormField>
-          <FormField label="Season">
+          <FormField label="Season" required>
             <input
-              type="text" readOnly tabIndex={-1} data-testid="detected-season"
+              type="text" readOnly tabIndex={-1} required data-testid="detected-season"
               className={`${baseInputClasses} cursor-not-allowed bg-slate-50 text-slate-700`}
               value={form.stocking_date ? `${detectSeason(form.stocking_date)} Season` : ''}
               placeholder="Detected from Stocking Date"
             />
           </FormField>
-          <FormField label="Target Harvest Date">
+          <FormField label="Target Harvest Date" required>
             <input
-              type="date" className={baseInputClasses} min={form.stocking_date || undefined}
+              type="date" className={baseInputClasses} required min={form.stocking_date || undefined}
               value={form.target_harvest_date} onChange={e => handleTargetChange(e.target.value)}
             />
             {form.species_option && (

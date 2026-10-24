@@ -2,7 +2,7 @@
 the cycle (read from, and edited on, its linked stocking record, form photo included)."""
 import io
 import tempfile
-from datetime import date
+from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -222,3 +222,35 @@ class CyclePcicTests(ProductionCycleBase):
         self.assertEqual(self.client.get(f'{self.CYCLES}{cycle["id"]}/').status_code, 200)       # their own cycle
         self.client.force_authenticate(None)
         self.assertIn(self.client.get(f'{self.CYCLES}{cycle["id"]}/').status_code, (401, 403))
+
+
+class StartCycleRequiredFieldsTests(ProductionCycleBase):
+    """Start Production Cycle: the target harvest date is required (the season comes from the stocking date, which is required)."""
+
+    def test_a_new_cycle_needs_a_target_harvest_date(self):
+        for body in ({'target_harvest_date': None}, {'target_harvest_date': ''}):
+            r = self.post(**body)
+            self.assertEqual(r.status_code, 400, body)
+            self.assertIn('target_harvest_date', r.data)
+        payload = self.payload()
+        payload.pop('target_harvest_date')
+        r = self.client.post(self.CYCLES, payload, format='json')
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('target_harvest_date', r.data)
+        self.assertEqual(AquacultureProductionCycle.objects.count(), 0)
+
+    def test_a_target_date_makes_it_work_and_the_season_is_detected_from_the_stocking_date(self):
+        r = self.post(target_harvest_date=str(date.today() + timedelta(days=120)))
+        self.assertEqual(r.status_code, 201, r.data)
+        self.assertIn(r.data['season'], ('Wet', 'Dry'))
+
+    def test_a_target_before_the_stocking_date_is_still_refused(self):
+        r = self.post(target_harvest_date=str(date.today() - timedelta(days=30)))
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('target_harvest_date', r.data)
+
+    def test_editing_an_existing_cycle_does_not_need_it_again(self):
+        cid = self.post().data['id']
+        AquacultureProductionCycle.objects.filter(pk=cid).update(target_harvest_date=None)
+        r = self.client.patch(f'{self.CYCLES}{cid}/', {'notes': 'edited'}, format='json')
+        self.assertEqual(r.status_code, 200, r.data)

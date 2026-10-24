@@ -64,7 +64,7 @@ class FisheriesNotificationTests(APITestCase):
         self.as_(user or self.admin)
         data = {
             'fisherfolk': self.ff_a.id, 'cycle_name': 'Grow-out Phase', 'species_farmed': 'Bangus',
-            'species_option': self.species.id, 'ownership': 'Owner', 'culture_system': 'Fishpond', 'pond_location_barangay': 'Samara',
+            'species_option': self.species.id, 'ownership': 'Owner', 'target_harvest_date': str(date.today() + timedelta(days=90)), 'culture_system': 'Fishpond', 'pond_location_barangay': 'Samara',
             'water_source': 'River', 'stocking_date': str(date.today() - timedelta(days=1)),
             'units': [{'length_m': 10, 'width_m': 5, 'fingerling_count': 100} for _ in range(ponds)],
         }

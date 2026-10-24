@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle, Bug, CheckCircle, CheckCircle2, ChevronDown, Fish, HelpCircle, Lock, Wheat,
 } from 'lucide-react'
@@ -1350,61 +1350,6 @@ export function StockingDisasterReportModal({ record, onClose, onSuccess }) {
   )
 }
 
-// ── Record Harvest: available pond/cage multi-select ─────────────────────────
-// `units` are only the ponds/cages still available (never harvested ones). "Select All Available"
-// is derived from the selection, so it unticks when one unit is unticked and ticks when all are picked.
-function UnitMultiSelect({ units, unitWord, selectedIds, onChange }) {
-  const [open, setOpen] = useState(false)
-  const boxRef = useRef(null)
-  useEffect(() => {
-    if (!open) return
-    const onDown = (e) => { if (boxRef.current && !boxRef.current.contains(e.target)) setOpen(false) }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [open])
-  const allSelected = units.length > 0 && units.every(u => selectedIds.includes(u.id))
-  const toggle = (id) => onChange(selectedIds.includes(id) ? selectedIds.filter(x => x !== id) : [...selectedIds, id])
-  const toggleAll = () => onChange(allSelected ? [] : units.map(u => u.id))
-  const selected = units.filter(u => selectedIds.includes(u.id))
-  return (
-    <div ref={boxRef} className="relative" data-testid="unit-multiselect">
-      <button type="button" onClick={() => setOpen(o => !o)} aria-haspopup="listbox" aria-expanded={open}
-        className={`${baseInputClasses} flex items-center justify-between text-left`}>
-        <span className={selected.length ? 'text-slate-800' : 'text-slate-400'}>
-          {selected.length ? `${selected.length} ${unitWord.toLowerCase()}${selected.length !== 1 ? 's' : ''} selected` : `Select available ${unitWord.toLowerCase()}s`}
-        </span>
-        <span className="text-slate-400" aria-hidden="true">▾</span>
-      </button>
-      {open && (
-        <div role="listbox" aria-multiselectable="true"
-          className="absolute z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
-          <label className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm font-medium text-slate-800 hover:bg-slate-50">
-            <input type="checkbox" checked={allSelected} onChange={toggleAll} data-testid="unit-select-all" />
-            Select All Available {unitWord}s
-          </label>
-          <div className="my-1 border-t border-slate-100" />
-          {units.map(u => (
-            <label key={u.id} className="flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50">
-              <input type="checkbox" checked={selectedIds.includes(u.id)} onChange={() => toggle(u.id)} />
-              {u.label}
-            </label>
-          ))}
-        </div>
-      )}
-      {selected.length > 0 && (
-        <div className="mt-1.5 flex flex-wrap gap-1" data-testid="unit-chips">
-          {selected.map(u => (
-            <span key={u.id} className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-800">
-              {u.label}
-              <button type="button" aria-label={`Remove ${u.label}`} onClick={() => toggle(u.id)} className="text-amber-600 hover:text-amber-900">×</button>
-            </span>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ── Record Harvest: per-unit Actual Harvest (kg) ─────────────────────────────
 // One validator for every per-unit kg input (Force and normal harvest): required, numeric (decimals
 // allowed), greater than 0, at most 2 decimal places. Returns '' when valid.
@@ -1470,6 +1415,70 @@ function UnitKgTable({ units, values, errors, onChange, estimates }) {
             <td className="px-2.5 py-1.5">
               {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg
             </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  )
+}
+
+// ── Record Harvest: one table, a row per available pond/cage ─────────────────
+// Each row is a pond/cage still available (never harvested): tick it, then type its own Actual Harvest (kg). The header box ticks or
+// unticks every row ("Select all" is derived from the rows), the estimate sits beside each input, and the footer totals the ticked
+// rows. Replaces the pick-from-a-dropdown step; the values stay keyed by production-unit id and only ticked rows are sent.
+function UnitHarvestTable({ units, unitWord, selectedIds, onSelect, values, errors, onChange, estimates }) {
+  const allSelected = units.length > 0 && units.every(u => selectedIds.includes(u.id))
+  const picked = units.filter(u => selectedIds.includes(u.id))
+  const total = unitKgTotal(picked, values)
+  const toggle = (id) => onSelect(selectedIds.includes(id) ? selectedIds.filter(x => x !== id) : [...selectedIds, id])
+  const estimateOf = (id) => {
+    const kg = estimates && estimates !== 'error' ? estimates[id] : undefined
+    if (estimates === null) return '…'
+    return kg != null ? Number(kg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'
+  }
+  return (
+    <div className="overflow-x-auto rounded-lg border border-slate-200" data-testid="unit-harvest-table-wrap">
+      <table className="w-full text-sm" data-testid="unit-harvest-table">
+        <thead>
+          <tr className="bg-slate-50 text-left text-xs font-semibold text-slate-600">
+            <th className="w-8 px-2 py-1.5">
+              <input type="checkbox" checked={allSelected} onChange={() => onSelect(allSelected ? [] : units.map(u => u.id))}
+                aria-label={`Select all available ${unitWord.toLowerCase()}s`} data-testid="unit-select-all" />
+            </th>
+            <th className="px-2 py-1.5">{unitWord}</th>
+            <th className="whitespace-nowrap px-2 py-1.5">Est. (kg)</th>
+            <th className="whitespace-nowrap px-2 py-1.5">Actual (kg)</th>
+          </tr>
+        </thead>
+        <tbody className="align-top">
+          {units.map(u => {
+            const on = selectedIds.includes(u.id)
+            return (
+              <tr key={u.id} className={`border-t border-slate-100 ${on ? 'bg-emerald-50/40' : ''}`}>
+                <td className="px-2 py-2">
+                  <input type="checkbox" checked={on} onChange={() => toggle(u.id)} aria-label={`Harvest ${u.label}`} data-testid={`unit-pick-${u.id}`} />
+                </td>
+                <td className="whitespace-nowrap px-2 py-2 font-semibold text-slate-800">{u.label}</td>
+                <td className="whitespace-nowrap px-2 py-2 text-slate-600" data-testid={`unit-estimate-${u.id}`}>{estimateOf(u.id)}</td>
+                <td className="min-w-[6.5rem] px-2 py-1.5">
+                  <input type="number" step="0.01" min="0.01" inputMode="decimal" disabled={!on}
+                    data-testid={`unit-kg-${u.id}`}
+                    aria-label={`Actual Harvest (kg) for ${u.label}`}
+                    aria-invalid={Boolean(on && errors[u.id])}
+                    className={`${baseInputClasses} ${on && errors[u.id] ? 'border-rose-400' : ''} disabled:bg-slate-50 disabled:text-slate-400`}
+                    value={values[u.id] ?? ''}
+                    onChange={e => onChange(u.id, e.target.value)}
+                    placeholder={on ? '12.50' : '—'} />
+                  {on && errors[u.id] && <p className="mt-1 text-xs text-rose-600">{errors[u.id]}</p>}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+        <tfoot>
+          <tr className="border-t-2 border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700" data-testid="unit-kg-total">
+            <td className="px-2 py-1.5" colSpan={3}>{picked.length} of {units.length} {unitWord.toLowerCase()}{units.length !== 1 ? 's' : ''} selected · TOTAL</td>
+            <td className="whitespace-nowrap px-2 py-1.5">{total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg</td>
           </tr>
         </tfoot>
       </table>
@@ -1948,26 +1957,21 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
 
           {unitSelect && (
             <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Area / Units Harvested *</label>
+              <label className="mb-1 block text-xs font-medium text-slate-700">{unitWord}s to Harvest and Actual Harvest (kg) *</label>
               {availableUnits.length === 0 ? (
                 <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600" data-testid="no-units-available">
                   No remaining {unitWord.toLowerCase()}s are available for harvest.
                 </p>
               ) : (
-                <UnitMultiSelect units={availableUnits} unitWord={unitWord}
-                  selectedIds={selectedUnitIds} onChange={setSelectedUnitIds} />
+                <UnitHarvestTable units={availableUnits} unitWord={unitWord} selectedIds={selectedUnitIds} onSelect={setSelectedUnitIds}
+                  values={unitKg} errors={unitKgErrors} onChange={setOneUnitKg} estimates={unitEstimates} />
               )}
             </div>
           )}
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">Actual Harvest (kg) *</label>
-            {unitSelect ? (
-              // Normal harvest of selected ponds/cages: each unit's own kg, same table as Force Harvest.
-              selectedUnits.length > 0
-                ? <UnitKgTable units={selectedUnits} values={unitKg} errors={unitKgErrors} onChange={setOneUnitKg} estimates={unitEstimates} />
-                : <p className="text-xs text-slate-500">Select the {unitWord.toLowerCase()}s being harvested to enter each one's actual harvest.</p>
-            ) : (<>
+            {!unitSelect && <label className="mb-1 block text-xs font-medium text-slate-700">Actual Harvest (kg) *</label>}
+            {unitSelect ? null : (<>
               <input type="number" step="0.01"
                 className={`${baseInputClasses} ${quantityError ? 'border-rose-400' : ''}`}
                 value={quantityKg}
