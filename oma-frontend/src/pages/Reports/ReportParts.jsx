@@ -136,12 +136,14 @@ export function SignatureModal({ purpose, onClose, onGenerate }) {
 // print:hidden on the whole row — action buttons have no business appearing
 // on the printed page itself, same reason the filter panels and tab
 // switcher below are hidden on print.
-export function ActionButtons({ onPdf, onExcel, isDownloading }) {
+// `onPrint` prints the report itself: the same PDF as Preview PDF, formatted as an official document (see utils/printPdf.js).
+// Without it the button falls back to printing the screen.
+export function ActionButtons({ onPrint, onPdf, onExcel, isDownloading }) {
   return (
     <div className="grid grid-cols-2 gap-2 sm:flex sm:justify-end print:hidden [&>*:last-child:nth-child(odd)]:col-span-2 [&>*]:justify-center max-md:[&>*]:min-h-[40px]">
       <button
         type="button"
-        onClick={() => window.print()}
+        onClick={onPrint || (() => window.print())}
         disabled={isDownloading}
         className="flex items-center gap-1.5 bg-white border border-[#C8D5C8] hover:bg-[#F5F7F5] text-[#4A5E4A] text-[13px] font-medium px-4 py-2 rounded-lg transition-colors disabled:opacity-60"
       >

@@ -32,6 +32,7 @@ from farmers.models import Farmer
 from fisheries.models import Fisherfolk
 
 from .documents import make_document, respond, text
+from .period import period_text
 from .pdf_utils import full_name
 
 KINDS = {
@@ -80,11 +81,11 @@ class Filters:
             raise ValidationError({'registered_to': ['"To" cannot be before "From".']})
         self.search = q.get('search', '').strip()
 
-    def subtitle(self):
+    def subtitle(self, dates=True):
         parts = []
         if self.barangay:
             parts.append(f'Barangay: {self.barangay}')
-        if self.frm or self.to:
+        if dates and (self.frm or self.to):
             span = ' '.join(x for x in (f'from {text(self.frm)}' if self.frm else '', f'to {text(self.to)}' if self.to else '') if x)
             parts.append(f'Registered {span}')
         if self.search:
@@ -278,4 +279,8 @@ class RegisteredRecordsReport(APIView):
             doc = _bulk_orgs(FarmersOrganization, KINDS[kind][0], filters)
         else:
             doc = _bulk_orgs(FisherfolkOrganization, KINDS[kind][0], filters)
+        # The printed title is the report's own; the kind (farmers, fisherfolk, ...) and the filters sit under the period.
+        doc['heading'] = 'Registration Records Report'
+        doc['period'] = period_text(filters.frm, filters.to)
+        doc['detail'] = ' · '.join(p for p in (doc['title'], filters.subtitle(dates=False)) if p)
         return respond(doc, request, KINDS[kind][1])

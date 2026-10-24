@@ -1940,35 +1940,37 @@ class HarvestedCropReport(APIView):
             return JsonResponse({'count': len(data), 'records': data})
 
         if fmt == 'pdf':
-            return self._build_pdf(records, headers, row_data, today, _sig_params(request))
+            return self._build_pdf(request, records, headers, row_data, start_date, end_date)
         return self._build_excel(records, headers, row_data, today)
 
-    def _build_pdf(self, records, headers, row_data_fn, today, sig=None):
-        sig = sig or {}
-        buf, doc = _make_doc()
-        story = []
-        story += build_official_header(LOGO_PATH, 'Harvested Crop Report')
-        story.append(build_stats_row([
-            ('Total Records', len(records)),
-            ('Date Generated', str(today)),
-        ], page_width=PAGE_WIDTH))
-        story.append(Spacer(1, 14))
-        col_widths = [50, 65, 60, 50, 38, 38, 42, 42, 42, 40]
-        rows = [row_data_fn(r) for r in records]
-        story.append(build_ledger_table(headers, rows, col_widths=col_widths))
-        story.append(Spacer(1, 30))
-        story.append(build_signature_block(
-            left_label='Prepared by',
-            left_name=sig.get('prepared_by') or None,
-            left_role=sig.get('position') or 'OMAg Records Officer',
-            reviewed_by=sig.get('reviewed_by') or None,
-            reviewed_role=sig.get('reviewed_role') or None,
-            noted_by=sig.get('noted_by') or None,
-            noted_role=sig.get('noted_role') or None,
-            page_width=PAGE_WIDTH,
-        ))
-        doc.build(story, canvasmaker=NumberedCanvas)
-        return _finish_pdf(buf, f'harvested_crop_report_{today}.pdf')
+    def _build_pdf(self, request, records, headers, row_data_fn, start_date, end_date):
+        """The Crop Harvest Report: the same document layout as the other Reports page PDFs (letterhead, period line, landscape
+        table with repeated headers, signature block), built from the same filtered records as the JSON preview and the Excel."""
+        from decimal import Decimal as D
+
+        from .documents import build_pdf, make_document
+        from .period import period_text
+        q = request.query_params
+        by_barangay = {}
+        total = D('0')
+        for rec in records:
+            est = rec.estimated_yield_kg or 0
+            key = row_data_fn(rec)[0]
+            by_barangay[key] = by_barangay.get(key, D('0')) + D(str(est))
+            total += D(str(est))
+        top = max(by_barangay, key=by_barangay.get) if by_barangay else '—'
+        applied = [f'{label}: {q.get(param).strip()}' for param, label in (
+            ('barangay', 'Barangay'), ('crop_name', 'Crop'), ('yield_performance', 'Yield performance')) if (q.get(param) or '').strip()]
+        if (q.get('organization') or '').strip():
+            applied.append('Organization filter applied')
+        doc = make_document(
+            'Harvested Crop Report', ' · '.join(applied) or 'All harvested records',
+            [['Crop Records', len(records)], ['Total Estimated Yield (kg)', f'{total:,.2f}'], ['Barangay with Highest Yield', top]],
+            [{'title': 'Harvested Crops', 'headers': headers, 'rows': [row_data_fn(r) for r in records],
+              'empty': 'No harvested records match these filters.'}],
+            heading='Crop Harvest Report', period=period_text(start_date, end_date),
+        )
+        return build_pdf(doc, request, 'harvested_crop_report')
 
     def _build_excel(self, records, headers, row_data_fn, today):
         from openpyxl.styles import Font, PatternFill, Alignment
@@ -2085,35 +2087,31 @@ class FisheriesProductionReport(APIView):
             return JsonResponse({'count': len(data), 'records': data})
 
         if fmt == 'pdf':
-            return self._build_pdf(records, headers, row_data, today, _sig_params(request))
+            return self._build_pdf(request, records, headers, row_data, start_date, end_date)
         return self._build_excel(records, headers, row_data, today)
 
-    def _build_pdf(self, records, headers, row_data_fn, today, sig=None):
-        sig = sig or {}
-        buf, doc = _make_doc()
-        story = []
-        story += build_official_header(LOGO_PATH, 'Fisheries Production Report')
-        story.append(build_stats_row([
-            ('Total Harvest Records', len(records)),
-            ('Date Generated', str(today)),
-        ], page_width=PAGE_WIDTH))
-        story.append(Spacer(1, 14))
-        col_widths = [55, 65, 55, 55, 40, 45, 45, 48, 30]
+    def _build_pdf(self, request, records, headers, row_data_fn, start_date, end_date):
+        """The Fisheries Production Report: the same document layout as the other Reports page PDFs, from the same filtered
+        records as the JSON preview and the Excel."""
+        from .documents import build_pdf, make_document
+        from .period import period_text
+        q = request.query_params
         rows = [row_data_fn(r) for r in records]
-        story.append(build_ledger_table(headers, rows, col_widths=col_widths))
-        story.append(Spacer(1, 30))
-        story.append(build_signature_block(
-            left_label='Prepared by',
-            left_name=sig.get('prepared_by') or None,
-            left_role=sig.get('position') or 'OMAg Records Officer',
-            reviewed_by=sig.get('reviewed_by') or None,
-            reviewed_role=sig.get('reviewed_role') or None,
-            noted_by=sig.get('noted_by') or None,
-            noted_role=sig.get('noted_role') or None,
-            page_width=PAGE_WIDTH,
-        ))
-        doc.build(story, canvasmaker=NumberedCanvas)
-        return _finish_pdf(buf, f'fisheries_production_report_{today}.pdf')
+        total_kg = sum(row[7] for row in rows)
+        applied = [f'{label}: {q.get(param).strip()}' for param, label in (
+            ('barangay', 'Barangay'), ('culture_type', 'Culture type')) if (q.get(param) or '').strip()]
+        for param, label in (('species', 'Species'), ('organization', 'Organization')):
+            if (q.get(param) or '').strip():
+                applied.append(f'{label} filter applied')
+        doc = make_document(
+            'Fisheries Production Report', ' · '.join(applied) or 'All harvest records',
+            [['Total Harvest Records', len(rows)], ['Total Quantity (kg)', f'{total_kg:,.2f}']],
+            [{'title': 'Harvest Records', 'headers': ['Barangay', 'Fisherfolk', 'Organization', 'Species', 'Culture Type', 'Date Stocked', 'Harvest Date', 'Quantity (kg)', 'Final?'],
+              'rows': rows,
+              'empty': 'No harvest records match these filters.'}],
+            heading='Fisheries Production Report', period=period_text(start_date, end_date),
+        )
+        return build_pdf(doc, request, 'fisheries_production_report')
 
     def _build_excel(self, records, headers, row_data_fn, today):
         from openpyxl.styles import Font, PatternFill, Alignment

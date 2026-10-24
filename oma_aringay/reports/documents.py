@@ -27,6 +27,7 @@ from reportlab.platypus import Spacer
 from core.exports import SafeWorkbook
 from rest_framework.response import Response
 
+from .period import period_text
 from .pdf_utils import (
     NumberedCanvas,
     build_keyvalue_grid,
@@ -42,8 +43,34 @@ from .views import LOGO_PATH, PAGE_WIDTH, _empty_state, _finish_pdf, _make_doc, 
 ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
 
 
-def make_document(title, subtitle='', stats=None, sections=None):
-    return {'title': title, 'subtitle': subtitle or '', 'stats': stats or [], 'sections': sections or []}
+def make_document(title, subtitle='', stats=None, sections=None, heading=None, period='', detail=None):
+    """`title` / `subtitle` are what the page preview and the Excel show. `heading` is the formal title printed on the PDF (the
+    Print and Preview PDF output), `period` the reporting-period line under it (see reports.period.period_text); both are only
+    used by the PDF and the preview, so the Excel file is untouched. `detail` is the PDF's line under the period: the filters, without
+    the dates that the period line already says (left out, it falls back to the title and subtitle)."""
+    return {'title': title, 'subtitle': subtitle or '', 'stats': stats or [], 'sections': sections or [],
+            'heading': heading or title, 'period': period or '', 'detail': detail}
+
+
+class ReportPageCanvas(NumberedCanvas):
+    """Page footer of the Reports page PDFs: page numbers and a plain line, without the system-name tagline."""
+    disclaimer = 'This is an official record of the Office of the Municipal Agriculturist.'
+
+
+# The seal is drawn at 80 points wide, its height following its own proportions (same as the individual disaster reports).
+LOGO_WIDTH = 80
+
+
+def filters_line(doc):
+    """The line under the period: what the report is and how it was filtered. Left out when it only repeats the heading."""
+    if doc.get('detail') is not None:
+        return doc['detail']
+    parts = []
+    if doc.get('title') and doc['title'] != doc.get('heading'):
+        parts.append(doc['title'])
+    if doc.get('subtitle'):
+        parts.append(doc['subtitle'])
+    return ' · '.join(parts)
 
 
 def text(value):
@@ -96,10 +123,15 @@ def build_pdf(doc, request, filename_stem):
     wide = _is_wide(doc)
     width = LANDSCAPE_WIDTH if wide else PAGE_WIDTH
     buf, pdf = _make_doc()
+    # Slim top and bottom margins (the footer line sits in the bottom margin): the letterhead is tall, so the table starts on page 1.
+    pdf.topMargin, pdf.bottomMargin = 40, 50
     if wide:
         pdf.pagesize = landscape(letter)
         pdf.width = width
-    story = build_official_header(LOGO_PATH, doc['title'], doc.get('subtitle') or None)
+    story = build_official_header(
+        LOGO_PATH, (doc.get('heading') or doc['title']).upper(), doc.get('period') or None,
+        logo_width=LOGO_WIDTH, detail=filters_line(doc) or None, compact=True,
+    )
     if doc.get('stats'):
         story.append(build_stats_row([(label, value) for label, value in doc['stats']], page_width=width))
         story.append(Spacer(1, 10))
@@ -126,7 +158,7 @@ def build_pdf(doc, request, filename_stem):
         noted_role=sig.get('noted_role'),
         page_width=width,
     ))
-    pdf.build(story, canvasmaker=NumberedCanvas)
+    pdf.build(story, canvasmaker=ReportPageCanvas)
     return _finish_pdf(buf, f'{filename_stem}_{_today()}.pdf')
 
 
