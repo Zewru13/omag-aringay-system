@@ -76,7 +76,7 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
   const [isLoadingSpecies, setIsLoadingSpecies] = useState(true)
   const [form, setForm] = useState({
     organization: '',
-    cycle_name: '',
+    cycle_name: 'Stocking Phase',
     cycle_name_other: '',
     species_option: '',
     culture_system: 'Fishpond',
