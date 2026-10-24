@@ -7,7 +7,7 @@ export const GROUP_OPTIONS = [
   { value: 'parcel', label: 'Farm Parcel' },
   { value: 'none', label: 'No grouping' },
 ]
-export const DEFAULT_GROUP = 'crop'
+export const DEFAULT_GROUP = 'none'
 // A farmer account's crops are always grouped by its own farm parcels.
 export const FARMER_GROUP = 'parcel'
 

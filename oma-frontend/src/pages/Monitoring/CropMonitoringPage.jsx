@@ -1227,7 +1227,6 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
   const [form,         setForm]         = useState(null)
   const [isLoading,    setIsLoading]    = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [dateError,    setDateError]    = useState('')
   // The units this harvest's crop allows (Crop Options); the standard codes when the harvest has no crop record.
   const [cropUnits,    setCropUnits]    = useState(null)
 
@@ -1256,16 +1255,14 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
   const handleChange = (field, value) => setForm(f => ({ ...f, [field]: value }))
 
   const handleSubmit = async () => {
-    if (!form.harvest_start_date) { showToast('Harvest start date is required.', 'error'); return }
-    if (form.harvest_end_date && form.harvest_end_date < form.harvest_start_date) {
-      setDateError('End date must be on or after start date.'); return
-    }
+    if (!form.harvest_start_date) { showToast('Harvested date is required.', 'error'); return }
     if (!form.volume_kg || parseFloat(form.volume_kg) <= 0) { showToast('Volume must be greater than 0.', 'error'); return }
     setIsSubmitting(true)
     try {
       await api.patch(`/production/${harvestId}/`, {
         harvest_start_date:      form.harvest_start_date,
-        harvest_end_date:        form.harvest_end_date || null,
+        // A harvest has one date now. An older record's end date is kept only while it is still on or after that date.
+        harvest_end_date:        form.harvest_end_date && form.harvest_end_date >= form.harvest_start_date ? form.harvest_end_date : null,
         area_harvested_hectares: parseFloat(form.area_harvested_hectares),
         volume_kg:               parseFloat(form.volume_kg),
         unit_of_measure:         form.unit_of_measure,
@@ -1297,22 +1294,12 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
         <p className="py-6 text-center text-sm text-slate-400">Loading…</p>
       ) : (
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Harvest Start Date *</label>
-              <input type="date" className={baseInputClasses} value={form.harvest_start_date}
-                max={todayISO()}
-                onChange={e => { handleChange('harvest_start_date', e.target.value); setDateError('') }} />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Harvest End Date</label>
-              <input type="date" className={baseInputClasses} value={form.harvest_end_date}
-                min={form.harvest_start_date || undefined}
-                max={todayISO()}
-                onChange={e => { handleChange('harvest_end_date', e.target.value); setDateError('') }} />
-            </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-700">Harvested Date *</label>
+            <input type="date" className={baseInputClasses} value={form.harvest_start_date}
+              max={todayISO()}
+              onChange={e => handleChange('harvest_start_date', e.target.value)} />
           </div>
-          {dateError && <p className="text-xs font-medium text-rose-600">{dateError}</p>}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -1558,7 +1545,6 @@ export function DisasterReportModal({ record, onClose, onSuccess }) {
 function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
   const { showToast } = useToast()
   const [harvestStartDate,  setHarvestStartDate]  = useState(todayISO())
-  const [harvestEndDate,    setHarvestEndDate]    = useState('')
   const [areaHarvested,     setAreaHarvested]     = useState(record.area_planted_ha ? String(record.area_planted_ha) : '')
   const [unitOfMeasure,     setUnitOfMeasure]     = useState(
     (record.crop_allowed_units && record.crop_allowed_units.length > 0) ? record.crop_allowed_units[0] : 'kg'
@@ -1571,7 +1557,6 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
   const [isPrinting,        setIsPrinting]        = useState(false)
   const [showConfirm,       setShowConfirm]       = useState(false)
   const [isSubmitting,      setIsSubmitting]      = useState(false)
-  const [dateError,         setDateError]         = useState('')
   const [areaError,         setAreaError]         = useState('')
   const [quantityError,     setQuantityError]     = useState('')
   const [resolvableDisasters, setResolvableDisasters] = useState([])
@@ -1623,15 +1608,6 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
     setReasonChoice(''); setReasonDetail('')
   }
 
-  const handleEndDateChange = (v) => {
-    setHarvestEndDate(v)
-    if (harvestStartDate && v && v < harvestStartDate) {
-      setDateError('End date must be on or after the start date.')
-    } else {
-      setDateError('')
-    }
-  }
-
   const validateArea = (val) => {
     if (!val) return 'Area harvested is required.'
     const n = parseFloat(val)
@@ -1647,12 +1623,12 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
   }
 
   const handleSubmitClick = () => {
-    if (!harvestStartDate) { showToast('Harvest start date is required.', 'error'); return }
+    if (!harvestStartDate) { showToast('Harvested date is required.', 'error'); return }
     const aErr = validateArea(areaHarvested)
     const qErr = validateQuantity(quantityHarvested)
     setAreaError(aErr)
     setQuantityError(qErr)
-    if (aErr || qErr || dateError) return
+    if (aErr || qErr) return
     if (reasonRequired && reasonProblem(reasonChoice, reasonDetail)) {
       showToast(`A reason is required — this harvest is ${Math.abs(harvestVarianceDays)} days ${isEarly ? 'early' : 'late'}. ${reasonProblem(reasonChoice, reasonDetail)}`, 'error')
       return
@@ -1675,7 +1651,6 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
         year,
         crop_name:               record.crop_type_name || '',
         harvest_start_date:      harvestStartDate,
-        harvest_end_date:        harvestEndDate || null,
         area_harvested_hectares: parseFloat(areaHarvested),
         volume_kg:               parseFloat(quantityHarvested),
         unit_of_measure:         unitOfMeasure,
@@ -1801,7 +1776,7 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
                   ? `${daysFromNowToExpected} day${daysFromNowToExpected !== 1 ? 's' : ''} from now`
                   : `${Math.abs(daysFromNowToExpected)} day${Math.abs(daysFromNowToExpected) !== 1 ? 's' : ''} ago`})
               </p>
-              {/* Live comparison against the Harvest Start Date below — updates
+              {/* Live comparison against the Harvested Date below — updates
                   as it's picked (it defaults to today, so this shows immediately
                   on open too), not just once the >7-day mandatory-reason
                   threshold is crossed. This is the actual "am I meeting the
@@ -1818,29 +1793,12 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">Harvest Start Date *</label>
-              <input type="date" className={baseInputClasses} value={harvestStartDate}
-                max={todayISO()}
-                onChange={e => {
-                  changeHarvestDate(e.target.value)
-                  if (harvestEndDate && harvestEndDate < e.target.value) {
-                    setDateError('End date must be on or after the start date.')
-                  } else { setDateError('') }
-                }} />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-slate-700">
-                Harvest End Date <span className="font-normal text-slate-400">(optional)</span>
-              </label>
-              <input type="date" className={baseInputClasses} value={harvestEndDate}
-                min={harvestStartDate || undefined}
-                max={todayISO()}
-                onChange={e => handleEndDateChange(e.target.value)} />
-            </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-700">Harvested Date *</label>
+            <input type="date" className={baseInputClasses} value={harvestStartDate}
+              max={todayISO()}
+              onChange={e => changeHarvestDate(e.target.value)} />
           </div>
-          {dateError && <p className="text-xs font-medium text-rose-600">{dateError}</p>}
 
           {reasonRequired && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-3" data-testid="harvest-reason">
