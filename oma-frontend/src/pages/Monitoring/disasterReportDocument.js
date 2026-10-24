@@ -1,6 +1,7 @@
 import api from '../../api/axiosInstance.js'
 import logo from '../../assets/LOGO OMAg.jpg'
 import { SYSTEM_TITLE } from '../../constants/appInfo.js'
+import { escapeHtml as esc, headerCss, headerHtml } from './printHeader.js'
 
 // Disaster Log documents: formatting, Print Disaster Log and Download Disaster Log, for both the Fisheries
 // logs (GET /fisheries/disaster-reports/<id>/) and the Farmer logs (GET /production/disaster-logs/<id>/).
@@ -121,6 +122,7 @@ export function fisheriesPrintSpec(doc) {
   const losses = lossTable(doc)
   return {
     title: 'FISHERFOLK DISASTER REPORT',
+    officeHeader: true,   // the office name under an enlarged seal, no system-name tagline (see printHeader.js)
     reference: doc.report_number,
     header: s.header,
     sections: [
@@ -172,6 +174,7 @@ export function cropPrintSpec(doc) {
   const s = cropSections(doc)
   return {
     title: 'FARMER DISASTER REPORT',
+    officeHeader: true,
     reference: doc.report_number,
     header: s.header,
     sections: [
@@ -186,7 +189,6 @@ export function cropPrintSpec(doc) {
 
 // ─── Print ────────────────────────────────────────────────────────────────────
 
-const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
 const kvTable = rows => `<table class="kv">${rows.map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</table>`
 const dataTable = ({ head, rows, boldRows }) => `<table class="data"><thead><tr>${head.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${
   rows.map((r, i) => `<tr${boldRows?.has(i) ? ' class="total"' : ''}>${r.map(v => `<td>${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table>`
@@ -210,10 +212,7 @@ export function buildPrintHtml(spec) {
   @page { size: ${spec.pageSize === 'A4' ? 'A4' : 'letter'}; margin: 16mm; }
   * { box-sizing: border-box; }
   body { font-family: Helvetica, Arial, sans-serif; color: #0f172a; font-size: 11px; margin: 0; }
-  header { text-align: center; border-bottom: 1px solid #cbd5e1; padding-bottom: 8px; margin-bottom: 10px; }
-  header img { width: 56px; height: 56px; object-fit: contain; }
-  header .org { font-weight: bold; color: #15803d; font-size: 14px; margin-top: 2px; }
-  header .sub { color: #475569; font-size: 10px; }
+${headerCss({ office: spec.officeHeader })}
   h1 { text-align: center; font-size: 17px; letter-spacing: .06em; margin: 8px 0 10px; }
   h2 { font-size: 11px; color: #15803d; border-bottom: 1px solid #15803d; padding-bottom: 2px; margin: 14px 0 6px; }
   table.kv { width: 100%; border-collapse: collapse; }
@@ -235,12 +234,7 @@ export function buildPrintHtml(spec) {
   .sig { flex: 1; border-top: 1px solid #0f172a; padding-top: 3px; text-align: center; font-size: 10px; }
 </style></head>
 <body>
-  <header>
-    <img src="${esc(new URL(logo, window.location.href).href)}" alt="">
-    <div class="org">OMAg</div>
-    <div class="sub">Aringay, La Union</div>
-    <div class="sub">${esc(SYSTEM_TITLE)}</div>
-  </header>
+  ${headerHtml({ office: spec.officeHeader, logoUrl: new URL(logo, window.location.href).href, systemTitle: SYSTEM_TITLE })}
   <h1>${esc(spec.title)}</h1>
   ${kvTable(spec.header)}
   ${body}

@@ -19,8 +19,6 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.platypus import Image, KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
-from core.constants import SYSTEM_TITLE
-
 from .pdf_utils import (
     BORDER_COLOR, MUTED_TEXT, NumberedCanvas, build_keyvalue_grid, build_official_header, build_section_heading,
     get_styles,
@@ -30,6 +28,14 @@ logger = logging.getLogger(__name__)
 
 LOGO_PATH = os.path.join(settings.BASE_DIR, 'static', 'images', 'LOGO_OMAg.jpg')
 PAGE_WIDTH = 468   # letter portrait, 1-inch margins (same as the reports app)
+# The seal is drawn 25% wider than on the other PDFs (64 -> 80 points); its height follows its own proportions.
+LOGO_WIDTH = 80
+# These two documents do not carry the system-name tagline anywhere: not under the title, and not in the footer line.
+FOOTER_TEXT = 'This is an official record of the Office of the Municipal Agriculturist.'
+
+
+class DisasterLogCanvas(NumberedCanvas):
+    disclaimer = FOOTER_TEXT
 ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X']
 
 
@@ -110,7 +116,7 @@ def build_disaster_log_pdf(*, title, header_rows, sections, photo_paths, referen
             page_width=page_width,
         )
 
-    story = build_official_header(LOGO_PATH, title, SYSTEM_TITLE)
+    story = build_official_header(LOGO_PATH, title, logo_width=LOGO_WIDTH)
     story.append(grid(header_rows))
 
     def section(numeral, heading, *content):
@@ -164,7 +170,7 @@ def build_disaster_log_pdf(*, title, header_rows, sections, photo_paths, referen
     buf = io.BytesIO()
     pdf = SimpleDocTemplate(buf, pagesize=pagesize, leftMargin=72, rightMargin=72, topMargin=72, bottomMargin=72,
                             title=pdf_title, author='OMAg Aringay')
-    pdf.build(story, canvasmaker=NumberedCanvas)
+    pdf.build(story, canvasmaker=DisasterLogCanvas)
     data = buf.getvalue()
     if not data.startswith(b'%PDF'):
         raise ValueError('PDF generation produced no document.')
