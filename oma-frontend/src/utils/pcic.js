@@ -47,3 +47,20 @@ export async function uploadPcicForm(api, kind, id, state) {
   const { data } = await api.post(pcicFormUrl(kind, id), body, { headers: { 'Content-Type': 'multipart/form-data' } })
   return data
 }
+
+// The fisherfolk name in Aquaculture Monitoring and Fisheries Forecasting is blue for a PCIC-insured cycle, for Admin and Focal Person
+// (Evaluator) accounts only. It follows that row's own saved insurance flag, never the person or their other cycles.
+export const PCIC_NAME_CLASS = 'font-semibold text-[#1A56C8]'
+export const canSeePcicHighlight = (role) => role === 'ADMIN' || role === 'EVALUATOR'
+export const pcicNameClass = (record, role) => (canSeePcicHighlight(role) && record?.has_pcic_insurance ? PCIC_NAME_CLASS : '')
+
+// Cycle Details: what the PCIC section shows for a cycle (its saved flag and document, nothing inferred).
+export function pcicDetails(cycle) {
+  const insured = !!cycle?.has_pcic_insurance
+  return {
+    insured,
+    status: insured ? 'Insured' : 'Not Insured',
+    documentUrl: insured ? cycle?.pcic_form_photo || '' : '',
+    documentStatus: !insured ? 'Not applicable' : cycle?.pcic_form_photo ? 'Document available' : 'No document uploaded',
+  }
+}

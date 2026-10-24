@@ -37,7 +37,7 @@ class ManualStockingRemovedTests(APITestCase):
     def _payload(self, **over):
         data = {
             'fisherfolk': self.ff.id, 'cycle_name': 'Grow-out Phase', 'species_farmed': 'Tilapia',
-            'species_option': self.species.id, 'culture_system': 'Fishpond',
+            'species_option': self.species.id, 'ownership': 'Owner', 'culture_system': 'Fishpond',
             'pond_location_barangay': 'Poblacion', 'water_source': 'River',
             'stocking_date': str(date.today() - timedelta(days=1)),
             'units': [{'length_m': 4, 'width_m': 2, 'fingerling_count': 20}],
