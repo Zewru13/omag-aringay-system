@@ -10,6 +10,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Upload,
   User,
   Zap,
 } from "lucide-react";
@@ -19,6 +20,8 @@ import ComboboxWithOther from "../../components/UI/ComboboxWithOther.jsx";
 import api from "../../api/axiosInstance.js";
 import PageLayout from "../../components/Layout/PageLayout.jsx";
 import AddButton from "../../components/UI/AddButton.jsx";
+import Button from "../../components/UI/Button.jsx";
+import ImportFileModal from "../../components/ImportFileModal.jsx";
 import RowActions from "../../components/UI/RowActions.jsx";
 import ConfirmDialog from "../../components/UI/ConfirmDialog.jsx";
 import ErrorMessage from "../../components/UI/ErrorMessage.jsx";
@@ -1298,6 +1301,7 @@ export default function CropInformationPage() {
   const [editingParcel, setEditingParcel] = useState(null);
   const [purgingParcel, setPurgingParcel] = useState(null);
   const [forcingParcel, setForcingParcel] = useState(null);
+  const [isImporting, setIsImporting] = useState(false);
   const { showToast } = useToast();
 
   // Server-side search over every parcel (farmer, RSBSA, parcel number) — debounced, so a slower earlier answer can never
@@ -1361,7 +1365,14 @@ export default function CropInformationPage() {
           onSearchChange={changeFilter(setSearch)}
           searchPlaceholder="Search by farmer, RSBSA, or parcel number..."
           activeCount={[Boolean(barangay)].filter(Boolean).length}
-          actions={<AddButton onClick={() => navigate("/crop-records/add-parcels")}>Add Farm Parcel</AddButton>}
+          actions={
+            <>
+              <Button variant="outline" icon={Upload} onClick={() => setIsImporting(true)}>
+                Import Farm Parcels
+              </Button>
+              <AddButton onClick={() => navigate("/crop-records/add-parcels")}>Add Farm Parcel</AddButton>
+            </>
+          }
         >
           <select className={filterSelectCls} value={barangay} onChange={(e) => changeFilter(setBarangay)(e.target.value)} aria-label="Barangay">
             <option value="">All Barangays</option>
@@ -1443,6 +1454,20 @@ export default function CropInformationPage() {
           parcel={editingParcel}
           onClose={() => setEditingParcel(null)}
           onSuccess={refresh}
+        />
+      )}
+
+      {isImporting && (
+        <ImportFileModal
+          title="Import Farm Parcels"
+          subtitle="Add the farm parcels of many farmers, with the crops grown on them, from one spreadsheet."
+          helpText="The first column is the RSBSA number of the farmer who owns the parcel (the farmer must already be registered). One row per crop, with the parcel columns repeated: a farmer's rows with the same Parcel Number become one parcel; a parcel without crops is one row with the crop columns left blank."
+          importUrl="/farmers/parcels/bulk-import/"
+          templateUrl="/farmers/parcels/bulk-import/template/"
+          templateFilename="farm_parcels_all_farmers_import_template.xlsx"
+          undoType="farm_parcels"
+          onClose={() => setIsImporting(false)}
+          onImported={refresh}
         />
       )}
 

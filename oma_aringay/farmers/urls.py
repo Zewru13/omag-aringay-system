@@ -2,7 +2,7 @@ from django.urls import path
 
 from .parcel_bulk import FarmParcelBulkCreateView
 from .parcel_machinery_import import ParcelMachineryParseView, ParcelMachineryTemplateView
-from .parcel_import import FarmParcelImportView, ParcelCropsParseView, ParcelCropsTemplateView, ParcelImportTemplateView
+from .parcel_import import FarmParcelAllFarmersImportView, ParcelAllFarmersTemplateView, FarmParcelImportView, ParcelCropsParseView, ParcelCropsTemplateView, ParcelImportTemplateView
 from .rsbsa_template import RsbsaImportTemplateView
 from .rsbsa_import_undo import RsbsaImportBatchListView, RsbsaImportUndoView
 from .rsbsa_import_views import RsbsaUpdateImportCommitView, RsbsaUpdateImportPreviewView
@@ -34,6 +34,8 @@ urlpatterns = [
     path('harvest-comparison/', FarmerHarvestComparisonView.as_view(), name='farmers-harvest-comparison'),
     path('check-duplicate/', FarmerDuplicateCheckView.as_view(), name='farmers-check-duplicate'),
     path('parcels/import/template/', ParcelImportTemplateView.as_view(), name='farm-parcels-import-template'),
+    path('parcels/bulk-import/', FarmParcelAllFarmersImportView.as_view(), name='farm-parcels-bulk-import'),
+    path('parcels/bulk-import/template/', ParcelAllFarmersTemplateView.as_view(), name='farm-parcels-bulk-import-template'),
     path('parcel-crops/template/', ParcelCropsTemplateView.as_view(), name='farm-parcel-crops-template'),
     path('parcel-crops/parse/', ParcelCropsParseView.as_view(), name='farm-parcel-crops-parse'),
     path('parcel-machinery/template/', ParcelMachineryTemplateView.as_view(), name='farm-parcel-machinery-template'),
