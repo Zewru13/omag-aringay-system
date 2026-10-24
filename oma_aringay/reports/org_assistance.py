@@ -30,6 +30,7 @@ from interventions.distributions import group_id, summary_status
 from interventions.models import BeneficiaryRecord, DistributionStatus, FisherfolkBeneficiaryRecord
 
 from .documents import make_document, respond, text
+from .period import period_text
 
 KINDS = {
     'farmers': dict(record=BeneficiaryRecord, org=FarmersOrganization, person='farmer', title='Farmers Organization Assistance',
@@ -148,9 +149,11 @@ def build_document(kind, request):
         stats.insert(0, ['Organizations', len({d['organization'].id for d in distributions})])
 
     parts = []
+    date_part = ''
     if frm or to:
         span = ' '.join(x for x in (f'from {text(frm)}' if frm else '', f'to {text(to)}' if to else '') if x)
-        parts.append(f'Given {span}')
+        date_part = f'Given {span}'
+        parts.append(date_part)
     for param, label in (('assistance_type', 'Assistance'), ('source_agency', 'Agency')):
         if request.query_params.get(param, '').strip():
             parts.append(f'{label}: {request.query_params[param].strip()}')
@@ -172,7 +175,11 @@ def build_document(kind, request):
         title, subtitle = f'{cfg["title"]} Report', ' · '.join(p for p in (org.name, filters) if p)
     else:
         title, subtitle = cfg['title'], filters or 'All organizations'
-    return make_document(title, subtitle, stats, sections), (f'{cfg["stem"]}_{org.id}' if org else cfg['stem'])
+    # The PDF's line under the period: the kind of assistance report and the filters other than the dates (the period says those).
+    other = ' · '.join(p for p in parts if p != date_part)
+    detail = ' · '.join(p for p in ((f'{cfg["title"]}', org.name if org else '', other or ('' if org else 'All organizations'))) if p)
+    doc = make_document(title, subtitle, stats, sections, heading='Organization Assistance Report', period=period_text(frm, to), detail=detail)
+    return doc, (f'{cfg["stem"]}_{org.id}' if org else cfg['stem'])
 
 
 class OrganizationAssistanceReport(APIView):

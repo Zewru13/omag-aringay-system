@@ -27,6 +27,7 @@ from production import crop_disaster_logs
 from production.models import CropDisasterReport
 
 from .documents import make_document, respond, text
+from .period import period_text
 
 
 def _parse_date(request, name):
@@ -74,9 +75,9 @@ class Filters:
             qs = qs.filter(status=self.status)
         return qs
 
-    def subtitle(self):
+    def subtitle(self, dates=True):
         parts = []
-        if self.frm or self.to:
+        if dates and (self.frm or self.to):
             span = ' '.join(x for x in (f'from {text(self.frm)}' if self.frm else '', f'to {text(self.to)}' if self.to else '') if x)
             parts.append(f'Occurred {span}')
         if self.barangay:
@@ -145,7 +146,9 @@ def fisheries_document(filters):
              ['Total Losses', _count(rows, 7, 'Yes')], ['Volume Lost (kg)', f'{volume:.2f}']]
     return make_document('Fisheries Disaster Reports', filters.subtitle(), stats,
                          [{'title': 'Disaster Reports', 'headers': FISHERIES_HEADERS, 'rows': rows,
-                           'empty': 'No fisheries disaster reports match these filters.'}])
+                           'empty': 'No fisheries disaster reports match these filters.'}],
+                         heading='Fisheries Disaster Report', period=period_text(filters.frm, filters.to),
+                         detail=filters.subtitle(dates=False))
 
 
 # ─── Crops / parcels ──────────────────────────────────────────────────────────
@@ -190,7 +193,9 @@ def crops_document(filters):
              ['Total Losses', _count(rows, 8, 'Yes')], ['Area Affected (ha)', f'{area:.2f}']]
     return make_document('Crop / Parcel Disaster Reports', filters.subtitle(), stats,
                          [{'title': 'Disaster Reports', 'headers': CROP_HEADERS, 'rows': rows,
-                           'empty': 'No crop disaster reports match these filters.'}])
+                           'empty': 'No crop disaster reports match these filters.'}],
+                         heading='Crop and Parcel Disaster Report', period=period_text(filters.frm, filters.to),
+                         detail=filters.subtitle(dates=False))
 
 
 class _DisasterReport(APIView):

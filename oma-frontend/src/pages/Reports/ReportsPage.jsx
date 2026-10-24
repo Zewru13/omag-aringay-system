@@ -8,6 +8,7 @@ import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
+import { printPdf } from '../../utils/printPdf.js'
 import { ActionButtons, PreviewTable, SignatureModal, labelCls } from './ReportParts.jsx'
 import DisasterReportTab from './DisasterReportTab.jsx'
 import OrganizationAssistanceReportTab from './OrganizationAssistanceReportTab.jsx'
@@ -118,6 +119,16 @@ function HarvestedCropTab() {
     return `/reports/production/harvested-crop/?${p}`
   }
 
+  // Print: the same PDF Preview PDF gives (same filters and period), printed from a hidden frame.
+  const handlePrint = async () => {
+    setIsDownloading(true)
+    try {
+      await printPdf(api, buildUrl('pdf'))
+    } catch {
+      showToast('Failed to print the report.', 'error')
+    } finally { setIsDownloading(false) }
+  }
+
   const handleGenerate = async (sigData) => {
     setShowSig(false)
     setIsDownloading(true)
@@ -212,6 +223,7 @@ function HarvestedCropTab() {
 
       {/* Action Buttons */}
       <ActionButtons
+        onPrint={handlePrint}
         onPdf={() => { setSigPurpose('pdf'); setShowSig(true) }}
         onExcel={() => { setSigPurpose('excel'); setShowSig(true) }}
         isDownloading={isDownloading}
@@ -297,6 +309,15 @@ function FisheriesProductionTab() {
     return `/reports/fisheries/production/?${p}`
   }
 
+  const handlePrint = async () => {
+    setIsDownloading(true)
+    try {
+      await printPdf(api, buildUrl('pdf'))
+    } catch {
+      showToast('Failed to print the report.', 'error')
+    } finally { setIsDownloading(false) }
+  }
+
   const handleGenerate = async (sigData) => {
     setShowSig(false)
     setIsDownloading(true)
@@ -363,6 +384,7 @@ function FisheriesProductionTab() {
       </div>
 
       <ActionButtons
+        onPrint={handlePrint}
         onPdf={() => { setSigPurpose('pdf'); setShowSig(true) }}
         onExcel={() => { setSigPurpose('excel'); setShowSig(true) }}
         isDownloading={isDownloading}

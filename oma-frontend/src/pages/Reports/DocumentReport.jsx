@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
+import { printPdf } from '../../utils/printPdf.js'
 import { reportFileName, reportQuery, withSignature } from '../../utils/documentReport.js'
 import { ActionButtons, PreviewTable, SignatureModal } from './ReportParts.jsx'
 
@@ -16,6 +17,7 @@ function DocumentView({ doc, isLoading, emptyText }) {
     <div className="space-y-5">
       <div>
         <p className="text-[15px] font-semibold text-[#1A2B1A]">{doc.title}</p>
+        {doc.period && <p className="text-[12px] font-medium text-[#4A5E4A]">{doc.period}</p>}
         {doc.subtitle && <p className="text-[12px] text-[#7A8E7A]">{doc.subtitle}</p>}
       </div>
 
@@ -78,6 +80,18 @@ export default function DocumentReport({ path, params, stem, filters, ready = tr
     return () => { current = false }
   }, [path, key, showToast])
 
+  // Print: the same PDF the Preview PDF button gives (same filters, same period, same table), printed from a hidden frame.
+  const print = async () => {
+    setIsDownloading(true)
+    try {
+      await printPdf(api, `${path}?${reportQuery(params, 'pdf')}`)
+    } catch {
+      showToast('Failed to print the report.', 'error')
+    } finally {
+      setIsDownloading(false)
+    }
+  }
+
   const generate = async (sig) => {
     const format = sigPurpose === 'pdf' ? 'pdf' : 'excel'
     setSigPurpose(null)
@@ -98,6 +112,7 @@ export default function DocumentReport({ path, params, stem, filters, ready = tr
       {filters}
 
       <ActionButtons
+        onPrint={print}
         onPdf={() => setSigPurpose('pdf')}
         onExcel={() => setSigPurpose('excel')}
         isDownloading={isDownloading || !ready || isLoading || failed}

@@ -213,7 +213,7 @@ def get_styles():
 
 # ─── 0B — Official document header ───────────────────────────────────────────
 
-def build_official_header(logo_path, document_title, document_subtitle=None, logo_width=None):
+def build_official_header(logo_path, document_title, document_subtitle=None, logo_width=None, detail=None, compact=False):
     """
     Centered government letterhead used on every PDF.
 
@@ -230,6 +230,9 @@ def build_official_header(logo_path, document_title, document_subtitle=None, log
 
     The logo is 64×64 for every document. `logo_width` (the individual disaster logs pass 80, exactly 25% more) draws it that wide
     with the height taken from the logo's own proportions, so it is never stretched.
+    `detail` is one more muted line under the subtitle (the Reports page reports put the filters there).
+    `compact` (the Reports page reports) prints the three government lines as one and trims the gaps, so a short report and its
+    signature block still fit one page.
     """
     S = get_styles()
     today_str = date_type.today().strftime('%B %d, %Y')
@@ -260,17 +263,22 @@ def build_official_header(logo_path, document_title, document_subtitle=None, log
     flowables.append(logo_tbl)
 
     # Government text stack
-    flowables.append(Paragraph('Republic of the Philippines', S['GovLine1']))
-    flowables.append(Paragraph('Province of La Union', S['GovLine1']))
-    flowables.append(Paragraph('Municipality of Aringay', S['GovLine1']))
+    if compact:
+        flowables.append(Paragraph('Republic of the Philippines · Province of La Union · Municipality of Aringay', S['GovLine1']))
+    else:
+        flowables.append(Paragraph('Republic of the Philippines', S['GovLine1']))
+        flowables.append(Paragraph('Province of La Union', S['GovLine1']))
+        flowables.append(Paragraph('Municipality of Aringay', S['GovLine1']))
     flowables.append(Paragraph('OFFICE OF THE MUNICIPAL AGRICULTURIST', S['GovOfficeLine']))
-    flowables.append(Spacer(1, 6))
+    flowables.append(Spacer(1, 3 if compact else 6))
     flowables.append(HRFlowable(width='100%', thickness=0.75, color=BORDER_COLOR, spaceAfter=6))
 
     # Document title and subtitle
     flowables.append(Paragraph(escape(str(document_title)), S['DocTitle']))
     if document_subtitle:
         flowables.append(Paragraph(escape(str(document_subtitle)), S['DocSubtitle']))
+    if detail:
+        flowables.append(Paragraph(escape(str(detail)), S['DocSubtitle']))
 
     # Date stamp box — small bordered box, centered
     date_data = [[Paragraph(f'Date Generated: {today_str}', S['DateStamp'])]]
@@ -283,7 +291,7 @@ def build_official_header(logo_path, document_title, document_subtitle=None, log
         ('RIGHTPADDING', (0, 0), (0, 0), 8),
     ]))
     date_tbl.hAlign = 'CENTER'
-    flowables.append(Spacer(1, 6))
+    flowables.append(Spacer(1, 3 if compact else 6))
     flowables.append(date_tbl)
     flowables.append(Spacer(1, 14))
 
