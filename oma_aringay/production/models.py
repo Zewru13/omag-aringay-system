@@ -763,6 +763,20 @@ class CropDisasterReportPhoto(models.Model):
         return f'Photo {self.pk} of crop disaster report {self.disaster_report_id}'
 
 
+# Why a crop was harvested before it was ready (a Forced Harvest). The same six reasons as the aquaculture Force Harvest, with the
+# fish pest/virus one worded for crops, plus Other (which needs a description).
+FORCE_HARVEST_REASONS = [
+    ('upcoming_typhoon', 'Upcoming Typhoon'),
+    ('super_typhoon', 'Super Typhoon'),
+    ('el_nino', 'El Niño'),
+    ('drought', 'Drought'),
+    ('possible_flooding', 'Possible Flooding'),
+    ('pest_or_disease', 'Pest or Disease Spreading'),
+    ('other', 'Other'),
+]
+FORCE_HARVEST_REASON_LABELS = dict(FORCE_HARVEST_REASONS)
+
+
 class HarvestRecord(models.Model):
     class Season(models.TextChoices):
         DRY = 'Dry', 'Dry'
@@ -818,6 +832,9 @@ class HarvestRecord(models.Model):
         help_text='Days early (negative) or late (positive) vs. expected harvest date',
     )
     early_late_reason = models.CharField(max_length=255, blank=True)
+    # Set when the crop was harvested before it was ready, for one of FORCE_HARVEST_REASONS (early_late_reason then reads
+    # "Forced harvest due to early harvest: <reason>"). Empty for a normal harvest.
+    force_harvest_reason = models.CharField(max_length=30, choices=FORCE_HARVEST_REASONS, blank=True)
     recorded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

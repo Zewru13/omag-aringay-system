@@ -6,6 +6,7 @@ from core.validators import validate_not_future_date, validate_uploaded_image
 from farmers.models import FarmParcel
 from farmers.serializers import _farmer_main_membership
 from farmers.area_rules import growing_area_problem
+from .forced_reasons import apply_forced_reason
 from .duplicates import ACTIVE_STATUSES, duplicate_message, find_active_duplicates, growing_area_on_parcel
 from .naming import normalize_name
 from .parcel_link import infer_farm_parcel
@@ -13,7 +14,7 @@ from .parcel_link import infer_farm_parcel
 from .models import (
     ActivityType, BarangayCropSummary, CropActivityLog, CropActivityStage,
     CropCategory, CropDisasterReport, CropInputType, CropMonitoringRecord, CropRemark, CropSubcategory,
-    CropType, CropVariety, DamageReport, FarmInputLog, HarvestRecord, LaborOperationLog,
+    CropType, CropVariety, DamageReport, FarmInputLog, FORCE_HARVEST_REASON_LABELS, HarvestRecord, LaborOperationLog,
     PestDiseaseReport, PlantingRecord, SeedSource,
 )
 
@@ -476,6 +477,7 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
     has_harvest            = serializers.SerializerMethodField()
     harvest_record_id      = serializers.SerializerMethodField()
     harvest_count          = serializers.SerializerMethodField()
+    forced_harvest         = serializers.SerializerMethodField()
     disaster_report_count  = serializers.SerializerMethodField()
     harvest_variance_days  = serializers.SerializerMethodField()
     growth_stage           = serializers.SerializerMethodField()
@@ -500,7 +502,7 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
             'recorded_by', 'date_recorded',
             'is_near_harvest', 'latest_condition', 'log_count', 'labor_log_count',
             'has_disaster', 'disasters_count', 'has_recovered_disaster',
-            'has_harvest', 'harvest_record_id', 'harvest_count', 'disaster_report_count',
+            'has_harvest', 'harvest_record_id', 'harvest_count', 'forced_harvest', 'disaster_report_count',
             'harvest_variance_days',
             'growth_stage', 'recommended_input_type_id', 'recommended_input_type_name',
             'has_pcic_insurance', 'pcic_form_photo',
@@ -514,7 +516,7 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
             'recorded_by', 'date_recorded',
             'is_near_harvest', 'latest_condition', 'log_count', 'labor_log_count',
             'has_disaster', 'disasters_count', 'has_recovered_disaster',
-            'has_harvest', 'harvest_record_id', 'harvest_count', 'disaster_report_count',
+            'has_harvest', 'harvest_record_id', 'harvest_count', 'forced_harvest', 'disaster_report_count',
             'harvest_variance_days',
             'growth_stage', 'recommended_input_type_id', 'recommended_input_type_name',
         ]
@@ -608,6 +610,15 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
 
     def get_harvest_count(self, obj):
         return len(obj.harvest_records.all())
+
+    def get_forced_harvest(self, obj):
+        """The forced harvest on this crop (the latest one), or None: { reason, label, text } where text is the readable reason."""
+        forced = [h for h in obj.harvest_records.all() if h.force_harvest_reason]
+        if not forced:
+            return None
+        latest = max(forced, key=lambda h: h.pk)
+        return {'reason': latest.force_harvest_reason, 'label': FORCE_HARVEST_REASON_LABELS.get(latest.force_harvest_reason, ''),
+                'text': latest.early_late_reason}
 
     def get_disaster_report_count(self, obj):
         return len(obj.disaster_reports.all())
@@ -750,6 +761,7 @@ def _harvest_unit_field():
 
 class HarvestRecordSerializer(serializers.ModelSerializer):
     unit_of_measure = _harvest_unit_field()
+    force_harvest_label = serializers.SerializerMethodField()
     farmer_name = serializers.SerializerMethodField()
     rsbsa_number = serializers.SerializerMethodField()
     barangay = serializers.SerializerMethodField()
@@ -775,6 +787,8 @@ class HarvestRecordSerializer(serializers.ModelSerializer):
             'yield_per_hectare_kg',
             'harvest_variance_days',
             'early_late_reason',
+            'force_harvest_reason',
+            'force_harvest_label',
             'recorded_by',
             'date_recorded',
             'remarks',
@@ -783,6 +797,8 @@ class HarvestRecordSerializer(serializers.ModelSerializer):
             'id',
             'farm_parcel',
             'monitoring_record',
+            'force_harvest_reason',
+            'force_harvest_label',
             'farmer_name',
             'rsbsa_number',
             'barangay',
@@ -792,6 +808,9 @@ class HarvestRecordSerializer(serializers.ModelSerializer):
             'recorded_by',
             'date_recorded',
         ]
+
+    def get_force_harvest_label(self, obj):
+        return FORCE_HARVEST_REASON_LABELS.get(obj.force_harvest_reason, '')
 
     def get_farmer_name(self, obj):
         if obj.farm_parcel and obj.farm_parcel.farmer:
@@ -855,6 +874,8 @@ def _validate_harvest_record(data, instance):
 
 class HarvestRecordCreateSerializer(serializers.ModelSerializer):
     unit_of_measure = _harvest_unit_field()
+    # A forced harvest (a crop harvested early for a stated reason): the reason, and its description (needed for "Other").
+    force_harvest_detail = serializers.CharField(write_only=True, required=False, allow_blank=True, max_length=200)
     farm_parcel = serializers.PrimaryKeyRelatedField(
         queryset=FarmParcel.objects.all(),
         required=False, allow_null=True,
@@ -877,12 +898,14 @@ class HarvestRecordCreateSerializer(serializers.ModelSerializer):
             'yield_per_hectare_kg',
             'harvest_variance_days',
             'early_late_reason',
+            'force_harvest_reason',
+            'force_harvest_detail',
             'remarks',
         ]
         read_only_fields = ['id', 'yield_per_hectare_kg', 'harvest_variance_days']
 
     def validate(self, data):
-        return _validate_harvest_record(data, self.instance)
+        return _validate_harvest_record(apply_forced_reason(data), self.instance)
 
 
 class PlantingRecordSerializer(serializers.ModelSerializer):

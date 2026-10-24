@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 
 const {
-  EARLY_REASONS, LATE_REASONS, OTHER_REASON, harvestTiming, composeReason, reasonProblem, buildHarvestReportSpec,
+  FORCED_REASONS, FORCED_OTHER, LATE_REASONS, OTHER_REASON, harvestTiming, composeReason, reasonProblem, buildHarvestReportSpec,
+  composeForcedReason, forcedProblem, forcedReasonLabel,
 } = await import(new URL('../src/pages/Monitoring/harvestReport.js', import.meta.url).href)
 
 let n = 0
@@ -30,7 +31,18 @@ eq(composeReason('Drought', 'x'.repeat(400)).length, 255, 'never longer than the
 eq(reasonProblem('', ''), 'Choose a reason.', 'nothing chosen')
 eq(reasonProblem(OTHER_REASON, ''), 'Describe the reason.', 'Other needs a description')
 eq(reasonProblem('Drought', ''), '', 'a listed reason is enough')
-assert.ok(EARLY_REASONS.includes('Upcoming storm or typhoon') && EARLY_REASONS.includes('Drought') && EARLY_REASONS.includes(OTHER_REASON)); n++
+eq(FORCED_REASONS.map((r) => r.value), ['upcoming_typhoon', 'super_typhoon', 'el_nino', 'drought', 'possible_flooding', 'pest_or_disease', 'other'], 'the forced harvest reasons')
+eq(forcedReasonLabel('el_nino'), 'El Niño', 'reason label')
+eq(forcedReasonLabel('nope'), '', 'unknown reason has no label')
+eq(composeForcedReason('upcoming_typhoon', ''), 'Forced harvest due to early harvest: Upcoming Typhoon', 'forced sentence')
+eq(composeForcedReason('drought', '  dry spell  '), 'Forced harvest due to early harvest: Drought (dry spell)', 'forced sentence with a detail')
+eq(composeForcedReason(FORCED_OTHER, 'Buyer pays double'), 'Forced harvest due to early harvest: Other: Buyer pays double', 'Other is its description')
+eq(composeForcedReason('', 'x'), '', 'nothing chosen')
+eq(composeForcedReason('drought', 'x'.repeat(400)).length, 255, 'forced sentence never longer than 255')
+eq(forcedProblem('', ''), 'Choose why the crop is being harvested early.', 'forced: nothing chosen')
+eq(forcedProblem('boredom', ''), 'Choose why the crop is being harvested early.', 'forced: unknown reason')
+eq(forcedProblem(FORCED_OTHER, ' '), 'Describe the reason.', 'forced: Other needs a description')
+eq(forcedProblem('drought', ''), '', 'forced: a listed reason is enough')
 assert.ok(LATE_REASONS.includes(OTHER_REASON)); n++
 
 // ── the printed report
@@ -47,7 +59,8 @@ eq(spec.photos, [], 'no photos')
 eq(spec.sections.map((s) => s.title), ['Farmer', 'Crop', 'Harvest Details', 'Reason for Early Harvest', 'Notes'], 'sections')
 const details = Object.fromEntries(spec.sections.find((s) => s.title === 'Harvest Details').rows)
 eq(details.Timing, '80 days earlier than expected (the crop had grown 20% of its expected time)', 'timing line')
-eq(details['Harvest Date'], 'May 21, 2026', 'harvest date')
+eq(details['Harvested Date'], 'May 21, 2026', 'harvested date')
+eq(details['Harvest Type'], undefined, 'an ordinary harvest has no harvest type row')
 eq(Object.fromEntries(spec.sections.find((s) => s.title === 'Crop').rows).Variety, 'NSIC Rc222', 'variety')
 eq(spec.sections.find((s) => s.title === 'Reason for Early Harvest').paragraphs, ['Upcoming storm or typhoon'], 'reason paragraph')
 assert.ok(Array.isArray(spec.signatures) && spec.signatures.length === 2); n++
@@ -55,5 +68,11 @@ assert.ok(Array.isArray(spec.signatures) && spec.signatures.length === 2); n++
 const onTime = buildHarvestReportSpec({ record, harvest: { ...harvest, harvest_start_date: '2026-08-09' }, reason: '', notes: '', recordedOn: '2026-08-09' })
 eq(onTime.sections.map((s) => s.title), ['Farmer', 'Crop', 'Harvest Details'], 'no reason and no notes: those sections are left out')
 eq(Object.fromEntries(onTime.sections.find((s) => s.title === 'Harvest Details').rows).Timing, 'On the expected harvest date', 'on time')
+
+// ── a forced harvest's report
+const forced = buildHarvestReportSpec({ record, harvest: { ...harvest, force_harvest_reason: 'upcoming_typhoon' },
+  reason: 'Forced harvest due to early harvest: Upcoming Typhoon', notes: '', recordedOn: '2026-05-21' })
+eq(forced.sections.map((s) => s.title), ['Farmer', 'Crop', 'Harvest Details', 'Reason for Forced Harvest'], 'forced harvest sections')
+eq(Object.fromEntries(forced.sections.find((s) => s.title === 'Harvest Details').rows)['Harvest Type'], 'FORCED HARVEST (harvested before it was ready)', 'forced harvest type row')
 
 console.log(`harvestReport: ${n} checks passed`)

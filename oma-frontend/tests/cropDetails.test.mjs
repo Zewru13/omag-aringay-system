@@ -46,8 +46,11 @@ eq(pestLine({ pest_disease_name: 'Stem borer', report_date: '2026-06-10', severi
 eq(harvestRows(null), [], 'no harvest')
 eq(harvestRows({ harvest_start_date: '2026-08-10', harvest_end_date: '2026-08-12', volume_kg: '8000.00', unit_of_measure: 'kg', area_harvested_hectares: '1.50',
   yield_per_hectare_kg: '5333.33', harvest_variance_days: -9, early_late_reason: 'Upcoming storm' }), [
-  ['Harvest dates', '2026-08-10 to 2026-08-12'], ['Volume', '8,000 kg'], ['Area harvested (ha)', '1.50'], ['Yield per hectare (kg)', '5,333.33'],
+  ['Harvested date', '2026-08-10 to 2026-08-12'], ['Volume', '8,000 kg'], ['Area harvested (ha)', '1.50'], ['Yield per hectare (kg)', '5,333.33'],
   ['Timing', '9 days early'], ['Reason', 'Upcoming storm']], 'early harvest')
+eq(harvestRows({ harvest_start_date: '2026-08-10', volume_kg: '100', unit_of_measure: 'kg', area_harvested_hectares: '1', harvest_variance_days: -9,
+  force_harvest_reason: 'drought', early_late_reason: 'Forced harvest due to early harvest: Drought' }).slice(0, 2),
+  [['Harvest type', 'FORCED HARVEST (harvested before it was ready)'], ['Harvested date', '2026-08-10']], 'a forced harvest is labelled')
 eq(harvestRows({ harvest_start_date: '2026-08-20', volume_kg: '100', unit_of_measure: 'cavan', area_harvested_hectares: '1', harvest_variance_days: 0 })
   .find(([k]) => k === 'Timing')[1], 'On time', 'on time')
 eq(harvestRows({ harvest_start_date: '2026-08-20', volume_kg: '100', unit_of_measure: 'kg', area_harvested_hectares: '1', harvest_variance_days: 3 })

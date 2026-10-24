@@ -6,6 +6,7 @@ import CycleDayBanner from '../../components/UI/CycleDayBanner.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { cycleProgress } from '../../utils/cycleActivity.js'
+import ForcedHarvestPill from './ForcedHarvestPill.jsx'
 import { todayISO } from '../../utils/localDate.js'
 import { activityLine, detailActions, disasterLine, harvestRows, pestLine, summaryRows } from './cropDetails.js'
 
@@ -101,6 +102,7 @@ export default function CropDetailsModal({ record, onClose, onAction }) {
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
           <StatusPill tone={STATUS_TONES[record.status] || 'slate'}>{record.status}</StatusPill>
+          <ForcedHarvestPill forced={record.forced_harvest} />
           {record.has_disaster && <StatusPill tone="rose">Active disaster</StatusPill>}
         </div>
         {record.status !== 'Harvested' && record.status !== 'Total Loss' && cycle && <CycleDayBanner progress={cycle} stage={record.growth_stage} />}

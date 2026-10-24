@@ -18,6 +18,7 @@ import PageLayout from '../../components/Layout/PageLayout.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
+import ForcedHarvestPill from './ForcedHarvestPill.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import LoggedDatePicker from '../../components/UI/LoggedDatePicker.jsx'
@@ -36,7 +37,8 @@ import GroupedMonitoringTable from './GroupedMonitoringTable.jsx'
 import { DEFAULT_GROUP, FARMER_GROUP, GROUP_OPTIONS, monitoringParams } from './monitoringGroups.js'
 import { printSpec } from './disasterReportDocument.js'
 import {
-  EARLY_REASONS, LATE_REASONS, OTHER_REASON, buildHarvestReportSpec, composeReason, harvestTiming, reasonProblem,
+  FORCED_OTHER, FORCED_REASONS, LATE_REASONS, OTHER_REASON, buildHarvestReportSpec, composeForcedReason, composeReason, forcedProblem,
+  harvestTiming, reasonProblem,
 } from './harvestReport.js'
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
@@ -1600,8 +1602,10 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
   const harvestVarianceDays = timing.varianceDays
   const { isEarly, isLate } = timing
   const reasonRequired = isEarly || isLate
-  const reasonText = composeReason(reasonChoice, reasonDetail)
-  const reasonOptions = isEarly ? EARLY_REASONS : LATE_REASONS
+  // An early harvest is a FORCED HARVEST (the reason is one of FORCED_REASONS); a late one keeps its own reasons.
+  const reasonText = isEarly ? composeForcedReason(reasonChoice, reasonDetail) : composeReason(reasonChoice, reasonDetail)
+  const reasonIssue = isEarly ? forcedProblem(reasonChoice, reasonDetail) : reasonProblem(reasonChoice, reasonDetail)
+  const reasonIsOther = isEarly ? reasonChoice === FORCED_OTHER : reasonChoice === OTHER_REASON
   const changeHarvestDate = (v) => {
     setHarvestStartDate(v)
     // The early and late lists differ: a reason picked for one is not carried over to the other.
@@ -1629,8 +1633,8 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
     setAreaError(aErr)
     setQuantityError(qErr)
     if (aErr || qErr) return
-    if (reasonRequired && reasonProblem(reasonChoice, reasonDetail)) {
-      showToast(`A reason is required — this harvest is ${Math.abs(harvestVarianceDays)} days ${isEarly ? 'early' : 'late'}. ${reasonProblem(reasonChoice, reasonDetail)}`, 'error')
+    if (reasonRequired && reasonIssue) {
+      showToast(`A reason is required — this harvest is ${Math.abs(harvestVarianceDays)} days ${isEarly ? 'early' : 'late'}. ${reasonIssue}`, 'error')
       return
     }
     setShowConfirm(true)
@@ -1654,7 +1658,10 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
         area_harvested_hectares: parseFloat(areaHarvested),
         volume_kg:               parseFloat(quantityHarvested),
         unit_of_measure:         unitOfMeasure,
-        early_late_reason:       reasonRequired ? reasonText : '',
+        // An early harvest goes in as a forced harvest (the server writes the readable reason); a late one sends its reason as text.
+        ...(isEarly
+          ? { force_harvest_reason: reasonChoice, force_harvest_detail: reasonDetail.trim() }
+          : { early_late_reason: reasonRequired ? reasonText : '' }),
         remarks:                 harvestNotes,
       })
 
@@ -1734,7 +1741,7 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
               Cancel
             </button>
             <button type="button" onClick={handleSubmitClick}
-              disabled={isSubmitting || (reasonRequired && Boolean(reasonProblem(reasonChoice, reasonDetail)))}
+              disabled={isSubmitting || (reasonRequired && Boolean(reasonIssue))}
               className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-60 transition-colors">
               {isSubmitting ? 'Saving…' : 'Save Harvest Record'}
             </button>
@@ -1806,21 +1813,26 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
                 This is {Math.abs(harvestVarianceDays)} days {isEarly ? 'earlier' : 'later'} than the expected harvest date
                 {isEarly && timing.percentGrown !== null ? ` — the crop has grown ${timing.percentGrown}% of its expected growing time` : ''}.
               </p>
+              {isEarly && (
+                <p className="mb-2 inline-block rounded bg-rose-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">Forced harvest</p>
+              )}
               <label className="mb-1 block text-xs font-medium text-slate-700">
-                Reason for {isEarly ? 'early' : 'late'} harvest *
+                {isEarly ? 'Reason for the forced harvest (harvested before it was ready) *' : 'Reason for late harvest *'}
               </label>
               <select className={baseInputClasses} value={reasonChoice} onChange={e => setReasonChoice(e.target.value)}>
                 <option value="">Choose a reason</option>
-                {reasonOptions.map(r => <option key={r} value={r}>{r}</option>)}
+                {isEarly
+                  ? FORCED_REASONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)
+                  : LATE_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
               {reasonChoice && (
                 <div className="mt-2">
                   <label className="mb-1 block text-xs font-medium text-slate-700">
-                    {reasonChoice === OTHER_REASON ? 'Describe the reason *' : 'Details (optional)'}
+                    {reasonIsOther ? 'Describe the reason *' : 'Details (optional)'}
                   </label>
                   <input type="text" className={baseInputClasses} value={reasonDetail} maxLength={200}
                     onChange={e => setReasonDetail(e.target.value)}
-                    placeholder={reasonChoice === OTHER_REASON ? 'What made you harvest early?' : 'e.g. signal no. 3 expected on Friday'} />
+                    placeholder={reasonIsOther ? 'What made you harvest early?' : 'e.g. signal no. 3 expected on Friday'} />
                 </div>
               )}
             </div>
@@ -2156,6 +2168,7 @@ export default function CropMonitoringPage() {
     status_cell: (
       <span className="flex items-center gap-1.5">
         <StatusPill tone={STATUS_TONES[getCropDisplayStatus(rec)] || 'slate'}>{getCropDisplayStatus(rec)}</StatusPill>
+        <ForcedHarvestPill forced={rec.forced_harvest} />
         <DisasterIndicator disastersCount={rec.disasters_count} hasRecoveredDisaster={rec.has_recovered_disaster} />
       </span>
     ),
