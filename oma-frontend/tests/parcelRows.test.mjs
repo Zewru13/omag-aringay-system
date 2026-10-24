@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 
 const {
-  makeParcelRow, makeCropRow, makeMachineryRow, addImportedCrops, canSkipSchedule, toggleClassification, cropLabel, machineryLabel,
+  makeParcelRow, makeCropRow, makeMachineryRow, addImportedCrops, addImportedMachinery, canSkipSchedule, toggleClassification, cropLabel, machineryLabel,
   rowProblem, cropProblem, machineryProblem, validateRows, duplicateNumberProblems, parcelPayload, cropPayload, machineryPayload,
   buildPayload, pcicUploads, serverErrorsToMessages, PERENNIAL_CROPS, cropsAreaUsed, cropCapacity, cropAreaProblems,
   parcelToForm, parcelSkipsSchedule, editProblem, editPayload, editServerErrors, PARCEL_NUMBER_GROUPS, PARCEL_NUMBER_DIGITS, PARCEL_NUMBER_RE,
@@ -149,6 +149,17 @@ eq(rowProblem(ok(1, { parcel_number: NO })), '', 'a full parcel number is fine')
 eq(editServerErrors({ area_hectares: ['too small'], parcel_number: ['taken'], detail: 'Nope.', crops: ['x'] }),
   { area_hectares: 'too small', parcel_number: 'taken', general: 'Nope.' }, 'server errors by field')
 eq(editServerErrors(undefined), {}, 'no errors')
+
+// ── imported machinery
+const existingMachinery = [{ ...makeMachineryRow(1), machinery_type: 'Sprayer' }]
+const importedMachinery = addImportedMachinery(existingMachinery, [
+  { machinery_type: 'Hand Tractor', machinery_type_other: '', quantity: 2, ownership: 'Owned' },
+  { machinery_type: 'Other', machinery_type_other: 'Seeder', quantity: 1, ownership: 'Borrowed' },
+], 100)
+eq(importedMachinery.map((m) => [m.machinery_type, m.machinery_type_other, m.quantity, m.ownership, m._uid]),
+  [['Sprayer', '', '1', 'Owned', 1], ['Hand Tractor', '', '2', 'Owned', 100], ['Other', 'Seeder', '1', 'Borrowed', 101]], 'imported machinery is added after what is there, with its own ids')
+eq(addImportedMachinery([], [], 1), [], 'an empty file adds nothing')
+eq(rowProblem(ok(1, { machinery: importedMachinery })), '', 'imported machinery passes the same checks as typed machinery')
 
 // ── the server's answer, mapped onto the rows
 eq(serverErrorsToMessages([{}, { area_hectares: ['A valid number is required.'], crops: [{}, { area_hectares: ['The crop area must be more than 0.'] }], machinery: [{ quantity: ['The quantity must be at least 1.'] }] }, { parcel_number: ['This farmer already has parcel X.'] }],

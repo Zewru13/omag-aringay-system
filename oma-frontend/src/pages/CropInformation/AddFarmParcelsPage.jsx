@@ -18,7 +18,7 @@ import { uploadPcicForm } from '../../utils/pcic.js'
 import ParcelCropsImportModal from '../Farmers/ParcelCropsImportModal.jsx'
 import {
   CROP_OPTIONS, CROPPING_SCHEDULE_OPTIONS, PARCEL_NUMBER_DIGITS, PARCEL_NUMBER_GROUPS, PARCEL_NUMBER_PLACEHOLDER, TAX_DECLARATION_DIGITS, TAX_DECLARATION_GROUPS, FARM_TYPE_OPTIONS, LAND_OWNERSHIP_OPTIONS, MACHINERY_OPTIONS, MAX_PARCELS, OWNERSHIP_OPTIONS,
-  PERENNIAL_CROPS, SEED_SOURCE_OPTIONS, SEEDS_UNIT_OPTIONS, addImportedCrops, buildPayload, canSkipSchedule, cropAreaProblems, cropCapacity,
+  PERENNIAL_CROPS, SEED_SOURCE_OPTIONS, SEEDS_UNIT_OPTIONS, addImportedCrops, addImportedMachinery, buildPayload, canSkipSchedule, cropAreaProblems, cropCapacity,
   cropLabel, cropsAreaUsed, fmtHa, isTenure, makeCropRow, makeMachineryRow, makeParcelRow, machineryLabel, pcicUploads, serverErrorsToMessages, toggleClassification, validateRows,
 } from '../Farmers/parcelRows.js'
 import useParcelClassifications from '../Farmers/useParcelClassifications.js'
@@ -163,17 +163,22 @@ function CropRow({ crop, index, areaProblem, onUpdate, onMain, onRemove }) {
 
 // ── the machinery of one parcel ───────────────────────────────────────────────
 
-function MachineryTable({ machinery, onChange }) {
+function MachineryTable({ machinery, onChange, onImport }) {
   const nextUid = useRef(1)
   const update = (uid, patch) => onChange(machinery.map((m) => (m._uid === uid ? { ...m, ...patch } : m)))
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <p className="text-[12px] font-semibold uppercase tracking-wide text-[#4A5E4A]">Agricultural machinery <span className="font-normal normal-case text-[#7A8E7A]">(optional) — equipment used on this parcel</span></p>
-        <button type="button" onClick={() => onChange([...machinery, makeMachineryRow(Date.now() + nextUid.current++)])}
-          className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-[#1B4D2E]/30 bg-[#EBF5EE]/50 px-3 text-[12px] font-semibold text-[#1B4D2E] hover:bg-[#EBF5EE]">
-          <Plus size={13} aria-hidden="true" /> Add machinery
-        </button>
+        <div className="flex gap-2">
+          <button type="button" onClick={onImport} className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-[#1B4D2E]/30 bg-[#EBF5EE]/50 px-3 text-[12px] font-semibold text-[#1B4D2E] hover:bg-[#EBF5EE]">
+            <Upload size={13} aria-hidden="true" /> Import machinery
+          </button>
+          <button type="button" onClick={() => onChange([...machinery, makeMachineryRow(Date.now() + nextUid.current++)])}
+            className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 text-[12px] font-semibold text-white hover:bg-[#235E38]">
+            <Plus size={13} aria-hidden="true" /> Add machinery
+          </button>
+        </div>
       </div>
       {machinery.length > 0 && (
         <div className="overflow-x-auto rounded-lg border border-[#E2E8E2] bg-white max-md:overflow-visible max-md:border-0 max-md:bg-transparent">
@@ -219,7 +224,7 @@ function MachineryTable({ machinery, onChange }) {
 
 // ── one parcel: its table row, then a row with its classifications, crops and machinery ───────────────────────────────
 
-function ParcelRow({ row, index, total, offered, panelWidth, error, onUpdate, onRemove, onImportCrops }) {
+function ParcelRow({ row, index, total, offered, panelWidth, error, onUpdate, onRemove, onImportCrops, onImportMachinery }) {
   const set = (field, value) => onUpdate(row._id, { [field]: value })
   const taxDecFilled = Boolean((row.tax_declaration_number || '').trim())
   const skipSchedule = canSkipSchedule(row)
@@ -305,7 +310,7 @@ function ParcelRow({ row, index, total, offered, panelWidth, error, onUpdate, on
               </div>
             </div>
             <CropsTable parcel={row} crops={row.crops} onChange={(crops) => set('crops', crops)} onImport={() => onImportCrops(row._id)} />
-            <MachineryTable machinery={row.machinery} onChange={(machinery) => set('machinery', machinery)} />
+            <MachineryTable machinery={row.machinery} onChange={(machinery) => set('machinery', machinery)} onImport={() => onImportMachinery(row._id)} />
           </div>
         </td>
       </tr>
@@ -393,6 +398,7 @@ export default function AddFarmParcelsPage() {
   const nextIdRef = useRef(2)
   const [rows, setRows] = useState([makeParcelRow(1)])
   const [importingFor, setImportingFor] = useState(null)
+  const [importingMachineryFor, setImportingMachineryFor] = useState(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [error, setError] = useState('')
@@ -441,6 +447,11 @@ export default function AddFarmParcelsPage() {
   const removeRow = (id) => setRows((rs) => rs.filter((r) => r._id !== id))
   const updateRow = (id, patch) => setRows((rs) => rs.map((r) => (r._id === id ? { ...r, ...patch } : r)))
 
+  const importMachinery = (machinery) => {
+    setRows((rs) => rs.map((r) => (r._id === importingMachineryFor ? { ...r, machinery: addImportedMachinery(r.machinery, machinery, Date.now()) } : r)))
+    showToast(`${machinery.length} machinery line${machinery.length === 1 ? '' : 's'} added.`, 'success')
+    setImportingMachineryFor(null)
+  }
   const importCrops = (crops) => {
     setRows((rs) => rs.map((r) => (r._id === importingFor ? { ...r, crops: addImportedCrops(r.crops, crops, Date.now()) } : r)))
     setImportingFor(null)
@@ -554,7 +565,7 @@ export default function AddFarmParcelsPage() {
             <tbody className="max-md:block">
               {rows.map((row, i) => (
                 <ParcelRow key={row._id} row={row} index={i} total={rows.length} offered={offered} panelWidth={panelWidth} error={rowErrors[row._id]}
-                  onUpdate={updateRow} onRemove={removeRow} onImportCrops={setImportingFor} />
+                  onUpdate={updateRow} onRemove={removeRow} onImportCrops={setImportingFor} onImportMachinery={setImportingMachineryFor} />
               ))}
             </tbody>
           </table>
@@ -577,7 +588,8 @@ export default function AddFarmParcelsPage() {
         </div>
       </form>
 
-      {importingFor !== null && <ParcelCropsImportModal onClose={() => setImportingFor(null)} onCrops={importCrops} />}
+      {importingFor !== null && <ParcelCropsImportModal onClose={() => setImportingFor(null)} onRows={importCrops} />}
+      {importingMachineryFor !== null && <ParcelCropsImportModal kind="machinery" onClose={() => setImportingMachineryFor(null)} onRows={importMachinery} />}
 
       {showConfirm && (
         <ConfirmModal rows={rows} farmerName={farmerInfo.farmer_full_name} isSubmitting={isSubmitting} onConfirm={handleConfirmed} onCancel={() => setShowConfirm(false)} />
