@@ -1,5 +1,5 @@
 import StatusPill from '../../components/UI/StatusPill.jsx'
-import { ForcedHarvestLabel } from './ForcedHarvestDetails.jsx'
+import { ForcedHarvestedStatus } from './ForcedHarvestDetails.jsx'
 import { fmtLong } from './stockingHelpers.js'
 
 // The ponds/cages of ONE stocking record's production cycle, shown under its row in Fisheries Monitoring and
@@ -38,17 +38,14 @@ function actualKgCell(u) {
   return '—'
 }
 
-// The pond / cage name; an emergency-force-harvested one carries the clickable FORCED HARVEST label (its saved details).
+// The pond / cage name. An emergency-force-harvested one has no label of its own: its STATUS reads Forced Harvested (see UnitStatus).
 function UnitName({ unit }) {
-  return (
-    <span className="inline-flex items-center gap-2">
-      {unit.label}
-      {unit.forced_harvest && <ForcedHarvestLabel harvestId={unit.forced_harvest.id} />}
-    </span>
-  )
+  return <span className="inline-flex items-center gap-2">{unit.label}</span>
 }
 
 function UnitStatus({ unit }) {
+  // An emergency-force-harvested pond / cage: the one status is the clickable "Forced Harvested" badge (its saved details).
+  if (unit.status === 'forced_harvest' && unit.forced_harvest) return <ForcedHarvestedStatus harvestId={unit.forced_harvest.id} />
   const s = UNIT_STATUS[unit.status] || { label: unit.status || '—', tone: 'slate' }
   const title = unit.force_harvest_reasons?.length ? `Health Log: ${unit.force_harvest_reasons.join('; ')}` : undefined
   return <span title={title}><StatusPill tone={s.tone}>{s.label}</StatusPill></span>

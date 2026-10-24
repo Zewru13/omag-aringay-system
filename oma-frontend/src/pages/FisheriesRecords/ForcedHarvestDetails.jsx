@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import StatusPill from '../../components/UI/StatusPill.jsx'
 import { estimateText, fmtKg } from './emergencyForceHarvest.js'
 import { fmtLong } from './stockingHelpers.js'
 
@@ -108,7 +109,32 @@ export function ForcedHarvestDetailsModal({ harvestId, harvestIds, onClose }) {
   )
 }
 
-// The label beside an affected pond / cage and on the cycle row: a red rounded pill with white, bold, uppercase text. ONE label
+// The status badge "Forced Harvested" itself, as a button: it replaces the pond / cage's (or the cycle's) normal status instead of
+// sitting beside it, and clicking it opens the saved details of the Force Harvest(s). Same pill as every other status. The wrapper
+// stops the click from reaching a table row that would expand or collapse.
+export function ForcedHarvestedStatus({ harvestId, harvestIds }) {
+  const [open, setOpen] = useState(false)
+  const ids = (harvestIds && harvestIds.length ? harvestIds : [harvestId]).filter(Boolean)
+  return (
+    <span onClick={(e) => e.stopPropagation()}>
+      {ids.length > 0 ? (
+        <button
+          type="button"
+          data-testid="forced-harvested-status"
+          title="Forced Harvested. View details"
+          aria-label="Forced Harvested, view details"
+          onClick={() => setOpen(true)}
+          className="cursor-pointer rounded-full focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300"
+        >
+          <StatusPill tone="rose">Forced Harvested</StatusPill>
+        </button>
+      ) : <StatusPill tone="rose">Forced Harvested</StatusPill>}
+      {open && <ForcedHarvestDetailsModal harvestIds={ids} onClose={() => setOpen(false)} />}
+    </span>
+  )
+}
+
+// The label beside an affected pond / cage in Cycle Details and on the cycle row: a red rounded pill with white, bold, uppercase text. ONE label
 // stands for the unit's (or the cycle's) Force Harvest(s); clicking it opens the saved details. The wrapper stops the click and the
 // window's own clicks from reaching a table row that would expand or collapse.
 export function ForcedHarvestLabel({ harvestId, harvestIds, className = '' }) {
