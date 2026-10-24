@@ -52,6 +52,7 @@ from .models import (
     FishingTripLog,
     Pond,
     SpeciesActivityStage,
+    FingerlingSource,
     SpeciesCategory,
     SpeciesOption,
     StockingRecord,
@@ -76,6 +77,7 @@ from .serializers import (
     GeneralDisasterReportSerializer,
     PondSerializer,
     SpeciesActivityStageSerializer,
+    FingerlingSourceSerializer,
     SpeciesCategorySerializer,
     SpeciesOptionSerializer,
     StockingRecordDetailSerializer,
@@ -197,6 +199,22 @@ class FisherfolkDuplicateCheckView(APIView):
             for f in qs[:5]
         ]
         return Response({'duplicates': duplicates})
+
+
+# ─── Fingerling Source (Fisheries Settings) ───────────────────────────────────
+
+class FingerlingSourceListCreateView(generics.ListCreateAPIView):
+    """GET: the list (Start Production Cycle reads it, staff and fisherfolk accounts alike); POST: staff add a source."""
+    serializer_class = FingerlingSourceSerializer
+    permission_classes = [IsAuthenticated, IsStaffOrFisherfolkReadOnly]
+    pagination_class = None
+    queryset = FingerlingSource.objects.order_by('name')
+
+
+class FingerlingSourceDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = FingerlingSourceSerializer
+    permission_classes = [IsAuthenticated, IsStaffOrFisherfolkReadOnly]
+    queryset = FingerlingSource.objects.all()
 
 
 # ─── Species Category ─────────────────────────────────────────────────────────

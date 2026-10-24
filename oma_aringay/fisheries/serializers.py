@@ -30,6 +30,7 @@ from .models import (
     FishingTripLog,
     Pond,
     SpeciesActivityStage,
+    FingerlingSource,
     SpeciesCategory,
     SpeciesOption,
     StockingRecord,
@@ -405,6 +406,24 @@ class FisherfolkCreateSerializer(serializers.ModelSerializer):
 
 
 # ─── Species ──────────────────────────────────────────────────────────────────
+
+class FingerlingSourceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = FingerlingSource
+        fields = ['id', 'name', 'date_created']
+        read_only_fields = ['id', 'date_created']
+
+    def validate_name(self, value):
+        name = ' '.join((value or '').split())
+        if not name:
+            raise serializers.ValidationError('Enter the fingerling source name.')
+        taken = FingerlingSource.objects.filter(name__iexact=name)
+        if self.instance is not None:
+            taken = taken.exclude(pk=self.instance.pk)
+        if taken.exists():
+            raise serializers.ValidationError('That fingerling source already exists.')
+        return name
+
 
 class SpeciesCategorySerializer(serializers.ModelSerializer):
     class Meta:

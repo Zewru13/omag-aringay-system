@@ -133,6 +133,15 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
+  // Fingerling sources: the list managed in Fisheries Settings, plus whatever this record already holds (an older value stays selectable).
+  const [sourceNames, setSourceNames] = useState([])
+  useEffect(() => {
+    api.get('/fisheries/fingerling-sources/')
+      .then(r => setSourceNames((Array.isArray(r.data) ? r.data : (r.data.results || [])).map(s => s.name)))
+      .catch(() => setSourceNames([]))
+  }, [])
+  const sourceOptions = [...new Set([...sourceNames, ...(record.fingerling_source && record.fingerling_source !== 'Other' ? [record.fingerling_source] : [])])]
+
   // Cycles this fisherfolk owns: Active ones for normal selection, plus the
   // currently-linked cycle even if it is Harvested/Failed/Abandoned so it stays visible.
   const [cycleOptions, setCycleOptions] = useState([])
@@ -336,7 +345,7 @@ function EditStockingModal({ record, speciesList, onClose, onSaved }) {
             <div>
               <label className={editLabelCls}>Fingerling/Fry Source</label>
               <ComboboxWithOther
-                options={['BFAR', 'Private Hatchery', 'Own Production']}
+                options={sourceOptions}
                 value={form.fingerling_source}
                 otherValue={form.fingerling_source_other_specify}
                 onChange={(v) => set('fingerling_source', v)}

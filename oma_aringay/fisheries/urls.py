@@ -31,6 +31,8 @@ from .views import (
     PondBulkCreateView,
     PondDetailView,
     PondListCreateView,
+    FingerlingSourceDetailView,
+    FingerlingSourceListCreateView,
     SpeciesCategoryListCreateView,
     SpeciesCategoryDetailView,
     SpeciesOptionListCreateView,
@@ -72,6 +74,8 @@ urlpatterns = [
     path('ponds/<int:pk>/pcic-form/', PondPcicFormView.as_view(), name='pond-pcic-form'),
 
     # ── Species categories ──────────────────────────────────────────────────
+    path('fingerling-sources/', FingerlingSourceListCreateView.as_view(), name='fingerling-source-list'),
+    path('fingerling-sources/<int:pk>/', FingerlingSourceDetailView.as_view(), name='fingerling-source-detail'),
     path('species-categories/', SpeciesCategoryListCreateView.as_view(), name='species-category-list'),
     path('species-categories/<int:pk>/', SpeciesCategoryDetailView.as_view(), name='species-category-detail'),
     path('activity-types/', FisheriesActivityTypeListCreateView.as_view(), name='fisheries-activity-types'),
