@@ -22,6 +22,7 @@ from rest_framework.views import APIView
 from accounts.permissions import IsAdminOrEvaluator
 from core.constants import BARANGAY_CHOICES
 from core.exports import SafeWorkbook
+from core.idnumbers import by_id_key, id_key
 from core.import_batches import record_created, start_batch
 from core.utils import ImportFileError, cell_text, read_template_rows, run_import_atomically
 
@@ -319,16 +320,19 @@ def _judge(farmer, items):
     return 'ready', None
 
 
-def run_parcel_import(farmer, file, dry_run, user):
-    rows, failure = _read(file, PARCEL_HEADERS, PARCEL_SAMPLE + CROP_SAMPLE, PARCEL_NOTE_PREFIX, MAX_PARCEL_ROWS)
-    if failure:
-        return failure
-
+def _run_groups(entries, file, dry_run, user, show_farmer=False):
+    """Judge every parcel of the file and, unless this is a preview, create them all (the caller wraps it in one transaction).
+    `entries` is [{'farmer': Farmer or None, 'items': [item], 'farmer_error': ''}], one per parcel in file order; a parcel whose farmer
+    could not be found (farmer_error) is invalid. `show_farmer` puts the farmer's name in each row's label (a file of many farmers)."""
     rows_out, errors = [], []
     created = 0
     batch = None
-    for items in _group_rows(rows).values():
-        status, detail = _judge(farmer, items)
+    for entry in entries:
+        farmer, items = entry['farmer'], entry['items']
+        if entry.get('farmer_error'):
+            status, detail = 'invalid', entry['farmer_error']
+        else:
+            status, detail = _judge(farmer, items)
         if status == 'ready' and not dry_run:
             parcel_data = items[0]['parcel']
             serializer = FarmParcelSerializer(data=parcel_data)
@@ -352,10 +356,11 @@ def run_parcel_import(farmer, file, dry_run, user):
             for crop in crops:
                 record_created(batch, crop)
             created += 1
+        owner = f'{farmer.full_name} — ' if show_farmer and farmer is not None else ''
         for item in items:
             number = item['parcel']['parcel_number'] if item['parcel'] else ''
             crop = item['crop']['crop_name'] if item['crop'] else ''
-            label = f'{number or "(no parcel number)"} — {crop or "no crop"}'
+            label = f'{owner}{number or "(no parcel number)"} — {crop or "no crop"}'
             if status == 'invalid':
                 row_detail = item['error'] or detail or 'Another row of this parcel has a problem, so the parcel was not imported.'
                 errors.append({'row': item['row'], 'error': row_detail})
@@ -366,6 +371,71 @@ def run_parcel_import(farmer, file, dry_run, user):
     errors.sort(key=lambda e: e['row'])
     summary = {status: sum(1 for r in rows_out if r['status'] == status) for status in SUMMARY_STATUSES}
     return Response({'created': created, 'errors': errors, 'dry_run': dry_run, 'summary': summary, 'rows': rows_out})
+
+
+def run_parcel_import(farmer, file, dry_run, user):
+    rows, failure = _read(file, PARCEL_HEADERS, PARCEL_SAMPLE + CROP_SAMPLE, PARCEL_NOTE_PREFIX, MAX_PARCEL_ROWS)
+    if failure:
+        return failure
+    entries = [{'farmer': farmer, 'items': items, 'farmer_error': ''} for items in _group_rows(rows).values()]
+    return _run_groups(entries, file, dry_run, user)
+
+
+# ── the parcels file of MANY farmers (Crop Records > Import Farm Parcels): the same file with the farmer's RSBSA number first ──────
+
+FARMER_COLUMN = 'Farmer RSBSA Number'
+FARMER_SAMPLE = '01-033-02-019-000123'
+ALL_HEADERS = [FARMER_COLUMN] + PARCEL_HEADERS
+ALL_WIDTHS = [26] + PARCEL_WIDTHS
+ALL_SAMPLE = [FARMER_SAMPLE] + PARCEL_SAMPLE + CROP_SAMPLE
+
+
+def all_farmers_note():
+    """The template's instructions: the parcel file's, with the farmer column explained first."""
+    return (
+        f'{PARCEL_NOTE_PREFIX} the first column is the RSBSA number of the farmer who owns the parcel; the farmer must already be '
+        'registered, and one file can hold the parcels of many farmers. A farmer\'s rows with the same Parcel Number are one parcel. '
+        + parcel_note()[len(PARCEL_NOTE_PREFIX) + 1:]
+    )
+
+
+def _group_rows_all(rows):
+    """Like _group_rows for a file that starts with the farmer's RSBSA number: {(farmer number, parcel key): (number text, [item])}."""
+    groups = {}
+    for number, row in rows:
+        farmer_text = _text(row, 0)
+        item = {'row': number, 'parcel': None, 'crop': None, 'error': ''}
+        parcel_cells = row[1:]
+        try:
+            item['parcel'] = parse_parcel_cells(parcel_cells)
+            item['crop'] = parse_crop_cells(parcel_cells, offset=len(PARCEL_COLUMNS))
+        except ValueError as exc:
+            item['error'] = str(exc)
+        number_text = _text(parcel_cells, 0)
+        parcel_key = number_text.lower() if number_text else f'row-{number}'
+        groups.setdefault((id_key(farmer_text), parcel_key), (farmer_text, []))[1].append(item)
+    return groups
+
+
+def run_all_farmers_import(file, dry_run, user):
+    rows, failure = _read(file, ALL_HEADERS, ALL_SAMPLE, PARCEL_NOTE_PREFIX, MAX_PARCEL_ROWS)
+    if failure:
+        return failure
+    farmers = {}    # farmer number as typed (dashes and case ignored) -> Farmer or None
+    entries = []
+    for (farmer_key, _parcel_key), (farmer_text, items) in _group_rows_all(rows).items():
+        error = ''
+        farmer = None
+        if not farmer_key:
+            error = 'Farmer RSBSA Number is required: the first column says whose parcel this is.'
+        else:
+            if farmer_key not in farmers:
+                farmers[farmer_key] = by_id_key(Farmer.objects.all(), 'rsbsa_number', farmer_text).first()
+            farmer = farmers[farmer_key]
+            if farmer is None:
+                error = f'No registered farmer has the RSBSA number {farmer_text}.'
+        entries.append({'farmer': farmer, 'items': items, 'farmer_error': error})
+    return _run_groups(entries, file, dry_run, user, show_farmer=True)
 
 
 class FarmParcelImportView(APIView):
@@ -379,3 +449,23 @@ class FarmParcelImportView(APIView):
             return Response({'error': 'No file uploaded.'}, status=400)
         dry_run = str(request.data.get('dry_run', '')).strip().lower() in ('1', 'true', 'yes')
         return run_import_atomically(lambda: run_parcel_import(farmer, file, dry_run, request.user))
+
+
+class FarmParcelAllFarmersImportView(APIView):
+    """POST /api/farmers/parcels/bulk-import/: the parcels of many farmers from one file (first column: the farmer's RSBSA number)."""
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    parser_classes = [MultiPartParser]
+
+    def post(self, request):
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'No file uploaded.'}, status=400)
+        dry_run = str(request.data.get('dry_run', '')).strip().lower() in ('1', 'true', 'yes')
+        return run_import_atomically(lambda: run_all_farmers_import(file, dry_run, request.user))
+
+
+class ParcelAllFarmersTemplateView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request):
+        return _template_response('farm_parcels_all_farmers_import_template.xlsx', ALL_HEADERS, ALL_WIDTHS, ALL_SAMPLE, all_farmers_note())
