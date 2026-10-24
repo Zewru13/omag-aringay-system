@@ -32,7 +32,11 @@ class HarvestUnitTests(APITestCase):
             year=2026, date_planted=date.today() - timedelta(days=99), area_planted_ha='1.00', status='Planted')
 
     def _post(self, unit):
-        body = {'monitoring_record': self.crop.id, 'harvest_start_date': str(date.today()), 'season': 'Wet', 'year': 2026,
+        # Each post is its own crop: all of one crop's harvests together cannot cover more than its planted area.
+        crop = CropMonitoringRecord.objects.create(
+            farmer=self.farmer, farm_location_barangay='Alaska', land_status='Owner', crop_type=self.rice, season='Wet',
+            year=2026, date_planted=date.today() - timedelta(days=99), area_planted_ha='1.00', status='Planted')
+        body = {'monitoring_record': crop.id, 'harvest_start_date': str(date.today()), 'season': 'Wet', 'year': 2026,
                 'crop_name': 'Rice', 'area_harvested_hectares': '1.00', 'volume_kg': '100'}
         if unit is not None:
             body['unit_of_measure'] = unit

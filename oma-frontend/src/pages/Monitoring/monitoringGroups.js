@@ -8,6 +8,8 @@ export const GROUP_OPTIONS = [
   { value: 'none', label: 'No grouping' },
 ]
 export const DEFAULT_GROUP = 'none'
+// Crop Monitoring opens on the crops that are still in the ground; "All Status" is one choice away.
+export const DEFAULT_STATUS = 'Planted'
 // A farmer account's crops are always grouped by its own farm parcels.
 export const FARMER_GROUP = 'parcel'
 

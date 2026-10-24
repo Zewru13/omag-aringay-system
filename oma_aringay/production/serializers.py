@@ -7,6 +7,7 @@ from farmers.models import FarmParcel
 from farmers.serializers import _farmer_main_membership
 from farmers.area_rules import growing_area_problem
 from .forced_reasons import apply_forced_reason
+from .harvest_area import harvest_area_problem
 from .duplicates import ACTIVE_STATUSES, duplicate_message, find_active_duplicates, growing_area_on_parcel
 from .naming import normalize_name
 from .parcel_link import infer_farm_parcel
@@ -853,6 +854,13 @@ def _validate_harvest_record(data, instance):
     parcel = data.get('farm_parcel', getattr(instance, 'farm_parcel', None))
     if parcel and monitoring_record and monitoring_record.farmer_id and parcel.farmer_id != monitoring_record.farmer_id:
         raise serializers.ValidationError({'farm_parcel': 'This parcel does not belong to the farmer of this crop.'})
+
+    problem = harvest_area_problem(
+        data.get('area_harvested_hectares', getattr(instance, 'area_harvested_hectares', None)),
+        monitoring_record, parcel, exclude_id=instance.pk if instance else None,
+    )
+    if problem:
+        raise serializers.ValidationError({'area_harvested_hectares': problem})
 
     if start:
         if start > date.today():

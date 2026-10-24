@@ -4,6 +4,7 @@ import api from "../../api/axiosInstance.js"
 import ModalShell from "../../components/UI/ModalShell.jsx"
 import Button from "../../components/UI/Button.jsx"
 import { baseInputClasses } from "../../components/UI/FormField.jsx"
+import { harvestAreaHint, harvestAreaProblem } from "../Monitoring/harvestArea.js"
 
 const labelCls = "block text-xs font-medium text-slate-600"
 
@@ -91,6 +92,8 @@ function RecordHarvestModal({ onClose, onSuccess }) {
     setErrorMessage("")
     if (!selectedFarmer) { setErrorMessage("Please select a farmer."); return }
     if (!selectedParcel) { setErrorMessage("Please select a farm parcel."); return }
+    const areaProblem = harvestAreaProblem(areaHarvested, selectedParcel.area_hectares, "the parcel")
+    if (areaProblem) { setErrorMessage(`Area harvested: ${areaProblem}`); return }
     setIsSubmitting(true)
     try {
       await api.post("/production/create/", {
@@ -265,9 +268,13 @@ function RecordHarvestModal({ onClose, onSuccess }) {
             required
             step="0.01"
             type="number"
+            max={selectedParcel?.area_hectares}
             value={areaHarvested}
             onChange={(e) => setAreaHarvested(e.target.value)}
           />
+          {harvestAreaHint(selectedParcel?.area_hectares, "Parcel") && (
+            <p className="mt-1 text-[11px] text-slate-400">{harvestAreaHint(selectedParcel?.area_hectares, "Parcel")}</p>
+          )}
         </div>
 
         {/* Volume + Unit of Measure */}
