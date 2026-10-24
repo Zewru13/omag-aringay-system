@@ -6,10 +6,24 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
 
-// "Import crops" inside the Add Farm Parcel steps: upload the crops spreadsheet, and the crops in it are added to the
-// crop list of the parcel being filled in. Nothing is saved here (the parcel is saved on the last step), so a wrong file
-// costs nothing: remove the crops from the list, or cancel.
-export default function ParcelCropsImportModal({ onClose, onCrops }) {
+// "Import crops" / "Import machinery" inside the Add Farm Parcels page: upload the spreadsheet, and the rows in it are added to the list
+// of the parcel being filled in. Nothing is saved here (the parcel is saved on submit), so a wrong file costs nothing: remove the rows
+// from the list, or cancel. The crops import is the default; `kind` switches the words, the template and the check to another list.
+const KINDS = {
+  crops: {
+    title: 'Import Crops', subtitle: 'Add the crops grown on this parcel from a spreadsheet.', addLabel: 'Add Crops',
+    hint: 'One row per crop. The crops are added to this parcel\'s list so you can check them before the parcel is saved.',
+    templateUrl: '/farmers/parcel-crops/template/', templateFilename: 'farm_parcel_crops_import_template.xlsx', parseUrl: '/farmers/parcel-crops/parse/', resultKey: 'crops',
+  },
+  machinery: {
+    title: 'Import Machinery', subtitle: 'Add the machinery used on this parcel from a spreadsheet.', addLabel: 'Add Machinery',
+    hint: 'One row per kind of machinery. The machinery is added to this parcel\'s list so you can check it before the parcel is saved.',
+    templateUrl: '/farmers/parcel-machinery/template/', templateFilename: 'farm_parcel_machinery_import_template.xlsx', parseUrl: '/farmers/parcel-machinery/parse/', resultKey: 'machinery',
+  },
+}
+
+export default function ParcelCropsImportModal({ onClose, onRows, kind = 'crops' }) {
+  const config = KINDS[kind]
   const { showToast } = useToast()
   const [file, setFile] = useState(null)
   const [isBusy, setIsBusy] = useState(false)
@@ -20,7 +34,7 @@ export default function ParcelCropsImportModal({ onClose, onCrops }) {
   const downloadTemplate = async () => {
     setIsDownloading(true)
     try {
-      await downloadFile(api, '/farmers/parcel-crops/template/', 'farm_parcel_crops_import_template.xlsx')
+      await downloadFile(api, config.templateUrl, config.templateFilename)
     } catch {
       showToast('Failed to download the template.', 'error')
     } finally {
@@ -36,8 +50,8 @@ export default function ParcelCropsImportModal({ onClose, onCrops }) {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      const { data } = await api.post('/farmers/parcel-crops/parse/', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
-      onCrops(data.crops)
+      const { data } = await api.post(config.parseUrl, formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+      onRows(data[config.resultKey])
     } catch (err) {
       const data = err?.response?.data
       setRowErrors(Array.isArray(data?.errors) ? data.errors : [])
@@ -49,22 +63,20 @@ export default function ParcelCropsImportModal({ onClose, onCrops }) {
 
   return (
     <ModalShell
-      title="Import Crops"
-      subtitle="Add the crops grown on this parcel from a spreadsheet."
+      title={config.title}
+      subtitle={config.subtitle}
       icon={FileSpreadsheet}
       onClose={onClose}
       maxWidth="max-w-lg"
       footer={(
         <>
           <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button type="button" isLoading={isBusy} disabled={!file} onClick={readFile}>Add Crops</Button>
+          <Button type="button" isLoading={isBusy} disabled={!file} onClick={readFile}>{config.addLabel}</Button>
         </>
       )}
     >
       <div className="space-y-4">
-        <p className="text-[13px] text-[#4A5A4C]">
-          One row per crop. The crops are added to this parcel&apos;s list so you can check them before the parcel is saved.
-        </p>
+        <p className="text-[13px] text-[#4A5A4C]">{config.hint}</p>
         <button
           type="button"
           onClick={downloadTemplate}

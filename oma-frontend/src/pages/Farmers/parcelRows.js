@@ -83,6 +83,18 @@ export const makeCropRow = (uid) => ({
   pcic: { ...EMPTY_PCIC },
 })
 
+// Machinery read from a machinery file, added to the machinery already on the row (each gets its own id). Quantities are shown as typed text.
+export function addImportedMachinery(existing, imported, firstUid) {
+  return [...existing, ...imported.map((m, i) => ({
+    ...makeMachineryRow(firstUid + i),
+    machinery_type: m.machinery_type,
+    machinery_type_other: m.machinery_type_other || '',
+    quantity: String(m.quantity ?? 1),
+    ownership: m.ownership,
+    _uid: firstUid + i,
+  }))]
+}
+
 export const makeMachineryRow = (uid) => ({ _uid: uid, machinery_type: 'Hand Tractor', machinery_type_other: '', quantity: '1', ownership: 'Owned' })
 
 // Crops read from a crops file, added to the crops already on the row. Each gets its own id and no PCIC insurance (the file has

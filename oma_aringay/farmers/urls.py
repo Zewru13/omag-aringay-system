@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .parcel_bulk import FarmParcelBulkCreateView
+from .parcel_machinery_import import ParcelMachineryParseView, ParcelMachineryTemplateView
 from .parcel_import import FarmParcelImportView, ParcelCropsParseView, ParcelCropsTemplateView, ParcelImportTemplateView
 from .rsbsa_template import RsbsaImportTemplateView
 from .rsbsa_import_undo import RsbsaImportBatchListView, RsbsaImportUndoView
@@ -35,6 +36,8 @@ urlpatterns = [
     path('parcels/import/template/', ParcelImportTemplateView.as_view(), name='farm-parcels-import-template'),
     path('parcel-crops/template/', ParcelCropsTemplateView.as_view(), name='farm-parcel-crops-template'),
     path('parcel-crops/parse/', ParcelCropsParseView.as_view(), name='farm-parcel-crops-parse'),
+    path('parcel-machinery/template/', ParcelMachineryTemplateView.as_view(), name='farm-parcel-machinery-template'),
+    path('parcel-machinery/parse/', ParcelMachineryParseView.as_view(), name='farm-parcel-machinery-parse'),
     path('parcel-classifications/', ParcelClassificationListCreateView.as_view(), name='parcel-classifications'),
     path('parcel-classifications/<int:pk>/', ParcelClassificationDetailView.as_view(), name='parcel-classification-detail'),
     path('parcels/directory/', FarmParcelDirectoryView.as_view(), name='farm-parcels-directory'),
