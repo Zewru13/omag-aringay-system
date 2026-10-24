@@ -5,6 +5,8 @@ import ModalShell from "../../components/UI/ModalShell.jsx"
 import Button from "../../components/UI/Button.jsx"
 import { baseInputClasses } from "../../components/UI/FormField.jsx"
 import { harvestAreaHint, harvestAreaProblem } from "../Monitoring/harvestArea.js"
+import { needsTotalKg, quantityPayload, quantityProblem, totalKgProblem, unitPreview, weightFor } from "../Monitoring/harvestUnits.js"
+import useHarvestUnitWeights from "../Monitoring/useHarvestUnitWeights.js"
 
 const labelCls = "block text-xs font-medium text-slate-600"
 
@@ -33,7 +35,10 @@ function RecordHarvestModal({ onClose, onSuccess }) {
   const [cropName, setCropName] = useState("")
   const [harvestStartDate, setHarvestStartDate] = useState("")
   const [areaHarvested, setAreaHarvested] = useState("")
-  const [volumeKg, setVolumeKg] = useState("")
+  const [quantity, setQuantity] = useState("")
+  const [totalKg, setTotalKg] = useState("")
+  // The kg one unit weighs (Settings > Harvest Units); this form has no crop record, so only the units for every crop apply.
+  const weights = useHarvestUnitWeights()
   const [unitOfMeasure, setUnitOfMeasure] = useState("kg")
   const [errorMessage, setErrorMessage] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -74,18 +79,7 @@ function RecordHarvestModal({ onClose, onSuccess }) {
     }
   }
 
-  const calculateVolumeBags = () => {
-    if (!volumeKg) return 0
-    return (parseFloat(volumeKg) / 50).toFixed(2)
-  }
-
-  const conversionNote = () => {
-    if (!volumeKg) return null
-    if (unitOfMeasure === 'bags' || unitOfMeasure === 'cavan') {
-      return `${calculateVolumeBags()} ${unitOfMeasure} (÷ 50 kg)`
-    }
-    return `≈ ${calculateVolumeBags()} bags (÷ 50 kg per bag)`
-  }
+  const weight = weights === null ? undefined : weightFor(weights, unitOfMeasure)
 
   const handleSubmit = async (event) => {
     event.preventDefault()
@@ -94,6 +88,8 @@ function RecordHarvestModal({ onClose, onSuccess }) {
     if (!selectedParcel) { setErrorMessage("Please select a farm parcel."); return }
     const areaProblem = harvestAreaProblem(areaHarvested, selectedParcel.area_hectares, "the parcel")
     if (areaProblem) { setErrorMessage(`Area harvested: ${areaProblem}`); return }
+    const quantityIssue = quantityProblem(quantity) || (needsTotalKg(weight) ? totalKgProblem(totalKg) : '')
+    if (quantityIssue) { setErrorMessage(quantityIssue); return }
     setIsSubmitting(true)
     try {
       await api.post("/production/create/", {
@@ -103,14 +99,15 @@ function RecordHarvestModal({ onClose, onSuccess }) {
         crop_name: cropName,
         harvest_start_date: harvestStartDate || null,
         area_harvested_hectares: parseFloat(areaHarvested),
-        volume_kg: parseFloat(volumeKg),
-        unit_of_measure: unitOfMeasure,
+        ...quantityPayload({ quantity, unit: unitOfMeasure, weight, totalKg }),
       })
       onSuccess()
       onClose()
     } catch (error) {
       const errorData = error.response?.data
       setErrorMessage(
+        errorData?.volume_kg?.[0] ||
+        errorData?.area_harvested_hectares?.[0] ||
         errorData?.non_field_errors?.[0] ||
         errorData?.detail ||
         "Unable to record harvest",
@@ -277,17 +274,17 @@ function RecordHarvestModal({ onClose, onSuccess }) {
           )}
         </div>
 
-        {/* Volume + Unit of Measure */}
+        {/* Quantity + Unit of Measure: the server saves it in kg using the unit's weight (Settings > Harvest Units) */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className={labelCls}>Volume (kg) <span className="text-rose-500">*</span></label>
+            <label className={labelCls}>Quantity Harvested <span className="text-rose-500">*</span></label>
             <input
               className={`${baseInputClasses} mt-1`}
               required
               step="0.01"
               type="number"
-              value={volumeKg}
-              onChange={(e) => setVolumeKg(e.target.value)}
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
             />
           </div>
           <div>
@@ -295,7 +292,7 @@ function RecordHarvestModal({ onClose, onSuccess }) {
             <select
               className={`${baseInputClasses} mt-1`}
               value={unitOfMeasure}
-              onChange={(e) => setUnitOfMeasure(e.target.value)}
+              onChange={(e) => { setUnitOfMeasure(e.target.value); setTotalKg("") }}
             >
               {UNIT_OPTIONS.map((u) => (
                 <option key={u.value} value={u.value}>{u.label}</option>
@@ -304,10 +301,16 @@ function RecordHarvestModal({ onClose, onSuccess }) {
           </div>
         </div>
 
-        {volumeKg && (
-          <p className="rounded-lg bg-[#f0f7f0] px-3 py-2 text-xs text-[#1E4620]">
-            {conversionNote()}
+        {unitPreview(quantity, unitOfMeasure, weight) && (
+          <p className={`rounded-lg px-3 py-2 text-xs ${weight === null ? 'bg-amber-50 text-amber-800' : 'bg-[#f0f7f0] text-[#1E4620]'}`}>
+            {unitPreview(quantity, unitOfMeasure, weight)}
           </p>
+        )}
+        {needsTotalKg(weight) && (
+          <div>
+            <label className={labelCls}>Total weight (kg) <span className="text-rose-500">*</span></label>
+            <input className={`${baseInputClasses} mt-1`} required step="0.01" type="number" value={totalKg} onChange={(e) => setTotalKg(e.target.value)} />
+          </div>
         )}
 
         {errorMessage && (

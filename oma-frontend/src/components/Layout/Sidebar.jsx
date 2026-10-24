@@ -17,6 +17,7 @@ import {
   Settings2,
   HeartHandshake,
   ListChecks,
+  Scale,
   ShieldCheck,
   Sprout,
   TrendingUp,
@@ -165,6 +166,7 @@ const ADMIN_GROUP = {
     { to: "/activity-settings", icon: Activity, label: "Activity Settings" },
     { to: "/assistance-settings", icon: HeartHandshake, label: "Assistance Settings" },
     { to: "/classification-settings", icon: ListChecks, label: "Classification Settings" },
+    { to: "/harvest-unit-settings", icon: Scale, label: "Harvest Unit Settings" },
     { to: "/users", icon: UserCog, label: "User Management" },
   ],
 };

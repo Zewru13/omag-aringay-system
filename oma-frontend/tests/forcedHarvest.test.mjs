@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 
 const {
-  daysEarly, notOffered, splitCrops, cropLabel, makeRow, rowProblem, formProblem, countLine, buildRequest, serverMessage, STANDARD_UNITS, MAX_CROPS,
+  daysEarly, notOffered, splitCrops, cropLabel, makeRow, rowProblem, rowWeight, formProblem, countLine, buildRequest, serverMessage, STANDARD_UNITS, MAX_CROPS,
 } = await import(new URL('../src/pages/CropInformation/forcedHarvest.js', import.meta.url).href)
 
 let n = 0
@@ -9,7 +9,7 @@ const eq = (actual, expected, label) => { assert.deepEqual(actual, expected, `${
 
 // a 100-day crop planted 2026-05-01 is expected on 2026-08-09
 const rec = (id, over = {}) => ({ id, crop_type_name: 'Palay (Rice)', variety_used: 'NSIC Rc222', status: 'Planted', date_planted: '2026-05-01',
-  expected_harvest_date: '2026-08-09', date_planted_is_estimated: false, area_planted_ha: '2.0000', crop_allowed_units: [], ...over })
+  expected_harvest_date: '2026-08-09', date_planted_is_estimated: false, area_planted_ha: '2.0000', crop_allowed_units: [], crop_type: 4, ...over })
 const TODAY = '2026-07-01'
 
 // ── how early
@@ -35,15 +35,21 @@ eq(splitCrops(undefined, TODAY), { offered: [], skipped: [] }, 'nothing loaded')
 // ── a row
 eq(cropLabel(rec(1)), 'Palay (Rice) (NSIC Rc222)', 'label with variety')
 eq(cropLabel(rec(1, { variety_used: '' })), 'Palay (Rice)', 'label without variety')
-eq(makeRow(rec(1)), { id: 1, label: 'Palay (Rice) (NSIC Rc222)', plantedHa: 2, area: '2', volume: '', unit: 'kg', units: STANDARD_UNITS }, 'a row starts with the whole planted area')
+eq(makeRow(rec(1)), { id: 1, label: 'Palay (Rice) (NSIC Rc222)', cropTypeId: 4, plantedHa: 2, area: '2', quantity: '', total: '', unit: 'kg', units: STANDARD_UNITS }, 'a row starts with the whole planted area')
 eq(makeRow(rec(2, { crop_allowed_units: ['bags', 'kg'] })).unit, 'bags', "the crop's own units")
 eq(makeRow(rec(3, { area_planted_ha: null })).area, '', 'no planted area recorded')
-const row = (over = {}) => ({ ...makeRow(rec(1)), volume: '1500', ...over })
-eq(rowProblem(row()), '', 'a good row')
-eq(rowProblem(row({ area: '' })), 'Enter the area harvested.', 'area needed')
-eq(rowProblem(row({ area: '2.5' })), 'Cannot be more than the area planted (2 ha).', 'not more than planted')
-eq(rowProblem(row({ volume: '' })), 'Enter the yield.', 'yield needed')
-eq(rowProblem(row({ volume: '0' })), 'Enter the yield.', 'yield above zero')
+const weights = [{ unit: 'Sack', crop_type: null, kg_per_unit: '50' }, { unit: 'Bundle', crop_type: null, kg_per_unit: null }]
+const row = (over = {}) => ({ ...makeRow(rec(1)), quantity: '1500', ...over })
+eq(rowProblem(row(), weights), '', 'a good row')
+eq(rowProblem(row({ area: '' }), weights), 'Enter the area harvested.', 'area needed')
+eq(rowProblem(row({ area: '2.5' }), weights), 'Cannot be more than the area planted (2 ha).', 'not more than planted')
+eq(rowProblem(row({ quantity: '' }), weights), 'Quantity harvested is required.', 'quantity needed')
+eq(rowProblem(row({ quantity: '0' }), weights), 'Quantity must be greater than 0.', 'quantity above zero')
+eq(rowWeight(row({ unit: 'Sack' }), weights), 50, 'the weight of a unit')
+eq(rowWeight(row({ unit: 'Sack' }), null), undefined, 'weights still loading')
+eq(rowProblem(row({ unit: 'Bundle', quantity: '20' }), weights), 'Total weight (kg) is required for this unit.', 'a unit with no weight asks for the total kg')
+eq(rowProblem(row({ unit: 'Bundle', quantity: '20', total: '40' }), weights), '', 'and is fine once it is typed')
+eq(rowProblem(row({ unit: 'Sack', quantity: '20' }), weights), '', 'a unit with a weight asks for nothing more')
 
 // ── the form
 const ok = { date: TODAY, code: 'upcoming_typhoon', detail: '', rows: [row()] }
@@ -59,11 +65,13 @@ eq(countLine(1), '1 crop selected', 'count: one')
 eq(countLine(3), '3 crops selected', 'count: many')
 
 // ── what is sent
-eq(buildRequest({ date: TODAY, code: 'upcoming_typhoon', detail: ' signal no. 3 ', remarks: ' whole parcel ' }, [row({ area: '1.5', volume: '1200', unit: 'bags' })]), {
+eq(buildRequest({ date: TODAY, code: 'upcoming_typhoon', detail: ' signal no. 3 ', remarks: ' whole parcel ' }, [row({ area: '1.5', quantity: '24', unit: 'Sack' })], weights), {
   harvest_date: TODAY, force_harvest_reason: 'upcoming_typhoon', force_harvest_detail: 'signal no. 3', remarks: 'whole parcel',
-  crops: [{ monitoring_record: 1, area_harvested_hectares: 1.5, volume_kg: 1200, unit_of_measure: 'bags' }],
-}, 'request')
-eq(buildRequest({ date: TODAY, code: 'drought', detail: '', remarks: '' }, [row()]).force_harvest_detail, '', 'no detail')
+  crops: [{ monitoring_record: 1, area_harvested_hectares: 1.5, quantity_harvested: 24, unit_of_measure: 'Sack' }],
+}, 'request: the server converts the quantity')
+eq(buildRequest({ date: TODAY, code: 'drought', detail: '', remarks: '' }, [row({ unit: 'Bundle', quantity: '20', total: '40' })], weights).crops,
+  [{ monitoring_record: 1, area_harvested_hectares: 2, quantity_harvested: 20, unit_of_measure: 'Bundle', volume_kg: 40 }], 'a unit with no weight sends the total kg')
+eq(buildRequest({ date: TODAY, code: 'drought', detail: '', remarks: '' }, [row()], weights).force_harvest_detail, '', 'no detail')
 eq(serverMessage({ detail: 'Palay (Rice): not early enough.' }), 'Palay (Rice): not early enough.', 'server detail')
 eq(serverMessage({ crops: ['Choose at least one crop.'] }), 'Choose at least one crop.', 'server crops')
 eq(serverMessage(undefined), 'Unable to save the forced harvest. Please try again.', 'unknown failure')

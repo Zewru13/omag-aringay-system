@@ -69,6 +69,10 @@ const onTime = buildHarvestReportSpec({ record, harvest: { ...harvest, harvest_s
 eq(onTime.sections.map((s) => s.title), ['Farmer', 'Crop', 'Harvest Details'], 'no reason and no notes: those sections are left out')
 eq(Object.fromEntries(onTime.sections.find((s) => s.title === 'Harvest Details').rows).Timing, 'On the expected harvest date', 'on time')
 
+// ── a harvest counted in sacks shows what was counted and the kg
+const sacks = buildHarvestReportSpec({ record, harvest: { ...harvest, volume_kg: '1000.00', quantity_harvested: '20.00', unit_of_measure: 'Sack' }, reason: '', notes: '', recordedOn: '2026-05-21' })
+eq(Object.fromEntries(sacks.sections.find((s) => s.title === 'Harvest Details').rows)['Quantity Harvested'], '20 Sack (1,000 kg)', 'quantity and kg in the report')
+
 // ── a forced harvest's report
 const forced = buildHarvestReportSpec({ record, harvest: { ...harvest, force_harvest_reason: 'upcoming_typhoon' },
   reason: 'Forced harvest due to early harvest: Upcoming Typhoon', notes: '', recordedOn: '2026-05-21' })

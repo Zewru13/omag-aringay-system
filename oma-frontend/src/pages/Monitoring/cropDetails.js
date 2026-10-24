@@ -1,6 +1,8 @@
 // The read-only "View Crop Details" window of Crop Monitoring: pure helpers for what it lists, with no screen and no network, so
 // they can be tested on their own.
 
+import { harvestAmountText } from './harvestUnits.js'
+
 export const dash = (value) => (value === undefined || value === null || value === '' ? '—' : String(value))
 
 const number = (value, digits = 2) => {
@@ -68,11 +70,10 @@ const timing = (days) => {
 export function harvestRows(harvest) {
   if (!harvest) return []
   const end = harvest.harvest_end_date && harvest.harvest_end_date !== harvest.harvest_start_date ? ` to ${harvest.harvest_end_date}` : ''
-  const unit = harvest.unit_of_measure && harvest.unit_of_measure !== 'kg' ? ` (recorded in ${harvest.unit_of_measure})` : ''
   return [
     ...(harvest.force_harvest_reason ? [['Harvest type', 'FORCED HARVEST (harvested before it was ready)']] : []),
     ['Harvested date', `${dash(harvest.harvest_start_date)}${end}`],
-    ['Volume', `${number(harvest.volume_kg, 2)} kg${unit}`],
+    ['Volume', harvestAmountText(harvest)],
     ['Area harvested (ha)', dash(harvest.area_harvested_hectares)],
     ['Yield per hectare (kg)', number(harvest.yield_per_hectare_kg, 2)],
     ['Timing', dash(timing(harvest.harvest_variance_days))],

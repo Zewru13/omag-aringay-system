@@ -8,6 +8,7 @@ from farmers.serializers import _farmer_main_membership
 from farmers.area_rules import growing_area_problem
 from .forced_reasons import apply_forced_reason
 from .harvest_area import harvest_area_problem
+from .unit_weights import apply_unit_weight
 from .duplicates import ACTIVE_STATUSES, duplicate_message, find_active_duplicates, growing_area_on_parcel
 from .naming import normalize_name
 from .parcel_link import infer_farm_parcel
@@ -15,9 +16,42 @@ from .parcel_link import infer_farm_parcel
 from .models import (
     ActivityType, BarangayCropSummary, CropActivityLog, CropActivityStage,
     CropCategory, CropDisasterReport, CropInputType, CropMonitoringRecord, CropRemark, CropSubcategory,
-    CropType, CropVariety, DamageReport, FarmInputLog, FORCE_HARVEST_REASON_LABELS, HarvestRecord, LaborOperationLog,
+    CropType, CropVariety, DamageReport, FarmInputLog, FORCE_HARVEST_REASON_LABELS, HarvestRecord, HarvestUnitWeight, LaborOperationLog,
     PestDiseaseReport, PlantingRecord, SeedSource,
 )
+
+
+class HarvestUnitWeightSerializer(serializers.ModelSerializer):
+    """One row of Settings > Harvest Units: the kg one unit weighs, for every crop or for one crop (which wins)."""
+    crop_type_name = serializers.CharField(source='crop_type.name', read_only=True, default='')
+
+    class Meta:
+        model = HarvestUnitWeight
+        fields = ['id', 'unit', 'crop_type', 'crop_type_name', 'kg_per_unit', 'note']
+        read_only_fields = ['id', 'crop_type_name']
+
+    def validate_unit(self, value):
+        name = ' '.join((value or '').split())
+        if not name:
+            raise serializers.ValidationError('Enter the unit name, as the harvest form lists it.')
+        if name.lower() == 'kg':
+            raise serializers.ValidationError('kg is built in (1 kg). Add the other units here.')
+        return name
+
+    def validate_kg_per_unit(self, value):
+        if value is not None and value <= 0:
+            raise serializers.ValidationError('The weight must be more than 0 kg, or left empty when the unit has no standard weight.')
+        return value
+
+    def validate(self, data):
+        unit = data.get('unit', getattr(self.instance, 'unit', ''))
+        crop = data.get('crop_type', getattr(self.instance, 'crop_type', None))
+        clash = HarvestUnitWeight.objects.filter(unit__iexact=unit, crop_type=crop)
+        if self.instance is not None:
+            clash = clash.exclude(pk=self.instance.pk)
+        if clash.exists():
+            raise serializers.ValidationError({'unit': f'"{unit}" already has a weight{" for this crop" if crop else " for every crop"}. Edit that row instead.'})
+        return data
 
 
 class SeedSourceSerializer(serializers.ModelSerializer):
@@ -783,6 +817,8 @@ class HarvestRecordSerializer(serializers.ModelSerializer):
             'harvest_end_date',
             'area_harvested_hectares',
             'volume_kg',
+            'quantity_harvested',
+            'kg_per_unit',
             'volume_bags',
             'unit_of_measure',
             'yield_per_hectare_kg',
@@ -798,6 +834,7 @@ class HarvestRecordSerializer(serializers.ModelSerializer):
             'id',
             'farm_parcel',
             'monitoring_record',
+            'kg_per_unit',
             'force_harvest_reason',
             'force_harvest_label',
             'farmer_name',
@@ -848,6 +885,9 @@ def _validate_harvest_record(data, instance):
         crop_units = (monitoring_record.crop_type.allowed_units or []) if monitoring_record and monitoring_record.crop_type_id else []
         if unit not in standard and unit not in crop_units:
             raise serializers.ValidationError({'unit_of_measure': f'"{unit}" is not a unit this crop is harvested in.'})
+
+    # What was counted becomes real kg (Settings > Harvest Units); see unit_weights.py.
+    data = apply_unit_weight(data, instance, monitoring_record)
 
     # The parcel must be one of the crop's own farmer: otherwise a harvest could carry someone else's parcel, and
     # the harvest detail would show that parcel owner's name and RSBSA number to whoever can read the harvest.
@@ -902,6 +942,8 @@ class HarvestRecordCreateSerializer(serializers.ModelSerializer):
             'harvest_end_date',
             'area_harvested_hectares',
             'volume_kg',
+            'quantity_harvested',
+            'kg_per_unit',
             'unit_of_measure',
             'yield_per_hectare_kg',
             'harvest_variance_days',
@@ -910,7 +952,9 @@ class HarvestRecordCreateSerializer(serializers.ModelSerializer):
             'force_harvest_detail',
             'remarks',
         ]
-        read_only_fields = ['id', 'yield_per_hectare_kg', 'harvest_variance_days']
+        read_only_fields = ['id', 'yield_per_hectare_kg', 'harvest_variance_days', 'kg_per_unit']
+        # volume_kg is worked out from quantity_harvested when the unit has a standard weight (apply_unit_weight asks for it otherwise)
+        extra_kwargs = {'volume_kg': {'required': False}}
 
     def validate(self, data):
         return _validate_harvest_record(apply_forced_reason(data), self.instance)

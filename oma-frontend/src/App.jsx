@@ -10,6 +10,7 @@ import DashboardPage from "./pages/Dashboard/DashboardPage.jsx";
 import FarmerDetailPage from "./pages/Farmers/FarmerDetailPage.jsx";
 import AssistanceAgenciesPage from "./pages/AssistanceManagement/AssistanceAgenciesPage.jsx";
 import ClassificationSettingsPage from "./pages/Farmers/ClassificationSettingsPage.jsx";
+import HarvestUnitSettingsPage from "./pages/Production/HarvestUnitSettingsPage.jsx";
 import FarmersHub from "./pages/Farmers/FarmersHub.jsx";
 import FisherfolkDetailPage from "./pages/Fisheries/FisherfolkDetailPage.jsx";
 import FisherfolkHub from "./pages/Fisherfolk/FisherfolkHub.jsx";
@@ -336,6 +337,16 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["ADMIN"]}>
                 <AssistanceAgenciesPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Harvest unit settings: how many kg one harvest unit weighs (admin only) */}
+          <Route
+            path="/harvest-unit-settings"
+            element={
+              <ProtectedRoute allowedRoles={["ADMIN"]}>
+                <HarvestUnitSettingsPage />
               </ProtectedRoute>
             }
           />

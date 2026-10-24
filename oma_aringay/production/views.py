@@ -47,7 +47,7 @@ from .models import (
     CropInputType,
     CropMonitoringRecord, CropRemark,
     CropSubcategory, CropType, CropVariety, DamageReport, DisasterResponseRule,
-    FarmInputLog, HarvestRecord, LaborOperationLog, PestDiseaseReport, PlantingRecord,
+    FarmInputLog, HarvestRecord, HarvestUnitWeight, LaborOperationLog, PestDiseaseReport, PlantingRecord,
     SeedSource,
 )
 from .serializers import (
@@ -69,6 +69,7 @@ from .serializers import (
     FarmInputLogSerializer,
     HarvestRecordCreateSerializer,
     HarvestRecordSerializer,
+    HarvestUnitWeightSerializer,
     LaborOperationLogSerializer,
     PestDiseaseReportSerializer,
     PlantingRecordCreateSerializer,
@@ -111,6 +112,28 @@ class HarvestRecordListView(generics.ListAPIView):
             )
 
         return queryset
+
+
+class HarvestUnitWeightListCreateView(generics.ListCreateAPIView):
+    """Settings > Harvest Units. Everyone signed in reads it (the harvest forms show the conversion); only an Admin changes it."""
+    serializer_class = HarvestUnitWeightSerializer
+    queryset = HarvestUnitWeight.objects.select_related('crop_type').order_by('unit', 'crop_type__name')
+    pagination_class = None
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsAdmin()]
+
+
+class HarvestUnitWeightDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = HarvestUnitWeightSerializer
+    queryset = HarvestUnitWeight.objects.select_related('crop_type')
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsAdmin()]
 
 
 class HarvestRecordCreateView(generics.CreateAPIView):
