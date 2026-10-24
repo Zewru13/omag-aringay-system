@@ -15,6 +15,7 @@ harvested once, the date is not in the future and not before stocking, and a cyc
 from decimal import Decimal
 
 from django.db import transaction
+from django.db.models import prefetch_related_objects
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import serializers, status as drf_status
@@ -156,10 +157,12 @@ def record_force_harvests(user, data):
     ids = [c['stocking_record'].id for c in cycles]
     if len(set(ids)) != len(ids):
         _fail('cycles', 'Each production cycle can be listed only once.')
-    stocks = {
-        s.id: s for s in StockingRecord.objects.select_for_update()
-        .select_related('species', 'production_cycle', 'fisherfolk').filter(pk__in=ids).order_by('id')
-    }
+    # The lock is taken on the stocking records alone: PostgreSQL refuses SELECT ... FOR UPDATE over a join to a nullable
+    # relation (a stocking's fisherfolk and production cycle may be empty), which failed every save with a server error. The
+    # related rows are loaded right after, in separate queries, so the rest of the function reads them as before.
+    locked = list(StockingRecord.objects.select_for_update().filter(pk__in=ids).order_by('id'))
+    prefetch_related_objects(locked, 'species', 'production_cycle', 'fisherfolk')
+    stocks = {s.id: s for s in locked}
     if len(stocks) != len(ids):
         raise NotFound('Production cycle not found.')
 
