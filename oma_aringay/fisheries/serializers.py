@@ -1132,6 +1132,10 @@ class StockingRecordSerializer(serializers.ModelSerializer):
     production_cycle_name = serializers.CharField(source='production_cycle.cycle_name', read_only=True, default=None)
     # Organization of the linked Production Cycle (None for records without one).
     organization_name = serializers.CharField(source='production_cycle.organization.name', read_only=True, default=None)
+    # Ownership of the linked Production Cycle (Tenant / Lease / Owner; blank for cycles made before it existed, None without a cycle).
+    ownership = serializers.CharField(source='production_cycle.ownership', read_only=True, default=None)
+    owner_name = serializers.CharField(source='production_cycle.owner_name', read_only=True, default=None)
+    owner_registration_number = serializers.CharField(source='production_cycle.owner_registration_number', read_only=True, default=None)
     next_feeding_date = serializers.SerializerMethodField()
     growth_stage = serializers.SerializerMethodField()
     recommended_feed_type_id = serializers.SerializerMethodField()
@@ -1147,6 +1151,7 @@ class StockingRecordSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'fisherfolk', 'fisherfolk_name',
             'pond', 'pond_name', 'production_cycle', 'production_cycle_name', 'organization_name',
+            'ownership', 'owner_name', 'owner_registration_number',
             'pond_location_barangay', 'land_status', 'land_status_other_specify', 'culture_type',
             'species', 'species_name', 'category_name',
             'date_stocked', 'date_stocked_is_estimated', 'area_hectares', 'number_of_fingerlings',
@@ -1168,6 +1173,7 @@ class StockingRecordSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             'id', 'pcic_form_photo', 'fisherfolk_name', 'pond_name', 'production_cycle_name', 'organization_name', 'species_name', 'category_name',
+            'ownership', 'owner_name', 'owner_registration_number',
             'expected_harvest_date', 'estimated_harvest_kg',
             'recorded_by', 'date_recorded', 'display_status',
             'is_near_harvest', 'log_count', 'disaster_count', 'disaster_report_count',

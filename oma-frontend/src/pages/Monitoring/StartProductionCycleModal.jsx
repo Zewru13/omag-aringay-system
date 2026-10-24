@@ -11,6 +11,8 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { detectSeason } from '../FisheriesRecords/stockingHelpers.js'
 import { EMPTY_PCIC, pcicError, pcicPayload, uploadPcicForm } from '../../utils/pcic.js'
+import OwnershipFields from '../../components/UI/OwnershipFields.jsx'
+import { EMPTY_OWNERSHIP, ownershipPayload, ownershipProblem } from '../../utils/ownership.js'
 
 // Aquaculture production cycles: ponds or cages only (the backend accepts only these for a new cycle).
 const CULTURE_SYSTEMS = ['Fishpond', 'Fishcage']
@@ -68,6 +70,8 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
   const [isSubmitting, setIsSubmitting] = useState(false)
   // PCIC insurance of this stocking: the box travels with the cycle, the form photo is uploaded once the cycle exists.
   const [pcic, setPcic] = useState({ ...EMPTY_PCIC })
+  // Ownership of the site (Tenant / Lease / Owner, with the owner's details for the first two), saved with the cycle.
+  const [owner, setOwner] = useState({ ...EMPTY_OWNERSHIP })
   const [speciesList, setSpeciesList] = useState([])
   const [isLoadingSpecies, setIsLoadingSpecies] = useState(true)
   const [form, setForm] = useState({
@@ -260,6 +264,8 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
     }
     const unitError = validateUnits()
     if (unitError) { showToast(unitError, 'error'); return }
+    const ownerProblem = ownershipProblem(owner)
+    if (ownerProblem) { showToast(ownerProblem, 'error'); return }
     const pcicProblem = pcicError(pcic)
     if (pcicProblem) { showToast(pcicProblem, 'error'); return }
     setIsSubmitting(true)
@@ -289,6 +295,7 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
               area_sqm: form.area_sqm ? parseFloat(form.area_sqm) : null,
             }),
         target_harvest_date: form.target_harvest_date || null,
+        ...ownershipPayload(owner),
         ...pcicPayload(pcic),
       })
       // The cycle exists now; a failed photo upload must not read as a failed cycle.
@@ -471,6 +478,7 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
               />
             )}
           </FormField>
+          <OwnershipFields value={owner} onChange={setOwner} />
           <FormField label="Stocking Date" required>
             <input type="date" className={baseInputClasses} required value={form.stocking_date} onChange={e => handleStockingDateChange(e.target.value)} />
           </FormField>

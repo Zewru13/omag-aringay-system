@@ -62,6 +62,17 @@ class AquacultureProductionCycle(models.Model):
     cycle_name = models.CharField(max_length=150)
     species_farmed = models.CharField(max_length=100)
     culture_system = models.CharField(max_length=20, choices=CULTURE_SYSTEM_CHOICES)
+    # How the fisherfolk holds the pond/cage site. Blank on cycles made before this existed ("Not specified"). Tenant and Lease also
+    # record who the owner is; Owner records nothing more (the serializer clears the owner fields). The registration number is text
+    # so leading zeros survive.
+    OWNERSHIP_CHOICES = [
+        ('Tenant', 'Tenant'),
+        ('Lease', 'Lease'),
+        ('Owner', 'Owner'),
+    ]
+    ownership = models.CharField(max_length=10, choices=OWNERSHIP_CHOICES, blank=True)
+    owner_name = models.CharField(max_length=150, blank=True)
+    owner_registration_number = models.CharField(max_length=50, blank=True)
     stocking_date = models.DateField()
     stocking_count = models.PositiveIntegerField(null=True, blank=True)
     stocking_density = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)

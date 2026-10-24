@@ -19,7 +19,8 @@ import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import PcicInsuranceField from '../../components/UI/PcicInsuranceField.jsx'
-import { pcicError, pcicPayload, pcicStateFrom, uploadPcicForm } from '../../utils/pcic.js'
+import { pcicError, pcicNameClass, pcicPayload, pcicStateFrom, uploadPcicForm } from '../../utils/pcic.js'
+import { ownershipLabel } from '../../utils/ownership.js'
 import AquacultureCycleDetailModal from '../Monitoring/AquacultureCycleDetailModal.jsx'
 import { rowClickProps } from '../../utils/rowClick.js'
 import StartProductionCycleModal from '../Monitoring/StartProductionCycleModal.jsx'
@@ -55,6 +56,7 @@ const STATUS_TONES = {
 }
 
 const COLUMNS = [
+  { key: 'ownership_cell',      label: 'OWNERSHIP' },
   { key: 'species_name_cell',   label: 'SPECIES' },
   { key: 'fisherfolk_cell',     label: 'FISHERFOLK' },
   { key: 'culture_type',        label: 'CULTURE TYPE' },
@@ -989,7 +991,10 @@ function StockingMobileCard({ row, expanded, unitsState, onToggle, onRetryUnits,
         <div className="min-w-0">
           <div className="break-words text-[15px] text-[#1A2B1A] [&>span>svg:first-child]:hidden">{row.species_name_cell}</div>
           <p className="mt-0.5 break-words text-[12px] text-[#7A8E7A]">
-            {[row.fisherfolk_cell, row.cycle_cell && row.cycle_cell !== '—' ? `Cycle ${row.cycle_cell}` : null].filter((x) => x && x !== '—').join(' · ')}
+            {row.fisherfolk_cell && row.fisherfolk_cell !== '—' ? row.fisherfolk_cell : null}
+            {row.fisherfolk_cell && row.fisherfolk_cell !== '—' && row.cycle_cell && row.cycle_cell !== '—' ? ' · ' : null}
+            {row.cycle_cell && row.cycle_cell !== '—' ? `Cycle ${row.cycle_cell}` : null}
+            {row.ownership ? ` · ${ownershipLabel(row.ownership)}` : null}
           </p>
         </div>
         <ChevronDown size={18} aria-hidden="true" className={`shrink-0 text-[#7A8E7A] transition-transform ${expanded ? 'rotate-180' : ''}`} />
@@ -1223,7 +1228,9 @@ export default function FisheriesRecordsPage({ asTab = false }) {
         )}
       </span>
     ),
-    fisherfolk_cell:      isFisherfolk ? '—' : (rec.fisherfolk_name || '—'),
+    // Blue for a PCIC-insured cycle (Admin and Focal Person only), from this row's own saved insurance flag.
+    ownership_cell:       ownershipLabel(rec.ownership),
+    fisherfolk_cell:      isFisherfolk ? '—' : (rec.fisherfolk_name ? <span className={pcicNameClass(rec, user?.role)}>{rec.fisherfolk_name}</span> : '—'),
     cycle_cell:           rec.production_cycle_no ? `#${rec.production_cycle_no}` : '—',
     date_stocked_fmt:     rec.date_stocked_is_estimated ? (
       <span className="flex flex-col gap-0.5">

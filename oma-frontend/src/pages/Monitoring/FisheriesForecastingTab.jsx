@@ -27,6 +27,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
 import { fmtShortDate } from '../../utils/forecastDates.js'
+import { pcicNameClass } from '../../utils/pcic.js'
 import { possibleFactorsText } from '../../utils/yieldAnalysis.js'
 
 const filterLabelCls = 'block text-[12px] font-medium text-[#4A5E4A] mb-1'
@@ -840,7 +841,7 @@ function AggregatePanel({ groupBy, setGroupBy, groups, overall, cycleTrend, isLo
 export default function ForecastingTab({ asTab = false }) {
   const { showToast } = useToast()
   // Fisherfolk accounts use this same page; the backend returns only their own records.
-  const { isFisherfolk } = useAuth()
+  const { isFisherfolk, user: authUser } = useAuth()
   const [activeTab, setActiveTab] = useState('forecast') // 'forecast' | 'yield_analysis'
   // Yield Analysis data is loaded only once its tab has been opened (not while Forecast is the active tab);
   // after that it reloads only when its own filters change, not on every tab switch.
@@ -954,7 +955,7 @@ export default function ForecastingTab({ asTab = false }) {
 
   const FC_COLUMNS = [
     { key: 'species_cell',      label: 'SPECIES' },
-    { key: 'fisherfolk_name',   label: 'FISHERFOLK' },
+    { key: 'fisherfolk_cell',   label: 'FISHERFOLK' },
     { key: 'culture_type',      label: 'CULTURE TYPE' },
     { key: 'stocked_cell',      label: 'DATE STOCKED' },
     { key: 'fingerlings_cell',  label: 'FINGERLINGS' },
@@ -968,6 +969,8 @@ export default function ForecastingTab({ asTab = false }) {
   const fcRows = fcFiltered.map(rec => ({
     ...rec,
     _rec: rec,   // the untouched record for the row click / expanded panel
+    // Blue for a PCIC-insured cycle (Admin and Focal Person only): this row's own saved insurance flag, from the same response.
+    fisherfolk_cell: <span className={pcicNameClass(rec, authUser?.role)}>{rec.fisherfolk_name}</span>,
     species_cell: (
       <span className="inline-flex items-center gap-1.5">
         {fcExpandedId === rec.id
@@ -1390,7 +1393,7 @@ export default function ForecastingTab({ asTab = false }) {
                   key={row.id}
                   title={row.species_name}
                   status={<StatusPill tone={FC_STATUS_TONE[row.status_cell] || 'slate'}>{row.status_cell}</StatusPill>}
-                  subtitle={[row.fisherfolk_name, row.culture_type].filter(Boolean).join(' · ')}
+                  subtitle={<>{row.fisherfolk_name ? row.fisherfolk_cell : null}{row.fisherfolk_name && row.culture_type ? ' · ' : null}{row.culture_type}</>}
                   stats={[
                     { label: 'Stocked', value: row.stocked_cell },
                     { label: 'Fingerlings', value: row.fingerlings_cell },
