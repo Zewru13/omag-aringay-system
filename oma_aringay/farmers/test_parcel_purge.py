@@ -56,10 +56,25 @@ class ParcelPurgeTests(APITestCase):
     def test_a_missing_parcel_is_a_404(self):
         self.assertEqual(self.client.post('/api/farmers/parcels/999999/purge/', {'reason': 'Sold'}, format='json').status_code, 404)
 
-    def test_a_reason_is_required_and_must_be_sold_or_transferred(self):
+    def test_a_reason_is_required_and_must_be_one_of_the_choices(self):
         self.assertEqual(self.purge({}).status_code, 400)
         self.assertEqual(self.purge({'reason': 'Lost'}).status_code, 400)
         self.assertEqual(FarmParcel.objects.filter(pk=self.parcel.pk).count(), 1)
+
+    def test_others_needs_the_reason_typed_and_it_is_kept_trimmed(self):
+        self.assertIn('Type the reason', self.purge({'reason': 'Other'}).json()['reason_other'])
+        self.assertEqual(self.purge({'reason': 'Other', 'reason_other': '   '}).status_code, 400)
+        self.assertIn('under 100', self.purge({'reason': 'Other', 'reason_other': 'x' * 101}).json()['reason_other'])
+        self.assertEqual(FarmParcel.objects.filter(pk=self.parcel.pk).count(), 1)
+        self.assertEqual(self.purge({'reason': 'Other', 'reason_other': '  Taken by the road project  '}).status_code, 200)
+        saved = FarmParcel.all_objects.get(pk=self.parcel.pk)
+        self.assertEqual((saved.purge_reason, saved.purge_reason_other), ('Other', 'Taken by the road project'))
+        row = self.client.get('/api/farmers/parcels/purged/').json()['results'][0]
+        self.assertEqual((row['purge_reason'], row['purge_reason_other']), ('Other', 'Taken by the road project'))
+
+    def test_a_typed_reason_is_dropped_when_the_reason_is_not_others(self):
+        self.assertEqual(self.purge({'reason': 'Sold', 'reason_other': 'ignored'}).status_code, 200)
+        self.assertEqual(FarmParcel.all_objects.get(pk=self.parcel.pk).purge_reason_other, '')
 
     def test_the_date_cannot_be_in_the_future_or_unreadable(self):
         future = (timezone.localdate() + timedelta(days=2)).isoformat()
@@ -147,3 +162,18 @@ class ParcelPurgeTests(APITestCase):
 
     def test_a_parcel_in_use_is_not_in_the_purged_table(self):
         self.assertEqual(self.client.get('/api/farmers/parcels/purged/').json()['count'], 0)
+
+    def test_the_purged_table_can_be_filtered_by_the_date_of_occurrence(self):
+        parcels = [self.parcel] + [FarmParcel.objects.create(farmer=self.farmer, area_hectares='1', land_ownership='Owner', barangay='Alaska') for _ in range(2)]
+        for parcel, day in zip(parcels, ('2026-08-01', '2026-09-15', '2026-10-20')):
+            self.assertEqual(self.purge({'reason': 'Sold', 'date': day}, parcel).status_code, 200)
+
+        def ids(**params):
+            return {r['id'] for r in self.client.get('/api/farmers/parcels/purged/', params).json()['results']}
+
+        self.assertEqual(ids(), {p.id for p in parcels})
+        self.assertEqual(ids(date_from='2026-09-15'), {parcels[1].id, parcels[2].id})
+        self.assertEqual(ids(date_to='2026-09-15'), {parcels[0].id, parcels[1].id})
+        self.assertEqual(ids(date_from='2026-09-01', date_to='2026-09-30'), {parcels[1].id})
+        self.assertEqual(ids(date_from='2026-11-01'), set())
+        self.assertEqual(self.client.get('/api/farmers/parcels/purged/', {'date_from': 'last week'}).status_code, 400)

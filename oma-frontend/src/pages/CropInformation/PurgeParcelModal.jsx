@@ -6,14 +6,15 @@ import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { todayISO } from '../../utils/localDate.js'
-import { PURGE_NOTE_MAX, PURGE_REASONS, parcelLabel, purgePayload, purgeProblem, purgeServerMessage } from './parcelRecords.js'
+import { OTHER_REASON, PURGE_NOTE_MAX, PURGE_OTHER_MAX, PURGE_REASONS, parcelLabel, purgePayload, purgeProblem, purgeServerMessage } from './parcelRecords.js'
 
-// Purge Parcel (Crop Records > a parcel's ⋮ menu): the parcel was sold or transferred to someone else, so it leaves Crop Records
-// and Crop Monitoring and moves to the Purged Parcels table. The server refuses while a crop is still growing on it.
+// Purge Parcel (Crop Records > a parcel's ⋮ menu): the parcel was sold, transferred or otherwise left the farmer's records, so it leaves
+// Crop Records and Crop Monitoring and moves to the Purged Parcels table. The reason is a dropdown; Others asks for it in words.
+// The server refuses while a crop is still growing on it.
 export default function PurgeParcelModal({ parcel, onClose, onDone }) {
   const { showToast } = useToast()
   const today = todayISO()
-  const [form, setForm] = useState({ reason: '', date: today, note: '' })
+  const [form, setForm] = useState({ reason: '', reasonOther: '', date: today, note: '' })
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const title = parcelLabel(parcel)
@@ -47,31 +48,33 @@ export default function PurgeParcelModal({ parcel, onClose, onDone }) {
       footer={(
         <>
           <Button onClick={onClose} type="button" variant="ghost">Cancel</Button>
-          <Button isLoading={isSubmitting} disabled={isSubmitting || !form.reason} type="submit" form="purge-parcel-form" variant="danger">Purge Parcel</Button>
+          <Button isLoading={isSubmitting} disabled={isSubmitting || !form.reason || (form.reason === OTHER_REASON && !form.reasonOther.trim())} type="submit" form="purge-parcel-form" variant="danger">Purge Parcel</Button>
         </>
       )}
     >
       <form id="purge-parcel-form" onSubmit={submit} className="space-y-4" noValidate>
         <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-[13px] text-amber-900">
-          Purge a parcel only when it has been <span className="font-semibold">sold or transferred</span> to someone else. It leaves Crop Records and
-          Crop Monitoring and moves to the Purged Parcels table. A parcel with crops still growing cannot be purged.
+          Purge a parcel only when it has been <span className="font-semibold">sold, transferred or otherwise left</span> the farmer&apos;s records. It
+          leaves Crop Records and Crop Monitoring and moves to the Purged Parcels table. A parcel with crops still growing cannot be purged.
         </p>
 
         {error && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700">{error}</p>}
 
-        <fieldset>
-          <legend className="mb-1.5 text-[13px] font-medium text-[#4A5E4A]">Reason <span className="ml-1 text-rose-500">*</span></legend>
-          <div className="space-y-1">
-            {PURGE_REASONS.map((r) => (
-              <label key={r.value} className="flex min-h-[40px] cursor-pointer items-center gap-2.5 rounded-lg border border-[#E2E8E2] px-3 text-[13px] text-[#1A2B1A] has-[:checked]:border-[#1B4D2E] has-[:checked]:bg-[#EBF5EE]">
-                <input type="radio" name="purge-reason" className="h-4 w-4 accent-[#1B4D2E]" checked={form.reason === r.value} onChange={() => set('reason', r.value)} />
-                {r.label}
-              </label>
-            ))}
-          </div>
-        </fieldset>
+        <FormField label="Reason" required>
+          <select className={baseInputClasses} value={form.reason} onChange={(e) => set('reason', e.target.value)}>
+            <option value="">Select a reason</option>
+            {PURGE_REASONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+          </select>
+        </FormField>
 
-        <FormField label="Date it was sold or transferred">
+        {form.reason === OTHER_REASON && (
+          <FormField label="Type the reason" required>
+            <input type="text" autoFocus maxLength={PURGE_OTHER_MAX} className={baseInputClasses} value={form.reasonOther}
+              placeholder="e.g. Taken by the road project" onChange={(e) => set('reasonOther', e.target.value)} />
+          </FormField>
+        )}
+
+        <FormField label="Date of occurrence">
           <input type="date" className={baseInputClasses} value={form.date} max={today} onChange={(e) => set('date', e.target.value)} />
         </FormField>
 
