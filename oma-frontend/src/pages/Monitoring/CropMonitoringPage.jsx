@@ -34,6 +34,8 @@ import { todayISO as localToday } from '../../utils/localDate.js'
 import CycleDayBanner from '../../components/UI/CycleDayBanner.jsx'
 import CropDetailsModal from './CropDetailsModal.jsx'
 import GroupedMonitoringTable from './GroupedMonitoringTable.jsx'
+import ParcelViewModal from './ParcelViewModal.jsx'
+import EditParcelModal from '../Farmers/EditParcelModal.jsx'
 import { DEFAULT_GROUP, DEFAULT_STATUS, FARMER_GROUP, GROUP_OPTIONS, monitoringParams } from './monitoringGroups.js'
 import { harvestAreaHint, harvestAreaProblem } from './harvestArea.js'
 import { harvestAmountText, harvestKg, needsTotalKg, quantityPayload, quantityProblem, totalKgProblem, unitPreview, weightFor } from './harvestUnits.js'
@@ -2082,6 +2084,8 @@ export default function CropMonitoringPage() {
   const [version,          setVersion]          = useState(0)
   const [viewLogsRecord,   setViewLogsRecord]   = useState(null)
   const [detailsRecord,    setDetailsRecord]    = useState(null)   // the read-only crop details window
+  const [viewingParcel,    setViewingParcel]    = useState(null)   // a parcel group's View parcel window (the group row)
+  const [editingParcel,    setEditingParcel]    = useState(null)   // a parcel group's Edit parcel window (the whole parcel)
   const [logsStartForm,    setLogsStartForm]    = useState(false)   // open the logs window on the add-activity form
   const [disasterRecord,   setDisasterRecord]   = useState(null)
   const [harvestRecord,    setHarvestRecord]    = useState(null)
@@ -2156,6 +2160,12 @@ export default function CropMonitoringPage() {
     }))
     setLockStatuses(prev => ({ ...prev, ...Object.fromEntries(entries.filter(([, v]) => v)) }))
   }, [isFarmer])
+
+  // A parcel group's Edit parcel: the window needs the whole parcel (its crops decide the cropping schedule), so it is fetched first.
+  const editParcelOf = (group) =>
+    api.get(`/farmers/parcels/${group.id}/`)
+      .then((r) => setEditingParcel(r.data))
+      .catch(() => showToast('Unable to open this parcel. Please try again.', 'error'))
 
   const handleForceUnlock = async (recordId) => {
     try {
@@ -2304,6 +2314,7 @@ export default function CropMonitoringPage() {
             phoneTitleKey={groupBy === 'crop' ? 'variety_col' : 'crop_cell'}
             phoneSubtitleKey={groupBy === 'crop' ? 'farmer_col' : (isFarmer || groupBy === 'farmer' ? 'variety_col' : 'farmer_col')}
             onRecordsLoaded={addLockStatuses}
+            parcelActions={isFarmer ? null : { view: setViewingParcel, edit: editParcelOf }}
             emptyText={isFarmer ? 'Your crops will appear here once the office registers them.' : 'No monitoring records found'}
           />
         ) : (<>
@@ -2426,6 +2437,16 @@ export default function CropMonitoringPage() {
           record={harvestRecord}
           onClose={() => setHarvestRecord(null)}
           onSuccess={refreshAll}
+        />
+      )}
+
+      {viewingParcel && <ParcelViewModal group={viewingParcel} onClose={() => setViewingParcel(null)} />}
+
+      {editingParcel && (
+        <EditParcelModal
+          parcel={editingParcel}
+          onClose={() => setEditingParcel(null)}
+          onSuccess={() => { setEditingParcel(null); refreshAll() }}
         />
       )}
 

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Eye, Pencil } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
-import { groupChildParams, groupHeading, groupSummary } from './monitoringGroups.js'
+import RowActions from '../../components/UI/RowActions.jsx'
+import { PARCEL_GROUP_COLUMNS, groupChildParams, groupHeading, groupSummary, parcelGroupFacts } from './monitoringGroups.js'
 
 // Crop Monitoring grouped by crop or by farmer. The groups come from the server (GET /production/monitoring/groups/, ten
 // per page, with the same filters as the list); opening a group loads that group's own records from the ordinary list
@@ -12,11 +13,41 @@ import { groupChildParams, groupHeading, groupSummary } from './monitoringGroups
 // (record activity, view details, record harvest, report disaster) are exactly the ones used everywhere else on the page.
 //   groupBy: 'crop' | 'farmer'    params: the list's filters (monitoringParams)    version: bump to reload after an action
 //   columns / phoneTitleKey: for the records inside a group    onRecordsLoaded(records): e.g. to look up record locks
+//   parcelActions: { view(group), edit(group) } puts a ⋮ menu on every farm parcel group (staff only; omitted for a farmer account)
 
 const GROUP_PAGE_SIZE = 10
+// Parcel groups are rows of columns: the columns, then the room for the ⋮ menu.
+const PARCEL_GRID = 'sm:grid-cols-[minmax(0,1.3fr)_minmax(0,1.4fr)_minmax(0,0.9fr)_4.5rem_5.5rem_minmax(0,1.5fr)]'
+const ACTIONS_WIDTH = 'sm:w-14'
+
+// One parcel group's columns (the button that opens it). A phone gets the same facts stacked.
+function ParcelGroupCells({ group, isOpen }) {
+  const facts = parcelGroupFacts(group)
+  return (
+    <>
+      <span className="min-w-0 sm:hidden">
+        <span className="block truncate text-[14px] font-semibold text-[#1A2B1A]">{group.name}</span>
+        {group.id && <span className="block truncate text-[13px] text-[#4A5E4A]">{facts.farmer}{facts.barangay ? ` · ${facts.barangay}` : ''}</span>}
+        <span className="block truncate text-[12px] text-[#7A8E7A]">{[facts.area && `${facts.area} ha`, facts.ownership, facts.records].filter(Boolean).join(' · ')}</span>
+      </span>
+      <span className="hidden min-w-0 truncate text-[13px] font-semibold text-[#1A2B1A] sm:block">{group.name}</span>
+      <span className="hidden min-w-0 sm:block">
+        <span className="block truncate text-[13px] font-medium text-[#1A2B1A]">{facts.farmer || '—'}</span>
+        {facts.rsbsa && <span className="block truncate text-[11.5px] text-[#7A8E7A]">{facts.rsbsa}</span>}
+      </span>
+      <span className="hidden truncate text-[13px] text-[#4A5E4A] sm:block">{facts.barangay || '—'}</span>
+      <span className="hidden text-[13px] text-[#4A5E4A] sm:block">{facts.area || '—'}</span>
+      <span className="hidden truncate text-[13px] text-[#4A5E4A] sm:block">{facts.ownership || '—'}</span>
+      <span className="hidden min-w-0 items-center justify-between gap-2 sm:flex">
+        <span className="truncate text-[13px] text-[#4A5E4A]">{facts.records}</span>
+        <ChevronDown size={18} className={`shrink-0 text-[#7A8E7A] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+      </span>
+    </>
+  )
+}
 
 export default function GroupedMonitoringTable({
-  groupBy, params, version, columns, buildRow, phoneTitleKey, phoneSubtitleKey, onRecordsLoaded, emptyText = 'No monitoring records found',
+  groupBy, params, version, columns, buildRow, phoneTitleKey, phoneSubtitleKey, onRecordsLoaded, parcelActions = null, emptyText = 'No monitoring records found',
 }) {
   const [page, setPage] = useState(1)
   // What the last answer was for: while it differs from what is asked now, the table is loading.
@@ -76,9 +107,18 @@ export default function GroupedMonitoringTable({
     <div className="space-y-4">
       {error && <ErrorMessage message={error} />}
       <div className="overflow-hidden rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]" data-testid="grouped-monitoring-table">
-        <div className="hidden bg-[#1B4D2E] px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-white sm:block">
-          {{ farmer: 'Farmer', parcel: 'Farm parcel' }[groupBy] || 'Crop'}
-        </div>
+        {groupBy === 'parcel' ? (
+          <div className="hidden bg-[#1B4D2E] text-[11px] font-semibold uppercase tracking-wide text-white sm:flex">
+            <div className={`grid min-w-0 flex-1 items-center gap-3 px-4 py-3 ${PARCEL_GRID}`}>
+              {PARCEL_GROUP_COLUMNS.map((label) => <span key={label} className="truncate">{label}</span>)}
+            </div>
+            {parcelActions && <div className={`flex items-center justify-center py-3 ${ACTIONS_WIDTH}`}><span className="sr-only">Actions</span></div>}
+          </div>
+        ) : (
+          <div className="hidden bg-[#1B4D2E] px-4 py-3 text-[11px] font-semibold uppercase tracking-wide text-white sm:block">
+            {{ farmer: 'Farmer', parcel: 'Farm parcel' }[groupBy] || 'Crop'}
+          </div>
+        )}
         {isLoading && <p className="px-4 py-8 text-center text-sm text-slate-500">Loading…</p>}
         {!isLoading && !error && groups.length === 0 && (
           <div className="px-4 py-12 text-center">
@@ -90,8 +130,26 @@ export default function GroupedMonitoringTable({
             const isOpen = open.has(group.key)
             const child = children[group.key]
             const canOpen = Boolean(groupChildParams(groupBy, group))
+            const asParcelRow = groupBy === 'parcel'
+            const menu = asParcelRow && parcelActions && group.id ? [
+              { key: 'view', label: 'View parcel', icon: Eye, onClick: () => parcelActions.view(group) },
+              { key: 'edit', label: 'Edit parcel', icon: Pencil, onClick: () => parcelActions.edit(group) },
+            ] : null
             return (
               <li key={group.key}>
+                <div className="flex flex-col items-stretch sm:flex-row">
+                {asParcelRow ? (
+                  <button
+                    type="button"
+                    disabled={!canOpen}
+                    onClick={() => toggle(group)}
+                    aria-expanded={isOpen}
+                    className={`grid min-h-[56px] min-w-0 flex-1 grid-cols-[minmax(0,1fr)_2rem] items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-[#F5F7F5] focus-visible:bg-[#F5F7F5] focus-visible:outline-none disabled:cursor-default ${PARCEL_GRID}`}
+                  >
+                    <ParcelGroupCells group={group} isOpen={isOpen} />
+                    <ChevronDown size={18} className={`justify-self-end text-[#7A8E7A] transition-transform duration-200 sm:hidden ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
+                  </button>
+                ) : (
                 <button
                   type="button"
                   disabled={!canOpen}
@@ -105,6 +163,13 @@ export default function GroupedMonitoringTable({
                   </span>
                   <ChevronDown size={18} className={`justify-self-end text-[#7A8E7A] transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
                 </button>
+                )}
+                {asParcelRow && parcelActions && (
+                  <div className={`flex shrink-0 items-center px-4 pb-3 sm:justify-center sm:p-0 sm:pr-2 ${ACTIONS_WIDTH}`}>
+                    {menu && <RowActions menuWidthClassName="w-44" actions={menu} />}
+                  </div>
+                )}
+                </div>
                 {isOpen && (
                   <div className="border-t border-[#E2E8E2] bg-[#F9FAF9] px-2 py-2 sm:px-4" data-testid="group-records">
                     {child?.error && <p className="px-2 py-3 text-sm text-rose-600">{child.error}</p>}

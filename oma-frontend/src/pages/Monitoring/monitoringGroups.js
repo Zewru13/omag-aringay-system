@@ -53,4 +53,21 @@ export function groupSummary(group) {
   return parts.join(' · ')
 }
 
+// "Group by Farm Parcel" shows each parcel as a row of columns, not just a name: who owns it, where, how big, and what is on it.
+export const PARCEL_GROUP_COLUMNS = ['Farm parcel', 'Farmer', 'Barangay', 'Area (ha)', 'Ownership', 'Records']
+
+// What those columns hold for one parcel group; a group with no parcel (older records) has only its records.
+export function parcelGroupFacts(group) {
+  if (!group.id) return { farmer: '', rsbsa: '', barangay: '', area: '', ownership: '', records: groupSummary(group) }
+  const area = Number(group.parcel_area_hectares)
+  return {
+    farmer: group.farmer_name || '',
+    rsbsa: group.rsbsa_number || '',
+    barangay: group.barangay || '',
+    area: Number.isFinite(area) && area > 0 ? area.toFixed(2) : '',
+    ownership: group.land_ownership || '',
+    records: groupSummary(group),
+  }
+}
+
 export const groupHeading = (groupBy, group) => (groupBy !== 'crop' && group.barangay ? `${group.name} · ${group.barangay}` : group.name)

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 
 const {
-  GROUP_OPTIONS, DEFAULT_GROUP, DISPLAY_STATUSES, monitoringParams, groupChildParams, groupSummary, groupHeading,
+  GROUP_OPTIONS, DEFAULT_GROUP, DISPLAY_STATUSES, monitoringParams, groupChildParams, groupSummary, groupHeading, PARCEL_GROUP_COLUMNS, parcelGroupFacts,
 } = await import(new URL('../src/pages/Monitoring/monitoringGroups.js', import.meta.url).href)
 
 let n = 0
@@ -39,5 +39,15 @@ eq(groupHeading('crop', { name: 'Palay (Rice)', barangay: '' }), 'Palay (Rice)',
 eq(groupHeading('farmer', { name: 'Ana Cruz', barangay: 'Alaska' }), 'Ana Cruz · Alaska', 'farmer heading includes the barangay')
 eq(groupHeading('parcel', { name: '01-33-02-005-001-02-003', barangay: 'Alaska' }), '01-33-02-005-001-02-003 · Alaska', 'parcel heading includes the barangay')
 eq(groupHeading('parcel', { name: 'No farm parcel on file', barangay: '' }), 'No farm parcel on file', 'the no-parcel heading')
+
+// ── "Group by Farm Parcel" as columns
+eq(PARCEL_GROUP_COLUMNS, ['Farm parcel', 'Farmer', 'Barangay', 'Area (ha)', 'Ownership', 'Records'], 'parcel group columns')
+eq(
+  parcelGroupFacts({ id: 7, count: 2, area_planted_ha: 1.5, near_harvest: 1, farmer_name: 'Ana Cruz', rsbsa_number: '01-033-02-019-700001', barangay: 'Alaska', parcel_area_hectares: 2.5, land_ownership: 'Owner' }),
+  { farmer: 'Ana Cruz', rsbsa: '01-033-02-019-700001', barangay: 'Alaska', area: '2.50', ownership: 'Owner', records: '2 records · 1.5 ha · 1 near harvest' },
+  'a parcel group row',
+)
+eq(parcelGroupFacts({ id: null, count: 3, area_planted_ha: 0, near_harvest: 0 }), { farmer: '', rsbsa: '', barangay: '', area: '', ownership: '', records: '3 records' }, 'a group with no parcel has only its records')
+eq(parcelGroupFacts({ id: 8, count: 1, area_planted_ha: 0, near_harvest: 0 }).area, '', 'a missing area is left blank')
 
 console.log(`monitoringGroups: ${n} checks passed`)
