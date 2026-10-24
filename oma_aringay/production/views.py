@@ -163,6 +163,9 @@ class HarvestRecordCreateView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         harvest = serializer.save(recorded_by=self.request.user)
+        if harvest.force_harvest_reason:
+            from .forced_harvest import queue_forced_harvest_notice
+            queue_forced_harvest_notice([harvest.pk], self.request.user)
         monitoring_id = self.request.data.get('monitoring_record')
         if monitoring_id:
             try:

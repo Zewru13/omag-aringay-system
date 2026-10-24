@@ -70,7 +70,8 @@ export function harvestRows(harvest) {
   const end = harvest.harvest_end_date && harvest.harvest_end_date !== harvest.harvest_start_date ? ` to ${harvest.harvest_end_date}` : ''
   const unit = harvest.unit_of_measure && harvest.unit_of_measure !== 'kg' ? ` (recorded in ${harvest.unit_of_measure})` : ''
   return [
-    ['Harvest dates', `${dash(harvest.harvest_start_date)}${end}`],
+    ...(harvest.force_harvest_reason ? [['Harvest type', 'FORCED HARVEST (harvested before it was ready)']] : []),
+    ['Harvested date', `${dash(harvest.harvest_start_date)}${end}`],
     ['Volume', `${number(harvest.volume_kg, 2)} kg${unit}`],
     ['Area harvested (ha)', dash(harvest.area_harvested_hectares)],
     ['Yield per hectare (kg)', number(harvest.yield_per_hectare_kg, 2)],

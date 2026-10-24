@@ -11,6 +11,7 @@ import {
   Plus,
   Search,
   User,
+  Zap,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import BarangaySelect from "../../components/UI/BarangaySelect.jsx";
@@ -23,6 +24,7 @@ import ConfirmDialog from "../../components/UI/ConfirmDialog.jsx";
 import ErrorMessage from "../../components/UI/ErrorMessage.jsx";
 import PillTabs from "../../components/UI/PillTabs.jsx";
 import EditParcelModal from "../Farmers/EditParcelModal.jsx";
+import ForceHarvestParcelModal from "./ForceHarvestParcelModal.jsx";
 import PurgeParcelModal from "./PurgeParcelModal.jsx";
 import PurgedParcelsTable from "./PurgedParcelsTable.jsx";
 import FilterPanel from "../../components/UI/FilterPanel.jsx";
@@ -1145,13 +1147,15 @@ function ParcelCrops({ parcelId, search, barangay, version, isPhone, handlers, e
 
 // ─── One parcel: its details, "Add crop records", and (when opened) the crops on it ──────────────────────────────────
 
-// A parcel's ⋮ menu (labelled buttons on a phone): add crops to it, edit it, or purge it once it was sold or transferred.
+// A parcel's ⋮ menu (labelled buttons on a phone): add crops to it, force harvest the crops that are not ready yet (a typhoon is coming),
+// edit it, or purge it once it was sold or transferred.
 function ParcelActions({ parcel, actions }) {
   return (
     <RowActions
       menuWidthClassName="w-48"
       actions={[
         { key: "add-crops", label: "Add crops", icon: Plus, onClick: () => actions.addCrops(parcel) },
+        { key: "force-harvest", label: "Force harvest", icon: Zap, tone: "rose", onClick: () => actions.forceHarvest(parcel) },
         { key: "edit", label: "Edit parcel", icon: Pencil, onClick: () => actions.edit(parcel) },
         { key: "purge", label: "Purge parcel", icon: Archive, tone: "rose", group: "danger", onClick: () => actions.purge(parcel) },
       ]}
@@ -1293,6 +1297,7 @@ export default function CropInformationPage() {
   const [tab, setTab] = useState("parcels");
   const [editingParcel, setEditingParcel] = useState(null);
   const [purgingParcel, setPurgingParcel] = useState(null);
+  const [forcingParcel, setForcingParcel] = useState(null);
   const { showToast } = useToast();
 
   // Server-side search over every parcel (farmer, RSBSA, parcel number) — debounced, so a slower earlier answer can never
@@ -1326,7 +1331,7 @@ export default function CropInformationPage() {
       .get(`/farmers/parcels/${parcel.id}/`)
       .then((r) => setEditingParcel(r.data))
       .catch(() => showToast("Unable to open this parcel. Please try again.", "error"));
-  const parcelActions = { addCrops, edit: editParcel, purge: setPurgingParcel };
+  const parcelActions = { addCrops, edit: editParcel, purge: setPurgingParcel, forceHarvest: setForcingParcel };
   const handlers = { view: setViewingRec, edit: setEditingRec, remarks: setRemarksRec };
   const changeFilter = (setter) => (value) => {
     setter(value);
@@ -1438,6 +1443,17 @@ export default function CropInformationPage() {
           parcel={editingParcel}
           onClose={() => setEditingParcel(null)}
           onSuccess={refresh}
+        />
+      )}
+
+      {forcingParcel && (
+        <ForceHarvestParcelModal
+          parcel={forcingParcel}
+          onClose={() => setForcingParcel(null)}
+          onDone={() => {
+            setForcingParcel(null);
+            refresh();
+          }}
         />
       )}
 

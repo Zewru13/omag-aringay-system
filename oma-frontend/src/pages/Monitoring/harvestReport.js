@@ -7,16 +7,20 @@
 export const TOLERANCE_DAYS = 7
 export const OTHER_REASON = 'Other'
 
-export const EARLY_REASONS = [
-  'Upcoming storm or typhoon',
-  'Drought',
-  'Flooding',
-  'Pest or disease outbreak',
-  'Other disaster',
-  'Buyer demand',
-  'Crop matured early',
-  OTHER_REASON,
+// A harvest more than TOLERANCE_DAYS early is a FORCED HARVEST: the reason is one of these (the values the server saves in
+// force_harvest_reason), and the saved sentence reads "Forced harvest due to early harvest: <reason>".
+export const FORCED_OTHER = 'other'
+export const FORCED_REASONS = [
+  { value: 'upcoming_typhoon', label: 'Upcoming Typhoon' },
+  { value: 'super_typhoon', label: 'Super Typhoon' },
+  { value: 'el_nino', label: 'El Niño' },
+  { value: 'drought', label: 'Drought' },
+  { value: 'possible_flooding', label: 'Possible Flooding' },
+  { value: 'pest_or_disease', label: 'Pest or Disease Spreading' },
+  { value: FORCED_OTHER, label: 'Other' },
 ]
+export const forcedReasonLabel = (code) => FORCED_REASONS.find((r) => r.value === code)?.label || ''
+const FORCED_PREFIX = 'Forced harvest due to early harvest'
 export const LATE_REASONS = ['Delayed field visit', 'Weather', 'Labor unavailable', OTHER_REASON]
 
 const MAX_REASON_LENGTH = 255   // the size of the saved reason field
@@ -47,6 +51,20 @@ export function composeReason(choice, detail) {
     reason = text ? `${choice} (${text})` : choice
   }
   return reason.slice(0, MAX_REASON_LENGTH)
+}
+
+// The sentence the server saves for a forced harvest (kept the same as production/forced_reasons.py).
+export function composeForcedReason(code, detail) {
+  const text = String(detail ?? '').trim()
+  if (!code) return ''
+  const reason = code === FORCED_OTHER ? `${FORCED_PREFIX}: Other: ${text}` : `${FORCED_PREFIX}: ${forcedReasonLabel(code) || code}${text ? ` (${text})` : ''}`
+  return reason.slice(0, MAX_REASON_LENGTH)
+}
+
+export function forcedProblem(code, detail) {
+  if (!FORCED_REASONS.some((r) => r.value === code)) return 'Choose why the crop is being harvested early.'
+  if (code === FORCED_OTHER && !String(detail ?? '').trim()) return 'Describe the reason.'
+  return ''
 }
 
 export function reasonProblem(choice, detail) {
@@ -81,7 +99,8 @@ function timingLine(timing) {
 export function buildHarvestReportSpec({ record, harvest, reason, notes, recordedOn }) {
   const reference = `HR-${String(harvest.id).padStart(6, '0')}`
   const timing = harvestTiming(record.date_planted, record.expected_harvest_date, harvest.harvest_start_date)
-  const reasonTitle = timing.varianceDays !== null && timing.varianceDays < 0 ? 'Reason for Early Harvest'
+  const reasonTitle = harvest.force_harvest_reason ? 'Reason for Forced Harvest'
+    : timing.varianceDays !== null && timing.varianceDays < 0 ? 'Reason for Early Harvest'
     : timing.varianceDays !== null && timing.varianceDays > 0 ? 'Reason for Late Harvest' : 'Reason'
   const sections = [
     { title: 'Farmer', rows: keep([
@@ -100,7 +119,8 @@ export function buildHarvestReportSpec({ record, harvest, reason, notes, recorde
       ['Location', record.farm_location_barangay],
     ]) },
     { title: 'Harvest Details', rows: keep([
-      ['Harvest Date', fmtDate(harvest.harvest_start_date)],
+      ['Harvest Type', harvest.force_harvest_reason ? 'FORCED HARVEST (harvested before it was ready)' : null],
+      ['Harvested Date', fmtDate(harvest.harvest_start_date)],
       ['Harvest End Date', fmtDate(harvest.harvest_end_date)],
       ['Timing', timingLine(timing)],
       ['Area Harvested', fmtNumber(harvest.area_harvested_hectares, ' ha')],
