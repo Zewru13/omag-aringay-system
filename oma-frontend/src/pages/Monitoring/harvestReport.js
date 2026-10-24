@@ -2,6 +2,8 @@
 // Harvest Report. Pure functions (no screen, no network) so they can be tested on their own; the print window itself is
 // printSpec() in disasterReportDocument.js.
 
+import { harvestAmountText } from './harvestUnits.js'
+
 // A harvest more than this many days away from the expected date needs a reason. Mirrors HarvestRecordSerializer on the
 // server, which is what actually enforces it.
 export const TOLERANCE_DAYS = 7
@@ -124,7 +126,7 @@ export function buildHarvestReportSpec({ record, harvest, reason, notes, recorde
       ['Harvest End Date', fmtDate(harvest.harvest_end_date)],
       ['Timing', timingLine(timing)],
       ['Area Harvested', fmtNumber(harvest.area_harvested_hectares, ' ha')],
-      ['Quantity Harvested', fmtNumber(harvest.volume_kg, harvest.unit_of_measure ? ` ${harvest.unit_of_measure}` : '')],
+      ['Quantity Harvested', harvestAmountText(harvest) || null],
       ['Estimated Yield', fmtNumber(record.estimated_yield_kg, ' kg')],
     ]) },
   ]

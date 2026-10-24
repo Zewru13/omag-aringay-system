@@ -10,8 +10,10 @@ import useIsPhone from '../../hooks/useIsPhone.js'
 import { useToast } from '../../context/ToastContext.jsx'
 import { todayISO } from '../../utils/localDate.js'
 import { FORCED_OTHER, FORCED_REASONS } from '../Monitoring/harvestReport.js'
+import { needsTotalKg, unitPreview } from '../Monitoring/harvestUnits.js'
+import useHarvestUnitWeights from '../Monitoring/useHarvestUnitWeights.js'
 import { parcelLabel } from './parcelRecords.js'
-import { buildRequest, countLine, formProblem, makeRow, rowProblem, serverMessage, splitCrops } from './forcedHarvest.js'
+import { buildRequest, countLine, formProblem, makeRow, rowProblem, rowWeight, serverMessage, splitCrops } from './forcedHarvest.js'
 
 // Force Harvest (Crop Records > a parcel's ⋮ menu): the crops on this parcel that are not ready yet (more than 7 days before their
 // expected harvest date) are harvested together because of something coming, such as a typhoon. Fill the event once (harvested date and
@@ -26,6 +28,7 @@ export default function ForceHarvestParcelModal({ parcel, onClose, onDone }) {
   const isPhone = useIsPhone()
   const today = todayISO()
   const [records, setRecords] = useState(null)         // null while loading, false when it failed
+  const weights = useHarvestUnitWeights()                // the kg one unit weighs (Settings > Harvest Units)
   const [date, setDate] = useState(today)
   const [code, setCode] = useState('')
   const [detail, setDetail] = useState('')
@@ -65,7 +68,7 @@ export default function ForceHarvestParcelModal({ parcel, onClose, onDone }) {
     setShowErrors(true)
     setError('')
     if (problem) { setError(problem); return }
-    if (rows.some(rowProblem)) { setError('Fix the marked crops first.'); return }
+    if (rows.some((r) => rowProblem(r, weights))) { setError('Fix the marked crops first.'); return }
     setShowConfirm(true)
   }
 
@@ -73,7 +76,7 @@ export default function ForceHarvestParcelModal({ parcel, onClose, onDone }) {
     setShowConfirm(false)
     setIsSubmitting(true)
     try {
-      await api.post('/production/forced-harvest/', buildRequest({ date, code, detail, remarks }, rows))
+      await api.post('/production/forced-harvest/', buildRequest({ date, code, detail, remarks }, rows, weights))
       showToast(`Forced harvest recorded on ${rows.length} crop${rows.length === 1 ? '' : 's'}.`, 'success')
       onDone()
     } catch (err) {
@@ -83,11 +86,17 @@ export default function ForceHarvestParcelModal({ parcel, onClose, onDone }) {
     }
   }
 
-  const rowError = (row) => (showErrors ? rowProblem(row) : '')
+  const rowError = (row) => (showErrors ? rowProblem(row, weights) : '')
   const input = (row, field, extra = {}) => (
     <DecimalInput decimals={field === 'area' ? 4 : 2} className={`${baseInputClasses} ${rowError(row) && !String(row[field]).trim() ? 'border-rose-400' : ''}`}
       value={row[field]} onChange={(v) => change(row.id, { [field]: v })} {...extra} />
   )
+  // What the quantity comes to in kg (a line), or the total kg box for a unit with no standard weight.
+  const kgCell = (row) => {
+    const weight = rowWeight(row, weights)
+    if (needsTotalKg(weight)) return input(row, 'total', { placeholder: 'Total kg', title: unitPreview(row.quantity, row.unit, weight) })
+    return <span className="text-[12.5px] text-[#4A5E4A]">{unitPreview(row.quantity, row.unit, weight) || '—'}</span>
+  }
   const unitSelect = (row) => (
     <select className={baseInputClasses} value={row.unit} onChange={(e) => change(row.id, { unit: e.target.value })} aria-label={`Unit for ${row.label}`}>
       {row.units.map((u) => <option key={u} value={u}>{u}</option>)}
@@ -170,7 +179,12 @@ export default function ForceHarvestParcelModal({ parcel, onClose, onDone }) {
                         <div className="mt-2 grid grid-cols-2 gap-2">
                           <div><span className="mb-0.5 block text-[11px] font-medium text-slate-600">Area harvested (ha)</span>{input(row, 'area')}</div>
                           <div><span className="mb-0.5 block text-[11px] font-medium text-slate-600">Unit</span>{unitSelect(row)}</div>
-                          <div className="col-span-2"><span className="mb-0.5 block text-[11px] font-medium text-slate-600">Actual yield</span>{input(row, 'volume', { placeholder: 'e.g. 1500' })}</div>
+                          <div className="col-span-2"><span className="mb-0.5 block text-[11px] font-medium text-slate-600">Quantity harvested</span>{input(row, 'quantity', { placeholder: 'e.g. 1500' })}</div>
+                          <div className="col-span-2">
+                            <span className="mb-0.5 block text-[11px] font-medium text-slate-600">{needsTotalKg(rowWeight(row, weights)) ? 'Total weight (kg)' : 'Weight in kg'}</span>
+                            {kgCell(row)}
+                            {needsTotalKg(rowWeight(row, weights)) && <span className="mt-1 block text-[11px] text-amber-700">{unitPreview(row.quantity, row.unit, null)}</span>}
+                          </div>
                           {rowError(row) && <p className="col-span-2 text-xs text-rose-600">{rowError(row)}</p>}
                         </div>
                       )}
@@ -192,8 +206,9 @@ export default function ForceHarvestParcelModal({ parcel, onClose, onDone }) {
                       <th className={TH}>Days early</th>
                       <th className={TH}>Area planted (ha)</th>
                       <th className={TH}>Area harvested (ha)</th>
-                      <th className={TH}>Actual yield</th>
+                      <th className={TH}>Quantity</th>
                       <th className={TH}>Unit</th>
+                      <th className={TH}>Weight (kg)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -214,8 +229,9 @@ export default function ForceHarvestParcelModal({ parcel, onClose, onDone }) {
                           <td className={`${CELL} whitespace-nowrap text-[13px] font-medium text-rose-700`}>{daysEarly} days</td>
                           <td className={`${CELL} text-[13px] text-[#4A5E4A]`}>{Number(record.area_planted_ha)}</td>
                           <td className={`${CELL} w-36`}>{row ? input(row, 'area') : <span className="text-[#A8BCA8]">—</span>}</td>
-                          <td className={`${CELL} w-36`}>{row ? input(row, 'volume', { placeholder: 'e.g. 1500' }) : <span className="text-[#A8BCA8]">—</span>}</td>
+                          <td className={`${CELL} w-32`}>{row ? input(row, 'quantity', { placeholder: 'e.g. 1500' }) : <span className="text-[#A8BCA8]">—</span>}</td>
                           <td className={`${CELL} w-28`}>{row ? unitSelect(row) : <span className="text-[#A8BCA8]">—</span>}</td>
+                          <td className={`${CELL} w-48`}>{row ? kgCell(row) : <span className="text-[#A8BCA8]">—</span>}</td>
                         </tr>
                       )
                     })}

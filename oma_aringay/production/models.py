@@ -777,6 +777,22 @@ FORCE_HARVEST_REASONS = [
 FORCE_HARVEST_REASON_LABELS = dict(FORCE_HARVEST_REASONS)
 
 
+class HarvestUnitWeight(models.Model):
+    """How many kg one harvest unit weighs (Settings > Harvest Units). A harvest is typed in the unit it was counted in (sacks, cavans,
+    crates...) and saved in kg using this weight. A row with a crop applies to that crop only and wins over the row for the same unit with
+    no crop; a row with no weight means "no standard weight", and the harvest form then asks for the total kg. "kg" is built in (1 kg)."""
+    unit = models.CharField(max_length=40)
+    crop_type = models.ForeignKey('CropType', null=True, blank=True, on_delete=models.CASCADE, related_name='unit_weights')
+    kg_per_unit = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
+    note = models.CharField(max_length=200, blank=True)
+
+    class Meta:
+        ordering = ['unit', 'crop_type__name']
+
+    def __str__(self):
+        return f'{self.unit}{f" ({self.crop_type.name})" if self.crop_type_id else ""}: {self.kg_per_unit or "no standard"}'
+
+
 class HarvestRecord(models.Model):
     class Season(models.TextChoices):
         DRY = 'Dry', 'Dry'
@@ -806,6 +822,11 @@ class HarvestRecord(models.Model):
     harvest_start_date = models.DateField(null=True, blank=True, help_text="Date harvesting started")
     harvest_end_date = models.DateField(null=True, blank=True, help_text="Date harvesting ended (optional if single-day harvest)")
     volume_kg = models.DecimalField(max_digits=12, decimal_places=2)
+    # What was counted, in `unit_of_measure` (20 sacks), and the kg one unit weighed when it was saved (50). volume_kg is the real kg:
+    # quantity x kg_per_unit, or the total weight typed when the unit has no standard weight (kg_per_unit empty). Both are empty on a
+    # harvest saved before this, whose volume_kg is simply the number that was typed.
+    quantity_harvested = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    kg_per_unit = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
     volume_bags = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     unit_of_measure = models.CharField(
         max_length=20, choices=UNIT_OF_MEASURE_CHOICES, default='kg', blank=True,

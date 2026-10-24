@@ -36,6 +36,8 @@ import CropDetailsModal from './CropDetailsModal.jsx'
 import GroupedMonitoringTable from './GroupedMonitoringTable.jsx'
 import { DEFAULT_GROUP, DEFAULT_STATUS, FARMER_GROUP, GROUP_OPTIONS, monitoringParams } from './monitoringGroups.js'
 import { harvestAreaHint, harvestAreaProblem } from './harvestArea.js'
+import { harvestAmountText, harvestKg, needsTotalKg, quantityPayload, quantityProblem, totalKgProblem, unitPreview, weightFor } from './harvestUnits.js'
+import useHarvestUnitWeights from './useHarvestUnitWeights.js'
 import { printSpec } from './disasterReportDocument.js'
 import {
   FORCED_OTHER, FORCED_REASONS, LATE_REASONS, OTHER_REASON, buildHarvestReportSpec, composeForcedReason, composeReason, forcedProblem,
@@ -50,25 +52,7 @@ const todayISO = () => new Date().toISOString().slice(0, 10)
 // from HarvestRecordCreateSerializer's validate() (future date, harvest
 // before planting, missing early/late reason) behind a generic "Failed"
 // toast, with no way for the user to know which of those actually fired.
-// Real kg-per-unit conversion, for the units that genuinely have one — kg
-// (trivial), Metric Ton (1000kg, universal), Cavan (50kg, the standard
-// Philippine grain-trade unit, already self-documented in that exact
-// allowed_units label). Sack/Bundle/Piece/Hand/Crate are deliberately left
-// unconverted (null) — checked directly against DA's own price-monitoring
-// bulletins, which price these strictly per kg, never per sack/bundle/
-// piece: there is no official standard weight for them, it varies by crop,
-// vendor, and region. Returning null here means the comparison below falls
-// back to treating the entered number as already-kg, same as this form's
-// original (pre-conversion) behavior, rather than applying a guessed factor.
 const STANDARD_HARVEST_UNITS = ['kg', 'bags', 'cavan', 'sacks', 'pieces', 'bundles', 'boxes']
-
-function unitToKgFactor(unit) {
-  const normalized = (unit || '').trim().toLowerCase()
-  if (normalized === 'kg') return 1
-  if (normalized === 'metric ton') return 1000
-  if (normalized.startsWith('cavan')) return 50
-  return null
-}
 
 function extractErrorMessage(err, fallback) {
   const data = err?.response?.data
@@ -1234,6 +1218,11 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
   const [cropUnits,    setCropUnits]    = useState(null)
   // The area this crop was planted on: the most the harvest can cover (null when the harvest has no crop record).
   const [plantedHa,    setPlantedHa]    = useState(null)
+  // What this harvest was typed as, to tell an edit of the quantity or unit from an edit of something else (an older harvest has no
+  // quantity: its saved kg is kept unless the quantity or the unit is changed).
+  const [original,     setOriginal]     = useState(null)
+  const [cropTypeId,   setCropTypeId]   = useState(null)
+  const weights = useHarvestUnitWeights()
 
   useEffect(() => {
     api.get(`/production/${harvestId}/`)
@@ -1244,6 +1233,7 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
             .then(m => {
               setCropUnits(m.data.crop_allowed_units?.length ? m.data.crop_allowed_units : null)
               setPlantedHa(m.data.area_planted_ha ?? null)
+              setCropTypeId(m.data.crop_type ?? null)
             })
             .catch(() => {})
         }
@@ -1251,22 +1241,30 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
           harvest_start_date:      d.harvest_start_date || '',
           harvest_end_date:        d.harvest_end_date || '',
           area_harvested_hectares: d.area_harvested_hectares ? String(d.area_harvested_hectares) : '',
-          volume_kg:               d.volume_kg ? String(d.volume_kg) : '',
+          quantity:                String(d.quantity_harvested ?? d.volume_kg ?? ''),
+          total_kg:                d.volume_kg ? String(d.volume_kg) : '',
           unit_of_measure:         d.unit_of_measure || 'kg',
           remarks:                 d.remarks || '',
         })
+        setOriginal({ counted: d.quantity_harvested !== null && d.quantity_harvested !== undefined,
+          quantity: String(d.quantity_harvested ?? d.volume_kg ?? ''), unit: d.unit_of_measure || 'kg', volume_kg: d.volume_kg })
       })
       .catch(() => showToast('Failed to load harvest record.', 'error'))
       .finally(() => setIsLoading(false))
   }, [harvestId])
 
   const handleChange = (field, value) => setForm(f => ({ ...f, [field]: value }))
+  const editWeight = !form || weights === null ? undefined : weightFor(weights, form.unit_of_measure, cropTypeId)
 
   const handleSubmit = async () => {
     if (!form.harvest_start_date) { showToast('Harvested date is required.', 'error'); return }
     const areaProblem = harvestAreaProblem(form.area_harvested_hectares, plantedHa)
     if (areaProblem) { showToast(`Area harvested: ${areaProblem}`, 'error'); return }
-    if (!form.volume_kg || parseFloat(form.volume_kg) <= 0) { showToast('Volume must be greater than 0.', 'error'); return }
+    const qErr = quantityProblem(form.quantity)
+    if (qErr) { showToast(qErr, 'error'); return }
+    const weight = weights === null ? undefined : weightFor(weights, form.unit_of_measure, cropTypeId)
+    const tErr = needsTotalKg(weight) ? totalKgProblem(form.total_kg) : ''
+    if (tErr) { showToast(tErr, 'error'); return }
     setIsSubmitting(true)
     try {
       await api.patch(`/production/${harvestId}/`, {
@@ -1274,8 +1272,10 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
         // A harvest has one date now. An older record's end date is kept only while it is still on or after that date.
         harvest_end_date:        form.harvest_end_date && form.harvest_end_date >= form.harvest_start_date ? form.harvest_end_date : null,
         area_harvested_hectares: parseFloat(form.area_harvested_hectares),
-        volume_kg:               parseFloat(form.volume_kg),
-        unit_of_measure:         form.unit_of_measure,
+        // An older harvest (no quantity) keeps its saved kg until its quantity or unit is changed; anything else is converted by the server.
+        ...(!original.counted && form.quantity === original.quantity && form.unit_of_measure === original.unit
+          ? { volume_kg: parseFloat(original.volume_kg), unit_of_measure: form.unit_of_measure }
+          : quantityPayload({ quantity: form.quantity, unit: form.unit_of_measure, weight, totalKg: form.total_kg })),
         remarks:                 form.remarks,
       })
       showToast('Harvest record updated.', 'success')
@@ -1331,11 +1331,23 @@ function EditHarvestRecordModal({ harvestId, onClose, onSuccess }) {
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-700">Volume / Quantity *</label>
+            <label className="mb-1 block text-xs font-medium text-slate-700">Quantity Harvested *</label>
             <input type="number" step="0.01" className={baseInputClasses}
-              value={form.volume_kg}
-              onChange={e => handleChange('volume_kg', e.target.value)}
+              value={form.quantity}
+              onChange={e => handleChange('quantity', e.target.value)}
               placeholder="e.g. 500" />
+            {unitPreview(form.quantity, form.unit_of_measure, editWeight) && (
+              <p className={`mt-1 text-[11.5px] ${editWeight === null ? 'text-amber-700' : 'text-slate-500'}`}>{unitPreview(form.quantity, form.unit_of_measure, editWeight)}</p>
+            )}
+            {needsTotalKg(editWeight) && (
+              <div className="mt-2">
+                <label className="mb-1 block text-xs font-medium text-slate-700">Total weight (kg) *</label>
+                <input type="number" step="0.01" className={baseInputClasses}
+                  value={form.total_kg}
+                  onChange={e => handleChange('total_kg', e.target.value)}
+                  placeholder="e.g. 40" />
+              </div>
+            )}
           </div>
 
           <div>
@@ -1570,6 +1582,10 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
   const [isSubmitting,      setIsSubmitting]      = useState(false)
   const [areaError,         setAreaError]         = useState('')
   const [quantityError,     setQuantityError]     = useState('')
+  // The kg one unit weighs (Settings > Harvest Units); a unit with no standard weight asks for the total kg instead.
+  const weights = useHarvestUnitWeights()
+  const [totalKg,           setTotalKg]           = useState('')
+  const [totalKgError,      setTotalKgError]      = useState('')
   const [resolvableDisasters, setResolvableDisasters] = useState([])
   const [dismissedDisasterIds, setDismissedDisasterIds] = useState(new Set())
   const [recoveringId,      setRecoveringId]      = useState(null)
@@ -1625,12 +1641,10 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
   const plantedHa = record.area_planted_ha ?? null
   const validateArea = (val) => harvestAreaProblem(val, plantedHa)
 
-  const validateQuantity = (val) => {
-    if (!val) return 'Quantity harvested is required.'
-    const n = parseFloat(val)
-    if (isNaN(n) || n <= 0) return 'Quantity must be greater than 0.'
-    return ''
-  }
+  const validateQuantity = quantityProblem
+  // undefined while the weights load, null when this unit has no standard weight, else the kg one unit weighs for this crop.
+  const weight = weights === null ? undefined : weightFor(weights, unitOfMeasure, record.crop_type)
+  const enteredKg = harvestKg(quantityHarvested, weight === undefined ? null : weight, totalKg)
 
   const handleSubmitClick = () => {
     if (!harvestStartDate) { showToast('Harvested date is required.', 'error'); return }
@@ -1638,7 +1652,9 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
     const qErr = validateQuantity(quantityHarvested)
     setAreaError(aErr)
     setQuantityError(qErr)
-    if (aErr || qErr) return
+    const tErr = needsTotalKg(weight) ? totalKgProblem(totalKg) : ''
+    setTotalKgError(tErr)
+    if (aErr || qErr || tErr) return
     if (reasonRequired && reasonIssue) {
       showToast(`A reason is required — this harvest is ${Math.abs(harvestVarianceDays)} days ${isEarly ? 'early' : 'late'}. ${reasonIssue}`, 'error')
       return
@@ -1662,8 +1678,7 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
         crop_name:               record.crop_type_name || '',
         harvest_start_date:      harvestStartDate,
         area_harvested_hectares: parseFloat(areaHarvested),
-        volume_kg:               parseFloat(quantityHarvested),
-        unit_of_measure:         unitOfMeasure,
+        ...quantityPayload({ quantity: quantityHarvested, unit: unitOfMeasure, weight, totalKg }),
         // An early harvest goes in as a forced harvest (the server writes the readable reason); a late one sends its reason as text.
         ...(isEarly
           ? { force_harvest_reason: reasonChoice, force_harvest_detail: reasonDetail.trim() }
@@ -1723,7 +1738,7 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
                 : `${Math.abs(t.varianceDays)} day${Math.abs(t.varianceDays) === 1 ? '' : 's'} ${t.varianceDays < 0 ? 'earlier' : 'later'} than expected`}
             </dd></>)}
             {saved.reason && (<><dt className="text-slate-500">Reason</dt><dd className="font-medium">{saved.reason}</dd></>)}
-            <dt className="text-slate-500">Quantity</dt><dd className="font-medium">{saved.harvest.volume_kg} {saved.harvest.unit_of_measure}</dd>
+            <dt className="text-slate-500">Quantity</dt><dd className="font-medium">{harvestAmountText(saved.harvest)}</dd>
           </dl>
         </div>
       </ModalShell>
@@ -1859,7 +1874,7 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700">Unit of Measure *</label>
               <select className={baseInputClasses} value={unitOfMeasure}
-                onChange={e => setUnitOfMeasure(e.target.value)}>
+                onChange={e => { setUnitOfMeasure(e.target.value); setTotalKg(''); setTotalKgError('') }}>
                 {unitOptions.map(u => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
@@ -1873,56 +1888,50 @@ function RecordHarvestFromMonitoringModal({ record, onClose, onSuccess }) {
               onChange={e => { setQuantityHarvested(e.target.value); setQuantityError(validateQuantity(e.target.value)) }}
               placeholder="e.g. 500" />
             {quantityError && <p className="mt-1 text-xs text-rose-600">{quantityError}</p>}
-            {/* Estimated yield (crop_type.yield_per_ha_kg × area_planted_ha,
-                computed server-side and already on the record) — same live
-                "meeting the estimate or not" comparison as the harvest date
-                above, against what's actually typed here, converted to kg
-                first via unitToKgFactor whenever the selected Unit of
-                Measure has a real, unambiguous kg equivalent (kg itself,
-                Metric Ton, Cavan). The rest of this app still treats
-                Quantity Harvested as a raw kg figure regardless of unit
-                (see HarvestRecordCreateSerializer/volume_kg) — this
-                comparison is display-only and doesn't change what gets
-                submitted. */}
-            {record.estimated_yield_kg != null && (() => {
-              const kgFactor = unitToKgFactor(unitOfMeasure)
-              const enteredKg = quantityHarvested && !isNaN(parseFloat(quantityHarvested))
-                ? parseFloat(quantityHarvested) * (kgFactor ?? 1)
-                : null
-              return (
-                <div className={`mt-2 rounded-xl border px-3 py-2 text-xs ${
-                  enteredKg === null
-                    ? 'border-slate-200 bg-slate-50 text-slate-600'
-                    : enteredKg >= parseFloat(record.estimated_yield_kg)
-                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                      : 'border-amber-200 bg-amber-50 text-amber-700'
-                }`}>
-                  <p>
-                    Estimated yield: <span className="font-medium">
-                      {Number(record.estimated_yield_kg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg
-                    </span>
+            {unitPreview(quantityHarvested, unitOfMeasure, weight) && (
+              <p className={`mt-1 text-[11.5px] ${weight === null ? 'text-amber-700' : 'text-slate-500'}`}>{unitPreview(quantityHarvested, unitOfMeasure, weight)}</p>
+            )}
+            {needsTotalKg(weight) && (
+              <div className="mt-2">
+                <label className="mb-1 block text-xs font-medium text-slate-700">Total weight (kg) *</label>
+                <input type="number" step="0.01"
+                  className={`${baseInputClasses} ${totalKgError ? 'border-rose-400' : ''}`}
+                  value={totalKg}
+                  onChange={e => { setTotalKg(e.target.value); setTotalKgError(totalKgProblem(e.target.value)) }}
+                  placeholder="e.g. 40" />
+                {totalKgError && <p className="mt-1 text-xs text-rose-600">{totalKgError}</p>}
+              </div>
+            )}
+            {/* Estimated yield (crop_type.yield_per_ha_kg x area_planted_ha, computed server-side and already on the record): the same
+                live "meeting the estimate or not" comparison as the harvest date above, against the real kg this harvest will be saved as
+                (the quantity x the unit's weight from Settings > Harvest Units, or the total kg typed for a unit with no standard weight). */}
+            {record.estimated_yield_kg != null && (
+              <div className={`mt-2 rounded-xl border px-3 py-2 text-xs ${
+                enteredKg === null
+                  ? 'border-slate-200 bg-slate-50 text-slate-600'
+                  : enteredKg >= parseFloat(record.estimated_yield_kg)
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : 'border-amber-200 bg-amber-50 text-amber-700'
+              }`}>
+                <p>
+                  Estimated yield: <span className="font-medium">
+                    {Number(record.estimated_yield_kg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg
+                  </span>
+                </p>
+                {enteredKg !== null && (
+                  <p className="mt-1 font-medium">
+                    {(() => {
+                      const diff = enteredKg - parseFloat(record.estimated_yield_kg)
+                      const pct = record.estimated_yield_kg != 0 ? Math.abs((diff / parseFloat(record.estimated_yield_kg)) * 100) : 0
+                      if (Math.abs(diff) < 0.01) return '✓ Right at the estimated yield.'
+                      return diff > 0
+                        ? `${diff.toFixed(2)} kg above estimate (${pct.toFixed(0)}% more).`
+                        : `${Math.abs(diff).toFixed(2)} kg below estimate (${pct.toFixed(0)}% less).`
+                    })()}
                   </p>
-                  {kgFactor === null && unitOfMeasure !== 'kg' && (
-                    <p className="mt-1 text-slate-500">
-                      No standard kg conversion exists for "{unitOfMeasure}" — this comparison assumes the number
-                      entered is already in kg.
-                    </p>
-                  )}
-                  {enteredKg !== null && (
-                    <p className="mt-1 font-medium">
-                      {(() => {
-                        const diff = enteredKg - parseFloat(record.estimated_yield_kg)
-                        const pct = record.estimated_yield_kg != 0 ? Math.abs((diff / parseFloat(record.estimated_yield_kg)) * 100) : 0
-                        if (Math.abs(diff) < 0.01) return '✓ Right at the estimated yield.'
-                        return diff > 0
-                          ? `${diff.toFixed(2)} kg above estimate (${pct.toFixed(0)}% more).`
-                          : `${Math.abs(diff).toFixed(2)} kg below estimate (${pct.toFixed(0)}% less).`
-                      })()}
-                    </p>
-                  )}
-                </div>
-              )
-            })()}
+                )}
+              </div>
+            )}
           </div>
 
           <div>

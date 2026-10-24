@@ -51,6 +51,8 @@ eq(harvestRows({ harvest_start_date: '2026-08-10', harvest_end_date: '2026-08-12
 eq(harvestRows({ harvest_start_date: '2026-08-10', volume_kg: '100', unit_of_measure: 'kg', area_harvested_hectares: '1', harvest_variance_days: -9,
   force_harvest_reason: 'drought', early_late_reason: 'Forced harvest due to early harvest: Drought' }).slice(0, 2),
   [['Harvest type', 'FORCED HARVEST (harvested before it was ready)'], ['Harvested date', '2026-08-10']], 'a forced harvest is labelled')
+eq(harvestRows({ harvest_start_date: '2026-08-20', volume_kg: '1000.00', quantity_harvested: '20.00', unit_of_measure: 'Sack', area_harvested_hectares: '1', harvest_variance_days: 0 })
+  .find(([k]) => k === 'Volume')[1], '20 Sack (1,000 kg)', 'a harvest counted in sacks shows the quantity and the kg')
 eq(harvestRows({ harvest_start_date: '2026-08-20', volume_kg: '100', unit_of_measure: 'cavan', area_harvested_hectares: '1', harvest_variance_days: 0 })
   .find(([k]) => k === 'Timing')[1], 'On time', 'on time')
 eq(harvestRows({ harvest_start_date: '2026-08-20', volume_kg: '100', unit_of_measure: 'kg', area_harvested_hectares: '1', harvest_variance_days: 3 })

@@ -7,7 +7,8 @@ as an upcoming typhoon. One HarvestRecord per crop, each saved exactly like a si
 
     body: { harvest_date: 'YYYY-MM-DD', force_harvest_reason: 'upcoming_typhoon' | ... | 'other',
             force_harvest_detail: '' (needed for 'other'), remarks: '',
-            crops: [{ monitoring_record, area_harvested_hectares, volume_kg, unit_of_measure }] }
+            crops: [{ monitoring_record, area_harvested_hectares, quantity_harvested, unit_of_measure,
+                      volume_kg (the total kg, only for a unit with no standard weight) }] }
 
 Staff only. A crop that is already harvested or lost, or whose planting date is only an estimate, is refused (as in Record Harvest).
 Every Admin account (not the one who recorded it) gets one notification for the whole event.
@@ -119,7 +120,7 @@ class ForcedHarvestMultiCreateView(APIView):
             if problem:
                 errors.append({'monitoring_record': record.id, 'errors': problem})
                 continue
-            serializer = HarvestRecordCreateSerializer(data={
+            payload = {
                 'monitoring_record': record.id,
                 'farm_parcel': record.farm_parcel_id,
                 'season': 'Wet' if 6 <= harvest_date.month <= 11 else 'Dry',
@@ -127,12 +128,16 @@ class ForcedHarvestMultiCreateView(APIView):
                 'crop_name': record.crop_type.name if record.crop_type_id else '',
                 'harvest_start_date': harvest_date.isoformat(),
                 'area_harvested_hectares': item.get('area_harvested_hectares'),
+                'quantity_harvested': item.get('quantity_harvested'),
                 'volume_kg': item.get('volume_kg'),
                 'unit_of_measure': item.get('unit_of_measure') or 'kg',
                 'force_harvest_reason': code,
                 'force_harvest_detail': detail,
                 'remarks': body.get('remarks') or '',
-            })
+            }
+            # a quantity or a total kg that was not sent is left out (the serializer asks for the one the unit needs)
+            payload = {key: value for key, value in payload.items() if value is not None}
+            serializer = HarvestRecordCreateSerializer(data=payload)
             if serializer.is_valid():
                 validated.append((record, serializer))
             else:
