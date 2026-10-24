@@ -42,7 +42,11 @@ import PcicInsuranceField from "../../components/UI/PcicInsuranceField.jsx";
 import PcicBadge from "../../components/UI/PcicBadge.jsx";
 import { pcicError, pcicPayload, pcicStateFrom, uploadPcicForm } from "../../utils/pcic.js";
 import { ARINGAY_BARANGAYS } from "../../constants/barangays.js";
-import { addCropsLockedState, cropCountLabel, directoryParams, noParcelParams, parcelLabel, recordActionKeys } from "./parcelRecords.js";
+import GroupedParcelsTable from "./GroupedParcelsTable.jsx";
+import {
+  DEFAULT_GROUP, DEFAULT_SORT, GROUP_OPTIONS, SORT_OPTIONS, addCropsLockedState, cropCountLabel, directoryParams, groupFilterParams, noParcelParams, parcelLabel,
+  recordActionKeys,
+} from "./parcelRecords.js";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -1291,6 +1295,8 @@ export default function CropInformationPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [barangay, setBarangay] = useState("");
+  const [groupBy, setGroupBy] = useState(DEFAULT_GROUP);
+  const [ordering, setOrdering] = useState(DEFAULT_SORT);
   const [page, setPage] = useState(1);
   const [version, setVersion] = useState(0);
   const [openIds, setOpenIds] = useState([]);
@@ -1307,13 +1313,16 @@ export default function CropInformationPage() {
   // Server-side search over every parcel (farmer, RSBSA, parcel number) — debounced, so a slower earlier answer can never
   // replace the one for what is typed now (the answer is stored with the request it belongs to).
   const debouncedSearch = useDebouncedValue(search.trim());
-  const requestKey = JSON.stringify([debouncedSearch, barangay, page, version]);
+  const grouped = groupBy !== DEFAULT_GROUP;
+  const requestKey = JSON.stringify([debouncedSearch, barangay, ordering, page, version]);
   const [result, setResult] = useState({ key: "", rows: [], count: 0, failed: false });
 
   useEffect(() => {
+    // A grouped view asks the server for its groups instead.
+    if (grouped) return undefined;
     let alive = true;
     api
-      .get("/farmers/parcels/directory/", { params: directoryParams({ search: debouncedSearch, barangay, page }) })
+      .get("/farmers/parcels/directory/", { params: directoryParams({ search: debouncedSearch, barangay, ordering, page }) })
       .then((r) => {
         if (!alive) return;
         const rows = Array.isArray(r.data) ? r.data : r.data.results || [];
@@ -1323,7 +1332,7 @@ export default function CropInformationPage() {
     return () => {
       alive = false;
     };
-  }, [requestKey, debouncedSearch, barangay, page]);
+  }, [requestKey, debouncedSearch, barangay, ordering, page, grouped]);
 
   const isLoading = result.key !== requestKey;
   const refresh = () => setVersion((v) => v + 1);
@@ -1342,9 +1351,42 @@ export default function CropInformationPage() {
     setPage(1);
   };
 
+  const groupFilters = groupFilterParams({ search: debouncedSearch, barangay, ordering });
   const cropProps = { search: debouncedSearch, barangay, version, handlers };
   // Parcel crop lists are not filtered by the typed search (the search chose the parcels); only the no-parcel group is.
   const parcelCropProps = { search: "", barangay: "", version, handlers };
+
+  // The parcels as cards on a phone and as a table otherwise: the plain list and every opened group use this.
+  const renderParcels = (rows) =>
+    isPhone ? (
+      <ul className="space-y-2">
+        {rows.map((parcel) => (
+          <ParcelRow key={parcel.id} parcel={parcel} open={openIds.includes(parcel.id)} onToggle={() => toggle(parcel.id)} actions={parcelActions} isPhone {...parcelCropProps} />
+        ))}
+      </ul>
+    ) : (
+      <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+        <table className="min-w-full text-sm">
+          <thead className="bg-[#1B4D2E] text-white">
+            <tr>
+              <th className="w-12 px-2 py-[11px]">
+                <span className="sr-only">Open</span>
+              </th>
+              {PARCEL_COLUMNS.map((label) => (
+                <th key={label} className="whitespace-nowrap px-3 py-[11px] text-left text-[11px] font-semibold uppercase tracking-[0.06em]">
+                  {label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((parcel) => (
+              <ParcelRow key={parcel.id} parcel={parcel} open={openIds.includes(parcel.id)} onToggle={() => toggle(parcel.id)} actions={parcelActions} isPhone={false} {...parcelCropProps} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
 
   return (
     <PageLayout title="Crop Records" subtitle="Farm parcels and the crops grown on them. Open a parcel to see its crops.">
@@ -1364,7 +1406,7 @@ export default function CropInformationPage() {
           search={search}
           onSearchChange={changeFilter(setSearch)}
           searchPlaceholder="Search by farmer, RSBSA, or parcel number..."
-          activeCount={[Boolean(barangay)].filter(Boolean).length}
+          activeCount={[Boolean(barangay), grouped, ordering !== DEFAULT_SORT].filter(Boolean).length}
           actions={
             <>
               <Button variant="outline" icon={Upload} onClick={() => setIsImporting(true)}>
@@ -1382,8 +1424,26 @@ export default function CropInformationPage() {
               </option>
             ))}
           </select>
+          <select className={filterSelectCls} value={groupBy} onChange={(e) => changeFilter(setGroupBy)(e.target.value)} aria-label="Group by">
+            {GROUP_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.value === DEFAULT_GROUP ? o.label : `Group by ${o.label}`}
+              </option>
+            ))}
+          </select>
+          <select className={filterSelectCls} value={ordering} onChange={(e) => changeFilter(setOrdering)(e.target.value)} aria-label="Sort by">
+            {SORT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                Sort: {o.label}
+              </option>
+            ))}
+          </select>
         </FilterPanel>
 
+        {grouped ? (
+          <GroupedParcelsTable key={`${groupBy}|${JSON.stringify(groupFilters)}`} groupBy={groupBy} filters={groupFilters} version={version} renderRows={renderParcels} />
+        ) : (
+          <>
         {result.failed && !isLoading && <ErrorMessage message="Failed to load farm parcels." />}
 
         {isLoading ? (
@@ -1397,37 +1457,13 @@ export default function CropInformationPage() {
             <p className="text-[14px] font-medium text-[#4A5E4A]">No farm parcels found</p>
             <p className="text-[13px] text-[#7A8E7A]">Try adjusting your search or filters. A farm parcel is added from the farmer&apos;s profile.</p>
           </div>
-        ) : isPhone ? (
-          <ul className="space-y-2">
-            {result.rows.map((parcel) => (
-              <ParcelRow key={parcel.id} parcel={parcel} open={openIds.includes(parcel.id)} onToggle={() => toggle(parcel.id)} actions={parcelActions} isPhone {...parcelCropProps} />
-            ))}
-          </ul>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-            <table className="min-w-full text-sm">
-              <thead className="bg-[#1B4D2E] text-white">
-                <tr>
-                  <th className="w-12 px-2 py-[11px]">
-                    <span className="sr-only">Open</span>
-                  </th>
-                  {PARCEL_COLUMNS.map((label) => (
-                    <th key={label} className="whitespace-nowrap px-3 py-[11px] text-left text-[11px] font-semibold uppercase tracking-[0.06em]">
-                      {label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {result.rows.map((parcel) => (
-                  <ParcelRow key={parcel.id} parcel={parcel} open={openIds.includes(parcel.id)} onToggle={() => toggle(parcel.id)} actions={parcelActions} isPhone={false} {...parcelCropProps} />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          renderParcels(result.rows)
         )}
 
         <PaginationBar page={page} totalCount={result.count} pageSize={10} onPageChange={setPage} />
+          </>
+        )}
 
         <NoParcelGroup {...cropProps} isPhone={isPhone} />
           </>

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 const {
   parcelLabel, cropCountLabel, directoryParams, noParcelParams, addCropState, recordActionKeys, ownerParcelFill, parcelProblem,
   addCropsLockedState, PURGE_REASONS, purgeReasonLabel, purgeProblem, purgePayload, purgeServerMessage, purgedParams,
+  GROUP_OPTIONS, SORT_OPTIONS, DEFAULT_GROUP, DEFAULT_SORT, groupFilterParams, groupChildParams, groupSummary, groupHeading,
 } = await import(new URL('../src/pages/CropInformation/parcelRecords.js', import.meta.url).href)
 
 let n = 0
@@ -22,6 +23,23 @@ eq(cropCountLabel(undefined), 'No crops yet', 'unknown counts as none')
 eq(directoryParams({ search: ' Ana ', barangay: '', page: 2 }), { page: 2, search: 'Ana' }, 'filters')
 eq(directoryParams({}), { page: 1 }, 'nothing typed')
 eq(directoryParams({ barangay: 'Alaska', page: 3 }), { page: 3, barangay: 'Alaska' }, 'barangay only')
+eq(directoryParams({ ordering: 'crops' }), { page: 1, ordering: 'crops' }, 'a sort is sent')
+eq(directoryParams({ ordering: DEFAULT_SORT }), { page: 1 }, 'the default sort is the server own order, so it is not sent')
+
+// ── group by / sort by
+eq(GROUP_OPTIONS.map((o) => o.value), ['none', 'farmer', 'barangay', 'ownership'], 'group choices')
+eq(DEFAULT_GROUP, 'none', 'no grouping by default')
+eq(SORT_OPTIONS.map((o) => o.value), ['name', 'crops', 'crops_asc', 'area', 'number'], 'sort choices')
+eq(groupFilterParams({ search: 'Ana', barangay: 'Alaska', ordering: 'area', page: 4 }), { search: 'Ana', barangay: 'Alaska', ordering: 'area' }, 'group filters carry no page')
+eq(groupChildParams('farmer', { key: 'f12', id: 12 }), { farmer: 12 }, 'a farmer group opens onto ?farmer=')
+eq(groupChildParams('barangay', { key: 'bAlaska', id: 'Alaska' }), { barangay: 'Alaska' }, 'a barangay group')
+eq(groupChildParams('ownership', { key: 'oTenant', id: 'Tenant' }), { land_ownership: 'Tenant' }, 'an ownership group')
+eq(groupChildParams('barangay', { key: 'b', id: '' }), null, 'a group with no value has nothing to open onto')
+eq(groupChildParams('none', { id: 1 }), null, 'no grouping has no groups')
+eq(groupSummary({ parcels: 2, area_hectares: 3.5, crops: 5 }), '2 parcels · 3.5 ha · 5 crops', 'summary')
+eq(groupSummary({ parcels: 1, area_hectares: 0, crops: 0 }), '1 parcel · No crops yet', 'summary of an empty parcel')
+eq(groupHeading('farmer', { name: 'Ben Dizon', barangay: 'Poblacion' }), 'Ben Dizon · Poblacion', 'farmer heading shows the home barangay')
+eq(groupHeading('barangay', { name: 'Alaska', barangay: '' }), 'Alaska', 'barangay heading')
 
 // ── the request for the crops that have no parcel on file (only the filters that apply to them)
 eq(noParcelParams({ search: 'Ana', barangay: 'Alaska', farmStatus: 'Inactive' }), { farm_parcel: 'none', search: 'Ana', barangay: 'Alaska' }, 'no-parcel request')

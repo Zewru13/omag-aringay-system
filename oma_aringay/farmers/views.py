@@ -16,6 +16,7 @@ from associations.models import FarmersOrganizationMember
 from core.utils import day_range_bounds, filter_people_search
 
 from . import area_rules
+from .parcel_directory import directory_queryset
 from .models import Farmer, FarmCrop, FarmMachinery, FarmParcel, ParcelClassification
 from .serializers import (
     FarmCropSerializer,
@@ -195,25 +196,8 @@ class FarmParcelDirectoryView(generics.ListAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
 
     def get_queryset(self):
-        qs = FarmParcel.objects.select_related('farmer').annotate(
-            # Total Loss records are left out of the crop list under a parcel (as on Crop Monitoring), so out of the count.
-            crop_count=Count('monitoring_records', filter=~Q(monitoring_records__status='Total Loss')),
-        ).order_by('farmer__last_name', 'farmer__first_name', 'farmer_id', 'id')
-        params = self.request.query_params
-        if params.get('farmer'):
-            qs = qs.filter(farmer_id=params['farmer'])
-        if params.get('barangay'):
-            qs = qs.filter(barangay__iexact=params['barangay'])
-        search = params.get('search')
-        if search:
-            matched = filter_people_search(
-                qs, search,
-                name_fields=['farmer__first_name', 'farmer__middle_name', 'farmer__last_name'],
-                id_fields=['farmer__rsbsa_number'],
-                other_fields=['parcel_number'],
-            )
-            qs = matched
-        return qs
+        # the filters, the crop count and the sort (?ordering=name|crops|crops_asc|area|number) live in parcel_directory.py
+        return directory_queryset(self.request.query_params)
 
 
 class MyFarmParcelListView(generics.ListAPIView):
