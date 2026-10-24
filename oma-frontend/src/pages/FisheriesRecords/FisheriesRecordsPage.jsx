@@ -38,8 +38,8 @@ import Button from '../../components/UI/Button.jsx'
 import { printSpec } from '../Monitoring/disasterReportDocument.js'
 import { buildForceHarvestSpec, forceHarvestRows, forceHarvestTable } from './forceHarvestTable.js'
 import ForceHarvestModal from './ForceHarvestModal.jsx'
-import { ForcedHarvestDetailsModal, ForcedHarvestLabel } from './ForcedHarvestDetails.jsx'
-import { canForceHarvest, cycleStatusText } from './emergencyForceHarvest.js'
+import { ForcedHarvestDetailsModal, ForcedHarvestedStatus } from './ForcedHarvestDetails.jsx'
+import { FORCED_UNIT_STATUS, canForceHarvest, cycleStatusText } from './emergencyForceHarvest.js'
 
 const filterSelectCls =
   'rounded-lg border border-[#E2E8E2] bg-[#F9FAF9] px-3 py-[7px] text-[13px] text-[#4A5E4A] focus:border-[#1B4D2E] focus:outline-none'
@@ -49,6 +49,7 @@ const filterSelectCls =
 const STATUS_TONES = {
   Stocked:         'green',
   'In Progress':   'green',   // a cycle with some ponds / cages emergency force harvested and others still growing
+  'Forced Harvested': 'rose', // every pond / cage harvested and at least one by an emergency Force Harvest (⋮ menu)
   'Near Harvest':  'amber',
   Late:            'rose',    // display_status only: past the expected harvest date, not yet harvested
   Harvested:       'blue',
@@ -1256,7 +1257,10 @@ export default function FisheriesRecordsPage({ asTab = false }) {
         {/* Overall cycle status is the backend's display_status (rec.status with Stocked / Near Harvest / Late
             from today's date): it only becomes Harvested on the final harvest, so force-harvesting some
             ponds/cages leaves it active. Those units show as HP/HC badges below. */}
-        {rec.harvest_count > 0 ? (
+        {cycleStatusText(rec) === FORCED_UNIT_STATUS ? (
+          // The one status badge; it opens the saved Force Harvest details. No second label beside it.
+          <ForcedHarvestedStatus harvestIds={(rec.forced_harvests || []).map(f => f.id)} />
+        ) : rec.harvest_count > 0 ? (
           <button type="button" data-testid="harvested-status" title="View harvest details" onClick={() => setViewingRec(rec)}>
             <StatusPill tone={STATUS_TONES[cycleStatusText(rec)] || 'slate'}>{cycleStatusText(rec)}</StatusPill>
           </button>
@@ -1277,8 +1281,6 @@ export default function FisheriesRecordsPage({ asTab = false }) {
             {g.code}
           </button>
         ))}
-        {/* ONE FORCED HARVEST label for the cycle (however many emergency Force Harvests it has); it opens their saved details. */}
-        {(rec.forced_harvests || []).length > 0 && <ForcedHarvestLabel harvestIds={rec.forced_harvests.map(f => f.id)} />}
         <HarvestVarianceBadge days={rec.harvest_variance_days} />
       </span>
     ),

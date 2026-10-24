@@ -29,13 +29,21 @@ export const canForceHarvest = (rec) => Boolean(rec && rec.production_cycle && !
 export const FORCED_UNIT_STATUS = 'Forced Harvested'
 
 // The overall status of a production cycle in the Aquaculture Monitoring row. It stays the record's own status (Stocked / Near
-// Harvest / Late from the dates, Harvested once every pond / cage is harvested), with ONE correction: while some ponds / cages of
-// the cycle have been emergency force harvested and others are still growing, a plain "Stocked" would read as if nothing had
-// happened, so the cycle shows "In Progress". Near Harvest and Late are kept (they say more), and a cycle with no emergency Force
-// Harvest (including one with only Health Log Force Harvests and its HP / HC badges) is shown exactly as before.
+// Harvest / Late from the dates, Harvested once every pond / cage is harvested), with two corrections for a cycle that has an
+// emergency Force Harvest (⋮ menu), both read from the saved harvests so they survive a refresh:
+//   - every pond / cage is harvested (the Force Harvest finished the cycle): the status is "Forced Harvested", in place of Harvested,
+//     and the row shows that one badge (clicking it opens the saved details), never a status plus a second label;
+//   - some ponds / cages are emergency force harvested and others are still growing: a plain "Stocked" would read as if nothing had
+//     happened, so the cycle shows "In Progress" (the cycle-completion rules are unchanged, nothing is marked harvested that is not;
+//     the force harvested ponds / cages show Forced Harvested in the expanded table). Near Harvest and Late are kept.
+// A cycle with no emergency Force Harvest (including one with only Health Log Force Harvests and its HP / HC badges) is shown
+// exactly as before.
 export function cycleStatusText(rec) {
   const shown = rec.display_status || rec.status
-  if (shown !== 'Stocked' || !(rec.forced_harvests || []).length) return shown
+  if (!(rec.forced_harvests || []).length) return shown
+  const unitRows = rec.harvest_units || []
+  if (shown === 'Harvested' && unitRows.length > 0 && unitRows.every((u) => u.harvested)) return FORCED_UNIT_STATUS
+  if (shown !== 'Stocked') return shown
   const units = rec.harvest_units || []
   const partial = units.some((u) => u.harvested) && units.some((u) => !u.harvested)
   return partial ? 'In Progress' : shown

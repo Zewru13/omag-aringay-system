@@ -135,11 +135,26 @@ test('the cycle shows In Progress while some ponds are emergency force harvested
   assert.equal(cycleStatusText({ ...rec, harvest_units: unitRows(true, false, false) }), 'In Progress')
 })
 
-test('Near Harvest and Late are kept, and a finished cycle is Harvested', () => {
+test('Near Harvest and Late are kept while some ponds are still growing', () => {
   const base = { forced_harvests: [{ id: 1 }], harvest_units: unitRows(true, false) }
   assert.equal(cycleStatusText({ ...base, status: 'Near Harvest', display_status: 'Near Harvest' }), 'Near Harvest')
   assert.equal(cycleStatusText({ ...base, status: 'Stocked', display_status: 'Late' }), 'Late')
-  assert.equal(cycleStatusText({ ...base, status: 'Harvested', display_status: 'Harvested', harvest_units: unitRows(true, true) }), 'Harvested')
+})
+
+test('a cycle finished by an emergency Force Harvest shows Forced Harvested in place of Harvested (and Stocked), one status only', () => {
+  const done = { status: 'Harvested', display_status: 'Harvested', forced_harvests: [{ id: 1 }], harvest_units: unitRows(true, true) }
+  assert.equal(cycleStatusText(done), 'Forced Harvested')
+  assert.equal(cycleStatusText({ ...done, harvest_units: unitRows(true) }), 'Forced Harvested')                  // a single pond
+  assert.equal(cycleStatusText({ ...done, forced_harvests: [{ id: 1 }, { id: 2 }] }), 'Forced Harvested')        // two Force Harvests
+  assert.equal(cycleStatusText({ ...done, status: 'Stocked', display_status: 'Stocked' }), 'Stocked')   // not closed yet: unchanged
+})
+
+test('a finished cycle without an emergency Force Harvest is still Harvested (a normal or Health Log harvest)', () => {
+  const done = { status: 'Harvested', display_status: 'Harvested', harvest_units: unitRows(true, true) }
+  assert.equal(cycleStatusText({ ...done, forced_harvests: [] }), 'Harvested')
+  assert.equal(cycleStatusText(done), 'Harvested')
+  // forced harvests listed but the cycle was closed without unit data: the record's own status stands
+  assert.equal(cycleStatusText({ status: 'Harvested', display_status: 'Harvested', forced_harvests: [{ id: 1 }] }), 'Harvested')
 })
 
 test('a cycle with no emergency Force Harvest (or no harvested pond) is shown exactly as before, Health Log ones included', () => {
