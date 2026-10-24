@@ -847,7 +847,8 @@ class CropMonitoringGroupsView(APIView):
     """GET ?group_by=crop|farmer|parcel plus the list's own filters: the Crop Monitoring table grouped, paged ten groups at a
     time. A group is one crop type, one farmer (an organization's own crops form a group per organization) or one farm parcel
     (records with no parcel form a last group); it carries
-    how many records it holds, their total planted area and how many are near harvest. Opening a group is the ordinary
+    how many records it holds, their total planted area and how many are near harvest. A parcel group also names the parcel's
+    farmer (id, name, RSBSA number), its area and its land ownership. Opening a group is the ordinary
     list scoped to it (?crop_type=, ?farmer=, ?farmers_organization=), so counts and rows always agree."""
     permission_classes = [IsAuthenticated]
 
@@ -864,8 +865,11 @@ class CropMonitoringGroupsView(APIView):
             rows = qs.values('crop_type_id', 'crop_type__name').annotate(**totals).order_by('crop_type__name', 'crop_type_id')
         elif group_by == 'parcel':
             # Parcels in order, the records with no parcel last.
-            rows = qs.values('farm_parcel_id', 'farm_parcel__parcel_number', 'farm_parcel__barangay').annotate(**totals).order_by(
-                F('farm_parcel_id').asc(nulls_last=True), 'farm_parcel__parcel_number')
+            rows = qs.values(
+                'farm_parcel_id', 'farm_parcel__parcel_number', 'farm_parcel__barangay', 'farm_parcel__area_hectares',
+                'farm_parcel__land_ownership', 'farm_parcel__farmer_id', 'farm_parcel__farmer__first_name',
+                'farm_parcel__farmer__middle_name', 'farm_parcel__farmer__last_name', 'farm_parcel__farmer__rsbsa_number',
+            ).annotate(**totals).order_by(F('farm_parcel_id').asc(nulls_last=True), 'farm_parcel__parcel_number')
         else:
             rows = qs.values(
                 'farmer_id', 'farmers_organization_id', 'farmer__first_name', 'farmer__middle_name', 'farmer__last_name',
@@ -883,8 +887,11 @@ class CropMonitoringGroupsView(APIView):
         if group_by == 'parcel':
             if not row['farm_parcel_id']:
                 return {'key': 'none', 'id': None, 'name': 'No farm parcel on file', 'barangay': '', **shared}
+            owner = ' '.join(n for n in (row['farm_parcel__farmer__first_name'], row['farm_parcel__farmer__middle_name'], row['farm_parcel__farmer__last_name']) if n)
             return {'key': f"p{row['farm_parcel_id']}", 'id': row['farm_parcel_id'],
-                    'name': row['farm_parcel__parcel_number'] or f"Parcel #{row['farm_parcel_id']}", 'barangay': row['farm_parcel__barangay'] or '', **shared}
+                    'name': row['farm_parcel__parcel_number'] or f"Parcel #{row['farm_parcel_id']}", 'barangay': row['farm_parcel__barangay'] or '',
+                    'farmer_id': row['farm_parcel__farmer_id'], 'farmer_name': owner, 'rsbsa_number': row['farm_parcel__farmer__rsbsa_number'] or '',
+                    'parcel_area_hectares': float(row['farm_parcel__area_hectares'] or 0), 'land_ownership': row['farm_parcel__land_ownership'] or '', **shared}
         if row['farmer_id']:
             name = ' '.join(n for n in (row['farmer__first_name'], row['farmer__middle_name'], row['farmer__last_name']) if n)
             return {'key': f"f{row['farmer_id']}", 'id': row['farmer_id'], 'name': name, 'barangay': row['farmer__barangay'] or '', **shared}

@@ -60,6 +60,14 @@ class ParcelGroupTests(APITestCase):
         self.assertEqual((by_key['none']['name'], by_key['none']['count']), ('No farm parcel on file', 1))
         self.assertEqual(data['results'][-1]['key'], 'none')
 
+    def test_a_parcel_group_names_its_farmer_area_and_ownership(self):
+        by_key = {g['key']: g for g in self.groups()['results']}
+        g1, g2 = by_key[f'p{self.p1.id}'], by_key[f'p{self.p2.id}']
+        self.assertEqual((g1['farmer_id'], g1['farmer_name'], g1['rsbsa_number']), (self.ana.id, 'Ana Parcelgroup', self.ana.rsbsa_number))
+        self.assertEqual((g1['parcel_area_hectares'], g1['land_ownership']), (2.5, 'Owner'))
+        self.assertEqual((g2['parcel_area_hectares'], g2['land_ownership'], g2['barangay']), (1.0, 'Tenant', 'Basca'))
+        self.assertNotIn('farmer_id', by_key['none'])
+
     def test_a_farmer_account_only_sees_its_own_parcels(self):
         keys = {g['key'] for g in self.groups(self.ana_user)['results']}
         self.assertEqual(keys, {f'p{self.p1.id}', f'p{self.p2.id}', 'none'})
