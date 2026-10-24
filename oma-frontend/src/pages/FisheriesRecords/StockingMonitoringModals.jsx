@@ -1367,57 +1367,173 @@ function unitKgTotal(units, values) {
   return units.reduce((s, u) => (validateUnitKg(values[u.id]) ? s : s + Number(values[u.id])), 0)
 }
 
-// Helper line under a unit's Actual Harvest input: that unit's OWN estimate (`estimates`, see
-// RecordStockingHarvestModal). Guidance only - never validated against or submitted.
-function UnitEstimateText({ estimates, unitId }) {
-  const kg = estimates && estimates !== 'error' ? estimates[unitId] : undefined
-  const text = estimates === null ? 'Estimated harvest: …'
-    : kg != null ? `Estimated harvest: ${Number(kg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg`
-    : 'Estimate unavailable'
-  return <p className="mt-1 text-xs text-slate-500" data-testid={`unit-estimate-${unitId}`}>{text}</p>
+// ── Record Harvest (Health Log Force Harvest): the whole body as tables ──────────
+// Same body for every account (fisherfolk, Admin, Focal Person): every detail, value, input, notice and total sits in a table.
+// Purely presentation - the state, validation and payload stay in RecordStockingHarvestModal.
+const FH_HEAD = 'bg-[#1B4D2E] px-3 py-2 text-xs font-bold text-white'
+const FH_GROUP = 'bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-[#1B4D2E]'
+const FH_LABEL = 'w-[38%] px-3 py-2 text-xs font-medium text-slate-700'
+
+function FhTable({ testId, minWidth = 'min-w-[26rem]', children }) {
+  return (
+    <div className="overflow-x-auto rounded-lg border border-slate-300" data-testid={testId}>
+      <table className={`w-full ${minWidth} border-collapse text-sm`}>{children}</table>
+    </div>
+  )
 }
 
-// Compact "Production Unit | Actual Harvest (kg)" table with a calculated TOTAL row. Every unit has its
-// own input and its own row-level error; the values stay keyed by production-unit id.
-function UnitKgTable({ units, values, errors, onChange, estimates }) {
-  const total = unitKgTotal(units, values)
+function fmtKg(v) {
+  return Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+function ForceHarvestTables({
+  forceUnits, healthLogs, unitMortality, totalMortality, cycleLabel,
+  expectedHarvestDate, daysFromNowToExpected, harvestVarianceDays, timingLabel, isEarly, isLate,
+  harvestDate, onHarvestDate, forceReason, notes, onNotes,
+  unitKg, unitKgErrors, onUnitKg, unitEstimates,
+}) {
+  const total = unitKgTotal(forceUnits, unitKg)
+  const days = (n) => `${n} day${n !== 1 ? 's' : ''}`
+  const estimateOf = (id) => {
+    if (unitEstimates === null) return '…'
+    const kg = unitEstimates !== 'error' ? unitEstimates[id] : undefined
+    return kg != null ? fmtKg(kg) : 'Not available'
+  }
+  const timingDifference = harvestVarianceDays === null ? '—'
+    : harvestVarianceDays === 0 ? '0 days'
+    : `${days(Math.abs(harvestVarianceDays))} ${harvestVarianceDays < 0 ? 'earlier' : 'later'} than estimated`
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-200">
-      <table className="w-full text-sm" data-testid="unit-kg-table">
+    <div className="space-y-3">
+      <div data-testid="force-harvest-warning">
+        <FhTable testId="force-units-wrap" minWidth="min-w-[28rem]">
+          <thead>
+            <tr><th colSpan={4} className={`${FH_GROUP} text-left`}>⚠ Force Harvest — affected production units</th></tr>
+            <tr className="text-left">
+              <th className={FH_HEAD}>Pond/Cage</th>
+              <th className={FH_HEAD}>Health Issue</th>
+              <th className={FH_HEAD}>Mortality Count</th>
+              <th className={FH_HEAD}>Harvest</th>
+            </tr>
+          </thead>
+          <tbody className="align-top" data-testid="force-units">
+            {forceUnits.map(u => {
+              const mortality = unitMortality(u.id)
+              return (
+                <tr key={u.id} className="border-t border-slate-200 text-slate-800">
+                  <td className="px-3 py-2 font-semibold">{u.label}</td>
+                  <td className="px-3 py-2">{u.reasons.join(', ') || '—'}</td>
+                  <td className="px-3 py-2">{mortality === null ? '…' : mortality > 0 ? mortality.toLocaleString() : '—'}</td>
+                  <td className="px-3 py-2 font-semibold text-rose-700">Yes</td>
+                </tr>
+              )
+            })}
+          </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-slate-300 bg-slate-50 font-semibold text-slate-800" data-testid="force-units-total">
+              <td className="px-3 py-2">TOTAL</td>
+              <td className="px-3 py-2">—</td>
+              <td className="px-3 py-2">{healthLogs === null ? '…' : totalMortality > 0 ? totalMortality.toLocaleString() : '—'}</td>
+              <td className="px-3 py-2">{forceUnits.length} unit{forceUnits.length !== 1 ? 's' : ''}</td>
+            </tr>
+            <tr className="border-t border-slate-200 bg-rose-50 text-xs text-rose-700">
+              <td colSpan={4} className="px-3 py-2">Only the affected production units above are harvested.</td>
+            </tr>
+          </tfoot>
+        </FhTable>
+      </div>
+
+      {expectedHarvestDate && (
+        // Live against the Harvest Date below (it defaults to today): an early Force Harvest is still an Early Harvest.
+        <FhTable testId="harvest-timing" minWidth="min-w-[20rem]">
+          <thead>
+            <tr className="text-left"><th className={`${FH_HEAD} w-[38%]`}>Detail</th><th className={FH_HEAD}>Value</th></tr>
+          </thead>
+          <tbody className="align-top">
+            <tr className="border-t border-slate-200">
+              <td className={FH_LABEL}>Estimated Harvest Date</td>
+              <td className="px-3 py-2">{fmtDate(expectedHarvestDate)}</td>
+            </tr>
+            <tr className="border-t border-slate-200">
+              <td className={FH_LABEL}>Days Until or Since Estimated Harvest</td>
+              <td className="px-3 py-2">
+                {daysFromNowToExpected >= 0 ? `${days(daysFromNowToExpected)} from now` : `${days(Math.abs(daysFromNowToExpected))} ago`}
+              </td>
+            </tr>
+            <tr className="border-t border-slate-200">
+              <td className={FH_LABEL}>Harvest Timing</td>
+              <td className={`px-3 py-2 font-semibold ${isEarly || isLate ? 'text-amber-700' : 'text-emerald-700'}`}>{timingLabel || '—'}</td>
+            </tr>
+            <tr className="border-t border-slate-200">
+              <td className={FH_LABEL}>Timing Difference</td>
+              <td className="px-3 py-2">{timingDifference}</td>
+            </tr>
+          </tbody>
+        </FhTable>
+      )}
+
+      <FhTable testId="harvest-details-table" minWidth="min-w-[20rem]">
         <thead>
-          <tr className="bg-slate-50 text-left text-xs font-semibold text-slate-600">
-            <th className="w-[40%] px-2.5 py-1.5">Production Unit</th>
-            <th className="px-2.5 py-1.5">Actual Harvest (kg)</th>
+          <tr className="text-left"><th className={`${FH_HEAD} w-[38%]`}>Detail</th><th className={FH_HEAD}>Value</th></tr>
+        </thead>
+        <tbody className="align-top">
+          <tr className="border-t border-slate-200">
+            <td className={FH_LABEL}>Harvest Date <span className="text-red-500">*</span></td>
+            <td className="px-3 py-1.5">
+              <input type="date" className={`${baseInputClasses} w-full`} value={harvestDate} max={todayISO()}
+                aria-label="Harvest Date" onChange={e => onHarvestDate(e.target.value)} />
+            </td>
+          </tr>
+          <tr className="border-t border-slate-200">
+            <td className={FH_LABEL}>{isLate ? 'Reason for Late Harvest' : isEarly ? 'Reason for Early Harvest' : 'Reason for Harvest'}</td>
+            <td className="px-3 py-2 font-medium text-slate-800" data-testid="force-reason">{forceReason}</td>
+          </tr>
+          <tr className="border-t border-slate-200">
+            <td className={FH_LABEL}>Notes</td>
+            <td className="px-3 py-1.5">
+              <textarea rows={2} className={`${baseInputClasses} w-full resize-none`} value={notes}
+                aria-label="Notes" onChange={e => onNotes(e.target.value)} placeholder="Optional" />
+            </td>
+          </tr>
+        </tbody>
+      </FhTable>
+
+      <FhTable testId="unit-kg-table" minWidth="min-w-[18rem]">
+        <thead>
+          <tr className="text-left">
+            <th className={FH_HEAD}>Production Unit</th>
+            <th className={`${FH_HEAD} text-right`}>Estimated Harvest (kg)</th>
+            <th className={`${FH_HEAD} text-right`}>Actual Harvest (kg) <span className="text-red-200">*</span></th>
           </tr>
         </thead>
         <tbody className="align-top">
-          {units.map(u => (
-            <tr key={u.id} className="border-t border-slate-100">
-              <td className="px-2.5 py-2 font-semibold text-slate-800">{u.label}</td>
-              <td className="px-2.5 py-1.5">
+          {cycleLabel && (
+            <tr><td colSpan={3} className={FH_GROUP}>{cycleLabel}</td></tr>
+          )}
+          {forceUnits.map(u => (
+            <tr key={u.id} className="border-t border-slate-200">
+              <td className="px-3 py-2 font-semibold text-slate-800">{u.label}</td>
+              <td className="px-3 py-2 text-right text-slate-600" data-testid={`unit-estimate-${u.id}`}>{estimateOf(u.id)}</td>
+              <td className="min-w-[6.5rem] px-2 py-1.5 sm:px-3">
                 <input type="number" step="0.01" min="0.01" inputMode="decimal"
                   data-testid={`unit-kg-${u.id}`}
                   aria-label={`Actual Harvest (kg) for ${u.label}`}
-                  aria-invalid={Boolean(errors[u.id])}
-                  className={`${baseInputClasses} ${errors[u.id] ? 'border-rose-400' : ''}`}
-                  value={values[u.id] ?? ''}
-                  onChange={e => onChange(u.id, e.target.value)}
+                  aria-invalid={Boolean(unitKgErrors[u.id])}
+                  className={`${baseInputClasses} w-full text-right ${unitKgErrors[u.id] ? 'border-rose-400' : ''}`}
+                  value={unitKg[u.id] ?? ''}
+                  onChange={e => onUnitKg(u.id, e.target.value)}
                   placeholder="e.g. 12.50" />
-                {errors[u.id] && <p className="mt-1 text-xs text-rose-600">{errors[u.id]}</p>}
-                <UnitEstimateText estimates={estimates} unitId={u.id} />
+                {unitKgErrors[u.id] && <p className="mt-1 text-left text-xs text-rose-600">{unitKgErrors[u.id]}</p>}
               </td>
             </tr>
           ))}
         </tbody>
         <tfoot>
-          <tr className="border-t-2 border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700" data-testid="unit-kg-total">
-            <td className="px-2.5 py-1.5">TOTAL</td>
-            <td className="px-2.5 py-1.5">
-              {total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg
-            </td>
+          <tr className="border-t-2 border-slate-300 bg-slate-50 text-sm font-semibold text-slate-800" data-testid="unit-kg-total">
+            <td className="px-3 py-2" colSpan={2}>Total Actual Harvest (kg)</td>
+            <td className="px-3 py-2 text-right">{fmtKg(total)}</td>
           </tr>
         </tfoot>
-      </table>
+      </FhTable>
     </div>
   )
 }
@@ -1749,6 +1865,20 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
     } finally { setIsSubmitting(false) }
   }
 
+  const actionButtons = (
+    <div className={unitMode ? 'flex justify-end gap-3' : 'flex justify-end gap-3 border-t border-slate-100 pt-4'}>
+      <button type="button" onClick={onClose}
+        className="rounded-xl px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-100 transition-colors">
+        Cancel
+      </button>
+      <button type="button" onClick={handleSubmitClick}
+        disabled={isSubmitting || (reasonRequired && !finalReason) || (unitSelect && selectedUnits.length === 0)}
+        className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-60 transition-colors">
+        {isSubmitting ? 'Saving…' : 'Record Harvest'}
+      </button>
+    </div>
+  )
+
   return (
     <>
       <ModalShell
@@ -1758,49 +1888,10 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
         iconBg="bg-amber-100"
         iconColor="text-amber-600"
         onClose={onClose}
-        maxWidth="max-w-md"
+        maxWidth={unitMode ? 'max-w-2xl' : 'max-w-md'}
+        footer={unitMode ? actionButtons : undefined}
       >
         <div className="space-y-3">
-          {unitMode && (
-            <div className="rounded-xl border border-rose-300 bg-rose-50 px-3 py-2.5" data-testid="force-harvest-warning">
-              <p className="text-sm font-bold text-rose-700">⚠ FORCE HARVEST</p>
-              {/* Only the affected units (from the Health Log -> Production Unit link) are listed; nothing to pick. */}
-              <div className="mt-1.5 overflow-x-auto rounded-lg border border-rose-200 bg-white">
-                <table className="w-full text-xs" data-testid="force-units">
-                  <thead>
-                    <tr className="bg-rose-100 text-left font-semibold text-rose-800">
-                      <th className="px-2 py-1.5">Pond/Cage</th>
-                      <th className="px-2 py-1.5">Health Issue</th>
-                      <th className="px-2 py-1.5">Mortality Count</th>
-                      <th className="px-2 py-1.5">Harvest</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {forceUnits.map(u => {
-                      const mortality = unitMortality(u.id)
-                      return (
-                        <tr key={u.id} className="border-t border-rose-100 text-slate-800">
-                          <td className="px-2 py-1.5 font-semibold">{u.label}</td>
-                          <td className="px-2 py-1.5">{u.reasons.join(', ') || '—'}</td>
-                          <td className="px-2 py-1.5">{mortality === null ? '…' : mortality > 0 ? mortality.toLocaleString() : '—'}</td>
-                          <td className="px-2 py-1.5 font-semibold text-rose-700">Yes</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t-2 border-rose-200 bg-rose-50 font-semibold text-slate-800" data-testid="force-units-total">
-                      <td className="px-2 py-1.5">TOTAL</td>
-                      <td className="px-2 py-1.5">—</td>
-                      <td className="px-2 py-1.5">{healthLogs === null ? '…' : totalMortality > 0 ? totalMortality.toLocaleString() : '—'}</td>
-                      <td className="px-2 py-1.5">{forceUnits.length} unit{forceUnits.length !== 1 ? 's' : ''}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-              <p className="mt-1.5 text-xs text-rose-700">Only the affected production units above are harvested.</p>
-            </div>
-          )}
           {record.force_harvest && !unitMode && (
             <div className="rounded-xl border border-rose-300 bg-rose-50 px-3 py-2.5" data-testid="force-harvest-warning">
               <p className="text-sm font-bold text-rose-700">⚠ FORCE HARVEST</p>
@@ -1829,7 +1920,7 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
             </div>
           ))}
 
-          {expectedHarvestDate && (
+          {expectedHarvestDate && !unitMode && (
             // Harvest timing, live against the Harvest Date below (it defaults to today, so this shows on open).
             // Shown for Force Harvest too: an early Force Harvest is still an Early Harvest.
             <div data-testid="harvest-timing" className={`rounded-xl border px-3 py-2 text-xs ${
@@ -1855,55 +1946,15 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
           )}
 
           {unitMode ? (
-            // Force Harvest: the harvest details as a table. Same state, validation and payload as the
-            // separate fields used for a normal harvest below - only the presentation differs.
-            <div className="overflow-hidden rounded-xl border border-slate-200" data-testid="harvest-details-table">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-50 text-left text-xs font-semibold text-slate-600">
-                    <th className="w-[38%] px-3 py-2">Harvest Detail</th>
-                    <th className="px-3 py-2">Value</th>
-                  </tr>
-                </thead>
-                <tbody className="align-top">
-                  <tr className="border-t border-slate-100">
-                    <td className="px-3 py-2 text-xs font-medium text-slate-700">Harvest Date <span className="text-red-500">*</span></td>
-                    <td className="px-3 py-1.5">
-                      <input type="date" className={baseInputClasses} value={harvestDate} max={todayISO()}
-                        onChange={e => setHarvestDate(e.target.value)} />
-                    </td>
-                  </tr>
-                  <tr className="border-t border-slate-100">
-                    <td className="px-3 py-2 text-xs font-medium text-slate-700">
-                      {isLate ? 'Reason for Late Harvest' : isEarly ? 'Reason for Early Harvest' : 'Reason'}
-                    </td>
-                    <td className="px-3 py-2">
-                      <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm font-medium text-slate-800" data-testid="force-reason">{forceReason}</p>
-                      <p className="mt-1 text-xs text-slate-500">Filled in automatically from the Health Log.</p>
-                    </td>
-                  </tr>
-                  <tr className="border-t border-slate-100">
-                    <td colSpan={2} className="px-3 py-2">
-                      <p className="mb-1.5 text-xs font-medium text-slate-700">Actual Harvest (kg) per production unit <span className="text-red-500">*</span></p>
-                      <UnitKgTable units={forceUnits} values={unitKg} errors={unitKgErrors} onChange={setOneUnitKg} estimates={unitEstimates} />
-                    </td>
-                  </tr>
-                  <tr className="border-t border-slate-100">
-                    <td className="px-3 py-2 text-xs font-medium text-slate-700">Area / Units Harvested</td>
-                    <td className="px-3 py-2">
-                      <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm font-medium text-slate-800" data-testid="area-units">{areaOrUnits}</p>
-                    </td>
-                  </tr>
-                  <tr className="border-t border-slate-100">
-                    <td className="px-3 py-2 text-xs font-medium text-slate-700">Notes</td>
-                    <td className="px-3 py-1.5">
-                      <textarea rows={2} className={`${baseInputClasses} resize-none`} value={notes}
-                        onChange={e => setNotes(e.target.value)} placeholder="Optional" />
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+            <ForceHarvestTables
+              forceUnits={forceUnits} healthLogs={healthLogs} unitMortality={unitMortality} totalMortality={totalMortality}
+              cycleLabel={record.production_cycle_no ? `Production Cycle #${record.production_cycle_no}${record.production_cycle_name ? ` — ${record.production_cycle_name}` : ''}` : ''}
+              expectedHarvestDate={expectedHarvestDate} daysFromNowToExpected={daysFromNowToExpected}
+              harvestVarianceDays={harvestVarianceDays} timingLabel={timingLabel} isEarly={isEarly} isLate={isLate}
+              harvestDate={harvestDate} onHarvestDate={setHarvestDate} forceReason={forceReason}
+              notes={notes} onNotes={setNotes}
+              unitKg={unitKg} unitKgErrors={unitKgErrors} onUnitKg={setOneUnitKg} unitEstimates={unitEstimates}
+            />
           ) : (<>
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-700">Harvest Date *</label>
@@ -2031,17 +2082,7 @@ export function RecordStockingHarvestModal({ record, onClose, onSuccess }) {
           </div>
           </>)}
 
-          <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
-            <button type="button" onClick={onClose}
-              className="rounded-xl px-4 py-2.5 text-sm text-slate-600 hover:bg-slate-100 transition-colors">
-              Cancel
-            </button>
-            <button type="button" onClick={handleSubmitClick}
-              disabled={isSubmitting || (reasonRequired && !finalReason) || (unitSelect && selectedUnits.length === 0)}
-              className="bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium px-4 py-2.5 rounded-xl disabled:opacity-60 transition-colors">
-              {isSubmitting ? 'Saving…' : 'Record Harvest'}
-            </button>
-          </div>
+          {!unitMode && actionButtons}
         </div>
       </ModalShell>
 
