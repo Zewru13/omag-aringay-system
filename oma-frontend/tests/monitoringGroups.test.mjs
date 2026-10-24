@@ -9,7 +9,7 @@ const eq = (actual, expected, label) => { assert.deepEqual(actual, expected, `${
 
 // ── the choices
 eq(GROUP_OPTIONS.map((o) => o.value), ['crop', 'farmer', 'parcel', 'none'], 'group-by choices')
-eq(DEFAULT_GROUP, 'crop', 'default is by crop')
+eq(DEFAULT_GROUP, 'none', 'default is no grouping')
 eq(DISPLAY_STATUSES, ['Due Harvest', 'Ready for Harvest', 'Overdue'], 'display statuses')
 
 // ── the filters sent to the list and to the groups (identical)

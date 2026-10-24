@@ -31,11 +31,9 @@ function RecordHarvestModal({ onClose, onSuccess }) {
   const [year, setYear] = useState(new Date().getFullYear().toString())
   const [cropName, setCropName] = useState("")
   const [harvestStartDate, setHarvestStartDate] = useState("")
-  const [harvestEndDate, setHarvestEndDate] = useState("")
   const [areaHarvested, setAreaHarvested] = useState("")
   const [volumeKg, setVolumeKg] = useState("")
   const [unitOfMeasure, setUnitOfMeasure] = useState("kg")
-  const [dateError, setDateError] = useState("")
   const [errorMessage, setErrorMessage] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -88,24 +86,11 @@ function RecordHarvestModal({ onClose, onSuccess }) {
     return `≈ ${calculateVolumeBags()} bags (÷ 50 kg per bag)`
   }
 
-  const handleEndDateChange = (v) => {
-    setHarvestEndDate(v)
-    if (harvestStartDate && v && v < harvestStartDate) {
-      setDateError("End date must be on or after the start date.")
-    } else {
-      setDateError("")
-    }
-  }
-
   const handleSubmit = async (event) => {
     event.preventDefault()
     setErrorMessage("")
     if (!selectedFarmer) { setErrorMessage("Please select a farmer."); return }
     if (!selectedParcel) { setErrorMessage("Please select a farm parcel."); return }
-    if (harvestStartDate && harvestEndDate && harvestEndDate < harvestStartDate) {
-      setDateError("End date must be on or after the start date.")
-      return
-    }
     setIsSubmitting(true)
     try {
       await api.post("/production/create/", {
@@ -114,7 +99,6 @@ function RecordHarvestModal({ onClose, onSuccess }) {
         year: parseInt(year),
         crop_name: cropName,
         harvest_start_date: harvestStartDate || null,
-        harvest_end_date: harvestEndDate || null,
         area_harvested_hectares: parseFloat(areaHarvested),
         volume_kg: parseFloat(volumeKg),
         unit_of_measure: unitOfMeasure,
@@ -124,7 +108,6 @@ function RecordHarvestModal({ onClose, onSuccess }) {
     } catch (error) {
       const errorData = error.response?.data
       setErrorMessage(
-        errorData?.harvest_end_date?.[0] ||
         errorData?.non_field_errors?.[0] ||
         errorData?.detail ||
         "Unable to record harvest",
@@ -262,41 +245,18 @@ function RecordHarvestModal({ onClose, onSuccess }) {
           />
         </div>
 
-        {/* Harvest Date Range */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <label className={labelCls}>Harvest Start Date <span className="text-rose-500">*</span></label>
-            <input
-              className={`${baseInputClasses} mt-1`}
-              required
-              type="date"
-              value={harvestStartDate}
-              max={new Date().toISOString().split('T')[0]}
-              onChange={(e) => {
-                setHarvestStartDate(e.target.value)
-                if (harvestEndDate && e.target.value && harvestEndDate < e.target.value) {
-                  setDateError("End date must be on or after the start date.")
-                } else {
-                  setDateError("")
-                }
-              }}
-            />
-          </div>
-          <div>
-            <label className={labelCls}>Harvest End Date <span className="font-normal text-slate-400">(optional)</span></label>
-            <input
-              className={`${baseInputClasses} mt-1`}
-              type="date"
-              min={harvestStartDate || undefined}
-              max={new Date().toISOString().split('T')[0]}
-              value={harvestEndDate}
-              onChange={(e) => handleEndDateChange(e.target.value)}
-            />
-          </div>
+        {/* Harvested date */}
+        <div>
+          <label className={labelCls}>Harvested Date <span className="text-rose-500">*</span></label>
+          <input
+            className={`${baseInputClasses} mt-1`}
+            required
+            type="date"
+            value={harvestStartDate}
+            max={new Date().toISOString().split('T')[0]}
+            onChange={(e) => setHarvestStartDate(e.target.value)}
+          />
         </div>
-        {dateError && (
-          <p className="text-xs font-medium text-rose-600">{dateError}</p>
-        )}
 
         <div>
           <label className={labelCls}>Area Harvested (ha) <span className="text-rose-500">*</span></label>
