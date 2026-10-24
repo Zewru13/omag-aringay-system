@@ -105,6 +105,22 @@ class EmergencyForceHarvestTests(APITestCase):
     def emergency_notes(self, **f):
         return Notification.objects.filter(record_type=fn.EMERGENCY_FORCE_HARVEST, **f)
 
+    # ── the lock (PostgreSQL) ──
+    def test_the_rows_are_locked_without_a_join_so_postgresql_accepts_the_save(self):
+        """The live database is PostgreSQL, which refuses SELECT ... FOR UPDATE over a join to a nullable relation (a stocking record's
+        fisherfolk and production cycle may be empty). These tests run on MariaDB, which allows it, so the shape of the query is pinned
+        here: the locking SELECT touches the stocking table alone."""
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        _, stock, units = self.start_cycle(ponds=1)
+        with CaptureQueriesContext(connection) as queries:
+            r = self.force([(stock, [(units[0], '9.00')])])
+        self.assertEqual(r.status_code, 201, r.data)
+        locking = [q['sql'] for q in queries if 'FOR UPDATE' in q['sql'].upper()]
+        self.assertTrue(locking, 'the request should lock the stocking records')
+        for sql in locking:
+            self.assertNotIn('JOIN', sql.upper(), sql)
+
     # ── the six reasons ──
     def test_exactly_six_reasons_and_no_other(self):
         _, stock, _ = self.start_cycle()
