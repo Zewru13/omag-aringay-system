@@ -85,6 +85,7 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
     pond_location_other_specify: '',
     water_source: '',
     water_source_other_specify: '',
+    fingerling_source: '',
     stocking_count: '',
     area_sqm: '',
     unit_count: '',
@@ -92,6 +93,13 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
   })
 
   // Pond Location / Water Source options come from the backend's own lists (the same values it validates).
+  // Fingerling sources come from Fisheries Settings > Fingerling Sources; choosing one is optional.
+  const [sourceOptions, setSourceOptions] = useState([])
+  useEffect(() => {
+    api.get('/fisheries/fingerling-sources/')
+      .then(r => setSourceOptions((Array.isArray(r.data) ? r.data : (r.data.results || [])).map(s => s.name)))
+      .catch(() => showToast('Failed to load fingerling sources.', 'error'))
+  }, [])
   const [barangayOptions, setBarangayOptions] = useState([])
   const [waterSourceOptions, setWaterSourceOptions] = useState([])
   useEffect(() => {
@@ -289,6 +297,7 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
         ...(form.pond_location_barangay === 'Other' ? { pond_location_other_specify: form.pond_location_other_specify.trim() } : {}),
         water_source: form.water_source,
         ...(form.water_source === 'Other' ? { water_source_other_specify: form.water_source_other_specify.trim() } : {}),
+        ...(form.fingerling_source ? { fingerling_source: form.fingerling_source } : {}),
         ...(unitLabel
           // Area and totals are derived server-side from length x width and the actual counts.
           ? { units: shownUnits.map(u => ({ length_m: parseFloat(u.length_m), width_m: parseFloat(u.width_m), fingerling_count: parseInt(u.actual) })) }
@@ -460,6 +469,12 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
                 placeholder="Specify Water Source"
               />
             )}
+          </FormField>
+          <FormField label="Fingerling Source">
+            <select className={baseInputClasses} value={form.fingerling_source} onChange={e => set('fingerling_source', e.target.value)}>
+              <option value="">Select Fingerling Source</option>
+              {sourceOptions.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
           </FormField>
           <FormField label="Pond Location" required>
             <select

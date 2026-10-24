@@ -251,6 +251,20 @@ class SpeciesCategory(models.Model):
         return self.name
 
 
+class FingerlingSource(models.Model):
+    """Where a stocking's fingerlings came from (BFAR, a private hatchery, own production, ...): the list managed in Fisheries
+    Settings and offered by Start Production Cycle. The stocking record keeps the chosen NAME as text (StockingRecord.fingerling_source),
+    like the crop side's Seed Source, so renaming or removing a source here never rewrites records already saved."""
+    name         = models.CharField(max_length=100, unique=True)
+    date_created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
 class FisheriesActivityType(models.Model):
     """
     Activity Settings batch: fisheries-domain counterpart of
@@ -558,7 +572,9 @@ class StockingRecord(PcicInsurance):
     water_source_other_specify = models.CharField(max_length=150, blank=True)
     number_of_units       = models.IntegerField(null=True, blank=True, help_text='Number of ponds or cages')
     unit_dimensions       = models.CharField(max_length=100, blank=True, help_text='e.g. 10m x 10m x 2m')
-    fingerling_source     = models.CharField(max_length=20, choices=FINGERLING_SOURCE_CHOICES, blank=True)
+    # The name of a FingerlingSource (Fisheries Settings). Older records hold one of the original four values (BFAR, Private
+    # Hatchery, Own Production, Other + the text in fingerling_source_other_specify), which stay as they are.
+    fingerling_source     = models.CharField(max_length=100, blank=True)
     fingerling_source_other_specify = models.CharField(max_length=150, blank=True)
     avg_fingerling_size   = models.CharField(max_length=50, blank=True, help_text='e.g. 2-3 cm')
     culture_phase          = models.CharField(max_length=20, choices=CULTURE_PHASE_CHOICES, blank=True)

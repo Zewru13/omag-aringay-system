@@ -277,6 +277,7 @@ function CycleInfoTab({ cycle, onRefresh }) {
         <InfoField label="Species" value={cycle.species_display || cycle.species_farmed} />
         <InfoField label="Culture System" value={cycle.culture_system} />
         <InfoField label="Pond Location" value={cycle.pond_location || null} />
+        <InfoField label="Fingerling Source" value={cycle.fingerling_source || null} />
         {ownershipRows(cycle).map(([label, value]) => <InfoField key={label} label={label} value={value} />)}
         <InfoField label="Area" value={cycle.area_sqm ? `${cycle.area_sqm} sqm` : null} />
         <InfoField label="Stocking Date" value={formatDate(cycle.stocking_date)} />

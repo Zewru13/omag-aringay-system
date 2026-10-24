@@ -228,6 +228,14 @@ class _StockingPcicFlag(serializers.BooleanField):
         return bool(record and record.has_pcic_insurance)
 
 
+class _StockingFingerlingSource(serializers.CharField):
+    """The fingerling source of the cycle: read from, and (when the cycle starts) written to, its linked stocking record."""
+
+    def get_attribute(self, instance):
+        record = _first_stocking_record(instance)
+        return record.fingerling_source if record else ''
+
+
 class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
     fisherfolk_name = serializers.CharField(source='fisherfolk.full_name', read_only=True)
     fisherfolk_barangay = serializers.CharField(source='fisherfolk.barangay', read_only=True)
@@ -259,6 +267,9 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
     # /fisheries/stocking/<stocking_record_id>/pcic-form/ and comes back here as `pcic_form_photo` (a signed, short-lived link).
     has_pcic_insurance = _StockingPcicFlag(required=False)
     pcic_form_photo = serializers.SerializerMethodField()
+    # The name of a source from Fisheries Settings > Fingerling Sources (optional). Set when the cycle starts, stored on the linked
+    # StockingRecord; the stocking record's own edit form changes it afterwards.
+    fingerling_source = _StockingFingerlingSource(max_length=100, required=False, allow_blank=True)
     # Read-only: the stocking record this cycle created (None for legacy cycles without one).
     stocking_record_id = serializers.SerializerMethodField()
 
@@ -273,7 +284,7 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
             'feeding_logs', 'health_logs', 'input_logs', 'species_option', 'units',
             'estimated_harvest_kg', 'season',
             'pond_location_barangay', 'pond_location_other_specify', 'pond_location',
-            'water_source', 'water_source_other_specify', 'has_pcic_insurance', 'pcic_form_photo', 'stocking_record_id',
+            'water_source', 'water_source_other_specify', 'fingerling_source', 'has_pcic_insurance', 'pcic_form_photo', 'stocking_record_id',
             'ownership', 'owner_name', 'owner_registration_number',
         ]
         read_only_fields = [
@@ -387,6 +398,15 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
             if data['water_source'] == 'Other' and not (data.get('water_source_other_specify') or '').strip():
                 raise serializers.ValidationError({'water_source_other_specify': 'Please specify the water source.'})
         self._check_ownership(data)
+        source = (data.get('fingerling_source') or '').strip()
+        if source:
+            from fisheries.models import FingerlingSource
+            match = FingerlingSource.objects.filter(name__iexact=source).first()
+            if match is None:
+                raise serializers.ValidationError({'fingerling_source': 'Choose a fingerling source from the list.'})
+            data['fingerling_source'] = match.name
+        else:
+            data['fingerling_source'] = ''
         return data
     @transaction.atomic
     def create(self, validated_data):
@@ -399,6 +419,7 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
         water_source_other = validated_data.pop('water_source_other_specify', '')
         units = validated_data.pop('units', None) or []
         has_pcic_insurance = validated_data.pop('has_pcic_insurance', False)
+        fingerling_source = validated_data.pop('fingerling_source', '')
         if units:
             # Totals are always derived from the units — any client-sent values are overridden.
             validated_data['stocking_count'] = sum(u['fingerling_count'] for u in units)
@@ -431,6 +452,7 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
                 season=season_for_date(date_stocked),
                 year=date_stocked.year,
                 has_pcic_insurance=has_pcic_insurance,
+                fingerling_source=fingerling_source,
                 notes=cycle.notes,
                 recorded_by=cycle.recorded_by,
             )
@@ -439,6 +461,7 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
         validated_data.pop('species_option', None)
         validated_data.pop('units', None)
         insured = validated_data.pop('has_pcic_insurance', None)
+        validated_data.pop('fingerling_source', None)   # chosen when the cycle starts; the stocking record's edit form changes it
         for field in ('pond_location_barangay', 'pond_location_other_specify', 'water_source', 'water_source_other_specify'):
             validated_data.pop(field, None)
         with transaction.atomic():
