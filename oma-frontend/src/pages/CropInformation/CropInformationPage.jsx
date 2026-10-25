@@ -36,6 +36,7 @@ import FormField, { baseInputClasses } from "../../components/UI/FormField.jsx";
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import ModalShell from "../../components/UI/ModalShell.jsx";
 import PaginationBar from "../../components/UI/PaginationBar.jsx";
+import PcicCheck from "../../components/UI/PcicCheck.jsx";
 import StatusPill from "../../components/UI/StatusPill.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import PcicInsuranceField from "../../components/UI/PcicInsuranceField.jsx";
@@ -1103,7 +1104,7 @@ function useParcelCrops(parcelId, search, barangay, version) {
   return { ...state, isLoading: state.key !== key, loadingMore, loadMore };
 }
 
-const CROP_COLUMNS = ["Crop", "Variety", "Crop Ownership", "Season", "Date planted", "Est. harvest", "Area (ha)", "Status", ""];
+const CROP_COLUMNS = ["Crop", "Variety", "Crop Ownership", "Season", "Date planted", "Est. harvest", "Area (ha)", "PCIC Insured", "Status", ""];
 
 function cropCells(rec) {
   const status = getDisplayStatus(rec);
@@ -1115,6 +1116,7 @@ function cropCells(rec) {
     planted: fmtShort(rec.date_planted),
     harvest: fmtShort(rec.expected_harvest_date),
     area: rec.area_planted_ha ? Number(rec.area_planted_ha).toFixed(2) : "—",
+    pcic: <PcicCheck insured={rec.has_pcic_insurance} />,
     status: (
       <span className="flex items-center gap-1.5">
         <StatusPill tone={STATUS_TONES[status] || "slate"}>{status}</StatusPill>
@@ -1149,6 +1151,9 @@ function ParcelCrops({ parcelId, search, barangay, version, isPhone, handlers, e
                 <div className="mt-2">{c.status}</div>
                 <p className="mt-2 text-[12px] text-[#4A5E4A]">
                   Planted {c.planted} · Est. harvest {c.harvest} · {c.area} ha
+                </p>
+                <p className="mt-1 flex items-center gap-1.5 text-[12px] text-[#4A5E4A]">
+                  <span className="inline-flex items-center gap-1.5">{c.pcic} PCIC insured</span>
                 </p>
                 <p className="mt-1 text-[12px] text-[#4A5E4A]">
                   {c.ownership.status}
@@ -1185,6 +1190,7 @@ function ParcelCrops({ parcelId, search, barangay, version, isPhone, handlers, e
                     <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#4A5E4A]">{c.planted}</td>
                     <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#4A5E4A]">{c.harvest}</td>
                     <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#4A5E4A]">{c.area}</td>
+                    <td className="px-3 py-2.5">{c.pcic}</td>
                     <td className="whitespace-nowrap px-3 py-2.5">{c.status}</td>
                     <td className="px-3 py-2.5 text-right">
                       <CropRowActionsMenu rec={rec} handlers={handlers} />
