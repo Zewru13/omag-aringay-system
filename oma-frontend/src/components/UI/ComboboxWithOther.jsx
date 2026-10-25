@@ -14,11 +14,6 @@ import { baseInputClasses } from './FormField.jsx'
 // always did — this component only changes how the two are edited, not
 // what gets submitted.
 //
-// `textValues` (optional): more options that ask for a name once picked (e.g. Tenant / Lessee: the land owner's name). It is still ONE
-// box: it keeps its place and border and only grows taller - the picked option on its first line, the name typed on the lines below
-// (wrapping, so the whole name is visible). `textValue` / `onTextChange` carry the typed text and `textPlaceholder(value)` says what
-// to type. Callers that do not pass them are unchanged.
-//
 // otherValue is cleared automatically (onOtherChange('')) the moment the
 // user switches AWAY from "Other" back to a real option — matching what
 // every hand-rolled instance of this pattern already did (e.g.
@@ -49,10 +44,6 @@ function ComboboxWithOther({
   onChange,
   onOtherChange,
   otherLabel = 'Other',
-  textValues = [],
-  textValue = '',
-  onTextChange,
-  textPlaceholder,
   placeholder = 'Select...',
   required = false,
   error,
@@ -81,14 +72,9 @@ function ComboboxWithOther({
   const triggerRef = useRef(null)
   const otherInputRef = useRef(null)
   const listRef = useRef(null)
-  const boxRef = useRef(null)
-  const nameRef = useRef(null)
 
   const allOptions = [...options.map(normalizeOption), { value: OTHER_SENTINEL, label: otherLabel }]
   const isOtherMode = value === OTHER_SENTINEL
-  const isTextMode = !isOtherMode && textValues.includes(value)
-  // Only "Other" swaps the dropdown for a text box; a textValues option keeps the dropdown and adds the name box under it.
-  const isTyping = isOtherMode
 
   useEffect(() => {
     function handleOutside(e) {
@@ -115,7 +101,7 @@ function ComboboxWithOther({
     const MAX_LIST_HEIGHT = 208 // matches max-h-52
 
     const reposition = () => {
-      const trigger = boxRef.current
+      const trigger = rootRef.current
       if (!trigger) return
       const rect = trigger.getBoundingClientRect()
       const spaceBelow = window.innerHeight - rect.bottom
@@ -140,24 +126,11 @@ function ComboboxWithOther({
   // Focus the text box the instant Other mode is entered — "the SAME box
   // becomes an editable text field immediately, focused and ready to type".
   useEffect(() => {
-    if (isTyping && !isOpen) {
+    if (isOtherMode && !isOpen) {
       otherInputRef.current?.focus()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isTyping])
-
-  // The name box opens focused too, and is as tall as the name needs (the name wraps instead of being cut off).
-  useEffect(() => {
-    if (isTextMode && !isOpen) nameRef.current?.focus()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isTextMode])
-
-  useLayoutEffect(() => {
-    const el = nameRef.current
-    if (!el) return
-    el.style.height = 'auto'
-    el.style.height = `${el.scrollHeight}px`
-  }, [isTextMode, textValue])
+  }, [isOtherMode])
 
   useEffect(() => {
     if (isOpen && activeIndex >= 0) {
@@ -245,18 +218,13 @@ function ComboboxWithOther({
     }
   }
 
-  const displayLabel = value && !isTyping
+  const displayLabel = value && !isOtherMode
     ? (allOptions.find((o) => o.value === value)?.label ?? value)
     : ''
 
   return (
     <div ref={rootRef} className={`relative ${className}`}>
-      {!isTyping ? (
-        <div
-          ref={boxRef}
-          className={isTextMode ? `${inputClassName} flex flex-col gap-0.5 py-1.5 focus-within:border-[#1B4D2E] focus-within:ring-2 focus-within:ring-[#1B4D2E]/20` : undefined}
-          style={isTextMode ? { height: 'auto' } : undefined}
-        >
+      {!isOtherMode ? (
         <button
           ref={triggerRef}
           type="button"
@@ -270,10 +238,7 @@ function ComboboxWithOther({
           disabled={disabled}
           onClick={() => (isOpen ? closeDropdown() : openDropdown())}
           onKeyDown={handleTriggerKeyDown}
-          style={isTextMode ? { outline: 'none' } : undefined}
-          className={isTextMode
-            ? 'flex w-full items-center justify-between gap-2 text-left text-[11px] font-semibold text-[#1B4D2E] focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed'
-            : `${inputClassName} flex items-center justify-between gap-2 text-left disabled:opacity-50 disabled:cursor-not-allowed`}
+          className={`${inputClassName} flex items-center justify-between gap-2 text-left disabled:opacity-50 disabled:cursor-not-allowed`}
         >
           <span className={`min-w-0 flex-1 truncate ${displayLabel ? '' : 'text-[#A8BCA8]'}`}>
             {displayLabel || placeholder}
@@ -284,25 +249,8 @@ function ComboboxWithOther({
             aria-hidden="true"
           />
         </button>
-        {isTextMode && (
-          <textarea
-            ref={(el) => { nameRef.current = el; otherInputRef.current = el }}
-            rows={1}
-            disabled={disabled}
-            aria-label={textPlaceholder ? textPlaceholder(value) : 'Name'}
-            aria-required={required || undefined}
-            aria-invalid={error ? true : undefined}
-            value={textValue}
-            placeholder={textPlaceholder ? textPlaceholder(value) : ''}
-            onChange={(e) => onTextChange?.(e.target.value.replace(/\n/g, ' '))}
-            onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }}
-            style={{ outline: 'none' }}
-            className="block w-full resize-none overflow-hidden bg-transparent p-0 text-[13px] leading-[1.35] text-[#1A2B1A] placeholder-[#8AA08A] focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
-          />
-        )}
-        </div>
       ) : (
-        <div ref={boxRef} className="relative">
+        <div className="relative">
           <input
             ref={otherInputRef}
             type="text"
@@ -336,6 +284,7 @@ function ComboboxWithOther({
           </button>
         </div>
       )}
+
       {/* Portaled to <body> — see the useLayoutEffect above for why — and
           kept mounted (not conditionally rendered) so the opacity/scale
           toggle below is an actual CSS transition rather than an instant

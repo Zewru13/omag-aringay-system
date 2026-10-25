@@ -27,7 +27,8 @@ import { EMPTY_PCIC, pcicError, pcicPayload, uploadPcicForm } from '../../utils/
 const COL_WIDTH = {
   index: 44,
   barangay: 150,
-  landStatus: 240,
+  landStatus: 170,
+  cropOwner: 230,
   cropType: 190,
   datePlanted: 160,
   area: 110,
@@ -163,9 +164,10 @@ function QuantityHeader({ title, canSwitch, choice, onPick }) {
   )
 }
 
-function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, farmerId, showParcelColumn, farmerParcels, parcelLocked, error, areaError, onUpdate, onRemove }) {
+function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, farmerId, showParcelColumn, showOwnerColumn, farmerParcels, parcelLocked, error, areaError, onUpdate, onRemove }) {
   const set = (field, value) => onUpdate(rec._id, field, value)
   const { duplicates, isChecking } = useCropDuplicateCheck(farmerId, rec)
+  const ownerInputRef = useRef(null)
 
   const relevantVarieties = varieties.filter(
     v => v.is_active && (!v.crop_type || String(v.crop_type) === String(rec.crop_type))
@@ -178,7 +180,7 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
     ? `An active ${duplicates[0].crop_type}${duplicates[0].variety_used ? ` (${duplicates[0].variety_used})` : ''} record already exists here: ${duplicates.map(d => `${d.date_planted || '—'} (${d.area_planted_ha} ha)`).join(', ')}`
     : undefined
 
-  const colCount = 11 + (showParcelColumn ? 1 : 0) - (parcelLocked ? 1 : 0)
+  const colCount = 11 + (showParcelColumn ? 1 : 0) + (showOwnerColumn ? 1 : 0) - (parcelLocked ? 1 : 0)
   const rowParcel = farmerParcels.find(p => String(p.id) === String(rec.farm_parcel))
   // The parcel's own owner is offered for a Tenant / Lessee crop on it.
   const parcelOwnerName = rowParcel && needsLandOwner(rowParcel.land_ownership) ? (rowParcel.land_owner_name || '') : ''
@@ -200,22 +202,33 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
             </select>
           </td>
         )}
-        <td data-label="Crop ownership *" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.landStatus }}>
+        <td data-label="Crop status *" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.landStatus }}>
           <ComboboxWithOther
             options={CROP_OWNERSHIP_OPTIONS}
             value={rec.land_status}
             otherValue={rec.land_status_other_specify}
-            onChange={(v) => Object.entries(chooseCropOwnership(rec, v, parcelOwnerName)).forEach(([field, value]) => set(field, value))}
+            onChange={(v) => {
+              const next = chooseCropOwnership(rec, v, parcelOwnerName)
+              Object.entries(next).forEach(([field, value]) => set(field, value))
+              // Tenant / Lessee: the Crop Owner box opens beside - go straight to it when its name is still empty
+              if (needsLandOwner(v) && !next.land_owner_name) setTimeout(() => ownerInputRef.current?.focus(), 50)
+            }}
             onOtherChange={(v) => set('land_status_other_specify', v)}
-            textValues={['Tenant', 'Lessee']}
-            textValue={rec.land_owner_name}
-            onTextChange={(v) => set('land_owner_name', v)}
-            textPlaceholder={() => "Owner's full name"}
             placeholder="Select…"
             inputClassName={bulkCellInputClasses}
             chevronSize={13}
           />
         </td>
+        {/* The owner's name: a column that appears once a row is a Tenant / Lessee crop (other rows leave it empty). */}
+        {showOwnerColumn && (
+          <td data-label="Crop owner *" className={`px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)] ${needsLandOwner(rec.land_status) ? '' : 'max-md:hidden'}`} style={{ width: COL_WIDTH.cropOwner }}>
+            {needsLandOwner(rec.land_status) && (
+              <input ref={ownerInputRef} type="text" maxLength={200} className={`${bulkCellInputClasses} w-full`} aria-label="Crop owner's full name"
+                placeholder="Owner's full name" title={rec.land_owner_name || undefined} value={rec.land_owner_name}
+                onChange={e => set('land_owner_name', e.target.value)} />
+            )}
+          </td>
+        )}
         <td data-label="Crop type *" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.cropType }}>
           <select className={`${bulkCellInputClasses} w-full`} value={rec.crop_type}
             onChange={e => {
@@ -522,8 +535,9 @@ export default function AddCropMonitoringPage() {
   }, [farmerInfo.farmer_id, lockedParcel])
 
   const showParcelColumn = farmerParcels.length > 0
+  const showOwnerColumn = records.some(r => needsLandOwner(r.land_status))
   const tableMinWidth = Object.entries(COL_WIDTH).reduce(
-    (sum, [key, width]) => sum + (key === 'barangay' && lockedParcel ? 0 : key === 'farmParcel' && !showParcelColumn ? 0 : width),
+    (sum, [key, width]) => sum + (key === 'barangay' && lockedParcel ? 0 : key === 'farmParcel' && !showParcelColumn ? 0 : key === 'cropOwner' && !showOwnerColumn ? 0 : width),
     0,
   )
   const parcelsReady = Boolean(farmerInfo.farmer_id) && parcelsReadyFor === farmerInfo.farmer_id
@@ -601,8 +615,8 @@ export default function AddCropMonitoringPage() {
     records.forEach((rec, i) => {
       const missing = []
       if (!rec.farm_location_barangay && !lockedParcel) missing.push('barangay')
-      if (!rec.land_status) missing.push('crop ownership')
-      else if (needsLandOwner(rec.land_status) && !rec.land_owner_name.trim()) missing.push("land owner's name")
+      if (!rec.land_status) missing.push('crop status')
+      else if (needsLandOwner(rec.land_status) && !rec.land_owner_name.trim()) missing.push("crop owner's name")
       if (!rec.crop_type) missing.push('crop type')
       if (!(rec.variety_used || '').trim()) missing.push('variety')
       if (!rec.date_planted) missing.push('date planted')
@@ -764,13 +778,14 @@ export default function AddCropMonitoringPage() {
         {/* Crop records — a horizontal table, every field visible (no expand toggle); on a phone each record is a stacked card */}
         <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white max-md:overflow-visible max-md:border-0 max-md:bg-transparent">
           {/* min-width = the declared column widths: on a narrow screen the table scrolls sideways instead of squeezing every column
-              (a squeezed Crop Ownership column cut the owner's name off) */}
+              (a squeezed column cut text off) */}
           <table className="table-fixed text-sm md:min-w-(--table-min) max-md:block max-md:w-full" style={{ '--table-min': `${tableMinWidth}px` }}>
             <thead className="bg-[#1B4D2E] text-white max-md:hidden">
               <tr>
                 <th className={`${bulkThCenterClasses} overflow-hidden`} style={{ width: COL_WIDTH.index }}>#</th>
                 {!lockedParcel && <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.barangay }}>Barangay <span className="text-white/70">*</span></th>}
-                <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.landStatus }}>Crop Ownership <span className="text-white/70">*</span></th>
+                <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.landStatus }}>Crop Status <span className="text-white/70">*</span></th>
+                {showOwnerColumn && <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.cropOwner }}>Crop Owner <span className="text-white/70">*</span></th>}
                 <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.cropType }}>Crop Type <span className="text-white/70">*</span></th>
                 <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.datePlanted }}>Date Planted <span className="text-white/70">*</span></th>
                 <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.area }}>Area (ha) <span className="text-white/70">*</span></th>
@@ -799,6 +814,7 @@ export default function AddCropMonitoringPage() {
                   varieties={varieties}
                   farmerId={farmerInfo.farmer_id}
                   showParcelColumn={showParcelColumn}
+                  showOwnerColumn={showOwnerColumn}
                   farmerParcels={farmerParcels}
                   parcelLocked={Boolean(lockedParcel)}
                   error={rowErrors[rec._id]}

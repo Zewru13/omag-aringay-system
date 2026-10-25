@@ -541,9 +541,9 @@ function EditCropModal({ record, onClose, onSaved }) {
       nextFieldErrors.farm_location_barangay = "Farm location (barangay) is required.";
     }
     if (!form.land_status) {
-      nextFieldErrors.land_status = "Crop ownership is required.";
+      nextFieldErrors.land_status = "Crop status is required.";
     } else if (needsLandOwner(form.land_status) && !form.land_owner_name.trim()) {
-      nextFieldErrors.land_owner_name = "Enter the land owner's name.";
+      nextFieldErrors.land_owner_name = "Enter the crop owner's name.";
     }
     if (Object.keys(nextFieldErrors).length > 0) {
       setFieldErrors(nextFieldErrors);
@@ -705,8 +705,8 @@ function EditCropModal({ record, onClose, onSaved }) {
           )}
         </div>
 
-        {/* Farm Location + Land Status */}
-        <div className="grid gap-3 sm:grid-cols-2">
+        {/* Farm Location + Crop Status (+ the Crop Owner's name beside it for a Tenant / Lessee crop) */}
+        <div className={`grid gap-3 ${needsLandOwner(form.land_status) ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
           <BarangaySelect
             label="Farm Location (Barangay)"
             required
@@ -716,7 +716,7 @@ function EditCropModal({ record, onClose, onSaved }) {
           />
           <div>
             <label className={editLabelCls}>
-              Crop Ownership <span className="text-rose-500">*</span>
+              Crop Status <span className="text-rose-500">*</span>
             </label>
             <ComboboxWithOther
               options={CROP_OWNERSHIP_OPTIONS}
@@ -724,15 +724,28 @@ function EditCropModal({ record, onClose, onSaved }) {
               otherValue={form.land_status_other_specify}
               onChange={(v) => setForm((f) => ({ ...f, ...chooseCropOwnership(f, v) }))}
               onOtherChange={(v) => set("land_status_other_specify", v)}
-              textValues={["Tenant", "Lessee"]}
-              textValue={form.land_owner_name}
-              onTextChange={(v) => set("land_owner_name", v)}
-              textPlaceholder={() => "Owner's full name"}
               placeholder="Select…"
               required
-              error={fieldErrors.land_status || fieldErrors.land_owner_name}
+              error={fieldErrors.land_status}
             />
           </div>
+          {needsLandOwner(form.land_status) && (
+            <div>
+              <label className={editLabelCls}>
+                Crop Owner <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                maxLength={200}
+                className={`${baseInputClasses} ${fieldErrors.land_owner_name ? "border-rose-400" : ""}`}
+                placeholder="Owner's full name"
+                title={form.land_owner_name || undefined}
+                value={form.land_owner_name}
+                onChange={(e) => set("land_owner_name", e.target.value)}
+              />
+              {fieldErrors.land_owner_name && <p className="mt-1 text-[12px] text-rose-600">{fieldErrors.land_owner_name}</p>}
+            </div>
+          )}
         </div>
 
         {/* Date Planted + Area */}
@@ -963,8 +976,8 @@ function CropDetailModal({ record, onClose }) {
     ["Farmer", record.farmer_full_name || record.farmer_name || "—"],
     ["Organization", record.organization_name || "—"],
     ["Farm Location", record.farmer_barangay || record.farm_location_barangay || "—"],
-    ["Crop Ownership", landStatusDisplay],
-    ...(needsLandOwner(record.land_status) ? [["Land Owner", record.land_owner_name || "Not recorded"]] : []),
+    ["Crop Status", landStatusDisplay],
+    ...(needsLandOwner(record.land_status) ? [["Crop Owner", record.land_owner_name || "Not recorded"]] : []),
     ["Season / Year", `${record.season || "—"} ${record.year || ""}`],
     ["Date Planted", fmtLong(record.date_planted)],
     ["PCIC Insurance", <PcicBadge key="pcic" insured={record.has_pcic_insurance} url={record.pcic_form_photo} none="No" />],
@@ -1096,7 +1109,7 @@ function useParcelCrops(parcelId, search, barangay, pcic, version) {
   return { ...state, isLoading: state.key !== key, loadingMore, loadMore };
 }
 
-const CROP_COLUMNS = ["Crop", "Variety", "Crop Ownership", "Season", "Date planted", "Est. harvest", "Area (ha)", "PCIC Insured", "Status", ""];
+const CROP_COLUMNS = ["Crop", "Variety", "Crop Status", "Season", "Date planted", "Est. harvest", "Area (ha)", "PCIC Insured", "Status", ""];
 
 function cropCells(rec) {
   const status = getDisplayStatus(rec);

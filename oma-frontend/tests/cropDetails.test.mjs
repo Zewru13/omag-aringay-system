@@ -31,11 +31,11 @@ eq(val(summaryRows({ ...record, seed_source: 'Other', seed_source_other_specify:
 eq(val(summaryRows({ ...record, date_planted_is_estimated: true }), 'Date planted').endsWith('(estimated)'), true, 'estimated planting date is flagged')
 eq(val(summaryRows({ ...record, has_pcic_insurance: false }), 'PCIC insurance'), 'No', 'no pcic')
 // crop ownership, with the land owner of a tenant or lessee crop; trees instead of seeds
-eq(val(rows, 'Crop ownership'), '—', 'no ownership saved'); eq(val(rows, 'Land owner'), undefined, 'no owner row without a tenant')
-eq(val(summaryRows({ ...record, land_status: 'Owner', land_owner_name: '' }), 'Land owner'), undefined, 'an owner crop has no owner row')
+eq(val(rows, 'Crop status'), '—', 'no status saved'); eq(val(rows, 'Crop owner'), undefined, 'no owner row without a tenant')
+eq(val(summaryRows({ ...record, land_status: 'Owner', land_owner_name: '' }), 'Crop owner'), undefined, 'an owner crop has no owner row')
 const tenant = summaryRows({ ...record, land_status: 'Tenant', land_owner_name: 'Rosa Landlord' })
-eq([val(tenant, 'Crop ownership'), val(tenant, 'Land owner')], ['Tenant', 'Rosa Landlord'], 'a tenant crop shows its owner')
-eq(val(summaryRows({ ...record, land_status: 'Lessee', land_owner_name: '' }), 'Land owner'), '—', 'a lessee crop with no name saved')
+eq([val(tenant, 'Crop status'), val(tenant, 'Crop owner')], ['Tenant', 'Rosa Landlord'], 'a tenant crop shows its owner')
+eq(val(summaryRows({ ...record, land_status: 'Lessee', land_owner_name: '' }), 'Crop owner'), '—', 'a lessee crop with no name saved')
 const trees = summaryRows({ ...record, planting_material: 'Tree', quantity_of_trees: 1200, quantity_of_seeds: null, seed_source: '' })
 eq([val(trees, 'Trees'), val(trees, 'Seeds')], ['1,200 trees', undefined], 'trees are counted, not weighed')
 
