@@ -17,7 +17,7 @@ import { todayISO as localToday } from '../../utils/localDate.js'
 import { ownershipChanged, ownershipFrom, ownershipPayload, ownershipProblem, ownershipRows } from '../../utils/ownership.js'
 import { pcicDetails, pcicError, pcicStateFrom, uploadPcicForm } from '../../utils/pcic.js'
 import { resolveMediaUrl } from '../../utils/mediaUrl.js'
-import { ForcedHarvestLabel } from '../FisheriesRecords/ForcedHarvestDetails.jsx'
+import { ForcedHarvestedStatus } from '../FisheriesRecords/ForcedHarvestDetails.jsx'
 
 const labelCls = 'block text-xs font-medium text-slate-600'
 const CYCLE_STATUS_TONES = { Active: 'green', Harvested: 'blue', Failed: 'rose', Abandoned: 'slate' }
@@ -148,10 +148,11 @@ function PcicSection({ cycle }) {
   )
 }
 
-function CycleInfoTab({ cycle, onRefresh }) {
-  const { showToast } = useToast()
-  const [editMode, setEditMode] = useState(false)
-  // The emergency Force Harvests saved for this cycle (read from the database): unit id -> harvest id, for the FORCED HARVEST label.
+// The cycle's saved details, read-only: the information grid, PCIC insurance and the production units. One component for Cycle Details
+// (Cycle Info tab) and for View Details on Aquaculture Monitoring, so both always show the same fields and values. `hideStatus`: View
+// Details shows the stocking's own status (the one in the table) instead of the cycle's Active / Harvested.
+export function CycleInfoSummary({ cycle, hideStatus = false }) {
+  // The emergency Force Harvests saved for this cycle (read from the database): unit id -> harvest id, for the Forced Harvested status.
   const [forcedByUnit, setForcedByUnit] = useState({})
   useEffect(() => {
     let alive = true
@@ -165,6 +166,87 @@ function CycleInfoTab({ cycle, onRefresh }) {
       .catch(() => {})
     return () => { alive = false }
   }, [cycle.id, cycle.status])
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-3">
+        <InfoField label="Fisherfolk" value={cycle.fisherfolk_name} />
+        <InfoField label="Organization" value={cycle.organization_name} />
+        <InfoField label="Cycle Name" value={cycle.cycle_name} />
+        {!hideStatus && (
+          <div>
+            <p className="text-xs font-medium text-slate-400">Status</p>
+            <div className="mt-0.5">
+              <StatusPill tone={CYCLE_STATUS_TONES[cycle.status] || 'slate'}>{cycle.status}</StatusPill>
+            </div>
+          </div>
+        )}
+        <InfoField label="Species" value={cycle.species_display || cycle.species_farmed} />
+        <InfoField label="Culture System" value={cycle.culture_system} />
+        <InfoField label="Pond Location" value={cycle.pond_location || null} />
+        <InfoField label="Fingerling Source" value={cycle.fingerling_source || null} />
+        {ownershipRows(cycle).map(([label, value]) => <InfoField key={label} label={label} value={value} />)}
+        <InfoField label="Area" value={cycle.area_sqm ? `${cycle.area_sqm} sqm` : null} />
+        <InfoField label="Stocking Date" value={formatDate(cycle.stocking_date)} />
+        <InfoField label="Stocking Count" value={cycle.stocking_count ? `${Number(cycle.stocking_count).toLocaleString()} pcs` : null} />
+        <InfoField label="Target Harvest" value={formatDate(cycle.target_harvest_date)} />
+        <InfoField label="Actual Harvest" value={formatDate(cycle.actual_harvest_date)} />
+        <InfoField label="Harvest Volume" value={cycle.harvest_volume_kg ? `${Number(cycle.harvest_volume_kg).toLocaleString()} kg` : null} />
+        <InfoField label="Area/Cage Harvested" value={cycle.area_cage_harvested || null} />
+        <div className="sm:col-span-3">
+          <InfoField label="Notes" value={cycle.notes} />
+        </div>
+      </div>
+
+      <PcicSection cycle={cycle} />
+
+      {cycle.units?.length > 0 && (() => {
+        const label = cycle.units[0].unit_type === 'cage' ? 'Cage' : 'Pond'
+        const fmt = (n) => Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 })
+        const totalArea = cycle.units.reduce((s, u) => s + Number(u.size_sqm), 0)
+        const totalActual = cycle.units.reduce((s, u) => s + Number(u.fingerling_count), 0)
+        return (
+          <div className="rounded-xl border border-slate-100 p-4">
+            <p className="mb-2 text-sm font-semibold text-slate-700">Production Units</p>
+            <ul className="divide-y divide-slate-100">
+              {cycle.units.map(u => {
+                const hasDims = u.length_m != null && u.width_m != null
+                return (
+                  <li key={u.id} className="py-2 text-sm">
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 font-medium text-slate-800">
+                        {label} {u.unit_number}
+                        {forcedByUnit[u.id] && <ForcedHarvestedStatus harvestId={forcedByUnit[u.id]} />}
+                      </span>
+                      <span className="text-slate-600">
+                        {hasDims ? `${fmt(u.length_m)}m × ${fmt(u.width_m)}m · ` : ''}{fmt(u.size_sqm)} sq.m.
+                      </span>
+                    </div>
+                    <div className="mt-0.5 text-xs text-slate-500">
+                      <span>Actual Fingerlings: {fmt(u.fingerling_count)}</span>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+            <div className="mt-2 space-y-0.5 border-t border-slate-100 pt-2 text-sm font-semibold text-slate-800">
+              <div className="flex justify-between"><span>Total Area</span><span>{fmt(totalArea)} sq.m.</span></div>
+              <div className="flex justify-between"><span>Total Actual Fingerlings</span><span>{fmt(totalActual)}</span></div>
+              <div className="flex justify-between">
+                <span>Estimated Harvest Biomass</span>
+                <span>{cycle.estimated_harvest_kg != null ? `${Number(cycle.estimated_harvest_kg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg` : 'Not available'}</span>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+    </div>
+  )
+}
+
+function CycleInfoTab({ cycle, onRefresh }) {
+  const { showToast } = useToast()
+  const [editMode, setEditMode] = useState(false)
   const [form, setForm] = useState({
     status: cycle.status,
     actual_harvest_date: cycle.actual_harvest_date || '',
@@ -264,75 +346,8 @@ function CycleInfoTab({ cycle, onRefresh }) {
       <div className="flex justify-end">
         <Button size="sm" variant="outline" onClick={openEdit}>Edit</Button>
       </div>
-      <div className="grid gap-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-3">
-        <InfoField label="Fisherfolk" value={cycle.fisherfolk_name} />
-        <InfoField label="Organization" value={cycle.organization_name} />
-        <InfoField label="Cycle Name" value={cycle.cycle_name} />
-        <div>
-          <p className="text-xs font-medium text-slate-400">Status</p>
-          <div className="mt-0.5">
-            <StatusPill tone={CYCLE_STATUS_TONES[cycle.status] || 'slate'}>{cycle.status}</StatusPill>
-          </div>
-        </div>
-        <InfoField label="Species" value={cycle.species_display || cycle.species_farmed} />
-        <InfoField label="Culture System" value={cycle.culture_system} />
-        <InfoField label="Pond Location" value={cycle.pond_location || null} />
-        <InfoField label="Fingerling Source" value={cycle.fingerling_source || null} />
-        {ownershipRows(cycle).map(([label, value]) => <InfoField key={label} label={label} value={value} />)}
-        <InfoField label="Area" value={cycle.area_sqm ? `${cycle.area_sqm} sqm` : null} />
-        <InfoField label="Stocking Date" value={formatDate(cycle.stocking_date)} />
-        <InfoField label="Stocking Count" value={cycle.stocking_count ? `${Number(cycle.stocking_count).toLocaleString()} pcs` : null} />
-        <InfoField label="Target Harvest" value={formatDate(cycle.target_harvest_date)} />
-        <InfoField label="Actual Harvest" value={formatDate(cycle.actual_harvest_date)} />
-        <InfoField label="Harvest Volume" value={cycle.harvest_volume_kg ? `${Number(cycle.harvest_volume_kg).toLocaleString()} kg` : null} />
-        <InfoField label="Area/Cage Harvested" value={cycle.area_cage_harvested || null} />
-        <div className="sm:col-span-3">
-          <InfoField label="Notes" value={cycle.notes} />
-        </div>
-      </div>
-
-      <PcicSection cycle={cycle} />
-
-      {cycle.units?.length > 0 && (() => {
-        const label = cycle.units[0].unit_type === 'cage' ? 'Cage' : 'Pond'
-        const fmt = (n) => Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 })
-        const totalArea = cycle.units.reduce((s, u) => s + Number(u.size_sqm), 0)
-        const totalActual = cycle.units.reduce((s, u) => s + Number(u.fingerling_count), 0)
-        return (
-          <div className="rounded-xl border border-slate-100 p-4">
-            <p className="mb-2 text-sm font-semibold text-slate-700">Production Units</p>
-            <ul className="divide-y divide-slate-100">
-              {cycle.units.map(u => {
-                const hasDims = u.length_m != null && u.width_m != null
-                return (
-                  <li key={u.id} className="py-2 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-2 font-medium text-slate-800">
-                        {label} {u.unit_number}
-                        {forcedByUnit[u.id] && <ForcedHarvestLabel harvestId={forcedByUnit[u.id]} />}
-                      </span>
-                      <span className="text-slate-600">
-                        {hasDims ? `${fmt(u.length_m)}m × ${fmt(u.width_m)}m · ` : ''}{fmt(u.size_sqm)} sq.m.
-                      </span>
-                    </div>
-                    <div className="mt-0.5 text-xs text-slate-500">
-                      <span>Actual Fingerlings: {fmt(u.fingerling_count)}</span>
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
-            <div className="mt-2 space-y-0.5 border-t border-slate-100 pt-2 text-sm font-semibold text-slate-800">
-              <div className="flex justify-between"><span>Total Area</span><span>{fmt(totalArea)} sq.m.</span></div>
-              <div className="flex justify-between"><span>Total Actual Fingerlings</span><span>{fmt(totalActual)}</span></div>
-              <div className="flex justify-between">
-                <span>Estimated Harvest Biomass</span>
-                <span>{cycle.estimated_harvest_kg != null ? `${Number(cycle.estimated_harvest_kg).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} kg` : 'Not available'}</span>
-              </div>
-            </div>
-          </div>
-        )
-      })()}    </div>
+      <CycleInfoSummary cycle={cycle} />
+    </div>
   )
 }
 function FeedingLogTab({ cycleId, units = [], cycle }) {

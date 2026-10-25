@@ -6,7 +6,7 @@ import StatusPill from '../../components/UI/StatusPill.jsx'
 import { estimateText, fmtKg } from './emergencyForceHarvest.js'
 import { fmtLong } from './stockingHelpers.js'
 
-// The FORCED HARVEST label of an emergency Force Harvest (Aquaculture Monitoring ⋮ menu > Force Harvest) and the window it opens.
+// The Forced Harvested status badge of an emergency Force Harvest (Aquaculture Monitoring ⋮ menu > Force Harvest) and the window it opens.
 // Separate from the red HP / HC badges of the Health Log Force Harvest, which are unchanged. The window shows the SAVED record
 // (GET /fisheries/force-harvest/<id>/), never state kept in the page, and everything in it is a table.
 
@@ -129,30 +129,6 @@ export function ForcedHarvestedStatus({ harvestId, harvestIds }) {
           <StatusPill tone="rose">Forced Harvested</StatusPill>
         </button>
       ) : <StatusPill tone="rose">Forced Harvested</StatusPill>}
-      {open && <ForcedHarvestDetailsModal harvestIds={ids} onClose={() => setOpen(false)} />}
-    </span>
-  )
-}
-
-// The label beside an affected pond / cage in Cycle Details and on the cycle row: a red rounded pill with white, bold, uppercase text. ONE label
-// stands for the unit's (or the cycle's) Force Harvest(s); clicking it opens the saved details. The wrapper stops the click and the
-// window's own clicks from reaching a table row that would expand or collapse.
-export function ForcedHarvestLabel({ harvestId, harvestIds, className = '' }) {
-  const [open, setOpen] = useState(false)
-  const ids = (harvestIds && harvestIds.length ? harvestIds : [harvestId]).filter(Boolean)
-  if (ids.length === 0) return null
-  return (
-    <span onClick={(e) => e.stopPropagation()}>
-      <button
-        type="button"
-        data-testid="forced-harvest-label"
-        title="Forced harvest. View details"
-        aria-label="FORCED HARVEST, view details"
-        onClick={() => setOpen(true)}
-        className={`inline-flex shrink-0 cursor-pointer items-center whitespace-nowrap rounded-full bg-red-600 px-2.5 py-[3px] text-[10px] font-bold uppercase leading-none tracking-wide text-white transition-colors hover:bg-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300 ${className}`}
-      >
-        FORCED HARVEST
-      </button>
       {open && <ForcedHarvestDetailsModal harvestIds={ids} onClose={() => setOpen(false)} />}
     </span>
   )
