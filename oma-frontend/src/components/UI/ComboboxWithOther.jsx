@@ -14,10 +14,10 @@ import { baseInputClasses } from './FormField.jsx'
 // always did — this component only changes how the two are edited, not
 // what gets submitted.
 //
-// `textValues` (optional): more options that ask for a name once picked (e.g. Tenant / Lessee: the land owner's name). The dropdown stays
-// as it is and a wrapping name box opens right below it in the same control, growing taller as the name gets longer so the whole name
-// is always visible. `textValue` / `onTextChange` carry the typed text and `textPlaceholder(value)` says what to type. Callers that do
-// not pass them are unchanged.
+// `textValues` (optional): more options that ask for a name once picked (e.g. Tenant / Lessee: the land owner's name). It is still ONE
+// box: it keeps its place and border and only grows taller - the picked option on its first line, the name typed on the lines below
+// (wrapping, so the whole name is visible). `textValue` / `onTextChange` carry the typed text and `textPlaceholder(value)` says what
+// to type. Callers that do not pass them are unchanged.
 //
 // otherValue is cleared automatically (onOtherChange('')) the moment the
 // user switches AWAY from "Other" back to a real option — matching what
@@ -156,7 +156,7 @@ function ComboboxWithOther({
     const el = nameRef.current
     if (!el) return
     el.style.height = 'auto'
-    el.style.height = `${el.scrollHeight + 2}px`
+    el.style.height = `${el.scrollHeight}px`
   }, [isTextMode, textValue])
 
   useEffect(() => {
@@ -252,7 +252,11 @@ function ComboboxWithOther({
   return (
     <div ref={rootRef} className={`relative ${className}`}>
       {!isTyping ? (
-        <div ref={boxRef}>
+        <div
+          ref={boxRef}
+          className={isTextMode ? `${inputClassName} flex flex-col gap-0.5 py-1.5 focus-within:border-[#1B4D2E] focus-within:ring-2 focus-within:ring-[#1B4D2E]/20` : undefined}
+          style={isTextMode ? { height: 'auto' } : undefined}
+        >
         <button
           ref={triggerRef}
           type="button"
@@ -266,7 +270,10 @@ function ComboboxWithOther({
           disabled={disabled}
           onClick={() => (isOpen ? closeDropdown() : openDropdown())}
           onKeyDown={handleTriggerKeyDown}
-          className={`${inputClassName} flex items-center justify-between gap-2 text-left disabled:opacity-50 disabled:cursor-not-allowed`}
+          style={isTextMode ? { outline: 'none' } : undefined}
+          className={isTextMode
+            ? 'flex w-full items-center justify-between gap-2 text-left text-[11px] font-semibold text-[#1B4D2E] focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed'
+            : `${inputClassName} flex items-center justify-between gap-2 text-left disabled:opacity-50 disabled:cursor-not-allowed`}
         >
           <span className={`min-w-0 flex-1 truncate ${displayLabel ? '' : 'text-[#A8BCA8]'}`}>
             {displayLabel || placeholder}
@@ -277,6 +284,22 @@ function ComboboxWithOther({
             aria-hidden="true"
           />
         </button>
+        {isTextMode && (
+          <textarea
+            ref={(el) => { nameRef.current = el; otherInputRef.current = el }}
+            rows={1}
+            disabled={disabled}
+            aria-label={textPlaceholder ? textPlaceholder(value) : 'Name'}
+            aria-required={required || undefined}
+            aria-invalid={error ? true : undefined}
+            value={textValue}
+            placeholder={textPlaceholder ? textPlaceholder(value) : ''}
+            onChange={(e) => onTextChange?.(e.target.value.replace(/\n/g, ' '))}
+            onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }}
+            style={{ outline: 'none' }}
+            className="block w-full resize-none overflow-hidden bg-transparent p-0 text-[13px] leading-[1.35] text-[#1A2B1A] placeholder-[#8AA08A] focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+          />
+        )}
         </div>
       ) : (
         <div ref={boxRef} className="relative">
@@ -313,23 +336,6 @@ function ComboboxWithOther({
           </button>
         </div>
       )}
-
-      {isTextMode && (
-        <textarea
-          ref={(el) => { nameRef.current = el; otherInputRef.current = el }}
-          rows={1}
-          disabled={disabled}
-          aria-label={textPlaceholder ? textPlaceholder(value) : 'Name'}
-          aria-required={required || undefined}
-          aria-invalid={error ? true : undefined}
-          value={textValue}
-          placeholder={textPlaceholder ? textPlaceholder(value) : ''}
-          onChange={(e) => onTextChange?.(e.target.value.replace(/\n/g, ' '))}
-          onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }}
-          className={`${inputClassName} mt-1.5 block resize-none overflow-hidden py-[9px] leading-[1.35] disabled:opacity-50 disabled:cursor-not-allowed`}
-        />
-      )}
-
       {/* Portaled to <body> — see the useLayoutEffect above for why — and
           kept mounted (not conditionally rendered) so the opacity/scale
           toggle below is an actual CSS transition rather than an instant
