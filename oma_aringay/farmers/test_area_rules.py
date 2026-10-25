@@ -7,7 +7,7 @@ from rest_framework.test import APITestCase
 
 from . import area_rules
 from .models import FarmCrop, FarmParcel, Farmer
-from .test_parcel_bulk import crop, parcel, url
+from .test_parcel_bulk import NO_1, NO_2, crop, parcel, url
 
 
 class AreaRuleFunctionTests(APITestCase):
@@ -77,7 +77,7 @@ class ParcelAreaEndpointTests(APITestCase):
         self.assertEqual(self.client.post(url(self.farmer), rows, format='json').status_code, 201)
 
     def test_one_over_full_parcel_stops_the_other_parcels_too(self):
-        rows = [parcel('', area_hectares=5, crops=[crop(area_hectares=2)]), parcel('', area_hectares=1, crops=[crop(area_hectares=2)])]
+        rows = [parcel(NO_1, area_hectares=5, crops=[crop(area_hectares=2)]), parcel(NO_2, area_hectares=1, crops=[crop(area_hectares=2)])]
         response = self.client.post(url(self.farmer), rows, format='json')
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()['errors'][0], {})

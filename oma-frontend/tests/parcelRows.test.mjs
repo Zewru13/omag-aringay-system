@@ -5,19 +5,29 @@ const {
   rowProblem, cropProblem, machineryProblem, validateRows, duplicateNumberProblems, parcelPayload, cropPayload, machineryPayload,
   buildPayload, pcicUploads, serverErrorsToMessages, PERENNIAL_CROPS, cropsAreaUsed, cropCapacity, cropAreaProblems,
   parcelToForm, parcelSkipsSchedule, editProblem, editPayload, editServerErrors, PARCEL_NUMBER_GROUPS, PARCEL_NUMBER_DIGITS, PARCEL_NUMBER_RE,
+  addRowProblem, cropRecordsProblem,
 } = await import(new URL('../src/pages/Farmers/parcelRows.js', import.meta.url).href)
+const { makeCropRecord } = await import(new URL('../src/pages/Monitoring/cropRecordForm.js', import.meta.url).href)
 
 let n = 0
 const eq = (actual, expected, label) => { assert.deepEqual(actual, expected, `${label}: got ${JSON.stringify(actual)}, wanted ${JSON.stringify(expected)}`); n++ }
 
-const ok = (id = 1, over = {}) => ({ ...makeParcelRow(id), area_hectares: '1.5', barangay: 'Alaska', ...over })
+// a parcel row with everything the Add Farm Parcels form requires (its own parcel number, so rows never clash)
+const ok = (id = 1, over = {}) => ({
+  ...makeParcelRow(id), area_hectares: '1.5', barangay: 'Alaska', parcel_number: `01-33-02-005-001-02-${100 + id}`, land_ownership: 'Owner',
+  farm_type: 'Irrigated', cropping_schedule: 'Single Cropping', ...over,
+})
 const crop = (over = {}) => ({ ...makeCropRow(1), area_hectares: '1', ...over })
 const NO = '01-33-02-005-001-02-003'
+// a crop record row (what the Add Crop form and the crops inside a parcel both use)
+const record = (id = 1, over = {}) => ({ ...makeCropRecord(id), land_status: 'Owner', crop_type: '7', date_planted: '2026-10-20', area_planted_ha: '1', variety_used: 'Rc 222', ...over })
+const CONTEXT = { farmerInfo: { farmer_id: 5, farmer_assoc_id: 2 }, cropTypes: [{ id: 7, name: 'Rice', planting_type: 'Seed' }] }
 
 // ── blank rows
 eq(makeParcelRow(7)._id, 7, 'parcel row id')
 eq(makeParcelRow(1).classifications, [], 'no classifications yet')
-eq(makeParcelRow(1).land_ownership, 'Owner', 'owner by default')
+eq(makeParcelRow(1).land_ownership, '', 'the land ownership is chosen, not assumed')
+eq(makeParcelRow(1).crop_records, [], 'no crops yet')
 eq(makeCropRow(3).crop_name, 'Palay (Rice)', 'crop default')
 eq(makeMachineryRow(3).quantity, '1', 'machinery default')
 
@@ -42,7 +52,7 @@ eq(rowProblem(ok(1, { area_hectares: '' })), 'enter the area (ha)', 'area needed
 eq(rowProblem(ok(1, { area_hectares: '0' })), 'enter the area (ha)', 'zero area')
 eq(rowProblem(ok(1, { barangay: '' })), 'choose the barangay', 'barangay needed')
 assert.match(rowProblem(ok(1, { tax_declaration_number: '01-002' })), /18 digits/); n++
-assert.match(rowProblem(ok(1, { tax_declaration_number: '01-002-00005-2023-0142' })), /parcel number is required/); n++
+assert.match(rowProblem(ok(1, { parcel_number: '', tax_declaration_number: '01-002-00005-2023-0142' })), /parcel number is required/); n++
 eq(rowProblem(ok(1, { tax_declaration_number: '01-002-00005-2023-0142', parcel_number: NO })), '', 'tax dec with a parcel number')
 assert.match(rowProblem(ok(1, { land_ownership: 'Tenant' })), /land owner name/); n++
 eq(rowProblem(ok(1, { land_ownership: 'Lessee', land_owner_name: 'Juan' })), '', 'lessee with an owner name')
@@ -78,12 +88,38 @@ eq(rowProblem(five({ crops: [crop({ area_hectares: '5.5' })] })), 'crop 1: a cro
 eq(rowProblem(five({ crops: [crop({ area_hectares: '3' }), crop({ area_hectares: '2.5' })] })), 'crop 2: the crops would come to 5.5 ha, more than the 5 ha this parcel allows', 'the total is named')
 eq(rowProblem(five({ crops: [crop({ area_hectares: '3' }), crop({ area_hectares: '2' })] })), '', 'crops that fit')
 
+// ── what the Add Farm Parcels form requires
+eq(addRowProblem(ok()), '', 'a complete row')
+eq(addRowProblem(ok(1, { parcel_number: '' })), 'enter the parcel number', 'the parcel number is required')
+eq(addRowProblem(ok(1, { parcel_number: '   ' })), 'enter the parcel number', 'a blank parcel number is not a number')
+eq(addRowProblem(ok(1, { land_ownership: '' })), 'choose the land ownership', 'the land ownership is required')
+eq(addRowProblem(ok(1, { farm_type: '' })), 'choose the farm type', 'the farm type is required')
+eq(addRowProblem(ok(1, { cropping_schedule: '' })), 'choose the cropping schedule', 'the cropping schedule is required')
+eq(addRowProblem(ok(1, { cropping_schedule: '', crops: [crop({ crop_name: 'Mango', is_main_crop: true })] })), 'choose the cropping schedule', 'no tree-crop exception any more')
+eq(addRowProblem(ok(1, { area_hectares: '' })), 'enter the area (ha)', 'the area still comes first')
+eq(addRowProblem(ok(1, { parcel_number: '01-33' })).slice(0, 25), 'the parcel number needs a', 'a short parcel number is still refused')
+assert.match(addRowProblem(ok(1, { land_ownership: 'Tenant' })), /land owner name/); n++
+eq(rowProblem(ok(1, { parcel_number: '', farm_type: '', cropping_schedule: '', land_ownership: '' })), '', 'Edit Parcel is not made stricter')
+
+// ── the crops of a parcel are crop records, checked by the Add Crop rules
+eq(cropRecordsProblem(ok(1, { crop_records: [record(1)] })), '', 'a complete crop record')
+eq(cropRecordsProblem(ok()), '', 'a parcel needs no crops')
+eq(cropRecordsProblem(ok(1, { crop_records: [record(1), record(2, { variety_used: '' })] })), 'crop 2: missing variety', 'the variety is required, as on the Add Crop page')
+eq(cropRecordsProblem(ok(1, { crop_records: [record(1, { land_status: '' })] })), 'crop 1: missing crop status', 'the crop status is required')
+eq(cropRecordsProblem(ok(1, { crop_records: [record(1, { land_status: 'Tenant' })] })), "crop 1: missing crop owner's name", 'a tenant crop needs its owner')
+eq(cropRecordsProblem(ok(1, { crop_records: [record(1, { crop_type: '', date_planted: '', area_planted_ha: '' })] })), 'crop 1: missing crop type, date planted, area planted', 'everything missing is named')
+eq(cropRecordsProblem(ok(1, { area_hectares: '2', crop_records: [record(1, { area_planted_ha: '2.5' })] })), 'crop 1: This area (2.5 ha) is bigger than its parcel (2 ha)', 'a crop is not bigger than its parcel')
+eq(cropRecordsProblem(ok(1, { area_hectares: '2', crop_records: [record(1, { area_planted_ha: '1.5' }), record(2, { area_planted_ha: '1' })] })), 'crop 2: Only 0.5 ha of this 2 ha parcel is free (1.5 ha is already planted)', 'the crops together fit the parcel')
+eq(cropRecordsProblem(ok(1, { crop_records: [record(1, { pcic: { insured: true, file: null, url: '' } })] })), 'crop 1: Upload a photo of the PCIC insurance form', 'PCIC needs a photo')
+eq(addRowProblem(ok(1, { crop_records: [record(1, { variety_used: '' })] })), 'crop 1: missing variety', 'the form names the crop')
+eq(validateRows([ok(1, { crop_records: [record(1, { variety_used: '' })] })]), { 1: 'Parcel 1: crop 1: missing variety.' }, 'the row message')
+
 // ── the whole form
 eq(validateRows([ok(1), ok(2)]), {}, 'all fine')
 eq(validateRows([ok(1), ok(2, { barangay: '' })]), { 2: 'Parcel 2: choose the barangay.' }, 'the second row is named')
 eq(duplicateNumberProblems([ok(1, { parcel_number: NO }), ok(2, { parcel_number: NO }), ok(3)]), { 2: `parcel number ${NO} is already used by parcel 1` }, 'duplicate number')
 eq(validateRows([ok(1, { parcel_number: NO }), ok(2, { parcel_number: NO })]), { 2: `Parcel 2: parcel number ${NO} is already used by parcel 1.` }, 'duplicate in the form')
-eq(duplicateNumberProblems([ok(1), ok(2)]), {}, 'blank numbers never clash')
+eq(duplicateNumberProblems([ok(1), ok(2), ok(3, { parcel_number: '' })]), {}, 'different numbers never clash')
 
 // ── what is sent
 eq(cropPayload(crop({ crop_name: 'Palay (Rice)', area_hectares: '2.5', quantity_of_seeds_used: '40', number_of_trees: '9', is_main_crop: true })), {
@@ -98,24 +134,33 @@ eq(machineryPayload({ _uid: 1, machinery_type: 'Other', machinery_type_other: 'D
   { machinery_type: 'Other', machinery_type_other: 'Drone', quantity: 2, ownership: 'Rented' }, 'machinery payload')
 const sent = parcelPayload(ok(1, {
   parcel_number: NO, land_ownership: 'Owner', land_owner_name: 'stale', land_owner_rsbsa_number: 'stale', farm_type: 'Irrigated',
-  cropping_schedule: 'Double Cropping', classifications: ['Organic Farm'], crops: [crop()], machinery: [makeMachineryRow(1)],
-}))
+  cropping_schedule: 'Double Cropping', classifications: ['Organic Farm'], crop_records: [record(1)], machinery: [makeMachineryRow(1)],
+}), CONTEXT)
 eq([sent.parcel_number, sent.area_hectares, sent.barangay, sent.farm_type, sent.cropping_schedule, sent.classifications],
   [NO, 1.5, 'Alaska', 'Irrigated', 'Double Cropping', ['Organic Farm']], 'parcel payload')
 eq([sent.land_owner_name, sent.land_owner_rsbsa_number], ['', ''], 'an owner parcel sends no land owner')
-eq([sent.crops.length, sent.machinery.length], [1, 1], 'nested rows sent')
+eq([sent.machinery.length, 'crops' in sent], [1, false], 'machinery is sent; the declared crops of the older form are not')
 eq(parcelPayload(ok(1, { land_ownership: 'Tenant', land_owner_name: 'Juan', land_owner_rsbsa_number: '01-33-02-014-058212' })).land_owner_name, 'Juan', 'tenant keeps the owner')
-eq(parcelPayload(ok(1, { cropping_schedule: 'Double Cropping', crops: [crop({ crop_name: 'Mango', is_main_crop: true })] })).cropping_schedule, '', 'perennial main crop: no schedule')
-eq(buildPayload([ok(1), ok(2)]).length, 2, 'one entry per row')
-assert.ok(!('_id' in sent) && !('_uid' in sent.crops[0])); n++
+eq(parcelPayload(ok(1, { cropping_schedule: 'Double Cropping', crops: [crop({ crop_name: 'Mango', is_main_crop: true })] }), CONTEXT).cropping_schedule, 'Double Cropping', 'the schedule is always sent')
+eq(buildPayload([ok(1), ok(2)], CONTEXT).length, 2, 'one entry per row')
+assert.ok(!('_id' in sent) && !('_id' in sent.crop_records[0])); n++
+// each crop is sent as an Add Crop row: the farmer and organization, the parcel's barangay, no parcel id (the server uses the new parcel)
+const sentRecord = sent.crop_records[0]
+eq([sentRecord.farmer, sentRecord.farmers_organization, sentRecord.farm_location_barangay, sentRecord.farm_parcel], [5, 2, 'Alaska', null], 'a crop record is sent for this farmer and parcel')
+eq([sentRecord.crop_type, sentRecord.land_status, sentRecord.date_planted, sentRecord.area_planted_ha, sentRecord.variety_used, sentRecord.planting_material, sentRecord.year],
+  ['7', 'Owner', '2026-10-20', '1', 'Rc 222', 'Seed', 2026], 'with the Add Crop fields')
+eq(parcelPayload(ok(1, { barangay: 'Basca', crop_records: [record(1, { farm_location_barangay: 'Alaska' })] }), CONTEXT).crop_records[0].farm_location_barangay, 'Basca', "the parcel's barangay wins")
+eq(parcelPayload(ok(1, { crop_records: [record(1, { land_status: 'Tenant', land_owner_name: ' Rosa ' })] }), CONTEXT).crop_records[0].land_owner_name, 'Rosa', 'a tenant crop sends its owner')
 
 // ── PCIC photos
 const file = { name: 'form.jpg' }
-const rows = [ok(1, { crops: [crop({ pcic: { insured: true, file, url: '' } }), crop({ crop_name: 'Onion' })] }), ok(2, { crops: [crop({ crop_name: 'Garlic', pcic: { insured: true, file, url: '' } })] })]
-eq(pcicUploads(rows, [{ crop_ids: [11, 12] }, { crop_ids: [21] }]), [
-  { cropId: 11, pcic: { insured: true, file, url: '' }, label: 'Palay (Rice)' },
-  { cropId: 21, pcic: { insured: true, file, url: '' }, label: 'Garlic' },
-], 'photos pair with the ids the server gave')
+const insured = { insured: true, file, url: '' }
+const rows = [ok(1, { crop_records: [record(1, { pcic: insured }), record(2)] }), ok(2, { crop_records: [record(3, { pcic: insured, crop_type: '8' })] })]
+const nameOf = (r) => ({ 7: 'Rice', 8: 'Garlic' }[r.crop_type])
+eq(pcicUploads(rows, [{ crop_record_ids: [11, 12] }, { crop_record_ids: [21] }], nameOf), [
+  { recordId: 11, pcic: insured, label: 'Rice' },
+  { recordId: 21, pcic: insured, label: 'Garlic' },
+], 'photos pair with the crop records the server made')
 eq(pcicUploads(rows, undefined), [], 'no answer, nothing to upload')
 
 // ── imported crops
@@ -168,6 +213,8 @@ eq(serverErrorsToMessages([{}, { area_hectares: ['A valid number is required.'],
   3: 'Parcel 3: parcel number: This farmer already has parcel X.',
 }, 'server errors')
 eq(serverErrorsToMessages([{ non_field_errors: ['Each parcel must be an object.'] }], [ok(1)]), { 1: 'Parcel 1: Each parcel must be an object.' }, 'non-field error')
+eq(serverErrorsToMessages([{ farm_type: ['Choose the farm type.'], crop_records: [{}, { variety_used: ['Variety is required.'], area_planted_ha: ['Too much.'] }] }], [ok(1)]),
+  { 1: 'Parcel 1: farm type: Choose the farm type. · crop 2 variety used: Variety is required. · crop 2 area planted ha: Too much.' }, 'a crop record error names its crop')
 eq(serverErrorsToMessages(undefined, [ok(1)]), {}, 'no errors')
 
 console.log(`parcelRows: ${n} checks passed`)
