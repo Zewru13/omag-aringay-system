@@ -1,5 +1,4 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { AlertTriangle, ArrowLeft, ChevronDown, Search } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
@@ -21,7 +20,8 @@ import {
 } from './disasterTargets.js'
 import { MAX_CROPS, areaProblem, buildRequest, dateProblem, isWholeArea, withArea, withTotal } from './multiCropDisaster.js'
 
-// Log Disaster (Crop Disaster page, staff): a full-screen form for ONE disaster event over many parcels. Fill the event once (type, date,
+// Log Disaster (Crop Disaster page, staff): a full-page form for ONE disaster event over many parcels. It takes the place of the disaster
+// list inside the page, so the sidebar and the top bar stay in view. Fill the event once (type, date,
 // description, estimated loss, photos), then tick the parcels it hit in the table of every parcel that has crops in the field - search,
 // filter by farmer or barangay, or view it as a list, per farmer or per barangay. Ticking a parcel ticks all its crops; its "Total loss"
 // box marks them all as lost; open a parcel to tick single crops, type each one's area affected and mark one as a total loss. Saves one
@@ -141,13 +141,6 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
   const [showErrors, setShowErrors] = useState(false)
   const query = useDebouncedValue(search.trim())
 
-  // The screen covers the page: the page behind it does not scroll.
-  useEffect(() => {
-    const before = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = before }
-  }, [])
-
   useEffect(() => {
     let alive = true
     api.get('/production/disasters/targets/')
@@ -216,9 +209,8 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
 
   return (
     <>
-      {createPortal(
-        <div role="dialog" aria-label="Log Disaster" className="fixed inset-0 z-50 flex flex-col bg-[#F5F7F5]">
-          <header className="flex flex-shrink-0 items-center gap-3 border-b border-[#E2E8E2] bg-white px-4 py-3 sm:px-6">
+      <section aria-label="Log Disaster" className="space-y-4">
+          <header className="flex items-center gap-3 rounded-xl border border-[#E2E8E2] bg-white px-4 py-3">
             <button type="button" onClick={onClose} aria-label="Back to Crop Disaster"
               className="flex h-9 w-9 flex-none items-center justify-center rounded-md text-[#4A5E4A] hover:bg-[#F0F4F0]">
               <ArrowLeft size={18} aria-hidden="true" />
@@ -232,8 +224,8 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
             </div>
           </header>
 
-          <div className="min-h-0 flex-1 overflow-y-auto">
-            <div className="mx-auto w-full max-w-7xl space-y-5 px-4 py-5 sm:px-6">
+          <div>
+            <div className="space-y-5">
               <section className="rounded-xl border border-[#E2E8E2] bg-white p-4">
                 <h3 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-[#4A5E4A]">Disaster details</h3>
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -364,7 +356,7 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
             </div>
           </div>
 
-          <footer className="flex flex-shrink-0 flex-wrap items-center justify-end gap-2 border-t border-[#E2E8E2] bg-white px-4 py-3 sm:px-6">
+          <footer className="sticky bottom-0 z-10 max-md:bottom-16 flex flex-wrap items-center justify-end gap-2 rounded-xl border border-[#E2E8E2] bg-white px-4 py-3 shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
             <p className={`mr-auto text-[12.5px] ${tooMany ? 'font-medium text-rose-600' : 'text-[#4A5E4A]'}`} role="status">
               {tooMany ? `Choose at most ${MAX_CROPS} crops at a time.` : `${summaryLine(stats)}${totalCount ? ` · ${totalCount} total loss` : ''}`}
             </p>
@@ -374,9 +366,7 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
               {isSubmitting ? 'Saving…' : `Report Disaster${cropCount > 1 ? ` (${cropCount} crops)` : ''}`}
             </button>
           </footer>
-        </div>,
-        document.body,
-      )}
+      </section>
 
       {showConfirm && (
         <ConfirmDialog variant="primary"
