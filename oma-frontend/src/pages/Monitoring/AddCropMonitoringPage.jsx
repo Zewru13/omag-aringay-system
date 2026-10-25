@@ -141,7 +141,7 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
     ? `An active ${duplicates[0].crop_type}${duplicates[0].variety_used ? ` (${duplicates[0].variety_used})` : ''} record already exists here: ${duplicates.map(d => `${d.date_planted || '—'} (${d.area_planted_ha} ha)`).join(', ')}`
     : undefined
 
-  const colCount = 12 + (showParcelColumn ? 1 : 0)
+  const colCount = 12 + (showParcelColumn ? 1 : 0) - (parcelLocked ? 1 : 0)
   const rowParcel = farmerParcels.find(p => String(p.id) === String(rec.farm_parcel))
   // The parcel's own owner is offered for a Tenant / Lessee crop on it.
   const parcelOwnerName = rowParcel && needsLandOwner(rowParcel.land_ownership) ? (rowParcel.land_owner_name || '') : ''
@@ -150,16 +150,19 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
     <>
       <tr className={`border-b border-[#F0F4F0] align-top max-md:block max-md:mb-3 max-md:rounded-xl max-md:border max-md:border-[#E2E8E2] max-md:p-3 ${error ? 'bg-rose-50/40' : 'max-md:bg-white'}`}>
         <td data-label="Crop record" className="px-3 py-3 text-center text-[13px] text-[#7A8E7A] max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.index }}>{index + 1}</td>
-        <td data-label="Barangay *" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.barangay }}>
-          <select
-            className={`${bulkCellInputClasses} w-full`}
-            value={rec.farm_location_barangay}
-            onChange={e => set('farm_location_barangay', e.target.value)}
-          >
-            <option value="" disabled>Select…</option>
-            {BARANGAYS.map(b => <option key={b} value={b}>{b}</option>)}
-          </select>
-        </td>
+        {/* Inside a parcel the crop's barangay is the parcel's, so it is not asked for. */}
+        {!parcelLocked && (
+          <td data-label="Barangay *" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.barangay }}>
+            <select
+              className={`${bulkCellInputClasses} w-full`}
+              value={rec.farm_location_barangay}
+              onChange={e => set('farm_location_barangay', e.target.value)}
+            >
+              <option value="" disabled>Select…</option>
+              {BARANGAYS.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </td>
+        )}
         <td data-label="Crop ownership *" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.landStatus }}>
           <ComboboxWithOther
             options={CROP_OWNERSHIP_OPTIONS}
@@ -518,7 +521,7 @@ export default function AddCropMonitoringPage() {
     return {
       farmer:                 farmerInfo.farmer_id,
       farmers_organization:    farmerInfo.farmer_assoc_id || null,
-      farm_location_barangay: rec.farm_location_barangay || '',
+      farm_location_barangay: lockedParcel ? (lockedParcel.barangay || '') : (rec.farm_location_barangay || ''),
       land_status:            rec.land_status || '',
       land_status_other_specify: rec.land_status === 'Other' ? (rec.land_status_other_specify || '') : '',
       land_owner_name:        needsLandOwner(rec.land_status) ? rec.land_owner_name.trim() : '',
@@ -543,7 +546,7 @@ export default function AddCropMonitoringPage() {
     const nextRowErrors = {}
     records.forEach((rec, i) => {
       const missing = []
-      if (!rec.farm_location_barangay) missing.push('barangay')
+      if (!rec.farm_location_barangay && !lockedParcel) missing.push('barangay')
       if (!rec.land_status) missing.push('crop ownership')
       else if (needsLandOwner(rec.land_status) && !rec.land_owner_name.trim()) missing.push("land owner's name")
       if (!rec.crop_type) missing.push('crop type')
@@ -709,7 +712,7 @@ export default function AddCropMonitoringPage() {
             <thead className="bg-[#1B4D2E] text-white max-md:hidden">
               <tr>
                 <th className={`${bulkThCenterClasses} overflow-hidden`} style={{ width: COL_WIDTH.index }}>#</th>
-                <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.barangay }}>Barangay <span className="text-white/70">*</span></th>
+                {!lockedParcel && <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.barangay }}>Barangay <span className="text-white/70">*</span></th>}
                 <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.landStatus }}>Crop Ownership <span className="text-white/70">*</span></th>
                 <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.cropType }}>Crop Type <span className="text-white/70">*</span></th>
                 <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.datePlanted }}>Date Planted <span className="text-white/70">*</span></th>
