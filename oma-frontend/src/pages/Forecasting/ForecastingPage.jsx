@@ -1,9 +1,8 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import {
   BarChart2, ChevronDown, ChevronRight, Download, FileText,
-  Info, Plus, Search, TrendingUp, User,
+  Info, Search, TrendingUp, User,
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import BARANGAYS from '../../constants/barangays.js'
@@ -832,7 +831,6 @@ function YieldAnalysisTab() {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function ForecastingPage() {
-  const navigate = useNavigate()
   const { isFarmer } = useAuth()   // farmer account: own crops only, no staff tools (add, import, by-farmer grouping)
   const [activeTab,     setActiveTab]     = useState('forecast')
   const [records,       setRecords]       = useState([])
@@ -1003,16 +1001,6 @@ export default function ForecastingPage() {
               onSearchChange={setSearch}
               searchPlaceholder={isFarmer ? 'Search by crop or barangay...' : 'Search by farmer, RSBSA, crop, or organization...'}
               activeCount={[Boolean(barangayFilter), Boolean(cropTypeFilter)].filter(Boolean).length}
-              actions={!isFarmer ? (
-                <button
-                  type="button"
-                  onClick={() => navigate('/crop-records/add')}
-                  className="flex items-center gap-1.5 whitespace-nowrap rounded-lg bg-[#1B4D2E] px-4 py-2 text-[13px] font-medium text-white transition-colors hover:bg-[#235E38]"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add Crop Record
-                </button>
-              ) : null}
             >
               <select className={filterSelectCls} value={cropTypeFilter} onChange={e => setCropTypeFilter(e.target.value)} aria-label="Crop type">
                 <option value="">All crops</option>
