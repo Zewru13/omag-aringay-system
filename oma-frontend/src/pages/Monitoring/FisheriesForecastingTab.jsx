@@ -1198,7 +1198,7 @@ export default function ForecastingTab({ asTab = false }) {
           ) : null}
         >
           <select className={filterSelectCls} value={filters.species} onChange={e => set('species', e.target.value)} aria-label="Species">
-            <option value="">All species</option>
+            <option value="">All Species</option>
             {speciesList.map(s => <option key={s.id} value={s.id}>{s.species_name}</option>)}
           </select>
           <select className={filterSelectCls} value={filters.barangay} onChange={e => set('barangay', e.target.value)} aria-label="Barangay">
@@ -1361,7 +1361,7 @@ export default function ForecastingTab({ asTab = false }) {
         activeCount={[Boolean(fcBarangayFilter), Boolean(fcSpeciesFilter)].filter(Boolean).length}
       >
         <select className={filterSelectCls} value={fcSpeciesFilter} onChange={e => setFcSpeciesFilter(e.target.value)} aria-label="Species">
-          <option value="">All species</option>
+          <option value="">All Species</option>
           {speciesList.map(s => <option key={s.id} value={s.id}>{s.species_name}</option>)}
         </select>
         <select className={filterSelectCls} value={fcBarangayFilter} onChange={e => setFcBarangayFilter(e.target.value)} aria-label="Barangay">

@@ -21,7 +21,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import PcicInsuranceField from '../../components/UI/PcicInsuranceField.jsx'
 import { pcicError, pcicNameClass, pcicPayload, pcicStateFrom, uploadPcicForm } from '../../utils/pcic.js'
 import { ownershipLabel } from '../../utils/ownership.js'
-import AquacultureCycleDetailModal from '../Monitoring/AquacultureCycleDetailModal.jsx'
+import AquacultureCycleDetailModal, { CycleInfoSummary } from '../Monitoring/AquacultureCycleDetailModal.jsx'
 import { rowClickProps } from '../../utils/rowClick.js'
 import StartProductionCycleModal from '../Monitoring/StartProductionCycleModal.jsx'
 import {
@@ -766,7 +766,23 @@ function HarvestDetailsSection({ record }) {
   )
 }
 
-function StockingDetailModal({ record, onClose }) {
+// `staffView` (Admin / Focal Person): for a stock linked to a production cycle the top of the window is the cycle's own saved
+// details - the very block "View Cycle Details & Logs" shows - so both views carry the same fields and values; the rows below
+// are only what the cycle block does not already say. A fisherfolk account, a stock without a cycle, or a cycle that could not be
+// loaded keeps the full list of rows.
+function StockingDetailModal({ record, onClose, staffView = false }) {
+  const wantsCycle = staffView && Boolean(record.production_cycle)
+  const [cycle, setCycle] = useState(null)
+  const [cycleFailed, setCycleFailed] = useState(false)
+  useEffect(() => {
+    if (!wantsCycle) return undefined
+    let cancelled = false
+    api.get(`/monitoring/aquaculture-cycles/${record.production_cycle}/`)
+      .then(r => { if (!cancelled) setCycle(r.data) })
+      .catch(() => { if (!cancelled) setCycleFailed(true) })
+    return () => { cancelled = true }
+  }, [wantsCycle, record.production_cycle])
+  const cycleLoading = wantsCycle && !cycle && !cycleFailed
   const landStatusDisplay =
     record.land_status === 'Other' ? `Other — ${record.land_status_other_specify || ''}` : record.land_status || '—'
   const waterSourceDisplay =
@@ -813,6 +829,25 @@ function StockingDetailModal({ record, onClose }) {
     ['Status', record.display_status || record.status || '—'],
     ['Notes', record.notes || '—'],
   ]
+  // What the cycle block above does not already say. The stocking's status is the one the table shows (Forced Harvested included).
+  const stockStatus = cycleStatusText(record) === FORCED_UNIT_STATUS
+    ? <ForcedHarvestedStatus harvestIds={(record.forced_harvests || []).map(f => f.id)} />
+    : <StatusPill tone={STATUS_TONES[cycleStatusText(record)] || 'slate'}>{cycleStatusText(record)}</StatusPill>
+  const restRows = [
+    ['Category', record.category_name || '—'],
+    ['Land Status', landStatusDisplay],
+    ['Season / Year', `${record.season || '—'} ${record.year || ''}`],
+    ['Survival Rate (%)', record.survival_rate_pct ?? '—'],
+    ['Avg Body Weight (kg)', record.avg_body_weight_kg ?? '—'],
+    ['Seed/Fingerling Cost', fmtPhp(record.seed_cost_php)],
+    ['Water Source', waterSourceDisplay],
+    ['Avg Fingerling Size', record.avg_fingerling_size || '—'],
+    rows.find(r => r[0] === 'Total Harvested (kg)'),
+    ['Stocking Density (fingerlings/ha)', record.stocking_density ?? '—'],
+    ['Production Cycle', record.production_cycle_no ? `#${record.production_cycle_no}` : '—'],
+    ['Status', stockStatus],
+  ]
+  const shownRows = cycle ? restRows : rows
 
   return (
     <ModalShell
@@ -823,14 +858,18 @@ function StockingDetailModal({ record, onClose }) {
       maxWidth="max-w-2xl"
     >
       <div className="space-y-5">
+        {cycleLoading && <p className="text-[12px] text-[#7A8E7A]">Loading details…</p>}
+        {cycle && <CycleInfoSummary cycle={cycle} hideStatus />}
+        {!cycleLoading && (
         <div className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
-          {rows.map(([label, value]) => (
+          {shownRows.map(([label, value]) => (
             <div key={label} className="flex items-start justify-between gap-4 border-b border-[#F0F4F0] pb-2">
               <span className="text-[12px] font-medium text-[#7A8E7A]">{label}</span>
               <span className="text-right text-[13px] font-semibold text-[#1A2B1A]">{value}</span>
             </div>
           ))}
         </div>
+        )}
 
         <HarvestDetailsSection record={record} />
 
@@ -1078,6 +1117,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
   const [pondFilter,   setPondFilter]   = useState('')
   const debouncedPond = useDebouncedValue(pondFilter.trim())
   const [statusFilter, setStatusFilter] = useState('All Status')
+  const [speciesFilter, setSpeciesFilter] = useState('')
   const [seasonFilter, setSeasonFilter] = useState('')
   const [yearFilter,   setYearFilter]   = useState('')
   const [editingRec,   setEditingRec]   = useState(null)
@@ -1169,6 +1209,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
       } else if (statusFilter !== 'All Status') {
         params.set('status', statusFilter)
       }
+      if (speciesFilter) params.set('species', speciesFilter)
       if (seasonFilter) params.set('season', seasonFilter)
       if (yearFilter)   params.set('year', yearFilter)
       const r = await api.get(`/fisheries/stocking/?${params.toString()}`)
@@ -1180,7 +1221,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
     } finally {
       if (fetchId === latestFetch.current) setIsLoading(false)
     }
-  }, [statusFilter, seasonFilter, yearFilter, debouncedSearch, debouncedPond])
+  }, [statusFilter, speciesFilter, seasonFilter, yearFilter, debouncedSearch, debouncedPond])
 
   // ONE fetch per page view: changing a filter also resets the page to 1 in the same update (changeFilter
   // below), so this single effect runs once with the new filters and page.
@@ -1333,7 +1374,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
           search={search}
           onSearchChange={setSearch}
           searchPlaceholder="Search by fisherfolk, RSBSA no., species, or barangay..."
-          activeCount={[statusFilter !== 'All Status', Boolean(seasonFilter), Boolean(yearFilter), Boolean(pondFilter.trim())].filter(Boolean).length}
+          activeCount={[statusFilter !== 'All Status', Boolean(speciesFilter), Boolean(seasonFilter), Boolean(yearFilter), Boolean(pondFilter.trim())].filter(Boolean).length}
         >
           <input
             type="search"
@@ -1350,6 +1391,10 @@ export default function FisheriesRecordsPage({ asTab = false }) {
             <option value="Late">Late</option>
             <option value="Harvested">Harvested</option>
             <option value="Total Loss">Total Loss</option>
+          </select>
+          <select className={filterSelectCls} value={speciesFilter} onChange={e => changeFilter(setSpeciesFilter)(e.target.value)} aria-label="Species">
+            <option value="">All Species</option>
+            {speciesList.map(sp => <option key={sp.id} value={sp.id}>{sp.species_name}</option>)}
           </select>
           <select className={filterSelectCls} value={seasonFilter} onChange={e => changeFilter(setSeasonFilter)(e.target.value)}>
             <option value="">All Seasons</option>
@@ -1484,7 +1529,7 @@ export default function FisheriesRecordsPage({ asTab = false }) {
 
 
       {viewingRec && (
-        <StockingDetailModal record={viewingRec} onClose={() => setViewingRec(null)} />
+        <StockingDetailModal record={viewingRec} staffView={!isFisherfolk} onClose={() => setViewingRec(null)} />
       )}
 
       {forceUnitView && (
