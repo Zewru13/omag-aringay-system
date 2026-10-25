@@ -156,7 +156,7 @@ class CropTypeSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'days_to_harvest', 'yield_per_ha_kg',
             'category', 'category_name', 'subcategory', 'subcategory_name',
-            'suggested_activities', 'allowed_units', 'remarks', 'is_active',
+            'suggested_activities', 'allowed_units', 'remarks', 'is_active', 'planting_type',
             'vegetative_start_day', 'flowering_start_day', 'fruiting_start_day', 'maturity_start_day',
         ]
         # DRF auto-adds a UniqueValidator to `name` from the model's
@@ -701,6 +701,19 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
                 data['land_owner_name'] = owner
             else:
                 data['land_owner_name'] = ''
+
+        # A new crop record needs its variety.
+        if self.instance is None and not (data.get('variety_used') or '').strip():
+            raise serializers.ValidationError({'variety_used': 'Variety is required.'})
+
+        # How the crop is planted follows its crop type (Crop Settings > Planted as): a Seed crop is planted as seed, a Tree crop as trees,
+        # and a crop that is both takes either. A new record that does not say starts as the crop's own way (seed for "both").
+        crop = data.get('crop_type', getattr(self.instance, 'crop_type', None))
+        kind = crop.planting_type if crop else 'Both'
+        if self.instance is None and 'planting_material' not in data:
+            data['planting_material'] = 'Tree' if kind == 'Tree' else 'Seed'
+        if kind in ('Seed', 'Tree') and 'planting_material' in data and data['planting_material'] != kind:
+            raise serializers.ValidationError({'planting_material': f'{crop.name} is planted as {"seed" if kind == "Seed" else "trees"}.'})
 
         # Seeds are measured in a unit, trees are counted: only the quantity that matches how the crop was planted is kept.
         material = data.get('planting_material', getattr(self.instance, 'planting_material', 'Seed'))

@@ -17,7 +17,7 @@ class CropLandOwnerTests(APITestCase):
     def setUpTestData(cls):
         cls.admin = get_user_model().objects.create_user(username='clo-admin', password='pw', role='ADMIN', email='clo@x.test')
         cls.rice = CropType.objects.create(name='Owner Rice', days_to_harvest=110)
-        cls.mango = CropType.objects.create(name='Owner Mango', days_to_harvest=120)
+        cls.mango = CropType.objects.create(name='Owner Mango', days_to_harvest=120, planting_type='Tree')
         cls.farmer = make_farmer('Olga')
         cls.parcel = FarmParcel.objects.create(farmer=cls.farmer, area_hectares='20.00', land_ownership='Owner', barangay='Alaska')
 

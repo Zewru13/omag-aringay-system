@@ -1,10 +1,27 @@
 // The Add Crop Records table: pure rules for a crop's ownership (whose land it grows on), how it was planted (seed or trees) and
 // whether its area fits its parcel, with no screen and no network, so they can be tested on their own.
-import { sameCrop } from '../../utils/cropNames.js'
-import { PERENNIAL_CROPS } from '../Farmers/parcelRows.js'
-
 export const CROP_OWNERSHIP_OPTIONS = ['Owner', 'Lessee', 'Tenant']
 export const PLANTING_MATERIALS = ['Seed', 'Tree']
+
+// How a crop type is planted (Crop Settings > Planted as): from seed, as trees, or either way.
+export const PLANTING_TYPES = [
+  { value: 'Seed', label: 'Seed' },
+  { value: 'Tree', label: 'Tree' },
+  { value: 'Both', label: 'Seed or Tree' },
+]
+export const plantingTypeOf = (cropType) => cropType?.planting_type || 'Seed'
+export const plantingTypeLabel = (cropType) => PLANTING_TYPES.find((t) => t.value === plantingTypeOf(cropType))?.label || 'Seed'
+
+// Only a crop that can be planted either way lets the person choose per crop record.
+export const canChoosePlanting = (cropType) => plantingTypeOf(cropType) === 'Both'
+
+// What a crop record is planted as: a Seed crop as seed, a Tree crop as trees, and a crop that is both as the person chose (seed to begin with).
+export function materialFor(cropType, chosen) {
+  const type = plantingTypeOf(cropType)
+  if (type === 'Tree') return 'Tree'
+  if (type === 'Seed') return 'Seed'
+  return chosen === 'Tree' ? 'Tree' : 'Seed'
+}
 
 // A Tenant or Lessee crop grows on someone else's land, so it carries that owner's name (as a farm parcel does).
 export const needsLandOwner = (status) => status === 'Tenant' || status === 'Lessee'
@@ -25,10 +42,8 @@ export function cropOwnershipCell(record) {
   return { status, owner }
 }
 
-// Tree crops (Mango, Cacao, Banana, Coffee, other fruits) start as "Tree", every other crop as "Seed"; the dropdown can change it.
-export const defaultPlantingMaterial = (cropName) => (
-  cropName && PERENNIAL_CROPS.some((tree) => sameCrop(cropName, tree)) ? 'Tree' : 'Seed'
-)
+// What a row starts as when its crop is picked: the crop's own way (a crop that is both starts as seed).
+export const defaultPlantingMaterial = (cropType) => materialFor(cropType, 'Seed')
 
 export const quantityLabel = (material) => (material === 'Tree' ? 'Qty of Trees' : 'Qty of Seeds (kg)')
 

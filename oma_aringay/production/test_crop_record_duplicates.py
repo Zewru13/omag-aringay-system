@@ -113,8 +113,11 @@ class CropRecordDuplicateTests(APITestCase):
         self.refused(self.post(farm_parcel=self.parcel_b.id, variety_used='Late'))
 
     def test_blank_varieties_are_the_same_variety(self):
+        # A new record has to name its variety, but older records may have none: two of those still count as the same variety when one
+        # of them is moved onto the other's parcel (the Edit form sends the variety, blank or not).
         make_record(self.farmer, self.crop, self.parcel_a, variety_used='')
-        message = self.refused(self.post(farm_parcel=self.parcel_a.id, variety_used=''))
+        second = make_record(self.farmer, self.crop, self.parcel_b, variety_used='')
+        message = self.refused(self.form_edit(second, farm_parcel=self.parcel_a.id))
         self.assertIn('Dupetest Rice record on this parcel', message)
 
     def test_unrelated_edit_of_an_existing_duplicate_is_allowed(self):
