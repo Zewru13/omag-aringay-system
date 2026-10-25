@@ -3,6 +3,7 @@ import { AlertTriangle, ArrowLeft, CheckCircle2, Info, Plus, Trash2, Upload } fr
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import FarmerSearchInput from '../../components/FarmerSearchInput.jsx'
+import ImportFileModal from '../../components/ImportFileModal.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import BARANGAYS from '../../constants/barangays.js'
 import Button from '../../components/UI/Button.jsx'
@@ -399,6 +400,8 @@ export default function AddFarmParcelsPage() {
   const [rows, setRows] = useState([makeParcelRow(1)])
   const [importingFor, setImportingFor] = useState(null)
   const [importingMachineryFor, setImportingMachineryFor] = useState(null)
+  const [isImportingParcels, setIsImportingParcels] = useState(false)   // the Import Farm Parcels file dialog (parcels of the chosen farmer)
+  const [parcelsTick, setParcelsTick] = useState(0)                      // bumped after an import so the parcels on file are read again
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [error, setError] = useState('')
@@ -435,7 +438,7 @@ export default function AddFarmParcelsPage() {
       .then((r) => { if (alive) setExisting({ farmerId: farmerInfo.farmer_id, list: Array.isArray(r.data) ? r.data : (r.data.results || []) }) })
       .catch(() => { if (alive) setExisting(null) })
     return () => { alive = false }
-  }, [farmerInfo.farmer_id])
+  }, [farmerInfo.farmer_id, parcelsTick])
   const existingList = existing && existing.farmerId === farmerInfo.farmer_id ? existing.list : null
 
   const goBack = () => navigate(farmerInfo.farmer_id && startFarmerId ? `/farmers/${farmerInfo.farmer_id}` : '/crop-records')
@@ -523,6 +526,16 @@ export default function AddFarmParcelsPage() {
           <div className="max-w-xl">
             <FarmerSearchInput onSelect={setFarmerInfo} selected={farmerInfo} />
           </div>
+          <div className="mt-3">
+            <button type="button" onClick={() => setIsImportingParcels(true)} disabled={!farmerInfo.farmer_id}
+              title={farmerInfo.farmer_id ? undefined : 'Choose the farmer first'}
+              className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-[#1B4D2E]/30 bg-[#EBF5EE]/50 px-3 text-[12px] font-semibold text-[#1B4D2E] hover:bg-[#EBF5EE] disabled:cursor-not-allowed disabled:opacity-50">
+              <Upload size={13} aria-hidden="true" /> Import Farm Parcels
+            </button>
+            <p className="mt-1 text-[11px] text-[#7A8E7A]">
+              {farmerInfo.farmer_id ? `Add many parcels of ${farmerInfo.farmer_full_name} at once from a spreadsheet.` : 'Choose the farmer first, then import their parcels from a spreadsheet.'}
+            </p>
+          </div>
           {farmerInfo.farmer_id && (
             <div className="mt-3 grid max-w-xl grid-cols-2 gap-3">
               <div>
@@ -543,7 +556,7 @@ export default function AddFarmParcelsPage() {
           <Info size={16} className="mt-0.5 shrink-0 text-sky-800" aria-hidden="true" />
           <p className="text-[13px] text-sky-800">
             <span className="font-semibold">All-or-nothing submission:</span> every parcel must pass validation before any is saved. An error in one
-            parcel prevents all of them from saving. Have many parcels in a file? Use <span className="font-semibold">Import Farm Parcels</span> on the farmer’s profile.
+            parcel prevents all of them from saving. Have many parcels in a file? Choose the farmer, then use <span className="font-semibold">Import Farm Parcels</span> above: it checks the file first and saves the parcels straight to that farmer.
           </p>
         </div>
 
@@ -588,6 +601,19 @@ export default function AddFarmParcelsPage() {
         </div>
       </form>
 
+      {isImportingParcels && farmerInfo.farmer_id && (
+        <ImportFileModal
+          title="Import Farm Parcels"
+          subtitle={`Add farm parcels, with the crops grown on them, to ${farmerInfo.farmer_full_name} from a spreadsheet.`}
+          helpText="One row per crop, with the parcel columns repeated. Rows with the same Parcel Number become one parcel; a parcel without crops is one row with the crop columns left blank."
+          importUrl={`/farmers/${farmerInfo.farmer_id}/parcels/import/`}
+          templateUrl="/farmers/parcels/import/template/"
+          templateFilename="farm_parcels_import_template.xlsx"
+          undoType="farm_parcels"
+          onClose={() => setIsImportingParcels(false)}
+          onImported={() => setParcelsTick((t) => t + 1)}
+        />
+      )}
       {importingFor !== null && <ParcelCropsImportModal onClose={() => setImportingFor(null)} onRows={importCrops} />}
       {importingMachineryFor !== null && <ParcelCropsImportModal kind="machinery" onClose={() => setImportingMachineryFor(null)} onRows={importMachinery} />}
 
