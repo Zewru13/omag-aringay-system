@@ -148,11 +148,11 @@ class MultiCropDisasterTests(APITestCase):
         self.assertEqual(self.post([{'monitoring_record': self.a1.id, 'area_affected_ha': '1.00'}, {'monitoring_record': self.a1.id, 'area_affected_ha': '0.50'}]).status_code, 400)
         self.assertEqual(self.post([]).status_code, 400)
 
-    def test_more_than_two_hundred_crops_are_refused(self):
-        crops = [{'monitoring_record': i, 'area_affected_ha': '1.00'} for i in range(1, 203)]
+    def test_more_than_a_thousand_crops_are_refused(self):
+        crops = [{'monitoring_record': i, 'area_affected_ha': '1.00'} for i in range(1, 1003)]
         r = self.post(crops)
         self.assertEqual(r.status_code, 400)
-        self.assertIn('200', json.dumps(r.json()))
+        self.assertIn('1000', json.dumps(r.json()))
 
     # --- who may use it
     def test_a_farmer_can_log_on_their_own_crops(self):

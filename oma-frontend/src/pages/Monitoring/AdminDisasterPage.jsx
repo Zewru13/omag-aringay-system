@@ -18,15 +18,15 @@ import SearchBar from '../../components/UI/SearchBar.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { fmtLong } from '../FisheriesRecords/stockingHelpers.js'
-import LogCropDisasterModal from './LogCropDisasterModal.jsx'
+import LogCropDisasterScreen from './LogCropDisasterScreen.jsx'
 import DisasterLogDetailsModal from './DisasterLogDetailsModal.jsx'
 import { FARMER_LOG, FISHERIES_LOG, downloadLog, fetchAllStocks, printLog } from './disasterReportDocument.js'
 import { FISHERFOLK_DISASTER_TYPES } from './fisheriesDisasterConstants.js'
 import FisherfolkStockDisasterModal from './FisherfolkStockDisasterModal.jsx'
 
 // ADMIN > DISASTER: one module, two use cases on the existing records (no new disaster models):
-//   Farmer Disaster    - every CropDisasterReport (GET /production/disaster-logs/); Log Disaster = choose a
-//                        farmer and their crop record, then the existing crop disaster form.
+//   Farmer Disaster    - every CropDisasterReport (GET /production/disaster-logs/); Log Disaster = a full-screen
+//                        form with a table of every parcel that has crops growing: tick the parcels and crops hit.
 //   Fisheries Disaster - every FisheriesDisasterReport, including those fisherfolk submit when they log
 //                        (GET /fisheries/disaster-reports/); Log Disaster = choose a fisherfolk and their
 //                        stock, then the same full aquaculture form the fisherfolk uses.
@@ -295,7 +295,7 @@ function FarmerDisasterTab() {
       )}
 
       {viewingId && <DisasterLogDetailsModal key={viewingId} kind="farmer" logId={viewingId} onClose={() => setViewingId(null)} />}
-      {step?.name === 'log' && <LogCropDisasterModal onClose={() => setStep(null)} onSuccess={() => setVersion(v => v + 1)} />}
+      {step?.name === 'log' && <LogCropDisasterScreen onClose={() => setStep(null)} onSuccess={() => setVersion(v => v + 1)} />}
     </div>
   )
 }

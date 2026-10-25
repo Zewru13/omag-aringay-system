@@ -31,7 +31,7 @@ from fisheries.models import Fisherfolk
 
 from core.photos import discard_uploaded_files, validated_photos
 from farmers.area_rules import growing_area_problem
-from .duplicates import find_active_duplicates, growing_area_on_parcel, same_place
+from .duplicates import ACTIVE_STATUSES, find_active_duplicates, growing_area_on_parcel, same_place
 from .naming import normalize_name
 from .schedule_rules import done_date as step_done_date, is_setup_stage, step_status
 from .dashboard_activity import (
@@ -1723,7 +1723,51 @@ def _notify_crop_disaster(user, monitoring, disaster):
         )
 
 
-MAX_MULTI_DISASTER_CROPS = 200
+MAX_MULTI_DISASTER_CROPS = 1000
+
+
+class CropDisasterTargetsView(APIView):
+    """The crops a disaster can hit, for staff's Log Disaster table: every parcel that has crops still in the field (Planted, Near
+    Harvest), with those crops, in one response. A purged parcel's crops are left out. A crop with no parcel on file (older records)
+    is listed under a pseudo parcel of its farmer (`parcel_id` null), so it can still be chosen. Searching, filtering by farmer or
+    barangay and grouping are done on the screen, over this list."""
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request):
+        records = (
+            CropMonitoringRecord.objects.filter(status__in=ACTIVE_STATUSES, farmer__isnull=False)
+            .filter(Q(farm_parcel__isnull=True) | Q(farm_parcel__purged_at__isnull=True))
+            .select_related('farm_parcel', 'farmer', 'crop_type')
+            .order_by('farmer__last_name', 'farmer__first_name', 'farm_parcel_id', 'id')
+        )
+        groups = {}
+        for r in records:
+            parcel = r.farm_parcel
+            key = f'p{parcel.id}' if parcel else f'f{r.farmer_id}'
+            if key not in groups:
+                groups[key] = {
+                    'key': key,
+                    'parcel_id': parcel.id if parcel else None,
+                    'parcel_number': parcel.parcel_number if parcel else '',
+                    'farmer_id': r.farmer_id,
+                    'farmer_name': r.farmer.full_name,
+                    'rsbsa_number': r.farmer.rsbsa_number,
+                    'barangay': (parcel.barangay if parcel else r.farm_location_barangay) or '',
+                    'area_hectares': str(parcel.area_hectares) if parcel else None,
+                    'land_ownership': parcel.land_ownership if parcel else '',
+                    'crops': [],
+                }
+            groups[key]['crops'].append({
+                'id': r.id,
+                'crop_type_name': r.crop_type.name if r.crop_type_id else '',
+                'variety_used': r.variety_used,
+                'season': r.season,
+                'year': r.year,
+                'date_planted': r.date_planted.isoformat() if r.date_planted else None,
+                'area_planted_ha': str(r.area_planted_ha) if r.area_planted_ha is not None else None,
+                'status': r.status,
+            })
+        return Response({'parcels': list(groups.values())})
 
 
 class CropDisasterReportMultiCreateView(APIView):
