@@ -38,7 +38,7 @@ import CropDetailsModal from './CropDetailsModal.jsx'
 import GroupedMonitoringTable from './GroupedMonitoringTable.jsx'
 import ParcelViewModal from './ParcelViewModal.jsx'
 import EditParcelModal from '../Farmers/EditParcelModal.jsx'
-import { DEFAULT_GROUP, DEFAULT_STATUS, FARMER_GROUP, GROUP_OPTIONS, monitoringParams } from './monitoringGroups.js'
+import { DEFAULT_GROUP, DEFAULT_STATUS, FARMER_GROUP, GROUP_OPTIONS, cropDisplayStatus, monitoringParams } from './monitoringGroups.js'
 import { harvestAreaHint, harvestAreaProblem } from './harvestArea.js'
 import { harvestAmountText, harvestKg, needsTotalKg, quantityPayload, quantityProblem, totalKgProblem, unitPreview, weightFor } from './harvestUnits.js'
 import useHarvestUnitWeights from './useHarvestUnitWeights.js'
@@ -2008,36 +2008,8 @@ const STATUS_TONES = {
   'Total Loss':        'rose',
 }
 
-// Display-only reinterpretation of the real 'Near Harvest' backend status —
-// the backend enum, model, and stored value are untouched; this only
-// decides which of three words the pill shows for a record already inside
-// that existing ≤7-day-or-later window (a record that's sat in 'Near
-// Harvest' unharvested for a while never moves itself past that raw value —
-// see CropInformationPage's own getDisplayStatus for the same gap on the
-// Planted side). Every other status (Planted/Harvested/Total Loss) passes
-// through unchanged.
-//
-// Two boundaries, both single `<` /`<=` tests so every day maps to exactly
-// one label:
-//   diffDays >  0   -> 'Due Harvest'       (still counting down)
-//   -7 <= diffDays <= 0 -> 'Ready for Harvest'  (day 0 = harvest date has
-//                          arrived, through a week past — still "just
-//                          became ready", not yet neglected)
-//   diffDays < -7   -> 'Overdue'           (more than a week past due with
-//                          no harvest recorded — mirrors the width of the
-//                          existing 7-day Near-Harvest window itself, the
-//                          only other day-count already meaningful in this
-//                          codebase, rather than inventing an arbitrary
-//                          second number)
-function getCropDisplayStatus(rec) {
-  if (rec.status !== 'Near Harvest' || !rec.expected_harvest_date) return rec.status
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const expected = new Date(rec.expected_harvest_date + 'T00:00:00')
-  const diffDays = Math.round((expected - today) / (1000 * 60 * 60 * 24))
-  if (diffDays < -7) return 'Overdue'
-  return diffDays <= 0 ? 'Ready for Harvest' : 'Due Harvest'
-}
+// The pill's word for a record (Due Harvest / Ready for Harvest / Overdue split the real 'Near Harvest' status): see cropDisplayStatus.
+const getCropDisplayStatus = cropDisplayStatus
 
 const COLUMNS = [
   { key: 'crop_cell',       label: 'CROP' },

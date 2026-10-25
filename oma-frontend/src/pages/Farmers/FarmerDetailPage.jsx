@@ -18,7 +18,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
 import { rowClickProps } from '../../utils/rowClick.js'
-import { declaredCropName, sameCrop } from '../../utils/cropNames.js'
+import { DEFAULT_STATUS, STATUS_FILTER_OPTIONS, cropDisplayStatus, farmerCropParams } from '../Monitoring/monitoringGroups.js'
 import EditFarmerModal from './EditFarmerModal.jsx'
 import EditParcelModal from './EditParcelModal.jsx'
 import RecordFarmVisitModal from './RecordFarmVisitModal.jsx'
@@ -26,7 +26,7 @@ import RecordFarmVisitModal from './RecordFarmVisitModal.jsx'
 // Phone: every table inside the wrapper stacks into labelled cards (each <td data-label="..."> shows its label above the value).
 const STACK_TABLES = 'max-md:[&_tr]:border-b max-md:[&_tr]:border-[#F0F4F0] max-md:[&_table]:block max-md:[&_tbody]:block max-md:[&_thead]:hidden max-md:[&_tr]:block max-md:[&_tr]:px-3 max-md:[&_tr]:py-2 max-md:[&_td]:block max-md:[&_td]:w-full max-md:[&_td]:px-0 max-md:[&_td]:py-1 max-md:[&_td]:text-left max-md:[&_td[data-label]]:before:mb-0.5 max-md:[&_td[data-label]]:before:block max-md:[&_td[data-label]]:before:text-[11px] max-md:[&_td[data-label]]:before:font-semibold max-md:[&_td[data-label]]:before:uppercase max-md:[&_td[data-label]]:before:tracking-wide max-md:[&_td[data-label]]:before:text-[#7A8E7A] max-md:[&_td[data-label]]:before:content-[attr(data-label)]'
 
-const MONITORING_STATUS_TONES = { Planted: 'green', 'Near Harvest': 'amber', Harvested: 'blue', 'Total Loss': 'rose' }
+const MONITORING_STATUS_TONES = { Planted: 'green', 'Near Harvest': 'amber', 'Due Harvest': 'amber', 'Ready for Harvest': 'rose', Overdue: 'rose', Harvested: 'blue', 'Total Loss': 'rose' }
 
 function formatDate(value) {
   if (!value) {
@@ -128,7 +128,7 @@ function MonitoringRecordCard({ r, navigate }) {
         ['Season / Year', `${r.season} ${r.year}`],
         ['Date planted', fmtDate(r.date_planted)],
         ['Exp. harvest', fmtDate(r.expected_harvest_date)],
-        ['Status', <StatusPill key="s" tone={MONITORING_STATUS_TONES[r.status] || 'slate'}>{r.status}</StatusPill>],
+        ['Status', <StatusPill key="s" tone={MONITORING_STATUS_TONES[cropDisplayStatus(r)] || 'slate'}>{cropDisplayStatus(r)}</StatusPill>],
         ['Est. yield (kg)', r.estimated_yield_kg ? parseFloat(r.estimated_yield_kg).toLocaleString() : '—'],
         ['Act. yield (kg)', r.actual_yield_kg ? parseFloat(r.actual_yield_kg).toLocaleString() : '—'],
         ['Logged', `${logs} activity log${logs !== 1 ? 's' : ''} · ${ops} operation${ops !== 1 ? 's' : ''}`],
@@ -185,7 +185,7 @@ function CropMonitoringSubSection({ parcelId }) {
               <td data-label="Date Planted" className="px-3 py-1.5 text-[#1A2B1A]">{fmt(r.date_planted)}</td>
               <td data-label="Exp. Harvest" className="px-3 py-1.5 text-[#1A2B1A]">{fmt(r.expected_harvest_date)}</td>
               <td data-label="Status" className="px-3 py-1.5">
-                <StatusPill tone={MONITORING_STATUS_TONES[r.status] || 'slate'}>{r.status}</StatusPill>
+                <StatusPill tone={MONITORING_STATUS_TONES[cropDisplayStatus(r)] || 'slate'}>{cropDisplayStatus(r)}</StatusPill>
               </td>
               <td data-label="Est. Yield (kg)" className="px-3 py-1.5 text-[#1A2B1A]">{r.estimated_yield_kg ? parseFloat(r.estimated_yield_kg).toLocaleString() : '—'}</td>
               <td data-label="Act. Yield (kg)" className="px-3 py-1.5 text-[#1A2B1A]">{r.actual_yield_kg ? parseFloat(r.actual_yield_kg).toLocaleString() : '—'}</td>
@@ -330,6 +330,7 @@ function FarmerDetailPage() {
   const [history, setHistory] = useState([])
   const [visitHistory, setVisitHistory] = useState([])
   const [cropRecords, setCropRecords] = useState([])
+  const [cropStatusFilter, setCropStatusFilter] = useState(DEFAULT_STATUS)   // the crops still planted, until another stage is chosen
   const [isLoadingFarmer, setIsLoadingFarmer] = useState(true)
   const [isLoadingParcels, setIsLoadingParcels] = useState(true)
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
@@ -415,14 +416,9 @@ function FarmerDetailPage() {
     setIsLoadingCrops(true)
     setCropError('')
     try {
-      // Explicit full status list, not omitted: an omitted `status` makes
-      // the backend default to excluding Total Loss (right for the
-      // operational Crop Records list, wrong for a farmer's own complete
-      // history — a total-loss record is still part of what happened on
-      // this farmer's land).
-      const r = await api.get('/production/monitoring/', {
-        params: { farmer: id, status: 'Planted,Near Harvest,Harvested,Total Loss' },
-      })
+      // Every crop that is registered is planted and in monitoring until it is harvested, so the list opens on Planted; the
+      // stage filter (Near Harvest, Due Harvest, Ready for Harvest, Overdue, Harvested, Total Loss, All Status) changes it.
+      const r = await api.get('/production/monitoring/', { params: farmerCropParams(id, cropStatusFilter) })
       setCropRecords(Array.isArray(r.data) ? r.data : (r.data.results || []))
     } catch {
       setCropError('Unable to load crop monitoring records.')
@@ -431,27 +427,16 @@ function FarmerDetailPage() {
     }
   }
 
-  // Crops declared on a parcel that have no monitoring record yet. A declared
-  // crop is only a registration entry — it has no planting date, season or
-  // yield — so it is listed beside the real records as "Not yet monitored"
-  // rather than turned into a made-up monitoring record.
-  const unmonitoredCrops = isLoadingParcels || isLoadingCrops ? [] : parcels
-    .flatMap((p) => (p.crops || []).map((c) => ({
-      id: `declared-${c.id}`,
-      parcel: p,
-      crop: c,
-      name: declaredCropName(c),
-    })))
-    .filter(({ parcel, name }) => !cropRecords.some(
-      (r) => sameCrop(r.crop_type_name, name) && (!r.farm_parcel || r.farm_parcel === parcel.id),
-    ))
-
   useEffect(() => {
     fetchFarmer()
     fetchParcels()
     fetchVisits()
-    fetchCropRecords()
   }, [id])
+
+  useEffect(() => {
+    fetchCropRecords()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, cropStatusFilter])
 
   const openHistory = () => {
     setIsHistoryModalOpen(true)
@@ -701,7 +686,17 @@ function FarmerDetailPage() {
             table inside each Farm Parcel row's "Details" expansion above,
             which only ever shows records that have a farm_parcel link). */}
         <div className="bg-white border border-[#E2E8E2] rounded-xl p-6">
-          <h2 className="text-[14px] font-semibold text-[#1A2B1A] mb-4">Crop Monitoring Records</h2>
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-[14px] font-semibold text-[#1A2B1A]">Crop Monitoring Records</h2>
+            <select
+              value={cropStatusFilter}
+              onChange={(e) => setCropStatusFilter(e.target.value)}
+              aria-label="Show crops in this stage"
+              className="h-9 rounded-lg border border-[#E2E8E2] bg-white px-3 text-[13px] text-[#1A2B1A] focus:border-[#1B4D2E] focus:outline-none focus:ring-2 focus:ring-[#1B4D2E]/10"
+            >
+              {STATUS_FILTER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </div>
 
           {cropError && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-[13px] font-medium text-red-700">
@@ -713,40 +708,16 @@ function FarmerDetailPage() {
             <div className="flex min-h-24 items-center justify-center">
               <LoadingSpinner size={24} />
             </div>
-          ) : cropRecords.length === 0 && unmonitoredCrops.length === 0 ? (
+          ) : cropRecords.length === 0 ? (
             <p className="rounded-lg border border-[#E2E8E2] bg-[#EBF5EE]/30 px-4 py-3 text-[13px] text-[#4A5E4A]">
-              No crop monitoring records for this farmer.
+              {cropStatusFilter === 'all'
+                ? 'No crop monitoring records for this farmer.'
+                : `No ${STATUS_FILTER_OPTIONS.find((o) => o.value === cropStatusFilter)?.label || ''} crops for this farmer. Choose another stage or All Status.`}
             </p>
           ) : (
             <>
             <div className="space-y-2 md:hidden">
               {cropRecords.map((r) => <MonitoringRecordCard key={r.id} r={r} navigate={navigate} />)}
-              {unmonitoredCrops.map(({ id: rowId, parcel, crop, name }) => (
-                <RecordCard
-                  key={rowId}
-                  title={name}
-                  details={[
-                    ['Status', <StatusPill key="s" tone="slate">Not yet monitored</StatusPill>],
-                    ['Declared on', parcel.parcel_number ? `parcel ${parcel.parcel_number}` : `parcel #${parcel.id}`],
-                    ['Area', `${parseFloat(crop.area_hectares)} ha${crop.is_main_crop ? ' · Main crop' : ''}`],
-                  ]}
-                  action={farmer && (isAdmin || isEvaluator) ? (
-                    <Link
-                      to="/crop-records/add"
-                      state={{ prefill: {
-                        farmerId: farmer.id,
-                        rsbsa: farmer.rsbsa_number,
-                        parcel: { id: parcel.id, barangay: parcel.barangay, landOwnership: parcel.land_ownership },
-                        cropName: name,
-                        areaHa: parseFloat(crop.area_hectares),
-                      } }}
-                      className="flex min-h-[44px] w-full items-center justify-center rounded-lg bg-[#1B4D2E] text-[13px] font-semibold text-white"
-                    >
-                      Start monitoring
-                    </Link>
-                  ) : null}
-                />
-              ))}
             </div>
             <div className="hidden overflow-hidden rounded-lg border border-[#E2E8E2] md:block">
               <table className="min-w-full text-left text-sm">
@@ -771,46 +742,13 @@ function FarmerDetailPage() {
                         <td data-label="Date Planted" className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{fmt(r.date_planted)}</td>
                         <td data-label="Exp. Harvest" className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{fmt(r.expected_harvest_date)}</td>
                         <td data-label="Status" className="px-4 py-2.5">
-                          <StatusPill tone={MONITORING_STATUS_TONES[r.status] || 'slate'}>{r.status}</StatusPill>
+                          <StatusPill tone={MONITORING_STATUS_TONES[cropDisplayStatus(r)] || 'slate'}>{cropDisplayStatus(r)}</StatusPill>
                         </td>
                         <td data-label="Est. Yield (kg)" className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{r.estimated_yield_kg ? parseFloat(r.estimated_yield_kg).toLocaleString() : '—'}</td>
                         <td data-label="Act. Yield (kg)" className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">{r.actual_yield_kg ? parseFloat(r.actual_yield_kg).toLocaleString() : '—'}</td>
                       </tr>
                     )
                   })}
-                  {unmonitoredCrops.map(({ id: rowId, parcel, crop, name }, i) => (
-                    <tr key={rowId} className={(cropRecords.length + i) % 2 === 0 ? 'bg-white' : 'bg-[#F9FAF9]'}>
-                      <td className="px-4 py-2.5 text-[13px] text-[#1A2B1A]">
-                        {name}
-                        <span className="mt-0.5 block text-[11px] font-normal text-[#7A8E7A]">
-                          Declared on {parcel.parcel_number ? `parcel ${parcel.parcel_number}` : `parcel #${parcel.id}`} · {parseFloat(crop.area_hectares)} ha{crop.is_main_crop ? ' · Main crop' : ''}
-                        </span>
-                        {farmer && (isAdmin || isEvaluator) && (
-                          <Link
-                            to="/crop-records/add"
-                            state={{ prefill: {
-                              farmerId: farmer.id,
-                              rsbsa: farmer.rsbsa_number,
-                              parcel: { id: parcel.id, barangay: parcel.barangay, landOwnership: parcel.land_ownership },
-                              cropName: name,
-                              areaHa: parseFloat(crop.area_hectares),
-                            } }}
-                            className="mt-1 inline-block text-[12px] font-medium text-[#1B4D2E] hover:underline"
-                          >
-                            Start monitoring
-                          </Link>
-                        )}
-                      </td>
-                      <td className="px-4 py-2.5 text-[13px] text-[#7A8E7A] max-md:hidden">—</td>
-                      <td className="px-4 py-2.5 text-[13px] text-[#7A8E7A] max-md:hidden">—</td>
-                      <td className="px-4 py-2.5 text-[13px] text-[#7A8E7A] max-md:hidden">—</td>
-                      <td data-label="Status" className="px-4 py-2.5">
-                        <StatusPill tone="slate">Not yet monitored</StatusPill>
-                      </td>
-                      <td className="px-4 py-2.5 text-[13px] text-[#7A8E7A] max-md:hidden">—</td>
-                      <td className="px-4 py-2.5 text-[13px] text-[#7A8E7A] max-md:hidden">—</td>
-                    </tr>
-                  ))}
                 </tbody>
               </table>
             </div>
