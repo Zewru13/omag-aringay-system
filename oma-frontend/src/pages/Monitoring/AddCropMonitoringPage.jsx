@@ -485,6 +485,10 @@ export default function AddCropMonitoringPage() {
   }, [farmerInfo.farmer_id, lockedParcel])
 
   const showParcelColumn = farmerParcels.length > 0
+  const tableMinWidth = Object.entries(COL_WIDTH).reduce(
+    (sum, [key, width]) => sum + (key === 'barangay' && lockedParcel ? 0 : key === 'farmParcel' && !showParcelColumn ? 0 : width),
+    0,
+  )
   const parcelsReady = Boolean(farmerInfo.farmer_id) && parcelsReadyFor === farmerInfo.farmer_id
   const hasNoParcel = parcelsReady && farmerParcels.length === 0
 
@@ -714,7 +718,9 @@ export default function AddCropMonitoringPage() {
 
         {/* Crop records — a horizontal table, every field visible (no expand toggle); on a phone each record is a stacked card */}
         <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white max-md:overflow-visible max-md:border-0 max-md:bg-transparent">
-          <table className="table-fixed text-sm max-md:block max-md:w-full">
+          {/* min-width = the declared column widths: on a narrow screen the table scrolls sideways instead of squeezing every column
+              (a squeezed Crop Ownership column cut the owner's name off) */}
+          <table className="table-fixed text-sm md:min-w-(--table-min) max-md:block max-md:w-full" style={{ '--table-min': `${tableMinWidth}px` }}>
             <thead className="bg-[#1B4D2E] text-white max-md:hidden">
               <tr>
                 <th className={`${bulkThCenterClasses} overflow-hidden`} style={{ width: COL_WIDTH.index }}>#</th>
