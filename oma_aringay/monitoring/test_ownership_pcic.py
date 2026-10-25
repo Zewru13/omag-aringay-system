@@ -1,4 +1,4 @@
-"""Aquaculture production cycle: Ownership (Tenant / Lease / Owner, with the owner's details for the first two) and the PCIC insurance of
+"""Aquaculture production cycle: Ownership (Tenant / Lease / Owner, with the owner's details for a Tenant only) and the PCIC insurance of
 the cycle (read from, and edited on, its linked stocking record, form photo included)."""
 import io
 import tempfile
@@ -49,9 +49,13 @@ class OwnershipTests(ProductionCycleBase):
         self.assertEqual((saved['ownership'], saved['owner_name'], saved['owner_registration_number']), ('Tenant', 'Rosa Dela Cruz', '0012-0345'))
         self.assertEqual(AquacultureProductionCycle.objects.get(pk=data['id']).owner_registration_number, '0012-0345')
 
-    def test_a_lease_cycle_keeps_them_too(self):
+    def test_a_lease_cycle_needs_no_owner_details_and_drops_any_sent_with_it(self):
+        data = self.started(ownership='Lease')            # no owner fields at all
+        self.assertEqual((data['ownership'], data['owner_name'], data['owner_registration_number']), ('Lease', '', ''))
         data = self.started(ownership='Lease', owner_name='Pedro Reyes', owner_registration_number='000123')
-        self.assertEqual((data['ownership'], data['owner_name'], data['owner_registration_number']), ('Lease', 'Pedro Reyes', '000123'))
+        self.assertEqual((data['ownership'], data['owner_name'], data['owner_registration_number']), ('Lease', '', ''))
+        saved = AquacultureProductionCycle.objects.get(pk=data['id'])
+        self.assertEqual((saved.owner_name, saved.owner_registration_number), ('', ''))
 
     def test_an_owner_cycle_needs_nothing_more_and_drops_any_owner_details_sent_with_it(self):
         data = self.started(owner_name='Someone Else', owner_registration_number='99')
@@ -67,26 +71,26 @@ class OwnershipTests(ProductionCycleBase):
             self.assertEqual(self.post(ownership=bad).status_code, 400, bad)
         self.assertEqual(AquacultureProductionCycle.objects.count(), 0)
 
-    def test_tenant_and_lease_need_both_owner_fields(self):
-        for ownership in ('Tenant', 'Lease'):
-            r = self.post(ownership=ownership, owner_registration_number='001')
-            self.assertEqual(r.status_code, 400, ownership)
-            self.assertIn('owner_name', r.data)
-            r = self.post(ownership=ownership, owner_name='Rosa')
-            self.assertEqual(r.status_code, 400, ownership)
-            self.assertIn('owner_registration_number', r.data)
-            self.assertEqual(self.post(ownership=ownership, owner_name='   ', owner_registration_number='001').status_code, 400)
+    def test_a_tenant_needs_both_owner_fields(self):
+        r = self.post(ownership='Tenant', owner_registration_number='001')
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('owner_name', r.data)
+        r = self.post(ownership='Tenant', owner_name='Rosa')
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('owner_registration_number', r.data)
+        self.assertEqual(self.post(ownership='Tenant', owner_name='   ', owner_registration_number='001').status_code, 400)
+        self.assertEqual(self.post(ownership='Tenant').status_code, 400)
         self.assertEqual(AquacultureProductionCycle.objects.count(), 0)
 
     # --- editing
-    def test_switching_between_tenant_and_lease_keeps_the_owner_details_and_owner_clears_them(self):
+    def test_switching_to_lease_or_owner_clears_the_owner_details_and_back_to_tenant_asks_again(self):
         cid = self.started(ownership='Tenant', owner_name='Rosa', owner_registration_number='0045')['id']
         r = self.patch(cid, {'ownership': 'Lease'})
         self.assertEqual(r.status_code, 200, r.data)
-        self.assertEqual((r.data['ownership'], r.data['owner_name'], r.data['owner_registration_number']), ('Lease', 'Rosa', '0045'))
+        self.assertEqual((r.data['ownership'], r.data['owner_name'], r.data['owner_registration_number']), ('Lease', '', ''))
+        self.assertEqual(self.detail(cid)['owner_name'], '')
         r = self.patch(cid, {'ownership': 'Owner'})
         self.assertEqual((r.data['ownership'], r.data['owner_name'], r.data['owner_registration_number']), ('Owner', '', ''))
-        self.assertEqual(self.detail(cid)['owner_name'], '')
         r = self.patch(cid, {'ownership': 'Tenant'})
         self.assertEqual(r.status_code, 400)       # the owner details were cleared, so they must be entered again
         self.assertIn('owner_name', r.data)

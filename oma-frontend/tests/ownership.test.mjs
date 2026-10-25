@@ -11,15 +11,17 @@ const eq = (actual, expected, label) => { assert.deepEqual(actual, expected, `${
 
 // the dropdown has exactly three choices, in this order
 eq(OWNERSHIP_OPTIONS, ['Tenant', 'Lease', 'Owner'], 'ownership choices')
-eq([needsOwnerDetails('Tenant'), needsOwnerDetails('Lease'), needsOwnerDetails('Owner'), needsOwnerDetails('')], [true, true, false, false], 'who needs owner details')
+eq([needsOwnerDetails('Tenant'), needsOwnerDetails('Lease'), needsOwnerDetails('Owner'), needsOwnerDetails('')], [true, false, false, false], 'only a tenant needs owner details')
 
 // what a table row or the details show
 eq(ownershipLabel('Tenant'), 'Tenant', 'saved value')
 eq([ownershipLabel(''), ownershipLabel(null), ownershipLabel(undefined), ownershipLabel('Lessee')], Array(4).fill('Not specified'), 'older cycles')
 
-// switching: Owner clears the owner details, Tenant <-> Lease keeps them
+// switching: anything but Tenant clears the owner details
 const tenant = { ownership: 'Tenant', ownerName: 'Rosa', ownerNo: '0045' }
-eq(chooseOwnership(tenant, 'Lease'), { ownership: 'Lease', ownerName: 'Rosa', ownerNo: '0045' }, 'tenant to lease keeps them')
+eq(chooseOwnership(tenant, 'Lease'), { ownership: 'Lease', ownerName: '', ownerNo: '' }, 'lease clears them')
+eq(chooseOwnership(chooseOwnership(tenant, 'Lease'), 'Tenant'), { ownership: 'Tenant', ownerName: '', ownerNo: '' }, 'tenant after lease starts empty')
+eq(chooseOwnership({ ownership: 'Tenant', ownerName: 'Rosa', ownerNo: '' }, 'Tenant'), { ownership: 'Tenant', ownerName: 'Rosa', ownerNo: '' }, 'staying on tenant keeps what was typed')
 eq(chooseOwnership(tenant, 'Owner'), { ownership: 'Owner', ownerName: '', ownerNo: '' }, 'owner clears them')
 eq(chooseOwnership(chooseOwnership(tenant, 'Owner'), 'Tenant'), { ownership: 'Tenant', ownerName: '', ownerNo: '' }, 'they stay cleared')
 
@@ -27,12 +29,14 @@ eq(chooseOwnership(chooseOwnership(tenant, 'Owner'), 'Tenant'), { ownership: 'Te
 eq(ownershipProblem(EMPTY_OWNERSHIP), 'Choose the ownership.', 'nothing chosen')
 eq(ownershipProblem({ ownership: 'Owner', ownerName: '', ownerNo: '' }), '', 'owner is complete')
 eq(ownershipProblem({ ownership: 'Tenant', ownerName: '  ', ownerNo: '12' }), "Enter the owner's name.", 'blank name')
-eq(ownershipProblem({ ownership: 'Lease', ownerName: 'Rosa', ownerNo: '' }), "Enter the owner's RSBSA / FishR number.", 'no number')
+eq(ownershipProblem({ ownership: 'Tenant', ownerName: 'Rosa', ownerNo: '' }), "Enter the owner's RSBSA / FishR number.", 'no number')
+eq(ownershipProblem({ ownership: 'Lease', ownerName: '', ownerNo: '' }), '', 'lease is complete without owner details')
 eq(ownershipProblem(tenant), '', 'tenant is complete')
 
 // what is sent: the number stays text, Owner sends blanks
 eq(ownershipPayload({ ownership: 'Tenant', ownerName: ' Rosa ', ownerNo: ' 0012-0345 ' }), { ownership: 'Tenant', owner_name: 'Rosa', owner_registration_number: '0012-0345' }, 'leading zeros kept')
 eq(ownershipPayload({ ownership: 'Owner', ownerName: 'old', ownerNo: 'old' }), { ownership: 'Owner', owner_name: '', owner_registration_number: '' }, 'owner clears what was saved')
+eq(ownershipPayload({ ownership: 'Lease', ownerName: 'old', ownerNo: 'old' }), { ownership: 'Lease', owner_name: '', owner_registration_number: '' }, 'lease sends no stale owner details')
 eq(ownershipPayload(EMPTY_OWNERSHIP), {}, 'nothing chosen sends nothing')
 
 // an edit loads the saved values and only sends them when they changed
@@ -45,6 +49,8 @@ eq([ownershipChanged(tenant, saved), ownershipChanged({ ...tenant, ownerNo: '004
 eq(ownershipRows({ ownership: 'Owner', owner_name: 'x' }), [['Ownership', 'Owner']], 'owner shows only the ownership')
 eq(ownershipRows(saved), [['Ownership', 'Tenant'], ['Owner Name', 'Rosa'], ['RSBSA / FishR No. of Owner', '0045']], 'tenant shows the owner')
 eq(ownershipRows({}), [['Ownership', 'Not specified']], 'an older cycle')
+eq(ownershipRows({ ownership: 'Lease' }), [['Ownership', 'Lease']], 'lease shows only the ownership')
+eq(ownershipRows({ ownership: 'Lease', owner_name: 'Rosa', owner_registration_number: '' }), [['Ownership', 'Lease'], ['Owner Name', 'Rosa'], ['RSBSA / FishR No. of Owner', '—']], 'an older lease cycle still shows its saved owner')
 
 // PCIC: the blue name is for Admin and Focal Person, and only for the row's own insured cycle
 eq([canSeePcicHighlight('ADMIN'), canSeePcicHighlight('EVALUATOR'), canSeePcicHighlight('CITIZEN')], [true, true, false], 'who sees it')

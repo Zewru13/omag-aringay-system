@@ -1,15 +1,15 @@
 // Ownership of an aquaculture production cycle (Start Production Cycle, Cycle Info, the Aquaculture Monitoring table).
 // Pure rules, no screen and no network, so they can be tested on their own.
 //
-//   Tenant / Lease  -> the owner's name and RSBSA / FishR number are required
-//   Owner           -> nothing more; any owner details are cleared
+//   Tenant          -> the owner's name and RSBSA / FishR number are required
+//   Lease / Owner   -> nothing more; any owner details are cleared
 // The registration number is kept as text (leading zeros matter).
 
 export const OWNERSHIP_OPTIONS = ['Tenant', 'Lease', 'Owner']
 export const OWNERSHIP_NOT_SPECIFIED = 'Not specified'
 export const EMPTY_OWNERSHIP = { ownership: '', ownerName: '', ownerNo: '' }
 
-export const needsOwnerDetails = (ownership) => ownership === 'Tenant' || ownership === 'Lease'
+export const needsOwnerDetails = (ownership) => ownership === 'Tenant'
 
 // What a cycle (or a table row carrying its cycle's ownership) shows: the saved value, else a fallback for older cycles.
 export const ownershipLabel = (value) => (OWNERSHIP_OPTIONS.includes(value) ? value : OWNERSHIP_NOT_SPECIFIED)
@@ -24,9 +24,9 @@ export function ownershipFrom(cycle) {
   }
 }
 
-// Picking another ownership: Owner clears the owner details so outdated ones can never be saved; Tenant <-> Lease keeps them.
+// Picking another ownership: anything but Tenant clears the owner details so outdated ones can never be saved.
 export function chooseOwnership(state, next) {
-  return next === 'Owner' || !next ? { ownership: next || '', ownerName: '', ownerNo: '' } : { ...state, ownership: next }
+  return needsOwnerDetails(next) ? { ...state, ownership: next } : { ownership: next || '', ownerName: '', ownerNo: '' }
 }
 
 // Why the form cannot be saved yet ('' when it can).
@@ -52,10 +52,12 @@ export function ownershipChanged(state, cycle) {
   return state.ownership !== saved.ownership || state.ownerName.trim() !== saved.ownerName.trim() || state.ownerNo.trim() !== saved.ownerNo.trim()
 }
 
-// Cycle Details rows: Owner shows only the ownership; Tenant and Lease also show the owner and the registration number.
+// Cycle Details rows: Tenant also shows the owner and the registration number. Owner shows only the ownership; so does Lease, unless
+// an older Lease cycle still carries owner details (they are shown, not hidden, until the cycle is next saved).
 export function ownershipRows(cycle) {
   const rows = [['Ownership', ownershipLabel(cycle?.ownership)]]
-  if (needsOwnerDetails(cycle?.ownership)) {
+  const olderLease = cycle?.ownership === 'Lease' && Boolean(cycle.owner_name || cycle.owner_registration_number)
+  if (needsOwnerDetails(cycle?.ownership) || olderLease) {
     rows.push(['Owner Name', cycle.owner_name || '—'], ['RSBSA / FishR No. of Owner', cycle.owner_registration_number || '—'])
   }
   return rows

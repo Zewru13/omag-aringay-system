@@ -93,7 +93,7 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
   })
 
   // Pond Location / Water Source options come from the backend's own lists (the same values it validates).
-  // Fingerling sources come from Fisheries Settings > Fingerling Sources; choosing one is optional.
+  // Fingerling sources come from Fisheries Settings > Fingerling Sources; choosing one is required.
   const [sourceOptions, setSourceOptions] = useState([])
   useEffect(() => {
     api.get('/fisheries/fingerling-sources/')
@@ -274,6 +274,7 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
     }
     const unitError = validateUnits()
     if (unitError) { showToast(unitError, 'error'); return }
+    if (!form.fingerling_source) { showToast('Select a fingerling source.', 'error'); return }
     const ownerProblem = ownershipProblem(owner)
     if (ownerProblem) { showToast(ownerProblem, 'error'); return }
     const pcicProblem = pcicError(pcic)
@@ -297,7 +298,7 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
         ...(form.pond_location_barangay === 'Other' ? { pond_location_other_specify: form.pond_location_other_specify.trim() } : {}),
         water_source: form.water_source,
         ...(form.water_source === 'Other' ? { water_source_other_specify: form.water_source_other_specify.trim() } : {}),
-        ...(form.fingerling_source ? { fingerling_source: form.fingerling_source } : {}),
+        fingerling_source: form.fingerling_source,
         ...(unitLabel
           // Area and totals are derived server-side from length x width and the actual counts.
           ? { units: shownUnits.map(u => ({ length_m: parseFloat(u.length_m), width_m: parseFloat(u.width_m), fingerling_count: parseInt(u.actual) })) }
@@ -470,9 +471,9 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
               />
             )}
           </FormField>
-          <FormField label="Fingerling Source">
-            <select className={baseInputClasses} value={form.fingerling_source} onChange={e => set('fingerling_source', e.target.value)}>
-              <option value="">Select Fingerling Source</option>
+          <FormField label="Fingerling Source" required>
+            <select className={baseInputClasses} required value={form.fingerling_source} onChange={e => set('fingerling_source', e.target.value)}>
+              <option value="" disabled>Select Fingerling Source</option>
               {sourceOptions.map(o => <option key={o} value={o}>{o}</option>)}
             </select>
           </FormField>

@@ -95,11 +95,16 @@ class CycleFingerlingSourceTests(ProductionCycleBase):
         self.assertIn('fingerling_source', r.data)
         self.assertEqual(AquacultureProductionCycle.objects.count(), 0)
 
-    def test_the_source_is_optional(self):
-        r = self.post()
-        self.assertEqual(r.status_code, 201, r.data)
-        self.assertEqual(r.data['fingerling_source'], '')
-        self.assertEqual(self.post(fingerling_source='').status_code, 201)
+    def test_the_source_is_required_when_a_cycle_is_started(self):
+        payload = self.payload()
+        payload.pop('fingerling_source')
+        for body in (payload, self.payload(fingerling_source=''), self.payload(fingerling_source='   '), self.payload(fingerling_source=None)):
+            r = self.client.post(self.CYCLES, body, format='json')
+            self.assertEqual(r.status_code, 400, body.get('fingerling_source'))
+            self.assertIn('fingerling_source', r.data)
+        self.assertEqual(AquacultureProductionCycle.objects.count(), 0)
+        self.assertEqual(StockingRecord.objects.count(), 0)
+        self.assertEqual(self.post(fingerling_source='BFAR').status_code, 201)
 
     def test_editing_the_cycle_does_not_change_the_source(self):
         cid = self.post(fingerling_source='BFAR').data['id']
