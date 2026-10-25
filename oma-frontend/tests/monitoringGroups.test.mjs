@@ -16,6 +16,9 @@ eq(DISPLAY_STATUSES, ['Due Harvest', 'Ready for Harvest', 'Overdue'], 'display s
 const base = { statusFilter: 'Planted,Near Harvest', season: '', year: '', barangay: '', cropType: '', search: '' }
 eq(monitoringParams(base), { status: 'Planted,Near Harvest' }, 'default filters')
 eq(monitoringParams({ ...base, statusFilter: 'all' }), {}, 'all statuses sends no status')
+eq(monitoringParams({ ...base, pcic: 'insured' }), { status: 'Planted,Near Harvest', pcic: 'insured' }, 'the PCIC filter is sent')
+eq(monitoringParams({ ...base, pcic: 'not_insured' }).pcic, 'not_insured', 'not insured')
+eq(monitoringParams({ ...base, pcic: '' }), { status: 'Planted,Near Harvest' }, 'all PCIC sends nothing')
 eq(monitoringParams({ ...base, statusFilter: 'Harvested', season: 'Wet', year: '2026', barangay: 'Alaska', cropType: '3', search: 'ana' }),
   { status: 'Harvested', season: 'Wet', year: '2026', barangay: 'Alaska', crop_type: '3', search: 'ana' }, 'every filter')
 for (const label of DISPLAY_STATUSES) {

@@ -805,6 +805,11 @@ def _filter_monitoring_queryset(qs, request):
         qs = qs.filter(farm_location_barangay__iexact=params['barangay'])
     if params.get('crop_type'):
         qs = qs.filter(crop_type_id=params['crop_type'])
+    # PCIC insurance: ?pcic=insured keeps the crops that have it, ?pcic=not_insured the ones that do not (anything else: all).
+    if params.get('pcic') == 'insured':
+        qs = qs.filter(has_pcic_insurance=True)
+    elif params.get('pcic') == 'not_insured':
+        qs = qs.filter(has_pcic_insurance=False)
     raw_status = params.get('status', '')
     if raw_status:
         statuses = [s.strip() for s in raw_status.split(',') if s.strip()]

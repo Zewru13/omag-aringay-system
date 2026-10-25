@@ -18,6 +18,7 @@ import PageLayout from '../../components/Layout/PageLayout.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import PcicCheck from '../../components/UI/PcicCheck.jsx'
+import { PCIC_FILTER_OPTIONS } from '../../utils/pcic.js'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import ForcedHarvestPill from './ForcedHarvestPill.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
@@ -2074,6 +2075,7 @@ export default function CropMonitoringPage() {
   const [barangayFilter,   setBarangayFilter]   = useState(() => searchParams.get('barangay') || '')
   // Crop name: one of the active crop types (the same list Forecasting filters by).
   const [cropFilter,       setCropFilter]       = useState('')
+  const [pcicFilter,       setPcicFilter]       = useState('')
   const [cropTypes,        setCropTypes]        = useState([])
   useEffect(() => {
     api.get('/production/crop-types/', { params: { is_active: 'true' } })
@@ -2116,7 +2118,7 @@ export default function CropMonitoringPage() {
     const seq = ++requestSeq.current
     setIsLoading(true); setError('')
     try {
-      const params = { ...monitoringParams({ statusFilter, season: seasonFilter, year: yearFilter, barangay: barangayFilter, cropType: cropFilter, search: debouncedSearch }), page: pageNum }
+      const params = { ...monitoringParams({ statusFilter, season: seasonFilter, year: yearFilter, barangay: barangayFilter, cropType: cropFilter, pcic: pcicFilter, search: debouncedSearch }), page: pageNum }
       const r = await api.get('/production/monitoring/', { params })
       if (seq !== requestSeq.current) return
       setRecords(Array.isArray(r.data) ? r.data : (r.data.results || []))
@@ -2124,9 +2126,9 @@ export default function CropMonitoringPage() {
     } catch {
       if (seq === requestSeq.current) setError('Failed to load crop monitoring records.')
     } finally { if (seq === requestSeq.current) setIsLoading(false) }
-  }, [statusFilter, seasonFilter, yearFilter, barangayFilter, cropFilter, debouncedSearch])
+  }, [statusFilter, seasonFilter, yearFilter, barangayFilter, cropFilter, pcicFilter, debouncedSearch])
 
-  useEffect(() => { setPage(1) }, [statusFilter, seasonFilter, yearFilter, barangayFilter, cropFilter, debouncedSearch])
+  useEffect(() => { setPage(1) }, [statusFilter, seasonFilter, yearFilter, barangayFilter, cropFilter, pcicFilter, debouncedSearch])
   // The plain list is only fetched when it is the chosen view; grouped views fetch their own groups.
   useEffect(() => { if (groupBy === 'none') fetchRecords(page) }, [fetchRecords, page, groupBy])
   const refreshAll = useCallback(() => { setVersion(v => v + 1); if (groupBy === 'none') fetchRecords(page) }, [groupBy, fetchRecords, page])
@@ -2264,7 +2266,7 @@ export default function CropMonitoringPage() {
           search={search}
           onSearchChange={setSearch}
           searchPlaceholder={isFarmer ? 'Search by crop or barangay...' : 'Search by farmer, RSBSA, crop, or organization...'}
-          activeCount={[statusFilter !== DEFAULT_STATUS, Boolean(seasonFilter), Boolean(yearFilter), Boolean(barangayFilter), Boolean(cropFilter), !isFarmer && groupBy !== DEFAULT_GROUP].filter(Boolean).length}
+          activeCount={[statusFilter !== DEFAULT_STATUS, Boolean(seasonFilter), Boolean(yearFilter), Boolean(barangayFilter), Boolean(cropFilter), Boolean(pcicFilter), !isFarmer && groupBy !== DEFAULT_GROUP].filter(Boolean).length}
         >
           {/* A farmer account always sees its own farm parcels, so it has no grouping choice. */}
           {!isFarmer && (
@@ -2285,6 +2287,9 @@ export default function CropMonitoringPage() {
             <option value="Overdue">Overdue</option>
             <option value="Harvested">Harvested</option>
             <option value="Total Loss">Total Loss</option>
+          </select>
+          <select className={filterSelectCls} value={pcicFilter} onChange={e => setPcicFilter(e.target.value)} aria-label="PCIC insured">
+            {PCIC_FILTER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
           <select className={filterSelectCls} value={seasonFilter} onChange={e => setSeasonFilter(e.target.value)}>
             <option value="">All Seasons</option>
@@ -2308,9 +2313,9 @@ export default function CropMonitoringPage() {
 
         {groupBy !== 'none' ? (
           <GroupedMonitoringTable
-            key={`${groupBy}|${JSON.stringify(monitoringParams({ statusFilter, season: seasonFilter, year: yearFilter, barangay: barangayFilter, cropType: cropFilter, search: debouncedSearch }))}`}
+            key={`${groupBy}|${JSON.stringify(monitoringParams({ statusFilter, season: seasonFilter, year: yearFilter, barangay: barangayFilter, cropType: cropFilter, pcic: pcicFilter, search: debouncedSearch }))}`}
             groupBy={groupBy}
-            params={monitoringParams({ statusFilter, season: seasonFilter, year: yearFilter, barangay: barangayFilter, cropType: cropFilter, search: debouncedSearch })}
+            params={monitoringParams({ statusFilter, season: seasonFilter, year: yearFilter, barangay: barangayFilter, cropType: cropFilter, pcic: pcicFilter, search: debouncedSearch })}
             version={version}
             columns={groupedColumns}
             buildRow={buildRow}

@@ -33,20 +33,27 @@ ORDERINGS = {
 GROUPS = ('farmer', 'barangay', 'ownership')
 
 
-def _crop_count():
+PCIC_FILTERS = {'insured': True, 'not_insured': False}
+
+
+def _crop_count(pcic=''):
     """How many crop records sit on the parcel. Total Loss records are left out of the crop list under a parcel (as on Crop Monitoring),
-    so out of the count. A subquery, so summing it over a group never multiplies the parcel's area."""
+    so out of the count; with ?pcic=insured / not_insured only the crops with / without PCIC insurance are counted, so the count is what
+    the opened parcel lists. A subquery, so summing it over a group never multiplies the parcel's area."""
     from production.models import CropMonitoringRecord
-    records = (
-        CropMonitoringRecord.objects.filter(farm_parcel=OuterRef('pk')).exclude(status='Total Loss')
-        .order_by().values('farm_parcel').annotate(total=Count('pk')).values('total')
-    )
+    crops = CropMonitoringRecord.objects.filter(farm_parcel=OuterRef('pk')).exclude(status='Total Loss')
+    if pcic in PCIC_FILTERS:
+        crops = crops.filter(has_pcic_insurance=PCIC_FILTERS[pcic])
+    records = crops.order_by().values('farm_parcel').annotate(total=Count('pk')).values('total')
     return Coalesce(Subquery(records, output_field=IntegerField()), Value(0))
 
 
 def directory_filters(params):
     """The parcels that match the page's filters, with their crop_count (not ordered)."""
-    qs = FarmParcel.objects.select_related('farmer').annotate(crop_count=_crop_count())
+    pcic = params.get('pcic') or ''
+    qs = FarmParcel.objects.select_related('farmer').annotate(crop_count=_crop_count(pcic))
+    if pcic in PCIC_FILTERS:
+        qs = qs.filter(crop_count__gt=0)      # only the parcels that have such a crop
     if params.get('farmer'):
         qs = qs.filter(farmer_id=params['farmer'])
     if params.get('barangay'):

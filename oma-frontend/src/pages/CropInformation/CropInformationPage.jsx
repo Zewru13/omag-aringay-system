@@ -41,7 +41,7 @@ import StatusPill from "../../components/UI/StatusPill.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import PcicInsuranceField from "../../components/UI/PcicInsuranceField.jsx";
 import PcicBadge from "../../components/UI/PcicBadge.jsx";
-import { pcicError, pcicPayload, pcicStateFrom, uploadPcicForm } from "../../utils/pcic.js";
+import { PCIC_FILTER_OPTIONS, pcicError, pcicPayload, pcicStateFrom, uploadPcicForm } from "../../utils/pcic.js";
 import { ARINGAY_BARANGAYS } from "../../constants/barangays.js";
 import GroupedParcelsTable from "./GroupedParcelsTable.jsx";
 import { CROP_OWNERSHIP_OPTIONS, PLANTING_MATERIALS, chooseCropOwnership, cropOwnershipCell, needsLandOwner, quantityPayload } from "./cropEntry.js";
@@ -1061,17 +1061,17 @@ function CropRowActionsMenu({ rec, handlers }) {
 
 // `params` are the extra filters for the crop list; the parcel itself is `farm_parcel`. A crop edited elsewhere on the page
 // bumps `version`, which loads the list again.
-function useParcelCrops(parcelId, search, barangay, version) {
+function useParcelCrops(parcelId, search, barangay, pcic, version) {
   const [state, setState] = useState({ key: "", items: [], count: 0, page: 0, failed: false });
   const [loadingMore, setLoadingMore] = useState(false);
-  const key = JSON.stringify([parcelId, search, barangay, version]);
+  const key = JSON.stringify([parcelId, search, barangay, pcic, version]);
 
   const request = useCallback(
     (page) => {
-      const params = parcelId === "none" ? noParcelParams({ search, barangay }) : { farm_parcel: parcelId };
+      const params = parcelId === "none" ? noParcelParams({ search, barangay, pcic }) : { farm_parcel: parcelId, ...(pcic ? { pcic } : {}) };
       return api.get("/production/monitoring/", { params: { ...params, page } });
     },
-    [parcelId, search, barangay],
+    [parcelId, search, barangay, pcic],
   );
 
   useEffect(() => {
@@ -1126,8 +1126,8 @@ function cropCells(rec) {
   };
 }
 
-function ParcelCrops({ parcelId, search, barangay, version, isPhone, handlers, emptyText }) {
-  const { items, count, isLoading, failed, loadingMore, loadMore } = useParcelCrops(parcelId, search, barangay, version);
+function ParcelCrops({ parcelId, search, barangay, pcic = "", version, isPhone, handlers, emptyText }) {
+  const { items, count, isLoading, failed, loadingMore, loadMore } = useParcelCrops(parcelId, search, barangay, pcic, version);
 
   if (isLoading) return <p className="px-4 py-4 text-[13px] italic text-[#7A8E7A]">Loading crop records…</p>;
   if (failed) return <p className="px-4 py-4 text-[13px] text-rose-700">Failed to load the crop records for this parcel.</p>;
@@ -1329,22 +1329,22 @@ const PARCEL_COLUMNS = ["Parcel", "Farmer", "Barangay", "Area (ha)", "Ownership"
 
 // ─── The crops with no parcel on file (older records and organization crops) ─────────────────────────────────────────
 
-function NoParcelGroup({ search, barangay, version, isPhone, handlers }) {
+function NoParcelGroup({ search, barangay, pcic = "", version, isPhone, handlers }) {
   const [open, setOpen] = useState(false);
   // Only the count is needed until it is opened; the list loads itself then.
   const [count, setCount] = useState({ key: "", value: 0 });
-  const key = JSON.stringify([search, barangay, version]);
+  const key = JSON.stringify([search, barangay, pcic, version]);
 
   useEffect(() => {
     let alive = true;
     api
-      .get("/production/monitoring/", { params: { ...noParcelParams({ search, barangay }), page: 1 } })
+      .get("/production/monitoring/", { params: { ...noParcelParams({ search, barangay, pcic }), page: 1 } })
       .then((r) => alive && setCount({ key, value: typeof r.data?.count === "number" ? r.data.count : (r.data?.length ?? 0) }))
       .catch(() => alive && setCount({ key, value: 0 }));
     return () => {
       alive = false;
     };
-  }, [key, search, barangay]);
+  }, [key, search, barangay, pcic]);
 
   if (count.key !== key || count.value === 0) return null;
 
@@ -1364,7 +1364,7 @@ function NoParcelGroup({ search, barangay, version, isPhone, handlers }) {
       </button>
       {open && (
         <div className="border-t border-[#F0F4F0] bg-[#F9FAF9]">
-          <ParcelCrops parcelId="none" search={search} barangay={barangay} version={version} isPhone={isPhone} handlers={handlers} emptyText="No crop records." />
+          <ParcelCrops parcelId="none" search={search} barangay={barangay} pcic={pcic} version={version} isPhone={isPhone} handlers={handlers} emptyText="No crop records." />
         </div>
       )}
     </section>
@@ -1378,6 +1378,7 @@ export default function CropInformationPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [barangay, setBarangay] = useState("");
+  const [pcic, setPcic] = useState("");
   const [groupBy, setGroupBy] = useState(DEFAULT_GROUP);
   const [ordering, setOrdering] = useState(DEFAULT_SORT);
   const [page, setPage] = useState(1);
@@ -1397,7 +1398,7 @@ export default function CropInformationPage() {
   // replace the one for what is typed now (the answer is stored with the request it belongs to).
   const debouncedSearch = useDebouncedValue(search.trim());
   const grouped = groupBy !== DEFAULT_GROUP;
-  const requestKey = JSON.stringify([debouncedSearch, barangay, ordering, page, version]);
+  const requestKey = JSON.stringify([debouncedSearch, barangay, pcic, ordering, page, version]);
   const [result, setResult] = useState({ key: "", rows: [], count: 0, failed: false });
 
   useEffect(() => {
@@ -1405,7 +1406,7 @@ export default function CropInformationPage() {
     if (grouped) return undefined;
     let alive = true;
     api
-      .get("/farmers/parcels/directory/", { params: directoryParams({ search: debouncedSearch, barangay, ordering, page }) })
+      .get("/farmers/parcels/directory/", { params: directoryParams({ search: debouncedSearch, barangay, pcic, ordering, page }) })
       .then((r) => {
         if (!alive) return;
         const rows = Array.isArray(r.data) ? r.data : r.data.results || [];
@@ -1415,7 +1416,7 @@ export default function CropInformationPage() {
     return () => {
       alive = false;
     };
-  }, [requestKey, debouncedSearch, barangay, ordering, page, grouped]);
+  }, [requestKey, debouncedSearch, barangay, pcic, ordering, page, grouped]);
 
   const isLoading = result.key !== requestKey;
   const refresh = () => setVersion((v) => v + 1);
@@ -1434,10 +1435,11 @@ export default function CropInformationPage() {
     setPage(1);
   };
 
-  const groupFilters = groupFilterParams({ search: debouncedSearch, barangay, ordering });
-  const cropProps = { search: debouncedSearch, barangay, version, handlers };
-  // Parcel crop lists are not filtered by the typed search (the search chose the parcels); only the no-parcel group is.
-  const parcelCropProps = { search: "", barangay: "", version, handlers };
+  const groupFilters = groupFilterParams({ search: debouncedSearch, barangay, pcic, ordering });
+  const cropProps = { search: debouncedSearch, barangay, pcic, version, handlers };
+  // Parcel crop lists are not filtered by the typed search (the search chose the parcels), but they are by PCIC insurance, like the parcels
+  // and counts; only the no-parcel group is also filtered by the search.
+  const parcelCropProps = { search: "", barangay: "", pcic, version, handlers };
 
   // The parcels as cards on a phone and as a table otherwise: the plain list and every opened group use this.
   const renderParcels = (rows) =>
@@ -1489,7 +1491,7 @@ export default function CropInformationPage() {
           search={search}
           onSearchChange={changeFilter(setSearch)}
           searchPlaceholder="Search by farmer, RSBSA, or parcel number..."
-          activeCount={[Boolean(barangay), grouped, ordering !== DEFAULT_SORT].filter(Boolean).length}
+          activeCount={[Boolean(barangay), Boolean(pcic), grouped, ordering !== DEFAULT_SORT].filter(Boolean).length}
           actions={
             <>
               <Button variant="outline" icon={Upload} onClick={() => setIsImporting(true)}>
@@ -1504,6 +1506,13 @@ export default function CropInformationPage() {
             {ARINGAY_BARANGAYS.map((b) => (
               <option key={b} value={b}>
                 {b}
+              </option>
+            ))}
+          </select>
+          <select className={filterSelectCls} value={pcic} onChange={(e) => changeFilter(setPcic)(e.target.value)} aria-label="PCIC insured">
+            {PCIC_FILTER_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
               </option>
             ))}
           </select>

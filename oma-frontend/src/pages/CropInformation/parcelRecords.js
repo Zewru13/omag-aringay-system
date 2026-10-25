@@ -29,10 +29,11 @@ export const DEFAULT_GROUP = 'none'
 export const DEFAULT_SORT = 'name'
 
 // The parcel list's request: only what is typed or chosen is sent.
-export function directoryParams({ search, barangay, ordering, page } = {}) {
+export function directoryParams({ search, barangay, pcic, ordering, page } = {}) {
   const params = { page: page || 1 }
   if (typed(search)) params.search = typed(search)
   if (barangay) params.barangay = barangay
+  if (pcic) params.pcic = pcic
   if (ordering && ordering !== DEFAULT_SORT) params.ordering = ordering
   return params
 }
@@ -65,10 +66,11 @@ export function groupSummary(group) {
 export const groupHeading = (groupBy, group) => (groupBy === 'farmer' && group.barangay ? `${group.name} · ${group.barangay}` : group.name)
 
 // The crops with no parcel on file (older records, organization crops). A parcel filter does not apply to them.
-export function noParcelParams({ search, barangay } = {}) {
+export function noParcelParams({ search, barangay, pcic } = {}) {
   const params = { farm_parcel: 'none' }
   if (typed(search)) params.search = typed(search)
   if (barangay) params.barangay = barangay
+  if (pcic) params.pcic = pcic
   return params
 }
 
