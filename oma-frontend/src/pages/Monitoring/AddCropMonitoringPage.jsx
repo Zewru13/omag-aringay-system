@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { AlertTriangle, ArrowLeft, CheckCircle2, Info, Plus, Trash2 } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronDown, Info, Plus, Trash2 } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { sameCrop } from '../../utils/cropNames.js'
 import { ownerParcelFill, parcelProblem } from '../CropInformation/parcelRecords.js'
@@ -34,7 +34,7 @@ const COL_WIDTH = {
   season: 110,
   variety: 170,
   seedSource: 160,
-  qtySeeds: 130,
+  qtySeeds: 150,
   farmParcel: 170,
   remove: 56,
 }
@@ -125,6 +125,43 @@ function useCropDuplicateCheck(farmerId, rec) {
 }
 
 // ── Crop Record Row (tabular, every field flat — no expand/collapse) ─────────
+
+// Column heading of the quantity column. When a crop in the table can be planted as seed or as trees it gets an expand button: the
+// menu picks which one, and the heading follows (Qty of Seeds (kg) / Qty of Trees).
+function QuantityHeader({ title, canSwitch, choice, onPick }) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef(null)
+  useEffect(() => {
+    if (!open) return undefined
+    const close = (e) => { if (!rootRef.current?.contains(e.target)) setOpen(false) }
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', close)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', close); document.removeEventListener('keydown', onKey) }
+  }, [open])
+  if (!canSwitch) return title
+  return (
+    <div ref={rootRef} className="relative inline-block normal-case">
+      <button type="button" aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen(o => !o)}
+        className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-white hover:bg-white/15 focus-visible:outline-2 focus-visible:outline-white">
+        {title}
+        <ChevronDown size={13} aria-hidden="true" className={`transition-transform motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <ul role="listbox" aria-label="Quantity of seeds or trees" className="absolute left-0 top-full z-30 mt-1 w-40 rounded-lg border border-[#E2E8E2] bg-white py-1 text-[13px] font-normal text-[#1A2B1A] shadow-lg">
+          {PLANTING_MATERIALS.map(m => (
+            <li key={m} role="option" aria-selected={choice === m} tabIndex={0}
+              onClick={() => { onPick(m); setOpen(false) }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPick(m); setOpen(false) } }}
+              className={`cursor-pointer px-3 py-2 hover:bg-[#F5F7F5] ${choice === m ? 'bg-[#EBF5EE] font-semibold text-[#1B4D2E]' : ''}`}>
+              {quantityLabel(m)}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
 
 function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, farmerId, showParcelColumn, farmerParcels, parcelLocked, error, areaError, onUpdate, onRemove }) {
   const set = (field, value) => onUpdate(rec._id, field, value)
@@ -262,7 +299,7 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
         </td>
         <td data-label={quantityLabel(material)} className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.qtySeeds }}>
           {canChoosePlanting(selectedCropType) && (
-            <div className="mb-1.5 inline-flex rounded-md border border-[#C8D5C8] p-0.5" role="group" aria-label="Quantity of seeds or trees">
+            <div className="mb-1.5 inline-flex rounded-md border border-[#C8D5C8] p-0.5 md:hidden" role="group" aria-label="Quantity of seeds or trees">
               {PLANTING_MATERIALS.map(m => (
                 <button key={m} type="button" aria-pressed={material === m} onClick={() => set('planting_material', m)}
                   className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${material === m ? 'bg-[#1B4D2E] text-white' : 'text-[#4A5E4A] hover:bg-[#F0F4F0]'}`}>
@@ -485,6 +522,10 @@ export default function AddCropMonitoringPage() {
   }, [farmerInfo.farmer_id, lockedParcel])
 
   const showParcelColumn = farmerParcels.length > 0
+  const tableMinWidth = Object.entries(COL_WIDTH).reduce(
+    (sum, [key, width]) => sum + (key === 'barangay' && lockedParcel ? 0 : key === 'farmParcel' && !showParcelColumn ? 0 : width),
+    0,
+  )
   const parcelsReady = Boolean(farmerInfo.farmer_id) && parcelsReadyFor === farmerInfo.farmer_id
   const hasNoParcel = parcelsReady && farmerParcels.length === 0
 
@@ -516,6 +557,14 @@ export default function AddCropMonitoringPage() {
   }
 
   const removeRecord = (id) => setRecords(r => r.filter(x => x._id !== id))
+
+  // The quantity heading's menu: every crop that can be planted either way follows the choice.
+  const cropTypeOf = (rec) => cropTypes.find(c => String(c.id) === String(rec.crop_type))
+  const switchableRecords = records.filter(r => canChoosePlanting(cropTypeOf(r)))
+  const switchChoices = new Set(switchableRecords.map(r => materialFor(cropTypeOf(r), r.planting_material)))
+  const switchChoice = switchChoices.size === 1 ? [...switchChoices][0] : ''
+  const pickQuantityMaterial = (material) =>
+    setRecords(rs => rs.map(x => (canChoosePlanting(cropTypeOf(x)) ? { ...x, planting_material: material } : x)))
 
   const updateRecord = (id, field, value) => {
     setRecords(r => r.map(x => x._id === id ? { ...x, [field]: value } : x))
@@ -714,7 +763,9 @@ export default function AddCropMonitoringPage() {
 
         {/* Crop records — a horizontal table, every field visible (no expand toggle); on a phone each record is a stacked card */}
         <div className="overflow-x-auto rounded-xl border border-[#E2E8E2] bg-white max-md:overflow-visible max-md:border-0 max-md:bg-transparent">
-          <table className="table-fixed text-sm max-md:block max-md:w-full">
+          {/* min-width = the declared column widths: on a narrow screen the table scrolls sideways instead of squeezing every column
+              (a squeezed Crop Ownership column cut the owner's name off) */}
+          <table className="table-fixed text-sm md:min-w-(--table-min) max-md:block max-md:w-full" style={{ '--table-min': `${tableMinWidth}px` }}>
             <thead className="bg-[#1B4D2E] text-white max-md:hidden">
               <tr>
                 <th className={`${bulkThCenterClasses} overflow-hidden`} style={{ width: COL_WIDTH.index }}>#</th>
@@ -726,7 +777,12 @@ export default function AddCropMonitoringPage() {
                 <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.season }}>Season<OptBadge /></th>
                 <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.variety }}>Variety <span className="text-white/70">*</span></th>
                 <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.seedSource }}>Seed Source<OptBadge /></th>
-                <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.qtySeeds }}>{quantityHeader(records.map(r => ({ planting_material: materialFor(cropTypes.find(c => String(c.id) === String(r.crop_type)), r.planting_material) })))}<OptBadge /></th>
+                <th className={bulkThClasses} style={{ width: COL_WIDTH.qtySeeds }}>
+                  <QuantityHeader
+                    title={quantityHeader(records.map(r => ({ planting_material: materialFor(cropTypeOf(r), r.planting_material) })))}
+                    canSwitch={switchableRecords.length > 0} choice={switchChoice} onPick={pickQuantityMaterial} />
+                  <OptBadge />
+                </th>
                 {showParcelColumn && <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.farmParcel }}>Farm Parcel <span className="text-white/70">*</span></th>}
                 <th className={bulkThCenterClasses} style={{ width: COL_WIDTH.remove }}></th>
               </tr>

@@ -14,10 +14,10 @@ import { baseInputClasses } from './FormField.jsx'
 // always did — this component only changes how the two are edited, not
 // what gets submitted.
 //
-// `textValues` (optional): more options that, like "Other", turn the same box into a text field once picked - the person types a name
-// right there (e.g. Tenant / Lessee: the land owner's name). The picked option stays visible as a small tag at the left of the box.
-// `textValue` / `onTextChange` carry the typed text and `textPlaceholder(value)` says what to type. Callers that do not pass them
-// are unchanged.
+// `textValues` (optional): more options that ask for a name once picked (e.g. Tenant / Lessee: the land owner's name). The dropdown stays
+// as it is and a wrapping name box opens right below it in the same control, growing taller as the name gets longer so the whole name
+// is always visible. `textValue` / `onTextChange` carry the typed text and `textPlaceholder(value)` says what to type. Callers that do
+// not pass them are unchanged.
 //
 // otherValue is cleared automatically (onOtherChange('')) the moment the
 // user switches AWAY from "Other" back to a real option — matching what
@@ -81,11 +81,14 @@ function ComboboxWithOther({
   const triggerRef = useRef(null)
   const otherInputRef = useRef(null)
   const listRef = useRef(null)
+  const boxRef = useRef(null)
+  const nameRef = useRef(null)
 
   const allOptions = [...options.map(normalizeOption), { value: OTHER_SENTINEL, label: otherLabel }]
   const isOtherMode = value === OTHER_SENTINEL
   const isTextMode = !isOtherMode && textValues.includes(value)
-  const isTyping = isOtherMode || isTextMode
+  // Only "Other" swaps the dropdown for a text box; a textValues option keeps the dropdown and adds the name box under it.
+  const isTyping = isOtherMode
 
   useEffect(() => {
     function handleOutside(e) {
@@ -112,7 +115,7 @@ function ComboboxWithOther({
     const MAX_LIST_HEIGHT = 208 // matches max-h-52
 
     const reposition = () => {
-      const trigger = rootRef.current
+      const trigger = boxRef.current
       if (!trigger) return
       const rect = trigger.getBoundingClientRect()
       const spaceBelow = window.innerHeight - rect.bottom
@@ -142,6 +145,19 @@ function ComboboxWithOther({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isTyping])
+
+  // The name box opens focused too, and is as tall as the name needs (the name wraps instead of being cut off).
+  useEffect(() => {
+    if (isTextMode && !isOpen) nameRef.current?.focus()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTextMode])
+
+  useLayoutEffect(() => {
+    const el = nameRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight + 2}px`
+  }, [isTextMode, textValue])
 
   useEffect(() => {
     if (isOpen && activeIndex >= 0) {
@@ -229,7 +245,6 @@ function ComboboxWithOther({
     }
   }
 
-  const typedLabel = isTextMode ? (allOptions.find((o) => o.value === value)?.label ?? value) : ''
   const displayLabel = value && !isTyping
     ? (allOptions.find((o) => o.value === value)?.label ?? value)
     : ''
@@ -237,6 +252,7 @@ function ComboboxWithOther({
   return (
     <div ref={rootRef} className={`relative ${className}`}>
       {!isTyping ? (
+        <div ref={boxRef}>
         <button
           ref={triggerRef}
           type="button"
@@ -261,8 +277,9 @@ function ComboboxWithOther({
             aria-hidden="true"
           />
         </button>
+        </div>
       ) : (
-        <div className="relative">
+        <div ref={boxRef} className="relative">
           <input
             ref={otherInputRef}
             type="text"
@@ -274,18 +291,12 @@ function ComboboxWithOther({
             aria-invalid={error ? true : undefined}
             aria-activedescendant={isOpen && activeIndex >= 0 ? optionId(activeIndex) : undefined}
             disabled={disabled}
-            value={isOtherMode ? otherValue : textValue}
-            placeholder={isOtherMode ? `${otherLabel} — please specify` : (textPlaceholder ? textPlaceholder(value) : '')}
-            onChange={(e) => (isOtherMode ? onOtherChange : onTextChange)?.(e.target.value)}
+            value={otherValue}
+            placeholder={`${otherLabel} — please specify`}
+            onChange={(e) => onOtherChange?.(e.target.value)}
             onKeyDown={handleOtherInputKeyDown}
-            style={isTextMode ? { paddingLeft: `${typedLabel.length * 7 + 22}px` } : undefined}
             className={`${inputClassName} pr-8 disabled:opacity-50 disabled:cursor-not-allowed`}
           />
-          {isTextMode && (
-            <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 rounded bg-[#EBF5EE] px-1.5 py-0.5 text-[10.5px] font-semibold text-[#1B4D2E]">
-              {typedLabel}
-            </span>
-          )}
           <button
             type="button"
             tabIndex={-1}
@@ -301,6 +312,22 @@ function ComboboxWithOther({
             />
           </button>
         </div>
+      )}
+
+      {isTextMode && (
+        <textarea
+          ref={(el) => { nameRef.current = el; otherInputRef.current = el }}
+          rows={1}
+          disabled={disabled}
+          aria-label={textPlaceholder ? textPlaceholder(value) : 'Name'}
+          aria-required={required || undefined}
+          aria-invalid={error ? true : undefined}
+          value={textValue}
+          placeholder={textPlaceholder ? textPlaceholder(value) : ''}
+          onChange={(e) => onTextChange?.(e.target.value.replace(/\n/g, ' '))}
+          onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }}
+          className={`${inputClassName} mt-1.5 block resize-none overflow-hidden py-[9px] leading-[1.35] disabled:opacity-50 disabled:cursor-not-allowed`}
+        />
       )}
 
       {/* Portaled to <body> — see the useLayoutEffect above for why — and
