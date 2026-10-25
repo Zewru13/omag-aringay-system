@@ -2672,6 +2672,52 @@ class CropDisasterLogListView(APIView):
                          'results': [crop_disaster_logs.list_row(r) for r in rows]})
 
 
+def _event_reports(request):
+    """The reports of the disaster event named by ?ids=1,2,3 (the ones Log Disaster just saved), staff only."""
+    from . import crop_disaster_event
+    raw = [p.strip() for p in (request.query_params.get('ids') or '').split(',') if p.strip()]
+    if not raw or not all(is_plain_int(p) for p in raw):
+        raise ValidationError({'ids': 'Send the report numbers of the event, for example ?ids=1,2,3.'})
+    ids = sorted({int(p) for p in raw})
+    if len(ids) > crop_disaster_event.MAX_REPORTS:
+        raise ValidationError({'ids': f'At most {crop_disaster_event.MAX_REPORTS} reports can be on one report.'})
+    reports = list(crop_disaster_event.event_queryset(ids))
+    if len(reports) != len(ids):
+        raise ValidationError({'ids': 'One of the reports could not be found.'})
+    return reports
+
+
+class CropDisasterEventReportView(APIView):
+    """The report of one disaster event logged on several crops (Log Disaster): its details and one row per crop, as JSON."""
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request):
+        from . import crop_disaster_event
+        return Response(crop_disaster_event.document(_event_reports(request), request))
+
+
+class CropDisasterEventReportPdfView(APIView):
+    """The same report as a real PDF (read-only)."""
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request):
+        import logging
+        from django.http import HttpResponse
+        from . import crop_disaster_event
+        reports = _event_reports(request)
+        doc = crop_disaster_event.document(reports, request)
+        try:
+            pdf_bytes = crop_disaster_event.build_pdf(reports, doc)
+        except Exception:
+            logging.getLogger(__name__).exception('Crop disaster event PDF failed for %s', doc['reference'])
+            return Response({'detail': 'The PDF could not be generated. The disaster reports were not changed - please try again.'},
+                            status=drf_status.HTTP_500_INTERNAL_SERVER_ERROR)
+        response = HttpResponse(pdf_bytes, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{doc["pdf_filename"]}"'
+        response['Cache-Control'] = 'no-store'
+        return response
+
+
 class CropDisasterLogDocumentView(APIView):
     permission_classes = [IsAuthenticated, IsStaffOrFarmer]
 
