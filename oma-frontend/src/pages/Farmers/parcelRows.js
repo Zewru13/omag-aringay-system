@@ -1,8 +1,11 @@
-// The Add Farm Parcels page: several parcels for one farmer, one table row each, with the crops and machinery of each parcel in
-// small tables under it. Pure rules for it (the blank rows, what is wrong with a row, what is sent to the server, how the
-// server's answer maps back onto the rows), with no screen and no network, so they can be tested on their own.
+// The Add Farm Parcels page: several parcels for one farmer, one table row each, with the crops and machinery of each parcel under
+// it. The crops of a parcel are crop records - the same rows, fields and rules as the Add Crop Records page (see
+// Monitoring/cropRecordForm.js), recorded on the parcel when it is saved. Pure rules for the page (the blank rows, what is wrong
+// with a row, what is sent to the server, how the server's answer maps back onto the rows), with no screen and no network, so
+// they can be tested on their own.
 import { isValidIdNumber } from '../../utils/idNumbers.js'
 import { EMPTY_PCIC, pcicError, pcicPayload } from '../../utils/pcic.js'
+import { buildCropRecordPayload, cropRecordProblem } from '../Monitoring/cropRecordForm.js'
 
 export const TAX_DECLARATION_RE = /^\d{2}-\d{3}-\d{5}-\d{4}-\d{4}$/
 export const RSBSA_FORMAT_ERROR = 'Invalid RSBSA number. Type the digits only (up to 20); the dashes are added as you type.'
@@ -57,7 +60,7 @@ export const makeParcelRow = (id) => ({
   _id: id,
   parcel_number: '',
   area_hectares: '',
-  land_ownership: 'Owner',
+  land_ownership: '',            // chosen, not assumed: it is required
   land_owner_name: '',
   land_owner_rsbsa_number: '',
   tax_declaration_number: '',
@@ -65,7 +68,8 @@ export const makeParcelRow = (id) => ({
   farm_type: '',
   cropping_schedule: '',
   classifications: [],
-  crops: [],
+  crop_records: [],               // the crops grown on the parcel: Add Crop rows (see Monitoring/cropRecordForm.js)
+  crops: [],                      // declared crops of the older form (still read when a parcel is edited or imported)
   machinery: [],
 })
 
@@ -185,6 +189,30 @@ export function rowProblem(row) {
   return ''
 }
 
+// ── what the Add Farm Parcels form needs from a parcel row: the number, ownership, farm type and cropping schedule are required, and
+// each crop is checked by the Add Crop rules (against this parcel's area). Edit Parcel keeps using rowProblem.
+const stripStop = (text) => text.replace(/\.$/, '')
+
+export function cropRecordsProblem(row) {
+  const records = (row.crop_records || []).map((r) => ({ ...r, farm_parcel: String(row._id) }))
+  const parcels = [{ id: row._id, area_hectares: row.area_hectares, growing_area_ha: 0 }]
+  for (let i = 0; i < records.length; i += 1) {
+    const problem = cropRecordProblem(records, i, parcels, { needsBarangay: false })
+    if (problem) return `crop ${i + 1}: ${stripStop(problem)}`
+  }
+  return ''
+}
+
+export function addRowProblem(row) {
+  if (!positive(row.area_hectares)) return 'enter the area (ha)'
+  if (!row.barangay) return 'choose the barangay'
+  if (!(row.parcel_number || '').trim()) return 'enter the parcel number'
+  if (!row.land_ownership) return 'choose the land ownership'
+  if (!row.farm_type) return 'choose the farm type'
+  if (!row.cropping_schedule) return 'choose the cropping schedule'
+  return rowProblem({ ...row, crops: [] }) || cropRecordsProblem(row)
+}
+
 // The same parcel number twice in one form (the server also refuses one the farmer already has).
 export function duplicateNumberProblems(rows) {
   const seen = new Map()
@@ -203,7 +231,7 @@ export function validateRows(rows) {
   const duplicates = duplicateNumberProblems(rows)
   const problems = {}
   rows.forEach((row, i) => {
-    const problem = rowProblem(row) || duplicates[row._id] || ''
+    const problem = addRowProblem(row) || duplicates[row._id] || ''
     if (problem) problems[row._id] = `Parcel ${i + 1}: ${problem}.`
   })
   return problems
@@ -234,7 +262,8 @@ export const machineryPayload = (m) => ({
   ownership: m.ownership,
 })
 
-export function parcelPayload(row) {
+// `context` is { farmerInfo, cropTypes }: what a crop record needs to be sent (its farmer and organization, the crop catalog).
+export function parcelPayload(row, context) {
   return {
     parcel_number: row.parcel_number,
     area_hectares: Number(row.area_hectares),
@@ -245,23 +274,23 @@ export function parcelPayload(row) {
     barangay: row.barangay,
     farm_type: row.farm_type,
     classifications: row.classifications || [],
-    // A perennial (tree) main crop has no cropping schedule.
-    cropping_schedule: canSkipSchedule(row) ? '' : row.cropping_schedule,
-    crops: row.crops.map(cropPayload),
+    cropping_schedule: row.cropping_schedule,
+    // The server records each crop on this parcel and its farmer, with the parcel's barangay.
+    crop_records: (row.crop_records || []).map((r) => ({ ...buildCropRecordPayload(r, { ...context, barangay: row.barangay }), farm_parcel: null })),
     machinery: row.machinery.map(machineryPayload),
   }
 }
 
-export const buildPayload = (rows) => rows.map(parcelPayload)
+export const buildPayload = (rows, context) => rows.map((row) => parcelPayload(row, context))
 
-// The PCIC form photos to upload once the parcels are saved: [{ cropId, pcic, label }], pairing each crop that has a photo with
-// the id the server gave it (`created[i].crop_ids[j]`, in the order the crops were sent).
-export function pcicUploads(rows, created) {
+// The PCIC form photos to upload once the parcels are saved: [{ recordId, pcic, label }], pairing each crop that has a photo with
+// the crop record the server made for it (`created[i].crop_record_ids[j]`, in the order the crops were sent). `labelOf(record)` names it.
+export function pcicUploads(rows, created, labelOf = () => '') {
   const uploads = []
   rows.forEach((row, i) => {
-    row.crops.forEach((crop, j) => {
-      const cropId = created?.[i]?.crop_ids?.[j]
-      if (cropId && crop.pcic?.insured && crop.pcic.file) uploads.push({ cropId, pcic: crop.pcic, label: cropLabel(crop) })
+    ;(row.crop_records || []).forEach((record, j) => {
+      const recordId = created?.[i]?.crop_record_ids?.[j]
+      if (recordId && record.pcic?.insured && record.pcic.file) uploads.push({ recordId, pcic: record.pcic, label: labelOf(record) })
     })
   })
   return uploads
@@ -279,10 +308,10 @@ export function serverErrorsToMessages(errors, rows) {
     if (!problems || !rows[i]) return
     const parts = []
     Object.entries(problems).forEach(([field, value]) => {
-      if ((field === 'crops' || field === 'machinery') && Array.isArray(value)) {
+      if ((field === 'crops' || field === 'crop_records' || field === 'machinery') && Array.isArray(value)) {
         value.forEach((nested, n) => {
           if (nested && typeof nested === 'object') {
-            Object.entries(nested).forEach(([key, msg]) => parts.push(`${field === 'crops' ? 'crop' : 'machinery'} ${n + 1} ${words(key)}: ${firstMessage(msg)}`))
+            Object.entries(nested).forEach(([key, msg]) => parts.push(`${field === 'machinery' ? 'machinery' : 'crop'} ${n + 1} ${words(key)}: ${firstMessage(msg)}`))
           }
         })
       } else if (field === 'non_field_errors') {

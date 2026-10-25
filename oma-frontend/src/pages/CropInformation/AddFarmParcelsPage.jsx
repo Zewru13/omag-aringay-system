@@ -12,20 +12,24 @@ import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import IdNumberInput from '../../components/UI/IdNumberInput.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
-import PcicInsuranceField from '../../components/UI/PcicInsuranceField.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { RSBSA_GROUPS } from '../../utils/idNumbers.js'
 import { uploadPcicForm } from '../../utils/pcic.js'
 import ParcelCropsImportModal from '../Farmers/ParcelCropsImportModal.jsx'
+import CropRecordsTable from '../Monitoring/CropRecordsTable.jsx'
+import { makeCropRecord } from '../Monitoring/cropRecordForm.js'
+import { useCropFormLookups } from '../Monitoring/useCropFormLookups.js'
+import { areaProblem } from './cropEntry.js'
+import { ownerParcelFill } from './parcelRecords.js'
 import {
-  CROP_OPTIONS, CROPPING_SCHEDULE_OPTIONS, PARCEL_NUMBER_DIGITS, PARCEL_NUMBER_GROUPS, PARCEL_NUMBER_PLACEHOLDER, TAX_DECLARATION_DIGITS, TAX_DECLARATION_GROUPS, FARM_TYPE_OPTIONS, LAND_OWNERSHIP_OPTIONS, MACHINERY_OPTIONS, MAX_PARCELS, OWNERSHIP_OPTIONS,
-  PERENNIAL_CROPS, SEED_SOURCE_OPTIONS, SEEDS_UNIT_OPTIONS, addImportedCrops, addImportedMachinery, buildPayload, canSkipSchedule, cropAreaProblems, cropCapacity,
-  cropLabel, cropsAreaUsed, fmtHa, isTenure, makeCropRow, makeMachineryRow, makeParcelRow, machineryLabel, pcicUploads, serverErrorsToMessages, toggleClassification, validateRows,
+  CROPPING_SCHEDULE_OPTIONS, PARCEL_NUMBER_DIGITS, PARCEL_NUMBER_GROUPS, PARCEL_NUMBER_PLACEHOLDER, TAX_DECLARATION_DIGITS, TAX_DECLARATION_GROUPS, FARM_TYPE_OPTIONS, LAND_OWNERSHIP_OPTIONS, MACHINERY_OPTIONS, MAX_PARCELS, OWNERSHIP_OPTIONS,
+  addImportedMachinery, buildPayload, isTenure, makeMachineryRow, makeParcelRow, machineryLabel, pcicUploads, serverErrorsToMessages, toggleClassification, validateRows,
 } from '../Farmers/parcelRows.js'
 import useParcelClassifications from '../Farmers/useParcelClassifications.js'
 
 // Add Farm Parcels (Crop Records > Add Farm Parcel, and the farmer profile's Add Farm Parcel button): pick a farmer, then add as many
-// parcels as needed in a table, one row per parcel, with each parcel's crops and machinery in small tables under it. Everything is
+// parcels as needed in a table, one row per parcel, with each parcel's crops (the Add Crop Records form, recorded on the parcel) and
+// machinery in tables under it. The parcel number, land ownership, farm type and cropping schedule are required. Everything is
 // saved together or not at all (POST /farmers/<id>/parcels/bulk/), like the Add Crop Records page.
 
 // Fixed pixel width per column, shared by every <th>/<td> of that column so header and body cannot drift apart.
@@ -54,111 +58,46 @@ const Opt = () => <span className="ml-1.5 inline-flex items-center rounded px-1 
 
 // ── the crops of one parcel ───────────────────────────────────────────────────
 
-function CropsTable({ parcel, crops, onChange, onImport }) {
-  const nextUid = useRef(1)
-  const tooBig = cropAreaProblems(parcel)
-  const parcelArea = Number(parcel.area_hectares) || 0
-  const used = cropsAreaUsed(parcel)
-  const over = parcelArea > 0 && used > cropCapacity(parcel)
-  const update = (uid, patch) => onChange(crops.map((c) => (c._uid === uid ? { ...c, ...patch } : c)))
-  const setMain = (uid, on) => onChange(crops.map((c) => ({ ...c, is_main_crop: c._uid === uid ? on : (on ? false : c.is_main_crop) })))
-  const add = () => onChange([...crops, makeCropRow(Date.now() + nextUid.current++)])
+// The crops grown on one parcel: the Add Crop Records form itself (same fields, same rules), with this parcel as the place. Each crop
+// is saved as a crop record on the parcel when the parcel is saved.
+function ParcelCrops({ row, lookups, onAdd, onUpdate, onRemove }) {
+  const records = (row.crop_records || []).map((r) => ({ ...r, farm_parcel: String(row._id), farm_location_barangay: row.barangay }))
+  const parcelArea = Number(row.area_hectares) || 0
+  const parcels = [{ id: row._id, area_hectares: row.area_hectares, growing_area_ha: 0 }]
+  const areaErrors = Object.fromEntries(records.map((r, i) => [r._id, areaProblem(records, i, parcels)]))
+  const used = Math.round(records.reduce((sum, r) => sum + (Number(r.area_planted_ha) || 0), 0) * 100) / 100
+  const over = parcelArea > 0 && used > parcelArea
+  const knownParcel = { id: row._id, land_ownership: row.land_ownership, land_owner_name: row.land_owner_name, barangay: row.barangay }
   return (
     <div>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[12px] font-semibold uppercase tracking-wide text-[#4A5E4A]">Crops grown <span className="font-normal normal-case text-[#7A8E7A]">(optional) — what grows on this land; a season's planting is recorded in Crop Monitoring</span></p>
+        <p className="text-[12px] font-semibold uppercase tracking-wide text-[#4A5E4A]">Crops <span className="font-normal normal-case text-[#7A8E7A]">(optional) — what is planted on this parcel. Each crop is recorded for monitoring, with the same fields and rules as Add Crop Records.</span></p>
         <div className="flex flex-wrap items-center gap-2">
-          {parcelArea > 0 && crops.length > 0 && (
+          {parcelArea > 0 && records.length > 0 && (
             <p role="status" className={`mr-1 text-[12px] font-semibold ${over ? 'text-rose-600' : 'text-[#4A5E4A]'}`}>
-              {fmtHa(used)} of {fmtHa(cropCapacity(parcel))} ha used
-              {cropCapacity(parcel) > parcelArea && <span className="font-normal text-[#7A8E7A]"> ({parcel.cropping_schedule.toLowerCase()})</span>}
-              {over && ' — too much for this parcel'}
+              {used} of {parcelArea} ha planted{over && ' — too much for this parcel'}
             </p>
           )}
-          <button type="button" onClick={onImport} className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-[#1B4D2E]/30 bg-[#EBF5EE]/50 px-3 text-[12px] font-semibold text-[#1B4D2E] hover:bg-[#EBF5EE]">
-            <Upload size={13} aria-hidden="true" /> Import crops
-          </button>
-          <button type="button" onClick={add} className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 text-[12px] font-semibold text-white hover:bg-[#235E38]">
+          <button type="button" onClick={() => onAdd(knownParcel)} className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 text-[12px] font-semibold text-white hover:bg-[#235E38]">
             <Plus size={13} aria-hidden="true" /> Add crop
           </button>
         </div>
       </div>
-      {crops.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-[#E2E8E2] bg-white max-md:overflow-visible max-md:border-0 max-md:bg-transparent">
-          <table className="min-w-full table-fixed text-sm max-md:block">
-            <thead className="bg-[#EBF5EE] max-md:hidden">
-              <tr>
-                <th className={SUB_TH} style={{ width: 210 }}>Crop <span className="text-rose-500">*</span></th>
-                <th className={SUB_TH} style={{ width: 110 }}>Area (ha) <span className="text-rose-500">*</span></th>
-                <th className={SUB_TH} style={{ width: 160 }}>Variety</th>
-                <th className={SUB_TH} style={{ width: 160 }}>Seed source</th>
-                <th className={SUB_TH} style={{ width: 100 }}>Qty of seeds</th>
-                <th className={SUB_TH} style={{ width: 90 }}>Unit</th>
-                <th className={SUB_TH} style={{ width: 90 }}>Trees</th>
-                <th className={SUB_TH} style={{ width: 70 }}>Main</th>
-                <th style={{ width: 56 }} />
-              </tr>
-            </thead>
-            <tbody className="max-md:block">
-              {crops.map((c, i) => (
-                <CropRow key={c._uid} crop={c} index={i} areaProblem={tooBig[i]} onUpdate={update} onMain={setMain} onRemove={(uid) => onChange(crops.filter((x) => x._uid !== uid))} />
-              ))}
-            </tbody>
-          </table>
-        </div>
+      {records.length > 0 && (
+        <CropRecordsTable
+          records={records}
+          cropTypes={lookups.cropTypes}
+          seedSources={lookups.seedSources}
+          varieties={lookups.varieties}
+          farmerId={null}   // the parcel is not saved yet, so there is nothing to compare for the "already has this crop" warning; the server still refuses a repeat
+          farmerParcels={[knownParcel]}
+          parcelLocked
+          areaErrors={areaErrors}
+          onUpdate={(recordId, field, value) => onUpdate(row._id, recordId, field, value)}
+          onRemove={(recordId) => onRemove(row._id, recordId)}
+        />
       )}
     </div>
-  )
-}
-
-function CropRow({ crop, index, areaProblem, onUpdate, onMain, onRemove }) {
-  const set = (patch) => onUpdate(crop._uid, patch)
-  const tree = PERENNIAL_CROPS.includes(crop.crop_name)
-  return (
-    <>
-      <tr className="border-b border-[#F0F4F0] align-top max-md:block max-md:mb-2 max-md:rounded-xl max-md:border max-md:border-[#E2E8E2] max-md:bg-white max-md:p-3">
-        <td data-label={`Crop ${index + 1} *`} className={SUB_CELL} style={{ width: 210 }}>
-          <ComboboxWithOther options={CROP_OPTIONS.filter((o) => o !== 'Other')} value={crop.crop_name} otherValue={crop.crop_name_other}
-            placeholder="Select crop…" inputClassName={bulkCellInputClasses} chevronSize={13}
-            onChange={(v) => set({ crop_name: v })} onOtherChange={(v) => set({ crop_name_other: v })} />
-        </td>
-        <td data-label="Area (ha) *" className={SUB_CELL} style={{ width: 110 }}>
-          <DecimalInput decimals={4} className={`${bulkCellInputClasses}${areaProblem ? ' border-rose-500! bg-rose-50!' : ''}`} placeholder="0.00" value={crop.area_hectares}
-            title={areaProblem ? areaProblem.charAt(0).toUpperCase() + areaProblem.slice(1) : undefined} aria-invalid={areaProblem ? true : undefined} onChange={(v) => set({ area_hectares: v })} />
-        </td>
-        <td data-label="Variety" className={SUB_CELL} style={{ width: 160 }}>
-          <input className={bulkCellInputClasses} placeholder="e.g. NSIC Rc 222" value={crop.variety_used} onChange={(e) => set({ variety_used: e.target.value })} />
-        </td>
-        <td data-label="Seed source" className={SUB_CELL} style={{ width: 160 }}>
-          <select className={bulkCellInputClasses} value={crop.seed_source} onChange={(e) => set({ seed_source: e.target.value })}>
-            {SEED_SOURCE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
-        </td>
-        <td data-label="Qty of seeds" className={SUB_CELL} style={{ width: 100 }}>
-          <DecimalInput decimals={2} className={bulkCellInputClasses} placeholder="0" value={crop.quantity_of_seeds_used} onChange={(v) => set({ quantity_of_seeds_used: v })} />
-        </td>
-        <td data-label="Unit" className={SUB_CELL} style={{ width: 90 }}>
-          <select className={bulkCellInputClasses} value={crop.seeds_unit} onChange={(e) => set({ seeds_unit: e.target.value })}>
-            {SEEDS_UNIT_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-          </select>
-        </td>
-        <td data-label="Trees" className={SUB_CELL} style={{ width: 90 }}>
-          <input type="number" min="0" className={`${bulkCellInputClasses} disabled:bg-[#F5F7F5]`} disabled={!tree} placeholder={tree ? '0' : '—'}
-            title={tree ? undefined : 'Only for tree crops'} value={tree ? crop.number_of_trees : ''} onChange={(e) => set({ number_of_trees: e.target.value })} />
-        </td>
-        <td data-label="Main crop" className={`${SUB_CELL} text-center`} style={{ width: 70 }}>
-          <input type="checkbox" className="h-4 w-4 accent-[#1B4D2E]" aria-label="Main crop" checked={crop.is_main_crop} onChange={(e) => onMain(crop._uid, e.target.checked)} />
-        </td>
-        <td className="px-2 py-2 text-center max-md:block max-md:w-full! max-md:px-0 max-md:py-1 max-md:text-right" style={{ width: 56 }}>
-          <button type="button" onClick={() => onRemove(crop._uid)} title="Remove crop" className={REMOVE_BTN}><Trash2 size={13} /><span className="md:hidden">Remove crop</span></button>
-        </td>
-      </tr>
-      <tr className="border-b border-[#F0F4F0] max-md:block">
-        <td colSpan={9} className="px-2 pb-2 max-md:block max-md:px-0">
-          <PcicInsuranceField value={crop.pcic} onChange={(pcic) => set({ pcic })} subject="crop" />
-        </td>
-      </tr>
-    </>
   )
 }
 
@@ -225,15 +164,13 @@ function MachineryTable({ machinery, onChange, onImport }) {
 
 // ── one parcel: its table row, then a row with its classifications, crops and machinery ───────────────────────────────
 
-function ParcelRow({ row, index, total, offered, panelWidth, error, onUpdate, onRemove, onImportCrops, onImportMachinery }) {
+function ParcelRow({ row, index, total, offered, panelWidth, error, lookups, onUpdate, onRemove, onAddCrop, onUpdateCrop, onRemoveCrop, onImportMachinery }) {
   const set = (field, value) => onUpdate(row._id, { [field]: value })
-  const taxDecFilled = Boolean((row.tax_declaration_number || '').trim())
-  const skipSchedule = canSkipSchedule(row)
   return (
     <>
       <tr className={`border-b border-[#F0F4F0] align-top max-md:block max-md:mb-3 max-md:rounded-xl max-md:border max-md:border-[#E2E8E2] max-md:p-3 ${error ? 'bg-rose-50/40' : 'max-md:bg-white'}`}>
         <td data-label="Parcel" className={`${CELL} text-center text-[13px] text-[#7A8E7A] max-md:text-left`} style={{ width: COL_WIDTH.index }}>{index + 1}</td>
-        <td data-label={`Parcel number${taxDecFilled ? ' *' : ''}`} className={`${CELL} overflow-visible`} style={{ width: COL_WIDTH.number }}>
+        <td data-label="Parcel number *" className={`${CELL} overflow-visible`} style={{ width: COL_WIDTH.number }}>
           <IdNumberInput groups={PARCEL_NUMBER_GROUPS} maxDigits={PARCEL_NUMBER_DIGITS} value={row.parcel_number}
             placeholder={PARCEL_NUMBER_PLACEHOLDER} onChange={(v) => set('parcel_number', v)} />
         </td>
@@ -246,12 +183,13 @@ function ParcelRow({ row, index, total, offered, panelWidth, error, onUpdate, on
         <td data-label="Area (ha) *" className={CELL} style={{ width: COL_WIDTH.area }}>
           <DecimalInput decimals={2} className={bulkCellInputClasses} placeholder="0.00" value={row.area_hectares} onChange={(v) => set('area_hectares', v)} />
         </td>
-        <td data-label="Land ownership" className={CELL} style={{ width: COL_WIDTH.ownership }}>
+        <td data-label="Land ownership *" className={CELL} style={{ width: COL_WIDTH.ownership }}>
           <select className={bulkCellInputClasses} value={row.land_ownership}
             onChange={(e) => {
               const next = e.target.value
               onUpdate(row._id, isTenure(next) ? { land_ownership: next } : { land_ownership: next, land_owner_name: '', land_owner_rsbsa_number: '' })
             }}>
+            <option value="" disabled>Select…</option>
             {LAND_OWNERSHIP_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
         </td>
@@ -259,17 +197,15 @@ function ParcelRow({ row, index, total, offered, panelWidth, error, onUpdate, on
           <IdNumberInput groups={TAX_DECLARATION_GROUPS} maxDigits={TAX_DECLARATION_DIGITS} value={row.tax_declaration_number}
             placeholder="01-002-00005-2023-0142" onChange={(v) => set('tax_declaration_number', v)} />
         </td>
-        <td data-label="Farm type" className={CELL} style={{ width: COL_WIDTH.farmType }}>
+        <td data-label="Farm type *" className={CELL} style={{ width: COL_WIDTH.farmType }}>
           <select className={bulkCellInputClasses} value={row.farm_type} onChange={(e) => set('farm_type', e.target.value)}>
             <option value="">Select type…</option>
             {FARM_TYPE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
         </td>
-        <td data-label="Cropping schedule" className={CELL} style={{ width: COL_WIDTH.schedule }}>
-          <select className={`${bulkCellInputClasses} disabled:bg-[#F5F7F5]`} value={skipSchedule ? '' : row.cropping_schedule} disabled={skipSchedule}
-            title={skipSchedule ? 'Not applicable: the main crop is a perennial (tree) crop' : undefined}
-            onChange={(e) => set('cropping_schedule', e.target.value)}>
-            <option value="">{skipSchedule ? 'Not applicable' : 'Select schedule…'}</option>
+        <td data-label="Cropping schedule *" className={CELL} style={{ width: COL_WIDTH.schedule }}>
+          <select className={bulkCellInputClasses} value={row.cropping_schedule} onChange={(e) => set('cropping_schedule', e.target.value)}>
+            <option value="">Select schedule…</option>
             {CROPPING_SCHEDULE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
         </td>
@@ -310,7 +246,7 @@ function ParcelRow({ row, index, total, offered, panelWidth, error, onUpdate, on
                 {offered.length === 0 && <p className="text-[12px] text-[#7A8E7A]">None set up. An Admin can add them in Classification Settings.</p>}
               </div>
             </div>
-            <CropsTable parcel={row} crops={row.crops} onChange={(crops) => set('crops', crops)} onImport={() => onImportCrops(row._id)} />
+            <ParcelCrops row={row} lookups={lookups} onAdd={onAddCrop} onUpdate={onUpdateCrop} onRemove={onRemoveCrop} />
             <MachineryTable machinery={row.machinery} onChange={(machinery) => set('machinery', machinery)} onImport={() => onImportMachinery(row._id)} />
           </div>
         </td>
@@ -326,7 +262,8 @@ function ParcelRow({ row, index, total, offered, panelWidth, error, onUpdate, on
 
 // ── Confirm Submission — review step before the actual save ────────────────────
 
-function ConfirmModal({ rows, farmerName, isSubmitting, onConfirm, onCancel }) {
+function ConfirmModal({ rows, cropTypes, farmerName, isSubmitting, onConfirm, onCancel }) {
+  const cropName = (id) => cropTypes.find((c) => String(c.id) === String(id))?.name || 'crop'
   return (
     <ModalShell
       title="Confirm Submission"
@@ -366,7 +303,7 @@ function ConfirmModal({ rows, farmerName, isSubmitting, onConfirm, onCancel }) {
                   <p className="text-[13px] font-medium text-[#1A2B1A]">#{i + 1} {row.parcel_number || 'No parcel number'} · {row.barangay}</p>
                   <p className="truncate text-[12px] text-[#7A8E7A]">
                     {[
-                      row.crops.length ? row.crops.map(cropLabel).join(', ') : 'No crops',
+                      row.crop_records.length ? row.crop_records.map((r) => cropName(r.crop_type)).join(', ') : 'No crops',
                       row.machinery.length ? row.machinery.map(machineryLabel).join(', ') : 'No machinery',
                       row.classifications.length ? row.classifications.join(', ') : '',
                     ].filter(Boolean).join(' · ')}
@@ -397,8 +334,9 @@ export default function AddFarmParcelsPage() {
   const [farmerInfo, setFarmerInfo] = useState(NO_FARMER)
   const [existing, setExisting] = useState(null)               // the farmer's parcels already on file
   const nextIdRef = useRef(2)
+  const nextCropIdRef = useRef(1)
   const [rows, setRows] = useState([makeParcelRow(1)])
-  const [importingFor, setImportingFor] = useState(null)
+  const lookups = useCropFormLookups()
   const [importingMachineryFor, setImportingMachineryFor] = useState(null)
   const [isImportingParcels, setIsImportingParcels] = useState(false)   // the Import Farm Parcels file dialog (parcels of the chosen farmer)
   const [parcelsTick, setParcelsTick] = useState(0)                      // bumped after an import so the parcels on file are read again
@@ -455,10 +393,16 @@ export default function AddFarmParcelsPage() {
     showToast(`${machinery.length} machinery line${machinery.length === 1 ? '' : 's'} added.`, 'success')
     setImportingMachineryFor(null)
   }
-  const importCrops = (crops) => {
-    setRows((rs) => rs.map((r) => (r._id === importingFor ? { ...r, crops: addImportedCrops(r.crops, crops, Date.now()) } : r)))
-    setImportingFor(null)
+  // The crops of a parcel (functional updates: one change of a crop type sets several fields in a row).
+  const addCrop = (rowId, parcelInfo) => {
+    const blank = makeCropRecord(nextCropIdRef.current++)
+    const record = { ...blank, ...ownerParcelFill([parcelInfo], blank) }
+    setRows((rs) => rs.map((r) => (r._id === rowId ? { ...r, crop_records: [...r.crop_records, record] } : r)))
   }
+  const updateCrop = (rowId, recordId, field, value) =>
+    setRows((rs) => rs.map((r) => (r._id === rowId ? { ...r, crop_records: r.crop_records.map((c) => (c._id === recordId ? { ...c, [field]: value } : c)) } : r)))
+  const removeCrop = (rowId, recordId) =>
+    setRows((rs) => rs.map((r) => (r._id === rowId ? { ...r, crop_records: r.crop_records.filter((c) => c._id !== recordId) } : r)))
 
   const validate = () => {
     if (!farmerInfo.farmer_id) { setError('Please select a farmer.'); return false }
@@ -485,11 +429,11 @@ export default function AddFarmParcelsPage() {
   const handleConfirmed = async () => {
     setIsSubmitting(true)
     try {
-      const { data: created } = await api.post(`/farmers/${farmerInfo.farmer_id}/parcels/bulk/`, buildPayload(rows))
+      const { data: created } = await api.post(`/farmers/${farmerInfo.farmer_id}/parcels/bulk/`, buildPayload(rows, { farmerInfo, cropTypes: lookups.cropTypes }))
       const photoFailures = []
-      for (const upload of pcicUploads(rows, created)) {
+      for (const upload of pcicUploads(rows, created, (r) => lookups.cropTypes.find((c) => String(c.id) === String(r.crop_type))?.name || 'a crop')) {
         try {
-          await uploadPcicForm(api, 'crop', upload.cropId, upload.pcic)
+          await uploadPcicForm(api, 'planting', upload.recordId, upload.pcic)
         } catch {
           photoFailures.push(upload.label)
         }
@@ -565,20 +509,22 @@ export default function AddFarmParcelsPage() {
             <thead className="bg-[#1B4D2E] text-white max-md:hidden">
               <tr>
                 <th className={`${bulkThCenterClasses} overflow-hidden`} style={{ width: COL_WIDTH.index }}>#</th>
-                <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.number }}>Parcel Number<Opt /></th>
+                <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.number }}>Parcel Number <span className="text-white/70">*</span></th>
                 <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.barangay }}>Barangay <span className="text-white/70">*</span></th>
                 <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.area }}>Area (ha) <span className="text-white/70">*</span></th>
-                <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.ownership }}>Land Ownership</th>
+                <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.ownership }}>Land Ownership <span className="text-white/70">*</span></th>
                 <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.taxDec }}>Tax Dec No.<Opt /></th>
-                <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.farmType }}>Farm Type<Opt /></th>
-                <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.schedule }}>Cropping Schedule<Opt /></th>
+                <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.farmType }}>Farm Type <span className="text-white/70">*</span></th>
+                <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.schedule }}>Cropping Schedule <span className="text-white/70">*</span></th>
                 <th className={bulkThCenterClasses} style={{ width: COL_WIDTH.remove }} />
               </tr>
             </thead>
             <tbody className="max-md:block">
               {rows.map((row, i) => (
                 <ParcelRow key={row._id} row={row} index={i} total={rows.length} offered={offered} panelWidth={panelWidth} error={rowErrors[row._id]}
-                  onUpdate={updateRow} onRemove={removeRow} onImportCrops={setImportingFor} onImportMachinery={setImportingMachineryFor} />
+                  lookups={lookups}
+                  onUpdate={updateRow} onRemove={removeRow} onImportMachinery={setImportingMachineryFor}
+                  onAddCrop={(parcelInfo) => addCrop(row._id, parcelInfo)} onUpdateCrop={updateCrop} onRemoveCrop={removeCrop} />
               ))}
             </tbody>
           </table>
@@ -614,11 +560,10 @@ export default function AddFarmParcelsPage() {
           onImported={() => setParcelsTick((t) => t + 1)}
         />
       )}
-      {importingFor !== null && <ParcelCropsImportModal onClose={() => setImportingFor(null)} onRows={importCrops} />}
       {importingMachineryFor !== null && <ParcelCropsImportModal kind="machinery" onClose={() => setImportingMachineryFor(null)} onRows={importMachinery} />}
 
       {showConfirm && (
-        <ConfirmModal rows={rows} farmerName={farmerInfo.farmer_full_name} isSubmitting={isSubmitting} onConfirm={handleConfirmed} onCancel={() => setShowConfirm(false)} />
+        <ConfirmModal rows={rows} cropTypes={lookups.cropTypes} farmerName={farmerInfo.farmer_full_name} isSubmitting={isSubmitting} onConfirm={handleConfirmed} onCancel={() => setShowConfirm(false)} />
       )}
     </PageLayout>
   )
