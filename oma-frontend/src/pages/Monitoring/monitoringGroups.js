@@ -17,6 +17,39 @@ export const FARMER_GROUP = 'parcel'
 // does that split when it is given display_status.
 export const DISPLAY_STATUSES = ['Due Harvest', 'Ready for Harvest', 'Overdue']
 
+// The stage choices of a crop list (Crop Monitoring, and a farmer's own crop list): Planted first, "All Status" last.
+export const STATUS_FILTER_OPTIONS = [
+  { value: 'Planted', label: 'Planted' },
+  { value: 'Near Harvest', label: 'Near Harvest' },
+  { value: 'Due Harvest', label: 'Due Harvest' },
+  { value: 'Ready for Harvest', label: 'Ready for Harvest' },
+  { value: 'Overdue', label: 'Overdue' },
+  { value: 'Harvested', label: 'Harvested' },
+  { value: 'Total Loss', label: 'Total Loss' },
+  { value: 'all', label: 'All Status' },
+]
+
+// What a record's status pill says. Only a "Near Harvest" record is split by how far its expected date is (the same days the
+// server uses for display_status): Due Harvest = still ahead, Ready for Harvest = today or up to 7 days past, Overdue = more than
+// 7 days past with no harvest recorded. Every other status (Planted / Harvested / Total Loss) passes through.
+export function cropDisplayStatus(rec, today = new Date()) {
+  if (rec.status !== 'Near Harvest' || !rec.expected_harvest_date) return rec.status
+  const start = new Date(today)
+  start.setHours(0, 0, 0, 0)
+  const expected = new Date(`${rec.expected_harvest_date}T00:00:00`)
+  const diffDays = Math.round((expected - start) / (1000 * 60 * 60 * 24))
+  if (diffDays < -7) return 'Overdue'
+  return diffDays <= 0 ? 'Ready for Harvest' : 'Due Harvest'
+}
+
+// A farmer's own crop list is asked with the same filters as Crop Monitoring; "All Status" lists every status including Total Loss
+// (an omitted status would leave Total Loss out, which is right for the operational list but not for a farmer's whole history).
+export function farmerCropParams(farmerId, statusFilter) {
+  const params = monitoringParams({ statusFilter })
+  if (!params.status) params.status = 'Planted,Near Harvest,Harvested,Total Loss'
+  return { farmer: farmerId, ...params }
+}
+
 // The filters the list AND the groups are asked with, so a group's count is always the number of records it opens onto.
 export function monitoringParams({ statusFilter, season, year, barangay, cropType, pcic, search }) {
   const params = {}

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 
 const {
-  GROUP_OPTIONS, DEFAULT_GROUP, DISPLAY_STATUSES, monitoringParams, groupChildParams, groupSummary, groupHeading, PARCEL_GROUP_COLUMNS, parcelGroupFacts,
+  GROUP_OPTIONS, DEFAULT_GROUP, DEFAULT_STATUS, DISPLAY_STATUSES, STATUS_FILTER_OPTIONS, cropDisplayStatus, farmerCropParams, monitoringParams, groupChildParams, groupSummary, groupHeading, PARCEL_GROUP_COLUMNS, parcelGroupFacts,
 } = await import(new URL('../src/pages/Monitoring/monitoringGroups.js', import.meta.url).href)
 
 let n = 0
@@ -52,5 +52,26 @@ eq(
 )
 eq(parcelGroupFacts({ id: null, count: 3, area_planted_ha: 0, near_harvest: 0 }), { farmer: '', rsbsa: '', barangay: '', area: '', ownership: '', records: '3 records' }, 'a group with no parcel has only its records')
 eq(parcelGroupFacts({ id: 8, count: 1, area_planted_ha: 0, near_harvest: 0 }).area, '', 'a missing area is left blank')
+
+// ── the stage choices of a crop list
+eq(DEFAULT_STATUS, 'Planted', 'a crop list opens on Planted')
+eq(STATUS_FILTER_OPTIONS.map((o) => o.value), ['Planted', 'Near Harvest', 'Due Harvest', 'Ready for Harvest', 'Overdue', 'Harvested', 'Total Loss', 'all'], 'stage choices, Planted first and All Status last')
+
+// ── a farmer's own crop list: the same filters, for that farmer
+eq(farmerCropParams(5, 'Planted'), { farmer: 5, status: 'Planted' }, 'the crops of a farmer open on Planted')
+eq(farmerCropParams(5, 'Harvested'), { farmer: 5, status: 'Harvested' }, 'harvested crops of a farmer')
+eq(farmerCropParams(5, 'Ready for Harvest'), { farmer: 5, status: 'Near Harvest', display_status: 'Ready for Harvest' }, 'a split of Near Harvest')
+eq(farmerCropParams(5, 'all'), { farmer: 5, status: 'Planted,Near Harvest,Harvested,Total Loss' }, 'All Status lists every status including Total Loss')
+
+// ── the word on a record's pill
+const today = new Date(2026, 9, 26, 15, 30)
+const near = (date) => ({ status: 'Near Harvest', expected_harvest_date: date })
+eq(cropDisplayStatus({ status: 'Planted', expected_harvest_date: '2026-10-20' }, today), 'Planted', 'a planted crop stays Planted')
+eq(cropDisplayStatus({ status: 'Harvested', expected_harvest_date: '2026-10-20' }, today), 'Harvested', 'a harvested crop stays Harvested')
+eq(cropDisplayStatus({ status: 'Near Harvest', expected_harvest_date: null }, today), 'Near Harvest', 'no expected date, no split')
+eq(cropDisplayStatus(near('2026-10-27'), today), 'Due Harvest', 'still ahead')
+eq(cropDisplayStatus(near('2026-10-26'), today), 'Ready for Harvest', 'today is ready')
+eq(cropDisplayStatus(near('2026-10-19'), today), 'Ready for Harvest', 'up to 7 days past is still ready')
+eq(cropDisplayStatus(near('2026-10-18'), today), 'Overdue', 'more than 7 days past is overdue')
 
 console.log(`monitoringGroups: ${n} checks passed`)
