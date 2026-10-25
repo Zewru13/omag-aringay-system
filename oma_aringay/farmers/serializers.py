@@ -91,7 +91,7 @@ class FarmParcelDirectorySerializer(serializers.ModelSerializer):
     class Meta:
         model = FarmParcel
         fields = ['id', 'farmer', 'farmer_name', 'rsbsa_number', 'parcel_number', 'barangay', 'area_hectares',
-                  'land_ownership', 'commodity_name', 'crop_count']
+                  'land_ownership', 'land_owner_name', 'commodity_name', 'crop_count']
         read_only_fields = fields
 
     def get_farmer_name(self, obj):

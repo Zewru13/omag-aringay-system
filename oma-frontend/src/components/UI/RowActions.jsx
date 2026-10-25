@@ -9,7 +9,7 @@ import ActionsMenu from './ActionsMenu.jsx'
 // so callers can inline role/status conditionals):
 //   { key, label, icon, onClick, tone, group, disabled } — `group` (any
 //   value) starts a new group in the ⋮ menu; a divider is drawn between
-//   groups. `disabled` greys the control out and blocks onClick (e.g. a
+//   groups. `disabled` (with an optional `disabledReason`, shown as the hover text) greys the control out and blocks onClick (e.g. a
 //   request already in flight) without removing it from the count — an
 //   action that's temporarily unavailable is still a real action, unlike
 //   one a caller omits outright via a falsy conditional.
@@ -40,6 +40,7 @@ function PhoneActions({ visible, alwaysVisible = false }) {
           key={a.key}
           type="button"
           disabled={a.disabled}
+          title={a.disabled ? a.disabledReason : undefined}
           onClick={(e) => { e.stopPropagation(); if (!a.disabled) a.onClick() }}
           className={`inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap md:min-h-8 rounded-lg border bg-white px-3 text-[12px] font-semibold transition-colors ${
             a.disabled ? 'cursor-not-allowed border-[#E2E8E2] text-[#C8D5C8]' : (labelledToneClasses[a.tone] || labelledToneClasses.default)
@@ -100,6 +101,7 @@ function DesktopActions({ visible, menuTitle = 'Actions', menuWidthClassName = '
                 <button
                   type="button"
                   disabled={a.disabled}
+                  title={a.disabled ? a.disabledReason : undefined}
                   onClick={(e) => { e.stopPropagation(); if (a.disabled) return; close(); a.onClick() }}
                   className={`flex w-full items-center gap-2 px-3 py-2 text-[13px] transition-colors ${
                     a.disabled ? 'text-[#C8D5C8] cursor-not-allowed' : (menuToneClasses[a.tone] || menuToneClasses.default)

@@ -1162,12 +1162,22 @@ function ParcelActions({ parcel, actions }) {
       menuWidthClassName="w-48"
       actions={[
         { key: "add-crops", label: "Add crops", icon: Plus, onClick: () => actions.addCrops(parcel) },
-        { key: "force-harvest", label: "Force harvest", icon: Zap, tone: "rose", onClick: () => actions.forceHarvest(parcel) },
+        // Nothing to force harvest on a parcel with no crop records.
+        {
+          key: "force-harvest", label: "Force harvest", icon: Zap, tone: "rose", onClick: () => actions.forceHarvest(parcel),
+          disabled: !(parcel.crop_count > 0), disabledReason: "This parcel has no crops to force harvest.",
+        },
         { key: "edit", label: "Edit parcel", icon: Pencil, onClick: () => actions.edit(parcel) },
         { key: "purge", label: "Purge parcel", icon: Archive, tone: "rose", group: "danger", onClick: () => actions.purge(parcel) },
       ]}
     />
   );
+}
+
+// A parcel the farmer only tenants or leases belongs to someone else: say whose. Nothing for an owner's own parcel.
+function landOwnerLine(parcel) {
+  if (!/^(tenant|lessee)$/i.test(parcel.land_ownership || "")) return "";
+  return parcel.land_owner_name ? `Owner: ${parcel.land_owner_name}` : "Owner not recorded";
 }
 
 function ParcelRow({ parcel, open, onToggle, actions, isPhone, ...cropProps }) {
@@ -1200,6 +1210,7 @@ function ParcelRow({ parcel, open, onToggle, actions, isPhone, ...cropProps }) {
             <p className="text-[12px] text-[#7A8E7A]">
               {Number(parcel.area_hectares).toFixed(2)} ha · {parcel.land_ownership} · {cropCountLabel(parcel.crop_count)}
             </p>
+            {landOwnerLine(parcel) && <p className="text-[12px] text-[#7A8E7A]">{landOwnerLine(parcel)}</p>}
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <ParcelActions parcel={parcel} actions={actions} />
             </div>
@@ -1225,7 +1236,10 @@ function ParcelRow({ parcel, open, onToggle, actions, isPhone, ...cropProps }) {
         </td>
         <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#4A5E4A]">{parcel.barangay}</td>
         <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#4A5E4A]">{Number(parcel.area_hectares).toFixed(2)}</td>
-        <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#4A5E4A]">{parcel.land_ownership}</td>
+        <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#4A5E4A]">
+          <p>{parcel.land_ownership}</p>
+          {landOwnerLine(parcel) && <p className="text-[11.5px] text-[#7A8E7A]">{landOwnerLine(parcel)}</p>}
+        </td>
         <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#4A5E4A]">{cropCountLabel(parcel.crop_count)}</td>
         <td className="whitespace-nowrap px-3 py-2.5 text-right">
           <ParcelActions parcel={parcel} actions={actions} />

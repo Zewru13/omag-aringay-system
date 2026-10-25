@@ -67,6 +67,14 @@ class ParcelDirectoryTests(APITestCase):
             self.assertIn(key, rows[self.p1.id])
         self.assertNotIn('farm_status', rows[self.p1.id])
 
+    def test_a_tenant_or_lessee_parcel_carries_the_land_owners_name(self):
+        FarmParcel.objects.filter(pk=self.p2.pk).update(land_ownership='Tenant', land_owner_name='Rosa Landlord')
+        FarmParcel.objects.filter(pk=self.p3.pk).update(land_ownership='Lessee', land_owner_name='')
+        rows = {r['id']: r for r in self.get().json()['results']}
+        self.assertEqual(rows[self.p2.id]['land_owner_name'], 'Rosa Landlord')
+        self.assertEqual(rows[self.p3.id]['land_owner_name'], '')
+        self.assertEqual(rows[self.p1.id]['land_owner_name'], '')   # an owner's own parcel has none
+
     def test_total_loss_records_are_not_counted_in_the_list_but_the_count_matches_the_page(self):
         # The crop list under a parcel hides Total Loss records (same as Crop Monitoring), so the count must too.
         make_crop(self.ben, self.p3, status='Total Loss')
