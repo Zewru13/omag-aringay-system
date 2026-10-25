@@ -60,16 +60,17 @@ assert.ok(!recordActionKeys({ status: 'Planted' }).includes('delete')); n++
 
 // ── on the Add Crop page: a farmer with exactly one parcel gets it chosen for every row that has none
 const owner = { id: 3, barangay: 'Poblacion', land_ownership: 'Owner' }
-eq(ownerParcelFill([owner], { farm_parcel: '', farm_location_barangay: '', land_status: '' }),
-  { farm_parcel: '3', farm_location_barangay: 'Poblacion', land_status: 'Owner' }, 'single parcel fills the row')
-eq(ownerParcelFill([owner], { farm_parcel: '8', farm_location_barangay: 'Basca', land_status: 'Tenant' }),
-  { farm_parcel: '8', farm_location_barangay: 'Basca', land_status: 'Tenant' }, 'a chosen parcel is kept')
-eq(ownerParcelFill([owner, { ...owner, id: 4 }], { farm_parcel: '', farm_location_barangay: '', land_status: '' }),
-  { farm_parcel: '', farm_location_barangay: '', land_status: '' }, 'several parcels: the person chooses')
-eq(ownerParcelFill([{ id: 5, barangay: 'Alaska', land_ownership: 'Lessee' }], { farm_parcel: '', farm_location_barangay: 'Basca', land_status: '' }),
-  { farm_parcel: '5', farm_location_barangay: 'Basca', land_status: 'Lessee' }, 'a typed barangay is kept')
-eq(ownerParcelFill([], { farm_parcel: '', farm_location_barangay: '', land_status: '' }),
-  { farm_parcel: '', farm_location_barangay: '', land_status: '' }, 'no parcels')
+const blank = { farm_parcel: '', farm_location_barangay: '', land_status: '', land_owner_name: '' }
+eq(ownerParcelFill([owner], blank),
+  { farm_parcel: '3', farm_location_barangay: 'Poblacion', land_status: 'Owner', land_owner_name: '' }, 'single parcel fills the row')
+eq(ownerParcelFill([owner], { farm_parcel: '8', farm_location_barangay: 'Basca', land_status: 'Tenant', land_owner_name: 'Rosa' }),
+  { farm_parcel: '8', farm_location_barangay: 'Basca', land_status: 'Tenant', land_owner_name: 'Rosa' }, 'a chosen parcel is kept')
+eq(ownerParcelFill([owner, { ...owner, id: 4 }], blank), blank, 'several parcels: the person chooses')
+eq(ownerParcelFill([{ id: 5, barangay: 'Alaska', land_ownership: 'Lessee', land_owner_name: 'Pedro Reyes' }], { ...blank, farm_location_barangay: 'Basca' }),
+  { farm_parcel: '5', farm_location_barangay: 'Basca', land_status: 'Lessee', land_owner_name: 'Pedro Reyes' }, 'a typed barangay is kept; a lessee crop starts with the parcel owner')
+eq(ownerParcelFill([{ id: 5, barangay: 'Alaska', land_ownership: 'Tenant', land_owner_name: 'Pedro Reyes' }], { ...blank, land_owner_name: 'Typed Name' }).land_owner_name,
+  'Typed Name', 'a typed owner is kept')
+eq(ownerParcelFill([], blank), blank, 'no parcels')
 
 // ── the message when the farmer cannot get a crop yet
 eq(parcelProblem({ farmerId: null, ready: false, parcels: [], rows: [] }), '', 'no farmer yet')

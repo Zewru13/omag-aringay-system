@@ -524,7 +524,7 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'farm_parcel', 'farmers_organization',
             'farmer', 'farmer_full_name', 'farmer_organization_name',
-            'farm_location_barangay', 'land_status', 'land_status_other_specify',
+            'farm_location_barangay', 'land_status', 'land_status_other_specify', 'land_owner_name',
             'farmer_name', 'farmer_barangay', 'parcel_number', 'organization_name',
             'crop_type', 'crop_type_name', 'crop_suggested_activities', 'crop_allowed_units', 'season', 'year',
             'date_planted', 'date_planted_is_estimated', 'area_planted_ha',
@@ -533,7 +533,7 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
             'estimated_yield_kg', 'actual_yield_kg',
             'yield_variance_kg', 'yield_variance_pct',
             'notes', 'variety_used', 'seed_source', 'seed_source_other_specify',
-            'quantity_of_seeds', 'seed_quantity_unit',
+            'quantity_of_seeds', 'seed_quantity_unit', 'planting_material', 'quantity_of_trees',
             'recorded_by', 'date_recorded',
             'is_near_harvest', 'latest_condition', 'log_count', 'labor_log_count',
             'has_disaster', 'disasters_count', 'has_recovered_disaster',
@@ -689,6 +689,26 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
         land_status_other = data.get('land_status_other_specify', getattr(self.instance, 'land_status_other_specify', ''))
         if land_status == 'Other' and not (land_status_other or '').strip():
             raise serializers.ValidationError({'land_status_other_specify': 'Please specify the land status.'})
+
+        # A Tenant or Lessee crop grows on someone else's land, so it needs that owner's name (as a parcel does). Checked for a new
+        # record, and for an edit that sends the land status or the name; an older crop without a name stays correctable otherwise.
+        # Any other status drops a name sent with it, so an outdated one is never kept.
+        if self.instance is None or 'land_status' in data or 'land_owner_name' in data:
+            if land_status in ('Tenant', 'Lessee'):
+                owner = (data.get('land_owner_name', getattr(self.instance, 'land_owner_name', '')) or '').strip()
+                if not owner:
+                    raise serializers.ValidationError({'land_owner_name': "Enter the land owner's name for a tenant or lessee crop."})
+                data['land_owner_name'] = owner
+            else:
+                data['land_owner_name'] = ''
+
+        # Seeds are measured in a unit, trees are counted: only the quantity that matches how the crop was planted is kept.
+        material = data.get('planting_material', getattr(self.instance, 'planting_material', 'Seed'))
+        if 'planting_material' in data or 'quantity_of_seeds' in data or 'quantity_of_trees' in data:
+            if material == 'Tree':
+                data['quantity_of_seeds'] = None
+            else:
+                data['quantity_of_trees'] = None
 
         # A record may only sit on one of ITS OWN farmer's parcels.
         farmer = data.get('farmer', getattr(self.instance, 'farmer', None))

@@ -43,6 +43,7 @@ import PcicBadge from "../../components/UI/PcicBadge.jsx";
 import { pcicError, pcicPayload, pcicStateFrom, uploadPcicForm } from "../../utils/pcic.js";
 import { ARINGAY_BARANGAYS } from "../../constants/barangays.js";
 import GroupedParcelsTable from "./GroupedParcelsTable.jsx";
+import { CROP_OWNERSHIP_OPTIONS, PLANTING_MATERIALS, chooseCropOwnership, cropOwnershipCell, needsLandOwner, quantityPayload } from "./cropEntry.js";
 import {
   DEFAULT_GROUP, DEFAULT_SORT, GROUP_OPTIONS, SORT_OPTIONS, addCropsLockedState, cropCountLabel, directoryParams, groupFilterParams, noParcelParams, parcelLabel,
   recordActionKeys,
@@ -398,6 +399,7 @@ function EditCropModal({ record, onClose, onSaved }) {
     farm_location_barangay: record.farm_location_barangay || "",
     land_status: record.land_status || "",
     land_status_other_specify: record.land_status_other_specify || "",
+    land_owner_name: record.land_owner_name || "",
     date_planted: record.date_planted || "",
     area_planted_ha: record.area_planted_ha
       ? String(record.area_planted_ha)
@@ -410,6 +412,8 @@ function EditCropModal({ record, onClose, onSaved }) {
       ? String(record.quantity_of_seeds)
       : "",
     seed_quantity_unit: record.seed_quantity_unit || "kg",
+    planting_material: record.planting_material || "Seed",
+    quantity_of_trees: record.quantity_of_trees ? String(record.quantity_of_trees) : "",
   };
   const [form, setForm] = useState(originalData);
   const [pcic, setPcic] = useState(() => pcicStateFrom(record));
@@ -534,7 +538,9 @@ function EditCropModal({ record, onClose, onSaved }) {
       nextFieldErrors.farm_location_barangay = "Farm location (barangay) is required.";
     }
     if (!form.land_status) {
-      nextFieldErrors.land_status = "Land status is required.";
+      nextFieldErrors.land_status = "Crop ownership is required.";
+    } else if (needsLandOwner(form.land_status) && !form.land_owner_name.trim()) {
+      nextFieldErrors.land_owner_name = "Enter the land owner's name.";
     }
     if (Object.keys(nextFieldErrors).length > 0) {
       setFieldErrors(nextFieldErrors);
@@ -557,6 +563,7 @@ function EditCropModal({ record, onClose, onSaved }) {
         farm_location_barangay: form.farm_location_barangay,
         land_status: form.land_status,
         land_status_other_specify: form.land_status === "Other" ? form.land_status_other_specify : "",
+        land_owner_name: needsLandOwner(form.land_status) ? form.land_owner_name.trim() : "",
         date_planted: form.date_planted,
         date_planted_is_estimated: false,
         area_planted_ha: form.area_planted_ha || null,
@@ -564,10 +571,7 @@ function EditCropModal({ record, onClose, onSaved }) {
         variety_used: form.variety_used,
         seed_source: form.seed_source,
         seed_source_other_specify: form.seed_source === "Other" ? form.seed_source_other_specify : "",
-        quantity_of_seeds: form.quantity_of_seeds
-          ? parseFloat(form.quantity_of_seeds)
-          : null,
-        seed_quantity_unit: form.seed_quantity_unit,
+        ...quantityPayload({ ...form, seed_quantity_unit: form.seed_quantity_unit }),
       });
       try {
         await uploadPcicForm(api, "planting", record.id, pcic);
@@ -709,18 +713,34 @@ function EditCropModal({ record, onClose, onSaved }) {
           />
           <div>
             <label className={editLabelCls}>
-              Land Status <span className="text-rose-500">*</span>
+              Crop Ownership <span className="text-rose-500">*</span>
             </label>
             <ComboboxWithOther
-              options={["Owner", "Lessee", "Tenant"]}
+              options={CROP_OWNERSHIP_OPTIONS}
               value={form.land_status}
               otherValue={form.land_status_other_specify}
-              onChange={(v) => set("land_status", v)}
+              onChange={(v) => setForm((f) => ({ ...f, ...chooseCropOwnership(f, v) }))}
               onOtherChange={(v) => set("land_status_other_specify", v)}
               placeholder="Select…"
               required
               error={fieldErrors.land_status}
             />
+            {needsLandOwner(form.land_status) && (
+              <div className="mt-3">
+                <label className={editLabelCls}>
+                  Land Owner&apos;s Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  maxLength={200}
+                  className={`${baseInputClasses} ${fieldErrors.land_owner_name ? "border-rose-400" : ""}`}
+                  placeholder="Full name of the land owner"
+                  value={form.land_owner_name}
+                  onChange={(e) => set("land_owner_name", e.target.value)}
+                />
+                {fieldErrors.land_owner_name && <p className="mt-1 text-[12px] text-rose-600">{fieldErrors.land_owner_name}</p>}
+              </div>
+            )}
           </div>
         </div>
 
@@ -847,38 +867,69 @@ function EditCropModal({ record, onClose, onSaved }) {
           />
         </div>
 
-        {/* Quantity + Unit */}
+        {/* Planted as + Quantity (+ Unit for seeds) */}
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label className={editLabelCls}>
-              Quantity of Seeds{" "}
-              <span className="text-[12px] font-normal text-[#7A8E7A]">
-                (optional)
-              </span>
-            </label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              className={baseInputClasses}
-              placeholder="e.g. 25"
-              value={form.quantity_of_seeds}
-              onChange={(e) => set("quantity_of_seeds", e.target.value)}
-            />
-          </div>
-          <div>
-            <label className={editLabelCls}>Unit</label>
+            <label className={editLabelCls}>Planted As</label>
             <select
               className={baseInputClasses}
-              value={form.seed_quantity_unit}
-              onChange={(e) => set("seed_quantity_unit", e.target.value)}
+              value={form.planting_material}
+              onChange={(e) => set("planting_material", e.target.value)}
             >
-              <option value="kg">kg</option>
-              <option value="bags">bags</option>
-              <option value="pcs">pcs</option>
-              <option value="bundles">bundles</option>
+              {PLANTING_MATERIALS.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
             </select>
           </div>
+          {form.planting_material === "Tree" ? (
+            <div>
+              <label className={editLabelCls}>
+                Quantity of Trees{" "}
+                <span className="text-[12px] font-normal text-[#7A8E7A]">(optional)</span>
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                inputMode="numeric"
+                className={baseInputClasses}
+                placeholder="e.g. 100"
+                value={form.quantity_of_trees}
+                onChange={(e) => set("quantity_of_trees", e.target.value.replace(/[^0-9]/g, ""))}
+              />
+            </div>
+          ) : (
+            <div>
+              <label className={editLabelCls}>
+                Quantity of Seeds{" "}
+                <span className="text-[12px] font-normal text-[#7A8E7A]">
+                  (optional)
+                </span>
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  className={baseInputClasses}
+                  placeholder="e.g. 25"
+                  value={form.quantity_of_seeds}
+                  onChange={(e) => set("quantity_of_seeds", e.target.value)}
+                />
+                <select
+                  className={`${baseInputClasses} max-w-[6.5rem]`}
+                  aria-label="Unit"
+                  value={form.seed_quantity_unit}
+                  onChange={(e) => set("seed_quantity_unit", e.target.value)}
+                >
+                  <option value="kg">kg</option>
+                  <option value="bags">bags</option>
+                  <option value="pcs">pcs</option>
+                  <option value="bundles">bundles</option>
+                </select>
+              </div>
+            </div>
+          )}
         </div>
 
         <PcicInsuranceField value={pcic} onChange={setPcic} subject="planting" />
@@ -919,7 +970,8 @@ function CropDetailModal({ record, onClose }) {
     ["Farmer", record.farmer_full_name || record.farmer_name || "—"],
     ["Organization", record.organization_name || "—"],
     ["Farm Location", record.farmer_barangay || record.farm_location_barangay || "—"],
-    ["Land Status", landStatusDisplay],
+    ["Crop Ownership", landStatusDisplay],
+    ...(needsLandOwner(record.land_status) ? [["Land Owner", record.land_owner_name || "Not recorded"]] : []),
     ["Season / Year", `${record.season || "—"} ${record.year || ""}`],
     ["Date Planted", fmtLong(record.date_planted)],
     ["PCIC Insurance", <PcicBadge key="pcic" insured={record.has_pcic_insurance} url={record.pcic_form_photo} none="No" />],
@@ -942,10 +994,12 @@ function CropDetailModal({ record, onClose }) {
     ],
     ["Variety Used", record.variety_used || "—"],
     ["Seed Source", seedSourceDisplay],
-    [
-      "Quantity of Seeds",
-      record.quantity_of_seeds ? `${record.quantity_of_seeds} ${record.seed_quantity_unit || ""}` : "—",
-    ],
+    record.planting_material === "Tree"
+      ? ["Quantity of Trees", record.quantity_of_trees ? Number(record.quantity_of_trees).toLocaleString() : "—"]
+      : [
+          "Quantity of Seeds",
+          record.quantity_of_seeds ? `${record.quantity_of_seeds} ${record.seed_quantity_unit || ""}` : "—",
+        ],
     ["Notes", record.notes || "—"],
   ];
 
@@ -1049,13 +1103,14 @@ function useParcelCrops(parcelId, search, barangay, version) {
   return { ...state, isLoading: state.key !== key, loadingMore, loadMore };
 }
 
-const CROP_COLUMNS = ["Crop", "Variety", "Season", "Date planted", "Est. harvest", "Area (ha)", "Status", ""];
+const CROP_COLUMNS = ["Crop", "Variety", "Crop Ownership", "Season", "Date planted", "Est. harvest", "Area (ha)", "Status", ""];
 
 function cropCells(rec) {
   const status = getDisplayStatus(rec);
   return {
     crop: rec.crop_type_name,
     variety: rec.variety_used || "—",
+    ownership: cropOwnershipCell(rec),
     season: [rec.season, rec.year].filter(Boolean).join(" ") || "—",
     planted: fmtShort(rec.date_planted),
     harvest: fmtShort(rec.expected_harvest_date),
@@ -1095,6 +1150,10 @@ function ParcelCrops({ parcelId, search, barangay, version, isPhone, handlers, e
                 <p className="mt-2 text-[12px] text-[#4A5E4A]">
                   Planted {c.planted} · Est. harvest {c.harvest} · {c.area} ha
                 </p>
+                <p className="mt-1 text-[12px] text-[#4A5E4A]">
+                  {c.ownership.status}
+                  {c.ownership.owner && <span className="text-[#7A8E7A]"> · {c.ownership.owner}</span>}
+                </p>
               </li>
             );
           })}
@@ -1118,6 +1177,10 @@ function ParcelCrops({ parcelId, search, barangay, version, isPhone, handlers, e
                   <tr key={rec.id} className="border-t border-[#F0F4F0]">
                     <td className="whitespace-nowrap px-3 py-2.5 text-[13px] font-medium text-[#1A2B1A]">{c.crop}</td>
                     <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#4A5E4A]">{c.variety}</td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#4A5E4A]">
+                      <p>{c.ownership.status}</p>
+                      {c.ownership.owner && <p className="text-[11.5px] text-[#7A8E7A]">{c.ownership.owner}</p>}
+                    </td>
                     <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#4A5E4A]">{c.season}</td>
                     <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#4A5E4A]">{c.planted}</td>
                     <td className="whitespace-nowrap px-3 py-2.5 text-[13px] text-[#4A5E4A]">{c.harvest}</td>
