@@ -328,8 +328,8 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
         return request.build_absolute_uri(url) if request and url.startswith('/') else url
 
     def _check_ownership(self, data):
-        """Ownership rules: Tenant and Lease need the owner's name and registration number; Owner needs nothing more, and any owner
-        details sent with it are dropped so outdated ones cannot be saved. A cycle with no ownership yet (made before this existed)
+        """Ownership rules: Tenant needs the owner's name and registration number; Lease and Owner need nothing more, and any owner
+        details sent with them are dropped so outdated ones cannot be saved. A cycle with no ownership yet (made before this existed)
         is left alone unless the request touches ownership."""
         stored = self.instance
         touched = any(f in data for f in ('ownership', 'owner_name', 'owner_registration_number'))
@@ -338,7 +338,7 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
         ownership = data.get('ownership', getattr(stored, 'ownership', ''))
         if not ownership:
             raise serializers.ValidationError({'ownership': 'Choose the ownership.'})
-        if ownership == 'Owner':
+        if ownership != 'Tenant':
             data['owner_name'] = ''
             data['owner_registration_number'] = ''
             return
@@ -405,6 +405,9 @@ class AquacultureProductionCycleSerializer(serializers.ModelSerializer):
             if match is None:
                 raise serializers.ValidationError({'fingerling_source': 'Choose a fingerling source from the list.'})
             data['fingerling_source'] = match.name
+        elif data.get('species_option'):
+            # The source is recorded on the stocking this creates, so a cycle that starts one must say where the fingerlings came from.
+            raise serializers.ValidationError({'fingerling_source': 'Fingerling source is required.'})
         else:
             data['fingerling_source'] = ''
         return data
