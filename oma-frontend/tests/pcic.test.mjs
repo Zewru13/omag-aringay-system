@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict'
 
-const { EMPTY_PCIC, pcicStateFrom, pcicPayload, pcicError, checkPcicFile, pcicFormUrl, uploadPcicForm } =
+const { PCIC_FILTER_OPTIONS, EMPTY_PCIC, pcicStateFrom, pcicPayload, pcicError, checkPcicFile, pcicFormUrl, uploadPcicForm } =
   await import(new URL('../src/utils/pcic.js', import.meta.url).href)
 
 let n = 0
 const eq = (actual, expected, label) => { assert.deepEqual(actual, expected, `${label}: got ${JSON.stringify(actual)}, wanted ${JSON.stringify(expected)}`); n++ }
 const file = (type = 'image/png', size = 1000, name = 'pcic.png') => ({ type, size, name })
+
+// the PCIC filter of the crop tables: everything, insured, not insured
+eq(PCIC_FILTER_OPTIONS, [{ value: '', label: 'All PCIC' }, { value: 'insured', label: 'PCIC insured' }, { value: 'not_insured', label: 'Not PCIC insured' }], 'filter choices')
 
 // a new record starts uninsured
 eq(EMPTY_PCIC, { insured: false, file: null, url: '' }, 'empty state')

@@ -22,6 +22,8 @@ eq(cropCountLabel(undefined), 'No crops yet', 'unknown counts as none')
 // ── the request for the parcel list: blanks are left out
 eq(directoryParams({ search: ' Ana ', barangay: '', page: 2 }), { page: 2, search: 'Ana' }, 'filters')
 eq(directoryParams({}), { page: 1 }, 'nothing typed')
+eq(directoryParams({ pcic: 'insured', page: 2 }), { page: 2, pcic: 'insured' }, 'the PCIC filter is sent')
+eq(directoryParams({ pcic: '' }), { page: 1 }, 'all PCIC sends nothing')
 eq(directoryParams({ barangay: 'Alaska', page: 3 }), { page: 3, barangay: 'Alaska' }, 'barangay only')
 eq(directoryParams({ ordering: 'crops' }), { page: 1, ordering: 'crops' }, 'a sort is sent')
 eq(directoryParams({ ordering: DEFAULT_SORT }), { page: 1 }, 'the default sort is the server own order, so it is not sent')
@@ -44,6 +46,7 @@ eq(groupHeading('barangay', { name: 'Alaska', barangay: '' }), 'Alaska', 'barang
 // ── the request for the crops that have no parcel on file (only the filters that apply to them)
 eq(noParcelParams({ search: 'Ana', barangay: 'Alaska', farmStatus: 'Inactive' }), { farm_parcel: 'none', search: 'Ana', barangay: 'Alaska' }, 'no-parcel request')
 eq(noParcelParams({}), { farm_parcel: 'none' }, 'no-parcel request, no filters')
+eq(noParcelParams({ pcic: 'not_insured' }), { farm_parcel: 'none', pcic: 'not_insured' }, 'no-parcel request with the PCIC filter')
 
 // ── "Add crop records" opens the Add Crop page with this parcel's farmer and parcel chosen
 eq(

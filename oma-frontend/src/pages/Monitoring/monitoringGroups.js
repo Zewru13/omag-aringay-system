@@ -18,7 +18,7 @@ export const FARMER_GROUP = 'parcel'
 export const DISPLAY_STATUSES = ['Due Harvest', 'Ready for Harvest', 'Overdue']
 
 // The filters the list AND the groups are asked with, so a group's count is always the number of records it opens onto.
-export function monitoringParams({ statusFilter, season, year, barangay, cropType, search }) {
+export function monitoringParams({ statusFilter, season, year, barangay, cropType, pcic, search }) {
   const params = {}
   if (DISPLAY_STATUSES.includes(statusFilter)) {
     params.status = 'Near Harvest'
@@ -30,6 +30,7 @@ export function monitoringParams({ statusFilter, season, year, barangay, cropTyp
   if (year) params.year = year
   if (barangay) params.barangay = barangay
   if (cropType) params.crop_type = cropType
+  if (pcic) params.pcic = pcic
   if (search) params.search = search
   return params
 }

@@ -50,6 +50,13 @@ export async function uploadPcicForm(api, kind, id, state) {
 
 // The fisherfolk name in Aquaculture Monitoring and Fisheries Forecasting is blue for a PCIC-insured cycle, for Admin and Focal Person
 // (Evaluator) accounts only. It follows that row's own saved insurance flag, never the person or their other cycles.
+// The PCIC filter of the crop tables (Crop Records, Crop Monitoring): the value sent as ?pcic= and what the dropdown says.
+export const PCIC_FILTER_OPTIONS = [
+  { value: '', label: 'All PCIC' },
+  { value: 'insured', label: 'PCIC insured' },
+  { value: 'not_insured', label: 'Not PCIC insured' },
+]
+
 export const PCIC_NAME_CLASS = 'font-semibold text-[#1A56C8]'
 export const canSeePcicHighlight = (role) => role === 'ADMIN' || role === 'EVALUATOR'
 export const pcicNameClass = (record, role) => (canSeePcicHighlight(role) && record?.has_pcic_insurance ? PCIC_NAME_CLASS : '')
