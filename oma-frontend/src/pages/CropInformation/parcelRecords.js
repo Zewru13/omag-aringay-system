@@ -91,12 +91,17 @@ const LAND_STATUSES = ['Owner', 'Tenant', 'Lessee']
 // A farmer with exactly one parcel does not have to pick it: a row with no parcel gets it, with the parcel's barangay and
 // the farmer's tenure there when those are still blank. A parcel already chosen, or several to choose from, is left alone.
 export function ownerParcelFill(parcels, row) {
-  if (parcels.length !== 1 || row.farm_parcel) return { farm_parcel: row.farm_parcel, farm_location_barangay: row.farm_location_barangay, land_status: row.land_status }
+  if (parcels.length !== 1 || row.farm_parcel) {
+    return { farm_parcel: row.farm_parcel, farm_location_barangay: row.farm_location_barangay, land_status: row.land_status, land_owner_name: row.land_owner_name }
+  }
   const [parcel] = parcels
+  const land_status = row.land_status || (LAND_STATUSES.includes(parcel.land_ownership) ? parcel.land_ownership : '')
   return {
     farm_parcel: String(parcel.id),
     farm_location_barangay: row.farm_location_barangay || parcel.barangay || '',
-    land_status: row.land_status || (LAND_STATUSES.includes(parcel.land_ownership) ? parcel.land_ownership : ''),
+    land_status,
+    // a Tenant / Lessee crop on the parcel starts with the parcel's own land owner
+    land_owner_name: row.land_owner_name || (land_status === 'Tenant' || land_status === 'Lessee' ? parcel.land_owner_name || '' : ''),
   }
 }
 

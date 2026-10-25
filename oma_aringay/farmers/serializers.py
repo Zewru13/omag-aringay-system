@@ -120,6 +120,8 @@ class ParcelClassificationSerializer(serializers.ModelSerializer):
 class FarmParcelSerializer(serializers.ModelSerializer):
     crops = FarmCropSerializer(many=True, read_only=True)
     machinery = FarmMachinerySerializer(many=True, read_only=True)
+    # The hectares of the plantings growing on the parcel now (Planted, Near Harvest): what the Add Crop form subtracts from its area.
+    growing_area_ha = serializers.SerializerMethodField()
 
     class Meta:
         model = FarmParcel
@@ -140,11 +142,16 @@ class FarmParcelSerializer(serializers.ModelSerializer):
             'cropping_schedule',
             'crops',
             'machinery',
+            'growing_area_ha',
         ]
-        read_only_fields = ['id', 'commodity_type', 'commodity_name', 'crops', 'machinery']
+        read_only_fields = ['id', 'commodity_type', 'commodity_name', 'crops', 'machinery', 'growing_area_ha']
         extra_kwargs = {
             'farmer': {'required': False},
         }
+
+    def get_growing_area_ha(self, obj):
+        from production.duplicates import growing_area_on_parcel
+        return str(growing_area_on_parcel(obj.pk))
 
     def validate_area_hectares(self, value):
         if value <= 0:

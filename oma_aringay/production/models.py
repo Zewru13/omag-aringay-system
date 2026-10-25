@@ -385,6 +385,9 @@ class CropMonitoringRecord(PcicInsurance):
         help_text='Name of a SeedSource record, or free text when "Other" is selected on the form.',
     )
     seed_source_other_specify = models.CharField(max_length=150, blank=True)
+    # How the crop was planted: as seed (Qty of Seeds, in the unit below) or as trees / seedlings (Qty of Trees, a count).
+    planting_material = models.CharField(max_length=10, default='Seed', choices=[('Seed', 'Seed'), ('Tree', 'Tree')])
+    quantity_of_trees = models.PositiveIntegerField(null=True, blank=True)
     quantity_of_seeds = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     seed_quantity_unit = models.CharField(
         max_length=20, blank=True, default='kg',
@@ -408,6 +411,8 @@ class CropMonitoringRecord(PcicInsurance):
         ],
     )
     land_status_other_specify = models.CharField(max_length=150, blank=True)
+    # Whose land the crop grows on, when the farmer is only a Tenant or Lessee of it (blank for an Owner crop).
+    land_owner_name = models.CharField(max_length=200, blank=True)
 
     recorded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

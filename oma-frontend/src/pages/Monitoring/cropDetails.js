@@ -14,7 +14,11 @@ const number = (value, digits = 2) => {
 // What the crop is, where it grows, when it was planted and how much is expected: [[label, value], ...].
 export function summaryRows(record) {
   const seedSource = record.seed_source === 'Other' ? (record.seed_source_other_specify || 'Other') : record.seed_source
-  const seeds = [record.quantity_of_seeds ? `${record.quantity_of_seeds} ${record.seed_quantity_unit || ''}`.trim() : '', seedSource].filter(Boolean).join(' · ')
+  const planted = record.planting_material === 'Tree'
+    ? (record.quantity_of_trees ? `${Number(record.quantity_of_trees).toLocaleString('en-US')} trees` : '')
+    : (record.quantity_of_seeds ? `${record.quantity_of_seeds} ${record.seed_quantity_unit || ''}`.trim() : '')
+  const seeds = [planted, seedSource].filter(Boolean).join(' · ')
+  const tenure = record.land_status === 'Tenant' || record.land_status === 'Lessee'
   return [
     ['Crop', dash(record.crop_type_name)],
     ['Variety', dash(record.variety_used)],
@@ -22,10 +26,11 @@ export function summaryRows(record) {
     ['Organization', dash(record.organization_name)],
     ['Farm parcel', dash(record.parcel_number)],
     ['Farm location', dash(record.farm_location_barangay || record.farmer_barangay)],
-    ['Land status', dash(record.land_status)],
+    ['Crop ownership', dash(record.land_status)],
+    ...(tenure ? [['Land owner', dash(record.land_owner_name)]] : []),
     ['Season / year', dash([record.season, record.year].filter(Boolean).join(' '))],
     ['Area planted (ha)', dash(record.area_planted_ha)],
-    ['Seeds', dash(seeds)],
+    [record.planting_material === 'Tree' ? 'Trees' : 'Seeds', dash(seeds)],
     ['PCIC insurance', record.has_pcic_insurance ? 'Yes' : 'No'],
     ['Date planted', `${dash(record.date_planted)}${record.date_planted_is_estimated ? ' (estimated)' : ''}`],
     ['Expected harvest', dash(record.expected_harvest_date)],

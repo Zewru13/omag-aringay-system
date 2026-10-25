@@ -30,6 +30,14 @@ eq(val(summaryRows({ ...record, quantity_of_seeds: null, seed_source: '' }), 'Se
 eq(val(summaryRows({ ...record, seed_source: 'Other', seed_source_other_specify: 'Neighbour' }), 'Seeds'), '40.00 kg · Neighbour', 'other seed source')
 eq(val(summaryRows({ ...record, date_planted_is_estimated: true }), 'Date planted').endsWith('(estimated)'), true, 'estimated planting date is flagged')
 eq(val(summaryRows({ ...record, has_pcic_insurance: false }), 'PCIC insurance'), 'No', 'no pcic')
+// crop ownership, with the land owner of a tenant or lessee crop; trees instead of seeds
+eq(val(rows, 'Crop ownership'), '—', 'no ownership saved'); eq(val(rows, 'Land owner'), undefined, 'no owner row without a tenant')
+eq(val(summaryRows({ ...record, land_status: 'Owner', land_owner_name: '' }), 'Land owner'), undefined, 'an owner crop has no owner row')
+const tenant = summaryRows({ ...record, land_status: 'Tenant', land_owner_name: 'Rosa Landlord' })
+eq([val(tenant, 'Crop ownership'), val(tenant, 'Land owner')], ['Tenant', 'Rosa Landlord'], 'a tenant crop shows its owner')
+eq(val(summaryRows({ ...record, land_status: 'Lessee', land_owner_name: '' }), 'Land owner'), '—', 'a lessee crop with no name saved')
+const trees = summaryRows({ ...record, planting_material: 'Tree', quantity_of_trees: 1200, quantity_of_seeds: null, seed_source: '' })
+eq([val(trees, 'Trees'), val(trees, 'Seeds')], ['1,200 trees', undefined], 'trees are counted, not weighed')
 
 // ── list lines
 eq(activityLine({ activity_type: 'Fertilizer Application', date_of_activity: '2026-06-01', plant_condition: 'Good', notes: 'Urea', status_at_log: 'Planted' }),

@@ -3,6 +3,9 @@ import { AlertTriangle, ArrowLeft, CheckCircle2, Info, Plus, Trash2 } from 'luci
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { sameCrop } from '../../utils/cropNames.js'
 import { ownerParcelFill, parcelProblem } from '../CropInformation/parcelRecords.js'
+import {
+  CROP_OWNERSHIP_OPTIONS, PLANTING_MATERIALS, areaProblem, chooseCropOwnership, defaultPlantingMaterial, needsLandOwner, quantityHeader, quantityLabel, quantityPayload,
+} from '../CropInformation/cropEntry.js'
 import api from '../../api/axiosInstance.js'
 import FarmerSearchInput from '../../components/FarmerSearchInput.jsx'
 import BARANGAYS from '../../constants/barangays.js'
@@ -23,13 +26,14 @@ import { EMPTY_PCIC, pcicError, pcicPayload, uploadPcicForm } from '../../utils/
 const COL_WIDTH = {
   index: 44,
   barangay: 150,
-  landStatus: 140,
+  landStatus: 170,
   cropType: 190,
   datePlanted: 160,
   area: 110,
   season: 110,
   variety: 170,
   seedSource: 160,
+  plantedAs: 120,
   qtySeeds: 130,
   farmParcel: 170,
   remove: 56,
@@ -47,6 +51,7 @@ const makeRecord = (n) => ({
   farm_location_barangay: '',
   land_status: '',
   land_status_other_specify: '',
+  land_owner_name: '',
   crop_type: '',
   date_planted: '',
   area_planted_ha: '',
@@ -55,7 +60,10 @@ const makeRecord = (n) => ({
   variety_used_is_other: false,
   seed_source: '',
   seed_source_other_specify: '',
+  planting_material: 'Seed',
+  planting_material_chosen: false,    // true once the dropdown was used, so a later crop change no longer resets it
   quantity_of_seeds: '',
+  quantity_of_trees: '',
   seed_quantity_unit: 'kg',
   farm_parcel: '',
 })
@@ -119,7 +127,7 @@ function useCropDuplicateCheck(farmerId, rec) {
 
 // ── Crop Record Row (tabular, every field flat — no expand/collapse) ─────────
 
-function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, farmerId, showParcelColumn, farmerParcels, parcelLocked, error, onUpdate, onRemove }) {
+function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, farmerId, showParcelColumn, farmerParcels, parcelLocked, error, areaError, onUpdate, onRemove }) {
   const set = (field, value) => onUpdate(rec._id, field, value)
   const { duplicates, isChecking } = useCropDuplicateCheck(farmerId, rec)
 
@@ -133,7 +141,10 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
     ? `An active ${duplicates[0].crop_type}${duplicates[0].variety_used ? ` (${duplicates[0].variety_used})` : ''} record already exists here: ${duplicates.map(d => `${d.date_planted || '—'} (${d.area_planted_ha} ha)`).join(', ')}`
     : undefined
 
-  const colCount = 11 + (showParcelColumn ? 1 : 0)
+  const colCount = 12 + (showParcelColumn ? 1 : 0)
+  const rowParcel = farmerParcels.find(p => String(p.id) === String(rec.farm_parcel))
+  // The parcel's own owner is offered for a Tenant / Lessee crop on it.
+  const parcelOwnerName = rowParcel && needsLandOwner(rowParcel.land_ownership) ? (rowParcel.land_owner_name || '') : ''
 
   return (
     <>
@@ -149,21 +160,33 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
             {BARANGAYS.map(b => <option key={b} value={b}>{b}</option>)}
           </select>
         </td>
-        <td data-label="Land status *" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.landStatus }}>
+        <td data-label="Crop ownership *" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.landStatus }}>
           <ComboboxWithOther
-            options={['Owner', 'Lessee', 'Tenant']}
+            options={CROP_OWNERSHIP_OPTIONS}
             value={rec.land_status}
             otherValue={rec.land_status_other_specify}
-            onChange={(v) => set('land_status', v)}
+            onChange={(v) => Object.entries(chooseCropOwnership(rec, v, parcelOwnerName)).forEach(([field, value]) => set(field, value))}
             onOtherChange={(v) => set('land_status_other_specify', v)}
             placeholder="Select…"
             inputClassName={bulkCellInputClasses}
             chevronSize={13}
           />
+          {needsLandOwner(rec.land_status) && (
+            <input type="text" maxLength={200} className={`${bulkCellInputClasses} mt-1.5 w-full`} aria-label="Land owner's name"
+              placeholder="Land owner's name *" value={rec.land_owner_name} onChange={e => set('land_owner_name', e.target.value)} />
+          )}
         </td>
         <td data-label="Crop type *" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.cropType }}>
           <select className={`${bulkCellInputClasses} w-full`} value={rec.crop_type}
-            onChange={e => set('crop_type', e.target.value)}>
+            onChange={e => {
+              const next = e.target.value
+              set('crop_type', next)
+              // The variety belongs to the crop it was picked for: another crop starts with none.
+              set('variety_used', '')
+              set('variety_used_is_other', false)
+              // Tree crops start as "Tree" and the rest as "Seed", unless the dropdown was already used on this row.
+              if (!rec.planting_material_chosen) set('planting_material', defaultPlantingMaterial(cropTypes.find(c => String(c.id) === next)?.name))
+            }}>
             <option value="">Select crop…</option>
             {cropTypes.map(ct => (
               <option key={ct.id} value={ct.id}>{ct.name} ({ct.days_to_harvest}d)</option>
@@ -193,10 +216,11 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
           )}
         </td>
         <td data-label="Area (ha) *" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.area }}>
-          <DecimalInput decimals={2} className={`${bulkCellInputClasses} w-full`}
-            placeholder="0.00"
+          <DecimalInput decimals={2} className={`${bulkCellInputClasses} w-full ${areaError ? 'border-rose-400' : ''}`}
+            placeholder="0.00" aria-invalid={Boolean(areaError)}
             value={rec.area_planted_ha}
             onChange={v => set('area_planted_ha', v)} />
+          {areaError && <p className="mt-1.5 text-[11px] leading-snug text-rose-600" role="alert">{areaError}</p>}
         </td>
         <td data-label="Season" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.season }}>
           <select className={`${bulkCellInputClasses} w-full`} value={rec.season}
@@ -232,11 +256,23 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
             chevronSize={13}
           />
         </td>
-        <td data-label="Qty of seeds (kg)" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.qtySeeds }}>
-          <input type="number" step="0.01" min="0" className={`${bulkCellInputClasses} w-full`}
-            placeholder="0"
-            value={rec.quantity_of_seeds}
-            onChange={e => set('quantity_of_seeds', e.target.value)} />
+        <td data-label="Planted as" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.plantedAs }}>
+          <select className={`${bulkCellInputClasses} w-full`} aria-label="Planted as" value={rec.planting_material}
+            onChange={e => { set('planting_material', e.target.value); set('planting_material_chosen', true) }}>
+            {PLANTING_MATERIALS.map(m => <option key={m} value={m}>{m === 'Tree' ? 'Tree' : 'Seed'}</option>)}
+          </select>
+        </td>
+        <td data-label={quantityLabel(rec.planting_material)} className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.qtySeeds }}>
+          {rec.planting_material === 'Tree' ? (
+            <input type="number" step="1" min="0" inputMode="numeric" className={`${bulkCellInputClasses} w-full`} aria-label="Qty of trees"
+              placeholder="0" value={rec.quantity_of_trees}
+              onChange={e => set('quantity_of_trees', e.target.value.replace(/[^0-9]/g, ''))} />
+          ) : (
+            <input type="number" step="0.01" min="0" className={`${bulkCellInputClasses} w-full`} aria-label="Qty of seeds (kg)"
+              placeholder="0"
+              value={rec.quantity_of_seeds}
+              onChange={e => set('quantity_of_seeds', e.target.value)} />
+          )}
         </td>
         {showParcelColumn && (
           <td data-label="Farm parcel" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.farmParcel }}>
@@ -249,7 +285,10 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
                 const parcel = farmerParcels.find(p => String(p.id) === value)
                 if (parcel) {
                   if (!rec.farm_location_barangay) set('farm_location_barangay', parcel.barangay || '')
-                  if (!rec.land_status && ['Owner', 'Tenant', 'Lessee'].includes(parcel.land_ownership)) set('land_status', parcel.land_ownership)
+                  if (!rec.land_status && ['Owner', 'Tenant', 'Lessee'].includes(parcel.land_ownership)) {
+                    set('land_status', parcel.land_ownership)
+                    if (needsLandOwner(parcel.land_ownership) && !rec.land_owner_name) set('land_owner_name', parcel.land_owner_name || '')
+                  }
                 }
               }}>
               <option value="">Choose parcel</option>
@@ -454,6 +493,8 @@ export default function AddCropMonitoringPage() {
       farm_parcel: String(parcel.id),
       farm_location_barangay: parcel.barangay || '',
       land_status: ['Owner', 'Tenant', 'Lessee'].includes(parcel.land_ownership) ? parcel.land_ownership : '',
+      land_owner_name: needsLandOwner(parcel.land_ownership) ? (parcel.land_owner_name || '') : '',
+      planting_material: defaultPlantingMaterial(crop?.name),
       crop_type: crop ? String(crop.id) : '',
       area_planted_ha: prefill.areaHa ? String(prefill.areaHa) : '',
     })))
@@ -480,6 +521,7 @@ export default function AddCropMonitoringPage() {
       farm_location_barangay: rec.farm_location_barangay || '',
       land_status:            rec.land_status || '',
       land_status_other_specify: rec.land_status === 'Other' ? (rec.land_status_other_specify || '') : '',
+      land_owner_name:        needsLandOwner(rec.land_status) ? rec.land_owner_name.trim() : '',
       crop_type:              rec.crop_type || null,
       season:                 rec.season,
       year,
@@ -488,8 +530,7 @@ export default function AddCropMonitoringPage() {
       variety_used:           rec.variety_used || '',
       seed_source:            rec.seed_source || '',
       seed_source_other_specify: rec.seed_source === 'Other' ? (rec.seed_source_other_specify || '') : '',
-      quantity_of_seeds:      rec.quantity_of_seeds ? parseFloat(rec.quantity_of_seeds) : null,
-      seed_quantity_unit:     rec.seed_quantity_unit || 'kg',
+      ...quantityPayload(rec),
       farm_parcel:            rec.farm_parcel || null,
       ...pcicPayload(rec.pcic),
     }
@@ -503,13 +544,17 @@ export default function AddCropMonitoringPage() {
     records.forEach((rec, i) => {
       const missing = []
       if (!rec.farm_location_barangay) missing.push('barangay')
-      if (!rec.land_status) missing.push('land status')
+      if (!rec.land_status) missing.push('crop ownership')
+      else if (needsLandOwner(rec.land_status) && !rec.land_owner_name.trim()) missing.push("land owner's name")
       if (!rec.crop_type) missing.push('crop type')
       if (!rec.date_planted) missing.push('date planted')
       if (!rec.area_planted_ha) missing.push('area planted')
       const pcicProblem = pcicError(rec.pcic)
+      const areaMessage = areaProblem(records, i, farmerParcels)
       if (missing.length > 0) {
         nextRowErrors[rec._id] = `Row ${i + 1}: missing ${missing.join(', ')}.`
+      } else if (areaMessage) {
+        nextRowErrors[rec._id] = `Row ${i + 1}: ${areaMessage}`
       } else if (pcicProblem) {
         nextRowErrors[rec._id] = `Row ${i + 1}: ${pcicProblem}`
       }
@@ -665,14 +710,15 @@ export default function AddCropMonitoringPage() {
               <tr>
                 <th className={`${bulkThCenterClasses} overflow-hidden`} style={{ width: COL_WIDTH.index }}>#</th>
                 <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.barangay }}>Barangay <span className="text-white/70">*</span></th>
-                <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.landStatus }}>Land Status <span className="text-white/70">*</span></th>
+                <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.landStatus }}>Crop Ownership <span className="text-white/70">*</span></th>
                 <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.cropType }}>Crop Type <span className="text-white/70">*</span></th>
                 <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.datePlanted }}>Date Planted <span className="text-white/70">*</span></th>
                 <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.area }}>Area (ha) <span className="text-white/70">*</span></th>
                 <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.season }}>Season<OptBadge /></th>
                 <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.variety }}>Variety<OptBadge /></th>
                 <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.seedSource }}>Seed Source<OptBadge /></th>
-                <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.qtySeeds }}>Qty of Seeds (kg)<OptBadge /></th>
+                <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.plantedAs }}>Planted As<OptBadge /></th>
+                <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.qtySeeds }}>{quantityHeader(records)}<OptBadge /></th>
                 {showParcelColumn && <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.farmParcel }}>Farm Parcel <span className="text-white/70">*</span></th>}
                 <th className={bulkThCenterClasses} style={{ width: COL_WIDTH.remove }}></th>
               </tr>
@@ -692,6 +738,7 @@ export default function AddCropMonitoringPage() {
                   farmerParcels={farmerParcels}
                   parcelLocked={Boolean(lockedParcel)}
                   error={rowErrors[rec._id]}
+                  areaError={areaProblem(records, i, farmerParcels)}
                   onUpdate={updateRecord}
                   onRemove={removeRecord}
                 />
