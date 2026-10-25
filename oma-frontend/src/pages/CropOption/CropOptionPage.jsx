@@ -12,6 +12,7 @@ import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import { PLANTING_TYPES, plantingTypeLabel } from '../CropInformation/cropEntry.js'
 
 const PAGE_SIZE = 10
 
@@ -26,12 +27,13 @@ const COLUMNS = [
   { key: 'category_name',    label: 'CATEGORY',               sortable: true },
   { key: 'subcategory_name', label: 'SUBCATEGORY',            sortable: false },
   { key: 'days_to_harvest',  label: 'GROWTH DURATION (DAYS)', sortable: true },
+  { key: 'planting_label',   label: 'PLANTED AS',             sortable: false },
   { key: 'yield_display',    label: 'YIELD PER HA (KG)',       sortable: true },
   { key: 'actions',          label: 'ACTIONS',                sortable: false },
 ]
 
 const EMPTY_FORM = {
-  name: '', days_to_harvest: '', yield_per_ha_kg: '', category: '', subcategory: '', allowed_units: [],
+  name: '', days_to_harvest: '', yield_per_ha_kg: '', category: '', subcategory: '', allowed_units: [], planting_type: 'Seed',
   vegetative_start_day: '', flowering_start_day: '', fruiting_start_day: '', maturity_start_day: '',
 }
 
@@ -343,6 +345,7 @@ function CropTypeModal({ crop, categories, subcategories, onClose, onSaved }) {
         category:        crop.category        || '',
         subcategory:     crop.subcategory     || '',
         allowed_units:   crop.allowed_units    || [],
+        planting_type:   crop.planting_type    || 'Seed',
         vegetative_start_day: crop.vegetative_start_day ?? '',
         flowering_start_day:  crop.flowering_start_day  ?? '',
         fruiting_start_day:   crop.fruiting_start_day   ?? '',
@@ -473,6 +476,15 @@ function CropTypeModal({ crop, categories, subcategories, onClose, onSaved }) {
               value={form.days_to_harvest}
               onChange={e => set('days_to_harvest', e.target.value)}
             />
+          </FormField>
+          <FormField label="Planted As" required>
+            <select className={baseInputClasses} value={form.planting_type} onChange={e => set('planting_type', e.target.value)}>
+              {PLANTING_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+            <p className="mt-1 text-[11px] text-[#7A8E7A]">
+              Seed: Add Crop Records asks for the Qty of Seeds (kg). Tree: it asks for the Qty of Trees. Seed or Tree: the person adding the crop
+              can switch between the two.
+            </p>
           </FormField>
           <FormField label="Yield Per Hectare (kg)">
             <input
@@ -612,6 +624,7 @@ export default function CropOptionPage({ asTab = false }) {
       ...c,
       category_name:    c.category_name    || '—',
       subcategory_name: c.subcategory_name || '—',
+      planting_label:   plantingTypeLabel(c),
       yield_display:    c.yield_per_ha_kg  ? `${Number(c.yield_per_ha_kg).toLocaleString()} kg/ha` : '—',
       actions: (
         <RowActions actions={[

@@ -44,7 +44,7 @@ import PcicBadge from "../../components/UI/PcicBadge.jsx";
 import { PCIC_FILTER_OPTIONS, pcicError, pcicPayload, pcicStateFrom, uploadPcicForm } from "../../utils/pcic.js";
 import { ARINGAY_BARANGAYS } from "../../constants/barangays.js";
 import GroupedParcelsTable from "./GroupedParcelsTable.jsx";
-import { CROP_OWNERSHIP_OPTIONS, PLANTING_MATERIALS, chooseCropOwnership, cropOwnershipCell, needsLandOwner, quantityPayload } from "./cropEntry.js";
+import { CROP_OWNERSHIP_OPTIONS, PLANTING_MATERIALS, canChoosePlanting, chooseCropOwnership, cropOwnershipCell, materialFor, needsLandOwner, quantityPayload } from "./cropEntry.js";
 import {
   DEFAULT_GROUP, DEFAULT_SORT, GROUP_OPTIONS, SORT_OPTIONS, addCropsLockedState, cropCountLabel, directoryParams, groupFilterParams, noParcelParams, parcelLabel,
   recordActionKeys,
@@ -459,6 +459,8 @@ function EditCropModal({ record, onClose, onSaved }) {
   const cropType = cropTypes.find(
     (c) => String(c.id) === String(record.crop_type),
   );
+  // How the crop is planted follows its crop type (Crop Settings); until the crop types have loaded the record's own value is used.
+  const plantedAs = cropType ? materialFor(cropType, form.planting_material) : form.planting_material;
   const harvestDate = useMemo(() => {
     if (!form.date_planted || !cropType?.days_to_harvest) return null;
     const d = new Date(form.date_planted + "T00:00:00");
@@ -572,7 +574,7 @@ function EditCropModal({ record, onClose, onSaved }) {
         variety_used: form.variety_used,
         seed_source: form.seed_source,
         seed_source_other_specify: form.seed_source === "Other" ? form.seed_source_other_specify : "",
-        ...quantityPayload({ ...form, seed_quantity_unit: form.seed_quantity_unit }),
+        ...quantityPayload({ ...form, planting_material: plantedAs }),
       });
       try {
         await uploadPcicForm(api, "planting", record.id, pcic);
@@ -722,26 +724,14 @@ function EditCropModal({ record, onClose, onSaved }) {
               otherValue={form.land_status_other_specify}
               onChange={(v) => setForm((f) => ({ ...f, ...chooseCropOwnership(f, v) }))}
               onOtherChange={(v) => set("land_status_other_specify", v)}
+              textValues={["Tenant", "Lessee"]}
+              textValue={form.land_owner_name}
+              onTextChange={(v) => set("land_owner_name", v)}
+              textPlaceholder={() => "Owner's full name"}
               placeholder="Select…"
               required
-              error={fieldErrors.land_status}
+              error={fieldErrors.land_status || fieldErrors.land_owner_name}
             />
-            {needsLandOwner(form.land_status) && (
-              <div className="mt-3">
-                <label className={editLabelCls}>
-                  Land Owner&apos;s Name <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  maxLength={200}
-                  className={`${baseInputClasses} ${fieldErrors.land_owner_name ? "border-rose-400" : ""}`}
-                  placeholder="Full name of the land owner"
-                  value={form.land_owner_name}
-                  onChange={(e) => set("land_owner_name", e.target.value)}
-                />
-                {fieldErrors.land_owner_name && <p className="mt-1 text-[12px] text-rose-600">{fieldErrors.land_owner_name}</p>}
-              </div>
-            )}
           </div>
         </div>
 
@@ -868,21 +858,23 @@ function EditCropModal({ record, onClose, onSaved }) {
           />
         </div>
 
-        {/* Planted as + Quantity (+ Unit for seeds) */}
+        {/* Quantity: seeds (with a unit) or trees, by how the crop is planted (Crop Settings); a crop that is both can be switched */}
         <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <label className={editLabelCls}>Planted As</label>
-            <select
-              className={baseInputClasses}
-              value={form.planting_material}
-              onChange={(e) => set("planting_material", e.target.value)}
-            >
-              {PLANTING_MATERIALS.map((m) => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
-          </div>
-          {form.planting_material === "Tree" ? (
+          {canChoosePlanting(cropType) && (
+            <div>
+              <label className={editLabelCls}>Planted As</label>
+              <select
+                className={baseInputClasses}
+                value={plantedAs}
+                onChange={(e) => set("planting_material", e.target.value)}
+              >
+                {PLANTING_MATERIALS.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          {plantedAs === "Tree" ? (
             <div>
               <label className={editLabelCls}>
                 Quantity of Trees{" "}

@@ -75,6 +75,11 @@ class CropType(models.Model):
     # type name regardless of this flag.
     is_active = models.BooleanField(default=True)
 
+    # How this crop is planted: from seed (Qty of Seeds, in kg), as trees / seedlings (Qty of Trees, a count), or either (the Add Crop
+    # form then lets the person pick per crop record). Set in Crop Settings; Add Crop Records follows it.
+    PLANTING_TYPE_CHOICES = [('Seed', 'Seed'), ('Tree', 'Tree'), ('Both', 'Seed or Tree')]
+    planting_type = models.CharField(max_length=10, default='Seed', choices=PLANTING_TYPE_CHOICES)
+
     # Growth-stage day thresholds for input (fertilizer/pesticide) recommendation
     # — mirrors SpeciesOption.fingerling_start_day/juvenile_start_day/adult_start_day
     # exactly. NULL until OMAg staff configure them; nothing is fabricated as a

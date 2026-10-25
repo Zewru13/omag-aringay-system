@@ -14,6 +14,11 @@ import { baseInputClasses } from './FormField.jsx'
 // always did — this component only changes how the two are edited, not
 // what gets submitted.
 //
+// `textValues` (optional): more options that, like "Other", turn the same box into a text field once picked - the person types a name
+// right there (e.g. Tenant / Lessee: the land owner's name). The picked option stays visible as a small tag at the left of the box.
+// `textValue` / `onTextChange` carry the typed text and `textPlaceholder(value)` says what to type. Callers that do not pass them
+// are unchanged.
+//
 // otherValue is cleared automatically (onOtherChange('')) the moment the
 // user switches AWAY from "Other" back to a real option — matching what
 // every hand-rolled instance of this pattern already did (e.g.
@@ -44,6 +49,10 @@ function ComboboxWithOther({
   onChange,
   onOtherChange,
   otherLabel = 'Other',
+  textValues = [],
+  textValue = '',
+  onTextChange,
+  textPlaceholder,
   placeholder = 'Select...',
   required = false,
   error,
@@ -75,6 +84,8 @@ function ComboboxWithOther({
 
   const allOptions = [...options.map(normalizeOption), { value: OTHER_SENTINEL, label: otherLabel }]
   const isOtherMode = value === OTHER_SENTINEL
+  const isTextMode = !isOtherMode && textValues.includes(value)
+  const isTyping = isOtherMode || isTextMode
 
   useEffect(() => {
     function handleOutside(e) {
@@ -126,11 +137,11 @@ function ComboboxWithOther({
   // Focus the text box the instant Other mode is entered — "the SAME box
   // becomes an editable text field immediately, focused and ready to type".
   useEffect(() => {
-    if (isOtherMode && !isOpen) {
+    if (isTyping && !isOpen) {
       otherInputRef.current?.focus()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOtherMode])
+  }, [isTyping])
 
   useEffect(() => {
     if (isOpen && activeIndex >= 0) {
@@ -218,13 +229,14 @@ function ComboboxWithOther({
     }
   }
 
-  const displayLabel = value && !isOtherMode
+  const typedLabel = isTextMode ? (allOptions.find((o) => o.value === value)?.label ?? value) : ''
+  const displayLabel = value && !isTyping
     ? (allOptions.find((o) => o.value === value)?.label ?? value)
     : ''
 
   return (
     <div ref={rootRef} className={`relative ${className}`}>
-      {!isOtherMode ? (
+      {!isTyping ? (
         <button
           ref={triggerRef}
           type="button"
@@ -262,12 +274,18 @@ function ComboboxWithOther({
             aria-invalid={error ? true : undefined}
             aria-activedescendant={isOpen && activeIndex >= 0 ? optionId(activeIndex) : undefined}
             disabled={disabled}
-            value={otherValue}
-            placeholder={`${otherLabel} — please specify`}
-            onChange={(e) => onOtherChange?.(e.target.value)}
+            value={isOtherMode ? otherValue : textValue}
+            placeholder={isOtherMode ? `${otherLabel} — please specify` : (textPlaceholder ? textPlaceholder(value) : '')}
+            onChange={(e) => (isOtherMode ? onOtherChange : onTextChange)?.(e.target.value)}
             onKeyDown={handleOtherInputKeyDown}
+            style={isTextMode ? { paddingLeft: `${typedLabel.length * 7 + 22}px` } : undefined}
             className={`${inputClassName} pr-8 disabled:opacity-50 disabled:cursor-not-allowed`}
           />
+          {isTextMode && (
+            <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 rounded bg-[#EBF5EE] px-1.5 py-0.5 text-[10.5px] font-semibold text-[#1B4D2E]">
+              {typedLabel}
+            </span>
+          )}
           <button
             type="button"
             tabIndex={-1}

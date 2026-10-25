@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 
 const {
-  CROP_OWNERSHIP_OPTIONS, PLANTING_MATERIALS, needsLandOwner, chooseCropOwnership, cropOwnershipCell, defaultPlantingMaterial,
-  quantityLabel, quantityHeader, quantityPayload, areaProblem,
+  CROP_OWNERSHIP_OPTIONS, PLANTING_MATERIALS, PLANTING_TYPES, plantingTypeOf, plantingTypeLabel, canChoosePlanting, materialFor, needsLandOwner,
+  chooseCropOwnership, cropOwnershipCell, defaultPlantingMaterial, quantityLabel, quantityHeader, quantityPayload, areaProblem,
 } = await import(new URL('../src/pages/CropInformation/cropEntry.js', import.meta.url).href)
 
 let n = 0
@@ -28,8 +28,15 @@ eq(cropOwnershipCell({}), { status: '—', owner: '' }, 'nothing saved')
 
 // seed or trees
 eq(PLANTING_MATERIALS, ['Seed', 'Tree'], 'planting choices')
-eq(['Mango', 'Cacao', 'Banana', 'Coffee (Kape)', 'Other Fruits'].map(defaultPlantingMaterial), Array(5).fill('Tree'), 'known tree crops start as trees')
-eq(['Rice', 'Corn (Mais)', '', undefined].map(defaultPlantingMaterial), Array(4).fill('Seed'), 'other crops start as seed')
+// how a crop type is planted (Crop Settings > Planted as)
+eq(PLANTING_TYPES.map((t) => t.value), ['Seed', 'Tree', 'Both'], 'planting types')
+eq(PLANTING_TYPES.map((t) => t.label), ['Seed', 'Tree', 'Seed or Tree'], 'their labels')
+eq([plantingTypeOf({ planting_type: 'Tree' }), plantingTypeOf({}), plantingTypeOf(undefined)], ['Tree', 'Seed', 'Seed'], 'a crop with no setting is planted as seed')
+eq([plantingTypeLabel({ planting_type: 'Both' }), plantingTypeLabel({ planting_type: 'Tree' }), plantingTypeLabel(null)], ['Seed or Tree', 'Tree', 'Seed'], 'labels of a crop type')
+eq([canChoosePlanting({ planting_type: 'Both' }), canChoosePlanting({ planting_type: 'Seed' }), canChoosePlanting({ planting_type: 'Tree' }), canChoosePlanting(undefined)], [true, false, false, false], 'only a crop that is both lets the person switch')
+eq([materialFor({ planting_type: 'Seed' }, 'Tree'), materialFor({ planting_type: 'Tree' }, 'Seed'), materialFor({ planting_type: 'Tree' }, undefined)], ['Seed', 'Tree', 'Tree'], 'a seed or tree crop ignores the choice')
+eq([materialFor({ planting_type: 'Both' }, 'Tree'), materialFor({ planting_type: 'Both' }, 'Seed'), materialFor({ planting_type: 'Both' }, undefined)], ['Tree', 'Seed', 'Seed'], 'a crop that is both takes the choice, seed by default')
+eq([defaultPlantingMaterial({ planting_type: 'Tree' }), defaultPlantingMaterial({ planting_type: 'Both' }), defaultPlantingMaterial({ planting_type: 'Seed' }), defaultPlantingMaterial(undefined)], ['Tree', 'Seed', 'Seed', 'Seed'], 'what a row starts as')
 eq([quantityLabel('Seed'), quantityLabel('Tree'), quantityLabel(undefined)], ['Qty of Seeds (kg)', 'Qty of Trees', 'Qty of Seeds (kg)'], 'labels')
 eq(quantityHeader([{ planting_material: 'Seed' }, {}]), 'Qty of Seeds (kg)', 'all seeds')
 eq(quantityHeader([{ planting_material: 'Tree' }]), 'Qty of Trees', 'all trees')

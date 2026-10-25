@@ -21,7 +21,7 @@ def make_farmer(first='Rita'):
 
 def payload(farmer, crop_type, parcel=None, **over):
     data = dict(farmer=farmer.id, farm_location_barangay='Alaska', land_status='Owner', crop_type=crop_type.id,
-                season='Wet', year=2026, date_planted='2026-05-01', area_planted_ha='1.00')
+                season='Wet', year=2026, date_planted='2026-05-01', area_planted_ha='1.00', variety_used='Rc 222')
     if parcel:
         data['farm_parcel'] = parcel.id
     data.update(over)
