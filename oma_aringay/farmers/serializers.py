@@ -184,6 +184,14 @@ class FarmParcelSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({
                 'parcel_number': 'Parcel Number is required when a Tax Declaration Number is provided.'
             })
+        # A tenant or lessee parcel belongs to someone else, so it needs that owner's name (the RSBSA number stays optional). Checked
+        # for a new parcel, and for an edit that sends the ownership or the name; an edit of anything else leaves an older parcel with
+        # no name still correctable.
+        if self.instance is None or 'land_ownership' in data or 'land_owner_name' in data:
+            ownership = data.get('land_ownership', getattr(self.instance, 'land_ownership', ''))
+            owner = data.get('land_owner_name', getattr(self.instance, 'land_owner_name', ''))
+            if ownership in (FarmParcel.LandOwnership.TENANT, FarmParcel.LandOwnership.LESSEE) and not (owner or '').strip():
+                raise serializers.ValidationError({'land_owner_name': 'Enter the land owner name for a tenant or lessee parcel.'})
         if self.instance is not None:
             self._check_edit(data)
         return data

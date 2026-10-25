@@ -70,6 +70,40 @@ class ParcelEditTests(APITestCase):
         self.assertEqual(self.parcel.classifications, ['Organic Farm'])
         self.assertEqual(self.parcel.cropping_schedule, 'Double Cropping')
 
+    # --- the land owner of a tenant or lessee parcel: the name is required, the RSBSA number is not
+    def test_a_tenant_or_lessee_parcel_needs_the_owners_name(self):
+        for ownership in ('Tenant', 'Lessee'):
+            for name in ('', '   '):
+                response = self.patch({'land_ownership': ownership, 'land_owner_name': name})
+                self.assertEqual(response.status_code, 400, (ownership, name))
+                self.assertIn('land_owner_name', response.json())
+        self.parcel.refresh_from_db()
+        self.assertEqual(self.parcel.land_ownership, 'Owner')
+
+    def test_the_owners_rsbsa_number_stays_optional(self):
+        response = self.patch({'land_ownership': 'Lessee', 'land_owner_name': 'Rosa Landlord', 'land_owner_rsbsa_number': ''})
+        self.assertEqual(response.status_code, 200, response.content)
+        response = self.patch({'land_owner_rsbsa_number': '01-33-02-014-058212'})
+        self.assertEqual(response.status_code, 200, response.content)
+        self.parcel.refresh_from_db()
+        self.assertEqual((self.parcel.land_ownership, self.parcel.land_owner_name), ('Lessee', 'Rosa Landlord'))
+
+    def test_an_owner_parcel_needs_no_owner_name(self):
+        self.assertEqual(self.patch({'land_ownership': 'Owner', 'land_owner_name': ''}).status_code, 200)
+
+    def test_editing_something_else_on_an_older_tenant_parcel_without_a_name_still_works(self):
+        FarmParcel.objects.filter(pk=self.parcel.pk).update(land_ownership='Tenant', land_owner_name='')
+        self.assertEqual(self.patch({'barangay': 'Basca'}).status_code, 200)
+        self.assertEqual(self.patch({'land_owner_name': ''}).status_code, 400)   # but sending the name blank is refused
+
+    def test_a_new_tenant_parcel_without_the_owners_name_is_refused(self):
+        body = {'parcel_number': '', 'area_hectares': '1.00', 'barangay': 'Alaska', 'land_ownership': 'Tenant', 'land_owner_name': ''}
+        response = self.client.post(f'/api/farmers/{self.farmer.id}/parcels/', body, format='json')
+        self.assertEqual(response.status_code, 400, response.content)
+        self.assertEqual(FarmParcel.objects.filter(farmer=self.farmer).count(), 1)
+        body['land_owner_name'] = 'Rosa Landlord'
+        self.assertEqual(self.client.post(f'/api/farmers/{self.farmer.id}/parcels/', body, format='json').status_code, 201)
+
     def test_the_parcel_cannot_be_moved_to_another_farmer(self):
         other = make_farmer('Other')
         self.assertEqual(self.patch({'farmer': other.id, 'barangay': 'Basca'}).status_code, 200)
