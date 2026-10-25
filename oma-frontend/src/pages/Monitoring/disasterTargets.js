@@ -1,13 +1,13 @@
 // The full-screen Log Disaster form (Crop Disaster > Log Disaster): a table of every parcel that has crops still in the field, to tick
-// the ones a disaster hit. Pure functions - no screen, no network - for what the table shows (search, filters, the list / per farmer /
-// per barangay views, the page) and for what is ticked, so the rules can be tested on their own. The selection itself (which crops,
+// the ones a disaster hit. Pure functions - no screen, no network - for what the table shows (search, filters, the sort order, the
+// page) and for what is ticked, so the rules can be tested on their own. The selection itself (which crops,
 // how much of each, which are a total loss) is the one in disasterEvent.js. The server checks everything again.
 import { cropLabel } from './disasterEvent.js'
 
-export const VIEW_MODES = [
-  { id: 'list', label: 'List' },
-  { id: 'farmer', label: 'By farmer' },
-  { id: 'barangay', label: 'By barangay' },
+export const SORTS = [
+  { id: 'farmer', label: 'Farmer' },
+  { id: 'barangay', label: 'Barangay' },
+  { id: 'parcel', label: 'Parcel number' },
 ]
 export const PAGE_SIZE = 25
 
@@ -35,36 +35,17 @@ export function filterParcels(parcels, { search = '', barangay = '', farmer = ''
 
 const byText = (a, b) => String(a || '').localeCompare(String(b || ''), undefined, { numeric: true, sensitivity: 'base' })
 
-// The order the table shows: the list and the per-farmer view by farmer, the per-barangay view by barangay then farmer; parcels by number.
-export function sortParcels(parcels, mode) {
+// The order the table shows: by farmer (the default), by barangay, or by parcel number; ties fall back to farmer, then parcel.
+export function sortParcels(parcels, sort) {
   return [...parcels].sort((a, b) => (
-    (mode === 'barangay' ? byText(a.barangay, b.barangay) : 0)
+    (sort === 'barangay' ? byText(a.barangay, b.barangay) : sort === 'parcel' ? byText(a.title, b.title) : 0)
     || byText(a.farmer_name, b.farmer_name)
     || byText(a.title, b.title)
   ))
 }
 
-// The group a parcel sits under in a grouped view (null in the list).
-export function groupOf(parcel, mode) {
-  if (mode === 'farmer') return { key: `f${parcel.farmer_id}`, label: parcel.farmer_name, sub: parcel.rsbsa_number || '' }
-  if (mode === 'barangay') return { key: `b${parcel.barangay}`, label: parcel.barangay || 'No barangay', sub: '' }
-  return null
-}
-
-// One page of the table: the parcels of that page in order, with a group heading before the first parcel of each group (also at the top
-// of a page that continues a group). A heading carries every parcel of its group (not only this page's), for "select the whole group".
-export function pageItems(sorted, mode, page, size = PAGE_SIZE) {
-  const members = new Map()
-  if (mode !== 'list') sorted.forEach((p) => { const g = groupOf(p, mode); if (!members.has(g.key)) members.set(g.key, []); members.get(g.key).push(p) })
-  const items = []
-  let current = null
-  sorted.slice((page - 1) * size, page * size).forEach((p) => {
-    const g = groupOf(p, mode)
-    if (g && g.key !== current) { items.push({ type: 'group', ...g, parcels: members.get(g.key) }); current = g.key }
-    items.push({ type: 'parcel', key: p.key, parcel: p })
-  })
-  return items
-}
+// One page of the sorted table.
+export const pageOf = (sorted, page, size = PAGE_SIZE) => sorted.slice((page - 1) * size, page * size)
 
 export const pageCount = (total, size = PAGE_SIZE) => Math.max(1, Math.ceil(total / size))
 

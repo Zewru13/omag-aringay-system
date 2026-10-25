@@ -1,21 +1,22 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, ArrowLeft, ChevronDown, Search } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { AlertTriangle, ArrowLeft, ChevronDown } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
+import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import PhotoListField from '../../components/UI/PhotoListField.jsx'
-import ViewToggle from '../../components/UI/ViewToggle.jsx'
 import useDebouncedValue from '../../hooks/useDebouncedValue.js'
 import usePhotoList from '../../hooks/usePhotoList.js'
+import CropDisasterEventReport from './CropDisasterEventReport.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { todayISO } from '../../utils/localDate.js'
 import { allSelected, counts, markTotal, selectMany, updateRow } from './disasterEvent.js'
 import {
-  PAGE_SIZE, VIEW_MODES, allCrops, barangayOptions, farmerOptions, filterParcels, orderedRows, pageItems, parcelState, prepareParcels, selectedStats,
+  PAGE_SIZE, SORTS, allCrops, barangayOptions, farmerOptions, filterParcels, orderedRows, pageOf, parcelState, prepareParcels, selectedStats,
   sortParcels, summaryLine,
 } from './disasterTargets.js'
 import { MAX_CROPS, areaProblem, buildRequest, dateProblem, isWholeArea, withArea, withTotal } from './multiCropDisaster.js'
@@ -23,9 +24,10 @@ import { MAX_CROPS, areaProblem, buildRequest, dateProblem, isWholeArea, withAre
 // Log Disaster (Crop Disaster page, staff): a full-page form for ONE disaster event over many parcels. It takes the place of the disaster
 // list inside the page, so the sidebar and the top bar stay in view. Fill the event once (type, date,
 // description, estimated loss, photos), then tick the parcels it hit in the table of every parcel that has crops in the field - search,
-// filter by farmer or barangay, or view it as a list, per farmer or per barangay. Ticking a parcel ticks all its crops; its "Total loss"
+// filter by farmer or barangay and sort, all behind the Filters button of the search bar. Ticking a parcel ticks all its crops; its "Total loss"
 // box marks them all as lost; open a parcel to tick single crops, type each one's area affected and mark one as a total loss. Saves one
-// disaster record per crop in one go (POST /production/disasters/multi/), all or nothing.
+// disaster record per crop in one go (POST /production/disasters/multi/), all or nothing, then shows the report of what was saved
+// (every reported parcel and crop) with Download and Print.
 
 const DISASTER_TYPES = ['Drought', 'Flood', 'Typhoon', 'Strong Winds', 'Pest Outbreak']
 const CHECK = 'h-4 w-4 flex-none accent-[#1B4D2E]'
@@ -132,7 +134,8 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
   const [search, setSearch] = useState('')
   const [barangay, setBarangay] = useState('')
   const [farmer, setFarmer] = useState('')
-  const [mode, setMode] = useState('list')
+  const [sort, setSort] = useState('farmer')
+  const [saved, setSaved] = useState(null)                 // the ids of the reports just saved: their report is shown instead of the form
   const [page, setPage] = useState(1)
   const [opened, setOpened] = useState([])                 // keys of the parcels shown open
   const [selection, setSelection] = useState({})
@@ -150,8 +153,8 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
   }, [reload])
 
   const parcels = useMemo(() => targets || [], [targets])
-  const sorted = useMemo(() => sortParcels(filterParcels(parcels, { search: query, barangay, farmer }), mode), [parcels, query, barangay, farmer, mode])
-  const items = useMemo(() => pageItems(sorted, mode, page), [sorted, mode, page])
+  const sorted = useMemo(() => sortParcels(filterParcels(parcels, { search: query, barangay, farmer }), sort), [parcels, query, barangay, farmer, sort])
+  const items = useMemo(() => pageOf(sorted, page), [sorted, page])
   const shownCrops = useMemo(() => allCrops(sorted), [sorted])
   const barangays = useMemo(() => barangayOptions(parcels), [parcels])
   const farmers = useMemo(() => farmerOptions(parcels), [parcels])
@@ -195,10 +198,10 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
       } else {
         payload = { ...fields, crops: sent }
       }
-      await api.post('/production/disasters/multi/', payload)
+      const { data: created } = await api.post('/production/disasters/multi/', payload)
       showToast(`Disaster recorded on ${cropCount} crop${cropCount === 1 ? '' : 's'} of ${stats.farmers} farmer${stats.farmers === 1 ? '' : 's'}.`, 'success')
       onSuccess?.()
-      onClose()
+      setSaved((Array.isArray(created) ? created : []).map((r) => r.id))
     } catch (err) {
       const data = err?.response?.data
       showToast(data?.photos?.[0] || data?.detail || data?.crops?.[0] || 'Failed to save the disaster report.', 'error')
@@ -206,6 +209,8 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
   }
 
   const everyShownSelected = allSelected(selection, shownCrops)
+
+  if (saved) return <CropDisasterEventReport ids={saved} onDone={onClose} />
 
   return (
     <>
@@ -258,18 +263,15 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
               </section>
 
               <section className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                  <h3 className="text-[13px] font-semibold uppercase tracking-wide text-[#4A5E4A]">Affected parcels and crops</h3>
-                  <ViewToggle ariaLabel="Show parcels as" options={VIEW_MODES} value={mode} onChange={filtered(setMode)} />
-                </div>
+                <h3 className="text-[13px] font-semibold uppercase tracking-wide text-[#4A5E4A]">Affected parcels and crops</h3>
 
-                <div className="flex flex-wrap items-center gap-2.5 rounded-xl border border-[#E2E8E2] bg-white px-3 py-2.5">
-                  <div className="relative min-w-[14rem] flex-1">
-                    <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#A8BCA8]" aria-hidden="true" />
-                    <input type="search" value={search} onChange={(e) => filtered(setSearch)(e.target.value)} aria-label="Search parcels"
-                      placeholder="Search a farmer, RSBSA number, parcel number, barangay or crop…"
-                      className="h-[38px] w-full bg-transparent pl-9 pr-3 text-[13px] text-[#1A2B1A] outline-none placeholder:text-[#A8BCA8]" />
-                  </div>
+                <FilterPanel
+                  className=""
+                  search={search}
+                  onSearchChange={filtered(setSearch)}
+                  searchPlaceholder="Search a farmer, RSBSA number, parcel number, barangay or crop…"
+                  activeCount={[farmer, barangay, sort !== 'farmer'].filter(Boolean).length}
+                >
                   <select className={SELECT} value={farmer} onChange={(e) => filtered(setFarmer)(e.target.value)} aria-label="Farmer">
                     <option value="">All farmers</option>
                     {farmers.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
@@ -278,7 +280,10 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
                     <option value="">All barangays</option>
                     {barangays.map((b) => <option key={b} value={b}>{b}</option>)}
                   </select>
-                </div>
+                  <select className={SELECT} value={sort} onChange={(e) => filtered(setSort)(e.target.value)} aria-label="Sort">
+                    {SORTS.map((o) => <option key={o.id} value={o.id}>Sort: {o.label}</option>)}
+                  </select>
+                </FilterPanel>
 
                 {targets === null && <p className="rounded-xl border border-[#E2E8E2] bg-white px-4 py-10 text-center text-[13px] text-[#7A8E7A]">Loading the parcels with crops…</p>}
                 {targets === false && (
@@ -320,26 +325,10 @@ export default function LogCropDisasterScreen({ onClose, onSuccess }) {
                           {items.length === 0 && (
                             <tr><td colSpan={COLUMNS} className="px-4 py-10 text-center text-[13px] text-[#7A8E7A]">No parcel matches the search and filters.</td></tr>
                           )}
-                          {items.map((item) => (item.type === 'group' ? (
-                            <tr key={`g-${item.key}-${page}`} className="border-b border-[#E2E8E2] bg-[#EBF5EE]">
-                              <td className="w-10 px-3 py-2">
-                                <input type="checkbox" className={CHECK} checked={allSelected(selection, allCrops(item.parcels))}
-                                  aria-label={`Select every parcel of ${item.label}`} onChange={(e) => select(allCrops(item.parcels), e.target.checked)} />
-                              </td>
-                              <td colSpan={COLUMNS - 1} className="px-3 py-2 text-[13px] font-semibold text-[#1B4D2E]">
-                                {item.label}
-                                {item.sub && <span className="ml-2 font-normal text-[#4A5E4A]">{item.sub}</span>}
-                                <span className="ml-3 text-[12px] font-normal text-[#4A5E4A]">
-                                  {item.parcels.length} parcel{item.parcels.length === 1 ? '' : 's'} · {allCrops(item.parcels).length} crops
-                                </span>
-                              </td>
-                            </tr>
-                          ) : (
-                            <Fragment key={item.key}>
-                              <ParcelRows parcel={item.parcel} selection={selection} open={opened.includes(item.key)} showErrors={showErrors}
-                                onToggleOpen={() => toggleOpen(item.key)} onSelect={select} onTotal={total} onToggleCrop={toggleCrop} onChange={changeRow} />
-                            </Fragment>
-                          )))}
+                          {items.map((parcel) => (
+                            <ParcelRows key={parcel.key} parcel={parcel} selection={selection} open={opened.includes(parcel.key)} showErrors={showErrors}
+                              onToggleOpen={() => toggleOpen(parcel.key)} onSelect={select} onTotal={total} onToggleCrop={toggleCrop} onChange={changeRow} />
+                          ))}
                         </tbody>
                       </table>
                     </div>

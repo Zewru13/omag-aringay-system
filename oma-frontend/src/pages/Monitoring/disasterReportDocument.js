@@ -1,6 +1,7 @@
 import api from '../../api/axiosInstance.js'
 import logo from '../../assets/LOGO OMAg.jpg'
 import { SYSTEM_TITLE } from '../../constants/appInfo.js'
+import { eventPrintSpec } from './disasterEventReport.js'
 import { escapeHtml as esc, headerCss, headerHtml } from './printHeader.js'
 
 // Disaster Log documents: formatting, Print Disaster Log and Download Disaster Log, for both the Fisheries
@@ -316,6 +317,14 @@ export const FARMER_LOG = {
   docUrl: id => `/production/disaster-logs/${id}/`,
   pdfUrl: id => `/production/disaster-logs/${id}/pdf/`,
   printSpec: cropPrintSpec,
+}
+
+// The report of one disaster event logged on several crops at once (Log Disaster); `id` is the comma-joined list of its report ids.
+export const CROP_EVENT = {
+  docUrl: ids => `/production/disasters/event-report/?ids=${ids}`,
+  pdfUrl: ids => `/production/disasters/event-report/pdf/?ids=${ids}`,
+  printSpec: eventPrintSpec,
+  inlinePhotos: true,
 }
 
 export async function printLog(kind, id, doc = null) {

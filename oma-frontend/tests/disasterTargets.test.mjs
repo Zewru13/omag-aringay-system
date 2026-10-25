@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 
 const {
-  VIEW_MODES, PAGE_SIZE, parcelTitle, prepareParcels, filterParcels, sortParcels, groupOf, pageItems, pageCount, allCrops, parcelState, orderedRows,
+  SORTS, PAGE_SIZE, parcelTitle, prepareParcels, filterParcels, sortParcels, pageOf, pageCount, allCrops, parcelState, orderedRows,
   selectedStats, summaryLine, barangayOptions, farmerOptions,
 } = await import(new URL('../src/pages/Monitoring/disasterTargets.js', import.meta.url).href)
 const { selectCrop, markTotal } = await import(new URL('../src/pages/Monitoring/disasterEvent.js', import.meta.url).href)
@@ -22,7 +22,6 @@ const parcels = prepareParcels([
 ])
 
 // ── what is shown
-eq(VIEW_MODES.map((m) => m.id), ['list', 'farmer', 'barangay'], 'three views')
 eq(parcels.map((p) => p.title), ['Parcel 01-33-02-005-001-02-001', 'Parcel 01-33-02-005-001-02-002', 'Parcel 01-33-02-005-001-02-003', 'No parcel on file'], 'titles')
 eq(parcelTitle({ parcel_id: 9, parcel_number: '' }), 'Parcel #9', 'a parcel with no number')
 eq(parcels[0].crops[0], { id: 1, crop_type_name: 'Palay (Rice)', season: 'Wet', year: 2026, date_planted: '2026-05-01', area_planted_ha: '2.00', status: 'Planted', farmer: 10, label: 'Palay (Rice) · Wet 2026 — planted 2026-05-01' }, 'a crop carries its farmer and label')
@@ -41,20 +40,16 @@ eq(ids(filterParcels(parcels, { barangay: 'Basca' })), [1, 3], 'per barangay')
 eq(ids(filterParcels(parcels, { farmer: '10' })), [1, 2], 'per farmer (as text or number)')
 eq(ids(filterParcels(parcels, { farmer: 10, barangay: 'Alaska', search: 'palay' })), [2], 'filters combine')
 
-// ── the three views
-eq(ids(sortParcels(parcels, 'list')), [1, 2, 3, 0], 'list: by farmer, then parcel')
-eq(ids(sortParcels(parcels, 'barangay')), [2, 1, 3, 0], 'barangay view: by barangay, then farmer')
-eq([groupOf(parcels[0], 'list'), groupOf(parcels[0], 'farmer'), groupOf(parcels[0], 'barangay')],
-  [null, { key: 'f10', label: 'Ana Cruz', sub: 'RS-10' }, { key: 'bBasca', label: 'Basca', sub: '' }], 'the group a parcel sits under')
-const grouped = pageItems(sortParcels(parcels, 'farmer'), 'farmer', 1)
-eq(grouped.map((i) => (i.type === 'group' ? `[${i.label}:${i.parcels.length}]` : i.parcel.parcel_id)), ['[Ana Cruz:2]', 1, 2, '[Ben Dizon:1]', 3, '[Cora Lim:1]', 0], 'a heading before each farmer')
-eq(pageItems(sortParcels(parcels, 'list'), 'list', 1).every((i) => i.type === 'parcel'), true, 'no headings in the list')
+// ── the sort order
+eq(SORTS.map((m) => m.id), ['farmer', 'barangay', 'parcel'], 'three sorts')
+eq(ids(sortParcels(parcels, 'farmer')), [1, 2, 3, 0], 'by farmer, then parcel')
+eq(ids(sortParcels(parcels, 'barangay')), [2, 1, 3, 0], 'by barangay, then farmer')
+eq(ids(sortParcels(parcels, 'parcel')), [1, 2, 3, 0].sort((a, b) => parcels.find((p) => p.parcel_id === a).title.localeCompare(parcels.find((p) => p.parcel_id === b).title, undefined, { numeric: true })), 'by parcel number')
 
-// ── pages: a page that continues a group repeats its heading, which still carries the whole group
+// ── pages
 const many = prepareParcels(Array.from({ length: 30 }, (_, i) => parcel(i + 1, 10, 'Ana Cruz', 'Basca', [crop(100 + i)])))
 eq(PAGE_SIZE, 25, 'page size')
-const second = pageItems(sortParcels(many, 'farmer'), 'farmer', 2)
-eq([second.length, second[0].type, second[0].parcels.length, second.filter((i) => i.type === 'parcel').length], [6, 'group', 30, 5], 'second page: 5 parcels under the same farmer')
+eq([pageOf(sortParcels(many, 'farmer'), 1).length, pageOf(sortParcels(many, 'farmer'), 2).length], [25, 5], 'two pages')
 eq([pageCount(0), pageCount(25), pageCount(26)], [1, 1, 2], 'page count')
 
 // ── ticking
