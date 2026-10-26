@@ -13,22 +13,6 @@ export const unitsSummary = (line) => ({
   onLoan: Number(line?.on_loan) || 0,
 })
 
-export const defaultBreakdown = (quantity) => [{ condition: 'Good', quantity }]
-
-// The units that came back, by condition, must add up to the loan's units (each part a whole number, 0 or more).
-export const validateBreakdown = (parts, quantity) => {
-  if (!Array.isArray(parts) || parts.length === 0) return { ok: false, message: 'Enter the units that came back.' }
-  let sum = 0
-  for (const part of parts) {
-    if (!CONDITIONS.includes(part?.condition)) return { ok: false, message: 'Choose a condition for every part.' }
-    const raw = part.quantity === '' || part.quantity === null || part.quantity === undefined ? 0 : Number(part.quantity)
-    if (!Number.isInteger(raw) || raw < 0) return { ok: false, message: 'Each number must be a whole number, 0 or more.' }
-    sum += raw
-  }
-  if (sum !== quantity) return { ok: false, message: `The units must add up to ${quantity} (now ${sum}).` }
-  return { ok: true, message: '' }
-}
-
 // Out on loan with a return-by date before today (dates are YYYY-MM-DD, which compare as text).
 export const isOverdue = (loan, todayIso) => Boolean(
   loan && OUT.includes(loan.status) && loan.due_date && todayIso && loan.due_date < todayIso,
@@ -107,6 +91,49 @@ export const allocateUnits = (lines, quantity) => {
     if (left === 0) return result
   }
   return null
+}
+
+// The equipment list's availability filter: an entry with units that can be lent right now, or without any (all out on loan, or not
+// in Good condition).
+export const AVAILABLE_UNITS = 'Available units'
+export const NOT_AVAILABLE = 'Not available'
+export const availabilityOf = (group) => (Number(group?.available) > 0 ? AVAILABLE_UNITS : NOT_AVAILABLE)
+
+// What happened to borrowed units when the borrower is done: they came back (Good), came back damaged (Needs Repair, Not Operational or
+// Broken) or never came back (Lost). The server takes this as the units by condition.
+export const DAMAGED_CONDITIONS = ['Needs Repair', 'Not Operational', 'Broken']
+
+const whole = (value) => (value === '' || value === null || value === undefined ? 0 : Number(value))
+
+// The units of the outcome form ({ returned, damaged, notReturned }, typed text allowed) must be whole numbers adding up to the loan.
+export function validateOutcome(counts, quantity) {
+  const parts = [counts?.returned, counts?.damaged, counts?.notReturned].map(whole)
+  if (parts.some((n) => !Number.isInteger(n) || n < 0)) return { ok: false, message: 'Each number must be a whole number, 0 or more.' }
+  const sum = parts.reduce((a, b) => a + b, 0)
+  if (sum !== quantity) return { ok: false, message: `The units must add up to ${quantity} (now ${sum}).` }
+  return { ok: true, message: '' }
+}
+
+// The request's breakdown: [{ condition, quantity }] without the empty parts.
+export function outcomeBreakdown({ returned, damaged, notReturned, damagedCondition = 'Broken' }) {
+  return [
+    { condition: 'Good', quantity: whole(returned) },
+    { condition: damagedCondition, quantity: whole(damaged) },
+    { condition: 'Lost', quantity: whole(notReturned) },
+  ].filter((part) => part.quantity > 0)
+}
+
+// A saved breakdown ({ Good: 2, Broken: 1, Lost: 1 }) in words: "2 returned, 1 damaged (Broken), 1 not returned".
+export function outcomeSummary(breakdown) {
+  const parts = Object.entries(breakdown || {}).filter(([, units]) => Number(units) > 0)
+  if (parts.length === 0) return '—'
+  const words = ([condition, units]) => {
+    if (condition === 'Good') return `${units} returned`
+    if (condition === 'Lost') return `${units} not returned`
+    return `${units} damaged (${condition})`
+  }
+  const rank = ([condition]) => (condition === 'Good' ? 0 : condition === 'Lost' ? 2 : 1)
+  return [...parts].sort((a, b) => rank(a) - rank(b)).map(words).join(', ')
 }
 
 // The colour of a condition's pill.

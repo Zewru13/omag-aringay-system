@@ -8,7 +8,7 @@ import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { todayISO as localToday } from '../../utils/localDate.js'
 import { availableAgainText } from '../../utils/borrowerGroups.js'
-import { CONDITIONS, apiMessage, defaultBreakdown, loanStatusLabel, unitsSummary, validateBreakdown } from '../../utils/equipmentLoans.js'
+import { CONDITIONS, DAMAGED_CONDITIONS, apiMessage, loanStatusLabel, outcomeBreakdown, outcomeSummary, unitsSummary, validateOutcome } from '../../utils/equipmentLoans.js'
 
 // The forms behind an organization's equipment actions: change condition, repair, lend, confirm a return, and the history.
 // Each takes the equipment `line` (or `loan`) and the organization `type` ('farmers' | 'fisherfolk'), posts to the equipment
@@ -172,37 +172,74 @@ export function LendDialog({ line, type, members, onClose, onDone }) {
   )
 }
 
-// Confirm that a loan came back and say what condition the units are in (default: all Good).
+// Close a borrowed item: each unit came back (Good), came back damaged (the condition is chosen) or was not returned (Lost). Everything is
+// "returned" to start with. One unit is picked with three buttons; several units are counted per outcome.
+const OUTCOMES = [
+  { key: 'returned', label: 'Returned', hint: 'Back in good condition' },
+  { key: 'damaged', label: 'Damaged', hint: 'Back, but damaged' },
+  { key: 'notReturned', label: 'Not returned', hint: 'Never came back' },
+]
+
 export function ReturnDialog({ loan, type, onClose, onDone }) {
   const { showToast } = useToast()
-  const [parts, setParts] = useState(() => CONDITIONS.map((condition) => ({
-    condition, quantity: condition === 'Good' ? String(loan.quantity) : '',
-  })))
-  const check = validateBreakdown(parts, loan.quantity)
-  const setPart = (condition) => (e) => setParts((all) => all.map((p) => (p.condition === condition ? { ...p, quantity: e.target.value } : p)))
+  const [counts, setCounts] = useState({ returned: String(loan.quantity), damaged: '', notReturned: '' })
+  const [damagedCondition, setDamagedCondition] = useState('Broken')
+  const check = validateOutcome(counts, loan.quantity)
+  const single = loan.quantity === 1
+  const pickOne = (key) => setCounts({ returned: key === 'returned' ? '1' : '', damaged: key === 'damaged' ? '1' : '', notReturned: key === 'notReturned' ? '1' : '' })
+  const setCount = (key) => (e) => setCounts((all) => ({ ...all, [key]: e.target.value }))
+  const hasDamaged = Number(counts.damaged) > 0
   return (
     <ActionForm
-      title="Mark as returned" subtitle={`${loan.member_name} — ${loan.equipment_name}, ${loan.quantity} unit(s)`}
-      onClose={onClose} submitLabel="Confirm return" disabled={!check.ok}
+      title="Mark returned, damaged or not returned" subtitle={`${loan.member_name} — ${loan.equipment_name}, ${loan.quantity} unit(s)`}
+      onClose={onClose} submitLabel="Save" disabled={!check.ok}
       onSubmit={async () => {
-        const breakdown = parts.filter((p) => Number(p.quantity) > 0).map((p) => ({ condition: p.condition, quantity: Number(p.quantity) }))
-        const sent = breakdown.length ? breakdown : defaultBreakdown(loan.quantity)
+        const sent = outcomeBreakdown({ ...counts, damagedCondition })
         await api.post(`/organizations/${type}/equipment-loans/${loan.id}/return/`, { breakdown: sent })
-        showToast(['Return recorded.', availableAgainText(loan.equipment_name, sent)].filter(Boolean).join(' '), 'success')
+        const summary = Object.fromEntries(sent.map((part) => [part.condition, part.quantity]))
+        showToast(['Recorded: ' + outcomeSummary(summary) + '.', availableAgainText(loan.equipment_name, sent)].filter(Boolean).join(' '), 'success')
         onDone()
       }}
     >
-      <p className="text-[13px] text-[#4A5A4C]">In what condition did the {loan.quantity} unit(s) come back?</p>
-      <div className="space-y-2">
-        {parts.map((p) => (
-          <div key={p.condition} className="flex items-center justify-between gap-3">
-            <label className="text-[13px] text-[#1A2B1A]" htmlFor={`eq-part-${p.condition}`}>{p.condition}</label>
-            <input id={`eq-part-${p.condition}`} type="number" min={0} step={1} className={`${baseInputClasses} !w-24 text-right`}
-              value={p.quantity} onChange={setPart(p.condition)} />
-          </div>
-        ))}
-      </div>
-      {!check.ok && <p className="text-[12px] font-medium text-rose-700" data-testid="breakdown-message">{check.message}</p>}
+      <p className="text-[13px] text-[#4A5A4C]">
+        {single ? 'What happened to the unit?' : `What happened to the ${loan.quantity} units? Count each outcome.`}
+      </p>
+      {single ? (
+        <div role="radiogroup" aria-label="What happened to the unit" className="grid gap-2 sm:grid-cols-3">
+          {OUTCOMES.map((o) => {
+            const on = Number(counts[o.key]) === 1
+            return (
+              <button key={o.key} type="button" role="radio" aria-checked={on} onClick={() => pickOne(o.key)}
+                className={`rounded-xl border px-3 py-2.5 text-left transition-colors ${on ? 'border-[#1B4D2E] bg-[#EBF5EE]' : 'border-[#E2E8E2] bg-white hover:bg-[#F5F7F5]'}`}>
+                <span className="block text-[13px] font-semibold text-[#1A2B1A]">{o.label}</span>
+                <span className="block text-[11.5px] text-[#7A8E7A]">{o.hint}</span>
+              </button>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {OUTCOMES.map((o) => (
+            <div key={o.key} className="flex items-center justify-between gap-3">
+              <label className="min-w-0 text-[13px] text-[#1A2B1A]" htmlFor={`eq-out-${o.key}`}>
+                {o.label} <span className="text-[11.5px] text-[#7A8E7A]">· {o.hint.toLowerCase()}</span>
+              </label>
+              <input id={`eq-out-${o.key}`} type="number" min={0} step={1} className={`${baseInputClasses} !w-24 text-right`}
+                value={counts[o.key]} onChange={setCount(o.key)} />
+            </div>
+          ))}
+        </div>
+      )}
+      {hasDamaged && (
+        <div>
+          <label className={LABEL} htmlFor="eq-damage">How damaged</label>
+          <select id="eq-damage" className={baseInputClasses} value={damagedCondition} onChange={(e) => setDamagedCondition(e.target.value)}>
+            {DAMAGED_CONDITIONS.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <p className="mt-1 text-[12px] text-[#7A8E7A]">Damaged units leave the lendable stock; Repair puts them back to Good.</p>
+        </div>
+      )}
+      {!single && !check.ok && <p className="text-[12px] font-medium text-rose-700" data-testid="breakdown-message">{check.message}</p>}
     </ActionForm>
   )
 }
@@ -249,7 +286,7 @@ export function EquipmentHistoryDialog({ line, type, onClose }) {
                       <span className="block font-medium text-[#1A2B1A]">{l.member_name}</span>
                       <span className="block text-[12px] text-[#7A8E7A]">
                         {l.quantity} unit(s) · {formatDate(l.borrowed_at || l.requested_at)}
-                        {Object.keys(l.return_breakdown || {}).length > 0 ? ` · back: ${Object.entries(l.return_breakdown).map(([c, q]) => `${q} ${c}`).join(', ')}` : ''}
+                        {Object.keys(l.return_breakdown || {}).length > 0 ? ` · ${outcomeSummary(l.return_breakdown)}` : ''}
                       </span>
                     </span>
                     <StatusPill tone={l.overdue ? 'rose' : 'slate'}>{l.overdue ? 'Overdue' : loanStatusLabel(l.status)}</StatusPill>
