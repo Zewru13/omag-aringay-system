@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 
 const {
-  CONDITIONS, REPAIRABLE, unitsSummary, validateBreakdown, defaultBreakdown, isOverdue, loanStatusLabel, openRequestCount, apiMessage, groupEquipment, allocateUnits,
+  AVAILABLE_UNITS, NOT_AVAILABLE, availabilityOf, DAMAGED_CONDITIONS, validateOutcome, outcomeBreakdown, outcomeSummary,
+  CONDITIONS, REPAIRABLE, unitsSummary, isOverdue, loanStatusLabel, openRequestCount, apiMessage, groupEquipment, allocateUnits,
 } = await import(new URL('../src/utils/equipmentLoans.js', import.meta.url).href)
 
 let n = 0
@@ -18,16 +19,6 @@ eq(unitsSummary({}), { total: 0, available: 0, onLoan: 0 }, 'missing fields tole
 eq(unitsSummary(undefined), { total: 0, available: 0, onLoan: 0 }, 'a missing line tolerated')
 
 // ── breakdown ────────────────────────────────────────────────────────────────
-eq(defaultBreakdown(3), [{ condition: 'Good', quantity: 3 }], 'everything back Good')
-eq(validateBreakdown([{ condition: 'Good', quantity: 2 }, { condition: 'Broken', quantity: 1 }], 3), { ok: true, message: '' }, 'an exact sum')
-eq(validateBreakdown([{ condition: 'Good', quantity: 2 }], 3), { ok: false, message: 'The units must add up to 3 (now 2).' }, 'too few')
-eq(validateBreakdown([{ condition: 'Good', quantity: 4 }], 3), { ok: false, message: 'The units must add up to 3 (now 4).' }, 'too many')
-eq(validateBreakdown([{ condition: 'Good', quantity: 1.5 }, { condition: 'Broken', quantity: 1.5 }], 3).ok, false, 'decimals refused')
-eq(validateBreakdown([{ condition: 'Good', quantity: -1 }, { condition: 'Broken', quantity: 4 }], 3).ok, false, 'negatives refused')
-eq(validateBreakdown([{ condition: 'Shiny', quantity: 3 }], 3).ok, false, 'an unknown condition refused')
-eq(validateBreakdown([], 3).ok, false, 'an empty list refused')
-eq(validateBreakdown([{ condition: 'Good', quantity: '2' }, { condition: 'Lost', quantity: '1' }], 3).ok, true, 'typed text numbers accepted')
-eq(validateBreakdown([{ condition: 'Good', quantity: '' }, { condition: 'Lost', quantity: 3 }], 3).ok, true, 'a blank part counts as zero')
 
 // ── overdue ──────────────────────────────────────────────────────────────────
 const today = '2026-10-10'
@@ -81,5 +72,38 @@ eq(allocateUnits(supply, 8), null, 'more than all lines can give')
 eq(allocateUnits(supply, 0), null, 'zero units is not a request')
 eq(allocateUnits([{ id: 1, available: 0 }, { id: 2, available: 2 }], 2), [{ id: 2, quantity: 2 }], 'lines with nothing are skipped')
 eq(allocateUnits(undefined, 1), null, 'missing lines tolerated')
+
+// ── the equipment list's availability filter ─────────────────────────────────
+eq([AVAILABLE_UNITS, NOT_AVAILABLE], ['Available units', 'Not available'], 'the two choices')
+eq(availabilityOf({ available: 3 }), 'Available units', 'units that can be lent')
+eq(availabilityOf({ available: 0 }), 'Not available', 'nothing can be lent')
+eq(availabilityOf({}), 'Not available', 'no figure means none')
+eq(availabilityOf(undefined), 'Not available', 'no entry')
+const grouped = groupEquipment([
+  { id: 1, equipment_name: 'Hand Tractor', quantity: 2, condition: 'Good', on_loan: 2, available: 0 },
+  { id: 2, equipment_name: 'Hand Tractor', quantity: 1, condition: 'Broken', on_loan: 0, available: 0 },
+  { id: 3, equipment_name: 'Sprayer', quantity: 3, condition: 'Good', on_loan: 1, available: 2 },
+  { id: 4, equipment_name: 'Dryer', quantity: 1, condition: 'Lost', on_loan: 0, available: 0 },
+])
+eq(grouped.map((g) => [g.label, availabilityOf(g)]), [['Hand Tractor', 'Not available'], ['Sprayer', 'Available units'], ['Dryer', 'Not available']],
+  'an entry is available when any of its lines has units to lend; all out on loan, or not in good condition, is not available')
+
+// ── what happened to borrowed units ──────────────────────────────────────────
+eq(DAMAGED_CONDITIONS, ['Needs Repair', 'Not Operational', 'Broken'], 'the ways it can come back damaged')
+eq(validateOutcome({ returned: 3, damaged: 0, notReturned: 0 }, 3), { ok: true, message: '' }, 'all returned')
+eq(validateOutcome({ returned: 1, damaged: 1, notReturned: 1 }, 3), { ok: true, message: '' }, 'each outcome once')
+eq(validateOutcome({ returned: '2', damaged: '', notReturned: '1' }, 3), { ok: true, message: '' }, 'typed text and a blank part')
+eq(validateOutcome({ returned: 1, damaged: 1, notReturned: 0 }, 3), { ok: false, message: 'The units must add up to 3 (now 2).' }, 'too few')
+eq(validateOutcome({ returned: 3, damaged: 1, notReturned: 0 }, 3), { ok: false, message: 'The units must add up to 3 (now 4).' }, 'too many')
+eq(validateOutcome({ returned: 1.5, damaged: 1.5, notReturned: 0 }, 3).ok, false, 'whole units only')
+eq(validateOutcome({ returned: -1, damaged: 4, notReturned: 0 }, 3).ok, false, 'no negatives')
+eq(outcomeBreakdown({ returned: 2, damaged: 1, notReturned: 0, damagedCondition: 'Needs Repair' }), [{ condition: 'Good', quantity: 2 }, { condition: 'Needs Repair', quantity: 1 }], 'damaged units go to the chosen condition')
+eq(outcomeBreakdown({ returned: 0, damaged: 0, notReturned: 2 }), [{ condition: 'Lost', quantity: 2 }], 'not returned units are Lost')
+eq(outcomeBreakdown({ returned: 1, damaged: 1, notReturned: 1 }), [{ condition: 'Good', quantity: 1 }, { condition: 'Broken', quantity: 1 }, { condition: 'Lost', quantity: 1 }], 'damaged is Broken unless said otherwise')
+eq(outcomeSummary({ Good: 2 }), '2 returned', 'all back')
+eq(outcomeSummary({ Lost: 1, Good: 2, Broken: 1 }), '2 returned, 1 damaged (Broken), 1 not returned', 'in the order returned, damaged, not returned')
+eq(outcomeSummary({ 'Needs Repair': 1 }), '1 damaged (Needs Repair)', 'damaged only')
+eq(outcomeSummary({}), '—', 'nothing recorded')
+eq(outcomeSummary(undefined), '—', 'no breakdown')
 
 console.log(`ok - ${n} assertions`)

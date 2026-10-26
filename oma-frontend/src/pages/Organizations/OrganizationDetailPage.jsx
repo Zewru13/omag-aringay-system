@@ -15,7 +15,7 @@ import { baseInputClasses } from "../../components/UI/FormField.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import useSuggestSearch from "../../hooks/useSuggestSearch.js";
-import { apiMessage, conditionTone, groupEquipment, openRequestCount } from "../../utils/equipmentLoans.js";
+import { apiMessage, availabilityOf, conditionTone, groupEquipment, openRequestCount } from "../../utils/equipmentLoans.js";
 import { filterOptions } from "../../utils/orgListFilter.js";
 import { agencyLabel } from "./agencyOptions.js";
 import BorrowedPanel from "./BorrowedPanel.jsx";
@@ -1071,7 +1071,7 @@ function OrganizationDetailPage({ own = false }) {
     id: group.id,
     name: group.label,
     subtitle: group.summary + (group.onLoan ? ` \u00b7 ${group.onLoan} on loan` : ""),
-    attrs: { condition: group.conditions },
+    attrs: { condition: group.conditions, availability: availabilityOf(group) },
     renderBody: ({ close }) => (
       <EquipmentGroupBody
         group={group}
@@ -1084,7 +1084,11 @@ function OrganizationDetailPage({ own = false }) {
   const lendableMembers = (organization?.members || [])
     .filter((m) => m.is_active !== false)
     .map((m) => ({ id: m[personField], name: m[memberNameField] }));
-  const equipmentFilters = [{ key: "condition", label: "Condition", allLabel: "All conditions", options: choices(equipmentItems, "condition") }];
+  const equipmentFilters = [
+    { key: "condition", label: "Condition", allLabel: "All conditions", options: choices(equipmentItems, "condition") },
+    // Whether any unit can be lent right now (units that are all out on loan, or not in Good condition, are not available).
+    { key: "availability", label: "Availability", allLabel: "All units", options: choices(equipmentItems, "availability") },
+  ];
   const officerItems = (organization?.officers || []).map((o) => ({
     id: o.id,
     name: o.full_name,

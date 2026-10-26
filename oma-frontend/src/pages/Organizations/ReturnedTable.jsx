@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import Button from '../../components/UI/Button.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
+import { outcomeSummary } from '../../utils/equipmentLoans.js'
 
 // Everything an organization lent that came back: one row per loan (who, what, how many, when it went and when it came back, and the
 // condition the units returned in). `loans` are the returned loans the equipment-loans endpoint gave (newest first). Search by member,
@@ -54,7 +55,7 @@ export default function ReturnedTable({ loans, pageSize = 30 }) {
           <table className="w-full text-left max-md:block" data-testid="returned-table">
             <thead className="bg-[#1B4D2E] text-white max-md:hidden">
               <tr>
-                {['Member', 'Equipment', 'Units', 'Borrowed', 'Returned', 'Came back as'].map((h) => (
+                {['Member', 'Equipment', 'Units', 'Borrowed', 'Returned', 'What happened'].map((h) => (
                   <th key={h} className="px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wide">{h}</th>
                 ))}
               </tr>
@@ -70,7 +71,7 @@ export default function ReturnedTable({ loans, pageSize = 30 }) {
                     {formatDate(loan.returned_at)}
                     {returnedLate(loan) && <span className="ml-2 align-middle"><StatusPill tone="rose">Late</StatusPill></span>}
                   </td>
-                  <td data-label="Came back as" className={CELL}>{Object.entries(loan.return_breakdown || {}).map(([c, q]) => `${q} ${c}`).join(', ') || '—'}</td>
+                  <td data-label="What happened" className={CELL}>{outcomeSummary(loan.return_breakdown)}</td>
                 </tr>
               ))}
             </tbody>

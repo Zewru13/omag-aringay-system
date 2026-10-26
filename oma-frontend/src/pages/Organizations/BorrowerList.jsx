@@ -4,7 +4,7 @@ import Button from '../../components/UI/Button.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { groupLoansByBorrower, loanMatches } from '../../utils/borrowerGroups.js'
-import { loanStatusLabel } from '../../utils/equipmentLoans.js'
+import { loanStatusLabel, outcomeSummary } from '../../utils/equipmentLoans.js'
 import { filterOptions, filterOrgItems } from '../../utils/orgListFilter.js'
 
 // An organization's borrowed equipment: one row per person (name and a short summary), which opens in place onto
@@ -54,7 +54,7 @@ function LoanItem({ loan, busy, onApprove, onReject, onReturn }) {
         {loan.status === 'RETURNED' && (
           <>
             <Fact label="Returned">{formatDate(loan.returned_at)}</Fact>
-            <Fact label="Came back as">{Object.entries(loan.return_breakdown || {}).map(([c, q]) => `${q} ${c}`).join(', ') || '—'}</Fact>
+            <Fact label="What happened">{outcomeSummary(loan.return_breakdown)}</Fact>
           </>
         )}
       </dl>

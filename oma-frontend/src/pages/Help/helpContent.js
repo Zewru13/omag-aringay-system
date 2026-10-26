@@ -126,7 +126,7 @@ export const SECTIONS = [
       },
       {
         q: 'Where are borrowed and returned equipment?',
-        a: 'The Borrowed tab has two tables. Borrowed lists what is still out, one row per person that opens onto their items: approve or reject a request, and press Mark returned on an item, saying what condition the units came back in. An item past its return-by date shows Overdue, and Overdue is also a choice in the Status filter. Returned lists everything that came back, with when, and in what condition. Staff accounts see each organization\'s Equipment Inventory, where an item can be lent to one member.',
+        a: 'The Borrowed tab has two tables. Borrowed lists what is still out, one row per person that opens onto their items: approve or reject a request, and press Mark returned on an item to say what happened: Returned, Damaged (and how damaged) or Not returned (the unit is recorded as Lost). Damaged units leave the lendable stock until they are repaired. An item past its return-by date shows Overdue, and Overdue is also a choice in the Status filter. Returned lists everything that was closed, with when, and what happened to each unit. The equipment list can be filtered by Condition and by Availability (Available units or Not available). Staff accounts see each organization\'s Equipment Inventory, where an item can be lent to one member.',
       },
       {
         q: 'Who can request equipment?',
