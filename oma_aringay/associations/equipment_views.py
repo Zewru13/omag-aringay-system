@@ -149,6 +149,36 @@ class EquipmentLendManyView(_LineView):
         return Response([equipment_ops.loan_data(loan) for loan in loans], status=status.HTTP_201_CREATED)
 
 
+class LendItemSerializer(serializers.Serializer):
+    equipment = serializers.IntegerField(min_value=1)
+    borrowers = BorrowerSerializer(many=True)
+
+
+class LendItemsRequestSerializer(serializers.Serializer):
+    items = LendItemSerializer(many=True)
+    borrowed_on = serializers.DateField(required=False, allow_null=True)
+
+
+class EquipmentLendItemsView(APIView):
+    """POST {items: [{equipment, borrowers: [{member, quantity}]}], borrowed_on?}: report that members borrowed several kinds of
+    equipment (a member can be in more than one kind). One BORROWED loan per member and equipment, all or nothing."""
+    permission_classes = [IsAuthenticated, IsOwnOrgOrStaff]
+    domain_key = None
+
+    @property
+    def org_linked_record_type(self):
+        return equipment_ops.equipment_domain(self.domain_key).linked_type
+
+    def post(self, request, pk):
+        domain = equipment_ops.equipment_domain(self.domain_key)
+        organization = get_object_or_404(domain.org_model, pk=pk)
+        s = LendItemsRequestSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        d = s.validated_data
+        loans = equipment_ops.lend_items(domain, request.user, organization.pk, d['items'], d.get('borrowed_on'))
+        return Response([equipment_ops.loan_data(loan) for loan in loans], status=status.HTTP_201_CREATED)
+
+
 class _LoanView(APIView):
     """Base for views addressed by a loan id; an organization account reaches only its own organization's loans."""
     permission_classes = [IsAuthenticated, IsOrgCitizenOrStaff]
@@ -312,6 +342,8 @@ FisherfolkEquipmentRepairView = _make(EquipmentRepairView, 'fisherfolk')
 FarmersEquipmentHistoryView = _make(EquipmentHistoryView, 'farmers')
 FisherfolkEquipmentHistoryView = _make(EquipmentHistoryView, 'fisherfolk')
 FarmersEquipmentLendView = _make(EquipmentLendView, 'farmers')
+FarmersEquipmentLendItemsView = _make(EquipmentLendItemsView, 'farmers')
+FisherfolkEquipmentLendItemsView = _make(EquipmentLendItemsView, 'fisherfolk')
 FarmersEquipmentLendManyView = _make(EquipmentLendManyView, 'farmers')
 FisherfolkEquipmentLendManyView = _make(EquipmentLendManyView, 'fisherfolk')
 FisherfolkEquipmentLendView = _make(EquipmentLendView, 'fisherfolk')

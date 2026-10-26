@@ -122,7 +122,7 @@ export const SECTIONS = [
       },
       {
         q: 'How do I record that members borrowed equipment?',
-        a: 'In an organization account\'s Borrowed tab press Lend equipment. Choose the equipment, the date it was borrowed and, if known, when it is due back, then tick every member who borrowed it and give each one\'s number of units. Use it for borrowers who have no account to request equipment themselves. All of them are saved together as Borrowed.',
+        a: 'In an organization account\'s Borrowed tab press Lend equipment. Enter the date it was borrowed, choose the equipment, then tick every member who borrowed it and give each one\'s number of units. Once every unit is given out, no other member can be ticked for that equipment. To lend a different kind of equipment, even to a member already ticked, press Lend another equipment and fill its section the same way. Use it for borrowers who have no account to request equipment themselves. Everything is saved together as Borrowed.',
       },
       {
         q: 'Where are borrowed and returned equipment?',

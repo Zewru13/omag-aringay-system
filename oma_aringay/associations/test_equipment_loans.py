@@ -28,6 +28,13 @@ class LoanBase(EquipmentFixture, APITestCase):
         self.current_user = self.ctx[domain]['user']
         return self.post(f'{domain}/equipment-loans/{loan.id}/{action}/', body, user=user)
 
+    def members(self, domain, count):
+        cfg, ctx = DOMAINS[domain], self.ctx[domain]
+        people = [make_person(domain, f'Many{i}') for i in range(count)]
+        for person in people:
+            cfg['member'].objects.create(organization=ctx['org'], date_joined=timezone.localdate(), is_main=False, **{cfg['person_field']: person})
+        return people
+
     def reload(self, loan):
         loan.refresh_from_db()
         return loan
@@ -109,13 +116,6 @@ class LendTests(LoanBase):
 class LendManyTests(LoanBase):
     """The organization reports that several members borrowed one equipment (they have no account to request it): all or nothing."""
 
-    def members(self, domain, count):
-        cfg, ctx = DOMAINS[domain], self.ctx[domain]
-        people = [make_person(domain, f'Many{i}') for i in range(count)]
-        for person in people:
-            cfg['member'].objects.create(organization=ctx['org'], date_joined=timezone.localdate(), is_main=False, **{cfg['person_field']: person})
-        return people
-
     def lend_many(self, domain, line, borrowers, user=None, **extra):
         self.current_user = self.ctx[domain]['user']
         return self.post(f'{domain}/equipment/{line.id}/lend-many/', {'borrowers': borrowers, **extra}, user=user)
@@ -171,6 +171,73 @@ class LendManyTests(LoanBase):
             self.assertEqual(self.lend_many(domain, theirs, [{'member': a.id, 'quantity': 1}]).status_code, 404, domain)
             mine = self.line(domain, 2, name='Generator')
             self.assertEqual(self.lend_many(domain, mine, [{'member': a.id, 'quantity': 1}], user=self.staff).status_code, 201, domain)
+
+
+class LendItemsTests(LoanBase):
+    """Several kinds of equipment reported at once, so one member can borrow more than one kind: all kinds saved or none."""
+
+    def lend_items(self, domain, items, user=None, org=None, **extra):
+        self.current_user = self.ctx[domain]['user']
+        return self.post(f'{domain}/{(org or self.ctx[domain]["org"]).id}/equipment-lend/', {'items': items, **extra}, user=user)
+
+    def test_one_member_borrows_two_kinds_of_equipment(self):
+        for domain in DOMAINS:
+            tractor, pump = self.line(domain, 2, name='Hand Tractor'), self.line(domain, 3, name='Water Pump/Irrigation Pump')
+            a, b = self.members(domain, 2)
+            res = self.lend_items(domain, [
+                {'equipment': tractor.id, 'borrowers': [{'member': a.id, 'quantity': 1}]},
+                {'equipment': pump.id, 'borrowers': [{'member': a.id, 'quantity': 2}, {'member': b.id, 'quantity': 1}]},
+            ])
+            self.assertEqual(res.status_code, 201, (domain, res.data))
+            self.assertEqual(sorted((l['equipment_name'], l['member_id'], l['quantity'], l['status'], l['origin']) for l in res.data), sorted([
+                ('Hand Tractor', a.id, 1, 'BORROWED', 'ORGANIZATION'),
+                ('Water Pump/Irrigation Pump', a.id, 2, 'BORROWED', 'ORGANIZATION'),
+                ('Water Pump/Irrigation Pump', b.id, 1, 'BORROWED', 'ORGANIZATION')]), domain)
+            for line, out in ((tractor, 1), (pump, 3)):
+                line.refresh_from_db()
+                self.assertEqual(equipment_ops.on_loan(line), out, (domain, line.equipment_name))
+
+    def test_a_problem_with_any_kind_saves_nothing_and_names_it(self):
+        for domain in DOMAINS:
+            tractor, pump = self.line(domain, 2, name='Hand Tractor'), self.line(domain, 1, name='Water Pump/Irrigation Pump')
+            (a,) = self.members(domain, 1)
+            res = self.lend_items(domain, [
+                {'equipment': tractor.id, 'borrowers': [{'member': a.id, 'quantity': 1}]},
+                {'equipment': pump.id, 'borrowers': [{'member': a.id, 'quantity': 2}]},          # only 1 pump
+            ])
+            self.assertEqual(res.status_code, 400, domain)
+            self.assertIn('Water Pump/Irrigation Pump: Only 1 unit', str(res.data), domain)
+            self.assertEqual(equipment_ops.equipment_domain(domain).loan_model.objects.count(), 0, domain)      # not even the tractor
+
+    def test_the_request_must_make_sense(self):
+        for domain in DOMAINS:
+            line = self.line(domain, 2)
+            other = self.line(domain, 2, org=self.ctx[domain]['other'], name='Elsewhere')
+            (a,) = self.members(domain, 1)
+            one = {'member': a.id, 'quantity': 1}
+            self.assertEqual(self.lend_items(domain, []).status_code, 400, domain)
+            self.assertEqual(self.lend_items(domain, [{'equipment': line.id, 'borrowers': [one]}, {'equipment': line.id, 'borrowers': [one]}]).status_code, 400, domain)
+            self.assertEqual(self.lend_items(domain, [{'equipment': line.id, 'borrowers': []}]).status_code, 400, domain)
+            self.assertEqual(self.lend_items(domain, [{'equipment': other.id, 'borrowers': [one]}]).status_code, 404, domain)    # another organization's line
+            self.assertEqual(self.lend_items(domain, [{'equipment': 999999, 'borrowers': [one]}]).status_code, 404, domain)
+            self.assertEqual(self.lend_items(domain, [{'equipment': line.id, 'borrowers': [one]}], borrowed_on=str(timezone.localdate() + timedelta(days=1))).status_code, 400, domain)
+            self.assertEqual(equipment_ops.equipment_domain(domain).loan_model.objects.count(), 0, domain)
+
+    def test_access_follows_the_organization(self):
+        for domain in DOMAINS:
+            line = self.line(domain, 2)
+            (a,) = self.members(domain, 1)
+            item = [{'equipment': line.id, 'borrowers': [{'member': a.id, 'quantity': 1}]}]
+            theirs = self.lend_items(domain, item, user=self.ctx[domain]['other_user'])           # another organization's account
+            self.assertEqual(theirs.status_code, 403, domain)
+            self.assertEqual(self.lend_items(domain, item, user=self.staff).status_code, 201, domain)
+
+    def test_a_kind_can_be_lent_in_pieces_across_calls_but_not_more_than_exists(self):
+        for domain in DOMAINS:
+            line = self.line(domain, 2)
+            a, b, c = self.members(domain, 3)
+            self.assertEqual(self.lend_items(domain, [{'equipment': line.id, 'borrowers': [{'member': a.id, 'quantity': 1}, {'member': b.id, 'quantity': 1}]}]).status_code, 201, domain)
+            self.assertEqual(self.lend_items(domain, [{'equipment': line.id, 'borrowers': [{'member': c.id, 'quantity': 1}]}]).status_code, 400, domain)
 
 
 class ReturnTests(LoanBase):
