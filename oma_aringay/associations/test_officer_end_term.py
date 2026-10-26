@@ -1,5 +1,5 @@
-"""An organization account can end the term of one of its own officers early (with a reason); staff still can too.
-It can never touch another organization's officers."""
+"""An organization account can end the term of one of its own officers early (with a reason chosen from Migrated, Transferred
+Registration or Others written out); staff still can too. It can never touch another organization's officers."""
 import itertools
 from datetime import date
 
@@ -50,9 +50,9 @@ class EndTermTests(APITestCase):
         ctx = self.ctx[domain]
         return DOMAINS[domain]['officer'].objects.create(organization=org or ctx['org'], position=position, full_name='Pat Officer')
 
-    def end(self, domain, officer, user, reason='Resigned'):
+    def end(self, domain, officer, user, reason='Migrated', **extra):
         self.client.force_authenticate(user)
-        return self.client.post(f'/api/organizations/{domain}/officers/{officer.id}/end-term/', {'reason': reason}, format='json')
+        return self.client.post(f'/api/organizations/{domain}/officers/{officer.id}/end-term/', {'reason': reason, **extra}, format='json')
 
     def test_an_organization_ends_its_own_officers_term(self):
         for domain in DOMAINS:
@@ -61,7 +61,7 @@ class EndTermTests(APITestCase):
             self.assertEqual(res.status_code, 200, (domain, res.data))
             officer.refresh_from_db()
             self.assertEqual((officer.is_active, officer.term_end_date, officer.early_exit_reason),
-                             (False, timezone.localdate(), 'Resigned'), domain)
+                             (False, timezone.localdate(), 'Migrated'), domain)
 
     def test_a_reason_is_required_and_a_term_ends_only_once(self):
         for domain in DOMAINS:
@@ -70,6 +70,25 @@ class EndTermTests(APITestCase):
                 self.assertEqual(self.end(domain, officer, self.ctx[domain]['user'], blank).status_code, 400, domain)
             self.assertEqual(self.end(domain, officer, self.ctx[domain]['user']).status_code, 200, domain)
             self.assertEqual(self.end(domain, officer, self.ctx[domain]['user']).status_code, 400, domain)
+
+    def test_the_reason_is_one_of_the_listed_ones_or_others_written_out(self):
+        for domain in DOMAINS:
+            user = self.ctx[domain]['user']
+            officer = self.officer(domain)
+            for refused in ('Resigned', 'migrated', 'Other', 'Because'):
+                self.assertEqual(self.end(domain, officer, user, refused).status_code, 400, (domain, refused))
+            self.assertEqual(self.end(domain, officer, user, 'Others').status_code, 400, domain)                      # Others needs its text
+            self.assertEqual(self.end(domain, officer, user, 'Others', reason_other='   ').status_code, 400, domain)
+            self.assertEqual(self.end(domain, officer, user, 'Others', reason_other='x' * 201).status_code, 400, domain)
+            officer.refresh_from_db()
+            self.assertTrue(officer.is_active, domain)
+            self.assertEqual(self.end(domain, officer, user, 'Others', reason_other='  Moved to a city job  ').status_code, 200, domain)
+            officer.refresh_from_db()
+            self.assertEqual(officer.early_exit_reason, 'Others: Moved to a city job', domain)
+            moved = self.officer(domain, position='Secretary')
+            self.assertEqual(self.end(domain, moved, user, 'Transferred Registration').status_code, 200, domain)
+            moved.refresh_from_db()
+            self.assertEqual(moved.early_exit_reason, 'Transferred Registration', domain)
 
     def test_another_organizations_officer_cannot_be_touched(self):
         for domain in DOMAINS:

@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Info, BookOpen, HelpCircle, ChevronDown } from "lucide-react";
 import PageLayout from "../../components/Layout/PageLayout.jsx";
 import { SYSTEM_TITLE } from "../../constants/appInfo.js";
+import { useAuth } from "../../context/AuthContext.jsx";
+import { ROLE_LABELS, helpFor } from "./helpContent.js";
 
 function FaqItem({ question, answer }) {
   const [open, setOpen] = useState(false);
@@ -30,75 +32,14 @@ function FaqItem({ question, answer }) {
   );
 }
 
-const STEPS = [
-  {
-    step: "1",
-    title: "Set Up Master Data",
-    desc: "Go to Crop Option and Crop Category under UTILITIES to set up your crops, categories, growth durations, and activity suggestions.",
-  },
-  {
-    step: "2",
-    title: "Register Farmer Organizations",
-    desc: "Go to Farmer Organization Management to register all farmer cooperatives and organizations in Aringay.",
-  },
-  {
-    step: "3",
-    title: "Add Crop Records",
-    desc: "Go to Crop Information Management to record what crops have been planted, by which organization, and when. The system will auto-compute the expected harvest date and estimated yield.",
-  },
-  {
-    step: "4",
-    title: "Monitor Crop Activities",
-    desc: "Go to Monitoring and click View Logs for each crop. Log activities like fertilizer application and pest control. Use Get Suggestions to see recommended activities.",
-  },
-  {
-    step: "5",
-    title: "View Forecasts",
-    desc: "Go to Forecasting to see all active crops with their estimated harvest yield and expected harvest dates.",
-  },
-  {
-    step: "6",
-    title: "Generate Reports",
-    desc: "Go to Report Generation to download PDF or Excel reports for harvested crops, organizations, or crop options.",
-  },
-];
-
-const FAQS = [
-  {
-    q: "How is the Expected Harvest Date computed?",
-    a: "The system automatically computes the Expected Harvest Date by adding the crop's Growth Duration (in days) to the Date Planted. Growth durations are set in Crop Option Management.",
-  },
-  {
-    q: "How is the Estimated Yield computed?",
-    a: "Estimated Yield is computed by multiplying the Area Planted (ha) by the Yield Per Hectare (kg) set in Crop Option Management.",
-  },
-  {
-    q: 'What does the Status "Near Harvest" mean?',
-    a: '"Near Harvest" appears when the expected harvest date is within 7 days. This signals that staff should prepare for harvest recording.',
-  },
-  {
-    q: "How do Activity Suggestions work?",
-    a: "Activity Suggestions are pre-set per crop type by the Admin in Crop Option Management. When staff clicks Get Suggestions in View Logs, the system shows all suggested activities — completed ones appear grayed out with a checkmark, uncompleted ones appear in full color.",
-  },
-  {
-    q: "Who can add or edit Crop Options and Categories?",
-    a: "Only Admin accounts can manage Crop Options, Crop Categories, and User Management. Focal Persons can view and add crop records and activity logs.",
-  },
-  {
-    q: "How do I record a harvest?",
-    a: 'In the Crop Monitoring page, click the three-dot (⋮) menu on the crop row and select "Record Harvest". Fill in the harvest dates, area harvested, and quantity. The system will auto-compute the Yield per Hectare.',
-  },
-  {
-    q: "How do I report a disaster or crop damage?",
-    a: 'In the Crop Monitoring page, click the three-dot (⋮) menu on the affected crop and select "Report Disaster". Fill in the disaster type, date, area affected, and damage description.',
-  },
-];
-
 function HelpPage() {
+  const { isAdmin } = useAuth();
+  const role = isAdmin ? "ADMIN" : "EVALUATOR";
+  const { steps, sections } = helpFor(role);
   return (
     <PageLayout
       title="Help"
-      subtitle="System guide and frequently asked questions"
+      subtitle={`System guide and frequently asked questions for the ${ROLE_LABELS[role]} account`}
     >
       {/* About This System */}
       <div className="bg-white rounded-xl border border-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] p-6 mb-4">
@@ -176,7 +117,7 @@ function HelpPage() {
         </div>
 
         <div className="space-y-2">
-          {STEPS.map((item) => (
+          {steps.map((item) => (
             <div
               key={item.step}
               className="flex items-start gap-3 p-3 rounded-lg hover:bg-[#F9FAF9] transition-colors"
@@ -213,9 +154,18 @@ function HelpPage() {
           </div>
         </div>
 
-        {FAQS.map((faq, i) => (
-          <FaqItem key={i} question={faq.q} answer={faq.a} />
-        ))}
+        <div className="space-y-6">
+          {sections.map((section) => (
+            <section key={section.title} aria-label={section.title}>
+              <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#7A8E7A]">{section.title}</h3>
+              <div>
+                {section.items.map((faq) => (
+                  <FaqItem key={faq.q} question={faq.q} answer={faq.a} />
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
       </div>
     </PageLayout>
   );

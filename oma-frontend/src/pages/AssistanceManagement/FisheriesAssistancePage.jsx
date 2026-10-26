@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { Ban, CheckCircle2, Eye, Pencil, Plus, Trash2, Upload, UserCheck, Users, XCircle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ImportFileModal from '../../components/ImportFileModal.jsx'
@@ -380,6 +380,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
   const selection = useConfirmSelection(isOrg && view === 'confirm' ? assistance : NO_RECORDS)
   const [showLog, setShowLog] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const navigate = useNavigate()
   const [showDistribute, setShowDistribute] = useState(false)
   const [editing, setEditing] = useState(null)
   const [resolving, setResolving] = useState(null)
@@ -508,6 +509,9 @@ export default function FisheriesAssistancePage({ asTab = false }) {
             </Button>
             <Button variant="outline" onClick={() => setShowDistribute(true)}>
               <Users size={15} className="mr-1" /> Distribute to Organization
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/fisheries-assistance/distribute-multiple")}>
+              <Users size={15} className="mr-1" /> Distribute to Multiple Organizations
             </Button>
             <Button onClick={() => setShowLog(true)}>
               <Plus size={15} className="mr-1" /> Log Individual Assistance

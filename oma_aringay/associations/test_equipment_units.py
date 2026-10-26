@@ -354,6 +354,14 @@ class AddEquipmentValidationTests(EquipmentFixture, APITestCase):
             self.assertEqual(ok.status_code, 201, (domain, ok.data))
             self.assertEqual(ok.data['equipment_name_other'], 'Seed Drill', domain)
 
+    def test_new_equipment_needs_no_condition_and_starts_as_good(self):
+        for domain in DOMAINS:
+            self.client.force_authenticate(self.ctx[domain]['user'])
+            body = {'equipment_name': DOMAINS[domain]['line'].EquipmentName.values[0], 'quantity': 2}
+            res = self.client.post(f'/api/organizations/{domain}/{self.ctx[domain]["org"].id}/equipment/', body, format='json')
+            self.assertEqual(res.status_code, 201, (domain, res.data))
+            self.assertEqual(res.data['condition'], 'Good', domain)
+
     def test_a_listed_name_drops_a_stray_other_text(self):
         for domain in DOMAINS:
             res = self.add(domain, equipment_name_other='leftover')

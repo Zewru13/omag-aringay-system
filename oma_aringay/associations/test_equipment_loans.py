@@ -106,6 +106,73 @@ class LendTests(LoanBase):
             self.assertIn('Only 0 units are available.', str(res.data), domain)
 
 
+class LendManyTests(LoanBase):
+    """The organization reports that several members borrowed one equipment (they have no account to request it): all or nothing."""
+
+    def members(self, domain, count):
+        cfg, ctx = DOMAINS[domain], self.ctx[domain]
+        people = [make_person(domain, f'Many{i}') for i in range(count)]
+        for person in people:
+            cfg['member'].objects.create(organization=ctx['org'], date_joined=timezone.localdate(), is_main=False, **{cfg['person_field']: person})
+        return people
+
+    def lend_many(self, domain, line, borrowers, user=None, **extra):
+        self.current_user = self.ctx[domain]['user']
+        return self.post(f'{domain}/equipment/{line.id}/lend-many/', {'borrowers': borrowers, **extra}, user=user)
+
+    def test_several_members_borrow_at_once(self):
+        for domain in DOMAINS:
+            line = self.line(domain, 6)
+            a, b, c = self.members(domain, 3)
+            due = timezone.localdate() + timedelta(days=10)
+            res = self.lend_many(domain, line, [{'member': a.id, 'quantity': 2}, {'member': b.id, 'quantity': 1}, {'member': c.id, 'quantity': 3}], due_date=str(due))
+            self.assertEqual(res.status_code, 201, (domain, res.data))
+            self.assertEqual([(l['member_id'], l['quantity'], l['status'], l['origin'], l['due_date']) for l in res.data],
+                             [(a.id, 2, 'BORROWED', 'ORGANIZATION', due), (b.id, 1, 'BORROWED', 'ORGANIZATION', due), (c.id, 3, 'BORROWED', 'ORGANIZATION', due)], domain)
+            line.refresh_from_db()
+            self.assertEqual((equipment_ops.on_loan(line), equipment_ops.available(line)), (6, 0), domain)
+            self.assertEqual(self.lend_many(domain, line, [{'member': a.id, 'quantity': 1}]).status_code, 400, domain)     # nothing left
+
+    def test_a_past_borrowing_date_is_kept_and_a_late_return_by_shows_overdue(self):
+        for domain in DOMAINS:
+            line = self.line(domain, 2)
+            (a,) = self.members(domain, 1)
+            took = timezone.localdate() - timedelta(days=12)
+            res = self.lend_many(domain, line, [{'member': a.id, 'quantity': 1}], borrowed_on=str(took), due_date=str(took + timedelta(days=5)))
+            self.assertEqual(res.status_code, 201, (domain, res.data))
+            self.assertTrue(res.data[0]['overdue'], domain)
+            self.assertEqual(timezone.localtime(self.reload(equipment_ops.equipment_domain(domain).loan_model.objects.get(pk=res.data[0]['id'])).borrowed_at).date(), took, domain)
+
+    def test_one_bad_borrower_saves_nothing(self):
+        for domain in DOMAINS:
+            line = self.line(domain, 3)
+            a, b = self.members(domain, 2)
+            outsider = make_person(domain, 'Outside')
+            tomorrow = str(timezone.localdate() + timedelta(days=1))
+            bad = [
+                ([], {}),                                                                                         # nobody chosen
+                ([{'member': a.id, 'quantity': 2}, {'member': b.id, 'quantity': 2}], {}),                         # more than is available
+                ([{'member': a.id, 'quantity': 1}, {'member': a.id, 'quantity': 1}], {}),                         # the same member twice
+                ([{'member': a.id, 'quantity': 1}, {'member': outsider.id, 'quantity': 1}], {}),                  # not a member
+                ([{'member': a.id, 'quantity': 0}], {}),
+                ([{'member': a.id, 'quantity': 1}], {'borrowed_on': tomorrow}),                                   # not in the future
+                ([{'member': a.id, 'quantity': 1}], {'borrowed_on': str(timezone.localdate()), 'due_date': str(timezone.localdate() - timedelta(days=1))}),
+            ]
+            for borrowers, extra in bad:
+                self.assertEqual(self.lend_many(domain, line, borrowers, **extra).status_code, 400, (domain, borrowers, extra))
+            self.assertEqual(equipment_ops.equipment_domain(domain).loan_model.objects.filter(equipment=line).count(), 0, domain)
+
+    def test_only_good_equipment_of_this_organization_and_staff_may(self):
+        for domain in DOMAINS:
+            (a,) = self.members(domain, 1)
+            broken = self.line(domain, 2, condition='Broken', name='B')
+            self.assertEqual(self.lend_many(domain, broken, [{'member': a.id, 'quantity': 1}]).status_code, 400, domain)
+            theirs = self.line(domain, 2, org=self.ctx[domain]['other'])
+            self.assertEqual(self.lend_many(domain, theirs, [{'member': a.id, 'quantity': 1}]).status_code, 404, domain)
+            mine = self.line(domain, 2, name='Generator')
+            self.assertEqual(self.lend_many(domain, mine, [{'member': a.id, 'quantity': 1}], user=self.staff).status_code, 201, domain)
+
+
 class ReturnTests(LoanBase):
     def test_returning_everything_good_frees_the_units(self):
         for domain in DOMAINS:
