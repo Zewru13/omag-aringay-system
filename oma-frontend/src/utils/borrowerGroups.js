@@ -7,11 +7,17 @@ const isOpen = (loan) => OPEN.includes(loan.status)
 // The organization has to act on these: decide a request, or confirm a return the member reported.
 const needsAction = (loan) => loan.status === 'REQUESTED' || loan.status === 'RETURN_PENDING'
 
-// One loan against the Borrowed tab's filters ('' or missing = no filter). "Borrowed" includes overdue loans; the
-// Overdue filter narrows those down.
-export const loanMatches = (loan, { status = '', overdue = '', equipment = '' } = {}) => {
-  if (status && loanStatusLabel(loan.status) !== status) return false
-  if (overdue === 'Overdue only' && !loan.overdue) return false
+// The Borrowed tab lists what is still out (requested, borrowed, return pending) and the requests that were turned down; the Returned tab lists
+// what came back. Returns { out: [...], returned: [...] } in the order the loans came in.
+export const splitLoans = (loans) => {
+  const all = Array.isArray(loans) ? loans : []
+  return { out: all.filter((l) => l.status !== 'RETURNED'), returned: all.filter((l) => l.status === 'RETURNED') }
+}
+
+// One loan against the Borrowed tab's filters ('' or missing = no filter). "Overdue" is a status choice of its own: it matches the loans
+// that are out past their return-by date (which also still count as Borrowed).
+export const loanMatches = (loan, { status = '', equipment = '' } = {}) => {
+  if (status === 'Overdue' ? !loan.overdue : status && loanStatusLabel(loan.status) !== status) return false
   if (equipment && loan.equipment_name !== equipment) return false
   return true
 }

@@ -2,10 +2,10 @@ from django.urls import path
 
 from .equipment_views import (
     MyEquipmentCancelView, MyEquipmentRequestView, MyEquipmentReturnView, MyEquipmentView,
-    FarmersEquipmentConditionView, FarmersEquipmentHistoryView, FarmersEquipmentLendView,
+    FarmersEquipmentConditionView, FarmersEquipmentHistoryView, FarmersEquipmentLendManyView, FarmersEquipmentLendView,
     FarmersEquipmentLoanApproveView, FarmersEquipmentLoanListView, FarmersEquipmentLoanRejectView,
     FarmersEquipmentLoanReturnView, FarmersEquipmentRepairView,
-    FisherfolkEquipmentConditionView, FisherfolkEquipmentHistoryView, FisherfolkEquipmentLendView,
+    FisherfolkEquipmentConditionView, FisherfolkEquipmentHistoryView, FisherfolkEquipmentLendManyView, FisherfolkEquipmentLendView,
     FisherfolkEquipmentLoanApproveView, FisherfolkEquipmentLoanListView, FisherfolkEquipmentLoanRejectView,
     FisherfolkEquipmentLoanReturnView, FisherfolkEquipmentRepairView,
 )
@@ -74,6 +74,7 @@ urlpatterns = [
     path('farmers/equipment/<int:equip_id>/repair/', FarmersEquipmentRepairView.as_view()),
     path('farmers/equipment/<int:equip_id>/history/', FarmersEquipmentHistoryView.as_view()),
     path('farmers/equipment/<int:equip_id>/lend/', FarmersEquipmentLendView.as_view()),
+    path('farmers/equipment/<int:equip_id>/lend-many/', FarmersEquipmentLendManyView.as_view()),
     path('farmers/<int:pk>/equipment-loans/', FarmersEquipmentLoanListView.as_view()),
     path('farmers/equipment-loans/<int:loan_id>/approve/', FarmersEquipmentLoanApproveView.as_view()),
     path('farmers/equipment-loans/<int:loan_id>/reject/', FarmersEquipmentLoanRejectView.as_view()),
@@ -101,6 +102,7 @@ urlpatterns = [
     path('fisherfolk/equipment/<int:equip_id>/repair/', FisherfolkEquipmentRepairView.as_view()),
     path('fisherfolk/equipment/<int:equip_id>/history/', FisherfolkEquipmentHistoryView.as_view()),
     path('fisherfolk/equipment/<int:equip_id>/lend/', FisherfolkEquipmentLendView.as_view()),
+    path('fisherfolk/equipment/<int:equip_id>/lend-many/', FisherfolkEquipmentLendManyView.as_view()),
     path('fisherfolk/<int:pk>/equipment-loans/', FisherfolkEquipmentLoanListView.as_view()),
     path('fisherfolk/equipment-loans/<int:loan_id>/approve/', FisherfolkEquipmentLoanApproveView.as_view()),
     path('fisherfolk/equipment-loans/<int:loan_id>/reject/', FisherfolkEquipmentLoanRejectView.as_view()),

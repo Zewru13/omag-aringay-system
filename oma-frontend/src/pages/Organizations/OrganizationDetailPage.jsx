@@ -15,12 +15,14 @@ import { baseInputClasses } from "../../components/UI/FormField.jsx";
 import { useAuth } from "../../context/AuthContext.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import useSuggestSearch from "../../hooks/useSuggestSearch.js";
-import { CONDITIONS, apiMessage, conditionTone, groupEquipment, openRequestCount } from "../../utils/equipmentLoans.js";
+import { apiMessage, conditionTone, groupEquipment, openRequestCount } from "../../utils/equipmentLoans.js";
 import { filterOptions } from "../../utils/orgListFilter.js";
 import { agencyLabel } from "./agencyOptions.js";
 import BorrowedPanel from "./BorrowedPanel.jsx";
 import ConfirmedForMembersPanel from "./ConfirmedForMembersPanel.jsx";
 import EquipmentGroupBody from "./EquipmentGroupBody.jsx";
+import LendEquipmentForm from "./LendEquipmentForm.jsx";
+import { END_TERM_OTHER_LABEL, END_TERM_REASONS, endTermRequest } from "./endTermReasons.js";
 import OrgCompactList from "./OrgCompactList.jsx";
 import {
   ChangeConditionDialog, EquipmentHistoryDialog, LendDialog, RepairDialog,
@@ -564,20 +566,21 @@ function AssignOfficerModal({ type, organizationId, existingOfficers, own = fals
 
 function EndTermModal({ type, officer, onClose, onSuccess }) {
   const [reason, setReason] = useState("");
+  const [reasonOther, setReasonOther] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const trimmed = reason.trim();
-    if (!trimmed) {
-      setError("A reason is required to end a term early.");
+    const { problem, body } = endTermRequest(reason, reasonOther);
+    if (problem) {
+      setError(problem);
       return;
     }
     setError("");
     setIsSubmitting(true);
     try {
-      await api.post(`/organizations/${type}/officers/${officer.id}/end-term/`, { reason: trimmed });
+      await api.post(`/organizations/${type}/officers/${officer.id}/end-term/`, body);
       onSuccess();
       onClose();
     } catch (err) {
@@ -598,7 +601,7 @@ function EndTermModal({ type, officer, onClose, onSuccess }) {
           </Button>
           <Button
             isLoading={isSubmitting}
-            disabled={!reason.trim()}
+            disabled={!reason || (reason === "Other" && !reasonOther.trim())}
             type="submit"
             form="end-term-form"
             variant="primary"
@@ -616,13 +619,16 @@ function EndTermModal({ type, officer, onClose, onSuccess }) {
         </p>
 
         <div>
-          <label className={labelCls}>Reason (required)</label>
-          <textarea
-            className={`${baseInputClasses} mt-1`}
-            rows={3}
+          <label className={labelCls}>Reason <span className="text-rose-500">*</span></label>
+          <ComboboxWithOther
+            options={END_TERM_REASONS}
             value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Why is this term ending early?"
+            otherValue={reasonOther}
+            otherLabel={END_TERM_OTHER_LABEL}
+            onChange={(v) => { setReason(v); setError(""); }}
+            onOtherChange={setReasonOther}
+            placeholder="Select a reason"
+            required
           />
         </div>
 
@@ -714,7 +720,6 @@ function AddEquipmentModal({ type, organizationId, onClose, onSuccess }) {
     equipment_name: equipmentChoices[0],
     equipment_name_other: "",
     quantity: 1,
-    condition: "Good",
     acquisition_date: "",
     remarks: "",
   });
@@ -737,6 +742,8 @@ function AddEquipmentModal({ type, organizationId, onClose, onSuccess }) {
       if (!payload.acquisition_date) delete payload.acquisition_date;
       if (payload.equipment_name !== "Other")
         delete payload.equipment_name_other;
+      // New equipment is added in good condition; Change condition records anything else later.
+      payload.condition = "Good";
       await api.post(
         `/organizations/${type}/${organizationId}/equipment/`,
         payload,
@@ -790,22 +797,6 @@ function AddEquipmentModal({ type, organizationId, onClose, onSuccess }) {
               value={form.quantity}
               onChange={(e) => updateField("quantity", e.target.value)}
             />
-          </div>
-
-          {/* Condition */}
-          <div>
-            <label className={labelCls}>Condition</label>
-            <select
-              className={`${baseInputClasses} mt-1`}
-              value={form.condition}
-              onChange={(e) => updateField("condition", e.target.value)}
-            >
-              {CONDITIONS.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
           </div>
 
           {/* Acquisition Date */}
@@ -915,6 +906,8 @@ function OrganizationDetailPage({ own = false }) {
   );
   const [showAddMember, setShowAddMember] = useState(false);
   const [showAddEquipment, setShowAddEquipment] = useState(false);
+  // The Borrowed tab's "Lend equipment" form: several members who borrowed one equipment, recorded together.
+  const [showLendMany, setShowLendMany] = useState(false);
   const [showImportMembers, setShowImportMembers] = useState(false);
   const [showImportEquipment, setShowImportEquipment] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -1270,7 +1263,7 @@ function OrganizationDetailPage({ own = false }) {
                     </div>
                   ) : own && activeSection === "borrowed" ? (
                     <div className={ACTION_ROW}>
-                      <button className={`${BTN_SOLID} col-span-2`} onClick={() => setActiveSection("equipment")} type="button">
+                      <button className={`${BTN_SOLID} col-span-2`} onClick={() => setShowLendMany(true)} type="button">
                         <HandHelping size={15} />
                         Lend equipment
                       </button>
@@ -1648,6 +1641,10 @@ function OrganizationDetailPage({ own = false }) {
         />
       )}
 
+      {showLendMany && (
+        <LendEquipmentForm type={type} lines={organization?.equipment || []} members={lendableMembers} onClose={() => setShowLendMany(false)}
+          onDone={() => { setShowLendMany(false); setRefreshKey((k) => k + 1); }} />
+      )}
       {equipAction?.kind === "condition" && (
         <ChangeConditionDialog line={equipAction.line} type={type} onClose={() => setEquipAction(null)}
           onDone={() => { setEquipAction(null); setRefreshKey((k) => k + 1); }} />

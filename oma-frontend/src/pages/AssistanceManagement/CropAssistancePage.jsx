@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { Ban, CheckCircle2, Eye, Pencil, Plus, Search, Trash2, Upload, User, UserCheck, Users, XCircle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import useSuggestSearch from '../../hooks/useSuggestSearch.js'
@@ -647,6 +647,7 @@ export default function CropAssistancePage({ asTab = false }) {
   const selection = useConfirmSelection(isOrg && view === 'confirm' ? records : NO_RECORDS)
   const [showAdd, setShowAdd] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const navigate = useNavigate()
   const [showDistribute, setShowDistribute] = useState(false)
   const [editing, setEditing] = useState(null)
   const [resolving, setResolving] = useState(null)
@@ -781,6 +782,9 @@ export default function CropAssistancePage({ asTab = false }) {
         </Button>
         <Button variant="outline" onClick={() => setShowDistribute(true)}>
           <Users size={15} className="mr-1" /> Distribute to Organization
+        </Button>
+        <Button variant="outline" onClick={() => navigate("/crop-assistance/distribute-multiple")}>
+          <Users size={15} className="mr-1" /> Distribute to Multiple Organizations
         </Button>
         <Button onClick={() => setShowAdd(true)}>
           <Plus size={15} className="mr-1" /> Log Individual Assistance

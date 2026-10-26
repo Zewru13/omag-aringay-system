@@ -6,6 +6,7 @@ A line is one kind of equipment in one condition with a `quantity` of units. Som
   available = movable for a Good line, 0 for any other condition (units that may be lent)
 """
 import logging
+from datetime import datetime, time
 from typing import NamedTuple
 
 from django.db import transaction
@@ -220,6 +221,48 @@ def lend(domain, user, line_pk, member_id, quantity, due_date=None):
             equipment=line, member_id=member_id, quantity=quantity, status='BORROWED', origin='ORGANIZATION',
             requested_by=user, decided_by=user, decided_at=now, borrowed_at=now, due_date=due_date)
     return domain.loan_model.objects.select_related('equipment', 'member').get(pk=loan.pk)
+
+
+MAX_BORROWERS = 100
+
+
+def lend_many(domain, user, line_pk, borrowers, due_date=None, borrowed_on=None):
+    """The organization reports that several of its active members borrowed units of one Good line (people with no account cannot
+    request it themselves): one BORROWED loan per member, all or nothing. `borrowers` is [{'member': person id, 'quantity': units}];
+    `borrowed_on` is the day they took it (default today, never in the future)."""
+    if not borrowers:
+        raise ValidationError({'borrowers': 'Choose at least one member.'})
+    if len(borrowers) > MAX_BORROWERS:
+        raise ValidationError({'borrowers': f'Report at most {MAX_BORROWERS} members at a time.'})
+    member_ids = [b['member'] for b in borrowers]
+    if len(set(member_ids)) != len(member_ids):
+        raise ValidationError({'borrowers': 'Each member can be listed only once.'})
+    today = timezone.localdate()
+    borrowed_on = borrowed_on or today
+    if borrowed_on > today:
+        raise ValidationError({'borrowed_on': 'The date borrowed cannot be in the future.'})
+    if due_date and due_date < borrowed_on:
+        raise ValidationError({'due_date': 'The return-by date cannot be before the date borrowed.'})
+    total = sum(b['quantity'] for b in borrowers)
+    with transaction.atomic():
+        line = lock_line(domain, line_pk)
+        if line is None:
+            raise NotFound()
+        _require_available(line, total)
+        active = set(domain.member_model.objects.filter(
+            organization_id=line.organization_id, is_active=True, **{f'{domain.person_field}_id__in': member_ids},
+        ).values_list(f'{domain.person_field}_id', flat=True))
+        missing = [m for m in member_ids if m not in active]
+        if missing:
+            raise ValidationError({'borrowers': 'Everyone chosen must be an active member of the organization.'})
+        when = timezone.now() if borrowed_on == today else timezone.make_aware(datetime.combine(borrowed_on, time(8, 0)))
+        loans = [
+            domain.loan_model.objects.create(
+                equipment=line, member_id=b['member'], quantity=b['quantity'], status='BORROWED', origin='ORGANIZATION',
+                requested_by=user, decided_by=user, decided_at=when, borrowed_at=when, due_date=due_date)
+            for b in borrowers
+        ]
+    return list(domain.loan_model.objects.select_related('equipment', 'member').filter(pk__in=[l.pk for l in loans]).order_by('id'))
 
 
 def approve(domain, user, loan_pk):

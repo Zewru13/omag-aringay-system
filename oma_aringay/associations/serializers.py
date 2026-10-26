@@ -211,6 +211,8 @@ class FarmersOrganizationEquipmentSerializer(_EquipmentLineValidation, serialize
             'quantity', 'condition', 'acquisition_date', 'remarks', 'on_loan', 'available', 'holders',
         ]
         read_only_fields = ['organization']
+        # Equipment is added without a condition: it starts as Good, and Change condition records anything else later.
+        extra_kwargs = {'condition': {'default': 'Good'}}
 
     def get_on_loan(self, obj):
         return equipment_ops.on_loan(obj)
@@ -358,6 +360,8 @@ class FisherfolkOrganizationEquipmentSerializer(_EquipmentLineValidation, serial
             'quantity', 'condition', 'acquisition_date', 'remarks', 'on_loan', 'available', 'holders',
         ]
         read_only_fields = ['organization']
+        # Equipment is added without a condition: it starts as Good, and Change condition records anything else later.
+        extra_kwargs = {'condition': {'default': 'Good'}}
 
     def get_on_loan(self, obj):
         return equipment_ops.on_loan(obj)

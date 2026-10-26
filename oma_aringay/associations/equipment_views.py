@@ -125,6 +125,30 @@ class EquipmentLendView(_LineView):
         return Response(equipment_ops.loan_data(loan), status=status.HTTP_201_CREATED)
 
 
+class BorrowerSerializer(serializers.Serializer):
+    member = serializers.IntegerField(min_value=1)
+    quantity = serializers.IntegerField(min_value=1)
+
+
+class LendManyRequestSerializer(serializers.Serializer):
+    borrowers = BorrowerSerializer(many=True)
+    due_date = serializers.DateField(required=False, allow_null=True)
+    borrowed_on = serializers.DateField(required=False, allow_null=True)
+
+
+class EquipmentLendManyView(_LineView):
+    """POST {borrowers: [{member, quantity}], due_date?, borrowed_on?}: report that several members borrowed units of this Good line
+    (BORROWED at once, one loan each, all or nothing). For people who cannot request equipment themselves."""
+
+    def post(self, request, equip_id):
+        line = self.scoped_line(request, equip_id)
+        s = LendManyRequestSerializer(data=request.data)
+        s.is_valid(raise_exception=True)
+        d = s.validated_data
+        loans = equipment_ops.lend_many(self.domain(), request.user, line.pk, d['borrowers'], d.get('due_date'), d.get('borrowed_on'))
+        return Response([equipment_ops.loan_data(loan) for loan in loans], status=status.HTTP_201_CREATED)
+
+
 class _LoanView(APIView):
     """Base for views addressed by a loan id; an organization account reaches only its own organization's loans."""
     permission_classes = [IsAuthenticated, IsOrgCitizenOrStaff]
@@ -288,6 +312,8 @@ FisherfolkEquipmentRepairView = _make(EquipmentRepairView, 'fisherfolk')
 FarmersEquipmentHistoryView = _make(EquipmentHistoryView, 'farmers')
 FisherfolkEquipmentHistoryView = _make(EquipmentHistoryView, 'fisherfolk')
 FarmersEquipmentLendView = _make(EquipmentLendView, 'farmers')
+FarmersEquipmentLendManyView = _make(EquipmentLendManyView, 'farmers')
+FisherfolkEquipmentLendManyView = _make(EquipmentLendManyView, 'fisherfolk')
 FisherfolkEquipmentLendView = _make(EquipmentLendView, 'fisherfolk')
 FarmersEquipmentLoanApproveView = _make(EquipmentLoanApproveView, 'farmers')
 FisherfolkEquipmentLoanApproveView = _make(EquipmentLoanApproveView, 'fisherfolk')

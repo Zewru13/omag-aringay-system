@@ -465,11 +465,34 @@ class OrganizationOfficerListCreateView(generics.ListCreateAPIView):
         serializer.save(organization_id=organization_id)
 
 
+# Why an officer's term may be ended early: one of these, or "Others" with the reason written out (kept as "Others: <text>").
+END_TERM_REASONS = ('Migrated', 'Transferred Registration')
+END_TERM_OTHER = 'Others'
+END_TERM_OTHER_MAX = 200
+
+
+def end_term_reason(data):
+    """(reason to store, error message) from an End Term request: `reason` is required and must be one of the listed reasons or
+    "Others"; "Others" also needs `reason_other` (what the reason is)."""
+    reason = str(data.get('reason') or '').strip()
+    if not reason:
+        return None, 'A reason is required to end a term early.'
+    if reason in END_TERM_REASONS:
+        return reason, None
+    if reason == END_TERM_OTHER:
+        other = str(data.get('reason_other') or '').strip()
+        if not other:
+            return None, 'Say what the reason is when you choose Others.'
+        if len(other) > END_TERM_OTHER_MAX:
+            return None, f'Keep the reason to {END_TERM_OTHER_MAX} characters or fewer.'
+        return f'{END_TERM_OTHER}: {other}', None
+    return None, 'Choose one of the listed reasons: ' + ', '.join(END_TERM_REASONS + (END_TERM_OTHER,)) + '.'
+
+
 class OrganizationOfficerEndTermView(APIView):
     """
-    Replaces the old plain-removal (hard delete) flow. Requires a real
-    reason, same required-field discipline as CropDisasterResolveView's
-    recovery_note — sets term_end_date to today and early_exit_reason to
+    Replaces the old plain-removal (hard delete) flow. Requires a reason
+    chosen from END_TERM_REASONS (or Others, written out) — sets term_end_date to today and early_exit_reason to
     the given text, and flips is_active False so the position becomes
     vacant/re-assignable. The row itself is never touched otherwise: it
     remains a permanent, queryable historical record.
@@ -483,9 +506,9 @@ class OrganizationOfficerEndTermView(APIView):
             # an organization account ends only its own officers' terms; any other id is a 404
             officers = officers.filter(organization_id=request.user.linked_record_id)
         officer = get_object_or_404(officers, pk=officer_id)
-        reason = (request.data.get('reason') or '').strip()
-        if not reason:
-            return Response({'detail': 'A reason is required to end a term early.'}, status=status.HTTP_400_BAD_REQUEST)
+        reason, problem = end_term_reason(request.data)
+        if problem:
+            return Response({'detail': problem}, status=status.HTTP_400_BAD_REQUEST)
         if not officer.is_active:
             return Response({'detail': 'This officer term has already ended.'}, status=status.HTTP_400_BAD_REQUEST)
         officer.is_active = False
@@ -791,9 +814,9 @@ class FisherfolkOrganizationOfficerEndTermView(APIView):
         if request.user.role == 'CITIZEN':
             officers = officers.filter(organization_id=request.user.linked_record_id)
         officer = get_object_or_404(officers, pk=officer_id)
-        reason = (request.data.get('reason') or '').strip()
-        if not reason:
-            return Response({'detail': 'A reason is required to end a term early.'}, status=status.HTTP_400_BAD_REQUEST)
+        reason, problem = end_term_reason(request.data)
+        if problem:
+            return Response({'detail': problem}, status=status.HTTP_400_BAD_REQUEST)
         if not officer.is_active:
             return Response({'detail': 'This officer term has already ended.'}, status=status.HTTP_400_BAD_REQUEST)
         officer.is_active = False

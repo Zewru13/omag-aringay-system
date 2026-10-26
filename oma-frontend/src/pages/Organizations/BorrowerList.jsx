@@ -95,9 +95,10 @@ export default function BorrowerList({ loans, onApprove, onReject, onReturn, bus
 
   const asItems = loans.map((loan) => ({ id: loan.id, attrs: { status: loanStatusLabel(loan.status), equipment: loan.equipment_name } }))
   const choices = (key) => filterOptions(asItems, key).map((value) => ({ value, label: value }))
+  // Overdue is a status choice of its own (an overdue loan still counts as Borrowed too).
+  const statuses = [...choices('status'), ...(loans.some((l) => l.overdue) ? [{ value: 'Overdue', label: 'Overdue' }] : [])]
   const filters = [
-    { key: 'status', label: 'Status', allLabel: 'All statuses', options: choices('status') },
-    { key: 'overdue', label: 'Overdue', allLabel: 'Overdue or not', options: loans.some((l) => l.overdue) ? [{ value: 'Overdue only', label: 'Overdue only' }] : [] },
+    { key: 'status', label: 'Status', allLabel: 'All statuses', options: statuses },
     { key: 'equipment', label: 'Equipment', allLabel: 'All equipment', options: choices('equipment') },
   ].filter((f) => f.options.length > 0)
   const activeCount = Object.values(chosen).filter(Boolean).length
@@ -112,7 +113,7 @@ export default function BorrowerList({ loans, onApprove, onReject, onReturn, bus
   })
 
   if (loans.length === 0) {
-    return <p className="rounded-lg bg-[#F5F7F5] px-4 py-3 text-[13px] text-[#7A8E7A]">Nothing has been borrowed yet.</p>
+    return <p className="rounded-lg bg-[#F5F7F5] px-4 py-3 text-[13px] text-[#7A8E7A]">Nothing is borrowed right now.</p>
   }
 
   const shown = groups.slice(0, visible)

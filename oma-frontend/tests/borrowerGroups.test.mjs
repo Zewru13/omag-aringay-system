@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 
-const { groupLoansByBorrower, loanMatches, availableAgainText } = await import(new URL('../src/utils/borrowerGroups.js', import.meta.url).href)
+const { groupLoansByBorrower, loanMatches, availableAgainText, splitLoans } = await import(new URL('../src/utils/borrowerGroups.js', import.meta.url).href)
 
 let n = 0
 const eq = (actual, expected, label) => { assert.deepEqual(actual, expected, `${label}: got ${JSON.stringify(actual)}, wanted ${JSON.stringify(expected)}`); n++ }
@@ -60,10 +60,18 @@ const fl = [loan(ana, 'Water pump', 'BORROWED', { overdue: true }), loan(ana, 'T
 eq(fl.filter((l) => loanMatches(l, {})).length, 3, 'no filter keeps all')
 eq(fl.filter((l) => loanMatches(l, { status: 'Requested' })).map((l) => l.equipment_name), ['Tiller'], 'status filter')
 eq(fl.filter((l) => loanMatches(l, { status: 'Borrowed' })).length, 1, 'an overdue loan is still a Borrowed loan')
-eq(fl.filter((l) => loanMatches(l, { overdue: 'Overdue only' })).length, 1, 'overdue filter')
+eq(fl.filter((l) => loanMatches(l, { status: 'Overdue' })).map((l) => l.equipment_name), ['Water pump'], 'Overdue is a status choice')
+eq(fl.filter((l) => loanMatches(l, { status: 'Overdue', equipment: 'Tiller' })).length, 0, 'overdue and another equipment')
 eq(fl.filter((l) => loanMatches(l, { equipment: 'Water pump' })).length, 2, 'equipment filter')
 eq(fl.filter((l) => loanMatches(l, { status: 'Returned', equipment: 'Water pump' })).map((l) => l.member_name), ['Ben Reyes'], 'filters combine')
-eq(fl.filter((l) => loanMatches(l, { status: '', overdue: '', equipment: '' })).length, 3, 'empty values mean all')
+eq(fl.filter((l) => loanMatches(l, { status: '', equipment: '' })).length, 3, 'empty values mean all')
+
+// ── Borrowed and Returned are separate tables
+const parts = splitLoans(fl)
+eq([parts.out.length, parts.returned.length], [2, 1], 'what is still out, and what came back')
+eq(parts.returned.map((l) => l.member_name), ['Ben Reyes'], 'the returned table holds only returned loans')
+eq(splitLoans(undefined), { out: [], returned: [] }, 'no loans')
+eq(splitLoans([loan(ana, 'X', 'REJECTED'), loan(ana, 'Y', 'CANCELLED')]).out.length, 2, 'turned-down and cancelled requests stay on the Borrowed side')
 
 // ── the message after a return ──────────────────────────────────────────────
 eq(availableAgainText('Water pump', [{ condition: 'Good', quantity: 2 }, { condition: 'Broken', quantity: 1 }]), '2 × Water pump are available again.', 'good units are available again')
