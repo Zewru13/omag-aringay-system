@@ -265,6 +265,42 @@ def lend_many(domain, user, line_pk, borrowers, due_date=None, borrowed_on=None)
     return list(domain.loan_model.objects.select_related('equipment', 'member').filter(pk__in=[l.pk for l in loans]).order_by('id'))
 
 
+MAX_LEND_ITEMS = 20
+
+
+def _first_message(detail):
+    """The first sentence inside a DRF validation detail (a string, a list or a dict of them)."""
+    if isinstance(detail, dict):
+        detail = next(iter(detail.values()), '')
+    if isinstance(detail, (list, tuple)):
+        detail = detail[0] if detail else ''
+    return str(detail)
+
+
+def lend_items(domain, user, organization_id, items, borrowed_on=None):
+    """The organization reports several kinds of equipment lent at once, each to its own members (so one member can have more than one kind):
+    `items` is [{'equipment': line id, 'borrowers': [{'member': person id, 'quantity': units}]}]. Every kind goes through lend_many inside
+    one transaction, so a problem with any of them saves nothing; the error names the equipment it is about."""
+    if not items:
+        raise ValidationError({'items': 'Choose at least one equipment.'})
+    if len(items) > MAX_LEND_ITEMS:
+        raise ValidationError({'items': f'Report at most {MAX_LEND_ITEMS} kinds of equipment at a time.'})
+    ids = [item['equipment'] for item in items]
+    if len(set(ids)) != len(ids):
+        raise ValidationError({'items': 'Each equipment can be listed only once.'})
+    lines = {line.pk: line for line in domain.line_model.objects.filter(pk__in=ids, organization_id=organization_id)}
+    if len(lines) != len(ids):
+        raise NotFound()
+    loans = []
+    with transaction.atomic():
+        for item in sorted(items, key=lambda i: i['equipment']):      # lines are locked in a fixed order
+            try:
+                loans += lend_many(domain, user, item['equipment'], item['borrowers'], None, borrowed_on)
+            except ValidationError as exc:
+                raise ValidationError({'detail': f'{equipment_label(lines[item["equipment"]])}: {_first_message(exc.detail)}'})
+    return sorted(loans, key=lambda loan: loan.pk)
+
+
 def approve(domain, user, loan_pk):
     """Turn a member's request into a loan, re-checking the available units under the lock."""
     with transaction.atomic():

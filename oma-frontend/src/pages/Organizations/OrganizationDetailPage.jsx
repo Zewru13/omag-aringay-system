@@ -1646,7 +1646,7 @@ function OrganizationDetailPage({ own = false }) {
       )}
 
       {showLendMany && (
-        <LendEquipmentForm type={type} lines={organization?.equipment || []} members={lendableMembers} onClose={() => setShowLendMany(false)}
+        <LendEquipmentForm type={type} organizationId={organization.id} lines={organization?.equipment || []} members={lendableMembers} onClose={() => setShowLendMany(false)}
           onDone={() => { setShowLendMany(false); setRefreshKey((k) => k + 1); }} />
       )}
       {equipAction?.kind === "condition" && (
