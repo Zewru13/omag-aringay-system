@@ -30,7 +30,7 @@ from django.apps import apps
 from django.db.models import Sum
 from django.utils import timezone
 
-from .schedule_rules import done_date as step_done_date, is_setup_stage, step_status
+from .schedule_rules import done_date as step_done_date, is_scheduled_stage, is_setup_stage, step_status
 
 # Records that are finished or written off carry no outstanding activities.
 _CLOSED = ('Harvested', 'Total Loss')
@@ -41,7 +41,7 @@ def _blank():
 
 
 def _tally(records, stages_by_key, logs_by_record, *, key_attr, start_attr,
-           stage_day_attr, stage_name_attr, log_name_attr, barangay_attr, is_setup=None):
+           stage_day_attr, stage_name_attr, log_name_attr, barangay_attr, is_setup=None, is_scheduled=None):
     """Walk every open record once and bucket its outstanding activities.
 
     Returns (totals, by_barangay) where by_barangay maps barangay -> counts.
@@ -63,6 +63,8 @@ def _tally(records, stages_by_key, logs_by_record, *, key_attr, start_attr,
         barangay = (getattr(rec, barangay_attr, '') or '').strip() or 'Unspecified'
 
         for stage in stages:
+            if is_scheduled and not is_scheduled(stage):
+                continue
             days_list = stage.application_days or [getattr(stage, stage_day_attr)]
             window = stage.window_days
             stage_name = getattr(stage, stage_name_attr)
@@ -116,6 +118,7 @@ def crop_activity_status():
         stage_day_attr='day_after_planting', stage_name_attr='stage_name',
         log_name_attr='activity_type', barangay_attr='farm_location_barangay',
         is_setup=is_setup_stage,
+        is_scheduled=is_scheduled_stage,
     )
 
 

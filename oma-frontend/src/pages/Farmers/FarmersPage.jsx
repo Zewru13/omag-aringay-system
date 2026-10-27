@@ -3,7 +3,9 @@ import { Plus, Upload } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
+import PrintReportButton from '../../components/PrintReportButton.jsx'
 import RsbsaImportModal from '../../components/RsbsaImportModal.jsx'
+import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
@@ -55,6 +57,7 @@ function FarmersPage({ asTab = false }) {
   const [search, setSearch] = useState('')
   const [gender, setGender] = useState('all')
   const [farmerType, setFarmerType] = useState('all')
+  const [barangay, setBarangay] = useState('')
   const [seniorOnly, setSeniorOnly] = useState(false)
   const [filterICC, setFilterICC] = useState(false)
   const [filterPWD, setFilterPWD] = useState(false)
@@ -76,6 +79,7 @@ function FarmersPage({ asTab = false }) {
     const params = new URLSearchParams()
     if (search.trim())    params.set('search', search.trim())
     if (gender !== 'all') params.set('gender', gender)
+    if (barangay)         params.set('barangay', barangay)
     if (farmerType !== 'all') params.set('is_farm_laborer', farmerType)
     if (seniorOnly)       params.set('is_senior', 'true')
     if (filterICC)        params.set('is_icc_ip', 'true')
@@ -106,7 +110,7 @@ function FarmersPage({ asTab = false }) {
   useEffect(() => {
     setPage(1)
     fetchFarmers(1)
-  }, [search, gender, farmerType, seniorOnly, filterICC, filterPWD, registeredFrom, registeredTo])
+  }, [search, gender, farmerType, barangay, seniorOnly, filterICC, filterPWD, registeredFrom, registeredTo])
 
   useEffect(() => {
     fetchFarmers(page)
@@ -115,6 +119,7 @@ function FarmersPage({ asTab = false }) {
   const activeFilterCount = [
     gender !== 'all',
     farmerType !== 'all',
+    Boolean(barangay),
     seniorOnly,
     filterICC,
     filterPWD,
@@ -161,7 +166,8 @@ function FarmersPage({ asTab = false }) {
   }
 
   const actionBtn = (isAdmin || isEvaluator) ? (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
+      <PrintReportButton kind="farmers" filters={{ search, gender, farmerType, barangay, seniorOnly, filterICC, filterPWD, registeredFrom, registeredTo }} />
       <button
         className="flex items-center gap-1.5 border border-[#D8E2D8] bg-white hover:bg-[#F5F7F5] text-[#1B4D2E] text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
         onClick={() => setIsImportModalOpen(true)}
@@ -197,6 +203,9 @@ function FarmersPage({ asTab = false }) {
           <option value="Male">Male</option>
           <option value="Female">Female</option>
         </select>
+        <div className="w-full sm:w-44">
+          <BarangaySelect value={barangay} onChange={(e) => setBarangay(e.target.value)} includeAllOption />
+        </div>
         <select className={filterSelectCls} onChange={(e) => setFarmerType(e.target.value)} value={farmerType}>
           <option value="all">All Farmer Types</option>
           <option value="false">Farm Operator</option>

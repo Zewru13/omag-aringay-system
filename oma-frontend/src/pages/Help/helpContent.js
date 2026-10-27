@@ -48,11 +48,15 @@ export const SECTIONS = [
       },
       {
         q: 'How do I add several parcels, or a parcel with its crops?',
-        a: 'In Add Farm Parcels each row is one parcel. Under a parcel, press Add crop to record what is planted on it. That crop form is the same as Add Crop Records, with the same fields and the same rules, and each crop is saved as a planted crop on that parcel. Everything is saved together or not at all. To bring in a whole file of parcels for one farmer, choose the farmer and press Import Farm Parcels.',
+        a: 'In Add Farm Parcels each row is one parcel; press Add Parcel for another. Under a parcel, press Add crop to record what is planted on it, or Import crops to read the crops of that parcel from a spreadsheet (the crops are added to the list so you can check them before saving). That crop form is the same as Add Crop Records, with the same fields and the same rules, and each crop is saved as a planted crop on that parcel. Everything is saved together or not at all. To bring in a whole file of parcels for one farmer, choose the farmer and press Import Farm Parcels.',
       },
       {
         q: 'What are Crop Status and Crop Owner?',
-        a: 'Crop Status says how the farmer holds the land for that crop: Owner, Lessee, Tenant or Other. When it is Tenant or Lessee a Crop Owner column opens beside it where you type the owner\'s name. The name is required.',
+        a: 'Crop Status says how the farmer holds the land for that crop: Owner, Lessee, Tenant or Other. When it is Tenant or Lessee a Crop Owner column opens beside it where you type the owner\'s name. The name is required. On a parcel whose Land Ownership is Owner there is no Crop Status column at all: every crop on it is the owner\'s own.',
+      },
+      {
+        q: 'Where do I record a farmer\'s machinery?',
+        a: 'Machinery belongs to the farmer, not to a parcel. Enter it in the Agricultural Machinery section of Register Farmer (Add machinery, or Import machinery from a spreadsheet), or later from the farmer\'s profile with Add machinery. Each line has the machinery, how many, and whose it is (Owned, Borrowed, Rented or Organization-Owned). Remove a line from the profile\'s table.',
       },
       {
         q: 'Why does a crop need a variety?',
@@ -105,7 +109,7 @@ export const SECTIONS = [
       },
       {
         q: 'How do Activity Suggestions work?',
-        a: 'Activity Suggestions are set per crop in Activity Settings. In a crop\'s View Logs, Get Suggestions shows what is recommended: done activities are grayed out with a checkmark, the others are in full color.',
+        a: 'Activity Suggestions are set per crop in Activity Settings. In a crop\'s View Logs, Get Suggestions shows what is recommended: done activities are grayed out with a checkmark, the others are in full color. Land Preparation and Planting are never suggested or offered when you record an activity, because a crop is already planted when it is added to the system.',
       },
     ],
   },
@@ -115,6 +119,10 @@ export const SECTIONS = [
       {
         q: 'How do I end an officer\'s term early?',
         a: 'Open the officer and choose End term early. A reason is required: choose Migrated or Transferred Registration, or choose Others and write the reason. The position becomes vacant so someone new can be assigned, and the term stays in Officer History.',
+      },
+      {
+        q: 'Can I add equipment when I register an organization?',
+        a: 'Yes. The Add Organization form has an Equipment section: press Add equipment for each kind, then choose it, the number of units and optionally the date acquired and remarks. The equipment is saved together with the organization, in Good condition. Leave the section empty if there is none.',
       },
       {
         q: 'How do I add equipment to an organization?',
@@ -162,6 +170,10 @@ export const SECTIONS = [
         q: 'How do I print or download a report?',
         a: 'Open Reports, choose the report and its period, and use Preview PDF. Print gives the same PDF as the preview, and Download saves it.',
       },
+      {
+        q: 'Can I print the farmer, fisherfolk or organization list?',
+        a: 'Yes. On the Farmers, Fisherfolk and Organizations tables press Print Report. It prints the Registered report for exactly what the table shows, so set the filters first: search, Barangay, sex, type, senior citizens, ICC/IP, PWD, 4Ps and the registered dates (the ones the table has). It is the same PDF as Reports > Registered.',
+      },
     ],
   },
   {
@@ -174,6 +186,11 @@ export const SECTIONS = [
       {
         q: 'Where do I add a crop or change its growth duration?',
         a: 'Admin > Crop Settings. Add the crop with its category, growth duration, yield per hectare and Planted As. A Focal Person can use the crops but cannot change them.',
+        roles: ADMIN,
+      },
+      {
+        q: 'How do I add a seed source?',
+        a: 'Admin > Crop Settings > Seed Sources tab. Press Add row under the table, type the name in the new row and press Save (or Enter). Use the row\'s menu to rename or delete one.',
         roles: ADMIN,
       },
       {

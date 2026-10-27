@@ -1,9 +1,9 @@
 """What a crop's schedule suggests, using common sense about setup work.
 
-Land Preparation and Planting (and the other set-up steps that happen before or at planting) are done once. When the
-farmer has recorded one, it is done, however many days before or after the schedule it happened, and every step of that
-activity is done with it. One that was never recorded stops being suggested once its time is over (the crop is in the
-ground), instead of staying "overdue" for the rest of the season. Ordinary steps keep the old rule."""
+A crop is already in the ground when it is added to the system, so Land Preparation and Planting are not part of its schedule at
+all: never suggested, never counted as due or overdue. The other set-up steps that happen before or at planting (flagged
+allows_pre_planting) are done once: a recorded one is done however many days before or after the schedule it happened, and one
+that was never recorded stops being suggested once its time is over. Ordinary steps keep the old rule."""
 import itertools
 from datetime import date, timedelta
 
@@ -52,61 +52,46 @@ class ScheduleRulesTests(APITestCase):
         self.assertEqual(response.status_code, 200, response.content)
         return {(s['activity_name'], s['day_after_planting']): s['status'] for s in response.json()['suggestions']}
 
-    # ── something recorded is done, whenever it was done ─────────────────────
+    # ── the crop is already planted when it is added: Land Preparation and Planting are not part of the schedule ─────
 
-    def test_recorded_setup_activities_are_done_even_when_done_outside_the_window(self):
-        record = self.record(40, [('Land Preparation', -8), ('Planting', 0)])   # prepared a week before planting
-        got = self.statuses(record)
-        self.assertEqual(got[('Land Preparation', 0)], 'done')
-        self.assertEqual(got[('Planting', 1)], 'done')
-        self.assertEqual(got[('Planting', 7)], 'done')   # one Planting log covers every Planting step
+    def test_land_preparation_and_planting_are_never_suggested(self):
+        for age in (3, 40):
+            got = self.statuses(self.record(age))
+            for key in (('Land Preparation', 0), ('Planting', 1), ('Planting', 7)):
+                self.assertNotIn(key, got, (age, key))
 
-    def test_a_recorded_setup_activity_is_done_for_every_step_of_the_same_name_only(self):
-        got = self.statuses(self.record(40, [('Land Preparation', -3)]))
-        self.assertEqual(got[('Land Preparation', 0)], 'done')
-        self.assertNotEqual(got[('Seed Soaking', 1)], 'done')      # a different activity
-        self.assertNotEqual(got[('Planting', 1)], 'done')
-
-    # ── something never recorded stops being suggested once its time has passed ─
-
-    def test_an_unrecorded_setup_activity_is_not_overdue_long_after_planting(self):
-        got = self.statuses(self.record(40))
-        for key in (('Land Preparation', 0), ('Seed Soaking', 1), ('Planting', 1), ('Planting', 7)):
-            self.assertEqual(got[key], 'passed', key)
+    def test_other_setup_steps_are_still_suggested_by_the_set_up_rule(self):
+        # Seed Soaking is flagged allows_pre_planting but is not Land Preparation or Planting.
+        self.assertEqual(self.statuses(self.record(3))[('Seed Soaking', 1)], 'due_now')
+        self.assertEqual(self.statuses(self.record(40))[('Seed Soaking', 1)], 'passed')
+        self.assertEqual(self.statuses(self.record(40, [('Seed Soaking', -3)]))[('Seed Soaking', 1)], 'done')
 
     def test_ordinary_steps_still_become_overdue(self):
         got = self.statuses(self.record(40))
         self.assertEqual(got[('Fertilizer Application', 10)], 'overdue')
         self.assertEqual(got[('Weeding', 20)], 'overdue')
 
-    def test_an_unrecorded_setup_activity_is_still_suggested_while_its_time_is_on(self):
-        got = self.statuses(self.record(3))
-        self.assertEqual(got[('Land Preparation', 0)], 'due_now')
-        self.assertEqual(got[('Planting', 1)], 'due_now')
-        self.assertEqual(got[('Planting', 7)], 'upcoming')
-
     def test_ordinary_steps_are_done_by_a_log_inside_their_window_as_before(self):
         got = self.statuses(self.record(12, [('Fertilizer Application', 10)]))
         self.assertEqual(got[('Fertilizer Application', 10)], 'done')
         self.assertEqual(got[('Weeding', 20)], 'upcoming')
 
-    # ── the dashboard counts and the yield analysis follow the same rule ─────
+    # ── the dashboard counts and the yield analysis leave them out too ─────
 
-    def test_the_dashboard_does_not_count_a_passed_setup_step_as_overdue(self):
+    def test_the_dashboard_counts_only_the_remaining_steps(self):
         self.record(40)
         totals, _ = crop_activity_status()
         self.assertEqual(totals['overdue'], 2)          # Fertilizer Application and Weeding only
         self.assertEqual(totals['due_today'], 0)
 
-    def test_the_dashboard_does_not_count_a_recorded_setup_step(self):
-        self.record(40, [('Land Preparation', -8), ('Planting', 0)])
+    def test_the_dashboard_does_not_count_land_preparation_or_planting_while_their_time_is_on(self):
+        self.record(3)
         totals, _ = crop_activity_status()
-        self.assertEqual(totals['overdue'], 2)
+        self.assertEqual(totals['due_today'], 1)        # Seed Soaking only
 
-    def test_the_yield_analysis_counts_recorded_setup_steps_as_completed(self):
-        record = self.record(40, [('Land Preparation', -8), ('Planting', 0)])
+    def test_the_yield_analysis_does_not_count_land_preparation_or_planting(self):
+        record = self.record(40)
         total, completed, _, breakdown = _activity_completion(record)
-        self.assertEqual(total, 6)
-        self.assertEqual(completed, 3)                   # Land Preparation and both Planting steps
-        self.assertEqual({(b['activity'], b['scheduled_day']) for b in breakdown if b['completed']},
-                         {('Land Preparation', 0), ('Planting', 1), ('Planting', 7)})
+        self.assertEqual(total, 3)                       # Seed Soaking, Fertilizer Application, Weeding
+        self.assertEqual(completed, 0)
+        self.assertEqual({b['activity'] for b in breakdown}, {'Seed Soaking', 'Fertilizer Application', 'Weeding'})

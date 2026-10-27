@@ -11,6 +11,8 @@ import EmailInput from '../../components/UI/EmailInput.jsx'
 import PhoneInput from '../../components/UI/PhoneInput.jsx'
 import { localToday } from '../../utils/inputGuards.js'
 import { agencyOptionsFor } from './agencyOptions.js'
+import EquipmentLinesEditor from './EquipmentLinesEditor.jsx'
+import { equipmentLinePayload, equipmentLinesProblem } from './registrationEquipment.js'
 
 const labelCls = 'block text-[13px] font-medium text-[#4A5E4A] mb-1.5'
 
@@ -45,6 +47,7 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showConfirm,  setShowConfirm]  = useState(false)
   const [handover,     setHandover]     = useState(null)
+  const [equipment,    setEquipment]    = useState([])   // the equipment the organization has, saved with it
 
   const typeLabel = assocType === 'farmers' ? "Farmers' Organization" : 'Fisherfolk Organization'
 
@@ -85,6 +88,11 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
       setError('Please fill in all required fields.')
       return false
     }
+    const equipmentProblem = equipmentLinesProblem(equipment, localToday())
+    if (equipmentProblem) {
+      setError(equipmentProblem)
+      return false
+    }
     return true
   }
 
@@ -112,6 +120,7 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
         email_address:       form.email_address,
         contact_person:      contactPerson,
         contact_number:      form.contact_number,
+        new_equipment:       equipment.map(equipmentLinePayload),
       })
       const activation = created?.activation
       if (activation?.activated && activation.email_sent) {
@@ -174,7 +183,7 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
         subtitle={`Create a new ${assocType === 'farmers' ? "farmers' organization" : 'fisherfolk organization'} in Aringay.`}
         icon={Building2}
         onClose={onClose}
-        maxWidth="max-w-lg"
+        maxWidth="max-w-2xl"
         footer={
           <>
             <Button onClick={onClose} type="button" variant="secondary">Cancel</Button>
@@ -290,6 +299,13 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
             <PhoneInput className={baseInputClasses} required
               value={form.contact_number} onChange={v => set('contact_number', v)} />
             {contactError && <p className="mt-1 text-[12px] text-rose-600">{contactError}</p>}
+          </div>
+
+          {/* Equipment the organization has: saved with the organization */}
+          <div className="border-t border-[#F0F4F0] pt-4">
+            <h3 className="text-[13px] font-semibold uppercase tracking-wide text-[#1B4D2E]">Equipment</h3>
+            <p className="mb-3 mt-0.5 text-[12px] text-[#7A8E7A]">Optional. The equipment the organization has now; it can also be added later from the organization's page.</p>
+            <EquipmentLinesEditor type={assocType} lines={equipment} onChange={setEquipment} />
           </div>
 
           <p className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5 text-[12px] text-[#7A8E7A]">

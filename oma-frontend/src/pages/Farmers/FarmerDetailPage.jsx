@@ -21,6 +21,7 @@ import { rowClickProps } from '../../utils/rowClick.js'
 import { DEFAULT_STATUS, STATUS_FILTER_OPTIONS, cropDisplayStatus, farmerCropParams } from '../Monitoring/monitoringGroups.js'
 import EditFarmerModal from './EditFarmerModal.jsx'
 import EditParcelModal from './EditParcelModal.jsx'
+import FarmerMachineryCard from './FarmerMachineryCard.jsx'
 import RecordFarmVisitModal from './RecordFarmVisitModal.jsx'
 
 // Phone: every table inside the wrapper stacks into labelled cards (each <td data-label="..."> shows its label above the value).
@@ -221,12 +222,6 @@ function ParcelRow({ parcel, onEdit }) {
     ) : null,
   }))
 
-  const machineryRows = (parcel.machinery || []).map((m) => ({
-    machinery_type: m.machinery_type === 'Other' ? m.machinery_type_other : m.machinery_type,
-    quantity: m.quantity,
-    ownership: m.ownership,
-  }))
-
   return (
     <>
       <tr className="border-b border-[#F0F4F0] bg-white hover:bg-[#F9FAF9] transition-colors">
@@ -282,23 +277,6 @@ function ParcelRow({ parcel, onEdit }) {
                       { key: 'main_crop_pill', label: 'Main Crop' },
                     ]}
                     rows={cropRows}
-                    emptyText="None recorded"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#7A8E7A]">
-                  Agricultural Machinery
-                </p>
-                <div className="overflow-hidden rounded-lg border border-[#E2E8E2]">
-                  <SubTable
-                    columns={[
-                      { key: 'machinery_type', label: 'Type' },
-                      { key: 'quantity', label: 'Qty' },
-                      { key: 'ownership', label: 'Ownership' },
-                    ]}
-                    rows={machineryRows}
                     emptyText="None recorded"
                   />
                 </div>
@@ -639,6 +617,11 @@ function FarmerDetailPage() {
               </section>
             </div>
           </div>
+        )}
+
+        {/* Machinery: the farmer's own, not a parcel's */}
+        {farmer && (
+          <FarmerMachineryCard farmerId={farmer.id} machinery={farmer.machinery || []} canEdit={isAdmin || isEvaluator} onChanged={fetchFarmer} />
         )}
 
         {/* Farm Parcels */}

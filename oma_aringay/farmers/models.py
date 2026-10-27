@@ -361,6 +361,21 @@ class FarmMachinery(models.Model):
         return f'{self.machinery_type} - {self.farm_parcel}'
 
 
+class FarmerMachinery(models.Model):
+    """Machinery a farmer has or uses, kept on the farmer (entered at registration, kept on the profile), not on a parcel."""
+    farmer = models.ForeignKey(Farmer, on_delete=models.CASCADE, related_name='machinery')
+    machinery_type = models.CharField(max_length=30, choices=FarmMachinery.MachineryType.choices)
+    machinery_type_other = models.CharField(max_length=100, blank=True)
+    quantity = models.PositiveIntegerField(default=1)
+    ownership = models.CharField(max_length=20, choices=FarmMachinery.Ownership.choices)
+
+    class Meta:
+        ordering = ['id']
+
+    def __str__(self):
+        return f'{self.machinery_type} - {self.farmer}'
+
+
 @receiver(post_save, sender=FarmCrop)
 def on_crop_save(sender, instance, **kwargs):
     instance.farm_parcel.update_commodity()

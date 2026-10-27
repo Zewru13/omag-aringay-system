@@ -189,6 +189,9 @@ class FarmersOrganizationListCreateView(generics.ListCreateAPIView):
         search = self.request.query_params.get('search', '').strip()
         if search:
             qs = qs.filter(Q(name__icontains=search) | Q(barangay__icontains=search))
+        barangay = self.request.query_params.get('barangay', '').strip()
+        if barangay:
+            qs = qs.filter(barangay__iexact=barangay)
         return qs
 
     def perform_create(self, serializer):
@@ -538,6 +541,9 @@ class FisherfolkOrganizationListCreateView(generics.ListCreateAPIView):
         search = self.request.query_params.get('search', '').strip()
         if search:
             qs = qs.filter(Q(name__icontains=search) | Q(barangay__icontains=search))
+        barangay = self.request.query_params.get('barangay', '').strip()
+        if barangay:
+            qs = qs.filter(barangay__iexact=barangay)
         # Only organizations this fisherfolk is an active member of (the real join table). For a fisherfolk
         # citizen this is always their OWN membership, whatever `fisherfolk` the request names.
         owner = fisherfolk_scope(self.request.user)

@@ -65,8 +65,8 @@ eq(cropProblem(crop({ number_of_trees: '-2' })), 'the number of trees cannot be 
 eq(rowProblem(ok(1, { crops: [crop({ is_main_crop: true }), crop({ is_main_crop: true })] })), 'only one crop can be the main crop', 'two main crops')
 eq(machineryProblem({ machinery_type: 'Hand Tractor', quantity: '0', ownership: 'Owned' }), 'enter a quantity of at least 1', 'machinery quantity')
 eq(machineryProblem({ machinery_type: 'Other', machinery_type_other: '', quantity: '1' }), 'type the machinery name', 'other machinery')
-eq(rowProblem(ok(1, { machinery: [makeMachineryRow(1)] })), '', 'good machinery')
-eq(rowProblem(ok(1, { machinery: [{ ...makeMachineryRow(1), quantity: '' }] })), 'machinery 1: enter a quantity of at least 1', 'machinery in a row')
+eq(machineryProblem(makeMachineryRow(1)), '', 'good machinery')
+eq(machineryProblem({ ...makeMachineryRow(1), quantity: '' }), 'enter a quantity of at least 1', 'a machinery line without a quantity')
 
 // ── how much land the crops may use
 const five = (over = {}) => ok(1, { area_hectares: '5', ...over })
@@ -105,8 +105,14 @@ eq(rowProblem(ok(1, { parcel_number: '', farm_type: '', cropping_schedule: '', l
 eq(cropRecordsProblem(ok(1, { crop_records: [record(1)] })), '', 'a complete crop record')
 eq(cropRecordsProblem(ok()), '', 'a parcel needs no crops')
 eq(cropRecordsProblem(ok(1, { crop_records: [record(1), record(2, { variety_used: '' })] })), 'crop 2: missing variety', 'the variety is required, as on the Add Crop page')
-eq(cropRecordsProblem(ok(1, { crop_records: [record(1, { land_status: '' })] })), 'crop 1: missing crop status', 'the crop status is required')
-eq(cropRecordsProblem(ok(1, { crop_records: [record(1, { land_status: 'Tenant' })] })), "crop 1: missing crop owner's name", 'a tenant crop needs its owner')
+eq(cropRecordsProblem(ok(1, { land_ownership: 'Lessee', land_owner_name: 'Ana', crop_records: [record(1, { land_status: '' })] })), 'crop 1: missing crop status', 'the crop status is required on a parcel that is not the farmer own land')
+eq(cropRecordsProblem(ok(1, { land_ownership: 'Tenant', land_owner_name: 'Ana', crop_records: [record(1, { land_status: 'Tenant' })] })), "crop 1: missing crop owner's name", 'a tenant crop needs its owner')
+// on an Owner parcel the crops are the owner's: no status to choose, no owner to name
+eq(cropRecordsProblem(ok(1, { land_ownership: 'Owner', crop_records: [record(1, { land_status: '' })] })), '', 'an owner parcel needs no crop status')
+eq(cropRecordsProblem(ok(1, { land_ownership: 'Owner', crop_records: [record(1, { land_status: 'Tenant', land_owner_name: '' })] })), '', 'a stale tenant status does not block an owner parcel')
+eq(cropRecordsProblem(ok(1, { land_ownership: 'Tenant', land_owner_name: 'Ana', crop_records: [record(1, { land_status: '' })] })), 'crop 1: missing crop status', 'a tenant parcel still asks for it')
+const ownerPayload = parcelPayload(ok(1, { land_ownership: 'Owner', crop_records: [record(1, { land_status: 'Tenant', land_owner_name: 'Old' })] }), CONTEXT)
+eq([ownerPayload.crop_records[0].land_status, ownerPayload.crop_records[0].land_owner_name], ['Owner', ''], 'the crop is saved as the owner own crop')
 eq(cropRecordsProblem(ok(1, { crop_records: [record(1, { crop_type: '', date_planted: '', area_planted_ha: '' })] })), 'crop 1: missing crop type, date planted, area planted', 'everything missing is named')
 eq(cropRecordsProblem(ok(1, { area_hectares: '2', crop_records: [record(1, { area_planted_ha: '2.5' })] })), 'crop 1: This area (2.5 ha) is bigger than its parcel (2 ha)', 'a crop is not bigger than its parcel')
 eq(cropRecordsProblem(ok(1, { area_hectares: '2', crop_records: [record(1, { area_planted_ha: '1.5' }), record(2, { area_planted_ha: '1' })] })), 'crop 2: Only 0.5 ha of this 2 ha parcel is free (1.5 ha is already planted)', 'the crops together fit the parcel')
@@ -134,12 +140,12 @@ eq(machineryPayload({ _uid: 1, machinery_type: 'Other', machinery_type_other: 'D
   { machinery_type: 'Other', machinery_type_other: 'Drone', quantity: 2, ownership: 'Rented' }, 'machinery payload')
 const sent = parcelPayload(ok(1, {
   parcel_number: NO, land_ownership: 'Owner', land_owner_name: 'stale', land_owner_rsbsa_number: 'stale', farm_type: 'Irrigated',
-  cropping_schedule: 'Double Cropping', classifications: ['Organic Farm'], crop_records: [record(1)], machinery: [makeMachineryRow(1)],
+  cropping_schedule: 'Double Cropping', classifications: ['Organic Farm'], crop_records: [record(1)],
 }), CONTEXT)
 eq([sent.parcel_number, sent.area_hectares, sent.barangay, sent.farm_type, sent.cropping_schedule, sent.classifications],
   [NO, 1.5, 'Alaska', 'Irrigated', 'Double Cropping', ['Organic Farm']], 'parcel payload')
 eq([sent.land_owner_name, sent.land_owner_rsbsa_number], ['', ''], 'an owner parcel sends no land owner')
-eq([sent.machinery.length, 'crops' in sent], [1, false], 'machinery is sent; the declared crops of the older form are not')
+eq(['machinery' in sent, 'crops' in sent], [false, false], 'a parcel carries no machinery (it belongs to the farmer) and not the declared crops of the older form')
 eq(parcelPayload(ok(1, { land_ownership: 'Tenant', land_owner_name: 'Juan', land_owner_rsbsa_number: '01-33-02-014-058212' })).land_owner_name, 'Juan', 'tenant keeps the owner')
 eq(parcelPayload(ok(1, { cropping_schedule: 'Double Cropping', crops: [crop({ crop_name: 'Mango', is_main_crop: true })] }), CONTEXT).cropping_schedule, 'Double Cropping', 'the schedule is always sent')
 eq(buildPayload([ok(1), ok(2)], CONTEXT).length, 2, 'one entry per row')
@@ -150,7 +156,7 @@ eq([sentRecord.farmer, sentRecord.farmers_organization, sentRecord.farm_location
 eq([sentRecord.crop_type, sentRecord.land_status, sentRecord.date_planted, sentRecord.area_planted_ha, sentRecord.variety_used, sentRecord.planting_material, sentRecord.year],
   ['7', 'Owner', '2026-10-20', '1', 'Rc 222', 'Seed', 2026], 'with the Add Crop fields')
 eq(parcelPayload(ok(1, { barangay: 'Basca', crop_records: [record(1, { farm_location_barangay: 'Alaska' })] }), CONTEXT).crop_records[0].farm_location_barangay, 'Basca', "the parcel's barangay wins")
-eq(parcelPayload(ok(1, { crop_records: [record(1, { land_status: 'Tenant', land_owner_name: ' Rosa ' })] }), CONTEXT).crop_records[0].land_owner_name, 'Rosa', 'a tenant crop sends its owner')
+eq(parcelPayload(ok(1, { land_ownership: 'Tenant', land_owner_name: 'Ana', crop_records: [record(1, { land_status: 'Tenant', land_owner_name: ' Rosa ' })] }), CONTEXT).crop_records[0].land_owner_name, 'Rosa', 'a tenant crop sends its owner')
 
 // ── PCIC photos
 const file = { name: 'form.jpg' }
@@ -204,7 +210,7 @@ const importedMachinery = addImportedMachinery(existingMachinery, [
 eq(importedMachinery.map((m) => [m.machinery_type, m.machinery_type_other, m.quantity, m.ownership, m._uid]),
   [['Sprayer', '', '1', 'Owned', 1], ['Hand Tractor', '', '2', 'Owned', 100], ['Other', 'Seeder', '1', 'Borrowed', 101]], 'imported machinery is added after what is there, with its own ids')
 eq(addImportedMachinery([], [], 1), [], 'an empty file adds nothing')
-eq(rowProblem(ok(1, { machinery: importedMachinery })), '', 'imported machinery passes the same checks as typed machinery')
+eq(importedMachinery.map(machineryProblem), ['', '', ''], 'imported machinery passes the same checks as typed machinery')
 
 // ── the server's answer, mapped onto the rows
 eq(serverErrorsToMessages([{}, { area_hectares: ['A valid number is required.'], crops: [{}, { area_hectares: ['The crop area must be more than 0.'] }], machinery: [{ quantity: ['The quantity must be at least 1.'] }] }, { parcel_number: ['This farmer already has parcel X.'] }],

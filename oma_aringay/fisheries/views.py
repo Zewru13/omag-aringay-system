@@ -120,6 +120,8 @@ class FisherfolkListView(generics.ListCreateAPIView):
             )
         if params.get('gender'):
             qs = qs.filter(gender__iexact=params['gender'])
+        if params.get('barangay'):
+            qs = qs.filter(barangay__iexact=params['barangay'])
         if params.get('fisherfolk_type'):
             qs = qs.filter(fisherfolk_type__iexact=params['fisherfolk_type'])
         if params.get('is_senior') and params['is_senior'].lower() == 'true':

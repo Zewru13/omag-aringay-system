@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import RsbsaImportModal from '../../components/RsbsaImportModal.jsx'
+import PrintReportButton from '../../components/PrintReportButton.jsx'
+import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
@@ -64,6 +66,7 @@ function FisherfolkPage({ asTab = false }) {
   const [search,      setSearch]      = useState('')
   const [gender,      setGender]      = useState('all')
   const [typeFilter,  setTypeFilter]  = useState('all')
+  const [barangay,    setBarangay]    = useState('')
   const [seniorOnly,  setSeniorOnly]  = useState(false)
   const [filterPWD,   setFilterPWD]   = useState(false)
   const [filter4Ps,   setFilter4Ps]   = useState(false)
@@ -85,6 +88,7 @@ function FisherfolkPage({ asTab = false }) {
     const params = new URLSearchParams()
     if (search.trim())    params.set('search', search.trim())
     if (gender !== 'all') params.set('gender', gender)
+    if (barangay)         params.set('barangay', barangay)
     if (typeFilter !== 'all') params.set('fisherfolk_type', typeFilter)
     if (seniorOnly)       params.set('is_senior', 'true')
     if (filterPWD)        params.set('is_pwd', 'true')
@@ -114,13 +118,14 @@ function FisherfolkPage({ asTab = false }) {
   useEffect(() => {
     setPage(1)
     fetchFisherfolk(1)
-  }, [search, gender, typeFilter, seniorOnly, filterPWD, filter4Ps, registeredFrom, registeredTo])
+  }, [search, gender, typeFilter, barangay, seniorOnly, filterPWD, filter4Ps, registeredFrom, registeredTo])
 
   useEffect(() => { fetchFisherfolk(page) }, [page])
 
   const activeFilterCount = [
     gender !== 'all',
     typeFilter !== 'all',
+    Boolean(barangay),
     seniorOnly,
     filterPWD,
     filter4Ps,
@@ -164,7 +169,8 @@ function FisherfolkPage({ asTab = false }) {
   }
 
   const actionBtn = (isAdmin || isEvaluator) ? (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
+      <PrintReportButton kind="fisherfolk" filters={{ search, gender, typeFilter, barangay, seniorOnly, filterPWD, filter4Ps, registeredFrom, registeredTo }} />
       <button
         className="flex items-center gap-1.5 border border-[#D8E2D8] bg-white hover:bg-[#F5F7F5] text-[#1B4D2E] text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
         onClick={() => setShowImport(true)}
@@ -200,6 +206,9 @@ function FisherfolkPage({ asTab = false }) {
           <option value="Male">Male</option>
           <option value="Female">Female</option>
         </select>
+        <div className="w-full sm:w-44">
+          <BarangaySelect value={barangay} onChange={(e) => setBarangay(e.target.value)} includeAllOption />
+        </div>
         <select className={filterSelectCls} value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
           <option value="all">All Types</option>
           <option value="Aquaculture">Aquaculture</option>

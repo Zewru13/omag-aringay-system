@@ -1,10 +1,11 @@
-// The Add Farm Parcels page: several parcels for one farmer, one table row each, with the crops and machinery of each parcel under
+// The Add Farm Parcels page: several parcels for one farmer, one table row each, with the crops of each parcel under
 // it. The crops of a parcel are crop records - the same rows, fields and rules as the Add Crop Records page (see
 // Monitoring/cropRecordForm.js), recorded on the parcel when it is saved. Pure rules for the page (the blank rows, what is wrong
 // with a row, what is sent to the server, how the server's answer maps back onto the rows), with no screen and no network, so
 // they can be tested on their own.
 import { isValidIdNumber } from '../../utils/idNumbers.js'
 import { EMPTY_PCIC, pcicError, pcicPayload } from '../../utils/pcic.js'
+import { withFixedStatus } from '../CropInformation/cropEntry.js'
 import { buildCropRecordPayload, cropRecordProblem } from '../Monitoring/cropRecordForm.js'
 
 export const TAX_DECLARATION_RE = /^\d{2}-\d{3}-\d{5}-\d{4}-\d{4}$/
@@ -70,7 +71,6 @@ export const makeParcelRow = (id) => ({
   classifications: [],
   crop_records: [],               // the crops grown on the parcel: Add Crop rows (see Monitoring/cropRecordForm.js)
   crops: [],                      // declared crops of the older form (still read when a parcel is edited or imported)
-  machinery: [],
 })
 
 export const makeCropRow = (uid) => ({
@@ -182,10 +182,6 @@ export function rowProblem(row) {
   for (let i = 0; i < tooBig.length; i += 1) {
     if (tooBig[i]) return `crop ${i + 1}: ${tooBig[i]}`
   }
-  for (let i = 0; i < row.machinery.length; i += 1) {
-    const problem = machineryProblem(row.machinery[i])
-    if (problem) return `machinery ${i + 1}: ${problem}`
-  }
   return ''
 }
 
@@ -194,7 +190,7 @@ export function rowProblem(row) {
 const stripStop = (text) => text.replace(/\.$/, '')
 
 export function cropRecordsProblem(row) {
-  const records = (row.crop_records || []).map((r) => ({ ...r, farm_parcel: String(row._id) }))
+  const records = (row.crop_records || []).map((r) => ({ ...withFixedStatus(r, row), farm_parcel: String(row._id) }))
   const parcels = [{ id: row._id, area_hectares: row.area_hectares, growing_area_ha: 0 }]
   for (let i = 0; i < records.length; i += 1) {
     const problem = cropRecordProblem(records, i, parcels, { needsBarangay: false })
@@ -276,8 +272,7 @@ export function parcelPayload(row, context) {
     classifications: row.classifications || [],
     cropping_schedule: row.cropping_schedule,
     // The server records each crop on this parcel and its farmer, with the parcel's barangay.
-    crop_records: (row.crop_records || []).map((r) => ({ ...buildCropRecordPayload(r, { ...context, barangay: row.barangay }), farm_parcel: null })),
-    machinery: row.machinery.map(machineryPayload),
+    crop_records: (row.crop_records || []).map((r) => ({ ...buildCropRecordPayload(withFixedStatus(r, row), { ...context, barangay: row.barangay }), farm_parcel: null })),
   }
 }
 
@@ -340,7 +335,7 @@ export const parcelSkipsSchedule = (parcel) => canSkipSchedule({ crops: parcel.c
 
 // What is wrong with the edit form ('' when nothing). The server still decides whether the area and schedule fit the crops.
 export function editProblem(form) {
-  return rowProblem({ ...form, crops: [], machinery: [] })
+  return rowProblem({ ...form, crops: [] })
 }
 
 // The PATCH body: only what this window edits, with a tenant's land owner dropped for an owner parcel.

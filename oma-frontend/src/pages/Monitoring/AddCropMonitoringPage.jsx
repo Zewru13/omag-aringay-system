@@ -3,7 +3,7 @@ import { AlertTriangle, ArrowLeft, CheckCircle2, Info, Plus } from 'lucide-react
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { sameCrop } from '../../utils/cropNames.js'
 import { ownerParcelFill, parcelProblem } from '../CropInformation/parcelRecords.js'
-import { areaProblem, defaultPlantingMaterial, needsLandOwner } from '../CropInformation/cropEntry.js'
+import { areaProblem, defaultPlantingMaterial, needsLandOwner, withFixedStatus } from '../CropInformation/cropEntry.js'
 import CropRecordsTable from './CropRecordsTable.jsx'
 import { buildCropRecordPayload, cropRecordProblem, makeCropRecord } from './cropRecordForm.js'
 import { useCropFormLookups } from './useCropFormLookups.js'
@@ -210,7 +210,9 @@ export default function AddCropMonitoringPage() {
     setRecords(r => r.map(x => x._id === id ? { ...x, [field]: value } : x))
   }
 
-  const buildPayload = (rec) => buildCropRecordPayload(rec, {
+  // A page locked to a parcel the farmer owns: every crop is the owner's own (its Crop Status column is not shown).
+  const asRecorded = (rec) => (lockedParcel ? withFixedStatus(rec, farmerParcels[0]) : rec)
+  const buildPayload = (rec) => buildCropRecordPayload(asRecorded(rec), {
     farmerInfo, cropTypes, barangay: lockedParcel ? (lockedParcel.barangay || '') : rec.farm_location_barangay,
   })
 
@@ -219,8 +221,9 @@ export default function AddCropMonitoringPage() {
     const noParcel = parcelProblem({ farmerId: farmerInfo.farmer_id, ready: parcelsReady, parcels: farmerParcels, rows: records })
     if (noParcel) { setError(noParcel); return false }
     const nextRowErrors = {}
+    const checked = records.map(asRecorded)
     records.forEach((rec, i) => {
-      const problem = cropRecordProblem(records, i, farmerParcels, { needsBarangay: !lockedParcel })
+      const problem = cropRecordProblem(checked, i, farmerParcels, { needsBarangay: !lockedParcel })
       if (problem) nextRowErrors[rec._id] = `Row ${i + 1}: ${problem}`
     })
     if (Object.keys(nextRowErrors).length > 0) {

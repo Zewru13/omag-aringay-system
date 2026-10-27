@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 
 const {
   CROP_OWNERSHIP_OPTIONS, PLANTING_MATERIALS, PLANTING_TYPES, plantingTypeOf, plantingTypeLabel, canChoosePlanting, materialFor, needsLandOwner,
-  chooseCropOwnership, cropOwnershipCell, defaultPlantingMaterial, quantityLabel, quantityHeader, quantityPayload, areaProblem,
+  chooseCropOwnership, cropOwnershipCell, ownerParcel, statusFixedByParcels, withFixedStatus, defaultPlantingMaterial, quantityLabel, quantityHeader, quantityPayload, areaProblem,
 } = await import(new URL('../src/pages/CropInformation/cropEntry.js', import.meta.url).href)
 
 let n = 0
@@ -60,5 +60,16 @@ eq([areaProblem([row(1, '3.00'), row(1, '2.00')], 1, parcels), areaProblem([row(
 eq(areaProblem([row(1, '4.00'), row(2, '2.00')], 1, parcels), '', 'another parcel is not counted')
 eq([areaProblem([row('', '9')], 0, parcels), areaProblem([row(1, '')], 0, parcels), areaProblem([row(1, '0')], 0, parcels)], ['', '', ''], 'nothing to check yet')
 eq(areaProblem([row(1, '1.10'), row(1, '0.20')], 1, [{ id: 1, area_hectares: '1.30', growing_area_ha: '0' }]), '', 'decimals are exact')
+
+// an Owner parcel fixes its crops' status: they are the owner's, so there is nothing to choose or name
+eq([{ land_ownership: 'Owner' }, { land_ownership: 'Tenant' }, { land_ownership: 'Lessee' }, {}, null].map(ownerParcel), [true, false, false, false, false], 'only an Owner parcel')
+eq(statusFixedByParcels([{ land_ownership: 'Owner' }]), true, 'one owner parcel fixes the status')
+eq(statusFixedByParcels([{ land_ownership: 'Owner' }, { land_ownership: 'Owner' }]), true, 'every parcel an owner parcel')
+eq(statusFixedByParcels([{ land_ownership: 'Owner' }, { land_ownership: 'Tenant' }]), false, 'a mix leaves the choice')
+eq(statusFixedByParcels([{ land_ownership: 'Lessee' }]), false, 'a lessee parcel leaves the choice')
+eq(statusFixedByParcels([]), false, 'no parcel, no rule')
+const stale = { land_status: 'Tenant', land_status_other_specify: 'x', land_owner_name: 'Old Owner', crop_type: '7' }
+eq(withFixedStatus(stale, { land_ownership: 'Owner' }), { land_status: 'Owner', land_status_other_specify: '', land_owner_name: '', crop_type: '7' }, 'a crop on an owner parcel is the owner own crop')
+eq(withFixedStatus(stale, { land_ownership: 'Tenant' }), stale, 'another parcel leaves the crop as it is')
 
 console.log(`cropEntry: ${n} checks passed`)
