@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftState from '../../hooks/useDraftState.js'
 import { AlertTriangle, Fish } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import ModalShell from '../../components/UI/ModalShell.jsx'
@@ -107,7 +109,8 @@ const getMaxBirthdate = () => {
 }
 
 function AddFisherfolkModal({ onClose, onSuccess }) {
-  const [form,          setForm]          = useState(initialForm)
+  // What is typed is a draft: it is still here when the window is opened again (see hooks/useDraftState.js).
+  const [form, setForm, draft] = useDraftState('register-fisherfolk', () => initialForm)
   const [organizations,  setOrganizations]  = useState([])
   const [prefixResetNote, setPrefixResetNote] = useState('')
   const [idTouched,     setIdTouched]     = useState({ fishr: false, rsbsa: false })
@@ -233,6 +236,7 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
       }
       if (payload.average_catch_per_trip_kg === '') delete payload.average_catch_per_trip_kg
       await api.post('/fisheries/fisherfolk/', payload)
+      draft.clear()
       onSuccess()
       onClose()
     } catch (error) {
@@ -275,6 +279,7 @@ function AddFisherfolkModal({ onClose, onSuccess }) {
       }
     >
       <form id="add-fisherfolk-form" onSubmit={handleSubmit} className="space-y-5">
+        <DraftBanner draft={draft} />
         <Section title="Personal Information">
           <div className="grid gap-4 md:grid-cols-2">
             <div>

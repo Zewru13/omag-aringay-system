@@ -30,7 +30,7 @@ assert.ok(STEPS.length > 0 && SECTIONS.length > 0); n++
 for (const [label, help] of [['Admin', admin], ['Focal Person', focal]]) {
   const text = everything(help)
   for (const [what, needle] of [
-    ['multiple distribution', 'Distribute to Multiple Organizations'],
+    ['distributing to several organizations', 'Distribute to Organizations gives one assistance to the members of the organizations you tick'],
     ['ending a term with a reason', 'Transferred Registration'],
     ['the Others reason', 'choose Others'],
     ['lending to several members', 'Lend equipment'],
@@ -47,6 +47,11 @@ for (const [label, help] of [['Admin', admin], ['Focal Person', focal]]) {
     ['no Land Preparation or Planting', 'Land Preparation and Planting are never suggested'],
     ['equipment when registering an organization', 'Equipment section'],
     ['printing the registration tables', 'press Print Report'],
+    ['the distribute windows', 'Distribute Farmer Assistance'],
+    ['printing after distributing', 'Print Report: it prints the Assistance Distribution Report'],
+    ['the distributions table', 'Each row is one distribution'],
+    ['PCIC photo', 'ticks Insured'.replace('ticks', 'tick')],
+    ['drafts', 'Discard draft'],
   ]) {
     assert.ok(text.includes(needle), `${label} help should explain ${what} (${needle})`); n++
   }

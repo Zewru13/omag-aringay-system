@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { AlertTriangle, ArrowLeft, CheckCircle2, Info, Plus, Trash2, Upload } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
@@ -11,7 +11,9 @@ import { bulkCellInputClasses, bulkThCenterClasses, bulkThClasses } from '../../
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import IdNumberInput from '../../components/UI/IdNumberInput.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import useDraftState from '../../hooks/useDraftState.js'
 import { RSBSA_GROUPS } from '../../utils/idNumbers.js'
 import { uploadPcicForm } from '../../utils/pcic.js'
 import { cropRecordsFromImport } from '../Farmers/importedCropRecords.js'
@@ -269,11 +271,15 @@ export default function AddFarmParcelsPage() {
   const classifications = useParcelClassifications()
   const offered = (classifications || []).map((c) => c.name)
 
-  const [farmerInfo, setFarmerInfo] = useState(NO_FARMER)
+  // What is being filled in is a draft: it is still here when the person comes back from another page (see hooks/useDraftState.js).
+  const [work, setWork, draft] = useDraftState(`add-farm-parcels:${startFarmerId || ''}`, () => ({ farmerInfo: NO_FARMER, rows: [makeParcelRow(1)] }))
+  const { farmerInfo, rows } = work
+  const setFarmerInfo = useCallback((next) => setWork((w) => ({ ...w, farmerInfo: typeof next === 'function' ? next(w.farmerInfo) : next })), [setWork])
+  const setRows = useCallback((next) => setWork((w) => ({ ...w, rows: typeof next === 'function' ? next(w.rows) : next })), [setWork])
   const [existing, setExisting] = useState(null)               // the farmer's parcels already on file
-  const nextIdRef = useRef(2)
-  const nextCropIdRef = useRef(1)
-  const [rows, setRows] = useState([makeParcelRow(1)])
+  // The next ids start after the ones of a restored draft.
+  const nextIdRef = useRef(Math.max(1, ...rows.map((r) => r._id)) + 1)
+  const nextCropIdRef = useRef(Math.max(0, ...rows.flatMap((r) => (r.crop_records || []).map((c) => c._id))) + 1)
   const lookups = useCropFormLookups()
   const [importingCropsFor, setImportingCropsFor] = useState(null)   // the id of the parcel whose crops file is being read
   const [isImportingParcels, setIsImportingParcels] = useState(false)   // the Import Farm Parcels file dialog (parcels of the chosen farmer)
@@ -304,7 +310,7 @@ export default function AddFarmParcelsPage() {
       setFarmerInfo({ farmer_id: f.id, farmer_full_name: f.full_name, farmer_home_barangay: f.barangay || '', farmer_assoc_id: null, farmer_assoc_name: '' })
     }).catch(() => { if (alive) showToast('Could not load that farmer. Search for them instead.', 'error') })
     return () => { alive = false }
-  }, [startFarmerId, showToast])
+  }, [startFarmerId, showToast, setFarmerInfo])
 
   // The parcels the farmer already has, so the page can say so (the server refuses a repeated parcel number).
   useEffect(() => {
@@ -384,6 +390,7 @@ export default function AddFarmParcelsPage() {
       setShowConfirm(false)
       if (photoFailures.length) showToast(`Saved, but the PCIC form photo could not be uploaded for: ${photoFailures.join(', ')}. Add it later from the farmer's profile.`, 'error')
       showToast(`${rows.length} farm parcel${rows.length > 1 ? 's' : ''} added.`, 'success')
+      draft.clear()
       goBack()
     } catch (err) {
       setShowConfirm(false)
@@ -406,6 +413,7 @@ export default function AddFarmParcelsPage() {
       </button>
 
       <form onSubmit={handleSubmit} className="space-y-5">
+        <DraftBanner draft={draft} />
         <Legend />
 
         <div className="rounded-xl bg-slate-50 border border-slate-200 p-4">

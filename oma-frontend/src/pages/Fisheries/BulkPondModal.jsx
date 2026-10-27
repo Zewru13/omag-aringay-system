@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Layers, Plus, X } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import Button from '../../components/UI/Button.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
@@ -8,6 +9,7 @@ import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import PcicInsuranceField from '../../components/UI/PcicInsuranceField.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import useDraftState from '../../hooks/useDraftState.js'
 import { EMPTY_PCIC, pcicError, pcicPayload, uploadPcicForm } from '../../utils/pcic.js'
 
 // Must match fisheries.models.WATER_SOURCE_CHOICES on the backend exactly
@@ -25,8 +27,9 @@ const emptyRow = (name) => ({ name, barangay: '', area_hectares: '', water_sourc
 // default.
 function BulkPondModal({ fisherfolkId, existingPondCount, onClose, onSuccess }) {
   const { showToast } = useToast()
-  const [rows, setRows] = useState([emptyRow(`Pond ${existingPondCount + 1}`)])
-  const [rowErrors, setRowErrors] = useState([{}])
+  // The ponds being filled in are a draft: still here when the window is opened again (see hooks/useDraftState.js). One per fisherfolk.
+  const [rows, setRows, draft] = useDraftState(`bulk-add-ponds:${fisherfolkId}`, () => [emptyRow(`Pond ${existingPondCount + 1}`)])
+  const [rowErrors, setRowErrors] = useState(() => rows.map(() => ({})))
   const [formError, setFormError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -72,6 +75,7 @@ function BulkPondModal({ fisherfolkId, existingPondCount, onClose, onSuccess }) 
       if (failed.length) {
         showToast(`Ponds saved, but the PCIC form photo could not be uploaded for: ${failed.join(', ')}. Edit the pond to try again.`, 'error')
       }
+      draft.clear()
       onSuccess()
       onClose()
     } catch (err) {
@@ -110,6 +114,7 @@ function BulkPondModal({ fisherfolkId, existingPondCount, onClose, onSuccess }) 
       }
     >
       <form id="bulk-pond-form" onSubmit={handleSubmit} className="space-y-4">
+        <DraftBanner draft={draft} />
         <div className="space-y-4 max-h-[55vh] overflow-y-auto pr-1">
           {rows.map((row, i) => (
             <div key={i} className="rounded-lg border border-[#E2E8E2] p-3">
@@ -160,9 +165,9 @@ function BulkPondModal({ fisherfolkId, existingPondCount, onClose, onSuccess }) 
                     {WATER_SOURCE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </FormField>
-                <div className="sm:col-span-2">
-                  <PcicInsuranceField value={row.pcic} onChange={(next) => setRowField(i, 'pcic', next)} subject="pond" />
-                </div>
+                <FormField label="PCIC Insurance">
+                  <PcicInsuranceField compact value={row.pcic} onChange={(next) => setRowField(i, 'pcic', next)} subject="pond" />
+                </FormField>
               </div>
             </div>
           ))}

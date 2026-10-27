@@ -13,13 +13,17 @@ export const beneficiaryName = (record) => record.farmer_full_name || record.fis
 const unique = (values) => [...new Set(values.filter(Boolean))]
 const byText = (a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' })
 
-// records: the assistance rows that were confirmed; confirmedOn: the day of the confirmation (an ISO date or datetime).
-export function buildAssistanceReportSpec({ domain = 'crop', records, confirmedOn, organizationName = '', note = '' }) {
+// records: the assistance rows that were confirmed (or just distributed); confirmedOn: the day of the confirmation (an ISO date or datetime);
+// dateLabel: what that day is called in the header ('Date Distributed' for a report printed right after distributing).
+export function buildAssistanceReportSpec({ domain = 'crop', records, confirmedOn, organizationName = '', note = '', dateLabel = 'Date Confirmed' }) {
   const day = String(confirmedOn || '').slice(0, 10)
   const firstId = Math.min(...records.map((r) => Number(r.id)).filter(Number.isFinite))
   const reference = `AD-${day.replace(/-/g, '')}-${String(firstId).padStart(6, '0')}`
 
   const sorted = [...records].sort((a, b) => byText(beneficiaryName(a), beneficiaryName(b)))
+  // A report of several organizations' members says which organization each beneficiary belongs to.
+  const orgNames = unique(records.map((r) => r.organization_name))
+  const orgColumn = orgNames.length > 1
   const dates = records.map((r) => r.date_given).filter(Boolean).sort()
   const dateGiven = dates.length === 0 ? '' : (dates[0] === dates.at(-1) ? fmt(dates[0]) : `${fmt(dates[0])} to ${fmt(dates.at(-1))}`)
   const agencies = unique(records.flatMap((r) => r.source_agencies || [])).sort(byText)
@@ -37,9 +41,10 @@ export function buildAssistanceReportSpec({ domain = 'crop', records, confirmedO
     {
       title: 'Beneficiaries',
       table: {
-        head: ['No.', 'Beneficiary', 'Barangay', 'Assistance', 'Quantity / Amount', 'Source Agency', 'Date Given'],
+        head: ['No.', 'Beneficiary', ...(orgColumn ? ['Organization'] : []), 'Barangay', 'Assistance', 'Quantity / Amount', 'Source Agency', 'Date Given'],
         rows: sorted.map((r, i) => [
-          String(i + 1), beneficiaryName(r), r.farmer_barangay || r.fisherfolk_barangay || r.barangay || '—', r.assistance_type || '—',
+          String(i + 1), beneficiaryName(r), ...(orgColumn ? [r.organization_name || '—'] : []),
+          r.farmer_barangay || r.fisherfolk_barangay || r.barangay || '—', r.assistance_type || '—',
           String(formatAssistanceQuantity(r.assistance_type, r.quantity) || '—'), (r.source_agencies || []).join(', ') || '—', fmt(r.date_given) || '—',
         ]),
         boldRows: new Set(),
@@ -53,9 +58,9 @@ export function buildAssistanceReportSpec({ domain = 'crop', records, confirmedO
     reference,
     header: [
       ['Reference No.', reference],
-      ['Date Confirmed', fmt(day)],
+      [dateLabel, fmt(day)],
       ['Sector', SECTORS[domain] || SECTORS.crop],
-      ...(organizationName ? [['Organization', organizationName]] : []),
+      ...(organizationName ? [['Organization', organizationName]] : orgNames.length === 1 ? [['Organization', orgNames[0]]] : []),
     ],
     sections,
     photos: [],

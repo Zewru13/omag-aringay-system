@@ -67,12 +67,16 @@ export const SECTIONS = [
         a: 'Each crop has a Planted As setting in Crop Settings: Seed, Tree, or Seed or Tree. A Seed crop is counted in Qty of Seeds (kg), a Tree crop in Qty of Trees. For a crop that can be either, the Quantity column heading gets a small arrow: open it and choose Qty of Seeds or Qty of Trees.',
       },
       {
+        q: 'How do I record that a crop has PCIC insurance?',
+        a: 'In the crop table, tick Insured in the PCIC column. A window asks for a photo of the PCIC insurance form (JPG, PNG or WEBP, up to 5 MB); the crop cannot be saved insured without it. Cancel the window without a photo and the box unticks. Ponds and stocking records in fisheries work the same way.',
+      },
+      {
         q: 'Why can\'t I add more area to a parcel?',
         a: 'The crops growing on a parcel together cannot be more than the parcel\'s area. Harvested crops and total losses no longer count. Fix the area of the crop, or the area of the parcel from Edit parcel.',
       },
       {
         q: 'What do the ⋮ menus on Crop Records do?',
-        a: 'On a parcel: Add crops, Force harvest, Edit parcel and Purge parcel (for a parcel that was sold or transferred). Opening a farmer\'s profile shows their parcels and the crops they planted.',
+        a: 'On a parcel: Add crops, Force harvest and Edit parcel. Opening a farmer\'s profile shows their parcels and the crops they planted.',
       },
     ],
   },
@@ -147,11 +151,15 @@ export const SECTIONS = [
     items: [
       {
         q: 'What are the ways to give assistance?',
-        a: 'Log Individual Assistance records help for one person. Distribute to Organization gives the same assistance to the members of one organization. Distribute to Multiple Organizations is a table where each row is one organization with its own assistance. Import File brings a spreadsheet in.',
+        a: 'Distribute Farmer Assistance (Distribute Fisherfolk Assistance on the fisheries page) gives one assistance to the farmers you tick in a table of registered farmers, with a search bar. Distribute to Organizations gives one assistance to the members of the organizations you tick in a table of registered organizations. Import File brings a spreadsheet in. Both distribute windows use the same form: assistance type, source agency, quantity (or cash amount, or training days), date and description.',
       },
       {
-        q: 'How does Distribute to Multiple Organizations work?',
-        a: 'Each row is an organization plus the assistance type, date, quantity (or cash amount per member), source agencies and description. Add Row Like the Last copies the details of the row above so you only pick the organization. Review checks every row first: how many members would receive it and who is blocked. You can untick members for each organization. Nothing is saved until you confirm, then each organization\'s distribution is saved and the result is shown per organization.',
+        q: 'How does a distribution go, and can I print it?',
+        a: 'Fill in the details, tick the recipients (the table remembers your ticks across pages), then press Review Distribution. The review asks the server what would happen, saves nothing, shows who would be blocked or refused, and lets you untick people. Confirm and Distribute saves it, and the result window has Print Report: it prints the Assistance Distribution Report for what was just created.',
+      },
+      {
+        q: 'How do I read the assistance table?',
+        a: 'Each row is one distribution, named after the organization that gave it, or Individual farmers (5) when it went to selected people. Click a row to drop down the members who benefited, with their barangay and status. The source agencies show the first three and then Others. A distribution cannot be cancelled from this table; a member\'s own record can be viewed, edited while it is still pending or awaiting confirmation, or marked resolved when it was reported as not received.',
       },
       {
         q: 'Why was a member blocked?',
@@ -179,6 +187,10 @@ export const SECTIONS = [
   {
     title: 'Accounts and settings',
     items: [
+      {
+        q: 'I forgot to save a form and went to another page. Is it lost?',
+        a: 'No. The long forms (Add Farm Parcels, Add Crop Records, registering a farmer, fisherfolk or organization, adding ponds, and the Distribute assistance windows) keep what you typed in this browser. Open the form again and it is back, with a note and a Discard draft button to start over. A draft is cleared when you save it, discard it or sign out. A chosen photo is not kept, so choose it again.',
+      },
       {
         q: 'What can a Focal Person do compared with an Admin?',
         a: 'Both register and manage farmers, fisherfolk, organizations, crop records, monitoring, disasters, assistance and reports. Only an Admin manages the lists under Admin (Crop Settings, Fisheries Settings, Activity Settings, Assistance Settings, Classification Settings, Harvest Unit Settings), User Management and the audit log, and only an Admin deletes crop records.',

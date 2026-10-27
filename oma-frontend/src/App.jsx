@@ -34,8 +34,6 @@ import UserManagementPage from "./pages/Users/UserManagementPage.jsx";
 import HelpPage from "./pages/Help/HelpPage.jsx";
 import CropAssistancePage from "./pages/AssistanceManagement/CropAssistancePage.jsx";
 import FisheriesAssistancePage from "./pages/AssistanceManagement/FisheriesAssistancePage.jsx";
-import DistributeMultiplePage from "./pages/AssistanceManagement/DistributeMultiplePage.jsx";
-import { FARMER_DISTRIBUTION_DOMAIN, FISHERFOLK_DISTRIBUTION_DOMAIN } from "./pages/AssistanceManagement/distributionDomains.js";
 import CitizenHomePage from "./pages/Citizen/CitizenHomePage.jsx";
 import { OwnHelpPage, OwnProfilePage } from "./pages/Citizen/OwnAccountPages.jsx";
 import DisasterPage from "./pages/Monitoring/DisasterPage.jsx";
@@ -262,22 +260,6 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFarmer allowOrg={["FARMERS_ORG"]}>
                 <CropAssistancePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/crop-assistance/distribute-multiple"
-            element={
-              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
-                <DistributeMultiplePage domain={FARMER_DISTRIBUTION_DOMAIN} backTo="/crop-assistance" backLabel="Back to Crop Assistance" />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/fisheries-assistance/distribute-multiple"
-            element={
-              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]}>
-                <DistributeMultiplePage domain={FISHERFOLK_DISTRIBUTION_DOMAIN} backTo="/fisheries-assistance" backLabel="Back to Fisheries Assistance" />
               </ProtectedRoute>
             }
           />

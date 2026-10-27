@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { AlertTriangle, ArrowLeft, CheckCircle2, Info, Plus } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { sameCrop } from '../../utils/cropNames.js'
@@ -13,6 +13,8 @@ import Button from '../../components/UI/Button.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftState from '../../hooks/useDraftState.js'
 import { uploadPcicForm } from '../../utils/pcic.js'
 
 // ── Required / Optional legend — mirrors the reference form's key so staff
@@ -113,26 +115,26 @@ export default function AddCropMonitoringPage() {
   const prefillApplied = useRef(false)
   const { showToast } = useToast()
   const { cropTypes, seedSources, varieties } = useCropFormLookups()
-  const [records,      setRecords]      = useState([makeCropRecord(1)])
+  // What is being filled in is a draft: it is still here when the person comes back from another page (see hooks/useDraftState.js).
+  const [work, setWork, draft] = useDraftState(`add-crop-records:${lockedParcel?.id || ''}`, () => ({
+    records: [makeCropRecord(1)],
+    farmerInfo: { farmer_id: null, farmer_full_name: '', farmer_home_barangay: '', farmer_assoc_id: null, farmer_assoc_name: '' },
+  }))
+  const { records, farmerInfo } = work
+  const setRecords = useCallback((next) => setWork((w) => ({ ...w, records: typeof next === 'function' ? next(w.records) : next })), [setWork])
+  const setFarmerInfo = useCallback((next) => setWork((w) => ({ ...w, farmerInfo: typeof next === 'function' ? next(w.farmerInfo) : next })), [setWork])
   // Ref, not state: two addRecord() calls in the same tick (e.g. a fast
   // double-click) must never read the same "next id" — a state variable
   // updated via setNextId(n => n + 1) doesn't advance until the next
   // render, so both calls would build a row with the same _id, giving React
   // two list children with duplicate keys.
-  const nextIdRef = useRef(2)
+  const nextIdRef = useRef(Math.max(1, ...records.map((r) => r._id)) + 1)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showConfirm,  setShowConfirm]  = useState(false)
   const [error,        setError]        = useState('')
   const [rowErrors,    setRowErrors]    = useState({})
 
-  // Shared farmer state — applies to ALL crop records in this session
-  const [farmerInfo, setFarmerInfo] = useState({
-    farmer_id: null,
-    farmer_full_name: '',
-    farmer_home_barangay: '',
-    farmer_assoc_id: null,
-    farmer_assoc_name: '',
-  })
+  // Shared farmer state (farmerInfo above) — applies to ALL crop records in this session
   const [farmerParcels, setFarmerParcels] = useState([])
   const [parcelsReadyFor, setParcelsReadyFor] = useState(null)
 
@@ -153,7 +155,7 @@ export default function AddCropMonitoringPage() {
         })
       }
     }).catch(() => {})
-  }, [prefill])
+  }, [prefill, setFarmerInfo])
 
   const goBack = () => navigate('/crop-records')
 
@@ -171,7 +173,7 @@ export default function AddCropMonitoringPage() {
         setRecords(rs => rs.map(x => ({ ...x, ...ownerParcelFill(list, x) })))
       })
       .catch(() => { setFarmerParcels([]); setParcelsReadyFor(null) })
-  }, [farmerInfo.farmer_id, lockedParcel])
+  }, [farmerInfo.farmer_id, lockedParcel, setRecords])
 
   const showParcelColumn = farmerParcels.length > 0
   const parcelsReady = Boolean(farmerInfo.farmer_id) && parcelsReadyFor === farmerInfo.farmer_id
@@ -195,7 +197,7 @@ export default function AddCropMonitoringPage() {
       crop_type: crop ? String(crop.id) : '',
       area_planted_ha: prefill.areaHa ? String(prefill.areaHa) : '',
     })))
-  }, [prefill, cropTypes, farmerParcels])
+  }, [prefill, cropTypes, farmerParcels, setRecords])
 
   const addRecord = () => {
     const id = nextIdRef.current++
@@ -259,6 +261,7 @@ export default function AddCropMonitoringPage() {
         showToast(`Records saved, but the PCIC form photo could not be uploaded for ${photoFailures.join(', ')}. Edit the record to try again.`, 'error')
       }
       showToast(`${records.length} crop monitoring record${records.length > 1 ? 's' : ''} added.`, 'success')
+      draft.clear()
       navigate('/crop-records')
     } catch (err) {
       setShowConfirm(false)
@@ -302,6 +305,7 @@ export default function AddCropMonitoringPage() {
       </button>
 
       <form onSubmit={handleSubmit} className="space-y-5">
+        <DraftBanner draft={draft} />
         <RequiredOptionalLegend />
 
         {/* Farmer (entered once, kept from the previous design — every row in

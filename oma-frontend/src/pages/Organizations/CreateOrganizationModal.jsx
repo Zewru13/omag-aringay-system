@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftState from '../../hooks/useDraftState.js'
 import { Building2, Copy, KeyRound } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -40,14 +42,17 @@ const initialForm = {
 
 export default function CreateOrganizationModal({ type: assocType = 'farmers', onClose, onSuccess }) {
   const { showToast } = useToast()
-  const [form,         setForm]         = useState(initialForm)
+  // What is typed is a draft: it is still here when the window is opened again (see hooks/useDraftState.js). One per kind of organization.
+  const [work, setWork, draft] = useDraftState(`create-organization:${assocType}`, () => ({ form: initialForm, equipment: [] }))
+  const { form, equipment } = work   // equipment: what the organization has, saved with it
+  const setForm = (next) => setWork((w) => ({ ...w, form: typeof next === 'function' ? next(w.form) : next }))
+  const setEquipment = (next) => setWork((w) => ({ ...w, equipment: typeof next === 'function' ? next(w.equipment) : next }))
   const [error,        setError]        = useState('')
   const [formErrors,   setFormErrors]   = useState({})
   const [contactError, setContactError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showConfirm,  setShowConfirm]  = useState(false)
   const [handover,     setHandover]     = useState(null)
-  const [equipment,    setEquipment]    = useState([])   // the equipment the organization has, saved with it
 
   const typeLabel = assocType === 'farmers' ? "Farmers' Organization" : 'Fisherfolk Organization'
 
@@ -122,6 +127,7 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
         contact_number:      form.contact_number,
         new_equipment:       equipment.map(equipmentLinePayload),
       })
+      draft.clear()
       const activation = created?.activation
       if (activation?.activated && activation.email_sent) {
         showToast(`Account activated. The login details were emailed to ${form.email_address}.`, 'success')
@@ -192,6 +198,7 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
         }
       >
         <form id="create-organization-form" className="space-y-4" onSubmit={handleSubmitClick}>
+          <DraftBanner draft={draft} />
           {/* Organization Name */}
           <div>
             <label className={labelCls}>

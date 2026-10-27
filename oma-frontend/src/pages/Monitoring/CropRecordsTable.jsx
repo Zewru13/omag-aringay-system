@@ -32,6 +32,7 @@ const COL_WIDTH = {
   variety: 170,
   seedSource: 160,
   qtySeeds: 150,
+  pcic: 150,
   farmParcel: 170,
   remove: 56,
 }
@@ -131,7 +132,7 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
     ? `An active ${duplicates[0].crop_type}${duplicates[0].variety_used ? ` (${duplicates[0].variety_used})` : ''} record already exists here: ${duplicates.map(d => `${d.date_planted || '—'} (${d.area_planted_ha} ha)`).join(', ')}`
     : undefined
 
-  const colCount = 11 + (showParcelColumn ? 1 : 0) + (showOwnerColumn ? 1 : 0) - (parcelLocked ? 1 : 0) - (statusFixed ? 1 : 0)
+  const colCount = 12 + (showParcelColumn ? 1 : 0) + (showOwnerColumn ? 1 : 0) - (parcelLocked ? 1 : 0) - (statusFixed ? 1 : 0)
   const rowParcel = farmerParcels.find(p => String(p.id) === String(rec.farm_parcel))
   // The parcel's own owner is offered for a Tenant / Lessee crop on it.
   const parcelOwnerName = rowParcel && needsLandOwner(rowParcel.land_ownership) ? (rowParcel.land_owner_name || '') : ''
@@ -286,6 +287,9 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
               onChange={e => set('quantity_of_seeds', e.target.value)} />
           )}
         </td>
+        <td data-label="PCIC" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.pcic }}>
+          <PcicInsuranceField compact value={rec.pcic} onChange={(next) => set('pcic', next)} subject="planting" />
+        </td>
         {showParcelColumn && (
           <td data-label="Farm parcel" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.farmParcel }}>
             <select className={`${bulkCellInputClasses} w-full disabled:bg-[#F5F7F5]`} value={rec.farm_parcel} disabled={parcelLocked}
@@ -319,11 +323,6 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
               <Trash2 size={13} /> <span className="md:hidden">Remove record</span>
             </button>
           )}
-        </td>
-      </tr>
-      <tr className="border-b border-[#F0F4F0] max-md:block">
-        <td colSpan={colCount} className="px-3 pb-3 max-md:block max-md:px-0">
-          <PcicInsuranceField value={rec.pcic} onChange={(next) => set('pcic', next)} subject="planting" />
         </td>
       </tr>
       {error && (
@@ -382,6 +381,7 @@ export default function CropRecordsTable({
                 canSwitch={switchableRecords.length > 0} choice={switchChoice} onPick={pickQuantityMaterial} />
               <OptBadge />
             </th>
+            <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.pcic }}>PCIC<OptBadge /></th>
             {showParcelColumn && <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.farmParcel }}>Farm Parcel <span className="text-white/70">*</span></th>}
             <th className={bulkThCenterClasses} style={{ width: COL_WIDTH.remove }}></th>
           </tr>

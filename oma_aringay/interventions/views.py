@@ -18,6 +18,8 @@ from accounts.permissions import (
 )
 from accounts.utils import accountless_or_unactivated_ids
 from associations.models import FarmersOrganizationMember, FisherfolkOrganizationMember
+from farmers.models import Farmer
+from fisheries.models import Fisherfolk
 from core.notifications import notify_staff, notify_user, resolve_owner_user
 from core.idnumbers import by_id_key
 from core.photos import discard_uploaded_files, validated_photos
@@ -319,6 +321,130 @@ class MyOrgFisherfolkDistributionsView(MyOrgDistributionsView):
     org_linked_record_type = 'FISHERFOLK_ORG'
     record_model = FisherfolkBeneficiaryRecord
     person_field = 'fisherfolk'
+
+
+class StaffDistributionsView(APIView):
+    """What staff see on the Assistance pages: every distribution (one row per distribution, named after the organization that gave it,
+    or none for assistance given to individuals) with its members, newest first, paged (?page=, 10 a page). Filters: `year`,
+    `barangay` (the member's), `status` (a status or `needs-follow-up`), `assistance_type`, `date_from`, `date_to`, `member`,
+    `source_agency`."""
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    record_model = BeneficiaryRecord
+    person_field = 'farmer'
+    PAGE_SIZE = 10
+
+    def get(self, request):
+        params = request.query_params
+        queryset = self.record_model.objects.select_related(self.person_field, 'distributed_by_organization')
+        if params.get('year'):
+            queryset = queryset.filter(year=params['year'])
+        if params.get('barangay'):
+            queryset = queryset.filter(**{f'{self.person_field}__barangay': params['barangay']})
+        records = filter_records(queryset, self.person_field, params)
+        groups = build_distributions(records, self.person_field)
+        try:
+            page = max(1, int(params.get('page') or 1))
+        except ValueError:
+            page = 1
+        start = (page - 1) * self.PAGE_SIZE
+        return Response({'count': len(groups), 'results': groups[start:start + self.PAGE_SIZE]})
+
+
+class FisherfolkStaffDistributionsView(StaffDistributionsView):
+    record_model = FisherfolkBeneficiaryRecord
+    person_field = 'fisherfolk'
+
+
+class BulkIndividualAssistanceView(APIView):
+    """Give one assistance to several selected farmers in one request: one record each, all sharing one distribution id (so they are one
+    row in the staff table). Body: `farmer_ids` plus the fields of one assistance record; `dry_run` only checks. The answer lists, per
+    person, `created` / `would_create` or `error` with the reason, and the record id. Staff may choose anyone; an organization account
+    only its own members. Each person is saved on its own, so one refusal never blocks the rest."""
+    permission_classes = [IsAuthenticated]
+    org_linked_record_type = 'FARMERS_ORG'
+    record_model = BeneficiaryRecord
+    person_model = Farmer
+    serializer_class = BeneficiaryRecordCreateSerializer
+    person_field = 'farmer'
+    ids_key = 'farmer_ids'
+    MAX_PEOPLE = 500
+
+    def _allowed(self, user):
+        if user.role in ('ADMIN', 'EVALUATOR'):
+            return True
+        return user.role == 'CITIZEN' and user.linked_record_type == self.org_linked_record_type
+
+    def post(self, request):
+        user = request.user
+        if not self._allowed(user):
+            raise PermissionDenied('You do not have permission to perform this action.')
+        raw = request.data.get(self.ids_key)
+        if not isinstance(raw, list) or not raw:
+            raise ValidationError({self.ids_key: ['Choose at least one person.']})
+        if len(raw) > self.MAX_PEOPLE:
+            raise ValidationError({self.ids_key: [f'Choose at most {self.MAX_PEOPLE} people at a time.']})
+        try:
+            ids = list(dict.fromkeys(int(i) for i in raw))
+        except (TypeError, ValueError):
+            raise ValidationError({self.ids_key: ['Send a list of ids.']})
+        dry_run = str(request.data.get('dry_run', '')).lower() in ('true', '1')
+        shared = {k: v for k, v in request.data.items() if k not in (self.ids_key, 'dry_run', self.person_field)}
+        if not shared.get('year'):   # the year of the date given, as the organization distribution sets it
+            try:
+                shared['year'] = int(str(shared.get('date_given', ''))[:4])
+            except ValueError:
+                pass
+
+        # The assistance itself is checked once, up front, against the first person, so a wrong type or date is one clear refusal
+        # (400) instead of the same error repeated on every row.
+        probe = self.serializer_class(data={**shared, self.person_field: ids[0]})
+        if not probe.is_valid():
+            errors = {k: v for k, v in probe.errors.items() if k != self.person_field}
+            if errors:
+                raise ValidationError(errors)
+
+        people = self.person_model.objects.in_bulk(ids)
+        batch = uuid.uuid4()
+        results = []
+        for person_id in ids:
+            person = people.get(person_id)
+            if person is None:
+                results.append({'person_id': person_id, 'name': '', 'id_number': '', 'barangay': '', 'status': 'error', 'reason': 'This person was not found.'})
+                continue
+            row = {'person_id': person.id, 'name': person.full_name, 'id_number': person.rsbsa_number or '', 'barangay': person.barangay}
+            if user.role == 'CITIZEN' and not self._is_member(user, person):
+                results.append({**row, 'status': 'error', 'reason': 'Not a member of your organization.'})
+                continue
+            serializer = self.serializer_class(data={**shared, self.person_field: person.id})
+            if not serializer.is_valid():
+                message = '; '.join(f'{field}: {" ".join(str(m) for m in msgs)}' for field, msgs in serializer.errors.items())
+                results.append({**row, 'status': 'error', 'reason': message})
+                continue
+            if dry_run:
+                results.append({**row, 'status': 'would_create'})
+                continue
+            try:
+                with transaction.atomic():
+                    record = serializer.save(recorded_by=user, distribution_batch=batch)
+            except Exception as exc:  # one person's failure never blocks the others
+                results.append({**row, 'status': 'error', 'reason': str(exc)})
+                continue
+            notify_assistance_recorded(record, user)
+            results.append({**row, 'status': 'created', 'record_id': record.id})
+        return Response({'distribution': str(batch), 'results': results})
+
+    def _is_member(self, user, person):
+        from accounts.permissions import _person_is_org_member
+        return _person_is_org_member(user.linked_record_type, user.linked_record_id, person.id)
+
+
+class FisherfolkBulkIndividualAssistanceView(BulkIndividualAssistanceView):
+    org_linked_record_type = 'FISHERFOLK_ORG'
+    record_model = FisherfolkBeneficiaryRecord
+    person_model = Fisherfolk
+    serializer_class = FisherfolkBeneficiaryRecordCreateSerializer
+    person_field = 'fisherfolk'
+    ids_key = 'fisherfolk_ids'
 
 
 class AssistanceRemovalView(APIView):

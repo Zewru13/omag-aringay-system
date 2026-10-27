@@ -1058,6 +1058,7 @@ def _run_organization_distribution(record_model, person_field, organization, mem
                 'person_id': person.id,
                 'name': person.full_name,
                 'id_number': id_number,
+                'barangay': person.barangay,
                 'status': 'would_block' if not commit else 'blocked',
                 'reason': block_reason,
             })
@@ -1068,6 +1069,7 @@ def _run_organization_distribution(record_model, person_field, organization, mem
                 'person_id': person.id,
                 'name': person.full_name,
                 'id_number': id_number,
+                'barangay': person.barangay,
                 'status': 'would_create',
             })
             continue
@@ -1110,6 +1112,7 @@ def _run_organization_distribution(record_model, person_field, organization, mem
                 'person_id': person.id,
                 'name': person.full_name,
                 'id_number': id_number,
+                'barangay': person.barangay,
                 'status': 'created',
                 'record_id': record.id,
             })
@@ -1118,6 +1121,7 @@ def _run_organization_distribution(record_model, person_field, organization, mem
                 'person_id': person.id,
                 'name': person.full_name,
                 'id_number': id_number,
+                'barangay': person.barangay,
                 'status': 'error',
                 'reason': str(exc),
             })

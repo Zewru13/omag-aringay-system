@@ -11,6 +11,8 @@ import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import IdNumberInput from '../../components/UI/IdNumberInput.jsx'
 import { RSBSA_GROUPS } from '../../utils/idNumbers.js'
 import { getPrefixOptions, isPrefixValidForGender } from '../../utils/prefixOptions.js'
+import DraftBanner from '../../components/UI/DraftBanner.jsx'
+import useDraftState from '../../hooks/useDraftState.js'
 import MachineryEditor from './MachineryEditor.jsx'
 import { machineryPayload, machineryProblem } from './parcelRows.js'
 
@@ -93,8 +95,11 @@ const getMaxBirthdate = () => {
 }
 
 function AddFarmerModal({ onClose, onSuccess }) {
-  const [form, setForm] = useState(initialForm)
-  const [machinery, setMachinery] = useState([])   // the machinery the farmer has, saved with the farmer
+  // What is typed is a draft: it is still here when the window is opened again (see hooks/useDraftState.js).
+  const [work, setWork, draft] = useDraftState('register-farmer', () => ({ form: initialForm, machinery: [] }))
+  const { form, machinery } = work   // machinery: what the farmer has, saved with the farmer
+  const setForm = (next) => setWork((w) => ({ ...w, form: typeof next === 'function' ? next(w.form) : next }))
+  const setMachinery = (next) => setWork((w) => ({ ...w, machinery: typeof next === 'function' ? next(w.machinery) : next }))
   const [organizations, setOrganizations] = useState([])
   const [prefixResetNote, setPrefixResetNote] = useState('')
   const [rsbsaTouched, setRsbsaTouched] = useState(false)
@@ -199,6 +204,7 @@ function AddFarmerModal({ onClose, onSuccess }) {
 
     try {
       await api.post('/farmers/', { ...form, is_senior_citizen: isSenior, machinery: machinery.map(machineryPayload) })
+      draft.clear()
       onSuccess()
       onClose()
     } catch (error) {
@@ -237,6 +243,7 @@ function AddFarmerModal({ onClose, onSuccess }) {
       }
     >
       <form id="add-farmer-form" onSubmit={handleSubmit} className="space-y-5">
+        <DraftBanner draft={draft} />
         <Section title="Personal Information">
           <div className="grid gap-4 md:grid-cols-2">
             <div>

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useIsPhone from '../../hooks/useIsPhone.js';
 import useDebouncedValue from "../../hooks/useDebouncedValue.js";
 import {
-  Archive,
   ChevronDown,
   Eye,
   FileText,
@@ -25,11 +24,8 @@ import ImportFileModal from "../../components/ImportFileModal.jsx";
 import RowActions from "../../components/UI/RowActions.jsx";
 import ConfirmDialog from "../../components/UI/ConfirmDialog.jsx";
 import ErrorMessage from "../../components/UI/ErrorMessage.jsx";
-import PillTabs from "../../components/UI/PillTabs.jsx";
 import EditParcelModal from "../Farmers/EditParcelModal.jsx";
 import ForceHarvestParcelModal from "./ForceHarvestParcelModal.jsx";
-import PurgeParcelModal from "./PurgeParcelModal.jsx";
-import PurgedParcelsTable from "./PurgedParcelsTable.jsx";
 import FilterPanel from "../../components/UI/FilterPanel.jsx";
 import HarvestVarianceBadge from "../../components/UI/HarvestVarianceBadge.jsx";
 import FormField, { baseInputClasses } from "../../components/UI/FormField.jsx";
@@ -46,7 +42,7 @@ import { ARINGAY_BARANGAYS } from "../../constants/barangays.js";
 import GroupedParcelsTable from "./GroupedParcelsTable.jsx";
 import { CROP_OWNERSHIP_OPTIONS, PLANTING_MATERIALS, canChoosePlanting, chooseCropOwnership, cropOwnershipCell, materialFor, needsLandOwner, quantityPayload } from "./cropEntry.js";
 import {
-  DEFAULT_GROUP, DEFAULT_SORT, GROUP_OPTIONS, SORT_OPTIONS, addCropsLockedState, cropCountLabel, directoryParams, groupFilterParams, noParcelParams, parcelLabel,
+  DEFAULT_GROUP, GROUP_OPTIONS, addCropsLockedState, cropCountLabel, directoryParams, groupFilterParams, noParcelParams, parcelLabel,
   recordActionKeys,
 } from "./parcelRecords.js";
 
@@ -1229,7 +1225,7 @@ function ParcelCrops({ parcelId, search, barangay, pcic = "", version, isPhone, 
 // ─── One parcel: its details, "Add crop records", and (when opened) the crops on it ──────────────────────────────────
 
 // A parcel's ⋮ menu (labelled buttons on a phone): add crops to it, force harvest the crops that are not ready yet (a typhoon is coming),
-// edit it, or purge it once it was sold or transferred.
+// or edit it.
 function ParcelActions({ parcel, actions }) {
   return (
     <RowActions
@@ -1242,7 +1238,6 @@ function ParcelActions({ parcel, actions }) {
           disabled: !(parcel.crop_count > 0), disabledReason: "This parcel has no crops to force harvest.",
         },
         { key: "edit", label: "Edit parcel", icon: Pencil, onClick: () => actions.edit(parcel) },
-        { key: "purge", label: "Purge parcel", icon: Archive, tone: "rose", group: "danger", onClick: () => actions.purge(parcel) },
       ]}
     />
   );
@@ -1385,16 +1380,13 @@ export default function CropInformationPage() {
   const [barangay, setBarangay] = useState("");
   const [pcic, setPcic] = useState("");
   const [groupBy, setGroupBy] = useState(DEFAULT_GROUP);
-  const [ordering, setOrdering] = useState(DEFAULT_SORT);
   const [page, setPage] = useState(1);
   const [version, setVersion] = useState(0);
   const [openIds, setOpenIds] = useState([]);
   const [remarksRec, setRemarksRec] = useState(null);
   const [editingRec, setEditingRec] = useState(null);
   const [viewingRec, setViewingRec] = useState(null);
-  const [tab, setTab] = useState("parcels");
   const [editingParcel, setEditingParcel] = useState(null);
-  const [purgingParcel, setPurgingParcel] = useState(null);
   const [forcingParcel, setForcingParcel] = useState(null);
   const [isImporting, setIsImporting] = useState(false);
   const { showToast } = useToast();
@@ -1403,7 +1395,7 @@ export default function CropInformationPage() {
   // replace the one for what is typed now (the answer is stored with the request it belongs to).
   const debouncedSearch = useDebouncedValue(search.trim());
   const grouped = groupBy !== DEFAULT_GROUP;
-  const requestKey = JSON.stringify([debouncedSearch, barangay, pcic, ordering, page, version]);
+  const requestKey = JSON.stringify([debouncedSearch, barangay, pcic, page, version]);
   const [result, setResult] = useState({ key: "", rows: [], count: 0, failed: false });
 
   useEffect(() => {
@@ -1411,7 +1403,7 @@ export default function CropInformationPage() {
     if (grouped) return undefined;
     let alive = true;
     api
-      .get("/farmers/parcels/directory/", { params: directoryParams({ search: debouncedSearch, barangay, pcic, ordering, page }) })
+      .get("/farmers/parcels/directory/", { params: directoryParams({ search: debouncedSearch, barangay, pcic, page }) })
       .then((r) => {
         if (!alive) return;
         const rows = Array.isArray(r.data) ? r.data : r.data.results || [];
@@ -1421,7 +1413,7 @@ export default function CropInformationPage() {
     return () => {
       alive = false;
     };
-  }, [requestKey, debouncedSearch, barangay, pcic, ordering, page, grouped]);
+  }, [requestKey, debouncedSearch, barangay, pcic, page, grouped]);
 
   const isLoading = result.key !== requestKey;
   const refresh = () => setVersion((v) => v + 1);
@@ -1433,14 +1425,14 @@ export default function CropInformationPage() {
       .get(`/farmers/parcels/${parcel.id}/`)
       .then((r) => setEditingParcel(r.data))
       .catch(() => showToast("Unable to open this parcel. Please try again.", "error"));
-  const parcelActions = { addCrops, edit: editParcel, purge: setPurgingParcel, forceHarvest: setForcingParcel };
+  const parcelActions = { addCrops, edit: editParcel, forceHarvest: setForcingParcel };
   const handlers = { view: setViewingRec, edit: setEditingRec, remarks: setRemarksRec };
   const changeFilter = (setter) => (value) => {
     setter(value);
     setPage(1);
   };
 
-  const groupFilters = groupFilterParams({ search: debouncedSearch, barangay, pcic, ordering });
+  const groupFilters = groupFilterParams({ search: debouncedSearch, barangay, pcic });
   const cropProps = { search: debouncedSearch, barangay, pcic, version, handlers };
   // Parcel crop lists are not filtered by the typed search (the search chose the parcels), but they are by PCIC insurance, like the parcels
   // and counts; only the no-parcel group is also filtered by the search.
@@ -1481,22 +1473,11 @@ export default function CropInformationPage() {
   return (
     <PageLayout title="Crop Records" subtitle="Farm parcels and the crops grown on them. Open a parcel to see its crops.">
       <div className="space-y-4">
-        <PillTabs
-          ariaLabel="Crop Records views"
-          value={tab}
-          onChange={setTab}
-          tabs={[{ id: "parcels", label: "Farm Parcels" }, { id: "purged", label: "Purged Parcels" }]}
-        />
-
-        {tab === "purged" ? (
-          <PurgedParcelsTable isPhone={isPhone} />
-        ) : (
-          <>
         <FilterPanel
           search={search}
           onSearchChange={changeFilter(setSearch)}
           searchPlaceholder="Search by farmer, RSBSA, or parcel number..."
-          activeCount={[Boolean(barangay), Boolean(pcic), grouped, ordering !== DEFAULT_SORT].filter(Boolean).length}
+          activeCount={[Boolean(barangay), Boolean(pcic), grouped].filter(Boolean).length}
           actions={
             <>
               <Button variant="outline" icon={Upload} onClick={() => setIsImporting(true)}>
@@ -1528,13 +1509,6 @@ export default function CropInformationPage() {
               </option>
             ))}
           </select>
-          <select className={filterSelectCls} value={ordering} onChange={(e) => changeFilter(setOrdering)(e.target.value)} aria-label="Sort by">
-            {SORT_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                Sort: {o.label}
-              </option>
-            ))}
-          </select>
         </FilterPanel>
 
         {grouped ? (
@@ -1563,8 +1537,6 @@ export default function CropInformationPage() {
         )}
 
         <NoParcelGroup {...cropProps} isPhone={isPhone} />
-          </>
-        )}
       </div>
 
       {remarksRec && <RemarksModal record={remarksRec} onClose={() => setRemarksRec(null)} />}
@@ -1610,18 +1582,6 @@ export default function CropInformationPage() {
           onClose={() => setForcingParcel(null)}
           onDone={() => {
             setForcingParcel(null);
-            refresh();
-          }}
-        />
-      )}
-
-      {purgingParcel && (
-        <PurgeParcelModal
-          parcel={purgingParcel}
-          onClose={() => setPurgingParcel(null)}
-          onDone={() => {
-            setPurgingParcel(null);
-            setOpenIds((ids) => ids.filter((id) => id !== purgingParcel.id));
             refresh();
           }}
         />
