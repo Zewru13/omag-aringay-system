@@ -169,7 +169,7 @@ def build_disaster_log_pdf(*, title, header_rows, sections, photo_paths, referen
 
     buf = io.BytesIO()
     pdf = SimpleDocTemplate(buf, pagesize=pagesize, leftMargin=72, rightMargin=72, topMargin=72, bottomMargin=72,
-                            title=pdf_title, author='OMAg Aringay')
+                            title=pdf_title, author='Office of the Municipal Agriculturist, Aringay')
     pdf.build(story, canvasmaker=DisasterLogCanvas)
     data = buf.getvalue()
     if not data.startswith(b'%PDF'):

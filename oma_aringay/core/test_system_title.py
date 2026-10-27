@@ -18,9 +18,11 @@ class SystemTitleTests(TestCase):
         body = json.loads(api_root(RequestFactory().get('/api/')).content)
         self.assertEqual(body['system'], FULL_TITLE)
 
-    def test_the_pdf_footer_names_the_system_by_it(self):
+    def test_the_pdf_footer_names_the_office_not_the_system(self):
         from reports.pdf_utils import _DISCLAIMER
-        self.assertIn(FULL_TITLE, _DISCLAIMER)
+        self.assertEqual(_DISCLAIMER, 'This is an official record of the Office of the Municipal Agriculturist.')
+        self.assertNotIn('INTEGRATED AGRICULTURAL', _DISCLAIMER)
+        self.assertNotIn('OMAg', _DISCLAIMER)
 
     def test_the_organization_account_email_names_the_system_by_it(self):
         from types import SimpleNamespace

@@ -1,9 +1,10 @@
 import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import SectionEyebrow from '../../components/UI/SectionEyebrow.jsx'
-import { assistanceMinDate, isCashType, isTrainingType } from './assistanceFieldHelpers.js'
+import { UNITS_WHERE, assistanceMinDate, choicesWith, isCashType, isTrainingType } from './assistanceFieldHelpers.js'
 import { withAssistanceType } from './distributeFlow.js'
 import { SourceAgencyMultiSelect, TypeConditionalFields } from './sharedAssistanceFields.jsx'
+import useAssistanceChoices from './useAssistanceChoices.js'
 
 // The assistance details of the distribution windows, the same fields whoever the recipients are: type, source agencies, the quantity (or
 // the cash amount, or the training days), the date and a description. `form` is made by makeAssistanceForm (distributeFlow.js).
@@ -11,6 +12,7 @@ export default function AssistanceDetailsFields({ domain, form, setForm, today }
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }))
   const cash = isCashType(form.assistance_type)
   const training = isTrainingType(form.assistance_type)
+  const units = useAssistanceChoices(domain.allowSeedFertilizer ? 'crop' : 'fisheries')?.unit
 
   return (
     <div className="space-y-4 rounded-2xl border border-[#E2E8E2] bg-white p-4 sm:p-5">
@@ -41,7 +43,15 @@ export default function AssistanceDetailsFields({ domain, form, setForm, today }
         )}
         {!cash && !training && (
           <FormField label="Quantity per Recipient" pillLabel>
-            <input className={baseInputClasses} value={form.quantity} onChange={(e) => set('quantity', e.target.value)} placeholder="e.g. 1 sack" />
+            <div className="flex gap-2">
+              <input type="number" min="0" step="any" className={`${baseInputClasses} w-28 shrink-0`} value={form.quantity_amount} placeholder="e.g. 2"
+                onChange={(e) => set('quantity_amount', e.target.value)} aria-label="Quantity per recipient" />
+              <select className={`${baseInputClasses} min-w-0 flex-1`} value={form.quantity_unit} onChange={(e) => set('quantity_unit', e.target.value)} aria-label="Unit">
+                <option value="">Unit…</option>
+                {choicesWith(units, form.quantity_unit).map((u) => <option key={u} value={u}>{u}</option>)}
+              </select>
+            </div>
+            {units && units.length === 0 && <p className="mt-1 text-[11px] text-[#7A8E7A]">No units yet. An Admin adds them in {UNITS_WHERE[domain.allowSeedFertilizer ? 'crop' : 'fisheries']}.</p>}
           </FormField>
         )}
         <TypeConditionalFields assistanceType={form.assistance_type} form={form} set={set} allowSeedFertilizer={domain.allowSeedFertilizer} pillLabel />

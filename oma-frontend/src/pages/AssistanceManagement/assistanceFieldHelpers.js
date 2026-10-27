@@ -34,6 +34,40 @@ export const EMPTY_TYPE_CONDITIONAL_FIELDS = {
   equipment_type: '',
   seed_type: '',
   fertilizer_type: '',
+  item_type: '',   // fisheries: the feed, fishing gear or fingerlings given
+}
+
+// Which dropdown an assistance type asks for, per domain: the record field it fills (`key`), the list the choices come from (`choices`,
+// see GET /interventions/assistance-choices/), its label and where an Admin manages that list.
+export const TYPE_FIELDS = {
+  crop: {
+    Seeds:      { key: 'seed_type',       choices: 'seed',       label: 'Type of Seed',       where: 'Crop Settings > Crop Options' },
+    Fertilizer: { key: 'fertilizer_type', choices: 'fertilizer', label: 'Type of Fertilizer', where: 'Crop Settings > Input Types (category Fertilizer)' },
+    Equipment:  { key: 'equipment_type',  choices: 'equipment',  label: 'Type of Equipment',  where: 'Crop Settings > Equipment Types' },
+  },
+  fisheries: {
+    Equipment:           { key: 'equipment_type', choices: 'equipment',  label: 'Type of Equipment',          where: 'Fisheries Settings > Equipment Types' },
+    Feed:                { key: 'item_type',      choices: 'feed',       label: 'Type of Feed',               where: 'Fisheries Settings > Feed Types' },
+    'Fishing Gear':      { key: 'item_type',      choices: 'gear',       label: 'Type of Fishing Gear',       where: 'Fisheries Settings > Fishing Gear' },
+    'Fingerlings/Seeds': { key: 'item_type',      choices: 'fingerling', label: 'Type of Fingerlings / Species', where: 'Fisheries Settings > Species' },
+  },
+}
+export const UNITS_WHERE = { crop: 'Crop Settings > Units', fisheries: 'Fisheries Settings > Units' }
+
+export const typeFieldFor = (domain, assistanceType) => TYPE_FIELDS[domain]?.[assistanceType] || null
+
+// The choices of a dropdown with the record's own value kept in (a value no longer in the list must stay selectable on an old record).
+export function choicesWith(list, current) {
+  const names = [...(list || [])]
+  if (current && !names.includes(current)) names.push(current)
+  return names
+}
+
+// A quantity typed as a number and picked as a unit, as the one text the record stores ("2 sack").
+export function quantityWithUnit(amount, unit) {
+  const number = String(amount ?? '').trim()
+  if (!number) return ''
+  return [number, String(unit ?? '').trim()].filter(Boolean).join(' ')
 }
 
 export const isCashType = (t) => t === 'Cash Assistance'
@@ -76,11 +110,14 @@ export function buildTypeConditionalPayload(assistanceType, form, { allowSeedFer
   const equipment = isEquipmentType(assistanceType)
   const seeds = allowSeedFertilizer && isSeedsType(assistanceType)
   const fertilizer = allowSeedFertilizer && isFertilizerType(assistanceType)
+  // Fisheries only (the crop domain has no such field): the type of feed, fishing gear or fingerlings.
+  const item = !allowSeedFertilizer && typeFieldFor('fisheries', assistanceType)?.key === 'item_type'
   return {
     training_duration_days: training && form.training_duration_days ? Number(form.training_duration_days) : null,
     equipment_type: equipment ? (form.equipment_type || '').trim() : '',
     seed_type: seeds ? (form.seed_type || '').trim() : '',
     fertilizer_type: fertilizer ? (form.fertilizer_type || '').trim() : '',
+    item_type: item ? (form.item_type || '').trim() : '',
   }
 }
 

@@ -1,8 +1,7 @@
 import api from '../../api/axiosInstance.js'
 import logo from '../../assets/LOGO OMAg.jpg'
-import { SYSTEM_TITLE } from '../../constants/appInfo.js'
 import { eventPrintSpec } from './disasterEventReport.js'
-import { escapeHtml as esc, headerCss, headerHtml } from './printHeader.js'
+import { escapeHtml as esc, headerCss, headerHtml, printedFooter } from './printHeader.js'
 
 // Disaster Log documents: formatting, Print Disaster Log and Download Disaster Log, for both the Fisheries
 // logs (GET /fisheries/disaster-reports/<id>/) and the Farmer logs (GET /production/disaster-logs/<id>/).
@@ -123,7 +122,6 @@ export function fisheriesPrintSpec(doc) {
   const losses = lossTable(doc)
   return {
     title: 'FISHERFOLK DISASTER REPORT',
-    officeHeader: true,   // the office name under an enlarged seal, no system-name tagline (see printHeader.js)
     reference: doc.report_number,
     header: s.header,
     sections: [
@@ -175,7 +173,6 @@ export function cropPrintSpec(doc) {
   const s = cropSections(doc)
   return {
     title: 'FARMER DISASTER REPORT',
-    officeHeader: true,
     reference: doc.report_number,
     header: s.header,
     sections: [
@@ -213,7 +210,7 @@ export function buildPrintHtml(spec) {
   @page { size: ${spec.pageSize === 'A4' ? 'A4' : 'letter'}; margin: 16mm; }
   * { box-sizing: border-box; }
   body { font-family: Helvetica, Arial, sans-serif; color: #0f172a; font-size: 11px; margin: 0; }
-${headerCss({ office: spec.officeHeader })}
+${headerCss()}
   h1 { text-align: center; font-size: 17px; letter-spacing: .06em; margin: 8px 0 10px; }
   h2 { font-size: 11px; color: #15803d; border-bottom: 1px solid #15803d; padding-bottom: 2px; margin: 14px 0 6px; }
   table.kv { width: 100%; border-collapse: collapse; }
@@ -235,13 +232,13 @@ ${headerCss({ office: spec.officeHeader })}
   .sig { flex: 1; border-top: 1px solid #0f172a; padding-top: 3px; text-align: center; font-size: 10px; }
 </style></head>
 <body>
-  ${headerHtml({ office: spec.officeHeader, logoUrl: new URL(logo, window.location.href).href, systemTitle: SYSTEM_TITLE })}
+  ${headerHtml({ logoUrl: new URL(logo, window.location.href).href })}
   <h1>${esc(spec.title)}</h1>
   ${kvTable(spec.header)}
   ${body}
   ${photos}
   ${spec.signatures ? `<div class="sigs">${spec.signatures.map(label => `<div class="sig">${esc(label)}</div>`).join('')}</div>` : ''}
-  <footer>Printed ${esc(fmtDateTime(new Date().toISOString()))} from the saved ${esc(spec.footerLabel || 'disaster log')} ${esc(spec.reference)} — OMAg Aringay Integrated Agricultural Monitoring System.</footer>
+  <footer>${esc(printedFooter(fmtDateTime(new Date().toISOString()), spec.footerLabel || 'disaster log', spec.reference))}</footer>
 </body></html>`
 }
 

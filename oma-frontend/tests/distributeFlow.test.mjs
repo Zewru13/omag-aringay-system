@@ -9,21 +9,21 @@ let n = 0
 const eq = (actual, expected, label) => { assert.deepEqual(actual, expected, `${label}: got ${JSON.stringify(actual)}, wanted ${JSON.stringify(expected)}`); n++ }
 
 const today = '2026-10-27'
-const form = (over = {}) => ({ ...makeAssistanceForm(today), assistance_type: 'Seeds', quantity: '2 sacks', ...over })
+const form = (over = {}) => ({ ...makeAssistanceForm(today), assistance_type: 'Seeds', quantity_amount: '2', quantity_unit: 'sacks', ...over })
 
 // ── the blank form
 const blank = makeAssistanceForm(today)
-eq([blank.assistance_type, blank.date_given, blank.source_agencies, blank.quantity, blank.description], ['', today, [], '', ''], 'a blank form starts today with nothing chosen')
+eq([blank.assistance_type, blank.date_given, blank.source_agencies, blank.quantity_amount, blank.description], ['', today, [], '', ''], 'a blank form starts today with nothing chosen')
 eq(MAX_RECIPIENTS, 300, 'the most recipients at once')
 
 // ── changing the type
 const typed = withAssistanceType(form({ cash_amount: '50', training_duration_days: '2', equipment_type: 'x', seed_type: 'y', fertilizer_type: 'z' }), 'Cash Assistance')
-eq([typed.assistance_type, typed.quantity, typed.cash_amount, typed.training_duration_days, typed.equipment_type, typed.seed_type, typed.fertilizer_type], ['Cash Assistance', '', '', '', '', '', ''], 'the old type leaves nothing behind')
+eq([typed.assistance_type, typed.quantity_amount, typed.cash_amount, typed.training_duration_days, typed.equipment_type, typed.seed_type, typed.fertilizer_type], ['Cash Assistance', '', '', '', '', '', ''], 'the old type leaves nothing behind')
 eq(typeName(form({ assistance_type: 'Other', assistance_type_other: '  Tools  ' })), 'Tools', 'Other uses its text')
 eq(typeName(form()), 'Seeds', 'a listed type')
 eq(quantityText(form({ assistance_type: 'Cash Assistance', cash_amount: '500' })), '₱500 per head', 'cash')
 eq(quantityText(form({ assistance_type: 'Cash Assistance', cash_amount: '' })), '', 'no amount yet')
-eq(quantityText(form({ assistance_type: 'Training', quantity: 'stale' })), '', 'training has a duration, not a quantity')
+eq(quantityText(form({ assistance_type: 'Training', quantity_amount: '9' })), '', 'training has a duration, not a quantity')
 eq(quantityText(form()), '2 sacks', 'a quantity')
 
 // ── what is wrong with the form
@@ -42,18 +42,18 @@ eq(assistanceFormProblem(form({ assistance_type: 'Training', training_duration_d
 // ── what is sent to an organization
 eq(organizationRequest(form({ source_agencies: ['DA'], description: 'x' }), { dryRun: true }), {
   assistance_type: 'Seeds', source_agencies: ['DA'], date_given: today, quantity: '2 sacks', description: 'x',
-  training_duration_days: null, equipment_type: '', seed_type: '', fertilizer_type: '', dry_run: true,
+  training_duration_days: null, equipment_type: '', seed_type: '', fertilizer_type: '', item_type: '', dry_run: true,
 }, 'an organization preview')
 eq(organizationRequest(form(), { memberIds: [3, 4] }).member_ids, [3, 4], 'the chosen members go with the real request')
 assert.ok(!('dry_run' in organizationRequest(form(), { memberIds: [3] }))); n++
 assert.ok(!('member_ids' in organizationRequest(form(), { dryRun: true }))); n++
-eq(organizationRequest(form({ assistance_type: 'Equipment', equipment_type: ' Hand Tractor ', quantity: '1' })).equipment_type, 'Hand Tractor', 'the kind of equipment, trimmed')
+eq(organizationRequest(form({ assistance_type: 'Equipment', equipment_type: ' Hand Tractor ', quantity_amount: '1', quantity_unit: 'pcs' })).equipment_type, 'Hand Tractor', 'the kind of equipment, trimmed')
 eq(organizationRequest(form({ assistance_type: 'Training', training_duration_days: '2' })).training_duration_days, 2, 'training days as a number')
 
 // ── what is sent for selected people
 eq(peopleRequest(form({ source_agencies: ['DA'], description: 'Wet season' }), { idsKey: 'farmer_ids', ids: [1, 2], descriptionKey: 'remarks' }), {
   assistance_type: 'Seeds', source_agencies: ['DA'], date_given: today, quantity: '2 sacks', remarks: 'Wet season',
-  training_duration_days: null, equipment_type: '', seed_type: '', fertilizer_type: '', farmer_ids: [1, 2],
+  training_duration_days: null, equipment_type: '', seed_type: '', fertilizer_type: '', item_type: '', farmer_ids: [1, 2],
 }, 'farmers: the notes go as remarks')
 const fisher = peopleRequest(form({ assistance_type: 'Feed', description: 'Pond A' }), { idsKey: 'fisherfolk_ids', ids: [7], descriptionKey: 'description', dryRun: true, allowSeedFertilizer: false })
 eq([fisher.fisherfolk_ids, fisher.description, fisher.dry_run, fisher.seed_type, 'remarks' in fisher], [[7], 'Pond A', true, '', false], 'fisherfolk: description, never a seed type, a preview')
@@ -86,7 +86,7 @@ const results = [
   { status: 'blocked', name: 'Blocked Person', barangay: 'Basca' },
   { status: 'created', record_id: 12, name: 'Ben Dizon', barangay: 'Basca', organization_name: 'Basca Growers' },
 ]
-const records = reportRecords(results, form({ source_agencies: ['DA'], quantity: '1 sack' }), { organizationName: 'Alaska Farmers' })
+const records = reportRecords(results, form({ source_agencies: ['DA'], quantity_amount: '1', quantity_unit: 'sack' }), { organizationName: 'Alaska Farmers' })
 eq(records.map((r) => [r.id, r.name, r.barangay, r.assistance_type, r.quantity, r.organization_name]),
   [[11, 'Ana Cruz', 'Alaska', 'Seeds', '1 sack', 'Alaska Farmers'], [12, 'Ben Dizon', 'Basca', 'Seeds', '1 sack', 'Basca Growers']], 'created records only, with the organization')
 eq([records[0].source_agencies, records[0].date_given], [['DA'], today], 'agencies and date')

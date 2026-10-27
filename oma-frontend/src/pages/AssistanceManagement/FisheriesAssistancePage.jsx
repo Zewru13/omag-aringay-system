@@ -120,6 +120,7 @@ function EditAssistanceModal({ record, onClose, onSaved }) {
     remarks: record.remarks || '',
     training_duration_days: record.training_duration_days != null ? String(record.training_duration_days) : '',
     equipment_type: record.equipment_type || '',
+    item_type: record.item_type || '',
   }
   const [form, setForm] = useState(originalData)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -670,6 +671,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
             { label: 'Type', value: viewing.fisherfolk_type },
             { label: 'Organization', value: viewing.attributed_fisherfolk_organization_name },
             { label: 'Assistance type', value: viewing.assistance_type },
+            { label: 'Type', value: viewing.item_type || viewing.equipment_type },
             { label: 'Source of assistance', value: (viewing.source_agencies || []).join(', ') },
             { label: isCashType(viewing.assistance_type) ? 'Amount' : 'Quantity', value: formatAssistanceQuantity(viewing.assistance_type, viewing.quantity) },
             { label: 'Date received', value: formatDate(viewing.date_given) },

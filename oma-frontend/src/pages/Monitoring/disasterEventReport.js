@@ -45,7 +45,6 @@ export const eventParagraphs = (doc) => [doc.description, doc.production_loss &&
 export function eventPrintSpec(doc) {
   return {
     title: 'CROP DISASTER REPORT',
-    officeHeader: true,
     reference: doc.reference,
     header: keep([['Reference No.', doc.reference], ['Date/Time Logged', fmtDateTime(doc.date_reported)], ['Logged By', doc.reported_by_name]]),
     sections: [

@@ -21,6 +21,24 @@ class AssistanceAgency(models.Model):
         return self.name
 
 
+class AssistanceOption(models.Model):
+    """A name in one of the lists behind the assistance forms' dropdowns, managed in Crop Settings / Fisheries Settings: the types of
+    equipment and the units of both domains, and fishing gear for fisheries. Records keep the name they were saved with, so renaming or
+    deleting one here never changes past assistance."""
+    DOMAIN_KINDS = {'crop': ('equipment', 'unit'), 'fisheries': ('equipment', 'unit', 'gear')}
+
+    domain = models.CharField(max_length=10)
+    kind = models.CharField(max_length=12)
+    name = models.CharField(max_length=150)
+
+    class Meta:
+        ordering = ['name']
+        constraints = [models.UniqueConstraint(fields=['domain', 'kind', 'name'], name='unique_assistance_option')]
+
+    def __str__(self):
+        return f'{self.domain} {self.kind}: {self.name}'
+
+
 class DistributionStatus(models.TextChoices):
     """
     Shared by both BeneficiaryRecord and FisherfolkBeneficiaryRecord — one
@@ -307,6 +325,9 @@ class FisherfolkBeneficiaryRecord(models.Model):
         null=True, blank=True, validators=[MinValueValidator(1), MaxValueValidator(3)],
     )
     equipment_type = models.CharField(max_length=150, blank=True)
+    # The kind of thing given for Feed, Fishing Gear and Fingerlings/Seeds (a feed type, a gear type, a species), picked from the
+    # lists in Fisheries Settings.
+    item_type = models.CharField(max_length=150, blank=True)
 
     # Batch 7: computed at save() time from FisherfolkOrganizationMember —
     # the live, genuinely-multi-capable membership mechanism for fisherfolk

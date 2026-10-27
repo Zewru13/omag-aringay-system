@@ -29,6 +29,7 @@ from . import org_confirmation
 from .lifecycle import advance_due_distributions, advance_due_distributions_for_org, notify_assistance_recorded
 from .models import (
     AssistanceAgency,
+    AssistanceOption,
     BeneficiaryConfirmationRequestPhoto, BeneficiaryRecordPhoto, FisherfolkBeneficiaryConfirmationRequestPhoto,
     BeneficiaryConfirmationRequest,
     BeneficiaryRecord,
@@ -40,6 +41,7 @@ from .distributions import build_distributions, filter_records, remove_records
 from .serializers import (
     AccountlessConfirmableSerializer,
     AssistanceAgencySerializer,
+    AssistanceOptionSerializer,
     BeneficiaryConfirmationRequestSerializer,
     BeneficiaryRecordCreateSerializer,
     BeneficiaryRecordUpdateSerializer,
@@ -1275,6 +1277,68 @@ class AssistanceAgencyListCreateView(generics.ListCreateAPIView):
         if self.request.method == 'GET':
             return [IsAuthenticated()]
         return [IsAuthenticated(), IsAdminOrEvaluator()]
+
+
+class AssistanceOptionListCreateView(generics.ListCreateAPIView):
+    """The managed lists behind the assistance forms' dropdowns (?domain=crop|fisheries&kind=equipment|unit|gear). Everyone signed in reads
+    them; only staff change them."""
+    serializer_class = AssistanceOptionSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        qs = AssistanceOption.objects.all()
+        for field in ('domain', 'kind'):
+            if self.request.query_params.get(field):
+                qs = qs.filter(**{field: self.request.query_params[field]})
+        return sorted(qs, key=lambda o: o.name.lower())
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsAdminOrEvaluator()]
+
+
+class AssistanceOptionDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = AssistanceOptionSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    queryset = AssistanceOption.objects.all()
+    http_method_names = ['get', 'patch', 'delete']
+
+
+class AssistanceChoicesView(APIView):
+    """Every dropdown an assistance form needs, in one answer (?domain=crop|fisheries). Crop: seed (the crops in Crop Settings), fertilizer
+    (the Fertilizer entries of Input Types), equipment, unit. Fisheries: feed (Feed Types), fingerling (Species), gear, equipment, unit.
+    Everyone signed in may ask, because an organization account fills in the same forms."""
+    permission_classes = [IsAuthenticated]
+
+    @staticmethod
+    def _sorted(names):
+        return sorted({n for n in names if n}, key=str.lower)
+
+    @staticmethod
+    def _options(domain, kind):
+        return AssistanceChoicesView._sorted(AssistanceOption.objects.filter(domain=domain, kind=kind).values_list('name', flat=True))
+
+    def get(self, request):
+        from fisheries.models import FeedType, SpeciesOption
+        from production.models import CropInputType, CropType
+        domain = request.query_params.get('domain')
+        if domain == 'crop':
+            return Response({
+                'seed': self._sorted(CropType.objects.filter(is_active=True).values_list('name', flat=True)),
+                'fertilizer': self._sorted(CropInputType.objects.filter(is_active=True, input_type='Fertilizer').values_list('name', flat=True)),
+                'equipment': self._options('crop', 'equipment'),
+                'unit': self._options('crop', 'unit'),
+            })
+        if domain == 'fisheries':
+            return Response({
+                'feed': self._sorted(FeedType.objects.values_list('name', flat=True)),
+                'fingerling': self._sorted(SpeciesOption.objects.values_list('species_name', flat=True)),
+                'gear': self._options('fisheries', 'gear'),
+                'equipment': self._options('fisheries', 'equipment'),
+                'unit': self._options('fisheries', 'unit'),
+            })
+        raise ValidationError({'domain': ['Use crop or fisheries.']})
 
 
 class AssistanceAgencyDetailView(generics.RetrieveUpdateDestroyAPIView):

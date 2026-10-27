@@ -29,6 +29,8 @@ from rest_framework.response import Response
 
 from .period import period_text
 from .pdf_utils import (
+    OFFICE_NAME,
+    RECORDS_OFFICER_ROLE,
     NumberedCanvas,
     build_keyvalue_grid,
     build_ledger_table,
@@ -54,7 +56,7 @@ def make_document(title, subtitle='', stats=None, sections=None, heading=None, p
 
 class ReportPageCanvas(NumberedCanvas):
     """Page footer of the Reports page PDFs: page numbers and a plain line, without the system-name tagline."""
-    disclaimer = 'This is an official record of the Office of the Municipal Agriculturist.'
+    disclaimer = f'This is an official record of the {OFFICE_NAME}.'
 
 
 # The seal is drawn at 80 points wide, its height following its own proportions (same as the individual disaster reports).
@@ -151,7 +153,7 @@ def build_pdf(doc, request, filename_stem):
     story.append(build_signature_block(
         left_label='Prepared by',
         left_name=sig.get('prepared_by') or None,
-        left_role=sig.get('position') or 'OMAg Records Officer',
+        left_role=sig.get('position') or RECORDS_OFFICER_ROLE,
         reviewed_by=sig.get('reviewed_by'),
         reviewed_role=sig.get('reviewed_role'),
         noted_by=sig.get('noted_by'),

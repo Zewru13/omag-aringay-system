@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown, X } from 'lucide-react'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
-import {
-  agencyChipSummary, agencyChoices, isTrainingType, isEquipmentType, isSeedsType, isFertilizerType,
-} from './assistanceFieldHelpers.js'
+import { agencyChipSummary, agencyChoices, choicesWith, isTrainingType, typeFieldFor } from './assistanceFieldHelpers.js'
 import useAssistanceAgencies from './useAssistanceAgencies.js'
+import useAssistanceChoices from './useAssistanceChoices.js'
 
 // Single source of truth for the Source Agency + type-conditional field
 // components, built first for DistributeAssistanceModal.jsx and reused as-is
@@ -87,36 +86,38 @@ export function SourceAgencyMultiSelect({ value, onChange }) {
   )
 }
 
-// Renders exactly the field(s) matching the current assistance_type —
-// Duration of Training for Training, Type of Equipment for Equipment, and
-// (crop domain only) Type of Seed / Type of Fertilizer for Seeds/Fertilizer.
+// A dropdown fed by one of the managed lists. The record's own value stays selectable even when it is no longer in the list; an empty
+// list says where an Admin adds to it.
+export function ListSelect({ label, value, onChange, options, where, pillLabel = false, required = false }) {
+  const names = choicesWith(options, value)
+  return (
+    <FormField label={label} required={required} pillLabel={pillLabel}>
+      <select className={baseInputClasses} value={value || ''} onChange={(e) => onChange(e.target.value)}>
+        <option value="">{`Select ${label.toLowerCase().replace(/^type of /, '')}…`}</option>
+        {names.map((name) => <option key={name} value={name}>{name}</option>)}
+      </select>
+      {names.length === 0 && options && <p className="mt-1 text-[11px] text-[#7A8E7A]">The list is empty. An Admin adds to it in {where}.</p>}
+    </FormField>
+  )
+}
+
+// Renders exactly the field(s) matching the current assistance_type: Duration of Training for Training, and the one dropdown the type
+// asks for (see TYPE_FIELDS: the crops for Seeds, the fertilizer inputs, the equipment types; for fisheries the feed types, fishing gear,
+// species and equipment types), filled from the lists managed in Crop Settings / Fisheries Settings.
 export function TypeConditionalFields({ assistanceType, form, set, allowSeedFertilizer = true, pillLabel = false }) {
-  const training = isTrainingType(assistanceType)
-  const equipment = isEquipmentType(assistanceType)
-  const seeds = allowSeedFertilizer && isSeedsType(assistanceType)
-  const fertilizer = allowSeedFertilizer && isFertilizerType(assistanceType)
+  const domain = allowSeedFertilizer ? 'crop' : 'fisheries'
+  const choices = useAssistanceChoices(domain)
+  const field = typeFieldFor(domain, assistanceType)
   return (
     <>
-      {training && (
+      {isTrainingType(assistanceType) && (
         <FormField label="Duration of Training (days)" required pillLabel={pillLabel}>
           <input type="number" min="1" max="3" step="1" className={baseInputClasses} value={form.training_duration_days}
             onChange={(e) => set('training_duration_days', e.target.value)} placeholder="1–3 days" />
         </FormField>
       )}
-      {equipment && (
-        <FormField label="Type of Equipment" pillLabel={pillLabel}>
-          <input className={baseInputClasses} value={form.equipment_type} onChange={(e) => set('equipment_type', e.target.value)} placeholder="e.g. Hand Tractor" />
-        </FormField>
-      )}
-      {seeds && (
-        <FormField label="Type of Seed" pillLabel={pillLabel}>
-          <input className={baseInputClasses} value={form.seed_type} onChange={(e) => set('seed_type', e.target.value)} placeholder="e.g. Hybrid Corn Seeds" />
-        </FormField>
-      )}
-      {fertilizer && (
-        <FormField label="Type of Fertilizer" pillLabel={pillLabel}>
-          <input className={baseInputClasses} value={form.fertilizer_type} onChange={(e) => set('fertilizer_type', e.target.value)} placeholder="e.g. Urea (46-0-0)" />
-        </FormField>
+      {field && (
+        <ListSelect label={field.label} value={form[field.key]} onChange={(v) => set(field.key, v)} options={choices?.[field.choices]} where={field.where} pillLabel={pillLabel} />
       )}
     </>
   )
