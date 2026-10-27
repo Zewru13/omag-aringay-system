@@ -7,6 +7,7 @@ import { useToast } from '../../context/ToastContext.jsx'
 import useRecordLock from '../../hooks/useRecordLock.js'
 import { labels } from './labels.js'
 import { CITIZEN_GUTTER, CROP_THEME, CitizenScreen, CitizenSubHeader, FISH_THEME } from './citizenUI.jsx'
+import { loggableActivities } from '../../utils/activityPicker.js'
 import { todayISO, yesterdayISO } from '../../utils/localDate.js'
 
 
@@ -213,11 +214,13 @@ export default function CitizenActivityLogScreen({
       .then((r) => {
         if (cancelled) return
         const rows = Array.isArray(r.data) ? r.data : (r.data?.results || [])
-        setActivityTypeOptions(rows.map((x) => x.name))
+        // A crop is already planted when it is recorded, so Land Preparation and Planting are not offered.
+        const names = rows.map((x) => x.name)
+        setActivityTypeOptions(domain.key === 'crop' ? loggableActivities(names) : names)
       })
       .catch(() => { if (!cancelled) setActivityTypeOptions([]) })
     return () => { cancelled = true }
-  }, [domain.activityTypesUrl])
+  }, [domain.activityTypesUrl, domain.key])
 
   const isOtherActivity = isFisheries
     && Boolean(activityValue)

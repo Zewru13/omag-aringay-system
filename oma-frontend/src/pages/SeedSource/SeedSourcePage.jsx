@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import AddButton from '../../components/UI/AddButton.jsx'
 import CardHeader from '../../components/UI/CardHeader.jsx'
-import { ChevronLeft, ChevronRight, Droplets, Pencil, Trash2 } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Droplets, Pencil, Plus, Trash2, X } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import Button from '../../components/UI/Button.jsx'
@@ -20,13 +19,13 @@ const COLUMNS = [
   { key: 'actions',     label: 'ACTIONS' },
 ]
 
+// Renaming one seed source. New ones are added in the table itself (the Add row button under it).
 function SeedSourceModal({ source, onClose, onSaved }) {
   const { showToast } = useToast()
-  const isEdit = Boolean(source)
-  const original = { name: source?.name || '', is_active: source?.is_active ?? true }
+  const original = { name: source.name, is_active: source.is_active ?? true }
   const [form, setForm] = useState(original)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const hasChanges = !isEdit || JSON.stringify(form) !== JSON.stringify(original)
+  const hasChanges = JSON.stringify(form) !== JSON.stringify(original)
 
   const set = (field, value) => setForm(f => ({ ...f, [field]: value }))
 
@@ -35,12 +34,8 @@ function SeedSourceModal({ source, onClose, onSaved }) {
     if (!form.name.trim()) { showToast('Seed source name is required.', 'error'); return }
     setIsSubmitting(true)
     try {
-      if (isEdit) {
-        await api.patch(`/production/seed-sources/${source.id}/`, form)
-      } else {
-        await api.post('/production/seed-sources/', form)
-      }
-      showToast(`Seed source ${isEdit ? 'updated' : 'added'}.`, 'success')
+      await api.patch(`/production/seed-sources/${source.id}/`, form)
+      showToast('Seed source updated.', 'success')
       onSaved(); onClose()
     } catch (err) {
       showToast(err?.response?.data?.name?.[0] || 'Failed to save.', 'error')
@@ -51,8 +46,8 @@ function SeedSourceModal({ source, onClose, onSaved }) {
 
   return (
     <ModalShell
-      title={isEdit ? 'Edit Seed Source' : 'Add New Seed Source'}
-      subtitle={isEdit ? `Update details for ${source.name}` : 'Enter seed source information below'}
+      title="Edit Seed Source"
+      subtitle={`Update details for ${source.name}`}
       icon={Droplets}
       onClose={onClose}
       maxWidth="max-w-xs"
@@ -60,7 +55,7 @@ function SeedSourceModal({ source, onClose, onSaved }) {
         <>
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
           <Button type="submit" form="seed-source-form" isLoading={isSubmitting} disabled={isSubmitting || !hasChanges}>
-            {isEdit ? 'Update Source' : '+ Add Source'}
+            Update Source
           </Button>
         </>
       }
@@ -85,8 +80,9 @@ export default function SeedSourcePage({ asTab = false }) {
   const [sources,      setSources]      = useState([])
   const [isLoading,    setIsLoading]    = useState(true)
   const [error,        setError]        = useState('')
-  const [showModal,    setShowModal]    = useState(false)
   const [editSource,   setEditSource]   = useState(null)
+  const [draft,        setDraft]        = useState(null)   // the name typed in the new row, or null when there is no new row
+  const [isAdding,     setIsAdding]     = useState(false)
   const [deletingSource, setDeletingSource] = useState(null)
   const [page,         setPage]         = useState(1)
 
@@ -104,31 +100,97 @@ export default function SeedSourcePage({ asTab = false }) {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
+  // The table also draws a phone layout, so the new row's box exists twice: focus the one that is on screen.
+  const draftOpen = draft !== null
+  useEffect(() => {
+    if (!draftOpen) return
+    const visible = [...document.querySelectorAll('input[data-seed-draft]')].find((el) => el.offsetParent !== null)
+    if (visible) visible.focus()
+  }, [draftOpen])
+
   const totalPages = Math.max(1, Math.ceil(sources.length / PAGE_SIZE))
   const paginated = useMemo(
     () => sources.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
     [sources, page],
   )
 
+  const saveDraft = async () => {
+    const name = (draft || '').trim()
+    if (!name) { showToast('Type the seed source name first.', 'error'); return }
+    setIsAdding(true)
+    try {
+      await api.post('/production/seed-sources/', { name, is_active: true })
+      showToast('Seed source added.', 'success')
+      setDraft(null)
+      await fetchAll()
+    } catch (err) {
+      showToast(err?.response?.data?.name?.[0] || 'Failed to save.', 'error')
+    } finally {
+      setIsAdding(false)
+    }
+  }
+
   const rows = paginated.map(s => ({
     ...s,
     actions: (
       <RowActions actions={[
-        { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => { setEditSource(s); setShowModal(true) } },
+        { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditSource(s) },
         { key: 'delete', label: 'Delete', icon: Trash2, onClick: () => setDeletingSource(s), tone: 'rose' },
       ]} />
     ),
   }))
 
-  const actionBtn = <AddButton onClick={() => { setEditSource(null); setShowModal(true) }}>Add Seed Source</AddButton>
+  // The new row sits at the end of the table, on the last page.
+  if (draft !== null && page === totalPages) {
+    rows.push({
+      id: 'new',
+      name: (
+        <input
+          className={baseInputClasses}
+          value={draft}
+          data-seed-draft
+          aria-label="New seed source name"
+          placeholder="e.g. DA, Local Market"
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') { e.preventDefault(); saveDraft() }
+            if (e.key === 'Escape') setDraft(null)
+          }}
+        />
+      ),
+      actions: (
+        <div className="flex items-center gap-2">
+          <Button type="button" onClick={saveDraft} isLoading={isAdding} disabled={isAdding}><Check size={14} aria-hidden="true" /> Save</Button>
+          <Button type="button" variant="outline" onClick={() => setDraft(null)} disabled={isAdding}><X size={14} aria-hidden="true" /> Cancel</Button>
+        </div>
+      ),
+    })
+  }
+
+  const startRow = () => {
+    setPage(totalPages)   // the new row goes at the end, on the last page
+    setDraft('')
+  }
 
   const innerContent = (
     <div className="space-y-4">
       {error && <ErrorMessage message={error} />}
 
       <div className="bg-white rounded-xl border border-[#E2E8E2] shadow-[0_1px_3px_rgba(0,0,0,0.04)] overflow-hidden">
-        <CardHeader title="Seed Sources" count={sources.length} action={actionBtn} />
+        <CardHeader title="Seed Sources" count={sources.length} />
         <DataTable bare columns={COLUMNS} data={rows} isLoading={isLoading} />
+        {!isLoading && (
+          <div className="border-t border-[#E2E8E2] px-4 py-3">
+            <button
+              type="button"
+              onClick={startRow}
+              disabled={draft !== null}
+              className="inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border border-[#1B4D2E]/30 bg-[#EBF5EE]/50 px-3.5 text-[13px] font-semibold text-[#1B4D2E] hover:bg-[#EBF5EE] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Plus size={14} aria-hidden="true" /> Add row
+            </button>
+          </div>
+        )}
       </div>
 
       {!isLoading && totalPages > 1 && (
@@ -150,10 +212,10 @@ export default function SeedSourcePage({ asTab = false }) {
         </div>
       )}
 
-      {showModal && (
+      {editSource && (
         <SeedSourceModal
           source={editSource}
-          onClose={() => { setShowModal(false); setEditSource(null) }}
+          onClose={() => setEditSource(null)}
           onSaved={fetchAll}
         />
       )}

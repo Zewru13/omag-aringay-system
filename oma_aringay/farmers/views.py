@@ -17,12 +17,13 @@ from core.utils import day_range_bounds, filter_people_search
 
 from . import area_rules
 from .parcel_directory import directory_queryset
-from .models import Farmer, FarmCrop, FarmMachinery, FarmParcel, ParcelClassification
+from .models import Farmer, FarmCrop, FarmerMachinery, FarmMachinery, FarmParcel, ParcelClassification
 from .serializers import (
     FarmCropSerializer,
     FarmerCreateSerializer,
     FarmerDetailSerializer,
     FarmerListSerializer,
+    FarmerMachinerySerializer,
     FarmMachinerySerializer,
     FarmParcelDirectorySerializer,
     FarmParcelSerializer,
@@ -73,6 +74,10 @@ class FarmerListView(generics.ListCreateAPIView):
 
         if gender_filter:
             queryset = queryset.filter(gender__iexact=gender_filter)
+
+        barangay_filter = self.request.query_params.get('barangay')
+        if barangay_filter:
+            queryset = queryset.filter(barangay__iexact=barangay_filter)
 
         # Replaces the old FarmParcel.farm_type-based filter (Irrigated/
         # Rainfed/etc.) — that field lives on FarmParcel, not Farmer, and is
@@ -292,6 +297,28 @@ class FarmMachineryListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(farm_parcel_id=self.kwargs['parcel_id'])
+
+
+class FarmerMachineryListCreateView(generics.ListCreateAPIView):
+    """A farmer's own machinery (the profile's Machinery card). Staff only."""
+    serializer_class = FarmerMachinerySerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    pagination_class = None
+
+    def get_queryset(self):
+        return FarmerMachinery.objects.filter(farmer_id=self.kwargs['farmer_id'])
+
+    def perform_create(self, serializer):
+        farmer = get_object_or_404(Farmer, pk=self.kwargs['farmer_id'])
+        serializer.save(farmer=farmer)
+
+
+class FarmerMachineryDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = FarmerMachinery.objects.all()
+    serializer_class = FarmerMachinerySerializer
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+    http_method_names = ['get', 'patch', 'delete']
+    lookup_field = 'id'
 
 
 class FarmMachineryDeleteView(generics.DestroyAPIView):

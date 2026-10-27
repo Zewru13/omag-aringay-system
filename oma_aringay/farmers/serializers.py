@@ -11,7 +11,7 @@ from core.constants import validate_prefix_gender
 from associations.models import FarmersOrganization as AssocFarmersOrganization, FarmersOrganizationMember
 
 from .area_rules import parcel_change_problem
-from .models import Farmer, FarmCrop, FarmMachinery, FarmParcel, ParcelClassification
+from .models import Farmer, FarmCrop, FarmerMachinery, FarmMachinery, FarmParcel, ParcelClassification
 
 
 # Batch (Phase B — multi-org membership): shared accessors for the farmer's
@@ -80,6 +80,26 @@ class FarmMachinerySerializer(serializers.ModelSerializer):
         if value is not None and value < 1:
             raise serializers.ValidationError('The quantity must be at least 1.')
         return value
+
+
+class FarmerMachinerySerializer(serializers.ModelSerializer):
+    """One line of a farmer's machinery: what it is, how many, and whose it is."""
+    class Meta:
+        model = FarmerMachinery
+        fields = ['id', 'machinery_type', 'machinery_type_other', 'quantity', 'ownership']
+        read_only_fields = ['id']
+
+    def validate_quantity(self, value):
+        if value is not None and value < 1:
+            raise serializers.ValidationError('The quantity must be at least 1.')
+        return value
+
+    def validate(self, data):
+        kind = data.get('machinery_type', getattr(self.instance, 'machinery_type', ''))
+        other = data.get('machinery_type_other', getattr(self.instance, 'machinery_type_other', ''))
+        if kind == FarmMachinery.MachineryType.OTHER and not (other or '').strip():
+            raise serializers.ValidationError({'machinery_type_other': 'Say what kind of machinery it is.'})
+        return data
 
 
 class FarmParcelDirectorySerializer(serializers.ModelSerializer):
@@ -283,6 +303,7 @@ class FarmerListSerializer(serializers.ModelSerializer):
 class FarmerDetailSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(read_only=True)
     farm_parcels = FarmParcelSerializer(many=True, read_only=True)
+    machinery = FarmerMachinerySerializer(many=True, read_only=True)
     # Batch (Phase B): farmers_organization/is_org_membership_active/
     # org_membership_deactivation_reason describe the MAIN membership only
     # (real, stored is_main — see _farmer_main_membership), kept for any
@@ -323,6 +344,7 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
             'date_registered',
             'registered_by',
             'farm_parcels',
+            'machinery',
             'farmers_organization',
             'farmers_organization_name',
             'is_org_membership_active',
@@ -331,7 +353,7 @@ class FarmerDetailSerializer(serializers.ModelSerializer):
             'citizen_account',
         ]
         read_only_fields = [
-            'id', 'date_registered', 'registered_by', 'farm_parcels',
+            'id', 'date_registered', 'registered_by', 'farm_parcels', 'machinery',
             'farmers_organization', 'farmers_organization_name', 'is_org_membership_active',
             'org_membership_deactivation_reason', 'organizations', 'citizen_account',
         ]
@@ -424,6 +446,8 @@ class FarmerCreateSerializer(serializers.ModelSerializer):
         write_only=True, required=False, allow_null=True,
     )
     farmers_organization_name = serializers.SerializerMethodField()
+    # The machinery the farmer has, entered on the registration form; saved with the farmer or not at all.
+    machinery = FarmerMachinerySerializer(many=True, required=False, write_only=True)
 
     class Meta:
         model = Farmer
@@ -453,6 +477,7 @@ class FarmerCreateSerializer(serializers.ModelSerializer):
             'registered_by',
             'farmers_organization',
             'farmers_organization_name',
+            'machinery',
         ]
         read_only_fields = ['id', 'date_registered', 'registered_by', 'farmers_organization_name']
 
@@ -462,7 +487,10 @@ class FarmerCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         organization = validated_data.pop('farmers_organization', None)
+        machinery = validated_data.pop('machinery', [])
         farmer = super().create(validated_data)
+        for line in machinery:
+            FarmerMachinery.objects.create(farmer=farmer, **line)
         if organization is not None:
             FarmersOrganizationMember.objects.create(
                 organization=organization,

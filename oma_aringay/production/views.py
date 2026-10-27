@@ -33,7 +33,7 @@ from core.photos import discard_uploaded_files, validated_photos
 from farmers.area_rules import growing_area_problem
 from .duplicates import ACTIVE_STATUSES, find_active_duplicates, growing_area_on_parcel, same_place
 from .naming import normalize_name
-from .schedule_rules import done_date as step_done_date, is_setup_stage, step_status
+from .schedule_rules import done_date as step_done_date, is_scheduled_stage, is_setup_stage, step_status
 from .dashboard_activity import (
     disaster_trends,
     month_range,
@@ -1117,9 +1117,9 @@ class CropActivitySuggestionsView(APIView):
             pk=monitoring_id,
         )
 
-        stages = CropActivityStage.objects.filter(
+        stages = [s for s in CropActivityStage.objects.filter(
             crop_type=record.crop_type
-        ).order_by('day_after_planting')
+        ).order_by('day_after_planting') if is_scheduled_stage(s)]
 
         activity_logs = list(
             CropActivityLog.objects.filter(monitoring_record=record).values(
@@ -1311,6 +1311,7 @@ def _activity_completion(rec, stages_by_crop=None, build_breakdown=True):
         stages = stages_by_crop.get(rec.crop_type_id, [])
     else:
         stages = CropActivityStage.objects.filter(crop_type_id=rec.crop_type_id).order_by('day_after_planting', 'id')
+    stages = [s for s in stages if is_scheduled_stage(s)]
     log_rows = [(log.activity_type, log.date_of_activity, log.target_day) for log in rec.activity_logs.all()]
     planted = rec.date_planted
 

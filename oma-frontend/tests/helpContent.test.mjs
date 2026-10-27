@@ -20,6 +20,7 @@ eq(admin.steps.map((s) => s.step), admin.steps.map((_, i) => String(i + 1)), 'Ad
 eq(focal.steps.map((s) => s.step), focal.steps.map((_, i) => String(i + 1)), 'Focal Person steps are numbered from 1 too')
 assert.ok(questions(admin).includes('Where do I add a crop or change its growth duration?')); n++
 assert.ok(!questions(focal).includes('Where do I add a crop or change its growth duration?')); n++
+assert.ok(questions(admin).includes('How do I add a seed source?') && !questions(focal).includes('How do I add a seed source?')); n++
 assert.ok(questions(admin).includes('How do I give someone an account?') && !questions(focal).includes('How do I give someone an account?')); n++
 assert.ok(admin.sections.every((s) => s.items.length > 0) && focal.sections.every((s) => s.items.length > 0)); n++
 eq(new Set(questions(admin)).size, questions(admin).length, 'no question is asked twice')
@@ -39,6 +40,13 @@ for (const [label, help] of [['Admin', admin], ['Focal Person', focal]]) {
     ['crops inside the parcel form', 'same as Add Crop Records'],
     ['the Planted default', 'open on Planted'],
     ['crop status and owner', 'Crop Owner'],
+    ['no crop status on an owner parcel', 'every crop on it is the owner'],
+    ['importing crops into a parcel', 'Import crops'],
+    ['adding a parcel', 'press Add Parcel'],
+    ['the farmer\'s machinery', 'Machinery belongs to the farmer'],
+    ['no Land Preparation or Planting', 'Land Preparation and Planting are never suggested'],
+    ['equipment when registering an organization', 'Equipment section'],
+    ['printing the registration tables', 'press Print Report'],
   ]) {
     assert.ok(text.includes(needle), `${label} help should explain ${what} (${needle})`); n++
   }

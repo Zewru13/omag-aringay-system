@@ -3,8 +3,8 @@
 An ordinary step is matched to a log by its target day or by date (the log falls within the step's window), and is
 `overdue` once its window has passed without one.
 
-Set-up steps (Land Preparation, Planting, and the other steps flagged allows_pre_planting) are done once, before or at
-planting, so common sense applies:
+Land Preparation and Planting are not part of a crop's schedule at all (see is_scheduled_stage): the crop is already planted when
+it is added. The other set-up steps (those flagged allows_pre_planting) are done once, before or at planting, so common sense applies:
   * any log of that activity makes every step of that name `done`, however many days before or after the schedule it
     was done (land is normally prepared before the planting date, outside any window);
   * one that was never recorded is `due_now` while its window is on, then `passed`: the crop is in the ground, so it is
@@ -13,6 +13,12 @@ planting, so common sense applies:
 
 # Done once, before or at planting, besides any stage flagged allows_pre_planting.
 SETUP_ACTIVITIES = frozenset({'Land Preparation', 'Planting', 'Seed Planting'})
+
+
+def is_scheduled_stage(stage):
+    """False for Land Preparation and Planting: the crop is already in the ground when it is added to the system, so these are
+    not part of its schedule (never suggested, never counted as due, overdue or completed)."""
+    return getattr(stage, 'stage_name', None) not in SETUP_ACTIVITIES
 
 
 def is_setup_stage(stage):

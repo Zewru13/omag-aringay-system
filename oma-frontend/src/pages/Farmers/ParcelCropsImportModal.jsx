@@ -6,17 +6,17 @@ import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
 
-// "Import crops" / "Import machinery" inside the Add Farm Parcels page: upload the spreadsheet, and the rows in it are added to the list
-// of the parcel being filled in. Nothing is saved here (the parcel is saved on submit), so a wrong file costs nothing: remove the rows
+// "Import crops" inside the Add Farm Parcels page and "Import machinery" on the farmer forms: upload the spreadsheet, and the rows in it are
+// added to the list being filled in. Nothing is saved here (the form is saved on submit), so a wrong file costs nothing: remove the rows
 // from the list, or cancel. The crops import is the default; `kind` switches the words, the template and the check to another list.
 const KINDS = {
   crops: {
-    title: 'Import Crops', subtitle: 'Add the crops grown on this parcel from a spreadsheet.', addLabel: 'Add Crops',
-    hint: 'One row per crop. The crops are added to this parcel\'s list so you can check them before the parcel is saved.',
-    templateUrl: '/farmers/parcel-crops/template/', templateFilename: 'farm_parcel_crops_import_template.xlsx', parseUrl: '/farmers/parcel-crops/parse/', resultKey: 'crops',
+    title: 'Import Crops', subtitle: 'Add the crops planted on this parcel from a spreadsheet.', addLabel: 'Add Crops',
+    hint: 'One row per crop that is planted. The crops are added to this parcel\'s list so you can check them before the parcel is saved.',
+    templateUrl: '/farmers/parcel-crop-records/template/', templateFilename: 'farm_parcel_crops_planted_import_template.xlsx', parseUrl: '/farmers/parcel-crop-records/parse/', resultKey: 'crops',
   },
   machinery: {
-    title: 'Import Machinery', subtitle: 'Add the machinery used on this parcel from a spreadsheet.', addLabel: 'Add Machinery',
+    title: 'Import Machinery', subtitle: 'Add the machinery the farmer has from a spreadsheet.', addLabel: 'Add Machinery',
     hint: 'One row per kind of machinery. The machinery is added to this parcel\'s list so you can check it before the parcel is saved.',
     templateUrl: '/farmers/parcel-machinery/template/', templateFilename: 'farm_parcel_machinery_import_template.xlsx', parseUrl: '/farmers/parcel-machinery/parse/', resultKey: 'machinery',
   },

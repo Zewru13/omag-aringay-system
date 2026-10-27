@@ -269,6 +269,9 @@ class FarmersOrganizationDetailSerializer(_RegistrationNumberLimit, serializers.
     members   = FarmersOrganizationMemberSerializer(many=True, read_only=True)
     # Lines with no units left (all moved to other conditions) stay in the database for their history but are not listed.
     equipment = serializers.SerializerMethodField()
+    # The equipment entered on the registration form: saved with the new organization (create only), as Good; the lines are checked
+    # here, so one bad line stops the whole registration.
+    new_equipment = FarmersOrganizationEquipmentSerializer(many=True, write_only=True, required=False)
     # Current officers only (one per filled position) — officer_history
     # below carries every past holder too. Both read from the same
     # `officers` related_name; the lazy expiry check runs before this
@@ -280,6 +283,17 @@ class FarmersOrganizationDetailSerializer(_RegistrationNumberLimit, serializers.
     class Meta:
         model  = FarmersOrganization
         fields = '__all__'
+
+    def create(self, validated_data):
+        lines = validated_data.pop('new_equipment', [])
+        organization = super().create(validated_data)
+        for line in lines:
+            FarmersOrganizationEquipment.objects.create(organization=organization, **line)
+        return organization
+
+    def update(self, instance, validated_data):
+        validated_data.pop('new_equipment', None)   # equipment is added from the organization's page, never through an edit
+        return super().update(instance, validated_data)
 
     def get_equipment(self, obj):
         lines = obj.equipment.filter(quantity__gt=0).prefetch_related('loans__member')
@@ -452,6 +466,8 @@ class FisherfolkOrganizationListSerializer(serializers.ModelSerializer):
 class FisherfolkOrganizationDetailSerializer(_RegistrationNumberLimit, serializers.ModelSerializer):
     members   = FisherfolkOrganizationMemberSerializer(many=True, read_only=True)
     equipment = serializers.SerializerMethodField()
+    # The equipment entered on the registration form (see the farmers' organization serializer).
+    new_equipment = FisherfolkOrganizationEquipmentSerializer(many=True, write_only=True, required=False)
     officers  = serializers.SerializerMethodField()
     officer_history = serializers.SerializerMethodField()
     citizen_account = serializers.SerializerMethodField()
@@ -459,6 +475,17 @@ class FisherfolkOrganizationDetailSerializer(_RegistrationNumberLimit, serialize
     class Meta:
         model  = FisherfolkOrganization
         fields = '__all__'
+
+    def create(self, validated_data):
+        lines = validated_data.pop('new_equipment', [])
+        organization = super().create(validated_data)
+        for line in lines:
+            FisherfolkOrganizationEquipment.objects.create(organization=organization, **line)
+        return organization
+
+    def update(self, instance, validated_data):
+        validated_data.pop('new_equipment', None)   # equipment is added from the organization's page, never through an edit
+        return super().update(instance, validated_data)
 
     def get_equipment(self, obj):
         lines = obj.equipment.filter(quantity__gt=0).prefetch_related('loans__member')

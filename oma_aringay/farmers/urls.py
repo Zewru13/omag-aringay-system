@@ -2,6 +2,7 @@ from django.urls import path
 
 from .parcel_directory import FarmParcelDirectoryGroupsView
 from .parcel_bulk import FarmParcelBulkCreateView
+from .parcel_crop_records_import import ParcelCropRecordsParseView, ParcelCropRecordsTemplateView
 from .parcel_machinery_import import ParcelMachineryParseView, ParcelMachineryTemplateView
 from .parcel_import import FarmParcelAllFarmersImportView, ParcelAllFarmersTemplateView, FarmParcelImportView, ParcelCropsParseView, ParcelCropsTemplateView, ParcelImportTemplateView
 from .rsbsa_template import RsbsaImportTemplateView
@@ -18,6 +19,8 @@ from .views import (
     FarmerDuplicateCheckView,
     FarmerListView,
     FarmerHarvestComparisonView,
+    FarmerMachineryDetailView,
+    FarmerMachineryListCreateView,
     FarmMachineryDeleteView,
     FarmMachineryListCreateView,
     FarmParcelCreateView,
@@ -39,6 +42,8 @@ urlpatterns = [
     path('parcels/bulk-import/template/', ParcelAllFarmersTemplateView.as_view(), name='farm-parcels-bulk-import-template'),
     path('parcel-crops/template/', ParcelCropsTemplateView.as_view(), name='farm-parcel-crops-template'),
     path('parcel-crops/parse/', ParcelCropsParseView.as_view(), name='farm-parcel-crops-parse'),
+    path('parcel-crop-records/template/', ParcelCropRecordsTemplateView.as_view(), name='farm-parcel-crop-records-template'),
+    path('parcel-crop-records/parse/', ParcelCropRecordsParseView.as_view(), name='farm-parcel-crop-records-parse'),
     path('parcel-machinery/template/', ParcelMachineryTemplateView.as_view(), name='farm-parcel-machinery-template'),
     path('parcel-machinery/parse/', ParcelMachineryParseView.as_view(), name='farm-parcel-machinery-parse'),
     path('parcel-classifications/', ParcelClassificationListCreateView.as_view(), name='parcel-classifications'),
@@ -80,4 +85,6 @@ urlpatterns = [
         name='farm-machinery-list-create',
     ),
     path('machinery/<int:id>/', FarmMachineryDeleteView.as_view(), name='farm-machinery-delete'),
+    path('<int:farmer_id>/machinery/', FarmerMachineryListCreateView.as_view(), name='farmer-machinery-list-create'),
+    path('farmer-machinery/<int:id>/', FarmerMachineryDetailView.as_view(), name='farmer-machinery-detail'),
 ]

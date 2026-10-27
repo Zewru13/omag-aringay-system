@@ -24,6 +24,7 @@ import EquipmentGroupBody from "./EquipmentGroupBody.jsx";
 import LendEquipmentForm from "./LendEquipmentForm.jsx";
 import { END_TERM_OTHER_LABEL, END_TERM_REASONS, endTermRequest } from "./endTermReasons.js";
 import OrgCompactList from "./OrgCompactList.jsx";
+import { FARMERS_EQUIPMENT, FISHERFOLK_EQUIPMENT } from "./registrationEquipment.js";
 import {
   ChangeConditionDialog, EquipmentHistoryDialog, LendDialog, RepairDialog,
 } from "./EquipmentActionDialogs.jsx";
@@ -52,48 +53,6 @@ const POSITIONS = [
   "Board Member",
   "Manager",
   "Member",
-];
-
-const FARMERS_EQUIPMENT = [
-  "Hand Tractor",
-  "Four-Wheel Tractor",
-  "Rice Thresher",
-  "Corn Sheller",
-  "Water Pump/Irrigation Pump",
-  "Knapsack Sprayer",
-  "Power Sprayer",
-  "Rice Mill",
-  "Dryer",
-  "Storage Facility",
-  "Post-Harvest Equipment",
-  "Farm Tools (Shovel, Hoe, etc.)",
-  "Harvesting Equipment",
-  "Seedling Tray",
-  "Greenhouse/Net House",
-  "Generator",
-  "Other",
-];
-
-const FISHERFOLK_EQUIPMENT = [
-  "Fishing Boat/Banca",
-  "Motorized Banca",
-  "Outboard Motor",
-  "Fish Cage",
-  "Fish Net (Gill Net)",
-  "Fish Net (Cast Net)",
-  "Fish Net (Trawl Net)",
-  "Fishing Lines and Hooks",
-  "Fish Pond/Tank",
-  "Aerator/Air Pump",
-  "Water Pump",
-  "Life Vest/Safety Gear",
-  "Ice Box/Cooler",
-  "Fish Weighing Scale",
-  "GPS/Navigation Equipment",
-  "Feeding Equipment",
-  "Harvesting Net",
-  "Generator",
-  "Other",
 ];
 
 // Matches OrganizationOfficer.POSITION_CHOICES / FisherfolkOrganizationOfficer.POSITION_CHOICES

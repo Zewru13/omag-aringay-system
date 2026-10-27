@@ -11,6 +11,8 @@ import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import IdNumberInput from '../../components/UI/IdNumberInput.jsx'
 import { RSBSA_GROUPS } from '../../utils/idNumbers.js'
 import { getPrefixOptions, isPrefixValidForGender } from '../../utils/prefixOptions.js'
+import MachineryEditor from './MachineryEditor.jsx'
+import { machineryPayload, machineryProblem } from './parcelRows.js'
 
 const labelCls = 'text-[13px] font-medium text-[#4A5E4A] mb-1.5 block'
 
@@ -92,6 +94,7 @@ const getMaxBirthdate = () => {
 
 function AddFarmerModal({ onClose, onSuccess }) {
   const [form, setForm] = useState(initialForm)
+  const [machinery, setMachinery] = useState([])   // the machinery the farmer has, saved with the farmer
   const [organizations, setOrganizations] = useState([])
   const [prefixResetNote, setPrefixResetNote] = useState('')
   const [rsbsaTouched, setRsbsaTouched] = useState(false)
@@ -187,10 +190,15 @@ function AddFarmerModal({ onClose, onSuccess }) {
     const contactErr = validateContact(form.contact_number)
     if (contactErr) { setContactError(contactErr); return }
 
+    for (let i = 0; i < machinery.length; i += 1) {
+      const problem = machineryProblem(machinery[i])
+      if (problem) { setFormError(`Machinery ${i + 1}: ${problem}.`); return }
+    }
+
     setIsSubmitting(true)
 
     try {
-      await api.post('/farmers/', { ...form, is_senior_citizen: isSenior })
+      await api.post('/farmers/', { ...form, is_senior_citizen: isSenior, machinery: machinery.map(machineryPayload) })
       onSuccess()
       onClose()
     } catch (error) {
@@ -202,6 +210,10 @@ function AddFarmerModal({ onClose, onSuccess }) {
         setBirthdateError(data.birthdate[0])
       } else if (data?.philsys_number?.[0]) {
         setPhilsysError(data.philsys_number[0])
+      } else if (Array.isArray(data?.machinery)) {
+        const at = data.machinery.findIndex((line) => line && Object.keys(line).length > 0)
+        const first = Object.values(data.machinery[at] || {})[0]
+        setFormError(`Machinery ${at + 1}: ${Array.isArray(first) ? first[0] : first || 'check this line'}`)
       } else {
         setFormError(data?.detail || 'Unable to register farmer. Please check the form and try again.')
       }
@@ -400,6 +412,10 @@ function AddFarmerModal({ onClose, onSuccess }) {
               Leave blank if the farmer is not part of any organization. This can be updated later by editing the farmer profile.
             </p>
           </div>
+        </Section>
+
+        <Section title="Agricultural Machinery" description="Optional. The machinery the farmer has or uses, whoever owns it. It can also be added later on the farmer's profile.">
+          <MachineryEditor machinery={machinery} onChange={setMachinery} />
         </Section>
 
         {/* Account Information — the citizen login account itself is set up

@@ -4,28 +4,30 @@
 //   suggested: scheduled activities that have a step due now or overdue and not yet done, earliest step first.
 //   other:     activities with no schedule for this crop, and scheduled ones whose remaining steps are only upcoming.
 //   hidden:    scheduled activities whose every step is done (unless that is the activity of the log being edited), and
-//              set-up work that is done once (Land Preparation, Planting) as soon as the crop has a log of it, with or
-//              without a schedule. A set-up step whose time has passed without a log ('passed') is not suggested but
-//              can still be picked, to log it late.
+//              Land Preparation and Planting: a crop is already planted when it is added to the system, so these are
+//              never offered (the log being edited keeps its own). A set-up step whose time has passed without a log
+//              ('passed') is not suggested but can still be picked, to log it late.
 //
 // The picker only guides: the server still accepts a repeated or early activity.
 
-// Done once, before or at planting: once recorded, never offered again.
-const ONCE = ['Land Preparation', 'Planting']
+// Already finished before the crop is added to the system, so they are not recorded or suggested.
+export const BEFORE_ADDING = ['Land Preparation', 'Planting']
 
-export function groupActivityOptions({ allTypes, suggestions, editingType = '', recorded = [] }) {
-  const alreadyDone = new Set(recorded || [])
+// The activity names a person can record for a crop: everything except the work done before the crop was added. `keep` is an
+// activity that stays (the one on a log being edited).
+export const loggableActivities = (names, keep = '') => (names || []).filter((name) => !BEFORE_ADDING.includes(name) || name === keep)
+
+export function groupActivityOptions({ allTypes, suggestions, editingType = '' }) {
   const stepsByName = new Map()
   for (const step of suggestions || []) {
     if (!stepsByName.has(step.activity_name)) stepsByName.set(step.activity_name, [])
     stepsByName.get(step.activity_name).push(step)
   }
 
-  const names = [...new Set(allTypes || [])]
+  const names = [...new Set(loggableActivities(allTypes, editingType))]
   const suggested = []
   const other = []
   for (const name of names) {
-    if (ONCE.includes(name) && alreadyDone.has(name) && name !== editingType) continue
     const steps = stepsByName.get(name)
     if (!steps || steps.length === 0) { other.push(name); continue }
     const waiting = steps.filter((s) => s.status === 'due_now' || s.status === 'overdue')

@@ -9,6 +9,9 @@ GET /api/reports/registered/
     registered_from  bulk only: registered on or after this date (YYYY-MM-DD)
     registered_to    bulk only: registered on or before this date
     search           bulk only: name, RSBSA / registration number
+    gender, is_senior, is_pwd                  bulk, people only: the registration tables' own filters
+    is_farm_laborer (true = Farm Laborer, false = Farm Operator), is_icc_ip          farmers only
+    fisherfolk_type, is_4ps                    fisherfolk only
     options          1: instead of a report, list up to 25 matching records as {id, label, detail} for the "one record" picker
                      (uses search and barangay)
     format           json (the page preview, default) | pdf | excel      (+ prepared_by / reviewed_by / noted_by for the PDF)
@@ -20,6 +23,7 @@ from datetime import datetime
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.utils.timezone import localdate
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -69,6 +73,19 @@ def _parse_date(request, name):
         raise ValidationError({name: ['Use the date format YYYY-MM-DD.']})
 
 
+def _true(value):
+    return (value or '').strip().lower() in ('true', '1')
+
+
+def _senior_cutoff():
+    """The latest birthdate of a senior citizen (60 or older today, on the Manila calendar)."""
+    today = localdate()
+    try:
+        return today.replace(year=today.year - 60)
+    except ValueError:   # 29 February
+        return today.replace(year=today.year - 60, day=28)
+
+
 class Filters:
     """The bulk filters of one request and how they read in the report's subtitle."""
 
@@ -80,11 +97,38 @@ class Filters:
         if self.frm and self.to and self.frm > self.to:
             raise ValidationError({'registered_to': ['"To" cannot be before "From".']})
         self.search = q.get('search', '').strip()
+        # The registration tables' own filters (people only; a filter that does not belong to the kind is ignored).
+        self.gender = q.get('gender', '').strip()
+        self.senior = _true(q.get('is_senior'))
+        self.pwd = q.get('is_pwd', '').strip().lower()           # '' | 'true' | 'false'
+        self.laborer = q.get('is_farm_laborer', '').strip().lower()
+        self.icc_ip = _true(q.get('is_icc_ip'))
+        self.fisherfolk_type = q.get('fisherfolk_type', '').strip()
+        self.four_ps = _true(q.get('is_4ps'))
 
-    def subtitle(self, dates=True):
+    def _people_parts(self, kind):
+        parts = []
+        if self.gender:
+            parts.append(f'Sex: {self.gender}')
+        if kind == 'farmers' and self.laborer in ('true', 'false'):
+            parts.append('Farm Laborers' if self.laborer == 'true' else 'Farm Operators')
+        if kind == 'fisherfolk' and self.fisherfolk_type:
+            parts.append(f'Type: {self.fisherfolk_type}')
+        if self.senior:
+            parts.append('Senior citizens')
+        if self.pwd in ('true', 'false'):
+            parts.append('PWD' if self.pwd == 'true' else 'Not PWD')
+        if kind == 'farmers' and self.icc_ip:
+            parts.append('ICC/IP members')
+        if kind == 'fisherfolk' and self.four_ps:
+            parts.append('4Ps beneficiaries')
+        return parts
+
+    def subtitle(self, dates=True, kind=None):
         parts = []
         if self.barangay:
             parts.append(f'Barangay: {self.barangay}')
+        parts.extend(self._people_parts(kind))
         if dates and (self.frm or self.to):
             span = ' '.join(x for x in (f'from {text(self.frm)}' if self.frm else '', f'to {text(self.to)}' if self.to else '') if x)
             parts.append(f'Registered {span}')
@@ -92,9 +136,25 @@ class Filters:
             parts.append(f'Search: "{self.search}"')
         return ' · '.join(parts) or 'All records'
 
-    def apply_people(self, qs, number_field):
+    def apply_people(self, qs, number_field, kind=None):
         if self.barangay:
             qs = qs.filter(barangay__iexact=self.barangay)
+        if self.gender:
+            qs = qs.filter(gender__iexact=self.gender)
+        if self.senior:
+            qs = qs.filter(birthdate__lte=_senior_cutoff())
+        if self.pwd in ('true', 'false'):
+            qs = qs.filter(is_pwd=self.pwd == 'true')
+        if kind == 'farmers':
+            if self.laborer in ('true', 'false'):
+                qs = qs.filter(is_farm_laborer=self.laborer == 'true')
+            if self.icc_ip:
+                qs = qs.filter(is_icc_ip_member=True)
+        if kind == 'fisherfolk':
+            if self.fisherfolk_type:
+                qs = qs.filter(fisherfolk_type__iexact=self.fisherfolk_type)
+            if self.four_ps:
+                qs = qs.filter(is_4ps_beneficiary=True)
         if self.frm:
             qs = qs.filter(date_registered__gte=day_range_bounds(self.frm.isoformat()))
         if self.to:
@@ -128,7 +188,7 @@ def _orgs_of(memberships):
 
 def bulk_farmers(filters):
     qs = filters.apply_people(
-        Farmer.objects.prefetch_related('farm_parcels', 'farmer_organizations__organization'), 'rsbsa_number',
+        Farmer.objects.prefetch_related('farm_parcels', 'farmer_organizations__organization'), 'rsbsa_number', kind='farmers',
     ).order_by('last_name', 'first_name', 'id')
     rows = []
     for f in qs:
@@ -137,20 +197,20 @@ def bulk_farmers(filters):
         rows.append([f.rsbsa_number, full_name(f), f.gender, f.barangay, f.contact_number or '—', len(parcels),
                      f'{area:.2f}', _orgs_of(f.farmer_organizations.all()), _date(f.date_registered)])
     headers = ['RSBSA No.', 'Name', 'Sex', 'Barangay', 'Contact No.', 'Parcels', 'Area (ha)', 'Organization', 'Date Registered']
-    return make_document('Registered Farmers', filters.subtitle(), [['Total Farmers', len(rows)]],
+    return make_document('Registered Farmers', filters.subtitle(kind='farmers'), [['Total Farmers', len(rows)]],
                          [{'title': 'Farmers', 'headers': headers, 'rows': rows, 'empty': 'No farmers match these filters.'}])
 
 
 def bulk_fisherfolk(filters):
     qs = filters.apply_people(
-        Fisherfolk.objects.prefetch_related('fisherfolk_organizations__organization'), 'rsbsa_number',
+        Fisherfolk.objects.prefetch_related('fisherfolk_organizations__organization'), 'rsbsa_number', kind='fisherfolk',
     ).order_by('last_name', 'first_name', 'id')
     rows = []
     for f in qs:
         rows.append([f.rsbsa_number or '—', full_name(f), f.gender, f.barangay, f.contact_number or '—', f.fisherfolk_type,
                      _orgs_of(f.fisherfolk_organizations.all()), _date(f.date_registered)])
     headers = ['RSBSA No.', 'Name', 'Sex', 'Barangay', 'Contact No.', 'Type', 'Organization', 'Date Registered']
-    return make_document('Registered Fisherfolk', filters.subtitle(), [['Total Fisherfolk', len(rows)]],
+    return make_document('Registered Fisherfolk', filters.subtitle(kind='fisherfolk'), [['Total Fisherfolk', len(rows)]],
                          [{'title': 'Fisherfolk', 'headers': headers, 'rows': rows, 'empty': 'No fisherfolk match these filters.'}])
 
 

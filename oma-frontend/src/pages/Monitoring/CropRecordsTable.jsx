@@ -12,7 +12,7 @@ import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import PcicInsuranceField from '../../components/UI/PcicInsuranceField.jsx'
 import {
   CROP_OWNERSHIP_OPTIONS, PLANTING_MATERIALS, canChoosePlanting, chooseCropOwnership, defaultPlantingMaterial, materialFor, needsLandOwner,
-  quantityHeader, quantityLabel,
+  quantityHeader, quantityLabel, statusFixedByParcels,
 } from '../CropInformation/cropEntry.js'
 import { detectSeason } from './cropRecordForm.js'
 
@@ -115,7 +115,7 @@ function QuantityHeader({ title, canSwitch, choice, onPick }) {
   )
 }
 
-function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, farmerId, showParcelColumn, showOwnerColumn, farmerParcels, parcelLocked, error, areaError, onUpdate, onRemove }) {
+function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, farmerId, showParcelColumn, showOwnerColumn, statusFixed, farmerParcels, parcelLocked, error, areaError, onUpdate, onRemove }) {
   const set = (field, value) => onUpdate(rec._id, field, value)
   const { duplicates, isChecking } = useCropDuplicateCheck(farmerId, rec)
   const ownerInputRef = useRef(null)
@@ -131,7 +131,7 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
     ? `An active ${duplicates[0].crop_type}${duplicates[0].variety_used ? ` (${duplicates[0].variety_used})` : ''} record already exists here: ${duplicates.map(d => `${d.date_planted || '—'} (${d.area_planted_ha} ha)`).join(', ')}`
     : undefined
 
-  const colCount = 11 + (showParcelColumn ? 1 : 0) + (showOwnerColumn ? 1 : 0) - (parcelLocked ? 1 : 0)
+  const colCount = 11 + (showParcelColumn ? 1 : 0) + (showOwnerColumn ? 1 : 0) - (parcelLocked ? 1 : 0) - (statusFixed ? 1 : 0)
   const rowParcel = farmerParcels.find(p => String(p.id) === String(rec.farm_parcel))
   // The parcel's own owner is offered for a Tenant / Lessee crop on it.
   const parcelOwnerName = rowParcel && needsLandOwner(rowParcel.land_ownership) ? (rowParcel.land_owner_name || '') : ''
@@ -153,23 +153,26 @@ function CropRecordRow({ rec, index, total, cropTypes, seedSources, varieties, f
             </select>
           </td>
         )}
-        <td data-label="Crop status *" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.landStatus }}>
-          <ComboboxWithOther
-            options={CROP_OWNERSHIP_OPTIONS}
-            value={rec.land_status}
-            otherValue={rec.land_status_other_specify}
-            onChange={(v) => {
-              const next = chooseCropOwnership(rec, v, parcelOwnerName)
-              Object.entries(next).forEach(([field, value]) => set(field, value))
-              // Tenant / Lessee: the Crop Owner box opens beside - go straight to it when its name is still empty
-              if (needsLandOwner(v) && !next.land_owner_name) setTimeout(() => ownerInputRef.current?.focus(), 50)
-            }}
-            onOtherChange={(v) => set('land_status_other_specify', v)}
-            placeholder="Select…"
-            inputClassName={bulkCellInputClasses}
-            chevronSize={13}
-          />
-        </td>
+        {/* On a parcel the farmer owns every crop is the owner's own, so there is no status to choose. */}
+        {!statusFixed && (
+          <td data-label="Crop status *" className="px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]" style={{ width: COL_WIDTH.landStatus }}>
+            <ComboboxWithOther
+              options={CROP_OWNERSHIP_OPTIONS}
+              value={rec.land_status}
+              otherValue={rec.land_status_other_specify}
+              onChange={(v) => {
+                const next = chooseCropOwnership(rec, v, parcelOwnerName)
+                Object.entries(next).forEach(([field, value]) => set(field, value))
+                // Tenant / Lessee: the Crop Owner box opens beside - go straight to it when its name is still empty
+                if (needsLandOwner(v) && !next.land_owner_name) setTimeout(() => ownerInputRef.current?.focus(), 50)
+              }}
+              onOtherChange={(v) => set('land_status_other_specify', v)}
+              placeholder="Select…"
+              inputClassName={bulkCellInputClasses}
+              chevronSize={13}
+            />
+          </td>
+        )}
         {/* The owner's name: a column that appears once a row is a Tenant / Lessee crop (other rows leave it empty). */}
         {showOwnerColumn && (
           <td data-label="Crop owner *" className={`px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)] ${needsLandOwner(rec.land_status) ? '' : 'max-md:hidden'}`} style={{ width: COL_WIDTH.cropOwner }}>
@@ -342,9 +345,11 @@ export default function CropRecordsTable({
   records, cropTypes, seedSources, varieties, farmerId, farmerParcels = [], showParcelColumn = false, parcelLocked = false,
   areaErrors = {}, rowErrors = {}, onUpdate, onRemove,
 }) {
-  const showOwnerColumn = records.some(r => needsLandOwner(r.land_status))
+  // A page locked to a parcel the farmer owns has no Crop Status (or Crop Owner) column: every crop there is the owner's own.
+  const statusFixed = parcelLocked && statusFixedByParcels(farmerParcels)
+  const showOwnerColumn = !statusFixed && records.some(r => needsLandOwner(r.land_status))
   const tableMinWidth = Object.entries(COL_WIDTH).reduce(
-    (sum, [key, width]) => sum + (key === 'barangay' && parcelLocked ? 0 : key === 'farmParcel' && !showParcelColumn ? 0 : key === 'cropOwner' && !showOwnerColumn ? 0 : width),
+    (sum, [key, width]) => sum + (key === 'barangay' && parcelLocked ? 0 : key === 'landStatus' && statusFixed ? 0 : key === 'farmParcel' && !showParcelColumn ? 0 : key === 'cropOwner' && !showOwnerColumn ? 0 : width),
     0,
   )
   // The quantity heading's menu: every crop that can be planted either way follows the choice.
@@ -363,7 +368,7 @@ export default function CropRecordsTable({
           <tr>
             <th className={`${bulkThCenterClasses} overflow-hidden`} style={{ width: COL_WIDTH.index }}>#</th>
             {!parcelLocked && <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.barangay }}>Barangay <span className="text-white/70">*</span></th>}
-            <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.landStatus }}>Crop Status <span className="text-white/70">*</span></th>
+            {!statusFixed && <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.landStatus }}>Crop Status <span className="text-white/70">*</span></th>}
             {showOwnerColumn && <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.cropOwner }}>Crop Owner <span className="text-white/70">*</span></th>}
             <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.cropType }}>Crop Type <span className="text-white/70">*</span></th>
             <th className={`${bulkThClasses} overflow-hidden`} style={{ width: COL_WIDTH.datePlanted }}>Date Planted <span className="text-white/70">*</span></th>
@@ -394,6 +399,7 @@ export default function CropRecordsTable({
               farmerId={farmerId}
               showParcelColumn={showParcelColumn}
               showOwnerColumn={showOwnerColumn}
+              statusFixed={statusFixed}
               farmerParcels={farmerParcels}
               parcelLocked={parcelLocked}
               error={rowErrors[rec._id]}

@@ -63,7 +63,8 @@ class YieldAnalysisQueryCountTests(APITestCase):
     def test_activity_completion_is_still_computed_per_crop(self):
         self.harvested(self.crops[0], 1)
         rec = CropMonitoringRecord.objects.get(crop_type=self.crops[0])
-        stage = CropActivityStage.objects.filter(crop_type=self.crops[0]).order_by('day_after_planting', 'id').first()
+        # Land Preparation and Planting are not part of a crop's schedule (the crop is already planted when it is added)
+        stage = CropActivityStage.objects.filter(crop_type=self.crops[0]).exclude(stage_name__in=['Land Preparation', 'Planting', 'Seed Planting']).order_by('day_after_planting', 'id').first()
         CropActivityLog.objects.create(monitoring_record=rec, activity_type=stage.stage_name,
                                        date_of_activity=rec.date_planted + timedelta(days=stage.day_after_planting),
                                        target_day=stage.day_after_planting)

@@ -6,6 +6,8 @@ import api from '../../api/axiosInstance.js'
 import ImportFileModal from '../../components/ImportFileModal.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
+import PrintReportButton from '../../components/PrintReportButton.jsx'
+import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
@@ -28,12 +30,13 @@ function FisherfolkOrganizationsPage({ asTab = false }) {
   const [page,              setPage]              = useState(1)
   const [isLoading,         setIsLoading]         = useState(false)
   const [searchQuery,       setSearchQuery]       = useState('')
+  const [barangay, setBarangay] = useState('')
   const [showCreateModal,   setShowCreateModal]   = useState(false)
   const [showImportModal,   setShowImportModal]   = useState(false)
   const [editOrganization,   setEditOrganization]   = useState(null)
   const [refreshKey,        setRefreshKey]        = useState(0)
 
-  useEffect(() => { setPage(1) }, [searchQuery])
+  useEffect(() => { setPage(1) }, [searchQuery, barangay])
 
   useEffect(() => {
     let cancelled = false
@@ -42,6 +45,7 @@ function FisherfolkOrganizationsPage({ asTab = false }) {
       try {
         const params = new URLSearchParams()
         if (searchQuery) params.append('search', searchQuery)
+        if (barangay) params.append('barangay', barangay)
         params.set('page', page)
         const r = await api.get(`/organizations/fisherfolk/?${params.toString()}`)
         if (!cancelled) {
@@ -56,7 +60,7 @@ function FisherfolkOrganizationsPage({ asTab = false }) {
     }
     load()
     return () => { cancelled = true }
-  }, [searchQuery, page, refreshKey])
+  }, [searchQuery, barangay, page, refreshKey])
 
   const handleRowClick = (row) => {
     navigate(`/organizations/fisherfolk/${row.id}`)
@@ -78,7 +82,8 @@ function FisherfolkOrganizationsPage({ asTab = false }) {
   }))
 
   const actionBtn = (isAdmin || isEvaluator) ? (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
+      <PrintReportButton kind="fisherfolk_orgs" filters={{ search: searchQuery, barangay }} />
       <button
         className="flex items-center gap-1.5 border border-[#E2E8E2] hover:bg-[#F0F4F0] text-[#1B4D2E] text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
         onClick={() => setShowImportModal(true)}
@@ -104,7 +109,12 @@ function FisherfolkOrganizationsPage({ asTab = false }) {
         search={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder="Search organizations by name or address..."
-      />
+        activeCount={barangay ? 1 : 0}
+      >
+        <div className="w-full sm:w-44">
+          <BarangaySelect value={barangay} onChange={(e) => setBarangay(e.target.value)} includeAllOption />
+        </div>
+      </FilterPanel>
 
       <DataTable
         columns={columns}

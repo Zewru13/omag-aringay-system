@@ -8,13 +8,13 @@ import PageLayout from '../../components/Layout/PageLayout.jsx'
 import BARANGAYS from '../../constants/barangays.js'
 import Button from '../../components/UI/Button.jsx'
 import { bulkCellInputClasses, bulkThCenterClasses, bulkThClasses } from '../../components/UI/bulkEntryStyles.js'
-import ComboboxWithOther from '../../components/UI/ComboboxWithOther.jsx'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import IdNumberInput from '../../components/UI/IdNumberInput.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { RSBSA_GROUPS } from '../../utils/idNumbers.js'
 import { uploadPcicForm } from '../../utils/pcic.js'
+import { cropRecordsFromImport } from '../Farmers/importedCropRecords.js'
 import ParcelCropsImportModal from '../Farmers/ParcelCropsImportModal.jsx'
 import CropRecordsTable from '../Monitoring/CropRecordsTable.jsx'
 import { makeCropRecord } from '../Monitoring/cropRecordForm.js'
@@ -22,14 +22,14 @@ import { useCropFormLookups } from '../Monitoring/useCropFormLookups.js'
 import { areaProblem } from './cropEntry.js'
 import { ownerParcelFill } from './parcelRecords.js'
 import {
-  CROPPING_SCHEDULE_OPTIONS, PARCEL_NUMBER_DIGITS, PARCEL_NUMBER_GROUPS, PARCEL_NUMBER_PLACEHOLDER, TAX_DECLARATION_DIGITS, TAX_DECLARATION_GROUPS, FARM_TYPE_OPTIONS, LAND_OWNERSHIP_OPTIONS, MACHINERY_OPTIONS, MAX_PARCELS, OWNERSHIP_OPTIONS,
-  addImportedMachinery, buildPayload, isTenure, makeMachineryRow, makeParcelRow, machineryLabel, pcicUploads, serverErrorsToMessages, toggleClassification, validateRows,
+  CROPPING_SCHEDULE_OPTIONS, PARCEL_NUMBER_DIGITS, PARCEL_NUMBER_GROUPS, PARCEL_NUMBER_PLACEHOLDER, TAX_DECLARATION_DIGITS, TAX_DECLARATION_GROUPS, FARM_TYPE_OPTIONS, LAND_OWNERSHIP_OPTIONS, MAX_PARCELS,
+  buildPayload, isTenure, makeParcelRow, pcicUploads, serverErrorsToMessages, toggleClassification, validateRows,
 } from '../Farmers/parcelRows.js'
 import useParcelClassifications from '../Farmers/useParcelClassifications.js'
 
 // Add Farm Parcels (Crop Records > Add Farm Parcel, and the farmer profile's Add Farm Parcel button): pick a farmer, then add as many
-// parcels as needed in a table, one row per parcel, with each parcel's crops (the Add Crop Records form, recorded on the parcel) and
-// machinery in tables under it. The parcel number, land ownership, farm type and cropping schedule are required. Everything is
+// parcels as needed in a table, one row per parcel, with each parcel's crops (the Add Crop Records form, recorded on the parcel) in a
+// table under it (typed in, or read from a crops file). The parcel number, land ownership, farm type and cropping schedule are required. Everything is
 // saved together or not at all (POST /farmers/<id>/parcels/bulk/), like the Add Crop Records page.
 
 // Fixed pixel width per column, shared by every <th>/<td> of that column so header and body cannot drift apart.
@@ -38,8 +38,6 @@ const COLUMN_COUNT = 9
 
 // Phone: every row becomes a card whose cells are labelled (the label comes from the cell's data-label).
 const CELL = 'px-3 py-3 overflow-hidden max-md:block max-md:w-full! max-md:px-0 max-md:py-1.5 max-md:text-left max-md:before:mb-1 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]'
-const SUB_CELL = 'px-2 py-2 align-top max-md:block max-md:w-full! max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]'
-const SUB_TH = 'px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-[#4A5E4A] whitespace-nowrap'
 const REMOVE_BTN = 'inline-flex items-center gap-1.5 rounded-md p-1.5 text-rose-500 hover:bg-rose-50 transition-colors max-md:min-h-[40px] max-md:px-3 max-md:text-[13px] max-md:font-medium'
 
 function Legend() {
@@ -60,7 +58,7 @@ const Opt = () => <span className="ml-1.5 inline-flex items-center rounded px-1 
 
 // The crops grown on one parcel: the Add Crop Records form itself (same fields, same rules), with this parcel as the place. Each crop
 // is saved as a crop record on the parcel when the parcel is saved.
-function ParcelCrops({ row, lookups, onAdd, onUpdate, onRemove }) {
+function ParcelCrops({ row, lookups, onAdd, onImport, onUpdate, onRemove }) {
   const records = (row.crop_records || []).map((r) => ({ ...r, farm_parcel: String(row._id), farm_location_barangay: row.barangay }))
   const parcelArea = Number(row.area_hectares) || 0
   const parcels = [{ id: row._id, area_hectares: row.area_hectares, growing_area_ha: 0 }]
@@ -78,6 +76,9 @@ function ParcelCrops({ row, lookups, onAdd, onUpdate, onRemove }) {
               {used} of {parcelArea} ha planted{over && ' — too much for this parcel'}
             </p>
           )}
+          <button type="button" onClick={onImport} className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-[#1B4D2E]/30 bg-[#EBF5EE]/50 px-3 text-[12px] font-semibold text-[#1B4D2E] hover:bg-[#EBF5EE]">
+            <Upload size={13} aria-hidden="true" /> Import crops
+          </button>
           <button type="button" onClick={() => onAdd(knownParcel)} className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 text-[12px] font-semibold text-white hover:bg-[#235E38]">
             <Plus size={13} aria-hidden="true" /> Add crop
           </button>
@@ -101,70 +102,9 @@ function ParcelCrops({ row, lookups, onAdd, onUpdate, onRemove }) {
   )
 }
 
-// ── the machinery of one parcel ───────────────────────────────────────────────
+// ── one parcel: its table row, then a row with its classifications and crops ───────────────────────────────
 
-function MachineryTable({ machinery, onChange, onImport }) {
-  const nextUid = useRef(1)
-  const update = (uid, patch) => onChange(machinery.map((m) => (m._uid === uid ? { ...m, ...patch } : m)))
-  return (
-    <div>
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[12px] font-semibold uppercase tracking-wide text-[#4A5E4A]">Agricultural machinery <span className="font-normal normal-case text-[#7A8E7A]">(optional) — equipment used on this parcel</span></p>
-        <div className="flex gap-2">
-          <button type="button" onClick={onImport} className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border border-[#1B4D2E]/30 bg-[#EBF5EE]/50 px-3 text-[12px] font-semibold text-[#1B4D2E] hover:bg-[#EBF5EE]">
-            <Upload size={13} aria-hidden="true" /> Import machinery
-          </button>
-          <button type="button" onClick={() => onChange([...machinery, makeMachineryRow(Date.now() + nextUid.current++)])}
-            className="inline-flex min-h-[36px] items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3 text-[12px] font-semibold text-white hover:bg-[#235E38]">
-            <Plus size={13} aria-hidden="true" /> Add machinery
-          </button>
-        </div>
-      </div>
-      {machinery.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-[#E2E8E2] bg-white max-md:overflow-visible max-md:border-0 max-md:bg-transparent">
-          <table className="min-w-full table-fixed text-sm max-md:block">
-            <thead className="bg-[#EBF5EE] max-md:hidden">
-              <tr>
-                <th className={SUB_TH} style={{ width: 230 }}>Machinery <span className="text-rose-500">*</span></th>
-                <th className={SUB_TH} style={{ width: 100 }}>Quantity <span className="text-rose-500">*</span></th>
-                <th className={SUB_TH} style={{ width: 190 }}>Equipment ownership</th>
-                <th style={{ width: 56 }} />
-              </tr>
-            </thead>
-            <tbody className="max-md:block">
-              {machinery.map((m, i) => (
-                <tr key={m._uid} className="border-b border-[#F0F4F0] align-top max-md:block max-md:mb-2 max-md:rounded-xl max-md:border max-md:border-[#E2E8E2] max-md:bg-white max-md:p-3">
-                  <td data-label={`Machinery ${i + 1} *`} className={SUB_CELL} style={{ width: 230 }}>
-                    <ComboboxWithOther options={MACHINERY_OPTIONS.filter((o) => o !== 'Other')} value={m.machinery_type} otherValue={m.machinery_type_other}
-                      placeholder="Select machinery…" inputClassName={bulkCellInputClasses} chevronSize={13}
-                      onChange={(v) => update(m._uid, { machinery_type: v })} onOtherChange={(v) => update(m._uid, { machinery_type_other: v })} />
-                  </td>
-                  <td data-label="Quantity *" className={SUB_CELL} style={{ width: 100 }}>
-                    <input type="number" min="1" className={bulkCellInputClasses} value={m.quantity} onChange={(e) => update(m._uid, { quantity: e.target.value })} />
-                  </td>
-                  <td data-label="Equipment ownership (who owns it, not the land)" className={SUB_CELL} style={{ width: 190 }}>
-                    <select className={bulkCellInputClasses} value={m.ownership} onChange={(e) => update(m._uid, { ownership: e.target.value })}>
-                      {OWNERSHIP_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-                    </select>
-                  </td>
-                  <td className="px-2 py-2 text-center max-md:block max-md:w-full! max-md:px-0 max-md:py-1 max-md:text-right" style={{ width: 56 }}>
-                    <button type="button" onClick={() => onChange(machinery.filter((x) => x._uid !== m._uid))} title="Remove machinery" className={REMOVE_BTN}>
-                      <Trash2 size={13} /><span className="md:hidden">Remove machinery</span>
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── one parcel: its table row, then a row with its classifications, crops and machinery ───────────────────────────────
-
-function ParcelRow({ row, index, total, offered, panelWidth, error, lookups, onUpdate, onRemove, onAddCrop, onUpdateCrop, onRemoveCrop, onImportMachinery }) {
+function ParcelRow({ row, index, total, offered, panelWidth, error, lookups, onUpdate, onRemove, onAddCrop, onImportCrops, onUpdateCrop, onRemoveCrop }) {
   const set = (field, value) => onUpdate(row._id, { [field]: value })
   return (
     <>
@@ -246,8 +186,7 @@ function ParcelRow({ row, index, total, offered, panelWidth, error, lookups, onU
                 {offered.length === 0 && <p className="text-[12px] text-[#7A8E7A]">None set up. An Admin can add them in Classification Settings.</p>}
               </div>
             </div>
-            <ParcelCrops row={row} lookups={lookups} onAdd={onAddCrop} onUpdate={onUpdateCrop} onRemove={onRemoveCrop} />
-            <MachineryTable machinery={row.machinery} onChange={(machinery) => set('machinery', machinery)} onImport={() => onImportMachinery(row._id)} />
+            <ParcelCrops row={row} lookups={lookups} onAdd={onAddCrop} onImport={() => onImportCrops(row._id)} onUpdate={onUpdateCrop} onRemove={onRemoveCrop} />
           </div>
         </td>
       </tr>
@@ -304,7 +243,6 @@ function ConfirmModal({ rows, cropTypes, farmerName, isSubmitting, onConfirm, on
                   <p className="truncate text-[12px] text-[#7A8E7A]">
                     {[
                       row.crop_records.length ? row.crop_records.map((r) => cropName(r.crop_type)).join(', ') : 'No crops',
-                      row.machinery.length ? row.machinery.map(machineryLabel).join(', ') : 'No machinery',
                       row.classifications.length ? row.classifications.join(', ') : '',
                     ].filter(Boolean).join(' · ')}
                   </p>
@@ -337,7 +275,7 @@ export default function AddFarmParcelsPage() {
   const nextCropIdRef = useRef(1)
   const [rows, setRows] = useState([makeParcelRow(1)])
   const lookups = useCropFormLookups()
-  const [importingMachineryFor, setImportingMachineryFor] = useState(null)
+  const [importingCropsFor, setImportingCropsFor] = useState(null)   // the id of the parcel whose crops file is being read
   const [isImportingParcels, setIsImportingParcels] = useState(false)   // the Import Farm Parcels file dialog (parcels of the chosen farmer)
   const [parcelsTick, setParcelsTick] = useState(0)                      // bumped after an import so the parcels on file are read again
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -388,10 +326,15 @@ export default function AddFarmParcelsPage() {
   const removeRow = (id) => setRows((rs) => rs.filter((r) => r._id !== id))
   const updateRow = (id, patch) => setRows((rs) => rs.map((r) => (r._id === id ? { ...r, ...patch } : r)))
 
-  const importMachinery = (machinery) => {
-    setRows((rs) => rs.map((r) => (r._id === importingMachineryFor ? { ...r, machinery: addImportedMachinery(r.machinery, machinery, Date.now()) } : r)))
-    showToast(`${machinery.length} machinery line${machinery.length === 1 ? '' : 's'} added.`, 'success')
-    setImportingMachineryFor(null)
+  // The crops of a crops file are added to the parcel's own list (to check and correct there), the same rows as Add crop makes.
+  const importCrops = (imported) => {
+    const firstId = nextCropIdRef.current
+    nextCropIdRef.current += imported.length
+    setRows((rs) => rs.map((r) => (r._id === importingCropsFor
+      ? { ...r, crop_records: [...r.crop_records, ...cropRecordsFromImport(imported, { parcel: r, cropTypes: lookups.cropTypes, varieties: lookups.varieties, firstId })] }
+      : r)))
+    showToast(`${imported.length} crop${imported.length === 1 ? '' : 's'} added.`, 'success')
+    setImportingCropsFor(null)
   }
   // The crops of a parcel (functional updates: one change of a crop type sets several fields in a row).
   const addCrop = (rowId, parcelInfo) => {
@@ -457,7 +400,7 @@ export default function AddFarmParcelsPage() {
   }
 
   return (
-    <PageLayout title="Add Farm Parcels" subtitle="Each row is one farm parcel. Add as many as the farmer has, with the crops and machinery on each.">
+    <PageLayout title="Add Farm Parcels" subtitle="Each row is one farm parcel. Add as many as the farmer has, with the crops planted on each.">
       <button type="button" onClick={goBack} className="mb-4 inline-flex items-center gap-1 text-[13px] text-[#1B4D2E] hover:underline max-md:min-h-[40px]">
         <ArrowLeft size={14} /> {farmerInfo.farmer_id && startFarmerId ? 'Back to the farmer’s profile' : 'Back to Crop Records'}
       </button>
@@ -523,7 +466,7 @@ export default function AddFarmParcelsPage() {
               {rows.map((row, i) => (
                 <ParcelRow key={row._id} row={row} index={i} total={rows.length} offered={offered} panelWidth={panelWidth} error={rowErrors[row._id]}
                   lookups={lookups}
-                  onUpdate={updateRow} onRemove={removeRow} onImportMachinery={setImportingMachineryFor}
+                  onUpdate={updateRow} onRemove={removeRow} onImportCrops={setImportingCropsFor}
                   onAddCrop={(parcelInfo) => addCrop(row._id, parcelInfo)} onUpdateCrop={updateCrop} onRemoveCrop={removeCrop} />
               ))}
             </tbody>
@@ -532,7 +475,7 @@ export default function AddFarmParcelsPage() {
 
         <div className="flex items-center gap-3">
           <button type="button" onClick={addRow} className="inline-flex items-center gap-1.5 rounded-lg bg-[#1B4D2E] px-3.5 py-2 text-[13px] font-medium text-white hover:bg-[#235E38] transition-colors">
-            <Plus size={14} /> Add Row
+            <Plus size={14} /> Add Parcel
           </button>
           <span className="text-[12.5px] text-[#7A8E7A]">{rows.length} parcel{rows.length === 1 ? '' : 's'}</span>
         </div>
@@ -560,7 +503,7 @@ export default function AddFarmParcelsPage() {
           onImported={() => setParcelsTick((t) => t + 1)}
         />
       )}
-      {importingMachineryFor !== null && <ParcelCropsImportModal kind="machinery" onClose={() => setImportingMachineryFor(null)} onRows={importMachinery} />}
+      {importingCropsFor !== null && <ParcelCropsImportModal kind="crops" onClose={() => setImportingCropsFor(null)} onRows={importCrops} />}
 
       {showConfirm && (
         <ConfirmModal rows={rows} cropTypes={lookups.cropTypes} farmerName={farmerInfo.farmer_full_name} isSubmitting={isSubmitting} onConfirm={handleConfirmed} onCancel={() => setShowConfirm(false)} />
