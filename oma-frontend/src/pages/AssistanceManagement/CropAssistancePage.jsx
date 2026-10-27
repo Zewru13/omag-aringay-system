@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
-import { Ban, CheckCircle2, Eye, Pencil, Plus, Search, Trash2, Upload, User, UserCheck, Users, XCircle } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { CheckCircle2, Eye, Pencil, Plus, Trash2, Upload, UserCheck, Users, XCircle } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
-import useSuggestSearch from '../../hooks/useSuggestSearch.js'
 import ImportFileModal from '../../components/ImportFileModal.jsx'
 import PhotoListField from '../../components/UI/PhotoListField.jsx'
 import usePhotoList from '../../hooks/usePhotoList.js'
@@ -26,6 +25,7 @@ import { buildAssistanceReportSpec } from './assistanceReport.js'
 import { ConfirmActionBar, SelectCell, SelectHeader } from './OrgConfirmControls.jsx'
 import useConfirmSelection from './useConfirmSelection.js'
 import DistributeAssistanceModal from './DistributeAssistanceModal.jsx'
+import DistributionsTable from './DistributionsTable.jsx'
 import OrgDistributionHistory from './OrgDistributionHistory.jsx'
 import CompactExpandList from '../../components/UI/CompactExpandList.jsx'
 import { FARMERS_ORG_DOMAIN } from '../Citizen/orgDomainConfig.js'
@@ -54,8 +54,6 @@ const FARMER_STATUS_LABELS = { ...STATUS_LABELS, CONFIRMED: 'Received' }
 // (interventions.views.PendingOnlyEditMixin) — mirrored here so the row
 // action doesn't offer something the backend will reject.
 const EDITABLE_STATUSES = new Set(['PENDING', 'AWAITING_CONFIRMATION', 'CONFIRMED', undefined, ''])
-// Assistance can be cancelled (taken off the list, kept for audit) until the recipient has confirmed or reported it.
-const CANCELLABLE_STATUSES = new Set(['PENDING', 'AWAITING_CONFIRMATION'])
 
 // Must match interventions.models.BeneficiaryRecord.AssistanceType exactly
 // (Batch 6: absorbed from production.models.CropAssistanceRecord).
@@ -101,230 +99,6 @@ function extractErrorMessage(err, fallback) {
   if (Array.isArray(data) && data.length) return String(data[0])
   if (data?.detail) return data.detail
   return fallback
-}
-
-// ── Farmer Search — same pattern as AddCropMonitoringPage.jsx's FarmerSearchInput ──
-
-function FarmerSearchInput({ onSelect, selected, memberUrl = null }) {
-  const [query,     setQuery]     = useState('')
-  const [showDrop,  setShowDrop]  = useState(false)
-  const wrapperRef  = useRef(null)
-
-  // Shared search-as-you-type hook: an answer made stale by newer typing is
-  // thrown away. The server can take seconds, so an older, slower answer used
-  // to land after (and overwrite) the one the user was actually waiting for.
-  const { results, isSearching: searching, failed, active } = useSuggestSearch(
-    selected.id ? '' : query,
-    (q) => (memberUrl
-      // organization mode: the organization's own member rows, shaped like registry results
-      ? api.get(memberUrl)
-        .then((r) => {
-          const words = q.toLowerCase().split(/\s+/).filter(Boolean)
-          return (Array.isArray(r.data) ? r.data : (r.data.results || []))
-            .filter((m) => {
-              const hay = `${m.farmer_full_name || ''} ${m.farmer_rsbsa_number || ''} ${m.farmer_barangay || ''}`.toLowerCase()
-              return words.every((w) => hay.includes(w))
-            })
-            .slice(0, 10)
-            .map((m) => ({
-              id: m.farmer, full_name: m.farmer_full_name, rsbsa_number: m.farmer_rsbsa_number, barangay: m.farmer_barangay,
-            }))
-        })
-      : api.get('/farmers/', { params: { search: q } })
-        .then((r) => (Array.isArray(r.data) ? r.data : (r.data.results || [])).slice(0, 10))),
-  )
-
-  const handleChange = (e) => {
-    setQuery(e.target.value)
-    setShowDrop(true)
-  }
-
-  useEffect(() => {
-    const handler = (e) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setShowDrop(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [])
-
-  const handleSelect = (farmer) => {
-    onSelect({ id: farmer.id, full_name: farmer.full_name, barangay: farmer.barangay || '' })
-    setQuery(farmer.full_name)
-    setShowDrop(false)
-  }
-
-  const handleClear = () => {
-    setQuery('')
-    onSelect({ id: null, full_name: '', barangay: '' })
-  }
-
-  const displayValue = selected.id ? selected.full_name : query
-
-  return (
-    <div ref={wrapperRef} className="relative">
-      <label className="mb-1.5 block text-[13px] font-medium text-[#4A5E4A]">
-        {memberUrl ? 'Member' : 'Farmer'} <span className="text-rose-500">*</span>
-      </label>
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#A8BCA8] pointer-events-none" />
-        <input
-          type="text"
-          placeholder={memberUrl ? 'Search your members…' : 'Search by name or RSBSA number…'}
-          value={displayValue}
-          onChange={handleChange}
-          onFocus={() => { if (results.length > 0) setShowDrop(true) }}
-          className={`${baseInputClasses} pl-8 ${selected.id ? 'pr-16' : ''}`}
-        />
-        {selected.id && (
-          <button type="button" onClick={handleClear}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-rose-500 hover:text-rose-700 px-1">
-            Clear
-          </button>
-        )}
-      </div>
-      {showDrop && (
-        <div className={`absolute z-50 mt-1 w-full rounded-xl border border-[#E2E8E2] bg-white shadow-lg max-h-52 overflow-y-auto transition-opacity ${searching && results.length > 0 ? 'opacity-60' : ''}`}>
-          {results.length === 0 ? (
-            <p className="px-4 py-3 text-xs text-[#7A8E7A]">
-              {!active ? 'Type at least 2 characters.' : searching ? 'Searching…' : failed ? 'Search failed — please try again.' : (memberUrl ? 'No members found.' : 'No farmers found.')}
-            </p>
-          ) : (
-            results.map((f) => (
-              <button key={f.id} type="button" onMouseDown={() => handleSelect(f)}
-                className="flex items-start gap-3 w-full px-4 py-2.5 text-left hover:bg-[#F5F7F5] transition-colors">
-                <User className="w-3.5 h-3.5 mt-0.5 text-[#A8BCA8] shrink-0" />
-                <div>
-                  <p className="text-xs font-semibold text-[#1A2B1A]">{f.full_name}</p>
-                  <p className="text-[11px] text-[#7A8E7A]">
-                    {f.rsbsa_number && `${f.rsbsa_number} · `}{f.barangay || ''}
-                  </p>
-                </div>
-              </button>
-            ))
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Add Modal ────────────────────────────────────────────────────────────────
-
-// memberUrl: an organization reports to one of its own members (the picker searches that list, and a future date
-// schedules the assistance instead of being refused).
-function AddAssistanceModal({ onClose, onSuccess, memberUrl = null }) {
-  const { showToast } = useToast()
-  const [farmer, setFarmer] = useState({ id: null, full_name: '', barangay: '' })
-  const [form, setForm] = useState({
-    assistance_type: '', description: '', quantity: '', date_received: '',
-    source_agencies: [], year: CURRENT_YEAR,
-    ...EMPTY_TYPE_CONDITIONAL_FIELDS,
-  })
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState('')
-
-  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
-  // Same reset-on-type-change guard as DistributeAssistanceModal.jsx — see
-  // sharedAssistanceFields.jsx.
-  const setAssistanceType = (v) => setForm((f) => ({ ...f, assistance_type: v, quantity: '', ...EMPTY_TYPE_CONDITIONAL_FIELDS }))
-  const isTraining = isTrainingType(form.assistance_type)
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (!farmer.id) { showToast(memberUrl ? 'Select a member first.' : 'Select a farmer first.', 'error'); return }
-    if (!form.assistance_type || !form.date_received) {
-      showToast('Fill in all required fields.', 'error'); return
-    }
-    const dateError = assistanceDateProblem(form.date_received, { today: todayISO() })
-    if (dateError) { showToast(dateError, 'error'); return }
-    const trainingError = validateTrainingDuration(form.assistance_type, form)
-    if (trainingError) { showToast(trainingError, 'error'); return }
-    const cashError = cashAmountError(form.assistance_type, form.quantity)
-    if (cashError) { showToast(cashError, 'error'); return }
-    setError(''); setIsSubmitting(true)
-    try {
-      const { description, date_received, quantity, ...rest } = form
-      await api.post('/interventions/beneficiaries/adhoc/', {
-        ...rest,
-        quantity: isTraining ? '' : quantity,
-        remarks: description,
-        date_given: date_received,
-        farmer: farmer.id,
-        ...buildTypeConditionalPayload(form.assistance_type, form),
-      })
-      showToast('Crop assistance record added.', 'success')
-      onSuccess(); onClose()
-    } catch (err) {
-      const data = err?.response?.data
-      setError((data && typeof data === 'object' && Object.values(data)[0]?.[0]) || 'Failed to save record.')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  return (
-    <ModalShell
-      title={memberUrl ? 'Distribute to an Individual' : 'Log Individual Assistance'}
-      subtitle={memberUrl ? 'Record assistance your organization gave to one member.' : 'Record assistance given to a farmer.'}
-      onClose={onClose}
-      maxWidth="max-w-xl"
-      footer={
-        <>
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button type="submit" form="add-assistance-form" isLoading={isSubmitting}>Save Record</Button>
-        </>
-      }
-    >
-      <form id="add-assistance-form" onSubmit={handleSubmit} className="space-y-4">
-        <FarmerSearchInput onSelect={setFarmer} selected={farmer} memberUrl={memberUrl} />
-        {farmer.id && <p className="text-[11px] text-[#7A8E7A] -mt-2">Barangay: {farmer.barangay || '—'}</p>}
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <FormField label="Assistance Type" required>
-            <select className={baseInputClasses} value={form.assistance_type} onChange={(e) => setAssistanceType(e.target.value)}>
-              <option value="">Select Assistance Type</option>
-              {ASSISTANCE_TYPE_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
-            </select>
-          </FormField>
-          <FormField label="Date Given" required>
-            <input type="date" className={baseInputClasses} value={form.date_received}
-              min={assistanceMinDate({ today: todayISO() })}
-              onChange={(e) => {
-                const v = e.target.value
-                set('date_received', v)
-                if (v) set('year', new Date(v).getFullYear())
-              }} />
-          </FormField>
-          {isCashType(form.assistance_type) ? (
-            <FormField label="Amount (₱)" required>
-              <input type="number" step="0.01" min="0.01" inputMode="decimal" className={baseInputClasses} value={form.quantity}
-                onChange={(e) => set('quantity', e.target.value)} placeholder="e.g. 1500.00" />
-            </FormField>
-          ) : !isTraining && (
-            <FormField label="Quantity">
-              <input className={baseInputClasses} value={form.quantity} onChange={(e) => set('quantity', e.target.value)} placeholder="e.g. 2 bags" />
-            </FormField>
-          )}
-          <TypeConditionalFields assistanceType={form.assistance_type} form={form} set={set} />
-          <FormField label="Year" required>
-            <select className={baseInputClasses} value={form.year} onChange={(e) => set('year', e.target.value)}>
-              {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
-            </select>
-          </FormField>
-        </div>
-
-        <FormField label="Source Agency">
-          <SourceAgencyMultiSelect value={form.source_agencies} onChange={(v) => set('source_agencies', v)} />
-        </FormField>
-
-        <FormField label="Description">
-          <textarea rows={2} className={baseInputClasses} value={form.description} onChange={(e) => set('description', e.target.value)} />
-        </FormField>
-
-        {error && <p className="rounded-lg bg-[#FEE2E2] border border-[#FCA5A5] px-3 py-2 text-[13px] font-medium text-[#991B1B]">{error}</p>}
-      </form>
-    </ModalShell>
-  )
 }
 
 // ── Edit Modal ───────────────────────────────────────────────────────────────
@@ -623,7 +397,7 @@ function ReportNotReceivedModal({ record, onClose, onDone }) {
 export default function CropAssistancePage({ asTab = false }) {
   // A farmer account reuses this page for its own assistance only: the list is the caller's own history, and
   // they confirm or report receipt. Logging, importing, distributing, editing and resolving stay staff tools.
-  const { isAdmin, isFarmer, isOrg, user } = useAuth()
+  const { isFarmer, isOrg, user } = useAuth()
   const { showToast } = useToast()
   // An organization account sees what it reported, reports assistance to its own members and confirms for members
   // without an account (organization mode, like the farmer one above).
@@ -645,15 +419,14 @@ export default function CropAssistancePage({ asTab = false }) {
   )
   // The members picked on the organization's Confirm for Members list.
   const selection = useConfirmSelection(isOrg && view === 'confirm' ? records : NO_RECORDS)
-  const [showAdd, setShowAdd] = useState(false)
+  const [showAdd, setShowAdd] = useState(false)   // an organization account: distribute to chosen members
+  const [showPeople, setShowPeople] = useState(false)   // staff: distribute to chosen farmers
+  const [tableVersion, setTableVersion] = useState(0)   // bumps to read the staff distributions table again
   const [showImport, setShowImport] = useState(false)
-  const navigate = useNavigate()
   const [showDistribute, setShowDistribute] = useState(false)
   const [editing, setEditing] = useState(null)
   const [resolving, setResolving] = useState(null)
   const [viewing, setViewing] = useState(null)
-  const [cancelling, setCancelling] = useState(null)
-  const [isCancelling, setIsCancelling] = useState(false)
 
   const fetchAll = useCallback(async () => {
     setIsLoading(true); setError('')
@@ -680,20 +453,30 @@ export default function CropAssistancePage({ asTab = false }) {
         setRecords(mine)
         return
       }
-      const params = new URLSearchParams()
-      if (barangay) params.set('barangay', barangay)
-      if (year) params.set('year', year)
-      if (view === 'needs-follow-up') params.set('status', 'NOT_RECEIVED')
-      const r = await api.get(`/interventions/beneficiaries/adhoc/?${params}`)
-      setRecords(Array.isArray(r.data) ? r.data : (r.data.results || []))
+      // Staff: the distributions table (DistributionsTable) loads itself.
     } catch {
       setError('Failed to load crop assistance records.')
     } finally {
       setIsLoading(false)
     }
-  }, [barangay, year, view, isFarmer, isOrg])
+  }, [year, view, isFarmer, isOrg])
 
   useEffect(() => { fetchAll() }, [fetchAll])
+
+  // After a save: read what this account sees again (staff: the distributions table).
+  const refreshAll = useCallback(() => { setTableVersion((v) => v + 1); return fetchAll() }, [fetchAll])
+
+  // A member of a distribution in the staff table: fetch the whole record, then open the window for it.
+  const memberAction = async (kind, member) => {
+    try {
+      const { data } = await api.get(`/interventions/beneficiaries/adhoc/${member.record_id}/`)
+      if (kind === 'view') setViewing(data)
+      else if (kind === 'edit') setEditing(data)
+      else setResolving(data)
+    } catch {
+      showToast('Unable to open this record. Please try again.', 'error')
+    }
+  }
 
   const changeView = (next) => {
     setView(next)
@@ -734,7 +517,6 @@ export default function CropAssistancePage({ asTab = false }) {
       <RowActions actions={[
         { key: 'view', label: 'View', icon: Eye, onClick: () => setViewing(r) },
         EDITABLE_STATUSES.has(r.status) && { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditing(r) },
-        CANCELLABLE_STATUSES.has(r.status) && { key: 'cancel', label: 'Cancel assistance', icon: Ban, tone: 'rose', onClick: () => setCancelling(r) },
         r.status === 'NOT_RECEIVED' && { key: 'resolve', label: 'Mark Resolved', icon: CheckCircle2, tone: 'default', onClick: () => setResolving(r) },
       ]} />
     ),
@@ -781,13 +563,10 @@ export default function CropAssistancePage({ asTab = false }) {
           <Upload size={15} className="mr-1" /> Import File
         </Button>
         <Button variant="outline" onClick={() => setShowDistribute(true)}>
-          <Users size={15} className="mr-1" /> Distribute to Organization
+          <Users size={15} className="mr-1" /> Distribute to Organizations
         </Button>
-        <Button variant="outline" onClick={() => navigate("/crop-assistance/distribute-multiple")}>
-          <Users size={15} className="mr-1" /> Distribute to Multiple Organizations
-        </Button>
-        <Button onClick={() => setShowAdd(true)}>
-          <Plus size={15} className="mr-1" /> Log Individual Assistance
+        <Button onClick={() => setShowPeople(true)}>
+          <Plus size={15} className="mr-1" /> Distribute Farmer Assistance
         </Button>
       </div>}
 
@@ -824,15 +603,34 @@ export default function CropAssistancePage({ asTab = false }) {
             actions: r.actions_cell && r.actions_cell !== '—' ? r.actions_cell : null,
           }))}
         />
-      ) : <DataTable columns={tableColumns} data={rows} isLoading={isLoading} cardColumns={2} />}
+      ) : isOrg ? <DataTable columns={tableColumns} data={rows} isLoading={isLoading} cardColumns={2} /> : (
+        <DistributionsTable
+          url="/interventions/beneficiaries/distributions/"
+          noun="farmers"
+          filters={{ year, barangay, status: view === 'needs-follow-up' ? 'NOT_RECEIVED' : '' }}
+          version={tableVersion}
+          onMemberAction={memberAction}
+          emptyText={view === 'needs-follow-up' ? 'Nothing needs follow-up.' : 'No assistance has been given yet.'}
+        />
+      )}
       </>
       )}
 
-      {showAdd && !isFarmer && (
-        <AddAssistanceModal
+      {showAdd && isOrg && (
+        <DistributeAssistanceModal
+          domain={FARMER_DISTRIBUTION_DOMAIN}
+          mode="people"
+          memberUrl={FARMERS_ORG_DOMAIN.memberSearchUrl(orgId)}
           onClose={() => setShowAdd(false)}
-          onSuccess={() => { fetchAll(); setHistoryKey((k) => k + 1) }}
-          memberUrl={isOrg ? FARMERS_ORG_DOMAIN.memberSearchUrl(orgId) : null}
+          onSuccess={() => { refreshAll(); setHistoryKey((k) => k + 1) }}
+        />
+      )}
+      {showPeople && !isFarmer && !isOrg && (
+        <DistributeAssistanceModal
+          domain={FARMER_DISTRIBUTION_DOMAIN}
+          mode="people"
+          onClose={() => setShowPeople(false)}
+          onSuccess={refreshAll}
         />
       )}
       {showImport && !isFarmer && !isOrg && (
@@ -845,7 +643,7 @@ export default function CropAssistancePage({ asTab = false }) {
           undoType="crop_assistance"
           helpText="Each row logs one assistance-given event, matched to a farmer by RSBSA number."
           onClose={() => setShowImport(false)}
-          onImported={fetchAll}
+          onImported={refreshAll}
         />
       )}
       {showDistribute && !isFarmer && (
@@ -853,28 +651,28 @@ export default function CropAssistancePage({ asTab = false }) {
           domain={FARMER_DISTRIBUTION_DOMAIN}
           fixedOrg={isOrg ? { id: orgId, name: orgRecord?.label, barangay: orgRecord?.barangay } : null}
           onClose={() => setShowDistribute(false)}
-          onSuccess={() => { fetchAll(); setHistoryKey((k) => k + 1) }}
+          onSuccess={() => { refreshAll(); setHistoryKey((k) => k + 1) }}
         />
       )}
       {editing && !isFarmer && (
         <EditAssistanceModal
           record={editing}
           onClose={() => setEditing(null)}
-          onSaved={() => { setEditing(null); fetchAll() }}
+          onSaved={() => { setEditing(null); refreshAll() }}
         />
       )}
       {confirmingReceived && (
         <ConfirmReceivedModal
           record={confirmingReceived}
           onClose={() => setConfirmingReceived(null)}
-          onDone={() => { setConfirmingReceived(null); fetchAll() }}
+          onDone={() => { setConfirmingReceived(null); refreshAll() }}
         />
       )}
       {reportingNotReceived && (
         <ReportNotReceivedModal
           record={reportingNotReceived}
           onClose={() => setReportingNotReceived(null)}
-          onDone={() => { setReportingNotReceived(null); fetchAll() }}
+          onDone={() => { setReportingNotReceived(null); refreshAll() }}
         />
       )}
       {confirmingOnBehalf && (
@@ -884,7 +682,7 @@ export default function CropAssistancePage({ asTab = false }) {
           records={confirmingOnBehalf}
           nameOf={(r) => r.farmer_full_name}
           onClose={() => setConfirmingOnBehalf(null)}
-          onDone={() => { setConfirmingOnBehalf(null); selection.clear(); fetchAll() }}
+          onDone={() => { setConfirmingOnBehalf(null); selection.clear(); refreshAll() }}
         />
       )}
       {viewing && !isFarmer && !isOrg && (
@@ -905,33 +703,11 @@ export default function CropAssistancePage({ asTab = false }) {
           ]}
         />
       )}
-      {cancelling && !isFarmer && !isOrg && (
-        <ConfirmDialog
-          title="Cancel this assistance?"
-          message={`${cancelling.assistance_type || 'This assistance'} for ${cancelling.farmer_full_name} will be taken off the list and the farmer will no longer be asked to confirm it. The record is kept for audit.`}
-          confirmLabel={isCancelling ? 'Cancelling...' : 'Cancel assistance'}
-          cancelLabel="Keep it"
-          onConfirm={async () => {
-            setIsCancelling(true)
-            try {
-              await api.post('/interventions/assistance-removals/', { domain: 'crop', record_ids: [cancelling.id] })
-              showToast('Assistance cancelled.', 'success')
-              setCancelling(null)
-              fetchAll()
-            } catch (err) {
-              showToast(err?.response?.data?.detail || 'The assistance could not be cancelled.', 'error')
-            } finally {
-              setIsCancelling(false)
-            }
-          }}
-          onCancel={() => { if (!isCancelling) setCancelling(null) }}
-        />
-      )}
       {resolving && !isFarmer && !isOrg && (
         <MarkResolvedModal
           record={resolving}
           onClose={() => setResolving(null)}
-          onResolved={() => { setResolving(null); fetchAll() }}
+          onResolved={() => { setResolving(null); refreshAll() }}
         />
       )}
     </div>

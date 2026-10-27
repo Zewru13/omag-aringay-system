@@ -149,9 +149,9 @@ class ParcelClassification(models.Model):
 
 
 class FarmParcelManager(models.Manager):
-    """`FarmParcel.objects`: the parcels in use. A purged parcel (sold or transferred) is left out, so every list, picker and rule that
-    reads parcels ignores it without each one having to ask; `FarmParcel.all_objects` has them all. A crop record that sits on a purged
-    parcel still reaches it through its own link."""
+    """`FarmParcel.objects`: the parcels in use. Parcels already purged (the purge feature is gone; the columns stay) are left out, so every
+    list, picker and rule that reads parcels ignores them; `FarmParcel.all_objects` has them all. A crop record that sits on one still
+    reaches it through its own link."""
 
     def get_queryset(self):
         return super().get_queryset().filter(purged_at__isnull=True)
@@ -236,8 +236,8 @@ class FarmParcel(models.Model):
     classifications = models.JSONField(default=list, blank=True)
     cropping_schedule = models.CharField(max_length=20, choices=CROPPING_SCHEDULE_CHOICES, blank=True)
 
-    # A parcel that was sold or transferred to someone else is purged: it leaves Crop Records and Crop Monitoring and is kept in the
-    # Purged Parcels table, with why, when and by whom. All empty while the parcel is in use.
+    # Left over from the removed "Purge parcel" feature (nothing sets these any more): a parcel that was purged stays hidden from the lists.
+    # All empty for every other parcel.
     class PurgeReason(models.TextChoices):
         SOLD = 'Sold', 'Sold'
         TRANSFERRED = 'Transferred', 'Transferred to someone else'

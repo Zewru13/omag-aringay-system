@@ -52,6 +52,8 @@ def build_distributions(records, person_field):
                 'quantity': record.quantity,
                 'date_given': record.date_given,
                 'recorded_at': None,
+                'organization_id': getattr(record, 'distributed_by_organization_id', None),
+                'organization_name': record.distributed_by_organization.name if getattr(record, 'distributed_by_organization_id', None) else None,
                 'members': [],
             }
         if record.recorded_at and (group['recorded_at'] is None or record.recorded_at < group['recorded_at']):
@@ -61,6 +63,8 @@ def build_distributions(records, person_field):
             'record_id': record.id,
             'person_id': person.id,
             'name': person.full_name,
+            'barangay': person.barangay,
+            'id_number': person.rsbsa_number,
             'status': record.status,
             'confirmed_at': record.confirmed_at,
         })

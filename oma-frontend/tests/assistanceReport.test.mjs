@@ -38,4 +38,14 @@ const withNote = buildAssistanceReportSpec({ domain: 'crop', records: crop, conf
 eq(withNote.sections.find((s) => s.title === 'Notes'), { title: 'Notes', paragraphs: ['Photos kept by the office.'], empty: '' }, 'note')
 eq(buildAssistanceReportSpec({ domain: 'crop', records: crop, confirmedOn: '2026-10-22' }).sections.some((s) => s.title === 'Notes'), false, 'no note, no section')
 
+// several organizations in one report: each beneficiary says which one
+const many = buildAssistanceReportSpec({ domain: 'crop', records: [{ ...crop[0], organization_name: 'Poblacion Growers' }, { ...crop[1], organization_name: 'Alaska Farmers' }], confirmedOn: '2026-10-22' })
+eq(many.sections.find((s) => s.table).table.head.slice(0, 3), ['No.', 'Beneficiary', 'Organization'], 'an organization column when there are several')
+eq(many.sections.find((s) => s.table).table.rows.map((r) => r[2]), ['Alaska Farmers', 'Poblacion Growers'], 'each beneficiary organization')
+eq(many.header.some(([k]) => k === 'Organization'), false, 'no single organization in the header')
+const one = buildAssistanceReportSpec({ domain: 'crop', records: [{ ...crop[0], organization_name: 'Alaska Farmers' }], confirmedOn: '2026-10-22' })
+eq([one.header.find(([k]) => k === 'Organization')[1], one.sections.find((s) => s.table).table.head.includes('Organization')], ['Alaska Farmers', false], 'one organization goes in the header')
+
+eq(buildAssistanceReportSpec({ domain: 'crop', records: [crop[0]], confirmedOn: '2026-10-22', dateLabel: 'Date Distributed' }).header[1], ['Date Distributed', 'Oct 22, 2026'], 'a report printed right after distributing')
+
 console.log(`assistanceReport: ${n} checks passed`)

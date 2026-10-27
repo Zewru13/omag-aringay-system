@@ -124,7 +124,7 @@ class DistributionHistoryTests(APITestCase):
             self.assertEqual(group['summary_status'], 'Awaiting confirmation')
             self.assertEqual(group['assistance_type'], DOMAINS[domain]['type'])
             self.assertIsNotNone(group['recorded_at'])
-            self.assertEqual(set(group['members'][0]), {'record_id', 'person_id', 'name', 'status', 'confirmed_at'})
+            self.assertEqual(set(group['members'][0]), {'record_id', 'person_id', 'name', 'barangay', 'id_number', 'status', 'confirmed_at'})
 
     def test_two_distributions_are_two_groups_newest_first(self):
         for domain in DOMAINS:
