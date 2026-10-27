@@ -98,7 +98,7 @@ export default function DistributeAssistanceModal({ domain, mode = 'organization
         setPreviews([data])
         setSelected([new Set(eligibleIds(data))])
       } else {
-        const answers = await Promise.all(chosen.map((org) => api.post(domain.distributeUrl(org.id), organizationRequest(form, { dryRun: true }))))
+        const answers = await Promise.all(chosen.map((org) => api.post(domain.distributeUrl(org.id), organizationRequest(form, { dryRun: true, allowSeedFertilizer: domain.allowSeedFertilizer }))))
         const found = answers.map((a) => a.data)
         setPreviews(found)
         setSelected(found.map((p) => new Set(eligibleIds(p))))
@@ -146,7 +146,7 @@ export default function DistributeAssistanceModal({ domain, mode = 'organization
           const ids = [...selected[i]].filter((id) => eligibleIds(previews[i]).includes(id))
           if (ids.length === 0) { done.push({ skipped: true, org: chosen[i] }); continue }
           try {
-            const r = await api.post(domain.distributeUrl(chosen[i].id), organizationRequest(form, { memberIds: ids }))
+            const r = await api.post(domain.distributeUrl(chosen[i].id), organizationRequest(form, { memberIds: ids, allowSeedFertilizer: domain.allowSeedFertilizer }))
             done.push({ ...r.data, org: chosen[i] })
           } catch (err) {
             done.push({ failed: firstMessage(err?.response?.data, 'This organization could not be saved.'), org: chosen[i] })

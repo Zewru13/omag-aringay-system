@@ -44,8 +44,11 @@ class DisasterLogPdfHeaderTests(SimpleTestCase):
         self.assertIn('Page 1 of 1', text)                                 # and the page numbers
         self.assertIn(disaster_log_pdf.FOOTER_TEXT, text)
 
-    def test_every_other_pdf_keeps_its_letterhead_and_footer(self):
-        self.assertIn(SYSTEM_TITLE, pdf_utils._DISCLAIMER)
+    def test_every_other_pdf_names_the_office_in_full_and_never_the_system_or_the_acronym(self):
+        self.assertEqual(pdf_utils._DISCLAIMER, disaster_log_pdf.FOOTER_TEXT)      # one footer for every report paper
+        self.assertNotIn('OMAg', pdf_utils._DISCLAIMER)
+        self.assertNotIn('OMAg', pdf_utils.RECORDS_OFFICER_ROLE)
+        self.assertEqual(pdf_utils.RECORDS_OFFICER_ROLE, 'Records Officer, Office of the Municipal Agriculturist')
         self.assertIsNone(pdf_utils.NumberedCanvas.disclaimer)
         flowables = pdf_utils.build_official_header(LOGO_PATH, 'Harvested Crop Report', SYSTEM_TITLE)
         self.assertEqual(logo_of(flowables).drawWidth, 64)

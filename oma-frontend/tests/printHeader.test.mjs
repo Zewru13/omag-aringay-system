@@ -1,43 +1,38 @@
 import assert from 'node:assert/strict'
 
-const { OFFICE_NAME, LOGO_PX, OFFICE_LOGO_PX, headerCss, headerHtml, escapeHtml } = await import(new URL('../src/pages/Monitoring/printHeader.js', import.meta.url).href)
+const { OFFICE_NAME, LOGO_PX, headerCss, headerHtml, escapeHtml, printedFooter } = await import(new URL('../src/pages/Monitoring/printHeader.js', import.meta.url).href)
 
 let n = 0
 const eq = (actual, expected, label) => { assert.deepEqual(actual, expected, `${label}: got ${JSON.stringify(actual)}, wanted ${JSON.stringify(expected)}`); n++ }
 const has = (text, part, label) => { assert.ok(text.includes(part), `${label}: expected ${JSON.stringify(part)} in ${text}`); n++ }
 const lacks = (text, part, label) => { assert.ok(!text.includes(part), `${label}: did not expect ${JSON.stringify(part)} in ${text}`); n++ }
 
-const TAGLINE = 'INTEGRATED AGRICULTURAL MONITORING MANAGEMENT SYSTEM FOR THE OFFICE OF MUNICIPAL AGRICULTURIST OF ARINGAY, LA UNION'
 const logoUrl = 'http://localhost/assets/logo.jpg'
 
-// ── the seal: 56 px before, exactly 25% bigger (70 px) on the individual disaster reports, square so its proportions never change
-eq(LOGO_PX, 56, 'the seal as it was')
-eq(OFFICE_LOGO_PX, 70, 'exactly 125% of 56')
-eq(OFFICE_LOGO_PX / LOGO_PX, 1.25, 'the ratio')
-has(headerCss({ office: true }), 'width: 70px; height: 70px; object-fit: contain', 'disaster report seal')
-has(headerCss({ office: false }), 'width: 56px; height: 56px; object-fit: contain', 'every other document keeps its seal size')
-has(headerCss(), 'width: 56px; height: 56px', 'the default is the old size')
-
-// ── the individual disaster reports: the office name under the seal, no tagline, no "OMAg"
-const disaster = headerHtml({ office: true, logoUrl, systemTitle: TAGLINE })
+// ── one header for every printed document: the seal, the office's full name, the place
+eq(LOGO_PX, 70, 'the seal size')
+has(headerCss(), 'width: 70px; height: 70px; object-fit: contain', 'the seal is square so its proportions never change')
+const header = headerHtml({ logoUrl })
 eq(OFFICE_NAME, 'Office of the Municipal Agriculturist', 'the office name')
-has(disaster, `<div class="org">Office of the Municipal Agriculturist</div>`, 'office name')
-has(disaster, 'Aringay, La Union', 'the place line stays')
-lacks(disaster, TAGLINE, 'the long system name is gone')
-lacks(disaster, 'INTEGRATED AGRICULTURAL', 'no part of the tagline')
-lacks(disaster, '>OMAg<', 'OMAg is replaced')
-has(disaster, `<img src="${logoUrl}"`, 'the same seal image')
-// the seal comes first, the office name after it, so the name is centered beneath the logo
-assert.ok(disaster.indexOf('<img') < disaster.indexOf('class="org"'), 'logo above the name'); n++
+has(header, '<div class="org">Office of the Municipal Agriculturist</div>', 'the office name under the seal')
+has(header, 'Aringay, La Union', 'the place line')
+has(header, `<img src="${logoUrl}"`, 'the seal image')
+assert.ok(header.indexOf('<img') < header.indexOf('class="org"'), 'the seal is above the name'); n++
 
-// ── every other document sharing the print builder is unchanged
-const other = headerHtml({ office: false, logoUrl, systemTitle: TAGLINE })
-has(other, '<div class="org">OMAg</div>', 'OMAg stays')
-has(other, TAGLINE, 'the tagline stays')
-lacks(other, OFFICE_NAME, 'no office name')
+// ── never the system's long name, never the acronym
+lacks(header, 'INTEGRATED AGRICULTURAL', 'no system name in the header')
+lacks(header, 'MONITORING MANAGEMENT SYSTEM', 'no part of it either')
+lacks(header, 'OMAg', 'no acronym in the header')
+lacks(headerHtml({ logoUrl, systemTitle: 'SOME SYSTEM TITLE' }), 'SOME SYSTEM TITLE', 'a system title is never drawn, even if one is passed')
+
+// ── the footer line names the office in full
+const footer = printedFooter('Oct 27, 2026, 9:00 AM', 'disaster log', 'FDR-1')
+eq(footer, 'Printed Oct 27, 2026, 9:00 AM from the saved disaster log FDR-1 — Office of the Municipal Agriculturist, Aringay, La Union.', 'the footer')
+lacks(footer, 'OMAg', 'no acronym in the footer')
+lacks(footer, 'Integrated Agricultural', 'no system name in the footer')
 
 // ── text is escaped
-has(headerHtml({ office: false, logoUrl, systemTitle: 'A & <B>' }), 'A &amp; &lt;B&gt;', 'escaped title')
+has(headerHtml({ logoUrl: 'a"b<c' }), 'a&quot;b&lt;c', 'escaped url')
 eq(escapeHtml(`"'`), '&quot;&#39;', 'quotes')
 
 console.log(`printHeader: ${n} checks passed`)

@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 from .models import (
     AssistanceAgency,
+    AssistanceOption,
     BeneficiaryConfirmationRequest,
     BeneficiaryRecord,
     FisherfolkBeneficiaryConfirmationRequest,
@@ -26,6 +27,31 @@ class AssistanceAgencySerializer(serializers.ModelSerializer):
         if clash.exists():
             raise serializers.ValidationError('That agency is already in the list.')
         return name
+
+
+class AssistanceOptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AssistanceOption
+        fields = ['id', 'domain', 'kind', 'name']
+        read_only_fields = ['id']
+
+    def validate(self, data):
+        domain = data.get('domain', getattr(self.instance, 'domain', ''))
+        kind = data.get('kind', getattr(self.instance, 'kind', ''))
+        if self.instance is not None and (domain != self.instance.domain or kind != self.instance.kind):
+            raise serializers.ValidationError('A name cannot be moved to another list.')
+        if kind not in AssistanceOption.DOMAIN_KINDS.get(domain, ()):
+            raise serializers.ValidationError('There is no such list.')
+        name = ' '.join((data.get('name', getattr(self.instance, 'name', '')) or '').split())
+        if not name:
+            raise serializers.ValidationError({'name': 'Enter a name.'})
+        clash = AssistanceOption.objects.filter(domain=domain, kind=kind, name__iexact=name)
+        if self.instance is not None:
+            clash = clash.exclude(pk=self.instance.pk)
+        if clash.exists():
+            raise serializers.ValidationError({'name': 'That name is already in the list.'})
+        data['name'] = name
+        return data
 
 
 def _photo_list(obj, request):
@@ -166,6 +192,7 @@ class FisherfolkBeneficiaryRecordCreateSerializer(NotInThePastMixin, serializers
             'year',
             'training_duration_days',
             'equipment_type',
+            'item_type',
             'attributed_fisherfolk_organization_name',
             'status',
             'confirmed_at',
@@ -232,6 +259,7 @@ class OrganizationDistributionRequestSerializer(NotInThePastMixin, serializers.S
         required=False, allow_null=True, default=None, min_value=1, max_value=3,
     )
     equipment_type = serializers.CharField(required=False, allow_blank=True, default='')
+    item_type = serializers.CharField(required=False, allow_blank=True, default='')
     seed_type = serializers.CharField(required=False, allow_blank=True, default='')
     fertilizer_type = serializers.CharField(required=False, allow_blank=True, default='')
     # Which members receive it. Absent = every active member; the view checks the ids against the roster.

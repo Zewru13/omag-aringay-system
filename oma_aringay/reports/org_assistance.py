@@ -62,6 +62,8 @@ def assistance_label(record):
         detail = getattr(record, 'fertilizer_type', '')
     elif record.assistance_type == 'Equipment':
         detail = getattr(record, 'equipment_type', '')
+    elif record.assistance_type in ('Feed', 'Fishing Gear', 'Fingerlings/Seeds'):
+        detail = getattr(record, 'item_type', '')
     elif record.assistance_type == 'Training' and getattr(record, 'training_duration_days', None):
         days = record.training_duration_days
         detail = f'{days} day{"s" if days != 1 else ""}'

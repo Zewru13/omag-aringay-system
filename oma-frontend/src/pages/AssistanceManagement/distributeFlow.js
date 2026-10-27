@@ -2,7 +2,7 @@
 // blank form, what is wrong with it, what is sent, how the review and the outcome are counted, and the records the printable report is
 // built from. No screen and no network, so it can be tested on its own.
 import {
-  EMPTY_TYPE_CONDITIONAL_FIELDS, assistanceDateProblem, buildTypeConditionalPayload, isCashType, isTrainingType, validateTrainingDuration,
+  EMPTY_TYPE_CONDITIONAL_FIELDS, assistanceDateProblem, buildTypeConditionalPayload, isCashType, isTrainingType, quantityWithUnit, validateTrainingDuration,
 } from './assistanceFieldHelpers.js'
 
 export const MAX_RECIPIENTS = 300
@@ -12,7 +12,8 @@ export const makeAssistanceForm = (today) => ({
   assistance_type_other: '',
   source_agencies: [],
   date_given: today,
-  quantity: '',
+  quantity_amount: '',   // the quantity per recipient is a number and a unit picked from the Units list
+  quantity_unit: '',
   cash_amount: '',
   description: '',
   ...EMPTY_TYPE_CONDITIONAL_FIELDS,
@@ -20,7 +21,7 @@ export const makeAssistanceForm = (today) => ({
 
 // Changing the assistance type clears what belonged to the old one, so nothing stale is ever sent for the new one.
 export const withAssistanceType = (form, type) => ({
-  ...form, assistance_type: type, quantity: '', cash_amount: '', training_duration_days: '', equipment_type: '', seed_type: '', fertilizer_type: '',
+  ...form, assistance_type: type, quantity_amount: '', quantity_unit: '', cash_amount: '', training_duration_days: '', equipment_type: '', seed_type: '', fertilizer_type: '',
 })
 
 export const typeName = (form) => (form.assistance_type === 'Other' ? (form.assistance_type_other || '').trim() : form.assistance_type)
@@ -29,7 +30,7 @@ export const typeName = (form) => (form.assistance_type === 'Other' ? (form.assi
 export function quantityText(form) {
   if (isCashType(form.assistance_type)) return form.cash_amount ? `₱${form.cash_amount} per head` : ''
   if (isTrainingType(form.assistance_type)) return ''
-  return form.quantity || ''
+  return quantityWithUnit(form.quantity_amount, form.quantity_unit)
 }
 
 // What is wrong with the form ('' when nothing), as a sentence.
@@ -39,18 +40,23 @@ export function assistanceFormProblem(form, { today }) {
   const dateProblem = assistanceDateProblem(form.date_given, { today })
   if (dateProblem) return dateProblem
   if (isCashType(form.assistance_type) && !(Number(form.cash_amount) > 0)) return 'Enter the cash amount per member.'
+  const amount = String(form.quantity_amount ?? '').trim()
+  if (!isCashType(form.assistance_type) && !isTrainingType(form.assistance_type) && amount) {
+    if (!(Number(amount) > 0)) return 'Enter a quantity of more than 0.'
+    if (!form.quantity_unit) return 'Choose the unit of the quantity.'
+  }
   return validateTrainingDuration(form.assistance_type, form)
 }
 
 // The body of an organization's request (POST .../distribute-assistance/). `dryRun` previews; `memberIds` chooses the real one's recipients.
-export function organizationRequest(form, { dryRun = false, memberIds = null } = {}) {
+export function organizationRequest(form, { dryRun = false, memberIds = null, allowSeedFertilizer = true } = {}) {
   return {
     assistance_type: typeName(form),
     source_agencies: form.source_agencies,
     date_given: form.date_given,
     quantity: quantityText(form),
     description: form.description,
-    ...buildTypeConditionalPayload(form.assistance_type, form),
+    ...buildTypeConditionalPayload(form.assistance_type, form, { allowSeedFertilizer }),
     ...(dryRun ? { dry_run: true } : {}),
     ...(memberIds ? { member_ids: memberIds } : {}),
   }
