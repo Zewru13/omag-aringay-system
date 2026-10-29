@@ -4,7 +4,6 @@ const {
   OWNERSHIP_OPTIONS, EMPTY_OWNERSHIP, needsOwnerDetails, ownershipLabel, ownershipFrom, chooseOwnership, ownershipProblem, ownershipPayload,
   ownershipChanged, ownershipRows,
 } = await import(new URL('../src/utils/ownership.js', import.meta.url).href)
-const { PCIC_NAME_CLASS, canSeePcicHighlight, pcicNameClass, pcicDetails } = await import(new URL('../src/utils/pcic.js', import.meta.url).href)
 
 let n = 0
 const eq = (actual, expected, label) => { assert.deepEqual(actual, expected, `${label}: got ${JSON.stringify(actual)}, wanted ${JSON.stringify(expected)}`); n++ }
@@ -51,19 +50,5 @@ eq(ownershipRows(saved), [['Ownership', 'Tenant'], ['Owner Name', 'Rosa'], ['RSB
 eq(ownershipRows({}), [['Ownership', 'Not specified']], 'an older cycle')
 eq(ownershipRows({ ownership: 'Lease' }), [['Ownership', 'Lease']], 'lease shows only the ownership')
 eq(ownershipRows({ ownership: 'Lease', owner_name: 'Rosa', owner_registration_number: '' }), [['Ownership', 'Lease'], ['Owner Name', 'Rosa'], ['RSBSA / FishR No. of Owner', '—']], 'an older lease cycle still shows its saved owner')
-
-// PCIC: the blue name is for Admin and Focal Person, and only for the row's own insured cycle
-eq([canSeePcicHighlight('ADMIN'), canSeePcicHighlight('EVALUATOR'), canSeePcicHighlight('CITIZEN')], [true, true, false], 'who sees it')
-eq(pcicNameClass({ has_pcic_insurance: true }, 'ADMIN'), PCIC_NAME_CLASS, 'insured, admin')
-eq(pcicNameClass({ has_pcic_insurance: true }, 'EVALUATOR'), PCIC_NAME_CLASS, 'insured, focal person')
-eq(pcicNameClass({ has_pcic_insurance: false }, 'ADMIN'), '', 'not insured keeps the normal colour')
-eq(pcicNameClass({ has_pcic_insurance: true }, 'CITIZEN'), '', 'a fisherfolk account sees no highlight')
-eq(pcicNameClass(null, 'ADMIN'), '', 'no record')
-
-// PCIC section of Cycle Details
-eq(pcicDetails({ has_pcic_insurance: true, pcic_form_photo: 'https://x/y.png' }), { insured: true, status: 'Insured', documentUrl: 'https://x/y.png', documentStatus: 'Document available' }, 'insured with a document')
-eq(pcicDetails({ has_pcic_insurance: true, pcic_form_photo: null }), { insured: true, status: 'Insured', documentUrl: '', documentStatus: 'No document uploaded' }, 'insured without a document')
-eq(pcicDetails({ has_pcic_insurance: false, pcic_form_photo: 'https://x/old.png' }), { insured: false, status: 'Not Insured', documentUrl: '', documentStatus: 'Not applicable' }, 'not insured shows no document')
-eq(pcicDetails({}).status, 'Not Insured', 'an older cycle')
 
 console.log(`ownership: ${n} checks passed`)

@@ -13,16 +13,20 @@ from core.utils import is_plain_int
 from fisheries.models import SpeciesOption
 from fisheries.notifications import queue_cycle_started
 
+from core.pcic import PcicFormPhotoMixin
+
 from .models import (
-    AquacultureFeedingLog, AquacultureHealthLog, AquacultureProductionCycle,
+    AquacultureFeedingLog, AquacultureHealthLog, AquacultureProductionCycle, AquacultureProductionUnit,
     FarmVisit, FisheryInputLog,
 )
 from .serializers import (
     AquacultureFeedingLogSerializer,
     AquacultureHealthLogSerializer,
     AquacultureProductionCycleSerializer,
+    AquacultureUnitPcicSerializer,
     FarmVisitSerializer,
     FisheryInputLogSerializer,
+    sync_stocking_pcic,
 )
 
 
@@ -146,6 +150,25 @@ class AquacultureProductionCycleDetailView(generics.RetrieveUpdateDestroyAPIView
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
         return Response(serializer.data)
+
+
+class AquacultureUnitDetailView(generics.RetrieveUpdateAPIView):
+    """One pond/cage's PCIC insurance: PATCH the has_pcic_insurance box (staff, or the fisherfolk who owns the cycle)."""
+    serializer_class = AquacultureUnitPcicSerializer
+    permission_classes = [IsAuthenticated, IsStaffOrFisherfolk]
+    http_method_names = ['get', 'patch']
+
+    def get_queryset(self):
+        return AquacultureProductionUnit.objects.filter(production_cycle__in=_cycle_queryset(self.request.user))
+
+    def perform_update(self, serializer):
+        with transaction.atomic():
+            unit = serializer.save()
+            sync_stocking_pcic(unit.production_cycle)
+
+
+class AquacultureUnitPcicFormView(PcicFormPhotoMixin, AquacultureUnitDetailView):
+    """POST/DELETE the photo of a pond/cage's PCIC insurance form."""
 
 
 class AquacultureFeedingLogListCreateView(generics.ListCreateAPIView):

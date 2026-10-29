@@ -28,7 +28,7 @@ const CULTURE_PHASE_OPTIONS = [
 // Culture systems that are described by individual units (ponds / cages).
 const UNIT_SYSTEMS = { Fishpond: 'Pond', Fishcage: 'Cage' }
 const MAX_UNITS = 50
-const EMPTY_UNIT = { length_m: '', width_m: '', fingerling_count: '' }
+const EMPTY_UNIT = { length_m: '', width_m: '', fingerling_count: '', pcic: { ...EMPTY_PCIC } }
 const unitArea = (u) => {
   const l = parseFloat(u.length_m)
   const w = parseFloat(u.width_m)
@@ -68,8 +68,6 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
   }, [isFisherfolk, prefilledFf, showToast])
   const fixedFf = prefilledFf || ownFf
   const [isSubmitting, setIsSubmitting] = useState(false)
-  // PCIC insurance of this stocking: the box travels with the cycle, the form photo is uploaded once the cycle exists.
-  const [pcic, setPcic] = useState({ ...EMPTY_PCIC })
   // Ownership of the site (Tenant / Lease / Owner, with the owner's details for the first two), saved with the cycle.
   const [owner, setOwner] = useState({ ...EMPTY_OWNERSHIP })
   const [speciesList, setSpeciesList] = useState([])
@@ -257,6 +255,8 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
       if (!(parseFloat(u.width_m) > 0)) return `${unitLabel} ${i + 1}: width must be greater than 0.`
       if (u.area < 0.01) return `${unitLabel} ${i + 1}: length x width must be at least 0.01 sq.m.`
       if (u.actual === '' || !Number.isInteger(count) || count < 1) return `${unitLabel} ${i + 1}: actual fingerlings must be a positive whole number.`
+      const pcicProblem = pcicError(u.pcic)
+      if (pcicProblem) return `${unitLabel} ${i + 1}: ${pcicProblem[0].toLowerCase()}${pcicProblem.slice(1)}`
     }    return null
   }
 
@@ -277,8 +277,6 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
     if (!form.fingerling_source) { showToast('Select a fingerling source.', 'error'); return }
     const ownerProblem = ownershipProblem(owner)
     if (ownerProblem) { showToast(ownerProblem, 'error'); return }
-    const pcicProblem = pcicError(pcic)
-    if (pcicProblem) { showToast(pcicProblem, 'error'); return }
     setIsSubmitting(true)
     try {
       const normalizedCycleName = form.cycle_name === 'Other'
@@ -301,23 +299,24 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
         fingerling_source: form.fingerling_source,
         ...(unitLabel
           // Area and totals are derived server-side from length x width and the actual counts.
-          ? { units: shownUnits.map(u => ({ length_m: parseFloat(u.length_m), width_m: parseFloat(u.width_m), fingerling_count: parseInt(u.actual) })) }
+          ? { units: shownUnits.map(u => ({ length_m: parseFloat(u.length_m), width_m: parseFloat(u.width_m), fingerling_count: parseInt(u.actual), ...pcicPayload(u.pcic) })) }
           : {
               stocking_count: form.stocking_count ? parseInt(form.stocking_count) : null,
               area_sqm: form.area_sqm ? parseFloat(form.area_sqm) : null,
             }),
         target_harvest_date: form.target_harvest_date || null,
         ...ownershipPayload(owner),
-        ...pcicPayload(pcic),
       })
-      // The cycle exists now; a failed photo upload must not read as a failed cycle.
-      let photoFailed = false
-      try {
-        await uploadPcicForm(api, 'stocking', res.data.stocking_record_id, pcic)
-      } catch {
-        photoFailed = true
+      // The cycle exists now; a failed photo upload must not read as a failed cycle. Each pond/cage's photo goes to that pond/cage.
+      const photoFailed = []
+      for (let i = 0; i < shownUnits.length; i += 1) {
+        try {
+          await uploadPcicForm(api, 'unit', res.data.units?.[i]?.id, shownUnits[i].pcic)
+        } catch {
+          photoFailed.push(`${unitLabel} ${i + 1}`)
+        }
       }
-      if (photoFailed) showToast('Production cycle started, but the PCIC form photo could not be uploaded. Open the record and add it again.', 'error')
+      if (photoFailed.length) showToast(`Production cycle started, but the PCIC form photo could not be uploaded for ${photoFailed.join(', ')}. Open the cycle and add it again.`, 'error')
       else showToast('Production cycle started.', 'success')
       onSuccess(res.data)
       onClose()
@@ -548,7 +547,7 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
             {/* One table for all ponds/cages: one row per unit, numbered by its unit number (1..N). */}
             {/* A table from sm up; on a phone each pond/cage is its own card with labelled fields. */}
             <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white max-sm:overflow-visible max-sm:border-0 max-sm:bg-transparent">
-              <table className="w-full min-w-[560px] text-sm max-sm:block max-sm:min-w-0" data-testid="unit-table">
+              <table className="w-full min-w-[680px] text-sm max-sm:block max-sm:min-w-0" data-testid="unit-table">
                 <thead className="max-sm:hidden">
                   <tr className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                     <th className="px-3 py-2">{unitLabel} No.</th>
@@ -556,6 +555,7 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
                     <th className="px-3 py-2">Width (m) <span className="text-red-500">*</span></th>
                     <th className="px-3 py-2">Area (m²)</th>
                     <th className="px-3 py-2">Number of Fingerlings <span className="text-red-500">*</span></th>
+                    <th className="px-3 py-2">PCIC Insured</th>
                   </tr>
                 </thead>
                 <tbody className="max-sm:block">
@@ -581,6 +581,9 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
                           value={u.actual} onChange={e => setUnitField(i, 'fingerling_count', e.target.value)}
                         />
                       </td>
+                      <td data-label="PCIC insured" className="px-3 py-1.5 max-sm:block max-sm:p-0 max-sm:col-span-2 max-sm:before:mb-1 max-sm:before:block max-sm:before:text-[11px] max-sm:before:font-semibold max-sm:before:uppercase max-sm:before:tracking-wide max-sm:before:text-slate-500 max-sm:before:content-[attr(data-label)]">
+                        <PcicInsuranceField compact value={u.pcic} onChange={(next) => setUnitField(i, 'pcic', next)} subject={unitLabel.toLowerCase()} />
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -591,6 +594,7 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
                     <td className="px-3 py-2 max-sm:hidden">—</td>
                     <td data-label="Total area (m²)" className="px-3 py-2 max-sm:block max-sm:p-0 max-sm:before:mb-1 max-sm:before:block max-sm:before:text-[11px] max-sm:before:font-semibold max-sm:before:uppercase max-sm:before:tracking-wide max-sm:before:text-slate-500 max-sm:before:content-[attr(data-label)]" data-testid="total-area">{totalArea.toFixed(2)}</td>
                     <td data-label="Total fingerlings" className="px-3 py-2 max-sm:block max-sm:p-0 max-sm:before:mb-1 max-sm:before:block max-sm:before:text-[11px] max-sm:before:font-semibold max-sm:before:uppercase max-sm:before:tracking-wide max-sm:before:text-slate-500 max-sm:before:content-[attr(data-label)]" data-testid="total-fingerlings">{fmtInt(totalFingerlings)}</td>
+                    <td className="px-3 py-2 max-sm:hidden">—</td>
                   </tr>
                 </tfoot>
               </table>
@@ -612,7 +616,6 @@ function StartProductionCycleModal({ onClose, onSuccess, fisherfolk: prefilledFf
             </div>
           </div>
         )}
-        <PcicInsuranceField value={pcic} onChange={setPcic} subject="stocking" />
         <div className="flex justify-end gap-2 pt-2">
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
           <Button type="submit" isLoading={isSubmitting}>Start Cycle</Button>

@@ -105,12 +105,12 @@ eq(rowProblem(ok(1, { parcel_number: '', farm_type: '', cropping_schedule: '', l
 eq(cropRecordsProblem(ok(1, { crop_records: [record(1)] })), '', 'a complete crop record')
 eq(cropRecordsProblem(ok()), '', 'a parcel needs no crops')
 eq(cropRecordsProblem(ok(1, { crop_records: [record(1), record(2, { variety_used: '' })] })), 'crop 2: missing variety', 'the variety is required, as on the Add Crop page')
-eq(cropRecordsProblem(ok(1, { land_ownership: 'Lessee', land_owner_name: 'Ana', crop_records: [record(1, { land_status: '' })] })), 'crop 1: missing crop status', 'the crop status is required on a parcel that is not the farmer own land')
-eq(cropRecordsProblem(ok(1, { land_ownership: 'Tenant', land_owner_name: 'Ana', crop_records: [record(1, { land_status: 'Tenant' })] })), "crop 1: missing crop owner's name", 'a tenant crop needs its owner')
+eq(cropRecordsProblem(ok(1, { land_ownership: 'Lessee', land_owner_name: 'Ana', crop_records: [record(1, { land_status: '' })] })), '', 'the crop status is its parcel\'s: nothing to choose on a lessee parcel')
+eq(cropRecordsProblem(ok(1, { land_ownership: 'Tenant', land_owner_name: 'Ana', crop_records: [record(1, { land_status: 'Tenant' })] })), '', 'a tenant crop takes its owner from the parcel')
 // on an Owner parcel the crops are the owner's: no status to choose, no owner to name
 eq(cropRecordsProblem(ok(1, { land_ownership: 'Owner', crop_records: [record(1, { land_status: '' })] })), '', 'an owner parcel needs no crop status')
 eq(cropRecordsProblem(ok(1, { land_ownership: 'Owner', crop_records: [record(1, { land_status: 'Tenant', land_owner_name: '' })] })), '', 'a stale tenant status does not block an owner parcel')
-eq(cropRecordsProblem(ok(1, { land_ownership: 'Tenant', land_owner_name: 'Ana', crop_records: [record(1, { land_status: '' })] })), 'crop 1: missing crop status', 'a tenant parcel still asks for it')
+eq(cropRecordsProblem(ok(1, { land_ownership: 'Tenant', land_owner_name: 'Ana', crop_records: [record(1, { land_status: '' })] })), '', 'a tenant parcel needs no crop status either')
 const ownerPayload = parcelPayload(ok(1, { land_ownership: 'Owner', crop_records: [record(1, { land_status: 'Tenant', land_owner_name: 'Old' })] }), CONTEXT)
 eq([ownerPayload.crop_records[0].land_status, ownerPayload.crop_records[0].land_owner_name], ['Owner', ''], 'the crop is saved as the owner own crop')
 eq(cropRecordsProblem(ok(1, { crop_records: [record(1, { crop_type: '', date_planted: '', area_planted_ha: '' })] })), 'crop 1: missing crop type, date planted, area planted', 'everything missing is named')
@@ -156,7 +156,7 @@ eq([sentRecord.farmer, sentRecord.farmers_organization, sentRecord.farm_location
 eq([sentRecord.crop_type, sentRecord.land_status, sentRecord.date_planted, sentRecord.area_planted_ha, sentRecord.variety_used, sentRecord.planting_material, sentRecord.year],
   ['7', 'Owner', '2026-10-20', '1', 'Rc 222', 'Seed', 2026], 'with the Add Crop fields')
 eq(parcelPayload(ok(1, { barangay: 'Basca', crop_records: [record(1, { farm_location_barangay: 'Alaska' })] }), CONTEXT).crop_records[0].farm_location_barangay, 'Basca', "the parcel's barangay wins")
-eq(parcelPayload(ok(1, { land_ownership: 'Tenant', land_owner_name: 'Ana', crop_records: [record(1, { land_status: 'Tenant', land_owner_name: ' Rosa ' })] }), CONTEXT).crop_records[0].land_owner_name, 'Rosa', 'a tenant crop sends its owner')
+eq(parcelPayload(ok(1, { land_ownership: 'Tenant', land_owner_name: 'Ana', crop_records: [record(1, { land_status: 'Tenant', land_owner_name: ' Rosa ' })] }), CONTEXT).crop_records[0].land_owner_name, 'Ana', 'a tenant crop sends its parcel\'s owner')
 
 // ── PCIC photos
 const file = { name: 'form.jpg' }

@@ -1,5 +1,5 @@
-"""Aquaculture production cycle: Ownership (Tenant / Lease / Owner, with the owner's details for a Tenant only) and the PCIC insurance of
-the cycle (read from, and edited on, its linked stocking record, form photo included)."""
+"""Aquaculture production cycle: Ownership (Tenant / Lease / Owner, with the owner's details for a Tenant only) and PCIC insurance, which
+is kept per pond/cage (form photo included); a cycle is insured when any of its ponds/cages is."""
 import io
 import tempfile
 from datetime import date, timedelta
@@ -11,7 +11,7 @@ from PIL import Image
 
 from accounts.models import UserLinkedRecord
 from fisheries.models import StockingRecord
-from monitoring.models import AquacultureProductionCycle
+from monitoring.models import AquacultureProductionCycle, AquacultureProductionUnit
 from monitoring.tests import ProductionCycleBase
 
 STOCKING = '/api/fisheries/stocking/'
@@ -130,102 +130,139 @@ class OwnershipTests(ProductionCycleBase):
         self.assertIsNone(one['ownership'])        # a stocking with no cycle has no ownership: the table shows "Not specified"
 
 
+UNITS = '/api/monitoring/aquaculture-units/'
+
+
 @LOCAL_FILES
 class CyclePcicTests(ProductionCycleBase):
-    def started(self, insured=False, **over):
-        r = self.post(has_pcic_insurance=insured, **over)
+    """PCIC insurance is kept per pond/cage. A cycle counts as insured when any of its ponds/cages is."""
+
+    def started(self, *insured):
+        """Start a cycle whose ponds are insured or not as given (two ponds by default)."""
+        flags = insured or (False, False)
+        units = [{'length_m': 4 + n, 'width_m': 2, 'fingerling_count': 20 + n, 'has_pcic_insurance': flag} for n, flag in enumerate(flags)]
+        r = self.post(units=units)
         self.assertEqual(r.status_code, 201, r.data)
         return r.data
 
     def detail(self, cycle_id):
         return self.client.get(f'{self.CYCLES}{cycle_id}/').data
 
-    def upload(self, cycle):
-        return self.client.post(f'{STOCKING}{cycle["stocking_record_id"]}/pcic-form/', {'photo': image()}, format='multipart')
+    def upload(self, unit_id):
+        return self.client.post(f'{UNITS}{unit_id}/pcic-form/', {'photo': image()}, format='multipart')
 
-    def test_the_cycle_reads_the_insurance_of_its_stocking_record(self):
-        insured, plain = self.started(True), self.started(False)
-        self.assertTrue(self.detail(insured['id'])['has_pcic_insurance'])
-        self.assertIsNone(self.detail(insured['id'])['pcic_form_photo'])        # insured, no document yet
-        self.assertFalse(self.detail(plain['id'])['has_pcic_insurance'])
-        self.assertTrue(StockingRecord.objects.get(production_cycle_id=insured['id']).has_pcic_insurance)
+    def test_each_pond_keeps_its_own_insurance_and_the_cycle_is_insured_when_any_pond_is(self):
+        cycle = self.started(True, False)
+        data = self.detail(cycle['id'])
+        self.assertEqual([u['has_pcic_insurance'] for u in data['units']], [True, False])
+        self.assertTrue(data['has_pcic_insurance'])
+        self.assertTrue(StockingRecord.objects.get(production_cycle_id=cycle['id']).has_pcic_insurance)
+        plain = self.detail(self.started(False, False)['id'])
+        self.assertEqual([u['has_pcic_insurance'] for u in plain['units']], [False, False])
+        self.assertFalse(plain['has_pcic_insurance'])
 
-    def test_the_uploaded_document_comes_back_with_the_cycle(self):
-        cycle = self.started(True)
-        self.assertEqual(self.upload(cycle).status_code, 200)
-        link = self.detail(cycle['id'])['pcic_form_photo']
-        self.assertTrue(link and 'pcic_forms/stockingrecord/' in link, link)
+    def test_the_uploaded_document_comes_back_with_its_pond_not_the_cycle(self):
+        cycle = self.started(True, False)
+        units = self.detail(cycle['id'])['units']
+        self.assertEqual(self.upload(units[0]['id']).status_code, 200)
+        data = self.detail(cycle['id'])
+        link = data['units'][0]['pcic_form_photo']
+        self.assertTrue(link and 'pcic_forms/aquacultureproductionunit/' in link, link)
+        self.assertIsNone(data['units'][1]['pcic_form_photo'])
+        self.assertIsNone(data['pcic_form_photo'])           # the documents are the ponds' own
         listed = self.client.get(self.CYCLES).data
         listed = listed['results'] if isinstance(listed, dict) else listed
-        self.assertTrue(next(c for c in listed if c['id'] == cycle['id'])['pcic_form_photo'])
+        self.assertTrue(next(c for c in listed if c['id'] == cycle['id'])['units'][0]['pcic_form_photo'])
 
-    def test_editing_something_else_keeps_the_insurance_and_the_document(self):
-        cycle = self.started(True)
-        self.upload(cycle)
-        r = self.client.patch(f'{self.CYCLES}{cycle["id"]}/', {'notes': 'a note', 'status': 'Active'}, format='json')
-        self.assertEqual(r.status_code, 200, r.data)
-        again = self.detail(cycle['id'])
-        self.assertTrue(again['has_pcic_insurance'])
-        self.assertTrue(again['pcic_form_photo'])
+    def test_a_pond_that_is_not_insured_takes_no_document(self):
+        cycle = self.started(True, False)
+        units = self.detail(cycle['id'])['units']
+        r = self.upload(units[1]['id'])
+        self.assertEqual(r.status_code, 400)
 
-    def test_unticking_the_insurance_in_an_edit_removes_the_document_and_ticking_it_again_does_not_bring_it_back(self):
-        cycle = self.started(True)
-        self.upload(cycle)
-        r = self.client.patch(f'{self.CYCLES}{cycle["id"]}/', {'has_pcic_insurance': False}, format='json')
+    def test_ticking_a_pond_in_an_edit_marks_the_cycle_and_its_stocking_record(self):
+        cycle = self.started(False, False)
+        units = self.detail(cycle['id'])['units']
+        r = self.client.patch(f'{UNITS}{units[1]["id"]}/', {'has_pcic_insurance': True}, format='json')
         self.assertEqual(r.status_code, 200, r.data)
-        record = StockingRecord.objects.get(production_cycle_id=cycle['id'])
-        self.assertFalse(record.has_pcic_insurance)
-        self.assertFalse(record.pcic_form_photo)
-        self.assertIsNone(r.data['pcic_form_photo'])
-        r = self.client.patch(f'{self.CYCLES}{cycle["id"]}/', {'has_pcic_insurance': True}, format='json')
         self.assertTrue(r.data['has_pcic_insurance'])
-        self.assertIsNone(r.data['pcic_form_photo'])
-
-    def test_ticking_the_insurance_in_an_edit_marks_the_stocking_record(self):
-        cycle = self.started(False)
-        r = self.client.patch(f'{self.CYCLES}{cycle["id"]}/', {'has_pcic_insurance': True}, format='json')
-        self.assertEqual(r.status_code, 200, r.data)
+        self.assertTrue(self.detail(cycle['id'])['has_pcic_insurance'])
         self.assertTrue(StockingRecord.objects.get(production_cycle_id=cycle['id']).has_pcic_insurance)
 
-    def test_a_cycle_without_a_stocking_record_cannot_be_marked_insured(self):
+    def test_unticking_the_last_insured_pond_clears_the_cycle_and_removes_that_ponds_document(self):
+        cycle = self.started(True, False)
+        unit = self.detail(cycle['id'])['units'][0]
+        self.upload(unit['id'])
+        r = self.client.patch(f'{UNITS}{unit["id"]}/', {'has_pcic_insurance': False}, format='json')
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertIsNone(r.data['pcic_form_photo'])
+        self.assertFalse(AquacultureProductionUnit.objects.get(pk=unit['id']).pcic_form_photo)
+        self.assertFalse(self.detail(cycle['id'])['has_pcic_insurance'])
+        self.assertFalse(StockingRecord.objects.get(production_cycle_id=cycle['id']).has_pcic_insurance)
+
+    def test_unticking_one_pond_keeps_the_cycle_insured_while_another_is(self):
+        cycle = self.started(True, True)
+        units = self.detail(cycle['id'])['units']
+        self.client.patch(f'{UNITS}{units[0]["id"]}/', {'has_pcic_insurance': False}, format='json')
+        data = self.detail(cycle['id'])
+        self.assertEqual([u['has_pcic_insurance'] for u in data['units']], [False, True])
+        self.assertTrue(data['has_pcic_insurance'])
+        self.assertTrue(StockingRecord.objects.get(production_cycle_id=cycle['id']).has_pcic_insurance)
+
+    def test_editing_the_cycle_keeps_the_ponds_insurance_and_ignores_a_cycle_wide_box(self):
+        cycle = self.started(True, False)
+        unit = self.detail(cycle['id'])['units'][0]
+        self.upload(unit['id'])
+        r = self.client.patch(f'{self.CYCLES}{cycle["id"]}/', {'notes': 'a note', 'has_pcic_insurance': False}, format='json')
+        self.assertEqual(r.status_code, 200, r.data)
+        again = self.detail(cycle['id'])
+        self.assertEqual([u['has_pcic_insurance'] for u in again['units']], [True, False])
+        self.assertTrue(again['has_pcic_insurance'])
+        self.assertTrue(again['units'][0]['pcic_form_photo'])
+
+    def test_a_pond_cannot_be_insured_without_a_species_to_stock(self):
+        payload = self.payload(units=[{'length_m': 4, 'width_m': 2, 'fingerling_count': 20, 'has_pcic_insurance': True}])
+        del payload['species_option']
+        r = self.client.post(self.CYCLES, payload, format='json')
+        self.assertEqual(r.status_code, 400)
+        self.assertIn('units', r.data)
+
+    def test_a_cycle_made_before_ponds_were_insured_one_by_one_reads_its_stocking_record(self):
         legacy = AquacultureProductionCycle.objects.create(
             fisherfolk=self.ff_a, cycle_name='Old', species_farmed='Tilapia', culture_system='Fishpond', stocking_date=date(2025, 1, 1))
-        r = self.client.patch(f'{self.CYCLES}{legacy.id}/', {'has_pcic_insurance': True}, format='json')
-        self.assertEqual(r.status_code, 400)
-        self.assertIn('has_pcic_insurance', r.data)
+        StockingRecord.objects.create(fisherfolk=self.ff_a, production_cycle=legacy, species=self.species, date_stocked=date(2025, 1, 1),
+                                      number_of_fingerlings=10, season='Dry', year=2025, has_pcic_insurance=True)
         data = self.detail(legacy.id)
-        self.assertEqual((data['has_pcic_insurance'], data['pcic_form_photo'], data['stocking_record_id']), (False, None, None))
+        self.assertEqual((data['has_pcic_insurance'], data['units']), (True, []))
 
-    def test_cycles_of_one_fisherfolk_have_their_own_insurance_in_the_table_rows(self):
-        insured, plain = self.started(True), self.started(False)
+    def test_the_table_rows_follow_the_ponds_of_each_cycle(self):
+        insured, plain = self.started(False, True), self.started(False, False)
         rows = self.client.get(STOCKING, {'status': 'Stocked,Near Harvest,Harvested'}).data
         rows = rows['results'] if isinstance(rows, dict) else rows
         by_cycle = {r['production_cycle']: r for r in rows}
         self.assertTrue(by_cycle[insured['id']]['has_pcic_insurance'])
         self.assertFalse(by_cycle[plain['id']]['has_pcic_insurance'])
-        self.client.patch(f'{self.CYCLES}{plain["id"]}/', {'has_pcic_insurance': True}, format='json')
-        self.client.patch(f'{self.CYCLES}{insured["id"]}/', {'has_pcic_insurance': False}, format='json')
-        rows = self.client.get(STOCKING, {'status': 'Stocked,Near Harvest,Harvested'}).data
-        rows = rows['results'] if isinstance(rows, dict) else rows
-        by_cycle = {r['production_cycle']: r for r in rows}
-        self.assertFalse(by_cycle[insured['id']]['has_pcic_insurance'])
-        self.assertTrue(by_cycle[plain['id']]['has_pcic_insurance'])
 
-    def test_another_fisherfolk_cannot_open_the_cycle_or_its_document(self):
-        cycle = self.started(True)
-        self.upload(cycle)
+    def test_another_fisherfolk_cannot_open_the_pond_or_its_document(self):
+        cycle = self.started(True, False)
+        unit = self.detail(cycle['id'])['units'][0]
+        self.upload(unit['id'])
         User = get_user_model()
         other = User.objects.create_user(username='ff-b-user', password='pw', role='CITIZEN', email='ffb@x.test')
         UserLinkedRecord.objects.create(user=other, record_type=User.LinkedRecordType.FISHERFOLK, record_id=self.ff_b.id, is_active=True)
         self.client.force_authenticate(other)
         self.assertEqual(self.client.get(f'{self.CYCLES}{cycle["id"]}/').status_code, 404)
-        self.assertEqual(self.client.post(f'{STOCKING}{cycle["stocking_record_id"]}/pcic-form/', {'photo': image()}, format='multipart').status_code, 404)
+        self.assertEqual(self.client.get(f'{UNITS}{unit["id"]}/').status_code, 404)
+        self.assertEqual(self.client.patch(f'{UNITS}{unit["id"]}/', {'has_pcic_insurance': False}, format='json').status_code, 404)
+        self.assertEqual(self.client.post(f'{UNITS}{unit["id"]}/pcic-form/', {'photo': image()}, format='multipart').status_code, 404)
         owner = User.objects.create_user(username='ff-a-user', password='pw', role='CITIZEN', email='ffa@x.test')
         UserLinkedRecord.objects.create(user=owner, record_type=User.LinkedRecordType.FISHERFOLK, record_id=self.ff_a.id, is_active=True)
         self.client.force_authenticate(owner)
         self.assertEqual(self.client.get(f'{self.CYCLES}{cycle["id"]}/').status_code, 200)       # their own cycle
+        self.assertEqual(self.client.get(f'{UNITS}{unit["id"]}/').status_code, 200)
         self.client.force_authenticate(None)
         self.assertIn(self.client.get(f'{self.CYCLES}{cycle["id"]}/').status_code, (401, 403))
+        self.assertIn(self.client.get(f'{UNITS}{unit["id"]}/').status_code, (401, 403))
 
 
 class StartCycleRequiredFieldsTests(ProductionCycleBase):

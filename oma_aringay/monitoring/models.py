@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 
+from core.models import PcicInsurance
 from farmers.models import Farmer
 from fisheries.models import Fisherfolk
 
@@ -94,9 +95,10 @@ class AquacultureProductionCycle(models.Model):
     def __str__(self):
         return f'{self.cycle_name} — {self.species_farmed} ({self.stocking_date})'
 
-class AquacultureProductionUnit(models.Model):
+class AquacultureProductionUnit(PcicInsurance):
     """One pond or cage inside a production cycle (Fishpond / Fishcage systems only).
-    Cycles created before this model existed, and other culture systems, have none."""
+    Cycles created before this model existed, and other culture systems, have none.
+    PCIC insurance is kept per pond/cage (has_pcic_insurance, pcic_form_photo: core.models.PcicInsurance)."""
     UNIT_TYPE_CHOICES = [
         ('pond', 'Pond'),
         ('cage', 'Cage'),

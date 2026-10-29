@@ -1,6 +1,6 @@
 import { PHOTO_MAX_BYTES, PHOTO_TYPES } from './photoRules.js'
 
-// PCIC (crop insurance) on a crop, pond, planting or stocking record: a "has PCIC insurance" box and, once it is
+// PCIC (crop insurance) on a crop, pond, planting or stocking record, or a pond/cage of a production cycle: a "has PCIC insurance" box and, once it is
 // ticked, a photo of the PCIC insurance form. A form keeps this as one `pcic` state object:
 //   { insured: boolean, file: File | null (a photo chosen now), url: string (the photo already saved) }
 // The box travels with the record (pcicPayload); the photo is uploaded on its own once the record has an id
@@ -32,6 +32,7 @@ const FORM_PATHS = {
   pond: (id) => `/fisheries/ponds/${id}/pcic-form/`,
   stocking: (id) => `/fisheries/stocking/${id}/pcic-form/`,
   planting: (id) => `/production/monitoring/${id}/pcic-form/`,
+  unit: (id) => `/monitoring/aquaculture-units/${id}/pcic-form/`,   // a pond/cage of an aquaculture production cycle
 }
 
 export function pcicFormUrl(kind, id) {
@@ -48,26 +49,9 @@ export async function uploadPcicForm(api, kind, id, state) {
   return data
 }
 
-// The fisherfolk name in Aquaculture Monitoring and Fisheries Forecasting is blue for a PCIC-insured cycle, for Admin and Focal Person
-// (Evaluator) accounts only. It follows that row's own saved insurance flag, never the person or their other cycles.
 // The PCIC filter of the crop tables (Crop Records, Crop Monitoring): the value sent as ?pcic= and what the dropdown says.
 export const PCIC_FILTER_OPTIONS = [
   { value: '', label: 'All PCIC' },
   { value: 'insured', label: 'PCIC insured' },
   { value: 'not_insured', label: 'Not PCIC insured' },
 ]
-
-export const PCIC_NAME_CLASS = 'font-semibold text-[#1A56C8]'
-export const canSeePcicHighlight = (role) => role === 'ADMIN' || role === 'EVALUATOR'
-export const pcicNameClass = (record, role) => (canSeePcicHighlight(role) && record?.has_pcic_insurance ? PCIC_NAME_CLASS : '')
-
-// Cycle Details: what the PCIC section shows for a cycle (its saved flag and document, nothing inferred).
-export function pcicDetails(cycle) {
-  const insured = !!cycle?.has_pcic_insurance
-  return {
-    insured,
-    status: insured ? 'Insured' : 'Not Insured',
-    documentUrl: insured ? cycle?.pcic_form_photo || '' : '',
-    documentStatus: !insured ? 'Not applicable' : cycle?.pcic_form_photo ? 'Document available' : 'No document uploaded',
-  }
-}

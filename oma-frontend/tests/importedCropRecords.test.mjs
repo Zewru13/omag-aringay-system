@@ -42,14 +42,14 @@ eq(make([line({ variety_used: 'Home-grown' })])[0].variety_used_is_other, true, 
 eq(make([line({ variety_used: 'Old' })])[0].variety_used_is_other, true, 'a switched-off variety is typed')
 eq(make([line({ variety_used: 'Carabao' })])[0].variety_used_is_other, true, 'another crop\'s variety is typed')
 
-// whose crop it is: the file's status, else the parcel's own
-eq([make([line()], ownerParcel)[0].land_status, make([line()], ownerParcel)[0].land_owner_name], ['Owner', ''], 'a blank status on an owner parcel is the owner')
-eq([make([line()], tenantParcel)[0].land_status, make([line()], tenantParcel)[0].land_owner_name], ['Tenant', 'Rosa Reyes'], 'a blank status on a tenant parcel is the tenant, with the parcel\'s land owner')
-eq([make([line({ land_status: 'Lessee', land_owner_name: 'Ben' })], tenantParcel)[0].land_status, make([line({ land_status: 'Lessee', land_owner_name: 'Ben' })], tenantParcel)[0].land_owner_name], ['Lessee', 'Ben'], 'the file says whose land')
-eq(make([line({ land_status: 'Lessee' })], tenantParcel)[0].land_owner_name, 'Rosa Reyes', 'no owner in the file: the parcel\'s land owner')
-eq([make([line({ land_status: 'Tenant', land_owner_name: 'Ben' })], ownerParcel)[0].land_status, make([line({ land_status: 'Tenant', land_owner_name: 'Ben' })], ownerParcel)[0].land_owner_name], ['Owner', ''], 'an owner parcel\'s crops are the owner\'s own, whatever the file says')
-eq(make([line({ land_status: 'Owner' })], tenantParcel)[0].land_owner_name, '', 'an Owner crop on a tenant parcel has no other owner')
-eq(make([line()], { land_ownership: '', land_owner_name: '' })[0].land_status, '', 'a parcel whose ownership is not chosen yet leaves the status to be picked')
+// whose crop it is: the parcel's land ownership, whatever status the file gave
+const status = (parcel, over = {}) => [make([line(over)], parcel)[0].land_status, make([line(over)], parcel)[0].land_owner_name]
+eq(status(ownerParcel), ['Owner', ''], 'a crop on an owner parcel is the owner')
+eq(status(tenantParcel), ['Tenant', 'Rosa Reyes'], 'a crop on a tenant parcel is the tenant, with the parcel\'s land owner')
+eq(status(tenantParcel, { land_status: 'Lessee', land_owner_name: 'Ben' }), ['Tenant', 'Rosa Reyes'], 'the status in the file does not change the parcel\'s')
+eq(status(ownerParcel, { land_status: 'Tenant', land_owner_name: 'Ben' }), ['Owner', ''], 'an owner parcel\'s crops are the owner\'s own, whatever the file says')
+eq(status({ land_ownership: 'Lessee', land_owner_name: 'Pedro' }), ['Lessee', 'Pedro'], 'a lessee parcel')
+eq(make([line({ land_status: 'Tenant' })], { land_ownership: '', land_owner_name: '' })[0].land_status, '', 'a parcel whose ownership is not chosen yet leaves the status blank')
 eq(make([]), [], 'nothing imported')
 
 console.log(`importedCropRecords: ${n} checks passed`)

@@ -3,7 +3,7 @@ import { AlertTriangle, ArrowLeft, CheckCircle2, Info, Plus } from 'lucide-react
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { sameCrop } from '../../utils/cropNames.js'
 import { ownerParcelFill, parcelProblem } from '../CropInformation/parcelRecords.js'
-import { areaProblem, defaultPlantingMaterial, needsLandOwner, withFixedStatus } from '../CropInformation/cropEntry.js'
+import { areaProblem, defaultPlantingMaterial, needsLandOwner, withParcelStatus } from '../CropInformation/cropEntry.js'
 import CropRecordsTable from './CropRecordsTable.jsx'
 import { buildCropRecordPayload, cropRecordProblem, makeCropRecord } from './cropRecordForm.js'
 import { useCropFormLookups } from './useCropFormLookups.js'
@@ -212,8 +212,8 @@ export default function AddCropMonitoringPage() {
     setRecords(r => r.map(x => x._id === id ? { ...x, [field]: value } : x))
   }
 
-  // A page locked to a parcel the farmer owns: every crop is the owner's own (its Crop Status column is not shown).
-  const asRecorded = (rec) => (lockedParcel ? withFixedStatus(rec, farmerParcels[0]) : rec)
+  // A crop's status and land owner are its parcel's land ownership (the table has no Crop Status column).
+  const asRecorded = (rec) => withParcelStatus(rec, farmerParcels.find(p => String(p.id) === String(rec.farm_parcel)))
   const buildPayload = (rec) => buildCropRecordPayload(asRecorded(rec), {
     farmerInfo, cropTypes, barangay: lockedParcel ? (lockedParcel.barangay || '') : rec.farm_location_barangay,
   })

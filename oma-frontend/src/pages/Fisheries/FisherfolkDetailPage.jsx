@@ -11,7 +11,7 @@ import LoadingSpinner from '../../components/UI/LoadingSpinner.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
-import PcicBadge from '../../components/UI/PcicBadge.jsx'
+import PcicCheck from '../../components/UI/PcicCheck.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -53,6 +53,7 @@ const POND_COLUMNS = [
   { key: 'area_fmt',        label: 'AREA (HA)' },
   { key: 'water_source',    label: 'WATER SOURCE' },
   { key: 'history_fmt',     label: 'STOCKING HISTORY' },
+  { key: 'pcic_cell',       label: 'PCIC INSURED' },
   { key: 'status_pill',     label: 'STATUS' },
   { key: 'actions_cell',    label: 'ACTIONS' },
 ]
@@ -294,12 +295,8 @@ function FisherfolkDetailPage() {
     area_fmt: p.area_hectares != null ? Number(p.area_hectares).toFixed(4) : '—',
     water_source: p.water_source || '—',
     history_fmt: `${p.stocking_record_count} record${p.stocking_record_count === 1 ? '' : 's'}`,
-    status_pill: (
-      <>
-        <StatusPill tone={p.is_active ? 'green' : 'slate'}>{p.is_active ? 'Active' : 'Inactive'}</StatusPill>
-        <PcicBadge insured={p.has_pcic_insurance} url={p.pcic_form_photo} />
-      </>
-    ),
+    pcic_cell: <PcicCheck insured={p.has_pcic_insurance} />,
+    status_pill: <StatusPill tone={p.is_active ? 'green' : 'slate'}>{p.is_active ? 'Active' : 'Inactive'}</StatusPill>,
     actions_cell: (isAdmin || isEvaluator) ? (
       <div className="flex justify-end">
         <RowActions

@@ -51,8 +51,8 @@ export const SECTIONS = [
         a: 'In Add Farm Parcels each row is one parcel; press Add Parcel for another. Under a parcel, press Add crop to record what is planted on it, or Import crops to read the crops of that parcel from a spreadsheet (the crops are added to the list so you can check them before saving). That crop form is the same as Add Crop Records, with the same fields and the same rules, and each crop is saved as a planted crop on that parcel. Everything is saved together or not at all. To bring in a whole file of parcels for one farmer, choose the farmer and press Import Farm Parcels.',
       },
       {
-        q: 'What are Crop Status and Crop Owner?',
-        a: 'Crop Status says how the farmer holds the land for that crop: Owner, Lessee, Tenant or Other. When it is Tenant or Lessee a Crop Owner column opens beside it where you type the owner\'s name. The name is required. On a parcel whose Land Ownership is Owner there is no Crop Status column at all: every crop on it is the owner\'s own.',
+        q: 'Where do I choose the Crop Status and Crop Owner?',
+        a: 'You do not. A crop has no Crop Status column: its status is the Land Ownership of the farm parcel it is grown on (Owner, Lessee or Tenant), and a Tenant or Lessee crop carries the land owner named on that parcel. To change it, change the land ownership of the parcel.',
       },
       {
         q: 'Where do I record a farmer\'s machinery?',
@@ -68,7 +68,7 @@ export const SECTIONS = [
       },
       {
         q: 'How do I record that a crop has PCIC insurance?',
-        a: 'In the crop table, tick Insured in the PCIC column. A window asks for a photo of the PCIC insurance form (JPG, PNG or WEBP, up to 5 MB); the crop cannot be saved insured without it. Cancel the window without a photo and the box unticks. Ponds and stocking records in fisheries work the same way.',
+        a: 'In the crop table, tick Insured in the PCIC column. A window asks for a photo of the PCIC insurance form (JPG, PNG or WEBP, up to 5 MB); the crop cannot be saved insured without it. Cancel the window without a photo and the box unticks. In fisheries, insurance is kept for each pond or cage: tick PCIC Insured on its row when you start a production cycle, or in the Edit form of the cycle. The pond table on a fisherfolk profile shows a checked PCIC Insured column.',
       },
       {
         q: 'Why can\'t I add more area to a parcel?',

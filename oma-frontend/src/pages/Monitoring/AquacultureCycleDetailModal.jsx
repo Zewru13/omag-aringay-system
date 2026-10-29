@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ExternalLink, Fish, Plus, ShieldCheck, Trash2 } from 'lucide-react'
+import { ExternalLink, Fish, Plus, Trash2 } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
 import CycleDayBanner from '../../components/UI/CycleDayBanner.jsx'
@@ -9,13 +9,14 @@ import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import LoadingSpinner from '../../components/UI/LoadingSpinner.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import OwnershipFields from '../../components/UI/OwnershipFields.jsx'
+import PcicCheck from '../../components/UI/PcicCheck.jsx'
 import PcicInsuranceField from '../../components/UI/PcicInsuranceField.jsx'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { cycleProgress } from '../../utils/cycleActivity.js'
 import { todayISO as localToday } from '../../utils/localDate.js'
 import { ownershipChanged, ownershipFrom, ownershipPayload, ownershipProblem, ownershipRows } from '../../utils/ownership.js'
-import { pcicDetails, pcicError, pcicStateFrom, uploadPcicForm } from '../../utils/pcic.js'
+import { pcicError, pcicStateFrom, uploadPcicForm } from '../../utils/pcic.js'
 import { resolveMediaUrl } from '../../utils/mediaUrl.js'
 import { ForcedHarvestedStatus } from '../FisheriesRecords/ForcedHarvestDetails.jsx'
 
@@ -121,34 +122,7 @@ function InfoField({ label, value }) {
   )
 }
 
-// PCIC insurance of the cycle, read from its saved flag and document (kept on the cycle's stocking record). View Document opens the
-// uploaded insurance form through the same signed, short-lived link the rest of the app uses; nothing is shown without one.
-function PcicSection({ cycle }) {
-  const pcic = pcicDetails(cycle)
-  const href = resolveMediaUrl(pcic.documentUrl)
-  return (
-    <div className="rounded-xl border border-slate-100 p-4" data-testid="pcic-section">
-      <p className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-slate-700"><ShieldCheck size={15} className="text-[#1B4D2E]" aria-hidden="true" /> PCIC Insurance</p>
-      <div className="grid gap-3 sm:grid-cols-3">
-        <div>
-          <p className="text-xs font-medium text-slate-400">PCIC Insurance</p>
-          <div className="mt-0.5"><StatusPill tone={pcic.insured ? 'blue' : 'slate'}>{pcic.status}</StatusPill></div>
-        </div>
-        <div>
-          <p className="text-xs font-medium text-slate-400">PCIC Form / Supporting Document</p>
-          <p className="mt-0.5 text-sm text-slate-800">
-            {href
-              ? <a href={href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-[#1B4D2E] underline">View Document <ExternalLink size={13} aria-hidden="true" /></a>
-              : '—'}
-          </p>
-        </div>
-        <InfoField label="Document Status" value={pcic.documentStatus} />
-      </div>
-    </div>
-  )
-}
-
-// The cycle's saved details, read-only: the information grid, PCIC insurance and the production units. One component for Cycle Details
+// The cycle's saved details, read-only: the information grid and the production units (with each pond/cage's PCIC insurance). One component for Cycle Details
 // (Cycle Info tab) and for View Details on Aquaculture Monitoring, so both always show the same fields and values. `hideStatus`: View
 // Details shows the stocking's own status (the one in the table) instead of the cycle's Active / Harvested.
 export function CycleInfoSummary({ cycle, hideStatus = false }) {
@@ -198,8 +172,6 @@ export function CycleInfoSummary({ cycle, hideStatus = false }) {
         </div>
       </div>
 
-      <PcicSection cycle={cycle} />
-
       {cycle.units?.length > 0 && (() => {
         const label = cycle.units[0].unit_type === 'cage' ? 'Cage' : 'Pond'
         const fmt = (n) => Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 })
@@ -208,27 +180,46 @@ export function CycleInfoSummary({ cycle, hideStatus = false }) {
         return (
           <div className="rounded-xl border border-slate-100 p-4">
             <p className="mb-2 text-sm font-semibold text-slate-700">Production Units</p>
-            <ul className="divide-y divide-slate-100">
-              {cycle.units.map(u => {
-                const hasDims = u.length_m != null && u.width_m != null
-                return (
-                  <li key={u.id} className="py-2 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-2 font-medium text-slate-800">
-                        {label} {u.unit_number}
-                        {forcedByUnit[u.id] && <ForcedHarvestedStatus harvestId={forcedByUnit[u.id]} />}
-                      </span>
-                      <span className="text-slate-600">
-                        {hasDims ? `${fmt(u.length_m)}m × ${fmt(u.width_m)}m · ` : ''}{fmt(u.size_sqm)} sq.m.
-                      </span>
-                    </div>
-                    <div className="mt-0.5 text-xs text-slate-500">
-                      <span>Actual Fingerlings: {fmt(u.fingerling_count)}</span>
-                    </div>
-                  </li>
-                )
-              })}
-            </ul>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[460px] text-sm" data-testid="units-table">
+                <thead>
+                  <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-400">
+                    <th className="py-1.5 pr-3">{label}</th>
+                    <th className="py-1.5 pr-3">Size</th>
+                    <th className="py-1.5 pr-3">Fingerlings</th>
+                    <th className="py-1.5">PCIC Insured</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {cycle.units.map(u => {
+                    const hasDims = u.length_m != null && u.width_m != null
+                    const form = resolveMediaUrl(u.pcic_form_photo)
+                    return (
+                      <tr key={u.id}>
+                        <td className="py-2 pr-3 font-medium text-slate-800">
+                          <span className="flex items-center gap-2">
+                            {label} {u.unit_number}
+                            {forcedByUnit[u.id] && <ForcedHarvestedStatus harvestId={forcedByUnit[u.id]} />}
+                          </span>
+                        </td>
+                        <td className="py-2 pr-3 text-slate-600">
+                          {hasDims ? `${fmt(u.length_m)}m × ${fmt(u.width_m)}m · ` : ''}{fmt(u.size_sqm)} sq.m.
+                        </td>
+                        <td className="py-2 pr-3 text-slate-600">{fmt(u.fingerling_count)}</td>
+                        <td className="py-2">
+                          <span className="inline-flex items-center gap-2">
+                            <PcicCheck insured={u.has_pcic_insurance} />
+                            {u.has_pcic_insurance && (form
+                              ? <a href={form} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-[#1B4D2E] underline">View form <ExternalLink size={12} aria-hidden="true" /></a>
+                              : <span className="text-xs text-slate-400">No form on file</span>)}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
             <div className="mt-2 space-y-0.5 border-t border-slate-100 pt-2 text-sm font-semibold text-slate-800">
               <div className="flex justify-between"><span>Total Area</span><span>{fmt(totalArea)} sq.m.</span></div>
               <div className="flex justify-between"><span>Total Actual Fingerlings</span><span>{fmt(totalActual)}</span></div>
@@ -244,6 +235,11 @@ export function CycleInfoSummary({ cycle, hideStatus = false }) {
   )
 }
 
+// Each pond/cage's saved PCIC insurance as the form state ({ insured, file, url }) the edit form changes, by unit id.
+function unitPcicStates(cycle) {
+  return Object.fromEntries((cycle.units || []).map(u => [u.id, pcicStateFrom(u)]))
+}
+
 function CycleInfoTab({ cycle, onRefresh }) {
   const { showToast } = useToast()
   const [editMode, setEditMode] = useState(false)
@@ -257,9 +253,12 @@ function CycleInfoTab({ cycle, onRefresh }) {
   // Ownership and PCIC insurance load from the saved cycle each time the form opens, and are only sent when they were changed,
   // so editing anything else never erases the owner details, the insurance or its document.
   const [owner, setOwner] = useState(() => ownershipFrom(cycle))
-  const [pcic, setPcic] = useState(() => pcicStateFrom(cycle))
+  const [unitPcic, setUnitPcic] = useState(() => unitPcicStates(cycle))
   const [isSaving, setIsSaving] = useState(false)
-  const openEdit = () => { setOwner(ownershipFrom(cycle)); setPcic(pcicStateFrom(cycle)); setEditMode(true) }
+  const units = cycle.units || []
+  const unitNoun = units[0]?.unit_type === 'cage' ? 'Cage' : 'Pond'
+  const unitName = (u) => `${u.unit_type === 'cage' ? 'Cage' : 'Pond'} ${u.unit_number}`
+  const openEdit = () => { setOwner(ownershipFrom(cycle)); setUnitPcic(unitPcicStates(cycle)); setEditMode(true) }
 
   const handleSave = async (e) => {
     e.preventDefault()
@@ -268,13 +267,13 @@ function CycleInfoTab({ cycle, onRefresh }) {
       const problem = ownershipProblem(owner)
       if (problem) { showToast(problem, 'error'); return }
     }
-    const insuredBefore = !!cycle.has_pcic_insurance
-    const insuranceChanged = pcic.insured !== insuredBefore
-    // A document is asked for when the insurance is newly ticked (as when a cycle is started); an older insured cycle without one
-    // can still be edited.
-    if (pcic.insured && !insuredBefore) {
-      const problem = pcicError(pcic)
-      if (problem) { showToast(problem, 'error'); return }
+    // A document is asked for when a pond/cage's insurance is newly ticked (as when a cycle is started); an older insured pond/cage
+    // without one can still be edited.
+    for (const u of units) {
+      if (unitPcic[u.id]?.insured && !u.has_pcic_insurance) {
+        const problem = pcicError(unitPcic[u.id])
+        if (problem) { showToast(`${unitName(u)}: ${problem[0].toLowerCase()}${problem.slice(1)}`, 'error'); return }
+      }
     }
     setIsSaving(true)
     try {
@@ -284,11 +283,20 @@ function CycleInfoTab({ cycle, onRefresh }) {
         actual_harvest_date: form.actual_harvest_date || null,
         area_cage_harvested: form.area_cage_harvested || '',
         ...(ownerChanged ? ownershipPayload(owner) : {}),
-        ...(insuranceChanged ? { has_pcic_insurance: pcic.insured } : {}),
       })
-      let photoFailed = false
-      try { await uploadPcicForm(api, 'stocking', cycle.stocking_record_id, pcic) } catch { photoFailed = true }
-      if (photoFailed) showToast('Cycle updated, but the PCIC form photo could not be uploaded. Try again.', 'error')
+      // Each pond/cage keeps its own insurance: save the boxes that changed, then upload a newly chosen form photo.
+      const failed = []
+      for (const u of units) {
+        const next = unitPcic[u.id]
+        if (!next) continue
+        try {
+          if (next.insured !== !!u.has_pcic_insurance) await api.patch(`/monitoring/aquaculture-units/${u.id}/`, { has_pcic_insurance: next.insured })
+          await uploadPcicForm(api, 'unit', u.id, next)
+        } catch {
+          failed.push(unitName(u))
+        }
+      }
+      if (failed.length) showToast(`Cycle updated, but the PCIC insurance could not be saved for ${failed.join(', ')}. Try again.`, 'error')
       else showToast('Cycle updated.', 'success')
       setEditMode(false)
       onRefresh()
@@ -327,9 +335,18 @@ function CycleInfoTab({ cycle, onRefresh }) {
             <label className={labelCls}>Notes</label>
             <textarea className={baseInputClasses} rows={2} value={form.notes} onChange={e => setForm(f => ({...f, notes: e.target.value}))} />
           </div>
-          {cycle.stocking_record_id && (
-            <div className="sm:col-span-2">
-              <PcicInsuranceField value={pcic} onChange={setPcic} subject="stocking" />
+          {units.length > 0 && (
+            <div className="sm:col-span-2 space-y-2">
+              <p className={labelCls}>PCIC insurance of each {unitNoun.toLowerCase()}</p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {units.map(u => (
+                  <div key={u.id} className="rounded-xl border border-slate-200 p-2">
+                    <p className="mb-1 text-xs font-semibold text-slate-700">{unitName(u)}</p>
+                    <PcicInsuranceField compact value={unitPcic[u.id] || { insured: false, file: null, url: '' }}
+                      onChange={(next) => setUnitPcic(prev => ({ ...prev, [u.id]: next }))} subject={unitNoun.toLowerCase()} />
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
