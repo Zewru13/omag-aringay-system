@@ -4,7 +4,7 @@ import api from '../../api/axiosInstance.js'
 import BARANGAYS from '../../constants/barangays.js'
 import Button from '../../components/UI/Button.jsx'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
-import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
+import FormField, { FormLabel, baseInputClasses } from '../../components/UI/FormField.jsx'
 import IdNumberInput from '../../components/UI/IdNumberInput.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -69,6 +69,13 @@ function EditParcelModal({ parcel, onClose, onSuccess }) {
     >
       <form id="edit-parcel-form" onSubmit={submit} className="space-y-4" noValidate>
         {errors.general && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700">{errors.general}</p>}
+
+        <div>
+          <FormLabel hideIndicator>Farmer</FormLabel>
+          <input className={`${baseInputClasses} disabled:cursor-not-allowed disabled:bg-[#F5F7F5] disabled:text-[#4A5E4A]`} value={parcel.farmer_name || ''} disabled readOnly
+            title="The farmer of a parcel cannot be changed" />
+          <p className="mt-1 text-[11px] text-[#7A8E7A]">The farmer of a parcel cannot be changed.</p>
+        </div>
 
         <FormField label="Parcel number" error={errors.parcel_number}>
           <IdNumberInput groups={PARCEL_NUMBER_GROUPS} maxDigits={PARCEL_NUMBER_DIGITS} value={form.parcel_number}

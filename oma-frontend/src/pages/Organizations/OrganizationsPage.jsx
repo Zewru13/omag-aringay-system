@@ -8,7 +8,9 @@ import PageLayout from '../../components/Layout/PageLayout.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import PrintReportButton from '../../components/PrintReportButton.jsx'
 import BarangaySelect from '../../components/UI/BarangaySelect.jsx'
+import DateRangeFields from '../../components/UI/DateRangeFields.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
+import { dateRangeParams } from '../../utils/dateRange.js'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import CreateOrganizationModal from './CreateOrganizationModal.jsx'
@@ -31,6 +33,8 @@ function OrganizationsPage({ asTab = false }) {
   const [isLoading, setIsLoading] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [barangay, setBarangay] = useState('')
+  const [registeredFrom, setRegisteredFrom] = useState('')
+  const [registeredTo, setRegisteredTo] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
   const [editOrganization, setEditOrganization] = useState(null)
@@ -38,7 +42,7 @@ function OrganizationsPage({ asTab = false }) {
 
   useEffect(() => {
     setPage(1)
-  }, [searchQuery, barangay])
+  }, [searchQuery, barangay, registeredFrom, registeredTo])
 
   useEffect(() => {
     let cancelled = false
@@ -48,6 +52,7 @@ function OrganizationsPage({ asTab = false }) {
         const params = new URLSearchParams()
         if (searchQuery) params.append('search', searchQuery)
         if (barangay) params.append('barangay', barangay)
+        Object.entries(dateRangeParams(registeredFrom, registeredTo, 'registered_from', 'registered_to')).forEach(([k, v]) => params.append(k, v))
         params.set('page', page)
         const response = await api.get(`/organizations/farmers/?${params.toString()}`)
         if (!cancelled) {
@@ -62,7 +67,7 @@ function OrganizationsPage({ asTab = false }) {
     }
     load()
     return () => { cancelled = true }
-  }, [searchQuery, barangay, page, refreshKey])
+  }, [searchQuery, barangay, registeredFrom, registeredTo, page, refreshKey])
 
   const handleRowClick = (row) => {
     navigate(`/organizations/farmers/${row.id}`)
@@ -85,7 +90,7 @@ function OrganizationsPage({ asTab = false }) {
 
   const actionBtn = (isAdmin || isEvaluator) ? (
     <div className="flex flex-wrap items-center gap-2">
-      <PrintReportButton kind="farmers_orgs" filters={{ search: searchQuery, barangay }} />
+      <PrintReportButton kind="farmers_orgs" filters={{ search: searchQuery, barangay, registeredFrom, registeredTo }} />
       <button
         className="flex items-center gap-1.5 border border-[#E2E8E2] hover:bg-[#F0F4F0] text-[#1B4D2E] text-[13px] font-medium px-4 py-2 rounded-lg transition-colors"
         onClick={() => setShowImportModal(true)}
@@ -111,11 +116,12 @@ function OrganizationsPage({ asTab = false }) {
         search={searchQuery}
         onSearchChange={setSearchQuery}
         searchPlaceholder="Search organizations by name or address..."
-        activeCount={barangay ? 1 : 0}
+        activeCount={[barangay, registeredFrom, registeredTo].filter(Boolean).length}
       >
         <div className="w-full sm:w-44">
           <BarangaySelect value={barangay} onChange={(e) => setBarangay(e.target.value)} includeAllOption />
         </div>
+        <DateRangeFields label="Registered" from={registeredFrom} to={registeredTo} onFromChange={setRegisteredFrom} onToChange={setRegisteredTo} />
       </FilterPanel>
 
       <DataTable

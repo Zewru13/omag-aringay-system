@@ -21,11 +21,13 @@ export const GROUP_OPTIONS = [
 export const DEFAULT_GROUP = 'none'
 
 // The parcel list's request: only what is typed or chosen is sent.
-export function directoryParams({ search, barangay, pcic, page } = {}) {
+// `planted` is the Date Planted range already as request params ({ planted_from, planted_to }, see utils/dateRange.js).
+export function directoryParams({ search, barangay, pcic, planted, page } = {}) {
   const params = { page: page || 1 }
   if (typed(search)) params.search = typed(search)
   if (barangay) params.barangay = barangay
   if (pcic) params.pcic = pcic
+  Object.assign(params, planted)
   return params
 }
 
@@ -57,11 +59,12 @@ export function groupSummary(group) {
 export const groupHeading = (groupBy, group) => (groupBy === 'farmer' && group.barangay ? `${group.name} · ${group.barangay}` : group.name)
 
 // The crops with no parcel on file (older records, organization crops). A parcel filter does not apply to them.
-export function noParcelParams({ search, barangay, pcic } = {}) {
+export function noParcelParams({ search, barangay, pcic, planted } = {}) {
   const params = { farm_parcel: 'none' }
   if (typed(search)) params.search = typed(search)
   if (barangay) params.barangay = barangay
   if (pcic) params.pcic = pcic
+  Object.assign(params, planted)
   return params
 }
 

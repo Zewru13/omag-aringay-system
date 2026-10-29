@@ -142,12 +142,15 @@ class FarmParcelSerializer(serializers.ModelSerializer):
     machinery = FarmMachinerySerializer(many=True, read_only=True)
     # The hectares of the plantings growing on the parcel now (Planted, Near Harvest): what the Add Crop form subtracts from its area.
     growing_area_ha = serializers.SerializerMethodField()
+    # Shown (disabled) in the Edit Parcel form: the farmer of a parcel cannot be changed.
+    farmer_name = serializers.CharField(source='farmer.full_name', read_only=True)
 
     class Meta:
         model = FarmParcel
         fields = [
             'id',
             'farmer',
+            'farmer_name',
             'parcel_number',
             'area_hectares',
             'land_ownership',
@@ -164,7 +167,7 @@ class FarmParcelSerializer(serializers.ModelSerializer):
             'machinery',
             'growing_area_ha',
         ]
-        read_only_fields = ['id', 'commodity_type', 'commodity_name', 'crops', 'machinery', 'growing_area_ha']
+        read_only_fields = ['id', 'farmer_name', 'commodity_type', 'commodity_name', 'crops', 'machinery', 'growing_area_ha']
         extra_kwargs = {
             'farmer': {'required': False},
         }

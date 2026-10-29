@@ -16,6 +16,8 @@ eq(DISPLAY_STATUSES, ['Due Harvest', 'Ready for Harvest', 'Overdue'], 'display s
 const base = { statusFilter: 'Planted,Near Harvest', season: '', year: '', barangay: '', cropType: '', search: '' }
 eq(monitoringParams(base), { status: 'Planted,Near Harvest' }, 'default filters')
 eq(monitoringParams({ ...base, statusFilter: 'all' }), {}, 'all statuses sends no status')
+eq(monitoringParams({ ...base, statusFilter: 'all', plantedFrom: '2026-05-01', plantedTo: '2026-06-30' }), { planted_from: '2026-05-01', planted_to: '2026-06-30' }, 'the Date Planted range is sent')
+eq(monitoringParams({ ...base, statusFilter: 'all', plantedFrom: '2026-07-01', plantedTo: '2026-06-01' }), {}, 'a reversed range is not sent')
 eq(monitoringParams({ ...base, pcic: 'insured' }), { status: 'Planted,Near Harvest', pcic: 'insured' }, 'the PCIC filter is sent')
 eq(monitoringParams({ ...base, pcic: 'not_insured' }).pcic, 'not_insured', 'not insured')
 eq(monitoringParams({ ...base, pcic: '' }), { status: 'Planted,Near Harvest' }, 'all PCIC sends nothing')

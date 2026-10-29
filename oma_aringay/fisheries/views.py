@@ -25,7 +25,7 @@ from accounts.permissions import (
 from accounts.utils import create_inactive_citizen_shell
 from core.locking import assert_not_locked_by_other
 from core.notifications import notify_staff, notify_user, resolve_owner_user
-from core.utils import accumulate_yield_group, build_name_search_q, day_range_bounds, filter_people_search, harvest_gate_status, is_plain_int, new_yield_group
+from core.utils import accumulate_yield_group, build_name_search_q, day_range_bounds, filter_date_range, filter_people_search, harvest_gate_status, is_plain_int, new_yield_group
 from core.idnumbers import by_id_key
 from core.photos import discard_uploaded_files, validated_photos
 from core.validators import validate_uploaded_image
@@ -555,6 +555,9 @@ class StockingListView(generics.ListAPIView):
             qs = qs.filter(species_id=params['species'])
         if params.get('barangay'):
             qs = qs.filter(pond_location_barangay__iexact=params['barangay'])
+        # Date stocked: ?stocked_from= and ?stocked_to= (YYYY-MM-DD, both ends included). (date_from / date_to below are the
+        # forecast's expected-harvest window.)
+        qs = filter_date_range(qs, 'date_stocked', params, 'stocked_from', 'stocked_to')
         pond = (params.get('pond') or '').strip()
         if pond:
             qs = qs.filter(stocking_pond_q(pond))
@@ -1869,6 +1872,8 @@ class FishingTripLogListCreateView(generics.ListCreateAPIView):
             qs = qs.filter(trip_date__year=params['year'])
         if params.get('barangay'):
             qs = qs.filter(fisherfolk__barangay=params['barangay'])
+        # Trip date: ?trip_from= and ?trip_to= (YYYY-MM-DD, both ends included).
+        qs = filter_date_range(qs, 'trip_date', params, 'trip_from', 'trip_to')
         return qs
 
     def create(self, request, *args, **kwargs):
@@ -1950,6 +1955,8 @@ class FishingTripSummaryView(APIView):
                 )
         if barangay:
             qs = qs.filter(fisherfolk__barangay=barangay)
+        # The same Trip Date range as the trip list, so the summary always describes the trips the table shows.
+        qs = filter_date_range(qs, 'trip_date', request.query_params, 'trip_from', 'trip_to')
 
         # By barangay
         by_barangay_qs = (

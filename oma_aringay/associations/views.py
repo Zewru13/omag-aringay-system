@@ -23,7 +23,7 @@ from accounts.utils import (
 )
 from farmers.models import Farmer
 from farmers.rsbsa_import import normalize_barangay
-from core.utils import build_name_search_q, is_plain_int
+from core.utils import build_name_search_q, filter_date_range, is_plain_int
 from core.validators import normalize_contact_number
 from fisheries.models import Fisherfolk
 from interventions.lifecycle import notify_assistance_recorded
@@ -192,6 +192,7 @@ class FarmersOrganizationListCreateView(generics.ListCreateAPIView):
         barangay = self.request.query_params.get('barangay', '').strip()
         if barangay:
             qs = qs.filter(barangay__iexact=barangay)
+        qs = filter_date_range(qs, 'date_registered', self.request.query_params, 'registered_from', 'registered_to')
         return qs
 
     def perform_create(self, serializer):
@@ -544,6 +545,7 @@ class FisherfolkOrganizationListCreateView(generics.ListCreateAPIView):
         barangay = self.request.query_params.get('barangay', '').strip()
         if barangay:
             qs = qs.filter(barangay__iexact=barangay)
+        qs = filter_date_range(qs, 'date_registered', self.request.query_params, 'registered_from', 'registered_to')
         # Only organizations this fisherfolk is an active member of (the real join table). For a fisherfolk
         # citizen this is always their OWN membership, whatever `fisherfolk` the request names.
         owner = fisherfolk_scope(self.request.user)

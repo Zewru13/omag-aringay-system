@@ -10,6 +10,11 @@ import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
+import DateRangeFields from '../../components/UI/DateRangeFields.jsx'
+import ListPrintButton from '../../components/ListPrintButton.jsx'
+import { dateRangeParams } from '../../utils/dateRange.js'
+import { fetchAllRows } from '../../utils/listReport.js'
+import { captureReport, rangeFilter } from './listReports.js'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
@@ -324,6 +329,8 @@ export default function FisheriesMonitoringPage() {
 
   const [barangay, setBarangay] = useState('')
   const [year, setYear]     = useState('')
+  const [tripFrom, setTripFrom] = useState('')
+  const [tripTo, setTripTo]     = useState('')
 
   const [catchLogs, setCatchLogs]       = useState([])
   const [catchSummary, setCatchSummary] = useState(null)
@@ -344,6 +351,7 @@ export default function FisheriesMonitoringPage() {
       const params = new URLSearchParams()
       if (barangay) params.set('barangay', barangay)
       if (year) params.set('year', year)
+      Object.entries(dateRangeParams(tripFrom, tripTo, 'trip_from', 'trip_to')).forEach(([k, v]) => params.set(k, v))
       const [logsRes, summaryRes] = await Promise.all([
         api.get(`/fisheries/fishing-trips/?${params}`),
         api.get(`/fisheries/fishing-trips/summary/?${params}`),
@@ -352,7 +360,15 @@ export default function FisheriesMonitoringPage() {
       setCatchSummary(summaryRes.data)
     } catch { setErrorCatch('Failed to load catch logs.') }
     finally { setIsLoadingCatch(false) }
-  }, [barangay, year])
+  }, [barangay, year, tripFrom, tripTo])
+
+  // Print Report: every fishing trip the filters match, with what it was filtered by.
+  const buildCaptureReport = async () => {
+    const trips = await fetchAllRows(api, '/fisheries/fishing-trips/', {
+      ...(barangay ? { barangay } : {}), ...(year ? { year } : {}), ...dateRangeParams(tripFrom, tripTo, 'trip_from', 'trip_to'),
+    })
+    return captureReport({ trips, filters: [rangeFilter('Trip Date', tripFrom, tripTo), ['Barangay', barangay], ['Year', year]] })
+  }
 
   useEffect(() => { if (subTab === 'capture') fetchCatch() }, [subTab, fetchCatch])
 
@@ -410,9 +426,10 @@ export default function FisheriesMonitoringPage() {
         {subTab !== 'stocking' && (
           <>
             <FilterPanel
-              activeCount={[barangay, year].filter(Boolean).length}
+              activeCount={[barangay, year, tripFrom, tripTo].filter(Boolean).length}
               actions={subTab === 'capture' && (
                 <>
+                  <ListPrintButton build={buildCaptureReport} />
                   <Button variant="outline" onClick={() => setShowFisheriesHistory(true)}>
                     <History size={15} className="mr-1" /> Historical Timeline
                   </Button>
@@ -436,6 +453,7 @@ export default function FisheriesMonitoringPage() {
                 <option value="">All Years</option>
                 {YEARS.map((y) => <option key={y} value={y}>{y}</option>)}
               </select>
+              <DateRangeFields label="Trip" from={tripFrom} to={tripTo} onFromChange={setTripFrom} onToChange={setTripTo} />
             </FilterPanel>
           </>
         )}

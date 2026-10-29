@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import useIsPhone from '../../hooks/useIsPhone.js';
 import useDebouncedValue from "../../hooks/useDebouncedValue.js";
 import {
@@ -8,7 +8,6 @@ import {
   MessageCircle,
   Pencil,
   Plus,
-  Search,
   Upload,
   User,
   Zap,
@@ -27,6 +26,11 @@ import ErrorMessage from "../../components/UI/ErrorMessage.jsx";
 import EditParcelModal from "../Farmers/EditParcelModal.jsx";
 import ForceHarvestParcelModal from "./ForceHarvestParcelModal.jsx";
 import FilterPanel from "../../components/UI/FilterPanel.jsx";
+import DateRangeFields from "../../components/UI/DateRangeFields.jsx";
+import ListPrintButton from "../../components/ListPrintButton.jsx";
+import { dateRangeParams } from "../../utils/dateRange.js";
+import { fetchAllRows } from "../../utils/listReport.js";
+import { parcelRecordsReport, rangeFilter } from "../Monitoring/listReports.js";
 import HarvestVarianceBadge from "../../components/UI/HarvestVarianceBadge.jsx";
 import FormField, { baseInputClasses } from "../../components/UI/FormField.jsx";
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
@@ -373,20 +377,12 @@ const editLabelCls = "block text-[13px] font-medium text-[#4A5E4A] mb-1.5";
 function EditCropModal({ record, onClose, onSaved }) {
   const { showToast } = useToast();
 
-  // Farmer search
-  const [farmerQuery, setFarmerQuery] = useState(record.farmer_name || "");
-  const [farmerResults, setFarmerResults] = useState([]);
-  const [searchingFarmer, setSearchingFarmer] = useState(false);
-  const [showFarmerDrop, setShowFarmerDrop] = useState(false);
-  const [selectedFarmer, setSelectedFarmer] = useState({
+  // The farmer of a crop record cannot be changed: the form shows it, disabled.
+  const selectedFarmer = {
     farmer_id: record.farmer || null,
     farmer_full_name: record.farmer_name || "",
-    farmer_home_barangay: "",
     farmer_assoc_id: record.farmers_organization || null,
-    farmer_assoc_name: record.organization_name || "",
-  });
-  const farmerWrapperRef = useRef(null);
-  const farmerDebounceRef = useRef(null);
+  };
 
   // Crop types (for harvest preview)
   const [cropTypes, setCropTypes] = useState([]);
@@ -423,7 +419,7 @@ function EditCropModal({ record, onClose, onSaved }) {
   const isDirty =
     Object.keys(originalData).some(
       (k) => normalize(form[k]) !== normalize(originalData[k]),
-    ) || selectedFarmer.farmer_id !== (record.farmer || null)
+    )
     || pcic.insured !== !!record.has_pcic_insurance || !!pcic.file;
 
   useEffect(() => {
@@ -433,20 +429,6 @@ function EditCropModal({ record, onClose, onSaved }) {
         setCropTypes(Array.isArray(r.data) ? r.data : r.data.results || []);
       })
       .catch(() => {});
-  }, []);
-
-  // Close farmer dropdown on outside click
-  useEffect(() => {
-    const handler = (e) => {
-      if (
-        farmerWrapperRef.current &&
-        !farmerWrapperRef.current.contains(e.target)
-      ) {
-        setShowFarmerDrop(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
@@ -469,48 +451,6 @@ function EditCropModal({ record, onClose, onSaved }) {
       parseFloat(form.area_planted_ha) * parseFloat(cropType.yield_per_ha_kg)
     );
   }, [form.area_planted_ha, cropType]);
-
-  // Farmer search handlers
-  const handleFarmerQueryChange = (e) => {
-    const q = e.target.value;
-    setFarmerQuery(q);
-    setSelectedFarmer((f) => ({ ...f, farmer_id: null, farmer_full_name: "" }));
-    clearTimeout(farmerDebounceRef.current);
-    if (!q.trim()) {
-      setFarmerResults([]);
-      setShowFarmerDrop(false);
-      return;
-    }
-    farmerDebounceRef.current = setTimeout(async () => {
-      setSearchingFarmer(true);
-      try {
-        const r = await api.get("/farmers/", { params: { search: q } });
-        const list = Array.isArray(r.data) ? r.data : r.data.results || [];
-        setFarmerResults(list.slice(0, 8));
-        setShowFarmerDrop(true);
-      } catch {
-        setFarmerResults([]);
-      } finally {
-        setSearchingFarmer(false);
-      }
-    }, 300);
-  };
-
-  const handleFarmerSelect = (farmer) => {
-    setSelectedFarmer({
-      farmer_id: farmer.id,
-      farmer_full_name: farmer.full_name,
-      farmer_home_barangay: farmer.barangay || "",
-      farmer_assoc_id: farmer.organization_id || null,
-      farmer_assoc_name: farmer.organization_name || "",
-    });
-    setFarmerQuery(farmer.full_name);
-    setFarmerResults([]);
-    setShowFarmerDrop(false);
-    if (farmer.barangay && !form.farm_location_barangay) {
-      set("farm_location_barangay", farmer.barangay);
-    }
-  };
 
   const detectSeason = (dateStr) => {
     if (!dateStr) return form.season;
@@ -617,68 +557,22 @@ function EditCropModal({ record, onClose, onSaved }) {
       }
     >
       <form id="edit-crop-record-form" onSubmit={handleSubmit} className="space-y-4">
-        {/* Farmer Search */}
-        <div ref={farmerWrapperRef} className="relative">
-          <label className={editLabelCls}>
-            Farmer <span className="text-rose-500">*</span>
-          </label>
+        {/* Farmer: shown, never changed */}
+        <div>
+          <label className={editLabelCls}>Farmer</label>
           <div className="relative">
-            <Search
-              size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8BCA8] pointer-events-none"
-            />
+            <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A8BCA8] pointer-events-none" aria-hidden="true" />
             <input
               type="text"
-              className={`${baseInputClasses} pl-8`}
-              placeholder="Search farmer name or RSBSA..."
-              value={farmerQuery}
-              onChange={handleFarmerQueryChange}
-              onFocus={() => {
-                if (farmerResults.length > 0) setShowFarmerDrop(true);
-              }}
+              className={`${baseInputClasses} pl-8 disabled:cursor-not-allowed disabled:bg-[#F5F7F5] disabled:text-[#4A5E4A]`}
+              value={record.farmer_name || ""}
+              disabled
+              readOnly
+              aria-label="Farmer"
+              title="The farmer of a crop record cannot be changed"
             />
-            {searchingFarmer && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin rounded-full border-2 border-[#1B4D2E] border-t-transparent" />
-            )}
           </div>
-          {selectedFarmer.farmer_id && (
-            <div className="mt-1.5 rounded-lg bg-[#EBF5EE] border border-[#C8E6D0] px-3 py-2 flex items-center gap-2">
-              <User size={13} className="text-[#1B4D2E] flex-shrink-0" />
-              <div>
-                <p className="text-[12px] font-semibold text-[#1B4D2E]">
-                  {selectedFarmer.farmer_full_name}
-                </p>
-                {selectedFarmer.farmer_home_barangay && (
-                  <p className="text-[11px] text-[#4A5E4A]">
-                    {selectedFarmer.farmer_home_barangay}
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-          {showFarmerDrop && farmerResults.length > 0 && (
-            <div className="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-[#E2E8E2] rounded-xl shadow-lg max-h-48 overflow-y-auto">
-              {farmerResults.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => handleFarmerSelect(f)}
-                  className="flex items-center gap-2.5 w-full px-3 py-2.5 text-left hover:bg-[#EBF5EE] transition-colors"
-                >
-                  <User size={13} className="text-[#7A8E7A] flex-shrink-0" />
-                  <div>
-                    <p className="text-[13px] font-medium text-[#1A2B1A]">
-                      {f.full_name}
-                    </p>
-                    <p className="text-[11px] text-[#7A8E7A]">
-                      {f.rsbsa_number || ""} · {f.barangay || ""}
-                    </p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
+          <p className="mt-1 text-[11px] text-[#7A8E7A]">The farmer of a crop record cannot be changed.</p>
         </div>
 
         {/* Crop Type — read-only */}
@@ -1062,17 +956,19 @@ function CropRowActionsMenu({ rec, handlers }) {
 
 // `params` are the extra filters for the crop list; the parcel itself is `farm_parcel`. A crop edited elsewhere on the page
 // bumps `version`, which loads the list again.
-function useParcelCrops(parcelId, search, barangay, pcic, version) {
+function useParcelCrops(parcelId, search, barangay, pcic, planted, version) {
   const [state, setState] = useState({ key: "", items: [], count: 0, page: 0, failed: false });
   const [loadingMore, setLoadingMore] = useState(false);
-  const key = JSON.stringify([parcelId, search, barangay, pcic, version]);
+  const plantedKey = JSON.stringify(planted);
+  const key = JSON.stringify([parcelId, search, barangay, pcic, plantedKey, version]);
 
   const request = useCallback(
     (page) => {
-      const params = parcelId === "none" ? noParcelParams({ search, barangay, pcic }) : { farm_parcel: parcelId, ...(pcic ? { pcic } : {}) };
+      const params = parcelId === "none" ? noParcelParams({ search, barangay, pcic, planted }) : { farm_parcel: parcelId, ...(pcic ? { pcic } : {}), ...planted };
       return api.get("/production/monitoring/", { params: { ...params, page } });
     },
-    [parcelId, search, barangay, pcic],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `planted` is compared by its plantedKey
+    [parcelId, search, barangay, pcic, plantedKey],
   );
 
   useEffect(() => {
@@ -1127,8 +1023,10 @@ function cropCells(rec) {
   };
 }
 
-function ParcelCrops({ parcelId, search, barangay, pcic = "", version, isPhone, handlers, emptyText }) {
-  const { items, count, isLoading, failed, loadingMore, loadMore } = useParcelCrops(parcelId, search, barangay, pcic, version);
+const NO_DATES = {};
+
+function ParcelCrops({ parcelId, search, barangay, pcic = "", planted = NO_DATES, version, isPhone, handlers, emptyText }) {
+  const { items, count, isLoading, failed, loadingMore, loadMore } = useParcelCrops(parcelId, search, barangay, pcic, planted, version);
 
   if (isLoading) return <p className="px-4 py-4 text-[13px] italic text-[#7A8E7A]">Loading crop records…</p>;
   if (failed) return <p className="px-4 py-4 text-[13px] text-rose-700">Failed to load the crop records for this parcel.</p>;
@@ -1329,22 +1227,24 @@ const PARCEL_COLUMNS = ["Parcel", "Farmer", "Barangay", "Area (ha)", "Ownership"
 
 // ─── The crops with no parcel on file (older records and organization crops) ─────────────────────────────────────────
 
-function NoParcelGroup({ search, barangay, pcic = "", version, isPhone, handlers }) {
+function NoParcelGroup({ search, barangay, pcic = "", planted = NO_DATES, version, isPhone, handlers }) {
   const [open, setOpen] = useState(false);
   // Only the count is needed until it is opened; the list loads itself then.
   const [count, setCount] = useState({ key: "", value: 0 });
-  const key = JSON.stringify([search, barangay, pcic, version]);
+  const plantedKey = JSON.stringify(planted);
+  const key = JSON.stringify([search, barangay, pcic, plantedKey, version]);
 
   useEffect(() => {
     let alive = true;
     api
-      .get("/production/monitoring/", { params: { ...noParcelParams({ search, barangay, pcic }), page: 1 } })
+      .get("/production/monitoring/", { params: { ...noParcelParams({ search, barangay, pcic, planted }), page: 1 } })
       .then((r) => alive && setCount({ key, value: typeof r.data?.count === "number" ? r.data.count : (r.data?.length ?? 0) }))
       .catch(() => alive && setCount({ key, value: 0 }));
     return () => {
       alive = false;
     };
-  }, [key, search, barangay, pcic]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `planted` is compared by its plantedKey
+  }, [key, search, barangay, pcic, plantedKey]);
 
   if (count.key !== key || count.value === 0) return null;
 
@@ -1364,7 +1264,7 @@ function NoParcelGroup({ search, barangay, pcic = "", version, isPhone, handlers
       </button>
       {open && (
         <div className="border-t border-[#F0F4F0] bg-[#F9FAF9]">
-          <ParcelCrops parcelId="none" search={search} barangay={barangay} pcic={pcic} version={version} isPhone={isPhone} handlers={handlers} emptyText="No crop records." />
+          <ParcelCrops parcelId="none" search={search} barangay={barangay} pcic={pcic} planted={planted} version={version} isPhone={isPhone} handlers={handlers} emptyText="No crop records." />
         </div>
       )}
     </section>
@@ -1379,6 +1279,9 @@ export default function CropInformationPage() {
   const [search, setSearch] = useState("");
   const [barangay, setBarangay] = useState("");
   const [pcic, setPcic] = useState("");
+  const [plantedFrom, setPlantedFrom] = useState("");
+  const [plantedTo, setPlantedTo] = useState("");
+  const planted = dateRangeParams(plantedFrom, plantedTo, "planted_from", "planted_to");
   const [groupBy, setGroupBy] = useState(DEFAULT_GROUP);
   const [page, setPage] = useState(1);
   const [version, setVersion] = useState(0);
@@ -1395,7 +1298,7 @@ export default function CropInformationPage() {
   // replace the one for what is typed now (the answer is stored with the request it belongs to).
   const debouncedSearch = useDebouncedValue(search.trim());
   const grouped = groupBy !== DEFAULT_GROUP;
-  const requestKey = JSON.stringify([debouncedSearch, barangay, pcic, page, version]);
+  const requestKey = JSON.stringify([debouncedSearch, barangay, pcic, planted, page, version]);
   const [result, setResult] = useState({ key: "", rows: [], count: 0, failed: false });
 
   useEffect(() => {
@@ -1403,7 +1306,7 @@ export default function CropInformationPage() {
     if (grouped) return undefined;
     let alive = true;
     api
-      .get("/farmers/parcels/directory/", { params: directoryParams({ search: debouncedSearch, barangay, pcic, page }) })
+      .get("/farmers/parcels/directory/", { params: directoryParams({ search: debouncedSearch, barangay, pcic, planted, page }) })
       .then((r) => {
         if (!alive) return;
         const rows = Array.isArray(r.data) ? r.data : r.data.results || [];
@@ -1413,6 +1316,7 @@ export default function CropInformationPage() {
     return () => {
       alive = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `planted` is part of requestKey
   }, [requestKey, debouncedSearch, barangay, pcic, page, grouped]);
 
   const isLoading = result.key !== requestKey;
@@ -1432,11 +1336,25 @@ export default function CropInformationPage() {
     setPage(1);
   };
 
-  const groupFilters = groupFilterParams({ search: debouncedSearch, barangay, pcic });
-  const cropProps = { search: debouncedSearch, barangay, pcic, version, handlers };
+  const groupFilters = groupFilterParams({ search: debouncedSearch, barangay, pcic, planted });
+  const cropProps = { search: debouncedSearch, barangay, pcic, planted, version, handlers };
   // Parcel crop lists are not filtered by the typed search (the search chose the parcels), but they are by PCIC insurance, like the parcels
   // and counts; only the no-parcel group is also filtered by the search.
-  const parcelCropProps = { search: "", barangay: "", pcic, version, handlers };
+  const parcelCropProps = { search: "", barangay: "", pcic, planted, version, handlers };
+
+  // Print Report: every parcel the filters match (grouping only changes how they are shown), with how many crops sit on each.
+  const buildReport = async () => {
+    const all = await fetchAllRows(api, "/farmers/parcels/directory/", directoryParams({ search: debouncedSearch, barangay, pcic, planted }));
+    return parcelRecordsReport({
+      parcels: all,
+      filters: [
+        rangeFilter("Date Planted", plantedFrom, plantedTo),
+        ["Barangay", barangay],
+        ["PCIC", PCIC_FILTER_OPTIONS.find((o) => o.value && o.value === pcic)?.label || ""],
+        ["Search", debouncedSearch],
+      ],
+    });
+  };
 
   // The parcels as cards on a phone and as a table otherwise: the plain list and every opened group use this.
   const renderParcels = (rows) =>
@@ -1477,9 +1395,10 @@ export default function CropInformationPage() {
           search={search}
           onSearchChange={changeFilter(setSearch)}
           searchPlaceholder="Search by farmer, RSBSA, or parcel number..."
-          activeCount={[Boolean(barangay), Boolean(pcic), grouped].filter(Boolean).length}
+          activeCount={[Boolean(barangay), Boolean(pcic), Boolean(plantedFrom), Boolean(plantedTo), grouped].filter(Boolean).length}
           actions={
             <>
+              <ListPrintButton build={buildReport} />
               <Button variant="outline" icon={Upload} onClick={() => setIsImporting(true)}>
                 Import Farm Parcels
               </Button>
@@ -1502,6 +1421,7 @@ export default function CropInformationPage() {
               </option>
             ))}
           </select>
+          <DateRangeFields label="Planted" from={plantedFrom} to={plantedTo} onFromChange={changeFilter(setPlantedFrom)} onToChange={changeFilter(setPlantedTo)} />
           <select className={filterSelectCls} value={groupBy} onChange={(e) => changeFilter(setGroupBy)(e.target.value)} aria-label="Group by">
             {GROUP_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
