@@ -36,8 +36,8 @@ export const makeCropRecord = (n) => ({
 export function cropRecordMissing(rec, { needsBarangay = true } = {}) {
   const missing = []
   if (needsBarangay && !rec.farm_location_barangay) missing.push('barangay')
-  if (!rec.land_status) missing.push('crop status')
-  else if (needsLandOwner(rec.land_status) && !rec.land_owner_name.trim()) missing.push("crop owner's name")
+  // The status comes from the parcel (withParcelStatus); it is blank only when the parcel has no land ownership recorded.
+  if (!rec.land_status) missing.push("the parcel's land ownership")
   if (!rec.crop_type) missing.push('crop type')
   if (!(rec.variety_used || '').trim()) missing.push('variety')
   if (!rec.date_planted) missing.push('date planted')
@@ -63,7 +63,7 @@ export function buildCropRecordPayload(rec, { farmerInfo, barangay, cropTypes })
     farm_location_barangay: barangay || rec.farm_location_barangay || '',
     land_status:            rec.land_status || '',
     land_status_other_specify: rec.land_status === 'Other' ? (rec.land_status_other_specify || '') : '',
-    land_owner_name:        needsLandOwner(rec.land_status) ? rec.land_owner_name.trim() : '',
+    land_owner_name:        needsLandOwner(rec.land_status) ? (rec.land_owner_name || '').trim() : '',
     crop_type:              rec.crop_type || null,
     season:                 rec.season,
     year,

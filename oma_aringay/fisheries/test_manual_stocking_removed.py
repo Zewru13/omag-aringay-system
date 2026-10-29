@@ -64,23 +64,33 @@ class ManualStockingRemovedTests(APITestCase):
         self.assertEqual(r.status_code, 200)
         self.assertEqual(len(r.data['results']), 1)
 
-    # --- PCIC on Start Production Cycle
-    def test_cycle_records_pcic_insurance_on_its_stocking_record(self):
-        r = self.client.post(CYCLES, self._payload(has_pcic_insurance=True), format='json')
+    # --- PCIC on Start Production Cycle (per pond/cage)
+    def test_cycle_records_pcic_insurance_on_its_stocking_record_when_a_pond_is_insured(self):
+        units = [{'length_m': 4, 'width_m': 2, 'fingerling_count': 20, 'has_pcic_insurance': False},
+                 {'length_m': 5, 'width_m': 2, 'fingerling_count': 30, 'has_pcic_insurance': True}]
+        r = self.client.post(CYCLES, self._payload(units=units), format='json')
         self.assertEqual(r.status_code, 201, r.data)
         record = StockingRecord.objects.get(production_cycle_id=r.data['id'])
         self.assertTrue(record.has_pcic_insurance)
-        # the form uploads the PCIC photo to the stocking record afterwards, so the cycle tells it which one
+        self.assertEqual([u['has_pcic_insurance'] for u in r.data['units']], [False, True])
+        # the form uploads each pond's PCIC photo afterwards, so the cycle tells it which ponds exist
+        self.assertTrue(all(u['id'] for u in r.data['units']))
         self.assertEqual(r.data['stocking_record_id'], record.id)
 
     def test_cycle_without_pcic_is_not_insured(self):
         r = self.client.post(CYCLES, self._payload(), format='json')
         self.assertEqual(r.status_code, 201, r.data)
         self.assertFalse(StockingRecord.objects.get(production_cycle_id=r.data['id']).has_pcic_insurance)
+        self.assertEqual([u['has_pcic_insurance'] for u in r.data['units']], [False])
+
+    def test_a_cycle_wide_pcic_box_is_no_longer_taken(self):
+        r = self.client.post(CYCLES, self._payload(has_pcic_insurance=True), format='json')
+        self.assertEqual(r.status_code, 201, r.data)
+        self.assertFalse(StockingRecord.objects.get(production_cycle_id=r.data['id']).has_pcic_insurance)
 
     def test_pcic_without_a_species_is_rejected(self):
-        data = self._payload(has_pcic_insurance=True)
+        data = self._payload(units=[{'length_m': 4, 'width_m': 2, 'fingerling_count': 20, 'has_pcic_insurance': True}])
         del data['species_option']
         r = self.client.post(CYCLES, data, format='json')
         self.assertEqual(r.status_code, 400)
-        self.assertIn('has_pcic_insurance', r.data)
+        self.assertIn('units', r.data)

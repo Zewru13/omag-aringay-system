@@ -27,7 +27,6 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import { downloadFile } from '../../utils/fileDownload.js'
 import { fmtShortDate } from '../../utils/forecastDates.js'
-import { pcicNameClass } from '../../utils/pcic.js'
 import { possibleFactorsText } from '../../utils/yieldAnalysis.js'
 
 const filterLabelCls = 'block text-[12px] font-medium text-[#4A5E4A] mb-1'
@@ -841,7 +840,7 @@ function AggregatePanel({ groupBy, setGroupBy, groups, overall, cycleTrend, isLo
 export default function ForecastingTab({ asTab = false }) {
   const { showToast } = useToast()
   // Fisherfolk accounts use this same page; the backend returns only their own records.
-  const { isFisherfolk, user: authUser } = useAuth()
+  const { isFisherfolk } = useAuth()
   const [activeTab, setActiveTab] = useState('forecast') // 'forecast' | 'yield_analysis'
   // Yield Analysis data is loaded only once its tab has been opened (not while Forecast is the active tab);
   // after that it reloads only when its own filters change, not on every tab switch.
@@ -969,8 +968,7 @@ export default function ForecastingTab({ asTab = false }) {
   const fcRows = fcFiltered.map(rec => ({
     ...rec,
     _rec: rec,   // the untouched record for the row click / expanded panel
-    // Blue for a PCIC-insured cycle (Admin and Focal Person only): this row's own saved insurance flag, from the same response.
-    fisherfolk_cell: <span className={pcicNameClass(rec, authUser?.role)}>{rec.fisherfolk_name}</span>,
+    fisherfolk_cell: rec.fisherfolk_name,
     species_cell: (
       <span className="inline-flex items-center gap-1.5">
         {fcExpandedId === rec.id

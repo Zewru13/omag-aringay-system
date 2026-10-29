@@ -40,7 +40,7 @@ for (const [label, help] of [['Admin', admin], ['Focal Person', focal]]) {
     ['crops inside the parcel form', 'same as Add Crop Records'],
     ['the Planted default', 'open on Planted'],
     ['crop status and owner', 'Crop Owner'],
-    ['no crop status on an owner parcel', 'every crop on it is the owner'],
+    ['no crop status column', 'its status is the Land Ownership of the farm parcel'],
     ['importing crops into a parcel', 'Import crops'],
     ['adding a parcel', 'press Add Parcel'],
     ['the farmer\'s machinery', 'Machinery belongs to the farmer'],

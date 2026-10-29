@@ -5,7 +5,7 @@
 // they can be tested on their own.
 import { isValidIdNumber } from '../../utils/idNumbers.js'
 import { EMPTY_PCIC, pcicError, pcicPayload } from '../../utils/pcic.js'
-import { withFixedStatus } from '../CropInformation/cropEntry.js'
+import { withParcelStatus } from '../CropInformation/cropEntry.js'
 import { buildCropRecordPayload, cropRecordProblem } from '../Monitoring/cropRecordForm.js'
 
 export const TAX_DECLARATION_RE = /^\d{2}-\d{3}-\d{5}-\d{4}-\d{4}$/
@@ -190,7 +190,7 @@ export function rowProblem(row) {
 const stripStop = (text) => text.replace(/\.$/, '')
 
 export function cropRecordsProblem(row) {
-  const records = (row.crop_records || []).map((r) => ({ ...withFixedStatus(r, row), farm_parcel: String(row._id) }))
+  const records = (row.crop_records || []).map((r) => ({ ...withParcelStatus(r, row), farm_parcel: String(row._id) }))
   const parcels = [{ id: row._id, area_hectares: row.area_hectares, growing_area_ha: 0 }]
   for (let i = 0; i < records.length; i += 1) {
     const problem = cropRecordProblem(records, i, parcels, { needsBarangay: false })
@@ -272,7 +272,7 @@ export function parcelPayload(row, context) {
     classifications: row.classifications || [],
     cropping_schedule: row.cropping_schedule,
     // The server records each crop on this parcel and its farmer, with the parcel's barangay.
-    crop_records: (row.crop_records || []).map((r) => ({ ...buildCropRecordPayload(withFixedStatus(r, row), { ...context, barangay: row.barangay }), farm_parcel: null })),
+    crop_records: (row.crop_records || []).map((r) => ({ ...buildCropRecordPayload(withParcelStatus(r, row), { ...context, barangay: row.barangay }), farm_parcel: null })),
   }
 }
 

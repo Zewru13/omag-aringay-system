@@ -26,15 +26,17 @@ export function materialFor(cropType, chosen) {
 // A Tenant or Lessee crop grows on someone else's land, so it carries that owner's name (as a farm parcel does).
 export const needsLandOwner = (status) => status === 'Tenant' || status === 'Lessee'
 
-// On a parcel the farmer owns, every crop is the owner's own: there is no crop status to choose and no other owner to name.
+// A crop has no status of its own to choose: it is its parcel's land ownership (Owner, Tenant or Lessee), and a Tenant / Lessee crop
+// carries the land owner named on that parcel.
 export const ownerParcel = (parcel) => parcel?.land_ownership === 'Owner'
-export const statusFixedByParcels = (parcels) => parcels.length > 0 && parcels.every(ownerParcel)
+const PARCEL_STATUSES = ['Owner', 'Tenant', 'Lessee']
 
-// The crop as it is recorded on `parcel`: on an Owner parcel its status is Owner (whatever the row held before the parcel's ownership
-// was chosen or changed) and it has no other owner's name; on any other parcel it is left as it is.
-export function withFixedStatus(record, parcel) {
-  if (!ownerParcel(parcel)) return record
-  return { ...record, land_status: 'Owner', land_status_other_specify: '', land_owner_name: '' }
+// The crop as it is recorded on `parcel`: its status and land owner are the parcel's, whatever the row held before. A row whose parcel
+// is not known (or has no ownership) is left as it is.
+export function withParcelStatus(record, parcel) {
+  const status = parcel?.land_ownership
+  if (!PARCEL_STATUSES.includes(status)) return record
+  return { ...record, land_status: status, land_status_other_specify: '', land_owner_name: needsLandOwner(status) ? (parcel.land_owner_name || '') : '' }
 }
 
 // Picking another crop ownership: anything but Tenant / Lessee clears the owner's name, so an outdated one is never saved.

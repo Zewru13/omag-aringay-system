@@ -42,6 +42,7 @@ eq(pcicFormUrl('crop', 7), '/farmers/crops/7/pcic-form/', 'crop')
 eq(pcicFormUrl('pond', 8), '/fisheries/ponds/8/pcic-form/', 'pond')
 eq(pcicFormUrl('stocking', 9), '/fisheries/stocking/9/pcic-form/', 'stocking')
 eq(pcicFormUrl('planting', 10), '/production/monitoring/10/pcic-form/', 'planting')
+eq(pcicFormUrl('unit', 11), '/monitoring/aquaculture-units/11/pcic-form/', 'a pond/cage of a production cycle')
 assert.throws(() => pcicFormUrl('boat', 1), /Unknown PCIC record kind/); n++
 
 // uploading: only when insured and a new file was chosen
