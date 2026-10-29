@@ -680,6 +680,8 @@ class CropMonitoringRecordSerializer(serializers.ModelSerializer):
     # (date_planted + crop_type.days_to_harvest) and always forward-looking.
 
     def validate(self, data):
+        if self.instance is not None:
+            data.pop('farmer', None)   # the farmer of a crop record is fixed once it exists (as for a farm parcel); a sent value is ignored
         seed_source = data.get('seed_source', getattr(self.instance, 'seed_source', ''))
         seed_source_other = data.get('seed_source_other_specify', getattr(self.instance, 'seed_source_other_specify', ''))
         if seed_source == 'Other' and not (seed_source_other or '').strip():

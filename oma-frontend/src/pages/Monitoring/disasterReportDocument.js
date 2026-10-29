@@ -207,7 +207,7 @@ export function buildPrintHtml(spec) {
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>${esc(spec.title)} ${esc(spec.reference)}</title>
 <style>
-  @page { size: ${spec.pageSize === 'A4' ? 'A4' : 'letter'}; margin: 16mm; }
+  @page { size: ${spec.pageSize === 'A4' ? 'A4' : 'letter'}${spec.landscape ? ' landscape' : ''}; margin: 16mm; }
   * { box-sizing: border-box; }
   body { font-family: Helvetica, Arial, sans-serif; color: #0f172a; font-size: 11px; margin: 0; }
 ${headerCss()}

@@ -179,6 +179,14 @@ export const SECTIONS = [
         a: 'Open Reports, choose the report and its period, and use Preview PDF. Print gives the same PDF as the preview, and Download saves it.',
       },
       {
+        q: 'Can I print the crop and fisheries tables?',
+        a: 'Yes. Crop Records, Crop Monitoring, Aquaculture Monitoring and Capture Monitoring each have a Print Report button. It prints every row that the search and filters match, not only the page on screen, with the filters and date range written under the title. Set the filters first.',
+      },
+      {
+        q: 'How do I filter by date?',
+        a: 'Open Filters and use the From and To dates: Planted on Crop Records and Crop Monitoring, Stocked on Aquaculture Monitoring, Trip on Capture Monitoring, and Registered on the farmers, fisherfolk and organization tables. Both ends are included and either can be left empty. The To date cannot be before the From date.',
+      },
+      {
         q: 'Can I print the farmer, fisherfolk or organization list?',
         a: 'Yes. On the Farmers, Fisherfolk and Organizations tables press Print Report. It prints the Registered report for exactly what the table shows, so set the filters first: search, Barangay, sex, type, senior citizens, ICC/IP, PWD, 4Ps and the registered dates (the ones the table has). It is the same PDF as Reports > Registered.',
       },

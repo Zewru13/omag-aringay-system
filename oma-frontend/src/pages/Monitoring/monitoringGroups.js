@@ -1,6 +1,8 @@
 // Crop Monitoring grouped by crop, by farmer or by farm parcel (GET /production/monitoring/groups/). Pure helpers, no screen and no
 // network, so the rules can be tested on their own.
 
+import { dateRangeParams } from '../../utils/dateRange.js'
+
 export const GROUP_OPTIONS = [
   { value: 'crop', label: 'Crop' },
   { value: 'farmer', label: 'Farmer' },
@@ -51,7 +53,7 @@ export function farmerCropParams(farmerId, statusFilter) {
 }
 
 // The filters the list AND the groups are asked with, so a group's count is always the number of records it opens onto.
-export function monitoringParams({ statusFilter, season, year, barangay, cropType, pcic, search }) {
+export function monitoringParams({ statusFilter, season, year, barangay, cropType, pcic, search, plantedFrom, plantedTo }) {
   const params = {}
   if (DISPLAY_STATUSES.includes(statusFilter)) {
     params.status = 'Near Harvest'
@@ -64,6 +66,7 @@ export function monitoringParams({ statusFilter, season, year, barangay, cropTyp
   if (barangay) params.barangay = barangay
   if (cropType) params.crop_type = cropType
   if (pcic) params.pcic = pcic
+  Object.assign(params, dateRangeParams(plantedFrom, plantedTo, 'planted_from', 'planted_to'))
   if (search) params.search = search
   return params
 }

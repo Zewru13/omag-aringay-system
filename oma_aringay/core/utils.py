@@ -357,6 +357,36 @@ def harvest_gate_status(start_date, expected_date):
     )
 
 
+def date_range_params(params, from_name, to_name):
+    """The (from, to) dates of a "From / To" pair of query params (YYYY-MM-DD), each None when left out. A date that is not
+    YYYY-MM-DD, or a "To" before the "From", is a 400 on that param instead of an error further down."""
+    from rest_framework.exceptions import ValidationError
+
+    def parse(name):
+        raw = (params.get(name) or '').strip()
+        if not raw:
+            return None
+        try:
+            return datetime.datetime.strptime(raw, '%Y-%m-%d').date()
+        except ValueError:
+            raise ValidationError({name: ['Use the date format YYYY-MM-DD.']})
+
+    start, end = parse(from_name), parse(to_name)
+    if start and end and end < start:
+        raise ValidationError({to_name: ['"To" cannot be before "From".']})
+    return start, end
+
+
+def filter_date_range(queryset, field, params, from_name, to_name):
+    """Keep the rows whose date field `field` is on or after ?from_name= and on or before ?to_name= (whichever were sent)."""
+    start, end = date_range_params(params, from_name, to_name)
+    if start:
+        queryset = queryset.filter(**{f'{field}__gte': start})
+    if end:
+        queryset = queryset.filter(**{f'{field}__lte': end})
+    return queryset
+
+
 def day_range_bounds(date_str, end_of_day=False):
     """
     Parse a 'YYYY-MM-DD' query param into a timezone-aware datetime at the

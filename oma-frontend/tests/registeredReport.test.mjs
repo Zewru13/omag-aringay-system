@@ -28,6 +28,8 @@ eq(registeredReportParams('farmers', { seniorOnly: false, filterICC: false, filt
 // organizations: only the search and barangay mean anything
 eq(registeredReportParams('farmers_orgs', { search: 'Rice', barangay: 'Alaska', gender: 'Male', seniorOnly: true }), { kind: 'farmers_orgs', search: 'Rice', barangay: 'Alaska' }, 'organization filters')
 eq(registeredReportParams('fisherfolk_orgs', { barangay: 'Basca' }), { kind: 'fisherfolk_orgs', barangay: 'Basca' }, 'fisherfolk organizations')
+eq(registeredReportParams('farmers_orgs', { registeredFrom: '2026-02-01', registeredTo: '2026-03-31' }), { kind: 'farmers_orgs', registered_from: '2026-02-01', registered_to: '2026-03-31' }, 'organizations print by date registered')
+eq(registeredReportParams('fisherfolk_orgs', { registeredTo: '2026-03-31' }), { kind: 'fisherfolk_orgs', registered_to: '2026-03-31' }, 'fisherfolk organizations, only a To')
 
 // the PDF address
 eq(registeredReportUrl('farmers', { barangay: 'Alaska' }), '/reports/registered/?format=pdf&kind=farmers&barangay=Alaska', 'the PDF url')

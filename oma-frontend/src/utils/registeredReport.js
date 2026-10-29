@@ -13,10 +13,10 @@ export function registeredReportParams(kind, filters = {}) {
   const add = (key, value) => { if (value) params[key] = value }
   add('search', text(filters.search))
   add('barangay', text(filters.barangay))
+  add('registered_from', text(filters.registeredFrom))
+  add('registered_to', text(filters.registeredTo))
   if (kind === 'farmers' || kind === 'fisherfolk') {
     add('gender', chosen(filters.gender))
-    add('registered_from', text(filters.registeredFrom))
-    add('registered_to', text(filters.registeredTo))
     if (filters.seniorOnly) params.is_senior = 'true'
     if (filters.filterPWD) params.is_pwd = 'true'
   }

@@ -24,7 +24,7 @@ from accounts.permissions import (
 from core.constants import BARANGAY_CHOICES
 from core.locking import assert_not_locked_by_other
 from core.notifications import notify_staff, notify_user, resolve_owner_user
-from core.utils import accumulate_yield_group, filter_people_search, is_plain_int, new_yield_group
+from core.utils import accumulate_yield_group, filter_date_range, filter_people_search, is_plain_int, new_yield_group
 from associations.models import FarmersOrganizationMember
 from farmers.models import FarmParcel, Farmer
 from fisheries.models import Fisherfolk
@@ -805,6 +805,8 @@ def _filter_monitoring_queryset(qs, request):
         qs = qs.filter(farm_location_barangay__iexact=params['barangay'])
     if params.get('crop_type'):
         qs = qs.filter(crop_type_id=params['crop_type'])
+    # Date planted: ?planted_from= and ?planted_to= (YYYY-MM-DD, both ends included).
+    qs = filter_date_range(qs, 'date_planted', params, 'planted_from', 'planted_to')
     # PCIC insurance: ?pcic=insured keeps the crops that have it, ?pcic=not_insured the ones that do not (anything else: all).
     if params.get('pcic') == 'insured':
         qs = qs.filter(has_pcic_insurance=True)

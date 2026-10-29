@@ -24,6 +24,8 @@ eq(directoryParams({ search: ' Ana ', barangay: '', page: 2 }), { page: 2, searc
 eq(directoryParams({}), { page: 1 }, 'nothing typed')
 eq(directoryParams({ pcic: 'insured', page: 2 }), { page: 2, pcic: 'insured' }, 'the PCIC filter is sent')
 eq(directoryParams({ pcic: '' }), { page: 1 }, 'all PCIC sends nothing')
+eq(directoryParams({ planted: { planted_from: '2026-05-01', planted_to: '2026-06-30' }, page: 2 }), { page: 2, planted_from: '2026-05-01', planted_to: '2026-06-30' }, 'the Date Planted range is sent')
+eq(directoryParams({ planted: {} }), { page: 1 }, 'no range sends nothing')
 eq(directoryParams({ barangay: 'Alaska', page: 3 }), { page: 3, barangay: 'Alaska' }, 'barangay only')
 
 // ── group by / sort by
@@ -43,6 +45,7 @@ eq(groupHeading('barangay', { name: 'Alaska', barangay: '' }), 'Alaska', 'barang
 eq(noParcelParams({ search: 'Ana', barangay: 'Alaska', farmStatus: 'Inactive' }), { farm_parcel: 'none', search: 'Ana', barangay: 'Alaska' }, 'no-parcel request')
 eq(noParcelParams({}), { farm_parcel: 'none' }, 'no-parcel request, no filters')
 eq(noParcelParams({ pcic: 'not_insured' }), { farm_parcel: 'none', pcic: 'not_insured' }, 'no-parcel request with the PCIC filter')
+eq(noParcelParams({ planted: { planted_from: '2026-05-01' } }), { farm_parcel: 'none', planted_from: '2026-05-01' }, 'no-parcel request with the Date Planted range')
 
 // ── "Add crop records" opens the Add Crop page with this parcel's farmer and parcel chosen
 eq(

@@ -1,7 +1,7 @@
 """
 The farm parcels of the Crop Records page: the list (filters + sort) and the same list grouped.
 
-    GET /api/farmers/parcels/directory/?search=&farmer=&barangay=&land_ownership=&ordering=&page=
+    GET /api/farmers/parcels/directory/?search=&farmer=&barangay=&land_ownership=&pcic=&planted_from=&planted_to=&ordering=&page=
     GET /api/farmers/parcels/directory/groups/?group_by=farmer|barangay|ownership&<the same filters>&ordering=&page=
 
 `ordering`: name (the default: farmer A-Z), crops (most crops first), crops_asc (fewest first), area (largest first), number (parcel number).
@@ -18,7 +18,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.permissions import IsAdminOrEvaluator
-from core.utils import filter_people_search
+from core.utils import date_range_params, filter_date_range, filter_people_search
 
 from .models import FarmParcel
 
@@ -36,14 +36,16 @@ GROUPS = ('farmer', 'barangay', 'ownership')
 PCIC_FILTERS = {'insured': True, 'not_insured': False}
 
 
-def _crop_count(pcic=''):
+def _crop_count(pcic='', params=None):
     """How many crop records sit on the parcel. Total Loss records are left out of the crop list under a parcel (as on Crop Monitoring),
-    so out of the count; with ?pcic=insured / not_insured only the crops with / without PCIC insurance are counted, so the count is what
-    the opened parcel lists. A subquery, so summing it over a group never multiplies the parcel's area."""
+    so out of the count; with ?pcic=insured / not_insured only the crops with / without PCIC insurance are counted, and with
+    ?planted_from= / ?planted_to= only the crops planted in that range, so the count is what the opened parcel lists. A subquery, so summing it over a group never multiplies the parcel's area."""
     from production.models import CropMonitoringRecord
     crops = CropMonitoringRecord.objects.filter(farm_parcel=OuterRef('pk')).exclude(status='Total Loss')
     if pcic in PCIC_FILTERS:
         crops = crops.filter(has_pcic_insurance=PCIC_FILTERS[pcic])
+    if params:
+        crops = filter_date_range(crops, 'date_planted', params, 'planted_from', 'planted_to')
     records = crops.order_by().values('farm_parcel').annotate(total=Count('pk')).values('total')
     return Coalesce(Subquery(records, output_field=IntegerField()), Value(0))
 
@@ -51,8 +53,9 @@ def _crop_count(pcic=''):
 def directory_filters(params):
     """The parcels that match the page's filters, with their crop_count (not ordered)."""
     pcic = params.get('pcic') or ''
-    qs = FarmParcel.objects.select_related('farmer').annotate(crop_count=_crop_count(pcic))
-    if pcic in PCIC_FILTERS:
+    qs = FarmParcel.objects.select_related('farmer').annotate(crop_count=_crop_count(pcic, params))
+    planted = any(date_range_params(params, 'planted_from', 'planted_to'))
+    if pcic in PCIC_FILTERS or planted:
         qs = qs.filter(crop_count__gt=0)      # only the parcels that have such a crop
     if params.get('farmer'):
         qs = qs.filter(farmer_id=params['farmer'])

@@ -12,6 +12,10 @@ import useIsPhone from '../../hooks/useIsPhone.js'
 import DisasterIndicator from '../../components/UI/DisasterIndicator.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
+import DateRangeFields from '../../components/UI/DateRangeFields.jsx'
+import ListPrintButton from '../../components/ListPrintButton.jsx'
+import { fetchAllRows } from '../../utils/listReport.js'
+import { cropMonitoringReport, rangeFilter } from './listReports.js'
 import GrowthProgressBar from '../../components/UI/GrowthProgressBar.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import PageLayout from '../../components/Layout/PageLayout.jsx'
@@ -2047,6 +2051,8 @@ export default function CropMonitoringPage() {
   // Crop name: one of the active crop types (the same list Forecasting filters by).
   const [cropFilter,       setCropFilter]       = useState('')
   const [pcicFilter,       setPcicFilter]       = useState('')
+  const [plantedFrom,      setPlantedFrom]      = useState('')
+  const [plantedTo,        setPlantedTo]        = useState('')
   const [cropTypes,        setCropTypes]        = useState([])
   useEffect(() => {
     api.get('/production/crop-types/', { params: { is_active: 'true' } })
@@ -2089,7 +2095,7 @@ export default function CropMonitoringPage() {
     const seq = ++requestSeq.current
     setIsLoading(true); setError('')
     try {
-      const params = { ...monitoringParams({ statusFilter, season: seasonFilter, year: yearFilter, barangay: barangayFilter, cropType: cropFilter, pcic: pcicFilter, search: debouncedSearch }), page: pageNum }
+      const params = { ...monitoringParams({ statusFilter, season: seasonFilter, year: yearFilter, barangay: barangayFilter, cropType: cropFilter, pcic: pcicFilter, plantedFrom, plantedTo, search: debouncedSearch }), page: pageNum }
       const r = await api.get('/production/monitoring/', { params })
       if (seq !== requestSeq.current) return
       setRecords(Array.isArray(r.data) ? r.data : (r.data.results || []))
@@ -2097,9 +2103,9 @@ export default function CropMonitoringPage() {
     } catch {
       if (seq === requestSeq.current) setError('Failed to load crop monitoring records.')
     } finally { if (seq === requestSeq.current) setIsLoading(false) }
-  }, [statusFilter, seasonFilter, yearFilter, barangayFilter, cropFilter, pcicFilter, debouncedSearch])
+  }, [statusFilter, seasonFilter, yearFilter, barangayFilter, cropFilter, pcicFilter, plantedFrom, plantedTo, debouncedSearch])
 
-  useEffect(() => { setPage(1) }, [statusFilter, seasonFilter, yearFilter, barangayFilter, cropFilter, pcicFilter, debouncedSearch])
+  useEffect(() => { setPage(1) }, [statusFilter, seasonFilter, yearFilter, barangayFilter, cropFilter, pcicFilter, plantedFrom, plantedTo, debouncedSearch])
   // The plain list is only fetched when it is the chosen view; grouped views fetch their own groups.
   useEffect(() => { if (groupBy === 'none') fetchRecords(page) }, [fetchRecords, page, groupBy])
   const refreshAll = useCallback(() => { setVersion(v => v + 1); if (groupBy === 'none') fetchRecords(page) }, [groupBy, fetchRecords, page])
@@ -2147,6 +2153,20 @@ export default function CropMonitoringPage() {
       await api.post('/locks/release/', { record_type: 'crop', record_id: recordId })
       refreshLockStatuses(records)
     } catch { /* ignore */ }
+  }
+
+  // Print Report: every crop the table's filters match (not only this page), with what it was filtered by.
+  const buildReport = async () => {
+    const all = await fetchAllRows(api, '/production/monitoring/', monitoringParams({ statusFilter, season: seasonFilter, year: yearFilter, barangay: barangayFilter, cropType: cropFilter, pcic: pcicFilter, plantedFrom, plantedTo, search: debouncedSearch }))
+    const cropName = cropTypes.find(c => String(c.id) === String(cropFilter))?.name || ''
+    const pcicLabel = PCIC_FILTER_OPTIONS.find(o => o.value && o.value === pcicFilter)?.label || ''
+    return cropMonitoringReport({
+      records: all,
+      filters: [
+        rangeFilter('Date Planted', plantedFrom, plantedTo), ['Crop', cropName], ['Status', statusFilter === 'all' ? '' : statusFilter],
+        ['Season', seasonFilter ? `${seasonFilter} Season` : ''], ['Year', yearFilter], ['Barangay', barangayFilter], ['PCIC', pcicLabel], ['Search', debouncedSearch],
+      ],
+    })
   }
 
   const filtered = records   // the server already applied every filter, including the Due / Ready / Overdue split
@@ -2237,7 +2257,8 @@ export default function CropMonitoringPage() {
           search={search}
           onSearchChange={setSearch}
           searchPlaceholder={isFarmer ? 'Search by crop or barangay...' : 'Search by farmer, RSBSA, crop, or organization...'}
-          activeCount={[statusFilter !== DEFAULT_STATUS, Boolean(seasonFilter), Boolean(yearFilter), Boolean(barangayFilter), Boolean(cropFilter), Boolean(pcicFilter), !isFarmer && groupBy !== DEFAULT_GROUP].filter(Boolean).length}
+          activeCount={[statusFilter !== DEFAULT_STATUS, Boolean(seasonFilter), Boolean(yearFilter), Boolean(barangayFilter), Boolean(cropFilter), Boolean(pcicFilter), Boolean(plantedFrom), Boolean(plantedTo), !isFarmer && groupBy !== DEFAULT_GROUP].filter(Boolean).length}
+          actions={<ListPrintButton build={buildReport} />}
         >
           {/* A farmer account always sees its own farm parcels, so it has no grouping choice. */}
           {!isFarmer && (
@@ -2273,6 +2294,7 @@ export default function CropMonitoringPage() {
               <option key={y} value={y}>{y}</option>
             ))}
           </select>
+          <DateRangeFields label="Planted" from={plantedFrom} to={plantedTo} onFromChange={setPlantedFrom} onToChange={setPlantedTo} />
           {barangayFilter && (
             <span className="flex items-center gap-1.5 rounded-full bg-[#1B4D2E]/10 px-3 py-1 text-[12px] font-medium text-[#1B4D2E]">
               <MapPin className="w-3 h-3" />
@@ -2284,9 +2306,9 @@ export default function CropMonitoringPage() {
 
         {groupBy !== 'none' ? (
           <GroupedMonitoringTable
-            key={`${groupBy}|${JSON.stringify(monitoringParams({ statusFilter, season: seasonFilter, year: yearFilter, barangay: barangayFilter, cropType: cropFilter, pcic: pcicFilter, search: debouncedSearch }))}`}
+            key={`${groupBy}|${JSON.stringify(monitoringParams({ statusFilter, season: seasonFilter, year: yearFilter, barangay: barangayFilter, cropType: cropFilter, pcic: pcicFilter, plantedFrom, plantedTo, search: debouncedSearch }))}`}
             groupBy={groupBy}
-            params={monitoringParams({ statusFilter, season: seasonFilter, year: yearFilter, barangay: barangayFilter, cropType: cropFilter, pcic: pcicFilter, search: debouncedSearch })}
+            params={monitoringParams({ statusFilter, season: seasonFilter, year: yearFilter, barangay: barangayFilter, cropType: cropFilter, pcic: pcicFilter, plantedFrom, plantedTo, search: debouncedSearch })}
             version={version}
             columns={groupedColumns}
             buildRow={buildRow}
