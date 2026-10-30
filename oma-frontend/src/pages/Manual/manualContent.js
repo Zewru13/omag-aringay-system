@@ -104,12 +104,13 @@ const STAFF_GUIDES = (focal) => [
     id: 'disaster',
     title: 'Report a disaster',
     intro: 'Disaster > Crop Disaster and Fisheries Disaster keep the disaster logs.',
-    screens: ['admin-disaster', 'admin-log-fisheries-disaster'],
+    screens: ['admin-disaster', 'admin-log-fisheries-disaster', 'admin-fisheries-disaster-form'],
     steps: [
       'Open Disaster > Crop Disaster. The table lists the farmers who have disaster logs. Filters include the date it occurred (From and To).',
       'Print Report and Download Report give the table as a report. The Actions menu of a farmer gives that farmer\'s own report.',
       'Press Log Disaster to report one disaster on many parcels and crops at once: fill the event once, tick the parcels and crops that were hit and type the area affected of each.',
-      'In Disaster > Fisheries Disaster, Log Disaster works the same way for fisherfolk: fill the event once, open each fisherfolk, tick their stocks, and type the fingerlings lost of each pond or cage. One log is saved for each fisherfolk.',
+      'In Disaster > Fisheries Disaster, press Log Disaster. Step 1: search for the fisherfolk and click their name. Step 2: choose the stock or stocks that were hit, the date and the type of disaster, then add the volume lost, the equipment damaged, a description and photos.',
+      'Press Log Disaster to save. The log of that fisherfolk opens so you can print or download it. To report another fisherfolk, start again.',
     ],
   },
   {

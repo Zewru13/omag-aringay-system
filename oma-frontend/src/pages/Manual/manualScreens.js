@@ -435,29 +435,24 @@ export default {
  },
  "admin-log-fisheries-disaster": {
   "audience": "admin",
-  "title": "Log Fisheries Disaster",
-  "purpose": "Reports one disaster on the ponds and cages of one or many fisherfolk.",
+  "title": "Log Fisheries Disaster: choose the fisherfolk",
+  "purpose": "Step 1: find the fisherfolk whose pond, cage or stock was hit.",
   "image": "/manual/admin/log-fisheries-disaster.png",
   "legend": [
    {
     "n": 1,
-    "label": "Disaster details",
-    "desc": "The disaster type, the date it occurred, a description of the damage and photos. Fill them once."
+    "label": "Window title",
+    "desc": "Step 1 of 3. A disaster is logged for one fisherfolk at a time."
    },
    {
     "n": 2,
-    "label": "Ponds and cages hit",
-    "desc": "Open a fisherfolk, tick their stocks, and type the fingerlings lost for each pond or cage (or tick Total loss)."
+    "label": "Search box",
+    "desc": "Type the fisherfolk's name. The matches appear under the box."
    },
    {
     "n": 3,
-    "label": "Search box",
-    "desc": "Find a fisherfolk, species or location."
-   },
-   {
-    "n": 4,
-    "label": "Log Disaster",
-    "desc": "Saves one disaster log for each fisherfolk, all together or none."
+    "label": "Matches",
+    "desc": "Click the fisherfolk to continue. Someone with no pond, cage or stock on record cannot be chosen."
    }
   ]
  },
@@ -1209,6 +1204,44 @@ export default {
     "n": 4,
     "label": "Change Password",
     "desc": "Optional. Press Edit to set a new password."
+   }
+  ]
+ },
+ "admin-fisheries-disaster-form": {
+  "audience": "admin",
+  "title": "Log Fisheries Disaster: the form",
+  "purpose": "Step 2: the disaster, the stock that was hit and the damage.",
+  "image": "/manual/admin/fisheries-disaster-form.png",
+  "legend": [
+   {
+    "n": 1,
+    "label": "Affected stock",
+    "desc": "One stock, or several: choose whether the disaster hit one or more of the fisherfolk's stocks."
+   },
+   {
+    "n": 2,
+    "label": "Date of occurrence",
+    "desc": "The day the disaster happened."
+   },
+   {
+    "n": 3,
+    "label": "Disaster type",
+    "desc": "Typhoon, flood, fish kill and the other types."
+   },
+   {
+    "n": 4,
+    "label": "Volume lost",
+    "desc": "The kg of fish lost, if you know it (optional)."
+   },
+   {
+    "n": 5,
+    "label": "Equipment damaged",
+    "desc": "Tick the pond or farm equipment that was damaged (optional). Add a description and photos of the damage below it."
+   },
+   {
+    "n": 6,
+    "label": "Log Disaster",
+    "desc": "Saves the disaster log of this fisherfolk. The log opens so you can print or download it."
    }
   ]
  }
