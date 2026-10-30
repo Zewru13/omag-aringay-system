@@ -1,18 +1,37 @@
-// The User Manual as one printable document (Print / Save as PDF): the guides of one kind of account, each starting on a new page, with its
-// screenshots. buildManualHtml is pure (no screen, no network); printManual writes it into a hidden frame (never the app's own page, so no sidebar or
-// buttons are printed) and prints once the images have loaded.
+// The User Manual as one printable document (Print / Save as PDF): the intro, then the guides of one kind of account, each starting on a new page, with its
+// annotated pictures and the table under each picture. buildManualHtml is pure (no screen, no network); printManual writes it into a hidden frame (never the
+// app's own page, so no sidebar or buttons are printed) and prints once the images have loaded.
 
 const esc = (value) => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
-export function buildManualHtml({ audienceLabel, guides, baseUrl = '', systemTitle = 'OMAg Aringay', printedOn = '' }) {
+const screenHtml = (s, number, baseUrl) => `
+      <figure class="screen${s.phone ? ' phone' : ''}">
+        <figcaption><b>${esc(number)}. ${esc(s.title)}</b><br><span>${esc(s.purpose)}</span></figcaption>
+        <img src="${esc(baseUrl + s.image)}" alt="${esc(s.title)}">
+        <table>
+          <thead><tr><th class="n">No.</th><th class="el">Element</th><th>What it does</th></tr></thead>
+          <tbody>${s.legend.map((r) => `<tr><td class="n"><span class="tag">${r.n}</span></td><td class="el"><b>${esc(r.label)}</b></td><td>${esc(r.desc)}</td></tr>`).join('')}</tbody>
+        </table>
+      </figure>`
+
+export function buildManualHtml({ audienceLabel, guides, intro, baseUrl = '', systemTitle = 'OMAg Aringay', printedOn = '' }) {
   const toc = guides.map((g, i) => `<li>${i + 1}. ${esc(g.title)}</li>`).join('')
+  const about = intro ? `
+  <section class="about">
+    <h2>About this guide</h2>
+    <p>${esc(intro.lead)}</p>
+    <ol class="contents">${intro.contents.map((c) => `<li><b>${c.n}. ${esc(c.title)}</b>: ${esc(c.about)}</li>`).join('')}</ol>
+    <h3>How to read the pictures</h3>
+    <p>${esc(intro.howToRead)}</p>
+    <h3>Notes on the pictures</h3>
+    <ul>${intro.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>
+  </section>` : ''
   const body = guides.map((g, i) => `
     <section class="guide">
       <h2>${i + 1}. ${esc(g.title)}</h2>
       <p class="intro">${esc(g.intro)}</p>
-      <ol>${g.steps.map((s) => `
-        <li><p>${esc(s.text)}</p>${s.image ? `<figure><img src="${esc(baseUrl + s.image.file)}" alt="${esc(s.image.caption)}"><figcaption>${esc(s.image.caption)}</figcaption></figure>` : ''}</li>`).join('')}
-      </ol>
+      <ol class="steps">${g.steps.map((step) => `<li>${esc(step)}</li>`).join('')}</ol>
+      ${g.screens.map((s, k) => screenHtml(s, `${i + 1}.${k + 1}`, baseUrl)).join('')}
     </section>`).join('')
   return `<!doctype html>
 <html><head><meta charset="utf-8"><title>${esc(systemTitle)} User Manual: ${esc(audienceLabel)}</title>
@@ -26,16 +45,25 @@ export function buildManualHtml({ audienceLabel, guides, baseUrl = '', systemTit
   .cover .meta { color: #64748b; font-size: 11px; }
   .cover ol { display: inline-block; text-align: left; margin-top: 28px; padding-left: 0; list-style: none; }
   .cover li { margin: 3px 0; }
+  .about { page-break-after: always; }
+  .about h3 { font-size: 14px; color: #1B4D2E; margin: 16px 0 4px; }
+  .about p, .about li { margin: 0 0 4px; }
+  .contents { padding-left: 18px; }
   .guide { page-break-before: always; }
-  .guide:first-of-type { page-break-before: auto; }
   h2 { font-size: 17px; color: #1B4D2E; border-bottom: 2px solid #1B4D2E; padding-bottom: 4px; margin: 0 0 8px; }
-  .intro { color: #475569; margin: 0 0 12px; }
-  ol { padding-left: 20px; margin: 0; }
-  ol > li { margin: 0 0 12px; break-inside: avoid; }
-  ol > li p { margin: 0 0 6px; }
-  figure { margin: 6px 0 0; }
-  img { width: 100%; border: 1px solid #cbd5e1; border-radius: 4px; }
-  figcaption { font-size: 10px; color: #64748b; text-align: center; margin-top: 2px; }
+  .intro { color: #475569; margin: 0 0 10px; }
+  ol.steps { padding-left: 20px; margin: 0 0 12px; }
+  ol.steps > li { margin: 0 0 5px; }
+  .screen { margin: 0 0 14px; break-inside: avoid; }
+  .screen figcaption { margin-bottom: 4px; }
+  .screen figcaption span { color: #475569; }
+  .screen img { width: 100%; border: 1px solid #cbd5e1; border-radius: 4px; display: block; }
+  .screen.phone img { width: auto; max-height: 150mm; margin: 0 auto; }
+  table { width: 100%; border-collapse: collapse; margin-top: 6px; font-size: 11px; }
+  th { text-align: left; border-bottom: 1px solid #cbd5e1; color: #475569; padding: 3px 4px; }
+  td { border-bottom: 1px solid #e2e8f0; padding: 3px 4px; vertical-align: top; }
+  .n { width: 30px; } .el { width: 130px; }
+  .tag { display: inline-block; min-width: 16px; padding: 0 4px; border-radius: 3px; background: #F97316; color: #fff; font-weight: 700; text-align: center; }
 </style></head>
 <body>
   <div class="cover">
@@ -44,6 +72,7 @@ export function buildManualHtml({ audienceLabel, guides, baseUrl = '', systemTit
     <p class="meta">Office of the Municipal Agriculturist, Aringay, La Union${printedOn ? ` &middot; printed ${esc(printedOn)}` : ''}</p>
     <ol>${toc}</ol>
   </div>
+  ${about}
   ${body}
 </body></html>`
 }
