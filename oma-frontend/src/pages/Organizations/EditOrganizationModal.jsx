@@ -11,6 +11,7 @@ import EmailInput from '../../components/UI/EmailInput.jsx'
 import PhoneInput from '../../components/UI/PhoneInput.jsx'
 import { localToday, tidyPhone } from '../../utils/inputGuards.js'
 import { agencyLabel, agencyOptionsFor } from './agencyOptions.js'
+import { contactFullName } from './organizationContact.js'
 
 const labelCls = 'block text-[13px] font-medium text-[#4A5E4A] mb-1.5'
 
@@ -22,15 +23,8 @@ const validateContact = (value) => {
   return ''
 }
 
-function splitContactPerson(contactPerson) {
-  if (!contactPerson) return { last: '', first: '' }
-  const parts = contactPerson.split(', ')
-  return { last: parts[0] || '', first: parts[1] || '' }
-}
-
 export default function EditOrganizationModal({ organization, type, onClose, onSuccess }) {
   const { showToast } = useToast()
-  const { last, first } = splitContactPerson(organization.contact_person)
 
   const originalForm = {
     name:                 organization.name || '',
@@ -41,8 +35,7 @@ export default function EditOrganizationModal({ organization, type, onClose, onS
     registration_number:  organization.registration_number || '',
     registration_agency:  organization.registration_agency || '',
     email_address:        organization.email_address || '',
-    contact_person_last:  last,
-    contact_person_first: first,
+    contact_person:       contactFullName(organization.contact_person),
     contact_number:       tidyPhone(organization.contact_number || ''),   // an older number with dashes opens in the plain format
   }
 
@@ -81,7 +74,7 @@ export default function EditOrganizationModal({ organization, type, onClose, onS
     const errs = {}
     if (!form.name.trim())   errs.name = 'Required'
     if (!form.barangay)      errs.barangay = 'Required'
-    if (!form.contact_person_last.trim() && !form.contact_person_first.trim()) errs.contact_person_last = 'Required'
+    if (!form.contact_person.trim()) errs.contact_person = 'Required'
     if (!form.contact_number.trim()) errs.contact_number = 'Required'
     const contactErr = validateContact(form.contact_number)
     if (contactErr) { setContactError(contactErr) }
@@ -110,8 +103,6 @@ export default function EditOrganizationModal({ organization, type, onClose, onS
     setShowConfirm(false)
     setIsSubmitting(true)
     try {
-      const contactPerson = [form.contact_person_last, form.contact_person_first]
-        .filter(Boolean).join(', ')
       await api.patch(`/organizations/${type}/${organization.id}/`, {
         name:                form.name,
         barangay:            form.barangay,
@@ -121,7 +112,7 @@ export default function EditOrganizationModal({ organization, type, onClose, onS
         registration_number: form.registration_number,
         registration_agency: form.registration_agency,
         email_address:       form.email_address,
-        contact_person:      contactPerson,
+        contact_person:      form.contact_person.trim(),
         contact_number:      form.contact_number,
       })
       showToast(`${typeLabel} updated successfully.`, 'success')
@@ -243,17 +234,11 @@ export default function EditOrganizationModal({ organization, type, onClose, onS
           </div>
 
           {/* Contact Person */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-3">
-            <div>
-              <label className={labelCls}>Contact Person Last Name <span className="text-rose-500">*</span></label>
-              <input className={baseInputClasses} value={form.contact_person_last}
-                onChange={e => set('contact_person_last', e.target.value)} />
-            </div>
-            <div>
-              <label className={labelCls}>Contact Person First Name <span className="font-normal text-[#7A8E7A] text-[12px]">(optional)</span></label>
-              <input className={baseInputClasses} value={form.contact_person_first}
-                onChange={e => set('contact_person_first', e.target.value)} />
-            </div>
+          <div>
+            <label className={labelCls}>Contact Person Full Name <span className="text-rose-500">*</span></label>
+            <input className={`${baseInputClasses}${formErrors.contact_person ? ' border-rose-400' : ''}`} value={form.contact_person}
+              placeholder="e.g. Juan Dela Cruz" onChange={e => set('contact_person', e.target.value)} />
+            {formErrors.contact_person && <p className="mt-1 text-[12px] text-rose-600">{formErrors.contact_person}</p>}
           </div>
 
           {/* Contact Number */}

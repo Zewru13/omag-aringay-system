@@ -37,8 +37,7 @@ const initialForm = {
   registration_number: '',
   registration_agency: '',
   email_address: '',
-  contact_person_last: '',
-  contact_person_first: '',
+  contact_person: '',
   contact_number: '',
 }
 
@@ -83,7 +82,7 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
     const errs = {}
     if (!form.name.trim())   errs.name = 'Required'
     if (!form.barangay)      errs.barangay = 'Required'
-    if (!form.contact_person_last.trim() && !form.contact_person_first.trim()) errs.contact_person_last = 'Required'
+    if (!form.contact_person.trim()) errs.contact_person = 'Required'
     if (!form.contact_number.trim()) errs.contact_number = 'Required'
     const contactErr = validateContact(form.contact_number)
     if (contactErr) { setContactError(contactErr) }
@@ -122,8 +121,6 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
     setShowConfirm(false)
     setIsSubmitting(true)
     try {
-      const contactPerson = [form.contact_person_last, form.contact_person_first]
-        .filter(Boolean).join(', ')
       const { data: created } = await api.post(`/organizations/${assocType}/`, {
         name:                form.name,
         barangay:            form.barangay,
@@ -133,7 +130,7 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
         registration_number: form.registration_number,
         registration_agency: form.registration_agency,
         email_address:       form.email_address,
-        contact_person:      contactPerson,
+        contact_person:      form.contact_person.trim(),
         contact_number:      form.contact_number,
         new_equipment:       equipment.map((line) => equipmentLinePayload(line, assocType)),
       })
@@ -307,18 +304,12 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
             {formErrors.email_address && <p className="mt-1 text-[12px] text-rose-600">{formErrors.email_address}</p>}
           </div>
 
-          {/* Contact Person — side by side */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-3">
-            <div>
-              <label className={labelCls}>Contact Person Last Name <span className="text-rose-500">*</span></label>
-              <input className={baseInputClasses} value={form.contact_person_last}
-                onChange={e => set('contact_person_last', e.target.value)} />
-            </div>
-            <div>
-              <label className={labelCls}>Contact Person First Name <span className="font-normal text-[#7A8E7A] text-[12px]">(optional)</span></label>
-              <input className={baseInputClasses} value={form.contact_person_first}
-                onChange={e => set('contact_person_first', e.target.value)} />
-            </div>
+          {/* Contact Person: one full-name box */}
+          <div>
+            <label className={labelCls}>Contact Person Full Name <span className="text-rose-500">*</span></label>
+            <input className={`${baseInputClasses}${formErrors.contact_person ? ' border-rose-400' : ''}`} value={form.contact_person}
+              placeholder="e.g. Juan Dela Cruz" onChange={e => set('contact_person', e.target.value)} />
+            {formErrors.contact_person && <p className="mt-1 text-[12px] text-rose-600">{formErrors.contact_person}</p>}
           </div>
 
           {/* Contact Number */}

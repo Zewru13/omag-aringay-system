@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Pencil, Plus, Upload } from 'lucide-react'
+import { Pencil, Plus, Upload, Eye, HandHeart } from 'lucide-react'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useNavigate } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
@@ -13,6 +13,7 @@ import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import { dateRangeParams } from '../../utils/dateRange.js'
 import PaginationBar from '../../components/UI/PaginationBar.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
+import { assistanceLink } from '../Organizations/organizationContact.js'
 import CreateOrganizationModal from '../Organizations/CreateOrganizationModal.jsx'
 import EditOrganizationModal from '../Organizations/EditOrganizationModal.jsx'
 
@@ -85,6 +86,8 @@ function FisherfolkOrganizationsPage({ asTab = false }) {
     actions_cell: (
       <RowActions actions={[
         (isAdmin || isEvaluator) && { key: 'edit', label: 'Edit organization', icon: Pencil, onClick: () => setEditOrganization(a) },
+        { key: 'view', label: 'View organization profile', icon: Eye, onClick: () => handleRowClick(a) },
+        (isAdmin || isEvaluator) && { key: 'assist', label: 'Add assistance', icon: HandHeart, onClick: () => navigate(assistanceLink('fisherfolk', a.id)) },
       ]} />
     ),
   }))
