@@ -120,6 +120,10 @@ export const SECTIONS = [
         a: 'For one crop, open its ⋮ menu in Crop Monitoring and choose Report Disaster. For many crops or farmers at once, go to Disaster > Crop Disaster and press Log Disaster: choose the farmers and their affected parcels and crops (there is a total loss option), and after saving you can download or print the report. A crop reported as a total loss moves to Total Loss.',
       },
       {
+        q: 'How do I filter, print or download the Crop Disaster and Fisheries Disaster tables?',
+        a: 'Open Filters and use the Occurred From and To dates together with the barangay, disaster type, status and year; either date can be left empty. Print Report and Download Report above the table give the report of the rows the filters match, the same PDF as Reports > Disaster. Each farmer or fisherfolk row has an Actions menu: View Report shows every disaster of that person (within the filters) with Print Report and Download Report inside, and Print and Download give the same PDF straight away. Open the row to see one disaster, with its own Print Disaster Log and Download Disaster Log.',
+      },
+      {
         q: 'How do Activity Suggestions work?',
         a: 'Activity Suggestions are set per crop in Activity Settings. In a crop\'s View Logs, Get Suggestions shows what is recommended: done activities are grayed out with a checkmark, the others are in full color. Land Preparation and Planting are never suggested or offered when you record an activity, because a crop is already planted when it is added to the system.',
       },

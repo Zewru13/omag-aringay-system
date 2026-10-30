@@ -2638,7 +2638,7 @@ class ActivityStageNameSuggestionsView(APIView):
 
 class CropDisasterLogListView(APIView):
     """Every farmer disaster log. Filters: search (farmer/organization, crop, type, reference no.), barangay,
-    disaster_type, status, year. With ?page= the response is paginated ({count, page, page_size, results}).
+    disaster_type, status, year, date_from / date_to (the date it occurred). With ?page= the response is paginated ({count, page, page_size, results}).
     A farmer account gets only its own logs, whatever the filters say."""
     permission_classes = [IsAuthenticated, IsStaffOrFarmer]
     PAGE_SIZE = 20
@@ -2653,6 +2653,7 @@ class CropDisasterLogListView(APIView):
             qs = qs.filter(status=params['status'])
         if is_plain_int(params.get('year', '')):
             qs = qs.filter(date_of_occurrence__year=int(params['year']))
+        qs = filter_date_range(qs, 'date_of_occurrence', params, 'date_from', 'date_to')
         if params.get('barangay'):
             qs = qs.filter(monitoring_record__farm_location_barangay__iexact=params['barangay'])
         search = (params.get('search') or '').strip()
