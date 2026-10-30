@@ -8,6 +8,7 @@ import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { AddRowFooter, DraftActions, DraftInput, DraftSelect, useAddRow } from '../../components/UI/InlineAddRow.jsx'
+import { newestFirst } from '../../utils/listOrder.js'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
@@ -203,7 +204,7 @@ export default function CropCategoryPage({ asTab = false }) {
     }
   }
 
-  const catRows = categories.map(c => ({
+  const catRows = newestFirst(categories).map(c => ({
     ...c,
     actions: (
       <RowActions actions={[
@@ -213,7 +214,7 @@ export default function CropCategoryPage({ asTab = false }) {
     ),
   }))
 
-  const subcatRows = subcategories.map(s => ({
+  const subcatRows = newestFirst(subcategories).map(s => ({
     ...s,
     actions: (
       <RowActions actions={[
@@ -224,7 +225,7 @@ export default function CropCategoryPage({ asTab = false }) {
   }))
 
   if (addCat.isOpen) {
-    catRows.push({
+    catRows.unshift({
       id: 'new',
       name: <DraftInput value={addCat.draft.name} aria-label="New category" placeholder="e.g. Cereals"
         onChange={e => addCat.change({ name: e.target.value })} onSave={saveCategory} onCancel={addCat.close} />,
@@ -232,7 +233,7 @@ export default function CropCategoryPage({ asTab = false }) {
     })
   }
   if (addSubcat.isOpen) {
-    subcatRows.push({
+    subcatRows.unshift({
       id: 'new',
       name: <DraftInput value={addSubcat.draft.name} aria-label="New subcategory" placeholder="e.g. Rice"
         onChange={e => addSubcat.change({ name: e.target.value })} onSave={saveSubcategory} onCancel={addSubcat.close} />,

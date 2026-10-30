@@ -221,7 +221,7 @@ export const SECTIONS = [
     items: [
       {
         q: 'How do I add a new item in the settings tables?',
-        a: 'Press Add row under the table. One more row appears at the end of the table with its boxes empty: fill them and press Save (Enter saves, Escape cancels). The same works on every settings table: Crop Settings, Fisheries Settings, Activity Settings, Assistance Settings, Classification Settings and Harvest Unit Settings. To change an item that is already there, use Edit in its row menu.',
+        a: 'Press Add row under the table. One more row appears at the top of the table with its boxes empty: fill them and press Save (Enter saves, Escape cancels). The settings tables list the newest row first, so the row you add stays on top. The same works on every settings table: Crop Settings, Fisheries Settings, Activity Settings, Assistance Settings, Classification Settings and Harvest Unit Settings. To change an item that is already there, use Edit in its row menu.',
       },
       {
         q: 'I forgot to save a form and went to another page. Is it lost?',

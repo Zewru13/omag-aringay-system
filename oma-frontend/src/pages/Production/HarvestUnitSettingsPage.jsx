@@ -9,6 +9,7 @@ import DataTable from '../../components/UI/DataTable.jsx'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { AddRowFooter, DraftActions, DraftInput, DraftSelect, useAddRow } from '../../components/UI/InlineAddRow.jsx'
+import { newestFirst } from '../../utils/listOrder.js'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
@@ -145,7 +146,7 @@ export default function HarvestUnitSettingsPage() {
     }
   }
 
-  const rows = weights.map((w) => ({
+  const rows = newestFirst(weights).map((w) => ({
     ...w,
     crop: w.crop_type_name || <span className="text-[#7A8E7A]">Every crop</span>,
     weight: fmtKg(w.kg_per_unit) ? `${fmtKg(w.kg_per_unit)} kg` : <span className="text-amber-700">No standard weight</span>,
@@ -158,7 +159,7 @@ export default function HarvestUnitSettingsPage() {
     ),
   }))
   if (add.isOpen) {
-    rows.push({
+    rows.unshift({
       id: 'new',
       unit: (
         <>

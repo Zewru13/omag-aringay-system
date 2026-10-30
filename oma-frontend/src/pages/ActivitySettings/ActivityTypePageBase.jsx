@@ -8,6 +8,7 @@ import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { AddRowFooter, DraftActions, DraftInput, useAddRow } from '../../components/UI/InlineAddRow.jsx'
+import { newestFirst } from '../../utils/listOrder.js'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
@@ -107,7 +108,7 @@ export default function ActivityTypePageBase({ asTab = false, endpoint, dropdown
 
   const totalPages = Math.max(1, Math.ceil(types.length / PAGE_SIZE))
   const paginated = useMemo(
-    () => types.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    () => newestFirst(types).slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
     [types, page],
   )
 
@@ -152,16 +153,16 @@ export default function ActivityTypePageBase({ asTab = false, endpoint, dropdown
     }
   })
 
-  // The new row sits at the end of the table, on the last page.
-  if (add.isOpen && page === totalPages) {
-    rows.push({
+  // The new row sits at the top of the table, on the first page (newest first).
+  if (add.isOpen && page === 1) {
+    rows.unshift({
       id: 'new',
       name: <DraftInput value={add.draft.name} aria-label="New activity type" placeholder="e.g. Soil Testing"
         onChange={e => add.change({ name: e.target.value })} onSave={saveDraft} onCancel={add.close} />,
       actions: <DraftActions onSave={saveDraft} onCancel={add.close} isSaving={add.isSaving} />,
     })
   }
-  const startRow = () => { setPage(totalPages); add.open() }
+  const startRow = () => { setPage(1); add.open() }
 
   const innerContent = (
     <div className="space-y-4">

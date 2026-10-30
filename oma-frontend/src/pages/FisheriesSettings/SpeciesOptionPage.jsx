@@ -8,6 +8,7 @@ import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import { AddRowFooter, DraftActions, DraftInput, DraftSelect, useAddRow } from '../../components/UI/InlineAddRow.jsx'
+import { newestFirst } from '../../utils/listOrder.js'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
@@ -479,6 +480,7 @@ export default function SpeciesOptionPage({ asTab = false }) {
     let list = species.filter(s =>
       !q || s.species_name?.toLowerCase().includes(q) || s.category_name?.toLowerCase().includes(q)
     )
+    if (!sortKey) list = newestFirst(list)
     if (sortKey) {
       list = [...list].sort((a, b) => {
         const av = a[sortKey] ?? ''
@@ -518,7 +520,7 @@ export default function SpeciesOptionPage({ asTab = false }) {
       add.setIsSaving(false)
     }
   }
-  const startRow = () => { setPage(totalPages); add.open() }
+  const startRow = () => { setPage(1); add.open() }
 
   const innerContent = (
     <div className="space-y-3">
@@ -553,42 +555,8 @@ export default function SpeciesOptionPage({ asTab = false }) {
             </tr>
           </thead>
           <tbody className="max-md:block">
-            {isLoading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i} className="border-b border-[#F0F4F0] animate-pulse">
-                  {COLUMNS.map(col => <td key={col.key} className="px-4 py-[13px]"><div className="h-4 bg-[#E8EEE8] rounded w-3/4" /></td>)}
-                </tr>
-              ))
-            ) : paginated.length === 0 ? (
-              <tr>
-                <td colSpan={COLUMNS.length} className="max-md:block py-10 text-center text-[13px] text-[#7A8E7A] italic">
-                  No species found.
-                </td>
-              </tr>
-            ) : (
-              paginated.map(s => (
-                <tr key={s.id} className="border-b border-[#F0F4F0] hover:bg-[#F9FAF9] transition-colors max-md:block max-md:px-3 max-md:py-2">
-                  <td className="px-4 py-[11px] text-[13px] text-[#1A2B1A] font-medium max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] ">{s.species_name}</td>
-                  <td data-label="Category" className="px-4 py-[11px] text-[13px] text-[#4A5E4A] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">{s.category_name || '—'}</td>
-                  <td data-label="Environment" className="px-4 py-[11px] text-[13px] text-[#4A5E4A] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">{s.culture_environment}</td>
-                  <td data-label="Culture duration (days)" className="px-4 py-[11px] text-[13px] text-[#4A5E4A] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">{s.culture_duration_days}</td>
-                  <td data-label="Survival %" className="px-4 py-[11px] text-[13px] text-[#4A5E4A] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">
-                    {s.default_survival_rate_pct ? `${Number(s.default_survival_rate_pct).toFixed(1)}%` : '—'}
-                  </td>
-                  <td data-label="Avg weight (kg)" className="px-4 py-[11px] text-[13px] text-[#4A5E4A] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">
-                    {s.default_avg_body_weight_kg ? Number(s.default_avg_body_weight_kg).toFixed(3) : '—'}
-                  </td>
-                  <td className="px-4 py-[11px] max-md:block max-md:px-0 max-md:py-1">
-                    <RowActions actions={[
-                      { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditSpecies(s) },
-                      { key: 'delete', label: 'Delete', icon: Trash2, onClick: () => setDeletingSpec(s), tone: 'rose' },
-                    ]} />
-                  </td>
-                </tr>
-              ))
-            )}
-            {/* The new row sits at the end of the table, on the last page. */}
-            {!isLoading && add.isOpen && page === totalPages && (
+            {/* The new row sits at the top of the table, on the first page (newest first). */}
+            {!isLoading && add.isOpen && page === 1 && (
               <tr className="border-b border-[#F0F4F0] bg-[#F9FAF9] max-md:block max-md:px-3 max-md:py-2">
                 <td className="px-4 py-[11px] max-md:block max-md:w-full max-md:px-0 max-md:py-1">
                   <DraftInput value={add.draft.species_name} aria-label="New species name" placeholder="e.g. Tilapia"
@@ -623,6 +591,40 @@ export default function SpeciesOptionPage({ asTab = false }) {
                   <DraftActions onSave={saveDraft} onCancel={add.close} isSaving={add.isSaving} />
                 </td>
               </tr>
+            )}
+            {isLoading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <tr key={i} className="border-b border-[#F0F4F0] animate-pulse">
+                  {COLUMNS.map(col => <td key={col.key} className="px-4 py-[13px]"><div className="h-4 bg-[#E8EEE8] rounded w-3/4" /></td>)}
+                </tr>
+              ))
+            ) : paginated.length === 0 ? (
+              <tr>
+                <td colSpan={COLUMNS.length} className="max-md:block py-10 text-center text-[13px] text-[#7A8E7A] italic">
+                  No species found.
+                </td>
+              </tr>
+            ) : (
+              paginated.map(s => (
+                <tr key={s.id} className="border-b border-[#F0F4F0] hover:bg-[#F9FAF9] transition-colors max-md:block max-md:px-3 max-md:py-2">
+                  <td className="px-4 py-[11px] text-[13px] text-[#1A2B1A] font-medium max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] ">{s.species_name}</td>
+                  <td data-label="Category" className="px-4 py-[11px] text-[13px] text-[#4A5E4A] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">{s.category_name || '—'}</td>
+                  <td data-label="Environment" className="px-4 py-[11px] text-[13px] text-[#4A5E4A] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">{s.culture_environment}</td>
+                  <td data-label="Culture duration (days)" className="px-4 py-[11px] text-[13px] text-[#4A5E4A] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">{s.culture_duration_days}</td>
+                  <td data-label="Survival %" className="px-4 py-[11px] text-[13px] text-[#4A5E4A] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">
+                    {s.default_survival_rate_pct ? `${Number(s.default_survival_rate_pct).toFixed(1)}%` : '—'}
+                  </td>
+                  <td data-label="Avg weight (kg)" className="px-4 py-[11px] text-[13px] text-[#4A5E4A] max-md:block max-md:w-full max-md:px-0 max-md:py-1 max-md:text-left max-md:before:mb-0.5 max-md:before:block max-md:before:text-[11px] max-md:before:font-semibold max-md:before:uppercase max-md:before:tracking-wide max-md:before:text-[#7A8E7A] max-md:before:content-[attr(data-label)]">
+                    {s.default_avg_body_weight_kg ? Number(s.default_avg_body_weight_kg).toFixed(3) : '—'}
+                  </td>
+                  <td className="px-4 py-[11px] max-md:block max-md:px-0 max-md:py-1">
+                    <RowActions actions={[
+                      { key: 'edit', label: 'Edit', icon: Pencil, onClick: () => setEditSpecies(s) },
+                      { key: 'delete', label: 'Delete', icon: Trash2, onClick: () => setDeletingSpec(s), tone: 'rose' },
+                    ]} />
+                  </td>
+                </tr>
+              ))
             )}
           </tbody>
         </table>

@@ -8,6 +8,7 @@ import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DataTable from '../../components/UI/DataTable.jsx'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
 import { AddRowFooter, DraftActions, DraftInput, useAddRow } from '../../components/UI/InlineAddRow.jsx'
+import { newestFirst } from '../../utils/listOrder.js'
 import FormField, { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
 import RowActions from '../../components/UI/RowActions.jsx'
@@ -111,7 +112,7 @@ export default function SpeciesCategoryPage({ asTab = false }) {
     }
   }
 
-  const rows = categories.map(c => ({
+  const rows = newestFirst(categories).map(c => ({
     ...c,
     actions: (
       <RowActions actions={[
@@ -121,7 +122,7 @@ export default function SpeciesCategoryPage({ asTab = false }) {
     ),
   }))
   if (add.isOpen) {
-    rows.push({
+    rows.unshift({
       id: 'new',
       name: <DraftInput value={add.draft.name} aria-label="New category" placeholder="e.g. Finfish"
         onChange={e => add.change({ name: e.target.value })} onSave={saveDraft} onCancel={add.close} />,
