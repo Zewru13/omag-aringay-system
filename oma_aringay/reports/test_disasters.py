@@ -92,6 +92,58 @@ class DisasterReportsTests(APITestCase):
             self.assertEqual(self.client.get(url, {'disaster_type': 'Earthquake'}).status_code, 400)
             self.assertEqual(self.client.get(url, {'date_from': '2030-01-02', 'date_to': '2030-01-01'}).status_code, 400)
 
+    # --- the Disaster tables: From / To on the occurred date (the same names as the report), and the report of one person
+    def test_the_disaster_tables_filter_by_the_occurred_dates(self):
+        crop = lambda **p: [r['report_number'] for r in self.get('/api/production/disaster-logs/', page=1, **p)['results']]
+        fish = lambda **p: [r['report_number'] for r in self.get('/api/fisheries/disaster-reports/', page=1, **p)['results']]
+        recent, old = str(self.today - timedelta(days=10)), str(self.today - timedelta(days=30))
+        self.assertEqual(len(crop()), 2)
+        self.assertEqual(len(crop(date_from=recent)), 1)          # only the one 3 days ago
+        self.assertEqual(len(crop(date_to=old)), 1)               # only the one 90 days ago
+        self.assertEqual(crop(date_from=recent, date_to=str(self.today)), crop(date_from=recent))
+        self.assertEqual(fish(date_from=recent), [self.fd_stock.report_number])
+        self.assertEqual(fish(date_to=old), [self.fd_general.report_number])
+        for url in ('/api/production/disaster-logs/', '/api/fisheries/disaster-reports/'):
+            self.assertEqual(self.client.get(url, {'date_from': 'soon'}).status_code, 400)
+            self.assertEqual(self.client.get(url, {'date_from': '2030-01-02', 'date_to': '2030-01-01'}).status_code, 400)
+
+    def test_the_report_takes_the_year_of_the_table_filter(self):
+        old = CropDisasterReport.objects.create(monitoring_record=self.rec_a, disaster_type='Drought', date_of_occurrence=date(2019, 3, 4), area_affected_ha='0.10')
+        FisheriesDisasterReport.objects.create(fisherfolk=self.ana, disaster_type='Flood', date_of_occurrence=date(2019, 3, 4))
+        crop = self.get(CROP, year=2019)
+        self.assertEqual([r[0] for r in self.rows(crop)], [f'CDR-{old.date_reported.year}-{old.pk:05d}'])
+        self.assertIn('Year: 2019', crop['subtitle'])
+        self.assertEqual(len(self.rows(self.get(FISH, year=2019))), 1)
+        this_year = [d for d in (self.fd_stock, self.fd_general) if d.date_of_occurrence.year == self.today.year]
+        self.assertEqual(len(self.rows(self.get(FISH, year=self.today.year))), len(this_year))
+        for url in (FISH, CROP):
+            self.assertEqual(self.client.get(url, {'year': 'last'}).status_code, 400)
+
+    def test_the_report_of_one_farmer_or_fisherfolk(self):
+        other = Farmer.objects.create(
+            rsbsa_number='01-033-02-019-000452', first_name='Jose', last_name='Reyes', gender='Male',
+            birthdate=date(1980, 5, 5), barangay='Alaska', civil_status='Single')
+        other_rec = CropMonitoringRecord.objects.create(
+            farmer=other, farm_location_barangay='Alaska', land_status='Owner', crop_type=self.crop_type, season='Wet', year=self.today.year,
+            date_planted=self.today - timedelta(days=40), area_planted_ha='1.00', status='Planted')
+        CropDisasterReport.objects.create(monitoring_record=other_rec, disaster_type='Flood', date_of_occurrence=self.today - timedelta(days=2), area_affected_ha='0.50')
+        farmers = lambda **p: sorted({r[1] for r in self.rows(self.get(CROP, **p))})
+        self.assertEqual(farmers(), ['Jose Reyes', 'Maria Santos'])
+        self.assertEqual(farmers(farmer=self.farmer.id), ['Maria Santos'])
+        self.assertEqual(len(self.rows(self.get(CROP, farmer=self.farmer.id))), 2)
+        self.assertEqual(farmers(farmer=other.id), ['Jose Reyes'])
+        self.assertIn('Farmer: Maria Santos', self.get(CROP, farmer=self.farmer.id)['subtitle'])
+        # the stock's owner and a general log's own fisherfolk both count
+        fishers = lambda **p: [r[1] for r in self.rows(self.get(FISH, **p))]
+        self.assertEqual(fishers(fisherfolk=self.pedro.id), ['Pedro Sea'])
+        self.assertEqual(fishers(fisherfolk=self.ana.id), ['Ana Sea'])
+        self.assertIn('Fisherfolk: Pedro Sea', self.get(FISH, fisherfolk=self.pedro.id)['subtitle'])
+        # combined with the table's other filters, and refused when it is not an id
+        self.assertEqual(farmers(farmer=self.farmer.id, status='Recovered'), ['Maria Santos'])
+        self.assertEqual(len(self.rows(self.get(CROP, farmer=self.farmer.id, status='Recovered'))), 1)
+        self.assertEqual(self.client.get(CROP, {'farmer': 'abc'}).status_code, 400)
+        self.assertEqual(self.client.get(FISH, {'fisherfolk': 'abc'}).status_code, 400)
+
     # --- fisheries
     def test_fisheries_lists_every_report_newest_first_with_its_stock_owner_and_volume(self):
         doc = self.get(FISH)

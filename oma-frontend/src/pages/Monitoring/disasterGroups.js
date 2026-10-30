@@ -1,7 +1,7 @@
 // The Disaster pages list one row per disaster log. This groups them by person so a farmer or fisherfolk with several
 // shows once, with their crops or ponds opening beneath. Pure, so the grouping and the counts can be tested.
 //   rows: the page's log rows. idKey / nameKey / barangayKey: which fields name the person.
-// Returns [{ key, name, barangay, rows, total, active, recovered, summary }] in the order people first appear.
+// Returns [{ key, id, name, barangay, rows, total, active, recovered, summary }] (id: the person's id, null when the rows carry none) in the order people first appear.
 export const groupDisasterRows = (rows, { idKey, nameKey, barangayKey }) => {
   if (!Array.isArray(rows)) return []
   const groups = new Map()
@@ -9,7 +9,7 @@ export const groupDisasterRows = (rows, { idKey, nameKey, barangayKey }) => {
     const name = String(row[nameKey] || '').trim() || 'Unknown'
     const id = row[idKey]
     const key = id !== undefined && id !== null ? `id:${id}` : `name:${name.toLowerCase()}`
-    if (!groups.has(key)) groups.set(key, { key, name, barangay: row[barangayKey] || '', rows: [] })
+    if (!groups.has(key)) groups.set(key, { key, id: id ?? null, name, barangay: row[barangayKey] || '', rows: [] })
     groups.get(key).rows.push(row)
   })
   return [...groups.values()].map((group) => {

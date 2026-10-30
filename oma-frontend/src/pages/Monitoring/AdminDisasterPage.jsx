@@ -9,6 +9,7 @@ import GroupedDisasterTable from './GroupedDisasterTable.jsx'
 import { disasterStatusLabel } from './disasterRecovery.js'
 import { groupDisasterRows } from './disasterGroups.js'
 import ErrorMessage from '../../components/UI/ErrorMessage.jsx'
+import DateRangeFields from '../../components/UI/DateRangeFields.jsx'
 import FilterPanel from '../../components/UI/FilterPanel.jsx'
 import FormField from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
@@ -23,6 +24,11 @@ import DisasterLogDetailsModal from './DisasterLogDetailsModal.jsx'
 import { FARMER_LOG, FISHERIES_LOG, downloadLog, fetchAllStocks, printLog } from './disasterReportDocument.js'
 import { FISHERFOLK_DISASTER_TYPES } from './fisheriesDisasterConstants.js'
 import FisherfolkStockDisasterModal from './FisherfolkStockDisasterModal.jsx'
+import DisasterReportButtons from './DisasterReportButtons.jsx'
+import DisasterPersonReportModal from './DisasterPersonReportModal.jsx'
+import { disasterListParams, disasterReportStem, disasterReportUrl } from '../../utils/disasterReport.js'
+import { downloadFile } from '../../utils/fileDownload.js'
+import { printPdf } from '../../utils/printPdf.js'
 
 // ADMIN > DISASTER: one module, two use cases on the existing records (no new disaster models):
 //   Farmer Disaster    - every CropDisasterReport (GET /production/disaster-logs/); Log Disaster = a full-screen
@@ -30,6 +36,8 @@ import FisherfolkStockDisasterModal from './FisherfolkStockDisasterModal.jsx'
 //   Fisheries Disaster - every FisheriesDisasterReport, including those fisherfolk submit when they log
 //                        (GET /fisheries/disaster-reports/); Log Disaster = choose a fisherfolk and their
 //                        stock, then the same full aquaculture form the fisherfolk uses.
+// Both tables filter by search, barangay, type, status, year and the date it occurred (From / To), print or download the table as a report, and
+// each farmer / fisherfolk row has a menu: View Report (all their disasters), Print and Download of the same PDF (Reports > Disaster).
 // ?tab=farmer|fisheries picks the use case; ?report=<id> opens a Fisheries log (notification links).
 
 const CURRENT_YEAR = new Date().getFullYear()
@@ -61,13 +69,13 @@ function usePagedLogs(url, filters, version) {
   return state
 }
 
-function Filters({ search, setSearch, barangay, setBarangay, type, setType, types, status, setStatus, year, setYear, placeholder, actions }) {
+function Filters({ search, setSearch, barangay, setBarangay, type, setType, types, status, setStatus, year, setYear, dateFrom, setDateFrom, dateTo, setDateTo, placeholder, actions }) {
   return (
     <FilterPanel
       className=""
       search={search} onSearchChange={setSearch} searchPlaceholder={placeholder}
       actions={actions}
-      activeCount={[barangay, type, status, year].filter(Boolean).length}
+      activeCount={[barangay, type, status, year, dateFrom, dateTo].filter(Boolean).length}
     >
         <div className="w-48"><BarangaySelect value={barangay} onChange={e => setBarangay(e.target.value)} includeAllOption /></div>
         <select className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm" value={type} onChange={e => setType(e.target.value)} aria-label="Disaster type">
@@ -83,6 +91,7 @@ function Filters({ search, setSearch, barangay, setBarangay, type, setType, type
           <option value="">All Years</option>
           {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
+        <DateRangeFields label="Occurred" from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
     </FilterPanel>
   )
 }
@@ -124,6 +133,18 @@ function ChoosePersonModal({ title, label, searchUrl, onClose, onChoose }) {
   )
 }
 
+// The menu of a farmer / fisherfolk row: their report on screen, printed, or downloaded (the same PDF as Reports > Disaster).
+function personActions({ kind, group, person, busyKey, act, filters, onView }) {
+  if (group.id == null) return []
+  const key = `person:${group.key}`
+  const url = disasterReportUrl(kind, filters, person, 'pdf')
+  return [
+    { key: 'view', label: 'View Report', icon: Eye, onClick: onView },
+    { key: 'print', label: 'Print Report', icon: Printer, disabled: busyKey === key, onClick: () => act(key, () => printPdf(api, url), 'The report could not be printed.') },
+    { key: 'download', label: 'Download Report', icon: Download, disabled: busyKey === key, onClick: () => act(key, () => downloadFile(api, url, `${disasterReportStem(kind, person)}.pdf`), 'The report could not be downloaded.') },
+  ]
+}
+
 // ─── Fisheries Disaster ───────────────────────────────────────────────────────
 
 function FisheriesDisasterTab({ openLog }) {
@@ -133,12 +154,15 @@ function FisheriesDisasterTab({ openLog }) {
   const [type, setType] = useState('')
   const [status, setStatus] = useState('')
   const [year, setYear] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [page, setPage] = useState(1)
   const [version, setVersion] = useState(0)
   const debounced = useDebounced(search)
-  const { rows, count, isLoading, error } = usePagedLogs('/fisheries/disaster-reports/',
-    { search: debounced, barangay, disaster_type: type, status, year, page }, version)
+  const filters = useMemo(() => ({ search: debounced, barangay, type, status, year, dateFrom, dateTo }), [debounced, barangay, type, status, year, dateFrom, dateTo])
+  const { rows, count, isLoading, error } = usePagedLogs('/fisheries/disaster-reports/', disasterListParams({ ...filters, page }), version)
   const [busyId, setBusyId] = useState(null)
+  const [personReport, setPersonReport] = useState(null)   // the fisherfolk whose report is open
   const [step, setStep] = useState(null)   // {name:'person'} | {name:'form', person, stocks (null while loading)}
 
   const setFilter = (fn) => (v) => { fn(v); setPage(1) }
@@ -203,11 +227,21 @@ function FisheriesDisasterTab({ openLog }) {
       </div>
       <Filters search={search} setSearch={setFilter(setSearch)} barangay={barangay} setBarangay={setFilter(setBarangay)}
         type={type} setType={setFilter(setType)} types={FISHERFOLK_DISASTER_TYPES} status={status} setStatus={setFilter(setStatus)}
-        year={year} setYear={setFilter(setYear)} placeholder="Search fisherfolk, species, disaster or reference no.…"
-        actions={<Button className="shrink-0 whitespace-nowrap" onClick={() => setStep({ name: 'person' })}><Plus size={15} className="mr-1" /> Log Disaster</Button>} />
+        year={year} setYear={setFilter(setYear)} dateFrom={dateFrom} setDateFrom={setFilter(setDateFrom)} dateTo={dateTo} setDateTo={setFilter(setDateTo)}
+        placeholder="Search fisherfolk, species, disaster or reference no.…"
+        actions={(
+          <>
+            <DisasterReportButtons kind="fisheries" filters={filters} />
+            <Button className="shrink-0 whitespace-nowrap" onClick={() => setStep({ name: 'person' })}><Plus size={15} className="mr-1" /> Log Disaster</Button>
+          </>
+        )} />
       {error ? <ErrorMessage message={error} /> : (
         <>
           <GroupedDisasterTable personLabel="Fisherfolk" groups={groups} isLoading={isLoading} onOpen={(row) => openLog(row.id)}
+            groupActions={(group) => {
+              const person = { kind: 'fisherfolk', id: group.id, name: group.name }
+              return personActions({ kind: 'fisheries', group, person, busyKey: busyId, act, filters, onView: () => setPersonReport(person) })
+            }}
             emptyText="No fisheries disasters found."
             columns={[
               { key: 'report_number', label: 'Reference No.' }, { key: 'stock_cell', label: 'Affected Stock / Pond' }, { key: 'date_fmt', label: 'Date' },
@@ -218,6 +252,7 @@ function FisheriesDisasterTab({ openLog }) {
         </>
       )}
 
+      {personReport && <DisasterPersonReportModal kind="fisheries" person={personReport} filters={filters} onClose={() => setPersonReport(null)} />}
       {step?.name === 'person' && (
         <ChoosePersonModal title="Log Fisheries Disaster" label="Fisherfolk" searchUrl="/fisheries/fisherfolk/"
           onClose={() => setStep(null)} onChoose={choosePerson} />
@@ -239,13 +274,16 @@ function FarmerDisasterTab() {
   const [type, setType] = useState('')
   const [status, setStatus] = useState('')
   const [year, setYear] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [page, setPage] = useState(1)
   const [version, setVersion] = useState(0)
   const debounced = useDebounced(search)
-  const { rows, count, isLoading, error } = usePagedLogs('/production/disaster-logs/',
-    { search: debounced, barangay, disaster_type: type, status, year, page }, version)
+  const filters = useMemo(() => ({ search: debounced, barangay, type, status, year, dateFrom, dateTo }), [debounced, barangay, type, status, year, dateFrom, dateTo])
+  const { rows, count, isLoading, error } = usePagedLogs('/production/disaster-logs/', disasterListParams({ ...filters, page }), version)
   const [busyId, setBusyId] = useState(null)
   const [viewingId, setViewingId] = useState(null)
+  const [personReport, setPersonReport] = useState(null)   // the farmer whose report is open
   const [step, setStep] = useState(null)
 
   const setFilter = (fn) => (v) => { fn(v); setPage(1) }
@@ -283,11 +321,21 @@ function FarmerDisasterTab() {
       </div>
       <Filters search={search} setSearch={setFilter(setSearch)} barangay={barangay} setBarangay={setFilter(setBarangay)}
         type={type} setType={setFilter(setType)} types={CROP_TYPES} status={status} setStatus={setFilter(setStatus)}
-        year={year} setYear={setFilter(setYear)} placeholder="Search farmer, crop, disaster or reference no.…"
-        actions={<Button className="shrink-0 whitespace-nowrap" onClick={() => setStep({ name: 'log' })}><Plus size={15} className="mr-1" /> Log Disaster</Button>} />
+        year={year} setYear={setFilter(setYear)} dateFrom={dateFrom} setDateFrom={setFilter(setDateFrom)} dateTo={dateTo} setDateTo={setFilter(setDateTo)}
+        placeholder="Search farmer, crop, disaster or reference no.…"
+        actions={(
+          <>
+            <DisasterReportButtons kind="crops" filters={filters} />
+            <Button className="shrink-0 whitespace-nowrap" onClick={() => setStep({ name: 'log' })}><Plus size={15} className="mr-1" /> Log Disaster</Button>
+          </>
+        )} />
       {error ? <ErrorMessage message={error} /> : (
         <>
           <GroupedDisasterTable personLabel="Farmer" groups={groups} isLoading={isLoading} onOpen={(row) => setViewingId(row.id)}
+            groupActions={(group) => {
+              const person = { kind: 'farmer', id: group.id, name: group.name }
+              return personActions({ kind: 'crops', group, person, busyKey: busyId, act, filters, onView: () => setPersonReport(person) })
+            }}
             emptyText="No crop disasters found."
             columns={[
               { key: 'report_number', label: 'Reference No.' }, { key: 'crop', label: 'Crop' },
@@ -300,6 +348,7 @@ function FarmerDisasterTab() {
       )}
 
       {viewingId && <DisasterLogDetailsModal key={viewingId} kind="farmer" logId={viewingId} onClose={() => setViewingId(null)} />}
+      {personReport && <DisasterPersonReportModal kind="crops" person={personReport} filters={filters} onClose={() => setPersonReport(null)} />}
     </div>
   )
 }

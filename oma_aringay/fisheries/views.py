@@ -1244,7 +1244,7 @@ def _scoped_disaster_reports(user):
 class FisheriesDisasterReportListView(APIView):
     """Disaster log rows. Fisherfolk: their own. Staff: every fisherfolk's (Admin > Disaster > Fisheries).
     Filters: search (fisherfolk, species, type, reference no.), barangay, disaster_type, status, year,
-    submission. With ?page= the response is paginated ({count, page, page_size, results}); without it, a
+    date_from / date_to (the date it occurred), submission. With ?page= the response is paginated ({count, page, page_size, results}); without it, a
     plain list."""
     permission_classes = [IsAuthenticated, IsStaffOrFisherfolk]
     PAGE_SIZE = 20
@@ -1261,6 +1261,7 @@ class FisheriesDisasterReportListView(APIView):
             qs = qs.filter(status=params['status'])
         if is_plain_int(params.get('year', '')):
             qs = qs.filter(date_of_occurrence__year=int(params['year']))
+        qs = filter_date_range(qs, 'date_of_occurrence', params, 'date_from', 'date_to')
         if params.get('barangay'):
             b = params['barangay']
             qs = qs.filter(Q(fisherfolk__barangay__iexact=b) | Q(stocking_record__fisherfolk__barangay__iexact=b))

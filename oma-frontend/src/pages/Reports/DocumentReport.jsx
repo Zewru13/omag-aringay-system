@@ -9,7 +9,7 @@ import { ActionButtons, PreviewTable, SignatureModal } from './ReportParts.jsx'
 // A report built from a backend "document": { title, subtitle, stats: [[label, value]], sections: [{ title, pairs } | { title, headers, rows, empty }] }.
 // The same document is the on-screen preview, the PDF and the Excel, so they always agree.
 
-function DocumentView({ doc, isLoading, emptyText }) {
+export function DocumentView({ doc, isLoading, emptyText }) {
   if (isLoading || !doc) {
     return <PreviewTable headers={['']} rows={[]} isLoading={isLoading} emptyText={emptyText} />
   }

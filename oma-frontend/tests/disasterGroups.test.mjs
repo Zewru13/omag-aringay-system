@@ -18,11 +18,13 @@ eq([groups[0].active, groups[0].recovered], [2, 1], 'active and recovered counts
 eq(groups[0].summary, '2 active · 1 recovered', 'summary text')
 eq(groups[1].summary, '1 active', 'summary leaves out zero counts')
 eq(groups[0].barangay, 'Alaska', 'barangay is taken from the rows')
+eq(groups.map((g) => g.id), [10, 11], "a group carries its person's id (the ⋮ menu asks for that person's report)")
 
 // two different people with the same name stay two rows when their ids differ
 eq(groupDisasterRows([row(1, 10, 'Ana Cruz'), row(2, 12, 'Ana Cruz')], OPTS).length, 2, 'same name, different id: two people')
 // without an id the name is the key
 eq(groupDisasterRows([row(1, null, 'Ana Cruz'), row(2, undefined, 'Ana Cruz')], OPTS).length, 1, 'no id: grouped by name')
+eq(groupDisasterRows([row(1, null, 'Ana Cruz')], OPTS)[0].id, null, 'no id: the group has none')
 // an open disaster that can no longer be recovered (harvested crop or stock) is history only, not active
 const mixed = groupDisasterRows([row(1, 10, 'Ana Cruz', 'Active', { can_recover: true }), row(2, 10, 'Ana Cruz', 'Active', { can_recover: false }), row(3, 10, 'Ana Cruz', 'Recovered')], OPTS)[0]
 eq([mixed.active, mixed.history, mixed.recovered], [1, 1, 1], 'active, history only and recovered are counted apart')

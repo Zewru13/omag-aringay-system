@@ -6,6 +6,8 @@ GET /api/reports/disasters/fisheries/   and   GET /api/reports/disasters/crops/
     barangay              the fisherfolk's / crop's barangay
     disaster_type         one of the disaster types of that kind
     status                Active | Recovered
+    year                  disaster occurred in this year (the Disaster tables' Year filter)
+    farmer / fisherfolk   the report of one person (their id), used by the ⋮ menu of the Disaster tables
     search                name, species / crop, disaster type, reference no.
     format                json (the page preview, default) | pdf | excel      (+ prepared_by / reviewed_by / noted_by for the PDF)
 
@@ -22,7 +24,8 @@ from rest_framework.views import APIView
 
 from accounts.permissions import IsAdminOrEvaluator
 from fisheries import disaster_reports
-from fisheries.models import FisheriesDisasterReport, FisheriesDisasterStockLoss
+from farmers.models import Farmer
+from fisheries.models import FisheriesDisasterReport, FisheriesDisasterStockLoss, Fisherfolk
 from production import crop_disaster_logs
 from production.models import CropDisasterReport
 
@@ -63,12 +66,27 @@ class Filters:
         if self.status not in ('', 'Active', 'Recovered'):
             raise ValidationError({'status': ['Use Active or Recovered.']})
         self.search = q.get('search', '').strip()
+        self.year = self._whole_number(q, 'year')
+        self.farmer_id = self._whole_number(q, 'farmer')
+        self.fisherfolk_id = self._whole_number(q, 'fisherfolk')
+        self.person_text = ''   # 'Farmer: Maria Santos', set by the document that looked the person up
+
+    @staticmethod
+    def _whole_number(params, name):
+        raw = params.get(name, '').strip()
+        if not raw:
+            return None
+        if not raw.isdigit():
+            raise ValidationError({name: ['Use a whole number.']})
+        return int(raw)
 
     def apply_common(self, qs):
         if self.frm:
             qs = qs.filter(date_of_occurrence__gte=self.frm)
         if self.to:
             qs = qs.filter(date_of_occurrence__lte=self.to)
+        if self.year:
+            qs = qs.filter(date_of_occurrence__year=self.year)
         if self.disaster_type:
             qs = qs.filter(disaster_type=self.disaster_type)
         if self.status:
@@ -80,6 +98,10 @@ class Filters:
         if dates and (self.frm or self.to):
             span = ' '.join(x for x in (f'from {text(self.frm)}' if self.frm else '', f'to {text(self.to)}' if self.to else '') if x)
             parts.append(f'Occurred {span}')
+        if self.year:
+            parts.append(f'Year: {self.year}')
+        if self.person_text:
+            parts.append(self.person_text)
         if self.barangay:
             parts.append(f'Barangay: {self.barangay}')
         if self.disaster_type:
@@ -115,6 +137,12 @@ FISHERIES_HEADERS = ['Reference No.', 'Fisherfolk', 'Barangay', 'Stock / Cycle',
 
 def fisheries_document(filters):
     qs = filters.apply_common(disaster_reports.report_queryset())
+    if filters.fisherfolk_id:
+        qs = qs.filter(Q(fisherfolk_id=filters.fisherfolk_id) | Q(stocking_record__fisherfolk_id=filters.fisherfolk_id)
+                       | Q(pk__in=FisheriesDisasterStockLoss.objects.filter(
+                           stocking_record__fisherfolk_id=filters.fisherfolk_id).values('disaster_report_id')))
+        person = Fisherfolk.objects.filter(pk=filters.fisherfolk_id).first()
+        filters.person_text = f'Fisherfolk: {person.full_name}' if person else ''
     if filters.barangay:
         qs = qs.filter(Q(fisherfolk__barangay__iexact=filters.barangay) | Q(stocking_record__fisherfolk__barangay__iexact=filters.barangay))
     if filters.search:
@@ -159,6 +187,10 @@ CROP_HEADERS = ['Reference No.', 'Farmer', 'Barangay', 'Crop', 'Farm Parcel', 'D
 
 def crops_document(filters):
     qs = filters.apply_common(crop_disaster_logs.crop_queryset())
+    if filters.farmer_id:
+        qs = qs.filter(Q(monitoring_record__farmer_id=filters.farmer_id) | Q(monitoring_record__farm_parcel__farmer_id=filters.farmer_id))
+        person = Farmer.objects.filter(pk=filters.farmer_id).first()
+        filters.person_text = f'Farmer: {person.full_name}' if person else ''
     if filters.barangay:
         qs = qs.filter(Q(monitoring_record__farm_location_barangay__iexact=filters.barangay)
                        | Q(monitoring_record__farm_location_barangay='', monitoring_record__farm_parcel__barangay__iexact=filters.barangay))
