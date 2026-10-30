@@ -137,6 +137,10 @@ export const SECTIONS = [
         a: 'Yes. The Add Organization form has an Equipment section: press Add equipment for each kind, then choose it, the number of units and optionally the date acquired and remarks. The equipment is saved together with the organization, in Good condition. Leave the section empty if there is none.',
       },
       {
+        q: 'Can I add members when I register an organization?',
+        a: 'Yes. The Add Organization form has a Members section. Search a registered farmer or fisherfolk by name or RSBSA number, press the name to add them, then choose their position and optionally the date joined (left blank, the date registered of the organization is used). To use a spreadsheet instead, press Import members, choose the file (Download template gives the columns), and when the organization is saved the Import Members window opens with that file so you can preview it before confirming. The picked members are added when the organization is saved. Anyone who cannot be added, for example a person already in other organizations with no main one, is listed after saving and can be added from the organization page.',
+      },
+      {
         q: 'How do I add equipment to an organization?',
         a: 'In the organization\'s Equipment tab (Equipment Inventory for staff) choose Add Equipment, then the equipment, how many units, and optionally the date acquired and remarks. There is no condition to choose: new equipment starts as Good. Later, Change condition moves units to Needs Repair, Not Operational, Broken or Lost, and Repair puts repaired units back to Good.',
       },

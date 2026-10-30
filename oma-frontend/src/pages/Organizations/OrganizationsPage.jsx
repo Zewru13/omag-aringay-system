@@ -36,6 +36,7 @@ function OrganizationsPage({ asTab = false }) {
   const [registeredFrom, setRegisteredFrom] = useState('')
   const [registeredTo, setRegisteredTo] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [membersImport, setMembersImport] = useState(null)   // { file, organization }: the members file chosen on the registration form
   const [showImportModal, setShowImportModal] = useState(false)
   const [editOrganization, setEditOrganization] = useState(null)
   const [refreshKey, setRefreshKey] = useState(0)
@@ -73,9 +74,11 @@ function OrganizationsPage({ asTab = false }) {
     navigate(`/organizations/farmers/${row.id}`)
   }
 
-  const handleCreateSuccess = () => {
+  const handleCreateSuccess = ({ importFile, organization } = {}) => {
     setShowCreateModal(false)
     setRefreshKey((k) => k + 1)
+    // A members file attached on the form is read now, in the Import Members window of the new organization (preview first).
+    if (importFile && organization?.id) setMembersImport({ file: importFile, organization })
   }
 
   const tableData = organizations.map((a) => ({
@@ -154,6 +157,20 @@ function OrganizationsPage({ asTab = false }) {
           type="farmers"
           onClose={() => setEditOrganization(null)}
           onSuccess={() => { setEditOrganization(null); setRefreshKey((k) => k + 1) }}
+        />
+      )}
+
+      {membersImport && (
+        <ImportFileModal
+          title="Import Members"
+          subtitle={`Add already-registered farmers to ${membersImport.organization.name} from the file you attached.`}
+          importUrl={`/organizations/farmers/${membersImport.organization.id}/members/import/`}
+          templateUrl={`/organizations/farmers/${membersImport.organization.id}/members/import/template/`}
+          templateFilename="farmers_organization_members_import_template.xlsx"
+          undoType="farmers_org_members"
+          initialFile={membersImport.file}
+          onClose={() => setMembersImport(null)}
+          onImported={() => setRefreshKey((k) => k + 1)}
         />
       )}
 

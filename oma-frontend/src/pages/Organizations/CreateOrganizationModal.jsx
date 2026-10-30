@@ -15,6 +15,8 @@ import { localToday } from '../../utils/inputGuards.js'
 import { agencyOptionsFor } from './agencyOptions.js'
 import EquipmentLinesEditor from './EquipmentLinesEditor.jsx'
 import { equipmentLinePayload, equipmentLinesProblem } from './registrationEquipment.js'
+import MembersEditor from './MembersEditor.jsx'
+import { memberLinesProblem, memberOutcome, memberPayload, memberRefusal } from './registrationMembers.js'
 
 const labelCls = 'block text-[13px] font-medium text-[#4A5E4A] mb-1.5'
 
@@ -43,10 +45,13 @@ const initialForm = {
 export default function CreateOrganizationModal({ type: assocType = 'farmers', onClose, onSuccess }) {
   const { showToast } = useToast()
   // What is typed is a draft: it is still here when the window is opened again (see hooks/useDraftState.js). One per kind of organization.
-  const [work, setWork, draft] = useDraftState(`create-organization:${assocType}`, () => ({ form: initialForm, equipment: [] }))
-  const { form, equipment } = work   // equipment: what the organization has, saved with it
+  const [work, setWork, draft] = useDraftState(`create-organization:${assocType}`, () => ({ form: initialForm, equipment: [], members: [] }))
+  const { form, equipment, members = [] } = work   // equipment: what the organization has; members: registered people to add to it. Both are saved with it
   const setForm = (next) => setWork((w) => ({ ...w, form: typeof next === 'function' ? next(w.form) : next }))
   const setEquipment = (next) => setWork((w) => ({ ...w, equipment: typeof next === 'function' ? next(w.equipment) : next }))
+  const setMembers = (next) => setWork((w) => ({ ...w, members: typeof next === 'function' ? next(w.members || []) : next }))
+  const [importFile,    setImportFile]    = useState(null)   // a members file to import once the organization is saved (a file cannot be kept in the draft)
+  const [createdOrg,    setCreatedOrg]    = useState(null)
   const [error,        setError]        = useState('')
   const [formErrors,   setFormErrors]   = useState({})
   const [contactError, setContactError] = useState('')
@@ -98,6 +103,11 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
       setError(equipmentProblem)
       return false
     }
+    const memberProblem = memberLinesProblem(members, form.date_registered, localToday())
+    if (memberProblem) {
+      setError(memberProblem)
+      return false
+    }
     return true
   }
 
@@ -128,16 +138,29 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
         new_equipment:       equipment.map((line) => equipmentLinePayload(line, assocType)),
       })
       draft.clear()
+      // The organization exists now: add its members one by one, through the same rules as the Add Member window of its page.
+      const failures = []
+      for (const line of members) {
+        try {
+          await api.post(`/organizations/${assocType}/${created.id}/members/`, memberPayload(line, assocType, form.date_registered, localToday()))
+        } catch (err) {
+          failures.push({ name: line.name, reason: memberRefusal(err.response?.data) })
+        }
+      }
+      const outcome = memberOutcome(members.length, failures)
+      if (outcome.kind !== 'none') showToast(outcome.text, outcome.kind === 'ok' ? 'success' : 'error')
+      setCreatedOrg(created)
+      const done = () => onSuccess({ importFile, organization: created })
       const activation = created?.activation
       if (activation?.activated && activation.email_sent) {
         showToast(`Account activated. The login details were emailed to ${form.email_address}.`, 'success')
-        onSuccess()
+        done()
       } else if (activation?.activated) {
         // The email could not be sent: show the temporary password once so staff can hand it over.
         setHandover(activation)
       } else {
         showToast(`${typeLabel} created successfully.`, 'success')
-        onSuccess()
+        done()
       }
     } catch (err) {
       const data = err.response?.data
@@ -157,8 +180,8 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
         title="Account activated: hand over the password"
         subtitle={`${typeLabel} created.`}
         icon={KeyRound}
-        onClose={onSuccess}
-        footer={<Button type="button" onClick={onSuccess}>Done</Button>}
+        onClose={() => onSuccess({ importFile, organization: createdOrg })}
+        footer={<Button type="button" onClick={() => onSuccess({ importFile, organization: createdOrg })}>Done</Button>}
       >
         <div className="space-y-3 text-[13px] text-[#4A5E4A]">
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-amber-800">
@@ -313,6 +336,14 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
             <h3 className="text-[13px] font-semibold uppercase tracking-wide text-[#1B4D2E]">Equipment</h3>
             <p className="mb-3 mt-0.5 text-[12px] text-[#7A8E7A]">Optional. The equipment the organization has now; it can also be added later from the organization's page.</p>
             <EquipmentLinesEditor type={assocType} lines={equipment} onChange={setEquipment} />
+          </div>
+
+          {/* Members: registered farmers / fisherfolk added once the organization is saved, or a members file imported */}
+          <div className="border-t border-[#F0F4F0] pt-4">
+            <h3 className="text-[13px] font-semibold uppercase tracking-wide text-[#1B4D2E]">Members</h3>
+            <p className="mb-3 mt-0.5 text-[12px] text-[#7A8E7A]">Optional. Pick registered {assocType === 'farmers' ? 'farmers' : 'fisherfolk'} or import a members file. They are added when the organization is saved; more can be added later from its page.</p>
+            <MembersEditor type={assocType} lines={members} onChange={setMembers} registered={form.date_registered}
+              importFile={importFile} onImportFile={setImportFile} />
           </div>
 
           <p className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5 text-[12px] text-[#7A8E7A]">
