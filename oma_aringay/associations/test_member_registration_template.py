@@ -25,3 +25,12 @@ class MemberRegistrationTemplateTests(APITestCase):
         self.assertEqual(self.client.get('/api/organizations/farmers/members/import/template/').status_code, 403)
         self.client.force_authenticate(None)
         self.assertIn(self.client.get('/api/organizations/fisherfolk/members/import/template/').status_code, (401, 403))
+
+    def test_the_equipment_template_of_the_registration_form_needs_no_organization_either(self):
+        self.client.force_authenticate(self.admin)
+        for domain in ('farmers', 'fisherfolk'):
+            r = self.client.get(f'/api/organizations/{domain}/equipment/import/template/')
+            self.assertEqual(r.status_code, 200, domain)
+            self.assertIn(f'{domain}_organization_equipment_import_template.xlsx', r['Content-Disposition'])
+        self.client.force_authenticate(self.citizen)
+        self.assertEqual(self.client.get('/api/organizations/farmers/equipment/import/template/').status_code, 403)

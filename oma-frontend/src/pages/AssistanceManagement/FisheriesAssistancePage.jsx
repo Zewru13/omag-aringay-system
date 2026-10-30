@@ -24,6 +24,7 @@ import { ConfirmActionBar, SelectCell, SelectHeader } from './OrgConfirmControls
 import useConfirmSelection from './useConfirmSelection.js'
 import { FISHERFOLK_ORG_DOMAIN } from '../Citizen/orgDomainConfig.js'
 import DistributeAssistanceModal from './DistributeAssistanceModal.jsx'
+import useDistributeLink from './useDistributeLink.js'
 import DistributionsTable from './DistributionsTable.jsx'
 import OrgDistributionHistory from './OrgDistributionHistory.jsx'
 import CompactExpandList from '../../components/UI/CompactExpandList.jsx'
@@ -382,6 +383,7 @@ export default function FisheriesAssistancePage({ asTab = false }) {
   const [tableVersion, setTableVersion] = useState(0)   // bumps to read the staff distributions table again
   const [showImport, setShowImport] = useState(false)
   const [showDistribute, setShowDistribute] = useState(false)
+  const distributeLink = useDistributeLink('fisherfolk')   // ?distribute=<id> from an organization's menu: Distribute opens with it chosen
   const [editing, setEditing] = useState(null)
   const [resolving, setResolving] = useState(null)
   const [viewing, setViewing] = useState(null)
@@ -628,11 +630,12 @@ export default function FisheriesAssistancePage({ asTab = false }) {
           onImported={refreshAll}
         />
       )}
-      {showDistribute && (
+      {(showDistribute || distributeLink.org) && (
         <DistributeAssistanceModal
           domain={FISHERFOLK_DISTRIBUTION_DOMAIN}
           fixedOrg={isOrg ? { id: orgId, name: orgRecord?.label, barangay: orgRecord?.barangay } : null}
-          onClose={() => setShowDistribute(false)}
+          initialOrg={distributeLink.org}
+          onClose={() => { setShowDistribute(false); distributeLink.done() }}
           onSuccess={() => { refreshAll(); setHistoryKey((k) => k + 1) }}
         />
       )}

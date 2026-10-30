@@ -16,6 +16,7 @@ import { agencyOptionsFor } from './agencyOptions.js'
 import EquipmentLinesEditor from './EquipmentLinesEditor.jsx'
 import { equipmentLinePayload, equipmentLinesProblem } from './registrationEquipment.js'
 import MembersEditor from './MembersEditor.jsx'
+import ImportFileAttach from './ImportFileAttach.jsx'
 import { memberLinesProblem, memberOutcome, memberPayload, memberRefusal } from './registrationMembers.js'
 
 const labelCls = 'block text-[13px] font-medium text-[#4A5E4A] mb-1.5'
@@ -37,8 +38,7 @@ const initialForm = {
   registration_number: '',
   registration_agency: '',
   email_address: '',
-  contact_person_last: '',
-  contact_person_first: '',
+  contact_person: '',
   contact_number: '',
 }
 
@@ -51,6 +51,7 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
   const setEquipment = (next) => setWork((w) => ({ ...w, equipment: typeof next === 'function' ? next(w.equipment) : next }))
   const setMembers = (next) => setWork((w) => ({ ...w, members: typeof next === 'function' ? next(w.members || []) : next }))
   const [importFile,    setImportFile]    = useState(null)   // a members file to import once the organization is saved (a file cannot be kept in the draft)
+  const [equipmentFile,  setEquipmentFile]  = useState(null)   // an equipment file to import once the organization is saved
   const [createdOrg,    setCreatedOrg]    = useState(null)
   const [error,        setError]        = useState('')
   const [formErrors,   setFormErrors]   = useState({})
@@ -83,7 +84,7 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
     const errs = {}
     if (!form.name.trim())   errs.name = 'Required'
     if (!form.barangay)      errs.barangay = 'Required'
-    if (!form.contact_person_last.trim() && !form.contact_person_first.trim()) errs.contact_person_last = 'Required'
+    if (!form.contact_person.trim()) errs.contact_person = 'Required'
     if (!form.contact_number.trim()) errs.contact_number = 'Required'
     const contactErr = validateContact(form.contact_number)
     if (contactErr) { setContactError(contactErr) }
@@ -122,8 +123,6 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
     setShowConfirm(false)
     setIsSubmitting(true)
     try {
-      const contactPerson = [form.contact_person_last, form.contact_person_first]
-        .filter(Boolean).join(', ')
       const { data: created } = await api.post(`/organizations/${assocType}/`, {
         name:                form.name,
         barangay:            form.barangay,
@@ -133,7 +132,7 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
         registration_number: form.registration_number,
         registration_agency: form.registration_agency,
         email_address:       form.email_address,
-        contact_person:      contactPerson,
+        contact_person:      form.contact_person.trim(),
         contact_number:      form.contact_number,
         new_equipment:       equipment.map((line) => equipmentLinePayload(line, assocType)),
       })
@@ -150,7 +149,7 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
       const outcome = memberOutcome(members.length, failures)
       if (outcome.kind !== 'none') showToast(outcome.text, outcome.kind === 'ok' ? 'success' : 'error')
       setCreatedOrg(created)
-      const done = () => onSuccess({ importFile, organization: created })
+      const done = () => onSuccess({ importFile, equipmentFile, organization: created })
       const activation = created?.activation
       if (activation?.activated && activation.email_sent) {
         showToast(`Account activated. The login details were emailed to ${form.email_address}.`, 'success')
@@ -180,8 +179,8 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
         title="Account activated: hand over the password"
         subtitle={`${typeLabel} created.`}
         icon={KeyRound}
-        onClose={() => onSuccess({ importFile, organization: createdOrg })}
-        footer={<Button type="button" onClick={() => onSuccess({ importFile, organization: createdOrg })}>Done</Button>}
+        onClose={() => onSuccess({ importFile, equipmentFile, organization: createdOrg })}
+        footer={<Button type="button" onClick={() => onSuccess({ importFile, equipmentFile, organization: createdOrg })}>Done</Button>}
       >
         <div className="space-y-3 text-[13px] text-[#4A5E4A]">
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-amber-800">
@@ -307,18 +306,12 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
             {formErrors.email_address && <p className="mt-1 text-[12px] text-rose-600">{formErrors.email_address}</p>}
           </div>
 
-          {/* Contact Person — side by side */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-3">
-            <div>
-              <label className={labelCls}>Contact Person Last Name <span className="text-rose-500">*</span></label>
-              <input className={baseInputClasses} value={form.contact_person_last}
-                onChange={e => set('contact_person_last', e.target.value)} />
-            </div>
-            <div>
-              <label className={labelCls}>Contact Person First Name <span className="font-normal text-[#7A8E7A] text-[12px]">(optional)</span></label>
-              <input className={baseInputClasses} value={form.contact_person_first}
-                onChange={e => set('contact_person_first', e.target.value)} />
-            </div>
+          {/* Contact Person: one full-name box */}
+          <div>
+            <label className={labelCls}>Contact Person Full Name <span className="text-rose-500">*</span></label>
+            <input className={`${baseInputClasses}${formErrors.contact_person ? ' border-rose-400' : ''}`} value={form.contact_person}
+              placeholder="e.g. Juan Dela Cruz" onChange={e => set('contact_person', e.target.value)} />
+            {formErrors.contact_person && <p className="mt-1 text-[12px] text-rose-600">{formErrors.contact_person}</p>}
           </div>
 
           {/* Contact Number */}
@@ -336,6 +329,12 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
             <h3 className="text-[13px] font-semibold uppercase tracking-wide text-[#1B4D2E]">Equipment</h3>
             <p className="mb-3 mt-0.5 text-[12px] text-[#7A8E7A]">Optional. The equipment the organization has now; it can also be added later from the organization's page.</p>
             <EquipmentLinesEditor type={assocType} lines={equipment} onChange={setEquipment} />
+            <div className="mt-3 rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] p-3">
+              <p className="mb-1 text-[12px] font-semibold text-[#1A2B1A]">Import equipment from a file</p>
+              <p className="mb-2 text-[12px] text-[#7A8E7A]">Attach the equipment file. Once the organization is saved, the Import Equipment window opens with the file so you can check it before it is imported.</p>
+              <ImportFileAttach chooseLabel="Import equipment" templateUrl={`/organizations/${assocType}/equipment/import/template/`}
+                templateFilename={`${assocType}_organization_equipment_import_template.xlsx`} file={equipmentFile} onFile={setEquipmentFile} />
+            </div>
           </div>
 
           {/* Members: registered farmers / fisherfolk added once the organization is saved, or a members file imported */}

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, ArrowLeft, ArrowRight, Building2, CheckCircle2, ChevronDown, Printer, Users } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import AvatarInitials from '../../components/UI/AvatarInitials.jsx'
@@ -50,7 +50,7 @@ const firstMessage = (data, fallback) => {
   return fallback
 }
 
-export default function DistributeAssistanceModal({ domain, mode = 'organizations', fixedOrg = null, memberUrl = null, onClose, onSuccess }) {
+export default function DistributeAssistanceModal({ domain, mode = 'organizations', fixedOrg = null, initialOrg = null, memberUrl = null, onClose, onSuccess }) {
   const { showToast } = useToast()
   const today = todayISO()
   const people = mode === 'people'
@@ -67,6 +67,11 @@ export default function DistributeAssistanceModal({ domain, mode = 'organization
     const now = typeof next === 'function' ? next(new Map(w.picked)) : next
     return { ...w, picked: [...now] }
   }), [setWork])
+  // `initialOrg`: the organization chosen before the window opened ("Add assistance" in the organization table's menu): ticked once, kept if already.
+  useEffect(() => {
+    if (initialOrg && !picked.has(initialOrg.id)) setPicked((p) => p.set(initialOrg.id, initialOrg))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialOrg?.id])
   const [previews, setPreviews] = useState([])      // organizations: one answer each; people: one answer with every person
   const [selected, setSelected] = useState([])      // a Set of person ids per preview
   const [open, setOpen] = useState(() => new Set())

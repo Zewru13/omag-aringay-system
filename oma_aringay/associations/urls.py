@@ -10,7 +10,7 @@ from .equipment_views import (
     FisherfolkEquipmentLoanReturnView, FisherfolkEquipmentRepairView,
 )
 from .org_imports import (
-    equipment_import_template_view, equipment_import_view, member_import_template_view, member_import_view, member_registration_template_view,
+    equipment_import_template_view, equipment_import_view, member_import_template_view, member_import_view, member_registration_template_view, equipment_registration_template_view,
 )
 
 from .views import (
@@ -51,6 +51,7 @@ urlpatterns = [
     path('farmers/', FarmersOrganizationListCreateView.as_view()),
     path('farmers/<int:pk>/', FarmersOrganizationDetailView.as_view()),
     path('farmers/members/import/template/', member_registration_template_view('farmers').as_view()),
+    path('farmers/equipment/import/template/', equipment_registration_template_view('farmers').as_view()),
     path('farmers/<int:pk>/members/import/', member_import_view('farmers').as_view()),
     path('farmers/<int:pk>/members/import/template/', member_import_template_view('farmers').as_view()),
     path('farmers/<int:pk>/members/', FarmersOrganizationMemberAddView.as_view()),
@@ -90,6 +91,7 @@ urlpatterns = [
     path('fisherfolk/', FisherfolkOrganizationListCreateView.as_view()),
     path('fisherfolk/<int:pk>/', FisherfolkOrganizationDetailView.as_view()),
     path('fisherfolk/members/import/template/', member_registration_template_view('fisherfolk').as_view()),
+    path('fisherfolk/equipment/import/template/', equipment_registration_template_view('fisherfolk').as_view()),
     path('fisherfolk/<int:pk>/members/import/', member_import_view('fisherfolk').as_view()),
     path('fisherfolk/<int:pk>/members/import/template/', member_import_template_view('fisherfolk').as_view()),
     path('fisherfolk/<int:pk>/members/', FisherfolkOrganizationMemberAddView.as_view()),
