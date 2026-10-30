@@ -23,7 +23,7 @@ export default function PaginationBar({ page, totalCount, pageSize = 10, onPageC
       <div className="flex items-center gap-2">
         <button
           type="button"
-          className="flex items-center justify-center w-8 h-8 rounded-lg border border-[#C8D5C8] text-[#4A5E4A] hover:bg-[#F5F7F5] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="flex items-center justify-center w-8 h-8 max-md:w-10 max-md:h-10 rounded-lg border border-[#C8D5C8] text-[#4A5E4A] hover:bg-[#F5F7F5] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
           aria-label="Previous page"
@@ -35,7 +35,7 @@ export default function PaginationBar({ page, totalCount, pageSize = 10, onPageC
         </span>
         <button
           type="button"
-          className="flex items-center justify-center w-8 h-8 rounded-lg border border-[#C8D5C8] text-[#4A5E4A] hover:bg-[#F5F7F5] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          className="flex items-center justify-center w-8 h-8 max-md:w-10 max-md:h-10 rounded-lg border border-[#C8D5C8] text-[#4A5E4A] hover:bg-[#F5F7F5] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           disabled={page >= totalPages}
           onClick={() => onPageChange(page + 1)}
           aria-label="Next page"

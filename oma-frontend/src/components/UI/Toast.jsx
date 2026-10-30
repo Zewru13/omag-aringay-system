@@ -38,16 +38,18 @@ function Toast() {
         return (
           <div
             key={toast.id}
+            role={toast.type === 'error' ? 'alert' : 'status'}
             className={`stagger-item flex items-start gap-3 rounded-xl px-4 py-3 shadow-lg min-w-[280px] max-w-sm ${styles.container}`}
           >
             {styles.icon}
             <p className="flex-1 text-[13px]">{toast.message}</p>
             <button
               onClick={() => removeToast(toast.id)}
-              className="shrink-0 opacity-60 hover:opacity-100 transition-opacity"
+              aria-label="Dismiss message"
+              className="relative shrink-0 opacity-60 hover:opacity-100 transition-opacity after:absolute after:-inset-3 after:content-['']"
               type="button"
             >
-              <X size={16} />
+              <X size={16} aria-hidden="true" />
             </button>
           </div>
         )

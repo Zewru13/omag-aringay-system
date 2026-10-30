@@ -749,20 +749,22 @@ export default function CropOptionPage({ asTab = false }) {
           <div className="flex items-center gap-1">
             <button
               type="button"
+              aria-label="Previous page"
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="rounded-lg border border-[#E2E8E2] p-1.5 text-[#4A5E4A] hover:bg-[#F5F7F5] disabled:opacity-40"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#E2E8E2] text-[#4A5E4A] hover:bg-[#F5F7F5] disabled:opacity-40"
             >
-              <ChevronLeft size={16} />
+              <ChevronLeft size={16} aria-hidden="true" />
             </button>
             <span className="px-3 text-[13px] font-medium text-[#1A2B1A]">{page} / {totalPages}</span>
             <button
               type="button"
+              aria-label="Next page"
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="rounded-lg border border-[#E2E8E2] p-1.5 text-[#4A5E4A] hover:bg-[#F5F7F5] disabled:opacity-40"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#E2E8E2] text-[#4A5E4A] hover:bg-[#F5F7F5] disabled:opacity-40"
             >
-              <ChevronRight size={16} />
+              <ChevronRight size={16} aria-hidden="true" />
             </button>
           </div>
         </div>
