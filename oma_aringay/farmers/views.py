@@ -13,7 +13,7 @@ from accounts.permissions import IsAdminOrEvaluator
 from accounts.models import User
 from accounts.utils import create_inactive_citizen_shell
 from associations.models import FarmersOrganizationMember
-from core.utils import day_range_bounds, filter_people_search
+from core.utils import day_range_bounds, filter_people_search, is_plain_int
 
 from . import area_rules
 from .parcel_directory import directory_queryset
@@ -117,6 +117,12 @@ class FarmerListView(generics.ListCreateAPIView):
                 farmer_organizations__organization_id=organization_filter,
                 farmer_organizations__is_active=True,
             ).distinct()
+
+        # The Add Members table of the organization forms: only farmers who are not (active) members of this organization.
+        not_member_of = self.request.query_params.get('not_member_of', '')
+        if is_plain_int(not_member_of):
+            queryset = queryset.exclude(pk__in=FarmersOrganizationMember.objects.filter(
+                organization_id=int(not_member_of), is_active=True).values('farmer_id'))
 
         registered_from = self.request.query_params.get('registered_from')
         if registered_from:
