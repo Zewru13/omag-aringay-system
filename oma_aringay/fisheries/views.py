@@ -107,6 +107,12 @@ class FisherfolkListView(generics.ListCreateAPIView):
         from django.utils.timezone import localdate
         qs = scope_to_fisherfolk(Fisherfolk.objects.all(), self.request.user, 'id').order_by('-date_registered', '-id')
         params = self.request.query_params
+        # The Add Members table of the organization forms: only fisherfolk who are not (active) members of this organization.
+        not_member_of = params.get('not_member_of', '')
+        if is_plain_int(not_member_of):
+            from associations.models import FisherfolkOrganizationMember
+            qs = qs.exclude(pk__in=FisherfolkOrganizationMember.objects.filter(
+                organization_id=int(not_member_of), is_active=True).values('fisherfolk_id'))
         search = params.get('search', '').strip()
         if search:
             # Same full-name handling as FarmerListView: every whitespace-
