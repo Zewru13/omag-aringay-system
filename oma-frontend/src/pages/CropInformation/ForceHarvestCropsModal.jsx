@@ -110,6 +110,17 @@ export default function ForceHarvestCropsModal({ parcel = null, farmer = null, p
     if (needsTotalKg(weight)) return input(row, 'total', { placeholder: 'Total kg', title: unitPreview(row.quantity, row.unit, weight) })
     return <span className="text-[12.5px] text-[#4A5E4A]">{unitPreview(row.quantity, row.unit, weight) || '—'}</span>
   }
+  // Qty / Unit: one cell, the quantity and the unit it was counted in (kg, sacks, cavan... whatever the crop allows); the kg it comes to sits
+  // under them, so the total harvest follows from the quantity and the unit picked.
+  const qtyUnitCell = (row) => (
+    <div className="space-y-1">
+      <div className="flex items-center gap-1.5">
+        <div className="w-24 shrink-0">{input(row, 'quantity', { placeholder: 'e.g. 1500', 'aria-label': `Quantity of ${row.label}` })}</div>
+        <div className="w-28 shrink-0">{unitSelect(row)}</div>
+      </div>
+      {kgCell(row)}
+    </div>
+  )
   const unitSelect = (row) => (
     <select className={baseInputClasses} value={row.unit} onChange={(e) => change(row.id, { unit: e.target.value })} aria-label={`Unit for ${row.label}`}>
       {row.units.map((u) => <option key={u} value={u}>{u}</option>)}
@@ -284,9 +295,7 @@ export default function ForceHarvestCropsModal({ parcel = null, farmer = null, p
                       <th className={TH}>Days early</th>
                       <th className={TH}>Area planted (ha)</th>
                       <th className={TH}>Area harvested (ha)</th>
-                      <th className={TH}>Quantity</th>
-                      <th className={TH}>Unit</th>
-                      <th className={TH}>Weight (kg)</th>
+                      <th className={TH}>Qty / Unit</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -308,9 +317,7 @@ export default function ForceHarvestCropsModal({ parcel = null, farmer = null, p
                           <td className={`${CELL} whitespace-nowrap text-[13px] font-medium text-rose-700`}>{daysEarly} days</td>
                           <td className={`${CELL} text-[13px] text-[#4A5E4A]`}>{Number(record.area_planted_ha)}</td>
                           <td className={`${CELL} w-36`}>{row ? input(row, 'area') : <span className="text-[#A8BCA8]">—</span>}</td>
-                          <td className={`${CELL} w-32`}>{row ? input(row, 'quantity', { placeholder: 'e.g. 1500' }) : <span className="text-[#A8BCA8]">—</span>}</td>
-                          <td className={`${CELL} w-28`}>{row ? unitSelect(row) : <span className="text-[#A8BCA8]">—</span>}</td>
-                          <td className={`${CELL} w-48`}>{row ? kgCell(row) : <span className="text-[#A8BCA8]">—</span>}</td>
+                          <td className={`${CELL} w-64`}>{row ? qtyUnitCell(row) : <span className="text-[#A8BCA8]">—</span>}</td>
                         </tr>
                       )
                     })}

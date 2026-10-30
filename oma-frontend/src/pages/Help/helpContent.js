@@ -109,7 +109,7 @@ export const SECTIONS = [
       },
       {
         q: 'How do I record a harvest?',
-        a: 'In Crop Monitoring, open the crop\'s ⋮ menu and choose Record Harvest. Enter the harvest dates, the area harvested and the quantity in the unit it was counted in. Harvest Unit Settings turns that unit into kilograms. A harvest before the crop is ready asks for a reason.',
+        a: 'In Crop Monitoring, open the crop\'s ⋮ menu and choose Record Harvest. It stays unavailable until half of the growing time of the crop has passed (planting date to expected harvest date); before that, use Force Harvest. Enter the harvest dates, the area harvested and the quantity in the unit it was counted in. Harvest Unit Settings turns that unit into kilograms. A harvest more than 7 days after the expected date asks for a reason.',
       },
       {
         q: 'What is a forced harvest?',
@@ -200,7 +200,7 @@ export const SECTIONS = [
       },
       {
         q: 'How do I force harvest crops before a typhoon?',
-        a: 'From Crop Monitoring, open the menu of one of the crops and choose Force Harvest. The window lists the crops of that farmer that are not ready yet, on every parcel, with the crop you chose already ticked. Choose the harvested date and the reason, tick the crops, type the area and quantity of each one, then press Review Force Harvest, check the tables and press Confirm Force Harvest. On Crop Records the menu of a parcel does the same for that parcel only. The red FORCED HARVEST label on a harvested crop opens the saved details.',
+        a: 'From Crop Monitoring, open the menu of one of the crops and choose Force Harvest. The window lists the crops of that farmer that are not ready yet, on every parcel, with the crop you chose already ticked. Choose the harvested date and the reason, tick the crops, type the area of each one and its quantity in the Qty / Unit box, picking the unit it was counted in (kg, sacks, cavan or whatever that crop allows; the kg it comes to shows under it), then press Review Force Harvest, check the tables and press Confirm Force Harvest. On Crop Records the menu of a parcel does the same for that parcel only. The red FORCED HARVEST label on a harvested crop opens the saved details.',
       },
       {
         q: 'Can I print one parcel or one production cycle?',

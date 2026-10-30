@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 
 const {
   FORCED_REASONS, FORCED_OTHER, LATE_REASONS, OTHER_REASON, harvestTiming, composeReason, reasonProblem, buildHarvestReportSpec,
-  composeForcedReason, forcedProblem, forcedReasonLabel,
+  composeForcedReason, forcedProblem, forcedReasonLabel, harvestOpensOn, harvestGate,
 } = await import(new URL('../src/pages/Monitoring/harvestReport.js', import.meta.url).href)
 
 let n = 0
@@ -78,5 +78,16 @@ const forced = buildHarvestReportSpec({ record, harvest: { ...harvest, force_har
   reason: 'Forced harvest due to early harvest: Upcoming Typhoon', notes: '', recordedOn: '2026-05-21' })
 eq(forced.sections.map((s) => s.title), ['Farmer', 'Crop', 'Harvest Details', 'Reason for Forced Harvest'], 'forced harvest sections')
 eq(Object.fromEntries(forced.sections.find((s) => s.title === 'Harvest Details').rows)['Harvest Type'], 'FORCED HARVEST (harvested before it was ready)', 'forced harvest type row')
+
+// ── Record Harvest opens once half the growing time (planting to expected date) has passed; before that it is Force Harvest
+eq(harvestOpensOn('2026-05-01', '2026-08-09'), '2026-06-20', 'a 100-day crop opens on day 50')
+eq(harvestOpensOn('2026-05-01', '2026-05-10'), '2026-05-06', 'an odd number of days rounds up (9 days -> day 5)')
+eq(harvestOpensOn('', '2026-08-09'), '', 'no planting date: nothing to measure')
+eq(harvestOpensOn('2026-05-01', '2026-04-01'), '', 'an expected date before planting: nothing to measure')
+eq(harvestGate('2026-05-01', '2026-08-09', '2026-06-19').gated, true, 'the day before it opens')
+eq(harvestGate('2026-05-01', '2026-08-09', '2026-06-20').gated, false, 'the day it opens')
+eq(harvestGate('2026-05-01', '2026-08-09', '2026-07-01'), { gated: false, message: null, opensOn: '2026-06-20' }, 'open: no message')
+assert.match(harvestGate('2026-05-01', '2026-08-09', '2026-05-10').message, /half.*Force Harvest/s); n++
+eq(harvestGate('', '', '2026-05-10').gated, false, 'no dates: never gated')
 
 console.log(`harvestReport: ${n} checks passed`)
