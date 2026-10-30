@@ -16,6 +16,7 @@ import { agencyOptionsFor } from './agencyOptions.js'
 import EquipmentLinesEditor from './EquipmentLinesEditor.jsx'
 import { equipmentLinePayload, equipmentLinesProblem } from './registrationEquipment.js'
 import MembersEditor from './MembersEditor.jsx'
+import ImportFileAttach from './ImportFileAttach.jsx'
 import { memberLinesProblem, memberOutcome, memberPayload, memberRefusal } from './registrationMembers.js'
 
 const labelCls = 'block text-[13px] font-medium text-[#4A5E4A] mb-1.5'
@@ -50,6 +51,7 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
   const setEquipment = (next) => setWork((w) => ({ ...w, equipment: typeof next === 'function' ? next(w.equipment) : next }))
   const setMembers = (next) => setWork((w) => ({ ...w, members: typeof next === 'function' ? next(w.members || []) : next }))
   const [importFile,    setImportFile]    = useState(null)   // a members file to import once the organization is saved (a file cannot be kept in the draft)
+  const [equipmentFile,  setEquipmentFile]  = useState(null)   // an equipment file to import once the organization is saved
   const [createdOrg,    setCreatedOrg]    = useState(null)
   const [error,        setError]        = useState('')
   const [formErrors,   setFormErrors]   = useState({})
@@ -147,7 +149,7 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
       const outcome = memberOutcome(members.length, failures)
       if (outcome.kind !== 'none') showToast(outcome.text, outcome.kind === 'ok' ? 'success' : 'error')
       setCreatedOrg(created)
-      const done = () => onSuccess({ importFile, organization: created })
+      const done = () => onSuccess({ importFile, equipmentFile, organization: created })
       const activation = created?.activation
       if (activation?.activated && activation.email_sent) {
         showToast(`Account activated. The login details were emailed to ${form.email_address}.`, 'success')
@@ -177,8 +179,8 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
         title="Account activated: hand over the password"
         subtitle={`${typeLabel} created.`}
         icon={KeyRound}
-        onClose={() => onSuccess({ importFile, organization: createdOrg })}
-        footer={<Button type="button" onClick={() => onSuccess({ importFile, organization: createdOrg })}>Done</Button>}
+        onClose={() => onSuccess({ importFile, equipmentFile, organization: createdOrg })}
+        footer={<Button type="button" onClick={() => onSuccess({ importFile, equipmentFile, organization: createdOrg })}>Done</Button>}
       >
         <div className="space-y-3 text-[13px] text-[#4A5E4A]">
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-amber-800">
@@ -327,6 +329,12 @@ export default function CreateOrganizationModal({ type: assocType = 'farmers', o
             <h3 className="text-[13px] font-semibold uppercase tracking-wide text-[#1B4D2E]">Equipment</h3>
             <p className="mb-3 mt-0.5 text-[12px] text-[#7A8E7A]">Optional. The equipment the organization has now; it can also be added later from the organization's page.</p>
             <EquipmentLinesEditor type={assocType} lines={equipment} onChange={setEquipment} />
+            <div className="mt-3 rounded-xl border border-[#E2E8E2] bg-[#F9FAF9] p-3">
+              <p className="mb-1 text-[12px] font-semibold text-[#1A2B1A]">Import equipment from a file</p>
+              <p className="mb-2 text-[12px] text-[#7A8E7A]">Attach the equipment file. Once the organization is saved, the Import Equipment window opens with the file so you can check it before it is imported.</p>
+              <ImportFileAttach chooseLabel="Import equipment" templateUrl={`/organizations/${assocType}/equipment/import/template/`}
+                templateFilename={`${assocType}_organization_equipment_import_template.xlsx`} file={equipmentFile} onFile={setEquipmentFile} />
+            </div>
           </div>
 
           {/* Members: registered farmers / fisherfolk added once the organization is saved, or a members file imported */}

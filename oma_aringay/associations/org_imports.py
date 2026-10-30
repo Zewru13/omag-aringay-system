@@ -385,6 +385,24 @@ class EquipmentImportTemplateView(_OrgImportView):
             _equipment_sample(self.domain), note)
 
 
+class EquipmentRegistrationTemplateView(APIView):
+    """The equipment file template for the registration form, where the organization does not exist yet (staff only)."""
+    domain = None
+    permission_classes = [IsAuthenticated, IsAdminOrEvaluator]
+
+    def get(self, request):
+        model = DOMAINS[self.domain]['equipment_model']
+        note = (f'{EQUIPMENT_NOTE_PREFIX} {", ".join(v for v in model.EquipmentName.values if v != "Other")}. '
+                f'Anything else is recorded as Other with your text. Valid conditions: {", ".join(model.Condition.values)}.')
+        return _template_response(
+            f'{self.domain}_organization_equipment_import_template.xlsx', EQUIPMENT_HEADERS, EQUIPMENT_WIDTHS,
+            _equipment_sample(self.domain), note)
+
+
+def equipment_registration_template_view(domain):
+    return type(f'{domain.title()}EquipmentRegistrationTemplateView', (EquipmentRegistrationTemplateView,), {'domain': domain})
+
+
 class EquipmentImportView(_OrgImportView):
     parser_classes = [MultiPartParser]
 

@@ -37,6 +37,7 @@ function OrganizationsPage({ asTab = false }) {
   const [registeredFrom, setRegisteredFrom] = useState('')
   const [registeredTo, setRegisteredTo] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [equipmentImport, setEquipmentImport] = useState(null)   // { file, organization }: the equipment file chosen on the registration form
   const [membersImport, setMembersImport] = useState(null)   // { file, organization }: the members file chosen on the registration form
   const [showImportModal, setShowImportModal] = useState(false)
   const [editOrganization, setEditOrganization] = useState(null)
@@ -75,11 +76,13 @@ function OrganizationsPage({ asTab = false }) {
     navigate(`/organizations/farmers/${row.id}`)
   }
 
-  const handleCreateSuccess = ({ importFile, organization } = {}) => {
+  const handleCreateSuccess = ({ importFile, equipmentFile, organization } = {}) => {
     setShowCreateModal(false)
     setRefreshKey((k) => k + 1)
     // A members file attached on the form is read now, in the Import Members window of the new organization (preview first).
     if (importFile && organization?.id) setMembersImport({ file: importFile, organization })
+    // ...and an equipment file the same way, once the members window is done (the two never open on top of each other).
+    if (equipmentFile && organization?.id) setEquipmentImport({ file: equipmentFile, organization })
   }
 
   const tableData = organizations.map((a) => ({
@@ -173,6 +176,20 @@ function OrganizationsPage({ asTab = false }) {
           undoType="farmers_org_members"
           initialFile={membersImport.file}
           onClose={() => setMembersImport(null)}
+          onImported={() => setRefreshKey((k) => k + 1)}
+        />
+      )}
+
+      {equipmentImport && !membersImport && (
+        <ImportFileModal
+          title="Import Equipment"
+          subtitle={`Add equipment to ${equipmentImport.organization.name} from the file you attached.`}
+          importUrl={`/organizations/farmers/${equipmentImport.organization.id}/equipment/import/`}
+          templateUrl={`/organizations/farmers/${equipmentImport.organization.id}/equipment/import/template/`}
+          templateFilename="farmers_organization_equipment_import_template.xlsx"
+          undoType="farmers_org_equipment"
+          initialFile={equipmentImport.file}
+          onClose={() => setEquipmentImport(null)}
           onImported={() => setRefreshKey((k) => k + 1)}
         />
       )}
