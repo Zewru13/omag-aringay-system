@@ -11,6 +11,7 @@ import FarmerDetailPage from "./pages/Farmers/FarmerDetailPage.jsx";
 import AssistanceAgenciesPage from "./pages/AssistanceManagement/AssistanceAgenciesPage.jsx";
 import ClassificationSettingsPage from "./pages/Farmers/ClassificationSettingsPage.jsx";
 import HarvestUnitSettingsPage from "./pages/Production/HarvestUnitSettingsPage.jsx";
+import ManualPage from "./pages/Manual/ManualPage.jsx";
 import BackupPage from "./pages/Backup/BackupPage.jsx";
 import FarmersHub from "./pages/Farmers/FarmersHub.jsx";
 import FisherfolkDetailPage from "./pages/Fisheries/FisherfolkDetailPage.jsx";
@@ -112,6 +113,15 @@ function App() {
             element={
               <ProtectedRoute allowedRoles={[]} allowFisherfolk allowFarmer allowOrg={["FARMERS_ORG", "FISHERFOLK_ORG"]}>
                 <OwnProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          {/* User Manual: guides with screenshots for the signed-in kind of account (every account) */}
+          <Route
+            path="/manual"
+            element={
+              <ProtectedRoute allowedRoles={["ADMIN", "EVALUATOR"]} allowFisherfolk allowFarmer allowOrg={["FARMERS_ORG", "FISHERFOLK_ORG"]}>
+                <ManualPage />
               </ProtectedRoute>
             }
           />

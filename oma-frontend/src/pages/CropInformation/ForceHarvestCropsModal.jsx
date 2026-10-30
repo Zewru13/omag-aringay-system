@@ -116,7 +116,7 @@ export default function ForceHarvestCropsModal({ parcel = null, farmer = null, p
     <div className="space-y-1">
       <div className="flex items-center gap-1.5">
         <div className="w-24 shrink-0">{input(row, 'quantity', { placeholder: 'e.g. 1500', 'aria-label': `Quantity of ${row.label}` })}</div>
-        <div className="w-28 shrink-0">{unitSelect(row)}</div>
+        <div className="w-36 shrink-0">{unitSelect(row)}</div>
       </div>
       {kgCell(row)}
     </div>
@@ -136,7 +136,7 @@ export default function ForceHarvestCropsModal({ parcel = null, farmer = null, p
         iconBg="bg-rose-100"
         iconColor="text-rose-600"
         onClose={onClose}
-        maxWidth="max-w-5xl"
+        maxWidth="max-w-7xl"
         footer={step === 'review' ? (
           <>
             <p className="mr-auto self-center text-[12.5px] text-[#4A5E4A]" role="status">{countLine(rows.length)} · {fmtTotal(rowsTotalKg(rows, weights))} kg in all</p>
@@ -317,7 +317,7 @@ export default function ForceHarvestCropsModal({ parcel = null, farmer = null, p
                           <td className={`${CELL} whitespace-nowrap text-[13px] font-medium text-rose-700`}>{daysEarly} days</td>
                           <td className={`${CELL} text-[13px] text-[#4A5E4A]`}>{Number(record.area_planted_ha)}</td>
                           <td className={`${CELL} w-36`}>{row ? input(row, 'area') : <span className="text-[#A8BCA8]">—</span>}</td>
-                          <td className={`${CELL} w-64`}>{row ? qtyUnitCell(row) : <span className="text-[#A8BCA8]">—</span>}</td>
+                          <td className={`${CELL} w-72`}>{row ? qtyUnitCell(row) : <span className="text-[#A8BCA8]">—</span>}</td>
                         </tr>
                       )
                     })}
