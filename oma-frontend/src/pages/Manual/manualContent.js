@@ -127,7 +127,7 @@ const STAFF_GUIDES = (dir) => [
     intro: 'User Management creates and controls the accounts of staff, farmers, fisherfolk and organizations. Backup keeps a copy of the whole system.',
     steps: [
       { text: 'Open Admin > User Management to create an account, reset a password or turn an account off.', image: img(`admin/users.png`, 'User Management') },
-      { text: 'Open Admin > Backup and press Back up now to make one file with every record and uploaded file. Download it and keep it somewhere safe; the latest 14 are kept in the system.' },
+      { text: 'Open Admin > Backup and press Back up now to make one file with every record and uploaded file. It runs in the background and the list updates by itself; when it says Done, press Download and keep the file somewhere safe (it holds personal records and is not encrypted). The latest 14 backups are kept in the system, and Delete removes one.', image: img('admin/backup.png', 'The Backup page') },
     ],
   },
 ]
