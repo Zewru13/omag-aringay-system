@@ -71,6 +71,10 @@ export const SECTIONS = [
         a: 'Each crop has a Planted As setting in Crop Settings: Seed, Tree, or Seed or Tree. A Seed crop is counted in Qty of Seeds (kg), a Tree crop in Qty of Trees. For a crop that can be either, the Quantity column heading gets a small arrow: open it and choose Qty of Seeds or Qty of Trees.',
       },
       {
+        q: 'Can the seed quantity be counted in something other than kg?',
+        a: 'Yes. In Edit Crop the unit next to Qty of Seeds lists kg, bags, pcs and bundles, followed by every unit added in Crop Settings under Units (sacks, cavan and so on). Add a unit there and it appears in this list. The bulk Add Crop table counts seeds in kg.',
+      },
+      {
         q: 'How do I record that a crop has PCIC insurance?',
         a: 'In the crop table, tick Insured in the PCIC column. A window asks for a photo of the PCIC insurance form (JPG, PNG or WEBP, up to 5 MB); the crop cannot be saved insured without it. Cancel the window without a photo and the box unticks. In fisheries, insurance is kept for each pond or cage: tick PCIC Insured on its row when you start a production cycle, or in the Edit form of the cycle. The pond table on a fisherfolk profile shows a checked PCIC Insured column.',
       },
