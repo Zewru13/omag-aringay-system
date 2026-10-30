@@ -13,9 +13,11 @@ as an upcoming typhoon. One HarvestRecord per crop, each saved exactly like a si
 Staff only. A crop that is already harvested or lost, or whose planting date is only an estimate, is refused (as in Record Harvest).
 Every Admin account (not the one who recorded it) gets one notification for the whole event.
 """
-from datetime import date as _date
+from datetime import date as _date, timedelta
 
 from django.db import transaction
+from django.http import Http404
+from django.shortcuts import get_object_or_404
 from rest_framework import serializers, status as drf_status
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
@@ -161,3 +163,59 @@ class ForcedHarvestMultiCreateView(APIView):
                 HarvestRecord.objects.select_related('farm_parcel__farmer', 'monitoring_record').filter(pk__in=ids_saved).order_by('id'), many=True,
             ).data
         return Response(data, status=drf_status.HTTP_201_CREATED)
+
+
+# One crop of a forced harvest as the details window lists it.
+def _event_row(h):
+    record = h.monitoring_record
+    return {
+        'id': h.id,
+        'crop': _crop_label(record) if record else h.crop_name,
+        'parcel_number': (h.farm_parcel.parcel_number if h.farm_parcel_id else '') or '',
+        'date_planted': record.date_planted.isoformat() if record and record.date_planted else None,
+        'expected_harvest_date': record.expected_harvest_date.isoformat() if record and record.expected_harvest_date else None,
+        'days_early': -h.harvest_variance_days if h.harvest_variance_days is not None else None,
+        'area_harvested_hectares': str(h.area_harvested_hectares),
+        'quantity_harvested': str(h.quantity_harvested) if h.quantity_harvested is not None else None,
+        'unit_of_measure': h.unit_of_measure,
+        'volume_kg': str(h.volume_kg),
+    }
+
+
+class ForcedHarvestDetailView(APIView):
+    """GET /api/production/forced-harvest/<harvest id>/: the saved forced harvest the red FORCED HARVEST label of a crop opens. It is the
+    harvest of that crop together with the other crops of the same farmer saved in the same event (same reason, harvested date and person,
+    within a few minutes). Staff, or the farmer the crop belongs to."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        harvest = get_object_or_404(
+            HarvestRecord.objects.select_related('monitoring_record__crop_type', 'monitoring_record__farmer', 'farm_parcel', 'recorded_by'),
+            pk=pk, force_harvest_reason__gt='',
+        )
+        record = harvest.monitoring_record
+        farmer = record.farmer if record else None
+        if request.user.role not in ('ADMIN', 'EVALUATOR'):
+            linked = request.user.get_linked_farmer_id() if request.user.role == 'CITIZEN' else None
+            if not (farmer and linked and linked == farmer.id):
+                raise Http404
+        window = timedelta(minutes=5)
+        together = HarvestRecord.objects.select_related('monitoring_record__crop_type', 'farm_parcel').filter(
+            force_harvest_reason=harvest.force_harvest_reason, harvest_start_date=harvest.harvest_start_date, recorded_by=harvest.recorded_by,
+            monitoring_record__farmer=farmer, date_recorded__range=(harvest.date_recorded - window, harvest.date_recorded + window),
+        ).order_by('id')
+        rows = [_event_row(h) for h in together]
+        return Response({
+            'id': harvest.id,
+            'farmer_name': farmer.full_name if farmer else '',
+            'rsbsa_number': farmer.rsbsa_number if farmer else '',
+            'harvest_date': harvest.harvest_start_date.isoformat() if harvest.harvest_start_date else None,
+            'reason': harvest.force_harvest_reason,
+            'reason_label': FORCE_HARVEST_REASON_LABELS.get(harvest.force_harvest_reason, ''),
+            'reason_text': harvest.early_late_reason,
+            'remarks': harvest.remarks,
+            'recorded_by_name': (harvest.recorded_by.get_full_name() or harvest.recorded_by.username) if harvest.recorded_by_id else '',
+            'recorded_at': harvest.date_recorded.isoformat(),
+            'crops': rows,
+            'total_kg': str(sum((h.volume_kg or 0) for h in together)),
+        })

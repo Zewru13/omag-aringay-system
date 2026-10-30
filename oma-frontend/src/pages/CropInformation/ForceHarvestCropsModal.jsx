@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Zap } from 'lucide-react'
 import api from '../../api/axiosInstance.js'
 import Button from '../../components/UI/Button.jsx'
-import ConfirmDialog from '../../components/UI/ConfirmDialog.jsx'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import ModalShell from '../../components/UI/ModalShell.jsx'
@@ -13,17 +12,20 @@ import { FORCED_OTHER, FORCED_REASONS } from '../Monitoring/harvestReport.js'
 import { needsTotalKg, unitPreview } from '../Monitoring/harvestUnits.js'
 import useHarvestUnitWeights from '../Monitoring/useHarvestUnitWeights.js'
 import { parcelLabel } from './parcelRecords.js'
-import { buildRequest, countLine, formProblem, makeRow, rowProblem, rowWeight, serverMessage, splitCrops } from './forcedHarvest.js'
+import { buildRequest, countLine, formProblem, makeRow, rowKg, rowProblem, rowsTotalKg, rowWeight, serverMessage, splitCrops } from './forcedHarvest.js'
 
-// Force Harvest (Crop Records > a parcel's ⋮ menu): the crops on this parcel that are not ready yet (more than 7 days before their
-// expected harvest date) are harvested together because of something coming, such as a typhoon. Fill the event once (harvested date and
-// reason), tick the crops and type each one's area and yield. One forced harvest is saved per crop, all or nothing.
+// Force Harvest, from a parcel's menu (Crop Records: the crops on that parcel) or a crop's menu (Crop Monitoring: the crops of that crop's
+// farmer, on every parcel): the crops that are not ready yet (more than 7 days before their expected harvest date) are harvested together
+// because of something coming, such as a typhoon. Fill the event once (harvested date and reason), tick the crops and type each one's area
+// and yield, then review it before it is saved. One forced harvest is saved per crop, all or nothing.
 
 const listOf = (data) => (Array.isArray(data) ? data : data?.results || [])
 const CELL = 'px-3 py-2.5 align-top'
+const fmtTotal = (n) => Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const TH = 'whitespace-nowrap px-3 py-[10px] text-left text-[11px] font-semibold uppercase tracking-[0.06em]'
 
-export default function ForceHarvestParcelModal({ parcel, onClose, onDone }) {
+// `parcel` OR `farmer` ({ id, name }) says whose crops are offered; `preselectId` ticks that crop when it is offered.
+export default function ForceHarvestCropsModal({ parcel = null, farmer = null, preselectId = null, onClose, onDone }) {
   const { showToast } = useToast()
   const isPhone = useIsPhone()
   const today = todayISO()
@@ -35,21 +37,32 @@ export default function ForceHarvestParcelModal({ parcel, onClose, onDone }) {
   const [remarks, setRemarks] = useState('')
   const [picked, setPicked] = useState({})             // { [recordId]: row }
   const [showErrors, setShowErrors] = useState(false)
-  const [showConfirm, setShowConfirm] = useState(false)
+  const [step, setStep] = useState('form')            // 'form' | 'review'
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const title = parcelLabel(parcel)
+  const title = parcel ? parcelLabel(parcel) : farmer.name
+  const where = parcel ? 'this parcel' : 'this farmer'
+  const ownerName = parcel ? parcel.farmer_name : farmer.name
 
   useEffect(() => {
     let alive = true
-    Promise.all(['Planted', 'Near Harvest'].map((status) => api.get('/production/monitoring/', { params: { farm_parcel: parcel.id, status } })))
+    const scope = parcel ? { farm_parcel: parcel.id } : { farmer: farmer.id }
+    Promise.all(['Planted', 'Near Harvest'].map((status) => api.get('/production/monitoring/', { params: { ...scope, status, page_size: 200 } })))
       .then((responses) => alive && setRecords(responses.flatMap((r) => listOf(r.data))))
       .catch(() => alive && setRecords(false))
     return () => { alive = false }
-  }, [parcel.id])
+  }, [parcel, farmer])
 
   const { offered, skipped } = useMemo(() => splitCrops(records || [], date), [records, date])
   const offeredIds = new Set(offered.map((o) => o.record.id))
+  // The crop whose ⋮ menu opened this window starts ticked (once, when its crops have loaded).
+  const preselected = useRef(false)
+  useEffect(() => {
+    if (preselectId === null || preselected.current || !Array.isArray(records)) return
+    preselected.current = true
+    const hit = offered.find((o) => o.record.id === preselectId)
+    if (hit) setPicked((p) => ({ ...p, [hit.record.id]: makeRow(hit.record) })) // eslint-disable-line react-hooks/set-state-in-effect
+  }, [records, offered, preselectId])
   // A crop that stops being early when the date moves is taken off the selection.
   const rows = Object.values(picked).filter((r) => offeredIds.has(r.id))
   const allTicked = offered.length > 0 && offered.every((o) => picked[o.record.id])
@@ -69,11 +82,10 @@ export default function ForceHarvestParcelModal({ parcel, onClose, onDone }) {
     setError('')
     if (problem) { setError(problem); return }
     if (rows.some((r) => rowProblem(r, weights))) { setError('Fix the marked crops first.'); return }
-    setShowConfirm(true)
+    setStep('review')
   }
 
   const confirmed = async () => {
-    setShowConfirm(false)
     setIsSubmitting(true)
     try {
       await api.post('/production/forced-harvest/', buildRequest({ date, code, detail, remarks }, rows, weights))
@@ -81,6 +93,7 @@ export default function ForceHarvestParcelModal({ parcel, onClose, onDone }) {
       onDone()
     } catch (err) {
       setError(serverMessage(err.response?.data))
+      setStep('form')   // back to the form with everything typed, to fix what the server refused
     } finally {
       setIsSubmitting(false)
     }
@@ -107,23 +120,87 @@ export default function ForceHarvestParcelModal({ parcel, onClose, onDone }) {
     <>
       <ModalShell
         title="Force Harvest"
-        subtitle={`${title} · ${parcel.farmer_name} · crops that are not ready yet, harvested because of something coming`}
+        subtitle={`${parcel ? `${title} · ${ownerName}` : `${title} · every parcel`} · crops that are not ready yet, harvested because of something coming`}
         icon={Zap}
         iconBg="bg-rose-100"
         iconColor="text-rose-600"
         onClose={onClose}
         maxWidth="max-w-5xl"
-        footer={(
+        footer={step === 'review' ? (
+          <>
+            <p className="mr-auto self-center text-[12.5px] text-[#4A5E4A]" role="status">{countLine(rows.length)} · {fmtTotal(rowsTotalKg(rows, weights))} kg in all</p>
+            <Button type="button" variant="ghost" onClick={() => setStep('form')} disabled={isSubmitting}>Back</Button>
+            <button type="button" onClick={confirmed} disabled={isSubmitting}
+              className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-rose-700 disabled:opacity-60">
+              {isSubmitting ? 'Saving…' : 'Confirm Force Harvest'}
+            </button>
+          </>
+        ) : (
           <>
             <p className="mr-auto self-center text-[12.5px] text-[#4A5E4A]" role="status">{countLine(rows.length)}</p>
             <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
             <button type="button" onClick={submitClick} disabled={isSubmitting || records === null}
               className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-rose-700 disabled:opacity-60">
-              {isSubmitting ? 'Saving…' : `Force Harvest${rows.length > 1 ? ` (${rows.length} crops)` : ''}`}
+              Review Force Harvest{rows.length > 1 ? ` (${rows.length} crops)` : ''}
             </button>
           </>
         )}
       >
+        {step === 'review' ? (
+          <div className="space-y-4" data-testid="force-harvest-review">
+            {error && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700">{error}</p>}
+            <p className="text-[13px] text-[#4A5E4A]">Check everything, then confirm. Each crop below is recorded as a forced harvest and its production cycle ends.</p>
+            <div className="overflow-x-auto rounded-xl border border-[#E2E8E2]">
+              <table className="min-w-full text-[13px]">
+                <thead className="bg-[#1B4D2E] text-white"><tr><th className={TH}>Detail</th><th className={TH}>Entry</th></tr></thead>
+                <tbody>
+                  {[
+                    [parcel ? 'Parcel' : 'Farmer', parcel ? `${title} · ${ownerName}` : ownerName],
+                    ['Harvested date', date],
+                    ['Reason for Forced Harvest', `${FORCED_REASONS.find((r) => r.value === code)?.label || code}${detail.trim() ? ` (${detail.trim()})` : ''}`],
+                    ['Remarks', remarks.trim() || '—'],
+                  ].map(([label, value]) => (
+                    <tr key={label} className="border-t border-[#F0F4F0] align-top">
+                      <th scope="row" className="w-1/3 whitespace-nowrap px-3 py-2 text-left font-medium text-[#4A5E4A]">{label}</th>
+                      <td className="px-3 py-2 font-semibold text-[#1A2B1A]">{value}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="overflow-x-auto rounded-xl border border-[#E2E8E2]">
+              <table className="min-w-full text-[13px]" aria-label="Crops to force harvest">
+                <thead className="bg-[#1B4D2E] text-white">
+                  <tr>
+                    <th className={TH}>Crop</th><th className={TH}>Parcel</th><th className={`${TH} text-right`}>Area (ha)</th>
+                    <th className={`${TH} text-right`}>Quantity</th><th className={`${TH} text-right`}>Weight (kg)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => {
+                    const record = records.find((r) => r.id === row.id)
+                    const kg = rowKg(row, weights)
+                    return (
+                      <tr key={row.id} className="border-t border-[#F0F4F0]">
+                        <td className="px-3 py-2 font-semibold text-[#1A2B1A]">{row.label}</td>
+                        <td className="px-3 py-2">{record?.parcel_number || '—'}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{Number(row.area)}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{Number(row.quantity).toLocaleString('en-US')} {row.unit}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">{kg === null ? '—' : fmtTotal(kg)}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-[#E2E8E2] bg-[#F9FAF9] font-bold">
+                    <td className="px-3 py-2" colSpan={4}>Total weight (kg)</td>
+                    <td className="px-3 py-2 text-right tabular-nums">{fmtTotal(rowsTotalKg(rows, weights))}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        ) : (
         <div className="space-y-4">
           {error && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700">{error}</p>}
 
@@ -155,11 +232,11 @@ export default function ForceHarvestParcelModal({ parcel, onClose, onDone }) {
             </div>
           </div>
 
-          {records === null ? <p className="text-sm text-slate-500">Loading the crops on this parcel…</p>
-            : records === false ? <p className="text-sm text-rose-600">Could not load the crops on this parcel. Close this window and try again.</p>
+          {records === null ? <p className="text-sm text-slate-500">Loading the crops of {where}…</p>
+            : records === false ? <p className="text-sm text-rose-600">Could not load the crops of {where}. Close this window and try again.</p>
             : offered.length === 0 ? (
               <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-[13px] text-amber-800">
-                No crop on this parcel can be force harvested{date === today ? ' today' : ' on that date'}. A crop is offered when it is still growing and more than 7 days
+                No crop of {where} can be force harvested{date === today ? ' today' : ' on that date'}. A crop is offered when it is still growing and more than 7 days
                 before its expected harvest date; a crop that is ready is recorded with Record Harvest in Crop Monitoring.
               </p>
             ) : isPhone ? (
@@ -172,7 +249,7 @@ export default function ForceHarvestParcelModal({ parcel, onClose, onDone }) {
                         <input type="checkbox" className="mt-0.5 h-4 w-4 flex-none accent-[#1B4D2E]" checked={Boolean(row)} onChange={(e) => toggle(record, e.target.checked)} />
                         <span className="min-w-0">
                           <span className="block break-words text-[13px] font-semibold text-[#1A2B1A]">{row?.label || record.crop_type_name}</span>
-                          <span className="block text-[12px] text-[#7A8E7A]">Expected {record.expected_harvest_date} · {daysEarly} days early · {Number(record.area_planted_ha)} ha planted</span>
+                          <span className="block text-[12px] text-[#7A8E7A]">{!parcel && record.parcel_number ? `Parcel ${record.parcel_number} · ` : ''}Expected {record.expected_harvest_date} · {daysEarly} days early · {Number(record.area_planted_ha)} ha planted</span>
                         </span>
                       </label>
                       {row && (
@@ -201,6 +278,7 @@ export default function ForceHarvestParcelModal({ parcel, onClose, onDone }) {
                         <input type="checkbox" className="h-4 w-4 accent-white" checked={allTicked} onChange={(e) => toggleAll(e.target.checked)} aria-label="Select all crops" />
                       </th>
                       <th className={TH}>Crop</th>
+                      {!parcel && <th className={TH}>Parcel</th>}
                       <th className={TH}>Planted</th>
                       <th className={TH}>Expected harvest</th>
                       <th className={TH}>Days early</th>
@@ -224,6 +302,7 @@ export default function ForceHarvestParcelModal({ parcel, onClose, onDone }) {
                             {record.crop_type_name}{record.variety_used && <span className="block text-[11.5px] font-normal text-[#7A8E7A]">{record.variety_used}</span>}
                             {row && rowError(row) && <span className="mt-1 block text-[11.5px] font-normal text-rose-600">{rowError(row)}</span>}
                           </td>
+                          {!parcel && <td className={`${CELL} whitespace-nowrap text-[13px] text-[#4A5E4A]`}>{record.parcel_number || '—'}</td>}
                           <td className={`${CELL} whitespace-nowrap text-[13px] text-[#4A5E4A]`}>{record.date_planted}</td>
                           <td className={`${CELL} whitespace-nowrap text-[13px] text-[#4A5E4A]`}>{record.expected_harvest_date}</td>
                           <td className={`${CELL} whitespace-nowrap text-[13px] font-medium text-rose-700`}>{daysEarly} days</td>
@@ -246,17 +325,8 @@ export default function ForceHarvestParcelModal({ parcel, onClose, onDone }) {
             </p>
           )}
         </div>
+        )}
       </ModalShell>
-
-      {showConfirm && (
-        <ConfirmDialog variant="primary"
-          title="Confirm Forced Harvest"
-          message={`Force harvest ${rows.length} crop${rows.length === 1 ? '' : 's'} on parcel ${title}? Each one is recorded as a forced harvest, and its production cycle ends.`}
-          confirmLabel="Yes, Force Harvest"
-          onConfirm={confirmed}
-          onCancel={() => setShowConfirm(false)}
-        />
-      )}
     </>
   )
 }

@@ -2,7 +2,7 @@
 // for one reason (an upcoming typhoon, a drought...). Pure functions - no screen, no network - for which crops are offered, what each row
 // needs, and what is sent (POST /production/forced-harvest/). The server checks everything again.
 import { FORCED_OTHER, FORCED_REASONS, TOLERANCE_DAYS, forcedProblem, harvestTiming } from '../Monitoring/harvestReport.js'
-import { needsTotalKg, quantityProblem, totalKgProblem, weightFor } from '../Monitoring/harvestUnits.js'
+import { computeKg, needsTotalKg, quantityProblem, totalKgProblem, weightFor } from '../Monitoring/harvestUnits.js'
 
 export const STANDARD_UNITS = ['kg', 'bags', 'cavan', 'sacks', 'pieces', 'bundles', 'boxes']
 export const MAX_CROPS = 100   // the most the server takes in one request
@@ -58,6 +58,16 @@ export function makeRow(record) {
 
 // The kg one unit of this row weighs: undefined while the weights load, null when it has no standard weight.
 export const rowWeight = (row, weights) => (weights === null || weights === undefined ? undefined : weightFor(weights, row.unit, row.cropTypeId))
+
+// What a row's harvest comes to in kg: the quantity times the unit's weight, or the total typed for a unit with no standard weight
+// (null while the weights load or while the row is incomplete).
+export function rowKg(row, weights) {
+  const weight = rowWeight(row, weights)
+  if (weight === undefined) return null
+  return needsTotalKg(weight) ? num(row.total) : computeKg(row.quantity, weight)
+}
+
+export const rowsTotalKg = (rows, weights) => rows.reduce((sum, row) => sum + (rowKg(row, weights) || 0), 0)
 
 export function rowProblem(row, weights) {
   const area = num(row.area)

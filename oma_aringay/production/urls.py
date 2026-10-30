@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .forced_harvest import ForcedHarvestMultiCreateView
+from .forced_harvest import ForcedHarvestDetailView, ForcedHarvestMultiCreateView
 from .views import (
     ActivityStageNameSuggestionsView,
     HarvestUnitWeightDetailView,
@@ -116,6 +116,7 @@ urlpatterns = [
     path('disasters/event-report/', CropDisasterEventReportView.as_view(), name='crop-disaster-event-report'),
     path('disasters/event-report/pdf/', CropDisasterEventReportPdfView.as_view(), name='crop-disaster-event-report-pdf'),
     path('forced-harvest/', ForcedHarvestMultiCreateView.as_view(), name='forced-harvest-multi'),
+    path('forced-harvest/<int:pk>/', ForcedHarvestDetailView.as_view(), name='forced-harvest-detail'),
     path('harvest-unit-weights/', HarvestUnitWeightListCreateView.as_view(), name='harvest-unit-weights'),
     path('harvest-unit-weights/<int:pk>/', HarvestUnitWeightDetailView.as_view(), name='harvest-unit-weights-detail'),
     path('disasters/<int:pk>/resolve/', CropDisasterResolveView.as_view(), name='crop-disaster-resolve'),

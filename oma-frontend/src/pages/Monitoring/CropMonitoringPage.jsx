@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import useDebouncedValue from '../../hooks/useDebouncedValue.js'
 import {
-  AlertTriangle, Bug, CheckCircle, CheckCircle2, ChevronDown, ClipboardList, Eye, FileText, HelpCircle, Leaf, Lock, MapPin, Pencil, Printer, Trash2, Unlock, User, Wheat,
+  AlertTriangle, Bug, CheckCircle, CheckCircle2, ChevronDown, ClipboardList, Eye, FileText, HelpCircle, Leaf, Lock, MapPin, Pencil, Printer, Trash2, Unlock, User, Wheat, Zap,
 } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import api from '../../api/axiosInstance.js'
@@ -25,6 +25,7 @@ import PcicCheck from '../../components/UI/PcicCheck.jsx'
 import { PCIC_FILTER_OPTIONS } from '../../utils/pcic.js'
 import StatusPill from '../../components/UI/StatusPill.jsx'
 import ForcedHarvestPill from './ForcedHarvestPill.jsx'
+import ForceHarvestCropsModal from '../CropInformation/ForceHarvestCropsModal.jsx'
 import { baseInputClasses } from '../../components/UI/FormField.jsx'
 import DecimalInput from '../../components/UI/DecimalInput.jsx'
 import LoggedDatePicker from '../../components/UI/LoggedDatePicker.jsx'
@@ -2070,6 +2071,7 @@ export default function CropMonitoringPage() {
   const [logsStartForm,    setLogsStartForm]    = useState(false)   // open the logs window on the add-activity form
   const [disasterRecord,   setDisasterRecord]   = useState(null)
   const [harvestRecord,    setHarvestRecord]    = useState(null)
+  const [forceRecord,      setForceRecord]      = useState(null)   // the crop whose ⋮ > Force Harvest opened the forced harvest window
 
   // Handle ?filter=for_harvest from dashboard
   useEffect(() => {
@@ -2113,7 +2115,7 @@ export default function CropMonitoringPage() {
   // Lock indicators for the currently-visible page only — bounded to page
   // size, not a full-table N+1 poll.
   const [lockStatuses, setLockStatuses] = useState({})
-  const { isAdmin, isFarmer } = useAuth()
+  const { isAdmin, isEvaluator, isFarmer } = useAuth()
   // A farmer account sees only its own crops, so the Farmer column is redundant, and the record-lock
   // indicators (a staff editing aid) are skipped.
   const columns = isFarmer ? COLUMNS.filter(c => c.key !== 'farmer_col') : COLUMNS
@@ -2236,6 +2238,10 @@ export default function CropMonitoringPage() {
               tone: gate.gated ? 'default' : (isNearHarvest(rec) ? 'amber' : 'default'),
             }
           })(),
+          // Force Harvest: staff only. Several crops of this farmer that are not ready yet, harvested together because of something coming.
+          (isAdmin || isEvaluator) && (rec.status === 'Planted' || rec.status === 'Near Harvest') && {
+            key: 'force-harvest', label: 'Force Harvest', icon: Zap, tone: 'rose', onClick: () => setForceRecord(rec),
+          },
           { key: 'disaster', label: 'Report Disaster', icon: AlertTriangle, onClick: () => setDisasterRecord(rec), tone: 'rose' },
           isAdmin && lockStatuses[rec.id] && {
             key: 'unlock', label: `Force Unlock (${lockStatuses[rec.id].locked_by?.name || 'locked'})`, icon: Unlock,
@@ -2438,6 +2444,15 @@ export default function CropMonitoringPage() {
           record={harvestRecord}
           onClose={() => setHarvestRecord(null)}
           onSuccess={refreshAll}
+        />
+      )}
+
+      {forceRecord && (
+        <ForceHarvestCropsModal
+          farmer={{ id: forceRecord.farmer, name: forceRecord.farmer_name || forceRecord.farmer_full_name || 'Farmer' }}
+          preselectId={forceRecord.id}
+          onClose={() => setForceRecord(null)}
+          onDone={() => { setForceRecord(null); refreshAll() }}
         />
       )}
 

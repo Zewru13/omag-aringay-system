@@ -25,7 +25,7 @@ import RowActions from "../../components/UI/RowActions.jsx";
 import ConfirmDialog from "../../components/UI/ConfirmDialog.jsx";
 import ErrorMessage from "../../components/UI/ErrorMessage.jsx";
 import EditParcelModal from "../Farmers/EditParcelModal.jsx";
-import ForceHarvestParcelModal from "./ForceHarvestParcelModal.jsx";
+import ForceHarvestCropsModal from "./ForceHarvestCropsModal.jsx";
 import FilterPanel from "../../components/UI/FilterPanel.jsx";
 import DateRangeFields from "../../components/UI/DateRangeFields.jsx";
 import ListPrintButton from "../../components/ListPrintButton.jsx";
@@ -1512,7 +1512,7 @@ export default function CropInformationPage() {
       )}
 
       {forcingParcel && (
-        <ForceHarvestParcelModal
+        <ForceHarvestCropsModal
           parcel={forcingParcel}
           onClose={() => setForcingParcel(null)}
           onDone={() => {
