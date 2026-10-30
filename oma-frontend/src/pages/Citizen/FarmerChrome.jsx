@@ -91,7 +91,7 @@ export function FarmerHeader({ initials, onProfile, onHelp, onLogout, theme = 'c
             aria-haspopup="menu"
             aria-expanded={open}
             aria-label={labels.header.profileNav}
-            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/[0.16] transition-shadow ${open ? 'ring-2 ring-white' : ''}`}
+            className={`flex h-7 w-7 shrink-0 relative after:absolute after:-inset-2 after:content-[''] items-center justify-center rounded-full bg-white/[0.16] transition-shadow ${open ? 'ring-2 ring-white' : ''}`}
           >
             <span className="text-[10px] font-bold text-white">{initials}</span>
           </button>

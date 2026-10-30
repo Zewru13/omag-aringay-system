@@ -10,6 +10,7 @@ import DashboardPage from "./pages/Dashboard/DashboardPage.jsx";
 import FarmerDetailPage from "./pages/Farmers/FarmerDetailPage.jsx";
 import AssistanceAgenciesPage from "./pages/AssistanceManagement/AssistanceAgenciesPage.jsx";
 import ClassificationSettingsPage from "./pages/Farmers/ClassificationSettingsPage.jsx";
+import AutoLabels from "./components/UI/AutoLabels.jsx";
 import HarvestUnitSettingsPage from "./pages/Production/HarvestUnitSettingsPage.jsx";
 import BackupPage from "./pages/Backup/BackupPage.jsx";
 import FarmersHub from "./pages/Farmers/FarmersHub.jsx";
@@ -61,6 +62,7 @@ function LegacyOrganizationDetailRedirect() {
 function App() {
   return (
     <BrowserRouter>
+      <AutoLabels />
       <InactivityMonitor>
         <Routes>
           <Route path="/" element={<HomeRedirect />} />

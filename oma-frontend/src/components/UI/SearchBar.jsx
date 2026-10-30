@@ -9,6 +9,7 @@ function SearchBar({ placeholder, value, onChange }) {
       />
       <input
         className="w-full h-[38px] pl-9 pr-3 border-0 bg-transparent text-[13px] text-[#1A2B1A] placeholder-[#A8BCA8] focus:outline-none"
+        aria-label={placeholder || 'Search'}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         type="search"

@@ -270,7 +270,7 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
               disabled={isUploading}
               aria-label={labels.profileEdit.changePhoto}
               onClick={() => fileRef.current?.click()}
-              className={`absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white ${theme.solidBtn} shadow-md transition-transform press-scale hover:scale-105 disabled:opacity-50`}
+              className={`absolute -bottom-1 -right-1 flex h-6 w-6 after:absolute after:-inset-2.5 after:content-[''] items-center justify-center rounded-full border-2 border-white ${theme.solidBtn} shadow-md transition-transform press-scale hover:scale-105 disabled:opacity-50`}
             >
               <Camera size={11} aria-hidden="true" />
             </button>
@@ -337,7 +337,7 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
                   type="button"
                   onClick={openNameRequest}
                   aria-label={labels.profileEdit.requestChange}
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+                  className="flex h-7 w-7 shrink-0 relative after:absolute after:-inset-2 after:content-[''] items-center justify-center rounded-full"
                   style={{ backgroundColor: 'var(--color-cz-warn-accent)' }}
                 >
                   <RefreshCw size={12} className="text-white" aria-hidden="true" />
@@ -363,7 +363,7 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
                   type="button"
                   onClick={openBarangayRequest}
                   aria-label={labels.profileEdit.requestChange}
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
+                  className="flex h-7 w-7 shrink-0 relative after:absolute after:-inset-2 after:content-[''] items-center justify-center rounded-full"
                   style={{ backgroundColor: 'var(--color-cz-warn-accent)' }}
                 >
                   <RefreshCw size={12} className="text-white" aria-hidden="true" />
@@ -410,7 +410,7 @@ export default function CitizenProfileScreen({ record, recordType, onBack, onHel
                 <button
                   type="button"
                   onClick={() => { setContactDraft(tidyPhone(contact)); setEditingContact(true) }}
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${theme.solidBtn}`}
+                  className={`flex h-7 w-7 shrink-0 relative after:absolute after:-inset-2 after:content-[''] items-center justify-center rounded-full ${theme.solidBtn}`}
                   aria-label={labels.profileEdit.editAction}
                 >
                   <Pencil size={12} aria-hidden="true" />
